@@ -538,9 +538,9 @@ export default function ClaudeCodePanelUI({
         currentTodos.some((t) => t.status !== "completed") &&
         isCurrentSessionMostRecent && (
           <div className="px-4 pt-3 pb-1 bg-accent/20 border-t border-border">
-            <div className="rounded-lg border border-indigo-100 bg-indigo-50/50 p-3">
+            <div className="rounded-lg border border-indigo-200 dark:border-indigo-800 bg-indigo-50/50 dark:bg-indigo-950/30 p-3">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-500">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">
                   Current Tasks
                 </span>
                 <span className="text-[10px] text-muted-foreground font-mono">
