@@ -243,8 +243,10 @@ export class CodeService {
     ): ReturnType<typeof originalWriteFileSync> => {
       const [filePath, data, options] = args;
       let normalizedOptions = options;
+      const shouldPatch =
+        typeof filePath === "string" && isInsideAllowedRoot(filePath);
 
-      if (typeof filePath === "string" && isInsideAllowedRoot(filePath)) {
+      if (shouldPatch) {
         if (typeof options === "number") {
           normalizedOptions = {
             mode: coerceMode(options, false),
@@ -271,11 +273,35 @@ export class CodeService {
         }
       }
 
-      return originalWriteFileSync(
+      const result = originalWriteFileSync(
         filePath,
         data,
         normalizedOptions as fs.WriteFileOptions,
       );
+
+      // CRITICAL: Set group ownership immediately after file creation
+      if (shouldPatch && typeof filePath === "string") {
+        try {
+          const resolvedPath = path.resolve(filePath);
+          if (fs.existsSync(resolvedPath) && this.materializeUserGid !== null) {
+            fs.chownSync(resolvedPath, -1, this.materializeUserGid);
+          }
+        } catch (chownError) {
+          // Log but don't fail - PostToolUse hook will retry
+          this.logger.warn(
+            "Failed to set group ownership in writeFileSync patch",
+            {
+              path: filePath,
+              error:
+                chownError instanceof Error
+                  ? chownError.message
+                  : String(chownError),
+            },
+          );
+        }
+      }
+
+      return result;
     };
 
     const originalOpenSync = fs.openSync.bind(fs);
@@ -284,11 +310,43 @@ export class CodeService {
     ): ReturnType<typeof originalOpenSync> => {
       const [filePath, flags, mode] = args;
       let normalizedMode = mode;
-      if (typeof filePath === "string" && isInsideAllowedRoot(filePath)) {
+      const shouldPatch =
+        typeof filePath === "string" && isInsideAllowedRoot(filePath);
+
+      if (shouldPatch) {
         const incomingMode = typeof mode === "number" ? mode : undefined;
         normalizedMode = coerceMode(incomingMode, false);
       }
-      return originalOpenSync(filePath, flags, normalizedMode as fs.Mode);
+
+      const fd = originalOpenSync(filePath, flags, normalizedMode as fs.Mode);
+
+      // CRITICAL: Set group ownership immediately after file creation
+      // Only do this if flags indicate file creation (w, a, or w+, a+, etc.)
+      if (
+        shouldPatch &&
+        typeof filePath === "string" &&
+        typeof flags === "string" &&
+        (flags.includes("w") || flags.includes("a"))
+      ) {
+        try {
+          const resolvedPath = path.resolve(filePath);
+          if (fs.existsSync(resolvedPath) && this.materializeUserGid !== null) {
+            fs.chownSync(resolvedPath, -1, this.materializeUserGid);
+          }
+        } catch (chownError) {
+          // Log but don't fail - PostToolUse hook will retry
+          this.logger.warn("Failed to set group ownership in openSync patch", {
+            path: filePath,
+            flags,
+            error:
+              chownError instanceof Error
+                ? chownError.message
+                : String(chownError),
+          });
+        }
+      }
+
+      return fd;
     };
 
     const originalMkdirSync = fs.mkdirSync.bind(fs);
@@ -297,7 +355,10 @@ export class CodeService {
     ): ReturnType<typeof originalMkdirSync> => {
       const [dirPath, options] = args;
       let normalizedOptions = options;
-      if (typeof dirPath === "string" && isInsideAllowedRoot(dirPath)) {
+      const shouldPatch =
+        typeof dirPath === "string" && isInsideAllowedRoot(dirPath);
+
+      if (shouldPatch) {
         if (typeof options === "number") {
           normalizedOptions = coerceMode(options, true) as fs.Mode;
         } else if (options === null || options === undefined) {
@@ -315,7 +376,52 @@ export class CodeService {
         }
       }
 
-      return originalMkdirSync(dirPath, normalizedOptions as never);
+      const result = originalMkdirSync(dirPath, normalizedOptions as never);
+
+      // CRITICAL: Set group ownership immediately after directory creation
+      // This ensures materialize-user can access the directory before PostToolUse hook runs
+      if (shouldPatch && typeof dirPath === "string") {
+        try {
+          const resolvedPath = path.resolve(dirPath);
+          // Check if directory was actually created (not just returned from recursive mkdir)
+          if (fs.existsSync(resolvedPath) && this.materializeUserGid !== null) {
+            // Set group ownership to materialize-user (-1 keeps current owner)
+            fs.chownSync(resolvedPath, -1, this.materializeUserGid);
+
+            // If this was a recursive mkdir, we need to fix ALL parent directories too
+            const isRecursive =
+              typeof normalizedOptions === "object" &&
+              normalizedOptions !== null &&
+              "recursive" in normalizedOptions &&
+              (normalizedOptions as { recursive?: boolean }).recursive === true;
+
+            if (isRecursive) {
+              // Walk up from created dir to allowedRoot, fixing group ownership
+              let currentDir = path.dirname(resolvedPath);
+              while (
+                currentDir !== allowedRoot &&
+                currentDir.startsWith(`${allowedRoot}${path.sep}`)
+              ) {
+                if (fs.existsSync(currentDir)) {
+                  fs.chownSync(currentDir, -1, this.materializeUserGid);
+                }
+                currentDir = path.dirname(currentDir);
+              }
+            }
+          }
+        } catch (chownError) {
+          // Log but don't fail - PostToolUse hook will retry
+          this.logger.warn("Failed to set group ownership in mkdirSync patch", {
+            path: dirPath,
+            error:
+              chownError instanceof Error
+                ? chownError.message
+                : String(chownError),
+          });
+        }
+      }
+
+      return result;
     };
   }
 
