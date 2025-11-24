@@ -143,6 +143,7 @@ export class StripeManagementService {
         mode,
         success_url: `${process.env.SITE_BASE_URL}/dashboard/account`,
         cancel_url: `${process.env.SITE_BASE_URL}/dashboard/account`,
+        allow_promotion_codes: true,
       };
 
       if (mode === 'subscription') {
