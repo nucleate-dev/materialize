@@ -38,6 +38,8 @@ import {
   writeProjectFiles,
 } from "../utils/shared-utils.js";
 import { FileSyncService } from "./FileSyncService.js";
+import { createDevelopmentToolsMcpServer } from "./mcp-tools.js";
+import { SandboxService } from "./SandboxService.js";
 import { SupabaseClientService } from "./SupabaseClientService.js";
 import { hasRemainingCredits } from "./utils/credit-checks.js";
 import { getToolDisplayName } from "./utils/message-handlers.js";
@@ -117,6 +119,7 @@ export class CodeService {
   private readonly fileSyncService: FileSyncService;
   private readonly supabaseClientService: SupabaseClientService;
   private readonly toolPermissionService: ToolPermissionService;
+  private readonly sandboxService: SandboxService;
   private sessionState: CodeSessionState = {
     sessionId: null,
     prototypeChatSessionId: null,
@@ -142,12 +145,14 @@ export class CodeService {
     workDir: string,
     logger: SystemLogger,
     supabaseClientService: SupabaseClientService,
+    sandboxService: SandboxService,
   ) {
     this.workDir = workDir;
     this.allowedRoot = path.resolve("/tmp/materialize-dev-server");
     this.fastifyApp = fastifyApp;
     this.logger = logger.child({ service: "CodeService" });
     this.supabaseClientService = supabaseClientService;
+    this.sandboxService = sandboxService;
     this.fileSyncService = new FileSyncService(
       workDir,
       supabaseClientService.getClient(),
@@ -208,6 +213,40 @@ export class CodeService {
 
   public getOrchestrationToken(): string | null {
     return this.orchestrationToken;
+  }
+
+  private async executeSandboxCommand(
+    command: string,
+    args: string[],
+  ): Promise<{ stdout: string; isError: boolean }> {
+    try {
+      const { response } = await this.sandboxService.runCommandInternal({
+        command,
+        args,
+        cwd: this.workDir,
+        session_id: undefined,
+        timeout_ms: 120000,
+        strip_ansi: true,
+      });
+
+      if (response.status === "success") {
+        return {
+          stdout: response.stdout || "Command executed successfully",
+          isError: false,
+        };
+      }
+      return {
+        stdout: response.stdout || "Unknown error",
+        isError: true,
+      };
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      this.logger.error(
+        error instanceof Error ? error : new Error(errorMsg),
+        "MCP Tool execution failed",
+      );
+      return { stdout: `System Error: ${errorMsg}`, isError: true };
+    }
   }
 
   /**
@@ -980,6 +1019,14 @@ export class CodeService {
           // permissionMode: "bypassPermissions" as PermissionMode, // other options are 'default', 'acceptEdits', 'plan'
           abortController,
           canUseTool,
+          // Add MCP servers with development tools (git and npm install)
+          mcpServers: {
+            "development-tools": createDevelopmentToolsMcpServer(
+              async (command, args) => {
+                return this.executeSandboxCommand(command, args);
+              },
+            ),
+          },
           // Add hooks to stream tool usage to WebSocket clients
           hooks: {
             PreToolUse: [
@@ -1056,7 +1103,9 @@ export class CodeService {
 
                                   // Apply shared permissions recursively to ensure all parent dirs
                                   // get proper group ownership (mkdirSync mode doesn't set group)
-                                  this.applySharedPermissionsRecursively(parentDir);
+                                  this.applySharedPermissionsRecursively(
+                                    parentDir,
+                                  );
 
                                   this.logger.info(
                                     "Successfully pre-created directory with shared permissions",

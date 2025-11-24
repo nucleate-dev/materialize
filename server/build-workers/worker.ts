@@ -101,6 +101,7 @@ const codeService = new CodeService(
   WORK_DIR,
   baseLogger,
   supabaseClientService,
+  sandboxService,
 );
 const publicApiService = new PublicApiService(
   expoDevServerService,

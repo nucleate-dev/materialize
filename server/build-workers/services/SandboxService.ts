@@ -118,7 +118,7 @@ export class SandboxService {
           },
         },
       },
-      this.runCommand.bind(this),
+      this.runCommandRoute.bind(this),
     );
   }
 
@@ -156,10 +156,12 @@ export class SandboxService {
     }
   }
 
-  private async runCommand(
-    request: FastifyRequest<{ Body: PublicRunCommandRequest }>,
-    reply: FastifyReply,
-  ): Promise<PublicRunCommandResponse> {
+  public async runCommandInternal(
+    body: PublicRunCommandRequest,
+  ): Promise<{
+    response: PublicRunCommandResponse;
+    httpStatus: number;
+  }> {
     const {
       command,
       args,
@@ -168,7 +170,9 @@ export class SandboxService {
       timeout_ms,
       session_id,
       strip_ansi: stripAnsi,
-    } = request.body;
+    } = body;
+
+    let httpStatus = 200;
 
     // Generate unique completion marker (4-digit random number)
     const completionMarker = `${Math.floor(1000 + Math.random() * 9000)}-command-complete`;
@@ -203,10 +207,13 @@ export class SandboxService {
           "Failed to create terminal session",
           { sessionId },
         );
-        reply.code(500);
+        httpStatus = 500;
         return {
-          status: "timeout",
-          stdout: "",
+          response: {
+            status: "timeout",
+            stdout: "",
+          },
+          httpStatus,
         };
       }
     }
@@ -216,6 +223,10 @@ export class SandboxService {
       let commandComplete = false;
       let cleanup: (() => void) | null = null;
       let checkInterval: NodeJS.Timeout | null = null;
+
+      const resolveWith = (response: PublicRunCommandResponse): void => {
+        resolve({ response, httpStatus });
+      };
 
       // Set up timeout
       const timeoutHandle = setTimeout(() => {
@@ -239,8 +250,7 @@ export class SandboxService {
             this.terminalService.closeSession(sessionId);
           }
 
-          reply.code(200);
-          resolve({
+          resolveWith({
             status: "timeout",
             stdout: output,
           });
@@ -270,8 +280,8 @@ export class SandboxService {
           this.terminalService.closeSession(sessionId);
         }
 
-        reply.code(404);
-        resolve({
+        httpStatus = 404;
+        resolveWith({
           status: "timeout",
           stdout: "",
         });
@@ -321,8 +331,8 @@ export class SandboxService {
           this.terminalService.closeSession(sessionId);
         }
 
-        reply.code(500);
-        resolve({
+        httpStatus = 500;
+        resolveWith({
           status: "timeout",
           stdout: "",
         });
@@ -387,14 +397,24 @@ export class SandboxService {
             this.terminalService.closeSession(sessionId);
           }
 
-          reply.code(200);
-          resolve({
+          resolveWith({
             status: "success",
             stdout: cleanOutput,
           });
         }
       }, 100);
     });
+  }
+
+  private async runCommandRoute(
+    request: FastifyRequest<{ Body: PublicRunCommandRequest }>,
+    reply: FastifyReply,
+  ): Promise<PublicRunCommandResponse> {
+    const { response, httpStatus } = await this.runCommandInternal(
+      request.body,
+    );
+    reply.code(httpStatus);
+    return response;
   }
 
   /**
