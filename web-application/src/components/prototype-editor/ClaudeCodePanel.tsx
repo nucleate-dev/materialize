@@ -58,7 +58,7 @@ interface ClaudeCodePanelProps {
 
 export interface Message {
   id: string;
-  type: "user" | "assistant" | "system" | "error" | "tool" | "thinking";
+  type: "user" | "assistant" | "system" | "error" | "tool" | "thinking" | "usage";
   content: string;
   timestamp: number;
   toolName?: string;
@@ -70,6 +70,7 @@ export interface Message {
   toolHistory?: ToolInput[]; // For ephemeral tools, track all invocations
   isQueued?: boolean; // For queued messages waiting for dev server
   imageUrls?: string[]; // Signed URLs for historical images
+  creditsUsed?: number; // For usage messages
 }
 
 export interface Todo {
@@ -1065,9 +1066,11 @@ export default function ClaudeCodePanel({
         break;
       }
 
-      case ChatEvent.USAGE_UPDATE:
-        // Usage updates are handled elsewhere (e.g., billing UI)
+      case ChatEvent.USAGE_UPDATE: {
+        const { creditsUsed } = message.data;
+        addMessage("usage", `${creditsUsed} credits used`);
         break;
+      }
 
       case ChatEvent.INFO:
         addMessage("system", message.message);
@@ -1243,7 +1246,7 @@ export default function ClaudeCodePanel({
   };
 
   // Add a message to the chat
-  const addMessage = (type: Message["type"], content: string) => {
+  const addMessage = (type: Message["type"], content: string, creditsUsed?: number) => {
     setMessages((prev) => [
       ...prev,
       {
@@ -1251,6 +1254,7 @@ export default function ClaudeCodePanel({
         type,
         content,
         timestamp: Date.now(),
+        ...(creditsUsed !== undefined && { creditsUsed }),
       },
     ]);
   };

@@ -484,6 +484,13 @@ export default function ClaudeCodePanelUI({
                       <div>{message.content}</div>
                     </div>
                   )}
+
+                  {/* Usage Message */}
+                  {message.type === "usage" && (
+                    <div className="text-xs text-muted-foreground/60 px-1">
+                      {message.content}
+                    </div>
+                  )}
                 </div>
               ))}
 
