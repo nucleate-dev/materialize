@@ -5,7 +5,7 @@ import Loader from "@/components/dashboard/Loader";
 import ClaudeCodePanel from "@/components/prototype-editor/ClaudeCodePanel";
 import CodeEditor from "@/components/prototype-editor/CodeEditor";
 import FileTree from "@/components/prototype-editor/FileTree";
-import MaterializeRenderSection from "@/components/prototype-editor/MaterializeRenderSection";
+import MaterializeRenderSection, { MaterializeRenderSectionRef } from "@/components/prototype-editor/MaterializeRenderSection";
 import ProPlanUpsellModal from "@/components/prototype-editor/ProPlanUpsellModal";
 import {
   AlertDialog,
@@ -141,6 +141,9 @@ export default function InternalPrototypePage() {
   const [leftPanelWidth, setLeftPanelWidth] = useState(40); // percentage
   const [isDragging, setIsDragging] = useState(false);
 
+  // Ref to MaterializeRenderSection for triggering refreshes
+  const materializeRenderRef = useRef<MaterializeRenderSectionRef>(null);
+
   // Initialize FileSystem hook
   const defaultFile = "App.js"; // TODO update this for the new default app
   const fileSystem = useFileSystem(prototypeId, defaultFile);
@@ -187,6 +190,12 @@ export default function InternalPrototypePage() {
     },
     [claudeCodeWSConnected, sendSyncFiles, prototypeId, logger],
   );
+
+  // Handler for when npm install completes
+  const handleNpmInstallComplete = useCallback(() => {
+    logger.debug("log", "npm install completed, triggering preview refresh");
+    materializeRenderRef.current?.forceRefresh();
+  }, [logger]);
 
   const canEditDesignSystem = Boolean(
     prototype && user && prototype.owner_id === user.id,
@@ -862,6 +871,7 @@ export default function InternalPrototypePage() {
               onUnregisterMessageHandler={(id: string) => {
                 claudeCodeWSMessageHandlers.current.delete(id);
               }}
+              onNpmInstallComplete={handleNpmInstallComplete}
             />
           </div>
         </div>
@@ -892,6 +902,7 @@ export default function InternalPrototypePage() {
         >
           <div className="flex-1 min-h-0 h-full">
             <MaterializeRenderSection
+              ref={materializeRenderRef}
               viewing_url={viewingUrl ?? ""}
               base_tunnel_url={baseTunnelUrl}
               prototypeId={prototypeId}
