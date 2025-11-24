@@ -37,11 +37,11 @@ import {
   PrototypeFileInput,
   writeProjectFiles,
 } from "../utils/shared-utils.js";
+import { ExpoDevServerService } from "./ExpoDevServerService.js";
 import { FileSyncService } from "./FileSyncService.js";
 import { createDevelopmentToolsMcpServer } from "./mcp-tools.js";
 import { SandboxService } from "./SandboxService.js";
 import { SupabaseClientService } from "./SupabaseClientService.js";
-import { ExpoDevServerService } from "./ExpoDevServerService.js";
 import { hasRemainingCredits } from "./utils/credit-checks.js";
 import { getToolDisplayName } from "./utils/message-handlers.js";
 import { ToolPermissionService } from "./utils/tool-permission-service.js";
@@ -233,6 +233,8 @@ export class CodeService {
         terminal_id = "dev-server";
         // Kill Expo process before running npm/npx/expo commands
         await this.expoDevServerService.killExpoProcess(this.logger);
+        // Wait for terminal to settle after kill signal to prevent buffer contamination
+        await new Promise((resolve) => setTimeout(resolve, 500));
       }
       const { response } = await this.sandboxService.runCommandInternal({
         command,
@@ -1097,11 +1099,20 @@ export class CodeService {
                         if (input.tool_name === "Write") {
                           const toolInput =
                             normalizedToolInput as ToolInputWithFilePath;
-                          const filePath = toolInput?.file_path;
+                          const rawFilePath = toolInput?.file_path;
 
-                          if (filePath && typeof filePath === "string") {
+                          if (rawFilePath && typeof rawFilePath === "string") {
+                            this.logger.info(
+                              `Got rawFilePath: ${rawFilePath ?? ""}`,
+                            );
                             try {
-                              const resolvedFilePath = path.resolve(filePath);
+                              // UPDATED: Resolve against workDir.
+                              // This handles both relative paths ("src/file.ts")
+                              // and absolute paths ("/tmp/.../src/file.ts") correctly.
+                              const resolvedFilePath = path.resolve(
+                                this.workDir,
+                                rawFilePath,
+                              );
                               const parentDir = path.dirname(resolvedFilePath);
 
                               // Check if directory needs to be created
@@ -1111,7 +1122,8 @@ export class CodeService {
                                   this.logger.info(
                                     "Pre-creating directory for Write tool with correct permissions",
                                     {
-                                      filePath: resolvedFilePath,
+                                      rawPath: rawFilePath,
+                                      resolvedPath: resolvedFilePath,
                                       parentDir,
                                     },
                                   );
@@ -1132,6 +1144,14 @@ export class CodeService {
                                     "Successfully pre-created directory with shared permissions",
                                     { parentDir },
                                   );
+                                } else {
+                                  this.logger.warn(
+                                    "Skipped pre-creating directory - outside allowed root",
+                                    {
+                                      parentDir,
+                                      allowedRoot: this.allowedRoot,
+                                    },
+                                  );
                                 }
                               }
                             } catch (dirError) {
@@ -1139,7 +1159,7 @@ export class CodeService {
                               this.logger.warn(
                                 "Failed to pre-create directory in PreToolUse hook",
                                 {
-                                  filePath,
+                                  filePath: rawFilePath,
                                   error:
                                     dirError instanceof Error
                                       ? dirError.message
