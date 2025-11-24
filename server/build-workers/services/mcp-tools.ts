@@ -273,8 +273,13 @@ export function createDevelopmentToolsMcpServer(
             }
           }
 
+          // Strip ANSI escape sequences
+          const ANSI_REGEX =
+            /[\u001B\u009B][[\]()#;?]*(?:(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-PR-TZcf-ntqry=><~])/g;
+          const cleanOutput = allOutput.replace(ANSI_REGEX, "");
+
           // Split by newlines and get last N lines
-          const allLines = allOutput.split("\n");
+          const allLines = cleanOutput.split("\n");
           const lastNLines = allLines.slice(-linesToRetrieve);
           const result = lastNLines.join("\n");
 
