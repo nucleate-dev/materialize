@@ -235,10 +235,11 @@ export class CodeService {
         command.includes("expo")
       ) {
         terminal_id = "dev-server";
-        // Kill Expo process before running npm/npx/expo commands and wait for terminal to settle
+        // Kill Expo process before running npm/npx/expo commands
         await this.expoDevServerService.killExpoProcess(this.logger);
+        await new Promise((resolve) => setTimeout(resolve, 2000)); // wait for expo process to be killed
       }
-      await this.clearExistingTerminalCommandsBeforeRunningCommand(terminal_id);
+      // await this.clearExistingTerminalCommandsBeforeRunningCommand(terminal_id);
       const { response } = await this.sandboxService.runCommandInternal({
         command,
         args,
@@ -247,7 +248,7 @@ export class CodeService {
         timeout_ms: 30000,
         strip_ansi: true,
       });
-      await this.clearExistingTerminalCommandsBeforeRunningCommand(terminal_id);
+      //await this.clearExistingTerminalCommandsBeforeRunningCommand(terminal_id);
 
       if (
         command.includes("npm") ||
@@ -304,12 +305,7 @@ export class CodeService {
       this.logger.consoleLogDevOnly("info", "Sent Ctrl+C to terminal", {
         terminal_id,
       });
-      await new Promise((resolve) => setTimeout(resolve, 50));
-      await this.sandboxService.sendTerminalInput(terminal_id, "\x15");
-      this.logger.consoleLogDevOnly("info", "Sent Ctrl+U to terminal", {
-        terminal_id,
-      });
-      await new Promise((resolve) => setTimeout(resolve, 50));
+      await new Promise((resolve) => setTimeout(resolve, 200));
       await this.sandboxService.sendTerminalInput(terminal_id, "\n");
       this.logger.consoleLogDevOnly("info", "Sent Enter to terminal", {
         terminal_id,
