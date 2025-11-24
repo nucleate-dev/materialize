@@ -543,7 +543,7 @@ export class ExpoDevServerService {
     });
   }
 
-  private async killExpoProcess(log2: SystemLogger): Promise<void> {
+  public async killExpoProcess(log2: SystemLogger): Promise<void> {
     log2.info("Stopping Expo dev server in terminal session");
 
     try {

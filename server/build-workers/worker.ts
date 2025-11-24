@@ -102,6 +102,7 @@ const codeService = new CodeService(
   baseLogger,
   supabaseClientService,
   sandboxService,
+  expoDevServerService,
 );
 const publicApiService = new PublicApiService(
   expoDevServerService,
@@ -111,10 +112,6 @@ const publicApiService = new PublicApiService(
   WORK_DIR,
   supabaseClientService,
 );
-
-// Set PublicApiService reference on CodeService for MCP tool callbacks
-// This must be done after PublicApiService is constructed to avoid circular dependency
-codeService.setPublicApiService(publicApiService);
 
 app.addHook("onRequest", async (req) => {
   const { requestId, traceId } = genRequestIds(

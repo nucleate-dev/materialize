@@ -41,6 +41,7 @@ import { FileSyncService } from "./FileSyncService.js";
 import { createDevelopmentToolsMcpServer } from "./mcp-tools.js";
 import { SandboxService } from "./SandboxService.js";
 import { SupabaseClientService } from "./SupabaseClientService.js";
+import { ExpoDevServerService } from "./ExpoDevServerService.js";
 import { hasRemainingCredits } from "./utils/credit-checks.js";
 import { getToolDisplayName } from "./utils/message-handlers.js";
 import { ToolPermissionService } from "./utils/tool-permission-service.js";
@@ -120,7 +121,7 @@ export class CodeService {
   private readonly supabaseClientService: SupabaseClientService;
   private readonly toolPermissionService: ToolPermissionService;
   private readonly sandboxService: SandboxService;
-  private publicApiService: { restartDevServerInternal: (logger: SystemLogger) => Promise<void> } | null = null; // Will be set after construction to avoid circular dependency
+  private readonly expoDevServerService: ExpoDevServerService;
   private sessionState: CodeSessionState = {
     sessionId: null,
     prototypeChatSessionId: null,
@@ -147,6 +148,7 @@ export class CodeService {
     logger: SystemLogger,
     supabaseClientService: SupabaseClientService,
     sandboxService: SandboxService,
+    expoDevServerService: ExpoDevServerService,
   ) {
     this.workDir = workDir;
     this.allowedRoot = path.resolve("/tmp/materialize-dev-server");
@@ -154,6 +156,7 @@ export class CodeService {
     this.logger = logger.child({ service: "CodeService" });
     this.supabaseClientService = supabaseClientService;
     this.sandboxService = sandboxService;
+    this.expoDevServerService = expoDevServerService;
     this.fileSyncService = new FileSyncService(
       workDir,
       supabaseClientService.getClient(),
@@ -216,21 +219,26 @@ export class CodeService {
     return this.orchestrationToken;
   }
 
-  public setPublicApiService(publicApiService: { restartDevServerInternal: (logger: SystemLogger) => Promise<void> }): void {
-    this.publicApiService = publicApiService;
-    this.logger.info("PublicApiService reference set for MCP tools");
-  }
-
   private async executeSandboxCommand(
     command: string,
     args: string[],
   ): Promise<{ stdout: string; isError: boolean }> {
     try {
+      let terminal_id: string | undefined = undefined;
+      if (
+        command.includes("npm") ||
+        command.includes("npx") ||
+        command.includes("expo")
+      ) {
+        terminal_id = "dev-server";
+        // Kill Expo process before running npm/npx/expo commands
+        await this.expoDevServerService.killExpoProcess(this.logger);
+      }
       const { response } = await this.sandboxService.runCommandInternal({
         command,
         args,
         cwd: this.workDir,
-        session_id: undefined,
+        session_id: terminal_id,
         timeout_ms: 120000,
         strip_ansi: true,
       });
@@ -1032,16 +1040,12 @@ export class CodeService {
                 return this.executeSandboxCommand(command, args);
               },
               // Restart dev server callback for npm install
-              this.publicApiService
-                ? async (): Promise<void> => {
-                    this.logger.info(
-                      "Restarting dev server after npm install via MCP tool",
-                    );
-                    await this.publicApiService!.restartDevServerInternal(
-                      this.logger,
-                    );
-                  }
-                : undefined,
+              async (): Promise<void> => {
+                this.logger.info(
+                  "Restarting dev server after npm install via MCP tool",
+                );
+                await this.expoDevServerService.restartDevServer(this.logger);
+              },
             ),
           },
           // Add hooks to stream tool usage to WebSocket clients
