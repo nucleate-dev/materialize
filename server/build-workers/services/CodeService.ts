@@ -239,7 +239,6 @@ export class CodeService {
         await this.expoDevServerService.killExpoProcess(this.logger);
         await new Promise((resolve) => setTimeout(resolve, 2000)); // wait for expo process to be killed
       }
-      // await this.clearExistingTerminalCommandsBeforeRunningCommand(terminal_id);
       const { response } = await this.sandboxService.runCommandInternal({
         command,
         args,
@@ -248,7 +247,6 @@ export class CodeService {
         timeout_ms: 30000,
         strip_ansi: true,
       });
-      //await this.clearExistingTerminalCommandsBeforeRunningCommand(terminal_id);
 
       if (
         command.includes("npm") ||
@@ -287,35 +285,6 @@ export class CodeService {
         "MCP Tool execution failed",
       );
       return { stdout: `System Error: ${errorMsg}`, isError: true };
-    }
-  }
-
-  private async clearExistingTerminalCommandsBeforeRunningCommand(
-    terminal_id: string | undefined,
-  ): Promise<void> {
-    if (!terminal_id) {
-      return;
-    }
-    // Clear terminal buffer: send Ctrl+C, Ctrl+U, and Enter to ensure clean state
-    this.logger.consoleLogDevOnly("info", "Clearing terminal buffer", {
-      terminal_id,
-    });
-    try {
-      await this.sandboxService.sendTerminalInput(terminal_id, "\x03");
-      this.logger.consoleLogDevOnly("info", "Sent Ctrl+C to terminal", {
-        terminal_id,
-      });
-      await new Promise((resolve) => setTimeout(resolve, 200));
-      await this.sandboxService.sendTerminalInput(terminal_id, "\n");
-      this.logger.consoleLogDevOnly("info", "Sent Enter to terminal", {
-        terminal_id,
-      });
-      await new Promise((resolve) => setTimeout(resolve, 100));
-    } catch (error) {
-      this.logger.warn("Could not clear terminal buffer", {
-        terminal_id,
-        error: error instanceof Error ? error.message : String(error),
-      });
     }
   }
 
