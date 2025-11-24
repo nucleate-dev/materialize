@@ -884,6 +884,10 @@ export class CodeService {
                     toolUseID: string | undefined,
                     _options: { signal: AbortSignal },
                   ): Promise<HookJSONOutput> => {
+                    this.logger.consoleLogDevOnly(
+                      "debug",
+                      JSON.stringify(input),
+                    );
                     try {
                       if (input.hook_event_name === "PreToolUse") {
                         const permission =
@@ -966,6 +970,10 @@ export class CodeService {
                     _options: { signal: AbortSignal },
                   ): Promise<HookJSONOutput> => {
                     try {
+                      this.logger.consoleLogDevOnly(
+                        "debug",
+                        JSON.stringify(input),
+                      );
                       if (input.hook_event_name === "PostToolUse") {
                         // Apply shared permissions to files created/modified by file-modifying tools
                         const fileModifyingTools = [
