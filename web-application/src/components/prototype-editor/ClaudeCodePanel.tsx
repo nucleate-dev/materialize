@@ -836,10 +836,42 @@ export default function ClaudeCodePanel({
 
       case ChatEvent.QUERY_COMPLETE:
         setIsProcessing(false);
+        // Mark all todos as completed
+        setCurrentTodos((prev) =>
+          prev.map((todo) => ({ ...todo, status: "completed" as const }))
+        );
+        // Mark all running tools as success
+        setMessages((prev) =>
+          prev.map((msg) => {
+            if (msg.type === "tool" && msg.status === "running") {
+              return { ...msg, status: "success" as const, isComplete: true };
+            }
+            if (msg.type === "thinking" && msg.status === "running") {
+              return { ...msg, status: "success" as const, isComplete: true };
+            }
+            return msg;
+          })
+        );
         break;
 
       case ChatEvent.INTERRUPTED:
         setIsProcessing(false);
+        // Mark all todos as completed on interruption
+        setCurrentTodos((prev) =>
+          prev.map((todo) => ({ ...todo, status: "completed" as const }))
+        );
+        // Mark all running tools as success on interruption
+        setMessages((prev) =>
+          prev.map((msg) => {
+            if (msg.type === "tool" && msg.status === "running") {
+              return { ...msg, status: "success" as const, isComplete: true };
+            }
+            if (msg.type === "thinking" && msg.status === "running") {
+              return { ...msg, status: "success" as const, isComplete: true };
+            }
+            return msg;
+          })
+        );
         addMessage("system", message.data.message || "Query interrupted");
         break;
 
