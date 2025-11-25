@@ -27,7 +27,7 @@ import {
   ChatSystemEventSubtype,
   HistoryResponseData,
 } from "../types/ChatTypes.js";
-import { SYSTEM_PROMPT } from "../utils/ClaudeCodePrompts.js";
+import { getSystemPromptForDesignStyle } from "../utils/ClaudeCodePrompts.js";
 import { processImage } from "../utils/imageProcessing.js";
 import { ExpoDevServerService } from "./ExpoDevServerService.js";
 import { FileSyncService } from "./FileSyncService.js";
@@ -684,6 +684,7 @@ export class CodeService {
       ai_chat_session_id,
       prototype_chat_session_id,
       current_viewing_path,
+      design_style,
     } = data;
     const options = (data.options ?? {}) as Options;
 
@@ -694,6 +695,7 @@ export class CodeService {
       chat_session_id: prototype_chat_session_id,
       current_viewing_path,
       custom_design_system_id: data.custom_design_system_id,
+      design_style,
       hasPrompt: !!prompt,
       hasContent: !!content,
       contentLength: content?.length,
@@ -1004,7 +1006,13 @@ export class CodeService {
 
         // Query Claude with session resumption if available
         // Build system prompt with optional design system rules and viewing path context
-        let systemPromptAppend = SYSTEM_PROMPT;
+        // Use design-style-specific system prompt based on the prototype's design_style
+        let systemPromptAppend = getSystemPromptForDesignStyle(design_style);
+
+        this.logger.consoleLogDevOnly("info", "Using design-style-specific system prompt", {
+          design_style,
+          hasCustomDesignSystem: !!this.sessionState.designSystemRules,
+        });
 
         // Append custom design system rules if available
         if (this.sessionState.designSystemRules) {

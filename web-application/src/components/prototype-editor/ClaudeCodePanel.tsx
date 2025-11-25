@@ -717,6 +717,7 @@ export default function ClaudeCodePanel({
                 prototype_chat_session_id: prototypeChatSessionId,
                 custom_design_system_id: prototype?.custom_design_system,
                 current_viewing_path: currentViewingPath,
+                design_style: prototype?.design_style,
               },
             })
           );
@@ -1551,6 +1552,7 @@ export default function ClaudeCodePanel({
             ai_chat_session_id: isCorruptedSession ? null : sessionIdRef.current, // Pass Claude SDK session_id for resumption
             prototype_chat_session_id: prototypeChatSessionId, // Pass database chat session ID for message persistence
             custom_design_system_id: prototype?.custom_design_system,
+            design_style: prototype?.design_style,
           },
         }),
       );
