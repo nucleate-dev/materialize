@@ -925,6 +925,14 @@ export class CodeService {
               },
               // Terminal service for checkTerminal tool
               this.terminalService,
+              // Restart dev server callback
+              async () => {
+                this.logger.consoleLogDevOnly(
+                  "info",
+                  "MCP restartDevServer tool: restarting dev server",
+                );
+                await this.expoDevServerService.restartDevServer(this.logger);
+              },
             ),
           },
           // Add hooks to stream tool usage to WebSocket clients
