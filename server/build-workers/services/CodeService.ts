@@ -217,36 +217,14 @@ export class CodeService {
     args: string[],
   ): Promise<{ stdout: string; isError: boolean }> {
     try {
-      let terminal_id: string | undefined = undefined;
-      let timeoutMs = 30000;
-      if (
-        command.includes("npm") ||
-        command.includes("npx") ||
-        command.includes("expo")
-      ) {
-        timeoutMs = 20000;
-        terminal_id = "dev-server";
-        // Kill Expo process before running npm/npx/expo commands
-        await this.expoDevServerService.killExpoProcess(this.logger);
-        await new Promise((resolve) => setTimeout(resolve, 2000)); // wait for expo process to be killed
-      }
       const { response } = await this.sandboxService.runCommandInternal({
         command,
         args,
         cwd: this.workDir,
-        session_id: terminal_id,
-        timeout_ms: timeoutMs,
+        session_id: "test",
+        timeout_ms: 30000,
         strip_ansi: true,
       });
-
-      if (
-        command.includes("npm") ||
-        command.includes("npx") ||
-        command.includes("expo")
-      ) {
-        this.expoDevServerService.startExpoProcessForMCPTool(this.logger);
-        await new Promise((resolve) => setTimeout(resolve, 2000)); // wait 2 seconds
-      }
 
       if (response.status === "success") {
         return {
@@ -263,7 +241,7 @@ export class CodeService {
         );
         return {
           stdout: response.stdout || "Command timed out",
-          isError: false,
+          isError: true,
         };
       }
       return {
