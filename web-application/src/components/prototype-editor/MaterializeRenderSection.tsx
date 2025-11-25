@@ -1198,6 +1198,7 @@ const MaterializeRenderSection = forwardRef<
                                 aria-label={`React Native Preview ${screen.path}`}
                                 src={iframeSrc}
                                 sandbox="allow-scripts allow-same-origin allow-forms allow-downloads allow-modals allow-popups allow-presentation"
+                                allow="microphone; camera;"
                                 onLoad={handleIframeLoad}
                                 onError={handleIframeError}
                               />
@@ -1259,6 +1260,7 @@ const MaterializeRenderSection = forwardRef<
                 title="React Native Web Preview"
                 src={viewing_url}
                 sandbox="allow-scripts allow-same-origin allow-forms allow-downloads allow-modals allow-popups allow-presentation"
+                allow="microphone; camera;"
                 onLoad={handleIframeLoad}
                 onError={handleIframeError}
               />

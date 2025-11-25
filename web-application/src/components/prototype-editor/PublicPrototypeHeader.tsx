@@ -513,7 +513,7 @@ export default function PublicPrototypeHeader({
               <Button
                 size="sm"
                 onClick={handleCopyLink}
-                className="flex-shrink-0 bg-gray-900 dark:bg-white text-white dark:text-black hover:bg-gray-800 dark:hover:bg-white/90"
+                className="flex-shrink-0 bg-indigo-600 dark:bg-white text-white dark:text-black hover:bg-indigo-700 dark:hover:bg-white/90"
               >
                 {linkCopied ? (
                   <>

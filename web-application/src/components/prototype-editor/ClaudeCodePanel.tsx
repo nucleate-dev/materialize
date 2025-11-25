@@ -1066,8 +1066,6 @@ export default function ClaudeCodePanel({
       }
 
       case ChatEvent.USAGE_UPDATE: {
-        const { creditsUsed } = message.data;
-        addMessage("usage", `${creditsUsed} credits used`);
         break;
       }
 
