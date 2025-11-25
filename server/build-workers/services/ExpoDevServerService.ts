@@ -449,7 +449,7 @@ export class ExpoDevServerService {
         this.parseMetroErrors(output, buildErrors, buildWarnings);
 
         // Look for tunnel URL with improved pattern matching
-        const urlMatch = output.match(/https?:\/\/[^\s\)]+/g);
+        const urlMatch = output.match(/(?:https?|exp):\/\/[^\s\)]+/g);
         if (urlMatch && !resolved) {
           log2.consoleLogDevOnly("debug", "URLs found in output", {
             urls: urlMatch.join(", "),
