@@ -36,13 +36,11 @@ import {
   Info,
   Loader2,
   Paperclip,
-  Plus,
-  RefreshCw,
-  Send,
+  Plus, Send,
   Sparkles,
   StopCircle,
   Terminal,
-  X,
+  X
 } from "lucide-react";
 import type {
   ChangeEvent,
@@ -275,7 +273,7 @@ export default function ClaudeCodePanelUI({
             </Button>
           )}
 
-          <TooltipProvider>
+          {/* <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
@@ -290,7 +288,7 @@ export default function ClaudeCodePanelUI({
               </TooltipTrigger>
               <TooltipContent>Reset Session</TooltipContent>
             </Tooltip>
-          </TooltipProvider>
+          </TooltipProvider> */}
         </div>
       </div>
 

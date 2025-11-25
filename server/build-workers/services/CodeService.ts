@@ -10,7 +10,6 @@ import {
   SDKUserMessage,
   SettingSource,
 } from "@anthropic-ai/claude-agent-sdk";
-import { SupabaseClient } from "@supabase/supabase-js";
 import axios from "axios";
 import { execSync } from "child_process";
 import chokidar, { FSWatcher } from "chokidar";
@@ -27,16 +26,9 @@ import {
   ChatServerMessage,
   ChatSystemEventSubtype,
   HistoryResponseData,
-  SyncFilesRequest,
 } from "../types/ChatTypes.js";
-import { Database } from "../types/supabase.js";
 import { SYSTEM_PROMPT } from "../utils/ClaudeCodePrompts.js";
 import { processImage } from "../utils/imageProcessing.js";
-import {
-  PrototypeAssetInputWithContent,
-  PrototypeFileInput,
-  writeProjectFiles,
-} from "../utils/shared-utils.js";
 import { ExpoDevServerService } from "./ExpoDevServerService.js";
 import { FileSyncService } from "./FileSyncService.js";
 import { createDevelopmentToolsMcpServer } from "./mcp-tools.js";
@@ -667,11 +659,11 @@ export class CodeService {
         break;
 
       case ChatClientEvent.RESET_SESSION:
-        await this.handleResetSession(socket);
+        // For now, we don't allow users to delete sessions
+        // await this.handleResetSession(socket);
         break;
 
       case ChatClientEvent.SYNC_FILES:
-        await this.handleSyncFiles(socket, message.data);
         break;
 
       case ChatClientEvent.HISTORY_RESPONSE:
@@ -2060,217 +2052,6 @@ export class CodeService {
         message: "Session has been reset",
       },
     });
-  }
-
-  // TODO: seems like we should be using the existing fileSyncService to handle this
-  private async handleSyncFiles(
-    socket: WebSocket,
-    data: SyncFilesRequest,
-  ): Promise<void> {
-    try {
-      const syncData = data ?? {};
-
-      const prototypeId = syncData.prototypeId;
-      if (!prototypeId) {
-        this.sendMessage(socket, {
-          type: ChatEvent.ERROR,
-          error: {
-            message: "prototypeId is required for file sync",
-          },
-        });
-        this.logger.error(
-          new Error("prototypeId is required for file sync"),
-          "prototypeId is required for file sync",
-        );
-        return;
-      }
-
-      const filenames = syncData.filenames ?? [];
-      const assetNames = syncData.assetNames ?? [];
-      const token = syncData.token;
-
-      // Determine if we're syncing all or specific files
-      const syncAll = filenames.length === 0 && assetNames.length === 0;
-
-      this.logger.consoleLogDevOnly("info", "Starting file sync", {
-        prototypeId,
-        syncAll,
-        filenamesCount: filenames.length,
-        assetNamesCount: assetNames.length,
-        hasToken: !!token,
-      });
-
-      // Get Supabase client - use JWT-authenticated client if token provided
-      let supabase: SupabaseClient<Database>;
-      if (token) {
-        try {
-          this.supabaseClientService.refreshClientWithToken(token);
-          supabase = this.supabaseClientService.getClient();
-        } catch (error) {
-          const errorMsg = "Failed to create authenticated Supabase client";
-          this.logger.error(
-            error instanceof Error ? error : new Error(String(error)),
-            errorMsg,
-            { prototypeId },
-          );
-          this.sendMessage(socket, {
-            type: ChatEvent.ERROR,
-            error: {
-              message: errorMsg,
-              details: error instanceof Error ? error.message : String(error),
-            },
-          });
-          return;
-        }
-      } else {
-        supabase = this.supabaseClientService.getClient();
-      }
-
-      // Fetch text files from prototype_files table
-      let filesQuery = supabase
-        .from("prototype_files")
-        .select("*")
-        .eq("prototype_id", prototypeId);
-
-      // Filter by specific filenames if provided
-      if (!syncAll && filenames.length > 0) {
-        filesQuery = filesQuery.in("name", filenames);
-      }
-
-      const { data: filesData, error: filesError } = await filesQuery;
-
-      if (filesError) {
-        const errorMsg = `Failed to fetch files from Supabase: ${filesError.message}`;
-        this.logger.error(new Error(errorMsg), "Supabase file fetch failed", {
-          error: filesError,
-        });
-        this.sendMessage(socket, {
-          type: ChatEvent.ERROR,
-          error: {
-            message: errorMsg,
-          },
-        });
-        return;
-      }
-
-      const files: PrototypeFileInput[] = (filesData || []).map((file) => ({
-        name: file.name,
-        contents: file.contents,
-      }));
-
-      this.logger.info("Fetched files from Supabase", {
-        function: "handleSyncFiles",
-        fileCount: files.length,
-      });
-
-      // Fetch assets from prototype_assets table
-      let assetsQuery = supabase
-        .from("prototype_assets")
-        .select("*")
-        .eq("prototype_id", prototypeId);
-
-      // Filter by specific asset names if provided
-      if (!syncAll && assetNames.length > 0) {
-        assetsQuery = assetsQuery.in("name", assetNames);
-      }
-
-      const { data: assetsData, error: assetsError } = await assetsQuery;
-
-      if (assetsError) {
-        const errorMsg = `Failed to fetch assets from Supabase: ${assetsError.message}`;
-        this.logger.error(new Error(errorMsg), "Supabase asset fetch failed", {
-          error: assetsError,
-        });
-        this.sendMessage(socket, {
-          type: ChatEvent.ERROR,
-          error: {
-            message: errorMsg,
-          },
-        });
-        return;
-      }
-
-      this.logger.info("Fetched assets from Supabase", {
-        assetCount: assetsData?.length || 0,
-        function: "handleSyncFiles",
-      });
-
-      // Download assets from Supabase storage and convert to base64
-      const assetsWithContent: PrototypeAssetInputWithContent[] =
-        await Promise.all(
-          (assetsData || []).map(async (asset) => {
-            try {
-              const { data, error } = await supabase.storage
-                .from("prototype-assets")
-                .download(`${asset.prototype_id}/${asset.name}`);
-
-              if (error || !data) {
-                this.logger.error(
-                  error,
-                  `Failed to download asset ${asset.name}: ${
-                    error?.message ?? "unknown error"
-                  }`,
-                );
-                return null;
-              }
-
-              const arrayBuffer = await data.arrayBuffer();
-              const base64Content = Buffer.from(arrayBuffer).toString("base64");
-
-              return {
-                name: asset.name,
-                contents: base64Content,
-              };
-            } catch (err) {
-              this.logger.error(err, `Error downloading asset ${asset.name}`);
-              return null;
-            }
-          }),
-        ).then((results) =>
-          results.filter(
-            (r): r is PrototypeAssetInputWithContent => r !== null,
-          ),
-        );
-
-      this.logger.info("Downloaded assets from Supabase storage", {
-        downloadedCount: assetsWithContent.length,
-        function: "handleSyncFiles",
-      });
-
-      // Write files and assets to disk
-      await writeProjectFiles(files, assetsWithContent, this.workDir);
-
-      this.logger.info("File sync completed successfully", {
-        filesCount: files.length,
-        assetsCount: assetsWithContent.length,
-        function: "handleSyncFiles",
-      });
-
-      // Send success response
-      this.sendMessage(socket, {
-        type: ChatEvent.SYNC_COMPLETE,
-        data: {
-          success: true,
-          filesCount: files.length,
-          assetsCount: assetsWithContent.length,
-        },
-      });
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
-      this.logger.error(
-        error instanceof Error ? error : new Error(errorMessage),
-        "File sync failed",
-      );
-
-      this.sendMessage(socket, {
-        type: ChatEvent.ERROR,
-        error: {
-          message: "File sync failed",
-          details: errorMessage,
-        },
-      });
-    }
   }
 
   private sendMessage(socket: WebSocket, message: ChatServerMessage): void {

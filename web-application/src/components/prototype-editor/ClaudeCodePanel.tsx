@@ -187,25 +187,6 @@ export default function ClaudeCodePanel({
     return path.replace(new RegExp(prefix, 'g'), '');
   };
 
-  // Helper function to sanitize any value that might contain file paths
-  // Currently unused but kept for potential future use
-  // const sanitizeValue = (value: unknown): unknown => {
-  //   if (typeof value === 'string') {
-  //     return sanitizeFilePath(value);
-  //   }
-  //   if (typeof value === 'object' && value !== null) {
-  //     if (Array.isArray(value)) {
-  //       return value.map(sanitizeValue);
-  //     }
-  //     const sanitized: Record<string, unknown> = {};
-  //     for (const [key, val] of Object.entries(value)) {
-  //       sanitized[key] = sanitizeValue(val);
-  //     }
-  //     return sanitized;
-  //   }
-  //   return value;
-  // };
-
   // Helper function to determine if a tool is read-only (search/inspection)
   const isReadOnlyTool = (toolName: string): boolean => {
     const normalized = toolName.toLowerCase();
