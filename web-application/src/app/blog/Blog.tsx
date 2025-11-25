@@ -1,24 +1,38 @@
+// Blog.tsx
 "use client";
 
 import PremiumHeader from "@/components/prototype-editor/PremiumHeader";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { BlogPost } from "@/lib/blog";
 import {
   ArrowRight,
-  BookOpen,
-  CalendarDays,
-  Clock,
+  BookOpen, Clock,
   Code2,
   Lightbulb,
   Rocket,
   Search,
-  Sparkles,
+  Sparkles
 } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
+
+// --- Linear-style Utilities (Reused from Home) ---
+const GridBackground = () => (
+  <div className="absolute inset-0 overflow-hidden pointer-events-none select-none">
+    <div className="absolute inset-0 bg-[#0B0C0E]" />
+    <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] bg-indigo-500/10 blur-[120px] rounded-full mix-blend-screen" />
+    <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-blue-500/10 blur-[100px] rounded-full mix-blend-screen" />
+    <div
+      className="absolute inset-0 opacity-[0.03]"
+      style={{
+        backgroundImage: `linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg, #fff 1px, transparent 1px)`,
+        backgroundSize: '40px 40px'
+      }}
+    />
+    <div className="absolute inset-0 bg-gradient-to-t from-[#0B0C0E] via-transparent to-transparent" />
+  </div>
+);
 
 const categories = [
   { key: "all", label: "All Posts", icon: BookOpen },
@@ -61,11 +75,6 @@ export default function Blog({ initialPosts }: BlogProps) {
     [filteredPosts],
   );
 
-  const getCategoryIcon = (category: string) => {
-    const categoryData = categories.find((cat) => cat.key === category);
-    return categoryData?.icon || BookOpen;
-  };
-
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString("en-US", {
       year: "numeric",
@@ -74,289 +83,259 @@ export default function Blog({ initialPosts }: BlogProps) {
     });
   };
 
-  const getCategoryColor = (category: string) => {
-    switch (category) {
-      case "tutorial":
-        return "bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300";
-      case "insights":
-        return "bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-300";
-      case "updates":
-        return "bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300";
-      case "tips":
-        return "bg-orange-100 text-orange-700 dark:bg-orange-900/50 dark:text-orange-300";
-      default:
-        return "bg-gray-100 text-gray-700 dark:bg-gray-900/50 dark:text-gray-300";
-    }
-  };
-
   return (
-    <main className="relative bg-white dark:bg-black min-h-screen">
-      {/* Background Elements */}
-      <div className="absolute inset-0 bg-gradient-radial from-gray-50/40 via-white to-white dark:from-gray-800/20 dark:via-black dark:to-black"></div>
-      <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMjAiIGN5PSIyMCIgcj0iMS41IiBmaWxsPSJncmF5IiBmaWxsLW9wYWNpdHk9IjAuMDUiLz4KPC9zdmc+Cg==')] opacity-30 dark:opacity-10"></div>
-
-      <PremiumHeader />
+    <main className="relative min-h-screen bg-[#0B0C0E] text-white selection:bg-indigo-500/30 overflow-hidden font-sans">
+      <GridBackground />
 
       <div className="relative z-10">
-        {/* Header */}
-        <div className="container mx-auto px-6 pt-24 pb-16">
-          <div className="text-center mb-16">
-            <div className="inline-block p-4 bg-gradient-to-r from-blue-100 to-purple-100 dark:from-blue-900/20 dark:to-purple-900/20 rounded-2xl mb-6">
-              <BookOpen className="w-12 h-12 text-blue-600 dark:text-blue-400" />
-            </div>
-            <h1 className="text-5xl md:text-6xl font-black mb-6 bg-gradient-to-r from-black via-gray-800 to-black dark:from-white dark:via-gray-100 dark:to-white bg-clip-text text-transparent leading-tight">
-              Blog
-            </h1>
-            <p className="text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto mb-8">
-              Insights, tutorials, and updates on React Native development,
-              AI-powered prototyping, and mobile app design.
-            </p>
+        <PremiumHeader forceDarkMode />
 
-            {/* Search and Filter */}
-            <div className="max-w-4xl mx-auto">
-              <div className="flex flex-col md:flex-row gap-4 mb-8">
-                <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+        {/* Hero Section */}
+        <section className="relative pt-32 pb-12 lg:pt-48 lg:pb-20 px-6">
+          <div className="container mx-auto max-w-5xl">
+            {/* Header Content */}
+            <div className="text-center space-y-6 mb-16">
+              <h1 className="text-5xl md:text-7xl lg:text-8xl font-medium tracking-tight text-transparent bg-clip-text bg-gradient-to-b from-white via-white to-white/60 pb-2">
+                Blog
+              </h1>
+              <p className="text-lg md:text-xl text-[#8A8F98] max-w-2xl mx-auto font-normal leading-relaxed">
+                Insights, tutorials, and updates on building products <br className="hidden md:block" /> with Materialize and React Native.
+              </p>
+            </div>
+
+            {/* Search and Filters (Styled like the "Ask" input) */}
+            <div className="max-w-3xl mx-auto space-y-8">
+              <div className="relative group">
+                <div className="absolute -inset-0.5 bg-gradient-to-r from-indigo-500/30 to-blue-500/30 rounded-2xl blur opacity-20 group-hover:opacity-40 transition duration-500"></div>
+                <div className="relative bg-[#141517] border border-white/10 rounded-xl overflow-hidden shadow-2xl flex items-center transition-colors duration-200 focus-within:border-white/20 focus-within:bg-[#18191B]">
+                  <div className="pl-4 text-white/40">
+                    <Search className="w-5 h-5" />
+                  </div>
                   <Input
                     type="text"
-                    placeholder="Search posts..."
+                    placeholder="Search for tutorials, updates..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-10 h-12 text-base"
+                    className="flex-1 bg-transparent text-lg text-white placeholder:text-white/30 border-none h-14 focus-visible:ring-0"
                   />
                 </div>
               </div>
 
-              {/* Category Filter */}
-              <div className="flex flex-wrap justify-center gap-2 mb-8">
+              {/* Category Chips */}
+              <div className="flex flex-wrap justify-center gap-2">
                 {categories.map((category) => {
                   const Icon = category.icon;
+                  const isSelected = selectedCategory === category.key;
                   return (
-                    <Button
+                    <button
                       key={category.key}
-                      variant={
-                        selectedCategory === category.key
-                          ? "default"
-                          : "outline"
-                      }
-                      size="sm"
                       onClick={() => setSelectedCategory(category.key)}
-                      className="flex items-center gap-2"
+                      className={`
+                        flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200
+                        ${isSelected
+                          ? "bg-white text-black hover:bg-white/90"
+                          : "bg-white/5 text-white/70 hover:bg-white/10 hover:text-white border border-white/5"
+                        }
+                      `}
                     >
                       <Icon className="w-4 h-4" />
                       {category.label}
-                    </Button>
+                    </button>
                   );
                 })}
               </div>
             </div>
           </div>
+        </section>
 
-          {/* Featured Posts */}
-          {featuredPosts.length > 0 && (
-            <div className="mb-16">
-              <h2 className="text-3xl font-bold mb-8 text-center text-black dark:text-white">
-                Featured Posts
-              </h2>
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                {featuredPosts.map((post) => {
-                  const CategoryIcon = getCategoryIcon(post.category);
-                  return (
-                    <Link key={post.slug} href={`/blog/${post.slug}`}>
-                      <Card className="group overflow-hidden hover:shadow-2xl transition-all duration-300 hover:scale-[1.02] border-2 hover:border-primary/20 cursor-pointer">
-                        <CardHeader className="space-y-4">
-                          <div className="flex items-center justify-between">
-                            <Badge className={getCategoryColor(post.category)}>
-                              <CategoryIcon className="w-3 h-3 mr-1" />
-                              {post.category}
-                            </Badge>
-                            <div className="flex items-center text-sm text-gray-500 dark:text-gray-400">
-                              <Clock className="w-4 h-4 mr-1" />
-                              {post.readTime} min read
-                            </div>
-                          </div>
-                          <h3 className="text-2xl font-bold group-hover:text-primary transition-colors line-clamp-2">
-                            {post.title}
-                          </h3>
-                          <p className="text-gray-600 dark:text-gray-300 line-clamp-3 leading-relaxed">
-                            {post.excerpt}
-                          </p>
-                        </CardHeader>
-                        <CardContent>
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                              <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white font-semibold text-sm">
-                                {post.authorAvatar}
-                              </div>
-                              <div>
-                                <p className="font-medium text-sm text-black dark:text-white">
-                                  {post.author}
-                                </p>
-                                <div className="flex items-center text-xs text-gray-500 dark:text-gray-400">
-                                  <CalendarDays className="w-3 h-3 mr-1" />
-                                  {formatDate(post.publishedAt)}
-                                </div>
-                              </div>
-                            </div>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="group-hover:translate-x-1 transition-transform"
-                            >
-                              Read More
-                              <ArrowRight className="w-4 h-4 ml-1" />
-                            </Button>
-                          </div>
-                          <div className="flex flex-wrap gap-1 mt-4">
-                            {post.tags.map((tag) => (
-                              <Badge
-                                key={tag}
-                                variant="secondary"
-                                className="text-xs"
-                              >
-                                {tag}
-                              </Badge>
-                            ))}
-                          </div>
-                        </CardContent>
-                      </Card>
-                    </Link>
-                  );
-                })}
-              </div>
-            </div>
-          )}
+        {/* Content Section */}
+        <section className="pb-24 px-6">
+          <div className="container mx-auto max-w-6xl">
 
-          {/* Regular Posts */}
-          {regularPosts.length > 0 && (
-            <div>
-              <h2 className="text-3xl font-bold mb-8 text-center text-black dark:text-white">
-                {featuredPosts.length > 0 ? "More Posts" : "All Posts"}
-              </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {regularPosts.map((post) => {
-                  const CategoryIcon = getCategoryIcon(post.category);
-                  return (
-                    <Link key={post.slug} href={`/blog/${post.slug}`}>
-                      <Card className="group overflow-hidden hover:shadow-xl transition-all duration-300 hover:scale-[1.01] cursor-pointer">
-                        <CardHeader className="space-y-3">
-                          <div className="flex items-center justify-between">
-                            <Badge className={getCategoryColor(post.category)}>
-                              <CategoryIcon className="w-3 h-3 mr-1" />
-                              {post.category}
-                            </Badge>
-                            <div className="flex items-center text-xs text-gray-500 dark:text-gray-400">
-                              <Clock className="w-3 h-3 mr-1" />
-                              {post.readTime} min
-                            </div>
-                          </div>
-                          <h3 className="text-lg font-bold group-hover:text-primary transition-colors line-clamp-2">
-                            {post.title}
-                          </h3>
-                          <p className="text-sm text-gray-600 dark:text-gray-300 line-clamp-2">
-                            {post.excerpt}
-                          </p>
-                        </CardHeader>
-                        <CardContent>
-                          <div className="flex items-center justify-between mb-3">
-                            <div className="flex items-center gap-2">
-                              <div className="w-6 h-6 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white font-semibold text-xs">
-                                {post.authorAvatar}
-                              </div>
-                              <div>
-                                <p className="font-medium text-xs text-black dark:text-white">
-                                  {post.author}
-                                </p>
-                                <div className="flex items-center text-xs text-gray-500 dark:text-gray-400">
-                                  <CalendarDays className="w-3 h-3 mr-1" />
-                                  {formatDate(post.publishedAt)}
-                                </div>
-                              </div>
-                            </div>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="group-hover:translate-x-1 transition-transform p-1"
-                            >
-                              <ArrowRight className="w-4 h-4" />
-                            </Button>
-                          </div>
-                          <div className="flex flex-wrap gap-1">
-                            {post.tags.slice(0, 2).map((tag) => (
-                              <Badge
-                                key={tag}
-                                variant="secondary"
-                                className="text-xs"
-                              >
-                                {tag}
-                              </Badge>
-                            ))}
-                            {post.tags.length > 2 && (
-                              <Badge variant="secondary" className="text-xs">
-                                +{post.tags.length - 2}
-                              </Badge>
-                            )}
-                          </div>
-                        </CardContent>
-                      </Card>
-                    </Link>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* No Results */}
-          {filteredPosts.length === 0 && (
-            <div className="text-center py-16">
-              <div className="w-16 h-16 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Search className="w-8 h-8 text-gray-400" />
-              </div>
-              <h3 className="text-xl font-semibold mb-2 text-black dark:text-white">
-                No posts found
-              </h3>
-              <p className="text-gray-600 dark:text-gray-300 mb-6">
-                Try adjusting your search query or category filter.
-              </p>
-              <Button
-                onClick={() => {
-                  setSearchQuery("");
-                  setSelectedCategory("all");
-                }}
-              >
-                Clear Filters
-              </Button>
-            </div>
-          )}
-
-          {/* Subscribe Section */}
-          <div className="mt-24 text-center">
-            <Card className="max-w-2xl mx-auto bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950/20 dark:to-purple-950/20 border-2 border-blue-200 dark:border-blue-800">
-              <CardContent className="p-8">
-                <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Sparkles className="w-6 h-6 text-white" />
+            {/* Featured Posts */}
+            {featuredPosts.length > 0 && (
+              <div className="mb-20">
+                <div className="flex items-end justify-between mb-8">
+                  <h2 className="text-3xl font-medium text-white">Featured</h2>
                 </div>
-                <h3 className="text-2xl font-bold mb-3 text-black dark:text-white">
-                  Stay Updated
-                </h3>
-                <p className="text-gray-600 dark:text-gray-300 mb-6">
-                  Get the latest insights on React Native development and
-                  AI-powered prototyping delivered to your inbox.
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {featuredPosts.map((post) => (
+                    <Link key={post.slug} href={`/blog/${post.slug}`} className="block h-full">
+                      <article className="group relative h-full rounded-2xl bg-[#141517] border border-white/10 overflow-hidden hover:border-white/20 transition-all duration-300 flex flex-col">
+                        <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/40 z-10 pointer-events-none" />
+
+                        {/* Featured Badge */}
+                        <div className="absolute top-4 left-4 z-20">
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-white/10 bg-black/50 text-xs font-medium text-white backdrop-blur-md">
+                            <Sparkles className="w-3 h-3 text-indigo-400" />
+                            Featured
+                          </span>
+                        </div>
+
+                        {/* Content */}
+                        <div className="p-8 flex flex-col h-full z-20">
+                          <div className="mb-4">
+                            <span className="text-xs font-semibold tracking-wider text-indigo-400 uppercase">
+                              {post.category}
+                            </span>
+                          </div>
+
+                          <h3 className="text-2xl md:text-3xl font-medium text-white mb-4 group-hover:text-indigo-200 transition-colors">
+                            {post.title}
+                          </h3>
+
+                          <p className="text-[#8A8F98] text-lg leading-relaxed mb-8 line-clamp-3 flex-1">
+                            {post.excerpt}
+                          </p>
+
+                          <div className="flex items-center justify-between pt-6 border-t border-white/5 mt-auto">
+                            <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-xs font-bold text-white ring-2 ring-[#141517]">
+                                {post.authorAvatar}
+                              </div>
+                              <div className="flex flex-col">
+                                <span className="text-sm text-white font-medium">{post.author}</span>
+                                <span className="text-xs text-white/40 flex items-center gap-1">
+                                  {formatDate(post.publishedAt)} • {post.readTime} min read
+                                </span>
+                              </div>
+                            </div>
+
+                            <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center group-hover:bg-white/10 transition-colors">
+                              <ArrowRight className="w-4 h-4 text-white/60 group-hover:text-white" />
+                            </div>
+                          </div>
+                        </div>
+                      </article>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Regular Posts Grid */}
+            {regularPosts.length > 0 && (
+              <div className="mb-20">
+                <div className="flex items-end justify-between mb-8">
+                  <h2 className="text-3xl font-medium text-white">
+                    {featuredPosts.length > 0 ? "Latest" : "All Posts"}
+                  </h2>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {regularPosts.map((post) => (
+                    <Link key={post.slug} href={`/blog/${post.slug}`} className="block">
+                      <article className="group h-full flex flex-col rounded-2xl bg-[#141517] border border-white/10 overflow-hidden hover:border-white/20 transition-all duration-300 hover:shadow-2xl hover:shadow-black/50">
+                        <div className="p-6 flex flex-col h-full">
+                          <div className="flex items-center justify-between mb-4">
+                            <span className="text-xs font-medium text-white/50 border border-white/10 px-2 py-1 rounded bg-white/5">
+                              {post.category}
+                            </span>
+                            <span className="text-xs text-white/30 flex items-center gap-1">
+                              <Clock className="w-3 h-3" />
+                              {post.readTime}m
+                            </span>
+                          </div>
+
+                          <h3 className="text-xl font-medium text-white mb-3 group-hover:text-indigo-300 transition-colors line-clamp-2">
+                            {post.title}
+                          </h3>
+
+                          <p className="text-sm text-[#8A8F98] leading-relaxed mb-6 line-clamp-3 flex-1">
+                            {post.excerpt}
+                          </p>
+
+                          <div className="flex items-center gap-3 pt-4 border-t border-white/5 mt-auto">
+                            <div className="w-6 h-6 rounded-full bg-white/10 flex items-center justify-center text-[10px] font-bold text-white/70">
+                              {post.authorAvatar}
+                            </div>
+                            <div className="text-xs text-white/40">
+                              <span className="text-white/60">{post.author}</span>
+                              <span className="mx-1">·</span>
+                              {formatDate(post.publishedAt)}
+                            </div>
+                          </div>
+                        </div>
+                      </article>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Empty State */}
+            {filteredPosts.length === 0 && (
+              <div className="py-24 text-center border border-dashed border-white/10 rounded-2xl bg-white/[0.02]">
+                <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-6">
+                  <Search className="w-6 h-6 text-white/40" />
+                </div>
+                <h3 className="text-xl font-medium text-white mb-2">No posts found</h3>
+                <p className="text-[#8A8F98] mb-8">
+                  We couldn't find any posts matching "{searchQuery}"
                 </p>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setSearchQuery("");
+                    setSelectedCategory("all");
+                  }}
+                  className="bg-white/5 border-white/10 text-white hover:bg-white/10"
+                >
+                  Clear all filters
+                </Button>
+              </div>
+            )}
+
+            {/* Newsletter Section - Styled like the Upsell/Pricing */}
+            <div className="relative mt-24 rounded-2xl bg-[#141517] border border-white/10 overflow-hidden p-8 md:p-12 text-center">
+              <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/10 to-blue-500/10 opacity-50" />
+              <div className="absolute inset-0 flex items-center justify-center opacity-30 pointer-events-none">
+                <div className="w-[500px] h-[500px] bg-indigo-500/20 blur-[120px] rounded-full" />
+              </div>
+
+              <div className="relative z-10 max-w-2xl mx-auto">
+                <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-white/5 border border-white/10 mb-6 text-indigo-400">
+                  <Sparkles className="w-6 h-6" />
+                </div>
+                <h2 className="text-3xl md:text-4xl font-medium text-white mb-4">
+                  Stay in the loop
+                </h2>
+                <p className="text-[#8A8F98] mb-8 text-lg">
+                  Get the latest insights on React Native development and AI-powered prototyping delivered directly to your inbox.
+                </p>
+
                 <div className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto">
                   <Input
                     type="email"
                     placeholder="Enter your email"
-                    className="flex-1"
+                    className="bg-[#0B0C0E] border-white/10 text-white h-11 focus-visible:ring-indigo-500/50"
                   />
-                  <Button className="bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600">
+                  <Button className="h-11 px-8 bg-white text-black hover:bg-white/90 font-medium rounded-md">
                     Subscribe
                   </Button>
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            </div>
+
           </div>
-        </div>
+        </section>
+
+        {/* Footer */}
+        <footer className="py-12 border-t border-white/5 bg-[#0B0C0E] text-sm">
+          <div className="container mx-auto px-6 max-w-6xl flex flex-col md:flex-row justify-between items-center text-[#8A8F98] gap-6">
+            <div className="flex gap-6">
+              <span className="hover:text-white cursor-pointer transition-colors">Twitter</span>
+              <span className="hover:text-white cursor-pointer transition-colors">GitHub</span>
+              <span className="hover:text-white cursor-pointer transition-colors">Discord</span>
+            </div>
+            <div className="flex gap-6">
+              <span className="hover:text-white cursor-pointer transition-colors">Privacy</span>
+              <span className="hover:text-white cursor-pointer transition-colors">Terms</span>
+              <span>© 2025 Materialize Inc.</span>
+            </div>
+          </div>
+        </footer>
       </div>
     </main>
   );

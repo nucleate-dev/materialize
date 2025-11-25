@@ -129,8 +129,8 @@ function HeroSection() {
         {/* Hero Title */}
         <div className="text-center space-y-6 mb-12">
           <h1 className="text-5xl md:text-7xl lg:text-8xl font-medium tracking-tight text-transparent bg-clip-text bg-gradient-to-b from-white via-white to-white/60 pb-2">
-            Materialize is a purpose-built tool for <br className="hidden md:block" />
-            building products.
+            Materialize is a tool for <br className="hidden md:block" />
+            building beautiful apps.
           </h1>
           <p className="text-lg md:text-xl text-[#8A8F98] max-w-2xl mx-auto font-normal leading-relaxed">
             Build apps, prototypes, flows, and screens fast.<br className="hidden md:block" /> Streamline design to code with AI and React Native.
@@ -226,7 +226,7 @@ function FeaturesBentoGrid() {
             </div>
 
             <div className="absolute bottom-0 left-0 right-0 p-8 z-20">
-              <h3 className="text-2xl font-medium text-white mb-2">Purpose-built for development</h3>
+              <h3 className="text-2xl font-medium text-white mb-2">Built for beauty</h3>
               <p className="text-[#8A8F98] leading-relaxed">
                 Start with a prompt. AI generates complete React Native apps you can export and ship instantly.
               </p>
@@ -400,7 +400,7 @@ function PricingSection() {
             >
               {plan.highlighted && (
                 <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-indigo-500 text-white text-[10px] font-bold uppercase tracking-wider rounded-full">
-                  Most Popular
+                  Sale
                 </div>
               )}
 
