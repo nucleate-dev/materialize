@@ -26,6 +26,9 @@ import {
 } from '../../types/InternalTypes.js';
 import { updateBuildTunnelInfo } from '../../utils/cacheInteractionUtils.js';
 import { IdleCloudflareTunnelSystem } from './IdleCloudflareTunnelSystem.js';
+import { deleteCloudflareTunnel } from '../../utils/cloudflareTunnelManagementUtils.js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { Database } from '../../types/supabase.js';
 
 const MAX_IDLE_FARGATE_BUILDS: number = 1;
 
@@ -35,6 +38,7 @@ export class IdleContainerAllocationSystemService {
   private readonly log2: SystemLogger;
   private readonly stsClient: STSClient;
   private readonly cloudflareTunnelSystem: IdleCloudflareTunnelSystem;
+  private readonly supabase: SupabaseClient<Database>;
   private maintenanceTimer?: NodeJS.Timeout;
 
   constructor(opts: {
@@ -52,6 +56,10 @@ export class IdleContainerAllocationSystemService {
     this.cloudflareTunnelSystem = new IdleCloudflareTunnelSystem({
       log2: this.log2,
     });
+    this.supabase = createClient(
+      process.env.SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    );
     this.init();
   }
 
@@ -697,6 +705,22 @@ export class IdleContainerAllocationSystemService {
         );
       }
     } catch (error) {
+      // clean up the tunnel if it was created, task will be cleaned up as the error propagates up the stack
+      if (tunnelConfig.tunnel_id) {
+        try {
+          await deleteCloudflareTunnel(
+            tunnelConfig.tunnel_id,
+            this.log2,
+            tunnelConfig.hostname || undefined,
+            this.supabase,
+          );
+        } catch (error) {
+          this.log2.error(
+            error,
+            'Failed to delete Cloudflare tunnel after allocation failure',
+          );
+        }
+      }
       // Handle both axios errors and our thrown errors
       if (axios.isAxiosError(error)) {
         this.log2.error(
