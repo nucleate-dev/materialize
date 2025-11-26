@@ -1,23 +1,23 @@
 import {
-    CanUseTool,
-    HookInput,
-    HookJSONOutput,
-    Options,
-    PermissionMode,
-    PermissionResult,
-    query,
-    SDKAssistantMessage,
-    SDKUserMessage,
-    SettingSource,
+  CanUseTool,
+  HookInput,
+  HookJSONOutput,
+  Options,
+  PermissionMode,
+  PermissionResult,
+  query,
+  SDKAssistantMessage,
+  SDKUserMessage,
+  SettingSource,
 } from "@anthropic-ai/claude-agent-sdk";
 import path from "path";
 import WebSocket from "ws";
 import { SystemLogger } from "../../loggers/SystemLogger.js";
 import {
-    ChatContentBlock,
-    ChatEvent,
-    ChatQueryData,
-    ChatServerMessage,
+  ChatContentBlock,
+  ChatEvent,
+  ChatQueryData,
+  ChatServerMessage,
 } from "../../types/ChatTypes.js";
 import { Database } from "../../types/supabase.js";
 import { ExpoDevServerService } from "../dev-server/ExpoDevServerService.js";
@@ -26,6 +26,10 @@ import { SandboxService } from "../SandboxService.js";
 import { SupabaseClientService } from "../SupabaseClientService.js";
 import { TerminalService } from "../terminals/TerminalService.js";
 import { getSystemPromptForDesignStyle } from "./ClaudeCodePrompts.js";
+import {
+  costFunctionV1,
+  CURRENT_COST_FUNCTION_NAME,
+} from "./cost-calculation.js";
 import { hasRemainingCredits } from "./credit-checks.js";
 import { createDevelopmentToolsMcpServer } from "./mcp-tools.js";
 import { getToolDisplayName } from "./message-handlers.js";
@@ -101,6 +105,8 @@ interface MessageHandlers {
     messageType: "text" | "tool_use" | "tool_result" | "error" | "system",
     eventType?: string | null,
     eventData?: unknown,
+    creditsUsed?: number | null,
+    costFunction?: string | null,
   ) => Promise<void>;
   uploadChatImages: (
     prototypeId: string,
@@ -112,7 +118,9 @@ interface MessageHandlers {
 }
 
 interface StreamContext {
-  messageContent: string | Array<{ type: string; text?: string; source?: unknown }>;
+  messageContent:
+    | string
+    | Array<{ type: string; text?: string; source?: unknown }>;
   queryOptions: Options & { resume?: string };
   sessionState: CodeSessionState;
   validAiChatSessionIds: Set<string>;
@@ -349,10 +357,14 @@ export class ChatQueryHandler {
     // Use the chat_session_id provided by the client for message persistence
     if (prototype_chat_session_id) {
       sessionState.prototypeChatSessionId = prototype_chat_session_id;
-      this.logger.consoleLogDevOnly("info", "Using chat session ID from client", {
-        chatSessionId: prototype_chat_session_id,
-        claudeCodeSessionId: ai_chat_session_id,
-      });
+      this.logger.consoleLogDevOnly(
+        "info",
+        "Using chat session ID from client",
+        {
+          chatSessionId: prototype_chat_session_id,
+          claudeCodeSessionId: ai_chat_session_id,
+        },
+      );
     } else {
       this.logger.warn("No chat_session_id provided by client", {
         session_id: ai_chat_session_id,
@@ -411,7 +423,9 @@ export class ChatQueryHandler {
             sessionState.designSystemRules = null;
           } else if (designSystem) {
             sessionState.designSystemId = custom_design_system_id;
-            sessionState.designSystemRules = (designSystem as Database['public']['Tables']['design_systems']['Row']).design_rules;
+            sessionState.designSystemRules = (
+              designSystem as Database["public"]["Tables"]["design_systems"]["Row"]
+            ).design_rules;
           } else {
             this.logger.warn("Design system not found", {
               designSystemId: custom_design_system_id,
@@ -446,8 +460,7 @@ export class ChatQueryHandler {
     // Append custom design system rules if available
     if (sessionState.designSystemRules) {
       systemPromptAppend +=
-        "\n\n## Custom Design System Rules:\n" +
-        sessionState.designSystemRules;
+        "\n\n## Custom Design System Rules:\n" + sessionState.designSystemRules;
     }
 
     // Append current viewing path context if available
@@ -643,10 +656,7 @@ export class ChatQueryHandler {
       );
 
       // Upload images if successful
-      if (
-        imagesFromContent.length > 0 &&
-        sessionState.prototypeChatSessionId
-      ) {
+      if (imagesFromContent.length > 0 && sessionState.prototypeChatSessionId) {
         await handlers.uploadChatImages(
           prototypeId,
           sessionState.prototypeChatSessionId,
@@ -806,12 +816,7 @@ export class ChatQueryHandler {
       cwd: this.workDir,
       maxTurns: options?.maxTurns ?? 50,
       disallowedTools: ["Write", "Bash"],
-      allowedTools: options?.allowedTools ?? [
-        "Read",
-        "Edit",
-        "Glob",
-        "Grep",
-      ],
+      allowedTools: options?.allowedTools ?? ["Read", "Edit", "Glob", "Grep"],
       model: options?.model ?? "claude-sonnet-4-5",
       systemPrompt: {
         type: "preset" as const,
@@ -892,14 +897,15 @@ export class ChatQueryHandler {
     args: string[],
   ): Promise<{ stdout: string; isError: boolean }> {
     try {
-      const { response: responseRaw } = await this.sandboxService.runCommandInternal({
-        command,
-        args,
-        cwd: this.workDir,
-        session_id: "test",
-        timeout_ms: 30000,
-        strip_ansi: true,
-      });
+      const { response: responseRaw } =
+        await this.sandboxService.runCommandInternal({
+          command,
+          args,
+          cwd: this.workDir,
+          session_id: "test",
+          timeout_ms: 30000,
+          strip_ansi: true,
+        });
       const response = responseRaw.data;
       if (!response) {
         throw new Error("No response from sandbox service");
@@ -1212,6 +1218,7 @@ export class ChatQueryHandler {
     let assistantMessageBuffer = "";
     let tokenUsageLogged = false;
     let totalCostUsd: number | undefined = undefined;
+    let creditsUsed: number | undefined = undefined;
 
     for await (const msg of response) {
       // Capture session ID from init message
@@ -1307,6 +1314,9 @@ export class ChatQueryHandler {
           // Store total_cost_usd for usage tracking in finally block
           totalCostUsd = total_cost_usd;
 
+          // Calculate credits used using the shared cost calculation function
+          creditsUsed = costFunctionV1(total_cost_usd);
+
           this.logger.metricTokenUsage(
             queryOptions.model ?? "unknown",
             inputTokens,
@@ -1342,6 +1352,8 @@ export class ChatQueryHandler {
         "text",
         null,
         null,
+        creditsUsed ?? null,
+        creditsUsed !== undefined ? CURRENT_COST_FUNCTION_NAME : null,
       );
     }
 
@@ -1449,9 +1461,7 @@ export class ChatQueryHandler {
           assetsDeleted: 0,
           errorCount: 1,
           errors: [
-            syncError instanceof Error
-              ? syncError.message
-              : String(syncError),
+            syncError instanceof Error ? syncError.message : String(syncError),
           ],
         },
       });
@@ -1490,9 +1500,8 @@ export class ChatQueryHandler {
           error: userError,
         });
       } else {
-        // Calculate credits used based on total cost: total_cost_usd / 0.12
-        const creditsUsed =
-          totalCostUsd !== undefined ? totalCostUsd / 0.12 : 1.0;
+        // Calculate credits used using the shared cost calculation function
+        const creditsUsed = costFunctionV1(totalCostUsd) ?? 1.0;
 
         this.logger.consoleLogDevOnly("info", "Tracking API usage", {
           userId: user.id,

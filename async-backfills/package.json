@@ -4,6 +4,7 @@
   "description": "Database backfill scripts for Materialize",
   "private": true,
   "scripts": {
+    "gen:supabase:types": "supabase gen types typescript --project-id hfgjmwidcoszkmvejxhw --schema public > types/supabase.ts",
     "update-gitignore": "node backfills/update-gitignore.js",
     "list-storage-thumbnails": "node backfills/list-storage-thumbnails.js"
   },
