@@ -240,6 +240,8 @@ const start = async (): Promise<void> => {
     // Create internal cleanup service management and register routes
     internalCleanupServiceManagement = new InternalCleanupServiceManagement(
       fastify,
+      cacheClient,
+      cleanupService,
     );
     internalCleanupServiceManagement.registerRoutes(fastify);
 
