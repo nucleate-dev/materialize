@@ -4,20 +4,22 @@ import { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import fs from "fs/promises";
 import path from "path";
 import {
+  APIResponse,
   DevServerStatus,
   OperationStatus,
   PrototypeAssetInputWithContent,
   PublicAllocateRequest,
-  PublicAllocateResponse,
+  PublicAllocateSuccessResponse,
   PublicBuildAndDeployRequest,
-  PublicBuildAndDeployResponse,
-  PublicDevServerRestartResponse,
+  PublicBuildAndDeploySuccessResponse,
+  PublicDevServerRestartSuccessResponse,
   PublicDevServerStartRequest,
-  PublicDevServerStartResponse,
+  PublicDevServerStartSuccessResponse,
   PublicDevServerStopRequest,
-  PublicDevServerStopResponse,
+  PublicDevServerStopSuccessResponse,
   PublicStartDevServerRequest,
   PublicUpdateFilesRequest,
+  StandardErrorResponse,
 } from "../types/BuildWorkerTypes.js";
 import { PrototypeFileInput } from "../utils/shared-utils.js";
 import { baseLogger } from "../worker.js";
@@ -91,7 +93,7 @@ export class PublicApiService {
   private async allocate(
     request: FastifyRequest<{ Body: PublicAllocateRequest }>,
     reply: FastifyReply,
-  ): Promise<PublicAllocateResponse> {
+  ): Promise<APIResponse<PublicAllocateSuccessResponse, StandardErrorResponse>> {
     const {
       accessKeyId,
       secretAccessKey,
@@ -131,11 +133,15 @@ export class PublicApiService {
     if (!jwtToken) {
       const errorMessage = "No JWT token provided in Authorization header";
       request.log2.error(new Error(errorMessage), "Allocation failed");
-      return reply.code(401).send({
-        status: "error",
-        error: "Authentication required",
-        details: errorMessage,
-      });
+      reply.code(401);
+      return {
+        data: null,
+        error: {
+          error: "Authentication required",
+          message: "No JWT token provided in Authorization header",
+          details: errorMessage,
+        },
+      };
     }
 
     // Create authenticated Supabase client - fail allocation if this fails
@@ -156,11 +162,15 @@ export class PublicApiService {
           : new Error(String(supabaseError)),
         "Failed to initialize Supabase client - allocation failed",
       );
-      return reply.code(500).send({
-        status: "error",
-        error: "Failed to initialize Supabase client",
-        details: errorMessage,
-      });
+      reply.code(500);
+      return {
+        data: null,
+        error: {
+          error: "Failed to initialize Supabase client",
+          message: "Failed to initialize Supabase client",
+          details: errorMessage,
+        },
+      };
     }
 
     try {
@@ -237,35 +247,46 @@ export class PublicApiService {
       // TODO: move this to the file sync service initial sync functionality
       await this.restoreClaudeSessions(prototypeId, request.log2);
 
-      return reply.status(200).send({
-        status: "ok",
-        tunnel_status: tunnelStatus,
-        tunnel_message: tunnelMessage,
-      });
+      reply.status(200);
+      return {
+        data: {
+          tunnel_status: tunnelStatus,
+          tunnel_message: tunnelMessage,
+        },
+        error: null,
+      };
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
       request.log2.error(error, "Failed to allocate worker to prototype", {
         errorMessage,
       });
-      return reply.code(500).send({
-        status: "error",
-        error: "Failed to allocate worker to prototype",
-        details: errorMessage,
-      });
+      reply.code(500);
+      return {
+        data: null,
+        error: {
+          error: "Failed to allocate worker to prototype",
+          message: "Failed to allocate worker to prototype",
+          details: errorMessage,
+        },
+      };
     }
   }
 
   private async startDevServerNew(
     request: FastifyRequest<{ Body: PublicStartDevServerRequest }>,
     reply: FastifyReply,
-  ): Promise<PublicDevServerStartResponse> {
+  ): Promise<APIResponse<PublicDevServerStartSuccessResponse, StandardErrorResponse>> {
     const { prototype_id, framework } = request.body;
 
     if (!prototype_id || !framework) {
       reply.code(400);
       return {
-        status: "error",
+        data: null,
+        error: {
+          error: "Missing required parameters",
+          message: "prototype_id and framework are required",
+        },
       };
     }
 
@@ -279,12 +300,22 @@ export class PublicApiService {
       // Set appropriate status code based on response
       if (!startResponse.success) {
         reply.code(500);
+        return {
+          data: null,
+          error: {
+            error: "Dev server start failed",
+            message: "Failed to start dev server",
+          },
+        };
       }
 
       // Convert response format from ExpoDevServerService to PublicApiService format
+      reply.status(200);
       return {
-        status: startResponse.success ? "success" : "error",
-        tunnel_url: startResponse.tunnelUrl,
+        data: {
+          tunnel_url: startResponse.tunnelUrl,
+        },
+        error: null,
       };
     } catch (error: unknown) {
       const errorMessage =
@@ -297,7 +328,11 @@ export class PublicApiService {
       );
       reply.code(500);
       return {
-        status: "error",
+        data: null,
+        error: {
+          error: "Internal server error",
+          message: errorMessage,
+        },
       };
     }
   }
@@ -305,7 +340,7 @@ export class PublicApiService {
   private async updateFiles(
     request: FastifyRequest<{ Body: PublicUpdateFilesRequest }>,
     reply: FastifyReply,
-  ): Promise<PublicDevServerStartResponse> {
+  ): Promise<APIResponse<PublicDevServerStartSuccessResponse, StandardErrorResponse>> {
     try {
       const startResponse =
         await this.expoDevServerService.updateDevServerFiles(
@@ -314,9 +349,24 @@ export class PublicApiService {
           request.body.assets,
           request.body?.deleted_files || [],
         );
+
+      if (!startResponse.success) {
+        reply.code(500);
+        return {
+          data: null,
+          error: {
+            error: "File update failed",
+            message: "Failed to update files on dev server",
+          },
+        };
+      }
+
+      reply.status(200);
       return {
-        status: startResponse.success ? "success" : "error",
-        tunnel_url: startResponse.tunnelUrl,
+        data: {
+          tunnel_url: startResponse.tunnelUrl,
+        },
+        error: null,
       };
     } catch (error: unknown) {
       const errorMessage =
@@ -329,7 +379,11 @@ export class PublicApiService {
       );
       reply.code(500);
       return {
-        status: "error",
+        data: null,
+        error: {
+          error: "Internal server error",
+          message: errorMessage,
+        },
       };
     }
   }
@@ -337,13 +391,17 @@ export class PublicApiService {
   private async startDevServer(
     request: FastifyRequest<{ Body: PublicDevServerStartRequest }>,
     reply: FastifyReply,
-  ): Promise<PublicDevServerStartResponse> {
+  ): Promise<APIResponse<PublicDevServerStartSuccessResponse, StandardErrorResponse>> {
     const { prototype_id, framework } = request.body;
 
     if (!prototype_id || !framework) {
       reply.code(400);
       return {
-        status: "error",
+        data: null,
+        error: {
+          error: "Missing required parameters",
+          message: "prototype_id and framework are required",
+        },
       };
     }
 
@@ -359,12 +417,22 @@ export class PublicApiService {
         // Set appropriate status code based on response
         if (!startResponse.success) {
           reply.code(500);
+          return {
+            data: null,
+            error: {
+              error: "Dev server start failed",
+              message: "Failed to start dev server",
+            },
+          };
         }
 
         // Convert response format from ExpoDevServerService to PublicApiService format
+        reply.status(200);
         return {
-          status: startResponse.success ? "success" : "error",
-          tunnel_url: startResponse.tunnelUrl,
+          data: {
+            tunnel_url: startResponse.tunnelUrl,
+          },
+          error: null,
         };
       } else if (request.body.file_scope === "updates") {
         const startResponse =
@@ -374,15 +442,34 @@ export class PublicApiService {
             request.body.assets,
             request.body?.deleted_files || [],
           );
+
+        if (!startResponse.success) {
+          reply.code(500);
+          return {
+            data: null,
+            error: {
+              error: "File update failed",
+              message: "Failed to update files on dev server",
+            },
+          };
+        }
+
+        reply.status(200);
         return {
-          status: startResponse.success ? "success" : "error",
-          tunnel_url: startResponse.tunnelUrl,
+          data: {
+            tunnel_url: startResponse.tunnelUrl,
+          },
+          error: null,
         };
       }
       // Invalid file scope
       reply.code(400);
       return {
-        status: "error",
+        data: null,
+        error: {
+          error: "Invalid file scope",
+          message: "file_scope must be either 'complete' or 'updates'",
+        },
       };
     } catch (error: unknown) {
       const errorMessage =
@@ -395,17 +482,46 @@ export class PublicApiService {
       );
       reply.code(500);
       return {
-        status: "error",
+        data: null,
+        error: {
+          error: "Internal server error",
+          message: errorMessage,
+        },
       };
     }
   }
 
   private async restartDevServer(
     request: FastifyRequest,
-    _reply: FastifyReply,
-  ): Promise<PublicDevServerRestartResponse> {
-    await this.expoDevServerService.restartDevServer(request.log2);
-    return { status: "success" } as PublicDevServerRestartResponse;
+    reply: FastifyReply,
+  ): Promise<APIResponse<PublicDevServerRestartSuccessResponse, StandardErrorResponse>> {
+    try {
+      await this.expoDevServerService.restartDevServer(request.log2);
+      reply.status(200);
+      return {
+        data: {
+          message: "Dev server restarted successfully",
+        },
+        error: null,
+      };
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      const errorStack = error instanceof Error ? error.stack : undefined;
+      request.log2.error(
+        new Error(errorMessage),
+        "Internal server error in restartDevServer",
+        { stack: errorStack },
+      );
+      reply.code(500);
+      return {
+        data: null,
+        error: {
+          error: "Dev server restart failed",
+          message: errorMessage,
+        },
+      };
+    }
   }
 
   /**
@@ -418,16 +534,19 @@ export class PublicApiService {
   private async stopDevServer(
     request: FastifyRequest<{ Body: PublicDevServerStopRequest }>,
     reply: FastifyReply,
-  ): Promise<PublicDevServerStopResponse> {
+  ): Promise<APIResponse<PublicDevServerStopSuccessResponse, StandardErrorResponse>> {
     const devServerState = this.expoDevServerService.getState();
     if (devServerState.devServerStatus === DevServerStatus.STOPPED) {
+      reply.status(200);
       return {
-        status: "success",
-        server_operation_status: devServerState.currentOperation,
-        server_status: devServerState.devServerStatus,
-        prototypeId: devServerState.prototypeId,
-        version: devServerState.builtVersion,
-      } as PublicDevServerStopResponse;
+        data: {
+          server_operation_status: devServerState.currentOperation,
+          server_status: devServerState.devServerStatus,
+          prototypeId: devServerState.prototypeId ?? undefined,
+          version: devServerState.builtVersion ?? undefined,
+        },
+        error: null,
+      };
     }
 
     if (
@@ -437,12 +556,15 @@ export class PublicApiService {
         OperationStatus.BUILDING_AND_DEPLOYING ||
       devServerState.currentOperation === OperationStatus.STOPPING
     ) {
+      reply.code(409);
       return {
-        status: "error",
-        server_operation_status: devServerState.currentOperation,
-        server_status: devServerState.devServerStatus,
-        prototypeId: devServerState.prototypeId,
-      } as PublicDevServerStopResponse;
+        data: null,
+        error: {
+          error: "Operation in progress",
+          message: "Cannot stop dev server while an operation is in progress",
+          details: `Current operation: ${devServerState.currentOperation}`,
+        },
+      };
     }
 
     try {
@@ -460,11 +582,14 @@ export class PublicApiService {
     try {
       // Double-check operation status to catch any edge cases
       if (this.expoDevServerService.getState().isOperationInProgress()) {
+        reply.code(409);
         return {
-          status: "error",
-          server_operation_status:
-            this.expoDevServerService.getState().currentOperation,
-          server_status: this.expoDevServerService.getState().devServerStatus,
+          data: null,
+          error: {
+            error: "Operation in progress",
+            message: "Cannot stop dev server while an operation is in progress",
+            details: `Current operation: ${this.expoDevServerService.getState().currentOperation}`,
+          },
         };
       }
 
@@ -478,12 +603,14 @@ export class PublicApiService {
       this.startBackgroundBuildAndDeploy();
 
       // Return error response because the server cannot be killed yet.
+      reply.code(409);
       return {
-        status: "error",
-        // Get new operation statuses (should now be BUILDING_AND_DEPLOYING)
-        server_operation_status:
-          this.expoDevServerService.getState().currentOperation,
-        server_status: this.expoDevServerService.getState().devServerStatus,
+        data: null,
+        error: {
+          error: "Build and deploy started",
+          message: "Dev server cannot be stopped yet, build and deploy has been started",
+          details: `Current operation: ${this.expoDevServerService.getState().currentOperation}`,
+        },
       };
     } catch (error: unknown) {
       const errorMessage =
@@ -496,9 +623,11 @@ export class PublicApiService {
       );
       reply.code(500);
       return {
-        status: "error",
-        server_operation_status: devServerState.currentOperation,
-        server_status: this.expoDevServerService.getState().devServerStatus,
+        data: null,
+        error: {
+          error: "Internal server error",
+          message: errorMessage,
+        },
       };
     }
   }
@@ -516,7 +645,7 @@ export class PublicApiService {
   private async buildAndDeploy(
     request: FastifyRequest<{ Body: PublicBuildAndDeployRequest }>,
     reply: FastifyReply,
-  ): Promise<PublicBuildAndDeployResponse> {
+  ): Promise<APIResponse<PublicBuildAndDeploySuccessResponse, StandardErrorResponse>> {
     const { prototype_id, framework } = request.body;
 
     if (!prototype_id || !framework) {
@@ -527,14 +656,15 @@ export class PublicApiService {
       );
       reply.code(400);
       return {
-        status: "error",
-        version: undefined,
+        data: null,
+        error: {
+          error: "Missing required parameters",
+          message: "prototype_id and framework are required",
+        },
       };
     }
 
     try {
-      let version: string | undefined;
-
       // Check if project directory exists and read files from disk (fixed path)
       const projectDir = this.workDir;
 
@@ -548,10 +678,15 @@ export class PublicApiService {
           "Project directory not found",
           { projectDir },
         );
-        return reply.code(404).send({
-          status: "error",
-          version: undefined,
-        });
+        reply.code(404);
+        return {
+          data: null,
+          error: {
+            error: "Project directory not found",
+            message: "Project directory does not exist",
+            details: errorMessage,
+          },
+        };
       }
 
       // Read all files from the project directory
@@ -563,15 +698,17 @@ export class PublicApiService {
           "No files found in project directory",
           { projectDir },
         );
-        return reply.code(400).send({
-          status: "error",
-          version: undefined,
-        });
+        reply.code(400);
+        return {
+          data: null,
+          error: {
+            error: "No files found",
+            message: "No files found in project directory",
+          },
+        };
       }
 
       // Use ExpoDevServerService to build and deploy
-      let buildUrl: string | undefined;
-
       try {
         const buildResponse =
           await this.expoDevServerService.buildAndDeployProjectCore(
@@ -580,14 +717,37 @@ export class PublicApiService {
           );
 
         if (buildResponse.success && buildResponse.buildUrl) {
-          buildUrl = buildResponse.buildUrl;
-          version = buildResponse.version;
+          reply.status(200);
+          return {
+            data: {
+              build_url: buildResponse.buildUrl,
+              version: buildResponse.version,
+            },
+            error: null,
+          };
         } else if (buildResponse.error) {
           request.log2.error(
             new Error(buildResponse.error),
             "Build and deploy failed",
             { buildLog: buildResponse.buildLog },
           );
+          reply.code(500);
+          return {
+            data: null,
+            error: {
+              error: "Build and deploy failed",
+              message: buildResponse.error,
+            },
+          };
+        } else {
+          reply.code(500);
+          return {
+            data: null,
+            error: {
+              error: "Build and deploy failed",
+              message: "Build completed but no build URL was generated",
+            },
+          };
         }
       } catch (error: unknown) {
         const errorMessage =
@@ -598,13 +758,15 @@ export class PublicApiService {
           "Build and deploy process failed",
           { stack: errorStack },
         );
+        reply.code(500);
+        return {
+          data: null,
+          error: {
+            error: "Build and deploy process failed",
+            message: errorMessage,
+          },
+        };
       }
-
-      return {
-        status: buildUrl ? "success" : "error",
-        build_url: buildUrl,
-        version: version,
-      };
     } catch (error: unknown) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
@@ -616,8 +778,11 @@ export class PublicApiService {
       );
       reply.code(500);
       return {
-        status: "error",
-        version: undefined,
+        data: null,
+        error: {
+          error: "Internal server error",
+          message: errorMessage,
+        },
       };
     }
   }

@@ -11,8 +11,10 @@ import axios from 'axios';
 import { randomBytes } from 'crypto';
 import type { SystemLogger } from '../../loggers/SystemLogger.js'; // adjust your path
 import {
+  APIResponse as BuildWorkerAPIResponse,
   PublicAllocateRequest,
-  PublicAllocateResponse,
+  PublicAllocateSuccessResponse,
+  StandardErrorResponse as BuildWorkerStandardErrorResponse,
 } from '../../types/BuildWorkerTypes.js';
 import {
   ActiveBuild,
@@ -668,7 +670,7 @@ export class IdleContainerAllocationSystemService {
 
     // Send creds to worker
     try {
-      const allocationResponse: PublicAllocateResponse = await axios.post(
+      const allocationResponse = await axios.post<BuildWorkerAPIResponse<PublicAllocateSuccessResponse, BuildWorkerStandardErrorResponse>>(
         `http://${info.privateIp}:3002/allocate`,
         creds,
         {
@@ -678,18 +680,18 @@ export class IdleContainerAllocationSystemService {
           },
         },
       );
-      if (allocationResponse.status === 'error') {
+      if (allocationResponse.data.error) {
         this.log2.error(
-          new Error(allocationResponse.error),
+          new Error(allocationResponse.data.error.error),
           `Worker returned error status for allocation to ${info.privateIp}`,
           {
             workerIp: info.privateIp,
             prototypeId,
-            errorMessage: allocationResponse.error,
+            errorMessage: allocationResponse.data.error.message,
           },
         );
         throw new Error(
-          `Worker allocation failed: ${allocationResponse.error || 'Unknown error from worker'}`,
+          `Worker allocation failed: ${allocationResponse.data.error.message || 'Unknown error from worker'}`,
         );
       }
     } catch (error) {

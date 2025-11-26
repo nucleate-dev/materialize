@@ -37,9 +37,12 @@ import { Database } from '../../../types/supabase.js';
 import { createClient } from '@supabase/supabase-js';
 import axios from 'axios';
 import {
-  PublicDevServerStartResponse,
+  APIResponse as BuildWorkerAPIResponse,
+  PublicAllocateSuccessResponse,
+  PublicDevServerStartSuccessResponse,
   PublicStartDevServerRequest,
   PublicUpdateFilesRequest,
+  StandardErrorResponse as BuildWorkerStandardErrorResponse,
 } from '../../../types/BuildWorkerTypes.js';
 
 export async function handleDispatchImpl(
@@ -91,7 +94,7 @@ export async function handleDispatchImpl(
     // For file updates, the worker is already allocated so we skip this step
     if (file_scope === 'complete') {
       try {
-        const allocateResponse = await axios.post(
+        const allocateResponse = await axios.post<BuildWorkerAPIResponse<PublicAllocateSuccessResponse, BuildWorkerStandardErrorResponse>>(
           `http://${process.env.FARGATE_DEV_IP}:3002/allocate`,
           {
             prototypeId: prototype_id,
@@ -105,11 +108,11 @@ export async function handleDispatchImpl(
           },
         );
 
-        if (allocateResponse.data.status === 'error') {
+        if (allocateResponse.data.error) {
           log2.error(
-            new Error(allocateResponse.data.error || 'Allocation failed'),
+            new Error(allocateResponse.data.error.error || 'Allocation failed'),
             'Failed to allocate worker in dev mode',
-            { details: allocateResponse.data.details },
+            { details: allocateResponse.data.error.details },
           );
           await cache.hset(devKey, {
             status: 'error' as BuildStatus,
@@ -119,7 +122,7 @@ export async function handleDispatchImpl(
             data: null,
             error: {
               error: 'Allocation Failed',
-              message: `Failed to allocate worker: ${allocateResponse.data.error || 'Unknown error'}`,
+              message: `Failed to allocate worker: ${allocateResponse.data.error.message || 'Unknown error'}`,
             },
           };
         }
@@ -159,9 +162,9 @@ export async function handleDispatchImpl(
       fargate_private_ip: process.env.FARGATE_DEV_IP,
     });
 
-    if (fargateResponse.status === 'success') {
+    if (fargateResponse.data) {
       const newUrl = normalizeUrl(
-        fargateResponse.tunnel_url || getS3Url(prototype_id),
+        fargateResponse.data.tunnel_url || getS3Url(prototype_id),
       );
       await cache.hset(devKey, {
         status: 'stable' as BuildStatus,
@@ -182,8 +185,8 @@ export async function handleDispatchImpl(
       return {
         data: null,
         error: {
-          error: 'Build Failed',
-          message: 'Build failed on development fargate instance',
+          error: fargateResponse.error?.error || 'Build Failed',
+          message: fargateResponse.error?.message || 'Build failed on development fargate instance',
         },
       };
     }
@@ -357,31 +360,31 @@ export async function handleDispatchImpl(
         log2,
         fargate_private_ip: updatedBuildCacheData.fargate_private_ip,
       });
-      updatedBuildCacheData.status = 'stable';
-      updatedBuildCacheData.url =
-        fargateResponse.tunnel_url || getS3Url(prototype_id);
-      updatedBuildCacheData.last_touched = Math.floor(Date.now() / 1000);
-      await cache.hset(
-        activeBuildKey,
-        activeBuildToStringRecord(updatedBuildCacheData),
-      );
-      // Update builds ZSET with new timestamp
-      const buildIdFromKey = activeBuildKey.replace('active_build:', '');
-      await cache.customCommand([
-        'ZADD',
-        CACHE_KEYS.protoBuilds(prototype_id),
-        updatedBuildCacheData.last_touched.toString(),
-        buildIdFromKey,
-      ]);
-      log2.info('Updated build cache data: ', {
-        activeBuildCacheData: updatedBuildCacheData,
-      });
+      if (fargateResponse.data) {
+        updatedBuildCacheData.status = 'stable';
+        updatedBuildCacheData.url =
+          fargateResponse.data.tunnel_url || getS3Url(prototype_id);
+        updatedBuildCacheData.last_touched = Math.floor(Date.now() / 1000);
+        await cache.hset(
+          activeBuildKey,
+          activeBuildToStringRecord(updatedBuildCacheData),
+        );
+        // Update builds ZSET with new timestamp
+        const buildIdFromKey = activeBuildKey.replace('active_build:', '');
+        await cache.customCommand([
+          'ZADD',
+          CACHE_KEYS.protoBuilds(prototype_id),
+          updatedBuildCacheData.last_touched.toString(),
+          buildIdFromKey,
+        ]);
+        log2.info('Updated build cache data: ', {
+          activeBuildCacheData: updatedBuildCacheData,
+        });
 
-      if (fargateResponse.status === 'success') {
         return {
           data: {
             viewing_url: normalizeUrl(
-              fargateResponse.tunnel_url || getS3Url(prototype_id),
+              fargateResponse.data.tunnel_url || getS3Url(prototype_id),
             ),
             terminal_url:
               updatedBuildCacheData.terminal_tunnel_hostname || null,
@@ -395,8 +398,8 @@ export async function handleDispatchImpl(
         return {
           data: null,
           error: {
-            error: 'Dispatch Failed',
-            message: 'Dispatch request failed to Fargate instance',
+            error: fargateResponse.error?.error || 'Dispatch Failed',
+            message: fargateResponse.error?.message || 'Dispatch request failed to Fargate instance',
           },
         };
       }
@@ -455,7 +458,7 @@ async function dispatchRequestToFargateInstanceServer({
   file_scope: FileScope;
   log2: SystemLogger;
   fargate_private_ip: string;
-}): Promise<PublicDevServerStartResponse> {
+}): Promise<BuildWorkerAPIResponse<PublicDevServerStartSuccessResponse, BuildWorkerStandardErrorResponse>> {
   const requestBody = await constructRequestBody({
     token: jwt,
     prototype_id,
@@ -481,7 +484,7 @@ async function dispatchRequestToFargateInstanceServer({
   );
   const fargateResponse = await log2.time(
     LatencyEvents.dispatch_request_to_fargate_server_latency,
-    async (): Promise<PublicDevServerStartResponse> => {
+    async (): Promise<BuildWorkerAPIResponse<PublicDevServerStartSuccessResponse, BuildWorkerStandardErrorResponse>> => {
       return await dispatchFormedRequestToFargateInstanceServer(
         fargate_private_ip,
         requestBody,
@@ -580,13 +583,13 @@ async function dispatchFormedRequestToFargateInstanceServer(
   fargatePrivateIp: string,
   requestBody: PublicStartDevServerRequest | PublicUpdateFilesRequest,
   log2: SystemLogger,
-): Promise<PublicDevServerStartResponse> {
+): Promise<BuildWorkerAPIResponse<PublicDevServerStartSuccessResponse, BuildWorkerStandardErrorResponse>> {
   try {
     // Determine the endpoint based on the request body type
     const isStartDevServer = 'framework' in requestBody;
     const endpoint = isStartDevServer ? '/start-dev-server' : '/update-files';
 
-    const response = await axios.post(
+    const response = await axios.post<BuildWorkerAPIResponse<PublicDevServerStartSuccessResponse, BuildWorkerStandardErrorResponse>>(
       `http://${fargatePrivateIp}:3002${endpoint}`,
       requestBody,
       {
@@ -597,12 +600,15 @@ async function dispatchFormedRequestToFargateInstanceServer(
         },
       },
     );
-    return response.data as PublicDevServerStartResponse;
+    return response.data;
   } catch (error) {
     log2.error(error, 'Error dispatching request to fargate instance: ');
     return {
-      status: 'error',
-      tunnel_url: undefined,
+      data: null,
+      error: {
+        error: 'Failed to dispatch request',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      },
     };
   }
 }
