@@ -19,14 +19,14 @@ import {
     ChatQueryData,
     ChatServerMessage,
 } from "../../types/ChatTypes.js";
-import { getSystemPromptForDesignStyle } from "../../utils/ClaudeCodePrompts.js";
-import { ExpoDevServerService } from "../ExpoDevServerService.js";
+import { ExpoDevServerService } from "../dev-server/ExpoDevServerService.js";
 import { FileSyncService } from "../FileSyncService.js";
-import { createDevelopmentToolsMcpServer } from "../mcp-tools.js";
 import { SandboxService } from "../SandboxService.js";
 import { SupabaseClientService } from "../SupabaseClientService.js";
-import { TerminalService } from "../TerminalService.js";
+import { TerminalService } from "../terminals/TerminalService.js";
+import { getSystemPromptForDesignStyle } from "./ClaudeCodePrompts.js";
 import { hasRemainingCredits } from "./credit-checks.js";
+import { createDevelopmentToolsMcpServer } from "./mcp-tools.js";
 import { getToolDisplayName } from "./message-handlers.js";
 import { ToolPermissionService } from "./tool-permission-service.js";
 import { trackApiUsageBuildWorker } from "./usage-tracking.js";
@@ -894,7 +894,7 @@ export class ChatQueryHandler {
     args: string[],
   ): Promise<{ stdout: string; isError: boolean }> {
     try {
-      const { response } = await this.sandboxService.runCommandInternal({
+      const { response: responseRaw } = await this.sandboxService.runCommandInternal({
         command,
         args,
         cwd: this.workDir,
@@ -902,6 +902,10 @@ export class ChatQueryHandler {
         timeout_ms: 30000,
         strip_ansi: true,
       });
+      const response = responseRaw.data;
+      if (!response) {
+        throw new Error("No response from sandbox service");
+      }
 
       if (response.status === "success") {
         return {

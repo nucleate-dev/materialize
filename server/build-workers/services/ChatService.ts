@@ -18,14 +18,14 @@ import {
   notifyOrchestrationEndChat,
   notifyOrchestrationStartChat,
 } from "../utils/chat-orchestration-notifiers.js";
-import { processImage } from "../utils/imageProcessing.js";
 import { ChatQueryHandler } from "./chat/chat-query-handler.js";
+import { processImage } from "./chat/imageProcessing.js";
 import { ToolPermissionService } from "./chat/tool-permission-service.js";
-import { ExpoDevServerService } from "./ExpoDevServerService.js";
+import { ExpoDevServerService } from "./dev-server/ExpoDevServerService.js";
 import { FileSyncService } from "./FileSyncService.js";
 import { SandboxService } from "./SandboxService.js";
 import { SupabaseClientService } from "./SupabaseClientService.js";
-import { TerminalService } from "./TerminalService.js";
+import { TerminalService } from "./terminals/TerminalService.js";
 const CHAT_HEARTBEAT_INTERVAL_MS = 15000;
 
 interface CodeSessionState {
@@ -75,8 +75,6 @@ export class ChatService {
   private activeConnections = new Map<string, ChatConnection>();
   private orchestrationToken: string | null = null;
   private validAiChatSessionIds = new Set<string>(); // Track valid session IDs created during this CodeService instance's lifetime
-  private readonly sharedFileMode = 0o664;
-  private readonly sharedDirMode = 0o775;
   private materializeUserGid: number | null = null;
 
   constructor(
