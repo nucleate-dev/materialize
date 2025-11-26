@@ -75,11 +75,14 @@ export function useSubscriptionAccess() {
 
   useEffect(() => {
     async function fetchSubscriptionInformation() {
+      const nowInSeconds = Math.floor(Date.now() / 1000);
       const { data, error } = await supabase
         .from("subscriptions")
         .select("*")
         .eq("user_id", user.user?.id)
         .eq("status", SubscriptionStatuses.ACTIVE)
+        .lte("current_period_start", nowInSeconds)
+        .gte("current_period_end", nowInSeconds)
         .order("updated_at", {
           ascending: false,
         });
@@ -119,12 +122,21 @@ export function useSubscriptionAccess() {
           latestSubscription.current_period_start &&
           latestSubscription.current_period_end
         ) {
-          setCurrentPeriodStart(
-            new Date(latestSubscription.current_period_start * 1000),
-          );
-          setCurrentPeriodEnd(
-            new Date(latestSubscription.current_period_end * 1000),
-          );
+          const periodStart =
+            latestSubscription.current_period_start * 1000;
+          const periodEnd = latestSubscription.current_period_end * 1000;
+          const now = Date.now();
+
+          if (periodStart <= now && now <= periodEnd) {
+            setCurrentPeriodStart(new Date(periodStart));
+            setCurrentPeriodEnd(new Date(periodEnd));
+          } else {
+            // Subscription is outside the current period, treat as free tier
+            setUserPlan("free");
+            const { startOfMonth, endOfMonth } = getCurrentMonthPeriod();
+            setCurrentPeriodStart(startOfMonth);
+            setCurrentPeriodEnd(endOfMonth);
+          }
         } else {
           // Fallback to current month if period data is missing
           const { startOfMonth, endOfMonth } = getCurrentMonthPeriod();
