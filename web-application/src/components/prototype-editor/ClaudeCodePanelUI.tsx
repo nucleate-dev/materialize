@@ -83,6 +83,7 @@ interface ClaudeCodePanelUIProps {
   hasReceivedResponse: boolean;
   showScrollToBottom: boolean;
   isCurrentSessionMostRecent: boolean;
+  isDragOver: boolean;
   scrollAreaRef:
   | RefObject<HTMLDivElement | null>
   | MutableRefObject<HTMLDivElement | null>;
@@ -110,6 +111,10 @@ interface ClaudeCodePanelUIProps {
   sendQuery: () => void;
   resetSession: () => void;
   scrollToBottom: () => void;
+  handleDragEnter: (event: React.DragEvent) => void;
+  handleDragLeave: (event: React.DragEvent) => void;
+  handleDragOver: (event: React.DragEvent) => void;
+  handleDrop: (event: React.DragEvent) => void;
 }
 
 export default function ClaudeCodePanelUI({
@@ -138,6 +143,7 @@ export default function ClaudeCodePanelUI({
   hasReceivedResponse,
   showScrollToBottom,
   isCurrentSessionMostRecent,
+  isDragOver,
   scrollAreaRef,
   fileInputRef,
   textareaRef,
@@ -159,9 +165,40 @@ export default function ClaudeCodePanelUI({
   sendQuery,
   resetSession,
   scrollToBottom,
+  handleDragEnter,
+  handleDragLeave,
+  handleDragOver,
+  handleDrop,
 }: ClaudeCodePanelUIProps) {
   return (
-    <div className="flex flex-col h-full bg-background border-l border-border">
+    <div
+      className="flex flex-col h-full bg-background border-l border-border relative"
+      onDragEnter={handleDragEnter}
+      onDragLeave={handleDragLeave}
+      onDragOver={handleDragOver}
+      onDrop={handleDrop}
+    >
+      {/* Drag Overlay */}
+      {isDragOver && (
+        <div className="absolute inset-0 bg-indigo-500/10 backdrop-blur-sm z-50 flex items-center justify-center border-2 border-dashed border-indigo-500 pointer-events-none">
+          <div className="bg-background/90 rounded-2xl px-8 py-6 shadow-2xl border border-indigo-500/20">
+            <div className="flex flex-col items-center gap-3">
+              <div className="w-16 h-16 rounded-full bg-indigo-500/20 flex items-center justify-center">
+                <Paperclip className="w-8 h-8 text-indigo-500" />
+              </div>
+              <div className="text-center">
+                <p className="text-lg font-semibold text-foreground mb-1">
+                  Drop images here
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Upload images to attach to your message
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* --- Header --- */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-accent/50 h-14 shrink-0">
         <div className="flex items-center gap-3 flex-1 overflow-hidden">

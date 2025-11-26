@@ -145,6 +145,7 @@ export default function ClaudeCodePanel({
   const [isNearBottom, setIsNearBottom] = useState(true);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const [isCorruptedSession, setIsCorruptedSession] = useState(false);
+  const [isDragOver, setIsDragOver] = useState(false);
 
   // Helper to check if current session is the most recent
   const isCurrentSessionMostRecent =
@@ -1456,7 +1457,17 @@ export default function ClaudeCodePanel({
     const files = event.target.files;
     if (!files) return;
 
-    Array.from(files).forEach((file) => {
+    processImageFiles(Array.from(files));
+
+    // Reset input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
+  // Process image files (shared between file input and drag-and-drop)
+  const processImageFiles = (files: File[]) => {
+    files.forEach((file) => {
       // Validate file type
       if (!file.type.startsWith("image/")) {
         addMessage(
@@ -1493,10 +1504,39 @@ export default function ClaudeCodePanel({
       };
       reader.readAsDataURL(file);
     });
+  };
 
-    // Reset input
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
+  // Handle drag-and-drop events
+  const handleDragEnter = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.dataTransfer.types.includes("Files")) {
+      setIsDragOver(true);
+    }
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    // Only set to false if we're leaving the main container
+    if (e.currentTarget === e.target) {
+      setIsDragOver(false);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
+
+    const files = Array.from(e.dataTransfer.files);
+    if (files.length > 0) {
+      processImageFiles(files);
     }
   };
 
@@ -1957,6 +1997,7 @@ export default function ClaudeCodePanel({
       hasReceivedResponse={hasReceivedResponse}
       showScrollToBottom={showScrollToBottom}
       isCurrentSessionMostRecent={isCurrentSessionMostRecent}
+      isDragOver={isDragOver}
       scrollAreaRef={scrollAreaRef}
       fileInputRef={fileInputRef}
       textareaRef={textareaRef}
@@ -1978,6 +2019,10 @@ export default function ClaudeCodePanel({
       sendQuery={sendQuery}
       resetSession={resetSession}
       scrollToBottom={scrollToBottom}
+      handleDragEnter={handleDragEnter}
+      handleDragLeave={handleDragLeave}
+      handleDragOver={handleDragOver}
+      handleDrop={handleDrop}
     />
   );
 }

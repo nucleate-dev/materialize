@@ -67,7 +67,7 @@ const STYLESHEET_STACK_INFO = `
 <stack_info>
 1. Use PanResponder
 2. Prefer Animated, use Reanimated only if required
-3. Use @/ imports
+3. CRITICAL: Use @/ imports for all internal imports (configured in tsconfig.json and metro.config.js)
 4. StyleSheet only
 5. CRITICAL: Always use the theme system for styling following this pattern:
    - Import: import { useTheme, Theme } from '@/theme'
@@ -75,10 +75,13 @@ const STYLESHEET_STACK_INFO = `
    - Create stylesheet factory: const createStyles = (theme: Theme) => StyleSheet.create({ ... })
    - Use theme tokens: theme.colors.*, theme.spacing.*, theme.typography.*, theme.borderRadius.*
    - NEVER hardcode colors, spacing, or typography values - always use theme tokens
-6. Expo Router file-based rules, never multiple index.tsx
-7. No SafeAreaView, use useSafeAreaInsets only when removing headers
-8. Games avoid tabs
-9. Avoid expo-font, keep constants separate, never delete <RootLayoutNav/>
+6. Use @/config/env for environment variables - NEVER access process.env directly
+   - Import: import { env } from '@/config/env'
+   - Access vars: env.API_URL, etc.
+7. Expo Router file-based rules, never multiple index.tsx
+8. No SafeAreaView, use useSafeAreaInsets only when removing headers
+9. Games avoid tabs
+10. Avoid expo-font, keep constants separate, never delete <RootLayoutNav/>
 </stack_info>
 `;
 
@@ -86,7 +89,7 @@ const NATIVEWIND_STACK_INFO = `
 <stack_info>
 1. Use PanResponder
 2. Prefer Animated, use Reanimated only if required
-3. Use @/ imports
+3. CRITICAL: Use @/ imports for all internal imports (configured in tsconfig.json and metro.config.js)
 4. CRITICAL: Use NativeWind (Tailwind CSS) for ALL styling - use className prop with Tailwind utility classes
 5. NEVER use StyleSheet.create() - all styles must be done via className with NativeWind/Tailwind utilities
 6. CRITICAL: Always use semantic color tokens from the theme system:
@@ -97,10 +100,13 @@ const NATIVEWIND_STACK_INFO = `
    - Use border-outline-* for borders
    - Dark mode support is automatic via CSS variables - colors adapt automatically
    - NEVER use generic colors like bg-blue-500 or text-red-600 - always use semantic tokens
-7. Expo Router file-based rules, never multiple index.tsx
-8. No SafeAreaView, use useSafeAreaInsets only when removing headers
-9. Games avoid tabs
-10. Avoid expo-font, keep constants separate, never delete <RootLayoutNav/>
+7. Use @/config/env for environment variables - NEVER access process.env directly
+   - Import: import { env } from '@/config/env'
+   - Access vars: env.API_URL, etc.
+8. Expo Router file-based rules, never multiple index.tsx
+9. No SafeAreaView, use useSafeAreaInsets only when removing headers
+10. Games avoid tabs
+11. Avoid expo-font, keep constants separate, never delete <RootLayoutNav/>
 </stack_info>
 `;
 
@@ -108,13 +114,22 @@ const TAMAGUI_STACK_INFO = `
 <stack_info>
 1. Use PanResponder
 2. Prefer Animated, use Reanimated only if required
-3. Use @/ imports
+3. CRITICAL: Use @/ imports for all internal imports (configured in tsconfig.json and metro.config.js)
 4. CRITICAL: Use Tamagui components and styling system for ALL UI components
-5. Use Tamagui's theme tokens and styled components instead of StyleSheet
-6. Expo Router file-based rules, never multiple index.tsx
-7. No SafeAreaView, use useSafeAreaInsets only when removing headers
-8. Games avoid tabs
-9. Avoid expo-font, keep constants separate, never delete <RootLayoutNav/>
+5. CRITICAL: Always use the custom Tamagui theme tokens defined in tamagui.config.ts:
+   - Colors: $background, $surface, $primary, $secondary, $color (text), $color11 (secondary text), $borderColor, $error, $success, $warning, $info
+   - Spacing: $xs (4), $sm (8), $md (16), $lg (24), $xl (32), $xxl (48) - use with padding, margin, gap props
+   - Border radius: $sm (4), $md (8), $lg (12), $xl (16), $full (9999) - use with borderRadius prop
+   - Use Tamagui components: YStack, XStack, Text, H1, H2, Paragraph, Button, etc.
+   - Dark mode automatically handled by TamaguiProvider - theme tokens adapt automatically
+   - NEVER hardcode colors, spacing, or typography values - always use theme tokens
+6. Use @/config/env for environment variables - NEVER access process.env directly
+   - Import: import { env } from '@/config/env'
+   - Access vars: env.API_URL, etc.
+7. Expo Router file-based rules, never multiple index.tsx
+8. No SafeAreaView, use useSafeAreaInsets only when removing headers
+9. Games avoid tabs
+10. Avoid expo-font, keep constants separate, never delete <RootLayoutNav/>
 </stack_info>
 `;
 
