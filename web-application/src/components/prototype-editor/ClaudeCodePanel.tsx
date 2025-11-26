@@ -468,6 +468,24 @@ export default function ClaudeCodePanel({
               }
 
               uiMessages.push(message);
+
+              // If this is an assistant message with credits_used, add a usage message
+              if (
+                dbMessage.role === "assistant" &&
+                dbMessage.credits_used !== null &&
+                dbMessage.credits_used !== undefined
+              ) {
+                const creditsUsed = dbMessage.credits_used;
+                const roundedCredits = Math.round(creditsUsed * 10) / 10;
+
+                uiMessages.push({
+                  id: `usage-${dbMessage.id}`,
+                  type: "usage",
+                  content: `${roundedCredits} credit${roundedCredits !== 1 ? "s" : ""}`,
+                  timestamp: new Date(dbMessage.created_at).getTime(),
+                  creditsUsed,
+                });
+              }
             } else if (
               dbMessage.message_type === "tool_use" &&
               dbMessage.event_type === "tool_start"
@@ -1159,7 +1177,7 @@ export default function ClaudeCodePanel({
         // Add usage message to show credits consumed
         addMessage(
           "usage",
-          `Used ${roundedCredits} credit${roundedCredits !== 1 ? "s" : ""} · ${creditsRemaining.toFixed(0)} remaining`,
+          `${roundedCredits} credit${roundedCredits !== 1 ? "s" : ""}`,
           creditsUsed,
         );
         break;
