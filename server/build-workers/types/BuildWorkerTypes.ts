@@ -74,23 +74,6 @@ export interface BuildAndDeployResponse {
   version?: string;
 }
 
-// New types for public API
-export interface CodeError {
-  message: string;
-  file?: string;
-  line?: number;
-  column?: number;
-  type: "build" | "runtime" | "dependency" | "syntax";
-}
-
-export interface CodeWarning {
-  message: string;
-  file?: string;
-  line?: number;
-  column?: number;
-  type: "build" | "deprecation" | "performance" | "unused";
-}
-
 export interface PublicDevServerStartRequest {
   prototype_id: string;
   framework: "expo_react_native" | "react";
@@ -115,8 +98,6 @@ export interface PublicUpdateFilesRequest {
 export interface PublicDevServerStartResponse {
   status: "success" | "error";
   tunnel_url?: string;
-  build_errors: CodeError[];
-  build_warnings: CodeWarning[];
   version?: string;
 }
 
@@ -128,8 +109,6 @@ export interface PublicDevServerStopRequest {
 export interface PublicDevServerStopResponse {
   status: "success" | "error";
   build_url?: string;
-  build_errors: CodeError[];
-  build_warnings: CodeWarning[];
   server_operation_status: OperationStatus;
   server_status: DevServerStatus;
   screenshotBase64?: string;
@@ -149,8 +128,6 @@ export interface PublicBuildAndDeployRequest {
 export interface PublicBuildAndDeployResponse {
   status: "success" | "error";
   build_url?: string;
-  build_errors: CodeError[];
-  build_warnings: CodeWarning[];
   version?: string;
 }
 
@@ -161,8 +138,6 @@ export interface DevServerStartResponse {
   port?: number;
   status: DevServerStatus;
   error?: string;
-  build_errors?: CodeError[];
-  build_warnings?: CodeWarning[];
 }
 
 export interface DevServerStatusResponse {

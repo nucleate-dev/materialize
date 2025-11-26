@@ -170,8 +170,6 @@ export async function handleDispatchImpl(
       return {
         data: {
           viewing_url: newUrl,
-          build_errors: fargateResponse.build_errors,
-          build_warnings: fargateResponse.build_warnings,
           terminal_url: devTerminalUrl,
         },
         error: null,
@@ -385,8 +383,6 @@ export async function handleDispatchImpl(
             viewing_url: normalizeUrl(
               fargateResponse.tunnel_url || getS3Url(prototype_id),
             ),
-            build_errors: fargateResponse.build_errors,
-            build_warnings: fargateResponse.build_warnings,
             terminal_url:
               updatedBuildCacheData.terminal_tunnel_hostname || null,
           },
@@ -607,8 +603,6 @@ async function dispatchFormedRequestToFargateInstanceServer(
     return {
       status: 'error',
       tunnel_url: undefined,
-      build_errors: [],
-      build_warnings: [],
     };
   }
 }
@@ -647,5 +641,7 @@ function getS3Url(prototypeId: string): string {
 
 function normalizeUrl(url: string): string {
   // Ensure URL has protocol (https://) for iframe loading
-  return url && !url.startsWith('http') ? `https://${url}` : url;
+  return url && !url.startsWith('http') && !url.startsWith('exp')
+    ? `https://${url}`
+    : url;
 }
