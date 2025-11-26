@@ -3,6 +3,7 @@
 import { RenderStatus } from "@/app/dashboard/projects/[prototype_id]/InternalPrototypePage";
 import { supabase } from "@/ClientConstants";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -47,14 +48,18 @@ import { handleCheckout } from "@/lib/utils/payments/CheckoutUtils";
 import Editor from "@monaco-editor/react";
 import {
   AlertTriangle,
+  Check,
   Code2,
   FileCode,
-  FileImage, Lock,
+  FileImage,
+  Lock,
+  Minus,
   Plus,
   Save,
   Sparkles,
   Trash2,
-  Upload
+  Upload,
+  X
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
@@ -72,12 +77,38 @@ interface CodeEditorProps {
 }
 
 const ROOT_FOLDER_VALUE = "__ROOT__";
-const ALLOWED_UPLOAD_EXTENSIONS = new Set(["js", "jsx", "ts", "tsx", "json"]);
+
+// File size limits (in bytes)
+const MAX_FILE_SIZE = 2 * 1024 * 1024; // 2MB
+const MAX_LOCK_FILE_SIZE = 5 * 1024 * 1024; // 5MB for lock files
+
+// Blocked folder patterns
+const BLOCKED_FOLDERS = new Set([
+  "ios",
+  "android",
+  "node_modules",
+  ".git",
+  "build",
+  "dist",
+  ".expo",
+  ".next",
+  "out",
+]);
+
+const ALLOWED_UPLOAD_EXTENSIONS = new Set([
+  "js", "jsx", "ts", "tsx", "json",
+  "mjs", "cjs", "mts", "cts", // JS/TS variants
+  "lock", // package-lock.json, yarn.lock
+  "yaml", "yml", // Config files
+  "sh", // Shell scripts
+]);
 
 const ALLOWED_ASSET_EXTENSIONS = new Set([
   "png", "jpg", "jpeg", "gif", "svg", "webp", "ico",
   "ttf", "otf", "woff", "woff2",
   "md", "txt", "env", "gitignore",
+  "npmrc", "prettierrc", "eslintrc", "editorconfig", "watchmanconfig",
+  "xml", // Android config files
 ]);
 
 type UploadMode = "merge" | "replace" | "replace-all";
@@ -172,6 +203,11 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  // File selection and validation state
+  type FileValidationStatus = "ready" | "blocked-folder" | "blocked-extension" | "too-large" | "conflict";
+  const [fileValidation, setFileValidation] = useState<Map<string, { status: FileValidationStatus; reason?: string; size: number }>>(new Map());
+  const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set());
+
   // --- Computed ---
   const directoryOptions = useMemo(() => {
     const directories = new Set<string>([ROOT_FOLDER_VALUE]);
@@ -221,6 +257,20 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
       .map((file) => buildUploadPath(file.name))
       .filter((path) => Boolean(fileSystem.state.files[path]));
   }, [uploadFiles, fileSystem.state.files, buildUploadPath]);
+
+  const uploadSummary = useMemo(() => {
+    const total = fileValidation.size;
+    const selected = selectedFiles.size;
+    const blocked = Array.from(fileValidation.values()).filter(
+      v => v.status === "blocked-folder" || v.status === "blocked-extension" || v.status === "too-large"
+    ).length;
+    const conflicts = Array.from(fileValidation.values()).filter(v => v.status === "conflict").length;
+    const totalSize = Array.from(fileValidation.entries())
+      .filter(([path]) => selectedFiles.has(path))
+      .reduce((sum, [_, v]) => sum + v.size, 0);
+
+    return { total, selected, blocked, conflicts, totalSize };
+  }, [fileValidation, selectedFiles]);
 
   const saveButtonState = useMemo(() => {
     if (userPlan === "free") return { disabled: true, tooltip: "Upgrade plan to save files" };
@@ -293,11 +343,117 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
     setUploadProgress({ current: 0, total: 0 });
     setUploadMode("merge");
     setUploadType("files");
+    setFileValidation(new Map());
+    setSelectedFiles(new Set());
+  };
+
+  const toggleFileSelection = (filePath: string) => {
+    setSelectedFiles((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(filePath)) {
+        newSet.delete(filePath);
+      } else {
+        newSet.add(filePath);
+      }
+      return newSet;
+    });
+  };
+
+  const toggleAllFiles = () => {
+    const allSelectableFiles = Array.from(fileValidation.entries())
+      .filter(([_, validation]) => validation.status === "ready" || validation.status === "conflict")
+      .map(([path]) => path);
+
+    if (selectedFiles.size === allSelectableFiles.length) {
+      // Deselect all
+      setSelectedFiles(new Set());
+    } else {
+      // Select all
+      setSelectedFiles(new Set(allSelectableFiles));
+    }
+  };
+
+  const formatFileSize = (bytes: number): string => {
+    if (bytes === 0) return "0 B";
+    const k = 1024;
+    const sizes = ["B", "KB", "MB"];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
+  };
+
+  const getStatusBadge = (status: FileValidationStatus) => {
+    switch (status) {
+      case "ready":
+        return { text: "Ready", className: "bg-green-500/10 text-green-400 border-green-500/20" };
+      case "conflict":
+        return { text: "Conflict", className: "bg-amber-500/10 text-amber-400 border-amber-500/20" };
+      case "blocked-folder":
+        return { text: "Blocked", className: "bg-red-500/10 text-red-400 border-red-500/20" };
+      case "blocked-extension":
+        return { text: "Unsupported", className: "bg-red-500/10 text-red-400 border-red-500/20" };
+      case "too-large":
+        return { text: "Too Large", className: "bg-red-500/10 text-red-400 border-red-500/20" };
+      default:
+        return { text: "Unknown", className: "bg-muted-foreground/10 text-muted-foreground border-border" };
+    }
   };
 
   const handleUploadFolderChange = (value: string) => {
     setUploadTargetFolder(value);
     setUploadError("");
+  };
+
+  const isFileInBlockedFolder = (filePath: string): boolean => {
+    const pathParts = filePath.split("/");
+    // Check if any part of the path matches blocked folders
+    return pathParts.some(part => BLOCKED_FOLDERS.has(part));
+  };
+
+  const getFileSizeLimit = (fileName: string): number => {
+    // Lock files get higher limit
+    if (fileName.endsWith(".lock") || fileName === "package-lock.json" || fileName === "yarn.lock") {
+      return MAX_LOCK_FILE_SIZE;
+    }
+    return MAX_FILE_SIZE;
+  };
+
+  const validateFile = (file: File, targetPath: string): { status: FileValidationStatus; reason?: string } => {
+    // Check blocked folders
+    if (isFileInBlockedFolder(targetPath)) {
+      return {
+        status: "blocked-folder",
+        reason: "Native folders (ios/, android/) and build artifacts are not supported"
+      };
+    }
+
+    // Check file extension
+    const ext = file.name.split(".").pop()?.toLowerCase() || "";
+    const isCodeFile = ALLOWED_UPLOAD_EXTENSIONS.has(ext);
+    const isAssetFile = ENABLE_ASSET_UPLOAD && ALLOWED_ASSET_EXTENSIONS.has(ext);
+
+    if (!isCodeFile && !isAssetFile) {
+      return {
+        status: "blocked-extension",
+        reason: `File type '.${ext}' is not supported`
+      };
+    }
+
+    // Check file size
+    const sizeLimit = getFileSizeLimit(file.name);
+    if (file.size > sizeLimit) {
+      const limitMB = (sizeLimit / (1024 * 1024)).toFixed(1);
+      return {
+        status: "too-large",
+        reason: `File exceeds ${limitMB}MB limit`
+      };
+    }
+
+    // Check conflicts
+    if (fileSystem.state.files[targetPath]) {
+      return { status: "conflict", reason: "File already exists" };
+    }
+
+    return { status: "ready" };
   };
 
   const handleUploadFileSelection = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -306,39 +462,74 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
 
     if (!filesList.length) {
       setUploadFiles([]);
+      setFileValidation(new Map());
+      setSelectedFiles(new Set());
       return;
     }
 
+    const validationMap = new Map<string, { status: FileValidationStatus; reason?: string; size: number }>();
+    const selectedSet = new Set<string>();
     const validFiles: File[] = [];
-    const skippedFiles: string[] = [];
 
     filesList.forEach((file) => {
-      const ext = file.name.split(".").pop()?.toLowerCase() || "";
-      const isCodeFile = ALLOWED_UPLOAD_EXTENSIONS.has(ext);
-      const isAssetFile = ENABLE_ASSET_UPLOAD && ALLOWED_ASSET_EXTENSIONS.has(ext);
+      let targetPath: string;
+      if (uploadType === "folder" && file.webkitRelativePath) {
+        const relativePath = file.webkitRelativePath;
+        targetPath = resolvedUploadFolder ? `${resolvedUploadFolder}/${relativePath}` : relativePath;
+      } else {
+        targetPath = buildUploadPath(file.name);
+      }
 
-      if (isCodeFile || isAssetFile) validFiles.push(file);
-      else skippedFiles.push(file.name);
+      const validation = validateFile(file, targetPath);
+
+      validationMap.set(targetPath, {
+        status: validation.status,
+        reason: validation.reason,
+        size: file.size,
+      });
+
+      // Auto-select files that are ready or have conflicts (can be overridden based on mode)
+      if (validation.status === "ready" || validation.status === "conflict") {
+        selectedSet.add(targetPath);
+        validFiles.push(file);
+      }
     });
 
-    if (skippedFiles.length) {
-      setUploadError(`Skipped ${skippedFiles.length} unsupported file(s).`);
-    } else {
-      setUploadError("");
-    }
+    setFileValidation(validationMap);
+    setSelectedFiles(selectedSet);
     setUploadFiles(validFiles);
+    setUploadError("");
   };
 
   const handleUploadFiles = async () => {
     if (userPlan === "free") return setUploadError("Upgrade plan to upload files");
-    if (!uploadFiles.length) return setUploadError("Select files to upload");
-    if (uploadMode === "merge" && uploadConflicts.length) {
-      setUploadError(`${uploadConflicts.length} conflicts. Use Replace mode.`);
+    if (selectedFiles.size === 0) return setUploadError("No files selected to upload");
+
+    // Check for unresolved conflicts in merge mode
+    const selectedWithConflicts = Array.from(selectedFiles).filter(path => {
+      const validation = fileValidation.get(path);
+      return validation?.status === "conflict";
+    });
+
+    if (uploadMode === "merge" && selectedWithConflicts.length > 0) {
+      setUploadError(`${selectedWithConflicts.length} conflict(s) must be resolved. Use Replace mode or deselect conflicting files.`);
       return;
     }
 
+    // Filter to only selected files
+    const filesToUpload = uploadFiles.filter((file) => {
+      let targetPath: string;
+      if (uploadType === "folder" && file.webkitRelativePath) {
+        const relativePath = file.webkitRelativePath;
+        targetPath = resolvedUploadFolder ? `${resolvedUploadFolder}/${relativePath}` : relativePath;
+      } else {
+        targetPath = buildUploadPath(file.name);
+      }
+      return selectedFiles.has(targetPath);
+    });
+
     setIsUploading(true);
-    setUploadProgress({ current: 0, total: uploadFiles.length });
+    setUploadProgress({ current: 0, total: filesToUpload.length });
 
     try {
       if (uploadMode === "replace-all") {
@@ -347,9 +538,9 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
         }
       }
 
-      for (let i = 0; i < uploadFiles.length; i++) {
-        const file = uploadFiles[i];
-        setUploadProgress({ current: i + 1, total: uploadFiles.length });
+      for (let i = 0; i < filesToUpload.length; i++) {
+        const file = filesToUpload[i];
+        setUploadProgress({ current: i + 1, total: filesToUpload.length });
 
         let newFilePath: string;
         if (uploadType === "folder" && file.webkitRelativePath) {
@@ -369,8 +560,8 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
       setShowUploadModal(false);
       handleUploadModalClose();
     } catch (error) {
-      logger.debug("error", "Error uploading:");
-      setUploadError("Upload failed.");
+      logger.debug("error", "Error uploading");
+      setUploadError(error instanceof Error ? error.message : "Upload failed. Please try again.");
     } finally {
       setIsUploading(false);
       setUploadProgress({ current: 0, total: 0 });
@@ -803,12 +994,107 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
                 {uploadError && <p className="text-red-400 text-xs flex items-center gap-1"><AlertTriangle className="w-3 h-3" /> {uploadError}</p>}
               </div>
 
-              {/* Conflict Warnings */}
-              {uploadConflicts.length > 0 && uploadMode === "merge" && (
-                <div className="p-3 rounded bg-amber-500/10 border border-amber-500/20 text-amber-200 text-xs">
-                  <p className="font-semibold mb-1">Conflicts detected:</p>
-                  <p>{uploadConflicts.length} files already exist.</p>
-                </div>
+              {/* File Selection Preview */}
+              {fileValidation.size > 0 && (
+                <>
+                  {/* Conflict Mode Selection */}
+                  {uploadSummary.conflicts > 0 && (
+                    <div className="space-y-3">
+                      <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Conflict Resolution</Label>
+                      <RadioGroup value={uploadMode} onValueChange={(val: UploadMode) => setUploadMode(val)} className="grid grid-cols-2 gap-3">
+                        <div className={cn("flex items-center gap-2 p-2.5 rounded-lg border transition-all cursor-pointer", uploadMode === 'merge' ? "bg-indigo-500/10 border-indigo-500/50" : "bg-accent/50 border-border hover:bg-accent")}>
+                          <RadioGroupItem value="merge" id="mode-merge" className="border-border text-indigo-500" />
+                          <Label htmlFor="mode-merge" className="cursor-pointer text-xs font-medium">Skip conflicts</Label>
+                        </div>
+                        <div className={cn("flex items-center gap-2 p-2.5 rounded-lg border transition-all cursor-pointer", uploadMode === 'replace' ? "bg-indigo-500/10 border-indigo-500/50" : "bg-accent/50 border-border hover:bg-accent")}>
+                          <RadioGroupItem value="replace" id="mode-replace" className="border-border text-indigo-500" />
+                          <Label htmlFor="mode-replace" className="cursor-pointer text-xs font-medium">Replace conflicts</Label>
+                        </div>
+                      </RadioGroup>
+                    </div>
+                  )}
+
+                  {/* File List */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Files to Upload</Label>
+                      <button
+                        type="button"
+                        onClick={toggleAllFiles}
+                        className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
+                      >
+                        {selectedFiles.size === uploadSummary.total - uploadSummary.blocked ? "Deselect All" : "Select All"}
+                      </button>
+                    </div>
+
+                    <div className="max-h-64 overflow-y-auto border border-border rounded-lg bg-background/50">
+                      <div className="divide-y divide-border">
+                        {Array.from(fileValidation.entries()).map(([path, validation]) => {
+                          const isSelected = selectedFiles.has(path);
+                          const isBlocked = validation.status === "blocked-folder" || validation.status === "blocked-extension" || validation.status === "too-large";
+                          const badge = getStatusBadge(validation.status);
+
+                          return (
+                            <div
+                              key={path}
+                              className={cn(
+                                "flex items-center gap-3 p-2.5 transition-colors",
+                                isBlocked ? "opacity-50" : "hover:bg-accent/50",
+                                isSelected && !isBlocked && "bg-accent/30"
+                              )}
+                            >
+                              <Checkbox
+                                checked={isSelected}
+                                onCheckedChange={() => !isBlocked && toggleFileSelection(path)}
+                                disabled={isBlocked}
+                                className="border-border data-[state=checked]:bg-indigo-500 data-[state=checked]:border-indigo-500"
+                              />
+
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs font-mono text-foreground truncate">{path}</p>
+                                <p className="text-[10px] text-muted-foreground">{formatFileSize(validation.size)}</p>
+                              </div>
+
+                              <div className={cn("px-2 py-0.5 rounded text-[10px] font-medium border", badge.className)}>
+                                {badge.text}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Summary */}
+                  <div className="p-3 rounded-lg bg-accent/50 border border-border">
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      <div className="flex items-center gap-2">
+                        <Check className="w-3 h-3 text-green-400" />
+                        <span className="text-muted-foreground">Selected:</span>
+                        <span className="font-semibold text-foreground">{uploadSummary.selected}/{uploadSummary.total}</span>
+                      </div>
+                      {uploadSummary.blocked > 0 && (
+                        <div className="flex items-center gap-2">
+                          <X className="w-3 h-3 text-red-400" />
+                          <span className="text-muted-foreground">Blocked:</span>
+                          <span className="font-semibold text-foreground">{uploadSummary.blocked}</span>
+                        </div>
+                      )}
+                      {uploadSummary.conflicts > 0 && (
+                        <div className="flex items-center gap-2">
+                          <AlertTriangle className="w-3 h-3 text-amber-400" />
+                          <span className="text-muted-foreground">Conflicts:</span>
+                          <span className="font-semibold text-foreground">{uploadSummary.conflicts}</span>
+                        </div>
+                      )}
+                      <div className="flex items-center gap-2">
+                        <Minus className="w-3 h-3 text-indigo-400" />
+                        <span className="text-muted-foreground">Size:</span>
+                        <span className="font-semibold text-foreground">{formatFileSize(uploadSummary.totalSize)}</span>
+                      </div>
+                    </div>
+                  </div>
+                </>
               )}
             </div>
 
@@ -816,10 +1102,10 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
               <Button variant="ghost" onClick={() => setShowUploadModal(false)} className="text-muted-foreground hover:text-foreground hover:bg-accent">Cancel</Button>
               <Button
                 onClick={handleUploadFiles}
-                disabled={isUploading || uploadFiles.length === 0 || (uploadMode === "merge" && uploadConflicts.length > 0)}
+                disabled={isUploading || selectedFiles.size === 0}
                 className="bg-white text-black hover:bg-white/90 rounded-full px-6 font-semibold"
               >
-                {isUploading ? "Uploading..." : "Upload"}
+                {isUploading ? `Uploading ${uploadProgress.current}/${uploadProgress.total}...` : `Upload ${selectedFiles.size} file${selectedFiles.size !== 1 ? 's' : ''}`}
               </Button>
             </DialogFooter>
           </DialogContent>
