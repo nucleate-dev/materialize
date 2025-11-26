@@ -59,7 +59,7 @@ interface ClaudeCodePanelProps {
     handler: (msg: ChatServerMessage) => void,
   ) => void;
   onUnregisterMessageHandler: (id: string) => void;
-  onNpmInstallComplete?: () => void;
+  onRestartDevServerComplete?: () => void;
 }
 
 export interface Message {
@@ -115,7 +115,7 @@ export default function ClaudeCodePanel({
   onDisconnect,
   onRegisterMessageHandler,
   onUnregisterMessageHandler,
-  onNpmInstallComplete,
+  onRestartDevServerComplete,
 }: ClaudeCodePanelProps) {
   const logger = useProductLogger();
 
@@ -152,7 +152,6 @@ export default function ClaudeCodePanel({
   const [isNearBottom, setIsNearBottom] = useState(true);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const [isCorruptedSession, setIsCorruptedSession] = useState(false);
-  const [hasNpmInstallInChain, setHasNpmInstallInChain] = useState(false);
 
   // Helper to check if current session is the most recent
   const isCurrentSessionMostRecent =
@@ -920,17 +919,10 @@ export default function ClaudeCodePanel({
             return msg;
           }),
         );
-        // Trigger refresh if npm_install was used in this query chain
-        if (hasNpmInstallInChain && onNpmInstallComplete) {
-          onNpmInstallComplete();
-        }
-        setHasNpmInstallInChain(false);
         break;
 
       case ChatEvent.INTERRUPTED:
         setIsProcessing(false);
-        // Reset npm_install tracking on interruption
-        setHasNpmInstallInChain(false);
         // Mark all todos as completed on interruption
         setCurrentTodos((prev) =>
           prev.map((todo) => ({ ...todo, status: "completed" as const })),
@@ -968,11 +960,6 @@ export default function ClaudeCodePanel({
         if (toolName) {
           const toolCallId = rawToolCallId || `tool-${Date.now()}`;
           const toolInput = (tool_input ?? {}) as ToolInput;
-
-          // Track if npm_install tool is used in this query chain
-          if (toolName.toLowerCase().includes("npm_install")) {
-            setHasNpmInstallInChain(true);
-          }
 
           // Special handling for TodoWrite - update todo list instead of adding tool message
           if (
@@ -1075,6 +1062,12 @@ export default function ClaudeCodePanel({
           } else {
             updateToolMessage(toolCallId, "success");
           }
+        }
+        if (
+          toolName.toLowerCase().includes("restartdevserver") &&
+          onRestartDevServerComplete
+        ) {
+          onRestartDevServerComplete();
         }
         break;
       }
