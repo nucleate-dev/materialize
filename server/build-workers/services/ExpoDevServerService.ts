@@ -13,8 +13,6 @@ import {
   BuildAndDeployResponse,
   BuildLogEntry,
   BuildResponse,
-  CodeError,
-  CodeWarning,
   DeployResponse,
   DevServerStartResponse,
   DevServerStatus,
@@ -157,13 +155,6 @@ export class ExpoDevServerService {
         success: false,
         status: DevServerStatus.ERROR,
         error: "prototype_id and framework are required",
-        build_errors: [
-          {
-            message: "prototype_id and framework are required",
-            type: "build",
-          },
-        ],
-        build_warnings: [],
       };
     }
     log2 = log2.child({
@@ -181,8 +172,6 @@ export class ExpoDevServerService {
           tunnelUrl: this.state.tunnelUrl || undefined,
           port: this.state.port || undefined,
           status: this.state.devServerStatus,
-          build_errors: [],
-          build_warnings: [],
         };
       } else {
         log2.warn("Dev server already running for different prototype", {
@@ -193,21 +182,11 @@ export class ExpoDevServerService {
           success: false,
           status: DevServerStatus.ERROR,
           error: `Dev server already running for different prototype: ${this.state.prototypeId}`,
-          build_errors: [
-            {
-              message: `Dev server already running for different prototype: ${this.state.prototypeId}`,
-              type: "build",
-            },
-          ],
-          build_warnings: [],
         };
       }
     }
 
     try {
-      const buildErrors: CodeError[] = [];
-      const buildWarnings: CodeWarning[] = [];
-
       // Fetch files and assets from Supabase using the centralized client service
       const supabase = this.supabaseClientService.getClient();
 
@@ -227,11 +206,6 @@ export class ExpoDevServerService {
           success: false,
           status: DevServerStatus.ERROR,
           error: errorMsg,
-          build_errors: fetchErrors.map((msg) => ({
-            message: msg,
-            type: "build",
-          })),
-          build_warnings: [],
         };
       }
 
@@ -264,10 +238,6 @@ export class ExpoDevServerService {
         log2.error(new Error(errorMessage), "Dependency installation failed", {
           stack: errorStack,
         });
-        buildErrors.push({
-          message: `Dependency installation failed: ${errorMessage}`,
-          type: "dependency",
-        });
       }
 
       // Initialize git repository (no-op if .git already exists)
@@ -289,7 +259,7 @@ export class ExpoDevServerService {
         log2.warn("Failed to initialize git repository", {
           error: errorMessage,
         });
-        // Don't add to buildErrors - git init failure shouldn't block dev server
+        // Git init failure shouldn't block dev server
       }
 
       this.state.prototypeId = prototype_id;
@@ -311,8 +281,6 @@ export class ExpoDevServerService {
           this.state.projectDir,
           this.state.port,
           log2,
-          buildErrors,
-          buildWarnings,
         );
       } catch (error: unknown) {
         const errorMessage =
@@ -323,10 +291,6 @@ export class ExpoDevServerService {
         });
         this.state.devServerStatus = DevServerStatus.ERROR;
         this.state.error = errorMessage;
-        buildErrors.push({
-          message: `Failed to start dev server: ${errorMessage}`,
-          type: "runtime",
-        });
       }
 
       // Clear operation state on success
@@ -334,15 +298,10 @@ export class ExpoDevServerService {
 
       // The tunnel URL should be set by now since startExpoProcess waits for it
       return {
-        success: buildErrors.length === 0,
+        success: this.state.devServerStatus !== DevServerStatus.ERROR,
         tunnelUrl: this.state.tunnelUrl || undefined,
         port: this.state.port,
-        status:
-          buildErrors.length > 0
-            ? DevServerStatus.ERROR
-            : this.state.devServerStatus,
-        build_errors: buildErrors,
-        build_warnings: buildWarnings,
+        status: this.state.devServerStatus,
       };
     } catch (error: unknown) {
       const errorMessage =
@@ -361,13 +320,6 @@ export class ExpoDevServerService {
         success: false,
         status: DevServerStatus.ERROR,
         error: errorMessage,
-        build_errors: [
-          {
-            message: `Internal server error: ${errorMessage}`,
-            type: "build",
-          },
-        ],
-        build_warnings: [],
       };
     }
   }
@@ -413,8 +365,6 @@ export class ExpoDevServerService {
     projectDir: string,
     port: number,
     log2: SystemLogger,
-    buildErrors: CodeError[] = [],
-    buildWarnings: CodeWarning[] = [],
   ): Promise<void> {
     log2.consoleLogDevOnly(
       "info",
@@ -444,9 +394,6 @@ export class ExpoDevServerService {
 
       const processOutput = (chunk: string): void => {
         const output = chunk.toString();
-
-        // Parse Metro/Expo output for rendering errors
-        this.parseMetroErrors(output, buildErrors, buildWarnings);
 
         // Look for tunnel URL with improved pattern matching
         const urlMatch = output.match(/(?:https?|exp):\/\/[^\s\)]+/g);
@@ -1156,13 +1103,9 @@ export class ExpoDevServerService {
     files: PrototypeFileInput[],
     assets: PrototypeAssetInputWithContent[],
     deletedFiles: string[] = [],
-    buildErrors: CodeError[] = [],
-    buildWarnings: CodeWarning[] = [],
   ): Promise<{
     success: boolean;
     tunnelUrl?: string;
-    build_errors: CodeError[];
-    build_warnings: CodeWarning[];
   }> {
     // Validate that we have an active dev server
     if (
@@ -1172,15 +1115,9 @@ export class ExpoDevServerService {
     ) {
       const errorMsg = "Cannot update files: No active dev server running";
       log2.error(new Error(errorMsg), "Cannot update files");
-      buildErrors.push({
-        message: errorMsg,
-        type: "build",
-      });
       return {
         success: false,
         tunnelUrl: this.state.tunnelUrl || undefined,
-        build_errors: buildErrors,
-        build_warnings: buildWarnings,
       };
     }
 
@@ -1214,22 +1151,15 @@ export class ExpoDevServerService {
       if (!stats.isDirectory()) {
         const errorMsg = `Project path exists but is not a directory: ${actualProjectDir}`;
         log2.error(new Error(errorMsg), "Project path validation failed");
-        buildErrors.push({
-          message: errorMsg,
-          type: "build",
-        });
         return {
           success: false,
           tunnelUrl: this.state.tunnelUrl || undefined,
-          build_errors: buildErrors,
-          build_warnings: buildWarnings,
         };
       }
     } catch (error: unknown) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
       // Project directory doesn't exist - this shouldn't happen in update mode
-      const errorMsg = `Project directory does not exist: ${actualProjectDir}. Cannot perform file update.`;
       log2.error(
         new Error(errorMessage),
         "Project directory missing during update",
@@ -1238,15 +1168,9 @@ export class ExpoDevServerService {
           prototypeId: this.state.prototypeId,
         },
       );
-      buildErrors.push({
-        message: errorMsg,
-        type: "build",
-      });
       return {
         success: false,
         tunnelUrl: this.state.tunnelUrl || undefined,
-        build_errors: buildErrors,
-        build_warnings: buildWarnings,
       };
     }
 
@@ -1292,11 +1216,6 @@ export class ExpoDevServerService {
               filePath,
               error: errorMessage,
             });
-            // Add warning but don't fail the entire operation
-            buildWarnings.push({
-              message: `Failed to delete file ${filePath}: ${errorMessage}`,
-              type: "build",
-            });
           }
         }
       }
@@ -1316,7 +1235,6 @@ export class ExpoDevServerService {
         "info",
         "Monitoring Metro output for compilation errors",
       );
-      await this.monitorMetroForErrors(log2, buildErrors, buildWarnings, 8000);
 
       // 5) If package.json changed, diff dependencies and conditionally reinstall/restart
       if (packageJsonUpdate && oldPackageJsonContent) {
@@ -1356,13 +1274,7 @@ export class ExpoDevServerService {
             const port = this.state.port || this.defaultPort;
             this.state.devServerStatus = DevServerStatus.STARTING;
             this.state.startTime = new Date();
-            await this.startExpoProcess(
-              actualProjectDir,
-              port,
-              log2,
-              buildErrors,
-              buildWarnings,
-            );
+            await this.startExpoProcess(actualProjectDir, port, log2);
             log2.consoleLogDevOnly(
               "info",
               "Dev server restarted successfully with new dependencies.",
@@ -1374,10 +1286,6 @@ export class ExpoDevServerService {
               new Error(errorMessage),
               "Dependency update or dev server restart failed for package.json change",
             );
-            buildErrors.push({
-              message: `Dependency update or restart failed: ${errorMessage}`,
-              type: "dependency",
-            });
           }
         } else {
           log2.consoleLogDevOnly(
@@ -1397,231 +1305,20 @@ export class ExpoDevServerService {
       return {
         success: true,
         tunnelUrl: this.state.tunnelUrl || undefined,
-        build_errors: buildErrors,
-        build_warnings: buildWarnings,
       };
     } catch (error: unknown) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
       const errorStack = error instanceof Error ? error.stack : undefined;
-      const errorMsg = `Failed to write files to project directory: ${errorMessage}`;
       log2.error(new Error(errorMessage), "File writing failed during update", {
         stack: errorStack,
-      });
-      buildErrors.push({
-        message: errorMsg,
-        type: "build",
       });
       // Clear operation state on error
       this.state.clearOperation();
       return {
         success: false,
         tunnelUrl: this.state.tunnelUrl || undefined,
-        build_errors: buildErrors,
-        build_warnings: buildWarnings,
       };
-    }
-  }
-
-  private async monitorMetroForErrors(
-    log2: SystemLogger,
-    buildErrors: CodeError[],
-    buildWarnings: CodeWarning[],
-    timeoutMs: number = 10000,
-  ): Promise<void> {
-    if (!this.state.process) {
-      log2.debug("No Metro process available for error monitoring");
-      return;
-    }
-
-    return new Promise((resolve) => {
-      const originalErrorCount = buildErrors.length;
-      const originalWarningCount = buildWarnings.length;
-      let resolved = false;
-
-      const timeout = setTimeout(() => {
-        if (!resolved) {
-          resolved = true;
-          const newErrors = buildErrors.length - originalErrorCount;
-          const newWarnings = buildWarnings.length - originalWarningCount;
-          log2.consoleLogDevOnly("info", "Metro error monitoring completed", {
-            newErrors,
-            newWarnings,
-          });
-          resolve();
-        }
-      }, timeoutMs);
-
-      // Create a temporary data handler to monitor for errors
-      const errorMonitor = (data: Buffer): void => {
-        const output = data.toString();
-        const beforeErrors = buildErrors.length;
-        this.parseMetroErrors(output, buildErrors, buildWarnings);
-
-        // If we found new errors, resolve early
-        if (buildErrors.length > beforeErrors && !resolved) {
-          resolved = true;
-          clearTimeout(timeout);
-          const newErrors = buildErrors.length - originalErrorCount;
-          const newWarnings = buildWarnings.length - originalWarningCount;
-          log2.warn("Metro errors detected early", {
-            newErrors,
-            newWarnings,
-          });
-          resolve();
-        }
-      };
-
-      // Add temporary listeners that will parse errors into our arrays
-      if (this.state.process) {
-        this.state.process.stdout?.on("data", errorMonitor);
-        this.state.process.stderr?.on("data", errorMonitor);
-      }
-
-      // Clean up the monitors after timeout or early resolution
-      const cleanup = (): void => {
-        if (this.state.process) {
-          this.state.process.stdout?.removeListener("data", errorMonitor);
-          this.state.process.stderr?.removeListener("data", errorMonitor);
-        }
-      };
-
-      setTimeout(() => {
-        cleanup();
-      }, timeoutMs);
-
-      // Also clean up immediately when promise resolves
-      setTimeout(() => {
-        if (resolved) {
-          cleanup();
-        }
-      }, 100);
-    });
-  }
-
-  private parseMetroErrors(
-    output: string,
-    buildErrors: CodeError[],
-    buildWarnings: CodeWarning[],
-  ): void {
-    if (!output || typeof output !== "string") {
-      return;
-    }
-    const lines = output.split("\n");
-
-    for (const line of lines) {
-      const trimmedLine = line.trim();
-
-      // Parse TypeScript compilation errors
-      if (
-        trimmedLine.includes("TS") &&
-        (trimmedLine.includes("error") || /TS\d{4}/.test(trimmedLine))
-      ) {
-        const tsErrorMatch = trimmedLine.match(
-          /(.+?)\((\d+),(\d+)\):\s*error\s+(TS\d+):\s*(.+)/,
-        );
-        if (tsErrorMatch) {
-          buildErrors.push({
-            message: `${tsErrorMatch[4]}: ${tsErrorMatch[5]}`,
-            file: tsErrorMatch[1],
-            line: parseInt(tsErrorMatch[2]),
-            column: parseInt(tsErrorMatch[3]),
-            type: "syntax",
-          });
-        } else {
-          buildErrors.push({
-            message: trimmedLine,
-            type: "syntax",
-          });
-        }
-      }
-
-      // Parse JavaScript syntax errors
-      else if (
-        trimmedLine.includes("SyntaxError") ||
-        trimmedLine.includes("Unexpected token")
-      ) {
-        buildErrors.push({
-          message: trimmedLine,
-          type: "syntax",
-        });
-      }
-
-      // Parse Metro compilation errors (format: "ERROR Error: /path/file.tsx: Unexpected token...")
-      else if (
-        trimmedLine.includes("error") ||
-        (trimmedLine.includes("ERROR") &&
-          trimmedLine.includes("Unexpected token"))
-      ) {
-        buildErrors.push({
-          message: trimmedLine
-            .replace(/^.*ERROR\s+Error:\s*/, "")
-            .replace(/^.*ERROR\s+/, ""),
-          type: "syntax",
-        });
-      }
-
-      // Parse Metro bundler errors
-      else if (
-        trimmedLine.includes("Metro") &&
-        (trimmedLine.includes("error") || trimmedLine.includes("Error"))
-      ) {
-        buildErrors.push({
-          message: trimmedLine.replace(/^.*Metro.*?Error:\s*/, ""),
-          type: "build",
-        });
-      }
-
-      // Parse module resolution errors
-      else if (
-        trimmedLine.includes("Unable to resolve module") ||
-        trimmedLine.includes("Module not found")
-      ) {
-        buildErrors.push({
-          message: trimmedLine,
-          type: "build",
-        });
-      }
-
-      // Parse React errors
-      else if (
-        trimmedLine.includes("React") &&
-        (trimmedLine.includes("Error") || trimmedLine.includes("Warning"))
-      ) {
-        if (trimmedLine.includes("Warning")) {
-          buildWarnings.push({
-            message: trimmedLine,
-            type: "build",
-          });
-        } else {
-          buildErrors.push({
-            message: trimmedLine,
-            type: "runtime",
-          });
-        }
-      }
-
-      // Parse general compilation failures
-      else if (
-        trimmedLine.includes("Failed to compile") ||
-        trimmedLine.includes("Compilation failed")
-      ) {
-        buildErrors.push({
-          message: trimmedLine,
-          type: "build",
-        });
-      }
-
-      // Parse warnings
-      else if (
-        trimmedLine.includes("warning") &&
-        !trimmedLine.includes("error")
-      ) {
-        buildWarnings.push({
-          message: trimmedLine,
-          type: "build",
-        });
-      }
     }
   }
 

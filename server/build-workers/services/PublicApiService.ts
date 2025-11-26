@@ -4,8 +4,6 @@ import { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import fs from "fs/promises";
 import path from "path";
 import {
-  CodeError,
-  CodeWarning,
   DevServerStatus,
   OperationStatus,
   PrototypeAssetInputWithContent,
@@ -268,13 +266,6 @@ export class PublicApiService {
       reply.code(400);
       return {
         status: "error",
-        build_errors: [
-          {
-            message: "prototype_id and framework are required",
-            type: "build",
-          },
-        ],
-        build_warnings: [],
       };
     }
 
@@ -294,8 +285,6 @@ export class PublicApiService {
       return {
         status: startResponse.success ? "success" : "error",
         tunnel_url: startResponse.tunnelUrl,
-        build_errors: startResponse.build_errors || [],
-        build_warnings: startResponse.build_warnings || [],
       };
     } catch (error: unknown) {
       const errorMessage =
@@ -309,13 +298,6 @@ export class PublicApiService {
       reply.code(500);
       return {
         status: "error",
-        build_errors: [
-          {
-            message: `Internal server error: ${errorMessage}`,
-            type: "build",
-          },
-        ],
-        build_warnings: [],
       };
     }
   }
@@ -335,8 +317,6 @@ export class PublicApiService {
       return {
         status: startResponse.success ? "success" : "error",
         tunnel_url: startResponse.tunnelUrl,
-        build_errors: startResponse.build_errors || [],
-        build_warnings: startResponse.build_warnings || [],
       };
     } catch (error: unknown) {
       const errorMessage =
@@ -350,13 +330,6 @@ export class PublicApiService {
       reply.code(500);
       return {
         status: "error",
-        build_errors: [
-          {
-            message: `Internal server error: ${errorMessage}`,
-            type: "build",
-          },
-        ],
-        build_warnings: [],
       };
     }
   }
@@ -371,13 +344,6 @@ export class PublicApiService {
       reply.code(400);
       return {
         status: "error",
-        build_errors: [
-          {
-            message: "prototype_id and framework are required",
-            type: "build",
-          },
-        ],
-        build_warnings: [],
       };
     }
 
@@ -399,8 +365,6 @@ export class PublicApiService {
         return {
           status: startResponse.success ? "success" : "error",
           tunnel_url: startResponse.tunnelUrl,
-          build_errors: startResponse.build_errors || [],
-          build_warnings: startResponse.build_warnings || [],
         };
       } else if (request.body.file_scope === "updates") {
         const startResponse =
@@ -413,21 +377,12 @@ export class PublicApiService {
         return {
           status: startResponse.success ? "success" : "error",
           tunnel_url: startResponse.tunnelUrl,
-          build_errors: startResponse.build_errors || [],
-          build_warnings: startResponse.build_warnings || [],
         };
       }
       // Invalid file scope
       reply.code(400);
       return {
         status: "error",
-        build_errors: [
-          {
-            message: "Invalid file scope",
-            type: "build",
-          },
-        ],
-        build_warnings: [],
       };
     } catch (error: unknown) {
       const errorMessage =
@@ -441,13 +396,6 @@ export class PublicApiService {
       reply.code(500);
       return {
         status: "error",
-        build_errors: [
-          {
-            message: `Internal server error: ${errorMessage}`,
-            type: "build",
-          },
-        ],
-        build_warnings: [],
       };
     }
   }
@@ -475,8 +423,6 @@ export class PublicApiService {
     if (devServerState.devServerStatus === DevServerStatus.STOPPED) {
       return {
         status: "success",
-        build_errors: [],
-        build_warnings: [],
         server_operation_status: devServerState.currentOperation,
         server_status: devServerState.devServerStatus,
         prototypeId: devServerState.prototypeId,
@@ -493,8 +439,6 @@ export class PublicApiService {
     ) {
       return {
         status: "error",
-        build_errors: [],
-        build_warnings: [],
         server_operation_status: devServerState.currentOperation,
         server_status: devServerState.devServerStatus,
         prototypeId: devServerState.prototypeId,
@@ -518,8 +462,6 @@ export class PublicApiService {
       if (this.expoDevServerService.getState().isOperationInProgress()) {
         return {
           status: "error",
-          build_errors: [],
-          build_warnings: [],
           server_operation_status:
             this.expoDevServerService.getState().currentOperation,
           server_status: this.expoDevServerService.getState().devServerStatus,
@@ -538,8 +480,6 @@ export class PublicApiService {
       // Return error response because the server cannot be killed yet.
       return {
         status: "error",
-        build_errors: [],
-        build_warnings: [],
         // Get new operation statuses (should now be BUILDING_AND_DEPLOYING)
         server_operation_status:
           this.expoDevServerService.getState().currentOperation,
@@ -557,13 +497,6 @@ export class PublicApiService {
       reply.code(500);
       return {
         status: "error",
-        build_errors: [
-          {
-            message: `Internal server error: ${errorMessage}`,
-            type: "build",
-          },
-        ],
-        build_warnings: [],
         server_operation_status: devServerState.currentOperation,
         server_status: this.expoDevServerService.getState().devServerStatus,
       };
@@ -595,20 +528,11 @@ export class PublicApiService {
       reply.code(400);
       return {
         status: "error",
-        build_errors: [
-          {
-            message: "prototype_id and framework are required",
-            type: "build",
-          },
-        ],
-        build_warnings: [],
         version: undefined,
       };
     }
 
     try {
-      const buildErrors: CodeError[] = [];
-      const buildWarnings: CodeWarning[] = [];
       let version: string | undefined;
 
       // Check if project directory exists and read files from disk (fixed path)
@@ -626,14 +550,6 @@ export class PublicApiService {
         );
         return reply.code(404).send({
           status: "error",
-          build_errors: [
-            {
-              message:
-                "Project not found. Please start dev server first to create project files.",
-              type: "build",
-            },
-          ],
-          build_warnings: [],
           version: undefined,
         });
       }
@@ -649,13 +565,6 @@ export class PublicApiService {
         );
         return reply.code(400).send({
           status: "error",
-          build_errors: [
-            {
-              message: "No files found in project directory",
-              type: "build",
-            },
-          ],
-          build_warnings: [],
           version: undefined,
         });
       }
@@ -673,34 +582,12 @@ export class PublicApiService {
         if (buildResponse.success && buildResponse.buildUrl) {
           buildUrl = buildResponse.buildUrl;
           version = buildResponse.version;
-
-          // Parse build log for errors and warnings
-          if (buildResponse.buildLog) {
-            this.parseBuildLogForErrors(
-              buildResponse.buildLog,
-              buildErrors,
-              buildWarnings,
-            );
-          }
         } else if (buildResponse.error) {
           request.log2.error(
             new Error(buildResponse.error),
             "Build and deploy failed",
             { buildLog: buildResponse.buildLog },
           );
-          buildErrors.push({
-            message: `Build and deploy failed: ${buildResponse.error}`,
-            type: "build",
-          });
-
-          // Parse build log for additional context
-          if (buildResponse.buildLog) {
-            this.parseBuildLogForErrors(
-              buildResponse.buildLog,
-              buildErrors,
-              buildWarnings,
-            );
-          }
         }
       } catch (error: unknown) {
         const errorMessage =
@@ -711,17 +598,11 @@ export class PublicApiService {
           "Build and deploy process failed",
           { stack: errorStack },
         );
-        buildErrors.push({
-          message: `Build and deploy process failed: ${errorMessage}`,
-          type: "build",
-        });
       }
 
       return {
-        status: buildErrors.length > 0 ? "error" : "success",
+        status: buildUrl ? "success" : "error",
         build_url: buildUrl,
-        build_errors: buildErrors,
-        build_warnings: buildWarnings,
         version: version,
       };
     } catch (error: unknown) {
@@ -736,13 +617,6 @@ export class PublicApiService {
       reply.code(500);
       return {
         status: "error",
-        build_errors: [
-          {
-            message: `Internal server error: ${errorMessage}`,
-            type: "build",
-          },
-        ],
-        build_warnings: [],
         version: undefined,
       };
     }
@@ -751,8 +625,6 @@ export class PublicApiService {
   // Start background build and deploy process
   private async startBackgroundBuildAndDeploy(): Promise<void> {
     try {
-      const buildErrors: CodeError[] = [];
-      const buildWarnings: CodeWarning[] = [];
       const projectDir = this.workDir;
       try {
         // Read all files from the project directory
@@ -764,10 +636,6 @@ export class PublicApiService {
             "No files found in project directory",
             { projectDir },
           );
-          buildErrors.push({
-            message: "No files found in project directory",
-            type: "build",
-          });
         } else {
           const activePrototypeId =
             this.expoDevServerService.getState().prototypeId;
@@ -780,10 +648,6 @@ export class PublicApiService {
               "Background build failed",
               { projectDir },
             );
-            buildErrors.push({
-              message: errorMessage,
-              type: "build",
-            });
           } else {
             // Use ExpoDevServerService to build and deploy
             const buildResponse =
@@ -792,34 +656,12 @@ export class PublicApiService {
                 activePrototypeId,
               );
 
-            if (buildResponse.success && buildResponse.buildUrl) {
-              // Parse build log for errors and warnings
-              if (buildResponse.buildLog) {
-                this.parseBuildLogForErrors(
-                  buildResponse.buildLog,
-                  buildErrors,
-                  buildWarnings,
-                );
-              }
-            } else if (buildResponse.error) {
+            if (buildResponse.error) {
               baseLogger.error(
                 new Error(buildResponse.error),
                 "Background build failed",
                 { buildLog: buildResponse.buildLog },
               );
-              buildErrors.push({
-                message: `Build failed: ${buildResponse.error}`,
-                type: "build",
-              });
-
-              // Parse build log for additional context
-              if (buildResponse.buildLog) {
-                this.parseBuildLogForErrors(
-                  buildResponse.buildLog,
-                  buildErrors,
-                  buildWarnings,
-                );
-              }
             }
           }
         }
@@ -832,10 +674,6 @@ export class PublicApiService {
           "Background build process failed",
           { stack: errorStack },
         );
-        buildErrors.push({
-          message: `Build process failed: ${errorMessage}`,
-          type: "build",
-        });
       }
 
       // Always stop the dev server after build completes (success or failure)
@@ -966,53 +804,6 @@ export class PublicApiService {
     };
   }
 
-  private parseBuildLogForErrors(
-    buildLog: Array<{
-      step: string;
-      success: boolean;
-      timestamp: string;
-      output: string;
-      error: string;
-    }>,
-    buildErrors: CodeError[],
-    buildWarnings: CodeWarning[],
-  ): void {
-    for (const entry of buildLog) {
-      if (!entry.success && entry.error) {
-        // Try to parse TypeScript/JavaScript errors
-        const errorMatch = entry.error.match(
-          /(.+\.tsx?):(\d+):(\d+)\s*-\s*error\s*TS(\d+):\s*(.+)/,
-        );
-        if (errorMatch) {
-          buildErrors.push({
-            message: errorMatch[5],
-            file: errorMatch[1],
-            line: parseInt(errorMatch[2]),
-            column: parseInt(errorMatch[3]),
-            type: "syntax",
-          });
-        } else {
-          buildErrors.push({
-            message: entry.error,
-            type: "build",
-          });
-        }
-      }
-
-      // Parse warnings from output
-      if (entry.output && entry.output.includes("warning")) {
-        const lines = entry.output.split("\n");
-        for (const line of lines) {
-          if (line.toLowerCase().includes("warning")) {
-            buildWarnings.push({
-              message: line.trim(),
-              type: "build",
-            });
-          }
-        }
-      }
-    }
-  }
 
   private detectBinaryFile(_filePath: string, fileName: string): boolean {
     // Define common binary file extensions

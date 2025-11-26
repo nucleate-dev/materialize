@@ -5,7 +5,7 @@
 // To update these types, modify the source file and run:
 // npm run build (in the control-plane directory)
 //
-// Last synced: 2025-11-23T18:56:13.093Z
+// Last synced: 2025-11-26T02:47:56.346Z
 
 // Public API types for the Control Plane Server
 // These types define the request and response schemas for all public endpoints
@@ -53,22 +53,6 @@ export type PrototypeAssetInputWithContent = PrototypeAssetInput & {
   contents: string; // base64 encoded string
 };
 
-export interface CodeError {
-  message: string;
-  file?: string;
-  line?: number;
-  column?: number;
-  type: 'build' | 'runtime' | 'dependency' | 'syntax';
-}
-
-export interface CodeWarning {
-  message: string;
-  file?: string;
-  line?: number;
-  column?: number;
-  type: 'build' | 'deprecation' | 'performance' | 'unused';
-}
-
 export type BuildStatus =
   | 'creating'
   | 'chatting'
@@ -114,8 +98,6 @@ export interface DispatchRequestBody {
 
 export interface DispatchSuccessResponse {
   viewing_url: string;
-  build_errors: CodeError[];
-  build_warnings: CodeWarning[];
   terminal_url: string | null;
 }
 
@@ -269,16 +251,12 @@ export interface UpdateFilesSuccessResponse {
   success: true;
   status: 'success' | 'error';
   viewing_url: string;
-  build_errors: CodeError[];
-  build_warnings: CodeWarning[];
   message: string;
 }
 
 export interface UpdateFilesErrorResponse {
   error: string;
   message: string;
-  build_errors?: CodeError[];
-  build_warnings?: CodeWarning[];
 }
 
 // ============================================================================
