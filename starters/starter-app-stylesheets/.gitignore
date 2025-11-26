@@ -37,3 +37,6 @@ yarn-error.*
 # typescript
 *.tsbuildinfo
 .claude
+
+.npm-cache/
+.npm-cache
