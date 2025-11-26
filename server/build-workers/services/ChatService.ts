@@ -19,7 +19,7 @@ import {
   notifyOrchestrationStartChat,
 } from "../utils/chat-orchestration-notifiers.js";
 import { ChatQueryHandler } from "./chat/chat-query-handler.js";
-import { processImage } from "./chat/imageProcessing.js";
+import { processImage } from "./chat/image-processing.js";
 import { ToolPermissionService } from "./chat/tool-permission-service.js";
 import { ExpoDevServerService } from "./dev-server/ExpoDevServerService.js";
 import { FileSyncService } from "./FileSyncService.js";
