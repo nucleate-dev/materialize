@@ -37,7 +37,7 @@ import { Database } from '../../../types/supabase.js';
 import { createClient } from '@supabase/supabase-js';
 import axios from 'axios';
 import {
-  APIResponse as BuildWorkerAPIResponse,
+  SandboxAPIResponse,
   PublicAllocateSuccessResponse,
   PublicDevServerStartSuccessResponse,
   PublicStartDevServerRequest,
@@ -95,7 +95,7 @@ export async function handleDispatchImpl(
     if (file_scope === 'complete') {
       try {
         const allocateResponse = await axios.post<
-          BuildWorkerAPIResponse<
+          SandboxAPIResponse<
             PublicAllocateSuccessResponse,
             BuildWorkerStandardErrorResponse
           >
@@ -468,7 +468,7 @@ async function dispatchRequestToFargateInstanceServer({
   log2: SystemLogger;
   fargate_private_ip: string;
 }): Promise<
-  BuildWorkerAPIResponse<
+  SandboxAPIResponse<
     PublicDevServerStartSuccessResponse,
     BuildWorkerStandardErrorResponse
   >
@@ -499,7 +499,7 @@ async function dispatchRequestToFargateInstanceServer({
   const fargateResponse = await log2.time(
     LatencyEvents.dispatch_request_to_fargate_server_latency,
     async (): Promise<
-      BuildWorkerAPIResponse<
+      SandboxAPIResponse<
         PublicDevServerStartSuccessResponse,
         BuildWorkerStandardErrorResponse
       >
@@ -603,7 +603,7 @@ async function dispatchFormedRequestToFargateInstanceServer(
   requestBody: PublicStartDevServerRequest | PublicUpdateFilesRequest,
   log2: SystemLogger,
 ): Promise<
-  BuildWorkerAPIResponse<
+  SandboxAPIResponse<
     PublicDevServerStartSuccessResponse,
     BuildWorkerStandardErrorResponse
   >
@@ -614,7 +614,7 @@ async function dispatchFormedRequestToFargateInstanceServer(
     const endpoint = isStartDevServer ? '/start-dev-server' : '/update-files';
 
     const response = await axios.post<
-      BuildWorkerAPIResponse<
+      SandboxAPIResponse<
         PublicDevServerStartSuccessResponse,
         BuildWorkerStandardErrorResponse
       >

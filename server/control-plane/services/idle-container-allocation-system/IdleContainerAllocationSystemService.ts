@@ -11,7 +11,7 @@ import axios from 'axios';
 import { randomBytes } from 'crypto';
 import type { SystemLogger } from '../../loggers/SystemLogger.js'; // adjust your path
 import {
-  APIResponse as BuildWorkerAPIResponse,
+  SandboxAPIResponse,
   PublicAllocateRequest,
   PublicAllocateSuccessResponse,
   StandardErrorResponse as BuildWorkerStandardErrorResponse,
@@ -671,16 +671,17 @@ export class IdleContainerAllocationSystemService {
 
     // Send creds to worker
     try {
-      const allocationResponse = await axios.post<BuildWorkerAPIResponse<PublicAllocateSuccessResponse, BuildWorkerStandardErrorResponse>>(
-        `http://${info.privateIp}:3002/allocate`,
-        creds,
-        {
-          headers: {
-            'content-type': 'application/json',
-            Authorization: `Bearer ${jwt}`,
-          },
+      const allocationResponse = await axios.post<
+        SandboxAPIResponse<
+          PublicAllocateSuccessResponse,
+          BuildWorkerStandardErrorResponse
+        >
+      >(`http://${info.privateIp}:3002/allocate`, creds, {
+        headers: {
+          'content-type': 'application/json',
+          Authorization: `Bearer ${jwt}`,
         },
-      );
+      });
       if (allocationResponse.data.error) {
         this.log2.error(
           new Error(allocationResponse.data.error.error),

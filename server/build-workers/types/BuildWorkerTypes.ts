@@ -9,7 +9,7 @@ import { Database } from "./supabase.js";
  * Either data is present (with error as null) or error is present (with data as null)
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export type APIResponse<TData = any, TError = any> =
+export type SandboxAPIResponse<TData = any, TError = any> =
   | { data: TData; error: null }
   | { data: null; error: TError };
 

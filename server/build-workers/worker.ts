@@ -10,7 +10,7 @@ import { CloudflareTunnelManagementService } from "./services/CloudflareTunnelMa
 import { PublicApiService } from "./services/PublicApiService.js";
 import { SandboxService } from "./services/SandboxService.js";
 import { TerminalService } from "./services/TerminalService.js";
-import { CodeService } from "./services/CodeService.js";
+import { CodeService } from "./services/chat/CodeService.js";
 import { SupabaseClientService } from "./services/SupabaseClientService.js";
 
 // Load environment variables

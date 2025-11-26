@@ -4,7 +4,7 @@ import { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import fs from "fs/promises";
 import path from "path";
 import {
-  APIResponse,
+  SandboxAPIResponse,
   DevServerStatus,
   OperationStatus,
   PrototypeAssetInputWithContent,
@@ -25,7 +25,7 @@ import { PrototypeFileInput } from "../utils/shared-utils.js";
 import { baseLogger } from "../worker.js";
 import { SystemLogger } from "../loggers/SystemLogger.js";
 import { CloudflareTunnelManagementService } from "./CloudflareTunnelManagementService.js";
-import { CodeService } from "./CodeService.js";
+import { CodeService } from "./chat/CodeService.js";
 import { ExpoDevServerService } from "./ExpoDevServerService.js";
 import { SandboxService } from "./SandboxService.js";
 import { SupabaseClientService } from "./SupabaseClientService.js";
@@ -94,7 +94,7 @@ export class PublicApiService {
     request: FastifyRequest<{ Body: PublicAllocateRequest }>,
     reply: FastifyReply,
   ): Promise<
-    APIResponse<PublicAllocateSuccessResponse, StandardErrorResponse>
+    SandboxAPIResponse<PublicAllocateSuccessResponse, StandardErrorResponse>
   > {
     const {
       accessKeyId,
@@ -290,7 +290,10 @@ export class PublicApiService {
     request: FastifyRequest<{ Body: PublicStartDevServerRequest }>,
     reply: FastifyReply,
   ): Promise<
-    APIResponse<PublicDevServerStartSuccessResponse, StandardErrorResponse>
+    SandboxAPIResponse<
+      PublicDevServerStartSuccessResponse,
+      StandardErrorResponse
+    >
   > {
     const { prototype_id, framework } = request.body;
 
@@ -356,7 +359,10 @@ export class PublicApiService {
     request: FastifyRequest<{ Body: PublicUpdateFilesRequest }>,
     reply: FastifyReply,
   ): Promise<
-    APIResponse<PublicDevServerStartSuccessResponse, StandardErrorResponse>
+    SandboxAPIResponse<
+      PublicDevServerStartSuccessResponse,
+      StandardErrorResponse
+    >
   > {
     try {
       const startResponse =
@@ -409,7 +415,10 @@ export class PublicApiService {
     request: FastifyRequest<{ Body: PublicDevServerStartRequest }>,
     reply: FastifyReply,
   ): Promise<
-    APIResponse<PublicDevServerStartSuccessResponse, StandardErrorResponse>
+    SandboxAPIResponse<
+      PublicDevServerStartSuccessResponse,
+      StandardErrorResponse
+    >
   > {
     const { prototype_id, framework } = request.body;
 
@@ -514,7 +523,10 @@ export class PublicApiService {
     request: FastifyRequest,
     reply: FastifyReply,
   ): Promise<
-    APIResponse<PublicDevServerRestartSuccessResponse, StandardErrorResponse>
+    SandboxAPIResponse<
+      PublicDevServerRestartSuccessResponse,
+      StandardErrorResponse
+    >
   > {
     try {
       await this.expoDevServerService.restartDevServer(request.log2);
@@ -556,7 +568,10 @@ export class PublicApiService {
     request: FastifyRequest<{ Body: PublicDevServerStopRequest }>,
     reply: FastifyReply,
   ): Promise<
-    APIResponse<PublicDevServerStopSuccessResponse, StandardErrorResponse>
+    SandboxAPIResponse<
+      PublicDevServerStopSuccessResponse,
+      StandardErrorResponse
+    >
   > {
     const devServerState = this.expoDevServerService.getState();
     if (devServerState.devServerStatus === DevServerStatus.STOPPED) {
@@ -670,7 +685,10 @@ export class PublicApiService {
     request: FastifyRequest<{ Body: PublicBuildAndDeployRequest }>,
     reply: FastifyReply,
   ): Promise<
-    APIResponse<PublicBuildAndDeploySuccessResponse, StandardErrorResponse>
+    SandboxAPIResponse<
+      PublicBuildAndDeploySuccessResponse,
+      StandardErrorResponse
+    >
   > {
     const { prototype_id, framework } = request.body;
 

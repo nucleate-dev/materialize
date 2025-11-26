@@ -17,7 +17,7 @@ import { isEditableDevServer } from '../../../utils/prototypeDevServerStatusUtil
 import { SystemLogger } from '../../../loggers/SystemLogger.js';
 import axios from 'axios';
 import {
-  APIResponse as BuildWorkerAPIResponse,
+  SandboxAPIResponse,
   PublicDevServerRestartSuccessResponse,
   StandardErrorResponse as BuildWorkerStandardErrorResponse,
 } from '../../../types/BuildWorkerTypes.js';
@@ -192,7 +192,12 @@ async function callFargateRestart(
   log2: SystemLogger,
 ): Promise<{ success: boolean; message?: string }> {
   try {
-    const response = await axios.post<BuildWorkerAPIResponse<PublicDevServerRestartSuccessResponse, BuildWorkerStandardErrorResponse>>(
+    const response = await axios.post<
+      SandboxAPIResponse<
+        PublicDevServerRestartSuccessResponse,
+        BuildWorkerStandardErrorResponse
+      >
+    >(
       `http://${fargatePrivateIp}:3002/dev-server/restart`,
       {},
       {

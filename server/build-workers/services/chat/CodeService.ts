@@ -16,7 +16,7 @@ import chokidar, { FSWatcher } from "chokidar";
 import { FastifyInstance, FastifyRequest } from "fastify";
 import path from "path";
 import WebSocket from "ws";
-import { SystemLogger } from "../loggers/SystemLogger.js";
+import { SystemLogger } from "../../loggers/SystemLogger.js";
 import {
   ChatClientEvent,
   ChatClientMessage,
@@ -25,19 +25,19 @@ import {
   ChatServerMessage,
   ChatSystemEventSubtype,
   HistoryResponseData,
-} from "../types/ChatTypes.js";
-import { getSystemPromptForDesignStyle } from "../utils/ClaudeCodePrompts.js";
-import { processImage } from "../utils/imageProcessing.js";
-import { ExpoDevServerService } from "./ExpoDevServerService.js";
-import { FileSyncService } from "./FileSyncService.js";
-import { createDevelopmentToolsMcpServer } from "./mcp-tools.js";
-import { SandboxService } from "./SandboxService.js";
-import { SupabaseClientService } from "./SupabaseClientService.js";
-import { TerminalService } from "./TerminalService.js";
-import { hasRemainingCredits } from "./utils/credit-checks.js";
-import { getToolDisplayName } from "./utils/message-handlers.js";
-import { ToolPermissionService } from "./utils/tool-permission-service.js";
-import { trackApiUsageBuildWorker } from "./utils/usage-tracking.js";
+} from "../../types/ChatTypes.js";
+import { getSystemPromptForDesignStyle } from "../../utils/ClaudeCodePrompts.js";
+import { processImage } from "../../utils/imageProcessing.js";
+import { ExpoDevServerService } from "../ExpoDevServerService.js";
+import { FileSyncService } from "../FileSyncService.js";
+import { createDevelopmentToolsMcpServer } from "../mcp-tools.js";
+import { SandboxService } from "../SandboxService.js";
+import { SupabaseClientService } from "../SupabaseClientService.js";
+import { TerminalService } from "../TerminalService.js";
+import { hasRemainingCredits } from "./credit-checks.js";
+import { getToolDisplayName } from "./message-handlers.js";
+import { ToolPermissionService } from "./tool-permission-service.js";
+import { trackApiUsageBuildWorker } from "./usage-tracking.js";
 /**
  * FILE SYNC STRATEGY
  *

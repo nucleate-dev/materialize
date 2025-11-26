@@ -7,7 +7,7 @@ import { CONFIG } from '../config.js';
 import { cryptoRandomId, SystemLogger } from '../loggers/SystemLogger.js';
 import { baseLogger } from '../server.js';
 import {
-  APIResponse as BuildWorkerAPIResponse,
+  SandboxAPIResponse,
   PublicDevServerStopSuccessResponse,
   StandardErrorResponse as BuildWorkerStandardErrorResponse,
 } from '../types/BuildWorkerTypes.js';
@@ -372,17 +372,19 @@ export class CleanupService {
     fargatePrivateIp: string,
   ): Promise<CleanupOperationResult> {
     try {
-      const response = await axios.delete<BuildWorkerAPIResponse<PublicDevServerStopSuccessResponse, BuildWorkerStandardErrorResponse>>(
-        `http://${fargatePrivateIp}:3002/dev-server`,
-        {
-          data: { prototype_id: prototypeId },
-          timeout: 300000, // 5 minutes timeout to allow build completion
-          headers: {
-            'Content-Type': 'application/json',
-            'x-trace-id': this.log2.getTraceId(),
-          },
+      const response = await axios.delete<
+        SandboxAPIResponse<
+          PublicDevServerStopSuccessResponse,
+          BuildWorkerStandardErrorResponse
+        >
+      >(`http://${fargatePrivateIp}:3002/dev-server`, {
+        data: { prototype_id: prototypeId },
+        timeout: 300000, // 5 minutes timeout to allow build completion
+        headers: {
+          'Content-Type': 'application/json',
+          'x-trace-id': this.log2.getTraceId(),
         },
-      );
+      });
 
       // Parse the actual response body to understand what happened
       const responseData = response.data;
