@@ -202,28 +202,26 @@ export class IdleCloudflareTunnelSystem {
     if (error) {
       // Check if this is the "no idle tunnel" error
       if (error.message?.includes('NO_IDLE_TUNNEL')) {
-        this.log2.error(
+        this.log2.warn(
           'No idle tunnels found, falling back to direct launch, which is not yet implemented',
         );
-        throw new Error(
-          'Direct launch of cloudflare tunnels is not implemented or supported yet',
+        return await this.launchTunnelForAllocationDirectly();
+      } else {
+        // Some other error occurred
+        this.log2.error(
+          error,
+          '[retrieveIdleTunnelForAllocation] Failed to allocate idle tunnel in supabase rpc function',
         );
+        throw error;
       }
-      // Some other error occurred
-      this.log2.error(
-        error,
-        '[retrieveIdleTunnelForAllocation] Failed to allocate idle tunnel in supabase rpc function',
-      );
-      throw error;
     }
 
     // The RPC function returns a single cloudflare_tunnels record
     if (!data) {
-      this.log2.error(
-        new Error('RPC returned no data'),
+      this.log2.warn(
         '[retrieveIdleTunnelForAllocation] Unexpected null response from allocate_idle_tunnel in supabase rpc function and direct launch is not supported yet',
       );
-      throw new Error('Failed to allocate idle tunnel: no data returned');
+      return await this.launchTunnelForAllocationDirectly();
     }
 
     // Launch a new idle tunnel in the background to replenish the pool
@@ -233,4 +231,54 @@ export class IdleCloudflareTunnelSystem {
 
     return data;
   }
+
+  public async launchTunnelForAllocationDirectly(): Promise<CloudflareTunnel> {
+    // This function is used to launch a new tunnel and hostname directly without using the idle pool
+    // This is used when there are no idle tunnels available
+    // This is a fallback mechanism to ensure that we always have a tunnel available for allocation
+    // This is not yet implemented
+    throw new Error(
+      'Direct launch of cloudflare tunnels is not implemented or supported yet',
+    );
+  }
+
+  // --------- FOR REFERENCE: Supabase RPC function --------------------------------------------------------------
+  //   create or replace function public.allocate_idle_tunnel(p_prototype_id text)
+  // returns public.cloudflare_tunnels
+  // language plpgsql
+  // security definer
+  // set search_path = public
+  // as $$
+  // declare
+  //   t public.cloudflare_tunnels;
+  // begin
+  //   -- If you support reclaiming stale leases, you can do it here first.
+
+  //   update public.cloudflare_tunnels c
+  //      set status = 'allocated',
+  //          prototype_id = p_prototype_id,
+  //          updated_at = now()
+  //    where c.id = (
+  //      select id
+  //        from public.cloudflare_tunnels
+  //       where status = 'idle'
+  //       order by created_at asc
+  //       for update skip locked
+  //       limit 1
+  //    )
+  //   returning c.* into t;
+
+  //   if not found then
+  //     raise exception 'NO_IDLE_TUNNEL';
+  //   end if;
+
+  //   return t;
+  // end;
+  // $$;
+
+  // comment on function public.allocate_idle_tunnel(text)
+  //   is 'Atomically allocate the oldest idle Cloudflare tunnel using SKIP LOCKED to avoid races.';
+
+  // revoke all on function public.allocate_idle_tunnel(text) from public;
+  // grant execute on function public.allocate_idle_tunnel(text) to service_role;
 }
