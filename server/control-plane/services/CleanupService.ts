@@ -379,7 +379,7 @@ export class CleanupService {
         >
       >(`http://${fargatePrivateIp}:3002/dev-server`, {
         data: { prototype_id: prototypeId },
-        timeout: 300000, // 5 minutes timeout to allow build completion
+        timeout: 3000, // 3 second timeout -- we require an immediate response from the worker
         headers: {
           'Content-Type': 'application/json',
           'x-trace-id': this.log2.getTraceId(),
