@@ -45,7 +45,7 @@ export default function CleanupServicePage() {
       setSuccess(result.message);
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : "Failed to take screenshot"
+        err instanceof Error ? err.message : "Failed to take screenshot",
       );
     } finally {
       setLoading(false);
@@ -81,54 +81,6 @@ export default function CleanupServicePage() {
             <AlertDescription>{success}</AlertDescription>
           </Alert>
         )}
-
-        {/* Service Overview */}
-        <div className="grid gap-4 md:grid-cols-3">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
-                Service Status
-              </CardTitle>
-              <Trash2 className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">Active</div>
-              <p className="text-xs text-muted-foreground">
-                Cleanup service is running
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
-                Cleanup Interval
-              </CardTitle>
-              <Trash2 className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">5 min</div>
-              <p className="text-xs text-muted-foreground">
-                Hot reload cleanup interval
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
-                Screenshot Feature
-              </CardTitle>
-              <Camera className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">Available</div>
-              <p className="text-xs text-muted-foreground">
-                Takes mobile screenshots
-              </p>
-            </CardContent>
-          </Card>
-        </div>
 
         {/* Screenshot Testing */}
         <Card>
@@ -171,73 +123,6 @@ export default function CleanupServicePage() {
                   )}
                 </Button>
               </div>
-            </div>
-
-            <Separator />
-
-            <div className="space-y-2">
-              <h4 className="font-medium text-sm">How it works:</h4>
-              <ul className="text-sm text-muted-foreground space-y-1 ml-4">
-                <li>
-                  • Generates a signed URL for the S3 build at `{prototypeId}
-                  /latest/index.html`
-                </li>
-                <li>
-                  • Uses Puppeteer to take a mobile-sized screenshot (375x667px)
-                </li>
-                <li>
-                  • Uploads the screenshot to Supabase Storage bucket
-                  `prototype-thumbnails`
-                </li>
-                <li>
-                  • Screenshot is saved as `{prototypeId}.png` with no
-                  versioning
-                </li>
-              </ul>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Service Information */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Service Information</CardTitle>
-            <CardDescription>
-              Details about the cleanup service functionality
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <h4 className="font-medium">Cleanup Operations</h4>
-              <p className="text-sm text-muted-foreground">
-                The cleanup service runs every 5 minutes to identify and clean
-                up idle builds. When builds are cleaned up, it automatically
-                takes screenshots of the final build state before termination.
-              </p>
-            </div>
-
-            <Separator />
-
-            <div className="space-y-2">
-              <h4 className="font-medium">Screenshot Process</h4>
-              <p className="text-sm text-muted-foreground">
-                Screenshots are taken using a headless browser with mobile
-                viewport settings. The process generates signed URLs for private
-                S3 objects and captures the final state of React Native Web
-                applications before cleanup.
-              </p>
-            </div>
-
-            <Separator />
-
-            <div className="space-y-2">
-              <h4 className="font-medium">Storage</h4>
-              <p className="text-sm text-muted-foreground">
-                Screenshots are stored in the `prototype-thumbnails` Supabase
-                Storage bucket. Files are named using the prototype ID with
-                `.png` extension and will overwrite existing screenshots for the
-                same prototype.
-              </p>
             </div>
           </CardContent>
         </Card>
