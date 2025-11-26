@@ -9,64 +9,80 @@ export async function takeScreenshotsOfKilledBuilds(
   log2: SystemLogger,
   supabase: SupabaseClient<Database>,
 ): Promise<void> {
-  for (const prototypeId of killedPrototypeIds) {
-    try {
-      // Generate signed URL for the S3 object
-      const signedUrl = getCloudfrontScreenshotUrl(prototypeId);
+  if (killedPrototypeIds.length === 0) {
+    return;
+  }
 
-      // Take screenshot using Puppeteer
-      const screenshot = await takeScreenshot(signedUrl, log2);
-      if (!screenshot) {
-        log2.warn('Failed to take screenshot for prototype', {
-          prototypeId,
-        });
-        continue;
-      }
-
-      // Upload screenshot to Supabase Storage
-      const uploadSuccess = await uploadScreenshotToSupabase(
-        prototypeId,
-        screenshot,
-        supabase,
-        log2,
+  let browser;
+  let page;
+  try {
+    // Launch Puppeteer once for all screenshots
+    const browserResult = await launchBrowser(log2);
+    browser = browserResult?.browser;
+    page = browserResult?.page;
+    if (!browser || !page) {
+      log2.error(
+        new Error('Failed to launch browser or page'),
+        'Cannot take screenshots without browser or page',
       );
-      if (uploadSuccess) {
-        log2.info('Successfully took and uploaded screenshot', {
-          prototypeId,
-        });
+      return;
+    }
 
-        // Update the thumbnail_url in the prototypes table
-        const updateSuccess = await updatePrototypeThumbnailUrl(
+    // Process each prototype with the same browser/page instance
+    for (const prototypeId of killedPrototypeIds) {
+      try {
+        // Generate signed URL for the S3 object
+        const signedUrl = getCloudfrontScreenshotUrl(prototypeId);
+
+        // Take screenshot using the existing page
+        const screenshot = await takeScreenshotWithPage(page, signedUrl, log2);
+        if (!screenshot) {
+          log2.warn('Failed to take screenshot for prototype', {
+            prototypeId,
+          });
+          continue;
+        }
+
+        // Upload screenshot to Supabase Storage
+        const uploadSuccess = await uploadScreenshotToSupabase(
           prototypeId,
+          screenshot,
           supabase,
           log2,
         );
-        if (!updateSuccess) {
-          log2.warn('Failed to update prototype thumbnail_url', {
+        if (uploadSuccess) {
+          log2.info('Successfully took and uploaded screenshot', {
+            prototypeId,
+          });
+        } else {
+          log2.warn('Failed to upload screenshot to Supabase', {
             prototypeId,
           });
         }
-      } else {
-        log2.warn('Failed to upload screenshot to Supabase', {
+      } catch (error) {
+        log2.error(error, 'Error processing screenshot for prototype', {
           prototypeId,
         });
       }
-    } catch (error) {
-      log2.error(error, 'Error processing screenshot for prototype', {
-        prototypeId,
-      });
+    }
+  } finally {
+    // Close browser after all screenshots are done
+    if (browser) {
+      try {
+        await browser.close();
+      } catch (closeError) {
+        log2.error(closeError, 'Failed to close browser');
+      }
     }
   }
 }
 
-async function takeScreenshot(
-  url: string,
+async function launchBrowser(
   log2: SystemLogger,
-): Promise<Buffer | null> {
-  let browser;
+): Promise<{ browser: puppeteer.Browser; page: puppeteer.Page } | null> {
   try {
     // Try to launch with minimal Chrome dependencies
-    browser = await puppeteer.launch({
+    const browser = await puppeteer.launch({
       headless: true, // Use new headless mode
       args: [
         '--no-sandbox',
@@ -108,7 +124,7 @@ async function takeScreenshot(
 
     const page = await browser.newPage();
 
-    // Set mobile phone viewport
+    // Set mobile phone viewport once
     await page.setViewport({
       width: 375,
       height: 667,
@@ -118,6 +134,37 @@ async function takeScreenshot(
       { name: 'prefers-color-scheme', value: 'dark' },
     ]);
 
+    return { browser, page };
+  } catch (error) {
+    // Check if this is a Chrome dependency error
+    if (error instanceof Error && error.message.includes('libnspr4.so')) {
+      log2.error(
+        error,
+        'Chrome dependencies missing. Run install-chrome-dependencies.sh script to fix this issue.',
+        { errorType: 'missing_chrome_dependencies' },
+      );
+    } else if (
+      error instanceof Error &&
+      error.message.includes('Failed to launch the browser process')
+    ) {
+      log2.error(
+        error,
+        'Browser launch failed. This may be due to missing system dependencies.',
+        { errorType: 'browser_launch_failed' },
+      );
+    } else {
+      log2.error(error, 'Failed to launch browser');
+    }
+    return null;
+  }
+}
+
+async function takeScreenshotWithPage(
+  page: puppeteer.Page,
+  url: string,
+  log2: SystemLogger,
+): Promise<Buffer | null> {
+  try {
     // Set a reasonable timeout for page load
     await page.goto(url, {
       waitUntil: 'networkidle0',
@@ -132,34 +179,8 @@ async function takeScreenshot(
 
     return screenshot as Buffer;
   } catch (error) {
-    // Check if this is a Chrome dependency error
-    if (error instanceof Error && error.message.includes('libnspr4.so')) {
-      log2.error(
-        error,
-        'Chrome dependencies missing. Run install-chrome-dependencies.sh script to fix this issue.',
-        { url, errorType: 'missing_chrome_dependencies' },
-      );
-    } else if (
-      error instanceof Error &&
-      error.message.includes('Failed to launch the browser process')
-    ) {
-      log2.error(
-        error,
-        'Browser launch failed. This may be due to missing system dependencies.',
-        { url, errorType: 'browser_launch_failed' },
-      );
-    } else {
-      log2.error(error, 'Failed to take screenshot', { url });
-    }
+    log2.error(error, 'Failed to take screenshot', { url });
     return null;
-  } finally {
-    if (browser) {
-      try {
-        await browser.close();
-      } catch (closeError) {
-        log2.error(closeError, 'Failed to close browser');
-      }
-    }
   }
 }
 
@@ -181,37 +202,6 @@ async function uploadScreenshotToSupabase(
     log2.error(error, 'Supabase storage upload failed', {
       prototypeId,
       fileName,
-    });
-    return false;
-  }
-  return true;
-}
-
-async function updatePrototypeThumbnailUrl(
-  prototypeId: string,
-  supabase: SupabaseClient<Database>,
-  log2: SystemLogger,
-): Promise<boolean> {
-  // Generate the public URL for the uploaded screenshot
-  const { data } = supabase.storage
-    .from('prototype-thumbnails')
-    .getPublicUrl(`${prototypeId}.png`);
-
-  const thumbnailUrl = data.publicUrl;
-
-  // Update the prototypes table with the thumbnail URL
-  const { error } = await supabase
-    .from('prototypes')
-    .update({
-      thumbnail_url: thumbnailUrl,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', prototypeId);
-
-  if (error) {
-    log2.error(error, 'Failed to update prototype thumbnail_url in database', {
-      prototypeId,
-      thumbnailUrl,
     });
     return false;
   }
