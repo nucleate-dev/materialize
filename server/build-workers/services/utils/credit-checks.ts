@@ -30,11 +30,14 @@ async function fetchUserPlan(
   userId: string,
   log2: SystemLogger,
 ): Promise<string> {
+  const nowInSeconds = Math.floor(Date.now() / 1000);
   const { data, error } = await supabase
     .from("subscriptions")
-    .select("plan_id")
+    .select("plan_id, current_period_start, current_period_end")
     .eq("user_id", userId)
     .eq("status", "active")
+    .lte("current_period_start", nowInSeconds)
+    .gte("current_period_end", nowInSeconds)
     .order("updated_at", { ascending: false })
     .limit(1);
 
@@ -46,8 +49,21 @@ async function fetchUserPlan(
     return "free";
   }
 
-  const planId = data?.[0]?.plan_id;
-  return planId ?? "free";
+  const latestSubscription = data?.[0];
+  if (
+    latestSubscription?.current_period_start &&
+    latestSubscription.current_period_end
+  ) {
+    const now = Math.floor(Date.now() / 1000);
+    const { current_period_start: periodStart, current_period_end: periodEnd } =
+      latestSubscription;
+
+    if (periodStart <= now && now <= periodEnd) {
+      return latestSubscription.plan_id ?? "free";
+    }
+  }
+
+  return "free";
 }
 
 /**

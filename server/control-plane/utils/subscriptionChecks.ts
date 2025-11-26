@@ -36,6 +36,7 @@ export async function getSubscriptionInfo(
   userId: string,
   log2: SystemLogger,
 ): Promise<SubscriptionInfo> {
+  const nowInSeconds = Math.floor(Date.now() / 1000);
   const supabaseClient = createClient<Database>(
     process.env.SUPABASE_URL!,
     process.env.SUPABASE_ANON_KEY!,
@@ -53,6 +54,8 @@ export async function getSubscriptionInfo(
       .select('*')
       .eq('user_id', userId)
       .eq('status', 'active')
+      .lte('current_period_start', nowInSeconds)
+      .gte('current_period_end', nowInSeconds)
       .order('updated_at', {
         ascending: false,
       });
@@ -95,12 +98,22 @@ export async function getSubscriptionInfo(
         latestSubscription.current_period_start &&
         latestSubscription.current_period_end
       ) {
-        currentPeriodStart = new Date(
-          latestSubscription.current_period_start * 1000,
-        );
-        currentPeriodEnd = new Date(
-          latestSubscription.current_period_end * 1000,
-        );
+        const periodStart = latestSubscription.current_period_start * 1000;
+        const periodEnd = latestSubscription.current_period_end * 1000;
+        const now = Date.now();
+
+        if (periodStart <= now && now <= periodEnd) {
+          currentPeriodStart = new Date(periodStart);
+          currentPeriodEnd = new Date(periodEnd);
+        } else {
+          const { startOfMonth, endOfMonth } = getCurrentMonthPeriod();
+          return {
+            userPlan: 'free',
+            currentPeriodStart: startOfMonth,
+            currentPeriodEnd: endOfMonth,
+            stripeCustomerId: '',
+          };
+        }
       } else {
         // Fallback to current month if period data is missing
         const { startOfMonth, endOfMonth } = getCurrentMonthPeriod();
