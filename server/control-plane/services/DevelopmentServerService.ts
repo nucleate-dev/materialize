@@ -249,8 +249,6 @@ export class DevelopmentServerService {
             success: true,
             status: 'success',
             viewing_url: dispatchResult.data.viewing_url,
-            build_errors: dispatchResult.data.build_errors || [],
-            build_warnings: dispatchResult.data.build_warnings || [],
             message: 'Files updated successfully in dev server',
           },
           error: null,
@@ -263,8 +261,6 @@ export class DevelopmentServerService {
           error: {
             error: 'File update failed',
             message: 'File update failed',
-            build_errors: [],
-            build_warnings: [],
           } as UpdateFilesErrorResponse,
         };
       }
