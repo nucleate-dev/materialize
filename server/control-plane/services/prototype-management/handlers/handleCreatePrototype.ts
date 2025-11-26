@@ -127,7 +127,7 @@ export async function handleCreatePrototypeImpl(
       const { data: sourcePrototype, error: sourcePrototypeError } =
         await supabase
           .from('prototypes')
-          .select('design_style, custom_design_system')
+          .select('design_style')
           .eq('id', forkPrototypeId)
           .single();
 
@@ -139,12 +139,6 @@ export async function handleCreatePrototypeImpl(
       } else if (sourcePrototype) {
         if (!resolvedDesignStyle) {
           resolvedDesignStyle = sourcePrototype.design_style;
-        }
-        if (
-          !resolvedCustomDesignSystem &&
-          sourcePrototype.custom_design_system
-        ) {
-          resolvedCustomDesignSystem = sourcePrototype.custom_design_system;
         }
       }
     }
@@ -192,7 +186,9 @@ export async function handleCreatePrototypeImpl(
         visibility:
           visibility || (limitCheck.plan === 'pro' ? 'SELF' : 'PUBLIC'),
         design_style: resolvedDesignStyle,
-        custom_design_system: resolvedCustomDesignSystem,
+        custom_design_system: forkPrototypeId
+          ? null
+          : resolvedCustomDesignSystem,
       })
       .select()
       .single();
@@ -459,7 +455,9 @@ export async function copyAllDefaultsForNewPrototype(
     !thumbnailCopyResult.success
   ) {
     log2.error(
-      defaultFilesResult.error || s3CopyResult.error || thumbnailCopyResult.error,
+      defaultFilesResult.error ||
+        s3CopyResult.error ||
+        thumbnailCopyResult.error,
       '[createNewPrototype] Failed to get default files from S3 or copy thumbnail',
     );
     throw new Error(
