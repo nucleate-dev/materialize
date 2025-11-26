@@ -594,7 +594,7 @@ export class PublicApiService {
         OperationStatus.BUILDING_AND_DEPLOYING ||
       devServerState.currentOperation === OperationStatus.STOPPING
     ) {
-      reply.code(409);
+      reply.code(200);
       return {
         data: null,
         error: {
@@ -620,7 +620,7 @@ export class PublicApiService {
     try {
       // Double-check operation status to catch any edge cases
       if (this.expoDevServerService.getState().isOperationInProgress()) {
-        reply.code(409);
+        reply.code(200);
         return {
           data: null,
           error: {
@@ -641,7 +641,7 @@ export class PublicApiService {
       this.startBackgroundBuildAndDeploy();
 
       // Return error response because the server cannot be killed yet.
-      reply.code(409);
+      reply.code(200);
       return {
         data: null,
         error: {
