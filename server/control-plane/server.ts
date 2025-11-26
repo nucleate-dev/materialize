@@ -14,7 +14,7 @@ import { InternalCleanupServiceManagement } from './internal-services/InternalCl
 import { InternalControlPlaneDevelopmentService } from './internal-services/InternalControlPlaneDevelopmentService.js';
 import { InternalProductionDeploymentService } from './internal-services/InternalProductionDeploymentService.js';
 import { SystemLogger, genRequestIds } from './loggers/SystemLogger.js';
-import { CleanupService } from './services/CleanupService.js';
+import { CleanupService } from './services/cleanup/CleanupService.js';
 import { DevelopmentServerService } from './services/DevelopmentServerService.js';
 import { StripeManagementService } from './services/StripeManagementService.js';
 import { DispatcherService } from './services/dispatcher/DispatcherService.js';

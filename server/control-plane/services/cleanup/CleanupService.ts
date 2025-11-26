@@ -1,16 +1,15 @@
 import { ECSClient, StopTaskCommand } from '@aws-sdk/client-ecs';
-import { S3Client } from '@aws-sdk/client-s3';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { GlideClient } from '@valkey/valkey-glide';
 import axios, { AxiosError } from 'axios';
-import { CONFIG } from '../config.js';
-import { cryptoRandomId, SystemLogger } from '../loggers/SystemLogger.js';
-import { baseLogger } from '../server.js';
+import { CONFIG } from '../../config.js';
+import { cryptoRandomId, SystemLogger } from '../../loggers/SystemLogger.js';
+import { baseLogger } from '../../server.js';
 import {
   SandboxAPIResponse,
   PublicDevServerStopSuccessResponse,
   StandardErrorResponse as BuildWorkerStandardErrorResponse,
-} from '../types/BuildWorkerTypes.js';
+} from '../../types/BuildWorkerTypes.js';
 import {
   type ActiveBuild,
   type CleanupOperationResult,
@@ -18,29 +17,25 @@ import {
   type IdleBuildInfo,
   CACHE_PATTERNS,
   isActiveBuildType,
-} from '../types/InternalTypes.js';
+} from '../../types/InternalTypes.js';
 import {
   activeBuildToStringRecord,
   hgetallAsActiveBuild,
   removeBuildDataFromCache,
-} from '../utils/cacheInteractionUtils.js';
-import { deleteCloudflareTunnel } from '../utils/cloudflareTunnelManagementUtils.js';
-import { takeScreenshotsOfKilledBuilds } from '../utils/screenshotUtils.js';
+} from '../../utils/cacheInteractionUtils.js';
+import { deleteCloudflareTunnel } from '../../utils/cloudflareTunnelManagementUtils.js';
+import { takeScreenshotsOfKilledBuilds } from './screenshotUtils.js';
 
 export class CleanupService {
   private cleanupIntervals: ReturnType<typeof setInterval>[];
   private cache: GlideClient;
   private ecsClient: ECSClient;
-  private s3Client: S3Client;
   private supabase: SupabaseClient;
   private log2: SystemLogger;
 
   constructor(cache: GlideClient, ecsClient: ECSClient) {
     this.cache = cache;
     this.ecsClient = ecsClient;
-    this.s3Client = new S3Client({
-      region: process.env.AWS_REGION || 'us-east-1',
-    });
     this.supabase = createClient(
       process.env.SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!,
@@ -379,7 +374,7 @@ export class CleanupService {
         >
       >(`http://${fargatePrivateIp}:3002/dev-server`, {
         data: { prototype_id: prototypeId },
-        timeout: 300000, // 5 minutes timeout to allow build completion
+        timeout: 3000, // 3 second timeout -- we require an immediate response from the worker
         headers: {
           'Content-Type': 'application/json',
           'x-trace-id': this.log2.getTraceId(),

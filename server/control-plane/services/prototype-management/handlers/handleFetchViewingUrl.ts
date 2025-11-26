@@ -8,7 +8,7 @@ import {
 } from '../../../types/PublicAPITypes.js';
 import { checkUserHasPrototypeEditAccess } from '../../../utils/prototypeAuth.js';
 import { isEditableDevServer } from '../../../utils/prototypeDevServerStatusUtils.js';
-import { getCloudfrontScreenshotUrl } from '../../../utils/screenshotUtils.js';
+import { getCloudfrontScreenshotUrl } from '../../cleanup/screenshotUtils.js';
 import { DispatcherService } from '../../dispatcher/DispatcherService.js';
 
 export default async function handleFetchViewingUrlImpl(

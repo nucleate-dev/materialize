@@ -1,7 +1,7 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { HTTP_STATUS } from '../types/PublicAPITypes.js';
 import { authenticateInternalToolsRequest } from '../utils/internalToolsAuth.js';
-import { takeScreenshotsOfKilledBuilds } from '../utils/screenshotUtils.js';
+import { takeScreenshotsOfKilledBuilds } from '../services/cleanup/screenshotUtils.js';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { Database } from '../types/supabase.js';
 
