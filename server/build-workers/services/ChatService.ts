@@ -606,6 +606,8 @@ export class ChatService {
     messageType: "text" | "tool_use" | "tool_result" | "error" | "system",
     eventType?: string | null,
     eventData?: unknown,
+    creditsUsed?: number | null,
+    costFunction?: string | null,
   ): Promise<void> {
     if (!this.sessionState.prototypeChatSessionId) {
       this.logger.warn("Cannot persist message - no chat session ID", {
@@ -627,6 +629,8 @@ export class ChatService {
           message_type: messageType,
           event_type: eventType || null,
           event_data: eventData ? JSON.stringify(eventData) : null,
+          credits_used: creditsUsed ?? null,
+          cost_function: costFunction ?? null,
         });
 
       if (error) {
@@ -643,6 +647,8 @@ export class ChatService {
           messageType,
           eventType,
           contentLength: content.length,
+          creditsUsed,
+          costFunction,
         });
       }
     } catch (error) {

@@ -481,7 +481,9 @@ export type Database = {
         Row: {
           chat_session_id: string | null
           content: string
+          cost_function: string | null
           created_at: string
+          credits_used: number | null
           event_data: Json | null
           event_timestamp: string | null
           event_type: string | null
@@ -495,7 +497,9 @@ export type Database = {
         Insert: {
           chat_session_id?: string | null
           content: string
+          cost_function?: string | null
           created_at?: string
+          credits_used?: number | null
           event_data?: Json | null
           event_timestamp?: string | null
           event_type?: string | null
@@ -509,7 +513,9 @@ export type Database = {
         Update: {
           chat_session_id?: string | null
           content?: string
+          cost_function?: string | null
           created_at?: string
+          credits_used?: number | null
           event_data?: Json | null
           event_timestamp?: string | null
           event_type?: string | null
