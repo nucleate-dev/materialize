@@ -622,7 +622,6 @@ export type Database = {
           name: string
           owner_id: string | null
           prototype_context: Json | null
-          thumbnail_url: string | null
           updated_at: string | null
           visibility: Database["public"]["Enums"]["visibility_level"] | null
         }
@@ -637,7 +636,6 @@ export type Database = {
           name?: string
           owner_id?: string | null
           prototype_context?: Json | null
-          thumbnail_url?: string | null
           updated_at?: string | null
           visibility?: Database["public"]["Enums"]["visibility_level"] | null
         }
@@ -652,7 +650,6 @@ export type Database = {
           name?: string
           owner_id?: string | null
           prototype_context?: Json | null
-          thumbnail_url?: string | null
           updated_at?: string | null
           visibility?: Database["public"]["Enums"]["visibility_level"] | null
         }
