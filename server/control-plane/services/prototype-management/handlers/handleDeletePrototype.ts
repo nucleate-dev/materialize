@@ -19,6 +19,7 @@ import {
   deletePrototypeS3Builds,
   deletePrototypeThumbnailFromSupabaseStorage,
 } from '../storageOperations.js';
+import { deleteCloudflareTunnel } from '../../../utils/cloudflareTunnelManagementUtils.js';
 
 export default async function handleDeletePrototypeImpl(
   request: FastifyRequest<{ Params: { prototype_id: string } }>,
@@ -168,7 +169,20 @@ async function killActiveFargateInstanceIfItExists(
       await ecsClient.send(stopCommand);
     }
 
-    // 3. Clear all the cache entries for this prototype after the fargate task is successfully killed
+    // 3. Delete the cloudflare tunnel for the build if it exists
+    if (activeBuild.terminal_tunnel_id) {
+      await deleteCloudflareTunnel(
+        activeBuild.terminal_tunnel_id,
+        log2,
+        activeBuild.terminal_tunnel_hostname,
+        createClient<Database>(
+          process.env.SUPABASE_URL!,
+          process.env.SUPABASE_SERVICE_ROLE_KEY!,
+        ),
+      );
+    }
+
+    // 4. Clear all the cache entries for this prototype after the fargate task is successfully killed
     try {
       await cache.del([activeBuildKey]);
       await cache.customCommand([
