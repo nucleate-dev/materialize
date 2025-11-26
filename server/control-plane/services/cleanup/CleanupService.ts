@@ -53,7 +53,6 @@ export class CleanupService {
       // TO TEST CHANGES TO THIS FILE, COMMENT OUT THIS EARLY RETURN
       return;
     }
-    // Hot reload cleanup every 5 minutes
     this.cleanupIntervals.push(
       setInterval(async () => {
         this.log2.setContext({
@@ -162,116 +161,84 @@ export class CleanupService {
   ): Promise<{ stats: CleanupStats; killedPrototypeIds: string[] }> {
     const killedPrototypeIds: string[] = [];
     for (const { build, buildId, buildKey } of idleBuilds) {
-      // 1. Set status to cleaning, so a cleanup service running on another EC2 instance doesn't try to clean up the same build
-      const cleaningBuild: ActiveBuild = {
-        ...build,
-        status: 'cleaning',
-      };
-      const cacheUpdateResult = await this.setCacheActiveBuildData(
-        buildKey,
-        cleaningBuild,
+      const prototypeId = buildId.split('_')[1];
+      const cleanupResult = await this.cleanupSingleBuild(
+        build,
         buildId,
+        buildKey,
       );
-      if (!cacheUpdateResult) {
-        stats.failedCleanups++;
+      if (cleanupResult.buildInProgress) {
         continue;
       }
-
-      // 2. Extract prototype ID from build ID (assuming format: build_{prototypeId}_{timestamp}_{random})
-      const prototypeId = buildId.split('_')[1];
-
-      // 3. Validate build data. If no fargate task arn or private IP, clean up build from cache appropriately
-      if (!build.fargate_task_arn) {
-        this.log2.error(
-          new Error('Build has no Fargate task ARN, removing build from cache'),
-          undefined,
-          { buildId },
-        );
-        const removedFromCache = await removeBuildDataFromCache(
-          this.cache,
-          this.log2,
-          prototypeId,
-          buildId,
-        );
-        removedFromCache ? stats.successfulCleanups++ : stats.failedCleanups++;
-      } else if (!build.fargate_private_ip) {
-        // no private IP to dispatch kill request to (but we have arn), just terminate fargate task and remove build from cache
-        const terminateResult = await this.terminateFargateTask(
-          build.fargate_task_arn,
-        );
-        if (!terminateResult.success) {
-          this.log2.error(
-            terminateResult.error,
-            `Failed to terminate Fargate task for ${buildId}, leaving build as active: ${terminateResult.error}`,
-          );
-          // reset status back to stable since we didn't kill the build
-          const activeBuild: ActiveBuild = {
-            ...build,
-            status: 'stable',
-          };
-          await this.setCacheActiveBuildData(buildKey, activeBuild, buildId);
-          stats.failedCleanups++;
-          continue;
-        }
-        const removedFromCache = await removeBuildDataFromCache(
-          this.cache,
-          this.log2,
-          prototypeId,
-          buildId,
-        );
-        removedFromCache ? stats.successfulCleanups++ : stats.failedCleanups++;
+      if (cleanupResult.success) {
+        stats.successfulCleanups++;
+        killedPrototypeIds.push(prototypeId);
+      } else {
+        stats.failedCleanups++;
       }
+    }
+    return { stats, killedPrototypeIds };
+  }
 
-      // 4. dispatch a request to the fargate instance to kill the build
-      const killResult = await this.dispatchKillDevServerRequest(
-        prototypeId,
-        build.fargate_private_ip,
+  public async cleanupSingleBuild(
+    build: ActiveBuild,
+    buildId: string,
+    buildKey: string,
+  ): Promise<CleanupOperationResult> {
+    // 1. Set status to cleaning, so a cleanup service running on another EC2 instance doesn't try to clean up the same build
+    const cleaningBuild: ActiveBuild = {
+      ...build,
+      status: 'cleaning',
+    };
+    const cacheUpdateResult = await this.setCacheActiveBuildData(
+      buildKey,
+      cleaningBuild,
+      buildId,
+    );
+    if (!cacheUpdateResult) {
+      return {
+        success: false,
+        buildInProgress: false,
+        error: 'Failed to set build status to cleaning',
+      };
+    }
+
+    // 2. Extract prototype ID from build ID (assuming format: build_{prototypeId}_{timestamp}_{random})
+    const prototypeId = buildId.split('_')[1];
+
+    // 3. Validate build data. If no fargate task arn or private IP, clean up build from cache appropriately
+    if (!build.fargate_task_arn) {
+      this.log2.error(
+        new Error('Build has no Fargate task ARN, removing build from cache'),
+        undefined,
+        { buildId },
       );
-      if (killResult.buildInProgress) {
-        // Increment clean attempts counter
-        const newCleanAttempts = (build.clean_attempts || 0) + 1;
-        // Check if we've exceeded max cleanup attempts
-        if (newCleanAttempts >= 3) {
-          // Force cleanup after 3 failed attempts to prevent containers from getting stuck
-          this.log2.error(
-            new Error('Max cleanup attempts reached - forcing cleanup'),
-            'Fargate container stuck in bad state, forcing cleanup',
-            {
-              fargate_task_arn: build.fargate_task_arn,
-              prototype_id: prototypeId,
-              clean_attempts: newCleanAttempts,
-              utc_timestamp: new Date().toISOString(),
-              unix_timestamp: new Date().getTime(),
-            },
-          );
-        } else {
-          // Reset the status back to building and increment clean_attempts
-          const activeBuild: ActiveBuild = {
-            ...build,
-            status: 'building',
-            clean_attempts: newCleanAttempts,
-          };
-          const setCacheResult = await this.setCacheActiveBuildData(
-            buildKey,
-            activeBuild,
-            buildId,
-          );
-          if (!setCacheResult) stats.failedCleanups++;
-
-          this.log2.info(
-            'Build still in progress, incrementing clean attempts',
-            {
-              buildId,
-              prototypeId,
-              clean_attempts: newCleanAttempts,
-            },
-          );
-
-          continue;
-        }
-      }
-
-      // 5. Kill the fargate task using the task arn (only if safe to do so)
+      const removedFromCache = await removeBuildDataFromCache(
+        this.cache,
+        this.log2,
+        prototypeId,
+        buildId,
+      );
+      await this.attemptToCleanUpTunnels(
+        build.terminal_tunnel_id,
+        build.terminal_tunnel_hostname,
+      );
+      return {
+        success: removedFromCache,
+        buildInProgress: false,
+        error: removedFromCache
+          ? undefined
+          : 'Failed to remove build from cache',
+      };
+    } else if (!build.fargate_private_ip) {
+      // no private IP to dispatch kill request to (but we have arn), just terminate fargate task and remove build from cache
+      this.log2.error(
+        new Error(
+          'Build/cache has no Fargate private IP, terminating task without build steps or tunnel cleanup',
+        ),
+        undefined,
+        { buildId },
+      );
       const terminateResult = await this.terminateFargateTask(
         build.fargate_task_arn,
       );
@@ -280,54 +247,166 @@ export class CleanupService {
           terminateResult.error,
           `Failed to terminate Fargate task for ${buildId}, leaving build as active: ${terminateResult.error}`,
         );
+        // reset status back to stable since we didn't kill the build
         const activeBuild: ActiveBuild = {
           ...build,
           status: 'stable',
         };
         await this.setCacheActiveBuildData(buildKey, activeBuild, buildId);
-        stats.failedCleanups++;
-        continue;
+        return {
+          success: false,
+          buildInProgress: false,
+          error: 'Failed to terminate Fargate task',
+        };
       }
-      killedPrototypeIds.push(prototypeId);
-
-      // 5.5 Delete the cloudflare tunnel for the build if it exists
-      // Delete the Cloudflare tunnel for the build if it exists
-      this.log2.info('deleting cloudflare tunnel', {
-        tunnelId: build.terminal_tunnel_id,
-        tunnelHostname: build.terminal_tunnel_hostname,
-      });
-      if (build.terminal_tunnel_id) {
-        try {
-          await deleteCloudflareTunnel(
-            build.terminal_tunnel_id,
-            this.log2,
-            build.terminal_tunnel_hostname,
-            this.supabase,
-          );
-          this.log2.info(
-            `Successfully deleted Cloudflare tunnel for build ${buildId}`,
-            { tunnelId: build.terminal_tunnel_id },
-          );
-        } catch (error) {
-          this.log2.error(
-            error,
-            `Failed to delete Cloudflare tunnel for build ${buildId}, continuing with cleanup`,
-            { tunnelId: build.terminal_tunnel_id },
-          );
-          // Continue with cleanup even if tunnel deletion fails
-        }
-      }
-
-      // 6. remove the active build from cache and cleanup schema entries
+      await this.attemptToCleanUpTunnels(
+        build.terminal_tunnel_id,
+        build.terminal_tunnel_hostname,
+      );
       const removedFromCache = await removeBuildDataFromCache(
         this.cache,
         this.log2,
         prototypeId,
         buildId,
       );
-      removedFromCache ? stats.successfulCleanups++ : stats.failedCleanups++;
+      return {
+        success: removedFromCache,
+        buildInProgress: false,
+        error: removedFromCache
+          ? undefined
+          : 'Failed to remove build from cache',
+      };
     }
-    return { stats, killedPrototypeIds };
+
+    // 4. dispatch a request to the fargate instance to kill the build
+    const killResult = await this.dispatchKillDevServerRequest(
+      prototypeId,
+      build.fargate_private_ip,
+    );
+    if (killResult.buildInProgress) {
+      // Increment clean attempts counter
+      const newCleanAttempts = (build.clean_attempts || 0) + 1;
+      // Check if we've exceeded max cleanup attempts
+      if (newCleanAttempts >= 3) {
+        // Force cleanup after 3 failed attempts to prevent containers from getting stuck
+        this.log2.error(
+          new Error('Max cleanup attempts reached - forcing cleanup'),
+          'Fargate container stuck in bad state, forcing cleanup',
+          {
+            fargate_task_arn: build.fargate_task_arn,
+            prototype_id: prototypeId,
+            clean_attempts: newCleanAttempts,
+            utc_timestamp: new Date().toISOString(),
+            unix_timestamp: new Date().getTime(),
+          },
+        );
+      } else {
+        // Reset the status back to building and increment clean_attempts
+        const activeBuild: ActiveBuild = {
+          ...build,
+          status: 'building',
+          clean_attempts: newCleanAttempts,
+        };
+        const setCacheResult = await this.setCacheActiveBuildData(
+          buildKey,
+          activeBuild,
+          buildId,
+        );
+        if (!setCacheResult) {
+          return {
+            success: false,
+            buildInProgress: true,
+            error:
+              'Build still in progress, failed to increment clean attempts and reset status to building',
+          };
+        }
+        this.log2.info('Build still in progress, incrementing clean attempts', {
+          buildId,
+          prototypeId,
+          clean_attempts: newCleanAttempts,
+        });
+        return {
+          success: false,
+          buildInProgress: true,
+          error: 'Build still in progress, incremented clean attempts',
+        };
+      }
+    }
+
+    // 5. Kill the fargate task using the task arn (only if safe to do so)
+    const terminateResult = await this.terminateFargateTask(
+      build.fargate_task_arn,
+    );
+    if (!terminateResult.success) {
+      this.log2.error(
+        terminateResult.error,
+        `Failed to terminate Fargate task for ${buildId}, leaving build as active: ${terminateResult.error}`,
+      );
+      const activeBuild: ActiveBuild = {
+        ...build,
+        status: 'stable',
+      };
+      await this.setCacheActiveBuildData(buildKey, activeBuild, buildId);
+      return {
+        success: false,
+        buildInProgress: false,
+        error: 'Failed to terminate Fargate task, leaving build as active',
+      };
+    }
+    //killedPrototypeIds.push(prototypeId);
+
+    // 5.5 Delete the cloudflare tunnel for the build if it exists
+    await this.attemptToCleanUpTunnels(
+      build.terminal_tunnel_id,
+      build.terminal_tunnel_hostname,
+    );
+
+    // 6. remove the active build from cache and cleanup schema entries
+    const removedFromCache = await removeBuildDataFromCache(
+      this.cache,
+      this.log2,
+      prototypeId,
+      buildId,
+    );
+    return {
+      success: removedFromCache,
+      buildInProgress: false,
+      error: removedFromCache ? undefined : 'Failed to remove build from cache',
+    };
+  }
+
+  private async attemptToCleanUpTunnels(
+    tunnelId: string | undefined | null,
+    tunnelHostname: string | undefined | null,
+  ): Promise<boolean> {
+    // Delete the Cloudflare tunnel for the build if it exists
+    this.log2.info('deleting cloudflare tunnel', {
+      tunnelId,
+      tunnelHostname,
+    });
+    if (tunnelId) {
+      try {
+        await deleteCloudflareTunnel(
+          tunnelId,
+          this.log2,
+          tunnelHostname || undefined,
+          this.supabase,
+        );
+        this.log2.info(`Successfully deleted Cloudflare tunnel`, {
+          tunnelId,
+        });
+        return true;
+      } catch (error) {
+        this.log2.error(
+          error,
+          `Failed to delete Cloudflare tunnel, continuing with cleanup`,
+          { tunnelId },
+        );
+        return false;
+        // Continue with cleanup even if tunnel deletion fails
+      }
+    }
+    return false;
   }
 
   private async setCacheActiveBuildData(
