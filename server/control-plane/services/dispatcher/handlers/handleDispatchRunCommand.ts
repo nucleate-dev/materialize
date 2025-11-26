@@ -16,7 +16,8 @@ import { SystemLogger } from '../../../loggers/SystemLogger.js';
 import axios from 'axios';
 import {
   PublicRunCommandRequest,
-  PublicRunCommandResponse,
+  PublicRunCommandSuccessResponse,
+  SandboxAPIResponse,
 } from '../../../types/BuildWorkerTypes.js';
 
 export async function handleRunCommandImpl(
@@ -24,7 +25,7 @@ export async function handleRunCommandImpl(
   jwt: string,
   cache: GlideClient,
   log2: SystemLogger,
-): Promise<APIResponse<PublicRunCommandResponse, StandardErrorResponse>> {
+): Promise<APIResponse<PublicRunCommandSuccessResponse, StandardErrorResponse>> {
   const {
     prototype_id,
     command,
@@ -194,7 +195,7 @@ async function callFargateRunCommand(
     strip_ansi?: boolean;
   },
   log2: SystemLogger,
-): Promise<PublicRunCommandResponse> {
+): Promise<PublicRunCommandSuccessResponse> {
   try {
     // Build request without session_id - we want each command to run in a new session
     const request: PublicRunCommandRequest = {
@@ -207,7 +208,7 @@ async function callFargateRunCommand(
       // Do NOT include session_id - let it create a new temp session
     };
 
-    const response = await axios.post<PublicRunCommandResponse>(
+    const response = await axios.post<SandboxAPIResponse<PublicRunCommandSuccessResponse, StandardErrorResponse>>(
       `http://${fargatePrivateIp}:3002/run-command`,
       request,
       {
@@ -220,7 +221,22 @@ async function callFargateRunCommand(
     );
 
     log2.info('Fargate run-command response:', { response: response.data });
-    return response.data;
+
+    // Handle the SandboxAPIResponse discriminated union
+    if (response.data.error) {
+      log2.error(
+        new Error(response.data.error.message),
+        'Fargate run-command returned error',
+        { error: response.data.error },
+      );
+      // Return a timeout response on error
+      return {
+        status: 'timeout',
+        stdout: response.data.error.message || 'Unknown error',
+      };
+    }
+
+    return response.data.data;
   } catch (error) {
     log2.error(error, 'Error calling fargate run-command endpoint');
     // Return a timeout response on error

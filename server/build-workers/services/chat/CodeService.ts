@@ -236,12 +236,28 @@ export class CodeService {
         strip_ansi: true,
       });
 
-      if (response.status === "success") {
+      if (response.error) {
+        this.logger.error(
+          new Error(response.error.message),
+          "Terminal command failed in MCP executeSandboxCommand tool",
+          {
+            command,
+            args,
+            error: response.error.error,
+          },
+        );
         return {
-          stdout: response.stdout || "Command executed successfully",
+          stdout: response.error.message || "Unknown error",
+          isError: true,
+        };
+      }
+
+      if (response.data.status === "success") {
+        return {
+          stdout: response.data.stdout || "Command executed successfully",
           isError: false,
         };
-      } else if (response.status === "timeout") {
+      } else if (response.data.status === "timeout") {
         this.logger.warn(
           "Terminal command timed out in MCP executeSandboxCommand tool",
           {
@@ -250,12 +266,12 @@ export class CodeService {
           },
         );
         return {
-          stdout: response.stdout || "Command timed out",
+          stdout: response.data.stdout || "Command timed out",
           isError: true,
         };
       }
       return {
-        stdout: response.stdout || "Unknown error",
+        stdout: response.data.stdout || "Unknown error",
         isError: true,
       };
     } catch (error) {

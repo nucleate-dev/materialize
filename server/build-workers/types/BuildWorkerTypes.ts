@@ -198,7 +198,7 @@ export interface PublicRunCommandRequest {
   strip_ansi?: boolean;
 }
 
-export interface PublicRunCommandResponse {
+export interface PublicRunCommandSuccessResponse {
   status: "success" | "timeout";
   stdout: string;
 }
@@ -226,20 +226,17 @@ export interface SandboxMakeDirRequest {
   recursive?: boolean;
 }
 
-export interface SandboxMakeDirResponse {
-  status: "success" | "error";
-  error?: string;
+export interface SandboxMakeDirSuccessResponse {
+  // No additional fields needed for success
 }
 
 export interface SandboxReadFileRequest {
   path: string;
 }
 
-export interface SandboxReadFileResponse {
-  status: "success" | "error";
+export interface SandboxReadFileSuccessResponse {
   contents?: string;
   is_binary?: boolean;
-  error?: string;
 }
 
 export interface SandboxWriteFileRequest {
@@ -248,9 +245,8 @@ export interface SandboxWriteFileRequest {
   contents: string;
 }
 
-export interface SandboxWriteFileResponse {
-  status: "success" | "error";
-  error?: string;
+export interface SandboxWriteFileSuccessResponse {
+  // No additional fields needed for success
 }
 
 export interface SandboxGitCheckoutRequest {
@@ -258,10 +254,8 @@ export interface SandboxGitCheckoutRequest {
   target_path?: string;
 }
 
-export interface SandboxGitCheckoutResponse {
-  status: "success" | "error";
+export interface SandboxGitCheckoutSuccessResponse {
   output?: string;
-  error?: string;
 }
 
 // Terminal API Types

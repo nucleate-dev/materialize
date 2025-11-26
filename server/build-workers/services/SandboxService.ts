@@ -9,15 +9,17 @@ import path from "path";
 import { SystemLogger } from "../loggers/SystemLogger.js";
 import {
   PublicRunCommandRequest,
-  PublicRunCommandResponse,
+  PublicRunCommandSuccessResponse,
+  SandboxAPIResponse,
   SandboxGitCheckoutRequest,
-  SandboxGitCheckoutResponse,
+  SandboxGitCheckoutSuccessResponse,
   SandboxMakeDirRequest,
-  SandboxMakeDirResponse,
+  SandboxMakeDirSuccessResponse,
   SandboxReadFileRequest,
-  SandboxReadFileResponse,
+  SandboxReadFileSuccessResponse,
   SandboxWriteFileRequest,
-  SandboxWriteFileResponse,
+  SandboxWriteFileSuccessResponse,
+  StandardErrorResponse,
 } from "../types/BuildWorkerTypes.js";
 import { resolvePathWithinProject } from "../utils/shared-utils.js";
 import { TerminalService } from "./TerminalService.js";
@@ -159,7 +161,7 @@ export class SandboxService {
   }
 
   public async runCommandInternal(body: PublicRunCommandRequest): Promise<{
-    response: PublicRunCommandResponse;
+    response: SandboxAPIResponse<PublicRunCommandSuccessResponse, StandardErrorResponse>;
     httpStatus: number;
   }> {
     const {
@@ -213,8 +215,11 @@ export class SandboxService {
         httpStatus = 500;
         return {
           response: {
-            status: "timeout",
-            stdout: "",
+            data: null,
+            error: {
+              error: "Failed to create terminal session",
+              message: errorMessage,
+            },
           },
           httpStatus,
         };
@@ -274,16 +279,22 @@ export class SandboxService {
       if (result.exitCode === 0) {
         return {
           response: {
-            status: "success",
-            stdout: cleanOutput,
+            data: {
+              status: "success",
+              stdout: cleanOutput,
+            },
+            error: null,
           },
           httpStatus,
         };
       } else {
         return {
           response: {
-            status: "timeout",
-            stdout: cleanOutput,
+            data: {
+              status: "timeout",
+              stdout: cleanOutput,
+            },
+            error: null,
           },
           httpStatus,
         };
@@ -307,8 +318,11 @@ export class SandboxService {
       if (isTimeout) {
         return {
           response: {
-            status: "timeout",
-            stdout: "",
+            data: null,
+            error: {
+              error: "Command timed out",
+              message: errorMessage,
+            },
           },
           httpStatus,
         };
@@ -316,8 +330,11 @@ export class SandboxService {
         httpStatus = 500;
         return {
           response: {
-            status: "timeout",
-            stdout: errorMessage,
+            data: null,
+            error: {
+              error: "Failed to execute command",
+              message: errorMessage,
+            },
           },
           httpStatus,
         };
@@ -346,7 +363,7 @@ export class SandboxService {
   private async runCommandRoute(
     request: FastifyRequest<{ Body: PublicRunCommandRequest }>,
     reply: FastifyReply,
-  ): Promise<PublicRunCommandResponse> {
+  ): Promise<SandboxAPIResponse<PublicRunCommandSuccessResponse, StandardErrorResponse>> {
     const { response, httpStatus } = await this.runCommandInternal(
       request.body,
     );
@@ -696,7 +713,7 @@ export class SandboxService {
   private async handleSandboxMakeDir(
     request: FastifyRequest<{ Body: SandboxMakeDirRequest }>,
     reply: FastifyReply,
-  ): Promise<SandboxMakeDirResponse> {
+  ): Promise<SandboxAPIResponse<SandboxMakeDirSuccessResponse, StandardErrorResponse>> {
     const { path, recursive } = request.body;
 
     if (!path) {
@@ -706,8 +723,11 @@ export class SandboxService {
       );
       reply.code(400);
       return {
-        status: "error",
-        error: "path is required",
+        data: null,
+        error: {
+          error: "Missing required parameter",
+          message: "path is required",
+        },
       };
     }
 
@@ -715,7 +735,11 @@ export class SandboxService {
       const result = await this.makeDirectory(path, recursive);
 
       if (result.success) {
-        return reply.code(200).send({ status: "success" });
+        reply.code(200);
+        return {
+          data: {},
+          error: null,
+        };
       } else {
         this.log2.error(new Error(result.error), "Failed to create directory", {
           path,
@@ -723,8 +747,11 @@ export class SandboxService {
         });
         reply.code(500);
         return {
-          status: "error",
-          error: result.error,
+          data: null,
+          error: {
+            error: "Failed to create directory",
+            message: result.error || "Unknown error",
+          },
         };
       }
     } catch (error: unknown) {
@@ -737,8 +764,11 @@ export class SandboxService {
       );
       reply.code(500);
       return {
-        status: "error",
-        error: errorMessage,
+        data: null,
+        error: {
+          error: "Internal server error",
+          message: errorMessage,
+        },
       };
     }
   }
@@ -746,7 +776,7 @@ export class SandboxService {
   private async handleSandboxReadFile(
     request: FastifyRequest<{ Body: SandboxReadFileRequest }>,
     reply: FastifyReply,
-  ): Promise<SandboxReadFileResponse> {
+  ): Promise<SandboxAPIResponse<SandboxReadFileSuccessResponse, StandardErrorResponse>> {
     const { path } = request.body;
 
     if (!path) {
@@ -756,8 +786,11 @@ export class SandboxService {
       );
       reply.code(400);
       return {
-        status: "error",
-        error: "path is required",
+        data: null,
+        error: {
+          error: "Missing required parameter",
+          message: "path is required",
+        },
       };
     }
 
@@ -765,11 +798,14 @@ export class SandboxService {
       const result = await this.readFile(path);
 
       if (result.success) {
-        return reply.code(200).send({
-          status: "success",
-          contents: result.contents,
-          is_binary: result.isBinary,
-        });
+        reply.code(200);
+        return {
+          data: {
+            contents: result.contents,
+            is_binary: result.isBinary,
+          },
+          error: null,
+        };
       } else {
         // Check if it's a file not found error
         const isNotFound =
@@ -779,17 +815,26 @@ export class SandboxService {
         if (isNotFound) {
           this.log2.warn("File not found", { path });
           reply.code(404);
+          return {
+            data: null,
+            error: {
+              error: "File not found",
+              message: result.error || "File not found",
+            },
+          };
         } else {
           this.log2.error(new Error(result.error), "Failed to read file", {
             path,
           });
           reply.code(500);
+          return {
+            data: null,
+            error: {
+              error: "Failed to read file",
+              message: result.error || "Unknown error",
+            },
+          };
         }
-
-        return {
-          status: "error",
-          error: result.error,
-        };
       }
     } catch (error: unknown) {
       const errorMessage =
@@ -801,8 +846,11 @@ export class SandboxService {
       );
       reply.code(500);
       return {
-        status: "error",
-        error: errorMessage,
+        data: null,
+        error: {
+          error: "Internal server error",
+          message: errorMessage,
+        },
       };
     }
   }
@@ -810,7 +858,7 @@ export class SandboxService {
   private async handleSandboxWriteFile(
     request: FastifyRequest<{ Body: SandboxWriteFileRequest }>,
     reply: FastifyReply,
-  ): Promise<SandboxWriteFileResponse> {
+  ): Promise<SandboxAPIResponse<SandboxWriteFileSuccessResponse, StandardErrorResponse>> {
     const { path, filename, contents } = request.body;
 
     if (!path || !filename || contents === undefined) {
@@ -825,8 +873,11 @@ export class SandboxService {
       );
       reply.code(400);
       return {
-        status: "error",
-        error: "path, filename, and contents are required",
+        data: null,
+        error: {
+          error: "Missing required parameters",
+          message: "path, filename, and contents are required",
+        },
       };
     }
 
@@ -834,7 +885,11 @@ export class SandboxService {
       const result = await this.writeFile(path, filename, contents);
 
       if (result.success) {
-        return reply.code(200).send({ status: "success" });
+        reply.code(200);
+        return {
+          data: {},
+          error: null,
+        };
       } else {
         this.log2.error(new Error(result.error), "Failed to write file", {
           path,
@@ -842,8 +897,11 @@ export class SandboxService {
         });
         reply.code(500);
         return {
-          status: "error",
-          error: result.error,
+          data: null,
+          error: {
+            error: "Failed to write file",
+            message: result.error || "Unknown error",
+          },
         };
       }
     } catch (error: unknown) {
@@ -856,8 +914,11 @@ export class SandboxService {
       );
       reply.code(500);
       return {
-        status: "error",
-        error: errorMessage,
+        data: null,
+        error: {
+          error: "Internal server error",
+          message: errorMessage,
+        },
       };
     }
   }
@@ -865,7 +926,7 @@ export class SandboxService {
   private async handleSandboxGitCheckout(
     request: FastifyRequest<{ Body: SandboxGitCheckoutRequest }>,
     reply: FastifyReply,
-  ): Promise<SandboxGitCheckoutResponse> {
+  ): Promise<SandboxAPIResponse<SandboxGitCheckoutSuccessResponse, StandardErrorResponse>> {
     const { git_url, target_path } = request.body;
 
     if (!git_url) {
@@ -875,8 +936,11 @@ export class SandboxService {
       );
       reply.code(400);
       return {
-        status: "error",
-        error: "git_url is required",
+        data: null,
+        error: {
+          error: "Missing required parameter",
+          message: "git_url is required",
+        },
       };
     }
 
@@ -884,10 +948,13 @@ export class SandboxService {
       const result = await this.gitCheckout(git_url, target_path);
 
       if (result.success) {
-        return reply.code(200).send({
-          status: "success",
-          output: result.output,
-        });
+        reply.code(200);
+        return {
+          data: {
+            output: result.output,
+          },
+          error: null,
+        };
       } else {
         // Check if it's a validation error (invalid URL, private IP, etc.)
         const isValidationError =
@@ -900,19 +967,29 @@ export class SandboxService {
             error: result.error,
           });
           reply.code(400);
+          return {
+            data: null,
+            error: {
+              error: "Validation error",
+              message: result.error || "Invalid git URL",
+              details: result.output,
+            },
+          };
         } else {
           this.log2.error(new Error(result.error), "Git checkout failed", {
             git_url,
             target_path,
           });
           reply.code(500);
+          return {
+            data: null,
+            error: {
+              error: "Git checkout failed",
+              message: result.error || "Unknown error",
+              details: result.output,
+            },
+          };
         }
-
-        return {
-          status: "error",
-          error: result.error,
-          output: result.output,
-        };
       }
     } catch (error: unknown) {
       const errorMessage =
@@ -924,8 +1001,11 @@ export class SandboxService {
       );
       reply.code(500);
       return {
-        status: "error",
-        error: errorMessage,
+        data: null,
+        error: {
+          error: "Internal server error",
+          message: errorMessage,
+        },
       };
     }
   }
