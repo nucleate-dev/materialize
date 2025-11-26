@@ -6,8 +6,8 @@
  * trackEvent('Lead', { content_name: 'Sign Up Form' });
  */
 
-import { useCallback } from 'react';
 import { useProductLogger } from '@/lib/loggers/ClientProductLogger';
+import { useCallback } from 'react';
 
 // Extend the Window interface to include fbq
 declare global {
@@ -47,7 +47,7 @@ export function useMetaPixel() {
       if (typeof window !== 'undefined' && window.fbq) {
         window.fbq('track', eventName, params);
       } else {
-        logger.debug('warning', 'Meta Pixel is not loaded');
+        logger.debug('warn', 'Meta Pixel is not loaded');
       }
     },
     [logger]
@@ -58,7 +58,7 @@ export function useMetaPixel() {
       if (typeof window !== 'undefined' && window.fbq) {
         window.fbq('trackCustom', eventName, params);
       } else {
-        logger.debug('warning', 'Meta Pixel is not loaded');
+        logger.debug('warn', 'Meta Pixel is not loaded');
       }
     },
     [logger]

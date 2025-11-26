@@ -1,5 +1,6 @@
 "use client";
 
+import { RenderStatus } from "@/app/dashboard/projects/[prototype_id]/InternalPrototypePage";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -52,7 +53,6 @@ import ReactMarkdown from "react-markdown";
 import type {
   Message,
   PrototypeChatSession,
-  RenderStatus,
   Todo,
   UploadedImage,
 } from "./ClaudeCodePanel";
