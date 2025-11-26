@@ -1483,21 +1483,25 @@ const MaterializeRenderSection = forwardRef<
                       {isCloningPrototype ? "Cloning..." : "Clone"}
                     </DropdownMenuItem>
                   )}
-                  <DropdownMenuSeparator className="bg-border" />
-                  <DropdownMenuItem
-                    onClick={handleRestartDevServer}
-                    disabled={!prototypeId || isRestartingDevServer}
-                    className="focus:bg-accent/80 focus:text-foreground text-muted-foreground text-sm cursor-pointer"
-                  >
-                    {isRestartingDevServer ? (
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    ) : (
-                      <RefreshCw className="w-4 h-4 mr-2 opacity-70" />
-                    )}
-                    {isRestartingDevServer
-                      ? "Restarting..."
-                      : "Restart Dev Server"}
-                  </DropdownMenuItem>
+                  {!publicView && (
+                    <>
+                      <DropdownMenuSeparator className="bg-border" />
+                      <DropdownMenuItem
+                        onClick={handleRestartDevServer}
+                        disabled={!prototypeId || isRestartingDevServer}
+                        className="focus:bg-accent/80 focus:text-foreground text-muted-foreground text-sm cursor-pointer"
+                      >
+                        {isRestartingDevServer ? (
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        ) : (
+                          <RefreshCw className="w-4 h-4 mr-2 opacity-70" />
+                        )}
+                        {isRestartingDevServer
+                          ? "Restarting..."
+                          : "Restart Dev Server"}
+                      </DropdownMenuItem>
+                    </>
+                  )}
                   {onResetToDefault && (
                     <>
                       <DropdownMenuSeparator className="bg-border" />
