@@ -4,7 +4,8 @@
   "description": "Database backfill scripts for Materialize",
   "private": true,
   "scripts": {
-    "update-gitignore": "node backfills/update-gitignore.js"
+    "update-gitignore": "node backfills/update-gitignore.js",
+    "list-storage-thumbnails": "node backfills/list-storage-thumbnails.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.84.0",

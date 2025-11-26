@@ -45,12 +45,57 @@ npm run update-gitignore
 - ✅ Environment validation
 - ✅ Uses `upsert` to handle both inserts and updates
 
+### List Storage Thumbnails
+
+Lists and analyzes all files in the `prototype-thumbnails` Supabase storage bucket.
+
+**Usage:**
+```bash
+npm run list-storage-thumbnails
+```
+
+**What it does:**
+- Connects to the `prototype-thumbnails` storage bucket
+- Lists all files in batches (1000 at a time)
+- Generates comprehensive statistics including:
+  - Total file count and size
+  - File type breakdown with percentages
+  - Largest and smallest files
+  - Average file size
+  - Sample file listing
+
+**Features:**
+- ✅ Batch fetching for large buckets
+- ✅ Detailed statistics and analytics
+- ✅ Human-readable file sizes
+- ✅ File type distribution analysis
+- ✅ Sample file preview
+
+**Output example:**
+```
+📊 STORAGE BUCKET STATISTICS
+======================================================================
+
+📁 Overall Statistics:
+   Total Files: 1,234
+   Total Size: 45.67 MB
+   Average File Size: 37.02 KB
+
+📈 Largest File:
+   Name: prototype-abc123.png
+   Size: 2.5 MB
+
+📝 File Types Breakdown:
+   .png              856 files  (69.4%)  32.1 MB
+   .jpg              378 files  (30.6%)  13.57 MB
+```
+
 ## Adding New Scripts
 
 When adding new backfill scripts:
 
-1. Create a new `.js` file in this directory
-2. Follow the same pattern as `update-gitignore.js`:
+1. Create a new `.js` file in the `backfills/` directory
+2. Follow the same pattern as existing scripts:
    - Load environment variables
    - Validate configuration
    - Process data in batches
