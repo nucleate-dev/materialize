@@ -67,7 +67,10 @@ import React, {
   useRef,
   useState,
 } from "react";
-import Terminal from "./Terminal";
+import dynamic from "next/dynamic";
+
+// Dynamically import Terminal to avoid SSR issues with xterm
+const Terminal = dynamic(() => import("./Terminal"), { ssr: false });
 
 interface MobileScreenConfig {
   id: number;

@@ -98,5 +98,7 @@ export function getToolDisplayName(
   if (normalized.includes("edit")) return "Editing";
   if (normalized.includes("bash")) return "Running command";
   if (normalized.includes("delete")) return "Deleting";
+  if (normalized.includes("RestartDevServer"))
+    return "Restarting development server";
   return toolName;
 }
