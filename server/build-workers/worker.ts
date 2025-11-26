@@ -5,13 +5,13 @@ import dotenv from "dotenv";
 import fastify, { FastifyInstance } from "fastify";
 import fs from "fs/promises";
 import { SystemLogger, genRequestIds } from "./loggers/SystemLogger.js";
-import { ExpoDevServerService } from "./services/dev-server/ExpoDevServerService.js";
+import { ChatService } from "./services/chat/ChatService.js";
 import { CloudflareTunnelManagementService } from "./services/CloudflareTunnelManagementService.js";
+import { ExpoDevServerService } from "./services/dev-server/ExpoDevServerService.js";
 import { PublicApiService } from "./services/dev-server/PublicApiService.js";
 import { SandboxService } from "./services/SandboxService.js";
-import { TerminalService } from "./services/terminals/TerminalService.js";
-import { CodeService } from "./services/chat/CodeService.js";
 import { SupabaseClientService } from "./services/SupabaseClientService.js";
+import { TerminalService } from "./services/terminals/TerminalService.js";
 
 // Load environment variables
 dotenv.config();
@@ -96,7 +96,7 @@ const cloudflareTunnelManagementService = new CloudflareTunnelManagementService(
   WORK_DIR,
   baseLogger,
 );
-const codeService = new CodeService(
+const chatService = new ChatService(
   app,
   WORK_DIR,
   baseLogger,
@@ -109,7 +109,7 @@ const publicApiService = new PublicApiService(
   expoDevServerService,
   sandboxService,
   cloudflareTunnelManagementService,
-  codeService,
+  chatService,
   WORK_DIR,
   supabaseClientService,
 );
@@ -168,7 +168,7 @@ terminalService.registerRoutes();
 sandboxService.registerRoutes();
 
 // Setup Claude Code SDK routes
-codeService.registerRoutes();
+chatService.registerRoutes();
 
 // --- Graceful Shutdown Handling ---
 const close = async (): Promise<void> => {
@@ -176,7 +176,7 @@ const close = async (): Promise<void> => {
   try {
     await expoDevServerService.shutdown(baseLogger);
     terminalService.shutdownAllSessions();
-    await codeService.shutdown();
+    await chatService.shutdown();
     await app.close();
   } finally {
     process.exit(0);

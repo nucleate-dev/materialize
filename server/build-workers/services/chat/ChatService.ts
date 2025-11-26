@@ -45,7 +45,7 @@ interface ChatConnection {
   heartbeat?: NodeJS.Timeout;
 }
 
-export class CodeService {
+export class ChatService {
   private readonly workDir: string;
   private readonly allowedRoot: string;
   private readonly logger: SystemLogger;
@@ -934,16 +934,6 @@ export class CodeService {
       );
       // Don't throw - we don't want to fail the entire query if image upload fails
     }
-  }
-
-  /**
-   * Converts absolute file path to relative path from workDir
-   */
-  private getRelativePath(absolutePath: string): string {
-    if (absolutePath.startsWith(this.workDir)) {
-      return absolutePath.slice(this.workDir.length + 1);
-    }
-    return absolutePath;
   }
 
   private isPathInsideAllowedRoot(resolvedPath: string): boolean {
