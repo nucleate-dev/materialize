@@ -94,6 +94,20 @@ export async function copyPrototypeThumbnailInSupabaseStorage(
   };
 }
 
+export async function copyDefaultPrototypeThumbnail(
+  supabase: SupabaseClient<Database>,
+  targetPrototypeId: string,
+): Promise<S3CopyResult> {
+  const { error } = await supabase.storage
+    .from('prototype-thumbnails')
+    .copy('default-prototype-thumbnail.png', `${targetPrototypeId}.png`);
+  return {
+    success: error ? false : true,
+    error: error ? error.message : undefined,
+    copiedObjects: 1,
+  };
+}
+
 function getVersion(): string {
   return 'v' + Date.now().toString();
 }

@@ -23,6 +23,7 @@ import { hasExceededPrototypeCreationLimit } from '../../../utils/subscriptionCh
 import {
   copyAllAssetsInSupabaseStorage,
   copyDefaultAppToVersionedPrototype,
+  copyDefaultPrototypeThumbnail,
   copyPrototypeThumbnailInSupabaseStorage,
   copyS3BucketContentsVersioned,
   deletePrototypeAssetsFromStorage,
@@ -178,7 +179,7 @@ export async function handleCreatePrototypeImpl(
     }
 
     if (!resolvedDesignStyle) {
-      resolvedDesignStyle = 'tamagui';
+      resolvedDesignStyle = 'stylesheets';
     }
 
     const { data: newPrototype, error: prototypeInsertError } = await supabase
@@ -436,29 +437,36 @@ export async function copyAllDefaultsForNewPrototype(
   log2: SystemLogger,
 ): Promise<string | undefined> {
   // Get default app files from S3 raw files
-  const [defaultFilesResult, s3CopyResult] = await Promise.all([
-    getDefaultAppFilesFromS3(
-      s3Client,
-      newPrototypeId,
-      newPrototypeDesignStyle,
-      log2,
-    ),
-    copyDefaultAppToVersionedPrototype(
-      s3Client,
-      newPrototypeId,
-      newPrototypeDesignStyle,
-      log2,
-    ),
-    // TODO @sourish: create a default app thumbnail to copy to new prototype
-  ]);
-  if (!defaultFilesResult.success || !s3CopyResult.success) {
+  const [defaultFilesResult, s3CopyResult, thumbnailCopyResult] =
+    await Promise.all([
+      getDefaultAppFilesFromS3(
+        s3Client,
+        newPrototypeId,
+        newPrototypeDesignStyle,
+        log2,
+      ),
+      copyDefaultAppToVersionedPrototype(
+        s3Client,
+        newPrototypeId,
+        newPrototypeDesignStyle,
+        log2,
+      ),
+      copyDefaultPrototypeThumbnail(supabase, newPrototypeId),
+    ]);
+  if (
+    !defaultFilesResult.success ||
+    !s3CopyResult.success ||
+    !thumbnailCopyResult.success
+  ) {
     log2.error(
-      defaultFilesResult.error || s3CopyResult.error,
-      '[createNewPrototype] Failed to get default files from S3',
+      defaultFilesResult.error || s3CopyResult.error || thumbnailCopyResult.error,
+      '[createNewPrototype] Failed to get default files from S3 or copy thumbnail',
     );
     throw new Error(
-      `Failed to get default files from S3: ${
-        defaultFilesResult.error || s3CopyResult.error
+      `Failed to get default files from S3 or copy thumbnail: ${
+        defaultFilesResult.error ||
+        s3CopyResult.error ||
+        thumbnailCopyResult.error
       }`,
     );
   }
