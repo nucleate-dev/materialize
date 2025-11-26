@@ -7,6 +7,7 @@
  */
 
 import { useCallback } from 'react';
+import { useProductLogger } from '@/lib/loggers/ClientProductLogger';
 
 // Extend the Window interface to include fbq
 declare global {
@@ -39,15 +40,17 @@ export type MetaPixelEvent =
   | 'ViewContent';
 
 export function useMetaPixel() {
+  const logger = useProductLogger();
+
   const trackEvent = useCallback(
     (eventName: MetaPixelEvent, params?: Record<string, unknown>) => {
       if (typeof window !== 'undefined' && window.fbq) {
         window.fbq('track', eventName, params);
       } else {
-        console.warn('Meta Pixel is not loaded');
+        logger.debug('warning', 'Meta Pixel is not loaded');
       }
     },
-    []
+    [logger]
   );
 
   const trackCustomEvent = useCallback(
@@ -55,10 +58,10 @@ export function useMetaPixel() {
       if (typeof window !== 'undefined' && window.fbq) {
         window.fbq('trackCustom', eventName, params);
       } else {
-        console.warn('Meta Pixel is not loaded');
+        logger.debug('warning', 'Meta Pixel is not loaded');
       }
     },
-    []
+    [logger]
   );
 
   return {

@@ -272,7 +272,7 @@ export default function Blog({ initialPosts }: BlogProps) {
                 </div>
                 <h3 className="text-xl font-medium text-white mb-2">No posts found</h3>
                 <p className="text-[#8A8F98] mb-8">
-                  We couldn't find any posts matching "{searchQuery}"
+                  We couldn&apos;t find any posts matching &ldquo;{searchQuery}&rdquo;
                 </p>
                 <Button
                   variant="outline"
