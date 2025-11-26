@@ -14,7 +14,6 @@ import axios from "axios";
 import { execSync } from "child_process";
 import chokidar, { FSWatcher } from "chokidar";
 import { FastifyInstance, FastifyRequest } from "fastify";
-import fs from "fs";
 import path from "path";
 import WebSocket from "ws";
 import { SystemLogger } from "../loggers/SystemLogger.js";
@@ -195,8 +194,6 @@ export class CodeService {
       allowedRoot: this.allowedRoot,
     });
 
-    this.patchClaudeFileSystemDefaults();
-
     const normalizedWorkDir = path.resolve(this.workDir);
     if (!this.isPathInsideAllowedRoot(normalizedWorkDir)) {
       this.logger.warn("WorkDir is outside the allowed root for Claude Code", {
@@ -220,36 +217,14 @@ export class CodeService {
     args: string[],
   ): Promise<{ stdout: string; isError: boolean }> {
     try {
-      let terminal_id: string | undefined = undefined;
-      let timeoutMs = 30000;
-      if (
-        command.includes("npm") ||
-        command.includes("npx") ||
-        command.includes("expo")
-      ) {
-        timeoutMs = 20000;
-        terminal_id = "dev-server";
-        // Kill Expo process before running npm/npx/expo commands
-        await this.expoDevServerService.killExpoProcess(this.logger);
-        await new Promise((resolve) => setTimeout(resolve, 2000)); // wait for expo process to be killed
-      }
       const { response } = await this.sandboxService.runCommandInternal({
         command,
         args,
         cwd: this.workDir,
-        session_id: terminal_id,
-        timeout_ms: timeoutMs,
+        session_id: "test",
+        timeout_ms: 30000,
         strip_ansi: true,
       });
-
-      if (
-        command.includes("npm") ||
-        command.includes("npx") ||
-        command.includes("expo")
-      ) {
-        this.expoDevServerService.startExpoProcessForMCPTool(this.logger);
-        await new Promise((resolve) => setTimeout(resolve, 2000)); // wait 2 seconds
-      }
 
       if (response.status === "success") {
         return {
@@ -266,7 +241,7 @@ export class CodeService {
         );
         return {
           stdout: response.stdout || "Command timed out",
-          isError: false,
+          isError: true,
         };
       }
       return {
@@ -281,221 +256,6 @@ export class CodeService {
       );
       return { stdout: `System Error: ${errorMsg}`, isError: true };
     }
-  }
-
-  /**
-   * Claude's SDK hard-codes 0o600/0o700 for write/mkdir operations. Those modes
-   * strip the default ACL mask on /tmp/materialize-dev-server, so files written
-   * by the SDK become owner-only. Intercept the Node fs methods it calls and
-   * upgrade those defaults to our shared modes when the path is inside the
-   * allowed workspace root.
-   */
-  private patchClaudeFileSystemDefaults(): void {
-    const allowedRoot = this.allowedRoot;
-    const sharedFileMode = this.sharedFileMode;
-    const sharedDirMode = this.sharedDirMode;
-
-    const isInsideAllowedRoot = (targetPath: string): boolean => {
-      const resolved = path.resolve(targetPath);
-      return (
-        resolved === allowedRoot ||
-        resolved.startsWith(`${allowedRoot}${path.sep}`)
-      );
-    };
-
-    const coerceMode = (mode: number | undefined, isDir: boolean): number => {
-      if (mode === undefined) return isDir ? sharedDirMode : sharedFileMode;
-      if (!isDir && mode === 0o600) return sharedFileMode;
-      if (isDir && mode === 0o700) return sharedDirMode;
-      return mode;
-    };
-
-    const originalWriteFileSync = fs.writeFileSync.bind(fs);
-    fs.writeFileSync = (
-      ...args: Parameters<typeof originalWriteFileSync>
-    ): ReturnType<typeof originalWriteFileSync> => {
-      const [filePath, data, options] = args;
-      let normalizedOptions = options;
-      const shouldPatch =
-        typeof filePath === "string" && isInsideAllowedRoot(filePath);
-
-      if (shouldPatch) {
-        if (typeof options === "number") {
-          normalizedOptions = {
-            mode: coerceMode(options, false),
-          } satisfies fs.WriteFileOptions;
-        } else if (typeof options === "string") {
-          normalizedOptions = {
-            encoding: options,
-            mode: sharedFileMode,
-          } satisfies fs.WriteFileOptions;
-        } else if (options && typeof options === "object") {
-          const optionObj = options as fs.WriteFileOptions &
-            Record<string, unknown>;
-          const maybeMode = (optionObj as { mode?: unknown }).mode;
-          const incomingMode =
-            typeof maybeMode === "number" ? maybeMode : undefined;
-          normalizedOptions = {
-            ...(optionObj as Record<string, unknown>),
-            mode: coerceMode(incomingMode, false),
-          } satisfies fs.WriteFileOptions;
-        } else {
-          normalizedOptions = {
-            mode: sharedFileMode,
-          } satisfies fs.WriteFileOptions;
-        }
-      }
-
-      const result = originalWriteFileSync(
-        filePath,
-        data,
-        normalizedOptions as fs.WriteFileOptions,
-      );
-
-      // CRITICAL: Set group ownership immediately after file creation
-      if (shouldPatch && typeof filePath === "string") {
-        try {
-          const resolvedPath = path.resolve(filePath);
-          if (fs.existsSync(resolvedPath) && this.materializeUserGid !== null) {
-            fs.chownSync(resolvedPath, -1, this.materializeUserGid);
-          }
-        } catch (chownError) {
-          // Log but don't fail - PostToolUse hook will retry
-          this.logger.warn(
-            "Failed to set group ownership in writeFileSync patch",
-            {
-              path: filePath,
-              error:
-                chownError instanceof Error
-                  ? chownError.message
-                  : String(chownError),
-            },
-          );
-        }
-      }
-
-      return result;
-    };
-
-    const originalOpenSync = fs.openSync.bind(fs);
-    fs.openSync = (
-      ...args: Parameters<typeof originalOpenSync>
-    ): ReturnType<typeof originalOpenSync> => {
-      const [filePath, flags, mode] = args;
-      let normalizedMode = mode;
-      const shouldPatch =
-        typeof filePath === "string" && isInsideAllowedRoot(filePath);
-
-      if (shouldPatch) {
-        const incomingMode = typeof mode === "number" ? mode : undefined;
-        normalizedMode = coerceMode(incomingMode, false);
-      }
-
-      const fd = originalOpenSync(filePath, flags, normalizedMode as fs.Mode);
-
-      // CRITICAL: Set group ownership immediately after file creation
-      // Only do this if flags indicate file creation (w, a, or w+, a+, etc.)
-      if (
-        shouldPatch &&
-        typeof filePath === "string" &&
-        typeof flags === "string" &&
-        (flags.includes("w") || flags.includes("a"))
-      ) {
-        try {
-          const resolvedPath = path.resolve(filePath);
-          if (fs.existsSync(resolvedPath) && this.materializeUserGid !== null) {
-            fs.chownSync(resolvedPath, -1, this.materializeUserGid);
-          }
-        } catch (chownError) {
-          // Log but don't fail - PostToolUse hook will retry
-          this.logger.warn("Failed to set group ownership in openSync patch", {
-            path: filePath,
-            flags,
-            error:
-              chownError instanceof Error
-                ? chownError.message
-                : String(chownError),
-          });
-        }
-      }
-
-      return fd;
-    };
-
-    const originalMkdirSync = fs.mkdirSync.bind(fs);
-    fs.mkdirSync = (
-      ...args: Parameters<typeof originalMkdirSync>
-    ): ReturnType<typeof originalMkdirSync> => {
-      const [dirPath, options] = args;
-      let normalizedOptions = options;
-      const shouldPatch =
-        typeof dirPath === "string" && isInsideAllowedRoot(dirPath);
-
-      if (shouldPatch) {
-        if (typeof options === "number") {
-          normalizedOptions = coerceMode(options, true) as fs.Mode;
-        } else if (options === null || options === undefined) {
-          normalizedOptions = {
-            mode: sharedDirMode,
-          } satisfies fs.MakeDirectoryOptions;
-        } else if (typeof options === "object") {
-          const optionObj = options as fs.MakeDirectoryOptions;
-          const incomingMode =
-            typeof optionObj.mode === "number" ? optionObj.mode : undefined;
-          normalizedOptions = {
-            ...optionObj,
-            mode: coerceMode(incomingMode, true),
-          } satisfies fs.MakeDirectoryOptions;
-        }
-      }
-
-      const result = originalMkdirSync(dirPath, normalizedOptions as never);
-
-      // CRITICAL: Set group ownership immediately after directory creation
-      // This ensures materialize-user can access the directory before PostToolUse hook runs
-      if (shouldPatch && typeof dirPath === "string") {
-        try {
-          const resolvedPath = path.resolve(dirPath);
-          // Check if directory was actually created (not just returned from recursive mkdir)
-          if (fs.existsSync(resolvedPath) && this.materializeUserGid !== null) {
-            // Set group ownership to materialize-user (-1 keeps current owner)
-            fs.chownSync(resolvedPath, -1, this.materializeUserGid);
-
-            // If this was a recursive mkdir, we need to fix ALL parent directories too
-            const isRecursive =
-              typeof normalizedOptions === "object" &&
-              normalizedOptions !== null &&
-              "recursive" in normalizedOptions &&
-              (normalizedOptions as { recursive?: boolean }).recursive === true;
-
-            if (isRecursive) {
-              // Walk up from created dir to allowedRoot, fixing group ownership
-              let currentDir = path.dirname(resolvedPath);
-              while (
-                currentDir !== allowedRoot &&
-                currentDir.startsWith(`${allowedRoot}${path.sep}`)
-              ) {
-                if (fs.existsSync(currentDir)) {
-                  fs.chownSync(currentDir, -1, this.materializeUserGid);
-                }
-                currentDir = path.dirname(currentDir);
-              }
-            }
-          }
-        } catch (chownError) {
-          // Log but don't fail - PostToolUse hook will retry
-          this.logger.warn("Failed to set group ownership in mkdirSync patch", {
-            path: dirPath,
-            error:
-              chownError instanceof Error
-                ? chownError.message
-                : String(chownError),
-          });
-        }
-      }
-
-      return result;
-    };
   }
 
   public registerRoutes(): void {
@@ -1009,10 +769,14 @@ export class CodeService {
         // Use design-style-specific system prompt based on the prototype's design_style
         let systemPromptAppend = getSystemPromptForDesignStyle(design_style);
 
-        this.logger.consoleLogDevOnly("info", "Using design-style-specific system prompt", {
-          design_style,
-          hasCustomDesignSystem: !!this.sessionState.designSystemRules,
-        });
+        this.logger.consoleLogDevOnly(
+          "info",
+          "Using design-style-specific system prompt",
+          {
+            design_style,
+            hasCustomDesignSystem: !!this.sessionState.designSystemRules,
+          },
+        );
 
         // Append custom design system rules if available
         if (this.sessionState.designSystemRules) {
@@ -1139,6 +903,14 @@ export class CodeService {
               },
               // Terminal service for checkTerminal tool
               this.terminalService,
+              // Restart dev server callback
+              async () => {
+                this.logger.consoleLogDevOnly(
+                  "info",
+                  "MCP restartDevServer tool: restarting dev server",
+                );
+                await this.expoDevServerService.restartDevServer(this.logger);
+              },
             ),
           },
           // Add hooks to stream tool usage to WebSocket clients
@@ -1181,87 +953,6 @@ export class CodeService {
 
                         const normalizedToolInput =
                           permission.updatedInput ?? input.tool_input;
-
-                        // CRITICAL: Pre-create directories for Write tool to ensure correct permissions
-                        // When Claude writes a file to a non-existent directory, the SDK creates the
-                        // directory with restrictive permissions. We intercept and create it ourselves
-                        // with proper shared permissions before the Write tool executes.
-                        if (input.tool_name === "Write") {
-                          const toolInput =
-                            normalizedToolInput as ToolInputWithFilePath;
-                          const rawFilePath = toolInput?.file_path;
-
-                          if (rawFilePath && typeof rawFilePath === "string") {
-                            this.logger.consoleLogDevOnly(
-                              "info",
-                              `Got rawFilePath: ${rawFilePath ?? ""}`,
-                            );
-                            try {
-                              // UPDATED: Resolve against workDir.
-                              // This handles both relative paths ("src/file.ts")
-                              // and absolute paths ("/tmp/.../src/file.ts") correctly.
-                              const resolvedFilePath = path.resolve(
-                                this.workDir,
-                                rawFilePath,
-                              );
-                              const parentDir = path.dirname(resolvedFilePath);
-
-                              // Check if directory needs to be created
-                              if (!fs.existsSync(parentDir)) {
-                                // Only create if within allowed root
-                                if (this.isPathInsideAllowedRoot(parentDir)) {
-                                  this.logger.consoleLogDevOnly(
-                                    "info",
-                                    "Pre-creating directory for Write tool with correct permissions",
-                                    {
-                                      rawPath: rawFilePath,
-                                      resolvedPath: resolvedFilePath,
-                                      parentDir,
-                                    },
-                                  );
-
-                                  // Create directory recursively with shared permissions
-                                  fs.mkdirSync(parentDir, {
-                                    recursive: true,
-                                    mode: this.sharedDirMode,
-                                  });
-
-                                  // Apply shared permissions recursively to ensure all parent dirs
-                                  // get proper group ownership (mkdirSync mode doesn't set group)
-                                  this.applySharedPermissionsRecursively(
-                                    parentDir,
-                                  );
-
-                                  this.logger.consoleLogDevOnly(
-                                    "info",
-                                    "Successfully pre-created directory with shared permissions",
-                                    { parentDir },
-                                  );
-                                } else {
-                                  this.logger.warn(
-                                    "Skipped pre-creating directory - outside allowed root",
-                                    {
-                                      parentDir,
-                                      allowedRoot: this.allowedRoot,
-                                    },
-                                  );
-                                }
-                              }
-                            } catch (dirError) {
-                              // Log but don't fail - let the Write tool attempt and handle errors
-                              this.logger.warn(
-                                "Failed to pre-create directory in PreToolUse hook",
-                                {
-                                  filePath: rawFilePath,
-                                  error:
-                                    dirError instanceof Error
-                                      ? dirError.message
-                                      : String(dirError),
-                                },
-                              );
-                            }
-                          }
-                        }
 
                         // Send tool start event to WebSocket client
                         if (socket.readyState === WebSocket.OPEN) {
@@ -1346,16 +1037,6 @@ export class CodeService {
                           }
 
                           if (filePath) {
-                            // Apply shared permissions and group ownership to the file
-                            this.applySharedPermissions(filePath, "file");
-
-                            // Also apply shared permissions to parent directories
-                            // This ensures directories created by SDK also get group ownership
-                            const fileDir = path.dirname(filePath);
-                            if (fileDir !== this.workDir) {
-                              this.applySharedPermissionsRecursively(fileDir);
-                            }
-
                             const relativePath = this.getRelativePath(filePath);
 
                             // Track for incremental sync (legacy mode)
@@ -2473,7 +2154,6 @@ export class CodeService {
 
       // Track file additions and modifications
       watcher.on("add", (filePath) => {
-        this.applySharedPermissions(filePath, "file");
         const relativePath = this.getRelativePath(filePath);
         this.sessionState.trackedFiles.add(relativePath);
         this.logger.consoleLogDevOnly("debug", "File watcher: file added", {
@@ -2483,7 +2163,6 @@ export class CodeService {
       });
 
       watcher.on("change", (filePath) => {
-        this.applySharedPermissions(filePath, "file");
         const relativePath = this.getRelativePath(filePath);
         this.sessionState.trackedFiles.add(relativePath);
         this.logger.consoleLogDevOnly("debug", "File watcher: file changed", {
@@ -2493,7 +2172,6 @@ export class CodeService {
       });
 
       watcher.on("addDir", (dirPath) => {
-        this.applySharedPermissions(dirPath, "dir");
         this.logger.consoleLogDevOnly(
           "debug",
           "File watcher: directory added",
@@ -2578,82 +2256,6 @@ export class CodeService {
     return absolutePath;
   }
 
-  private applySharedPermissions(
-    targetPath: string,
-    type: "file" | "dir",
-  ): void {
-    const resolvedPath = path.resolve(targetPath);
-
-    if (!this.isPathInsideAllowedRoot(resolvedPath)) {
-      return;
-    }
-
-    const mode = type === "dir" ? this.sharedDirMode : this.sharedFileMode;
-
-    try {
-      const currentMode = fs.statSync(resolvedPath).mode & 0o777;
-      const targetMode = currentMode | mode;
-
-      if (targetMode !== currentMode) {
-        fs.chmodSync(resolvedPath, targetMode);
-      }
-
-      // Change group ownership to materialize-user so group permissions apply
-      if (this.materializeUserGid !== null) {
-        try {
-          // chownSync(path, uid, gid) - use -1 for uid to keep current owner
-          fs.chownSync(resolvedPath, -1, this.materializeUserGid);
-          this.logger.consoleLogDevOnly("debug", "Set group ownership", {
-            path: resolvedPath,
-            gid: this.materializeUserGid,
-          });
-        } catch (chownError) {
-          this.logger.warn("Failed to set group ownership", {
-            path: resolvedPath,
-            gid: this.materializeUserGid,
-            error:
-              chownError instanceof Error
-                ? chownError.message
-                : String(chownError),
-          });
-        }
-      }
-    } catch (error) {
-      this.logger.warn("Failed to enforce shared permissions", {
-        path: resolvedPath,
-        type,
-        mode: mode.toString(8),
-        error,
-      });
-    }
-  }
-
-  /**
-   * Recursively applies shared permissions to a directory and all its parents
-   * up to (but not including) the workDir. This ensures that when Claude SDK
-   * creates nested directories, all of them get proper group ownership.
-   */
-  private applySharedPermissionsRecursively(targetPath: string): void {
-    const resolvedPath = path.resolve(targetPath);
-
-    // Stop if we've reached the workDir or gone outside allowed root
-    if (
-      !this.isPathInsideAllowedRoot(resolvedPath) ||
-      resolvedPath === this.allowedRoot
-    ) {
-      return;
-    }
-
-    // Apply permissions to this directory
-    this.applySharedPermissions(resolvedPath, "dir");
-
-    // Recursively apply to parent directory
-    const parentDir = path.dirname(resolvedPath);
-    if (parentDir !== resolvedPath && parentDir !== this.workDir) {
-      this.applySharedPermissionsRecursively(parentDir);
-    }
-  }
-
   private isPathInsideAllowedRoot(resolvedPath: string): boolean {
     const normalizedPath = path.resolve(resolvedPath);
     const allowedWithSep = this.allowedRoot.endsWith(path.sep)
@@ -2663,35 +2265,6 @@ export class CodeService {
       normalizedPath === this.allowedRoot ||
       normalizedPath.startsWith(allowedWithSep)
     );
-  }
-
-  private normalizePathToAllowedRoot(rawPath: string): {
-    resolvedPath: string;
-    withinRoot: boolean;
-  } {
-    const resolvedPath = path.isAbsolute(rawPath)
-      ? path.resolve(rawPath)
-      : path.resolve(this.allowedRoot, rawPath);
-
-    return {
-      resolvedPath,
-      withinRoot: this.isPathInsideAllowedRoot(resolvedPath),
-    };
-  }
-
-  private isSensitiveSystemPath(resolvedPath: string): boolean {
-    const normalizedPath = path.resolve(resolvedPath);
-    const blockedRoots = ["/proc", "/sys", "/dev", "/run", "/var/run"];
-
-    return blockedRoots.some((blocked) => {
-      const blockedWithSep = blocked.endsWith(path.sep)
-        ? blocked
-        : `${blocked}${path.sep}`;
-
-      return (
-        normalizedPath === blocked || normalizedPath.startsWith(blockedWithSep)
-      );
-    });
   }
 
   public async shutdown(): Promise<void> {

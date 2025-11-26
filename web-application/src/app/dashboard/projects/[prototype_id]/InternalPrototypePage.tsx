@@ -5,7 +5,9 @@ import Loader from "@/components/dashboard/Loader";
 import ClaudeCodePanel from "@/components/prototype-editor/ClaudeCodePanel";
 import CodeEditor from "@/components/prototype-editor/CodeEditor";
 import FileTree from "@/components/prototype-editor/FileTree";
-import MaterializeRenderSection, { MaterializeRenderSectionRef } from "@/components/prototype-editor/MaterializeRenderSection";
+import MaterializeRenderSection, {
+  MaterializeRenderSectionRef,
+} from "@/components/prototype-editor/MaterializeRenderSection";
 import ProPlanUpsellModal from "@/components/prototype-editor/ProPlanUpsellModal";
 import {
   AlertDialog,
@@ -62,7 +64,7 @@ import {
   Lock,
   MessageSquare,
   Share2,
-  Smartphone
+  Smartphone,
 } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -90,13 +92,14 @@ export type RenderStatus =
   | "Updating.."
   | "Starting Dev Server.."
   | "Disconnected"
-  | "Connected";
+  | "Connected"
+  | "Error";
 
 export default function InternalPrototypePage() {
   const router = useRouter();
   const { user, userIsLoading } = useUser();
   const { userPlan } = useSubscriptionAccess();
-  const params = useParams<{ prototype_id: string; }>();
+  const params = useParams<{ prototype_id: string }>();
   const prototypeId = params?.prototype_id;
   const logger = useProductLogger();
   const setSidebarOpen = useSetAtom(sidebarOpenAtom);
@@ -154,7 +157,7 @@ export default function InternalPrototypePage() {
   >(new Map());
 
   const handleClaudeCodeMessage = useCallback(
-    (message: { type: string; data: unknown; }) => {
+    (message: { type: string; data: unknown }) => {
       const parsedMessage = message as ChatServerMessage;
       claudeCodeWSMessageHandlers.current.forEach((handler) =>
         handler(parsedMessage),
@@ -191,9 +194,12 @@ export default function InternalPrototypePage() {
     [claudeCodeWSConnected, sendSyncFiles, prototypeId, logger],
   );
 
-  // Handler for when npm install completes
-  const handleNpmInstallComplete = useCallback(() => {
-    logger.debug("log", "npm install completed, triggering preview refresh");
+  // Handler for when restart dev server completes
+  const handleChatRestartDevServerComplete = useCallback(() => {
+    logger.debug(
+      "log",
+      "restart dev server completed, triggering preview refresh",
+    );
     materializeRenderRef.current?.forceRefresh();
   }, [logger]);
 
@@ -206,8 +212,8 @@ export default function InternalPrototypePage() {
   const designSystemBadgeLabel = DESIGN_STYLE_LABELS[currentDesignStyle];
   const currentCustomDesignSystemName = currentCustomDesignSystemId
     ? designSystems.find(
-      (system) => String(system.id) === currentCustomDesignSystemId,
-    )?.name || "Custom design system"
+        (system) => String(system.id) === currentCustomDesignSystemId,
+      )?.name || "Custom design system"
     : undefined;
   const canEditPrototype = Boolean(
     prototype && user && prototype.owner_id === user?.id,
@@ -549,9 +555,7 @@ export default function InternalPrototypePage() {
             logger.debug("error", "Failed to fetch viewing URL:", data);
             return;
           }
-          if (
-            data.data.viewing_url !== viewingUrl
-          ) {
+          if (data.data.viewing_url !== viewingUrl) {
             setViewingUrl(data.data.viewing_url);
 
             let newStatus: RenderStatus;
@@ -646,10 +650,10 @@ export default function InternalPrototypePage() {
       setPrototype((prev) =>
         prev
           ? {
-            ...prev,
-            design_style: dialogDesignStyle,
-            custom_design_system: nextCustomDesignSystem,
-          }
+              ...prev,
+              design_style: dialogDesignStyle,
+              custom_design_system: nextCustomDesignSystem,
+            }
           : prev,
       );
       handleDesignSystemDialogOpenChange(false);
@@ -801,7 +805,9 @@ export default function InternalPrototypePage() {
               onClick={() => setActivePanel("chat")}
               className={cn(
                 "flex items-center gap-2 transition-all",
-                activePanel === "chat" ? "bg-white text-black" : "text-[#8A8F98] hover:text-white hover:bg-white/10"
+                activePanel === "chat"
+                  ? "bg-white text-black"
+                  : "text-[#8A8F98] hover:text-white hover:bg-white/10",
               )}
             >
               <MessageSquare className="w-4 h-4" />
@@ -813,7 +819,9 @@ export default function InternalPrototypePage() {
               onClick={() => setActivePanel("preview")}
               className={cn(
                 "flex items-center gap-2 transition-all",
-                activePanel === "preview" ? "bg-white text-black" : "text-[#8A8F98] hover:text-white hover:bg-white/10"
+                activePanel === "preview"
+                  ? "bg-white text-black"
+                  : "text-[#8A8F98] hover:text-white hover:bg-white/10",
               )}
             >
               <Smartphone className="w-4 h-4" />
@@ -833,10 +841,11 @@ export default function InternalPrototypePage() {
       >
         {/* Left Panel - Claude Code */}
         <div
-          className={`${isMobile
-            ? `${activePanel === "chat" ? "flex" : "hidden"} w-full h-full`
-            : "flex"
-            } flex-col relative z-10 bg-[#0B0C0E] overflow-hidden`}
+          className={`${
+            isMobile
+              ? `${activePanel === "chat" ? "flex" : "hidden"} w-full h-full`
+              : "flex"
+          } flex-col relative z-10 bg-[#0B0C0E] overflow-hidden`}
           style={
             isMobile
               ? { height: "100%" }
@@ -871,7 +880,7 @@ export default function InternalPrototypePage() {
               onUnregisterMessageHandler={(id: string) => {
                 claudeCodeWSMessageHandlers.current.delete(id);
               }}
-              onNpmInstallComplete={handleNpmInstallComplete}
+              onRestartDevServerComplete={handleChatRestartDevServerComplete}
             />
           </div>
         </div>
@@ -890,10 +899,11 @@ export default function InternalPrototypePage() {
 
         {/* Right Panel - Preview/Code Toggle */}
         <div
-          className={`${isMobile
-            ? `${activePanel === "preview" ? "flex" : "hidden"} w-full h-full`
-            : "flex"
-            } flex-col relative z-10 bg-[#0B0C0E] overflow-hidden`}
+          className={`${
+            isMobile
+              ? `${activePanel === "preview" ? "flex" : "hidden"} w-full h-full`
+              : "flex"
+          } flex-col relative z-10 bg-[#0B0C0E] overflow-hidden`}
           style={
             isMobile
               ? {}
@@ -940,12 +950,16 @@ export default function InternalPrototypePage() {
                         <div className="flex items-center justify-center gap-2">
                           <Button
                             variant={
-                              mobileCodeView === "filetree" ? "default" : "ghost"
+                              mobileCodeView === "filetree"
+                                ? "default"
+                                : "ghost"
                             }
                             size="sm"
                             className={cn(
                               "flex items-center gap-2",
-                              mobileCodeView === "filetree" ? "bg-white text-black" : "text-[#8A8F98] hover:text-white"
+                              mobileCodeView === "filetree"
+                                ? "bg-white text-black"
+                                : "text-[#8A8F98] hover:text-white",
                             )}
                             onClick={() => setMobileCodeView("filetree")}
                           >
@@ -959,7 +973,9 @@ export default function InternalPrototypePage() {
                             size="sm"
                             className={cn(
                               "flex items-center gap-2",
-                              mobileCodeView === "editor" ? "bg-white text-black" : "text-[#8A8F98] hover:text-white"
+                              mobileCodeView === "editor"
+                                ? "bg-white text-black"
+                                : "text-[#8A8F98] hover:text-white",
                             )}
                             onClick={() => setMobileCodeView("editor")}
                           >
@@ -1072,7 +1088,11 @@ export default function InternalPrototypePage() {
                 </SelectTrigger>
                 <SelectContent className="bg-[#141517] border-white/10 text-white">
                   {DESIGN_STYLE_OPTIONS.map((style) => (
-                    <SelectItem key={style} value={style} className="focus:bg-white/10 focus:text-white cursor-pointer">
+                    <SelectItem
+                      key={style}
+                      value={style}
+                      className="focus:bg-white/10 focus:text-white cursor-pointer"
+                    >
                       {DESIGN_STYLE_LABELS[style]}
                     </SelectItem>
                   ))}
@@ -1106,11 +1126,18 @@ export default function InternalPrototypePage() {
                         <SelectValue placeholder="No custom design system" />
                       </SelectTrigger>
                       <SelectContent className="bg-[#141517] border-white/10 text-white">
-                        <SelectItem value="none" className="focus:bg-white/10 focus:text-white cursor-pointer">
+                        <SelectItem
+                          value="none"
+                          className="focus:bg-white/10 focus:text-white cursor-pointer"
+                        >
                           No custom design system
                         </SelectItem>
                         {designSystems.map((system) => (
-                          <SelectItem key={system.id} value={String(system.id)} className="focus:bg-white/10 focus:text-white cursor-pointer">
+                          <SelectItem
+                            key={system.id}
+                            value={String(system.id)}
+                            className="focus:bg-white/10 focus:text-white cursor-pointer"
+                          >
                             {system.name}
                           </SelectItem>
                         ))}
@@ -1126,7 +1153,10 @@ export default function InternalPrototypePage() {
             )}
           </div>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={isUpdatingDesignSystem} className="border-white/10 text-white hover:bg-white/5 hover:text-white">
+            <AlertDialogCancel
+              disabled={isUpdatingDesignSystem}
+              className="border-white/10 text-white hover:bg-white/5 hover:text-white"
+            >
               Cancel
             </AlertDialogCancel>
             <AlertDialogAction
@@ -1153,7 +1183,11 @@ export default function InternalPrototypePage() {
             <div className="flex items-center justify-between p-3 bg-[#0B0C0E] border border-white/5 rounded-lg">
               <div>
                 <div className="flex items-center gap-2">
-                  {isPublic ? <Globe className="w-3.5 h-3.5 text-indigo-400" /> : <Lock className="w-3.5 h-3.5 text-gray-500" />}
+                  {isPublic ? (
+                    <Globe className="w-3.5 h-3.5 text-indigo-400" />
+                  ) : (
+                    <Lock className="w-3.5 h-3.5 text-gray-500" />
+                  )}
                   <p className="font-medium text-sm">Make Public</p>
                 </div>
                 <p className="text-xs text-[#8A8F98] mt-1 ml-5">
@@ -1168,10 +1202,11 @@ export default function InternalPrototypePage() {
                 )}
               </div>
               <label
-                className={`relative inline-flex items-center ${userPlan !== "pro" && !isPublic
-                  ? "opacity-50 cursor-not-allowed"
-                  : "cursor-pointer"
-                  }`}
+                className={`relative inline-flex items-center ${
+                  userPlan !== "pro" && !isPublic
+                    ? "opacity-50 cursor-not-allowed"
+                    : "cursor-pointer"
+                }`}
               >
                 <input
                   type="checkbox"
@@ -1212,7 +1247,8 @@ export default function InternalPrototypePage() {
               </div>
               {!isPublic && (
                 <p className="text-xs text-amber-500/80">
-                  ⚠️ Copying the link will automatically make this project public
+                  ⚠️ Copying the link will automatically make this project
+                  public
                 </p>
               )}
             </div>
@@ -1232,7 +1268,7 @@ export default function InternalPrototypePage() {
 
 const getIntervalForStatus = (status: RenderStatus): number => {
   switch (status) {
-    case "Connected":  // viewing url is ngrok, must poll at a slower rate (every 45 sec) in case build server is cleaned up
+    case "Connected": // viewing url is ngrok, must poll at a slower rate (every 45 sec) in case build server is cleaned up
       return 45000;
     case "Starting Dev Server..": // possible user refreshes page, then viewing url will only be returned via polling bc initial request is lost and response will never be received, so poll every 15 seconds
       return 25000;

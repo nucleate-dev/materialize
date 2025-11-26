@@ -33,92 +33,14 @@ export type TerminalServiceInstance = {
 
 export function createDevelopmentToolsMcpServer(
   runCommand: CommandRunner,
-  writeFile?: FileWriter,
-  terminalService?: TerminalServiceInstance,
+  writeFile: FileWriter,
+  terminalService: TerminalServiceInstance,
+  restartDevServer: DevServerRestartCallback,
 ): ReturnType<typeof createSdkMcpServer> {
   return createSdkMcpServer({
     name: "development-tools",
     version: "1.0.0",
     tools: [
-      // --- Git Tool ---
-      tool(
-        "git",
-        "Run git commands to manage version control (e.g., checkout, commit, push, status).",
-        {
-          args: z
-            .array(z.string())
-            .describe(
-              "The arguments to pass to git (e.g. ['checkout', '-b', 'feature'])",
-            ),
-        },
-        async ({ args }) => {
-          const result = await runCommand("git", args);
-
-          if (result.isError) {
-            return {
-              isError: true,
-              content: [{ type: "text", text: result.stdout }],
-            };
-          }
-          return { content: [{ type: "text", text: result.stdout }] };
-        },
-      ),
-
-      // --- NPM Install Tool ---
-      tool(
-        "npm_install",
-        "Install node packages using npm or npx expo. After installing packages, the dev server will automatically restart to pick up the new dependencies.",
-        {
-          packages: z
-            .array(z.string())
-            .optional()
-            .describe(
-              "List of packages to install. If omitted, installs all dependencies (via npm install or expo install).",
-            ),
-          saveDev: z
-            .boolean()
-            .optional()
-            .describe("If true, adds --save-dev flag"),
-          installer: z
-            .enum(["npm", "expo"])
-            .optional()
-            .describe(
-              "Choose the installer. Defaults to npm; 'expo' uses 'npx expo install'.",
-            ),
-        },
-        async ({ packages, saveDev, installer }) => {
-          const useExpo = installer === "expo";
-          if (useExpo && saveDev) {
-            return {
-              isError: true,
-              content: [
-                {
-                  type: "text",
-                  text: "`saveDev` is not supported when using expo install.",
-                },
-              ],
-            };
-          }
-
-          const command = useExpo ? "npx" : "npm";
-          const args = useExpo ? ["expo", "install"] : ["install"];
-
-          if (saveDev) args.push("--save-dev");
-          if (packages && packages.length > 0) args.push(...packages);
-
-          const result = await runCommand(command, args);
-
-          if (result.isError) {
-            return {
-              isError: true,
-              content: [{ type: "text", text: result.stdout }],
-            };
-          }
-
-          return { content: [{ type: "text", text: result.stdout }] };
-        },
-      ),
-
       // --- SafeWrite File Tool ---
       tool(
         "SafeWrite",
@@ -130,18 +52,6 @@ export function createDevelopmentToolsMcpServer(
           content: z.string().describe("The content to write to the file"),
         },
         async ({ file_path, content }) => {
-          if (!writeFile) {
-            return {
-              isError: true,
-              content: [
-                {
-                  type: "text",
-                  text: "Write operation is not available - file writer not configured",
-                },
-              ],
-            };
-          }
-
           try {
             const result = await writeFile(file_path, content);
 
@@ -196,18 +106,6 @@ export function createDevelopmentToolsMcpServer(
             ),
         },
         async ({ lines }) => {
-          if (!terminalService) {
-            return {
-              isError: true,
-              content: [
-                {
-                  type: "text",
-                  text: "Terminal service is not available - terminal monitoring not configured",
-                },
-              ],
-            };
-          }
-
           const linesToRetrieve = lines ?? 20;
           const session = terminalService.getSession("dev-server");
 
@@ -266,6 +164,64 @@ export function createDevelopmentToolsMcpServer(
               },
             ],
           };
+        },
+      ),
+
+      // --- Restart Dev Server Tool ---
+      tool(
+        "RestartDevServer",
+        "Restart the Expo dev server. Use this when you need to pick up changes that require a full restart (e.g., after modifying configuration files, installing packages, or if the dev server is in a bad state). The dev server will be stopped and restarted with the same configuration.",
+        {},
+        async () => {
+          try {
+            await restartDevServer();
+            return {
+              content: [
+                {
+                  type: "text",
+                  text: "Dev server restarted successfully.",
+                },
+              ],
+            };
+          } catch (error) {
+            const errorMessage =
+              error instanceof Error ? error.message : String(error);
+            return {
+              isError: true,
+              content: [
+                {
+                  type: "text",
+                  text: `Failed to restart dev server: ${errorMessage}`,
+                },
+              ],
+            };
+          }
+        },
+      ),
+
+      // --- SafeBash Tool ---
+      tool(
+        "SafeBash",
+        "Execute bash commands in a safe terminal environment. Only run bash commands that finish. Long-running or background processes will hang and time out. Safe commands: git, npm/npx, etc. For dev server related commands, use the RestartDevServer tool instead.",
+        {
+          command: z.string().describe("The bash command to execute"),
+          args: z
+            .array(z.string())
+            .optional()
+            .describe(
+              "Optional arguments to pass to the command (e.g., ['install'] for npm install)",
+            ),
+        },
+        async ({ command, args }) => {
+          const result = await runCommand(command, args ?? []);
+
+          if (result.isError) {
+            return {
+              isError: true,
+              content: [{ type: "text", text: result.stdout }],
+            };
+          }
+          return { content: [{ type: "text", text: result.stdout }] };
         },
       ),
     ],

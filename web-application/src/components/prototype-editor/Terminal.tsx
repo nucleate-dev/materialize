@@ -24,7 +24,7 @@ const TERMINAL_SESSION_PATHS: Record<TerminalSession, string> = {
 const TERMINAL_SESSION_LABELS: Record<TerminalSession, string> = {
   build: "Build",
   "dev-server": "Dev Server",
-  test: "Test",
+  test: "AI",
 };
 
 interface TerminalInstanceState {

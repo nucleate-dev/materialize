@@ -3,23 +3,21 @@
 import { supabase } from "@/ClientConstants";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import type { ChatServerMessage } from "@/lib/types/ChatTypes";
-import { ChatClientEvent, ChatEvent, ChatSystemEventSubtype } from "@/lib/types/ChatTypes";
+import {
+  ChatClientEvent,
+  ChatEvent,
+  ChatSystemEventSubtype,
+} from "@/lib/types/ChatTypes";
 import { Database } from "@/lib/types/supabase";
 import { clearChatIntent, getChatIntent } from "@/lib/utils/chatIntentUtils";
 import type React from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import ClaudeCodePanelUI from "./ClaudeCodePanelUI";
+import { RenderStatus } from "@/app/dashboard/projects/[prototype_id]/InternalPrototypePage";
 
 type Prototype = Database["public"]["Tables"]["prototypes"]["Row"];
-export type PrototypeChatSession = Database["public"]["Tables"]["prototype_chat_sessions"]["Row"];
-
-export type RenderStatus =
-  | "Static build"
-  | "Connecting.."
-  | "Updating.."
-  | "Starting Dev Server.."
-  | "Disconnected"
-  | "Connected";
+export type PrototypeChatSession =
+  Database["public"]["Tables"]["prototype_chat_sessions"]["Row"];
 
 // Type for tool input data
 // Tool inputs can contain arbitrary data structures depending on the tool invoked
@@ -54,12 +52,19 @@ interface ClaudeCodePanelProps {
     handler: (msg: ChatServerMessage) => void,
   ) => void;
   onUnregisterMessageHandler: (id: string) => void;
-  onNpmInstallComplete?: () => void;
+  onRestartDevServerComplete?: () => void;
 }
 
 export interface Message {
   id: string;
-  type: "user" | "assistant" | "system" | "error" | "tool" | "thinking" | "usage";
+  type:
+    | "user"
+    | "assistant"
+    | "system"
+    | "error"
+    | "tool"
+    | "thinking"
+    | "usage";
   content: string;
   timestamp: number;
   toolName?: string;
@@ -103,7 +108,7 @@ export default function ClaudeCodePanel({
   onDisconnect,
   onRegisterMessageHandler,
   onUnregisterMessageHandler,
-  onNpmInstallComplete,
+  onRestartDevServerComplete,
 }: ClaudeCodePanelProps) {
   const logger = useProductLogger();
 
@@ -117,13 +122,19 @@ export default function ClaudeCodePanel({
   const [inputValue, setInputValue] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
   const [aiChatSessionId, setAiChatSessionId] = useState<string | null>(null);
-  const [prototypeChatSessionId, setPrototypeChatSessionId] = useState<string | null>(null); // prototype_chat_sessions.id
-  const [allChatSessions, setAllChatSessions] = useState<Array<PrototypeChatSession>>([]);
+  const [prototypeChatSessionId, setPrototypeChatSessionId] = useState<
+    string | null
+  >(null); // prototype_chat_sessions.id
+  const [allChatSessions, setAllChatSessions] = useState<
+    Array<PrototypeChatSession>
+  >([]);
   const [currentTodos, setCurrentTodos] = useState<Todo[]>([]); // Track current todo list
   const scrollAreaRef = useRef<HTMLDivElement | null>(null);
   const authTokenRef = useRef<string | null>(null);
   const sessionIdRef = useRef<string | null>(null);
-  const [expandedThinking, setExpandedThinking] = useState<Set<string>>(new Set());
+  const [expandedThinking, setExpandedThinking] = useState<Set<string>>(
+    new Set(),
+  );
   const [hasReceivedResponse, setHasReceivedResponse] = useState(false);
   const [uploadedImages, setUploadedImages] = useState<UploadedImage[]>([]);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -134,11 +145,14 @@ export default function ClaudeCodePanel({
   const [isNearBottom, setIsNearBottom] = useState(true);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const [isCorruptedSession, setIsCorruptedSession] = useState(false);
-  const [hasNpmInstallInChain, setHasNpmInstallInChain] = useState(false);
 
   // Helper to check if current session is the most recent
-  const isCurrentSessionMostRecent = allChatSessions.length === 0 ||
-    Boolean(prototypeChatSessionId && allChatSessions[0]?.id === prototypeChatSessionId);
+  const isCurrentSessionMostRecent =
+    allChatSessions.length === 0 ||
+    Boolean(
+      prototypeChatSessionId &&
+        allChatSessions[0]?.id === prototypeChatSessionId,
+    );
 
   // Settings modal state
   const [showSettingsModal, setShowSettingsModal] = useState(false);
@@ -182,26 +196,29 @@ export default function ClaudeCodePanel({
   // Helper function to sanitize file paths by removing the dev server prefix
   const sanitizeFilePath = (path: string): string => {
     if (!path) return path;
-    const prefix = '/tmp/materialize-dev-server/';
+    const prefix = "/tmp/materialize-dev-server/";
     // Replace all occurrences of the prefix, not just at the start
-    return path.replace(new RegExp(prefix, 'g'), '');
+    return path.replace(new RegExp(prefix, "g"), "");
   };
 
   // Helper function to determine if a tool is read-only (search/inspection)
   const isReadOnlyTool = (toolName: string): boolean => {
     const normalized = toolName.toLowerCase();
-    const readOnlyTools = ['read', 'glob', 'grep', 'list', 'search'];
-    return readOnlyTools.some(tool => normalized.includes(tool));
+    const readOnlyTools = ["read", "glob", "grep", "list", "search"];
+    return readOnlyTools.some((tool) => normalized.includes(tool));
   };
 
   // Helper function to determine if a tool is a "thinking" tool (Task, etc.)
   const isThinkingTool = (toolName: string): boolean => {
     const normalized = toolName.toLowerCase();
-    return normalized === 'task';
+    return normalized === "task";
   };
 
   // Helper function to get friendly tool display name
-  const getToolDisplayName = (toolName: string, toolInput?: ToolInput): string => {
+  const getToolDisplayName = (
+    toolName: string,
+    toolInput?: ToolInput,
+  ): string => {
     const normalized = toolName.toLowerCase();
 
     if (normalized.includes("npm_install")) {
@@ -221,59 +238,65 @@ export default function ClaudeCodePanel({
       return toolInput.description as string;
     }
 
-    // For Bash commands, use the description if available
-    if (normalized.includes('bash') && toolInput?.description) {
-      return toolInput.description;
-    }
-
     // For Task tool, use the description if available
-    if (normalized === 'task' && toolInput?.description) {
+    if (normalized === "task" && toolInput?.description) {
       return toolInput.description;
     }
 
     // More descriptive tool names with parameters
-    if (normalized.includes('read') && toolInput?.file_path) {
-      const fileName = sanitizeFilePath(toolInput.file_path).split('/').pop() || toolInput.file_path;
+    if (normalized.includes("read") && toolInput?.file_path) {
+      const fileName =
+        sanitizeFilePath(toolInput.file_path).split("/").pop() ||
+        toolInput.file_path;
       return `Reading ${fileName}`;
     }
-    if (normalized.includes('glob') && toolInput?.pattern) {
+    if (normalized.includes("glob") && toolInput?.pattern) {
       return `Searching files matching ${toolInput.pattern}`;
     }
-    if (normalized.includes('grep') && toolInput?.pattern) {
+    if (normalized.includes("grep") && toolInput?.pattern) {
       return `Searching code for "${toolInput.pattern}"`;
     }
-    if (normalized.includes('list') && toolInput?.path) {
-      const pathName = sanitizeFilePath(toolInput.path).split('/').pop() || toolInput.path;
+    if (normalized.includes("list") && toolInput?.path) {
+      const pathName =
+        sanitizeFilePath(toolInput.path).split("/").pop() || toolInput.path;
       return `Listing ${pathName}`;
     }
-    if (normalized.includes('write') && toolInput?.file_path) {
-      const fileName = sanitizeFilePath(toolInput.file_path).split('/').pop() || toolInput.file_path;
+    if (normalized.includes("write") && toolInput?.file_path) {
+      const fileName =
+        sanitizeFilePath(toolInput.file_path).split("/").pop() ||
+        toolInput.file_path;
       return `Writing ${fileName}`;
     }
-    if (normalized.includes('edit') && toolInput?.file_path) {
-      const fileName = sanitizeFilePath(toolInput.file_path).split('/').pop() || toolInput.file_path;
+    if (normalized.includes("edit") && toolInput?.file_path) {
+      const fileName =
+        sanitizeFilePath(toolInput.file_path).split("/").pop() ||
+        toolInput.file_path;
       return `Editing ${fileName}`;
     }
-    if (normalized.includes('delete') && toolInput?.file_path) {
-      const fileName = sanitizeFilePath(toolInput.file_path).split('/').pop() || toolInput.file_path;
+    if (normalized.includes("delete") && toolInput?.file_path) {
+      const fileName =
+        sanitizeFilePath(toolInput.file_path).split("/").pop() ||
+        toolInput.file_path;
       return `Deleting ${fileName}`;
     }
 
     // Default friendly names
-    if (normalized.includes('read')) return 'Reading files';
-    if (normalized.includes('glob')) return 'Searching files';
-    if (normalized.includes('grep')) return 'Searching code';
-    if (normalized.includes('list')) return 'Listing files';
-    if (normalized.includes('write')) return 'Writing';
-    if (normalized.includes('edit')) return 'Editing';
-    if (normalized.includes('bash')) return 'Running command';
-    if (normalized.includes('delete')) return 'Deleting';
+    if (normalized.includes("read")) return "Reading files";
+    if (normalized.includes("glob")) return "Searching files";
+    if (normalized.includes("grep")) return "Searching code";
+    if (normalized.includes("list")) return "Listing files";
+    if (normalized.includes("write")) return "Writing";
+    if (normalized.includes("edit")) return "Editing";
+    if (normalized.includes("bash")) return "Running command";
+    if (normalized.includes("delete")) return "Deleting";
+    if (normalized.includes("restartdevserver"))
+      return "Restarting development server";
     return toolName;
   };
 
   // Toggle expanded state for thinking
   const toggleThinkingExpanded = (toolCallId: string) => {
-    setExpandedThinking(prev => {
+    setExpandedThinking((prev) => {
       const next = new Set(prev);
       if (next.has(toolCallId)) {
         next.delete(toolCallId);
@@ -332,184 +355,202 @@ export default function ClaudeCodePanel({
   };
 
   // Helper function to load historical messages (extracted to be reusable)
-  const loadHistoricalMessages = useCallback(async (chatSessionId: string) => {
-    try {
-      // Fetch the chat session to check if it's corrupted
-      const { data: chatSession, error: sessionError } = await supabase
-        .from("prototype_chat_sessions")
-        .select("session_id")
-        .eq("id", chatSessionId)
-        .single();
+  const loadHistoricalMessages = useCallback(
+    async (chatSessionId: string) => {
+      try {
+        // Fetch the chat session to check if it's corrupted
+        const { data: chatSession, error: sessionError } = await supabase
+          .from("prototype_chat_sessions")
+          .select("session_id")
+          .eq("id", chatSessionId)
+          .single();
 
-      if (sessionError) {
-        logger.debug("error", "Failed to fetch chat session", {
-          error: sessionError,
-        });
-      }
-
-      const { data: historicalMessages, error: messagesError } = await supabase
-        .from("prototype_chat_messages")
-        .select("*")
-        .eq("chat_session_id", chatSessionId)
-        .order("created_at", { ascending: true });
-
-      if (messagesError) {
-        logger.debug("error", "Failed to fetch historical messages", {
-          error: messagesError,
-        });
-        return;
-      }
-
-      // Check if session is corrupted (has messages but no session_id)
-      const hasMessages = historicalMessages && historicalMessages.length > 0;
-      const hasNullSessionId = !chatSession?.session_id;
-      const isCorrupted = hasMessages && hasNullSessionId;
-
-      if (isCorrupted) {
-        logger.debug("warn", "Detected corrupted chat session", {
-          chatSessionId,
-          messageCount: historicalMessages?.length,
-        });
-        setIsCorruptedSession(true);
-      } else {
-        setIsCorruptedSession(false);
-      }
-
-      if (historicalMessages && historicalMessages.length > 0) {
-        // Convert database messages to UI message format
-        const uiMessages: Message[] = [];
-
-        for (const dbMessage of historicalMessages) {
-          // Handle different message types
-          if (dbMessage.message_type === "text") {
-            // Regular text message (user or assistant)
-            const message: Message = {
-              id: String(dbMessage.id),
-              type: dbMessage.role as "user" | "assistant",
-              content: dbMessage.content,
-              timestamp: new Date(dbMessage.created_at).getTime(),
-            };
-
-            // Check if this message has images in event_data
-            if (dbMessage.event_data) {
-              try {
-                const eventData = typeof dbMessage.event_data === 'string'
-                  ? JSON.parse(dbMessage.event_data)
-                  : dbMessage.event_data;
-
-                if (eventData.images && Array.isArray(eventData.images)) {
-                  // Fetch signed URLs for each image
-                  const imageUrls: string[] = [];
-                  for (const imageMetadata of eventData.images) {
-                    try {
-                      const { data: signedUrlData } = await supabase.storage
-                        .from("prototype-assets")
-                        .createSignedUrl(imageMetadata.storage_path, 3600); // 1 hour expiry
-
-                      if (signedUrlData?.signedUrl) {
-                        imageUrls.push(signedUrlData.signedUrl);
-                      }
-                    } catch (error) {
-                      logger.debug("error", "Failed to get signed URL for image", {
-                        storagePath: imageMetadata.storage_path,
-                        error: error instanceof Error ? error.message : String(error),
-                      });
-                    }
-                  }
-
-                  if (imageUrls.length > 0) {
-                    message.imageUrls = imageUrls;
-                  }
-                }
-              } catch (error) {
-                logger.debug("error", "Failed to parse event_data for images", {
-                  error: error instanceof Error ? error.message : String(error),
-                });
-              }
-            }
-
-            uiMessages.push(message);
-          } else if (
-            dbMessage.message_type === "tool_use" &&
-            dbMessage.event_type === "tool_start"
-          ) {
-            // Tool start event
-            const eventData = dbMessage.event_data as ToolEventData;
-            uiMessages.push({
-              id: `tool-${eventData?.tool_call_id || dbMessage.id}`,
-              type: "tool",
-              content: dbMessage.content,
-              timestamp: new Date(dbMessage.created_at).getTime(),
-              toolName: eventData?.tool_name,
-              toolCallId: eventData?.tool_call_id,
-              isComplete: false, // Will be updated if we find a matching tool_complete
-              status: "running",
-              toolInput: eventData?.tool_input,
-            });
-          } else if (
-            dbMessage.message_type === "tool_result" &&
-            dbMessage.event_type === "tool_complete"
-          ) {
-            // Tool complete event - find and update the matching tool_start message
-            const eventData = dbMessage.event_data as ToolEventData;
-            const toolCallId = eventData?.tool_call_id;
-
-            // Find the matching tool message and mark it as complete
-            const toolMessageIndex = uiMessages.findIndex(
-              (msg) =>
-                msg.type === "tool" &&
-                msg.toolCallId === toolCallId &&
-                !msg.isComplete,
-            );
-
-            if (toolMessageIndex !== -1) {
-              uiMessages[toolMessageIndex] = {
-                ...uiMessages[toolMessageIndex],
-                isComplete: true,
-                status: "success",
-              };
-            }
-          } else if (dbMessage.message_type === "error") {
-            // Error message
-            uiMessages.push({
-              id: String(dbMessage.id),
-              type: "error",
-              content: dbMessage.content,
-              timestamp: new Date(dbMessage.created_at).getTime(),
-            });
-          } else if (dbMessage.message_type === "system") {
-            // System message
-            uiMessages.push({
-              id: String(dbMessage.id),
-              type: "system",
-              content: dbMessage.content,
-              timestamp: new Date(dbMessage.created_at).getTime(),
-            });
-          }
-        }
-
-        // Add corruption warning message if session is corrupted
-        if (isCorrupted) {
-          uiMessages.push({
-            id: `corruption-warning-${Date.now()}`,
-            type: "system",
-            content: "Chat session has been corrupted. Materialize AI won't be able to see previous messages before this point.",
-            timestamp: Date.now(),
+        if (sessionError) {
+          logger.debug("error", "Failed to fetch chat session", {
+            error: sessionError,
           });
         }
 
-        setMessages(uiMessages);
-        logger.debug("log", "Loaded historical messages", {
-          count: uiMessages.length,
-          isCorrupted,
+        const { data: historicalMessages, error: messagesError } =
+          await supabase
+            .from("prototype_chat_messages")
+            .select("*")
+            .eq("chat_session_id", chatSessionId)
+            .order("created_at", { ascending: true });
+
+        if (messagesError) {
+          logger.debug("error", "Failed to fetch historical messages", {
+            error: messagesError,
+          });
+          return;
+        }
+
+        // Check if session is corrupted (has messages but no session_id)
+        const hasMessages = historicalMessages && historicalMessages.length > 0;
+        const hasNullSessionId = !chatSession?.session_id;
+        const isCorrupted = hasMessages && hasNullSessionId;
+
+        if (isCorrupted) {
+          logger.debug("warn", "Detected corrupted chat session", {
+            chatSessionId,
+            messageCount: historicalMessages?.length,
+          });
+          setIsCorruptedSession(true);
+        } else {
+          setIsCorruptedSession(false);
+        }
+
+        if (historicalMessages && historicalMessages.length > 0) {
+          // Convert database messages to UI message format
+          const uiMessages: Message[] = [];
+
+          for (const dbMessage of historicalMessages) {
+            // Handle different message types
+            if (dbMessage.message_type === "text") {
+              // Regular text message (user or assistant)
+              const message: Message = {
+                id: String(dbMessage.id),
+                type: dbMessage.role as "user" | "assistant",
+                content: dbMessage.content,
+                timestamp: new Date(dbMessage.created_at).getTime(),
+              };
+
+              // Check if this message has images in event_data
+              if (dbMessage.event_data) {
+                try {
+                  const eventData =
+                    typeof dbMessage.event_data === "string"
+                      ? JSON.parse(dbMessage.event_data)
+                      : dbMessage.event_data;
+
+                  if (eventData.images && Array.isArray(eventData.images)) {
+                    // Fetch signed URLs for each image
+                    const imageUrls: string[] = [];
+                    for (const imageMetadata of eventData.images) {
+                      try {
+                        const { data: signedUrlData } = await supabase.storage
+                          .from("prototype-assets")
+                          .createSignedUrl(imageMetadata.storage_path, 3600); // 1 hour expiry
+
+                        if (signedUrlData?.signedUrl) {
+                          imageUrls.push(signedUrlData.signedUrl);
+                        }
+                      } catch (error) {
+                        logger.debug(
+                          "error",
+                          "Failed to get signed URL for image",
+                          {
+                            storagePath: imageMetadata.storage_path,
+                            error:
+                              error instanceof Error
+                                ? error.message
+                                : String(error),
+                          },
+                        );
+                      }
+                    }
+
+                    if (imageUrls.length > 0) {
+                      message.imageUrls = imageUrls;
+                    }
+                  }
+                } catch (error) {
+                  logger.debug(
+                    "error",
+                    "Failed to parse event_data for images",
+                    {
+                      error:
+                        error instanceof Error ? error.message : String(error),
+                    },
+                  );
+                }
+              }
+
+              uiMessages.push(message);
+            } else if (
+              dbMessage.message_type === "tool_use" &&
+              dbMessage.event_type === "tool_start"
+            ) {
+              // Tool start event
+              const eventData = dbMessage.event_data as ToolEventData;
+              uiMessages.push({
+                id: `tool-${eventData?.tool_call_id || dbMessage.id}`,
+                type: "tool",
+                content: dbMessage.content,
+                timestamp: new Date(dbMessage.created_at).getTime(),
+                toolName: eventData?.tool_name,
+                toolCallId: eventData?.tool_call_id,
+                isComplete: false, // Will be updated if we find a matching tool_complete
+                status: "running",
+                toolInput: eventData?.tool_input,
+              });
+            } else if (
+              dbMessage.message_type === "tool_result" &&
+              dbMessage.event_type === "tool_complete"
+            ) {
+              // Tool complete event - find and update the matching tool_start message
+              const eventData = dbMessage.event_data as ToolEventData;
+              const toolCallId = eventData?.tool_call_id;
+
+              // Find the matching tool message and mark it as complete
+              const toolMessageIndex = uiMessages.findIndex(
+                (msg) =>
+                  msg.type === "tool" &&
+                  msg.toolCallId === toolCallId &&
+                  !msg.isComplete,
+              );
+
+              if (toolMessageIndex !== -1) {
+                uiMessages[toolMessageIndex] = {
+                  ...uiMessages[toolMessageIndex],
+                  isComplete: true,
+                  status: "success",
+                };
+              }
+            } else if (dbMessage.message_type === "error") {
+              // Error message
+              uiMessages.push({
+                id: String(dbMessage.id),
+                type: "error",
+                content: dbMessage.content,
+                timestamp: new Date(dbMessage.created_at).getTime(),
+              });
+            } else if (dbMessage.message_type === "system") {
+              // System message
+              uiMessages.push({
+                id: String(dbMessage.id),
+                type: "system",
+                content: dbMessage.content,
+                timestamp: new Date(dbMessage.created_at).getTime(),
+              });
+            }
+          }
+
+          // Add corruption warning message if session is corrupted
+          if (isCorrupted) {
+            uiMessages.push({
+              id: `corruption-warning-${Date.now()}`,
+              type: "system",
+              content:
+                "Chat session has been corrupted. Materialize AI won't be able to see previous messages before this point.",
+              timestamp: Date.now(),
+            });
+          }
+
+          setMessages(uiMessages);
+          logger.debug("log", "Loaded historical messages", {
+            count: uiMessages.length,
+            isCorrupted,
+          });
+        }
+      } catch (error) {
+        logger.debug("error", "Error loading historical messages", {
+          error: error instanceof Error ? error.message : String(error),
         });
       }
-    } catch (error) {
-      logger.debug("error", "Error loading historical messages", {
-        error: error instanceof Error ? error.message : String(error),
-      });
-    }
-  }, [logger]);
+    },
+    [logger],
+  );
 
   // Fetch or create prototype_chat_session on mount
   useEffect(() => {
@@ -548,9 +589,14 @@ export default function ClaudeCodePanel({
           await loadHistoricalMessages(mostRecentSession.id);
         } else {
           // Get current user for RLS policy
-          const { data: { user } } = await supabase.auth.getUser();
+          const {
+            data: { user },
+          } = await supabase.auth.getUser();
           if (!user) {
-            logger.debug("error", "Not authenticated - cannot create chat session");
+            logger.debug(
+              "error",
+              "Not authenticated - cannot create chat session",
+            );
             return;
           }
 
@@ -622,22 +668,22 @@ export default function ClaudeCodePanel({
 
       // Set timeout for queued message (2 minutes)
       queueTimeoutRef.current = setTimeout(() => {
-        logger.debug("error", "Queued message timeout - dev server took too long", {
-          message: chatIntent.message,
-        });
+        logger.debug(
+          "error",
+          "Queued message timeout - dev server took too long",
+          {
+            message: chatIntent.message,
+          },
+        );
 
         // Update queued message to show error
         setMessages((prev) =>
-          prev.map((msg) =>
-            msg.isQueued
-              ? { ...msg, isQueued: false }
-              : msg
-          )
+          prev.map((msg) => (msg.isQueued ? { ...msg, isQueued: false } : msg)),
         );
 
         addMessage(
           "error",
-          "Dev server took too long to start. Please try sending your message again."
+          "Dev server took too long to start. Please try sending your message again.",
         );
 
         setQueuedMessage(null);
@@ -674,11 +720,7 @@ export default function ClaudeCodePanel({
 
         // Update the queued message to show it's being sent
         setMessages((prev) =>
-          prev.map((msg) =>
-            msg.isQueued
-              ? { ...msg, isQueued: false }
-              : msg
-          )
+          prev.map((msg) => (msg.isQueued ? { ...msg, isQueued: false } : msg)),
         );
 
         // Send the message
@@ -713,18 +755,31 @@ export default function ClaudeCodePanel({
                 content: messageContent,
                 token: authTokenRef.current,
                 // Force new session if corrupted, otherwise use existing session
-                ai_chat_session_id: isCorruptedSession ? null : sessionIdRef.current,
+                ai_chat_session_id: isCorruptedSession
+                  ? null
+                  : sessionIdRef.current,
                 prototype_chat_session_id: prototypeChatSessionId,
                 custom_design_system_id: prototype?.custom_design_system,
                 current_viewing_path: currentViewingPath,
                 design_style: prototype?.design_style,
               },
-            })
+            }),
           );
         }
       })();
     }
-  }, [queuedMessage, currentRenderStatus, isConnected, isProcessing, ws, logger, prototypeChatSessionId, prototype, currentViewingPath, isCorruptedSession]);
+  }, [
+    queuedMessage,
+    currentRenderStatus,
+    isConnected,
+    isProcessing,
+    ws,
+    logger,
+    prototypeChatSessionId,
+    prototype,
+    currentViewingPath,
+    isCorruptedSession,
+  ]);
 
   // WebSocket connection is managed by parent component (InternalPrototypePage)
   // via the useClaudeCodeWebSocket hook
@@ -767,7 +822,7 @@ export default function ClaudeCodePanel({
     const textarea = textareaRef.current;
     if (textarea) {
       // Reset height to auto to get the correct scrollHeight
-      textarea.style.height = 'auto';
+      textarea.style.height = "auto";
       // Set height to scrollHeight, but cap at max-height
       const maxHeight = 200; // Max height in pixels
       const newHeight = Math.min(textarea.scrollHeight, maxHeight);
@@ -820,7 +875,9 @@ export default function ClaudeCodePanel({
       case ChatEvent.ERROR: {
         setIsProcessing(false);
         const { message: errorMessage, details } = message.error;
-        const formattedDetails = details ? `${errorMessage}: ${details}` : errorMessage;
+        const formattedDetails = details
+          ? `${errorMessage}: ${details}`
+          : errorMessage;
         addMessage("error", `Error: ${formattedDetails}`);
         break;
       }
@@ -841,7 +898,7 @@ export default function ClaudeCodePanel({
         setIsProcessing(false);
         // Mark all todos as completed
         setCurrentTodos((prev) =>
-          prev.map((todo) => ({ ...todo, status: "completed" as const }))
+          prev.map((todo) => ({ ...todo, status: "completed" as const })),
         );
         // Mark all running tools as success
         setMessages((prev) =>
@@ -853,22 +910,15 @@ export default function ClaudeCodePanel({
               return { ...msg, status: "success" as const, isComplete: true };
             }
             return msg;
-          })
+          }),
         );
-        // Trigger refresh if npm_install was used in this query chain
-        if (hasNpmInstallInChain && onNpmInstallComplete) {
-          onNpmInstallComplete();
-        }
-        setHasNpmInstallInChain(false);
         break;
 
       case ChatEvent.INTERRUPTED:
         setIsProcessing(false);
-        // Reset npm_install tracking on interruption
-        setHasNpmInstallInChain(false);
         // Mark all todos as completed on interruption
         setCurrentTodos((prev) =>
-          prev.map((todo) => ({ ...todo, status: "completed" as const }))
+          prev.map((todo) => ({ ...todo, status: "completed" as const })),
         );
         // Mark all running tools as success on interruption
         setMessages((prev) =>
@@ -880,7 +930,7 @@ export default function ClaudeCodePanel({
               return { ...msg, status: "success" as const, isComplete: true };
             }
             return msg;
-          })
+          }),
         );
         addMessage("system", message.data.message || "Query interrupted");
         break;
@@ -904,19 +954,24 @@ export default function ClaudeCodePanel({
           const toolCallId = rawToolCallId || `tool-${Date.now()}`;
           const toolInput = (tool_input ?? {}) as ToolInput;
 
-          // Track if npm_install tool is used in this query chain
-          if (toolName.toLowerCase().includes("npm_install")) {
-            setHasNpmInstallInChain(true);
-          }
-
           // Special handling for TodoWrite - update todo list instead of adding tool message
-          if (toolName === "TodoWrite" && toolInput.todos && Array.isArray(toolInput.todos)) {
+          if (
+            toolName === "TodoWrite" &&
+            toolInput.todos &&
+            Array.isArray(toolInput.todos)
+          ) {
             setCurrentTodos(toolInput.todos as Todo[]);
             // Don't add a tool message - todos are rendered separately
           } else if (isThinkingTool(toolName)) {
             setMessages((prev) =>
-              prev.filter(msg =>
-                !(msg.type === "tool" && !msg.isComplete && msg.toolName && isReadOnlyTool(msg.toolName))
+              prev.filter(
+                (msg) =>
+                  !(
+                    msg.type === "tool" &&
+                    !msg.isComplete &&
+                    msg.toolName &&
+                    isReadOnlyTool(msg.toolName)
+                  ),
               ),
             );
             addThinkingMessage(toolName, toolCallId, toolInput, "running");
@@ -932,7 +987,10 @@ export default function ClaudeCodePanel({
                 isReadOnlyTool(lastMessage.toolName) &&
                 lastMessage.toolName.toLowerCase() === toolName.toLowerCase()
               ) {
-                const updatedHistory = [...(lastMessage.toolHistory || []), toolInput];
+                const updatedHistory = [
+                  ...(lastMessage.toolHistory || []),
+                  toolInput,
+                ];
                 return [
                   ...prev.slice(0, -1),
                   {
@@ -943,8 +1001,14 @@ export default function ClaudeCodePanel({
                 ];
               }
 
-              const filtered = prev.filter(msg =>
-                !(msg.type === "tool" && !msg.isComplete && msg.toolName && isReadOnlyTool(msg.toolName))
+              const filtered = prev.filter(
+                (msg) =>
+                  !(
+                    msg.type === "tool" &&
+                    !msg.isComplete &&
+                    msg.toolName &&
+                    isReadOnlyTool(msg.toolName)
+                  ),
               );
 
               return [
@@ -965,8 +1029,14 @@ export default function ClaudeCodePanel({
             });
           } else {
             setMessages((prev) =>
-              prev.filter(msg =>
-                !(msg.type === "tool" && !msg.isComplete && msg.toolName && isReadOnlyTool(msg.toolName))
+              prev.filter(
+                (msg) =>
+                  !(
+                    msg.type === "tool" &&
+                    !msg.isComplete &&
+                    msg.toolName &&
+                    isReadOnlyTool(msg.toolName)
+                  ),
               ),
             );
             addToolMessage(toolName, toolCallId, toolInput, "running");
@@ -976,10 +1046,8 @@ export default function ClaudeCodePanel({
       }
 
       case ChatEvent.TOOL_COMPLETE: {
-        const {
-          tool_name: toolName,
-          tool_call_id: toolCallId = "",
-        } = message.data;
+        const { tool_name: toolName, tool_call_id: toolCallId = "" } =
+          message.data;
 
         if (toolName) {
           if (isThinkingTool(toolName)) {
@@ -987,6 +1055,12 @@ export default function ClaudeCodePanel({
           } else {
             updateToolMessage(toolCallId, "success");
           }
+        }
+        if (
+          toolName.toLowerCase().includes("restartdevserver") &&
+          onRestartDevServerComplete
+        ) {
+          onRestartDevServerComplete();
         }
         break;
       }
@@ -1006,16 +1080,24 @@ export default function ClaudeCodePanel({
 
         const updates: string[] = [];
         if (filesUpdated > 0) {
-          updates.push(`${filesUpdated} file${filesUpdated > 1 ? "s" : ""} updated`);
+          updates.push(
+            `${filesUpdated} file${filesUpdated > 1 ? "s" : ""} updated`,
+          );
         }
         if (filesDeleted > 0) {
-          updates.push(`${filesDeleted} file${filesDeleted > 1 ? "s" : ""} deleted`);
+          updates.push(
+            `${filesDeleted} file${filesDeleted > 1 ? "s" : ""} deleted`,
+          );
         }
         if (assetsUpdated > 0) {
-          updates.push(`${assetsUpdated} asset${assetsUpdated > 1 ? "s" : ""} updated`);
+          updates.push(
+            `${assetsUpdated} asset${assetsUpdated > 1 ? "s" : ""} updated`,
+          );
         }
         if (assetsDeleted > 0) {
-          updates.push(`${assetsDeleted} asset${assetsDeleted > 1 ? "s" : ""} deleted`);
+          updates.push(
+            `${assetsDeleted} asset${assetsDeleted > 1 ? "s" : ""} deleted`,
+          );
         }
 
         // if (updates.length > 0) {
@@ -1036,8 +1118,9 @@ export default function ClaudeCodePanel({
       }
 
       case ChatEvent.MODIFIED_FILES: {
-        const files =
-          (Array.isArray(message.data?.files) ? message.data.files : []) as string[];
+        const files = (
+          Array.isArray(message.data?.files) ? message.data.files : []
+        ) as string[];
         if (files.length > 0) {
           const sanitized = files.map((filePath) => sanitizeFilePath(filePath));
           addMessage("system", `Files modified: ${sanitized.join(", ")}`);
@@ -1084,8 +1167,10 @@ export default function ClaudeCodePanel({
 
         // Extract last N user/assistant text messages (no tools, no system)
         const recentMessages = messagesRef.current
-          .filter((msg) =>
-            (msg.type === "user" || msg.type === "assistant") && !msg.isQueued,
+          .filter(
+            (msg) =>
+              (msg.type === "user" || msg.type === "assistant") &&
+              !msg.isQueued,
           )
           .slice(-requested_message_count)
           .map((msg) => ({
@@ -1116,7 +1201,7 @@ export default function ClaudeCodePanel({
       }
 
       default: {
-        const unknownMessage = message as { type: string; };
+        const unknownMessage = message as { type: string };
         logger.debug("log", "Unknown message type", {
           messageType: unknownMessage.type,
         });
@@ -1166,7 +1251,10 @@ export default function ClaudeCodePanel({
                   ...prev.slice(0, -1),
                   {
                     ...lastMessage,
-                    content: lastMessage.content + (needsLineBreak ? '\n\n' : '') + textDelta,
+                    content:
+                      lastMessage.content +
+                      (needsLineBreak ? "\n\n" : "") +
+                      textDelta,
                   },
                 ];
               } else {
@@ -1205,7 +1293,10 @@ export default function ClaudeCodePanel({
                   ...prev.slice(0, -1),
                   {
                     ...lastMessage,
-                    content: lastMessage.content + (needsLineBreak ? '\n\n' : '') + content.text,
+                    content:
+                      lastMessage.content +
+                      (needsLineBreak ? "\n\n" : "") +
+                      content.text,
                   },
                 ];
               } else {
@@ -1244,7 +1335,11 @@ export default function ClaudeCodePanel({
   };
 
   // Add a message to the chat
-  const addMessage = (type: Message["type"], content: string, creditsUsed?: number) => {
+  const addMessage = (
+    type: Message["type"],
+    content: string,
+    creditsUsed?: number,
+  ) => {
     setMessages((prev) => [
       ...prev,
       {
@@ -1258,7 +1353,12 @@ export default function ClaudeCodePanel({
   };
 
   // Add a tool message when a tool starts
-  const addToolMessage = (toolName: string, toolCallId: string, toolInput: ToolInput, status: "running" | "success" | "error") => {
+  const addToolMessage = (
+    toolName: string,
+    toolCallId: string,
+    toolInput: ToolInput,
+    status: "running" | "success" | "error",
+  ) => {
     setMessages((prev) => [
       ...prev,
       {
@@ -1276,7 +1376,12 @@ export default function ClaudeCodePanel({
   };
 
   // Add a thinking message when a thinking tool starts (Task, etc.)
-  const addThinkingMessage = (toolName: string, toolCallId: string, toolInput: ToolInput, status: "running" | "success" | "error") => {
+  const addThinkingMessage = (
+    toolName: string,
+    toolCallId: string,
+    toolInput: ToolInput,
+    status: "running" | "success" | "error",
+  ) => {
     setMessages((prev) => [
       ...prev,
       {
@@ -1294,10 +1399,16 @@ export default function ClaudeCodePanel({
   };
 
   // Update a thinking message when it completes
-  const updateThinkingMessage = (toolCallId: string, status: "running" | "success" | "error") => {
+  const updateThinkingMessage = (
+    toolCallId: string,
+    status: "running" | "success" | "error",
+  ) => {
     setMessages((prev) => {
       const index = prev.findIndex(
-        (msg) => msg.type === "thinking" && msg.toolCallId === toolCallId && !msg.isComplete
+        (msg) =>
+          msg.type === "thinking" &&
+          msg.toolCallId === toolCallId &&
+          !msg.isComplete,
       );
 
       if (index === -1) return prev;
@@ -1314,11 +1425,17 @@ export default function ClaudeCodePanel({
   };
 
   // Update a tool message when it completes
-  const updateToolMessage = (toolCallId: string, status: "running" | "success" | "error") => {
+  const updateToolMessage = (
+    toolCallId: string,
+    status: "running" | "success" | "error",
+  ) => {
     setMessages((prev) => {
       // Find the tool message with this toolCallId
       const index = prev.findIndex(
-        (msg) => msg.type === "tool" && msg.toolCallId === toolCallId && !msg.isComplete
+        (msg) =>
+          msg.type === "tool" &&
+          msg.toolCallId === toolCallId &&
+          !msg.isComplete,
       );
 
       if (index === -1) return prev;
@@ -1342,13 +1459,19 @@ export default function ClaudeCodePanel({
     Array.from(files).forEach((file) => {
       // Validate file type
       if (!file.type.startsWith("image/")) {
-        addMessage("error", `Invalid file type: ${file.name}. Only images are supported.`);
+        addMessage(
+          "error",
+          `Invalid file type: ${file.name}. Only images are supported.`,
+        );
         return;
       }
 
       // Validate file size (5MB limit per Anthropic API)
       if (file.size > 5 * 1024 * 1024) {
-        addMessage("error", `Image too large: ${file.name}. Maximum size is 5MB.`);
+        addMessage(
+          "error",
+          `Image too large: ${file.name}. Maximum size is 5MB.`,
+        );
         return;
       }
 
@@ -1421,7 +1544,11 @@ export default function ClaudeCodePanel({
 
       // Add message to chat as queued
       const imageCount = uploadedImages.length;
-      const displayMessage = trimmedInput + (imageCount > 0 ? ` [${imageCount} image${imageCount > 1 ? 's' : ''}]` : "");
+      const displayMessage =
+        trimmedInput +
+        (imageCount > 0
+          ? ` [${imageCount} image${imageCount > 1 ? "s" : ""}]`
+          : "");
       setMessages((prev) => [
         ...prev,
         {
@@ -1447,16 +1574,12 @@ export default function ClaudeCodePanel({
 
         // Update queued message to show error
         setMessages((prev) =>
-          prev.map((msg) =>
-            msg.isQueued
-              ? { ...msg, isQueued: false }
-              : msg
-          )
+          prev.map((msg) => (msg.isQueued ? { ...msg, isQueued: false } : msg)),
         );
 
         addMessage(
           "error",
-          "Connection or dev server took too long. Please try sending your message again."
+          "Connection or dev server took too long. Please try sending your message again.",
         );
 
         setQueuedMessage(null);
@@ -1466,7 +1589,10 @@ export default function ClaudeCodePanel({
       const waitingFor = [];
       if (!isConnected) waitingFor.push("connection");
       if (!isDevServerReady) waitingFor.push("dev server");
-      addMessage("system", `Message queued - waiting for ${waitingFor.join(" and ")}`);
+      addMessage(
+        "system",
+        `Message queued - waiting for ${waitingFor.join(" and ")}`,
+      );
       return;
     }
 
@@ -1482,7 +1608,9 @@ export default function ClaudeCodePanel({
       }
       authTokenRef.current = session.session.access_token;
     } catch (error) {
-      logger.debug("error", "Failed to refresh authentication token", { error });
+      logger.debug("error", "Failed to refresh authentication token", {
+        error,
+      });
       addMessage(
         "error",
         "Failed to refresh authentication token. Please reconnect.",
@@ -1500,7 +1628,11 @@ export default function ClaudeCodePanel({
     }
 
     // Construct content array with text and images
-    const content: Array<{ type: string; text?: string; source?: { type: string; media_type: string; data: string; }; }> = [];
+    const content: Array<{
+      type: string;
+      text?: string;
+      source?: { type: string; media_type: string; data: string };
+    }> = [];
 
     // Add text if present
     if (trimmedInput) {
@@ -1528,11 +1660,19 @@ export default function ClaudeCodePanel({
       contentLength: content.length,
       hasText: !!trimmedInput,
       imageCount,
-      content: content.map(c => ({ type: c.type, hasText: !!c.text, hasSource: !!c.source }))
+      content: content.map((c) => ({
+        type: c.type,
+        hasText: !!c.text,
+        hasSource: !!c.source,
+      })),
     });
 
     // Add message to chat (show text and image count)
-    const displayMessage = trimmedInput + (imageCount > 0 ? ` [${imageCount} image${imageCount > 1 ? 's' : ''}]` : "");
+    const displayMessage =
+      trimmedInput +
+      (imageCount > 0
+        ? ` [${imageCount} image${imageCount > 1 ? "s" : ""}]`
+        : "");
     addMessage("user", displayMessage);
 
     setInputValue("");
@@ -1549,7 +1689,9 @@ export default function ClaudeCodePanel({
             content,
             token, // Include JWT token for Supabase authentication
             // Force new session if corrupted, otherwise use existing session
-            ai_chat_session_id: isCorruptedSession ? null : sessionIdRef.current, // Pass Claude SDK session_id for resumption
+            ai_chat_session_id: isCorruptedSession
+              ? null
+              : sessionIdRef.current, // Pass Claude SDK session_id for resumption
             prototype_chat_session_id: prototypeChatSessionId, // Pass database chat session ID for message persistence
             custom_design_system_id: prototype?.custom_design_system,
             design_style: prototype?.design_style,
@@ -1582,7 +1724,9 @@ export default function ClaudeCodePanel({
 
     try {
       // Get current user for RLS policy
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (!user) {
         addMessage("error", "Not authenticated. Please log in.");
         return;
@@ -1602,7 +1746,9 @@ export default function ClaudeCodePanel({
           });
         } else if (imageList && imageList.length > 0) {
           // Delete all images in the folder
-          const filePaths = imageList.map(file => `${chatImagePrefix}${file.name}`);
+          const filePaths = imageList.map(
+            (file) => `${chatImagePrefix}${file.name}`,
+          );
           const { error: deleteImagesError } = await supabase.storage
             .from("prototype-assets")
             .remove(filePaths);
@@ -1666,7 +1812,10 @@ export default function ClaudeCodePanel({
       setIsCorruptedSession(false); // Clear corruption flag when resetting
 
       // Update the sessions list
-      setAllChatSessions((prev) => [newSession, ...prev.filter((s) => s.id !== prototypeChatSessionId)]);
+      setAllChatSessions((prev) => [
+        newSession,
+        ...prev.filter((s) => s.id !== prototypeChatSessionId),
+      ]);
 
       logger.debug("log", "Reset session - created new chat session", {
         oldChatSessionId: prototypeChatSessionId,
@@ -1722,7 +1871,9 @@ export default function ClaudeCodePanel({
   const createNewChatSession = async () => {
     try {
       // Get current user for RLS policy
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (!user) {
         addMessage("error", "Not authenticated. Please log in.");
         return;
