@@ -169,16 +169,19 @@ export async function notifyOrchestrationEndChat(
 export function createOrchestrationNotifiers(
   orchestrationToken: string | null,
   logger: SystemLogger,
-) {
+): {
+  notifyStartChat: (prototypeId: string) => Promise<void>;
+  notifyEndChat: (prototypeId: string) => Promise<void>;
+} {
   return {
-    notifyStartChat: async (prototypeId: string) => {
+    notifyStartChat: async (prototypeId: string): Promise<void> => {
       await notifyOrchestrationStartChat(
         prototypeId,
         orchestrationToken,
         logger,
       );
     },
-    notifyEndChat: async (prototypeId: string) => {
+    notifyEndChat: async (prototypeId: string): Promise<void> => {
       await notifyOrchestrationEndChat(prototypeId, orchestrationToken, logger);
     },
   };
