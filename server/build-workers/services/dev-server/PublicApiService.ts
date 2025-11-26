@@ -20,15 +20,15 @@ import {
   PublicStartDevServerRequest,
   PublicUpdateFilesRequest,
   StandardErrorResponse,
-} from "../types/BuildWorkerTypes.js";
-import { PrototypeFileInput } from "../utils/shared-utils.js";
-import { baseLogger } from "../worker.js";
-import { SystemLogger } from "../loggers/SystemLogger.js";
-import { CloudflareTunnelManagementService } from "./CloudflareTunnelManagementService.js";
-import { CodeService } from "./chat/CodeService.js";
+} from "../../types/BuildWorkerTypes.js";
+import { PrototypeFileInput } from "../../utils/shared-utils.js";
+import { baseLogger } from "../../worker.js";
+import { SystemLogger } from "../../loggers/SystemLogger.js";
+import { CloudflareTunnelManagementService } from "../CloudflareTunnelManagementService.js";
+import { CodeService } from "../chat/CodeService.js";
 import { ExpoDevServerService } from "./ExpoDevServerService.js";
-import { SandboxService } from "./SandboxService.js";
-import { SupabaseClientService } from "./SupabaseClientService.js";
+import { SandboxService } from "../SandboxService.js";
+import { SupabaseClientService } from "../SupabaseClientService.js";
 
 export class PublicApiService {
   private readonly expoDevServerService: ExpoDevServerService;
@@ -108,7 +108,7 @@ export class PublicApiService {
     } = request.body;
 
     // Import setWorkerContext dynamically to avoid circular dependency
-    const { setWorkerContext } = await import("../worker.js");
+    const { setWorkerContext } = await import("../../worker.js");
 
     // Set worker context so all future requests include userId and prototypeId in logs
     setWorkerContext(userId, prototypeId);
@@ -1070,7 +1070,7 @@ export class PublicApiService {
     try {
       // Import utility function
       const { restoreClaudeSessionsFromSupabase } = await import(
-        "../utils/shared-utils.js"
+        "../../utils/shared-utils.js"
       );
 
       // Restore all session files from Storage

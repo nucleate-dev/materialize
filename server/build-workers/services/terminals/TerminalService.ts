@@ -4,7 +4,7 @@ import { IPty, IPtyForkOptions, spawn as spawnPty } from "node-pty";
 import path from "path";
 import { v4 as uuidv4 } from "uuid";
 import WebSocket from "ws";
-import { SystemLogger } from "../loggers/SystemLogger.js";
+import { SystemLogger } from "../../loggers/SystemLogger.js";
 import {
   TerminalCloseResponse,
   TerminalCreateRequest,
@@ -15,13 +15,13 @@ import {
   TerminalResizeRequest,
   TerminalResizeResponse,
   TerminalSessionType,
-} from "../types/BuildWorkerTypes.js";
+} from "../../types/BuildWorkerTypes.js";
 import { TerminalCommandValidator } from "./TerminalCommandValidationUtils.js";
 import { randomUUID } from "crypto";
 import {
   TerminalUserIdentity,
   resolveTerminalUserIdentity,
-} from "../utils/TerminalUserUtils.js";
+} from "./TerminalUserUtils.js";
 // import type { fastifyWebsocket } from "@fastify/websocket";
 
 const TERMINAL_BUFFER_LIMIT = 5000;
@@ -287,12 +287,15 @@ export class TerminalService {
         this.commandValidator.normalizePathToAllowedRoot(requestedCwd);
       cwd = withinRoot ? normalizedCwd : this.allowedRoot;
       if (!withinRoot) {
-        this.logger.warn("Requested terminal cwd outside allowed root; clamped", {
-          sessionId,
-          requestedCwd,
-          normalizedCwd,
-          allowedRoot: this.allowedRoot,
-        });
+        this.logger.warn(
+          "Requested terminal cwd outside allowed root; clamped",
+          {
+            sessionId,
+            requestedCwd,
+            normalizedCwd,
+            allowedRoot: this.allowedRoot,
+          },
+        );
       }
     } else {
       cwd = path.resolve(requestedCwd);

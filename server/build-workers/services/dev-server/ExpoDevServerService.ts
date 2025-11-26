@@ -8,7 +8,7 @@ import { ChildProcess, execSync } from "child_process";
 import fs from "fs/promises";
 import path from "path";
 import { v4 as uuidv4 } from "uuid";
-import { SystemLogger } from "../loggers/SystemLogger.js";
+import { SystemLogger } from "../../loggers/SystemLogger.js";
 import {
   BuildAndDeployResponse,
   BuildLogEntry,
@@ -18,17 +18,17 @@ import {
   DevServerStatus,
   DevServerStatusResponse,
   OperationStatus,
-} from "../types/BuildWorkerTypes.js";
+} from "../../types/BuildWorkerTypes.js";
 import {
   installDependencies,
   PrototypeAssetInputWithContent,
   PrototypeFileInput,
   resolvePathWithinProject,
   writeProjectFiles,
-} from "../utils/shared-utils.js";
-import { FileSyncService } from "./FileSyncService.js";
-import { SupabaseClientService } from "./SupabaseClientService.js";
-import { TerminalService } from "./TerminalService.js";
+} from "../../utils/shared-utils.js";
+import { FileSyncService } from "../FileSyncService.js";
+import { SupabaseClientService } from "../SupabaseClientService.js";
+import { TerminalService } from "../terminals/TerminalService.js";
 
 const S3_BUCKET = process.env.S3_BUCKET || "materialize-sites";
 
@@ -400,7 +400,9 @@ export class ExpoDevServerService {
         const urlMatch = output.match(/(?:https?|exp):\/\/[^\s\)\x1B]+/g);
         if (urlMatch && !resolved) {
           // Clean ANSI codes from all matched URLs
-          const cleanedUrls = urlMatch.map(url => url.replace(/\x1B\[[0-9;]*m/g, ''));
+          const cleanedUrls = urlMatch.map((url) =>
+            url.replace(/\x1B\[[0-9;]*m/g, ""),
+          );
 
           log2.consoleLogDevOnly("debug", "URLs found in output", {
             urls: cleanedUrls.join(", "),
@@ -455,7 +457,10 @@ export class ExpoDevServerService {
 
           if (tunnelMatch && tunnelMatch[1]) {
             // Clean any remaining ANSI codes from the captured URL
-            this.state.tunnelUrl = tunnelMatch[1].replace(/\x1B\[[0-9;]*m/g, '');
+            this.state.tunnelUrl = tunnelMatch[1].replace(
+              /\x1B\[[0-9;]*m/g,
+              "",
+            );
           } else {
             // Fallback: construct expected tunnel URL
             this.state.tunnelUrl = `https://${tunnelSubdomain}.ngrok.io`;
@@ -1701,7 +1706,7 @@ export class ExpoDevServerService {
       // Upload all Claude session files to Supabase before build
       try {
         const { uploadAllClaudeSessionsToSupabase } = await import(
-          "../utils/shared-utils.js"
+          "../../utils/shared-utils.js"
         );
         const uploadResult = await uploadAllClaudeSessionsToSupabase(
           resolvedPrototypeId,

@@ -26,14 +26,14 @@ import {
   ChatSystemEventSubtype,
   HistoryResponseData,
 } from "../../types/ChatTypes.js";
-import { getSystemPromptForDesignStyle } from "../../utils/ClaudeCodePrompts.js";
-import { processImage } from "../../utils/imageProcessing.js";
-import { ExpoDevServerService } from "../ExpoDevServerService.js";
+import { getSystemPromptForDesignStyle } from "./ClaudeCodePrompts.js";
+import { processImage } from "./imageProcessing.js";
+import { ExpoDevServerService } from "../dev-server/ExpoDevServerService.js";
 import { FileSyncService } from "../FileSyncService.js";
-import { createDevelopmentToolsMcpServer } from "../mcp-tools.js";
+import { createDevelopmentToolsMcpServer } from "./mcp-tools.js";
 import { SandboxService } from "../SandboxService.js";
 import { SupabaseClientService } from "../SupabaseClientService.js";
-import { TerminalService } from "../TerminalService.js";
+import { TerminalService } from "../terminals/TerminalService.js";
 import { hasRemainingCredits } from "./credit-checks.js";
 import { getToolDisplayName } from "./message-handlers.js";
 import { ToolPermissionService } from "./tool-permission-service.js";

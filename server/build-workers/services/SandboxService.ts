@@ -22,7 +22,7 @@ import {
   StandardErrorResponse,
 } from "../types/BuildWorkerTypes.js";
 import { resolvePathWithinProject } from "../utils/shared-utils.js";
-import { TerminalService } from "./TerminalService.js";
+import { TerminalService } from "./terminals/TerminalService.js";
 
 // TODO: Add rate limiting to prevent abuse of sandbox operations
 // Ideas:
@@ -161,7 +161,10 @@ export class SandboxService {
   }
 
   public async runCommandInternal(body: PublicRunCommandRequest): Promise<{
-    response: SandboxAPIResponse<PublicRunCommandSuccessResponse, StandardErrorResponse>;
+    response: SandboxAPIResponse<
+      PublicRunCommandSuccessResponse,
+      StandardErrorResponse
+    >;
     httpStatus: number;
   }> {
     const {
@@ -363,7 +366,9 @@ export class SandboxService {
   private async runCommandRoute(
     request: FastifyRequest<{ Body: PublicRunCommandRequest }>,
     reply: FastifyReply,
-  ): Promise<SandboxAPIResponse<PublicRunCommandSuccessResponse, StandardErrorResponse>> {
+  ): Promise<
+    SandboxAPIResponse<PublicRunCommandSuccessResponse, StandardErrorResponse>
+  > {
     const { response, httpStatus } = await this.runCommandInternal(
       request.body,
     );
@@ -713,7 +718,9 @@ export class SandboxService {
   private async handleSandboxMakeDir(
     request: FastifyRequest<{ Body: SandboxMakeDirRequest }>,
     reply: FastifyReply,
-  ): Promise<SandboxAPIResponse<SandboxMakeDirSuccessResponse, StandardErrorResponse>> {
+  ): Promise<
+    SandboxAPIResponse<SandboxMakeDirSuccessResponse, StandardErrorResponse>
+  > {
     const { path, recursive } = request.body;
 
     if (!path) {
@@ -776,7 +783,9 @@ export class SandboxService {
   private async handleSandboxReadFile(
     request: FastifyRequest<{ Body: SandboxReadFileRequest }>,
     reply: FastifyReply,
-  ): Promise<SandboxAPIResponse<SandboxReadFileSuccessResponse, StandardErrorResponse>> {
+  ): Promise<
+    SandboxAPIResponse<SandboxReadFileSuccessResponse, StandardErrorResponse>
+  > {
     const { path } = request.body;
 
     if (!path) {
@@ -858,7 +867,9 @@ export class SandboxService {
   private async handleSandboxWriteFile(
     request: FastifyRequest<{ Body: SandboxWriteFileRequest }>,
     reply: FastifyReply,
-  ): Promise<SandboxAPIResponse<SandboxWriteFileSuccessResponse, StandardErrorResponse>> {
+  ): Promise<
+    SandboxAPIResponse<SandboxWriteFileSuccessResponse, StandardErrorResponse>
+  > {
     const { path, filename, contents } = request.body;
 
     if (!path || !filename || contents === undefined) {
@@ -926,7 +937,9 @@ export class SandboxService {
   private async handleSandboxGitCheckout(
     request: FastifyRequest<{ Body: SandboxGitCheckoutRequest }>,
     reply: FastifyReply,
-  ): Promise<SandboxAPIResponse<SandboxGitCheckoutSuccessResponse, StandardErrorResponse>> {
+  ): Promise<
+    SandboxAPIResponse<SandboxGitCheckoutSuccessResponse, StandardErrorResponse>
+  > {
     const { git_url, target_path } = request.body;
 
     if (!git_url) {

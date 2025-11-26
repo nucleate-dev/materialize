@@ -5,11 +5,11 @@ import dotenv from "dotenv";
 import fastify, { FastifyInstance } from "fastify";
 import fs from "fs/promises";
 import { SystemLogger, genRequestIds } from "./loggers/SystemLogger.js";
-import { ExpoDevServerService } from "./services/ExpoDevServerService.js";
+import { ExpoDevServerService } from "./services/dev-server/ExpoDevServerService.js";
 import { CloudflareTunnelManagementService } from "./services/CloudflareTunnelManagementService.js";
-import { PublicApiService } from "./services/PublicApiService.js";
+import { PublicApiService } from "./services/dev-server/PublicApiService.js";
 import { SandboxService } from "./services/SandboxService.js";
-import { TerminalService } from "./services/TerminalService.js";
+import { TerminalService } from "./services/terminals/TerminalService.js";
 import { CodeService } from "./services/chat/CodeService.js";
 import { SupabaseClientService } from "./services/SupabaseClientService.js";
 
