@@ -1,23 +1,23 @@
 import {
-  CanUseTool,
-  HookInput,
-  HookJSONOutput,
-  Options,
-  PermissionMode,
-  PermissionResult,
-  query,
-  SDKAssistantMessage,
-  SDKUserMessage,
-  SettingSource,
+    CanUseTool,
+    HookInput,
+    HookJSONOutput,
+    Options,
+    PermissionMode,
+    PermissionResult,
+    query,
+    SDKAssistantMessage,
+    SDKUserMessage,
+    SettingSource,
 } from "@anthropic-ai/claude-agent-sdk";
 import path from "path";
 import WebSocket from "ws";
 import { SystemLogger } from "../../loggers/SystemLogger.js";
 import {
-  ChatContentBlock,
-  ChatEvent,
-  ChatQueryData,
-  ChatServerMessage,
+    ChatContentBlock,
+    ChatEvent,
+    ChatQueryData,
+    ChatServerMessage,
 } from "../../types/ChatTypes.js";
 import { Database } from "../../types/supabase.js";
 import { ExpoDevServerService } from "../dev-server/ExpoDevServerService.js";
@@ -27,8 +27,8 @@ import { SupabaseClientService } from "../SupabaseClientService.js";
 import { TerminalService } from "../terminals/TerminalService.js";
 import { getSystemPromptForDesignStyle } from "./ClaudeCodePrompts.js";
 import {
-  costFunctionV1,
-  CURRENT_COST_FUNCTION_NAME,
+    costFunctionV1,
+    CURRENT_COST_FUNCTION_NAME,
 } from "./cost-calculation.js";
 import { hasRemainingCredits } from "./credit-checks.js";
 import { createDevelopmentToolsMcpServer } from "./mcp-tools.js";
@@ -1098,7 +1098,7 @@ export class ChatQueryHandler {
 
       if (input.hook_event_name === "PostToolUse") {
         // Track file modifications
-        const fileModifyingTools = ["Write", "Edit", "NotebookEdit"];
+        const fileModifyingTools = ["Write", "Edit", "NotebookEdit", "SafeWrite"];
         if (fileModifyingTools.includes(input.tool_name)) {
           const toolInput = input.tool_input as ToolInputWithFilePath;
           const toolResponse = input.tool_response as ToolResponseWithFilePath;
