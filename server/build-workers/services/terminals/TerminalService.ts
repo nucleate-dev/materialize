@@ -422,7 +422,22 @@ export class TerminalService {
     return session;
   }
 
-  public sendInput(sessionId: string, input: string): void {
+  /**
+   * Send input to a terminal session.
+   *
+   * @param sessionId - The ID of the terminal session
+   * @param input - The input string to send to the terminal
+   * @param options - Optional configuration
+   * @param options.bypassValidation - If true, skips command validation.
+   *                                    SECURITY WARNING: Only use this for trusted internal commands
+   *                                    from the application itself, never for user input.
+   *                                    Use cases: internal build commands, dev server management.
+   */
+  public sendInput(
+    sessionId: string,
+    input: string,
+    options?: { bypassValidation?: boolean },
+  ): void {
     const session = this.requireSession(sessionId);
     if (!session.pty) {
       this.logger.error(
@@ -437,6 +452,35 @@ export class TerminalService {
       throw new Error(`Terminal session ${sessionId} is not running`);
     }
 
+    // Skip validation if explicitly bypassed by trusted internal services
+    if (options?.bypassValidation === true) {
+      this.logger.consoleLogDevOnly(
+        "debug",
+        "Terminal input bypassing validation (trusted internal command)",
+        {
+          sessionId,
+          inputPreview: input.slice(0, 100),
+        },
+      );
+      session.updatedAt = Date.now();
+      try {
+        session.pty.write(input);
+      } catch (error) {
+        this.logger.error(
+          error instanceof Error ? error : new Error(String(error)),
+          "Failed to write input to PTY",
+          {
+            sessionId,
+            ptyPid: session.pty.pid,
+            state: session.state,
+          },
+        );
+        throw error;
+      }
+      return;
+    }
+
+    // Normal validation flow for user input
     if (this.terminalValidationEnabled && this.commandValidator) {
       const currentBuffer = this.sessionInputBuffers.get(session.id) ?? "";
       const { outputToWrite, newBuffer, error } =
@@ -487,10 +531,21 @@ export class TerminalService {
     }
   }
 
+  /**
+   * Send input to a terminal session and wait for command completion with exit code detection.
+   * This wraps the command with markers to detect when it completes and capture the exit code.
+   *
+   * @param sessionId - The ID of the terminal session
+   * @param input - The command to execute
+   * @param options - Optional configuration
+   * @param options.timeout - Command timeout in milliseconds (default: 30000)
+   * @param options.bypassValidation - If true, skips command validation (default: true for internal use)
+   * @returns Promise resolving to { output: string, exitCode: number }
+   */
   public async asyncSendInputWithCompletionDetectionOrTimeout(
     sessionId: string,
     input: string,
-    options: { timeout?: number } = {},
+    options: { timeout?: number; bypassValidation?: boolean } = {},
   ): Promise<{ output: string; exitCode: number }> {
     const session = this.requireSession(sessionId);
 
@@ -509,6 +564,9 @@ export class TerminalService {
     return new Promise((resolve, reject) => {
       let buffer = "";
       const timeout = options.timeout ?? 30000;
+      // Default to bypassing validation since this is typically used for internal commands
+      // that require command chaining (semicolons) which would be blocked by validation
+      const bypassValidation = options.bypassValidation ?? true;
       const endMarkerRegex = new RegExp(
         `${escapeRegex(endMarkerWithExitPrefix)}(-?\\d+)`,
       );
@@ -553,10 +611,10 @@ export class TerminalService {
         }
       });
 
-      // 5. Send the wrapped command
+      // 5. Send the wrapped command using sendInput() for consistency
       // Add \r to ensure it executes
       try {
-        session.pty.write(wrappedInput + "\r");
+        this.sendInput(sessionId, wrappedInput + "\r", { bypassValidation });
       } catch (err) {
         cleanup();
         reject(err);

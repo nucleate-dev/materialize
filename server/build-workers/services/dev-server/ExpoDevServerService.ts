@@ -502,7 +502,10 @@ export class ExpoDevServerService {
       });
 
       try {
-        this.terminalService.sendInput("dev-server", command);
+        // Bypass validation for trusted internal command
+        this.terminalService.sendInput("dev-server", command, {
+          bypassValidation: true,
+        });
       } catch (error) {
         clearTimeout(timeout);
         cleanup?.();
@@ -535,7 +538,10 @@ export class ExpoDevServerService {
       // Send Ctrl+C to interrupt the running process
       log2.consoleLogDevOnly("info", "Sending Ctrl+C to stop Expo process");
       try {
-        this.terminalService.sendInput("dev-server", "\x03"); // Ctrl+C
+        // Bypass validation for trusted internal command
+        this.terminalService.sendInput("dev-server", "\x03", {
+          bypassValidation: true,
+        }); // Ctrl+C
       } catch (inputError) {
         const message =
           inputError instanceof Error ? inputError.message : String(inputError);
@@ -678,7 +684,10 @@ export class ExpoDevServerService {
       const command = `cd ${projectDir} && ${gitignoreCommand} && git init && git add . && git commit -m "Initial commit"; echo "GIT_INIT_DONE"\n`;
 
       try {
-        this.terminalService.sendInput(terminalSession.id, command);
+        // Bypass validation for trusted internal command
+        this.terminalService.sendInput(terminalSession.id, command, {
+          bypassValidation: true,
+        });
 
         // Also resolve when we see our marker
         const markerCheck = setInterval(() => {
@@ -1830,7 +1839,10 @@ export class ExpoDevServerService {
       const commandString = `${envString}cd ${projectDir} && npx expo export --platform web; echo "EXIT_CODE=$?"\n`;
 
       try {
-        this.terminalService.sendInput("build", commandString);
+        // Bypass validation for trusted internal command
+        this.terminalService.sendInput("build", commandString, {
+          bypassValidation: true,
+        });
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         clearTimeout(timeoutHandle);
