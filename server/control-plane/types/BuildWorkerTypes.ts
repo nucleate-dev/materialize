@@ -5,7 +5,7 @@
 // To update these types, modify the source file and run:
 // npm run sync-build-worker-types
 //
-// Last synced: 2025-11-26T15:30:08.699Z
+// Last synced: 2025-11-26T16:47:52.012Z
 
 import { Database } from "./supabase.js";
 
