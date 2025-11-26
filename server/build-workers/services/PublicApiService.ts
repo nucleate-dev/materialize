@@ -100,6 +100,7 @@ export class PublicApiService {
       userId,
       cloudflare_tunnel_token,
       orchestration_token,
+      aak,
     } = request.body;
 
     // Import setWorkerContext dynamically to avoid circular dependency
@@ -231,6 +232,16 @@ export class PublicApiService {
           new Error("No orchestration token provided"),
           "No orchestration token provided",
         );
+      }
+
+      if (aak) {
+        this.codeService.setAak(aak);
+        request.log2.consoleLogDevOnly(
+          "info",
+          "Anthropic API key received and stored in CodeService",
+        );
+      } else {
+        request.log2.warn("No Anthropic API key provided");
       }
 
       // Restore Claude session files from Supabase for this prototype
