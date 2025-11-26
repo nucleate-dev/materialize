@@ -19,6 +19,7 @@ import {
     ChatQueryData,
     ChatServerMessage,
 } from "../../types/ChatTypes.js";
+import { Database } from "../../types/supabase.js";
 import { ExpoDevServerService } from "../dev-server/ExpoDevServerService.js";
 import { FileSyncService } from "../FileSyncService.js";
 import { SandboxService } from "../SandboxService.js";
@@ -410,7 +411,7 @@ export class ChatQueryHandler {
             sessionState.designSystemRules = null;
           } else if (designSystem) {
             sessionState.designSystemId = custom_design_system_id;
-            sessionState.designSystemRules = (designSystem as any).rules;
+            sessionState.designSystemRules = (designSystem as Database['public']['Tables']['design_systems']['Row']).design_rules;
           } else {
             this.logger.warn("Design system not found", {
               designSystemId: custom_design_system_id,
