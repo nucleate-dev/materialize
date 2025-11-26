@@ -17,6 +17,14 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   Database,
   Trash2,
   RefreshCw,
@@ -49,6 +57,7 @@ export default function CacheManagementPage() {
   const [clearSuccess, setClearSuccess] = useState<string | null>(null);
   const [clearDevLoading, setClearDevLoading] = useState(false);
   const [clearDevSuccess, setClearDevSuccess] = useState<string | null>(null);
+  const [showClearConfirmDialog, setShowClearConfirmDialog] = useState(false);
 
   // Prototype lookup state
   const [prototypeId, setPrototypeId] = useState("");
@@ -71,11 +80,17 @@ export default function CacheManagementPage() {
     }
   };
 
-  const handleClearCache = async () => {
+  const handleClearCacheClick = () => {
+    // Show confirmation dialog
+    setShowClearConfirmDialog(true);
+  };
+
+  const handleConfirmClearCache = async () => {
     try {
       setClearLoading(true);
       setClearSuccess(null);
       setError(null);
+      setShowClearConfirmDialog(false);
 
       const result = await clearCache();
       setClearSuccess(result.message);
@@ -87,6 +102,10 @@ export default function CacheManagementPage() {
     } finally {
       setClearLoading(false);
     }
+  };
+
+  const handleCancelClearCache = () => {
+    setShowClearConfirmDialog(false);
   };
 
   const handleRefreshStats = () => {
@@ -354,7 +373,7 @@ export default function CacheManagementPage() {
               <Button
                 variant="destructive"
                 size="sm"
-                onClick={handleClearCache}
+                onClick={handleClearCacheClick}
                 disabled={clearLoading || loading}
               >
                 <Trash2
@@ -860,6 +879,58 @@ export default function CacheManagementPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Clear Cache Confirmation Dialog */}
+      <Dialog open={showClearConfirmDialog} onOpenChange={setShowClearConfirmDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Clear All Cache?</DialogTitle>
+            <DialogDescription className="space-y-3">
+              <p className="font-semibold text-destructive">
+                ⚠️ WARNING: This is a destructive action!
+              </p>
+              <p>
+                You are about to clear <strong>ALL</strong> keys from the Redis cache. This will:
+              </p>
+              <ul className="list-disc pl-6 space-y-1 text-sm">
+                <li>Remove all active build data</li>
+                <li>Delete all prototype build information</li>
+                <li>Clear all cached sessions and data</li>
+                <li>Potentially disrupt active user sessions</li>
+              </ul>
+              <p className="font-semibold">
+                Are you absolutely sure you understand the implications and want to proceed?
+              </p>
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={handleCancelClearCache}
+              disabled={clearLoading}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleConfirmClearCache}
+              disabled={clearLoading}
+            >
+              {clearLoading ? (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  Clearing...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Yes, Clear All Cache
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
