@@ -1151,6 +1151,17 @@ export default function ClaudeCodePanel({
       }
 
       case ChatEvent.USAGE_UPDATE: {
+        const { creditsUsed, creditsRemaining } = message.data;
+
+        // Round credits to 1 decimal place for display
+        const roundedCredits = Math.round(creditsUsed * 10) / 10;
+
+        // Add usage message to show credits consumed
+        addMessage(
+          "usage",
+          `Used ${roundedCredits} credit${roundedCredits !== 1 ? "s" : ""} · ${creditsRemaining.toFixed(0)} remaining`,
+          creditsUsed,
+        );
         break;
       }
 
