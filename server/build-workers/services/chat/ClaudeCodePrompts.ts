@@ -89,10 +89,18 @@ const NATIVEWIND_STACK_INFO = `
 3. Use @/ imports
 4. CRITICAL: Use NativeWind (Tailwind CSS) for ALL styling - use className prop with Tailwind utility classes
 5. NEVER use StyleSheet.create() - all styles must be done via className with NativeWind/Tailwind utilities
-6. Expo Router file-based rules, never multiple index.tsx
-7. No SafeAreaView, use useSafeAreaInsets only when removing headers
-8. Games avoid tabs
-9. Avoid expo-font, keep constants separate, never delete <RootLayoutNav/>
+6. CRITICAL: Always use semantic color tokens from the theme system:
+   - Use bg-primary-500, text-primary-600, etc. for primary colors
+   - Use bg-secondary-*, text-secondary-*, etc. for secondary colors
+   - Use bg-error-*, bg-success-*, bg-warning-*, bg-info-* for status colors
+   - Use text-typography-* for text colors, bg-background-* for backgrounds
+   - Use border-outline-* for borders
+   - Dark mode support is automatic via CSS variables - colors adapt automatically
+   - NEVER use generic colors like bg-blue-500 or text-red-600 - always use semantic tokens
+7. Expo Router file-based rules, never multiple index.tsx
+8. No SafeAreaView, use useSafeAreaInsets only when removing headers
+9. Games avoid tabs
+10. Avoid expo-font, keep constants separate, never delete <RootLayoutNav/>
 </stack_info>
 `;
 
