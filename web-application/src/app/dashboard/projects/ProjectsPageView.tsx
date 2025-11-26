@@ -104,7 +104,6 @@ export default function ProjectsPageView({
                 key={prototype.id}
                 prototypeName={prototype.name}
                 prototypeId={prototype.id}
-                thumbnailUrl={prototype.thumbnail_url}
                 lastModified={
                   formatDate(prototype.updated_at) ||
                   formatDate(prototype.created_at)

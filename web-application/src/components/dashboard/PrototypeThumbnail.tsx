@@ -6,8 +6,7 @@ import { supabase } from "@/ClientConstants";
 
 export interface PrototypeThumbnailProps {
   prototypeName: string;
-  prototypeId: string; // Changed from thumbnailUrl to prototypeId
-  thumbnailUrl?: string | null; // Keep for backward compatibility but make optional
+  prototypeId: string;
   lastModified?: string;
   onView?: () => void;
   onEdit?: () => void;
@@ -17,7 +16,6 @@ export interface PrototypeThumbnailProps {
 const PrototypeThumbnail: React.FC<PrototypeThumbnailProps> = ({
   prototypeName,
   prototypeId,
-  thumbnailUrl,
   lastModified,
   onView,
   onEdit,
@@ -56,8 +54,7 @@ const PrototypeThumbnail: React.FC<PrototypeThumbnailProps> = ({
     }
   }, [prototypeId]);
 
-  // Use signed URL if available, otherwise fall back to thumbnailUrl
-  const finalThumbnailUrl = signedUrl || thumbnailUrl || null;
+  const finalThumbnailUrl = signedUrl;
 
   return (
     <ThumbnailCard
