@@ -1,5 +1,5 @@
 import { StyleSheet, Text, View } from 'react-native';
-import { useTheme, Theme } from '../../../theme';
+import { useTheme, Theme } from '@/theme';
 
 export default function HomeScreen() {
   const theme = useTheme();
