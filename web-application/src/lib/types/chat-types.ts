@@ -6,7 +6,7 @@
  */
 
 // Note: These types mirror the server-side types but use frontend-compatible type definitions
-import type { CodeError, PrototypeFileInput } from "@/lib/types/serverAPITypes";
+import type { PrototypeFileInput } from "@/lib/types/serverAPITypes";
 
 // ============================================================================
 // Event Type Enum
@@ -39,7 +39,6 @@ export enum ChatStreamEventType {
   DISPATCH_START = "dispatch_start",
   DISPATCH_ERROR = "dispatch_error",
   VIEWING_URL = "viewing_url",
-  BUILD_ERRORS = "build_errors",
   TYPECHECK_STARTED = "typecheck_started",
   TYPECHECK_ERRORS = "typecheck_errors",
   TYPECHECK_PASSED = "typecheck_passed",
@@ -224,14 +223,6 @@ export interface ViewingUrlEvent {
 }
 
 /**
- * Build errors event - compilation/build errors
- */
-export interface BuildErrorsEvent {
-  type: ChatStreamEventType.BUILD_ERRORS;
-  build_errors: CodeError[];
-}
-
-/**
  * Chat complete event - chat execution finished
  */
 export interface ChatCompleteEvent {
@@ -283,7 +274,6 @@ export type ChatStreamEvent =
   | DispatchStartEvent
   | DispatchErrorEvent
   | ViewingUrlEvent
-  | BuildErrorsEvent
   | ChatCompleteEvent
   | StreamCompleteEvent
   | UsageUpdateEvent

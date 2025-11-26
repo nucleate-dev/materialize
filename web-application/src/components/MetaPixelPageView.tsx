@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect } from 'react';
+import { Suspense, useEffect } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
 
 /**
  * Component to track Meta Pixel page views on route changes
  * Add this to your root layout to track all page navigations
  */
-export function MetaPixelPageView() {
+function MetaPixelPageViewInner() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
@@ -18,6 +18,14 @@ export function MetaPixelPageView() {
   }, [pathname, searchParams]);
 
   return null;
+}
+
+export function MetaPixelPageView() {
+  return (
+    <Suspense fallback={null}>
+      <MetaPixelPageViewInner />
+    </Suspense>
+  );
 }
 
 // Extend the Window interface to include fbq
