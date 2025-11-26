@@ -32,6 +32,11 @@ export const metadata: Metadata = {
     description:
       "Prototype your ideas, workshop new designs, and build high-quality user flows.",
   },
+  verification: {
+    other: {
+      "facebook-domain-verification": "hjdft2s0b3rcq8d68yhpav4ppl9mrv",
+    },
+  },
 };
 
 export default function RootLayout({
