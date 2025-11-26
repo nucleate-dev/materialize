@@ -3,6 +3,7 @@ import { S3Client } from "@aws-sdk/client-s3";
 import { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import fs from "fs/promises";
 import path from "path";
+import { SystemLogger } from "../loggers/SystemLogger.js";
 import {
   DevServerStatus,
   OperationStatus,
@@ -21,9 +22,8 @@ import {
 } from "../types/BuildWorkerTypes.js";
 import { PrototypeFileInput } from "../utils/shared-utils.js";
 import { baseLogger } from "../worker.js";
-import { SystemLogger } from "../loggers/SystemLogger.js";
+import { ChatService } from "./ChatService.js";
 import { CloudflareTunnelManagementService } from "./CloudflareTunnelManagementService.js";
-import { CodeService } from "./CodeService.js";
 import { ExpoDevServerService } from "./ExpoDevServerService.js";
 import { SandboxService } from "./SandboxService.js";
 import { SupabaseClientService } from "./SupabaseClientService.js";
@@ -32,7 +32,7 @@ export class PublicApiService {
   private readonly expoDevServerService: ExpoDevServerService;
   private readonly sandboxService: SandboxService;
   private readonly cloudflareTunnelManagementService: CloudflareTunnelManagementService;
-  private readonly codeService: CodeService;
+  private readonly codeService: ChatService;
   private readonly workDir: string;
   private readonly supabaseClientService: SupabaseClientService;
 
@@ -40,7 +40,7 @@ export class PublicApiService {
     expoDevServerService: ExpoDevServerService,
     sandboxService: SandboxService,
     cloudflareTunnelManagementService: CloudflareTunnelManagementService,
-    codeService: CodeService,
+    codeService: ChatService,
     workDir: string,
     supabaseClientService: SupabaseClientService,
   ) {

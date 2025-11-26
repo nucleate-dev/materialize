@@ -117,7 +117,7 @@ function HeroSection() {
             building beautiful apps.
           </h1>
           <p className="text-lg md:text-xl text-[#8A8F98] max-w-2xl mx-auto font-normal leading-relaxed">
-            Build apps, prototypes, flows, and screens fast.<br className="hidden md:block" /> Streamline design to code with AI and React Native.
+            Build apps, prototypes, flows, and screens fast.<br className="hidden md:block" />
           </p>
         </div>
 
@@ -191,7 +191,7 @@ function FeaturesBentoGrid() {
       <div className="container mx-auto px-6 max-w-6xl">
         <div className="mb-16">
           <h2 className="text-4xl md:text-5xl font-medium tracking-tight text-white mb-6">
-            Made for modern product teams
+            Made to build beautiful apps fast
           </h2>
           <p className="text-xl text-[#8A8F98] max-w-2xl">
             Materialize is shaped by the practices and principles that distinguish world-class product teams from the rest.
@@ -231,7 +231,7 @@ function FeaturesBentoGrid() {
             <div className="absolute bottom-0 left-0 right-0 p-8 z-20">
               <h3 className="text-2xl font-medium text-white mb-2">Designed to move fast</h3>
               <p className="text-[#8A8F98] leading-relaxed">
-                Design on an infinite canvas. Build components, screens, or multi-step flows in one workspace.
+                Chat with and edit your app in real-time.
               </p>
             </div>
           </div>
@@ -253,7 +253,7 @@ function FeaturesBentoGrid() {
             <div className="absolute bottom-0 left-0 right-0 p-8 z-20">
               <h3 className="text-2xl font-medium text-white mb-2">Crafted to perfection</h3>
               <p className="text-[#8A8F98] leading-relaxed">
-                Import your design tokens and components. Keep every prototype on-brand with pixel-perfect accuracy.
+                Import your design tokens, components, assets, and instructions.
               </p>
             </div>
           </div>
