@@ -27,9 +27,10 @@ import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import type {
   APIResponse,
   RestartDevServerRequestBody,
-  RestartDevServerSuccessResponse, StandardErrorResponse,
+  RestartDevServerSuccessResponse,
+  StandardErrorResponse,
   StartDevServerRequestBody,
-  StartDevServerSuccessResponse
+  StartDevServerSuccessResponse,
 } from "@/lib/types/serverAPITypes";
 import { Database } from "@/lib/types/supabase";
 import { QRCodeSVG } from "qrcode.react";
@@ -42,7 +43,8 @@ import { cn } from "@/lib/classNames";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import {
   Check,
-  ChevronDown, Code2,
+  ChevronDown,
+  Code2,
   Copy,
   Download,
   Eye,
@@ -52,11 +54,12 @@ import {
   Palette,
   QrCode,
   RefreshCw,
-  RotateCcw, Share2,
+  RotateCcw,
+  Share2,
   Smartphone,
   Terminal as TerminalIcon,
   X,
-  Zap
+  Zap,
 } from "lucide-react";
 import React, {
   forwardRef,
@@ -218,7 +221,7 @@ const MaterializeRenderSection = forwardRef<
     const [editingScreenId, setEditingScreenId] = useState<number | null>(null);
     const [tempPath, setTempPath] = useState<string>("");
     const [routeSuggestions, setRouteSuggestions] = useState<
-      Array<{ route: string; group?: string; }>
+      Array<{ route: string; group?: string }>
     >([]);
 
     // Terminal state
@@ -385,7 +388,7 @@ const MaterializeRenderSection = forwardRef<
     const availableRoutes = React.useMemo(() => {
       if (!files) return [];
 
-      const routes: Array<{ route: string; group?: string; }> = [];
+      const routes: Array<{ route: string; group?: string }> = [];
       Object.keys(files).forEach((filePath) => {
         // Look for files in app/ directory that could be routes
         if (filePath.startsWith("app/")) {
@@ -629,12 +632,15 @@ const MaterializeRenderSection = forwardRef<
 
     const handleRestartDevServer = async () => {
       if (!prototypeId) {
-        logger.debug("error", "Cannot restart dev server: missing prototype ID");
+        logger.debug(
+          "error",
+          "Cannot restart dev server: missing prototype ID",
+        );
         return;
       }
 
       setIsRestartingDevServer(true);
-      onRenderStatusChange("Updating..");
+      onRenderStatusChange("Starting Dev Server..");
 
       try {
         const session = await supabase.auth.getSession();
@@ -677,7 +683,7 @@ const MaterializeRenderSection = forwardRef<
           error: error instanceof Error ? error.message : String(error),
           stack: error instanceof Error ? error.stack : undefined,
         });
-        onRenderStatusChange("Connected");
+        onRenderStatusChange("Disconnected");
       } finally {
         setIsRestartingDevServer(false);
       }
@@ -700,9 +706,7 @@ const MaterializeRenderSection = forwardRef<
       }
 
       if (userPlan !== "pro") {
-        alert(
-          "Upgrade plan to export your project.",
-        );
+        alert("Upgrade plan to export your project.");
         return;
       }
 
@@ -885,8 +889,10 @@ const MaterializeRenderSection = forwardRef<
         switch (status) {
           case "Static build":
             return {
-              className: "bg-accent border border-border text-muted-foreground hover:bg-accent/80 hover:text-foreground transition-colors",
-              dotClassName: "w-2 h-2 bg-blue-500/50 border border-blue-500 rounded-full",
+              className:
+                "bg-accent border border-border text-muted-foreground hover:bg-accent/80 hover:text-foreground transition-colors",
+              dotClassName:
+                "w-2 h-2 bg-blue-500/50 border border-blue-500 rounded-full",
               text: "Static Build",
               animate: false,
             };
@@ -895,21 +901,25 @@ const MaterializeRenderSection = forwardRef<
           case "Starting Dev Server..":
             return {
               className: "bg-accent border border-border text-muted-foreground",
-              dotClassName: "w-2 h-2 bg-amber-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(245,158,11,0.6)]",
+              dotClassName:
+                "w-2 h-2 bg-amber-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(245,158,11,0.6)]",
               text: status,
               animate: true,
             };
           case "Disconnected":
             return {
               className: "bg-red-500/10 border border-red-500/20 text-red-400",
-              dotClassName: "w-2 h-2 bg-red-500 rounded-full shadow-[0_0_8px_rgba(239,68,68,0.6)]",
+              dotClassName:
+                "w-2 h-2 bg-red-500 rounded-full shadow-[0_0_8px_rgba(239,68,68,0.6)]",
               text: "Disconnected",
               animate: false,
             };
           case "Connected":
             return {
-              className: "bg-emerald-500/10 border border-emerald-500/20 text-emerald-400",
-              dotClassName: "w-2 h-2 bg-emerald-500 rounded-full shadow-[0_0_8px_rgba(34,197,94,0.6)]",
+              className:
+                "bg-emerald-500/10 border border-emerald-500/20 text-emerald-400",
+              dotClassName:
+                "w-2 h-2 bg-emerald-500 rounded-full shadow-[0_0_8px_rgba(34,197,94,0.6)]",
               text: "Connected",
               animate: false,
             };
@@ -921,9 +931,14 @@ const MaterializeRenderSection = forwardRef<
       const isConnected = currentRenderStatus === "Connected";
 
       return (
-        <div className={cn("inline-flex items-center h-7 px-3 rounded-md text-xs font-medium select-none", config.className)}>
-          <div className={cn("mr-2", config.dotClassName)}></div>
-          {config.text}
+        <div
+          className={cn(
+            "inline-flex items-center h-7 px-3 rounded-md text-xs font-medium select-none",
+            config?.className,
+          )}
+        >
+          <div className={cn("mr-2", config?.dotClassName)}></div>
+          {config?.text}
           {isStaticBuild && prototypeId && (
             <TooltipProvider delayDuration={200}>
               <Tooltip>
@@ -971,7 +986,7 @@ const MaterializeRenderSection = forwardRef<
     };
 
     // Connection loading overlay for iframe
-    const ConnectionLoadingOverlay = ({ mode }: { mode: PreviewMode; }) => (
+    const ConnectionLoadingOverlay = ({ mode }: { mode: PreviewMode }) => (
       <div className="absolute inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm z-10">
         <div className="text-center bg-accent p-6 rounded-xl border border-border shadow-2xl">
           <Loader2 className="w-6 h-6 animate-spin mx-auto mb-3 text-muted-foreground" />
@@ -979,14 +994,16 @@ const MaterializeRenderSection = forwardRef<
             Connecting to Preview
           </p>
           <p className="text-muted-foreground text-sm">
-            {mode === "mobile" ? "Loading mobile preview..." : "Loading web preview..."}
+            {mode === "mobile"
+              ? "Loading mobile preview..."
+              : "Loading web preview..."}
           </p>
         </div>
       </div>
     );
 
     // Error overlay for iframe
-    const ConnectionErrorOverlay = ({ mode }: { mode: PreviewMode; }) => (
+    const ConnectionErrorOverlay = ({ mode }: { mode: PreviewMode }) => (
       <div className="absolute inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm z-10">
         <div className="text-center bg-accent p-6 rounded-xl border border-red-500/20 shadow-2xl">
           <div className="w-8 h-8 mx-auto mb-3 text-red-400 bg-red-400/10 rounded-full flex items-center justify-center">
@@ -1149,7 +1166,8 @@ const MaterializeRenderSection = forwardRef<
                             height: mobileSize.height + 16,
                             borderRadius: "2.5rem",
                             border: "1px solid rgba(255,255,255,0.1)",
-                            boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.5), inset 0 0 0 1px rgba(0,0,0,0.5)",
+                            boxShadow:
+                              "0 25px 50px -12px rgba(0, 0, 0, 0.5), inset 0 0 0 1px rgba(0,0,0,0.5)",
                           }}
                         >
                           {/* Dynamic Island / Notch area */}
@@ -1280,7 +1298,6 @@ const MaterializeRenderSection = forwardRef<
         {/* Compact Responsive Toolbar */}
         <div className="sticky top-0 z-30 bg-background/80 backdrop-blur-xl px-4 py-3 border-b border-border">
           <div className="flex flex-wrap items-center justify-between gap-3">
-
             {/* Left: View Toggles */}
             <div className="flex items-center gap-3 flex-wrap">
               {!publicView && (
@@ -1294,7 +1311,7 @@ const MaterializeRenderSection = forwardRef<
                         "h-7 px-3 text-xs font-medium rounded-md transition-all",
                         isPreviewView
                           ? "bg-white text-black shadow-sm"
-                          : "text-muted-foreground hover:text-foreground hover:bg-accent"
+                          : "text-muted-foreground hover:text-foreground hover:bg-accent",
                       )}
                     >
                       <Eye className="w-3.5 h-3.5 mr-1.5" />
@@ -1308,7 +1325,7 @@ const MaterializeRenderSection = forwardRef<
                         "h-7 px-3 text-xs font-medium rounded-md transition-all",
                         !isPreviewView
                           ? "bg-white text-black shadow-sm"
-                          : "text-muted-foreground hover:text-foreground hover:bg-accent"
+                          : "text-muted-foreground hover:text-foreground hover:bg-accent",
                       )}
                     >
                       <Code2 className="w-3.5 h-3.5 mr-1.5" />
@@ -1353,7 +1370,9 @@ const MaterializeRenderSection = forwardRef<
                   ) : (
                     <Download className="w-3.5 h-3.5" />
                   )}
-                  <span className="ml-2 hidden md:inline text-xs font-medium">Export</span>
+                  <span className="ml-2 hidden md:inline text-xs font-medium">
+                    Export
+                  </span>
                 </Button>
               )}
               {!publicView && (
@@ -1380,12 +1399,14 @@ const MaterializeRenderSection = forwardRef<
                     "h-8 border transition-all",
                     isTerminalOpen
                       ? "bg-white text-black border-transparent hover:bg-white/90"
-                      : "bg-accent border-border text-muted-foreground hover:text-foreground hover:border-border/80 hover:bg-accent/80"
+                      : "bg-accent border-border text-muted-foreground hover:text-foreground hover:border-border/80 hover:bg-accent/80",
                   )}
                   title="Toggle Terminal"
                 >
                   <TerminalIcon className="w-3.5 h-3.5" />
-                  <span className="ml-2 hidden md:inline text-xs font-medium">Terminal</span>
+                  <span className="ml-2 hidden md:inline text-xs font-medium">
+                    Terminal
+                  </span>
                 </Button>
               )}
               {designSystemLabel && onDesignSystemClick && (
@@ -1409,24 +1430,40 @@ const MaterializeRenderSection = forwardRef<
                     <MoreVertical className="w-4 h-4" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-48 bg-accent border-border text-foreground">
+                <DropdownMenuContent
+                  align="end"
+                  className="w-48 bg-accent border-border text-foreground"
+                >
                   <DropdownMenuItem
                     onClick={() => handleModeChange("mobile")}
-                    className={cn("focus:bg-accent/80 focus:text-foreground text-sm cursor-pointer", previewMode === "mobile" ? "bg-accent/50 text-foreground" : "text-muted-foreground")}
+                    className={cn(
+                      "focus:bg-accent/80 focus:text-foreground text-sm cursor-pointer",
+                      previewMode === "mobile"
+                        ? "bg-accent/50 text-foreground"
+                        : "text-muted-foreground",
+                    )}
                   >
                     <Smartphone className="w-4 h-4 mr-2 opacity-70" />
                     Mobile View
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     onClick={() => handleModeChange("web")}
-                    className={cn("focus:bg-accent/80 focus:text-foreground text-sm cursor-pointer", previewMode === "web" ? "bg-accent/50 text-foreground" : "text-muted-foreground")}
+                    className={cn(
+                      "focus:bg-accent/80 focus:text-foreground text-sm cursor-pointer",
+                      previewMode === "web"
+                        ? "bg-accent/50 text-foreground"
+                        : "text-muted-foreground",
+                    )}
                   >
                     <Monitor className="w-4 h-4 mr-2 opacity-70" />
                     Web View
                   </DropdownMenuItem>
                   <DropdownMenuSeparator className="bg-border" />
                   {onShare && (
-                    <DropdownMenuItem onClick={onShare} className="focus:bg-accent/80 focus:text-foreground text-muted-foreground text-sm cursor-pointer">
+                    <DropdownMenuItem
+                      onClick={onShare}
+                      className="focus:bg-accent/80 focus:text-foreground text-muted-foreground text-sm cursor-pointer"
+                    >
                       <Share2 className="w-4 h-4 mr-2 opacity-70" />
                       Share
                     </DropdownMenuItem>
@@ -1456,7 +1493,9 @@ const MaterializeRenderSection = forwardRef<
                     ) : (
                       <RefreshCw className="w-4 h-4 mr-2 opacity-70" />
                     )}
-                    {isRestartingDevServer ? "Restarting..." : "Restart Dev Server"}
+                    {isRestartingDevServer
+                      ? "Restarting..."
+                      : "Restart Dev Server"}
                   </DropdownMenuItem>
                   {onResetToDefault && (
                     <>
@@ -1491,7 +1530,9 @@ const MaterializeRenderSection = forwardRef<
           {isPreviewView ? (
             renderPreviewContent()
           ) : (
-            <div className="h-full w-full overflow-hidden bg-accent">{codeView}</div>
+            <div className="h-full w-full overflow-hidden bg-accent">
+              {codeView}
+            </div>
           )}
         </div>
 
@@ -1529,7 +1570,10 @@ const MaterializeRenderSection = forwardRef<
 
             {/* Terminal Content */}
             <div className="absolute top-9 left-0 right-0 bottom-0 bg-background">
-              <Terminal className="w-full h-full" baseTunnelUrl={base_tunnel_url} />
+              <Terminal
+                className="w-full h-full"
+                baseTunnelUrl={base_tunnel_url}
+              />
             </div>
           </div>
         )}
@@ -1538,7 +1582,9 @@ const MaterializeRenderSection = forwardRef<
         <Dialog open={isQRModalOpen} onOpenChange={setIsQRModalOpen}>
           <DialogContent className="sm:max-w-md bg-accent border-border text-foreground">
             <DialogHeader>
-              <DialogTitle className="text-foreground">View on Device</DialogTitle>
+              <DialogTitle className="text-foreground">
+                View on Device
+              </DialogTitle>
               <DialogDescription className="text-muted-foreground">
                 {currentRenderStatus === "Connected"
                   ? "Scan this QR code with your phone's camera to open in Expo Go"
@@ -1563,10 +1609,15 @@ const MaterializeRenderSection = forwardRef<
                       <p className="text-xs font-mono text-foreground/70 break-all flex-1 text-left line-clamp-1">
                         {getExpoGoDeepLink()}
                       </p>
-                      <Button size="icon" variant="ghost" className="h-6 w-6 hover:bg-accent" onClick={() => {
-                        navigator.clipboard.writeText(getExpoGoDeepLink());
-                        toast.success("Deep link copied");
-                      }}>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-6 w-6 hover:bg-accent"
+                        onClick={() => {
+                          navigator.clipboard.writeText(getExpoGoDeepLink());
+                          toast.success("Deep link copied");
+                        }}
+                      >
                         <Copy className="w-3 h-3 text-muted-foreground" />
                       </Button>
                     </div>
@@ -1578,7 +1629,9 @@ const MaterializeRenderSection = forwardRef<
                     <Monitor className="w-6 h-6 text-muted-foreground" />
                   </div>
                   <div className="w-full">
-                    <p className="text-sm text-muted-foreground mb-2">Viewing URL</p>
+                    <p className="text-sm text-muted-foreground mb-2">
+                      Viewing URL
+                    </p>
                     <div className="flex items-center gap-2 bg-background p-1 rounded-lg border border-border">
                       <div className="px-3 py-1.5 text-xs font-mono text-foreground/80 truncate flex-1">
                         {viewing_url}

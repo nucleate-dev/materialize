@@ -13,18 +13,11 @@ import { clearChatIntent, getChatIntent } from "@/lib/utils/chatIntentUtils";
 import type React from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import ClaudeCodePanelUI from "./ClaudeCodePanelUI";
+import { RenderStatus } from "@/app/dashboard/projects/[prototype_id]/InternalPrototypePage";
 
 type Prototype = Database["public"]["Tables"]["prototypes"]["Row"];
 export type PrototypeChatSession =
   Database["public"]["Tables"]["prototype_chat_sessions"]["Row"];
-
-export type RenderStatus =
-  | "Static build"
-  | "Connecting.."
-  | "Updating.."
-  | "Starting Dev Server.."
-  | "Disconnected"
-  | "Connected";
 
 // Type for tool input data
 // Tool inputs can contain arbitrary data structures depending on the tool invoked

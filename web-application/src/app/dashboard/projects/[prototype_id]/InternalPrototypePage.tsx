@@ -92,7 +92,8 @@ export type RenderStatus =
   | "Updating.."
   | "Starting Dev Server.."
   | "Disconnected"
-  | "Connected";
+  | "Connected"
+  | "Error";
 
 export default function InternalPrototypePage() {
   const router = useRouter();
@@ -194,7 +195,7 @@ export default function InternalPrototypePage() {
   );
 
   // Handler for when restart dev server completes
-  const handleRestartDevServerComplete = useCallback(() => {
+  const handleChatRestartDevServerComplete = useCallback(() => {
     logger.debug(
       "log",
       "restart dev server completed, triggering preview refresh",
@@ -879,7 +880,7 @@ export default function InternalPrototypePage() {
               onUnregisterMessageHandler={(id: string) => {
                 claudeCodeWSMessageHandlers.current.delete(id);
               }}
-              onRestartDevServerComplete={handleRestartDevServerComplete}
+              onRestartDevServerComplete={handleChatRestartDevServerComplete}
             />
           </div>
         </div>
