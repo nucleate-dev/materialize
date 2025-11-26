@@ -614,6 +614,7 @@ export class TerminalService {
     this.closeAllClients(session);
 
     this.sessions.delete(sessionId);
+    this.sessionInputBuffers.delete(sessionId);
 
     return {
       status: "success",
@@ -792,6 +793,7 @@ export class TerminalService {
 
     if (session.clients.size === 0) {
       this.sessions.delete(session.id);
+      this.sessionInputBuffers.delete(session.id);
     }
   }
 
