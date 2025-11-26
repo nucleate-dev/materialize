@@ -1,7 +1,6 @@
 "use client";
 
 import { supabase } from "@/ClientConstants";
-import { GridBackground } from "@/components/shared/GridComponent";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -195,8 +194,6 @@ function AccountSettings() {
 
   return (
     <div className="relative min-h-screen text-gray-900 dark:text-white font-sans">
-      <GridBackground />
-
       <div className="container mx-auto px-6 py-12 max-w-5xl">
         {/* Header */}
         <div className="mb-12">

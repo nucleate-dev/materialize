@@ -1,7 +1,6 @@
 "use client";
 
 import { supabase } from "@/ClientConstants";
-import { GridBackground } from "@/components/shared/GridComponent";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -180,7 +179,6 @@ export default function DesignSystemDetailPage({ params }: DesignSystemDetailPag
   if (isLoading || !designSystem) {
     return (
       <div className="relative min-h-screen flex items-center justify-center">
-        <GridBackground />
         <div className="flex flex-col items-center gap-4 text-muted-foreground">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground/50" />
           <p className="text-sm font-medium">Loading system...</p>
@@ -191,7 +189,6 @@ export default function DesignSystemDetailPage({ params }: DesignSystemDetailPag
 
   return (
     <div className="relative min-h-screen text-foreground font-sans">
-      <GridBackground />
 
       <div className="container mx-auto px-6 py-12 max-w-5xl">
 

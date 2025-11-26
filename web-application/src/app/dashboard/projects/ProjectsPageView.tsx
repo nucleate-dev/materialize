@@ -5,7 +5,6 @@ import NewPrototypeModal from "@/components/dashboard/NewPrototypeModal";
 import PrototypeSettingsModal from "@/components/dashboard/PrototypeSettingsModal";
 import PrototypeThumbnail from "@/components/dashboard/PrototypeThumbnail";
 import PrototypeThumbnailSkeleton from "@/components/dashboard/PrototypeThumbnailSkeleton";
-import { GridBackground } from "@/components/shared/GridComponent";
 import { Button } from "@/components/ui/button";
 import { User } from "@supabase/supabase-js";
 import { Plus } from "lucide-react";
@@ -58,7 +57,6 @@ export default function ProjectsPageView({
 
   return (
     <div className="relative min-h-screen text-foreground font-sans">
-      <GridBackground />
 
       <div className="container mx-auto px-6 py-12 max-w-7xl">
 

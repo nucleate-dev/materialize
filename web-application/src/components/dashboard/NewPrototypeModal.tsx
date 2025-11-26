@@ -67,8 +67,9 @@ type FolderOption = {
 const DESIGN_STYLE_OPTIONS: DesignStyle[] = ["stylesheets", "nativewind"];
 
 const DESIGN_STYLE_LABELS: Partial<Record<DesignStyle, string>> = {
-  nativewind: "NativeWind",
   stylesheets: "React Native StyleSheet",
+  nativewind: "NativeWind",
+
   custom: "Custom",
 };
 
@@ -102,7 +103,7 @@ export default function NewPrototypeModal({
   const [prototypeCount, setPrototypeCount] = useState(0);
   const [isLoadingCount, setIsLoadingCount] = useState(false);
   const [showUpsellModal, setShowUpsellModal] = useState(false);
-  const [designStyle, setDesignStyle] = useState<DesignStyle>("nativewind");
+  const [designStyle, setDesignStyle] = useState<DesignStyle>("stylesheets");
   const [customDesignSystemId, setCustomDesignSystemId] = useState<
     string | null
   >(null);
@@ -264,7 +265,7 @@ export default function NewPrototypeModal({
       }
     }
 
-    setDesignStyle("nativewind");
+    setDesignStyle("stylesheets");
     setCustomDesignSystemId(null);
   }, [open, selectedFolder, folders, hasManualDesignSelection]);
 
@@ -327,7 +328,7 @@ export default function NewPrototypeModal({
         setName("");
         setSelectedFolder(null);
         setVisibility(userPlan === "free" ? "PUBLIC" : "SELF");
-        setDesignStyle("nativewind");
+        setDesignStyle("stylesheets");
         setCustomDesignSystemId(null);
         setHasManualDesignSelection(false);
         setTouched(false);
@@ -435,7 +436,7 @@ export default function NewPrototypeModal({
                 <Label htmlFor="prototype-visibility" className="text-xs font-medium text-[#8A8F98]">
                   Visibility
                 </Label>
-                {IsUserPlanSubscribed(userPlan) && (
+                {!IsUserPlanSubscribed(userPlan) && (
                   <span className="text-[10px] text-[#8A8F98] bg-white/5 px-1.5 py-0.5 rounded">Upgrade for Private</span>
                 )}
               </div>
@@ -444,7 +445,7 @@ export default function NewPrototypeModal({
                 onValueChange={(value) =>
                   setVisibility(value as Database["public"]["Enums"]["visibility_level"])
                 }
-                disabled={userPlan === "free" || isCreating}
+                disabled={!IsUserPlanSubscribed(userPlan) || isCreating}
               >
                 <SelectTrigger id="prototype-visibility" className="h-11 bg-[#0B0C0E] border-white/10 text-white focus:ring-0">
                   <SelectValue />

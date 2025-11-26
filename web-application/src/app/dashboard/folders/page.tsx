@@ -4,7 +4,6 @@ import { supabase } from "@/ClientConstants";
 import EmptyState from "@/components/dashboard/EmptyState";
 import FolderThumbnail from "@/components/dashboard/FolderThumbnail";
 import NewFolderModal from "@/components/dashboard/NewFolderModal";
-import { GridBackground } from "@/components/shared/GridComponent";
 import { Button } from "@/components/ui/button";
 import { useUser } from "@/hooks/useUser";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
@@ -75,7 +74,6 @@ export default function FoldersPage() {
 
   return (
     <div className="relative min-h-screen text-foreground font-sans">
-      <GridBackground />
 
       <div className="container mx-auto px-6 py-12 max-w-7xl">
 

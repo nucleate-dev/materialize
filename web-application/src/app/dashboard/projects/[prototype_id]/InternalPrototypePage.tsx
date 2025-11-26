@@ -1061,17 +1061,17 @@ export default function InternalPrototypePage() {
         open={isDesignSystemDialogOpen}
         onOpenChange={handleDesignSystemDialogOpenChange}
       >
-        <AlertDialogContent className="bg-[#141517] border border-white/10 text-white">
+        <AlertDialogContent className="bg-background border-border text-foreground">
           <AlertDialogHeader>
-            <AlertDialogTitle>Change design system</AlertDialogTitle>
-            <AlertDialogDescription className="text-[#8A8F98]">
+            <AlertDialogTitle className="text-foreground">Change design system</AlertDialogTitle>
+            <AlertDialogDescription className="text-muted-foreground">
               Changing the design system can modify component structures and
               styling. This may require additional clean up in your prototype.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
-              <p className="text-xs font-medium uppercase text-[#8A8F98] tracking-wide">
+              <p className="text-xs font-medium uppercase text-muted-foreground tracking-wide">
                 Design Style
               </p>
               <Select
@@ -1081,15 +1081,15 @@ export default function InternalPrototypePage() {
                   setDialogDesignStyle(nextStyle);
                 }}
               >
-                <SelectTrigger className="h-10 bg-[#0B0C0E] border-white/10 text-white">
+                <SelectTrigger className="h-10 bg-accent border-border text-foreground">
                   <SelectValue placeholder="Choose a design style" />
                 </SelectTrigger>
-                <SelectContent className="bg-[#141517] border-white/10 text-white">
+                <SelectContent className="bg-background border-border text-foreground">
                   {DESIGN_STYLE_OPTIONS.map((style) => (
                     <SelectItem
                       key={style}
                       value={style}
-                      className="focus:bg-white/10 focus:text-white cursor-pointer"
+                      className="focus:bg-accent focus:text-foreground cursor-pointer"
                     >
                       {DESIGN_STYLE_LABELS[style]}
                     </SelectItem>
@@ -1099,15 +1099,15 @@ export default function InternalPrototypePage() {
             </div>
             {hasCustomDesignSystems && (
               <div className="space-y-2">
-                <p className="text-xs font-medium uppercase text-[#8A8F98] tracking-wide">
+                <p className="text-xs font-medium uppercase text-muted-foreground tracking-wide">
                   Custom Design System{" "}
-                  <span className="text-[#8A8F98]/70 font-normal lowercase">
+                  <span className="text-muted-foreground/70 font-normal lowercase">
                     (Optional)
                   </span>
                 </p>
                 {isLoadingDesignSystems ? (
-                  <div className="flex items-center gap-2 text-xs text-[#8A8F98]">
-                    <Loader2 className="w-4 h-4 animate-spin text-indigo-500" />
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <Loader2 className="w-4 h-4 animate-spin text-primary" />
                     Loading design systems...
                   </div>
                 ) : (
@@ -1120,13 +1120,13 @@ export default function InternalPrototypePage() {
                         )
                       }
                     >
-                      <SelectTrigger className="h-10 bg-[#0B0C0E] border-white/10 text-white">
+                      <SelectTrigger className="h-10 bg-accent border-border text-foreground">
                         <SelectValue placeholder="No custom design system" />
                       </SelectTrigger>
-                      <SelectContent className="bg-[#141517] border-white/10 text-white">
+                      <SelectContent className="bg-background border-border text-foreground">
                         <SelectItem
                           value="none"
-                          className="focus:bg-white/10 focus:text-white cursor-pointer"
+                          className="focus:bg-accent focus:text-foreground cursor-pointer"
                         >
                           No custom design system
                         </SelectItem>
@@ -1134,14 +1134,14 @@ export default function InternalPrototypePage() {
                           <SelectItem
                             key={system.id}
                             value={String(system.id)}
-                            className="focus:bg-white/10 focus:text-white cursor-pointer"
+                            className="focus:bg-accent focus:text-foreground cursor-pointer"
                           >
                             {system.name}
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
-                    <p className="text-xs text-[#8A8F98]">
+                    <p className="text-xs text-muted-foreground">
                       Apply custom design rules on top of the selected design
                       style
                     </p>
@@ -1153,14 +1153,14 @@ export default function InternalPrototypePage() {
           <AlertDialogFooter>
             <AlertDialogCancel
               disabled={isUpdatingDesignSystem}
-              className="border-white/10 text-white hover:bg-white/5 hover:text-white"
+              className="border-border text-foreground hover:bg-accent hover:text-foreground"
             >
               Cancel
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={handleConfirmDesignSystemChange}
               disabled={dialogConfirmDisabled}
-              className="bg-white text-black hover:bg-white/90"
+              className="bg-primary text-primary-foreground hover:bg-primary/90"
             >
               {isUpdatingDesignSystem ? "Updating..." : "Confirm change"}
             </AlertDialogAction>

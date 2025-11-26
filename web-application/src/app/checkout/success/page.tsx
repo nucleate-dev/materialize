@@ -1,6 +1,5 @@
 "use client";
 
-import { GridBackground } from "@/components/shared/GridComponent";
 import { Button } from "@/components/ui/button";
 import { useMetaPixel } from "@/hooks/useMetaPixel";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
@@ -83,7 +82,6 @@ function CheckoutSuccessContent() {
 
   return (
     <div className="relative min-h-screen text-gray-900 dark:text-white font-sans flex items-center justify-center">
-      <GridBackground />
 
       <div className="container mx-auto px-6 max-w-2xl">
         <div className="bg-white dark:bg-[#141517] border border-black/5 dark:border-white/5 rounded-2xl shadow-lg dark:shadow-none overflow-hidden">
@@ -146,7 +144,6 @@ export default function CheckoutSuccess() {
   return (
     <Suspense fallback={
       <div className="relative min-h-screen flex items-center justify-center">
-        <GridBackground />
         <Loader2 className="w-8 h-8 animate-spin text-gray-600 dark:text-[#8A8F98]" />
       </div>
     }>

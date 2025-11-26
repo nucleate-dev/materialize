@@ -4,7 +4,6 @@ import { useRouter } from "next/navigation";
 import { ChangeEvent, FormEvent, useCallback, useEffect, useState } from "react";
 
 import { supabase } from "@/ClientConstants";
-import { GridBackground } from "@/components/shared/GridComponent";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -245,8 +244,6 @@ export default function DesignSystemsPage() {
 
   return (
     <div className="relative min-h-screen text-foreground font-sans">
-      <GridBackground />
-
       <div className="container mx-auto px-6 py-12 max-w-7xl">
 
         {/* --- Header --- */}

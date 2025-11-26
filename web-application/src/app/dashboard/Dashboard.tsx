@@ -68,7 +68,7 @@ export default function DashboardPage() {
   const [designSystems, setDesignSystems] = useState<DesignSystemRow[]>([]);
   const [customDesignSystemId, setCustomDesignSystemId] = useState<string | null>(null);
   const [, setIsLoadingDesignSystems] = useState(false);
-  const [designStyle, setDesignStyle] = useState<DesignStyle>("nativewind");
+  const [designStyle, setDesignStyle] = useState<DesignStyle>("stylesheets");
   const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
 
   // Handle redirect after login
