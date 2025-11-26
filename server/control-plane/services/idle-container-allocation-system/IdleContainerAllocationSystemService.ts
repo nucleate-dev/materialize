@@ -11,8 +11,10 @@ import axios from 'axios';
 import { randomBytes } from 'crypto';
 import type { SystemLogger } from '../../loggers/SystemLogger.js'; // adjust your path
 import {
+  SandboxAPIResponse,
   PublicAllocateRequest,
-  PublicAllocateResponse,
+  PublicAllocateSuccessResponse,
+  StandardErrorResponse as BuildWorkerStandardErrorResponse,
 } from '../../types/BuildWorkerTypes.js';
 import {
   ActiveBuild,
@@ -664,32 +666,34 @@ export class IdleContainerAllocationSystemService {
       userId: userId || 'unknown',
       cloudflare_tunnel_token: tunnelConfig.token || '',
       orchestration_token: orchestrationToken,
+      aak: process.env.ANTHROPIC_API_KEY!,
     };
 
     // Send creds to worker
     try {
-      const allocationResponse: PublicAllocateResponse = await axios.post(
-        `http://${info.privateIp}:3002/allocate`,
-        creds,
-        {
-          headers: {
-            'content-type': 'application/json',
-            Authorization: `Bearer ${jwt}`,
-          },
+      const allocationResponse = await axios.post<
+        SandboxAPIResponse<
+          PublicAllocateSuccessResponse,
+          BuildWorkerStandardErrorResponse
+        >
+      >(`http://${info.privateIp}:3002/allocate`, creds, {
+        headers: {
+          'content-type': 'application/json',
+          Authorization: `Bearer ${jwt}`,
         },
-      );
-      if (allocationResponse.status === 'error') {
+      });
+      if (allocationResponse.data.error) {
         this.log2.error(
-          new Error(allocationResponse.error),
+          new Error(allocationResponse.data.error.error),
           `Worker returned error status for allocation to ${info.privateIp}`,
           {
             workerIp: info.privateIp,
             prototypeId,
-            errorMessage: allocationResponse.error,
+            errorMessage: allocationResponse.data.error.message,
           },
         );
         throw new Error(
-          `Worker allocation failed: ${allocationResponse.error || 'Unknown error from worker'}`,
+          `Worker allocation failed: ${allocationResponse.data.error.message || 'Unknown error from worker'}`,
         );
       }
     } catch (error) {

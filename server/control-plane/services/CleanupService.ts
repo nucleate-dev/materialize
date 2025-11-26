@@ -6,7 +6,11 @@ import axios, { AxiosError } from 'axios';
 import { CONFIG } from '../config.js';
 import { cryptoRandomId, SystemLogger } from '../loggers/SystemLogger.js';
 import { baseLogger } from '../server.js';
-import { PublicDevServerStopResponse } from '../types/BuildWorkerTypes.js';
+import {
+  SandboxAPIResponse,
+  PublicDevServerStopSuccessResponse,
+  StandardErrorResponse as BuildWorkerStandardErrorResponse,
+} from '../types/BuildWorkerTypes.js';
 import {
   type ActiveBuild,
   type CleanupOperationResult,
@@ -368,26 +372,28 @@ export class CleanupService {
     fargatePrivateIp: string,
   ): Promise<CleanupOperationResult> {
     try {
-      const response = await axios.delete(
-        `http://${fargatePrivateIp}:3002/dev-server`,
-        {
-          data: { prototype_id: prototypeId },
-          timeout: 300000, // 5 minutes timeout to allow build completion
-          headers: {
-            'Content-Type': 'application/json',
-            'x-trace-id': this.log2.getTraceId(),
-          },
+      const response = await axios.delete<
+        SandboxAPIResponse<
+          PublicDevServerStopSuccessResponse,
+          BuildWorkerStandardErrorResponse
+        >
+      >(`http://${fargatePrivateIp}:3002/dev-server`, {
+        data: { prototype_id: prototypeId },
+        timeout: 300000, // 5 minutes timeout to allow build completion
+        headers: {
+          'Content-Type': 'application/json',
+          'x-trace-id': this.log2.getTraceId(),
         },
-      );
+      });
 
       // Parse the actual response body to understand what happened
-      const responseData: PublicDevServerStopResponse = response.data;
-      if (responseData.status === 'success') {
-        if (responseData?.version) {
+      const responseData = response.data;
+      if (responseData.data) {
+        if (responseData.data?.version) {
           const { error: updateBuildVersionError } = await this.supabase
             .from('prototypes')
             .update({
-              latest_build_key: responseData.version,
+              latest_build_key: responseData.data.version,
             })
             .eq('id', prototypeId);
           if (updateBuildVersionError) {
@@ -401,7 +407,7 @@ export class CleanupService {
           } else {
             this.log2.info('Successfully updated prototype latest_build_key', {
               prototypeId,
-              version: responseData.version,
+              version: responseData.data.version,
             });
           }
         } else {

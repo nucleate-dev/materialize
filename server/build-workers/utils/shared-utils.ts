@@ -3,7 +3,7 @@ import fs from "fs/promises";
 import os from "os";
 import path from "path";
 import { SystemLogger } from "../loggers/SystemLogger.js";
-import { TerminalSession } from "../services/TerminalService.js";
+import { TerminalSession } from "../services/terminals/TerminalService.js";
 import { Database } from "../types/supabase.js";
 
 // Claude session persistence constants

@@ -19,7 +19,7 @@ import { handleRestartDevServerImpl } from './handlers/handleDispatchRestartServ
 import { SystemLogger } from '../../loggers/SystemLogger.js';
 import {
   PublicRunCommandRequest,
-  PublicRunCommandResponse,
+  PublicRunCommandSuccessResponse,
 } from '../../types/BuildWorkerTypes.js';
 
 dotenv.config();
@@ -102,7 +102,7 @@ export class DispatcherService {
     body: PublicRunCommandRequest & { prototype_id: string },
     jwt: string,
     log2: SystemLogger,
-  ): Promise<APIResponse<PublicRunCommandResponse, StandardErrorResponse>> {
+  ): Promise<APIResponse<PublicRunCommandSuccessResponse, StandardErrorResponse>> {
     const localLog = log2.child({
       function: 'runCommand',
     });
@@ -113,7 +113,7 @@ export class DispatcherService {
     body: PublicRunCommandRequest & { prototype_id: string },
     jwt: string,
     log2: SystemLogger,
-  ): Promise<APIResponse<PublicRunCommandResponse, StandardErrorResponse>> {
+  ): Promise<APIResponse<PublicRunCommandSuccessResponse, StandardErrorResponse>> {
     return this.runCommand(body, jwt, log2);
   }
 }

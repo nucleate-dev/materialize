@@ -1,5 +1,5 @@
 import { readFileSync } from "fs";
-import { SystemLogger } from "../loggers/SystemLogger.js";
+import { SystemLogger } from "../../loggers/SystemLogger.js";
 
 export interface TerminalUserIdentity {
   username: string;

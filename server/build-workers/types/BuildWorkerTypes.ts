@@ -1,5 +1,31 @@
 import { Database } from "./supabase.js";
 
+// ============================================================================
+// GENERIC API RESPONSE TYPE
+// ============================================================================
+
+/**
+ * Generic API response type following Supabase pattern
+ * Either data is present (with error as null) or error is present (with data as null)
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type SandboxAPIResponse<TData = any, TError = any> =
+  | { data: TData; error: null }
+  | { data: null; error: TError };
+
+// ============================================================================
+// COMMON TYPES
+// ============================================================================
+
+/**
+ * Standard error response format
+ */
+export interface StandardErrorResponse {
+  error: string;
+  message: string;
+  details?: string;
+}
+
 export type PrototypeFileInput =
   Database["public"]["Tables"]["prototype_files"]["Row"];
 export type PrototypeAssetInput =
@@ -95,8 +121,7 @@ export interface PublicUpdateFilesRequest {
   deleted_files?: string[];
 }
 
-export interface PublicDevServerStartResponse {
-  status: "success" | "error";
+export interface PublicDevServerStartSuccessResponse {
   tunnel_url?: string;
   version?: string;
 }
@@ -106,8 +131,7 @@ export interface PublicDevServerStopRequest {
   s3_scoped_token?: string;
 }
 
-export interface PublicDevServerStopResponse {
-  status: "success" | "error";
+export interface PublicDevServerStopSuccessResponse {
   build_url?: string;
   server_operation_status: OperationStatus;
   server_status: DevServerStatus;
@@ -116,8 +140,8 @@ export interface PublicDevServerStopResponse {
   version?: string;
 }
 
-export interface PublicDevServerRestartResponse {
-  status: "success" | "error";
+export interface PublicDevServerRestartSuccessResponse {
+  message?: string;
 }
 
 export interface PublicBuildAndDeployRequest {
@@ -125,8 +149,7 @@ export interface PublicBuildAndDeployRequest {
   framework: "expo_react_native" | "react";
 }
 
-export interface PublicBuildAndDeployResponse {
-  status: "success" | "error";
+export interface PublicBuildAndDeploySuccessResponse {
   build_url?: string;
   version?: string;
 }
@@ -175,7 +198,7 @@ export interface PublicRunCommandRequest {
   strip_ansi?: boolean;
 }
 
-export interface PublicRunCommandResponse {
+export interface PublicRunCommandSuccessResponse {
   status: "success" | "timeout";
   stdout: string;
 }
@@ -189,12 +212,10 @@ export interface PublicAllocateRequest {
   userId: string;
   cloudflare_tunnel_token?: string;
   orchestration_token?: string;
+  aak?: string;
 }
 
-export interface PublicAllocateResponse {
-  status: "ok" | "error";
-  error?: string;
-  details?: string;
+export interface PublicAllocateSuccessResponse {
   tunnel_status?: "connected" | "error" | "timeout" | "not_started";
   tunnel_message?: string;
 }
@@ -205,20 +226,17 @@ export interface SandboxMakeDirRequest {
   recursive?: boolean;
 }
 
-export interface SandboxMakeDirResponse {
-  status: "success" | "error";
-  error?: string;
+export interface SandboxMakeDirSuccessResponse {
+  // No additional fields needed for success
 }
 
 export interface SandboxReadFileRequest {
   path: string;
 }
 
-export interface SandboxReadFileResponse {
-  status: "success" | "error";
+export interface SandboxReadFileSuccessResponse {
   contents?: string;
   is_binary?: boolean;
-  error?: string;
 }
 
 export interface SandboxWriteFileRequest {
@@ -227,9 +245,8 @@ export interface SandboxWriteFileRequest {
   contents: string;
 }
 
-export interface SandboxWriteFileResponse {
-  status: "success" | "error";
-  error?: string;
+export interface SandboxWriteFileSuccessResponse {
+  // No additional fields needed for success
 }
 
 export interface SandboxGitCheckoutRequest {
@@ -237,10 +254,8 @@ export interface SandboxGitCheckoutRequest {
   target_path?: string;
 }
 
-export interface SandboxGitCheckoutResponse {
-  status: "success" | "error";
+export interface SandboxGitCheckoutSuccessResponse {
   output?: string;
-  error?: string;
 }
 
 // Terminal API Types

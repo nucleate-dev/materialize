@@ -5,13 +5,13 @@ import dotenv from "dotenv";
 import fastify, { FastifyInstance } from "fastify";
 import fs from "fs/promises";
 import { SystemLogger, genRequestIds } from "./loggers/SystemLogger.js";
-import { ChatService } from "./services/ChatService.js";
+import { ExpoDevServerService } from "./services/dev-server/ExpoDevServerService.js";
 import { CloudflareTunnelManagementService } from "./services/CloudflareTunnelManagementService.js";
-import { ExpoDevServerService } from "./services/ExpoDevServerService.js";
-import { PublicApiService } from "./services/PublicApiService.js";
+import { PublicApiService } from "./services/dev-server/PublicApiService.js";
 import { SandboxService } from "./services/SandboxService.js";
+import { TerminalService } from "./services/terminals/TerminalService.js";
+import { CodeService } from "./services/chat/CodeService.js";
 import { SupabaseClientService } from "./services/SupabaseClientService.js";
-import { TerminalService } from "./services/TerminalService.js";
 
 // Load environment variables
 dotenv.config();
@@ -96,7 +96,7 @@ const cloudflareTunnelManagementService = new CloudflareTunnelManagementService(
   WORK_DIR,
   baseLogger,
 );
-const chatService = new ChatService(
+const codeService = new CodeService(
   app,
   WORK_DIR,
   baseLogger,
@@ -109,7 +109,7 @@ const publicApiService = new PublicApiService(
   expoDevServerService,
   sandboxService,
   cloudflareTunnelManagementService,
-  chatService,
+  codeService,
   WORK_DIR,
   supabaseClientService,
 );
@@ -168,7 +168,7 @@ terminalService.registerRoutes();
 sandboxService.registerRoutes();
 
 // Setup Claude Code SDK routes
-chatService.registerRoutes();
+codeService.registerRoutes();
 
 // --- Graceful Shutdown Handling ---
 const close = async (): Promise<void> => {
@@ -176,7 +176,7 @@ const close = async (): Promise<void> => {
   try {
     await expoDevServerService.shutdown(baseLogger);
     terminalService.shutdownAllSessions();
-    await chatService.shutdown();
+    await codeService.shutdown();
     await app.close();
   } finally {
     process.exit(0);

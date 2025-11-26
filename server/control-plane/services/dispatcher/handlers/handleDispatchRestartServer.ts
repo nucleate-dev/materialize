@@ -16,6 +16,11 @@ import {
 import { isEditableDevServer } from '../../../utils/prototypeDevServerStatusUtils.js';
 import { SystemLogger } from '../../../loggers/SystemLogger.js';
 import axios from 'axios';
+import {
+  SandboxAPIResponse,
+  PublicDevServerRestartSuccessResponse,
+  StandardErrorResponse as BuildWorkerStandardErrorResponse,
+} from '../../../types/BuildWorkerTypes.js';
 
 export async function handleRestartDevServerImpl(
   body: RestartDevServerRequestBody,
@@ -187,7 +192,12 @@ async function callFargateRestart(
   log2: SystemLogger,
 ): Promise<{ success: boolean; message?: string }> {
   try {
-    const response = await axios.post(
+    const response = await axios.post<
+      SandboxAPIResponse<
+        PublicDevServerRestartSuccessResponse,
+        BuildWorkerStandardErrorResponse
+      >
+    >(
       `http://${fargatePrivateIp}:3002/dev-server/restart`,
       {},
       {
@@ -200,7 +210,15 @@ async function callFargateRestart(
     );
 
     log2.info('Fargate restart response:', { response: response.data });
-    return { success: true };
+
+    if (response.data.data) {
+      return { success: true, message: response.data.data.message };
+    } else {
+      return {
+        success: false,
+        message: response.data.error?.message || 'Unknown error',
+      };
+    }
   } catch (error) {
     log2.error(error, 'Error calling fargate restart endpoint');
     return {
