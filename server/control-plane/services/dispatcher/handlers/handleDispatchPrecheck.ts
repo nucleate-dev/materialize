@@ -140,7 +140,10 @@ function getS3Url(prototypeId: string): string {
 
 function normalizeUrl(url: string): string {
   // Ensure URL has protocol (https://) for iframe loading
-  return url && !url.startsWith('http') && !url.startsWith('exp')
-    ? `https://${url}`
-    : url;
+  // If URL starts with exp://, replace it with https://
+  if (url && url.startsWith('exp://')) {
+    return url.replace('exp://', 'https://');
+  }
+  // Otherwise, if URL doesn't start with http, prepend https://
+  return url && !url.startsWith('http') ? `https://${url}` : url;
 }
