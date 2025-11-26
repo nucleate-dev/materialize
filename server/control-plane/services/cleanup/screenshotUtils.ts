@@ -1,7 +1,7 @@
 import { SupabaseClient } from '@supabase/supabase-js';
 import puppeteer from 'puppeteer';
-import { Database } from '../types/supabase.js';
-import { SystemLogger } from '../loggers/SystemLogger.js';
+import { Database } from '../../types/supabase.js';
+import { SystemLogger } from '../../loggers/SystemLogger.js';
 import crypto from 'crypto';
 
 export async function takeScreenshotsOfKilledBuilds(
