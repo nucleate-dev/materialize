@@ -1,64 +1,71 @@
-import { StyleSheet, Text, useColorScheme, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
+import { useTheme, Theme } from '../../../theme';
 
 export default function HomeScreen() {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const theme = useTheme();
+  const styles = createStyles(theme);
 
   return (
-    <View style={[styles.container, { backgroundColor: isDark ? '#000' : '#fff' }]}>
-      <Text style={[styles.title, { color: isDark ? '#fff' : '#000' }]}>
+    <View style={styles.container}>
+      <Text style={styles.title}>
         Welcome to Materialize!
       </Text>
 
-      <View style={[styles.separator, { borderBottomColor: isDark ? '#333' : '#ccc' }]} />
+      <View style={styles.separator} />
 
-      <Text style={[styles.paragraph, { color: isDark ? '#fff' : '#000' }]}>
+      <Text style={styles.paragraph}>
         This is your main screen. You can start building your app here with beautiful components.
       </Text>
 
-      <Text style={[styles.subtext, { color: isDark ? '#aaa' : '#666' }]}>
+      <Text style={styles.subtext}>
         The app automatically supports dark and light mode with theme support.
       </Text>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: Theme) => StyleSheet.create({
   container: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 16,
-    gap: 16,
+    padding: theme.spacing.md,
+    gap: theme.spacing.md,
+    backgroundColor: theme.colors.background,
   },
   title: {
-    fontSize: 32,
-    fontWeight: 'bold',
+    fontSize: theme.typography.sizes.xxl,
+    fontWeight: theme.typography.weights.bold,
     textAlign: 'center',
+    color: theme.colors.text,
   },
   separator: {
     width: '80%',
     borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
   },
   paragraph: {
-    fontSize: 18,
+    fontSize: theme.typography.sizes.lg,
     textAlign: 'center',
     maxWidth: 300,
+    color: theme.colors.text,
   },
   subtext: {
-    fontSize: 14,
+    fontSize: theme.typography.sizes.sm,
     textAlign: 'center',
     opacity: 0.8,
+    color: theme.colors.textSecondary,
   },
   button: {
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 8,
-    marginTop: 16,
+    paddingVertical: theme.spacing.sm + 4,
+    paddingHorizontal: theme.spacing.lg,
+    borderRadius: theme.borderRadius.md,
+    marginTop: theme.spacing.md,
+    backgroundColor: theme.colors.primary,
   },
   buttonText: {
     color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: theme.typography.sizes.md,
+    fontWeight: theme.typography.weights.semibold,
   },
 });

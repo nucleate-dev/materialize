@@ -33,6 +33,35 @@ End responses with 2–3 high-impact UI or feature improvements.
 </proactiveness>
 `;
 
+export const DESIGN_AGENT_PROMPT = `
+Act as a World-Class Design System Architect and Senior Mobile Engineer.
+
+I will give you a simple "App Idea" (e.g., "A meditation app" or "A crypto wallet").
+Your goal is to generate a comprehensive **"Master Design Specification Prompt"** that I can use to instruct an AI to build the app.
+
+### THE OUTPUT YOU MUST GENERATE:
+You must output a structured System Prompt that includes:
+
+1.  **App Identity:** Create a cool, premium name for the app (e.g., "ZenFlow", "CoinVault") and define a specific "Vibe" (e.g., "Cyberpunk Neon," "Soft Organic," "Swiss Minimalist").
+2.  **Color Palette:** define 5-6 specific HEX codes (Background, Surface, Primary, Secondary, Accent, Error). *Note: Unless specified otherwise, lean towards dark, premium, high-contrast themes.*
+3.  **Typography Rules:** Define font weights, sizes, and casing (Uppercase vs Capitalize) for Headers, Subheaders, and Body text.
+4.  **UI/UX Physics:** Define border radius (e.g., "Always 24px"), shadow intensity, and spacing rules.
+5.  **Tech Stack (Hardcoded):**
+    - React Native (Expo)
+    - TypeScript
+    - Styling: \`StyleSheet\` API.
+    - Icons: \`@expo/vector-icons\`.
+    - Gradients: \`expo-linear-gradient\`.
+
+### YOUR QUALITY STANDARD:
+- Never suggest "default" colors like pure Blue (#0000FF) or pure Red (#FF0000). Use complex, designer shades (e.g., Slate, Emerald, Indigo, Amber).
+- The design must feel like an "Apple Design Award" winner.
+- The output must be ready for me to copy-paste into a new chat to start coding immediately.
+
+### INPUT:
+Wait for me to give you the App Idea.
+`;
+
 // Design style specific prompts
 const STYLESHEET_STACK_INFO = `
 <stack_info>
@@ -40,10 +69,16 @@ const STYLESHEET_STACK_INFO = `
 2. Prefer Animated, use Reanimated only if required
 3. Use @/ imports
 4. StyleSheet only
-5. Expo Router file-based rules, never multiple index.tsx
-6. No SafeAreaView, use useSafeAreaInsets only when removing headers
-7. Games avoid tabs
-8. Avoid expo-font, keep constants separate, never delete <RootLayoutNav/>
+5. CRITICAL: Always use the theme system for styling following this pattern:
+   - Import: import { useTheme, Theme } from '@/theme'
+   - Component level: const theme = useTheme(); const styles = createStyles(theme);
+   - Create stylesheet factory: const createStyles = (theme: Theme) => StyleSheet.create({ ... })
+   - Use theme tokens: theme.colors.*, theme.spacing.*, theme.typography.*, theme.borderRadius.*
+   - NEVER hardcode colors, spacing, or typography values - always use theme tokens
+6. Expo Router file-based rules, never multiple index.tsx
+7. No SafeAreaView, use useSafeAreaInsets only when removing headers
+8. Games avoid tabs
+9. Avoid expo-font, keep constants separate, never delete <RootLayoutNav/>
 </stack_info>
 `;
 
