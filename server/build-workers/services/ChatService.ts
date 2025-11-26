@@ -352,22 +352,24 @@ export class ChatService {
         sessionState: this.sessionState,
         validAiChatSessionIds: this.validAiChatSessionIds,
       },
-      this.sendMessage.bind(this),
-      this.persistMessage.bind(this),
-      this.uploadChatImages.bind(this),
-      async (prototypeId: string) => {
-        await notifyOrchestrationStartChat(
-          prototypeId,
-          this.orchestrationToken,
-          this.logger,
-        );
-      },
-      async (prototypeId: string) => {
-        await notifyOrchestrationEndChat(
-          prototypeId,
-          this.orchestrationToken,
-          this.logger,
-        );
+      {
+        sendMessage: this.sendMessage.bind(this),
+        persistMessage: this.persistMessage.bind(this),
+        uploadChatImages: this.uploadChatImages.bind(this),
+        notifyOrchestrationStartChat: async (prototypeId: string) => {
+          await notifyOrchestrationStartChat(
+            prototypeId,
+            this.orchestrationToken,
+            this.logger,
+          );
+        },
+        notifyOrchestrationEndChat: async (prototypeId: string) => {
+          await notifyOrchestrationEndChat(
+            prototypeId,
+            this.orchestrationToken,
+            this.logger,
+          );
+        },
       },
     );
   }

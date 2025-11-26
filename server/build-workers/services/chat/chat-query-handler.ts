@@ -92,6 +92,39 @@ interface QueryExecutionContext {
   validAiChatSessionIds: Set<string>;
 }
 
+interface MessageHandlers {
+  sendMessage: (socket: WebSocket, message: ChatServerMessage) => void;
+  persistMessage: (
+    role: "user" | "assistant" | "system",
+    content: string,
+    messageType: "text" | "tool_use" | "tool_result" | "error" | "system",
+    eventType?: string | null,
+    eventData?: unknown,
+  ) => Promise<void>;
+  uploadChatImages: (
+    prototypeId: string,
+    chatSessionId: string,
+    images: Array<{ base64: string; mediaType: string }>,
+  ) => Promise<void>;
+  notifyOrchestrationStartChat: (prototypeId: string) => Promise<void>;
+  notifyOrchestrationEndChat: (prototypeId: string) => Promise<void>;
+}
+
+interface StreamContext {
+  messageContent: string | Array<{ type: string; text?: string; source?: unknown }>;
+  queryOptions: Options & { resume?: string };
+  sessionState: CodeSessionState;
+  validAiChatSessionIds: Set<string>;
+  socket: WebSocket;
+}
+
+interface HookContext {
+  input: HookInput;
+  toolUseID: string | undefined;
+  socket: WebSocket;
+  sessionState?: CodeSessionState;
+}
+
 /**
  * Handles the execution of Claude Code queries, including:
  * - Request validation (auth, credits, content)
@@ -136,21 +169,7 @@ export class ChatQueryHandler {
    */
   public async handleQuery(
     context: QueryExecutionContext,
-    sendMessage: (socket: WebSocket, message: ChatServerMessage) => void,
-    persistMessage: (
-      role: "user" | "assistant" | "system",
-      content: string,
-      messageType: "text" | "tool_use" | "tool_result" | "error" | "system",
-      eventType?: string | null,
-      eventData?: unknown,
-    ) => Promise<void>,
-    uploadChatImages: (
-      prototypeId: string,
-      chatSessionId: string,
-      images: Array<{ base64: string; mediaType: string }>,
-    ) => Promise<void>,
-    notifyOrchestrationStartChat: (prototypeId: string) => Promise<void>,
-    notifyOrchestrationEndChat: (prototypeId: string) => Promise<void>,
+    handlers: MessageHandlers,
   ): Promise<void> {
     const { prototypeId, socket, data, sessionState } = context;
     const { prompt, content, token, ai_chat_session_id, design_style } = data;
@@ -175,7 +194,7 @@ export class ChatQueryHandler {
     // Step 1: Validate request
     const validation = this.validateQueryRequest(data);
     if (!validation.valid) {
-      sendMessage(socket, {
+      handlers.sendMessage(socket, {
         type: ChatEvent.ERROR,
         error: {
           message: validation.errorMessage!,
@@ -189,7 +208,7 @@ export class ChatQueryHandler {
     if (token) {
       const authResult = await this.authenticateWithToken(token, prototypeId);
       if (!authResult.success) {
-        sendMessage(socket, {
+        handlers.sendMessage(socket, {
           type: ChatEvent.ERROR,
           error: {
             message: authResult.errorMessage!,
@@ -215,7 +234,7 @@ export class ChatQueryHandler {
     // Step 5: Perform credit check
     const creditCheck = await this.performCreditCheck(prototypeId);
     if (!creditCheck.success) {
-      sendMessage(socket, {
+      handlers.sendMessage(socket, {
         type: ChatEvent.ERROR,
         error: {
           message: creditCheck.errorMessage!,
@@ -226,7 +245,7 @@ export class ChatQueryHandler {
     }
 
     // Step 6: Notify orchestration that chat is starting
-    await notifyOrchestrationStartChat(prototypeId);
+    await handlers.notifyOrchestrationStartChat(prototypeId);
 
     // Step 7: Execute query with proper cleanup
     let totalCostUsd: number | undefined = undefined;
@@ -235,9 +254,7 @@ export class ChatQueryHandler {
       totalCostUsd = await this.executeClaudeQuery(
         context,
         designSystemResult.systemPrompt,
-        sendMessage,
-        persistMessage,
-        uploadChatImages,
+        handlers,
       );
     } finally {
       // Step 8: Sync files and track usage
@@ -246,11 +263,11 @@ export class ChatQueryHandler {
         socket,
         sessionState,
         totalCostUsd,
-        sendMessage,
+        handlers.sendMessage,
       );
 
       // Step 9: Always notify orchestration that chat has ended
-      await notifyOrchestrationEndChat(prototypeId);
+      await handlers.notifyOrchestrationEndChat(prototypeId);
     }
   }
 
@@ -529,19 +546,7 @@ export class ChatQueryHandler {
   private async executeClaudeQuery(
     context: QueryExecutionContext,
     systemPromptAppend: string,
-    sendMessage: (socket: WebSocket, message: ChatServerMessage) => void,
-    persistMessage: (
-      role: "user" | "assistant" | "system",
-      content: string,
-      messageType: "text" | "tool_use" | "tool_result" | "error" | "system",
-      eventType?: string | null,
-      eventData?: unknown,
-    ) => Promise<void>,
-    uploadChatImages: (
-      prototypeId: string,
-      chatSessionId: string,
-      images: Array<{ base64: string; mediaType: string }>,
-    ) => Promise<void>,
+    handlers: MessageHandlers,
   ): Promise<number | undefined> {
     const { prototypeId, socket, data, sessionState, validAiChatSessionIds } =
       context;
@@ -566,7 +571,7 @@ export class ChatQueryHandler {
       await this.persistUserMessage(
         messageContent,
         imagesFromContent,
-        persistMessage,
+        handlers.persistMessage,
       );
 
       // Setup query options
@@ -576,8 +581,7 @@ export class ChatQueryHandler {
         abortController,
         socket,
         sessionState,
-        sendMessage,
-        persistMessage,
+        handlers,
       );
 
       // Check if session is valid for resumption
@@ -598,7 +602,7 @@ export class ChatQueryHandler {
           },
         );
 
-        sendMessage(socket, {
+        handlers.sendMessage(socket, {
           type: ChatEvent.HISTORY_REQUEST,
           data: {
             message:
@@ -625,14 +629,16 @@ export class ChatQueryHandler {
       });
 
       // Execute query and stream responses
-      const totalCostUsd = await this.streamQueryResponse(
+      const streamContext: StreamContext = {
         messageContent,
         queryOptions,
         sessionState,
         validAiChatSessionIds,
         socket,
-        sendMessage,
-        persistMessage,
+      };
+      const totalCostUsd = await this.streamQueryResponse(
+        streamContext,
+        handlers,
       );
 
       // Upload images if successful
@@ -640,7 +646,7 @@ export class ChatQueryHandler {
         imagesFromContent.length > 0 &&
         sessionState.prototypeChatSessionId
       ) {
-        await uploadChatImages(
+        await handlers.uploadChatImages(
           prototypeId,
           sessionState.prototypeChatSessionId,
           imagesFromContent,
@@ -651,7 +657,7 @@ export class ChatQueryHandler {
       sessionState.abortController = null;
 
       // Send completion message
-      sendMessage(socket, {
+      handlers.sendMessage(socket, {
         type: ChatEvent.QUERY_COMPLETE,
         data: {
           sessionId: sessionState.sessionId,
@@ -673,7 +679,7 @@ export class ChatQueryHandler {
       );
 
       // Persist error to database
-      await persistMessage(
+      await handlers.persistMessage(
         "system",
         `Error: ${errorMessage}`,
         "error",
@@ -684,7 +690,7 @@ export class ChatQueryHandler {
         },
       );
 
-      sendMessage(socket, {
+      handlers.sendMessage(socket, {
         type: ChatEvent.ERROR,
         error: {
           message: "Query failed",
@@ -783,14 +789,7 @@ export class ChatQueryHandler {
     abortController: AbortController,
     socket: WebSocket,
     sessionState: CodeSessionState,
-    sendMessage: (socket: WebSocket, message: ChatServerMessage) => void,
-    persistMessage: (
-      role: "user" | "assistant" | "system",
-      content: string,
-      messageType: "text" | "tool_use" | "tool_result" | "error" | "system",
-      eventType?: string | null,
-      eventData?: unknown,
-    ) => Promise<void>,
+    handlers: MessageHandlers,
   ): Promise<Options & { resume?: string }> {
     const canUseTool: CanUseTool = async (
       toolName: ToolName,
@@ -851,13 +850,12 @@ export class ChatQueryHandler {
                 toolUseID: string | undefined,
                 _options: { signal: AbortSignal },
               ): Promise<HookJSONOutput> => {
-                return this.handlePreToolUseHook(
+                const hookContext: HookContext = {
                   input,
                   toolUseID,
                   socket,
-                  sendMessage,
-                  persistMessage,
-                );
+                };
+                return this.handlePreToolUseHook(hookContext, handlers);
               },
             ],
           },
@@ -870,14 +868,13 @@ export class ChatQueryHandler {
                 toolUseID: string | undefined,
                 _options: { signal: AbortSignal },
               ): Promise<HookJSONOutput> => {
-                return this.handlePostToolUseHook(
+                const hookContext: HookContext = {
                   input,
                   toolUseID,
-                  sessionState,
                   socket,
-                  sendMessage,
-                  persistMessage,
-                );
+                  sessionState,
+                };
+                return this.handlePostToolUseHook(hookContext, handlers);
               },
             ],
           },
@@ -1005,18 +1002,11 @@ export class ChatQueryHandler {
    * Handles PreToolUse hook
    */
   private async handlePreToolUseHook(
-    input: HookInput,
-    toolUseID: string | undefined,
-    socket: WebSocket,
-    sendMessage: (socket: WebSocket, message: ChatServerMessage) => void,
-    persistMessage: (
-      role: "user" | "assistant" | "system",
-      content: string,
-      messageType: "text" | "tool_use" | "tool_result" | "error" | "system",
-      eventType?: string | null,
-      eventData?: unknown,
-    ) => Promise<void>,
+    hookContext: HookContext,
+    handlers: MessageHandlers,
   ): Promise<HookJSONOutput> {
+    const { input, toolUseID, socket } = hookContext;
+
     this.logger.debug("PreToolUse Hook called: ", {
       input: JSON.stringify(input),
     });
@@ -1065,7 +1055,7 @@ export class ChatQueryHandler {
           input.tool_name,
           normalizedToolInput as ToolInput,
         );
-        await persistMessage(
+        await handlers.persistMessage(
           "assistant",
           displayName,
           "tool_use",
@@ -1091,19 +1081,11 @@ export class ChatQueryHandler {
    * Handles PostToolUse hook
    */
   private async handlePostToolUseHook(
-    input: HookInput,
-    toolUseID: string | undefined,
-    sessionState: CodeSessionState,
-    socket: WebSocket,
-    sendMessage: (socket: WebSocket, message: ChatServerMessage) => void,
-    persistMessage: (
-      role: "user" | "assistant" | "system",
-      content: string,
-      messageType: "text" | "tool_use" | "tool_result" | "error" | "system",
-      eventType?: string | null,
-      eventData?: unknown,
-    ) => Promise<void>,
+    hookContext: HookContext,
+    handlers: MessageHandlers,
   ): Promise<HookJSONOutput> {
+    const { input, toolUseID, socket, sessionState } = hookContext;
+
     try {
       this.logger.consoleLogDevOnly("debug", JSON.stringify(input));
 
@@ -1125,7 +1107,7 @@ export class ChatQueryHandler {
             filePath = toolResponse.file_path;
           }
 
-          if (filePath) {
+          if (filePath && sessionState) {
             const relativePath = this.getRelativePath(filePath);
 
             // Track for incremental sync (legacy mode)
@@ -1163,7 +1145,7 @@ export class ChatQueryHandler {
         }
 
         // Persist tool completion to database
-        await persistMessage(
+        await handlers.persistMessage(
           "assistant",
           `Tool completed: ${input.tool_name}`,
           "tool_result",
@@ -1190,22 +1172,16 @@ export class ChatQueryHandler {
    * Streams query response and handles session updates
    */
   private async streamQueryResponse(
-    messageContent:
-      | string
-      | Array<{ type: string; text?: string; source?: unknown }>,
-    queryOptions: Options & { resume?: string },
-    sessionState: CodeSessionState,
-    validAiChatSessionIds: Set<string>,
-    socket: WebSocket,
-    sendMessage: (socket: WebSocket, message: ChatServerMessage) => void,
-    persistMessage: (
-      role: "user" | "assistant" | "system",
-      content: string,
-      messageType: "text" | "tool_use" | "tool_result" | "error" | "system",
-      eventType?: string | null,
-      eventData?: unknown,
-    ) => Promise<void>,
+    streamContext: StreamContext,
+    handlers: MessageHandlers,
   ): Promise<number | undefined> {
+    const {
+      messageContent,
+      queryOptions,
+      sessionState,
+      validAiChatSessionIds,
+      socket,
+    } = streamContext;
     // Create async generator for streaming input
     async function* generateMessages(): AsyncGenerator<{
       type: "user";
@@ -1351,7 +1327,7 @@ export class ChatQueryHandler {
       sessionState.lastActiveAt = Date.now();
 
       // Forward message to client
-      sendMessage(socket, {
+      handlers.sendMessage(socket, {
         type: ChatEvent.AGENT_MESSAGE,
         data: msg,
       });
@@ -1359,7 +1335,7 @@ export class ChatQueryHandler {
 
     // Persist accumulated assistant message if there is any
     if (assistantMessageBuffer.trim()) {
-      await persistMessage(
+      await handlers.persistMessage(
         "assistant",
         assistantMessageBuffer,
         "text",
