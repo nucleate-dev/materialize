@@ -94,6 +94,5 @@ export async function handleRedirectToStripeCustomerPortal(
 }
 
 export const IsUserPlanSubscribed = (userPlan: string) => {
-  console.log(userPlan);
   return userPlan === "plus" || userPlan === "team";
 };
