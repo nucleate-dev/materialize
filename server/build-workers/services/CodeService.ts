@@ -130,6 +130,7 @@ export class CodeService {
   };
   private activeConnections = new Map<string, ChatConnection>();
   private orchestrationToken: string | null = null;
+  private aak: string | null = null;
   private validAiChatSessionIds = new Set<string>(); // Track valid session IDs created during this CodeService instance's lifetime
   private readonly sharedFileMode = 0o664;
   private readonly sharedDirMode = 0o775;
@@ -210,6 +211,15 @@ export class CodeService {
 
   public getOrchestrationToken(): string | null {
     return this.orchestrationToken;
+  }
+
+  public setAak(key: string): void {
+    this.aak = key;
+    this.logger.consoleLogDevOnly("info", "Anthropic API key set");
+  }
+
+  public getAak(): string | null {
+    return this.aak;
   }
 
   private async executeSandboxCommand(

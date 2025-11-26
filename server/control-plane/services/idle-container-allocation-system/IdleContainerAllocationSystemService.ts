@@ -664,6 +664,7 @@ export class IdleContainerAllocationSystemService {
       userId: userId || 'unknown',
       cloudflare_tunnel_token: tunnelConfig.token || '',
       orchestration_token: orchestrationToken,
+      aak: process.env.ANTHROPIC_API_KEY!,
     };
 
     // Send creds to worker

@@ -5,7 +5,7 @@
 // To update these types, modify the source file and run:
 // npm run sync-build-worker-types
 //
-// Last synced: 2025-11-26T09:13:19.504Z
+// Last synced: 2025-11-26T12:52:18.961Z
 
 import { Database } from "./supabase.js";
 
@@ -198,6 +198,7 @@ export interface PublicAllocateRequest {
   userId: string;
   cloudflare_tunnel_token?: string;
   orchestration_token?: string;
+  aak?: string;
 }
 
 export interface PublicAllocateResponse {
