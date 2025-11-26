@@ -1,6 +1,7 @@
 "use client";
 
 import { supabase } from "@/ClientConstants";
+import { GridBackground } from "@/components/shared/GridComponent";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -28,21 +29,6 @@ interface DesignSystemDetailPageProps {
     "design-system-id": string;
   }>;
 }
-
-// --- Visual Background ---
-const GridBackground = () => (
-  <div className="fixed inset-0 overflow-hidden pointer-events-none select-none -z-10">
-    <div className="absolute inset-0 bg-[#0B0C0E]" />
-    <div className="absolute top-[10%] left-[20%] w-[40%] h-[40%] bg-purple-500/5 blur-[120px] rounded-full mix-blend-screen" />
-    <div
-      className="absolute inset-0 opacity-[0.02]"
-      style={{
-        backgroundImage: `linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg, #fff 1px, transparent 1px)`,
-        backgroundSize: '40px 40px'
-      }}
-    />
-  </div>
-);
 
 export default function DesignSystemDetailPage({ params }: DesignSystemDetailPageProps) {
   const { user } = useUser();

@@ -10,6 +10,7 @@ import {
 } from "@/LoggingEvents";
 import { Database } from "@/lib/types/supabase";
 import { CreditLimits } from "@/lib/types/serverAPITypes";
+import { sendMetaPurchaseEvent } from "@/lib/utils/analytics/MetaConversionsAPI";
 import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
 import { PostHog } from "posthog-node";
@@ -100,10 +101,6 @@ export async function POST(req: NextRequest) {
 async function handleCheckoutSessionCompleted(
   session: Stripe.Checkout.Session,
 ): Promise<void> {
-  if (session.mode !== "payment") {
-    return;
-  }
-
   const lineItems = await stripe.checkout.sessions.listLineItems(session.id, {
     limit: 1,
   });
@@ -112,12 +109,41 @@ async function handleCheckoutSessionCompleted(
     return;
   }
 
-  const creditPackAmount = getCreditPackAmount(priceId);
-  if (creditPackAmount === null) {
-    return;
-  }
+  if (session.mode === "payment") {
+    // Handle one-time credit pack purchases
+    const creditPackAmount = getCreditPackAmount(priceId);
+    if (creditPackAmount === null) {
+      return;
+    }
+    await handleCreditPackPurchase(session, creditPackAmount);
+  } else if (session.mode === "subscription") {
+    // Handle subscription checkout - send Meta Purchase event
+    // The actual subscription setup is handled by invoice.paid event
+    if (!session.metadata?.user_id) {
+      return;
+    }
 
-  await handleCreditPackPurchase(session, creditPackAmount);
+    const userId = session.metadata.user_id;
+    const { data: userData } = await supabase
+      .from("users")
+      .select("email")
+      .eq("user_id", userId)
+      .single();
+
+    const planKey = getPlanKey(priceId);
+
+    // Send Meta Conversions API Purchase event for initial subscription purchase
+    // Using session.id as transactionId for deduplication with client-side pixel
+    await sendMetaPurchaseEvent({
+      email: userData?.email,
+      userId: userId,
+      value: (session.amount_total ?? 0) / 100, // Convert cents to dollars
+      currency: session.currency ?? "usd",
+      transactionId: session.id, // Same ID used by client-side pixel for deduplication
+      contentName: `${planKey.charAt(0).toUpperCase() + planKey.slice(1)} Subscription`,
+      eventSourceUrl: process.env.NEXT_PUBLIC_SITE_BASE_URL ?? "",
+    });
+  }
 }
 
 /**
@@ -212,6 +238,25 @@ async function handleCreditPackPurchase(
       source: LoggingEventSource.API_PAYMENTS_HANDLE_SUBSCRIPTION,
       credit_pack_amount: creditAmount,
     },
+  });
+
+  // Send Meta Conversions API Purchase event for credit pack
+  const { data: userData } = await supabase
+    .from("users")
+    .select("email")
+    .eq("user_id", userId)
+    .single();
+
+  // Send Meta Conversions API Purchase event
+  // Using session.id as transactionId for deduplication with client-side pixel
+  await sendMetaPurchaseEvent({
+    email: userData?.email,
+    userId: userId,
+    value: (session.amount_total ?? 0) / 100, // Convert cents to dollars
+    currency: session.currency ?? "usd",
+    transactionId: session.id, // Same ID used by client-side pixel for deduplication
+    contentName: `Credit Pack - ${creditAmount} credits`,
+    eventSourceUrl: process.env.NEXT_PUBLIC_SITE_BASE_URL ?? "",
   });
 }
 
@@ -559,6 +604,12 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
       source: LoggingEventSource.API_PAYMENTS_HANDLE_SUBSCRIPTION,
     },
   });
+
+  // Note: Meta Purchase tracking for initial subscription is handled in
+  // checkout.session.completed event to enable deduplication with client-side pixel.
+  // Recurring subscription payments (renewals) are not tracked to Meta to avoid
+  // counting renewals as new purchases.
+
   return;
 }
 

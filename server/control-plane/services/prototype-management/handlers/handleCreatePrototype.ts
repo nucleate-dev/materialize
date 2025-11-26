@@ -184,7 +184,7 @@ export async function handleCreatePrototypeImpl(
         owner_id: user.id,
         folder_id,
         visibility:
-          visibility || (limitCheck.plan === 'pro' ? 'SELF' : 'PUBLIC'),
+          visibility || (limitCheck.plan === 'plus' ? 'SELF' : 'PUBLIC'),
         design_style: resolvedDesignStyle,
         custom_design_system: forkPrototypeId
           ? null

@@ -31,6 +31,7 @@ import {
   type CreatePrototypeSuccessResponse,
 } from "@/lib/types/serverAPITypes";
 import { Database } from "@/lib/types/supabase";
+import { IsUserPlanSubscribed } from "@/lib/utils/payments/SubscriptionManagementUtils";
 import {
   Check,
   Copy,
@@ -180,7 +181,7 @@ export default function PublicPrototypeHeader({
     if (!prototype || !user || prototype.owner_id !== user.id) return;
 
     // If trying to set to SELF (Private) and not a Pro user, show upsell
-    if (newVisibility === "SELF" && userPlan !== "pro") {
+    if (newVisibility === "SELF" && !IsUserPlanSubscribed(userPlan)) {
       setShowVisibilityModal(false);
       setShowUpsellModal(true);
       return;
@@ -570,7 +571,7 @@ export default function PublicPrototypeHeader({
                 <div className="font-medium flex items-center gap-2">
                   <Lock className="w-4 h-4 text-gray-500" />
                   Private
-                  {userPlan !== "pro" && (
+                  {!IsUserPlanSubscribed(userPlan) && (
                     <Badge variant="secondary" className="ml-2 text-[10px] h-5 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400">
                       Pro
                     </Badge>

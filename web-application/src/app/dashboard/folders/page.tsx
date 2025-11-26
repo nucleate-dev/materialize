@@ -4,6 +4,7 @@ import { supabase } from "@/ClientConstants";
 import EmptyState from "@/components/dashboard/EmptyState";
 import FolderThumbnail from "@/components/dashboard/FolderThumbnail";
 import NewFolderModal from "@/components/dashboard/NewFolderModal";
+import { GridBackground } from "@/components/shared/GridComponent";
 import { Button } from "@/components/ui/button";
 import { useUser } from "@/hooks/useUser";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
@@ -13,21 +14,6 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
 type FolderRow = Database["public"]["Tables"]["folders"]["Row"];
-
-// --- Visual Background Component (Consistent with Dashboard) ---
-const GridBackground = () => (
-  <div className="fixed inset-0 overflow-hidden pointer-events-none select-none -z-10">
-    <div className="absolute inset-0 bg-[#0B0C0E]" />
-    <div className="absolute top-[20%] right-[-10%] w-[40%] h-[40%] bg-purple-500/5 blur-[120px] rounded-full mix-blend-screen" />
-    <div
-      className="absolute inset-0 opacity-[0.02]"
-      style={{
-        backgroundImage: `linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg, #fff 1px, transparent 1px)`,
-        backgroundSize: '40px 40px'
-      }}
-    />
-  </div>
-);
 
 export default function FoldersPage() {
   const { user } = useUser();

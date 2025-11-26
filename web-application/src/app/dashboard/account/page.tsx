@@ -1,6 +1,7 @@
 "use client";
 
 import { supabase } from "@/ClientConstants";
+import { GridBackground } from "@/components/shared/GridComponent";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -16,7 +17,7 @@ import {
   formatGrantType
 } from "@/lib/utils/credits/CreditUtils";
 import { handleCheckout } from "@/lib/utils/payments/CheckoutUtils";
-import { handleRedirectToStripeCustomerPortal } from "@/lib/utils/payments/SubscriptionManagementUtils";
+import { handleRedirectToStripeCustomerPortal, IsUserPlanSubscribed } from "@/lib/utils/payments/SubscriptionManagementUtils";
 import {
   AlertCircle,
   Calendar,
@@ -29,22 +30,6 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-
-// --- Visual Background ---
-const GridBackground = () => (
-  <div className="fixed inset-0 overflow-hidden pointer-events-none select-none -z-10">
-    <div className="absolute inset-0 bg-gray-50 dark:bg-[#0B0C0E]" />
-    <div className="absolute top-[10%] left-[-10%] w-[40%] h-[40%] bg-purple-500/10 dark:bg-purple-500/5 blur-[120px] rounded-full mix-blend-screen" />
-    <div className="absolute bottom-[10%] right-[-10%] w-[30%] h-[30%] bg-blue-500/10 dark:bg-blue-500/5 blur-[100px] rounded-full mix-blend-screen" />
-    <div
-      className="absolute inset-0 opacity-[0.04] dark:opacity-[0.02] text-gray-400 dark:text-white"
-      style={{
-        backgroundImage: `linear-gradient(currentColor 1px, transparent 1px), linear-gradient(90deg, currentColor 1px, transparent 1px)`,
-        backgroundSize: '40px 40px'
-      }}
-    />
-  </div>
-);
 
 // --- Styled Components ---
 const SectionCard = ({ children, className }: { children: React.ReactNode; className?: string; }) => (
@@ -240,7 +225,7 @@ function AccountSettings() {
                   <div className="flex items-center gap-3">
                     <h2 className="text-xl font-medium text-gray-900 dark:text-white">{name || "User"}</h2>
                     <div className={cn("px-2 py-0.5 rounded-full text-[10px] font-medium border uppercase tracking-wider flex items-center gap-1", getPlanBadgeColor(currentSubscription))}>
-                      {currentSubscription === "pro" && <Crown className="w-3 h-3" />}
+                      {IsUserPlanSubscribed(currentSubscription) && <Crown className="w-3 h-3" />}
                       {currentSubscription}
                     </div>
                   </div>

@@ -2,6 +2,7 @@
 
 import { supabase } from "@/ClientConstants";
 import ProPlanUpsellModal from "@/components/prototype-editor/ProPlanUpsellModal";
+import { GridBackground } from "@/components/shared/GridComponent";
 import { Button } from "@/components/ui/button";
 import {
   Collapsible,
@@ -43,8 +44,8 @@ type DesignSystemRow = Database["public"]["Tables"]["design_systems"]["Row"];
 type DesignStyle = Database["public"]["Enums"]["design_style"];
 
 const DESIGN_STYLE_OPTIONS: DesignStyle[] = [
-  "nativewind",
   "stylesheets",
+  "nativewind",
 ];
 
 const DESIGN_STYLE_LABELS: Partial<Record<DesignStyle, string>> = {
@@ -53,23 +54,6 @@ const DESIGN_STYLE_LABELS: Partial<Record<DesignStyle, string>> = {
   custom: "Custom"
 };
 
-// --- Visual Components ---
-
-const GridBackground = () => (
-  <div className="fixed inset-0 overflow-hidden pointer-events-none select-none -z-10">
-    <div className="absolute inset-0 bg-white dark:bg-[#0B0C0E]" />
-    <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] bg-purple-500/10 dark:bg-purple-500/5 blur-[120px] rounded-full mix-blend-screen" />
-    <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-blue-500/10 dark:bg-blue-500/5 blur-[100px] rounded-full mix-blend-screen" />
-    <div
-      className="absolute inset-0 opacity-[0.03] dark:opacity-[0.02]"
-      style={{
-        backgroundImage: `linear-gradient(currentColor 1px, transparent 1px), linear-gradient(90deg, currentColor 1px, transparent 1px)`,
-        backgroundSize: '40px 40px'
-      }}
-    />
-    <div className="absolute inset-0 bg-gradient-to-t from-white dark:from-[#0B0C0E] via-transparent to-transparent" />
-  </div>
-);
 
 export default function DashboardPage() {
   // --- Logic / Hooks (Preserved) ---

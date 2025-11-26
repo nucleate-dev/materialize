@@ -34,6 +34,7 @@ import type {
 } from "@/lib/types/serverAPITypes";
 import { Database } from "@/lib/types/supabase";
 import { handleCheckout } from "@/lib/utils/payments/CheckoutUtils";
+import { IsUserPlanSubscribed } from "@/lib/utils/payments/SubscriptionManagementUtils";
 import { User } from "@supabase/supabase-js";
 import {
   AlertTriangle,
@@ -63,7 +64,7 @@ type FolderOption = {
   folder_context: Database["public"]["Tables"]["folders"]["Row"]["folder_context"];
 };
 
-const DESIGN_STYLE_OPTIONS: DesignStyle[] = ["nativewind", "stylesheets"];
+const DESIGN_STYLE_OPTIONS: DesignStyle[] = ["stylesheets", "nativewind"];
 
 const DESIGN_STYLE_LABELS: Partial<Record<DesignStyle, string>> = {
   nativewind: "NativeWind",
@@ -434,7 +435,7 @@ export default function NewPrototypeModal({
                 <Label htmlFor="prototype-visibility" className="text-xs font-medium text-[#8A8F98]">
                   Visibility
                 </Label>
-                {userPlan !== "pro" && (
+                {IsUserPlanSubscribed(userPlan) && (
                   <span className="text-[10px] text-[#8A8F98] bg-white/5 px-1.5 py-0.5 rounded">Upgrade for Private</span>
                 )}
               </div>

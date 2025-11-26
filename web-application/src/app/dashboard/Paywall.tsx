@@ -1,10 +1,11 @@
 "use client";
 
-import Loader from "../../components/dashboard/Loader";
-import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import { PricingCard } from "@/components/PricingCard";
-import Link from "next/link";
+import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import { logout } from "@/lib/utils/auth/SupabaseAuthUtils";
+import { IsUserPlanSubscribed } from "@/lib/utils/payments/SubscriptionManagementUtils";
+import Link from "next/link";
+import Loader from "../../components/dashboard/Loader";
 
 export default function WithPaywall({
   children,
@@ -14,7 +15,7 @@ export default function WithPaywall({
   const { userPlan, loadingSubscriptionData } = useSubscriptionAccess();
   if (loadingSubscriptionData) {
     return <Loader />;
-  } else if (userPlan === "team" || userPlan === "pro") {
+  } else if (IsUserPlanSubscribed(userPlan)) {
     return children;
   } else {
     return <Paywall />;

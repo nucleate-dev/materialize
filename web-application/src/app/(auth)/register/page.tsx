@@ -1,27 +1,11 @@
 "use client";
 
 import PremiumHeader from "@/components/prototype-editor/PremiumHeader";
+import { GridBackground } from "@/components/shared/GridComponent";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 import RegistrationForm from "./RegistrationForm";
-
-// --- Visual Background (Consistent across pages) ---
-const GridBackground = () => (
-  <div className="absolute inset-0 overflow-hidden pointer-events-none select-none -z-10">
-    <div className="absolute inset-0 bg-[#0B0C0E]" />
-    <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-indigo-500/10 blur-[120px] rounded-full mix-blend-screen" />
-    <div className="absolute bottom-[20%] right-[10%] w-[30%] h-[30%] bg-blue-500/10 blur-[100px] rounded-full mix-blend-screen" />
-    <div
-      className="absolute inset-0 opacity-[0.03]"
-      style={{
-        backgroundImage: `linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg, #fff 1px, transparent 1px)`,
-        backgroundSize: '40px 40px'
-      }}
-    />
-    <div className="absolute inset-0 bg-gradient-to-t from-[#0B0C0E] via-transparent to-transparent" />
-  </div>
-);
 
 function RegisterContent() {
   const searchParams = useSearchParams();

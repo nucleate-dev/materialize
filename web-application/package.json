@@ -58,6 +58,7 @@
     "cmdk": "^1.1.1",
     "date-fns": "^4.1.0",
     "embla-carousel-react": "^8.6.0",
+    "facebook-nodejs-business-sdk": "^24.0.1",
     "gray-matter": "^4.0.3",
     "jotai": "^2.14.0",
     "jquery": "^3.7.1",

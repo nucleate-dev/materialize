@@ -1,10 +1,10 @@
-import { AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
 import { supabase } from "@/ClientConstants";
 import type {
-  ManageBillingSuccessResponse,
-  ManageBillingErrorResponse,
   APIResponse,
+  ManageBillingErrorResponse,
+  ManageBillingSuccessResponse,
 } from "@/lib/types/serverAPITypes";
+import { AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
 
 /**
  * Redirects the authenticated user to the Stripe customer portal where they can manage their billing information.
@@ -92,3 +92,7 @@ export async function handleRedirectToStripeCustomerPortal(
     );
   }
 }
+
+export const IsUserPlanSubscribed = (userPlan: string) => {
+  return userPlan === "plus" || userPlan === "team";
+};

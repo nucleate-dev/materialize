@@ -38,6 +38,7 @@ import type {
   DeletePrototypeSuccessResponse,
 } from "@/lib/types/serverAPITypes";
 import { Database } from "@/lib/types/supabase";
+import { IsUserPlanSubscribed } from "@/lib/utils/payments/SubscriptionManagementUtils";
 import { AlertTriangle, FileText, Globe, Lock, Settings, Sparkles, Trash2, Type } from "lucide-react";
 import { useEffect, useState } from "react";
 
@@ -211,7 +212,7 @@ export default function PrototypeSettingsModal({
 
                 <div className={cn(
                   "relative rounded-lg transition-opacity",
-                  userPlan !== "pro" ? "opacity-100" : ""
+                  IsUserPlanSubscribed(userPlan) ? "opacity-100" : ""
                 )}>
                   <Select
                     value={visibility}
@@ -220,7 +221,7 @@ export default function PrototypeSettingsModal({
                         v as Database["public"]["Enums"]["visibility_level"],
                       )
                     }
-                    disabled={isSubmitting || userPlan !== "pro"}
+                    disabled={isSubmitting || !IsUserPlanSubscribed(userPlan)}
                   >
                     <SelectTrigger
                       id="prototype-visibility"
@@ -245,7 +246,7 @@ export default function PrototypeSettingsModal({
                   </Select>
 
                   {/* Pro Plan Lock Overlay / Message */}
-                  {userPlan !== "pro" && (
+                  {!IsUserPlanSubscribed(userPlan) && (
                     <div className="mt-2 flex items-start gap-2 p-2 rounded bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-500/20 text-amber-800 dark:text-amber-400">
                       <Sparkles className="w-4 h-4 mt-0.5 flex-shrink-0" />
                       <p className="text-xs leading-relaxed">

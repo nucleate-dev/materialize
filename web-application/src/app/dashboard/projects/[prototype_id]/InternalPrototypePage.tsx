@@ -54,6 +54,7 @@ import {
   type StartDevServerSuccessResponse,
 } from "@/lib/types/serverAPITypes";
 import { Database } from "@/lib/types/supabase";
+import { IsUserPlanSubscribed } from "@/lib/utils/payments/SubscriptionManagementUtils";
 import { useSetAtom } from "jotai";
 import {
   Code2,
@@ -74,9 +75,8 @@ type DesignStyle = Database["public"]["Enums"]["design_style"];
 type DesignSystemRow = Database["public"]["Tables"]["design_systems"]["Row"];
 
 const DESIGN_STYLE_OPTIONS: DesignStyle[] = [
-  "tamagui",
-  "nativewind",
   "stylesheets",
+  "nativewind",
 ];
 
 const DESIGN_STYLE_LABELS: Record<DesignStyle, string> = {
@@ -99,7 +99,7 @@ export default function InternalPrototypePage() {
   const router = useRouter();
   const { user, userIsLoading } = useUser();
   const { userPlan } = useSubscriptionAccess();
-  const params = useParams<{ prototype_id: string }>();
+  const params = useParams<{ prototype_id: string; }>();
   const prototypeId = params?.prototype_id;
   const logger = useProductLogger();
   const setSidebarOpen = useSetAtom(sidebarOpenAtom);
@@ -157,7 +157,7 @@ export default function InternalPrototypePage() {
   >(new Map());
 
   const handleClaudeCodeMessage = useCallback(
-    (message: { type: string; data: unknown }) => {
+    (message: { type: string; data: unknown; }) => {
       const parsedMessage = message as ChatServerMessage;
       claudeCodeWSMessageHandlers.current.forEach((handler) =>
         handler(parsedMessage),
@@ -212,8 +212,8 @@ export default function InternalPrototypePage() {
   const designSystemBadgeLabel = DESIGN_STYLE_LABELS[currentDesignStyle];
   const currentCustomDesignSystemName = currentCustomDesignSystemId
     ? designSystems.find(
-        (system) => String(system.id) === currentCustomDesignSystemId,
-      )?.name || "Custom design system"
+      (system) => String(system.id) === currentCustomDesignSystemId,
+    )?.name || "Custom design system"
     : undefined;
   const canEditPrototype = Boolean(
     prototype && user && prototype.owner_id === user?.id,
@@ -650,10 +650,10 @@ export default function InternalPrototypePage() {
       setPrototype((prev) =>
         prev
           ? {
-              ...prev,
-              design_style: dialogDesignStyle,
-              custom_design_system: nextCustomDesignSystem,
-            }
+            ...prev,
+            design_style: dialogDesignStyle,
+            custom_design_system: nextCustomDesignSystem,
+          }
           : prev,
       );
       handleDesignSystemDialogOpenChange(false);
@@ -761,7 +761,7 @@ export default function InternalPrototypePage() {
 
   const handleVisibilityToggle = async (checked: boolean) => {
     if (!prototype) return;
-    if (!checked && userPlan !== "pro") {
+    if (!checked && !IsUserPlanSubscribed(userPlan)) {
       return;
     }
 
@@ -841,11 +841,10 @@ export default function InternalPrototypePage() {
       >
         {/* Left Panel - Claude Code */}
         <div
-          className={`${
-            isMobile
-              ? `${activePanel === "chat" ? "flex" : "hidden"} w-full h-full`
-              : "flex"
-          } flex-col relative z-10 bg-[#0B0C0E] overflow-hidden`}
+          className={`${isMobile
+            ? `${activePanel === "chat" ? "flex" : "hidden"} w-full h-full`
+            : "flex"
+            } flex-col relative z-10 bg-[#0B0C0E] overflow-hidden`}
           style={
             isMobile
               ? { height: "100%" }
@@ -899,11 +898,10 @@ export default function InternalPrototypePage() {
 
         {/* Right Panel - Preview/Code Toggle */}
         <div
-          className={`${
-            isMobile
-              ? `${activePanel === "preview" ? "flex" : "hidden"} w-full h-full`
-              : "flex"
-          } flex-col relative z-10 bg-[#0B0C0E] overflow-hidden`}
+          className={`${isMobile
+            ? `${activePanel === "preview" ? "flex" : "hidden"} w-full h-full`
+            : "flex"
+            } flex-col relative z-10 bg-[#0B0C0E] overflow-hidden`}
           style={
             isMobile
               ? {}
@@ -1195,24 +1193,23 @@ export default function InternalPrototypePage() {
                     ? "Anyone with the link can view"
                     : "Only you can view"}
                 </p>
-                {userPlan !== "pro" && !isPublic && (
+                {!IsUserPlanSubscribed(userPlan) && !isPublic && (
                   <p className="text-xs text-amber-500/80 mt-1 ml-5">
-                    Upgrade to Pro to restrict access
+                    Upgrade to Plus to restrict access
                   </p>
                 )}
               </div>
               <label
-                className={`relative inline-flex items-center ${
-                  userPlan !== "pro" && !isPublic
-                    ? "opacity-50 cursor-not-allowed"
-                    : "cursor-pointer"
-                }`}
+                className={`relative inline-flex items-center ${!IsUserPlanSubscribed(userPlan) && !isPublic
+                  ? "opacity-50 cursor-not-allowed"
+                  : "cursor-pointer"
+                  }`}
               >
                 <input
                   type="checkbox"
                   checked={isPublic}
                   onChange={(e) => handleVisibilityToggle(e.target.checked)}
-                  disabled={userPlan !== "pro" && !isPublic}
+                  disabled={!IsUserPlanSubscribed(userPlan) && !isPublic}
                   className="sr-only peer"
                 />
                 <div className="w-9 h-5 bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-500 peer-disabled:cursor-not-allowed"></div>
