@@ -3,7 +3,7 @@
 aws autoscaling start-instance-refresh \
  --region us-east-2 \
  --auto-scaling-group-name materialize-control-plane \
- --preferences '{"MinHealthyPercentage":100,"InstanceWarmup":120,"SkipMatching":false}'
+ --preferences '{"MinHealthyPercentage":100,"InstanceWarmup":180,"SkipMatching":false}'
 
 ## To see logs, SSH into an active EC2 instance and run:
 
