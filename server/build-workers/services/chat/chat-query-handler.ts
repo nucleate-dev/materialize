@@ -153,6 +153,7 @@ export class ChatQueryHandler {
   private readonly sandboxService: SandboxService;
   private readonly expoDevServerService: ExpoDevServerService;
   private readonly terminalService: TerminalService;
+  private readonly getAak: () => string | null;
 
   constructor(
     workDir: string,
@@ -163,6 +164,7 @@ export class ChatQueryHandler {
     sandboxService: SandboxService,
     expoDevServerService: ExpoDevServerService,
     terminalService: TerminalService,
+    getAak: () => string | null,
   ) {
     this.workDir = workDir;
     this.logger = logger.child({ service: "ChatQueryHandler" });
@@ -172,6 +174,7 @@ export class ChatQueryHandler {
     this.sandboxService = sandboxService;
     this.expoDevServerService = expoDevServerService;
     this.terminalService = terminalService;
+    this.getAak = getAak;
   }
 
   /**
@@ -829,6 +832,13 @@ export class ChatQueryHandler {
       return this.toolPermissionService.evaluateToolPermission(toolName, input);
     };
 
+    // Prepare environment variables
+    const env: Record<string, string | undefined> = {};
+    const aak = this.getAak();
+    if (aak) {
+      env.ANTHROPIC_API_KEY = aak;
+    }
+
     return {
       ...options,
       includePartialMessages: false,
@@ -846,6 +856,7 @@ export class ChatQueryHandler {
       permissionMode: "default" as PermissionMode,
       abortController,
       canUseTool,
+      env,
       // Add MCP servers with development tools
       mcpServers: {
         "development-tools": createDevelopmentToolsMcpServer(

@@ -123,6 +123,7 @@ export class ChatService {
       sandboxService,
       expoDevServerService,
       terminalService,
+      () => this.getAak(),
     );
 
     // Get the GID for materialize-user to set group ownership on created files
