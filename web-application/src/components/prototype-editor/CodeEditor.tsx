@@ -916,30 +916,19 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
     onBuildingStateChange?.(true);
 
     try {
-      const saveSuccess = await fileSystem.saveSingleFile(fileSystem.state.selectedFile);
-      if (!saveSuccess) return;
+      const selectedFile = fileSystem.state.files[fileSystem.state.selectedFile];
+      if (!selectedFile) return;
 
-      const session = await supabase.auth.getSession();
-      const token = session.data.session?.access_token;
-      if (!token) return;
-
-      const requestBody: UpdateFilesRequestBody = {
-        files: [fileSystem.state.files[fileSystem.state.selectedFile]],
-        assets: [],
-        prototype_id: prototypeId,
-      };
-
-      const response = await fetch(`${process.env.NEXT_PUBLIC_SERVER_ENDPOINT}/files/update-files`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify(requestBody),
+      const result = await fileSystem.syncFilesAndAssets({
+        filesToUpdate: [
+          {
+            name: fileSystem.state.selectedFile,
+            content: selectedFile.contents,
+          },
+        ],
       });
 
-      if (!response.ok) throw new Error("Update failed");
-
-      const result: APIResponse<UpdateFilesSuccessResponse, UpdateFilesErrorResponse> = await response.json();
-      if (result.data) {
-        if (result.data.viewing_url) onViewingUrlUpdate?.(result.data.viewing_url);
+      if (result.success) {
         onFilesSaved?.([fileSystem.state.selectedFile], []);
       }
     } catch (error) {

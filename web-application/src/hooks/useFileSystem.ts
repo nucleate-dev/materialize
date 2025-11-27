@@ -36,9 +36,6 @@ export interface FileSystemActions {
   loadFilesFromDatabase: (prototypeId: string) => Promise<void>;
   loadAssetsFromDatabase: (prototypeId: string) => Promise<void>;
 
-  // Single file operations
-  saveSingleFile: (filePath: string) => Promise<boolean>;
-
   // File management operations (DB only, no rebuild)
   createFile: (fileName: string, initialContent?: string) => Promise<void>;
   deleteFile: (fileName: string) => Promise<void>;
@@ -364,66 +361,6 @@ export const useFileSystem = (
   const getSelectedFileContent = useCallback((): string => {
     return files[selectedFile]?.contents || "";
   }, [files, selectedFile]);
-
-  // Save a single file to the database
-  const saveSingleFile = useCallback(
-    async (filePath: string): Promise<boolean> => {
-      if (!prototypeId) {
-        logger.debug("error", "Cannot save file: no prototype ID");
-        return false;
-      }
-
-      const fileData = files[filePath];
-      if (!fileData) {
-        logger.debug(
-          "error",
-          "Cannot save file: file not found in local state:",
-          {
-            filePath,
-          },
-        );
-        return false;
-      }
-
-      try {
-        // Prepare single file for database upsert
-        const fileToUpsert = {
-          id: fileData.id,
-          name: filePath,
-          contents: fileData.contents,
-          prototype_id: fileData.prototype_id || prototypeId,
-          created_at: fileData.created_at,
-          updated_at: new Date().toISOString(),
-        };
-
-        // Use Supabase upsert to insert new file or update existing one
-        const { error } = await supabase
-          .from("prototype_files")
-          .upsert([fileToUpsert], {
-            onConflict: "name,prototype_id",
-            ignoreDuplicates: false,
-          })
-          .select();
-
-        if (error) {
-          logger.debug("error", "Error persisting single file to database:", {
-            error: error instanceof Error ? error.message : String(error),
-            stack: error instanceof Error ? error.stack : undefined,
-          });
-          return false;
-        }
-
-        return true;
-      } catch (error) {
-        logger.debug("error", "Error in saveSingleFile:", {
-          error: error instanceof Error ? error.message : String(error),
-          stack: error instanceof Error ? error.stack : undefined,
-        });
-        return false;
-      }
-    },
-    [prototypeId, files, logger],
-  );
 
   // Create a new file
   const createFile = useCallback(
@@ -888,7 +825,6 @@ export const useFileSystem = (
     setSandboxUrl,
     loadFilesFromDatabase,
     loadAssetsFromDatabase,
-    saveSingleFile,
     createFile,
     deleteFile,
     syncFilesAndAssets,
