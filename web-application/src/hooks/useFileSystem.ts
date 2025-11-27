@@ -35,28 +35,28 @@ export interface FileSystemActions {
   // Single file operations
   saveSingleFile: (filePath: string) => Promise<boolean>;
 
-  // Bulk file operations
-  applyAndPersistFileUpdates: (params: {
-    updatedFiles: Record<string, PrototypeFile>;
-    deletedFiles?: string[];
-    applyUpdatesToServer: boolean;
-  }) => Promise<boolean>;
-
   // File management operations (DB only, no rebuild)
   createFile: (fileName: string, initialContent?: string) => Promise<void>;
   deleteFile: (fileName: string) => Promise<void>;
 
   // File management operations with rebuild (calls /files/update-files)
-  createFileWithBuild: (fileName: string, initialContent?: string) => Promise<{ success: boolean; viewingUrl?: string }>;
-  deleteFileWithBuild: (fileName: string) => Promise<{ success: boolean; viewingUrl?: string }>;
+  createFileWithBuild: (
+    fileName: string,
+    initialContent?: string,
+  ) => Promise<{ success: boolean; viewingUrl?: string }>;
+  deleteFileWithBuild: (
+    fileName: string,
+  ) => Promise<{ success: boolean; viewingUrl?: string }>;
 
   // Asset management operations with rebuild
   uploadAssetsWithBuild: (
     assets: { path: string; file: File }[],
   ) => Promise<{ success: boolean; viewingUrl?: string; assetIds?: string[] }>;
-  deleteAssetWithBuild: (
-    assetPath: string,
-  ) => Promise<{ success: boolean; viewingUrl?: string; deletedAssetIds?: string[] }>;
+  deleteAssetWithBuild: (assetPath: string) => Promise<{
+    success: boolean;
+    viewingUrl?: string;
+    deletedAssetIds?: string[];
+  }>;
 }
 
 export interface UseFileSystemReturn extends FileSystemActions {
@@ -370,21 +370,6 @@ export const useFileSystem = (
     return files[selectedFile]?.contents || "";
   }, [files, selectedFile]);
 
-  // Apply file updates from external sources (like chat API responses)
-  const applyFileUpdates = useCallback(
-    (updatedFiles: Record<string, PrototypeFile>) => {
-      // Update local state only
-      setFiles((prevFiles) => {
-        const newFiles = { ...prevFiles };
-        Object.entries(updatedFiles).forEach(([filePath, fileData]) => {
-          newFiles[filePath] = fileData;
-        });
-        return JSON.parse(JSON.stringify(newFiles)); // Deep copy for React detection
-      });
-    },
-    [],
-  );
-
   // Save a single file to the database
   const saveSingleFile = useCallback(
     async (filePath: string): Promise<boolean> => {
@@ -443,132 +428,6 @@ export const useFileSystem = (
       }
     },
     [prototypeId, files, logger],
-  );
-
-  // Apply file updates locally and persist them directly to Supabase database
-  const applyAndPersistFileUpdates = useCallback(
-    async (params: {
-      updatedFiles: Record<string, PrototypeFile>;
-      deletedFiles?: string[];
-      applyUpdatesToServer: boolean;
-    }): Promise<boolean> => {
-      const { updatedFiles, deletedFiles = [], applyUpdatesToServer } = params;
-      if (!prototypeId) {
-        logger.debug("error", "Cannot persist file updates: no prototype ID");
-        return false;
-      }
-
-      if (
-        (!updatedFiles || Object.keys(updatedFiles).length === 0) &&
-        deletedFiles.length === 0
-      ) {
-        return false;
-      }
-
-      try {
-        // First, apply updates locally
-        if (updatedFiles && Object.keys(updatedFiles).length > 0) {
-          applyFileUpdates(updatedFiles);
-        }
-
-        // Handle deleted files locally
-        if (deletedFiles.length > 0) {
-          setFiles((prevFiles) => {
-            const newFiles = { ...prevFiles };
-            deletedFiles.forEach((fileName) => {
-              delete newFiles[fileName];
-            });
-            return newFiles;
-          });
-
-          // Update selected file if it was deleted
-          if (deletedFiles.includes(selectedFile)) {
-            setFiles((prevFiles) => {
-              const remainingFiles = Object.keys(prevFiles).filter(
-                (f) => !deletedFiles.includes(f),
-              );
-              if (remainingFiles.length > 0) {
-                setSelectedFile(remainingFiles[0]);
-              }
-              return prevFiles;
-            });
-          }
-        }
-
-        // Prepare files for database upsert
-        if (
-          updatedFiles &&
-          Object.keys(updatedFiles).length > 0 &&
-          applyUpdatesToServer
-        ) {
-          const filesToUpsert = Object.entries(updatedFiles).map(
-            ([path, file]) => ({
-              id: file.id,
-              name: path,
-              contents: file.contents,
-              prototype_id: file.prototype_id || prototypeId,
-              created_at: file.created_at,
-              updated_at: new Date().toISOString(),
-            }),
-          );
-
-          // Use Supabase upsert to insert new files or update existing ones
-          const { error: upsertError } = await supabase
-            .from("prototype_files")
-            .upsert(filesToUpsert, {
-              onConflict: "name,prototype_id",
-              ignoreDuplicates: false,
-            })
-            .select();
-
-          if (upsertError) {
-            logger.debug(
-              "error",
-              "Error persisting file updates to database:",
-              {
-                error:
-                  upsertError instanceof Error
-                    ? upsertError.message
-                    : String(upsertError),
-                stack:
-                  upsertError instanceof Error ? upsertError.stack : undefined,
-              },
-            );
-            return false;
-          }
-        }
-
-        // Delete files from database
-        if (deletedFiles.length > 0 && applyUpdatesToServer) {
-          const { error: deleteError } = await supabase
-            .from("prototype_files")
-            .delete()
-            .in("name", deletedFiles)
-            .eq("prototype_id", prototypeId);
-
-          if (deleteError) {
-            logger.debug("error", "Error deleting files from database:", {
-              error:
-                deleteError instanceof Error
-                  ? deleteError.message
-                  : String(deleteError),
-              stack:
-                deleteError instanceof Error ? deleteError.stack : undefined,
-            });
-            return false;
-          }
-        }
-
-        return true;
-      } catch (error) {
-        logger.debug("error", "Error in applyAndPersistFileUpdates:", {
-          error: error instanceof Error ? error.message : String(error),
-          stack: error instanceof Error ? error.stack : undefined,
-        });
-        return false;
-      }
-    },
-    [prototypeId, applyFileUpdates, logger, selectedFile],
   );
 
   // Create a new file
@@ -701,7 +560,10 @@ export const useFileSystem = (
 
   // Create a new file and trigger rebuild via /files/update-files
   const createFileWithBuild = useCallback(
-    async (fileName: string, initialContent = ""): Promise<{ success: boolean; viewingUrl?: string }> => {
+    async (
+      fileName: string,
+      initialContent = "",
+    ): Promise<{ success: boolean; viewingUrl?: string }> => {
       // Prevent file creation for free users
       if (userPlan === "free") {
         logger.debug(
@@ -768,14 +630,16 @@ export const useFileSystem = (
               Authorization: `Bearer ${token}`,
             },
             body: JSON.stringify({
-              files: [{
-                contents: initialContent,
-                name: fileName,
-                prototype_id: prototypeId,
-                id: newFile.id,
-                created_at: newFile.created_at,
-                updated_at: newFile.updated_at,
-              }],
+              files: [
+                {
+                  contents: initialContent,
+                  name: fileName,
+                  prototype_id: prototypeId,
+                  id: newFile.id,
+                  created_at: newFile.created_at,
+                  updated_at: newFile.updated_at,
+                },
+              ],
               assets: [],
               prototype_id: prototypeId,
             }),
@@ -783,7 +647,10 @@ export const useFileSystem = (
         );
 
         if (!response.ok) {
-          logger.debug("error", "Failed to trigger rebuild after file creation");
+          logger.debug(
+            "error",
+            "Failed to trigger rebuild after file creation",
+          );
           return { success: true }; // File created but rebuild failed
         }
 
@@ -805,7 +672,9 @@ export const useFileSystem = (
 
   // Delete a file and trigger rebuild via /files/update-files
   const deleteFileWithBuild = useCallback(
-    async (fileName: string): Promise<{ success: boolean; viewingUrl?: string }> => {
+    async (
+      fileName: string,
+    ): Promise<{ success: boolean; viewingUrl?: string }> => {
       // Prevent file deletion for free users
       if (userPlan === "free") {
         logger.debug(
@@ -887,7 +756,10 @@ export const useFileSystem = (
         );
 
         if (!response.ok) {
-          logger.debug("error", "Failed to trigger rebuild after file deletion");
+          logger.debug(
+            "error",
+            "Failed to trigger rebuild after file deletion",
+          );
           return { success: true }; // File deleted but rebuild failed
         }
 
@@ -1029,7 +901,10 @@ export const useFileSystem = (
         );
 
         if (!response.ok) {
-          logger.debug("error", "Failed to trigger dev server update for assets");
+          logger.debug(
+            "error",
+            "Failed to trigger dev server update for assets",
+          );
           return { success: true };
         }
 
@@ -1051,7 +926,9 @@ export const useFileSystem = (
   );
 
   const deleteAssetWithBuild = useCallback(
-    async (assetPath: string): Promise<{ success: boolean; viewingUrl?: string }> => {
+    async (
+      assetPath: string,
+    ): Promise<{ success: boolean; viewingUrl?: string }> => {
       if (!prototypeId) {
         logger.debug("error", "Delete asset failed: no prototype ID");
         return { success: false };
@@ -1129,7 +1006,10 @@ export const useFileSystem = (
         );
 
         if (!response.ok) {
-          logger.debug("error", "Failed to trigger dev server update after asset deletion");
+          logger.debug(
+            "error",
+            "Failed to trigger dev server update after asset deletion",
+          );
           return { success: true };
         }
 
@@ -1172,7 +1052,6 @@ export const useFileSystem = (
     loadFilesFromDatabase,
     loadAssetsFromDatabase,
     saveSingleFile,
-    applyAndPersistFileUpdates,
     createFile,
     deleteFile,
     createFileWithBuild,
