@@ -1,6 +1,7 @@
 "use client";
 
 import { supabase } from "@/ClientConstants";
+import { useCreditUsage } from "@/hooks/useCreditUsage";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import type { ChatServerMessage } from "@/lib/types/ChatTypes";
 import {
@@ -111,6 +112,9 @@ export default function ClaudeCodePanel({
   onRestartDevServerComplete,
 }: ClaudeCodePanelProps) {
   const logger = useProductLogger();
+
+  // Track credit usage for paywall
+  const creditUsage = useCreditUsage();
 
   // Always use external WebSocket (InternalPrototypePage is the source of truth)
   const ws = externalWS;
@@ -1200,6 +1204,11 @@ export default function ClaudeCodePanel({
           `${roundedCredits} credit${roundedCredits !== 1 ? "s" : ""}`,
           creditsUsed,
         );
+
+        // Update credit balance in real-time without refetching
+        if (creditsRemaining !== undefined && creditsRemaining !== null) {
+          creditUsage.updateRemainingBalance(creditsRemaining);
+        }
         break;
       }
 
@@ -2193,6 +2202,9 @@ export default function ClaudeCodePanel({
       handleDragLeave={handleDragLeave}
       handleDragOver={handleDragOver}
       handleDrop={handleDrop}
+      hasReachedCreditLimit={creditUsage.hasReachedLimit}
+      creditsUsed={creditUsage.creditsUsed}
+      creditLimit={creditUsage.creditLimit}
     />
   );
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { RenderStatus } from "@/app/dashboard/projects/[prototype_id]/InternalPrototypePage";
+import ProPlanUpsellModal from "@/components/prototype-editor/ProPlanUpsellModal";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -49,6 +50,7 @@ import type {
   MutableRefObject,
   RefObject,
 } from "react";
+import { useState } from "react";
 import ReactMarkdown from "react-markdown";
 import type {
   Message,
@@ -117,6 +119,9 @@ interface ClaudeCodePanelUIProps {
   handleDragLeave: (event: React.DragEvent) => void;
   handleDragOver: (event: React.DragEvent) => void;
   handleDrop: (event: React.DragEvent) => void;
+  hasReachedCreditLimit: boolean;
+  creditsUsed: number;
+  creditLimit: number;
 }
 
 export default function ClaudeCodePanelUI({
@@ -173,7 +178,19 @@ export default function ClaudeCodePanelUI({
   handleDragLeave,
   handleDragOver,
   handleDrop,
+  hasReachedCreditLimit,
+  creditsUsed,
+  creditLimit,
 }: ClaudeCodePanelUIProps) {
+  const [showCreditLimitModal, setShowCreditLimitModal] = useState(hasReachedCreditLimit);
+
+  // Update modal state when credit limit changes
+  if (hasReachedCreditLimit && !showCreditLimitModal) {
+    setShowCreditLimitModal(true);
+  } else if (!hasReachedCreditLimit && showCreditLimitModal) {
+    setShowCreditLimitModal(false);
+  }
+
   return (
     <div
       className="flex flex-col h-full bg-background border-l border-border relative"
@@ -883,6 +900,15 @@ export default function ClaudeCodePanelUI({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Credit Limit Paywall Modal */}
+      <ProPlanUpsellModal
+        open={showCreditLimitModal}
+        onOpenChange={setShowCreditLimitModal}
+        reason="free_message_limit_reached"
+        creditsUsed={creditsUsed}
+        creditLimit={creditLimit}
+      />
     </div>
   );
 }
