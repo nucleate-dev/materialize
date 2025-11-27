@@ -1,11 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogFooter } from "@/components/ui/dialog";
 import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import { CreditLimits } from "@/lib/types/serverAPITypes";
@@ -45,7 +41,7 @@ export default function ProPlanUpsellModal({
     return {
       tier: "plus",
       name: "Plus",
-      price: "$20/month",
+      price: "$25/month",
     };
   };
 
@@ -125,7 +121,6 @@ export default function ProPlanUpsellModal({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md bg-[#141517] border border-white/10 text-white p-0 gap-0 overflow-hidden shadow-2xl">
-
         {/* Visual Header */}
         <div className="relative p-8 flex flex-col items-center text-center bg-[#0B0C0E] border-b border-white/5">
           {/* Glow Effect */}
