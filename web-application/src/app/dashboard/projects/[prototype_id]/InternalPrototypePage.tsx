@@ -9,7 +9,6 @@ import MaterializeRenderSection, {
   MaterializeRenderSectionRef,
 } from "@/components/prototype-editor/MaterializeRenderSection";
 import ProPlanUpsellModal from "@/components/prototype-editor/ProPlanUpsellModal";
-import { useCreditUsage } from "@/hooks/useCreditUsage";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -36,6 +35,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useClaudeCodeWebSocket } from "@/hooks/useClaudeCodeWebSocket";
+import { useCreditUsage } from "@/hooks/useCreditUsage";
 import { useFileSystem } from "@/hooks/useFileSystem";
 import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import { useUser } from "@/hooks/useUser";
@@ -106,7 +106,7 @@ export default function InternalPrototypePage() {
   const setSidebarOpen = useSetAtom(sidebarOpenAtom);
 
   // Track credit usage for paywall
-  const creditUsage = useCreditUsage(userPlan);
+  const creditUsage = useCreditUsage();
 
   const [shouldTriggerInitialFetch, setShouldTriggerInitialFetch] =
     useState(true);
@@ -235,6 +235,7 @@ export default function InternalPrototypePage() {
   // Watch for credit limit and show paywall
   useEffect(() => {
     // Only update modal state when we have confirmed data (not loading)
+    console.log('creditUsage', creditUsage);
     if (!creditUsage.loading) {
       if (creditUsage.hasReachedLimit) {
         setShowCreditLimitModal(true);

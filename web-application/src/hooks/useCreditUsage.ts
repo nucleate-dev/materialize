@@ -2,6 +2,7 @@
 
 import { supabase } from "@/ClientConstants";
 import { useUser } from "@/hooks/useUser";
+import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import { CreditLimits } from "@/lib/types/serverAPITypes";
 import {
   CreditGrantBalance,
@@ -129,14 +130,18 @@ function getCreditLimitForPlan(userPlan: string): number {
 /**
  * Hook to fetch and track credit usage with realtime updates
  * Automatically subscribes to relevant tables and refetches on changes
+ * Now fetches subscription plan internally to avoid race conditions
  */
-export function useCreditUsage(userPlan: string) {
+export function useCreditUsage() {
   const { user } = useUser();
   const userId = user?.id;
 
+  // Fetch subscription plan internally
+  const { userPlan, loadingSubscriptionData } = useSubscriptionAccess();
+
   const [data, setData] = useState<CreditUsageResult>({
     creditsUsed: 0,
-    creditLimit: getCreditLimitForPlan(userPlan),
+    creditLimit: CreditLimits.MAX, // Start with high limit to prevent false paywall triggers
     usagePercentage: 0,
     creditGrants: [],
     overageCredits: 0,
@@ -154,6 +159,9 @@ export function useCreditUsage(userPlan: string) {
   const fetchData = useCallback(async () => {
     if (!userId) return;
 
+    // Don't fetch until subscription data is loaded
+    if (loadingSubscriptionData) return;
+
     try {
       const result = await fetchCreditUsage(userId, userPlan);
       setData(result);
@@ -165,7 +173,7 @@ export function useCreditUsage(userPlan: string) {
       }));
       setLoading(false);
     }
-  }, [userId, userPlan]);
+  }, [userId, userPlan, loadingSubscriptionData]);
 
   // Debounced refetch
   const debouncedRefetch = useCallback(() => {
@@ -178,16 +186,16 @@ export function useCreditUsage(userPlan: string) {
     }, 500);
   }, [fetchData]);
 
-  // Initial fetch
+  // Initial fetch - only when subscription data is loaded
   useEffect(() => {
-    if (userId) {
+    if (userId && !loadingSubscriptionData) {
       fetchData();
     }
-  }, [userId, userPlan, fetchData]);
+  }, [userId, userPlan, loadingSubscriptionData, fetchData]);
 
-  // Realtime subscription
+  // Realtime subscription - only subscribe when subscription data is loaded
   useEffect(() => {
-    if (!userId) return;
+    if (!userId || loadingSubscriptionData) return;
 
     let channel: ReturnType<typeof supabase.channel> | null = null;
 
@@ -274,10 +282,10 @@ export function useCreditUsage(userPlan: string) {
         clearTimeout(debounceTimerRef.current);
       }
     };
-  }, [userId, userPlan, debouncedRefetch]);
+  }, [userId, userPlan, loadingSubscriptionData, debouncedRefetch]);
 
   return {
     ...data,
-    loading,
+    loading: loading || loadingSubscriptionData, // Keep loading true while subscription loads
   };
 }

@@ -55,7 +55,7 @@ function AccountSettings() {
   } = useSubscriptionAccess();
 
   // Use the new credit usage hook
-  const creditUsage = useCreditUsage(userPlan);
+  const creditUsage = useCreditUsage();
 
   const [name, setName] = useState<string>("");
   const [email, setEmail] = useState<string>("");
