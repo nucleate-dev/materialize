@@ -1,21 +1,22 @@
-import { Text, View } from 'react-native';
+import { View } from 'react-native';
+import { StyledText } from '@/components';
 
 export default function HomeScreen() {
   return (
     <View className="flex-1 items-center justify-center gap-4 bg-white p-4 dark:bg-black">
-      <Text className="text-center text-3xl font-bold text-black dark:text-white">
+      <StyledText variant="h1" className="text-center">
         Welcome to Materialize!
-      </Text>
+      </StyledText>
 
       <View className="h-[1px] w-4/5 border-b border-gray-300 dark:border-gray-700" />
 
-      <Text className="max-w-[300px] text-center text-lg text-black dark:text-white">
+      <StyledText variant="bodyLarge" className="max-w-[300px] text-center">
         This is your main screen. You can start building your app here with beautiful components.
-      </Text>
+      </StyledText>
 
-      <Text className="text-center text-sm text-gray-600 opacity-80 dark:text-gray-400">
+      <StyledText variant="caption" className="text-center opacity-80">
         The app automatically supports dark and light mode with theme support.
-      </Text>
+      </StyledText>
     </View>
   );
 }
