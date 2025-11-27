@@ -799,8 +799,11 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
 
   const executeUpload = async () => {
 
-    // Filter to only selected files
-    const filesToUpload = uploadFiles.filter((file) => {
+    // Build a mapping of files to their target paths (calculated during selection)
+    // We need to recalculate using the original upload context, not current uploadAsProjectRoot state
+    const filePathMap = new Map<File, string>();
+
+    uploadFiles.forEach((file) => {
       let targetPath: string;
       if (uploadType === "folder" && file.webkitRelativePath) {
         const relativePath = file.webkitRelativePath;
@@ -816,8 +819,14 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
       } else {
         targetPath = buildUploadPath(file.name);
       }
-      return selectedFiles.has(targetPath);
+
+      // Only include files that were actually selected
+      if (selectedFiles.has(targetPath)) {
+        filePathMap.set(file, targetPath);
+      }
     });
+
+    const filesToUpload = Array.from(filePathMap.keys());
 
     setIsUploading(true);
     setUploadProgress({ current: 0, total: filesToUpload.length });
@@ -834,21 +843,9 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
         const file = filesToUpload[i];
         setUploadProgress({ current: i + 1, total: filesToUpload.length });
 
-        let newFilePath: string;
-        if (uploadType === "folder" && file.webkitRelativePath) {
-          const relativePath = file.webkitRelativePath;
-
-          // Strip top-level folder if uploading as project root
-          if (uploadAsProjectRoot) {
-            const parts = relativePath.split("/");
-            const strippedPath = parts.slice(1).join("/");
-            newFilePath = strippedPath;
-          } else {
-            newFilePath = resolvedUploadFolder ? `${resolvedUploadFolder}/${relativePath}` : relativePath;
-          }
-        } else {
-          newFilePath = buildUploadPath(file.name);
-        }
+        // Use the pre-calculated path from the map
+        const newFilePath = filePathMap.get(file);
+        if (!newFilePath) continue; // Skip if path wasn't calculated (shouldn't happen)
 
         if (uploadMode === "replace" && fileSystem.state.files[newFilePath]) {
           await fileSystem.deleteFile(newFilePath);
