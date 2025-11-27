@@ -554,6 +554,11 @@ export default function InternalPrototypePage() {
     baseTunnelUrl,
   ]);
 
+  // USE EFFECT PURPOSE: Sync baseTunnelUrl to fileSystem sandboxUrl
+  useEffect(() => {
+    fileSystem.setSandboxUrl(baseTunnelUrl);
+  }, [baseTunnelUrl, fileSystem.setSandboxUrl]);
+
   // USE EFFECT PURPOSE: to poll the fetch viewing url endpoint in case build status changes
   useEffect(() => {
     let pollTimer: NodeJS.Timeout | null = null;

@@ -20,6 +20,7 @@ export interface FileSystemState {
   assets: Record<string, AssetWithSignedUrl>;
   selectedFile: string;
   isLoading: boolean;
+  sandboxUrl: string | null;
 }
 
 export interface FileSystemActions {
@@ -27,6 +28,9 @@ export interface FileSystemActions {
   selectFile: (filePath: string) => void;
   updateFileContentLocally: (filePath: string, content: string) => void;
   getSelectedFileContent: () => string;
+
+  // Sandbox URL management
+  setSandboxUrl: (url: string | null) => void;
 
   // Database operations
   loadFilesFromDatabase: (prototypeId: string) => Promise<void>;
@@ -73,6 +77,7 @@ export const useFileSystem = (
   const [assets, setAssets] = useState<Record<string, AssetWithSignedUrl>>({});
   const [selectedFile, setSelectedFile] = useState<string>(defaultFile);
   const [isLoading, setIsLoading] = useState(false);
+  const [sandboxUrl, setSandboxUrl] = useState<string | null>(null);
   const SUPABASE_PROTOTYPE_ASSETS_BUCKET = "prototype-assets";
 
   const fileToBase64 = useCallback(async (file: File): Promise<string> => {
@@ -1043,12 +1048,14 @@ export const useFileSystem = (
     assets,
     selectedFile,
     isLoading,
+    sandboxUrl,
   };
 
   const actions: FileSystemActions = {
     selectFile,
     updateFileContentLocally,
     getSelectedFileContent,
+    setSandboxUrl,
     loadFilesFromDatabase,
     loadAssetsFromDatabase,
     saveSingleFile,
