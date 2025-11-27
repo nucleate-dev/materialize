@@ -199,14 +199,33 @@ function FeaturesBentoGrid() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {/* Card 1 */}
+          {/* Card 1 - Code Preview */}
           <div className="group relative h-[480px] rounded-2xl bg-[#141517] border border-white/10 overflow-hidden hover:border-white/20 transition-all duration-300">
-            <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/80 z-10" />
+            <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/90 z-10" />
 
-            {/* Visual Placeholder - abstract code lines */}
-            <div className="absolute inset-0 flex items-center justify-center opacity-40 group-hover:opacity-60 transition-opacity duration-500">
-              <div className="w-full h-full opacity-20"></div>
-              <CommandLineIcon className="w-32 h-32 text-indigo-500/20" />
+            {/* Mini Code Editor Mock */}
+            <div className="absolute inset-0 p-6 pt-12 overflow-hidden">
+              <div className="bg-[#1E1F23] rounded-lg border border-white/5 overflow-hidden shadow-2xl group-hover:scale-[1.02] transition-transform duration-500">
+                <div className="flex items-center gap-1.5 px-3 py-2 bg-[#2A2B30] border-b border-white/5">
+                  <div className="w-2 h-2 rounded-full bg-red-500/60"></div>
+                  <div className="w-2 h-2 rounded-full bg-yellow-500/60"></div>
+                  <div className="w-2 h-2 rounded-full bg-green-500/60"></div>
+                  <span className="ml-2 text-[10px] text-white/30 font-mono">HomeScreen.tsx</span>
+                </div>
+                <div className="p-4 font-mono text-[10px] leading-relaxed space-y-1">
+                  <div className="text-purple-400">import <span className="text-white/90">{"{ View, Text }"}</span> from <span className="text-green-400">&apos;react-native&apos;</span>;</div>
+                  <div className="h-2"></div>
+                  <div className="text-blue-400">export default function <span className="text-yellow-300">HomeScreen</span>() {"{"}</div>
+                  <div className="pl-4 text-white/60">return (</div>
+                  <div className="pl-8"><span className="text-blue-300">&lt;View</span> <span className="text-purple-300">style</span>=<span className="text-white/90">{"{styles.container}"}</span><span className="text-blue-300">&gt;</span></div>
+                  <div className="pl-12"><span className="text-blue-300">&lt;Text</span> <span className="text-purple-300">style</span>=<span className="text-white/90">{"{styles.title}"}</span><span className="text-blue-300">&gt;</span></div>
+                  <div className="pl-16 text-green-300">Welcome!</div>
+                  <div className="pl-12"><span className="text-blue-300">&lt;/Text&gt;</span></div>
+                  <div className="pl-8"><span className="text-blue-300">&lt;/View&gt;</span></div>
+                  <div className="pl-4 text-white/60">)</div>
+                  <div className="text-blue-400">{"}"}</div>
+                </div>
+              </div>
             </div>
 
             <div className="absolute bottom-0 left-0 right-0 p-8 z-20">
@@ -217,15 +236,36 @@ function FeaturesBentoGrid() {
             </div>
           </div>
 
-          {/* Card 2 */}
+          {/* Card 2 - Chat Interface */}
           <div className="group relative h-[480px] rounded-2xl bg-[#141517] border border-white/10 overflow-hidden hover:border-white/20 transition-all duration-300">
-            <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/80 z-10" />
+            <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/90 z-10" />
 
-            {/* Visual Placeholder - Speed/Motion */}
-            <div className="absolute inset-0 flex items-center justify-center opacity-40 group-hover:opacity-60 transition-opacity duration-500">
-              <div className="absolute top-1/4 right-0 w-64 h-1 bg-gradient-to-l from-blue-500/50 to-transparent transform -rotate-12"></div>
-              <div className="absolute top-1/3 right-10 w-48 h-1 bg-gradient-to-l from-blue-500/30 to-transparent transform -rotate-12"></div>
-              <CpuChipIcon className="w-32 h-32 text-blue-500/20" />
+            {/* Chat Bubbles */}
+            <div className="absolute inset-0 p-6 pt-16 space-y-3 overflow-hidden">
+              <div className="flex justify-start animate-[slideIn_0.5s_ease-out]">
+                <div className="max-w-[80%] bg-white/5 border border-white/10 rounded-2xl rounded-tl-sm px-4 py-2.5">
+                  <p className="text-xs text-white/70">Make the header gradient more vibrant</p>
+                </div>
+              </div>
+              <div className="flex justify-end animate-[slideIn_0.7s_ease-out]">
+                <div className="max-w-[80%] bg-indigo-500/20 border border-indigo-500/30 rounded-2xl rounded-tr-sm px-4 py-2.5">
+                  <p className="text-xs text-white/90">Updated the gradient! Check it out</p>
+                </div>
+              </div>
+              <div className="flex justify-start animate-[slideIn_0.9s_ease-out]">
+                <div className="max-w-[80%] bg-white/5 border border-white/10 rounded-2xl rounded-tl-sm px-4 py-2.5">
+                  <p className="text-xs text-white/70">Perfect! Now add a search bar</p>
+                </div>
+              </div>
+              <div className="flex justify-end animate-[slideIn_1.1s_ease-out]">
+                <div className="max-w-[75%] bg-indigo-500/20 border border-indigo-500/30 rounded-2xl rounded-tr-sm px-4 py-2.5">
+                  <div className="flex items-center gap-2">
+                    <div className="w-1 h-1 rounded-full bg-white/60 animate-bounce [animation-delay:0ms]"></div>
+                    <div className="w-1 h-1 rounded-full bg-white/60 animate-bounce [animation-delay:150ms]"></div>
+                    <div className="w-1 h-1 rounded-full bg-white/60 animate-bounce [animation-delay:300ms]"></div>
+                  </div>
+                </div>
+              </div>
             </div>
 
             <div className="absolute bottom-0 left-0 right-0 p-8 z-20">
@@ -236,17 +276,41 @@ function FeaturesBentoGrid() {
             </div>
           </div>
 
-          {/* Card 3 */}
+          {/* Card 3 - Design System Preview */}
           <div className="group relative h-[480px] rounded-2xl bg-[#141517] border border-white/10 overflow-hidden hover:border-white/20 transition-all duration-300">
-            <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/80 z-10" />
+            <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/90 z-10" />
 
-            {/* Visual Placeholder - Perfection/UI */}
-            <div className="absolute inset-0 flex items-center justify-center opacity-40 group-hover:opacity-60 transition-opacity duration-500">
-              <div className="grid grid-cols-2 gap-2 transform rotate-6">
-                <div className="w-12 h-12 rounded bg-white/5 border border-white/10"></div>
-                <div className="w-12 h-12 rounded bg-white/5 border border-white/10"></div>
-                <div className="w-12 h-12 rounded bg-white/5 border border-white/10"></div>
-                <div className="w-12 h-12 rounded bg-white/10 border border-white/20"></div>
+            {/* Mini Design System Card */}
+            <div className="absolute inset-0 p-6 pt-12 overflow-hidden">
+              <div className="bg-[#1A1B1E] border border-white/10 rounded-xl overflow-hidden shadow-2xl group-hover:scale-[1.02] transition-transform duration-500">
+                <div className="p-4 border-b border-white/10 bg-white/[0.02]">
+                  <h4 className="text-sm font-medium text-white/90 mb-1">Studio Aurora</h4>
+                  <p className="text-[10px] text-white/40">Modern design system</p>
+                </div>
+                <div className="p-4 bg-white/[0.01]">
+                  <div className="text-[9px] font-medium text-white/30 uppercase tracking-wider mb-2">Design Tokens</div>
+                  <div className="space-y-2 font-mono text-[9px] text-white/60">
+                    <div className="flex items-center gap-2">
+                      <div className="w-4 h-4 rounded bg-indigo-500 border border-white/20"></div>
+                      <span>primary: #6366F1</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-4 h-4 rounded bg-emerald-500 border border-white/20"></div>
+                      <span>success: #10B981</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-4 h-4 rounded bg-rose-500 border border-white/20"></div>
+                      <span>error: #F43F5E</span>
+                    </div>
+                  </div>
+                  <div className="mt-3 pt-3 border-t border-white/5">
+                    <div className="text-[9px] font-medium text-white/30 uppercase tracking-wider mb-2">Typography</div>
+                    <div className="space-y-1.5 text-[9px] text-white/60">
+                      <div>Font: Inter, sans-serif</div>
+                      <div>Scale: 1.250 (Major Third)</div>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -442,7 +506,7 @@ function Footer() {
         <div className="flex gap-6">
           <span className="hover:text-white cursor-pointer transition-colors">Privacy</span>
           <span className="hover:text-white cursor-pointer transition-colors">Terms</span>
-          <span>© 2025 Materialize Inc.</span>
+          <span>© 2025 Materialize UI</span>
         </div>
       </div>
     </footer>
