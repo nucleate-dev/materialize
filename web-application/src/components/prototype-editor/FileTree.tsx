@@ -15,9 +15,16 @@ import {
   FolderOpen,
   Image,
   Music,
+  Trash2,
   Type,
 } from "lucide-react";
 import React, { useMemo, useState } from "react";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
 
 interface FileNode {
   name: string;
@@ -35,6 +42,7 @@ interface FileTreeProps {
   >;
   selectedFile?: string;
   onFileSelect: (filePath: string) => void;
+  onDelete?: (path: string, type: "file" | "folder" | "asset") => void;
 }
 
 const FileTree: React.FC<FileTreeProps> = ({
@@ -42,6 +50,7 @@ const FileTree: React.FC<FileTreeProps> = ({
   assets,
   selectedFile,
   onFileSelect,
+  onDelete,
 }) => {
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(
     new Set([""]),
@@ -132,6 +141,12 @@ const FileTree: React.FC<FileTreeProps> = ({
     });
   };
 
+  const handleDelete = (path: string, type: "file" | "folder" | "asset") => {
+    if (onDelete) {
+      onDelete(path, type);
+    }
+  };
+
   // --- Icon Logic (Lucide) ---
   const getFileIcon = (
     fileName: string,
@@ -203,37 +218,53 @@ const FileTree: React.FC<FileTreeProps> = ({
     if (node.type === "folder") {
       return (
         <div key={node.path}>
-          <div
-            className={cn(
-              "flex items-center py-1.5 pr-2 my-0.5 rounded cursor-pointer transition-colors duration-200 group select-none",
-              // Folder Hover State
-              "hover:bg-accent",
-              // Active State (if needed, usually folders aren't 'selected' in this view, but visual feedback helps)
-              isExpanded ? "text-foreground" : "text-muted-foreground hover:text-foreground"
-            )}
-            style={{ paddingLeft: `${paddingLeft}px` }}
-            onClick={() => toggleFolder(node.path)}
-          >
-            <span className="mr-1.5 opacity-60 group-hover:opacity-100 transition-opacity">
-              {isExpanded ? (
-                <ChevronDown className="w-3.5 h-3.5" />
-              ) : (
-                <ChevronRight className="w-3.5 h-3.5" />
-              )}
-            </span>
+          <ContextMenu>
+            <ContextMenuTrigger asChild>
+              <div
+                className={cn(
+                  "flex items-center py-1.5 pr-2 my-0.5 rounded cursor-pointer transition-colors duration-200 group select-none",
+                  // Folder Hover State
+                  "hover:bg-accent",
+                  // Active State (if needed, usually folders aren't 'selected' in this view, but visual feedback helps)
+                  isExpanded ? "text-foreground" : "text-muted-foreground hover:text-foreground"
+                )}
+                style={{ paddingLeft: `${paddingLeft}px` }}
+                onClick={() => toggleFolder(node.path)}
+              >
+                <span className="mr-1.5 opacity-60 group-hover:opacity-100 transition-opacity">
+                  {isExpanded ? (
+                    <ChevronDown className="w-3.5 h-3.5" />
+                  ) : (
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  )}
+                </span>
 
-            <span className="mr-2 text-indigo-400/80 group-hover:text-indigo-400 transition-colors">
-              {isExpanded ? (
-                <FolderOpen className="w-4 h-4" />
-              ) : (
-                <Folder className="w-4 h-4" />
-              )}
-            </span>
+                <span className="mr-2 text-indigo-400/80 group-hover:text-indigo-400 transition-colors">
+                  {isExpanded ? (
+                    <FolderOpen className="w-4 h-4" />
+                  ) : (
+                    <Folder className="w-4 h-4" />
+                  )}
+                </span>
 
-            <span className="text-xs font-medium tracking-tight truncate">
-              {node.name}
-            </span>
-          </div>
+                <span className="text-xs font-medium tracking-tight truncate">
+                  {node.name}
+                </span>
+              </div>
+            </ContextMenuTrigger>
+            <ContextMenuContent>
+              <ContextMenuItem
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDelete(node.path, "folder");
+                }}
+                className="text-destructive focus:text-destructive"
+              >
+                <Trash2 className="w-4 h-4 mr-2" />
+                Delete Folder
+              </ContextMenuItem>
+            </ContextMenuContent>
+          </ContextMenu>
 
           {isExpanded && node.children && (
             <div>
@@ -245,34 +276,49 @@ const FileTree: React.FC<FileTreeProps> = ({
     } else {
       // --- File / Asset Node ---
       return (
-        <div
-          key={node.path}
-          onClick={() => onFileSelect(node.path)}
-          className={cn(
-            "flex items-center py-1.5 pr-2 my-0.5 rounded cursor-pointer transition-all duration-200 select-none",
-            isSelected
-              ? "bg-indigo-500/10 text-indigo-300"
-              : "text-muted-foreground hover:text-foreground hover:bg-accent"
-          )}
-          style={{ paddingLeft: `${paddingLeft + 18}px` }} // +18 to align with folder text, skipping arrows
-        >
-          <span className={cn(
-            "mr-2 transition-colors",
-            isSelected ? "text-indigo-400" : "text-muted-foreground/50 group-hover:text-muted-foreground"
-          )}>
-            {getFileIcon(node.name, node.type === "asset" ? "asset" : "file")}
-          </span>
+        <ContextMenu key={node.path}>
+          <ContextMenuTrigger asChild>
+            <div
+              onClick={() => onFileSelect(node.path)}
+              className={cn(
+                "flex items-center py-1.5 pr-2 my-0.5 rounded cursor-pointer transition-all duration-200 select-none",
+                isSelected
+                  ? "bg-indigo-500/10 text-indigo-300"
+                  : "text-muted-foreground hover:text-foreground hover:bg-accent"
+              )}
+              style={{ paddingLeft: `${paddingLeft + 18}px` }} // +18 to align with folder text, skipping arrows
+            >
+              <span className={cn(
+                "mr-2 transition-colors",
+                isSelected ? "text-indigo-400" : "text-muted-foreground/50 group-hover:text-muted-foreground"
+              )}>
+                {getFileIcon(node.name, node.type === "asset" ? "asset" : "file")}
+              </span>
 
-          <span className="text-xs font-medium truncate tracking-tight">
-            {node.name}
-          </span>
+              <span className="text-xs font-medium truncate tracking-tight">
+                {node.name}
+              </span>
 
-          {node.type === "asset" && (
-            <span className="ml-2 text-[10px] uppercase tracking-wider text-muted-foreground/50">
-              Asset
-            </span>
-          )}
-        </div>
+              {node.type === "asset" && (
+                <span className="ml-2 text-[10px] uppercase tracking-wider text-muted-foreground/50">
+                  Asset
+                </span>
+              )}
+            </div>
+          </ContextMenuTrigger>
+          <ContextMenuContent>
+            <ContextMenuItem
+              onClick={(e) => {
+                e.stopPropagation();
+                handleDelete(node.path, node.type);
+              }}
+              className="text-destructive focus:text-destructive"
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
+              Delete {node.type === "asset" ? "Asset" : "File"}
+            </ContextMenuItem>
+          </ContextMenuContent>
+        </ContextMenu>
       );
     }
   };

@@ -57,6 +57,7 @@ import { Database } from "@/lib/types/supabase";
 import { IsUserPlanSubscribed } from "@/lib/utils/payments/SubscriptionManagementUtils";
 import { useSetAtom } from "jotai";
 import {
+  AlertTriangle,
   Code2,
   Copy,
   Folder,
@@ -127,6 +128,15 @@ export default function InternalPrototypePage() {
     string | null
   >(null);
   const [isUpdatingDesignSystem, setIsUpdatingDesignSystem] = useState(false);
+
+  // Delete confirmation state
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<{
+    path: string;
+    type: "file" | "folder" | "asset";
+    filesToDelete: string[];
+  } | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Mobile-specific state
   const [activePanel, setActivePanel] = useState<"chat" | "preview">("preview");
@@ -784,6 +794,88 @@ export default function InternalPrototypePage() {
     }
   };
 
+  const handleDeleteRequest = useCallback(
+    (path: string, type: "file" | "folder" | "asset") => {
+      // Collect all files/assets to delete
+      const filesToDelete: string[] = [];
+
+      if (type === "folder") {
+        // Find all files that start with this folder path
+        Object.keys(fileSystem.state.files).forEach((filePath) => {
+          if (filePath.startsWith(path + "/") || filePath === path) {
+            filesToDelete.push(filePath);
+          }
+        });
+        // Find all assets that start with this folder path
+        Object.keys(fileSystem.state.assets).forEach((assetPath) => {
+          if (assetPath.startsWith(path + "/") || assetPath === path) {
+            filesToDelete.push(assetPath);
+          }
+        });
+      } else {
+        filesToDelete.push(path);
+      }
+
+      // Store delete target and show confirmation
+      setDeleteTarget({ path, type, filesToDelete });
+      setShowDeleteConfirm(true);
+    },
+    [fileSystem.state.files, fileSystem.state.assets],
+  );
+
+  const handleConfirmDelete = useCallback(async () => {
+    if (!deleteTarget || !prototypeId) return;
+
+    setIsDeleting(true);
+
+    try {
+      const session = await supabase.auth.getSession();
+      const token = session.data.session?.access_token;
+      if (!token) {
+        logger.debug("error", "No authentication token available");
+        return;
+      }
+
+      // Call the update-files API with deleted_files
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_SERVER_ENDPOINT}/files/update-files`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            files: [],
+            assets: [],
+            prototype_id: prototypeId,
+            deleted_files: deleteTarget.filesToDelete,
+          }),
+        },
+      );
+
+      if (!response.ok) {
+        throw new Error("Delete failed");
+      }
+
+      // Update local state - remove all deleted files
+      for (const filePath of deleteTarget.filesToDelete) {
+        fileSystem.deleteFile(filePath);
+      }
+
+      // Close dialog
+      setShowDeleteConfirm(false);
+      setDeleteTarget(null);
+    } catch (error) {
+      logger.debug("error", "Error deleting files:", {
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+      });
+    } finally {
+      setIsDeleting(false);
+    }
+  }, [deleteTarget, prototypeId, logger, fileSystem]);
+
   if (
     !prototypeId ||
     userIsLoading ||
@@ -1000,6 +1092,7 @@ export default function InternalPrototypePage() {
                               )}
                               selectedFile={fileSystem.state.selectedFile}
                               onFileSelect={fileSystem.selectFile}
+                              onDelete={handleDeleteRequest}
                             />
                           </div>
                         ) : (
@@ -1034,6 +1127,7 @@ export default function InternalPrototypePage() {
                             )}
                             selectedFile={fileSystem.state.selectedFile}
                             onFileSelect={fileSystem.selectFile}
+                            onDelete={handleDeleteRequest}
                           />
                         </div>
                       </div>
@@ -1259,6 +1353,50 @@ export default function InternalPrototypePage() {
         onOpenChange={setShowCloneUpsellModal}
         reason="prototype_creation_limit_reached"
       />
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <AlertDialogContent className="bg-background border-border text-foreground">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-destructive flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5" />
+              Delete {deleteTarget?.type === "folder" ? "Folder" : deleteTarget?.type === "asset" ? "Asset" : "File"}?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-muted-foreground">
+              {deleteTarget?.type === "folder" ? (
+                <>
+                  Are you sure you want to delete the folder <span className="text-foreground font-mono bg-accent px-1 py-0.5 rounded">{deleteTarget.path}</span>?
+                  <br />
+                  This will delete <span className="font-semibold text-foreground">{deleteTarget.filesToDelete.length} file{deleteTarget.filesToDelete.length !== 1 ? 's' : ''}</span> inside this folder.
+                  <br />
+                  This action cannot be undone.
+                </>
+              ) : (
+                <>
+                  Are you sure you want to delete <span className="text-foreground font-mono bg-accent px-1 py-0.5 rounded">{deleteTarget?.path}</span>?
+                  <br />
+                  This action cannot be undone.
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel
+              disabled={isDeleting}
+              className="border-border text-foreground hover:bg-accent hover:text-foreground"
+            >
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmDelete}
+              disabled={isDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeleting ? "Deleting..." : "Delete Permanently"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

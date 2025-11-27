@@ -207,6 +207,8 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [uploadAsProjectRoot, setUploadAsProjectRoot] = useState(false);
+  const [showProjectRootConfirm, setShowProjectRootConfirm] = useState(false);
 
   // File selection and validation state
   type FileValidationStatus = "ready" | "blocked-folder" | "blocked-extension" | "too-large" | "conflict";
@@ -410,6 +412,8 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
     setFileValidation(new Map());
     setSelectedFiles(new Set());
     setExpandedFolders(new Set());
+    setUploadAsProjectRoot(false);
+    setShowProjectRootConfirm(false);
   };
 
   const toggleFileSelection = (filePath: string) => {
@@ -693,6 +697,23 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
       return;
     }
 
+    // Auto-detect project root upload: check if folder contains package.json at root level
+    if (uploadType === "folder" && !uploadAsProjectRoot) {
+      const hasRootPackageJson = filesList.some(file => {
+        if (file.webkitRelativePath) {
+          const parts = file.webkitRelativePath.split("/");
+          // Check if package.json is at the second level (first level is folder name)
+          return parts.length === 2 && parts[1] === "package.json";
+        }
+        return false;
+      });
+
+      if (hasRootPackageJson) {
+        // Auto-enable project root mode
+        setUploadAsProjectRoot(true);
+      }
+    }
+
     const validationMap = new Map<string, { status: FileValidationStatus; reason?: string; size: number; }>();
     const selectedSet = new Set<string>();
     const validFiles: File[] = [];
@@ -701,7 +722,16 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
       let targetPath: string;
       if (uploadType === "folder" && file.webkitRelativePath) {
         const relativePath = file.webkitRelativePath;
-        targetPath = resolvedUploadFolder ? `${resolvedUploadFolder}/${relativePath}` : relativePath;
+
+        // Strip top-level folder if uploading as project root
+        if (uploadAsProjectRoot) {
+          const parts = relativePath.split("/");
+          // Remove the first part (folder name) and join the rest
+          const strippedPath = parts.slice(1).join("/");
+          targetPath = strippedPath;
+        } else {
+          targetPath = resolvedUploadFolder ? `${resolvedUploadFolder}/${relativePath}` : relativePath;
+        }
       } else {
         targetPath = buildUploadPath(file.name);
       }
@@ -757,12 +787,32 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
       return;
     }
 
+    // Show confirmation dialog for project root uploads
+    if (uploadAsProjectRoot) {
+      setShowProjectRootConfirm(true);
+      return;
+    }
+
+    // Otherwise, proceed with upload
+    await executeUpload();
+  };
+
+  const executeUpload = async () => {
+
     // Filter to only selected files
     const filesToUpload = uploadFiles.filter((file) => {
       let targetPath: string;
       if (uploadType === "folder" && file.webkitRelativePath) {
         const relativePath = file.webkitRelativePath;
-        targetPath = resolvedUploadFolder ? `${resolvedUploadFolder}/${relativePath}` : relativePath;
+
+        // Strip top-level folder if uploading as project root
+        if (uploadAsProjectRoot) {
+          const parts = relativePath.split("/");
+          const strippedPath = parts.slice(1).join("/");
+          targetPath = strippedPath;
+        } else {
+          targetPath = resolvedUploadFolder ? `${resolvedUploadFolder}/${relativePath}` : relativePath;
+        }
       } else {
         targetPath = buildUploadPath(file.name);
       }
@@ -773,7 +823,8 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
     setUploadProgress({ current: 0, total: filesToUpload.length });
 
     try {
-      if (uploadMode === "replace-all") {
+      // Delete all files if in project root mode OR replace-all mode
+      if (uploadAsProjectRoot || uploadMode === "replace-all") {
         for (const filePath of Object.keys(fileSystem.state.files)) {
           await fileSystem.deleteFile(filePath);
         }
@@ -786,7 +837,15 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
         let newFilePath: string;
         if (uploadType === "folder" && file.webkitRelativePath) {
           const relativePath = file.webkitRelativePath;
-          newFilePath = resolvedUploadFolder ? `${resolvedUploadFolder}/${relativePath}` : relativePath;
+
+          // Strip top-level folder if uploading as project root
+          if (uploadAsProjectRoot) {
+            const parts = relativePath.split("/");
+            const strippedPath = parts.slice(1).join("/");
+            newFilePath = strippedPath;
+          } else {
+            newFilePath = resolvedUploadFolder ? `${resolvedUploadFolder}/${relativePath}` : relativePath;
+          }
         } else {
           newFilePath = buildUploadPath(file.name);
         }
@@ -1189,7 +1248,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
               {/* Type Selection */}
               <div className="space-y-3">
                 <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Upload Type</Label>
-                <RadioGroup value={uploadType} onValueChange={(val: "files" | "folder") => { setUploadType(val); setUploadFiles([]); setUploadError(""); }} className="grid grid-cols-2 gap-4">
+                <RadioGroup value={uploadType} onValueChange={(val: "files" | "folder") => { setUploadType(val); setUploadFiles([]); setUploadError(""); setUploadAsProjectRoot(false); }} className="grid grid-cols-2 gap-4">
                   <div className={cn("flex items-center gap-3 p-3 rounded-lg border transition-all cursor-pointer", uploadType === 'files' ? "bg-indigo-500/10 border-indigo-500/50" : "bg-accent/50 border-border hover:bg-accent")}>
                     <RadioGroupItem value="files" id="type-files" className="border-border text-indigo-500 shrink-0" />
                     <Label htmlFor="type-files" className="cursor-pointer text-sm font-medium flex-1">Individual Files</Label>
@@ -1201,8 +1260,40 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
                 </RadioGroup>
               </div>
 
-              {/* Destination (if files) */}
-              {uploadType === "files" && (
+              {/* Project Root Option (only for folder uploads) */}
+              {uploadType === "folder" && (
+                <div className="space-y-3">
+                  <div className={cn("flex items-start gap-3 p-3 rounded-lg border transition-all", uploadAsProjectRoot ? "bg-amber-500/10 border-amber-500/50" : "bg-accent/50 border-border")}>
+                    <Checkbox
+                      id="upload-as-root"
+                      checked={uploadAsProjectRoot}
+                      onCheckedChange={(checked) => setUploadAsProjectRoot(checked === true)}
+                      className="mt-0.5 border-border data-[state=checked]:bg-amber-500 data-[state=checked]:border-amber-500"
+                    />
+                    <div className="flex-1 space-y-1">
+                      <Label htmlFor="upload-as-root" className="cursor-pointer text-sm font-medium flex items-center gap-2">
+                        Upload as Project Root
+                        <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
+                      </Label>
+                      <p className="text-xs text-muted-foreground">
+                        Replace entire project structure. All existing files will be deleted.
+                      </p>
+                    </div>
+                  </div>
+                  {uploadAsProjectRoot && (
+                    <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                      <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                      <div className="text-xs text-amber-200/90 space-y-1">
+                        <p className="font-semibold">Warning: Destructive Operation</p>
+                        <p>The top-level folder will be stripped and its contents will replace your entire project. Files like package.json, tsconfig.json will be overwritten.</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Destination (if files or folder without project root) */}
+              {uploadType === "files" && !uploadAsProjectRoot && (
                 <div className="space-y-3">
                   <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Destination</Label>
                   <Select value={uploadTargetFolder} onValueChange={handleUploadFolderChange}>
@@ -1229,7 +1320,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
                     type="file"
                     {...(uploadType === "folder" ? { webkitdirectory: "", directory: "" } : { multiple: true })}
                     onChange={handleUploadFileSelection}
-                    className="cursor-pointer bg-background border-border text-foreground file:cursor-pointer file:bg-indigo-500/10 file:text-indigo-400 file:border-0 file:rounded-md file:mr-4 file:px-4 file:py-2 file:text-sm file:font-medium hover:file:bg-indigo-500/20 file:transition-colors"
+                    className="cursor-pointer bg-background border-border text-foreground py-2 pb-11 file:cursor-pointer file:bg-indigo-500/10 file:text-indigo-400 file:border-0 file:rounded-md file:mr-4 file:px-4 file:py-2 file:text-sm file:font-medium hover:file:bg-indigo-500/20 file:transition-colors"
                   />
                 </div>
                 {uploadError && <p className="text-red-400 text-xs flex items-center gap-1"><AlertTriangle className="w-3 h-3" /> {uploadError}</p>}
@@ -1412,6 +1503,46 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
                 className="bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20"
               >
                 {isDeleting ? "Deleting..." : "Delete Permanently"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Project Root Upload Confirmation */}
+        <Dialog open={showProjectRootConfirm} onOpenChange={setShowProjectRootConfirm}>
+          <DialogContent className="sm:max-w-md bg-accent border border-border text-foreground">
+            <DialogHeader>
+              <DialogTitle className="text-amber-400 flex items-center gap-2">
+                <AlertTriangle className="w-5 h-5" />
+                Replace Entire Project?
+              </DialogTitle>
+            </DialogHeader>
+            <div className="py-4 space-y-3">
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                This will <span className="text-foreground font-semibold">delete all existing files</span> and replace your entire project structure with the uploaded folder.
+              </p>
+              <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                <p className="text-xs text-amber-200/90 font-medium mb-2">Files that will be affected:</p>
+                <ul className="text-xs text-amber-200/80 space-y-1">
+                  <li>• All {Object.keys(fileSystem.state.files).length} existing files will be deleted</li>
+                  <li>• {selectedFiles.size} new files will be uploaded to project root</li>
+                  <li>• Configuration files (package.json, etc.) will be overwritten</li>
+                </ul>
+              </div>
+              <p className="text-xs text-red-400 font-semibold">
+                ⚠️ This action cannot be undone
+              </p>
+            </div>
+            <DialogFooter>
+              <Button variant="ghost" onClick={() => setShowProjectRootConfirm(false)} className="text-muted-foreground hover:text-foreground">Cancel</Button>
+              <Button
+                onClick={async () => {
+                  setShowProjectRootConfirm(false);
+                  await executeUpload();
+                }}
+                className="bg-amber-500 text-black hover:bg-amber-400 rounded-full font-semibold"
+              >
+                Replace Project
               </Button>
             </DialogFooter>
           </DialogContent>
