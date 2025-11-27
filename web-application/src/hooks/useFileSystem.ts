@@ -40,9 +40,13 @@ export interface FileSystemActions {
     applyUpdatesToServer: boolean;
   }) => Promise<boolean>;
 
-  // File management operations
+  // File management operations (DB only, no rebuild)
   createFile: (fileName: string, initialContent?: string) => Promise<void>;
   deleteFile: (fileName: string) => Promise<void>;
+
+  // File management operations with rebuild (calls /files/update-files)
+  createFileWithBuild: (fileName: string, initialContent?: string) => Promise<{ success: boolean; viewingUrl?: string }>;
+  deleteFileWithBuild: (fileName: string) => Promise<{ success: boolean; viewingUrl?: string }>;
 }
 
 export interface UseFileSystemReturn extends FileSystemActions {
@@ -673,6 +677,214 @@ export const useFileSystem = (
     [prototypeId, files, selectedFile, logger, userPlan],
   );
 
+  // Create a new file and trigger rebuild via /files/update-files
+  const createFileWithBuild = useCallback(
+    async (fileName: string, initialContent = ""): Promise<{ success: boolean; viewingUrl?: string }> => {
+      // Prevent file creation for free users
+      if (userPlan === "free") {
+        logger.debug(
+          "error",
+          "Create file failed: free users cannot create files",
+        );
+        return { success: false };
+      }
+
+      if (!prototypeId) {
+        logger.debug("error", "Create file failed: no prototype ID");
+        return { success: false };
+      }
+
+      if (files[fileName]) {
+        logger.debug("error", "File already exists:", {
+          fileName,
+        });
+        return { success: false };
+      }
+
+      try {
+        // Create file in database
+        const { data: newFile, error } = await supabase
+          .from("prototype_files")
+          .insert({
+            prototype_id: prototypeId,
+            name: fileName,
+            contents: initialContent,
+          })
+          .select()
+          .single();
+
+        if (error) {
+          logger.debug("error", `Error creating file ${fileName}:`, {
+            ...error,
+          });
+          return { success: false };
+        }
+
+        // Update local state
+        setFiles((prevFiles) => ({
+          ...prevFiles,
+          [fileName]: newFile,
+        }));
+
+        // Select the new file
+        setSelectedFile(fileName);
+
+        // Call /files/update-files to trigger rebuild
+        const session = await supabase.auth.getSession();
+        const token = session.data.session?.access_token;
+        if (!token) {
+          logger.debug("error", "No authentication token available");
+          return { success: true }; // File created but no rebuild triggered
+        }
+
+        const response = await fetch(
+          `${process.env.NEXT_PUBLIC_SERVER_ENDPOINT}/files/update-files`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              files: [{
+                contents: initialContent,
+                name: fileName,
+                prototype_id: prototypeId,
+                id: newFile.id,
+                created_at: newFile.created_at,
+                updated_at: newFile.updated_at,
+              }],
+              assets: [],
+              prototype_id: prototypeId,
+            }),
+          },
+        );
+
+        if (!response.ok) {
+          logger.debug("error", "Failed to trigger rebuild after file creation");
+          return { success: true }; // File created but rebuild failed
+        }
+
+        const result = await response.json();
+        return {
+          success: true,
+          viewingUrl: result.data?.viewing_url,
+        };
+      } catch (error) {
+        logger.debug("error", `Error creating file ${fileName}:`, {
+          error: error instanceof Error ? error.message : String(error),
+          stack: error instanceof Error ? error.stack : undefined,
+        });
+        return { success: false };
+      }
+    },
+    [prototypeId, files, logger, userPlan],
+  );
+
+  // Delete a file and trigger rebuild via /files/update-files
+  const deleteFileWithBuild = useCallback(
+    async (fileName: string): Promise<{ success: boolean; viewingUrl?: string }> => {
+      // Prevent file deletion for free users
+      if (userPlan === "free") {
+        logger.debug(
+          "error",
+          "Delete file failed: free users cannot delete files",
+        );
+        return { success: false };
+      }
+
+      if (!prototypeId) {
+        logger.debug("error", "Delete file failed: no prototype ID");
+        return { success: false };
+      }
+
+      const fileToDelete = files[fileName];
+      if (!fileToDelete) {
+        logger.debug("error", "File not found:", {
+          fileName,
+        });
+        return { success: false };
+      }
+
+      // Prevent deleting the last file
+      if (Object.keys(files).length <= 1) {
+        logger.debug("error", "Cannot delete the last file");
+        return { success: false };
+      }
+
+      try {
+        // Delete file from database
+        const { error } = await supabase
+          .from("prototype_files")
+          .delete()
+          .eq("id", fileToDelete.id);
+
+        if (error) {
+          logger.debug("error", `Error deleting file ${fileName}:`, {
+            ...error,
+          });
+          return { success: false };
+        }
+
+        // Update local state
+        const newFiles = { ...files };
+        delete newFiles[fileName];
+        setFiles(newFiles);
+
+        // If the deleted file was selected, select another file
+        if (selectedFile === fileName) {
+          const remainingFiles = Object.keys(newFiles);
+          if (remainingFiles.length > 0) {
+            setSelectedFile(remainingFiles[0]);
+          }
+        }
+
+        // Call /files/update-files to trigger rebuild
+        const session = await supabase.auth.getSession();
+        const token = session.data.session?.access_token;
+        if (!token) {
+          logger.debug("error", "No authentication token available");
+          return { success: true }; // File deleted but no rebuild triggered
+        }
+
+        const response = await fetch(
+          `${process.env.NEXT_PUBLIC_SERVER_ENDPOINT}/files/update-files`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              files: [],
+              assets: [],
+              prototype_id: prototypeId,
+              deleted_files: [fileName],
+            }),
+          },
+        );
+
+        if (!response.ok) {
+          logger.debug("error", "Failed to trigger rebuild after file deletion");
+          return { success: true }; // File deleted but rebuild failed
+        }
+
+        const result = await response.json();
+        return {
+          success: true,
+          viewingUrl: result.data?.viewing_url,
+        };
+      } catch (error) {
+        logger.debug("error", `Error deleting file ${fileName}:`, {
+          error: error instanceof Error ? error.message : String(error),
+          stack: error instanceof Error ? error.stack : undefined,
+        });
+        return { success: false };
+      }
+    },
+    [prototypeId, files, selectedFile, logger, userPlan],
+  );
+
   const state: FileSystemState = {
     files,
     assets,
@@ -690,6 +902,8 @@ export const useFileSystem = (
     applyAndPersistFileUpdates,
     createFile,
     deleteFile,
+    createFileWithBuild,
+    deleteFileWithBuild,
   };
 
   return {

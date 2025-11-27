@@ -829,38 +829,12 @@ export default function InternalPrototypePage() {
     setIsDeleting(true);
 
     try {
-      const session = await supabase.auth.getSession();
-      const token = session.data.session?.access_token;
-      if (!token) {
-        logger.debug("error", "No authentication token available");
-        return;
-      }
-
-      // Call the update-files API with deleted_files
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_SERVER_ENDPOINT}/files/update-files`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            files: [],
-            assets: [],
-            prototype_id: prototypeId,
-            deleted_files: deleteTarget.filesToDelete,
-          }),
-        },
-      );
-
-      if (!response.ok) {
-        throw new Error("Delete failed");
-      }
-
-      // Update local state - remove all deleted files
+      // Delete files using the new method that triggers rebuild
       for (const filePath of deleteTarget.filesToDelete) {
-        fileSystem.deleteFile(filePath);
+        const result = await fileSystem.deleteFileWithBuild(filePath);
+        if (result.success && result.viewingUrl) {
+          setViewingUrl(result.viewingUrl);
+        }
       }
 
       // Close dialog
@@ -875,6 +849,44 @@ export default function InternalPrototypePage() {
       setIsDeleting(false);
     }
   }, [deleteTarget, prototypeId, logger, fileSystem]);
+
+  const handleFileUpload = useCallback(
+    async (files: File[], targetPath?: string) => {
+      if (!prototypeId) return;
+
+      try {
+        const resolvedTargetPath = targetPath || "";
+
+        for (const file of files) {
+          // Build the full file path
+          const fileName = file.name;
+          const fullPath = resolvedTargetPath
+            ? `${resolvedTargetPath}/${fileName}`
+            : fileName;
+
+          // Read file contents
+          const fileContents = await file.text();
+
+          // Create the file with rebuild triggered
+          const result = await fileSystem.createFileWithBuild(fullPath, fileContents);
+          if (result.success && result.viewingUrl) {
+            setViewingUrl(result.viewingUrl);
+          }
+        }
+
+        logger.debug("log", "Files uploaded via drag and drop", {
+          fileCount: files.length,
+          targetPath: resolvedTargetPath,
+        });
+      } catch (error) {
+        logger.debug("error", "Error uploading files via drag and drop:", {
+          error: error instanceof Error ? error.message : String(error),
+          stack: error instanceof Error ? error.stack : undefined,
+        });
+      }
+    },
+    [prototypeId, fileSystem, logger],
+  );
 
   if (
     !prototypeId ||
@@ -1093,6 +1105,7 @@ export default function InternalPrototypePage() {
                               selectedFile={fileSystem.state.selectedFile}
                               onFileSelect={fileSystem.selectFile}
                               onDelete={handleDeleteRequest}
+                              onFileUpload={handleFileUpload}
                             />
                           </div>
                         ) : (
@@ -1128,6 +1141,7 @@ export default function InternalPrototypePage() {
                             selectedFile={fileSystem.state.selectedFile}
                             onFileSelect={fileSystem.selectFile}
                             onDelete={handleDeleteRequest}
+                            onFileUpload={handleFileUpload}
                           />
                         </div>
                       </div>

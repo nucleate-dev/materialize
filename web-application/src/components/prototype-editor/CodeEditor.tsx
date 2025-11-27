@@ -852,7 +852,10 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
         }
 
         const fileContents = await file.text();
-        await fileSystem.createFile(newFilePath, fileContents);
+        const result = await fileSystem.createFileWithBuild(newFilePath, fileContents);
+        if (result.success && result.viewingUrl) {
+          onViewingUrlUpdate?.(result.viewingUrl);
+        }
       }
       setShowUploadModal(false);
       handleUploadModalClose();
@@ -951,22 +954,9 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
     onBuildingStateChange?.(true);
 
     try {
-      const session = await supabase.auth.getSession();
-      const token = session.data.session?.access_token;
-      if (!token) return;
-
-      const response = await fetch(`${process.env.NEXT_PUBLIC_SERVER_ENDPOINT}/files/update-files`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ files: [], assets: [], prototype_id: prototypeId, deleted_files: [fileName] }),
-      });
-
-      if (!response.ok) throw new Error("Delete failed");
-      const result = await response.json();
-
-      if (result.data) {
-        if (result.data.viewing_url) onViewingUrlUpdate?.(result.data.viewing_url);
-        fileSystem.deleteFile(fileName);
+      const result = await fileSystem.deleteFileWithBuild(fileName);
+      if (result.success && result.viewingUrl) {
+        onViewingUrlUpdate?.(result.viewingUrl);
       }
     } catch (error) {
       logger.debug("error", "Error deleting file");

@@ -43,6 +43,7 @@ interface FileTreeProps {
   selectedFile?: string;
   onFileSelect: (filePath: string) => void;
   onDelete?: (path: string, type: "file" | "folder" | "asset") => void;
+  onFileUpload?: (files: File[], targetPath?: string) => void;
 }
 
 const FileTree: React.FC<FileTreeProps> = ({
@@ -51,10 +52,13 @@ const FileTree: React.FC<FileTreeProps> = ({
   selectedFile,
   onFileSelect,
   onDelete,
+  onFileUpload,
 }) => {
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(
     new Set([""]),
   );
+  const [dragOver, setDragOver] = useState(false);
+  const [dragOverPath, setDragOverPath] = useState<string | null>(null);
 
   // Convert flat files object to tree structure
   const fileTree = useMemo(() => {
@@ -147,6 +151,42 @@ const FileTree: React.FC<FileTreeProps> = ({
     }
   };
 
+  const handleDragOver = (e: React.DragEvent, folderPath?: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOver(true);
+    if (folderPath !== undefined) {
+      setDragOverPath(folderPath);
+    }
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const relatedTarget = e.relatedTarget as Node;
+    const currentTarget = e.currentTarget as Node;
+
+    // Only clear drag state if leaving the entire tree area
+    if (!currentTarget.contains(relatedTarget)) {
+      setDragOver(false);
+      setDragOverPath(null);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent, targetPath?: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOver(false);
+    setDragOverPath(null);
+
+    if (!onFileUpload) return;
+
+    const droppedFiles = Array.from(e.dataTransfer.files);
+    if (droppedFiles.length > 0) {
+      onFileUpload(droppedFiles, targetPath);
+    }
+  };
+
   // --- Icon Logic (Lucide) ---
   const getFileIcon = (
     fileName: string,
@@ -214,6 +254,7 @@ const FileTree: React.FC<FileTreeProps> = ({
     const isExpanded = expandedFolders.has(node.path);
     const isSelected = selectedFile === node.path;
     const paddingLeft = depth * 12 + 12;
+    const isDraggedOver = dragOverPath === node.path;
 
     if (node.type === "folder") {
       return (
@@ -225,11 +266,16 @@ const FileTree: React.FC<FileTreeProps> = ({
                   "flex items-center py-1.5 pr-2 my-0.5 rounded cursor-pointer transition-colors duration-200 group select-none",
                   // Folder Hover State
                   "hover:bg-accent",
+                  // Drag over state
+                  isDraggedOver && "bg-indigo-500/20 border-2 border-indigo-500/50 border-dashed",
                   // Active State (if needed, usually folders aren't 'selected' in this view, but visual feedback helps)
                   isExpanded ? "text-foreground" : "text-muted-foreground hover:text-foreground"
                 )}
                 style={{ paddingLeft: `${paddingLeft}px` }}
                 onClick={() => toggleFolder(node.path)}
+                onDragOver={(e) => handleDragOver(e, node.path)}
+                onDragLeave={handleDragLeave}
+                onDrop={(e) => handleDrop(e, node.path)}
               >
                 <span className="mr-1.5 opacity-60 group-hover:opacity-100 transition-opacity">
                   {isExpanded ? (
@@ -338,14 +384,22 @@ const FileTree: React.FC<FileTreeProps> = ({
       </div>
 
       {/* --- Tree Content --- */}
-      <div className="flex-1 overflow-y-auto py-2 px-2 custom-scrollbar">
+      <div
+        className={cn(
+          "flex-1 overflow-y-auto py-2 px-2 custom-scrollbar transition-colors",
+          dragOver && !dragOverPath && "bg-indigo-500/10 border-2 border-indigo-500/30 border-dashed"
+        )}
+        onDragOver={(e) => handleDragOver(e, "")}
+        onDragLeave={handleDragLeave}
+        onDrop={(e) => handleDrop(e, "")}
+      >
         {fileTree.length > 0 ? (
           fileTree.map((node) => renderNode(node, 0))
         ) : (
           <div className="flex flex-col items-center justify-center h-40 text-center px-4">
             <FolderOpen className="w-8 h-8 text-muted-foreground/20 mb-2" />
             <p className="text-xs text-muted-foreground">
-              No files in this project
+              {dragOver ? "Drop files here to add to project" : "No files in this project"}
             </p>
           </div>
         )}
