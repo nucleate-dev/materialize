@@ -38,7 +38,6 @@ export interface FileSystemActions {
 
   // File management operations (DB only, no rebuild)
   createFile: (fileName: string, initialContent?: string) => Promise<void>;
-  deleteFile: (fileName: string) => Promise<void>;
 
   // Unified function to sync all file/asset operations in one batch
   syncFilesAndAssets: (params: {
@@ -762,7 +761,6 @@ export const useFileSystem = (
     loadFilesFromDatabase,
     loadAssetsFromDatabase,
     createFile,
-    deleteFile,
     syncFilesAndAssets,
   };
 
