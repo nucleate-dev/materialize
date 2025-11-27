@@ -312,13 +312,13 @@ export class IdleCloudflareTunnelSystem {
         tunnelId,
         hostname,
       });
-      // Launch a new idle tunnel in the background to replenish the pool
-      this.launchIdleTunnelAndHostname().catch((e) =>
-        this.log2.error(
-          e,
-          'Failed to launch idle tunnel and hostname after direct launch',
-        ),
-      );
+      // // Launch a new idle tunnel in the background to replenish the pool
+      // this.launchIdleTunnelAndHostname().catch((e) =>
+      //   this.log2.error(
+      //     e,
+      //     'Failed to launch idle tunnel and hostname after direct launch',
+      //   ),
+      // );
       return allocatedTunnel;
     } catch (error) {
       // Clean up the placeholder entry on any failure
