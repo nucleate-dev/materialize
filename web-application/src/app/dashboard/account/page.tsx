@@ -228,7 +228,7 @@ function AccountSettings() {
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-900 dark:text-white">Credits Used</span>
-                    <span className="text-gray-600 dark:text-[#8A8F98]">{creditUsage.creditsUsed.toFixed(1)} / {creditUsage.creditLimit}</span>
+                    <span className="text-gray-600 dark:text-[#8A8F98]">{creditUsage.creditsUsed.toFixed(1)} / {creditUsage.totalAvailableCredits.toFixed(1)}</span>
                   </div>
                   <Progress value={creditUsage.usagePercentage} className="h-2 bg-black/10 dark:bg-white/10"
                   // indicatorClassName={creditUsage.usagePercentage > 90 ? "bg-red-500" : "bg-purple-500"}

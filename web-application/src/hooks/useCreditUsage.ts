@@ -12,6 +12,7 @@ import {
 interface CreditUsageState {
   creditsUsed: number;
   creditLimit: number;
+  totalAvailableCredits: number; // Total credits available from all unexpired grants (for paid users)
   creditsRemaining: number;
   usagePercentage: number;
   creditGrants: CreditGrantBalance[];
@@ -40,6 +41,7 @@ export function useCreditUsage(): CreditUsageHook {
   const [state, setState] = useState<CreditUsageState>({
     creditsUsed: 0,
     creditLimit: 0,
+    totalAvailableCredits: 0,
     creditsRemaining: 0,
     usagePercentage: 0,
     creditGrants: [],
@@ -108,6 +110,7 @@ export function useCreditUsage(): CreditUsageHook {
           setState({
             creditsUsed: 0,
             creditLimit,
+            totalAvailableCredits: creditLimit,
             creditsRemaining: creditLimit,
             usagePercentage: 0,
             creditGrants: [],
@@ -130,6 +133,7 @@ export function useCreditUsage(): CreditUsageHook {
         setState({
           creditsUsed: totalUsed,
           creditLimit,
+          totalAvailableCredits: creditLimit,
           creditsRemaining: remaining,
           usagePercentage,
           creditGrants: [],
@@ -154,12 +158,18 @@ export function useCreditUsage(): CreditUsageHook {
         (sum, grant) => sum + grant.credits_remaining,
         0,
       );
+
+      // Calculate total available credits from all unexpired grants
+      const totalAvailable = totalUsed + totalRemaining;
+
+      // Usage percentage should be based on total available credits, not plan limit
       const usagePercentage =
-        creditLimit > 0 ? (totalUsed / creditLimit) * 100 : 0;
+        totalAvailable > 0 ? (totalUsed / totalAvailable) * 100 : 0;
 
       setState({
         creditsUsed: totalUsed,
-        creditLimit,
+        creditLimit, // Keep the plan limit (e.g., 200 for Plus monthly)
+        totalAvailableCredits: totalAvailable, // Total from all unexpired grants
         creditsRemaining: totalRemaining,
         usagePercentage,
         creditGrants: grants,
@@ -176,6 +186,7 @@ export function useCreditUsage(): CreditUsageHook {
       setState({
         creditsUsed: 0,
         creditLimit,
+        totalAvailableCredits: creditLimit,
         creditsRemaining: creditLimit,
         usagePercentage: 0,
         creditGrants: [],

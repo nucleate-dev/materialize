@@ -440,10 +440,7 @@ export default function ClaudeCodePanel({
                         const { data: signedUrlData, error: urlError } =
                           await supabase.storage
                             .from("prototype-assets")
-                            .createSignedUrl(
-                              imageMetadata.storage_path,
-                              3600,
-                            ); // 1 hour expiry for viewing
+                            .createSignedUrl(imageMetadata.storage_path, 3600); // 1 hour expiry for viewing
 
                         if (urlError) {
                           logger.debug(
@@ -2204,7 +2201,7 @@ export default function ClaudeCodePanel({
       handleDrop={handleDrop}
       hasReachedCreditLimit={creditUsage.hasReachedLimit}
       creditsUsed={creditUsage.creditsUsed}
-      creditLimit={creditUsage.creditLimit}
+      totalAvailableCredits={creditUsage.totalAvailableCredits}
     />
   );
 }

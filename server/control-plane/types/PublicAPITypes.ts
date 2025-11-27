@@ -125,7 +125,14 @@ export type CacheClearResponse =
 // ============================================================================
 
 export interface CheckoutRequestBody {
-  productID: 'free' | 'plus' | 'pro' | 'max' | 'credit_pack_100' | 'credit_pack_500' | 'credit_pack_1000';
+  productID:
+    | 'free'
+    | 'plus'
+    | 'pro'
+    | 'max'
+    | 'credit_pack_100'
+    | 'credit_pack_500'
+    | 'credit_pack_1000';
 }
 
 export interface CheckoutSuccessResponse {
