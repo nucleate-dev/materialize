@@ -23,7 +23,9 @@ export enum ChatClientEvent {
   INTERRUPT = "interrupt",
   RESET_SESSION = "reset_session",
   SYNC_FILES = "sync_files",
+  ASSETS_CHANGED = "assets_changed",
   HISTORY_RESPONSE = "history_response",
+  REFETCH_FILES = "refetch_files",
 }
 
 export enum ChatSystemEventSubtype {
@@ -89,6 +91,19 @@ export interface SyncFilesMessage {
   data: SyncFilesRequest;
 }
 
+export interface AssetsChangedRequest {
+  prototype_id: string;
+  assetIds?: string[];
+  deletedAssetIds?: string[];
+  names?: string[];
+  token?: string;
+}
+
+export interface AssetsChangedMessage {
+  type: ChatClientEvent.ASSETS_CHANGED;
+  data: AssetsChangedRequest;
+}
+
 export interface HistoricalMessage {
   role: "user" | "assistant";
   content: string;
@@ -105,12 +120,21 @@ export interface HistoryResponseMessage {
   data: HistoryResponseData;
 }
 
+export interface RefetchFilesMessage {
+  type: ChatClientEvent.REFETCH_FILES;
+  data: {
+    prototype_id: string;
+  };
+}
+
 export type ChatClientMessage =
   | QueryMessage
   | InterruptMessage
   | ResetSessionMessage
   | SyncFilesMessage
-  | HistoryResponseMessage;
+  | AssetsChangedMessage
+  | HistoryResponseMessage
+  | RefetchFilesMessage;
 
 export interface SystemConnectionMessage {
   type: ChatEvent.SYSTEM;

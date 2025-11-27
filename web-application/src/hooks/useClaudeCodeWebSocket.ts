@@ -25,6 +25,12 @@ interface UseClaudeCodeWebSocketReturn {
     filenames?: string[],
     assetNames?: string[],
   ) => Promise<void>;
+  sendAssetsChanged: (
+    prototypeId: string,
+    assetIds?: string[],
+    deletedAssetIds?: string[],
+    names?: string[],
+  ) => Promise<void>;
 }
 
 export function useClaudeCodeWebSocket({
@@ -193,6 +199,48 @@ export function useClaudeCodeWebSocket({
     [ws, isConnected, sendMessage, logger],
   );
 
+  const sendAssetsChanged = useCallback(
+    async (
+      prototypeId: string,
+      assetIds: string[] = [],
+      deletedAssetIds: string[] = [],
+      names: string[] = [],
+    ) => {
+      if (!ws || !isConnected) {
+        logger.debug("warn", "Cannot send assets_changed: WebSocket not connected");
+        return;
+      }
+
+      try {
+        const { data: session } = await supabase.auth.getSession();
+        if (session.session?.access_token) {
+          authTokenRef.current = session.session.access_token;
+        }
+      } catch (error) {
+        logger.debug("warn", "Failed to refresh token for assets_changed", {
+          error,
+        });
+      }
+
+      logger.debug("log", "Sending assets_changed message", {
+        prototypeId,
+        assetIds,
+        deletedAssetIds,
+        names,
+        hasToken: !!authTokenRef.current,
+      });
+
+      sendMessage("assets_changed", {
+        prototype_id: prototypeId,
+        assetIds,
+        deletedAssetIds,
+        names,
+        token: authTokenRef.current,
+      });
+    },
+    [ws, isConnected, sendMessage, logger],
+  );
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
@@ -251,5 +299,6 @@ export function useClaudeCodeWebSocket({
     disconnect,
     sendMessage,
     sendSyncFiles,
+    sendAssetsChanged,
   };
 }

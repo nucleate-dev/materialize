@@ -264,18 +264,27 @@ function FeaturesBentoGrid() {
 }
 
 function GallerySection() {
-  const galleryItems = [
-    { title: "Onboarding Flow", category: "Multi-screen Flow", color: "bg-blue-500" },
-    { title: "Premium Paywall", category: "Component", color: "bg-indigo-500" },
-    { title: "Recipe App Home", category: "Screen", color: "bg-emerald-500" },
-    { title: "Social Feed", category: "Screen", color: "bg-orange-500" },
-    { title: "Auth Flow", category: "Multi-screen Flow", color: "bg-pink-500" },
-    { title: "Settings", category: "Screen", color: "bg-gray-500" },
+  const EXAMPLES = [
+    {
+      name: "Flight Tracker",
+      iframeSrc: "https://2eb2bc6a-4fe7-4595-a5a5-447af2542522.render.materializeui.com",
+      publicLink: "https://materializeui.com/project/2eb2bc6a-4fe7-4595-a5a5-447af2542522"
+    },
+    {
+      name: "Flight Tracker",
+      iframeSrc: "https://2eb2bc6a-4fe7-4595-a5a5-447af2542522.render.materializeui.com",
+      publicLink: "https://materializeui.com/project/2eb2bc6a-4fe7-4595-a5a5-447af2542522"
+    },
+    {
+      name: "Flight Tracker",
+      iframeSrc: "https://2eb2bc6a-4fe7-4595-a5a5-447af2542522.render.materializeui.com",
+      publicLink: "https://materializeui.com/project/2eb2bc6a-4fe7-4595-a5a5-447af2542522"
+    }
   ];
 
   return (
     <section className="py-24 bg-[#0B0C0E] border-t border-white/5">
-      <div className="container mx-auto px-6 max-w-6xl">
+      <div className="container mx-auto px-6 max-w-7xl">
         <div className="flex flex-col md:flex-row md:items-end justify-between mb-12 gap-6">
           <div>
             <h2 className="text-3xl font-medium text-white mb-2">Built with Materialize</h2>
@@ -286,38 +295,35 @@ function GallerySection() {
           </Button>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-          {galleryItems.map((item, index) => (
-            <div
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          {EXAMPLES.map((example, index) => (
+            <a
               key={index}
+              href={example.publicLink}
+              target="_blank"
+              rel="noopener noreferrer"
               className="group relative flex flex-col gap-3 cursor-pointer"
             >
-              <div className="aspect-[3/4] bg-[#141517] border border-white/10 rounded-lg overflow-hidden relative transition-transform duration-300 group-hover:-translate-y-1 group-hover:shadow-2xl group-hover:shadow-white/5">
-                {/* Fake UI inside */}
-                <div className="absolute inset-0 p-3 flex flex-col">
-                  <div className="w-full h-2 bg-white/10 rounded-full mb-2"></div>
-                  <div className="flex gap-2 mb-4">
-                    <div className="w-8 h-8 rounded-full bg-white/5"></div>
-                    <div className="flex-1 h-8 bg-white/5 rounded"></div>
-                  </div>
-                  <div className="flex-1 bg-white/5 rounded border border-white/5 flex items-center justify-center">
-                    <div className={`w-8 h-8 rounded-full ${item.color} opacity-20 blur-md`}></div>
-                  </div>
-                </div>
+              <div className="aspect-[9/16] bg-[#141517] border border-white/10 rounded-2xl overflow-hidden relative transition-transform duration-300 group-hover:-translate-y-1 group-hover:shadow-2xl group-hover:shadow-white/5">
+                <iframe
+                  src={example.iframeSrc}
+                  className="w-full h-full border-0 pointer-events-none"
+                  title={example.name}
+                  loading="lazy"
+                />
 
                 {/* Hover Overlay */}
-                <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center">
-                  <div className="px-3 py-1.5 bg-white text-black text-xs font-semibold rounded-full transform scale-90 group-hover:scale-100 transition-transform duration-200">
-                    View
+                <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center pointer-events-none">
+                  <div className="px-4 py-2 bg-white text-black text-sm font-semibold rounded-full transform scale-90 group-hover:scale-100 transition-transform duration-200">
+                    View Project
                   </div>
                 </div>
               </div>
 
               <div>
-                <h3 className="text-sm font-medium text-white/90 leading-tight truncate">{item.title}</h3>
-                <p className="text-xs text-[#8A8F98]">{item.category}</p>
+                <h3 className="text-base font-medium text-white/90 leading-tight truncate">{example.name}</h3>
               </div>
-            </div>
+            </a>
           ))}
         </div>
       </div>

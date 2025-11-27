@@ -41,7 +41,7 @@ import { useUser } from "@/hooks/useUser";
 import { sidebarOpenAtom } from "@/lib/atoms/sidebar";
 import { cn } from "@/lib/classNames";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
-import type { ChatServerMessage } from "@/lib/types/ChatTypes";
+import { type ChatServerMessage, ChatClientEvent } from "@/lib/types/ChatTypes";
 import {
   type APIResponse,
   type CreatePrototypeErrorResponse,
@@ -183,6 +183,7 @@ export default function InternalPrototypePage() {
     connect: connectClaudeCodeWS,
     disconnect: disconnectClaudeCodeWS,
     sendSyncFiles,
+    sendAssetsChanged,
   } = useClaudeCodeWebSocket({
     prototypeId,
     baseTunnelUrl,
@@ -199,12 +200,25 @@ export default function InternalPrototypePage() {
           assetNames,
         });
         sendSyncFiles(prototypeId, fileNames, assetNames);
+
+        if (assetNames.length > 0) {
+          const assetIds = assetNames
+            .map((name) => fileSystem.state.assets[name]?.id)
+            .filter(Boolean) as string[];
+          sendAssetsChanged(prototypeId, assetIds, [], assetNames);
+        }
       }
     },
-    [claudeCodeWSConnected, sendSyncFiles, prototypeId, logger],
+    [
+      claudeCodeWSConnected,
+      sendSyncFiles,
+      sendAssetsChanged,
+      prototypeId,
+      logger,
+      fileSystem.state.assets,
+    ],
   );
 
-  // Handler for when restart dev server completes
   const handleChatRestartDevServerComplete = useCallback(() => {
     logger.debug(
       "log",
@@ -212,6 +226,23 @@ export default function InternalPrototypePage() {
     );
     materializeRenderRef.current?.forceRefresh();
   }, [logger]);
+
+  const handleRefetchFiles = useCallback(() => {
+    if (!claudeCodeWS || !claudeCodeWSConnected || !prototypeId) {
+      logger.debug("log", "Cannot refetch files: WebSocket not connected or prototypeId missing");
+      return;
+    }
+
+    logger.debug("log", "Sending refetch files request");
+    claudeCodeWS.send(
+      JSON.stringify({
+        type: ChatClientEvent.REFETCH_FILES,
+        data: {
+          prototype_id: prototypeId,
+        },
+      }),
+    );
+  }, [claudeCodeWS, claudeCodeWSConnected, prototypeId, logger]);
 
   const canEditDesignSystem = Boolean(
     prototype && user && prototype.owner_id === user.id,
@@ -829,12 +860,29 @@ export default function InternalPrototypePage() {
     setIsDeleting(true);
 
     try {
+      const deletedAssetIds: string[] = [];
+      const deletedAssetNames: string[] = [];
       // Delete files using the new method that triggers rebuild
       for (const filePath of deleteTarget.filesToDelete) {
-        const result = await fileSystem.deleteFileWithBuild(filePath);
+        const isAssetPath = fileSystem.state.assets[filePath];
+        const result = isAssetPath
+          ? await fileSystem.deleteAssetWithBuild(filePath)
+          : await fileSystem.deleteFileWithBuild(filePath);
         if (result.success && result.viewingUrl) {
           setViewingUrl(result.viewingUrl);
         }
+        if (isAssetPath) {
+          if (result.deletedAssetIds && result.deletedAssetIds.length > 0) {
+            deletedAssetIds.push(...result.deletedAssetIds);
+          } else if (fileSystem.state.assets[filePath]?.id) {
+            deletedAssetIds.push(fileSystem.state.assets[filePath].id);
+          }
+          deletedAssetNames.push(filePath);
+        }
+      }
+
+      if (deletedAssetIds.length > 0 || deletedAssetNames.length > 0) {
+        sendAssetsChanged(prototypeId, [], deletedAssetIds, deletedAssetNames);
       }
 
       // Close dialog
@@ -848,29 +896,85 @@ export default function InternalPrototypePage() {
     } finally {
       setIsDeleting(false);
     }
-  }, [deleteTarget, prototypeId, logger, fileSystem]);
+  }, [
+    deleteTarget,
+    prototypeId,
+    logger,
+    fileSystem,
+    fileSystem.state.assets,
+    sendAssetsChanged,
+  ]);
 
   const handleFileUpload = useCallback(
     async (files: File[], targetPath?: string) => {
       if (!prototypeId) return;
 
       try {
-        const resolvedTargetPath = targetPath || "";
+        const assetExtensions = new Set([
+          "png",
+          "jpg",
+          "jpeg",
+          "gif",
+          "svg",
+          "webp",
+          "ico",
+          "ttf",
+          "otf",
+          "woff",
+          "woff2",
+          "md",
+          "txt",
+          "env",
+          "gitignore",
+          "npmrc",
+          "prettierrc",
+          "eslintrc",
+          "editorconfig",
+          "watchmanconfig",
+          "xml",
+        ]);
 
-        for (const file of files) {
-          // Build the full file path
+        const resolvedTargetPath = targetPath || "";
+        const uploads = files.map((file) => {
           const fileName = file.name;
           const fullPath = resolvedTargetPath
             ? `${resolvedTargetPath}/${fileName}`
             : fileName;
+          const ext = fileName.split(".").pop()?.toLowerCase() || "";
+          const kind = assetExtensions.has(ext) ? "asset" : "code";
+          return { file, path: fullPath, kind };
+        });
 
-          // Read file contents
-          const fileContents = await file.text();
-
-          // Create the file with rebuild triggered
-          const result = await fileSystem.createFileWithBuild(fullPath, fileContents);
+        // Upload code files
+        for (const upload of uploads.filter((u) => u.kind === "code")) {
+          const fileContents = await upload.file.text();
+          const result = await fileSystem.createFileWithBuild(
+            upload.path,
+            fileContents,
+          );
           if (result.success && result.viewingUrl) {
             setViewingUrl(result.viewingUrl);
+          }
+        }
+
+        // Upload assets in a single call
+        const assetUploads = uploads
+          .filter((u) => u.kind === "asset")
+          .map((u) => ({ file: u.file, path: u.path }));
+
+        if (assetUploads.length > 0) {
+          const result = await fileSystem.uploadAssetsWithBuild(assetUploads);
+          if (result.success) {
+            const assetIds =
+              result.assetIds && result.assetIds.length > 0
+                ? result.assetIds
+                : assetUploads
+                  .map((a) => fileSystem.state.assets[a.path]?.id)
+                  .filter(Boolean) as string[];
+            sendAssetsChanged(prototypeId, assetIds, [], assetUploads.map((a) => a.path));
+            if (result.viewingUrl) {
+              setViewingUrl(result.viewingUrl);
+            }
           }
         }
 
@@ -885,7 +989,7 @@ export default function InternalPrototypePage() {
         });
       }
     },
-    [prototypeId, fileSystem, logger],
+    [prototypeId, fileSystem, logger, sendAssetsChanged],
   );
 
   if (
@@ -1044,6 +1148,7 @@ export default function InternalPrototypePage() {
               onShare={handleShare}
               onClone={handleClone}
               isCloningPrototype={isCloningPrototype}
+              onRefetchFiles={handleRefetchFiles}
               codeView={
                 <div className={`flex h-full ${isMobile ? "flex-col" : ""}`}>
                   {isMobile ? (
@@ -1116,6 +1221,9 @@ export default function InternalPrototypePage() {
                               onViewingUrlUpdate={setViewingUrl}
                               currentRenderStatus={currentRenderStatus}
                               onFilesSaved={handleFilesSaved}
+                              onAssetsChanged={(assetIds = [], deletedAssetIds = [], names = []) =>
+                                sendAssetsChanged(prototypeId, assetIds, deletedAssetIds, names)
+                              }
                             />
                           </div>
                         )}
@@ -1152,6 +1260,9 @@ export default function InternalPrototypePage() {
                           onViewingUrlUpdate={setViewingUrl}
                           currentRenderStatus={currentRenderStatus}
                           onFilesSaved={handleFilesSaved}
+                          onAssetsChanged={(assetIds = [], deletedAssetIds = [], names = []) =>
+                            sendAssetsChanged(prototypeId, assetIds, deletedAssetIds, names)
+                          }
                         />
                       </div>
                     </>

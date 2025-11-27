@@ -7,6 +7,8 @@ import { useCallback, useEffect, useState } from "react";
 
 type PrototypeFile = Database["public"]["Tables"]["prototype_files"]["Row"];
 type PrototypeAsset = Database["public"]["Tables"]["prototype_assets"]["Row"];
+type PrototypeAssetInsert =
+  Database["public"]["Tables"]["prototype_assets"]["Insert"];
 
 export interface AssetWithSignedUrl
   extends Omit<PrototypeAsset, "storage_url"> {
@@ -47,6 +49,14 @@ export interface FileSystemActions {
   // File management operations with rebuild (calls /files/update-files)
   createFileWithBuild: (fileName: string, initialContent?: string) => Promise<{ success: boolean; viewingUrl?: string }>;
   deleteFileWithBuild: (fileName: string) => Promise<{ success: boolean; viewingUrl?: string }>;
+
+  // Asset management operations with rebuild
+  uploadAssetsWithBuild: (
+    assets: { path: string; file: File }[],
+  ) => Promise<{ success: boolean; viewingUrl?: string; assetIds?: string[] }>;
+  deleteAssetWithBuild: (
+    assetPath: string,
+  ) => Promise<{ success: boolean; viewingUrl?: string; deletedAssetIds?: string[] }>;
 }
 
 export interface UseFileSystemReturn extends FileSystemActions {
@@ -63,6 +73,18 @@ export const useFileSystem = (
   const [assets, setAssets] = useState<Record<string, AssetWithSignedUrl>>({});
   const [selectedFile, setSelectedFile] = useState<string>(defaultFile);
   const [isLoading, setIsLoading] = useState(false);
+  const SUPABASE_PROTOTYPE_ASSETS_BUCKET = "prototype-assets";
+
+  const fileToBase64 = useCallback(async (file: File): Promise<string> => {
+    const buffer = await file.arrayBuffer();
+    let binary = "";
+    const bytes = new Uint8Array(buffer);
+    const chunkSize = 0x8000;
+    for (let i = 0; i < bytes.length; i += chunkSize) {
+      binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+    }
+    return btoa(binary);
+  }, []);
 
   // Load files from database
   const loadFilesFromDatabase = useCallback(
@@ -885,6 +907,257 @@ export const useFileSystem = (
     [prototypeId, files, selectedFile, logger, userPlan],
   );
 
+  const uploadAssetsWithBuild = useCallback(
+    async (
+      assetsToUpload: { path: string; file: File }[],
+    ): Promise<{ success: boolean; viewingUrl?: string }> => {
+      if (!prototypeId) {
+        logger.debug("error", "Upload assets failed: no prototype ID");
+        return { success: false };
+      }
+
+      if (assetsToUpload.length === 0) {
+        return { success: true };
+      }
+
+      try {
+        // Upload to Supabase storage first
+        const uploadResults: PrototypeAssetInsert[] = [];
+        for (const asset of assetsToUpload) {
+          const storagePath = `${prototypeId}/${asset.path}`;
+          const { error: uploadError } = await supabase.storage
+            .from(SUPABASE_PROTOTYPE_ASSETS_BUCKET)
+            .upload(storagePath, asset.file, {
+              upsert: true,
+              contentType: asset.file.type || undefined,
+            });
+
+          if (uploadError) {
+            logger.debug("error", "Failed to upload asset to storage", {
+              assetPath: asset.path,
+              error: uploadError.message,
+            });
+            continue;
+          }
+
+          uploadResults.push({
+            prototype_id: prototypeId,
+            name: asset.path,
+            storage_url: storagePath,
+            updated_at: new Date().toISOString(),
+          });
+        }
+
+        if (uploadResults.length === 0) {
+          return { success: false };
+        }
+
+        // Upsert metadata into prototype_assets table
+        const { data: upsertedAssets, error: dbError } = await supabase
+          .from("prototype_assets")
+          .upsert(uploadResults, {
+            onConflict: "prototype_id,name",
+          })
+          .select();
+
+        if (dbError) {
+          logger.debug("error", "Failed to upsert prototype_assets metadata", {
+            error: dbError.message,
+          });
+          return { success: false };
+        }
+
+        // Prepare payload for dev server (with base64 contents)
+        const successfulAssetNames = new Set(
+          uploadResults.map((asset) => asset.name),
+        );
+        const assetsPayload: Array<
+          PrototypeAssetInsert & { contents: string }
+        > = [];
+        for (const asset of assetsToUpload) {
+          if (!successfulAssetNames.has(asset.path)) continue;
+          const base64 = await fileToBase64(asset.file);
+          assetsPayload.push({
+            prototype_id: prototypeId,
+            name: asset.path,
+            storage_url: `${prototypeId}/${asset.path}`,
+            contents: base64,
+            updated_at: new Date().toISOString(),
+          });
+        }
+
+        // Refresh signed URLs for uploaded assets
+        if (upsertedAssets && upsertedAssets.length > 0) {
+          const signedUrls = await getBulkAssetSignedUrls(
+            prototypeId,
+            upsertedAssets.map((a) => a.name),
+          );
+          setAssets((prev) => {
+            const next = { ...prev };
+            upsertedAssets.forEach((asset) => {
+              next[asset.name] = {
+                ...asset,
+                storage_url: signedUrls[asset.name],
+              };
+            });
+            return next;
+          });
+        }
+
+        // Send to dev server
+        const session = await supabase.auth.getSession();
+        const token = session.data.session?.access_token;
+        if (!token) {
+          logger.debug("error", "No authentication token available");
+          return { success: true };
+        }
+
+        const response = await fetch(
+          `${process.env.NEXT_PUBLIC_SERVER_ENDPOINT}/files/update-files`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              files: [],
+              assets: assetsPayload,
+              prototype_id: prototypeId,
+            }),
+          },
+        );
+
+        if (!response.ok) {
+          logger.debug("error", "Failed to trigger dev server update for assets");
+          return { success: true };
+        }
+
+        const result = await response.json();
+        return {
+          success: true,
+          viewingUrl: result.data?.viewing_url,
+          assetIds: upsertedAssets?.map((a) => a.id) || [],
+        };
+      } catch (error) {
+        logger.debug("error", "Error uploading assets with build", {
+          error: error instanceof Error ? error.message : String(error),
+          stack: error instanceof Error ? error.stack : undefined,
+        });
+        return { success: false };
+      }
+    },
+    [prototypeId, logger, fileToBase64, SUPABASE_PROTOTYPE_ASSETS_BUCKET],
+  );
+
+  const deleteAssetWithBuild = useCallback(
+    async (assetPath: string): Promise<{ success: boolean; viewingUrl?: string }> => {
+      if (!prototypeId) {
+        logger.debug("error", "Delete asset failed: no prototype ID");
+        return { success: false };
+      }
+
+      try {
+        // Remove from storage
+        const { error: storageError } = await supabase.storage
+          .from(SUPABASE_PROTOTYPE_ASSETS_BUCKET)
+          .remove([`${prototypeId}/${assetPath}`]);
+
+        if (storageError) {
+          logger.debug("error", "Failed to delete asset from storage", {
+            assetPath,
+            error: storageError.message,
+          });
+        }
+
+        // Delete from database
+        const { data: deletedRecords, error: dbError } = await supabase
+          .from("prototype_assets")
+          .delete()
+          .eq("prototype_id", prototypeId)
+          .eq("name", assetPath)
+          .select();
+
+        if (dbError) {
+          logger.debug("error", "Failed to delete asset from database", {
+            assetPath,
+            error: dbError.message,
+          });
+          return { success: false };
+        }
+
+        setAssets((prevAssets) => {
+          const next = { ...prevAssets };
+          delete next[assetPath];
+          return next;
+        });
+
+        if (selectedFile === assetPath) {
+          // Fallback to a file if current selection was removed
+          const remainingFiles = Object.keys(files);
+          const remainingAssets = Object.keys(assets).filter(
+            (asset) => asset !== assetPath,
+          );
+          const nextSelection =
+            remainingFiles[0] || remainingAssets[0] || defaultFile;
+          setSelectedFile(nextSelection);
+        }
+
+        // Notify dev server about deletion
+        const session = await supabase.auth.getSession();
+        const token = session.data.session?.access_token;
+        if (!token) {
+          logger.debug("error", "No authentication token available");
+          return { success: true };
+        }
+
+        const response = await fetch(
+          `${process.env.NEXT_PUBLIC_SERVER_ENDPOINT}/files/update-files`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              files: [],
+              assets: [],
+              prototype_id: prototypeId,
+              deleted_files: [assetPath],
+            }),
+          },
+        );
+
+        if (!response.ok) {
+          logger.debug("error", "Failed to trigger dev server update after asset deletion");
+          return { success: true };
+        }
+
+        const result = await response.json();
+        return {
+          success: true,
+          viewingUrl: result.data?.viewing_url,
+          deletedAssetIds: deletedRecords?.map((a) => a.id) || [],
+        };
+      } catch (error) {
+        logger.debug("error", `Error deleting asset ${assetPath}:`, {
+          error: error instanceof Error ? error.message : String(error),
+          stack: error instanceof Error ? error.stack : undefined,
+        });
+        return { success: false };
+      }
+    },
+    [
+      prototypeId,
+      logger,
+      SUPABASE_PROTOTYPE_ASSETS_BUCKET,
+      selectedFile,
+      files,
+      assets,
+      defaultFile,
+    ],
+  );
+
   const state: FileSystemState = {
     files,
     assets,
@@ -904,6 +1177,8 @@ export const useFileSystem = (
     deleteFile,
     createFileWithBuild,
     deleteFileWithBuild,
+    uploadAssetsWithBuild,
+    deleteAssetWithBuild,
   };
 
   return {

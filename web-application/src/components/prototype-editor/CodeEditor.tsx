@@ -78,6 +78,11 @@ interface CodeEditorProps {
   saveMode?: "single-file" | "all-files";
   currentRenderStatus?: RenderStatus;
   onFilesSaved?: (fileNames: string[], assetNames?: string[]) => void;
+  onAssetsChanged?: (
+    assetIds?: string[],
+    deletedAssetIds?: string[],
+    names?: string[],
+  ) => void;
 }
 
 const ROOT_FOLDER_VALUE = "__ROOT__";
@@ -128,6 +133,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
   saveMode = "single-file",
   currentRenderStatus,
   onFilesSaved,
+  onAssetsChanged,
 }) => {
   const logger = useProductLogger();
   const router = useRouter();
@@ -312,11 +318,10 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
   );
 
   const uploadConflicts = useMemo(() => {
-    if (!uploadFiles.length) return [] as string[];
-    return uploadFiles
-      .map((file) => buildUploadPath(file.name))
-      .filter((path) => Boolean(fileSystem.state.files[path]));
-  }, [uploadFiles, fileSystem.state.files, buildUploadPath]);
+    return Array.from(fileValidation.entries())
+      .filter(([, validation]) => validation.status === "conflict")
+      .map(([path]) => path);
+  }, [fileValidation]);
 
   const uploadSummary = useMemo(() => {
     const total = fileValidation.size;
@@ -630,6 +635,14 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
     return pathParts.some(part => BLOCKED_FOLDERS.has(part));
   };
 
+  const getUploadKindForPath = (path: string): "code" | "asset" => {
+    const ext = path.split(".").pop()?.toLowerCase() || "";
+    if (ENABLE_ASSET_UPLOAD && ALLOWED_ASSET_EXTENSIONS.has(ext)) {
+      return "asset";
+    }
+    return "code";
+  };
+
   const getFileSizeLimit = (fileName: string): number => {
     // Lock files get higher limit
     if (fileName.endsWith(".lock") || fileName === "package-lock.json" || fileName === "yarn.lock") {
@@ -659,7 +672,8 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
     // Check file extension
     const ext = file.name.split(".").pop()?.toLowerCase() || "";
     const isCodeFile = ALLOWED_UPLOAD_EXTENSIONS.has(ext);
-    const isAssetFile = ENABLE_ASSET_UPLOAD && ALLOWED_ASSET_EXTENSIONS.has(ext);
+    const isAssetFile =
+      ENABLE_ASSET_UPLOAD && ALLOWED_ASSET_EXTENSIONS.has(ext);
 
     if (!isCodeFile && !isAssetFile) {
       return {
@@ -679,8 +693,11 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
     }
 
     // Check conflicts
-    if (fileSystem.state.files[targetPath]) {
-      return { status: "conflict", reason: "File already exists" };
+    if (
+      fileSystem.state.files[targetPath] ||
+      fileSystem.state.assets[targetPath]
+    ) {
+      return { status: "conflict", reason: "Path already exists" };
     }
 
     return { status: "ready" };
@@ -801,7 +818,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
 
     // Build a mapping of files to their target paths (calculated during selection)
     // We need to recalculate using the original upload context, not current uploadAsProjectRoot state
-    const filePathMap = new Map<File, string>();
+    const filePathMap = new Map<File, { path: string; kind: "code" | "asset" }>();
 
     uploadFiles.forEach((file) => {
       let targetPath: string;
@@ -822,14 +839,15 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
 
       // Only include files that were actually selected
       if (selectedFiles.has(targetPath)) {
-        filePathMap.set(file, targetPath);
+        filePathMap.set(file, { path: targetPath, kind: getUploadKindForPath(targetPath) });
       }
     });
 
-    const filesToUpload = Array.from(filePathMap.keys());
+    const uploads = Array.from(filePathMap.entries());
+    const totalUploads = uploads.length;
 
     setIsUploading(true);
-    setUploadProgress({ current: 0, total: filesToUpload.length });
+    setUploadProgress({ current: 0, total: totalUploads });
 
     try {
       // Delete all files if in project root mode OR replace-all mode
@@ -837,26 +855,61 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
         for (const filePath of Object.keys(fileSystem.state.files)) {
           await fileSystem.deleteFile(filePath);
         }
+        for (const assetPath of Object.keys(fileSystem.state.assets)) {
+          await fileSystem.deleteAssetWithBuild(assetPath);
+        }
       }
 
-      for (let i = 0; i < filesToUpload.length; i++) {
-        const file = filesToUpload[i];
-        setUploadProgress({ current: i + 1, total: filesToUpload.length });
+      let completed = 0;
+      const incrementProgress = (count: number = 1) => {
+        completed += count;
+        setUploadProgress({
+          current: Math.min(completed, totalUploads),
+          total: totalUploads,
+        });
+      };
 
-        // Use the pre-calculated path from the map
-        const newFilePath = filePathMap.get(file);
-        if (!newFilePath) continue; // Skip if path wasn't calculated (shouldn't happen)
+      // Upload code files first
+      for (const [file, info] of uploads) {
+        if (info.kind !== "code") continue;
 
-        if (uploadMode === "replace" && fileSystem.state.files[newFilePath]) {
-          await fileSystem.deleteFile(newFilePath);
+        if (
+          uploadMode === "replace" &&
+          (fileSystem.state.files[info.path] ||
+            fileSystem.state.assets[info.path])
+        ) {
+          if (fileSystem.state.assets[info.path]) {
+            await fileSystem.deleteAssetWithBuild(info.path);
+          } else {
+            await fileSystem.deleteFile(info.path);
+          }
         }
 
         const fileContents = await file.text();
-        const result = await fileSystem.createFileWithBuild(newFilePath, fileContents);
+        const result = await fileSystem.createFileWithBuild(
+          info.path,
+          fileContents,
+        );
+        incrementProgress();
         if (result.success && result.viewingUrl) {
           onViewingUrlUpdate?.(result.viewingUrl);
         }
       }
+
+      // Upload assets
+      const assetUploads = uploads
+        .filter(([, info]) => info.kind === "asset")
+        .map(([file, info]) => ({ file, path: info.path }));
+
+      if (assetUploads.length > 0) {
+        const result = await fileSystem.uploadAssetsWithBuild(assetUploads);
+        incrementProgress(assetUploads.length);
+        if (result.success && result.viewingUrl) {
+          onViewingUrlUpdate?.(result.viewingUrl);
+        }
+        onFilesSaved?.([], assetUploads.map((asset) => asset.path));
+      }
+
       setShowUploadModal(false);
       handleUploadModalClose();
     } catch (error) {
@@ -954,9 +1007,21 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
     onBuildingStateChange?.(true);
 
     try {
-      const result = await fileSystem.deleteFileWithBuild(fileName);
+      const wasAsset = isAsset(fileName);
+      const result = wasAsset
+        ? await fileSystem.deleteAssetWithBuild(fileName)
+        : await fileSystem.deleteFileWithBuild(fileName);
       if (result.success && result.viewingUrl) {
         onViewingUrlUpdate?.(result.viewingUrl);
+      }
+      if (wasAsset && result.success) {
+        const deletedIds =
+          result.deletedAssetIds && result.deletedAssetIds.length > 0
+            ? result.deletedAssetIds
+            : fileSystem.state.assets[fileName]?.id
+              ? [fileSystem.state.assets[fileName].id]
+              : [];
+        onAssetsChanged?.([], deletedIds, [fileName]);
       }
     } catch (error) {
       logger.debug("error", "Error deleting file");

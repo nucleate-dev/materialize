@@ -168,6 +168,8 @@ interface MaterializeRenderSectionProps {
   isCloningPrototype?: boolean;
   // Public view mode - hides preview/code switch, status badge, and terminal
   publicView?: boolean;
+  // Refetch files action
+  onRefetchFiles?: () => void;
 }
 
 export interface MaterializeRenderSectionRef {
@@ -202,7 +204,9 @@ const MaterializeRenderSection = forwardRef<
       onShare,
       onClone,
       isCloningPrototype = false,
+
       publicView = false,
+      onRefetchFiles,
     },
     ref,
   ) => {
@@ -1500,6 +1504,15 @@ const MaterializeRenderSection = forwardRef<
                           ? "Restarting..."
                           : "Restart Dev Server"}
                       </DropdownMenuItem>
+                      {onRefetchFiles && (
+                        <DropdownMenuItem
+                          onClick={onRefetchFiles}
+                          className="focus:bg-accent/80 focus:text-foreground text-muted-foreground text-sm cursor-pointer"
+                        >
+                          <RefreshCw className="w-4 h-4 mr-2 opacity-70" />
+                          Refetch Files
+                        </DropdownMenuItem>
+                      )}
                     </>
                   )}
                   {onResetToDefault && (
