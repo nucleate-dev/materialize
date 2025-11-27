@@ -1,5 +1,5 @@
-import { StyleSheet, Text, View } from 'react-native';
-import { useTheme, Theme } from '@/theme';
+import { StyleSheet, View } from 'react-native';
+import { useTheme, Theme, StyledText } from '@/theme';
 
 export default function HomeScreen() {
   const theme = useTheme();
@@ -7,19 +7,19 @@ export default function HomeScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>
+      <StyledText variant="h1" style={styles.title}>
         Welcome to Materialize!
-      </Text>
+      </StyledText>
 
       <View style={styles.separator} />
 
-      <Text style={styles.paragraph}>
+      <StyledText variant="bodyLarge" style={styles.paragraph}>
         This is your main screen. You can start building your app here with beautiful components.
-      </Text>
+      </StyledText>
 
-      <Text style={styles.subtext}>
+      <StyledText variant="caption" color="textSecondary" style={styles.subtext}>
         The app automatically supports dark and light mode with theme support.
-      </Text>
+      </StyledText>
     </View>
   );
 }
@@ -34,10 +34,7 @@ const createStyles = (theme: Theme) => StyleSheet.create({
     backgroundColor: theme.colors.background,
   },
   title: {
-    fontSize: theme.typography.sizes.xxl,
-    fontWeight: theme.typography.weights.bold,
     textAlign: 'center',
-    color: theme.colors.text,
   },
   separator: {
     width: '80%',
@@ -45,16 +42,12 @@ const createStyles = (theme: Theme) => StyleSheet.create({
     borderBottomColor: theme.colors.border,
   },
   paragraph: {
-    fontSize: theme.typography.sizes.lg,
     textAlign: 'center',
     maxWidth: 300,
-    color: theme.colors.text,
   },
   subtext: {
-    fontSize: theme.typography.sizes.sm,
     textAlign: 'center',
     opacity: 0.8,
-    color: theme.colors.textSecondary,
   },
   button: {
     paddingVertical: theme.spacing.sm + 4,
