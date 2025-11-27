@@ -17,7 +17,7 @@ function CheckoutSuccessContent() {
   const queryClient = useQueryClient();
 
   const [isTracking, setIsTracking] = useState(true);
-  const [redirectCountdown, setRedirectCountdown] = useState(3);
+  const [hasRedirected, setHasRedirected] = useState(false);
 
   useEffect(() => {
     const sessionId = searchParams.get('session_id');
@@ -68,23 +68,14 @@ function CheckoutSuccessContent() {
     trackPurchase();
   }, [searchParams, trackEvent, logger, router, queryClient]);
 
-  // Countdown and redirect
+  // Redirect once tracking / validation is done
   useEffect(() => {
-    if (isTracking) return;
-
-    const interval = setInterval(() => {
-      setRedirectCountdown((prev) => {
-        if (prev <= 1) {
-          clearInterval(interval);
-          router.push('/dashboard/account');
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [isTracking, router]);
+    if (isTracking || hasRedirected) {
+      return;
+    }
+    setHasRedirected(true);
+    router.replace('/dashboard/account');
+  }, [isTracking, hasRedirected, router]);
 
   return (
     <div className="relative min-h-screen text-gray-900 dark:text-white font-sans flex items-center justify-center">
@@ -125,17 +116,16 @@ function CheckoutSuccessContent() {
               </div>
             )}
 
-            {/* Redirect CTA */}
             {!isTracking && (
               <div className="space-y-3 pt-4">
                 <Button
-                  onClick={() => router.push('/dashboard/account')}
+                  onClick={() => router.replace('/dashboard/account')}
                   className="w-full bg-black dark:bg-white text-white dark:text-black hover:bg-black/90 dark:hover:bg-white/90 h-11"
                 >
-                  Go to Account Settings
+                  Continue to Account Settings
                 </Button>
                 <p className="text-center text-xs text-gray-600 dark:text-[#8A8F98]">
-                  Redirecting in {redirectCountdown} seconds...
+                  Redirecting you to your account...
                 </p>
               </div>
             )}
