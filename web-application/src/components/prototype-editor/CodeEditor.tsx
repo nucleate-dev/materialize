@@ -214,6 +214,58 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
   const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set());
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
 
+  // --- Helper Functions (defined before useMemo) ---
+
+  // Build nested folder structure for display
+  type FileNode = {
+    name: string;
+    path: string;
+    isFolder: boolean;
+    children: FileNode[];
+    validation?: { status: FileValidationStatus; reason?: string; size: number; };
+  };
+
+  const getAllFilesInNode = (node: FileNode): string[] => {
+    if (!node.isFolder) {
+      return [node.path];
+    }
+    return node.children.flatMap(child => getAllFilesInNode(child));
+  };
+
+  const buildFileTree = (filePaths: string[], validationMap: Map<string, { status: FileValidationStatus; reason?: string; size: number; }>): FileNode[] => {
+    const root: FileNode[] = [];
+
+    filePaths.forEach(filePath => {
+      const parts = filePath.split("/");
+      let currentLevel = root;
+
+      parts.forEach((part, index) => {
+        const isLastPart = index === parts.length - 1;
+        const currentPath = parts.slice(0, index + 1).join("/");
+
+        let existingNode = currentLevel.find(node => node.name === part);
+
+        if (!existingNode) {
+          const newNode: FileNode = {
+            name: part,
+            path: currentPath,
+            isFolder: !isLastPart,
+            children: [],
+            validation: isLastPart ? validationMap.get(filePath) : undefined,
+          };
+          currentLevel.push(newNode);
+          existingNode = newNode;
+        }
+
+        if (!isLastPart) {
+          currentLevel = existingNode.children;
+        }
+      });
+    });
+
+    return root;
+  };
+
   // --- Computed ---
   const directoryOptions = useMemo(() => {
     const directories = new Set<string>([ROOT_FOLDER_VALUE]);
@@ -436,49 +488,6 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
     return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
   };
 
-  // Build nested folder structure for display
-  type FileNode = {
-    name: string;
-    path: string;
-    isFolder: boolean;
-    children: FileNode[];
-    validation?: { status: FileValidationStatus; reason?: string; size: number; };
-  };
-
-  const buildFileTree = (filePaths: string[], validationMap: Map<string, { status: FileValidationStatus; reason?: string; size: number; }>): FileNode[] => {
-    const root: FileNode[] = [];
-
-    filePaths.forEach(filePath => {
-      const parts = filePath.split("/");
-      let currentLevel = root;
-
-      parts.forEach((part, index) => {
-        const isLastPart = index === parts.length - 1;
-        const currentPath = parts.slice(0, index + 1).join("/");
-
-        let existingNode = currentLevel.find(node => node.name === part);
-
-        if (!existingNode) {
-          const newNode: FileNode = {
-            name: part,
-            path: currentPath,
-            isFolder: !isLastPart,
-            children: [],
-            validation: isLastPart ? validationMap.get(filePath) : undefined,
-          };
-          currentLevel.push(newNode);
-          existingNode = newNode;
-        }
-
-        if (!isLastPart) {
-          currentLevel = existingNode.children;
-        }
-      });
-    });
-
-    return root;
-  };
-
   const getStatusBadge = (status: FileValidationStatus) => {
     switch (status) {
       case "ready":
@@ -604,13 +613,6 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
         </div>
       );
     }
-  };
-
-  const getAllFilesInNode = (node: FileNode): string[] => {
-    if (!node.isFolder) {
-      return [node.path];
-    }
-    return node.children.flatMap(child => getAllFilesInNode(child));
   };
 
   const handleUploadFolderChange = (value: string) => {
