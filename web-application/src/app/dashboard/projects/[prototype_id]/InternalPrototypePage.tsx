@@ -865,24 +865,30 @@ export default function InternalPrototypePage() {
     setIsDeleting(true);
 
     try {
+      const filesToDelete: string[] = [];
+      const assetsToDelete: string[] = [];
       const deletedAssetIds: string[] = [];
       const deletedAssetNames: string[] = [];
-      // Delete files using the new method that triggers rebuild
+
+      // Categorize files to delete
       for (const filePath of deleteTarget.filesToDelete) {
         const isAssetPath = fileSystem.state.assets[filePath];
-        const result = isAssetPath
-          ? await fileSystem.deleteAssetWithBuild(filePath)
-          : await fileSystem.deleteFileWithBuild(filePath);
-        if (result.success && result.viewingUrl) {
-          setViewingUrl(result.viewingUrl);
-        }
         if (isAssetPath) {
+          assetsToDelete.push(filePath);
           if (fileSystem.state.assets[filePath]?.id) {
             deletedAssetIds.push(fileSystem.state.assets[filePath].id);
           }
           deletedAssetNames.push(filePath);
+        } else {
+          filesToDelete.push(filePath);
         }
       }
+
+      // Make ONE unified call to delete everything
+      await fileSystem.syncFilesAndAssets({
+        filesToDelete,
+        assetsToDelete,
+      });
 
       if (deletedAssetIds.length > 0 || deletedAssetNames.length > 0) {
         sendAssetsChanged(prototypeId, [], deletedAssetIds, deletedAssetNames);
@@ -948,34 +954,34 @@ export default function InternalPrototypePage() {
           return { file, path: fullPath, kind };
         });
 
-        // Upload code files
+        // Collect code files to create
+        const filesToCreate: Array<{ name: string; content: string }> = [];
         for (const upload of uploads.filter((u) => u.kind === "code")) {
           const fileContents = await upload.file.text();
-          const result = await fileSystem.createFileWithBuild(
-            upload.path,
-            fileContents,
-          );
-          if (result.success && result.viewingUrl) {
-            setViewingUrl(result.viewingUrl);
-          }
+          filesToCreate.push({ name: upload.path, content: fileContents });
         }
 
-        // Upload assets in a single call
-        const assetUploads = uploads
+        // Collect assets to upload
+        const assetsToUpload = uploads
           .filter((u) => u.kind === "asset")
           .map((u) => ({ file: u.file, path: u.path }));
 
-        if (assetUploads.length > 0) {
-          const result = await fileSystem.uploadAssetsWithBuild(assetUploads);
-          if (result.success) {
-            const assetIds = assetUploads
-              .map((a) => fileSystem.state.assets[a.path]?.id)
-              .filter(Boolean) as string[];
-            sendAssetsChanged(prototypeId, assetIds, [], assetUploads.map((a) => a.path));
-            if (result.viewingUrl) {
-              setViewingUrl(result.viewingUrl);
-            }
-          }
+        // Make ONE unified call to sync everything
+        const result = await fileSystem.syncFilesAndAssets({
+          filesToCreate,
+          assetsToUpload,
+        });
+
+        if (result.success && assetsToUpload.length > 0) {
+          const assetIds = assetsToUpload
+            .map((a) => fileSystem.state.assets[a.path]?.id)
+            .filter(Boolean) as string[];
+          sendAssetsChanged(
+            prototypeId,
+            assetIds,
+            [],
+            assetsToUpload.map((a) => a.path),
+          );
         }
 
         logger.debug("log", "Files uploaded via drag and drop", {

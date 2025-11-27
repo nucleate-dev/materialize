@@ -850,66 +850,55 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
     setUploadProgress({ current: 0, total: totalUploads });
 
     try {
+      // Collect all files to delete
+      const filesToDelete: string[] = [];
+      const assetsToDelete: string[] = [];
+
       // Delete all files if in project root mode OR replace-all mode
       if (uploadAsProjectRoot || uploadMode === "replace-all") {
-        for (const filePath of Object.keys(fileSystem.state.files)) {
-          await fileSystem.deleteFile(filePath);
-        }
-        for (const assetPath of Object.keys(fileSystem.state.assets)) {
-          await fileSystem.deleteAssetWithBuild(assetPath);
-        }
-      }
-
-      let completed = 0;
-      const incrementProgress = (count: number = 1) => {
-        completed += count;
-        setUploadProgress({
-          current: Math.min(completed, totalUploads),
-          total: totalUploads,
-        });
-      };
-
-      // Upload code files first
-      for (const [file, info] of uploads) {
-        if (info.kind !== "code") continue;
-
-        if (
-          uploadMode === "replace" &&
-          (fileSystem.state.files[info.path] ||
-            fileSystem.state.assets[info.path])
-        ) {
-          if (fileSystem.state.assets[info.path]) {
-            await fileSystem.deleteAssetWithBuild(info.path);
-          } else {
-            await fileSystem.deleteFile(info.path);
+        filesToDelete.push(...Object.keys(fileSystem.state.files));
+        assetsToDelete.push(...Object.keys(fileSystem.state.assets));
+      } else if (uploadMode === "replace") {
+        // Delete individual files/assets that are being replaced
+        for (const [, info] of uploads) {
+          if (fileSystem.state.files[info.path]) {
+            filesToDelete.push(info.path);
+          } else if (fileSystem.state.assets[info.path]) {
+            assetsToDelete.push(info.path);
           }
         }
+      }
 
-        const fileContents = await file.text();
-        const result = await fileSystem.createFileWithBuild(
-          info.path,
-          fileContents,
-        );
-        incrementProgress();
-        if (result.success && result.viewingUrl) {
-          onViewingUrlUpdate?.(result.viewingUrl);
+      // Collect all code files to create
+      const filesToCreate: Array<{ name: string; content: string }> = [];
+      for (const [file, info] of uploads) {
+        if (info.kind === "code") {
+          const fileContents = await file.text();
+          filesToCreate.push({ name: info.path, content: fileContents });
         }
       }
 
-      // Upload assets
-      const assetUploads = uploads
+      // Collect all assets to upload
+      const assetsToUpload = uploads
         .filter(([, info]) => info.kind === "asset")
         .map(([file, info]) => ({ file, path: info.path }));
 
-      if (assetUploads.length > 0) {
-        const result = await fileSystem.uploadAssetsWithBuild(assetUploads);
-        incrementProgress(assetUploads.length);
-        if (result.success && result.viewingUrl) {
-          onViewingUrlUpdate?.(result.viewingUrl);
-        }
-        onFilesSaved?.([], assetUploads.map((asset) => asset.path));
+      // Make ONE unified call to sync everything
+      const result = await fileSystem.syncFilesAndAssets({
+        filesToCreate,
+        filesToDelete,
+        assetsToUpload,
+        assetsToDelete,
+      });
+
+      if (result.success) {
+        onFilesSaved?.(
+          filesToCreate.map((f) => f.name),
+          assetsToUpload.map((a) => a.path),
+        );
       }
 
+      setUploadProgress({ current: totalUploads, total: totalUploads });
       setShowUploadModal(false);
       handleUploadModalClose();
     } catch (error) {
@@ -967,30 +956,18 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
     onBuildingStateChange?.(true);
 
     try {
-      const session = await supabase.auth.getSession();
-      const token = session.data.session?.access_token;
-      if (!token) return;
+      const filesToUpdate = Object.entries(fileSystem.state.files).map(
+        ([name, file]) => ({
+          name,
+          content: file.contents,
+        }),
+      );
 
-      const filesArray = Object.entries(fileSystem.state.files).map(([path, file]) => ({
-        contents: file.contents,
-        name: path,
-        prototype_id: file.prototype_id || prototypeId,
-        id: file.id,
-        created_at: file.created_at || null,
-        updated_at: file.updated_at || null,
-      }));
-
-      const response = await fetch(`${process.env.NEXT_PUBLIC_SERVER_ENDPOINT}/files/update-files`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ files: filesArray, assets: [], prototype_id: prototypeId }),
+      const result = await fileSystem.syncFilesAndAssets({
+        filesToUpdate,
       });
 
-      if (!response.ok) throw new Error("Update failed");
-
-      const result = await response.json();
-      if (result.data) {
-        if (result.data.viewing_url) onViewingUrlUpdate?.(result.data.viewing_url);
+      if (result.success) {
         onFilesSaved?.(Object.keys(fileSystem.state.files), []);
       }
     } catch (error) {
@@ -1008,12 +985,11 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
 
     try {
       const wasAsset = isAsset(fileName);
-      const result = wasAsset
-        ? await fileSystem.deleteAssetWithBuild(fileName)
-        : await fileSystem.deleteFileWithBuild(fileName);
-      if (result.success && result.viewingUrl) {
-        onViewingUrlUpdate?.(result.viewingUrl);
-      }
+      const result = await fileSystem.syncFilesAndAssets({
+        filesToDelete: wasAsset ? [] : [fileName],
+        assetsToDelete: wasAsset ? [fileName] : [],
+      });
+
       if (wasAsset && result.success) {
         const deletedIds = fileSystem.state.assets[fileName]?.id
           ? [fileSystem.state.assets[fileName].id]
