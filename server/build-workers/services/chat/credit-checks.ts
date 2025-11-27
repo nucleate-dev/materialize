@@ -25,7 +25,7 @@ function getCurrentMonthPeriod(): { startOfMonth: Date; endOfMonth: Date } {
 /**
  * Fetch user's subscription plan
  */
-async function fetchUserPlan(
+export async function fetchUserPlan(
   supabase: SupabaseClient<Database>,
   userId: string,
   log2: SystemLogger,
