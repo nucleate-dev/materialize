@@ -21,7 +21,7 @@ import { SandboxService } from "../SandboxService.js";
 import { SupabaseClientService } from "../SupabaseClientService.js";
 import { TerminalService } from "../terminals/TerminalService.js";
 import { ChatQueryHandler } from "./chat-query-handler.js";
-import { processImage } from "./image-processing.js";
+import { MessagePersistenceService } from "./message-handlers.js";
 import { ToolPermissionService } from "./tool-permission-service.js";
 
 const CHAT_HEARTBEAT_INTERVAL_MS = 15000;
@@ -56,6 +56,7 @@ export class ChatService {
   private readonly sandboxService: SandboxService;
   private readonly expoDevServerService: ExpoDevServerService;
   private readonly terminalService: TerminalService;
+  private readonly messagePersistenceService: MessagePersistenceService;
   private readonly chatQueryHandler: ChatQueryHandler;
   private sessionState: CodeSessionState = {
     sessionId: null,
@@ -102,6 +103,12 @@ export class ChatService {
     );
     this.toolPermissionService = new ToolPermissionService(
       this.allowedRoot,
+      logger,
+    );
+
+    // Initialize MessagePersistenceService
+    this.messagePersistenceService = new MessagePersistenceService(
+      supabaseClientService.getClient(),
       logger,
     );
 
@@ -366,8 +373,33 @@ export class ChatService {
       },
       {
         sendMessage: this.sendMessage.bind(this),
-        persistMessage: this.persistMessage.bind(this),
-        uploadChatImages: this.uploadChatImages.bind(this),
+        persistMessage: async (
+          role: "user" | "assistant" | "system",
+          content: string,
+          messageType: "text" | "tool_use" | "tool_result" | "error" | "system",
+          eventType?: string | null,
+          eventData?: unknown,
+          creditsUsed?: number | null,
+          costFunction?: string | null,
+        ) => {
+          if (!this.sessionState.prototypeChatSessionId) {
+            this.logger.warn("Cannot persist message - no chat session ID");
+            return;
+          }
+          await this.messagePersistenceService.persistMessage(
+            this.sessionState.prototypeChatSessionId,
+            role,
+            content,
+            messageType,
+            eventType,
+            eventData,
+            creditsUsed,
+            costFunction,
+          );
+        },
+        uploadChatImages: this.messagePersistenceService.uploadChatImages.bind(
+          this.messagePersistenceService,
+        ),
         notifyOrchestrationStartChat:
           this.notifyOrchestrationStartChat.bind(this),
         notifyOrchestrationEndChat: this.notifyOrchestrationEndChat.bind(this),
@@ -488,15 +520,18 @@ export class ChatService {
         );
 
         // Persist interrupt event to database
-        await this.persistMessage(
-          "system",
-          "Query interrupted by user",
-          "system",
-          "query_interrupted",
-          {
-            sessionId: this.sessionState.sessionId,
-          },
-        );
+        if (this.sessionState.prototypeChatSessionId) {
+          await this.messagePersistenceService.persistMessage(
+            this.sessionState.prototypeChatSessionId,
+            "system",
+            "Query interrupted by user",
+            "system",
+            "query_interrupted",
+            {
+              sessionId: this.sessionState.sessionId,
+            },
+          );
+        }
 
         this.sendMessage(socket, {
           type: ChatEvent.INTERRUPTED,
@@ -731,209 +766,6 @@ export class ChatService {
         sessionIds,
       },
     );
-  }
-
-  /**
-   * Persists a message to the prototype_chat_messages table.
-   * Called for user messages, assistant messages, tool events, and system events.
-   */
-  private async persistMessage(
-    role: "user" | "assistant" | "system",
-    content: string,
-    messageType: "text" | "tool_use" | "tool_result" | "error" | "system",
-    eventType?: string | null,
-    eventData?: unknown,
-    creditsUsed?: number | null,
-    costFunction?: string | null,
-  ): Promise<void> {
-    if (!this.sessionState.prototypeChatSessionId) {
-      this.logger.warn("Cannot persist message - no chat session ID", {
-        role,
-        messageType,
-        eventType,
-      });
-      return;
-    }
-
-    try {
-      const { error } = await this.supabaseClientService
-        .getClient()
-        .from("prototype_chat_messages")
-        .insert({
-          chat_session_id: this.sessionState.prototypeChatSessionId,
-          role,
-          content,
-          message_type: messageType,
-          event_type: eventType || null,
-          event_data: eventData ? JSON.stringify(eventData) : null,
-          credits_used: creditsUsed ?? null,
-          cost_function: costFunction ?? null,
-        });
-
-      if (error) {
-        this.logger.error(error, "Failed to persist message", {
-          chatSessionId: this.sessionState.prototypeChatSessionId,
-          role,
-          messageType,
-          eventType,
-        });
-      } else {
-        this.logger.consoleLogDevOnly("debug", "Persisted message", {
-          chatSessionId: this.sessionState.prototypeChatSessionId,
-          role,
-          messageType,
-          eventType,
-          contentLength: content.length,
-          creditsUsed,
-          costFunction,
-        });
-      }
-    } catch (error) {
-      this.logger.error(
-        error instanceof Error ? error : new Error(String(error)),
-        "Error in persistMessage",
-        {
-          chatSessionId: this.sessionState.prototypeChatSessionId,
-          role,
-          messageType,
-        },
-      );
-    }
-  }
-
-  /**
-   * Uploads chat images to Supabase Storage and updates the user message with image metadata
-   * @param prototypeId - The prototype ID
-   * @param chatSessionId - The chat session ID
-   * @param images - Array of images with base64 data and media type
-   */
-  private async uploadChatImages(
-    prototypeId: string,
-    chatSessionId: string,
-    images: Array<{ base64: string; mediaType: string }>,
-  ): Promise<void> {
-    try {
-      this.logger.consoleLogDevOnly(
-        "info",
-        "Uploading chat images to storage",
-        {
-          prototypeId,
-          chatSessionId,
-          imageCount: images.length,
-        },
-      );
-
-      const uploadedImageMetadata: Array<{
-        storage_path: string;
-        media_type: string;
-        file_size: number;
-      }> = [];
-
-      // Process and upload each image
-      for (let i = 0; i < images.length; i++) {
-        const image = images[i];
-        try {
-          // Resize and optimize image
-          const processed = await processImage(image.base64, image.mediaType);
-
-          // Generate unique filename: timestamp_uuid.ext
-          const timestamp = Date.now();
-          const uuid = Math.random().toString(36).substring(2, 15);
-          const filename = `${timestamp}_${uuid}.${processed.extension}`;
-          const storagePath = `${prototypeId}/chat/${chatSessionId}/${filename}`;
-
-          // Upload to Supabase Storage
-          const { error: uploadError } = await this.supabaseClientService
-            .getClient()
-            .storage.from("prototype-assets")
-            .upload(storagePath, processed.buffer, {
-              contentType: processed.mediaType,
-              upsert: false,
-            });
-
-          if (uploadError) {
-            throw uploadError;
-          }
-
-          uploadedImageMetadata.push({
-            storage_path: storagePath,
-            media_type: processed.mediaType,
-            file_size: processed.buffer.length,
-          });
-
-          this.logger.consoleLogDevOnly("debug", "Uploaded chat image", {
-            storagePath,
-            mediaType: processed.mediaType,
-            fileSize: processed.buffer.length,
-          });
-        } catch (error) {
-          this.logger.error(
-            error instanceof Error ? error : new Error(String(error)),
-            `Failed to upload image ${i + 1}/${images.length}`,
-            { prototypeId, chatSessionId },
-          );
-          // Continue with other images even if one fails
-        }
-      }
-
-      // Update the user message in database with image metadata
-      if (uploadedImageMetadata.length > 0) {
-        // Find the most recent user message for this chat session
-        const { data: messages, error: fetchError } =
-          await this.supabaseClientService
-            .getClient()
-            .from("prototype_chat_messages")
-            .select("id")
-            .eq("chat_session_id", chatSessionId)
-            .eq("role", "user")
-            .order("created_at", { ascending: false })
-            .limit(1);
-
-        if (fetchError) {
-          throw fetchError;
-        }
-
-        if (messages && messages.length > 0) {
-          const messageId = messages[0].id;
-
-          // Update the message with image metadata
-          const { error: updateError } = await this.supabaseClientService
-            .getClient()
-            .from("prototype_chat_messages")
-            .update({
-              event_data: JSON.stringify({ images: uploadedImageMetadata }),
-            })
-            .eq("id", messageId);
-
-          if (updateError) {
-            throw updateError;
-          }
-
-          this.logger.consoleLogDevOnly(
-            "info",
-            "Updated user message with image metadata",
-            {
-              messageId,
-              imageCount: uploadedImageMetadata.length,
-            },
-          );
-        }
-      }
-
-      this.logger.consoleLogDevOnly("info", "Chat images upload completed", {
-        prototypeId,
-        chatSessionId,
-        successCount: uploadedImageMetadata.length,
-        totalCount: images.length,
-      });
-    } catch (error) {
-      this.logger.error(
-        error instanceof Error ? error : new Error(String(error)),
-        "Failed to upload chat images",
-        { prototypeId, chatSessionId },
-      );
-      // Don't throw - we don't want to fail the entire query if image upload fails
-    }
   }
 
   private isPathInsideAllowedRoot(resolvedPath: string): boolean {
