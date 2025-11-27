@@ -6,7 +6,7 @@ import {
 } from '../../utils/cloudflareTunnelManagementUtils.js';
 import type { Database } from '../../types/supabase.js';
 
-const MAX_IDLE_TUNNELS: number = 0;
+const MAX_IDLE_TUNNELS: number = 5;
 
 export type CloudflareTunnel =
   Database['public']['Tables']['cloudflare_tunnels']['Row'];
