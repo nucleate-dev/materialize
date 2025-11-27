@@ -50,7 +50,7 @@ import type {
   MutableRefObject,
   RefObject,
 } from "react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import type {
   Message,
@@ -182,14 +182,16 @@ export default function ClaudeCodePanelUI({
   creditsUsed,
   creditLimit,
 }: ClaudeCodePanelUIProps) {
-  const [showCreditLimitModal, setShowCreditLimitModal] = useState(hasReachedCreditLimit);
+  const [showCreditLimitModal, setShowCreditLimitModal] = useState(false);
+  const hasShownModalRef = useRef(false);
 
-  // Update modal state when credit limit changes
-  if (hasReachedCreditLimit && !showCreditLimitModal) {
-    setShowCreditLimitModal(true);
-  } else if (!hasReachedCreditLimit && showCreditLimitModal) {
-    setShowCreditLimitModal(false);
-  }
+  // Show modal when credit limit is reached, but only once per session
+  useEffect(() => {
+    if (hasReachedCreditLimit && !hasShownModalRef.current) {
+      setShowCreditLimitModal(true);
+      hasShownModalRef.current = true;
+    }
+  }, [hasReachedCreditLimit]);
 
   return (
     <div
