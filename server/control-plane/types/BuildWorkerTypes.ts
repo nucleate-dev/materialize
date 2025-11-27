@@ -5,7 +5,7 @@
 // To update these types, modify the source file and run:
 // npm run sync-build-worker-types
 //
-// Last synced: 2025-11-27T21:07:20.198Z
+// Last synced: 2025-11-27T21:55:26.038Z
 
 import { Database } from "./supabase.js";
 
@@ -128,6 +128,18 @@ export interface PublicUpdateFilesRequest {
   files: PrototypeFileInput[];
   assets: PrototypeAssetInputWithContent[];
   deleted_files?: string[];
+}
+
+export interface PublicUpdateFilesV2Request {
+  prototype_id: string;
+  file_names: string[];
+  asset_names: string[];
+  deleted_file_names?: string[];
+  deleted_asset_names?: string[];
+}
+
+export interface PublicUpdateFilesV2SuccessResponse {
+  dev_server_restarted: boolean;
 }
 
 export interface PublicDevServerStartSuccessResponse {
