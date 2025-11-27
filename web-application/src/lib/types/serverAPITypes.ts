@@ -5,7 +5,7 @@
 // To update these types, modify the source file and run:
 // npm run build (in the control-plane directory)
 //
-// Last synced: 2025-11-26T19:25:46.716Z
+// Last synced: 2025-11-27T21:07:20.159Z
 
 // Public API types for the Control Plane Server
 // These types define the request and response schemas for all public endpoints
@@ -134,7 +134,14 @@ export type CacheClearResponse =
 // ============================================================================
 
 export interface CheckoutRequestBody {
-  productID: 'free' | 'plus' | 'pro' | 'max' | 'credit_pack_100' | 'credit_pack_500' | 'credit_pack_1000';
+  productID:
+    | 'free'
+    | 'plus'
+    | 'pro'
+    | 'max'
+    | 'credit_pack_100'
+    | 'credit_pack_500'
+    | 'credit_pack_1000';
 }
 
 export interface CheckoutSuccessResponse {

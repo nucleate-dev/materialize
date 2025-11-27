@@ -497,6 +497,7 @@ export class InternalCleanupServiceManagement {
       const trimmedPrototypeId = prototype_id.trim();
 
       log.consoleLogDevOnly(
+        'info',
         'Force cleaning build for prototype with retry logic via internal tools',
         {
           prototype_id: trimmedPrototypeId,
