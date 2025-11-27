@@ -9,6 +9,7 @@ import MaterializeRenderSection, {
   MaterializeRenderSectionRef,
 } from "@/components/prototype-editor/MaterializeRenderSection";
 import ProPlanUpsellModal from "@/components/prototype-editor/ProPlanUpsellModal";
+import { useCreditUsage } from "@/hooks/useCreditUsage";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -104,6 +105,9 @@ export default function InternalPrototypePage() {
   const logger = useProductLogger();
   const setSidebarOpen = useSetAtom(sidebarOpenAtom);
 
+  // Track credit usage for paywall
+  const creditUsage = useCreditUsage(userPlan);
+
   const [shouldTriggerInitialFetch, setShouldTriggerInitialFetch] =
     useState(true);
   const [isPreviewView, setIsPreviewView] = useState(true);
@@ -113,6 +117,7 @@ export default function InternalPrototypePage() {
   const [isCopying, setIsCopying] = useState(false);
   const [isCloningPrototype, setIsCloningPrototype] = useState(false);
   const [showCloneUpsellModal, setShowCloneUpsellModal] = useState(false);
+  const [showCreditLimitModal, setShowCreditLimitModal] = useState(false);
   const [viewingUrl, setViewingUrl] = useState<string | null>(null);
   const [baseTunnelUrl, setBaseTunnelUrl] = useState<string | null>(null);
   const [currentRenderStatus, setCurrentRenderStatus] =
@@ -226,6 +231,19 @@ export default function InternalPrototypePage() {
   useEffect(() => {
     setSidebarOpen(false);
   }, [setSidebarOpen]);
+
+  // Watch for credit limit and show paywall
+  useEffect(() => {
+    // Only update modal state when we have confirmed data (not loading)
+    if (!creditUsage.loading) {
+      if (creditUsage.hasReachedLimit) {
+        setShowCreditLimitModal(true);
+      } else if (showCreditLimitModal) {
+        // Auto-hide modal if credits become available again
+        setShowCreditLimitModal(false);
+      }
+    }
+  }, [creditUsage.hasReachedLimit, creditUsage.loading, showCreditLimitModal]);
 
   // Load design systems when dialog opens
   useEffect(() => {
@@ -1258,6 +1276,15 @@ export default function InternalPrototypePage() {
         open={showCloneUpsellModal}
         onOpenChange={setShowCloneUpsellModal}
         reason="prototype_creation_limit_reached"
+      />
+
+      {/* Credit Limit Paywall Modal */}
+      <ProPlanUpsellModal
+        open={showCreditLimitModal}
+        onOpenChange={setShowCreditLimitModal}
+        reason="free_message_limit_reached"
+        creditsUsed={creditUsage.creditsUsed}
+        creditLimit={creditUsage.creditLimit}
       />
     </div>
   );

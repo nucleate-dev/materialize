@@ -42,51 +42,17 @@ export default function ProPlanUpsellModal({
 
   // Determine which tier to suggest based on current plan
   const getSuggestedUpgrade = () => {
-    switch (userPlan as string) {
-      case "free":
-        return {
-          tier: "plus",
-          name: "Plus",
-          price: "$20/month",
-        };
-      case "plus":
-        return {
-          tier: "pro",
-          name: "Pro",
-          price: "$50/month",
-        };
-      case "pro":
-        return {
-          tier: "max",
-          name: "Max",
-          price: "$200/month",
-        };
-      default:
-        return {
-          tier: "plus",
-          name: "Plus",
-          price: "$20/month",
-        };
-    }
+    return {
+      tier: "plus",
+      name: "Plus",
+      price: "$20/month",
+    };
   };
 
   const suggestedUpgrade = getSuggestedUpgrade();
 
   const getUpsellContent = () => {
-    const getCreditLimitForPlan = (plan: string) => {
-      switch (plan) {
-        case "Plus":
-          return CreditLimits.PLUS;
-        case "Pro":
-          return CreditLimits.PRO;
-        case "Max":
-          return CreditLimits.MAX;
-        default:
-          return CreditLimits.PLUS;
-      }
-    };
-
-    const nextTierCredits = getCreditLimitForPlan(suggestedUpgrade.name);
+    const nextTierCredits = CreditLimits.PLUS;
 
     switch (reason) {
       case "free_message_limit_reached":
@@ -98,7 +64,7 @@ export default function ProPlanUpsellModal({
             `${nextTierCredits} credits per month`,
             "Priority AI responses",
             "Advanced code generation",
-            suggestedUpgrade.name === "Max" ? "Dedicated support" : "Premium support",
+            "Premium support",
           ],
         };
       case "prototype_creation_limit_reached":
@@ -110,7 +76,7 @@ export default function ProPlanUpsellModal({
             "Unlimited projects",
             `${nextTierCredits} credits per month`,
             "Advanced prototyping features",
-            suggestedUpgrade.name === "Max" ? "Dedicated support" : "Priority support",
+            "Priority support",
           ],
         };
       default:

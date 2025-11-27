@@ -573,7 +573,7 @@ export default function PublicPrototypeHeader({
                   Private
                   {!IsUserPlanSubscribed(userPlan) && (
                     <Badge variant="secondary" className="ml-2 text-[10px] h-5 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400">
-                      Pro
+                      Plus
                     </Badge>
                   )}
                 </div>

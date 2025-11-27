@@ -397,9 +397,17 @@ export class ChatService {
             costFunction,
           );
         },
-        uploadChatImages: this.messagePersistenceService.uploadChatImages.bind(
-          this.messagePersistenceService,
-        ),
+        uploadChatImages: async (
+          prototypeId: string,
+          chatSessionId: string,
+          images: Array<{ base64: string; mediaType: string }>,
+        ) => {
+          return await this.messagePersistenceService.uploadChatImages(
+            prototypeId,
+            chatSessionId,
+            images,
+          );
+        },
         notifyOrchestrationStartChat:
           this.notifyOrchestrationStartChat.bind(this),
         notifyOrchestrationEndChat: this.notifyOrchestrationEndChat.bind(this),

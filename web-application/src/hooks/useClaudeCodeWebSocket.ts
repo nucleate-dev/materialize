@@ -56,7 +56,7 @@ export function useClaudeCodeWebSocket({
       authTokenRef.current = token;
 
       const finalTunnelUrlBase =
-        process.env.FARGATE_DEV_MODE === "true"
+        process.env.NEXT_PUBLIC_FARGATE_DEV_MODE === "true"
           ? (process.env.NEXT_PUBLIC_INTERNAL_BUILD_WORKERS_SERVER_ENDPOINT ??
             null)
           : baseTunnelUrl;

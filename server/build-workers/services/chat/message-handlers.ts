@@ -192,16 +192,17 @@ export class MessagePersistenceService {
   }
 
   /**
-   * Uploads chat images to Supabase Storage and updates the user message with image metadata
+   * Uploads chat images to Supabase Storage and returns the image metadata
    * @param prototypeId - The prototype ID
    * @param chatSessionId - The chat session ID
    * @param images - Array of images with base64 data and media type
+   * @returns Array of uploaded image metadata
    */
   async uploadChatImages(
     prototypeId: string,
     chatSessionId: string,
     images: Array<{ base64: string; mediaType: string }>,
-  ): Promise<void> {
+  ): Promise<Array<{ storage_path: string; media_type: string; file_size: number }>> {
     try {
       this.logger.consoleLogDevOnly(
         "info",
@@ -265,60 +266,22 @@ export class MessagePersistenceService {
         }
       }
 
-      // Update the user message in database with image metadata
-      if (uploadedImageMetadata.length > 0) {
-        // Find the most recent user message for this chat session
-        const { data: messages, error: fetchError } = await this.supabaseClient
-          .from("prototype_chat_messages")
-          .select("id")
-          .eq("chat_session_id", chatSessionId)
-          .eq("role", "user")
-          .order("created_at", { ascending: false })
-          .limit(1);
-
-        if (fetchError) {
-          throw fetchError;
-        }
-
-        if (messages && messages.length > 0) {
-          const messageId = messages[0].id;
-
-          // Update the message with image metadata
-          const { error: updateError } = await this.supabaseClient
-            .from("prototype_chat_messages")
-            .update({
-              event_data: JSON.stringify({ images: uploadedImageMetadata }),
-            })
-            .eq("id", messageId);
-
-          if (updateError) {
-            throw updateError;
-          }
-
-          this.logger.consoleLogDevOnly(
-            "info",
-            "Updated user message with image metadata",
-            {
-              messageId,
-              imageCount: uploadedImageMetadata.length,
-            },
-          );
-        }
-      }
-
       this.logger.consoleLogDevOnly("info", "Chat images upload completed", {
         prototypeId,
         chatSessionId,
         successCount: uploadedImageMetadata.length,
         totalCount: images.length,
       });
+
+      return uploadedImageMetadata;
     } catch (error) {
       this.logger.error(
         error instanceof Error ? error : new Error(String(error)),
         "Failed to upload chat images",
         { prototypeId, chatSessionId },
       );
-      // Don't throw - we don't want to fail the entire query if image upload fails
+      // Return empty array on error - we don't want to fail the entire query if image upload fails
+      return [];
     }
   }
 }

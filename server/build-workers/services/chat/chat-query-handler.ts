@@ -112,7 +112,7 @@ interface MessageHandlers {
     prototypeId: string,
     chatSessionId: string,
     images: Array<{ base64: string; mediaType: string }>,
-  ) => Promise<void>;
+  ) => Promise<Array<{ storage_path: string; media_type: string; file_size: number }>>;
   notifyOrchestrationStartChat: (prototypeId: string) => Promise<void>;
   notifyOrchestrationEndChat: (prototypeId: string) => Promise<void>;
 }
@@ -578,13 +578,29 @@ export class ChatQueryHandler {
         content as ChatContentBlock[] | undefined,
       );
 
-      // Extract images from content for later storage
+      // Extract images from content for storage
       const imagesFromContent = this.extractImagesFromContent(messageContent);
 
-      // Persist user message to database
+      // Upload images first if present, then persist user message with image metadata
+      let imageMetadata: Array<{
+        storage_path: string;
+        media_type: string;
+        file_size: number;
+      }> = [];
+
+      if (imagesFromContent.length > 0 && sessionState.prototypeChatSessionId) {
+        imageMetadata = await handlers.uploadChatImages(
+          prototypeId,
+          sessionState.prototypeChatSessionId,
+          imagesFromContent,
+        );
+      }
+
+      // Persist user message to database with image metadata
       await this.persistUserMessage(
         messageContent,
         imagesFromContent,
+        imageMetadata,
         handlers.persistMessage,
       );
 
@@ -655,14 +671,8 @@ export class ChatQueryHandler {
         handlers,
       );
 
-      // Upload images if successful
-      if (imagesFromContent.length > 0 && sessionState.prototypeChatSessionId) {
-        await handlers.uploadChatImages(
-          prototypeId,
-          sessionState.prototypeChatSessionId,
-          imagesFromContent,
-        );
-      }
+      // Images were already uploaded before persisting the user message
+      // No need to upload them again here
 
       // Clear abort controller
       sessionState.abortController = null;
@@ -760,13 +770,18 @@ export class ChatQueryHandler {
   }
 
   /**
-   * Persists user message to database
+   * Persists user message to database with image metadata if present
    */
   private async persistUserMessage(
     messageContent:
       | string
       | Array<{ type: string; text?: string; source?: unknown }>,
     imagesFromContent: Array<{ base64: string; mediaType: string }>,
+    imageMetadata: Array<{
+      storage_path: string;
+      media_type: string;
+      file_size: number;
+    }>,
     persistMessage: (
       role: "user" | "assistant" | "system",
       content: string,
@@ -788,7 +803,10 @@ export class ChatQueryHandler {
       ? `${userMessageText} [with ${imagesFromContent.length} image${imagesFromContent.length > 1 ? "s" : ""}]`
       : userMessageText;
 
-    await persistMessage("user", userMessageDisplay, "text", null, null);
+    // Include image metadata in event_data if images were uploaded
+    const eventData = imageMetadata.length > 0 ? { images: imageMetadata } : null;
+
+    await persistMessage("user", userMessageDisplay, "text", null, eventData);
   }
 
   /**
