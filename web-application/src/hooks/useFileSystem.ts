@@ -52,6 +52,13 @@ export interface UseFileSystemReturn extends FileSystemActions {
   state: FileSystemState;
 }
 
+// Batch configuration for Supabase operations
+const BATCH_CONFIG = {
+  FILE_UPSERT_BATCH_SIZE: 100, // Files per batch for upsert
+  ASSET_UPLOAD_CONCURRENCY: 5, // Parallel asset uploads
+  BATCH_DELAY_MS: 50, // Delay between batches (ms)
+} as const;
+
 export const useFileSystem = (
   prototypeId: string | undefined,
   defaultFile = "App.js",
@@ -64,6 +71,15 @@ export const useFileSystem = (
   const [isLoading, setIsLoading] = useState(false);
   const [sandboxUrl, setSandboxUrl] = useState<string | null>(null);
   const SUPABASE_PROTOTYPE_ASSETS_BUCKET = "prototype-assets";
+
+  // Utility function to split array into chunks for batching
+  const chunkArray = useCallback(<T,>(array: T[], size: number): T[][] => {
+    const chunks: T[][] = [];
+    for (let i = 0; i < array.length; i += size) {
+      chunks.push(array.slice(i, i + size));
+    }
+    return chunks;
+  }, []);
 
   const fileToBase64 = useCallback(async (file: File): Promise<string> => {
     const buffer = await file.arrayBuffer();
@@ -522,134 +538,173 @@ export const useFileSystem = (
         const allFileNames: string[] = [];
         const allAssetNames: string[] = [];
 
-        // 1. Upsert files in Supabase (single operation for creates + updates)
+        // 1. Upsert files in Supabase with batching
         // Realtime subscription will automatically update local state
         if (filesToUpsert.length > 0) {
-          const filesToUpsertPayload = filesToUpsert.map((file) => ({
-            prototype_id: prototypeId,
-            name: file.name,
-            contents: file.content,
-            updated_at: new Date().toISOString(),
-          }));
+          const chunks = chunkArray(filesToUpsert, BATCH_CONFIG.FILE_UPSERT_BATCH_SIZE);
 
-          const { error } = await supabase
-            .from("prototype_files")
-            .upsert(filesToUpsertPayload, {
-              onConflict: "prototype_id,name",
-              ignoreDuplicates: false,
-            });
+          for (let i = 0; i < chunks.length; i++) {
+            const chunk = chunks[i];
+            const filesToUpsertPayload = chunk.map((file) => ({
+              prototype_id: prototypeId,
+              name: file.name,
+              contents: file.content,
+              updated_at: new Date().toISOString(),
+            }));
 
-          if (error) {
-            logger.debug("error", "Error upserting files:", {
-              ...error,
-            });
-          } else {
-            // Add all successfully upserted file names
-            allFileNames.push(...filesToUpsert.map((f) => f.name));
+            const { error } = await supabase
+              .from("prototype_files")
+              .upsert(filesToUpsertPayload, {
+                onConflict: "prototype_id,name",
+                ignoreDuplicates: false,
+              });
+
+            if (error) {
+              logger.debug("error", "Error upserting file batch:", {
+                batchIndex: i + 1,
+                filesCount: chunk.length,
+                error,
+              });
+            } else {
+              // Add successfully upserted file names
+              allFileNames.push(...chunk.map((f) => f.name));
+            }
+
+            // Small delay between batches
+            if (i < chunks.length - 1) {
+              await new Promise((resolve) =>
+                setTimeout(resolve, BATCH_CONFIG.BATCH_DELAY_MS)
+              );
+            }
           }
         }
 
-        // 2. Delete files from Supabase
+        // 2. Delete files from Supabase with bulk operation
         // Realtime subscription will automatically update local state
-        for (const fileName of filesToDelete) {
-          const fileToDelete = files[fileName];
-          if (!fileToDelete) {
-            logger.debug("error", "File not found for deletion:", {
-              fileName,
-            });
-            continue;
-          }
-
+        if (filesToDelete.length > 0) {
+          // Use bulk delete with .in() for efficiency
           const { error } = await supabase
             .from("prototype_files")
             .delete()
-            .eq("id", fileToDelete.id);
+            .eq("prototype_id", prototypeId)
+            .in("name", filesToDelete);
 
           if (error) {
-            logger.debug("error", `Error deleting file ${fileName}:`, {
-              ...error,
+            logger.debug("error", "Error bulk deleting files:", {
+              filesCount: filesToDelete.length,
+              error,
             });
-            continue;
           }
         }
 
-        // 4. Upload assets to Supabase storage
+        // 3. Upload assets to Supabase storage with controlled concurrency
         // Realtime subscription will automatically update local state
-        for (const assetToUpload of assetsToUpload) {
-          const storagePath = `${prototypeId}/${assetToUpload.path}`;
-          const { error: uploadError } = await supabase.storage
-            .from(SUPABASE_PROTOTYPE_ASSETS_BUCKET)
-            .upload(storagePath, assetToUpload.file, {
-              upsert: true,
-              contentType: assetToUpload.file.type || undefined,
-            });
+        if (assetsToUpload.length > 0) {
+          const successfulUploads: Array<{
+            prototype_id: string;
+            name: string;
+            storage_url: string;
+            updated_at: string;
+          }> = [];
 
-          if (uploadError) {
-            logger.debug("error", "Failed to upload asset to storage", {
-              assetPath: assetToUpload.path,
-              error: uploadError.message,
-            });
-            continue;
-          }
+          // Process assets in chunks for controlled concurrency
+          const uploadChunks = chunkArray(
+            assetsToUpload,
+            BATCH_CONFIG.ASSET_UPLOAD_CONCURRENCY
+          );
 
-          // Upsert metadata into prototype_assets table
-          const { error: dbError } = await supabase
-            .from("prototype_assets")
-            .upsert(
-              {
-                prototype_id: prototypeId,
-                name: assetToUpload.path,
-                storage_url: storagePath,
-                updated_at: new Date().toISOString(),
-              },
-              {
-                onConflict: "prototype_id,name",
-              },
+          for (const uploadChunk of uploadChunks) {
+            // Upload all assets in this chunk in parallel
+            await Promise.all(
+              uploadChunk.map(async (assetToUpload) => {
+                try {
+                  const storagePath = `${prototypeId}/${assetToUpload.path}`;
+                  const { error: uploadError } = await supabase.storage
+                    .from(SUPABASE_PROTOTYPE_ASSETS_BUCKET)
+                    .upload(storagePath, assetToUpload.file, {
+                      upsert: true,
+                      contentType: assetToUpload.file.type || undefined,
+                    });
+
+                  if (uploadError) {
+                    logger.debug("error", "Failed to upload asset to storage", {
+                      assetPath: assetToUpload.path,
+                      error: uploadError.message,
+                    });
+                    return;
+                  }
+
+                  // Track successful upload for bulk metadata upsert
+                  successfulUploads.push({
+                    prototype_id: prototypeId,
+                    name: assetToUpload.path,
+                    storage_url: storagePath,
+                    updated_at: new Date().toISOString(),
+                  });
+                } catch (error) {
+                  logger.debug("error", "Error uploading asset", {
+                    assetPath: assetToUpload.path,
+                    error: error instanceof Error ? error.message : String(error),
+                  });
+                }
+              })
             );
-
-          if (dbError) {
-            logger.debug("error", "Failed to upsert asset metadata", {
-              assetPath: assetToUpload.path,
-              error: dbError.message,
-            });
-            continue;
           }
 
-          allAssetNames.push(assetToUpload.path);
+          // Bulk upsert metadata for all successfully uploaded assets
+          if (successfulUploads.length > 0) {
+            const { error: dbError } = await supabase
+              .from("prototype_assets")
+              .upsert(successfulUploads, {
+                onConflict: "prototype_id,name",
+              });
+
+            if (dbError) {
+              logger.debug("error", "Failed to bulk upsert asset metadata", {
+                assetsCount: successfulUploads.length,
+                error: dbError.message,
+              });
+            } else {
+              // Add successfully uploaded asset names
+              allAssetNames.push(...successfulUploads.map((a) => a.name));
+            }
+          }
         }
 
-        // 5. Delete assets from Supabase
+        // 4. Delete assets from Supabase with bulk operations
         // Realtime subscription will automatically update local state
-        for (const assetPath of assetsToDelete) {
-          // Remove from storage
+        if (assetsToDelete.length > 0) {
+          // Bulk delete from storage
+          const storagePaths = assetsToDelete.map(
+            (assetPath) => `${prototypeId}/${assetPath}`
+          );
           const { error: storageError } = await supabase.storage
             .from(SUPABASE_PROTOTYPE_ASSETS_BUCKET)
-            .remove([`${prototypeId}/${assetPath}`]);
+            .remove(storagePaths);
 
           if (storageError) {
-            logger.debug("error", "Failed to delete asset from storage", {
-              assetPath,
+            logger.debug("error", "Failed to bulk delete assets from storage", {
+              assetsCount: assetsToDelete.length,
               error: storageError.message,
             });
           }
 
-          // Delete from database
+          // Bulk delete from database
           const { error: dbError } = await supabase
             .from("prototype_assets")
             .delete()
             .eq("prototype_id", prototypeId)
-            .eq("name", assetPath);
+            .in("name", assetsToDelete);
 
           if (dbError) {
-            logger.debug("error", "Failed to delete asset from database", {
-              assetPath,
+            logger.debug("error", "Failed to bulk delete assets from database", {
+              assetsCount: assetsToDelete.length,
               error: dbError.message,
             });
-            continue;
           }
         }
 
-        // 6. Send ONE request to sandbox /update-files-v2 with all changes
+        // 5. Send ONE request to sandbox /update-files-v2 with all changes
         if (!sandboxUrl) {
           logger.debug("error", "No sandbox URL available");
           return { success: true }; // DB operations succeeded but no rebuild
@@ -709,6 +764,7 @@ export const useFileSystem = (
       userPlan,
       sandboxUrl,
       SUPABASE_PROTOTYPE_ASSETS_BUCKET,
+      chunkArray,
     ],
   );
 
