@@ -535,13 +535,11 @@ export const useFileSystem = (
             continue;
           }
 
-          const { error } = await supabase
-            .from("prototype_files")
-            .insert({
-              prototype_id: prototypeId,
-              name: fileToCreate.name,
-              contents: fileToCreate.content,
-            });
+          const { error } = await supabase.from("prototype_files").insert({
+            prototype_id: prototypeId,
+            name: fileToCreate.name,
+            contents: fileToCreate.content,
+          });
 
           if (error) {
             logger.debug("error", `Error creating file ${fileToCreate.name}:`, {
