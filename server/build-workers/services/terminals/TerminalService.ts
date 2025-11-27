@@ -28,7 +28,8 @@ const TERMINAL_BUFFER_LIMIT = 5000;
 const HEARTBEAT_INTERVAL_MS = 15000;
 const LAUNCH_TEST_TERMINAL_AS_ROOT =
   false && process.env.NODE_ENV === "development";
-const TERMINAL_VALIDATION_ENABLED = true;
+const TERMINAL_VALIDATION_DISABLED =
+  true && process.env.NODE_ENV === "development";
 
 export type TerminalRuntimeState = "running" | "exited" | "closed";
 
@@ -74,7 +75,6 @@ export class TerminalService {
   private readonly allowedRoot: string;
   private readonly sessionInputBuffers = new Map<string, string>();
   private readonly commandValidator?: TerminalCommandValidator;
-  private readonly terminalValidationEnabled: boolean;
   private logger: SystemLogger;
   private readonly fastifyApp: FastifyInstance;
   private readonly sessions = new Map<string, TerminalSession>();
@@ -86,17 +86,16 @@ export class TerminalService {
     logger: SystemLogger,
   ) {
     this.allowedRoot = path.resolve("/tmp/materialize-dev-server");
-    this.terminalValidationEnabled = TERMINAL_VALIDATION_ENABLED;
-    if (this.terminalValidationEnabled) {
+    if (!TERMINAL_VALIDATION_DISABLED) {
       this.commandValidator = new TerminalCommandValidator(this.allowedRoot);
     }
     const normalizedWorkDir = path.resolve(workDir);
     if (
-      this.terminalValidationEnabled &&
+      !TERMINAL_VALIDATION_DISABLED &&
       this.commandValidator?.isPathInsideAllowedRoot(normalizedWorkDir)
     ) {
       this.workDir = normalizedWorkDir;
-    } else if (this.terminalValidationEnabled && this.commandValidator) {
+    } else if (!TERMINAL_VALIDATION_DISABLED && this.commandValidator) {
       this.workDir = this.allowedRoot;
     } else {
       this.workDir = normalizedWorkDir;
@@ -137,7 +136,7 @@ export class TerminalService {
     }
 
     if (
-      this.terminalValidationEnabled &&
+      !TERMINAL_VALIDATION_DISABLED &&
       this.commandValidator &&
       !this.commandValidator.isPathInsideAllowedRoot(normalizedWorkDir)
     ) {
@@ -282,7 +281,7 @@ export class TerminalService {
     const rows = options.rows ?? 24;
     const requestedCwd = options.cwd ?? this.workDir;
     let cwd: string;
-    if (this.terminalValidationEnabled && this.commandValidator) {
+    if (TERMINAL_VALIDATION_DISABLED && this.commandValidator) {
       const { resolvedPath: normalizedCwd, withinRoot } =
         this.commandValidator.normalizePathToAllowedRoot(requestedCwd);
       cwd = withinRoot ? normalizedCwd : this.allowedRoot;
@@ -481,7 +480,7 @@ export class TerminalService {
     }
 
     // Normal validation flow for user input
-    if (this.terminalValidationEnabled && this.commandValidator) {
+    if (TERMINAL_VALIDATION_DISABLED && this.commandValidator) {
       const currentBuffer = this.sessionInputBuffers.get(session.id) ?? "";
       const { outputToWrite, newBuffer, error } =
         this.commandValidator.processAndValidateInput(

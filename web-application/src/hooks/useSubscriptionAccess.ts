@@ -164,5 +164,7 @@ export function useSubscriptionAccess() {
     loadingSubscriptionData,
     currentPeriodStart,
     currentPeriodEnd,
+    user: user.user,
+    userIsLoading: user.userIsLoading,
   };
 }
