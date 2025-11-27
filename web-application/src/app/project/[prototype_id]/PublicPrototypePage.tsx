@@ -102,18 +102,16 @@ function AppSidebar() {
 
   return (
     <Sidebar className="border-r border-gray-200 dark:border-white/5 bg-gray-50 dark:bg-[#0B0C0E]">
-      <SidebarHeader className="pb-4">
+      <SidebarHeader className="border-b border-gray-200 dark:border-sidebar-border">
         <div className="flex items-center gap-3 px-2 py-2">
-          <Link href="/" className="group block w-full">
-            <div className="relative flex items-center gap-3 px-3 py-2 rounded-xl transition-all duration-300 hover:bg-white/5">
+          <Link href="/" className="group flex-1 min-w-0">
+            <div className="relative flex items-center gap-3 px-3 py-2">
               {/* Glow Effect */}
-              <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/20 to-blue-500/20 rounded-xl blur-lg opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+              <div className="absolute inset-0 bg-gradient-to-r from-primary/20 to-secondary/20 dark:from-primary/30 dark:to-secondary/30 rounded-xl blur-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
 
-              <div className="relative p-1.5 bg-indigo-500/10 rounded-lg border border-indigo-500/20 group-hover:border-indigo-500/50 transition-colors">
-                <FlaskConical className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-              </div>
+              <FlaskConical className="relative w-6 h-6 text-primary transition-transform duration-300 group-hover:scale-110 flex-shrink-0" />
 
-              <span className="relative text-lg font-bold text-gray-900 dark:text-white tracking-tight">
+              <span className="relative text-xl font-bold text-gray-900 dark:text-foreground transition-transform duration-300 group-hover:scale-105">
                 Materialize
               </span>
             </div>
@@ -129,10 +127,11 @@ function AppSidebar() {
                 <SidebarMenuButton
                   asChild
                   isActive={pathname === "/"}
+                  size="lg"
                   className="bg-white dark:bg-[#141517] border border-gray-200 dark:border-white/10 hover:bg-gray-100 dark:hover:bg-white/10 text-gray-700 dark:text-white shadow-sm transition-all"
                 >
                   <Link href="/">
-                    <Sparkles className="w-4 h-4 text-indigo-500" />
+                    <Sparkles className="w-5 h-5 text-indigo-500" />
                     <span className="font-medium">New chat +</span>
                   </Link>
                 </SidebarMenuButton>
@@ -153,13 +152,14 @@ function AppSidebar() {
                   <SidebarMenuButton
                     asChild
                     isActive={item.active}
+                    size="lg"
                     className={cn(
                       "text-gray-600 dark:text-[#8A8F98] hover:text-gray-900 dark:hover:text-white transition-colors",
                       item.active && "bg-gray-100 dark:bg-white/5 text-gray-900 dark:text-white font-medium"
                     )}
                   >
                     <Link href={item.href}>
-                      <item.icon className={cn("w-4 h-4", item.active ? "text-indigo-500" : "opacity-70")} />
+                      <item.icon className={cn("w-5 h-5", item.active ? "text-indigo-500" : "opacity-70")} />
                       <span>{item.label}</span>
                     </Link>
                   </SidebarMenuButton>
@@ -170,7 +170,7 @@ function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="pt-4 border-t border-gray-200 dark:border-white/5">
+      <SidebarFooter className="pt-4 border-t border-gray-200 dark:border-sidebar-border">
         <SidebarMenu>
           <SidebarMenuItem>
             <HorizontalModeToggle sidebarExpanded={true} />
@@ -181,10 +181,11 @@ function AppSidebar() {
                 <SidebarMenuButton
                   asChild
                   isActive={pathname?.includes("account")}
+                  size="lg"
                   className="text-gray-600 dark:text-[#8A8F98] hover:text-gray-900 dark:hover:text-white"
                 >
                   <Link href="/dashboard/account">
-                    <Settings className="w-4 h-4" />
+                    <Settings className="w-5 h-5" />
                     <span>Settings</span>
                   </Link>
                 </SidebarMenuButton>
@@ -192,9 +193,10 @@ function AppSidebar() {
               <SidebarMenuItem>
                 <SidebarMenuButton
                   onClick={logout}
+                  size="lg"
                   className="text-gray-600 dark:text-[#8A8F98] hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10"
                 >
-                  <LogOut className="w-4 h-4" />
+                  <LogOut className="w-5 h-5" />
                   <span>Logout</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -202,9 +204,9 @@ function AppSidebar() {
           )}
           {!isAuthenticated && (
             <SidebarMenuItem>
-              <SidebarMenuButton asChild className="text-gray-600 dark:text-[#8A8F98] hover:text-gray-900 dark:hover:text-white">
+              <SidebarMenuButton asChild size="lg" className="text-gray-600 dark:text-[#8A8F98] hover:text-gray-900 dark:hover:text-white">
                 <Link href="/login">
-                  <LogOut className="w-4 h-4 rotate-180" />
+                  <LogOut className="w-5 h-5 rotate-180" />
                   <span>Login</span>
                 </Link>
               </SidebarMenuButton>

@@ -23,7 +23,7 @@ import { useState } from "react";
 export default function Home() {
   return (
     <main className="relative min-h-screen bg-[#0B0C0E] text-white selection:bg-indigo-500/30 overflow-hidden font-sans">
-      <GridBackground />
+      <GridBackground forceDarkMode />
 
       <div className="relative z-10">
         <PremiumHeader forceDarkMode />
