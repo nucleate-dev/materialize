@@ -49,9 +49,13 @@ import Editor from "@monaco-editor/react";
 import {
   AlertTriangle,
   Check,
+  ChevronDown,
+  ChevronRight,
   Code2,
   FileCode,
   FileImage,
+  Folder,
+  FolderOpen,
   Lock,
   Minus,
   Plus,
@@ -101,6 +105,7 @@ const ALLOWED_UPLOAD_EXTENSIONS = new Set([
   "lock", // package-lock.json, yarn.lock
   "yaml", "yml", // Config files
   "sh", // Shell scripts
+  "css", // Stylesheets
 ]);
 
 const ALLOWED_ASSET_EXTENSIONS = new Set([
@@ -205,8 +210,9 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
 
   // File selection and validation state
   type FileValidationStatus = "ready" | "blocked-folder" | "blocked-extension" | "too-large" | "conflict";
-  const [fileValidation, setFileValidation] = useState<Map<string, { status: FileValidationStatus; reason?: string; size: number }>>(new Map());
+  const [fileValidation, setFileValidation] = useState<Map<string, { status: FileValidationStatus; reason?: string; size: number; }>>(new Map());
   const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set());
+  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
 
   // --- Computed ---
   const directoryOptions = useMemo(() => {
@@ -271,6 +277,12 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
 
     return { total, selected, blocked, conflicts, totalSize };
   }, [fileValidation, selectedFiles]);
+
+  const fileTree = useMemo(() => {
+    if (fileValidation.size === 0) return [];
+    const paths = Array.from(fileValidation.keys());
+    return buildFileTree(paths, fileValidation);
+  }, [fileValidation]);
 
   const saveButtonState = useMemo(() => {
     if (userPlan === "free") return { disabled: true, tooltip: "Upgrade plan to save files" };
@@ -345,6 +357,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
     setUploadType("files");
     setFileValidation(new Map());
     setSelectedFiles(new Set());
+    setExpandedFolders(new Set());
   };
 
   const toggleFileSelection = (filePath: string) => {
@@ -355,6 +368,48 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
       } else {
         newSet.add(filePath);
       }
+      return newSet;
+    });
+  };
+
+  const toggleFolderExpansion = (folderPath: string) => {
+    setExpandedFolders((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(folderPath)) {
+        newSet.delete(folderPath);
+      } else {
+        newSet.add(folderPath);
+      }
+      return newSet;
+    });
+  };
+
+  const toggleFolderSelection = (node: FileNode) => {
+    // Get all file paths under this folder
+    const getAllFilePaths = (n: FileNode): string[] => {
+      if (!n.isFolder) {
+        return [n.path];
+      }
+      return n.children.flatMap(child => getAllFilePaths(child));
+    };
+
+    const filePaths = getAllFilePaths(node).filter(path => {
+      const validation = fileValidation.get(path);
+      return validation && (validation.status === "ready" || validation.status === "conflict");
+    });
+
+    setSelectedFiles((prev) => {
+      const newSet = new Set(prev);
+      const allSelected = filePaths.every(path => newSet.has(path));
+
+      if (allSelected) {
+        // Deselect all
+        filePaths.forEach(path => newSet.delete(path));
+      } else {
+        // Select all
+        filePaths.forEach(path => newSet.add(path));
+      }
+
       return newSet;
     });
   };
@@ -381,6 +436,49 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
     return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
   };
 
+  // Build nested folder structure for display
+  type FileNode = {
+    name: string;
+    path: string;
+    isFolder: boolean;
+    children: FileNode[];
+    validation?: { status: FileValidationStatus; reason?: string; size: number; };
+  };
+
+  const buildFileTree = (filePaths: string[], validationMap: Map<string, { status: FileValidationStatus; reason?: string; size: number; }>): FileNode[] => {
+    const root: FileNode[] = [];
+
+    filePaths.forEach(filePath => {
+      const parts = filePath.split("/");
+      let currentLevel = root;
+
+      parts.forEach((part, index) => {
+        const isLastPart = index === parts.length - 1;
+        const currentPath = parts.slice(0, index + 1).join("/");
+
+        let existingNode = currentLevel.find(node => node.name === part);
+
+        if (!existingNode) {
+          const newNode: FileNode = {
+            name: part,
+            path: currentPath,
+            isFolder: !isLastPart,
+            children: [],
+            validation: isLastPart ? validationMap.get(filePath) : undefined,
+          };
+          currentLevel.push(newNode);
+          existingNode = newNode;
+        }
+
+        if (!isLastPart) {
+          currentLevel = existingNode.children;
+        }
+      });
+    });
+
+    return root;
+  };
+
   const getStatusBadge = (status: FileValidationStatus) => {
     switch (status) {
       case "ready":
@@ -396,6 +494,123 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
       default:
         return { text: "Unknown", className: "bg-muted-foreground/10 text-muted-foreground border-border" };
     }
+  };
+
+  // Recursive tree node renderer
+  const renderFileNode = (node: FileNode, depth: number = 0): React.ReactNode => {
+    if (node.isFolder) {
+      const isExpanded = expandedFolders.has(node.path);
+      const folderFiles = getAllFilesInNode(node);
+      const selectableFiles = folderFiles.filter(path => {
+        const validation = fileValidation.get(path);
+        return validation && (validation.status === "ready" || validation.status === "conflict");
+      });
+      const selectedCount = selectableFiles.filter(path => selectedFiles.has(path)).length;
+      const isPartiallySelected = selectedCount > 0 && selectedCount < selectableFiles.length;
+      const isFullySelected = selectableFiles.length > 0 && selectedCount === selectableFiles.length;
+
+      return (
+        <div key={node.path}>
+          <div
+            className={cn(
+              "flex items-center gap-2 p-2 hover:bg-accent/50 transition-colors cursor-pointer",
+              isFullySelected && "bg-accent/30"
+            )}
+            style={{ paddingLeft: `${depth * 16 + 8}px` }}
+          >
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                toggleFolderExpansion(node.path);
+              }}
+              className="p-0.5 hover:bg-accent/50 rounded"
+            >
+              {isExpanded ? (
+                <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
+              ) : (
+                <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />
+              )}
+            </button>
+
+            <Checkbox
+              checked={isFullySelected ? true : isPartiallySelected ? "indeterminate" : false}
+              onCheckedChange={() => toggleFolderSelection(node)}
+              disabled={selectableFiles.length === 0}
+              className="border-border data-[state=checked]:bg-indigo-500 data-[state=checked]:border-indigo-500 data-[state=indeterminate]:bg-indigo-500 data-[state=indeterminate]:border-indigo-500"
+            />
+
+            {isExpanded ? (
+              <FolderOpen className="w-4 h-4 text-indigo-400 shrink-0" />
+            ) : (
+              <Folder className="w-4 h-4 text-indigo-400 shrink-0" />
+            )}
+
+            <span className="text-sm font-medium text-foreground flex-1" onClick={() => toggleFolderExpansion(node.path)}>
+              {node.name}
+            </span>
+
+            {selectableFiles.length > 0 && (
+              <span className="text-xs text-muted-foreground">
+                {selectedCount}/{selectableFiles.length}
+              </span>
+            )}
+          </div>
+
+          {isExpanded && (
+            <div>
+              {node.children.map(child => renderFileNode(child, depth + 1))}
+            </div>
+          )}
+        </div>
+      );
+    } else {
+      // File node
+      const validation = node.validation;
+      if (!validation) return null;
+
+      const isSelected = selectedFiles.has(node.path);
+      const isBlocked = validation.status === "blocked-folder" || validation.status === "blocked-extension" || validation.status === "too-large";
+      const badge = getStatusBadge(validation.status);
+
+      return (
+        <div
+          key={node.path}
+          className={cn(
+            "flex items-center gap-2 p-2 transition-colors",
+            isBlocked ? "opacity-50" : "hover:bg-accent/50",
+            isSelected && !isBlocked && "bg-accent/30"
+          )}
+          style={{ paddingLeft: `${depth * 16 + 8}px` }}
+        >
+          <div className="w-4" /> {/* Spacer for alignment with folders */}
+
+          <Checkbox
+            checked={isSelected}
+            onCheckedChange={() => !isBlocked && toggleFileSelection(node.path)}
+            disabled={isBlocked}
+            className="border-border data-[state=checked]:bg-indigo-500 data-[state=checked]:border-indigo-500"
+          />
+
+          <FileCode className="w-4 h-4 text-muted-foreground shrink-0" />
+
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-mono text-foreground truncate">{node.name}</p>
+            <p className="text-[10px] text-muted-foreground">{formatFileSize(validation.size)}</p>
+          </div>
+
+          <div className={cn("px-2 py-0.5 rounded text-[10px] font-medium border shrink-0", badge.className)}>
+            {badge.text}
+          </div>
+        </div>
+      );
+    }
+  };
+
+  const getAllFilesInNode = (node: FileNode): string[] => {
+    if (!node.isFolder) {
+      return [node.path];
+    }
+    return node.children.flatMap(child => getAllFilesInNode(child));
   };
 
   const handleUploadFolderChange = (value: string) => {
@@ -417,7 +632,16 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
     return MAX_FILE_SIZE;
   };
 
-  const validateFile = (file: File, targetPath: string): { status: FileValidationStatus; reason?: string } => {
+  const validateFile = (file: File, targetPath: string): { status: FileValidationStatus; reason?: string; } => {
+    // Block system files
+    const fileName = file.name.toLowerCase();
+    if (fileName === ".ds_store" || fileName === "thumbs.db" || fileName === "desktop.ini") {
+      return {
+        status: "blocked-extension",
+        reason: "System files are not allowed"
+      };
+    }
+
     // Check blocked folders
     if (isFileInBlockedFolder(targetPath)) {
       return {
@@ -467,7 +691,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
       return;
     }
 
-    const validationMap = new Map<string, { status: FileValidationStatus; reason?: string; size: number }>();
+    const validationMap = new Map<string, { status: FileValidationStatus; reason?: string; size: number; }>();
     const selectedSet = new Set<string>();
     const validFiles: File[] = [];
 
@@ -499,6 +723,21 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
     setSelectedFiles(selectedSet);
     setUploadFiles(validFiles);
     setUploadError("");
+
+    // Auto-expand first level folders when uploading a folder
+    if (uploadType === "folder" && filesList.length > 0) {
+      const firstLevelFolders = new Set<string>();
+      filesList.forEach(file => {
+        if (file.webkitRelativePath) {
+          const parts = file.webkitRelativePath.split("/");
+          if (parts.length > 1) {
+            const firstFolder = resolvedUploadFolder ? `${resolvedUploadFolder}/${parts[0]}` : parts[0];
+            firstLevelFolders.add(firstFolder);
+          }
+        }
+      });
+      setExpandedFolders(firstLevelFolders);
+    }
   };
 
   const handleUploadFiles = async () => {
@@ -936,7 +1175,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
 
         {/* Upload Modal */}
         <Dialog open={showUploadModal} onOpenChange={(open) => { setShowUploadModal(open); if (!open) handleUploadModalClose(); }}>
-          <DialogContent className="sm:max-w-xl bg-accent border border-border text-foreground shadow-2xl p-0 overflow-hidden gap-0">
+          <DialogContent className="sm:max-w-2xl max-h-[90vh] bg-accent border border-border text-foreground shadow-2xl p-0 overflow-hidden gap-0 flex flex-col">
             <DialogHeader className="p-6 border-b border-border bg-accent/50">
               <DialogTitle className="text-lg font-medium flex items-center gap-2">
                 <Upload className="w-5 h-5 text-indigo-500" />
@@ -944,18 +1183,18 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
               </DialogTitle>
             </DialogHeader>
 
-            <div className="p-6 space-y-6">
+            <div className="p-6 space-y-6 overflow-y-auto flex-1">
               {/* Type Selection */}
               <div className="space-y-3">
                 <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Upload Type</Label>
                 <RadioGroup value={uploadType} onValueChange={(val: "files" | "folder") => { setUploadType(val); setUploadFiles([]); setUploadError(""); }} className="grid grid-cols-2 gap-4">
                   <div className={cn("flex items-center gap-3 p-3 rounded-lg border transition-all cursor-pointer", uploadType === 'files' ? "bg-indigo-500/10 border-indigo-500/50" : "bg-accent/50 border-border hover:bg-accent")}>
-                    <RadioGroupItem value="files" id="type-files" className="border-border text-indigo-500" />
-                    <Label htmlFor="type-files" className="cursor-pointer text-sm font-medium">Individual Files</Label>
+                    <RadioGroupItem value="files" id="type-files" className="border-border text-indigo-500 shrink-0" />
+                    <Label htmlFor="type-files" className="cursor-pointer text-sm font-medium flex-1">Individual Files</Label>
                   </div>
                   <div className={cn("flex items-center gap-3 p-3 rounded-lg border transition-all cursor-pointer", uploadType === 'folder' ? "bg-indigo-500/10 border-indigo-500/50" : "bg-accent/50 border-border hover:bg-accent")}>
-                    <RadioGroupItem value="folder" id="type-folder" className="border-border text-indigo-500" />
-                    <Label htmlFor="type-folder" className="cursor-pointer text-sm font-medium">Entire Folder</Label>
+                    <RadioGroupItem value="folder" id="type-folder" className="border-border text-indigo-500 shrink-0" />
+                    <Label htmlFor="type-folder" className="cursor-pointer text-sm font-medium flex-1">Entire Folder</Label>
                   </div>
                 </RadioGroup>
               </div>
@@ -982,13 +1221,13 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
               {/* File Input */}
               <div className="space-y-3">
                 <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Select Content</Label>
-                <div className="relative group">
+                <div className="relative">
                   <Input
                     id="fileUpload"
                     type="file"
                     {...(uploadType === "folder" ? { webkitdirectory: "", directory: "" } : { multiple: true })}
                     onChange={handleUploadFileSelection}
-                    className="cursor-pointer bg-background border-border file:bg-accent file:text-foreground file:border-0 file:rounded-sm file:mr-4 file:px-2 file:text-xs hover:file:bg-accent/80 text-foreground/70"
+                    className="cursor-pointer bg-background border-border text-foreground file:cursor-pointer file:bg-indigo-500/10 file:text-indigo-400 file:border-0 file:rounded-md file:mr-4 file:px-4 file:py-2 file:text-sm file:font-medium hover:file:bg-indigo-500/20 file:transition-colors"
                   />
                 </div>
                 {uploadError && <p className="text-red-400 text-xs flex items-center gap-1"><AlertTriangle className="w-3 h-3" /> {uploadError}</p>}
@@ -1018,49 +1257,51 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Files to Upload</Label>
-                      <button
-                        type="button"
-                        onClick={toggleAllFiles}
-                        className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
-                      >
-                        {selectedFiles.size === uploadSummary.total - uploadSummary.blocked ? "Deselect All" : "Select All"}
-                      </button>
+                      <div className="flex items-center gap-2">
+                        {uploadType === "folder" && fileTree.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const allPaths = Array.from(fileValidation.keys());
+                              const allExpanded = allPaths.every(path => {
+                                const parts = path.split("/");
+                                return parts.slice(0, -1).every((_, i) => {
+                                  const folderPath = parts.slice(0, i + 1).join("/");
+                                  return expandedFolders.has(folderPath);
+                                });
+                              });
+
+                              if (allExpanded) {
+                                setExpandedFolders(new Set());
+                              } else {
+                                const allFolderPaths = new Set<string>();
+                                allPaths.forEach(path => {
+                                  const parts = path.split("/");
+                                  parts.slice(0, -1).forEach((_, i) => {
+                                    allFolderPaths.add(parts.slice(0, i + 1).join("/"));
+                                  });
+                                });
+                                setExpandedFolders(allFolderPaths);
+                              }
+                            }}
+                            className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                          >
+                            {expandedFolders.size === 0 ? "Expand All" : "Collapse All"}
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={toggleAllFiles}
+                          className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
+                        >
+                          {selectedFiles.size === uploadSummary.total - uploadSummary.blocked ? "Deselect All" : "Select All"}
+                        </button>
+                      </div>
                     </div>
 
-                    <div className="max-h-64 overflow-y-auto border border-border rounded-lg bg-background/50">
-                      <div className="divide-y divide-border">
-                        {Array.from(fileValidation.entries()).map(([path, validation]) => {
-                          const isSelected = selectedFiles.has(path);
-                          const isBlocked = validation.status === "blocked-folder" || validation.status === "blocked-extension" || validation.status === "too-large";
-                          const badge = getStatusBadge(validation.status);
-
-                          return (
-                            <div
-                              key={path}
-                              className={cn(
-                                "flex items-center gap-3 p-2.5 transition-colors",
-                                isBlocked ? "opacity-50" : "hover:bg-accent/50",
-                                isSelected && !isBlocked && "bg-accent/30"
-                              )}
-                            >
-                              <Checkbox
-                                checked={isSelected}
-                                onCheckedChange={() => !isBlocked && toggleFileSelection(path)}
-                                disabled={isBlocked}
-                                className="border-border data-[state=checked]:bg-indigo-500 data-[state=checked]:border-indigo-500"
-                              />
-
-                              <div className="flex-1 min-w-0">
-                                <p className="text-xs font-mono text-foreground truncate">{path}</p>
-                                <p className="text-[10px] text-muted-foreground">{formatFileSize(validation.size)}</p>
-                              </div>
-
-                              <div className={cn("px-2 py-0.5 rounded text-[10px] font-medium border", badge.className)}>
-                                {badge.text}
-                              </div>
-                            </div>
-                          );
-                        })}
+                    <div className="max-h-96 overflow-y-auto border border-border rounded-lg bg-background/50">
+                      <div>
+                        {fileTree.map(node => renderFileNode(node, 0))}
                       </div>
                     </div>
                   </div>
