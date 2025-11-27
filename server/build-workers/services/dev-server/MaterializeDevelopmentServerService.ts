@@ -33,7 +33,7 @@ import { ChatService } from "../chat/ChatService.js";
 import { ExpoDevServerService } from "./ExpoDevServerService.js";
 import { FileSyncService } from "../FileSyncService.js";
 import { checkUserHasPrototypeEditAccess } from "../../utils/prototypeAuth.js";
-import { hasRemainingCredits } from "../chat/credit-checks.js";
+import { fetchUserPlan } from "../chat/credit-checks.js";
 
 export class MaterializeDevelopmentServerService {
   private readonly expoDevServerService: ExpoDevServerService;
@@ -452,21 +452,6 @@ export class MaterializeDevelopmentServerService {
         }
       }
 
-      if (!jwtToken) {
-        request.log2.error(
-          new Error("No JWT token provided"),
-          "Authentication required",
-        );
-        reply.code(401);
-        return {
-          data: null,
-          error: {
-            error: "Authentication required",
-            message: "No JWT token provided in Authorization header",
-          },
-        };
-      }
-
       // Step 2: Validate user has edit access to prototype
       const authResult = await checkUserHasPrototypeEditAccess(
         prototype_id,
@@ -496,13 +481,13 @@ export class MaterializeDevelopmentServerService {
       }
 
       // Step 3: Paywall check - ensure user is NOT on free plan
-      const creditCheck = await hasRemainingCredits(
+      const userPlan = await fetchUserPlan(
         this.supabaseClientService.getClient(),
         authResult.user.id,
         request.log2,
       );
 
-      if (creditCheck.plan === "free") {
+      if (userPlan === "free") {
         request.log2.warn("Free tier user attempted to use update-files-v2", {
           userId: authResult.user.id,
           prototypeId: prototype_id,
