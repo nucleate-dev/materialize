@@ -48,7 +48,8 @@ export class IdleCloudflareTunnelSystem {
     const toCreate = MAX_IDLE_TUNNELS - currentIdle;
     if (toCreate === 0) return;
     else if (toCreate > 0) {
-      this.log2.info(
+      this.log2.consoleLogDevOnly(
+        'info',
         `Refreshing idle tunnels and hostnames: Creating ${toCreate} idle tunnels to reach max ${MAX_IDLE_TUNNELS}`,
       );
       await Promise.all(
@@ -173,7 +174,8 @@ export class IdleCloudflareTunnelSystem {
         throw updateError;
       }
 
-      this.log2.info(
+      this.log2.consoleLogDevOnly(
+        'info',
         'Successfully created replenished idle tunnel and hostname',
         {
           tunnelId,
@@ -265,7 +267,8 @@ export class IdleCloudflareTunnelSystem {
         throw new Error('Placeholder tunnel entry missing id');
       }
 
-      this.log2.info(
+      this.log2.consoleLogDevOnly(
+        'info',
         `Creating tunnel directly for immediate allocation: ${tunnelName}`,
       );
 
@@ -308,10 +311,14 @@ export class IdleCloudflareTunnelSystem {
         throw updateError || new Error('Failed to update tunnel entry');
       }
 
-      this.log2.info('Successfully created tunnel directly for allocation', {
-        tunnelId,
-        hostname,
-      });
+      this.log2.consoleLogDevOnly(
+        'info',
+        'Successfully created tunnel directly for allocation',
+        {
+          tunnelId,
+          hostname,
+        },
+      );
       // // Launch a new idle tunnel in the background to replenish the pool
       // this.launchIdleTunnelAndHostname().catch((e) =>
       //   this.log2.error(

@@ -10,7 +10,7 @@ export async function removeBuildDataFromCache(
   buildId: string,
 ): Promise<boolean> {
   try {
-    log2.info('Removing build data from cache', {
+    log2.consoleLogDevOnly('info', 'Removing build data from cache', {
       buildKey: CACHE_KEYS.activeBuild(buildId),
       buildsZsetRemovalKey: CACHE_KEYS.protoBuilds(prototypeId),
       currentBuildKey: CACHE_KEYS.protoCurrentBuild(prototypeId),
@@ -111,7 +111,11 @@ THIS IS ONLY MEANT TO BE USED FOR INTERNAL FARGATE DEV MODE
 export async function hgetallAsDevBuild(
   cache: GlideClient,
   key: string,
-): Promise<{ status: string | null; url: string; terminal_tunnel_hostname: string } | null> {
+): Promise<{
+  status: string | null;
+  url: string;
+  terminal_tunnel_hostname: string;
+} | null> {
   const raw = await cache.hgetall(key);
 
   if (!raw || raw.length === 0) return null;

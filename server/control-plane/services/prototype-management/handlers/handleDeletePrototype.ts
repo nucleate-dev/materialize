@@ -82,13 +82,17 @@ export default async function handleDeletePrototypeImpl(
       .delete()
       .eq('id', prototype_id); // cascade delete everything relevant
 
-    request.log2.info('Deleted all associated data for prototype', {
-      prototype_id,
-      s3CleanupResult,
-      assetsCleanupResult,
-      thumbnailCleanupResult,
-      prototypeCleanupResult,
-    });
+    request.log2.consoleLogDevOnly(
+      'info',
+      'Deleted all associated data for prototype',
+      {
+        prototype_id,
+        s3CleanupResult,
+        assetsCleanupResult,
+        thumbnailCleanupResult,
+        prototypeCleanupResult,
+      },
+    );
 
     if (
       !s3CleanupResult ||

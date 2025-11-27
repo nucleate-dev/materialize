@@ -483,7 +483,10 @@ export async function deletePrototypeAssetsFromStorage(
     await listFilesRecursively(prototypeId);
 
     if (allFiles.length === 0) {
-      log2.info('[deletePrototypeAssetsFromStorage] No files found');
+      log2.consoleLogDevOnly(
+        'info',
+        '[deletePrototypeAssetsFromStorage] No files found',
+      );
       return true;
     }
 
@@ -554,9 +557,13 @@ export async function deletePrototypeChatImagesFromStorage(
     await listFilesRecursively(prototypeId);
 
     if (allFiles.length === 0) {
-      log2.info('[deletePrototypeChatImagesFromStorage] No files found', {
-        prototypeId,
-      });
+      log2.consoleLogDevOnly(
+        'info',
+        '[deletePrototypeChatImagesFromStorage] No files found',
+        {
+          prototypeId,
+        },
+      );
       return true;
     }
 

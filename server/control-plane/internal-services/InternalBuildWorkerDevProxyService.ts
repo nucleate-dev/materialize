@@ -155,7 +155,8 @@ export class InternalBuildWorkerDevProxyService {
     request: FastifyRequest,
     reply: FastifyReply,
   ): Promise<void> {
-    const { endpoint, path, method, payload, headers, query } = request.body as BuildWorkerProxyRequestBody;
+    const { endpoint, path, method, payload, headers, query } =
+      request.body as BuildWorkerProxyRequestBody;
     const log = request.log2.child({
       service: 'internal-services',
       route: 'build-worker-dev-proxy',
@@ -222,7 +223,7 @@ export class InternalBuildWorkerDevProxyService {
         }
       }
 
-      log.info('Proxying build worker request', {
+      log.consoleLogDevOnly('info', 'Proxying build worker request', {
         method: normalizedMethod,
         path,
         targetUrl,
@@ -236,7 +237,9 @@ export class InternalBuildWorkerDevProxyService {
         payload &&
         typeof payload === 'object'
       ) {
-        const candidate = Number((payload as { timeout_ms?: unknown }).timeout_ms);
+        const candidate = Number(
+          (payload as { timeout_ms?: unknown }).timeout_ms,
+        );
         if (Number.isFinite(candidate) && candidate > 0) {
           // Allow some buffer beyond the sandbox timeout but cap at 10 minutes
           requestTimeoutMs = Math.min(candidate + 5_000, 600_000);
@@ -291,7 +294,7 @@ export class InternalBuildWorkerDevProxyService {
         data: responseBody,
       };
 
-      log.info('Build worker request completed', {
+      log.consoleLogDevOnly('info', 'Build worker request completed', {
         status: response.status,
         durationMs,
       });

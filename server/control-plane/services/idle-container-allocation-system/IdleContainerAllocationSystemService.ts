@@ -85,7 +85,8 @@ export class IdleContainerAllocationSystemService {
     const toCreate = MAX_IDLE_FARGATE_BUILDS - currentIdle;
     if (toCreate === 0) return;
     else if (toCreate > 0) {
-      this.log2.info(
+      this.log2.consoleLogDevOnly(
+        'info',
         `Refreshing idle container capacity: Creating ${toCreate} idle builds to reach max ${MAX_IDLE_FARGATE_BUILDS}`,
       );
       await Promise.all(
@@ -156,7 +157,8 @@ export class IdleContainerAllocationSystemService {
 
     // 2. No idle containers found. Fallback to direct launch and replenish in background
     if (!taskArn) {
-      this.log2.info(
+      this.log2.consoleLogDevOnly(
+        'info',
         '[ContainerAlloc] No idle containers found, falling back to direct launch',
         { prototypeId },
       );
@@ -209,7 +211,8 @@ export class IdleContainerAllocationSystemService {
     let privateIp: string = '';
     if (taskData.status === 'creating') {
       // Status = "creating" → wait until container is ready, then assign prototype
-      this.log2.info(
+      this.log2.consoleLogDevOnly(
+        'info',
         `[ContainerAlloc] Waiting for idle container ${taskArn} to finish creating`,
       );
       privateIp =
@@ -234,11 +237,15 @@ export class IdleContainerAllocationSystemService {
         userId,
       );
     }
-    this.log2.info('[ContainerAlloc] Allocating idle container to prototype', {
-      prototypeId,
-      taskArn,
-      privateIp,
-    });
+    this.log2.consoleLogDevOnly(
+      'info',
+      '[ContainerAlloc] Allocating idle container to prototype',
+      {
+        prototypeId,
+        taskArn,
+        privateIp,
+      },
+    );
     const info: FargateInstanceInfo = {
       taskArn,
       privateIp,
@@ -312,7 +319,8 @@ export class IdleContainerAllocationSystemService {
     try {
       const exists = await this.cache.exists([idleKey]);
       if (!exists) {
-        this.log2.info(
+        this.log2.consoleLogDevOnly(
+          'info',
           'Idle container Fargate Task is ready, but idle container is already popped from the cache for use',
           { idleKey },
         );
@@ -323,10 +331,14 @@ export class IdleContainerAllocationSystemService {
         fargate_private_ip: privateIp,
         status: 'ready',
       });
-      this.log2.info('Idle container launched and marked ready', {
-        taskArn,
-        privateIp,
-      });
+      this.log2.consoleLogDevOnly(
+        'info',
+        'Idle container launched and marked ready',
+        {
+          taskArn,
+          privateIp,
+        },
+      );
       return;
     } catch (error) {
       this.log2.error(
@@ -348,7 +360,9 @@ export class IdleContainerAllocationSystemService {
         reason: 'Idle container cleanup',
       });
       await this.ecsClient.send(command);
-      this.log2.info('Terminated Fargate task', { taskArn });
+      this.log2.consoleLogDevOnly('info', 'Terminated Fargate task', {
+        taskArn,
+      });
     } catch (error) {
       this.log2.error(error, 'Failed to terminate Fargate task');
     }

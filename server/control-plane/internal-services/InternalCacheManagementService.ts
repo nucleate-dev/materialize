@@ -353,14 +353,14 @@ export class InternalCacheManagementService {
     request.log2 = request.log2.child({
       service: 'internal-services',
     });
-    request.log2.info('Starting cache clear operation');
+    request.log2.consoleLogDevOnly('info', 'Starting cache clear operation');
 
     try {
       // Clear all cache data using FLUSHALL command
       await this.cache.flushall();
 
       const duration = Date.now() - startTime;
-      request.log2.info('Cache cleared successfully', {
+      request.log2.consoleLogDevOnly('info', 'Cache cleared successfully', {
         durationMs: duration,
       });
 
@@ -389,7 +389,7 @@ export class InternalCacheManagementService {
     request.log2 = request.log2.child({
       service: 'internal-services',
     });
-    request.log2.info('Fetching cache statistics');
+    request.log2.consoleLogDevOnly('info', 'Fetching cache statistics');
 
     try {
       // Get all keys to count them by pattern
@@ -476,7 +476,9 @@ export class InternalCacheManagementService {
     request.log2 = request.log2.child({
       service: 'internal-services',
     });
-    request.log2.info('Fetching prototype build data', { prototypeId });
+    request.log2.consoleLogDevOnly('info', 'Fetching prototype build data', {
+      prototypeId,
+    });
 
     try {
       // Get current build ID
@@ -612,9 +614,13 @@ export class InternalCacheManagementService {
         allBuilds.length === 0 &&
         allActiveBuilds.length === 0
       ) {
-        request.log2.info('No build data found for prototype', {
-          prototypeId,
-        });
+        request.log2.consoleLogDevOnly(
+          'info',
+          'No build data found for prototype',
+          {
+            prototypeId,
+          },
+        );
 
         return reply.status(HTTP_STATUS.OK).send({
           success: true,
@@ -627,12 +633,16 @@ export class InternalCacheManagementService {
         });
       }
 
-      request.log2.info('Successfully retrieved prototype build data', {
-        prototypeId,
-        currentBuildId,
-        totalActiveBuilds: allActiveBuilds.length,
-        totalBuildsInHistory: allBuilds.length,
-      });
+      request.log2.consoleLogDevOnly(
+        'info',
+        'Successfully retrieved prototype build data',
+        {
+          prototypeId,
+          currentBuildId,
+          totalActiveBuilds: allActiveBuilds.length,
+          totalBuildsInHistory: allBuilds.length,
+        },
+      );
 
       return reply.status(HTTP_STATUS.OK).send({
         success: true,
@@ -689,7 +699,10 @@ export class InternalCacheManagementService {
     request.log2 = request.log2.child({
       service: 'internal-services',
     });
-    request.log2.info('Starting development cache clear operation');
+    request.log2.consoleLogDevOnly(
+      'info',
+      'Starting development cache clear operation',
+    );
 
     try {
       // Scan for all development:* keys
@@ -698,9 +711,13 @@ export class InternalCacheManagementService {
         key.startsWith('development:'),
       );
 
-      request.log2.info('Found development keys to delete', {
-        count: developmentKeys.length,
-      });
+      request.log2.consoleLogDevOnly(
+        'info',
+        'Found development keys to delete',
+        {
+          count: developmentKeys.length,
+        },
+      );
 
       // Delete development keys one by one to avoid cross-slot errors in Redis Cluster
       let deletedCount = 0;
@@ -719,10 +736,14 @@ export class InternalCacheManagementService {
       }
 
       const duration = Date.now() - startTime;
-      request.log2.info('Development cache cleared successfully', {
-        deletedCount,
-        durationMs: duration,
-      });
+      request.log2.consoleLogDevOnly(
+        'info',
+        'Development cache cleared successfully',
+        {
+          deletedCount,
+          durationMs: duration,
+        },
+      );
 
       return reply.status(HTTP_STATUS.OK).send({
         success: true,

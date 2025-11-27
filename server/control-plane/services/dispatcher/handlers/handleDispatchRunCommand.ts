@@ -25,16 +25,11 @@ export async function handleRunCommandImpl(
   jwt: string,
   cache: GlideClient,
   log2: SystemLogger,
-): Promise<APIResponse<PublicRunCommandSuccessResponse, StandardErrorResponse>> {
-  const {
-    prototype_id,
-    command,
-    args,
-    cwd,
-    env,
-    timeout_ms,
-    strip_ansi,
-  } = body;
+): Promise<
+  APIResponse<PublicRunCommandSuccessResponse, StandardErrorResponse>
+> {
+  const { prototype_id, command, args, cwd, env, timeout_ms, strip_ansi } =
+    body;
 
   // ------------------------------------------------------------------------------------------------
   // FOR DEVELOPMENT PURPOSES: if env is dev, fargate dev mode is enabled, and an ip is provided, skip
@@ -208,19 +203,19 @@ async function callFargateRunCommand(
       // Do NOT include session_id - let it create a new temp session
     };
 
-    const response = await axios.post<SandboxAPIResponse<PublicRunCommandSuccessResponse, StandardErrorResponse>>(
-      `http://${fargatePrivateIp}:3002/run-command`,
-      request,
-      {
-        timeout: params.timeout_ms || 120000,
-        headers: {
-          'Content-Type': 'application/json',
-          'x-trace-id': log2.getTraceId(),
-        },
+    const response = await axios.post<
+      SandboxAPIResponse<PublicRunCommandSuccessResponse, StandardErrorResponse>
+    >(`http://${fargatePrivateIp}:3002/run-command`, request, {
+      timeout: params.timeout_ms || 120000,
+      headers: {
+        'Content-Type': 'application/json',
+        'x-trace-id': log2.getTraceId(),
       },
-    );
+    });
 
-    log2.info('Fargate run-command response:', { response: response.data });
+    log2.consoleLogDevOnly('info', 'Fargate run-command response:', {
+      response: response.data,
+    });
 
     // Handle the SandboxAPIResponse discriminated union
     if (response.data.error) {

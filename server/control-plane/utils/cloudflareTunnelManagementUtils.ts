@@ -176,7 +176,10 @@ export async function deleteCloudflareTunnel(
     );
   }
 
-  log2.info(`Successfully deleted Cloudflare tunnel ${tunnelId}`);
+  log2.consoleLogDevOnly(
+    'info',
+    `Successfully deleted Cloudflare tunnel ${tunnelId}`,
+  );
 
   // Delete the DNS record if hostname is provided
   if (hostname) {
@@ -232,7 +235,10 @@ export async function deleteCloudflareTunnel(
               `Failed to delete DNS record for ${cleanHostname}: ${deleteDnsResponse.status} ${text}`,
             );
           } else {
-            log2.info(`Successfully deleted DNS record for ${cleanHostname}`);
+            log2.consoleLogDevOnly(
+              'info',
+              `Successfully deleted DNS record for ${cleanHostname}`,
+            );
           }
         }
       } else {
@@ -262,7 +268,10 @@ export async function deleteCloudflareTunnel(
           `Failed to delete tunnel ${tunnelId} from Supabase database`,
         );
       } else {
-        log2.info(`Successfully deleted tunnel ${tunnelId} from Supabase`);
+        log2.consoleLogDevOnly(
+          'info',
+          `Successfully deleted tunnel ${tunnelId} from Supabase`,
+        );
       }
     } catch (error) {
       log2.error(

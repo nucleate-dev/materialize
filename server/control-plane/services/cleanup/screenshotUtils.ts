@@ -51,9 +51,13 @@ export async function takeScreenshotsOfKilledBuilds(
           log2,
         );
         if (uploadSuccess) {
-          log2.info('Successfully took and uploaded screenshot', {
-            prototypeId,
-          });
+          log2.consoleLogDevOnly(
+            'info',
+            'Successfully took and uploaded screenshot',
+            {
+              prototypeId,
+            },
+          );
         } else {
           log2.warn('Failed to upload screenshot to Supabase', {
             prototypeId,

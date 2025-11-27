@@ -55,7 +55,8 @@ export class InternalControlPlaneDevelopmentService {
               },
               instanceType: {
                 type: 'string',
-                description: 'EC2 instance type (t3.micro, t3.medium, or t3.large)',
+                description:
+                  'EC2 instance type (t3.micro, t3.medium, or t3.large)',
                 enum: ['t3.micro', 't3.medium', 't3.large'],
               },
               lifespanHours: {
@@ -185,7 +186,7 @@ export class InternalControlPlaneDevelopmentService {
     const {
       serverName,
       instanceType = 't3.medium',
-      lifespanHours = 3
+      lifespanHours = 3,
     } = request.body as {
       serverName: string;
       instanceType?: string;
@@ -194,7 +195,11 @@ export class InternalControlPlaneDevelopmentService {
     request.log2 = request.log2.child({
       service: 'internal-services',
     });
-    request.log2.info('Acquiring dev EC2 instance', { serverName, instanceType, lifespanHours });
+    request.log2.consoleLogDevOnly('info', 'Acquiring dev EC2 instance', {
+      serverName,
+      instanceType,
+      lifespanHours,
+    });
 
     // Validate server name
     if (!serverName || serverName.trim().length === 0) {
@@ -267,7 +272,7 @@ export class InternalControlPlaneDevelopmentService {
         ready: true,
       });
 
-      request.log2.info('EC2 dev server ready', {
+      request.log2.consoleLogDevOnly('info', 'EC2 dev server ready', {
         serverName,
         instanceId,
       });
@@ -381,7 +386,9 @@ export class InternalControlPlaneDevelopmentService {
     instanceId: string,
     log2: SystemLogger,
   ): Promise<void> {
-    log2.info('Waiting for instance to be running...', { instanceId });
+    log2.consoleLogDevOnly('info', 'Waiting for instance to be running...', {
+      instanceId,
+    });
 
     // First wait for instance to be running
     await waitUntilInstanceRunning(
@@ -394,9 +401,13 @@ export class InternalControlPlaneDevelopmentService {
       { InstanceIds: [instanceId] },
     );
 
-    log2.info('Instance is running, waiting for status checks...', {
-      instanceId,
-    });
+    log2.consoleLogDevOnly(
+      'info',
+      'Instance is running, waiting for status checks...',
+      {
+        instanceId,
+      },
+    );
 
     // Then wait for status checks to pass (this ensures user data script has completed)
     await waitUntilInstanceStatusOk(
@@ -409,7 +420,11 @@ export class InternalControlPlaneDevelopmentService {
       { InstanceIds: [instanceId] },
     );
 
-    log2.info('Instance is fully ready - status checks passed', { instanceId });
+    log2.consoleLogDevOnly(
+      'info',
+      'Instance is fully ready - status checks passed',
+      { instanceId },
+    );
   }
 
   // Allocate a dev EC2 server (initial step - just create the instance)
@@ -457,7 +472,9 @@ export class InternalControlPlaneDevelopmentService {
       );
     }
 
-    log2.info('EC2 instance created', { instanceId: instance.InstanceId });
+    log2.consoleLogDevOnly('info', 'EC2 instance created', {
+      instanceId: instance.InstanceId,
+    });
     return instance.InstanceId;
   }
 

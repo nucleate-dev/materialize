@@ -209,11 +209,17 @@ async function callFargateRestart(
       },
     );
 
-    log2.info('Fargate restart response:', { response: response.data });
+    log2.consoleLogDevOnly('info', 'Fargate restart response:', {
+      response: response.data,
+    });
 
     if (response.data.data) {
       return { success: true, message: response.data.data.message };
     } else {
+      log2.error(
+        new Error(response.data.error?.message || 'Unknown error'),
+        'Fargate restart response error',
+      );
       return {
         success: false,
         message: response.data.error?.message || 'Unknown error',

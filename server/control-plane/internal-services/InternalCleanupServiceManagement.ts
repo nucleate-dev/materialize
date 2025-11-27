@@ -276,9 +276,13 @@ export class InternalCleanupServiceManagement {
         });
       }
 
-      log.info('Taking screenshot for prototype via internal tools', {
-        prototype_id,
-      });
+      log.consoleLogDevOnly(
+        'info',
+        'Taking screenshot for prototype via internal tools',
+        {
+          prototype_id,
+        },
+      );
 
       // Call the public method from CleanupService to take screenshots
       await takeScreenshotsOfKilledBuilds(
@@ -287,9 +291,13 @@ export class InternalCleanupServiceManagement {
         this.supabaseServiceRole,
       );
 
-      log.info('Screenshot taken successfully for prototype', {
-        prototype_id,
-      });
+      log.consoleLogDevOnly(
+        'info',
+        'Screenshot taken successfully for prototype',
+        {
+          prototype_id,
+        },
+      );
 
       return reply.status(HTTP_STATUS.OK).send({
         success: true,
@@ -340,9 +348,13 @@ export class InternalCleanupServiceManagement {
 
       const trimmedPrototypeId = prototype_id.trim();
 
-      log.info('Force cleaning build for prototype via internal tools', {
-        prototype_id: trimmedPrototypeId,
-      });
+      log.consoleLogDevOnly(
+        'info',
+        'Force cleaning build for prototype via internal tools',
+        {
+          prototype_id: trimmedPrototypeId,
+        },
+      );
 
       // Get the current build ID for this prototype
       const currentBuildIdRaw = await this.cache.get(
@@ -361,7 +373,7 @@ export class InternalCleanupServiceManagement {
 
       const currentBuildId = currentBuildIdRaw.toString();
 
-      log.info('Found active build for prototype', {
+      log.consoleLogDevOnly('info', 'Found active build for prototype', {
         prototype_id: trimmedPrototypeId,
         build_id: currentBuildId,
       });
@@ -387,11 +399,12 @@ export class InternalCleanupServiceManagement {
       }
 
       // Force clean the build without waiting for successful build
-      log.info(
+      log.consoleLogDevOnly(
+        'info',
         'Calling cleanupSingleBuild with shouldWaitForSuccessfulBuild=false',
         {
-          prototype_id: trimmedPrototypeId,
-          build_id: currentBuildId,
+          prototype_id: trimmedPrototypeId.trim(),
+          build_id: currentBuildId.trim(),
         },
       );
 
@@ -403,10 +416,14 @@ export class InternalCleanupServiceManagement {
       );
 
       if (cleanupResult.success) {
-        log.info('Successfully force cleaned build for prototype', {
-          prototype_id: trimmedPrototypeId,
-          build_id: currentBuildId,
-        });
+        log.consoleLogDevOnly(
+          'info',
+          'Successfully force cleaned build for prototype',
+          {
+            prototype_id: trimmedPrototypeId,
+            build_id: currentBuildId,
+          },
+        );
 
         return reply.status(HTTP_STATUS.OK).send({
           success: true,
@@ -479,7 +496,7 @@ export class InternalCleanupServiceManagement {
 
       const trimmedPrototypeId = prototype_id.trim();
 
-      log.info(
+      log.consoleLogDevOnly(
         'Force cleaning build for prototype with retry logic via internal tools',
         {
           prototype_id: trimmedPrototypeId,
@@ -517,7 +534,7 @@ export class InternalCleanupServiceManagement {
           error: `Build data not found for build ${currentBuildId}`,
         });
       } else {
-        log.info('Found active build for prototype', {
+        log.consoleLogDevOnly('info', 'Found active build for prototype', {
           prototype_id: trimmedPrototypeId,
           build_id: currentBuildId,
         });
@@ -526,18 +543,23 @@ export class InternalCleanupServiceManagement {
       // Retry loop - attempt cleanup up to MAX_ATTEMPTS times
       let lastError: string | undefined;
       for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-        log.info(`Cleanup attempt ${attempt}/${MAX_ATTEMPTS}`, {
-          prototype_id: trimmedPrototypeId,
-          build_id: currentBuildId,
-          attempt,
-        });
-
-        // Attempt to clean the build with shouldWaitForSuccessfulBuild=true
-        log.info(
-          `Calling cleanupSingleBuild with shouldWaitForSuccessfulBuild=true (attempt ${attempt})`,
+        log.consoleLogDevOnly(
+          'info',
+          `Cleanup attempt ${attempt}/${MAX_ATTEMPTS}`,
           {
             prototype_id: trimmedPrototypeId,
             build_id: currentBuildId,
+            attempt,
+          },
+        );
+
+        // Attempt to clean the build with shouldWaitForSuccessfulBuild=true
+        log.consoleLogDevOnly(
+          'info',
+          `Calling cleanupSingleBuild with shouldWaitForSuccessfulBuild=true (attempt ${attempt})`,
+          {
+            prototype_id: trimmedPrototypeId.trim(),
+            build_id: currentBuildId.trim(),
             attempt,
           },
         );
@@ -550,20 +572,25 @@ export class InternalCleanupServiceManagement {
         );
 
         if (cleanupResult.success) {
-          log.info(
+          log.consoleLogDevOnly(
+            'info',
             `Successfully cleaned build for prototype on attempt ${attempt}`,
             {
-              prototype_id: trimmedPrototypeId,
-              build_id: currentBuildId,
+              prototype_id: trimmedPrototypeId.trim(),
+              build_id: currentBuildId.trim(),
               attempt,
             },
           );
 
           // Take screenshot after successful cleanup
-          log.info('Taking screenshot after successful cleanup', {
-            prototype_id: trimmedPrototypeId,
-            build_id: currentBuildId,
-          });
+          log.consoleLogDevOnly(
+            'info',
+            'Taking screenshot after successful cleanup',
+            {
+              prototype_id: trimmedPrototypeId,
+              build_id: currentBuildId,
+            },
+          );
 
           let screenshotTaken = false;
           try {
@@ -573,9 +600,13 @@ export class InternalCleanupServiceManagement {
               this.supabaseServiceRole,
             );
             screenshotTaken = true;
-            log.info('Screenshot taken successfully after cleanup', {
-              prototype_id: trimmedPrototypeId,
-            });
+            log.consoleLogDevOnly(
+              'info',
+              'Screenshot taken successfully after cleanup',
+              {
+                prototype_id: trimmedPrototypeId,
+              },
+            );
           } catch (screenshotError) {
             log.error(
               screenshotError,
@@ -614,7 +645,8 @@ export class InternalCleanupServiceManagement {
 
           // If this isn't the last attempt, wait before retrying
           if (attempt < MAX_ATTEMPTS) {
-            log.info(
+            log.consoleLogDevOnly(
+              'info',
               `Waiting ${RETRY_DELAY_MS / 1000} seconds before retry attempt ${attempt + 1}`,
               {
                 prototype_id: trimmedPrototypeId,

@@ -60,9 +60,15 @@ export class CleanupService {
         });
         try {
           const stats = await this.cleanupIdleActiveBuilds();
-          this.log2.info('Cleanup cycle completed with stats', {
-            stats,
-          });
+          if (
+            stats.idleBuildsFound > 0 ||
+            stats.successfulCleanups > 0 ||
+            stats.failedCleanups > 0
+          ) {
+            this.log2.info('Cleanup cycle completed with stats', {
+              stats,
+            });
+          }
         } catch (error) {
           this.log2.error(error, 'Error in cleanupIdleActiveBuilds');
         }
@@ -95,9 +101,6 @@ export class CleanupService {
 
     // 2. For each idle build, clean it up
     stats.idleBuildsFound = idleBuilds.length;
-    this.log2.info('Cleanup cycle running -- found idle builds to clean up', {
-      idleBuildsFound: stats.idleBuildsFound,
-    });
     const killedBuilds =
       await this.dispatchKillRequestsAndCleanFargateTasksForIdleBuilds(
         idleBuilds,
@@ -322,11 +325,6 @@ export class CleanupService {
               'Build still in progress, failed to increment clean attempts and reset status to building',
           };
         }
-        this.log2.info('Build still in progress, incrementing clean attempts', {
-          buildId,
-          prototypeId,
-          clean_attempts: newCleanAttempts,
-        });
         return {
           success: false,
           buildInProgress: true,
@@ -381,11 +379,6 @@ export class CleanupService {
     tunnelId: string | undefined | null,
     tunnelHostname: string | undefined | null,
   ): Promise<boolean> {
-    // Delete the Cloudflare tunnel for the build if it exists
-    this.log2.info('deleting cloudflare tunnel', {
-      tunnelId,
-      tunnelHostname,
-    });
     if (tunnelId) {
       try {
         await deleteCloudflareTunnel(
@@ -394,9 +387,6 @@ export class CleanupService {
           tunnelHostname || undefined,
           this.supabase,
         );
-        this.log2.info(`Successfully deleted Cloudflare tunnel`, {
-          tunnelId,
-        });
         return true;
       } catch (error) {
         this.log2.error(
@@ -493,10 +483,14 @@ export class CleanupService {
               },
             );
           } else {
-            this.log2.info('Successfully updated prototype latest_build_key', {
-              prototypeId,
-              version: responseData.data.version,
-            });
+            this.log2.consoleLogDevOnly(
+              'info',
+              'Successfully updated prototype latest_build_key',
+              {
+                prototypeId,
+                version: responseData.data.version,
+              },
+            );
           }
         } else {
           // Clear latest_build_key when version doesn't exist
@@ -515,9 +509,13 @@ export class CleanupService {
               },
             );
           } else {
-            this.log2.info('Successfully cleared prototype latest_build_key', {
-              prototypeId,
-            });
+            this.log2.consoleLogDevOnly(
+              'info',
+              'Successfully cleared prototype latest_build_key',
+              {
+                prototypeId,
+              },
+            );
           }
         }
         // We should still return success because the fargate task should be cleaned up.

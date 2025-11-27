@@ -384,7 +384,7 @@ export async function handleDispatchImpl(
           updatedBuildCacheData.last_touched.toString(),
           buildIdFromKey,
         ]);
-        log2.info('Updated build cache data: ', {
+        log2.consoleLogDevOnly('info', 'Updated build cache data: ', {
           activeBuildCacheData: updatedBuildCacheData,
         });
 
@@ -485,7 +485,8 @@ async function dispatchRequestToFargateInstanceServer({
   });
   const endpoint =
     file_scope === 'complete' ? '/start-dev-server' : '/update-files';
-  log2.info(
+  log2.consoleLogDevOnly(
+    'info',
     `Dispatching request to fargate instance at ${fargate_private_ip}:3002${endpoint}: `,
     {
       requestBodyDetails: {
@@ -512,7 +513,7 @@ async function dispatchRequestToFargateInstanceServer({
     },
     { fileScope: file_scope },
   );
-  log2.info('Fargate responded: ', { fargateResponse });
+  log2.consoleLogDevOnly('info', 'Fargate responded: ', { fargateResponse });
   return fargateResponse;
 }
 

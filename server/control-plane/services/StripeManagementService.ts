@@ -33,7 +33,15 @@ export class StripeManagementService {
             properties: {
               productID: {
                 type: 'string',
-                enum: ['free', 'plus', 'pro', 'max', 'credit_pack_100', 'credit_pack_500', 'credit_pack_1000'],
+                enum: [
+                  'free',
+                  'plus',
+                  'pro',
+                  'max',
+                  'credit_pack_100',
+                  'credit_pack_500',
+                  'credit_pack_1000',
+                ],
               },
             },
           },
@@ -96,8 +104,8 @@ export class StripeManagementService {
     const { productID } = request.body;
 
     // Handle free tier - no Stripe checkout needed
-    if (productID === "free") {
-      request.log2.info('Free tier selected - no Stripe checkout needed');
+    if (productID === 'free') {
+      request.log2.warn('Free tier selected - no Stripe checkout needed');
       return reply.status(HTTP_STATUS.BAD_REQUEST).send({
         data: null,
         error: {
@@ -112,19 +120,19 @@ export class StripeManagementService {
     let priceID: string;
     let mode: 'subscription' | 'payment' = 'subscription';
 
-    if (productID === "plus") {
+    if (productID === 'plus') {
       priceID = process.env.STRIPE_PLUS_PRICE_ID as string;
-    } else if (productID === "pro") {
+    } else if (productID === 'pro') {
       priceID = process.env.STRIPE_PRO_PRICE_ID as string;
-    } else if (productID === "max") {
+    } else if (productID === 'max') {
       priceID = process.env.STRIPE_MAX_PRICE_ID as string;
-    } else if (productID === "credit_pack_100") {
+    } else if (productID === 'credit_pack_100') {
       priceID = process.env.STRIPE_CREDIT_PACK_100_PRICE_ID as string;
       mode = 'payment';
-    } else if (productID === "credit_pack_500") {
+    } else if (productID === 'credit_pack_500') {
       priceID = process.env.STRIPE_CREDIT_PACK_500_PRICE_ID as string;
       mode = 'payment';
-    } else if (productID === "credit_pack_1000") {
+    } else if (productID === 'credit_pack_1000') {
       priceID = process.env.STRIPE_CREDIT_PACK_1000_PRICE_ID as string;
       mode = 'payment';
     } else {

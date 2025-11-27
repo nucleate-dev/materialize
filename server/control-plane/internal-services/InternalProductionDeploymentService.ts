@@ -669,7 +669,9 @@ export class InternalProductionDeploymentService {
     instanceId: string,
     log2: SystemLogger,
   ): Promise<void> {
-    log2.info('Waiting for instance to be running...', { instanceId });
+    log2.consoleLogDevOnly('info', 'Waiting for instance to be running...', {
+      instanceId,
+    });
 
     // First wait for instance to be running
     await waitUntilInstanceRunning(
@@ -682,9 +684,13 @@ export class InternalProductionDeploymentService {
       { InstanceIds: [instanceId] },
     );
 
-    log2.info('Instance is running, waiting for status checks...', {
-      instanceId,
-    });
+    log2.consoleLogDevOnly(
+      'info',
+      'Instance is running, waiting for status checks...',
+      {
+        instanceId,
+      },
+    );
 
     // Then wait for status checks to pass (this ensures user data script has completed)
     await waitUntilInstanceStatusOk(
@@ -697,7 +703,11 @@ export class InternalProductionDeploymentService {
       { InstanceIds: [instanceId] },
     );
 
-    log2.info('Instance is fully ready - status checks passed', { instanceId });
+    log2.consoleLogDevOnly(
+      'info',
+      'Instance is fully ready - status checks passed',
+      { instanceId },
+    );
   }
 
   private async terminateTestInstance(
@@ -705,7 +715,9 @@ export class InternalProductionDeploymentService {
     log2: SystemLogger,
   ): Promise<void> {
     try {
-      log2.info('Terminating test instance', { instanceId });
+      log2.consoleLogDevOnly('info', 'Terminating test instance', {
+        instanceId,
+      });
 
       const terminateCmd = new TerminateInstancesCommand({
         InstanceIds: [instanceId],
@@ -713,7 +725,9 @@ export class InternalProductionDeploymentService {
 
       await this.ec2Client.send(terminateCmd);
 
-      log2.info('Test instance termination initiated', { instanceId });
+      log2.consoleLogDevOnly('info', 'Test instance termination initiated', {
+        instanceId,
+      });
     } catch (error) {
       // Log the error but don't throw - we don't want termination failure to affect validation result
       log2.error(error, 'Failed to terminate test instance', { instanceId });

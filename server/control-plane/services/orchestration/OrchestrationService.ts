@@ -139,10 +139,14 @@ export class OrchestrationService {
     }
 
     // Token is valid
-    this.logger.info('Orchestration token validated successfully', {
-      prototypeId,
-      buildId: currentBuildId,
-    });
+    this.logger.consoleLogDevOnly(
+      'info',
+      'Orchestration token validated successfully',
+      {
+        prototypeId,
+        buildId: currentBuildId,
+      },
+    );
 
     return {
       isValid: true,
@@ -184,7 +188,7 @@ export class OrchestrationService {
         last_touched: currentTime.toString(),
       });
 
-      this.logger.info('Updated build state to chatting', {
+      this.logger.consoleLogDevOnly('info', 'Updated build state to chatting', {
         prototypeId: prototype_id,
         buildId: validation.buildId,
         timestamp: currentTime,
@@ -242,7 +246,7 @@ export class OrchestrationService {
         last_touched: currentTime.toString(),
       });
 
-      this.logger.info('Updated build state to stable', {
+      this.logger.consoleLogDevOnly('info', 'Updated build state to stable', {
         prototypeId: prototype_id,
         buildId: validation.buildId,
         timestamp: currentTime,
