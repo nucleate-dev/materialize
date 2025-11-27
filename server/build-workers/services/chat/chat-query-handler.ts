@@ -1,23 +1,23 @@
 import {
-    CanUseTool,
-    HookInput,
-    HookJSONOutput,
-    Options,
-    PermissionMode,
-    PermissionResult,
-    query,
-    SDKAssistantMessage,
-    SDKUserMessage,
-    SettingSource,
+  CanUseTool,
+  HookInput,
+  HookJSONOutput,
+  Options,
+  PermissionMode,
+  PermissionResult,
+  query,
+  SDKAssistantMessage,
+  SDKUserMessage,
+  SettingSource,
 } from "@anthropic-ai/claude-agent-sdk";
 import path from "path";
 import WebSocket from "ws";
 import { SystemLogger } from "../../loggers/SystemLogger.js";
 import {
-    ChatContentBlock,
-    ChatEvent,
-    ChatQueryData,
-    ChatServerMessage,
+  ChatContentBlock,
+  ChatEvent,
+  ChatQueryData,
+  ChatServerMessage,
 } from "../../types/ChatTypes.js";
 import { Database } from "../../types/supabase.js";
 import { ExpoDevServerService } from "../dev-server/ExpoDevServerService.js";
@@ -27,8 +27,8 @@ import { SupabaseClientService } from "../SupabaseClientService.js";
 import { TerminalService } from "../terminals/TerminalService.js";
 import { getSystemPromptForDesignStyle } from "./ClaudeCodePrompts.js";
 import {
-    costFunctionV1,
-    CURRENT_COST_FUNCTION_NAME,
+  costFunctionV1,
+  CURRENT_COST_FUNCTION_NAME,
 } from "./cost-calculation.js";
 import { hasRemainingCredits } from "./credit-checks.js";
 import { createDevelopmentToolsMcpServer } from "./mcp-tools.js";
@@ -112,7 +112,9 @@ interface MessageHandlers {
     prototypeId: string,
     chatSessionId: string,
     images: Array<{ base64: string; mediaType: string }>,
-  ) => Promise<Array<{ storage_path: string; media_type: string; file_size: number }>>;
+  ) => Promise<
+    Array<{ storage_path: string; media_type: string; file_size: number }>
+  >;
   updatePersistenceClient?: (client: unknown) => void;
   notifyOrchestrationStartChat: (prototypeId: string) => Promise<void>;
   notifyOrchestrationEndChat: (prototypeId: string) => Promise<void>;
@@ -219,7 +221,11 @@ export class ChatQueryHandler {
 
     // Step 2: Authenticate with token if provided
     if (token) {
-      const authResult = await this.authenticateWithToken(token, prototypeId, handlers);
+      const authResult = await this.authenticateWithToken(
+        token,
+        prototypeId,
+        handlers,
+      );
       if (!authResult.success) {
         handlers.sendMessage(socket, {
           type: ChatEvent.ERROR,
@@ -332,7 +338,9 @@ export class ChatQueryHandler {
 
       // Update MessagePersistenceService's Supabase client reference
       if (handlers.updatePersistenceClient) {
-        handlers.updatePersistenceClient(this.supabaseClientService.getClient());
+        handlers.updatePersistenceClient(
+          this.supabaseClientService.getClient(),
+        );
       }
 
       this.logger.consoleLogDevOnly(
@@ -808,7 +816,8 @@ export class ChatQueryHandler {
       : userMessageText;
 
     // Include image metadata in event_data if images were uploaded
-    const eventData = imageMetadata.length > 0 ? { images: imageMetadata } : null;
+    const eventData =
+      imageMetadata.length > 0 ? { images: imageMetadata } : null;
 
     await persistMessage("user", userMessageDisplay, "text", null, eventData);
   }
@@ -835,6 +844,10 @@ export class ChatQueryHandler {
     // Prepare environment variables
     const env: Record<string, string | undefined> = {};
     const aak = this.getAak();
+    this.logger.consoleLogDevOnly("info", "AAK", {
+      exists: !!aak,
+      lastFourCharacters: aak?.slice(-4),
+    });
     if (aak) {
       env.ANTHROPIC_API_KEY = aak;
     }
@@ -1128,7 +1141,12 @@ export class ChatQueryHandler {
 
       if (input.hook_event_name === "PostToolUse") {
         // Track file modifications
-        const fileModifyingTools = ["Write", "Edit", "NotebookEdit", "SafeWrite"];
+        const fileModifyingTools = [
+          "Write",
+          "Edit",
+          "NotebookEdit",
+          "SafeWrite",
+        ];
         if (fileModifyingTools.includes(input.tool_name)) {
           const toolInput = input.tool_input as ToolInputWithFilePath;
           const toolResponse = input.tool_response as ToolResponseWithFilePath;
