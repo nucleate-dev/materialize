@@ -242,23 +242,23 @@ function FeaturesBentoGrid() {
 
             {/* Chat Bubbles */}
             <div className="absolute inset-0 p-6 pt-16 space-y-3 overflow-hidden">
-              <div className="flex justify-start animate-[slideIn_0.5s_ease-out]">
-                <div className="max-w-[80%] bg-white/5 border border-white/10 rounded-2xl rounded-tl-sm px-4 py-2.5">
+              <div className="flex justify-end animate-[slideIn_0.5s_ease-out]">
+                <div className="max-w-[80%] bg-white/5 border border-white/10 rounded-2xl rounded-tr-sm px-4 py-2.5">
                   <p className="text-xs text-white/70">Make the header gradient more vibrant</p>
                 </div>
               </div>
-              <div className="flex justify-end animate-[slideIn_0.7s_ease-out]">
-                <div className="max-w-[80%] bg-indigo-500/20 border border-indigo-500/30 rounded-2xl rounded-tr-sm px-4 py-2.5">
+              <div className="flex justify-start animate-[slideIn_0.7s_ease-out]">
+                <div className="max-w-[80%] bg-indigo-500/20 border border-indigo-500/30 rounded-2xl rounded-tl-sm px-4 py-2.5">
                   <p className="text-xs text-white/90">Updated the gradient! Check it out</p>
                 </div>
               </div>
-              <div className="flex justify-start animate-[slideIn_0.9s_ease-out]">
-                <div className="max-w-[80%] bg-white/5 border border-white/10 rounded-2xl rounded-tl-sm px-4 py-2.5">
+              <div className="flex justify-end animate-[slideIn_0.9s_ease-out]">
+                <div className="max-w-[80%] bg-white/5 border border-white/10 rounded-2xl rounded-tr-sm px-4 py-2.5">
                   <p className="text-xs text-white/70">Perfect! Now add a search bar</p>
                 </div>
               </div>
-              <div className="flex justify-end animate-[slideIn_1.1s_ease-out]">
-                <div className="max-w-[75%] bg-indigo-500/20 border border-indigo-500/30 rounded-2xl rounded-tr-sm px-4 py-2.5">
+              <div className="flex justify-start animate-[slideIn_1.1s_ease-out]">
+                <div className="max-w-[75%] bg-indigo-500/20 border border-indigo-500/30 rounded-2xl rounded-tl-sm px-4 py-2.5">
                   <div className="flex items-center gap-2">
                     <div className="w-1 h-1 rounded-full bg-white/60 animate-bounce [animation-delay:0ms]"></div>
                     <div className="w-1 h-1 rounded-full bg-white/60 animate-bounce [animation-delay:150ms]"></div>
