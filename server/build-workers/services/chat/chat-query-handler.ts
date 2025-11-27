@@ -869,7 +869,6 @@ export class ChatQueryHandler {
       permissionMode: "default" as PermissionMode,
       abortController,
       canUseTool,
-      env,
       // Add MCP servers with development tools
       mcpServers: {
         "development-tools": createDevelopmentToolsMcpServer(
