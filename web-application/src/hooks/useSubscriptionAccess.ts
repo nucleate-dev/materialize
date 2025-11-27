@@ -2,11 +2,17 @@ import { supabase } from "@/ClientConstants";
 import { SubscriptionStatuses } from "@/GlobalConstants";
 import { useUser } from "@/hooks/useUser";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
+import { subscriptionAccessQueryKey } from "@/lib/react-query/queryKeys";
 import { Database } from "@/lib/types/supabase";
-import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 
 type SubscriptionPlanType =
   Database["public"]["Enums"]["subscription_plan_type"];
+type SubscriptionAccessResult = {
+  userPlan: SubscriptionPlanType;
+  currentPeriodStart: Date;
+  currentPeriodEnd: Date;
+};
 
 /**
  * Helper function to get the start and end of the current month
@@ -25,6 +31,86 @@ function getCurrentMonthPeriod() {
     999,
   );
   return { startOfMonth, endOfMonth };
+}
+
+function getFreeTierAccess(): SubscriptionAccessResult {
+  const { startOfMonth, endOfMonth } = getCurrentMonthPeriod();
+  return {
+    userPlan: "free",
+    currentPeriodStart: startOfMonth,
+    currentPeriodEnd: endOfMonth,
+  };
+}
+
+async function fetchSubscriptionAccess(
+  userId: string,
+  logger: ReturnType<typeof useProductLogger>,
+): Promise<SubscriptionAccessResult> {
+  const freeTierAccess = getFreeTierAccess();
+  try {
+    const nowInSeconds = Math.floor(Date.now() / 1000);
+    const { data, error } = await supabase
+      .from("subscriptions")
+      .select("*")
+      .eq("user_id", userId)
+      .eq("status", SubscriptionStatuses.ACTIVE)
+      .lte("current_period_start", nowInSeconds)
+      .gte("current_period_end", nowInSeconds)
+      .order("updated_at", {
+        ascending: false,
+      });
+
+    if (error) {
+      logger.debug("error", "Error fetching subscription:", {
+        ...error,
+      });
+      return freeTierAccess;
+    }
+
+    if (!data || data.length === 0) {
+      return freeTierAccess;
+    }
+
+    const latestSubscription = data[0];
+    const plan = latestSubscription.plan_id as SubscriptionPlanType | null;
+
+    if (!plan) {
+      return freeTierAccess;
+    }
+
+    if (
+      latestSubscription.current_period_start &&
+      latestSubscription.current_period_end
+    ) {
+      const periodStart =
+        latestSubscription.current_period_start * 1000;
+      const periodEnd = latestSubscription.current_period_end * 1000;
+      const now = Date.now();
+
+      if (periodStart <= now && now <= periodEnd) {
+        return {
+          userPlan: plan,
+          currentPeriodStart: new Date(periodStart),
+          currentPeriodEnd: new Date(periodEnd),
+        };
+      }
+
+      return freeTierAccess;
+    }
+
+    const { startOfMonth, endOfMonth } = getCurrentMonthPeriod();
+    return {
+      userPlan: plan,
+      currentPeriodStart: startOfMonth,
+      currentPeriodEnd: endOfMonth,
+    };
+  } catch (error) {
+    logger.debug("error", "Error fetching subscription:", {
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+    });
+    return freeTierAccess;
+  }
 }
 
 /**
@@ -63,108 +149,30 @@ function getCurrentMonthPeriod() {
  * }
  */
 export function useSubscriptionAccess() {
-  const user = useUser();
+  const userState = useUser();
   const logger = useProductLogger();
-  const [userPlan, setUserPlan] = useState<SubscriptionPlanType>("free");
-  const [loadingSubscriptionData, setLoadingSubscriptionData] =
-    useState<boolean>(true);
-  const [currentPeriodStart, setCurrentPeriodStart] = useState<Date>(
-    new Date(),
-  );
-  const [currentPeriodEnd, setCurrentPeriodEnd] = useState<Date>(new Date());
+  const userId = userState.user?.id;
+  const queryEnabled = Boolean(userId) && userState.userIsLoading === false;
 
-  useEffect(() => {
-    async function fetchSubscriptionInformation() {
-      const nowInSeconds = Math.floor(Date.now() / 1000);
-      const { data, error } = await supabase
-        .from("subscriptions")
-        .select("*")
-        .eq("user_id", user.user?.id)
-        .eq("status", SubscriptionStatuses.ACTIVE)
-        .lte("current_period_start", nowInSeconds)
-        .gte("current_period_end", nowInSeconds)
-        .order("updated_at", {
-          ascending: false,
-        });
+  const subscriptionQuery = useQuery({
+    queryKey: subscriptionAccessQueryKey(userId),
+    queryFn: () => fetchSubscriptionAccess(userId as string, logger),
+    enabled: queryEnabled,
+    staleTime: 1000 * 60 * 5,
+  });
 
-      if (error) {
-        logger.debug("error", "Error fetching subscription:", {
-          ...error,
-        });
-        setUserPlan("free");
-        // Set free tier to current month period
-        const { startOfMonth, endOfMonth } = getCurrentMonthPeriod();
-        setCurrentPeriodStart(startOfMonth);
-        setCurrentPeriodEnd(endOfMonth);
-        setLoadingSubscriptionData(false);
-        return;
-      }
-
-      if (data === null || data.length === 0) {
-        // No active subscription found, user is on free tier
-        setUserPlan("free");
-        // Set free tier to current month period
-        const { startOfMonth, endOfMonth } = getCurrentMonthPeriod();
-        setCurrentPeriodStart(startOfMonth);
-        setCurrentPeriodEnd(endOfMonth);
-        setLoadingSubscriptionData(false);
-        return;
-      }
-
-      const latestSubscription = data[0];
-      const plan = latestSubscription.plan_id;
-
-      // User has an active subscription, use the plan from database
-      if (plan) {
-        setUserPlan(plan);
-        // Set subscription period from Stripe data (Unix timestamps in seconds)
-        if (
-          latestSubscription.current_period_start &&
-          latestSubscription.current_period_end
-        ) {
-          const periodStart =
-            latestSubscription.current_period_start * 1000;
-          const periodEnd = latestSubscription.current_period_end * 1000;
-          const now = Date.now();
-
-          if (periodStart <= now && now <= periodEnd) {
-            setCurrentPeriodStart(new Date(periodStart));
-            setCurrentPeriodEnd(new Date(periodEnd));
-          } else {
-            // Subscription is outside the current period, treat as free tier
-            setUserPlan("free");
-            const { startOfMonth, endOfMonth } = getCurrentMonthPeriod();
-            setCurrentPeriodStart(startOfMonth);
-            setCurrentPeriodEnd(endOfMonth);
-          }
-        } else {
-          // Fallback to current month if period data is missing
-          const { startOfMonth, endOfMonth } = getCurrentMonthPeriod();
-          setCurrentPeriodStart(startOfMonth);
-          setCurrentPeriodEnd(endOfMonth);
-        }
-      } else {
-        // Fallback to free if no plan is found
-        setUserPlan("free");
-        const { startOfMonth, endOfMonth } = getCurrentMonthPeriod();
-        setCurrentPeriodStart(startOfMonth);
-        setCurrentPeriodEnd(endOfMonth);
-      }
-
-      setLoadingSubscriptionData(false);
-    }
-
-    if (user.user && user.userIsLoading === false) {
-      fetchSubscriptionInformation();
-    }
-  }, [user.user, user.userIsLoading, logger]);
+  const subscriptionData =
+    subscriptionQuery.data ??
+    getFreeTierAccess();
+  const loadingSubscriptionData =
+    userState.userIsLoading || (queryEnabled ? subscriptionQuery.isPending : false);
 
   return {
-    userPlan,
+    userPlan: subscriptionData.userPlan,
     loadingSubscriptionData,
-    currentPeriodStart,
-    currentPeriodEnd,
-    user: user.user,
-    userIsLoading: user.userIsLoading,
+    currentPeriodStart: subscriptionData.currentPeriodStart,
+    currentPeriodEnd: subscriptionData.currentPeriodEnd,
+    user: userState.user,
+    userIsLoading: userState.userIsLoading,
   };
 }

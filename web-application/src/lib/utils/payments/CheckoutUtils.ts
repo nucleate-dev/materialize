@@ -83,17 +83,16 @@ export async function handleRedirectToPaymentsPage(
     productID: productID as "free" | "plus" | "pro" | "max" | "credit_pack_100" | "credit_pack_500" | "credit_pack_1000",
   };
 
-  const response = await fetch(
-    `${process.env.NEXT_PUBLIC_SERVER_ENDPOINT}/payments/checkout`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${accessToken}`,
-      },
-      body: JSON.stringify(requestBody),
+  const checkoutEndpoint = `${process.env.NEXT_PUBLIC_SERVER_ENDPOINT}/payments/checkout`;
+
+  const response = await fetch(checkoutEndpoint, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${accessToken}`,
     },
-  );
+    body: JSON.stringify(requestBody),
+  });
 
   if (!response.ok) {
     const errorData = await response.json();

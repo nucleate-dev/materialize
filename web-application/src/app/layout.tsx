@@ -4,7 +4,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
-import { CSPostHogProvider } from "./providers";
+import { CSPostHogProvider, QueryProvider } from "./providers";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -79,16 +79,18 @@ export default function RootLayout({
       </head>
       <body className={inter.className}>
         <CSPostHogProvider>
-          <ThemeProvider
-            attribute="class"
-            defaultTheme="system"
-            enableSystem
-            disableTransitionOnChange
-            storageKey="materialize-theme"
-          >
-            <MetaPixelPageView />
-            {children}
-          </ThemeProvider>
+          <QueryProvider>
+            <ThemeProvider
+              attribute="class"
+              defaultTheme="system"
+              enableSystem
+              disableTransitionOnChange
+              storageKey="materialize-theme"
+            >
+              <MetaPixelPageView />
+              {children}
+            </ThemeProvider>
+          </QueryProvider>
         </CSPostHogProvider>
       </body>
     </html>

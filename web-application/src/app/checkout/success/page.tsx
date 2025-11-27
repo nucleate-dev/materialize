@@ -3,6 +3,8 @@
 import { Button } from "@/components/ui/button";
 import { useMetaPixel } from "@/hooks/useMetaPixel";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
+import { SUBSCRIPTION_ACCESS_QUERY_KEY } from "@/lib/react-query/queryKeys";
+import { useQueryClient } from "@tanstack/react-query";
 import { CheckCircle, Loader2, Sparkles } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
@@ -12,6 +14,7 @@ function CheckoutSuccessContent() {
   const searchParams = useSearchParams();
   const { trackEvent } = useMetaPixel();
   const logger = useProductLogger();
+  const queryClient = useQueryClient();
 
   const [isTracking, setIsTracking] = useState(true);
   const [redirectCountdown, setRedirectCountdown] = useState(3);
@@ -55,12 +58,15 @@ function CheckoutSuccessContent() {
           error: error instanceof Error ? error.message : String(error),
         });
       } finally {
+        void queryClient.invalidateQueries({
+          queryKey: [SUBSCRIPTION_ACCESS_QUERY_KEY],
+        });
         setIsTracking(false);
       }
     };
 
     trackPurchase();
-  }, [searchParams, trackEvent, logger, router]);
+  }, [searchParams, trackEvent, logger, router, queryClient]);
 
   // Countdown and redirect
   useEffect(() => {
