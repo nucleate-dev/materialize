@@ -1,12 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/ClientConstants";
 import { useUser } from "@/hooks/useUser";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import ProjectsPageView from "./ProjectsPageView";
 import { Prototype } from "./types";
+
+const PAGE_SIZE = 12;
 
 export default function ProjectsPageContainer() {
   const { user } = useUser();
@@ -15,46 +17,111 @@ export default function ProjectsPageContainer() {
   const [modalOpen, setModalOpen] = useState(false);
   const [prototypes, setPrototypes] = useState<Prototype[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isFetchingMore, setIsFetchingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const [offset, setOffset] = useState(0);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [activePrototype, setActivePrototype] = useState<Prototype | null>(
     null,
   );
+  const loadMoreRef = useRef<HTMLDivElement | null>(null);
 
-  const fetchPrototypes = useCallback(async () => {
-    if (!user?.id) {
-      setIsLoading(false);
-      return;
-    }
-
-    setIsLoading(true);
-    try {
-      const { data, error } = await supabase
-        .from("prototypes")
-        .select("*")
-        .eq("owner_id", user.id)
-        .order("updated_at", { ascending: false });
-
-      if (error) {
-        logger.debug("error", "Error fetching prototypes:", {
-          ...error,
-        });
+  const fetchPrototypes = useCallback(
+    async ({
+      offset: start = 0,
+      append = false,
+    }: { offset?: number; append?: boolean } = {}) => {
+      if (!user?.id) {
+        setPrototypes([]);
+        setHasMore(false);
+        setIsLoading(false);
+        setIsFetchingMore(false);
+        setOffset(0);
         return;
       }
 
-      setPrototypes(data || []);
-    } catch (error) {
-      logger.debug("error", "Error fetching prototypes:", {
-        error: error instanceof Error ? error.message : String(error),
-        stack: error instanceof Error ? error.stack : undefined,
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  }, [user?.id, logger]);
+      if (append) {
+        setIsFetchingMore(true);
+      } else {
+        setIsLoading(true);
+        setHasMore(true);
+        setOffset(0);
+      }
+
+      try {
+        const from = start;
+        const to = start + PAGE_SIZE - 1;
+
+        const { data, error } = await supabase
+          .from("prototypes")
+          .select("*")
+          .eq("owner_id", user.id)
+          .order("updated_at", { ascending: false })
+          .range(from, to);
+
+        if (error) {
+          logger.debug("error", "Error fetching prototypes:", {
+            ...error,
+          });
+          return;
+        }
+
+        const nextData = data || [];
+        setPrototypes((prev) =>
+          append ? [...prev, ...nextData] : nextData,
+        );
+        setHasMore(nextData.length === PAGE_SIZE);
+        setOffset((prev) =>
+          append ? prev + nextData.length : nextData.length,
+        );
+      } catch (error) {
+        logger.debug("error", "Error fetching prototypes:", {
+          error: error instanceof Error ? error.message : String(error),
+          stack: error instanceof Error ? error.stack : undefined,
+        });
+      } finally {
+        if (append) {
+          setIsFetchingMore(false);
+        } else {
+          setIsLoading(false);
+        }
+      }
+    },
+    [user?.id, logger],
+  );
 
   useEffect(() => {
     fetchPrototypes();
   }, [fetchPrototypes]);
+
+  const loadMore = useCallback(() => {
+    if (isLoading || isFetchingMore || !hasMore) {
+      return;
+    }
+    fetchPrototypes({ offset, append: true });
+  }, [fetchPrototypes, offset, isLoading, isFetchingMore, hasMore]);
+
+  useEffect(() => {
+    const sentinel = loadMoreRef.current;
+    if (!sentinel || !hasMore) {
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const [entry] = entries;
+        if (entry.isIntersecting) {
+          loadMore();
+        }
+      },
+      { rootMargin: "200px" },
+    );
+
+    observer.observe(sentinel);
+    return () => {
+      observer.disconnect();
+    };
+  }, [loadMore, hasMore]);
 
   const handleOpenModal = () => setModalOpen(true);
   const handleCloseModal = () => setModalOpen(false);
@@ -85,6 +152,7 @@ export default function ProjectsPageContainer() {
     setPrototypes((prev) =>
       prev.filter((p) => p.id !== activePrototype?.id),
     );
+    setOffset((prev) => Math.max(prev - 1, 0));
     handleCloseSettings();
   };
 
@@ -100,6 +168,9 @@ export default function ProjectsPageContainer() {
     <ProjectsPageView
       prototypes={prototypes}
       isLoading={isLoading}
+      isFetchingMore={isFetchingMore}
+      hasMore={hasMore}
+      loadMoreRef={loadMoreRef}
       modalOpen={modalOpen}
       settingsOpen={settingsOpen}
       activePrototype={activePrototype}

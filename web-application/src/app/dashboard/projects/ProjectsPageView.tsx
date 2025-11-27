@@ -8,11 +8,15 @@ import PrototypeThumbnailSkeleton from "@/components/dashboard/PrototypeThumbnai
 import { Button } from "@/components/ui/button";
 import { User } from "@supabase/supabase-js";
 import { Plus } from "lucide-react";
+import { RefObject } from "react";
 import { Prototype } from "./types";
 
 type ProjectsPageViewProps = {
   prototypes: Prototype[];
   isLoading: boolean;
+  isFetchingMore: boolean;
+  hasMore: boolean;
+  loadMoreRef: RefObject<HTMLDivElement | null>;
   modalOpen: boolean;
   settingsOpen: boolean;
   activePrototype: Prototype | null;
@@ -40,6 +44,9 @@ const formatDate = (value: string | null) =>
 export default function ProjectsPageView({
   prototypes,
   isLoading,
+  isFetchingMore,
+  hasMore,
+  loadMoreRef,
   modalOpen,
   settingsOpen,
   activePrototype,
@@ -120,6 +127,20 @@ export default function ProjectsPageView({
             </div>
           )}
         </div>
+
+        {isFetchingMore && (
+          <div className="flex justify-center py-6 text-sm text-muted-foreground">
+            Loading more projects...
+          </div>
+        )}
+
+        {!isLoading && !isFetchingMore && prototypes.length > 0 && !hasMore && (
+          <div className="flex justify-center py-6 text-sm text-muted-foreground">
+            You&apos;re all caught up.
+          </div>
+        )}
+
+        <div ref={loadMoreRef} className="h-1 w-full" aria-hidden />
 
         {/* --- Modals --- */}
         <NewPrototypeModal
