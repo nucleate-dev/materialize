@@ -1015,12 +1015,9 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
         onViewingUrlUpdate?.(result.viewingUrl);
       }
       if (wasAsset && result.success) {
-        const deletedIds =
-          result.deletedAssetIds && result.deletedAssetIds.length > 0
-            ? result.deletedAssetIds
-            : fileSystem.state.assets[fileName]?.id
-              ? [fileSystem.state.assets[fileName].id]
-              : [];
+        const deletedIds = fileSystem.state.assets[fileName]?.id
+          ? [fileSystem.state.assets[fileName].id]
+          : [];
         onAssetsChanged?.([], deletedIds, [fileName]);
       }
     } catch (error) {

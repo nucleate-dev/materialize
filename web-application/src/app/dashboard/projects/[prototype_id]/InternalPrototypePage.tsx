@@ -877,9 +877,7 @@ export default function InternalPrototypePage() {
           setViewingUrl(result.viewingUrl);
         }
         if (isAssetPath) {
-          if (result.deletedAssetIds && result.deletedAssetIds.length > 0) {
-            deletedAssetIds.push(...result.deletedAssetIds);
-          } else if (fileSystem.state.assets[filePath]?.id) {
+          if (fileSystem.state.assets[filePath]?.id) {
             deletedAssetIds.push(fileSystem.state.assets[filePath].id);
           }
           deletedAssetNames.push(filePath);
@@ -970,12 +968,9 @@ export default function InternalPrototypePage() {
         if (assetUploads.length > 0) {
           const result = await fileSystem.uploadAssetsWithBuild(assetUploads);
           if (result.success) {
-            const assetIds =
-              result.assetIds && result.assetIds.length > 0
-                ? result.assetIds
-                : assetUploads
-                  .map((a) => fileSystem.state.assets[a.path]?.id)
-                  .filter(Boolean) as string[];
+            const assetIds = assetUploads
+              .map((a) => fileSystem.state.assets[a.path]?.id)
+              .filter(Boolean) as string[];
             sendAssetsChanged(prototypeId, assetIds, [], assetUploads.map((a) => a.path));
             if (result.viewingUrl) {
               setViewingUrl(result.viewingUrl);

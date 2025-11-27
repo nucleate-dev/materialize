@@ -55,11 +55,10 @@ export interface FileSystemActions {
   // Asset management operations with rebuild
   uploadAssetsWithBuild: (
     assets: { path: string; file: File }[],
-  ) => Promise<{ success: boolean; viewingUrl?: string; assetIds?: string[] }>;
+  ) => Promise<{ success: boolean; viewingUrl?: string }>;
   deleteAssetWithBuild: (assetPath: string) => Promise<{
     success: boolean;
     viewingUrl?: string;
-    deletedAssetIds?: string[];
   }>;
 }
 
@@ -917,7 +916,6 @@ export const useFileSystem = (
         return {
           success: true,
           viewingUrl: result.data?.viewing_url,
-          assetIds: upsertedAssets?.map((a) => a.id) || [],
         };
       } catch (error) {
         logger.debug("error", "Error uploading assets with build", {
@@ -1022,7 +1020,6 @@ export const useFileSystem = (
         return {
           success: true,
           viewingUrl: result.data?.viewing_url,
-          deletedAssetIds: deletedRecords?.map((a) => a.id) || [],
         };
       } catch (error) {
         logger.debug("error", `Error deleting asset ${assetPath}:`, {
