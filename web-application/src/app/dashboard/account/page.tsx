@@ -1,14 +1,18 @@
 "use client";
 
+import { supabase } from "@/ClientConstants";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { useCreditUsage } from "@/hooks/useCreditUsage";
 import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import { useUser } from "@/hooks/useUser";
 import { cn } from "@/lib/classNames";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
+import { CreditLimits } from "@/lib/types/serverAPITypes";
 import {
+  CreditGrantBalance,
+  fetchOverageCredits,
+  fetchUserCreditGrantBalances,
   formatGrantType
 } from "@/lib/utils/credits/CreditUtils";
 import { handleCheckout } from "@/lib/utils/payments/CheckoutUtils";
@@ -51,15 +55,18 @@ function AccountSettings() {
   const router = useRouter();
   const {
     userPlan,
+    currentPeriodStart,
     currentPeriodEnd,
+    loadingSubscriptionData,
   } = useSubscriptionAccess();
-
-  // Use the new credit usage hook
-  const creditUsage = useCreditUsage();
 
   const [name, setName] = useState<string>("");
   const [email, setEmail] = useState<string>("");
   const [memberSince, setMemberSince] = useState<Date>(new Date());
+  const [creditsUsed, setCreditsUsed] = useState<number>(0);
+  const [creditGrants, setCreditGrants] = useState<CreditGrantBalance[]>([]);
+  const [overageCredits, setOverageCredits] = useState<number>(0);
+  const [loadingUsageCount, setLoadingUsageCount] = useState<boolean>(true);
   const [isProcessingUpgrade, setIsProcessingUpgrade] = useState<boolean>(false);
 
   useEffect(() => {
@@ -74,6 +81,69 @@ function AccountSettings() {
     }
   }, [user.user]);
 
+  useEffect(() => {
+    async function fetchCreditsUsed() {
+      if (!user.user?.id || loadingSubscriptionData) return;
+
+      setLoadingUsageCount(true);
+      try {
+        if (userPlan === "free") {
+          const now = new Date();
+          const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+          const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+          const { data: freeUsageRows, error: freeUsageError } = await supabase
+            .from("api_usage")
+            .select("credits_used")
+            .eq("user_id", user.user.id)
+            .eq("is_free_tier", true)
+            .gte("created_at", startOfMonth.toISOString())
+            .lte("created_at", endOfMonth.toISOString());
+
+          if (freeUsageError) {
+            logger.debug("error", "Error fetching credits:", { error: freeUsageError.message });
+            setCreditsUsed(0);
+            return;
+          }
+
+          const totalUsed = freeUsageRows?.reduce((sum, row) => sum + (row.credits_used || 0), 0) ?? 0;
+          setCreditsUsed(totalUsed);
+          return;
+        }
+
+        const [grants, overage] = await Promise.all([
+          fetchUserCreditGrantBalances(supabase, user.user.id),
+          fetchOverageCredits(supabase, user.user.id),
+        ]);
+
+        setCreditGrants(grants);
+        setOverageCredits(overage);
+        const totalUsed = grants.reduce((sum, grant) => sum + grant.credits_used, 0);
+        setCreditsUsed(totalUsed);
+      } catch (error) {
+        logger.debug("error", "Error fetching credits:", {
+          error: error instanceof Error ? error.message : String(error),
+        });
+        setCreditsUsed(0);
+      } finally {
+        setLoadingUsageCount(false);
+      }
+    }
+
+    fetchCreditsUsed();
+  }, [user.user?.id, loadingSubscriptionData, logger, userPlan]);
+
+  const getCreditLimit = () => {
+    switch (userPlan as string) {
+      case "free": return CreditLimits.FREE;
+      case "plus": return CreditLimits.PLUS;
+      case "pro": return CreditLimits.PRO;
+      case "max": return CreditLimits.MAX;
+      case "team": return CreditLimits.TEAM;
+      default: return CreditLimits.FREE;
+    }
+  };
+
+  const creditLimit = getCreditLimit();
   const currentSubscription = (userPlan as string) || "free";
 
   const getPlanBadgeColor = (plan: string) => {
@@ -88,6 +158,10 @@ function AccountSettings() {
       default:
         return "bg-white/5 text-white/60 border-white/10";
     }
+  };
+
+  const getUsagePercentage = () => {
+    return creditLimit > 0 ? (creditsUsed / creditLimit) * 100 : 0;
   };
 
   const getInitials = (name: string) => {
@@ -169,7 +243,7 @@ function AccountSettings() {
                   <div className="space-y-1">
                     <p className="font-medium text-gray-900 dark:text-white capitalize">{currentSubscription} Plan</p>
                     <p className="text-sm text-gray-600 dark:text-[#8A8F98]">
-                      {currentSubscription === "free" ? "Free forever" : `${creditUsage.creditLimit} credits / month`}
+                      {currentSubscription === "free" ? "Free forever" : `${creditLimit} credits / month`}
                     </p>
                   </div>
                   <div className="flex items-center gap-2 text-sm text-emerald-600 dark:text-emerald-400">
@@ -228,31 +302,31 @@ function AccountSettings() {
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-900 dark:text-white">Credits Used</span>
-                    <span className="text-gray-600 dark:text-[#8A8F98]">{creditUsage.creditsUsed.toFixed(1)} / {creditUsage.creditLimit}</span>
+                    <span className="text-gray-600 dark:text-[#8A8F98]">{creditsUsed.toFixed(1)} / {creditLimit}</span>
                   </div>
-                  <Progress value={creditUsage.usagePercentage} className="h-2 bg-black/10 dark:bg-white/10"
-                  // indicatorClassName={creditUsage.usagePercentage > 90 ? "bg-red-500" : "bg-purple-500"}
+                  <Progress value={getUsagePercentage()} className="h-2 bg-black/10 dark:bg-white/10"
+                  // indicatorClassName={getUsagePercentage() > 90 ? "bg-red-500" : "bg-purple-500"}
                   />
                 </div>
 
                 {/* Overage Alert */}
-                {creditUsage.overageCredits > 0 && (
+                {overageCredits > 0 && (
                   <div className="flex items-start gap-3 p-3 rounded bg-orange-500/10 border border-orange-500/20 text-orange-700 dark:text-orange-200 text-sm">
                     <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
                     <div>
                       <p className="font-medium mb-0.5">Overage Limit Reached</p>
                       <p className="text-orange-600/90 dark:text-orange-200/70 text-xs">
-                        You have {creditUsage.overageCredits.toFixed(1)} overage credits that will be deducted from your next grant.
+                        You have {overageCredits.toFixed(1)} overage credits that will be deducted from your next grant.
                       </p>
                     </div>
                   </div>
                 )}
 
                 {/* Grant Details (For Paid Users) */}
-                {userPlan !== "free" && !creditUsage.loading && creditUsage.creditGrants.length > 0 && (
+                {userPlan !== "free" && !loadingUsageCount && creditGrants.length > 0 && (
                   <div className="space-y-3 pt-4 border-t border-black/5 dark:border-white/5">
                     <p className="text-xs font-medium text-gray-600 dark:text-[#8A8F98] uppercase tracking-wider">Active Grants</p>
-                    {creditUsage.creditGrants.map((grant) => (
+                    {creditGrants.map((grant) => (
                       <div key={grant.id} className="text-sm flex justify-between items-center">
                         <div>
                           <div className="text-gray-900 dark:text-white">{formatGrantType(grant.grant_type)}</div>
