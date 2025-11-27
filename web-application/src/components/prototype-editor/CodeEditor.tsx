@@ -1282,8 +1282,8 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
                   </div>
                   {uploadAsProjectRoot && (
                     <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
-                      <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
-                      <div className="text-xs text-amber-200/90 space-y-1">
+                      <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+                      <div className="text-xs text-amber-900 dark:text-amber-200/90 space-y-1">
                         <p className="font-semibold">Warning: Destructive Operation</p>
                         <p>The top-level folder will be stripped and its contents will replace your entire project. Files like package.json, tsconfig.json will be overwritten.</p>
                       </div>
@@ -1522,8 +1522,8 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
                 This will <span className="text-foreground font-semibold">delete all existing files</span> and replace your entire project structure with the uploaded folder.
               </p>
               <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
-                <p className="text-xs text-amber-200/90 font-medium mb-2">Files that will be affected:</p>
-                <ul className="text-xs text-amber-200/80 space-y-1">
+                <p className="text-xs text-amber-900 dark:text-amber-200/90 font-medium mb-2">Files that will be affected:</p>
+                <ul className="text-xs text-amber-900/90 dark:text-amber-200/80 space-y-1">
                   <li>• All {Object.keys(fileSystem.state.files).length} existing files will be deleted</li>
                   <li>• {selectedFiles.size} new files will be uploaded to project root</li>
                   <li>• Configuration files (package.json, etc.) will be overwritten</li>
