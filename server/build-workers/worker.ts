@@ -8,7 +8,7 @@ import { SystemLogger, genRequestIds } from "./loggers/SystemLogger.js";
 import { ChatService } from "./services/chat/ChatService.js";
 import { CloudflareTunnelManagementService } from "./services/CloudflareTunnelManagementService.js";
 import { ExpoDevServerService } from "./services/dev-server/ExpoDevServerService.js";
-import { PublicApiService } from "./services/dev-server/PublicApiService.js";
+import { MaterializeDevelopmentServerService } from "./services/dev-server/MaterializeDevelopmentServerService.js";
 import { SandboxService } from "./services/SandboxService.js";
 import { SupabaseClientService } from "./services/SupabaseClientService.js";
 import { TerminalService } from "./services/terminals/TerminalService.js";
@@ -105,7 +105,7 @@ const chatService = new ChatService(
   expoDevServerService,
   terminalService,
 );
-const publicApiService = new PublicApiService(
+const publicApiService = new MaterializeDevelopmentServerService(
   expoDevServerService,
   sandboxService,
   cloudflareTunnelManagementService,

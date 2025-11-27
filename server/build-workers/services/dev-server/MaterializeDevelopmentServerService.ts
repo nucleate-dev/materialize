@@ -30,7 +30,7 @@ import { SupabaseClientService } from "../SupabaseClientService.js";
 import { ChatService } from "../chat/ChatService.js";
 import { ExpoDevServerService } from "./ExpoDevServerService.js";
 
-export class PublicApiService {
+export class MaterializeDevelopmentServerService {
   private readonly expoDevServerService: ExpoDevServerService;
   private readonly sandboxService: SandboxService;
   private readonly cloudflareTunnelManagementService: CloudflareTunnelManagementService;
