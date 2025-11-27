@@ -235,7 +235,6 @@ export default function InternalPrototypePage() {
   // Watch for credit limit and show paywall
   useEffect(() => {
     // Only update modal state when we have confirmed data (not loading)
-    console.log('creditUsage', creditUsage);
     if (!creditUsage.loading) {
       if (creditUsage.hasReachedLimit) {
         setShowCreditLimitModal(true);
