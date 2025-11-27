@@ -617,7 +617,12 @@ export const useFileSystem = (
         // Select the new file
         setSelectedFile(fileName);
 
-        // Call /files/update-files to trigger rebuild
+        // Call sandbox /update-files-v2 to trigger rebuild
+        if (!sandboxUrl) {
+          logger.debug("error", "No sandbox URL available");
+          return { success: true }; // File created but no rebuild triggered
+        }
+
         const session = await supabase.auth.getSession();
         const token = session.data.session?.access_token;
         if (!token) {
@@ -625,30 +630,18 @@ export const useFileSystem = (
           return { success: true }; // File created but no rebuild triggered
         }
 
-        const response = await fetch(
-          `${process.env.NEXT_PUBLIC_SERVER_ENDPOINT}/files/update-files`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify({
-              files: [
-                {
-                  contents: initialContent,
-                  name: fileName,
-                  prototype_id: prototypeId,
-                  id: newFile.id,
-                  created_at: newFile.created_at,
-                  updated_at: newFile.updated_at,
-                },
-              ],
-              assets: [],
-              prototype_id: prototypeId,
-            }),
+        const response = await fetch(`${sandboxUrl}/update-files-v2`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
           },
-        );
+          body: JSON.stringify({
+            prototype_id: prototypeId,
+            file_names: [fileName],
+            asset_names: [],
+          }),
+        });
 
         if (!response.ok) {
           logger.debug(
@@ -658,11 +651,7 @@ export const useFileSystem = (
           return { success: true }; // File created but rebuild failed
         }
 
-        const result = await response.json();
-        return {
-          success: true,
-          viewingUrl: result.data?.viewing_url,
-        };
+        return { success: true };
       } catch (error) {
         logger.debug("error", `Error creating file ${fileName}:`, {
           error: error instanceof Error ? error.message : String(error),
@@ -671,10 +660,10 @@ export const useFileSystem = (
         return { success: false };
       }
     },
-    [prototypeId, files, logger, userPlan],
+    [prototypeId, files, logger, userPlan, sandboxUrl],
   );
 
-  // Delete a file and trigger rebuild via /files/update-files
+  // Delete a file and trigger rebuild via /update-files-v2
   const deleteFileWithBuild = useCallback(
     async (
       fileName: string,
@@ -734,7 +723,12 @@ export const useFileSystem = (
           }
         }
 
-        // Call /files/update-files to trigger rebuild
+        // Call sandbox /update-files-v2 to trigger rebuild
+        if (!sandboxUrl) {
+          logger.debug("error", "No sandbox URL available");
+          return { success: true }; // File deleted but no rebuild triggered
+        }
+
         const session = await supabase.auth.getSession();
         const token = session.data.session?.access_token;
         if (!token) {
@@ -742,22 +736,19 @@ export const useFileSystem = (
           return { success: true }; // File deleted but no rebuild triggered
         }
 
-        const response = await fetch(
-          `${process.env.NEXT_PUBLIC_SERVER_ENDPOINT}/files/update-files`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify({
-              files: [],
-              assets: [],
-              prototype_id: prototypeId,
-              deleted_files: [fileName],
-            }),
+        const response = await fetch(`${sandboxUrl}/update-files-v2`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
           },
-        );
+          body: JSON.stringify({
+            prototype_id: prototypeId,
+            file_names: [],
+            asset_names: [],
+            deleted_file_names: [fileName],
+          }),
+        });
 
         if (!response.ok) {
           logger.debug(
@@ -767,11 +758,7 @@ export const useFileSystem = (
           return { success: true }; // File deleted but rebuild failed
         }
 
-        const result = await response.json();
-        return {
-          success: true,
-          viewingUrl: result.data?.viewing_url,
-        };
+        return { success: true };
       } catch (error) {
         logger.debug("error", `Error deleting file ${fileName}:`, {
           error: error instanceof Error ? error.message : String(error),
@@ -780,7 +767,7 @@ export const useFileSystem = (
         return { success: false };
       }
     },
-    [prototypeId, files, selectedFile, logger, userPlan],
+    [prototypeId, files, selectedFile, logger, userPlan, sandboxUrl],
   );
 
   const uploadAssetsWithBuild = useCallback(
@@ -843,25 +830,6 @@ export const useFileSystem = (
           return { success: false };
         }
 
-        // Prepare payload for dev server (with base64 contents)
-        const successfulAssetNames = new Set(
-          uploadResults.map((asset) => asset.name),
-        );
-        const assetsPayload: Array<
-          PrototypeAssetInsert & { contents: string }
-        > = [];
-        for (const asset of assetsToUpload) {
-          if (!successfulAssetNames.has(asset.path)) continue;
-          const base64 = await fileToBase64(asset.file);
-          assetsPayload.push({
-            prototype_id: prototypeId,
-            name: asset.path,
-            storage_url: `${prototypeId}/${asset.path}`,
-            contents: base64,
-            updated_at: new Date().toISOString(),
-          });
-        }
-
         // Refresh signed URLs for uploaded assets
         if (upsertedAssets && upsertedAssets.length > 0) {
           const signedUrls = await getBulkAssetSignedUrls(
@@ -880,7 +848,12 @@ export const useFileSystem = (
           });
         }
 
-        // Send to dev server
+        // Send to sandbox /update-files-v2
+        if (!sandboxUrl) {
+          logger.debug("error", "No sandbox URL available");
+          return { success: true };
+        }
+
         const session = await supabase.auth.getSession();
         const token = session.data.session?.access_token;
         if (!token) {
@@ -888,21 +861,19 @@ export const useFileSystem = (
           return { success: true };
         }
 
-        const response = await fetch(
-          `${process.env.NEXT_PUBLIC_SERVER_ENDPOINT}/files/update-files`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify({
-              files: [],
-              assets: assetsPayload,
-              prototype_id: prototypeId,
-            }),
+        const assetNames = uploadResults.map((asset) => asset.name);
+        const response = await fetch(`${sandboxUrl}/update-files-v2`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
           },
-        );
+          body: JSON.stringify({
+            prototype_id: prototypeId,
+            file_names: [],
+            asset_names: assetNames,
+          }),
+        });
 
         if (!response.ok) {
           logger.debug(
@@ -912,11 +883,7 @@ export const useFileSystem = (
           return { success: true };
         }
 
-        const result = await response.json();
-        return {
-          success: true,
-          viewingUrl: result.data?.viewing_url,
-        };
+        return { success: true };
       } catch (error) {
         logger.debug("error", "Error uploading assets with build", {
           error: error instanceof Error ? error.message : String(error),
@@ -925,7 +892,7 @@ export const useFileSystem = (
         return { success: false };
       }
     },
-    [prototypeId, logger, fileToBase64, SUPABASE_PROTOTYPE_ASSETS_BUCKET],
+    [prototypeId, logger, sandboxUrl, SUPABASE_PROTOTYPE_ASSETS_BUCKET],
   );
 
   const deleteAssetWithBuild = useCallback(
@@ -983,7 +950,12 @@ export const useFileSystem = (
           setSelectedFile(nextSelection);
         }
 
-        // Notify dev server about deletion
+        // Notify sandbox about deletion via /update-files-v2
+        if (!sandboxUrl) {
+          logger.debug("error", "No sandbox URL available");
+          return { success: true };
+        }
+
         const session = await supabase.auth.getSession();
         const token = session.data.session?.access_token;
         if (!token) {
@@ -991,22 +963,19 @@ export const useFileSystem = (
           return { success: true };
         }
 
-        const response = await fetch(
-          `${process.env.NEXT_PUBLIC_SERVER_ENDPOINT}/files/update-files`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify({
-              files: [],
-              assets: [],
-              prototype_id: prototypeId,
-              deleted_files: [assetPath],
-            }),
+        const response = await fetch(`${sandboxUrl}/update-files-v2`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
           },
-        );
+          body: JSON.stringify({
+            prototype_id: prototypeId,
+            file_names: [],
+            asset_names: [],
+            deleted_asset_names: [assetPath],
+          }),
+        });
 
         if (!response.ok) {
           logger.debug(
@@ -1016,11 +985,7 @@ export const useFileSystem = (
           return { success: true };
         }
 
-        const result = await response.json();
-        return {
-          success: true,
-          viewingUrl: result.data?.viewing_url,
-        };
+        return { success: true };
       } catch (error) {
         logger.debug("error", `Error deleting asset ${assetPath}:`, {
           error: error instanceof Error ? error.message : String(error),
@@ -1032,6 +997,7 @@ export const useFileSystem = (
     [
       prototypeId,
       logger,
+      sandboxUrl,
       SUPABASE_PROTOTYPE_ASSETS_BUCKET,
       selectedFile,
       files,
