@@ -527,6 +527,7 @@ export const useFileSystem = (
         const allAssetNames: string[] = [];
 
         // 1. Create new files in Supabase
+        // Realtime subscription will automatically update local state
         for (const fileToCreate of filesToCreate) {
           if (files[fileToCreate.name]) {
             logger.debug("error", "File already exists:", {
@@ -535,15 +536,13 @@ export const useFileSystem = (
             continue;
           }
 
-          const { data: newFile, error } = await supabase
+          const { error } = await supabase
             .from("prototype_files")
             .insert({
               prototype_id: prototypeId,
               name: fileToCreate.name,
               contents: fileToCreate.content,
-            })
-            .select()
-            .single();
+            });
 
           if (error) {
             logger.debug("error", `Error creating file ${fileToCreate.name}:`, {
@@ -552,16 +551,11 @@ export const useFileSystem = (
             continue;
           }
 
-          // Update local state
-          setFiles((prevFiles) => ({
-            ...prevFiles,
-            [fileToCreate.name]: newFile,
-          }));
-
           allFileNames.push(fileToCreate.name);
         }
 
         // 2. Update existing files in Supabase
+        // Realtime subscription will automatically update local state
         for (const fileToUpdate of filesToUpdate) {
           const existingFile = files[fileToUpdate.name];
           if (!existingFile) {
@@ -586,20 +580,11 @@ export const useFileSystem = (
             continue;
           }
 
-          // Update local state
-          setFiles((prevFiles) => ({
-            ...prevFiles,
-            [fileToUpdate.name]: {
-              ...prevFiles[fileToUpdate.name],
-              contents: fileToUpdate.content,
-              updated_at: new Date().toISOString(),
-            },
-          }));
-
           allFileNames.push(fileToUpdate.name);
         }
 
         // 3. Delete files from Supabase
+        // Realtime subscription will automatically update local state
         for (const fileName of filesToDelete) {
           const fileToDelete = files[fileName];
           if (!fileToDelete) {
@@ -620,26 +605,10 @@ export const useFileSystem = (
             });
             continue;
           }
-
-          // Update local state
-          setFiles((prevFiles) => {
-            const newFiles = { ...prevFiles };
-            delete newFiles[fileName];
-            return newFiles;
-          });
-
-          // If deleted file was selected, select another file
-          if (selectedFile === fileName) {
-            const remainingFiles = Object.keys(files).filter(
-              (f) => f !== fileName,
-            );
-            if (remainingFiles.length > 0) {
-              setSelectedFile(remainingFiles[0]);
-            }
-          }
         }
 
         // 4. Upload assets to Supabase storage
+        // Realtime subscription will automatically update local state
         for (const assetToUpload of assetsToUpload) {
           const storagePath = `${prototypeId}/${assetToUpload.path}`;
           const { error: uploadError } = await supabase.storage
@@ -658,7 +627,7 @@ export const useFileSystem = (
           }
 
           // Upsert metadata into prototype_assets table
-          const { data: upsertedAsset, error: dbError } = await supabase
+          const { error: dbError } = await supabase
             .from("prototype_assets")
             .upsert(
               {
@@ -670,9 +639,7 @@ export const useFileSystem = (
               {
                 onConflict: "prototype_id,name",
               },
-            )
-            .select()
-            .single();
+            );
 
           if (dbError) {
             logger.debug("error", "Failed to upsert asset metadata", {
@@ -682,24 +649,11 @@ export const useFileSystem = (
             continue;
           }
 
-          // Get signed URL for the uploaded asset
-          if (upsertedAsset) {
-            const signedUrls = await getBulkAssetSignedUrls(prototypeId, [
-              upsertedAsset.name,
-            ]);
-            setAssets((prev) => ({
-              ...prev,
-              [upsertedAsset.name]: {
-                ...upsertedAsset,
-                storage_url: signedUrls[upsertedAsset.name],
-              },
-            }));
-          }
-
           allAssetNames.push(assetToUpload.path);
         }
 
         // 5. Delete assets from Supabase
+        // Realtime subscription will automatically update local state
         for (const assetPath of assetsToDelete) {
           // Remove from storage
           const { error: storageError } = await supabase.storage
@@ -726,24 +680,6 @@ export const useFileSystem = (
               error: dbError.message,
             });
             continue;
-          }
-
-          // Update local state
-          setAssets((prevAssets) => {
-            const next = { ...prevAssets };
-            delete next[assetPath];
-            return next;
-          });
-
-          // If deleted asset was selected, select another file
-          if (selectedFile === assetPath) {
-            const remainingFiles = Object.keys(files);
-            const remainingAssets = Object.keys(assets).filter(
-              (asset) => asset !== assetPath,
-            );
-            const nextSelection =
-              remainingFiles[0] || remainingAssets[0] || defaultFile;
-            setSelectedFile(nextSelection);
           }
         }
 
