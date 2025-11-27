@@ -121,6 +121,18 @@ export interface PublicUpdateFilesRequest {
   deleted_files?: string[];
 }
 
+export interface PublicUpdateFilesV2Request {
+  prototype_id: string;
+  file_names: string[];
+  asset_names: string[];
+  deleted_file_names?: string[];
+  deleted_asset_names?: string[];
+}
+
+export interface PublicUpdateFilesV2SuccessResponse {
+  dev_server_restarted: boolean;
+}
+
 export interface PublicDevServerStartSuccessResponse {
   tunnel_url?: string;
   version?: string;

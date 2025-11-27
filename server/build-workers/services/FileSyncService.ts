@@ -1074,4 +1074,257 @@ export class FileSyncService {
     }
     return chunks;
   }
+
+  /**
+   * Syncs specific files from Supabase by name and deletes specified files from disk
+   * Used for selective file updates (e.g., from update-files-v2 endpoint)
+   */
+  public async syncSpecificFilesFromSupabase(
+    prototypeId: string,
+    fileNames: string[],
+    assetNames: string[],
+    deletedFileNames: string[],
+    deletedAssetNames: string[],
+  ): Promise<{
+    success: boolean;
+    filesUpdated: number;
+    assetsUpdated: number;
+    filesDeleted: number;
+    assetsDeleted: number;
+    errors: string[];
+  }> {
+    const result = {
+      success: true,
+      filesUpdated: 0,
+      assetsUpdated: 0,
+      filesDeleted: 0,
+      assetsDeleted: 0,
+      errors: [] as string[],
+    };
+
+    try {
+      this.logger.consoleLogDevOnly("info", "Starting selective file sync", {
+        prototypeId,
+        fileNamesCount: fileNames.length,
+        assetNamesCount: assetNames.length,
+        deletedFileNamesCount: deletedFileNames.length,
+        deletedAssetNamesCount: deletedAssetNames.length,
+      });
+
+      // Step 1: Fetch specified files from Supabase
+      if (fileNames.length > 0) {
+        try {
+          const { data: files, error } = await this.supabaseClient
+            .from("prototype_files")
+            .select("*")
+            .eq("prototype_id", prototypeId)
+            .in("name", fileNames);
+
+          if (error) {
+            const errorMsg = `Failed to fetch files from Supabase: ${error.message}`;
+            this.logger.error(new Error(errorMsg), "File fetch failed", {
+              prototypeId,
+            });
+            result.errors.push(errorMsg);
+          } else if (files && files.length > 0) {
+            // Write files to disk
+            for (const file of files) {
+              try {
+                const fullPath = path.join(this.workDir, file.name);
+                const parentDir = path.dirname(fullPath);
+                await fs.mkdir(parentDir, { recursive: true });
+                await fs.writeFile(fullPath, file.contents, "utf-8");
+                result.filesUpdated++;
+              } catch (error) {
+                const message =
+                  error instanceof Error ? error.message : String(error);
+                this.logger.error(
+                  new Error(message),
+                  "Failed to write file to disk",
+                  { fileName: file.name },
+                );
+                result.errors.push(`Failed to write ${file.name}: ${message}`);
+              }
+            }
+            this.logger.consoleLogDevOnly("info", "Files written to disk", {
+              count: result.filesUpdated,
+            });
+          }
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          this.logger.error(
+            new Error(message),
+            "Error fetching files from Supabase",
+            { prototypeId },
+          );
+          result.errors.push(`Failed to fetch files: ${message}`);
+        }
+      }
+
+      // Step 2: Fetch specified assets from Supabase and download from storage
+      if (assetNames.length > 0) {
+        try {
+          const { data: assets, error } = await this.supabaseClient
+            .from("prototype_assets")
+            .select("*")
+            .eq("prototype_id", prototypeId)
+            .in("name", assetNames);
+
+          if (error) {
+            const errorMsg = `Failed to fetch assets from Supabase: ${error.message}`;
+            this.logger.error(new Error(errorMsg), "Asset fetch failed", {
+              prototypeId,
+            });
+            result.errors.push(errorMsg);
+          } else if (assets && assets.length > 0) {
+            // Download and write assets to disk with controlled concurrency
+            const chunks = this.chunkArray(
+              assets,
+              BATCH_CONFIG.ASSET_DOWNLOAD_CONCURRENCY,
+            );
+
+            for (const chunk of chunks) {
+              await Promise.all(
+                chunk.map(async (asset) => {
+                  try {
+                    // Download from storage
+                    const { data, error: downloadError } =
+                      await this.supabaseClient.storage
+                        .from("prototype-assets")
+                        .download(asset.storage_url);
+
+                    if (downloadError || !data) {
+                      this.logger.warn("Failed to download asset", {
+                        assetName: asset.name,
+                        error: downloadError?.message ?? "unknown error",
+                      });
+                      result.errors.push(
+                        `Failed to download asset ${asset.name}: ${downloadError?.message ?? "unknown error"}`,
+                      );
+                      return;
+                    }
+
+                    // Write to disk
+                    const fullPath = path.join(this.workDir, asset.name);
+                    const parentDir = path.dirname(fullPath);
+                    await fs.mkdir(parentDir, { recursive: true });
+
+                    const arrayBuffer = await data.arrayBuffer();
+                    const buffer = Buffer.from(arrayBuffer);
+                    await fs.writeFile(fullPath, buffer);
+                    result.assetsUpdated++;
+                  } catch (error) {
+                    const message =
+                      error instanceof Error ? error.message : String(error);
+                    this.logger.error(
+                      new Error(message),
+                      "Failed to process asset",
+                      { assetName: asset.name },
+                    );
+                    result.errors.push(
+                      `Failed to process asset ${asset.name}: ${message}`,
+                    );
+                  }
+                }),
+              );
+            }
+            this.logger.consoleLogDevOnly("info", "Assets written to disk", {
+              count: result.assetsUpdated,
+            });
+          }
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          this.logger.error(
+            new Error(message),
+            "Error fetching assets from Supabase",
+            { prototypeId },
+          );
+          result.errors.push(`Failed to fetch assets: ${message}`);
+        }
+      }
+
+      // Step 3: Delete specified files from disk
+      if (deletedFileNames.length > 0) {
+        for (const fileName of deletedFileNames) {
+          try {
+            const fullPath = path.join(this.workDir, fileName);
+            await fs.unlink(fullPath);
+            result.filesDeleted++;
+          } catch (error) {
+            // If file doesn't exist, that's fine - it's already deleted
+            if (
+              error instanceof Error &&
+              "code" in error &&
+              error.code !== "ENOENT"
+            ) {
+              const message =
+                error instanceof Error ? error.message : String(error);
+              this.logger.warn("Failed to delete file from disk", {
+                fileName,
+                error: message,
+              });
+              result.errors.push(`Failed to delete file ${fileName}: ${message}`);
+            } else {
+              // File doesn't exist, count it as deleted
+              result.filesDeleted++;
+            }
+          }
+        }
+        this.logger.consoleLogDevOnly("info", "Files deleted from disk", {
+          count: result.filesDeleted,
+        });
+      }
+
+      // Step 4: Delete specified assets from disk
+      if (deletedAssetNames.length > 0) {
+        for (const assetName of deletedAssetNames) {
+          try {
+            const fullPath = path.join(this.workDir, assetName);
+            await fs.unlink(fullPath);
+            result.assetsDeleted++;
+          } catch (error) {
+            // If file doesn't exist, that's fine - it's already deleted
+            if (
+              error instanceof Error &&
+              "code" in error &&
+              error.code !== "ENOENT"
+            ) {
+              const message =
+                error instanceof Error ? error.message : String(error);
+              this.logger.warn("Failed to delete asset from disk", {
+                assetName,
+                error: message,
+              });
+              result.errors.push(
+                `Failed to delete asset ${assetName}: ${message}`,
+              );
+            } else {
+              // File doesn't exist, count it as deleted
+              result.assetsDeleted++;
+            }
+          }
+        }
+        this.logger.consoleLogDevOnly("info", "Assets deleted from disk", {
+          count: result.assetsDeleted,
+        });
+      }
+
+      // Set success to false if any errors occurred
+      if (result.errors.length > 0) {
+        result.success = false;
+      }
+
+      return result;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(
+        new Error(message),
+        "Selective file sync failed",
+        { prototypeId },
+      );
+      result.errors.push(`Sync failed: ${message}`);
+      result.success = false;
+      return result;
+    }
+  }
 }
