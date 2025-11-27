@@ -146,6 +146,10 @@ export default function ClaudeCodePanel({
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const [isCorruptedSession, setIsCorruptedSession] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
+  const [uploadingImages, setUploadingImages] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<{
+    [key: string]: number;
+  }>({});
 
   // Helper to check if current session is the most recent
   const isCurrentSessionMostRecent =
@@ -425,13 +429,29 @@ export default function ClaudeCodePanel({
                       : dbMessage.event_data;
 
                   if (eventData.images && Array.isArray(eventData.images)) {
-                    // Fetch signed URLs for each image
+                    // Regenerate signed URLs for each image (fresh URLs for viewing)
                     const imageUrls: string[] = [];
                     for (const imageMetadata of eventData.images) {
                       try {
-                        const { data: signedUrlData } = await supabase.storage
-                          .from("prototype-assets")
-                          .createSignedUrl(imageMetadata.storage_path, 3600); // 1 hour expiry
+                        const { data: signedUrlData, error: urlError } =
+                          await supabase.storage
+                            .from("prototype-assets")
+                            .createSignedUrl(
+                              imageMetadata.storage_path,
+                              3600,
+                            ); // 1 hour expiry for viewing
+
+                        if (urlError) {
+                          logger.debug(
+                            "error",
+                            "Failed to create signed URL for historical image",
+                            {
+                              storagePath: imageMetadata.storage_path,
+                              error: urlError.message,
+                            },
+                          );
+                          continue;
+                        }
 
                         if (signedUrlData?.signedUrl) {
                           imageUrls.push(signedUrlData.signedUrl);
@@ -439,7 +459,7 @@ export default function ClaudeCodePanel({
                       } catch (error) {
                         logger.debug(
                           "error",
-                          "Failed to get signed URL for image",
+                          "Exception while getting signed URL for historical image",
                           {
                             storagePath: imageMetadata.storage_path,
                             error:
@@ -1506,11 +1526,11 @@ export default function ClaudeCodePanel({
         return;
       }
 
-      // Validate file size (5MB limit per Anthropic API)
-      if (file.size > 5 * 1024 * 1024) {
+      // Validate file size (3MB limit to stay well under Anthropic's 5MB limit)
+      if (file.size > 3 * 1024 * 1024) {
         addMessage(
           "error",
-          `Image too large: ${file.name}. Maximum size is 5MB.`,
+          `Image too large: ${file.name}. Maximum size is 3MB.`,
         );
         return;
       }
@@ -1572,6 +1592,93 @@ export default function ClaudeCodePanel({
   // Remove an uploaded image
   const removeImage = (imageId: string) => {
     setUploadedImages((prev) => prev.filter((img) => img.id !== imageId));
+  };
+
+  // Upload images to Supabase storage and return metadata with signed URLs
+  const uploadImagesToStorage = async (
+    images: UploadedImage[],
+  ): Promise<
+    Array<{
+      storage_path: string;
+      signed_url: string;
+      media_type: string;
+      name: string;
+    }>
+  > => {
+    const uploadedMetadata: Array<{
+      storage_path: string;
+      signed_url: string;
+      media_type: string;
+      name: string;
+    }> = [];
+
+    for (let i = 0; i < images.length; i++) {
+      const image = images[i];
+      try {
+        // Initialize progress for this image
+        setUploadProgress((prev) => ({ ...prev, [image.id]: 0 }));
+
+        // Generate unique filename
+        const timestamp = Date.now();
+        const uuid = crypto.randomUUID();
+        const ext = image.mediaType.split("/")[1];
+        const fileName = `${timestamp}-${uuid}.${ext}`;
+        const storagePath = `${prototypeId}/chat/${prototypeChatSessionId}/${fileName}`;
+
+        // Decode base64 to Uint8Array for upload
+        const binaryString = atob(image.base64);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
+        }
+
+        // Update progress to show upload starting
+        setUploadProgress((prev) => ({ ...prev, [image.id]: 50 }));
+
+        // Upload to Supabase storage
+        const { error: uploadError } = await supabase.storage
+          .from("prototype-assets")
+          .upload(storagePath, bytes, {
+            contentType: image.mediaType,
+            upsert: false,
+          });
+
+        if (uploadError) throw uploadError;
+
+        // Update progress to show upload complete
+        setUploadProgress((prev) => ({ ...prev, [image.id]: 75 }));
+
+        // Get signed URL (24 hour expiry for Claude processing)
+        const { data: signedUrlData, error: urlError } = await supabase.storage
+          .from("prototype-assets")
+          .createSignedUrl(storagePath, 86400); // 24 hours
+
+        if (urlError) throw urlError;
+
+        // Update progress to 100%
+        setUploadProgress((prev) => ({ ...prev, [image.id]: 100 }));
+
+        uploadedMetadata.push({
+          storage_path: storagePath,
+          signed_url: signedUrlData.signedUrl,
+          media_type: image.mediaType,
+          name: image.name,
+        });
+
+        logger.debug("log", "Uploaded image to storage", {
+          storagePath,
+          mediaType: image.mediaType,
+        });
+      } catch (error) {
+        logger.debug("error", "Failed to upload image", {
+          imageName: image.name,
+          error: error instanceof Error ? error.message : String(error),
+        });
+        addMessage("error", `Failed to upload image: ${image.name}`);
+      }
+    }
+
+    return uploadedMetadata;
   };
 
   // Send a query to Claude
@@ -1665,8 +1772,26 @@ export default function ClaudeCodePanel({
       return;
     }
 
-    // Refresh the JWT token on each query to ensure it's not expired
+    // Upload images to storage first if there are any
     try {
+      setUploadingImages(true);
+      setUploadProgress({});
+
+      // Upload images to storage
+      const uploadedImageMetadata =
+        uploadedImages.length > 0
+          ? await uploadImagesToStorage(uploadedImages)
+          : [];
+
+      if (uploadedImages.length > 0 && uploadedImageMetadata.length === 0) {
+        addMessage("error", "All image uploads failed. Please try again.");
+        setUploadingImages(false);
+        return;
+      }
+
+      setUploadingImages(false);
+
+      // Refresh the JWT token on each query to ensure it's not expired
       const { data: session } = await supabase.auth.getSession();
       if (!session.session?.access_token) {
         addMessage(
@@ -1676,97 +1801,111 @@ export default function ClaudeCodePanel({
         return;
       }
       authTokenRef.current = session.session.access_token;
-    } catch (error) {
-      logger.debug("error", "Failed to refresh authentication token", {
-        error,
-      });
-      addMessage(
-        "error",
-        "Failed to refresh authentication token. Please reconnect.",
-      );
-      return;
-    }
 
-    const token = authTokenRef.current;
-    if (!token) {
-      addMessage(
-        "error",
-        "Missing authentication token. Please reconnect and try again.",
-      );
-      return;
-    }
+      const token = authTokenRef.current;
+      if (!token) {
+        addMessage(
+          "error",
+          "Missing authentication token. Please reconnect and try again.",
+        );
+        return;
+      }
 
-    // Construct content array with text and images
-    const content: Array<{
-      type: string;
-      text?: string;
-      source?: { type: string; media_type: string; data: string };
-    }> = [];
+      // Construct content array with text and image URLs
+      const content: Array<{
+        type: string;
+        text?: string;
+        source?: { type: string; url: string };
+      }> = [];
 
-    // Add text if present
-    if (trimmedInput) {
-      content.push({
-        type: "text",
-        text: trimmedInput,
-      });
-    }
+      // Add text if present
+      if (trimmedInput) {
+        content.push({
+          type: "text",
+          text: trimmedInput,
+        });
+      }
 
-    // Add images if present
-    const imageCount = uploadedImages.length;
-    uploadedImages.forEach((image) => {
-      content.push({
-        type: "image",
-        source: {
-          type: "base64",
-          media_type: image.mediaType,
-          data: image.base64,
-        },
-      });
-    });
-
-    // Debug log
-    logger.debug("log", "Sending query with content", {
-      contentLength: content.length,
-      hasText: !!trimmedInput,
-      imageCount,
-      content: content.map((c) => ({
-        type: c.type,
-        hasText: !!c.text,
-        hasSource: !!c.source,
-      })),
-    });
-
-    // Add message to chat (show text and image count)
-    const displayMessage =
-      trimmedInput +
-      (imageCount > 0
-        ? ` [${imageCount} image${imageCount > 1 ? "s" : ""}]`
-        : "");
-    addMessage("user", displayMessage);
-
-    setInputValue("");
-    setUploadedImages([]); // Clear images after sending
-    setIsProcessing(true);
-    setHasReceivedResponse(false); // Reset for new query
-
-    // Send message in the format expected by CodeService
-    if (ws) {
-      ws.send(
-        JSON.stringify({
-          type: "query",
-          data: {
-            content,
-            token, // Include JWT token for Supabase authentication
-            // Force new session if corrupted, otherwise use existing session
-            ai_chat_session_id: isCorruptedSession
-              ? null
-              : sessionIdRef.current, // Pass Claude SDK session_id for resumption
-            prototype_chat_session_id: prototypeChatSessionId, // Pass database chat session ID for message persistence
-            custom_design_system_id: prototype?.custom_design_system,
-            design_style: prototype?.design_style,
+      // Add images with URLs (for Claude API)
+      uploadedImageMetadata.forEach((img) => {
+        content.push({
+          type: "image",
+          source: {
+            type: "url",
+            url: img.signed_url,
           },
-        }),
-      );
+        });
+      });
+
+      // Debug log
+      const imageCount = uploadedImageMetadata.length;
+      logger.debug("log", "Sending query with content", {
+        contentLength: content.length,
+        hasText: !!trimmedInput,
+        imageCount,
+        content: content.map((c) => ({
+          type: c.type,
+          hasText: !!c.text,
+          hasSource: !!c.source,
+        })),
+      });
+
+      // Add message to chat with imageUrls for immediate display
+      const displayMessage =
+        trimmedInput +
+        (imageCount > 0
+          ? ` [${imageCount} image${imageCount > 1 ? "s" : ""}]`
+          : "");
+
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now().toString() + Math.random(),
+          type: "user",
+          content: displayMessage,
+          timestamp: Date.now(),
+          imageUrls: uploadedImageMetadata.map((img) => img.signed_url),
+        },
+      ]);
+
+      setInputValue("");
+      setUploadedImages([]);
+      setUploadProgress({});
+      setIsProcessing(true);
+      setHasReceivedResponse(false);
+
+      // Send message in the format expected by CodeService
+      if (ws) {
+        ws.send(
+          JSON.stringify({
+            type: "query",
+            data: {
+              content,
+              token,
+              ai_chat_session_id: isCorruptedSession
+                ? null
+                : sessionIdRef.current,
+              prototype_chat_session_id: prototypeChatSessionId,
+              custom_design_system_id: prototype?.custom_design_system,
+              design_style: prototype?.design_style,
+              current_viewing_path: currentViewingPath,
+              image_metadata: uploadedImageMetadata.map((img) => ({
+                storage_path: img.storage_path,
+                media_type: img.media_type,
+                name: img.name,
+              })),
+            },
+          }),
+        );
+      }
+    } catch (error) {
+      logger.debug("error", "Failed to send query with images", {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      addMessage("error", "Failed to send message. Please try again.");
+      setUploadingImages(false);
+      setUploadProgress({});
+      setIsProcessing(false);
     }
   };
 
@@ -2027,6 +2166,8 @@ export default function ClaudeCodePanel({
       showScrollToBottom={showScrollToBottom}
       isCurrentSessionMostRecent={isCurrentSessionMostRecent}
       isDragOver={isDragOver}
+      uploadingImages={uploadingImages}
+      uploadProgress={uploadProgress}
       scrollAreaRef={scrollAreaRef}
       fileInputRef={fileInputRef}
       textareaRef={textareaRef}

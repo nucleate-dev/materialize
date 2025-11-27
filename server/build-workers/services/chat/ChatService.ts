@@ -15,6 +15,7 @@ import {
   ChatSystemEventSubtype,
   HistoryResponseData,
 } from "../../types/ChatTypes.js";
+import { Database } from "../../types/supabase.js";
 import { ExpoDevServerService } from "../dev-server/ExpoDevServerService.js";
 import { FileSyncService } from "../FileSyncService.js";
 import { SandboxService } from "../SandboxService.js";
@@ -406,6 +407,11 @@ export class ChatService {
             prototypeId,
             chatSessionId,
             images,
+          );
+        },
+        updatePersistenceClient: (client: unknown) => {
+          this.messagePersistenceService.setSupabaseClient(
+            client as import("@supabase/supabase-js").SupabaseClient<Database>,
           );
         },
         notifyOrchestrationStartChat:

@@ -39,9 +39,10 @@ export interface ChatContentBlock {
   type: "text" | "image";
   text?: string;
   source?: {
-    type: "base64";
-    media_type: string;
-    data: string;
+    type: "base64" | "url";
+    media_type?: string;
+    data?: string;
+    url?: string;
   };
 }
 
@@ -55,6 +56,12 @@ export interface ChatQueryData {
   custom_design_system_id?: string | null; // ID of custom design system to use
   current_viewing_path?: string; // Current route/path the user is viewing in the preview
   design_style?: string; // Design style from prototypes table (tamagui, nativewind, stylesheets, custom)
+  image_metadata?: Array<{
+    // Image metadata for images already uploaded to storage
+    storage_path: string;
+    media_type: string;
+    name?: string;
+  }>;
 }
 
 export interface QueryMessage {
@@ -243,9 +250,9 @@ export type ChatServerMessage =
   | ToolStartMessage
   | ToolCompleteMessage
   | FileSyncCompleteMessage
-  | ModifiedFilesMessage
   | SyncCompleteMessage
   | AuthenticatedMessage
   | MessageReceivedMessage
   | ReadyMessage
+  | ModifiedFilesMessage
   | HistoryRequestMessage;

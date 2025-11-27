@@ -84,6 +84,8 @@ interface ClaudeCodePanelUIProps {
   showScrollToBottom: boolean;
   isCurrentSessionMostRecent: boolean;
   isDragOver: boolean;
+  uploadingImages: boolean;
+  uploadProgress: { [key: string]: number };
   scrollAreaRef:
   | RefObject<HTMLDivElement | null>
   | MutableRefObject<HTMLDivElement | null>;
@@ -144,6 +146,8 @@ export default function ClaudeCodePanelUI({
   showScrollToBottom,
   isCurrentSessionMostRecent,
   isDragOver,
+  uploadingImages,
+  uploadProgress,
   scrollAreaRef,
   fileInputRef,
   textareaRef,
@@ -650,6 +654,26 @@ export default function ClaudeCodePanelUI({
                 >
                   <X className="w-3 h-3" />
                 </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Upload Progress Indicator */}
+        {uploadingImages && (
+          <div className="mb-3 p-3 rounded-lg bg-accent/50 border border-border">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              <span>Uploading images...</span>
+            </div>
+            {Object.entries(uploadProgress).map(([id, progress]) => (
+              <div key={id} className="mt-1">
+                <div className="h-1.5 w-full bg-accent rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-indigo-500 transition-all duration-300"
+                    style={{ width: `${progress}%` }}
+                  />
+                </div>
               </div>
             ))}
           </div>

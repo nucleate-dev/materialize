@@ -112,7 +112,7 @@ export function getToolDisplayName(
  * Service for persisting chat messages and related media to Supabase
  */
 export class MessagePersistenceService {
-  private readonly supabaseClient: SupabaseClient<Database>;
+  private supabaseClient: SupabaseClient<Database>;
   private readonly logger: SystemLogger;
 
   constructor(
@@ -121,6 +121,13 @@ export class MessagePersistenceService {
   ) {
     this.supabaseClient = supabaseClient;
     this.logger = logger.child({ service: "MessagePersistenceService" });
+  }
+
+  /**
+   * Updates the Supabase client reference (called when token is refreshed)
+   */
+  public setSupabaseClient(client: SupabaseClient<Database>): void {
+    this.supabaseClient = client;
   }
 
   /**
@@ -147,6 +154,23 @@ export class MessagePersistenceService {
     }
 
     try {
+      // Check if client is authenticated
+      const { data: { user }, error: authError } = await this.supabaseClient.auth.getUser();
+
+      this.logger.consoleLogDevOnly("debug", "Attempting to persist message", {
+        chatSessionId,
+        role,
+        messageType,
+        eventType,
+        hasEventData: !!eventData,
+        eventDataType: eventData ? typeof eventData : null,
+        creditsUsed,
+        costFunction,
+        isAuthenticated: !!user,
+        userId: user?.id,
+        authError: authError?.message,
+      });
+
       const { error } = await this.supabaseClient
         .from("prototype_chat_messages")
         .insert({
@@ -166,6 +190,10 @@ export class MessagePersistenceService {
           role,
           messageType,
           eventType,
+          hasEventData: !!eventData,
+          eventDataSample: eventData ? JSON.stringify(eventData).substring(0, 200) : null,
+          isAuthenticated: !!user,
+          userId: user?.id,
         });
       } else {
         this.logger.consoleLogDevOnly("debug", "Persisted message", {

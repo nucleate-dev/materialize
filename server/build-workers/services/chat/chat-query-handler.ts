@@ -113,6 +113,7 @@ interface MessageHandlers {
     chatSessionId: string,
     images: Array<{ base64: string; mediaType: string }>,
   ) => Promise<Array<{ storage_path: string; media_type: string; file_size: number }>>;
+  updatePersistenceClient?: (client: unknown) => void;
   notifyOrchestrationStartChat: (prototypeId: string) => Promise<void>;
   notifyOrchestrationEndChat: (prototypeId: string) => Promise<void>;
 }
@@ -215,7 +216,7 @@ export class ChatQueryHandler {
 
     // Step 2: Authenticate with token if provided
     if (token) {
-      const authResult = await this.authenticateWithToken(token, prototypeId);
+      const authResult = await this.authenticateWithToken(token, prototypeId, handlers);
       if (!authResult.success) {
         handlers.sendMessage(socket, {
           type: ChatEvent.ERROR,
@@ -311,6 +312,7 @@ export class ChatQueryHandler {
   private async authenticateWithToken(
     token: string,
     prototypeId: string,
+    handlers: MessageHandlers,
   ): Promise<{
     success: boolean;
     errorMessage?: string;
@@ -319,10 +321,17 @@ export class ChatQueryHandler {
     try {
       // Refresh the Supabase client with the authenticated token
       this.supabaseClientService.refreshClientWithToken(token);
+
       // Update the FileSyncService's Supabase client reference
       this.fileSyncService.setSupabaseClient(
         this.supabaseClientService.getClient(),
       );
+
+      // Update MessagePersistenceService's Supabase client reference
+      if (handlers.updatePersistenceClient) {
+        handlers.updatePersistenceClient(this.supabaseClientService.getClient());
+      }
+
       this.logger.consoleLogDevOnly(
         "info",
         "Refreshed Supabase client with JWT token",
@@ -578,23 +587,15 @@ export class ChatQueryHandler {
         content as ChatContentBlock[] | undefined,
       );
 
-      // Extract images from content for storage
+      // Extract images from content for storage (now images are URLs, not base64)
       const imagesFromContent = this.extractImagesFromContent(messageContent);
 
-      // Upload images first if present, then persist user message with image metadata
-      let imageMetadata: Array<{
+      // Get image metadata from query data (images already uploaded by frontend)
+      const imageMetadata: Array<{
         storage_path: string;
         media_type: string;
-        file_size: number;
-      }> = [];
-
-      if (imagesFromContent.length > 0 && sessionState.prototypeChatSessionId) {
-        imageMetadata = await handlers.uploadChatImages(
-          prototypeId,
-          sessionState.prototypeChatSessionId,
-          imagesFromContent,
-        );
-      }
+        name?: string;
+      }> = data.image_metadata || [];
 
       // Persist user message to database with image metadata
       await this.persistUserMessage(
@@ -780,7 +781,7 @@ export class ChatQueryHandler {
     imageMetadata: Array<{
       storage_path: string;
       media_type: string;
-      file_size: number;
+      name?: string;
     }>,
     persistMessage: (
       role: "user" | "assistant" | "system",
