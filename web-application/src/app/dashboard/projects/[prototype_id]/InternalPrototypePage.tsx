@@ -556,7 +556,16 @@ export default function InternalPrototypePage() {
 
   // USE EFFECT PURPOSE: Sync baseTunnelUrl to fileSystem sandboxUrl
   useEffect(() => {
-    fileSystem.setSandboxUrl(baseTunnelUrl);
+    // Normalize the URL: convert wss:// to https:// or add https:// if no http prefix
+    let normalizedUrl = baseTunnelUrl;
+    if (normalizedUrl) {
+      if (normalizedUrl.startsWith("wss://")) {
+        normalizedUrl = "https://" + normalizedUrl.substring(6);
+      } else if (!normalizedUrl.startsWith("http://") && !normalizedUrl.startsWith("https://")) {
+        normalizedUrl = "https://" + normalizedUrl;
+      }
+    }
+    fileSystem.setSandboxUrl(normalizedUrl);
   }, [baseTunnelUrl, fileSystem.setSandboxUrl]);
 
   // USE EFFECT PURPOSE: to poll the fetch viewing url endpoint in case build status changes
