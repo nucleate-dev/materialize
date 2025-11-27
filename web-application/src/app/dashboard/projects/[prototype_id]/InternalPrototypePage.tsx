@@ -954,11 +954,11 @@ export default function InternalPrototypePage() {
           return { file, path: fullPath, kind };
         });
 
-        // Collect code files to create
-        const filesToCreate: Array<{ name: string; content: string }> = [];
+        // Collect code files to upsert
+        const filesToUpsert: Array<{ name: string; content: string }> = [];
         for (const upload of uploads.filter((u) => u.kind === "code")) {
           const fileContents = await upload.file.text();
-          filesToCreate.push({ name: upload.path, content: fileContents });
+          filesToUpsert.push({ name: upload.path, content: fileContents });
         }
 
         // Collect assets to upload
@@ -968,7 +968,7 @@ export default function InternalPrototypePage() {
 
         // Make ONE unified call to sync everything
         const result = await fileSystem.syncFilesAndAssets({
-          filesToCreate,
+          filesToUpsert,
           assetsToUpload,
         });
 

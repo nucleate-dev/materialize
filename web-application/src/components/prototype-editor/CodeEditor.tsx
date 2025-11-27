@@ -869,12 +869,12 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
         }
       }
 
-      // Collect all code files to create
-      const filesToCreate: Array<{ name: string; content: string }> = [];
+      // Collect all code files to upsert
+      const filesToUpsert: Array<{ name: string; content: string }> = [];
       for (const [file, info] of uploads) {
         if (info.kind === "code") {
           const fileContents = await file.text();
-          filesToCreate.push({ name: info.path, content: fileContents });
+          filesToUpsert.push({ name: info.path, content: fileContents });
         }
       }
 
@@ -885,7 +885,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
 
       // Make ONE unified call to sync everything
       const result = await fileSystem.syncFilesAndAssets({
-        filesToCreate,
+        filesToUpsert,
         filesToDelete,
         assetsToUpload,
         assetsToDelete,
@@ -893,7 +893,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
 
       if (result.success) {
         onFilesSaved?.(
-          filesToCreate.map((f) => f.name),
+          filesToUpsert.map((f) => f.name),
           assetsToUpload.map((a) => a.path),
         );
       }
@@ -920,7 +920,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
       if (!selectedFile) return;
 
       const result = await fileSystem.syncFilesAndAssets({
-        filesToUpdate: [
+        filesToUpsert: [
           {
             name: fileSystem.state.selectedFile,
             content: selectedFile.contents,
@@ -945,7 +945,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
     onBuildingStateChange?.(true);
 
     try {
-      const filesToUpdate = Object.entries(fileSystem.state.files).map(
+      const filesToUpsert = Object.entries(fileSystem.state.files).map(
         ([name, file]) => ({
           name,
           content: file.contents,
@@ -953,7 +953,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
       );
 
       const result = await fileSystem.syncFilesAndAssets({
-        filesToUpdate,
+        filesToUpsert,
       });
 
       if (result.success) {

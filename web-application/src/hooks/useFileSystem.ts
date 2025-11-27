@@ -41,8 +41,7 @@ export interface FileSystemActions {
 
   // Unified function to sync all file/asset operations in one batch
   syncFilesAndAssets: (params: {
-    filesToCreate?: Array<{ name: string; content: string }>;
-    filesToUpdate?: Array<{ name: string; content: string }>;
+    filesToUpsert?: Array<{ name: string; content: string }>;
     filesToDelete?: string[];
     assetsToUpload?: Array<{ path: string; file: File }>;
     assetsToDelete?: string[];
@@ -492,8 +491,7 @@ export const useFileSystem = (
   // Unified function to sync all file/asset operations in one batch
   const syncFilesAndAssets = useCallback(
     async (params: {
-      filesToCreate?: Array<{ name: string; content: string }>;
-      filesToUpdate?: Array<{ name: string; content: string }>;
+      filesToUpsert?: Array<{ name: string; content: string }>;
       filesToDelete?: string[];
       assetsToUpload?: Array<{ path: string; file: File }>;
       assetsToDelete?: string[];
@@ -513,8 +511,7 @@ export const useFileSystem = (
       }
 
       const {
-        filesToCreate = [],
-        filesToUpdate = [],
+        filesToUpsert = [],
         filesToDelete = [],
         assetsToUpload = [],
         assetsToDelete = [],
@@ -525,62 +522,34 @@ export const useFileSystem = (
         const allFileNames: string[] = [];
         const allAssetNames: string[] = [];
 
-        // 1. Create new files in Supabase
+        // 1. Upsert files in Supabase (single operation for creates + updates)
         // Realtime subscription will automatically update local state
-        for (const fileToCreate of filesToCreate) {
-          if (files[fileToCreate.name]) {
-            logger.debug("error", "File already exists:", {
-              fileName: fileToCreate.name,
-            });
-            continue;
-          }
-
-          const { error } = await supabase.from("prototype_files").insert({
+        if (filesToUpsert.length > 0) {
+          const filesToUpsertPayload = filesToUpsert.map((file) => ({
             prototype_id: prototypeId,
-            name: fileToCreate.name,
-            contents: fileToCreate.content,
-          });
-
-          if (error) {
-            logger.debug("error", `Error creating file ${fileToCreate.name}:`, {
-              ...error,
-            });
-            continue;
-          }
-
-          allFileNames.push(fileToCreate.name);
-        }
-
-        // 2. Update existing files in Supabase
-        // Realtime subscription will automatically update local state
-        for (const fileToUpdate of filesToUpdate) {
-          const existingFile = files[fileToUpdate.name];
-          if (!existingFile) {
-            logger.debug("error", "File not found for update:", {
-              fileName: fileToUpdate.name,
-            });
-            continue;
-          }
+            name: file.name,
+            contents: file.content,
+            updated_at: new Date().toISOString(),
+          }));
 
           const { error } = await supabase
             .from("prototype_files")
-            .update({
-              contents: fileToUpdate.content,
-              updated_at: new Date().toISOString(),
-            })
-            .eq("id", existingFile.id);
+            .upsert(filesToUpsertPayload, {
+              onConflict: "prototype_id,name",
+              ignoreDuplicates: false,
+            });
 
           if (error) {
-            logger.debug("error", `Error updating file ${fileToUpdate.name}:`, {
+            logger.debug("error", "Error upserting files:", {
               ...error,
             });
-            continue;
+          } else {
+            // Add all successfully upserted file names
+            allFileNames.push(...filesToUpsert.map((f) => f.name));
           }
-
-          allFileNames.push(fileToUpdate.name);
         }
 
-        // 3. Delete files from Supabase
+        // 2. Delete files from Supabase
         // Realtime subscription will automatically update local state
         for (const fileName of filesToDelete) {
           const fileToDelete = files[fileName];
