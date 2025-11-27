@@ -87,6 +87,12 @@ export async function createCloudflareTunnelForContainer(
                 service: 'http://localhost:3002', // Claude Code WebSocket
                 originRequest: {},
               },
+              {
+                hostname,
+                path: '/update-files-v2',
+                service: 'http://localhost:3002',
+                originRequest: {},
+              },
               { service: 'http_status:404' },
             ],
           },
