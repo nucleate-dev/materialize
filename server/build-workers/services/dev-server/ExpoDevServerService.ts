@@ -1640,8 +1640,10 @@ export class ExpoDevServerService {
     );
 
     try {
-      const syncResult =
-        await fileSyncService.syncAllFilesToSupabase(prototypeId);
+      const syncResult = await fileSyncService.syncFilesToSupabase(
+        prototypeId,
+        "all",
+      );
       const summary = `Files updated: ${syncResult.filesUpdated}, assets updated: ${syncResult.assetsUpdated}, errors: ${syncResult.errors.length}`;
       logger.log(
         "Supabase sync before Expo build",

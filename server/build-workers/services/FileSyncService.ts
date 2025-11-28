@@ -18,6 +18,15 @@ interface SyncResult {
   errors: string[];
 }
 
+type SyncMode = "all" | "tracked" | "all_files";
+
+interface SyncTargets {
+  files: string[];
+  assets: string[];
+  deletedFiles: string[];
+  deletedAssets: string[];
+}
+
 // Batch configuration for fetching files and assets
 const BATCH_CONFIG = {
   // Supabase query batch size (rows per query)
@@ -96,80 +105,6 @@ export class FileSyncService {
   }
 
   /**
-   * Syncs ALL files from the work directory to Supabase.
-   * This performs a full sync, uploading all files regardless of changes.
-   * Recommended for simplicity and reliability.
-   */
-  public async syncAllFilesToSupabase(
-    prototypeId: string,
-  ): Promise<SyncResult> {
-    const result: SyncResult = {
-      success: true,
-      filesUpdated: 0,
-      filesDeleted: 0,
-      assetsUpdated: 0,
-      assetsDeleted: 0,
-      errors: [],
-    };
-
-    try {
-      this.logger.consoleLogDevOnly("info", "Starting full directory sync", {
-        prototypeId,
-        workDir: this.workDir,
-      });
-
-      // Recursively scan the work directory for all files
-      const allFiles = await this.scanDirectory(this.workDir);
-
-      this.logger.consoleLogDevOnly("info", "Scanned directory for files", {
-        prototypeId,
-        fileCount: allFiles.length,
-      });
-
-      if (allFiles.length === 0) {
-        this.logger.warn("No files found in work directory", {
-          prototypeId,
-        });
-        return result;
-      }
-
-      // Separate files into text and binary
-      const modifiedFiles = allFiles;
-      const deletedFiles: string[] = []; // No deletions in full sync
-
-      // Process all files
-      // Separate modified files by type
-      const textFiles: string[] = [];
-      const binaryFiles: string[] = [];
-      for (const filePath of modifiedFiles) {
-        if (this.isBinaryFile(filePath)) {
-          binaryFiles.push(filePath);
-        } else {
-          textFiles.push(filePath);
-        }
-      }
-      await this.processDeletions(deletedFiles, prototypeId, result);
-      await this.processTextFiles(textFiles, prototypeId, result);
-      await this.processBinaryFiles(binaryFiles, prototypeId, result);
-
-      // Set success to false if any individual file operations failed
-      if (result.errors.length > 0) {
-        result.success = false;
-      }
-
-      return result;
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      this.logger.error(new Error(message), "Full directory sync failed", {
-        prototypeId,
-      });
-      result.errors.push(`Sync failed: ${message}`);
-      result.success = false;
-      return result;
-    }
-  }
-
-  /**
    * Recursively scans a directory and returns all file paths (relative to workDir).
    * Excludes common directories that shouldn't be synced.
    */
@@ -232,13 +167,14 @@ export class FileSyncService {
   }
 
   /**
-   * Syncs all changed files from the tracked file list to Supabase.
-   * Uses file paths tracked by the file system watcher in CodeService.
-   * Legacy incremental sync strategy.
+   * Syncs files/assets to Supabase based on the requested mode.
+   * - all: syncs all files and assets detected in the work directory.
+   * - tracked: placeholder for incremental sync using tracked file list.
+   * - all_files: syncs only text files from the work directory.
    */
   public async syncFilesToSupabase(
     prototypeId: string,
-    trackedFiles: Set<string>,
+    mode: SyncMode,
   ): Promise<SyncResult> {
     const result: SyncResult = {
       success: true,
@@ -250,58 +186,22 @@ export class FileSyncService {
     };
 
     try {
-      if (trackedFiles.size === 0) {
-        this.logger.info("No file changes detected, skipping sync", {
-          prototypeId,
-        });
-        return result;
-      }
+      this.logger.consoleLogDevOnly("info", "Starting file sync", {
+        prototypeId,
+        mode,
+      });
 
-      // Separate files into modified and deleted
-      const modifiedFiles: string[] = [];
-      const deletedFiles: string[] = [];
+      const { files, assets, deletedFiles, deletedAssets } =
+        await this.loadSyncTargets(mode);
 
-      for (const filePath of trackedFiles) {
-        try {
-          const fullPath = path.join(this.workDir, filePath);
+      await this.processDeletions(
+        [...deletedFiles, ...deletedAssets],
+        prototypeId,
+        result,
+      );
+      await this.processTextFiles(files, prototypeId, result);
+      await this.processBinaryFiles(assets, prototypeId, result);
 
-          // Check if file exists (if not, it was deleted)
-          try {
-            await fs.access(fullPath);
-            // File exists - it was modified or added
-            modifiedFiles.push(filePath);
-          } catch {
-            // File doesn't exist - it was deleted
-            deletedFiles.push(filePath);
-          }
-        } catch (error) {
-          const message =
-            error instanceof Error ? error.message : String(error);
-          this.logger.warn("Error checking file status", {
-            filePath,
-            error: message,
-          });
-        }
-      }
-
-      // Process each changed file
-      // Separate modified files by type
-      const textFiles: string[] = [];
-      const binaryFiles: string[] = [];
-      for (const filePath of modifiedFiles) {
-        if (this.isBinaryFile(filePath)) {
-          binaryFiles.push(filePath);
-        } else {
-          textFiles.push(filePath);
-        }
-      }
-
-      // Process files (parallel with concurrency limit)
-      await this.processDeletions(deletedFiles, prototypeId, result);
-      await this.processTextFiles(textFiles, prototypeId, result);
-      await this.processBinaryFiles(binaryFiles, prototypeId, result);
-
-      // Set success to false if any individual file operations failed
       if (result.errors.length > 0) {
         result.success = false;
       }
@@ -311,11 +211,89 @@ export class FileSyncService {
       const message = error instanceof Error ? error.message : String(error);
       this.logger.error(new Error(message), "File sync failed", {
         prototypeId,
+        mode,
       });
       result.errors.push(`Sync failed: ${message}`);
       result.success = false;
       return result;
     }
+  }
+
+  private async loadSyncTargets(mode: SyncMode): Promise<SyncTargets> {
+    switch (mode) {
+      case "all":
+        return this.loadAllSyncTargets();
+      case "all_files":
+        return this.loadAllFilesOnlySyncTargets();
+      case "tracked":
+      default:
+        return this.loadTrackedSyncTargets();
+    }
+  }
+
+  private async loadAllSyncTargets(): Promise<SyncTargets> {
+    this.logger.consoleLogDevOnly(
+      "info",
+      "Scanning directory for full sync targets",
+      {
+        workDir: this.workDir,
+      },
+    );
+
+    const allFiles = await this.scanDirectory(this.workDir);
+
+    this.logger.consoleLogDevOnly("info", "Scanned directory for files", {
+      fileCount: allFiles.length,
+    });
+
+    const { textFiles, binaryFiles } = this.partitionFilesByType(allFiles);
+
+    return {
+      files: textFiles,
+      assets: binaryFiles,
+      deletedFiles: [],
+      deletedAssets: [],
+    };
+  }
+
+  private async loadTrackedSyncTargets(): Promise<SyncTargets> {
+    // Placeholder implementation until tracked sync is reintroduced
+    return {
+      files: [],
+      assets: [],
+      deletedFiles: [],
+      deletedAssets: [],
+    };
+  }
+
+  private async loadAllFilesOnlySyncTargets(): Promise<SyncTargets> {
+    const allFiles = await this.scanDirectory(this.workDir);
+    const { textFiles } = this.partitionFilesByType(allFiles);
+
+    return {
+      files: textFiles,
+      assets: [],
+      deletedFiles: [],
+      deletedAssets: [],
+    };
+  }
+
+  private partitionFilesByType(filePaths: string[]): {
+    textFiles: string[];
+    binaryFiles: string[];
+  } {
+    const textFiles: string[] = [];
+    const binaryFiles: string[] = [];
+
+    for (const filePath of filePaths) {
+      if (this.isBinaryFile(filePath)) {
+        binaryFiles.push(filePath);
+      } else {
+        textFiles.push(filePath);
+      }
+    }
+
+    return { textFiles, binaryFiles };
   }
 
   /**
@@ -447,6 +425,10 @@ export class FileSyncService {
     prototypeId: string,
     result: SyncResult,
   ): Promise<void> {
+    if (textFiles.length === 0) {
+      return;
+    }
+
     // TODO: currently single file fail will cause entire batch to fail, we should handle this better
     // Use larger batch size for bulk operations (was 5 for individual upserts)
     const chunks = this.chunkArray(
@@ -585,6 +567,9 @@ export class FileSyncService {
     prototypeId: string,
     result: SyncResult,
   ): Promise<void> {
+    if (binaryFiles.length === 0) {
+      return;
+    }
     // TODO: currently single asset fail will cause entire batch to fail, we should handle this better
     // Process in larger batches, with controlled concurrency for storage uploads
     const BATCH_SIZE = 50; // Process 50 files at a time
