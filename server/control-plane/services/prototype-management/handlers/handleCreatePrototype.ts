@@ -391,7 +391,6 @@ async function forkPrototype(
             ({
               prototype_id: newPrototypeId,
               name: asset.name,
-              storage_url: '', // TODO @sourish: remove this altogether, storage_url is not necessary given that we have filename and need to create a signedUrl for access anyways given RLS
             }) as PrototypeAssetInsert,
         ),
       ),
@@ -479,7 +478,6 @@ export async function copyAllDefaultsForNewPrototype(
       (defaultFilesResult.assets ?? []).map((asset) => ({
         prototype_id: asset.prototype_id,
         name: asset.name,
-        storage_url: '',
       })),
     ),
     uploadDefaultAssetsToSupabaseStorage(
