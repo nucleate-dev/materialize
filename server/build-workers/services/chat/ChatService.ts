@@ -99,7 +99,7 @@ export class ChatService {
     this.terminalService = terminalService;
     this.fileSyncService = new FileSyncService(
       workDir,
-      supabaseClientService.getClient(),
+      supabaseClientService,
       logger,
     );
     this.toolPermissionService = new ToolPermissionService(

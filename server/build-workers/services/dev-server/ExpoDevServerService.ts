@@ -187,11 +187,12 @@ export class ExpoDevServerService {
     }
 
     try {
-      // Fetch files and assets from Supabase using the centralized client service
-      const supabase = this.supabaseClientService.getClient();
-
       // Use FileSyncService to fetch files and assets
-      const fileSyncService = new FileSyncService(this.workDir, supabase, log2);
+      const fileSyncService = new FileSyncService(
+        this.workDir,
+        this.supabaseClientService,
+        log2,
+      );
       const {
         files,
         assets: assetsWithContent,
@@ -1628,8 +1629,11 @@ export class ExpoDevServerService {
       return;
     }
 
-    const supabase = this.supabaseClientService.getClient();
-    const fileSyncService = new FileSyncService(projectDir, supabase, log2);
+    const fileSyncService = new FileSyncService(
+      projectDir,
+      this.supabaseClientService,
+      log2,
+    );
     log2.consoleLogDevOnly(
       "info",
       "Syncing project files to Supabase before Expo build",

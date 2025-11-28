@@ -565,7 +565,7 @@ export class MaterializeDevelopmentServerService {
       // Step 5: Sync files from Supabase
       const fileSyncService = new FileSyncService(
         this.workDir,
-        this.supabaseClientService.getClient(),
+        this.supabaseClientService,
         request.log2,
       );
 

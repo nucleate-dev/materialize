@@ -331,10 +331,7 @@ export class ChatQueryHandler {
       // Refresh the Supabase client with the authenticated token
       this.supabaseClientService.refreshClientWithToken(token);
 
-      // Update the FileSyncService's Supabase client reference
-      this.fileSyncService.setSupabaseClient(
-        this.supabaseClientService.getClient(),
-      );
+      // FileSyncService will automatically use the updated client from SupabaseClientService
 
       // Update MessagePersistenceService's Supabase client reference
       if (handlers.updatePersistenceClient) {

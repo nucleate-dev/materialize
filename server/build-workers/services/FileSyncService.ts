@@ -1,4 +1,3 @@
-import { SupabaseClient } from "@supabase/supabase-js";
 import fs from "fs/promises";
 import path from "path";
 import { SystemLogger } from "../loggers/SystemLogger.js";
@@ -8,6 +7,7 @@ import {
   PrototypeAssetInput,
   PrototypeAssetInputWithContent,
 } from "../types/BuildWorkerTypes.js";
+import { SupabaseClientService } from "./SupabaseClientService.js";
 
 interface SyncResult {
   success: boolean;
@@ -43,7 +43,7 @@ const BATCH_CONFIG = {
 export class FileSyncService {
   private readonly workDir: string;
   private readonly logger: SystemLogger;
-  private supabaseClient: SupabaseClient<Database>;
+  private readonly supabaseClientService: SupabaseClientService;
 
   // Binary file extensions (matching PublicApiService)
   private readonly binaryExtensions = [
@@ -89,19 +89,12 @@ export class FileSyncService {
 
   constructor(
     workDir: string,
-    supabaseClient: SupabaseClient<Database>,
+    supabaseClientService: SupabaseClientService,
     logger: SystemLogger,
   ) {
     this.workDir = workDir;
-    this.supabaseClient = supabaseClient;
+    this.supabaseClientService = supabaseClientService;
     this.logger = logger.child({ service: "FileSyncService" });
-  }
-
-  /**
-   * Updates the Supabase client instance (e.g., for JWT refresh)
-   */
-  public setSupabaseClient(client: SupabaseClient<Database>): void {
-    this.supabaseClient = client;
   }
 
   /**
@@ -323,7 +316,8 @@ export class FileSyncService {
     // Bulk delete text files from database
     if (textFilesToDelete.length > 0) {
       try {
-        const { error } = await this.supabaseClient
+        const { error } = await this.supabaseClientService
+          .getClient()
           .from("prototype_files")
           .delete()
           .eq("prototype_id", prototypeId)
@@ -360,8 +354,9 @@ export class FileSyncService {
         const storagePaths = binaryFilesToDelete.map(
           (filePath) => `${prototypeId}/${filePath}`,
         );
-        const { error: storageError } = await this.supabaseClient.storage
-          .from("prototype-assets")
+        const { error: storageError } = await this.supabaseClientService
+          .getClient()
+          .storage.from("prototype-assets")
           .remove(storagePaths);
 
         if (storageError) {
@@ -384,7 +379,8 @@ export class FileSyncService {
 
       // Bulk delete from database
       try {
-        const { error } = await this.supabaseClient
+        const { error } = await this.supabaseClientService
+          .getClient()
           .from("prototype_assets")
           .delete()
           .eq("prototype_id", prototypeId)
@@ -501,7 +497,8 @@ export class FileSyncService {
         let success = false;
 
         while (retries > 0 && !success) {
-          const { error } = await this.supabaseClient
+          const { error } = await this.supabaseClientService
+            .getClient()
             .from("prototype_files")
             .upsert(fileData, {
               onConflict: "prototype_id,name",
@@ -624,8 +621,9 @@ export class FileSyncService {
               let retries = 3;
 
               while (retries > 0 && !uploadSuccess) {
-                const { error: uploadError } = await this.supabaseClient.storage
-                  .from("prototype-assets")
+                const { error: uploadError } = await this.supabaseClientService
+                  .getClient()
+                  .storage.from("prototype-assets")
                   .upload(`${prototypeId}/${filePath}`, fileBuffer, {
                     upsert: true,
                     contentType: this.getContentType(filePath),
@@ -677,7 +675,8 @@ export class FileSyncService {
         let success = false;
 
         while (retries > 0 && !success) {
-          const { error: dbError } = await this.supabaseClient
+          const { error: dbError } = await this.supabaseClientService
+            .getClient()
             .from("prototype_assets")
             .upsert(successfulUploads, {
               onConflict: "prototype_id,name",
@@ -850,7 +849,8 @@ export class FileSyncService {
 
     while (hasMore) {
       try {
-        const { data, error } = await this.supabaseClient
+        const { data, error } = await this.supabaseClientService
+          .getClient()
           .from("prototype_files")
           .select("*")
           .eq("prototype_id", prototypeId)
@@ -914,7 +914,8 @@ export class FileSyncService {
 
     while (hasMore) {
       try {
-        const { data, error } = await this.supabaseClient
+        const { data, error } = await this.supabaseClientService
+          .getClient()
           .from("prototype_assets")
           .select("*")
           .eq("prototype_id", prototypeId)
@@ -992,8 +993,9 @@ export class FileSyncService {
         const downloadResults = await Promise.all(
           chunk.map(async (asset) => {
             try {
-              const { data, error } = await this.supabaseClient.storage
-                .from("prototype-assets")
+              const { data, error } = await this.supabaseClientService
+                .getClient()
+                .storage.from("prototype-assets")
                 .download(`${asset.prototype_id}/${asset.name}`);
 
               if (error || !data) {
@@ -1176,7 +1178,8 @@ export class FileSyncService {
       // Step 3: Fetch specified files from Supabase
       if (fileNames.length > 0) {
         try {
-          const { data: files, error } = await this.supabaseClient
+          const { data: files, error } = await this.supabaseClientService
+            .getClient()
             .from("prototype_files")
             .select("*")
             .eq("prototype_id", prototypeId)
@@ -1227,7 +1230,8 @@ export class FileSyncService {
       // Step 4: Fetch specified assets from Supabase and download from storage
       if (assetNames.length > 0) {
         try {
-          const { data: assets, error } = await this.supabaseClient
+          const { data: assets, error } = await this.supabaseClientService
+            .getClient()
             .from("prototype_assets")
             .select("*")
             .eq("prototype_id", prototypeId)
@@ -1252,8 +1256,9 @@ export class FileSyncService {
                   try {
                     // Download from storage
                     const { data, error: downloadError } =
-                      await this.supabaseClient.storage
-                        .from("prototype-assets")
+                      await this.supabaseClientService
+                        .getClient()
+                        .storage.from("prototype-assets")
                         .download(asset.prototype_id + "/" + asset.name);
 
                     if (downloadError || !data) {
