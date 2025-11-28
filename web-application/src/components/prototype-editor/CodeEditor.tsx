@@ -57,6 +57,7 @@ import {
   FileImage,
   Folder,
   FolderOpen,
+  Loader2,
   Lock,
   Minus,
   Plus,
@@ -252,6 +253,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
 
   // --- State ---
   const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [isLoadingImageUrl, setIsLoadingImageUrl] = useState(false);
   const [showNewFileModal, setShowNewFileModal] = useState(false);
   const [newFileName, setNewFileName] = useState("");
   const [newFileError, setNewFileError] = useState("");
@@ -396,9 +398,11 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
     async function generateImageUrl() {
       if (!isAssetImage || !fileSystem.state.selectedFile || !prototypeId) {
         setImageUrl(null);
+        setIsLoadingImageUrl(false);
         return;
       }
 
+      setIsLoadingImageUrl(true);
       try {
         const signedUrls = await getBulkAssetSignedUrls(prototypeId, [
           fileSystem.state.selectedFile,
@@ -409,6 +413,8 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
           error: error instanceof Error ? error.message : String(error),
         });
         setImageUrl(null);
+      } finally {
+        setIsLoadingImageUrl(false);
       }
     }
 
@@ -1526,40 +1532,67 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
           )}
 
           <div className="flex-1 h-full relative">
-            {isAssetImage && imageUrl ? (
-              // Image Preview
-              <div className="h-full flex items-center justify-center bg-opacity-5 relative">
-                <div className="absolute inset-0 bg-gradient-to-t from-[#0B0C0E] via-transparent to-transparent opacity-50 pointer-events-none" />
-
-                <div className="relative flex flex-col items-center gap-6 max-w-full p-8">
-                  <div className="relative group">
-                    <div className="absolute -inset-1 bg-gradient-to-r from-indigo-500 to-blue-500 rounded-lg blur opacity-20 group-hover:opacity-40 transition duration-1000"></div>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={imageUrl}
-                      alt={fileSystem.state.selectedFile}
-                      className="relative max-w-full max-h-[50vh] object-contain rounded-lg border border-white/10 shadow-2xl bg-[#0B0C0E]"
-                    />
-                  </div>
-
-                  <div className="text-center space-y-2">
-                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10">
-                      <FileImage className="w-3 h-3 text-white/50" />
-                      <span className="text-xs font-mono text-white/70">
-                        {fileSystem.state.selectedFile}
-                      </span>
-                    </div>
-                    <a
-                      href={imageUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="block text-[10px] text-indigo-400 hover:text-indigo-300 hover:underline transition-colors"
-                    >
-                      Open original
-                    </a>
+            {isAssetImage ? (
+              isLoadingImageUrl ? (
+                // Loading state while generating signed URL
+                <div className="h-full flex items-center justify-center bg-[#0B0C0E]">
+                  <div className="flex flex-col items-center gap-4">
+                    <Loader2 className="w-8 h-8 animate-spin text-indigo-400" />
+                    <p className="text-sm text-muted-foreground">
+                      Loading asset...
+                    </p>
                   </div>
                 </div>
-              </div>
+              ) : imageUrl ? (
+                // Image Preview
+                <div className="h-full flex items-center justify-center bg-opacity-5 relative">
+                  <div className="absolute inset-0 bg-gradient-to-t from-[#0B0C0E] via-transparent to-transparent opacity-50 pointer-events-none" />
+
+                  <div className="relative flex flex-col items-center gap-6 max-w-full p-8">
+                    <div className="relative group">
+                      <div className="absolute -inset-1 bg-gradient-to-r from-indigo-500 to-blue-500 rounded-lg blur opacity-20 group-hover:opacity-40 transition duration-1000"></div>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={imageUrl}
+                        alt={fileSystem.state.selectedFile}
+                        className="relative max-w-full max-h-[50vh] object-contain rounded-lg border border-white/10 shadow-2xl bg-[#0B0C0E]"
+                      />
+                    </div>
+
+                    <div className="text-center space-y-2">
+                      <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10">
+                        <FileImage className="w-3 h-3 text-white/50" />
+                        <span className="text-xs font-mono text-white/70">
+                          {fileSystem.state.selectedFile}
+                        </span>
+                      </div>
+                      <a
+                        href={imageUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="block text-[10px] text-indigo-400 hover:text-indigo-300 hover:underline transition-colors"
+                      >
+                        Open original
+                      </a>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                // Error state - failed to load signed URL
+                <div className="h-full flex items-center justify-center bg-[#0B0C0E]">
+                  <div className="flex flex-col items-center gap-4 text-center">
+                    <AlertTriangle className="w-8 h-8 text-amber-500" />
+                    <div>
+                      <p className="text-sm font-medium text-foreground">
+                        Failed to load asset
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Unable to generate preview URL
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )
             ) : (
               // Code Editor
               <Editor

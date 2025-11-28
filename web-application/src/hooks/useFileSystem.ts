@@ -2,7 +2,7 @@ import { supabase } from "@/ClientConstants";
 import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import { Database } from "@/lib/types/supabase";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 type PrototypeFile = Database["public"]["Tables"]["prototype_files"]["Row"];
 type PrototypeAsset = Database["public"]["Tables"]["prototype_assets"]["Row"];
@@ -81,7 +81,7 @@ export const useFileSystem = (
 
   // Load files from database
   const loadFilesFromDatabase = useCallback(
-    async (prototypeId: string) => {
+    async (prototypeId: string, preserveSelection = false) => {
       if (!prototypeId) return;
 
       setIsLoading(true);
@@ -114,7 +114,7 @@ export const useFileSystem = (
         // Set selected file to default if it exists, otherwise keep current selection
         if (filesDict[defaultFile] && selectedFile === defaultFile) {
           // File exists and we're still on default - no change needed
-        } else if (!filesDict[selectedFile]) {
+        } else if (!filesDict[selectedFile] && !preserveSelection) {
           // Current selection doesn't exist, fallback to default or first available
           const availableFile =
             filesDict[defaultFile] || Object.keys(filesDict)[0];
@@ -173,9 +173,14 @@ export const useFileSystem = (
     [logger],
   );
 
+  const shouldPreserveSelection = useMemo(
+    () => Boolean(assets[selectedFile]),
+    [assets, selectedFile],
+  );
+
   useEffect(() => {
     if (!prototypeId) return;
-    loadFilesFromDatabase(prototypeId);
+    loadFilesFromDatabase(prototypeId, shouldPreserveSelection);
     loadAssetsFromDatabase(prototypeId);
 
     // Set up realtime subscriptions for collaborative editing
@@ -313,6 +318,7 @@ export const useFileSystem = (
     logger,
     defaultFile,
     selectedFile,
+    shouldPreserveSelection,
   ]);
 
   // File selection
