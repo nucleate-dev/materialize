@@ -1,6 +1,5 @@
 import { Options } from "@anthropic-ai/claude-agent-sdk";
 import axios from "axios";
-import { execSync } from "child_process";
 import { FSWatcher } from "chokidar";
 import { FastifyInstance, FastifyRequest } from "fastify";
 import path from "path";
@@ -52,11 +51,7 @@ export class ChatService {
   private readonly logger: SystemLogger;
   private readonly fastifyApp: FastifyInstance;
   private readonly fileSyncService: FileSyncService;
-  private readonly supabaseClientService: SupabaseClientService;
   private readonly toolPermissionService: ToolPermissionService;
-  private readonly sandboxService: SandboxService;
-  private readonly expoDevServerService: ExpoDevServerService;
-  private readonly terminalService: TerminalService;
   private readonly messagePersistenceService: MessagePersistenceService;
   private readonly chatQueryHandler: ChatQueryHandler;
   private sessionState: CodeSessionState = {
@@ -76,9 +71,6 @@ export class ChatService {
   private orchestrationToken: string | null = null;
   private aak: string | null = null;
   private validAiChatSessionIds = new Set<string>(); // Track valid session IDs created during this CodeService instance's lifetime
-  private readonly sharedFileMode = 0o664;
-  private readonly sharedDirMode = 0o775;
-  private materializeUserGid: number | null = null;
 
   constructor(
     fastifyApp: FastifyInstance,
@@ -94,10 +86,6 @@ export class ChatService {
     this.allowedRoot = path.resolve("/tmp/materialize-dev-server");
     this.fastifyApp = fastifyApp;
     this.logger = logger.child({ service: "CodeService" });
-    this.supabaseClientService = supabaseClientService;
-    this.sandboxService = sandboxService;
-    this.expoDevServerService = expoDevServerService;
-    this.terminalService = terminalService;
     this.fileSyncService = fileSyncService;
     this.toolPermissionService = new ToolPermissionService(
       this.allowedRoot,
@@ -122,33 +110,6 @@ export class ChatService {
       terminalService,
       () => this.getAak(),
     );
-
-    // Get the GID for materialize-user to set group ownership on created files
-    try {
-      // Use 'id' command to get GID of materialize-user
-      const gidOutput = execSync("id -g materialize-user", {
-        encoding: "utf-8",
-      }).trim();
-      const gid = parseInt(gidOutput, 10);
-
-      if (!isNaN(gid)) {
-        this.materializeUserGid = gid;
-        this.logger.consoleLogDevOnly("info", "Found materialize-user GID", {
-          gid,
-        });
-      } else {
-        this.logger.warn("Could not parse materialize-user GID", {
-          gidOutput,
-        });
-      }
-    } catch (error) {
-      this.logger.warn(
-        "Could not get materialize-user GID - group ownership will not be set",
-        {
-          error: error instanceof Error ? error.message : String(error),
-        },
-      );
-    }
 
     this.logger.consoleLogDevOnly("info", "CodeService initialized", {
       workDir: this.workDir,
@@ -569,41 +530,6 @@ export class ChatService {
         message: "No active query to interrupt",
       });
     }
-  }
-
-  private async handleResetSession(socket: WebSocket): Promise<void> {
-    this.logger.consoleLogDevOnly("info", "Resetting Claude Code session", {
-      oldSessionId: this.sessionState.sessionId,
-    });
-
-    // Abort any active query before resetting
-    if (this.sessionState.abortController) {
-      this.sessionState.abortController.abort();
-    }
-
-    // Clear valid session IDs since we're resetting
-    this.validAiChatSessionIds.clear();
-
-    this.sessionState = {
-      sessionId: null,
-      prototypeChatSessionId: null,
-      isActive: false,
-      createdAt: 0,
-      lastActiveAt: 0,
-      abortController: null,
-      trackedFiles: new Set<string>(),
-      fileWatcher: null,
-      designSystemId: null,
-      designSystemRules: null,
-      modifiedFilesThisQuery: new Set<string>(),
-    };
-
-    this.sendMessage(socket, {
-      type: ChatEvent.SESSION_RESET,
-      data: {
-        message: "Session has been reset",
-      },
-    });
   }
 
   private sendMessage(socket: WebSocket, message: ChatServerMessage): void {
