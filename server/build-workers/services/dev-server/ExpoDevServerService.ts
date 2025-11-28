@@ -191,13 +191,10 @@ export class ExpoDevServerService {
 
     try {
       // Use FileSyncService to fetch files and assets
-      const {
-        files,
-        assets: assetsWithContent,
-        errors: fetchErrors,
-      } = await this.fileSyncService.fetchAllFilesAndAssetsFromSupabaseForInitialSync(
-        prototype_id,
-      );
+      const { errors: fetchErrors } =
+        await this.fileSyncService.fetchAllFilesAndAssetsFromSupabaseAndWriteToDisk(
+          prototype_id,
+        );
 
       if (fetchErrors.length > 0) {
         const errorMsg = fetchErrors.join("; ");
@@ -210,18 +207,6 @@ export class ExpoDevServerService {
 
       // Handle file scope (fixed path per instance)
       const projectDir = this.workDir;
-
-      // Ensure project directory exists before writing files
-      await fs.mkdir(projectDir, { recursive: true });
-      try {
-        await this.cleanWorkspace(projectDir);
-      } catch (error) {
-        log2.warn("Failed to clean workspace directory", {
-          projectDir,
-          error: error instanceof Error ? error.message : String(error),
-        });
-      }
-      await writeProjectFiles(files, assetsWithContent, projectDir);
 
       // Install dependencies for new project
       try {

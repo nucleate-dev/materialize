@@ -1,4 +1,5 @@
 import chokidar from "chokidar";
+import type { Dirent } from "fs";
 import fs from "fs/promises";
 import path from "path";
 import { SystemLogger } from "../loggers/SystemLogger.js";
@@ -8,6 +9,7 @@ import {
   PrototypeAssetInput,
   PrototypeAssetInputWithContent,
 } from "../types/BuildWorkerTypes.js";
+import { writeProjectFiles } from "../utils/shared-utils.js";
 import { SupabaseClientService } from "./SupabaseClientService.js";
 
 interface SyncResult {
@@ -920,6 +922,50 @@ export class FileSyncService {
     return contentTypes[ext] || "application/octet-stream";
   }
 
+  private async prepareWorkspaceWithProject(
+    files: PrototypeFileInput[],
+    assets: PrototypeAssetInputWithContent[],
+  ): Promise<void> {
+    await fs.mkdir(this.workDir, { recursive: true });
+    await this.cleanWorkspaceDirectory();
+    await writeProjectFiles(files, assets, this.workDir);
+  }
+
+  private async cleanWorkspaceDirectory(): Promise<void> {
+    let entries: Dirent[];
+    try {
+      entries = await fs.readdir(this.workDir, { withFileTypes: true });
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        "code" in error &&
+        (error as NodeJS.ErrnoException).code === "ENOENT"
+      ) {
+        return;
+      }
+
+      throw error;
+    }
+
+    for (const entry of entries) {
+      if (entry.name === ".keep") {
+        continue;
+      }
+
+      const entryPath = path.join(this.workDir, entry.name);
+      try {
+        await fs.rm(entryPath, { recursive: true, force: true });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        this.logger.warn("Failed to remove workspace entry", {
+          entry: entryPath,
+          error: message,
+        });
+        throw error instanceof Error ? error : new Error(message);
+      }
+    }
+  }
+
   // ----------------------------------------------------------------------
   // PUBLIC API: Fetch files and assets from Supabase (whole or partial)
   // ----------------------------------------------------------------------
@@ -929,7 +975,7 @@ export class FileSyncService {
    * Downloads asset content from storage and converts to base64.
    * Uses batching to handle large numbers of files efficiently.
    */
-  public async fetchAllFilesAndAssetsFromSupabaseForInitialSync(
+  public async fetchAllFilesAndAssetsFromSupabaseAndWriteToDisk(
     prototypeId: string,
   ): Promise<{
     files: PrototypeFileInput[];
@@ -982,6 +1028,8 @@ export class FileSyncService {
           failedCount: assetMetadata.length - assetsWithContent.length,
         },
       );
+
+      await this.prepareWorkspaceWithProject(files, assetsWithContent);
 
       return { files, assets: assetsWithContent, errors };
     } catch (error) {
