@@ -1146,11 +1146,7 @@ export default function InternalPrototypePage() {
                           <div className="h-full overflow-auto border-b border-white/5 bg-[#0B0C0E]">
                             <FileTree
                               files={fileSystem.state.files}
-                              assets={Object.fromEntries(
-                                Object.entries(fileSystem.state.assets).map(
-                                  ([key, { storage_url, ...asset }]) => [key, asset],
-                                ),
-                              )}
+                              assets={fileSystem.state.assets}
                               selectedFile={fileSystem.state.selectedFile}
                               onFileSelect={fileSystem.selectFile}
                               onDelete={handleDeleteRequest}
@@ -1176,11 +1172,7 @@ export default function InternalPrototypePage() {
                         <div className="h-full overflow-auto">
                           <FileTree
                             files={fileSystem.state.files}
-                            assets={Object.fromEntries(
-                              Object.entries(fileSystem.state.assets).map(
-                                ([key, { storage_url, ...asset }]) => [key, asset],
-                              ),
-                            )}
+                            assets={fileSystem.state.assets}
                             selectedFile={fileSystem.state.selectedFile}
                             onFileSelect={fileSystem.selectFile}
                             onDelete={handleDeleteRequest}

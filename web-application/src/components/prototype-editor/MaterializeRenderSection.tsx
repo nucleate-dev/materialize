@@ -24,7 +24,6 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
-import type { AssetWithSignedUrl } from "@/hooks/useFileSystem";
 import type {
   APIResponse,
   RestartDevServerRequestBody,
@@ -34,6 +33,7 @@ import type {
   StartDevServerSuccessResponse,
 } from "@/lib/types/serverAPITypes";
 import { Database } from "@/lib/types/supabase";
+import { getBulkAssetSignedUrls } from "@/lib/utils/assetUtils";
 import { QRCodeSVG } from "qrcode.react";
 import { toast } from "sonner";
 
@@ -147,7 +147,7 @@ interface MaterializeRenderSectionProps {
   // Props for dev server functionality
   prototypeId?: string;
   files?: Record<string, PrototypeFile>;
-  assets?: Record<string, AssetWithSignedUrl>;
+  assets?: Record<string, PrototypeAsset>;
   onViewingUrlUpdate?: (url: string) => void;
   // New render status props
   currentRenderStatus?: RenderStatus;
@@ -727,19 +727,27 @@ const MaterializeRenderSection = forwardRef<
           zip.file(file.name, file.contents ?? "");
         });
 
-        if (assets && Object.keys(assets).length > 0) {
+        if (assets && Object.keys(assets).length > 0 && prototypeId) {
           const assetsFolder = zip.folder("assets");
           if (assetsFolder) {
+            // Generate signed URLs on-demand for all assets
+            const assetNames = Object.keys(assets);
+            const signedUrls = await getBulkAssetSignedUrls(
+              prototypeId,
+              assetNames,
+            );
+
             await Promise.all(
               Object.values(assets).map(async (asset) => {
                 const sanitizedName = asset.name.replace(/^assets\//i, "");
 
                 try {
-                  if (!asset.storage_url) {
+                  const storageUrl = signedUrls[asset.name];
+                  if (!storageUrl) {
                     throw new Error(`No storage URL for asset: ${asset.name}`);
                   }
 
-                  const response = await fetch(asset.storage_url);
+                  const response = await fetch(storageUrl);
                   if (!response.ok) {
                     throw new Error(`Failed to fetch asset: ${asset.name}`);
                   }

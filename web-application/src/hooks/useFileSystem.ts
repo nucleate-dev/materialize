@@ -2,7 +2,6 @@ import { supabase } from "@/ClientConstants";
 import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import { Database } from "@/lib/types/supabase";
-import { getBulkAssetSignedUrls } from "@/lib/utils/assetUtils";
 import { useCallback, useEffect, useState } from "react";
 
 type PrototypeFile = Database["public"]["Tables"]["prototype_files"]["Row"];
@@ -10,14 +9,9 @@ type PrototypeAsset = Database["public"]["Tables"]["prototype_assets"]["Row"];
 type PrototypeAssetInsert =
   Database["public"]["Tables"]["prototype_assets"]["Insert"];
 
-export interface AssetWithSignedUrl
-  extends Omit<PrototypeAsset, "storage_url"> {
-  storage_url?: string | null;
-}
-
 export interface FileSystemState {
   files: Record<string, PrototypeFile>;
-  assets: Record<string, AssetWithSignedUrl>;
+  assets: Record<string, PrototypeAsset>;
   selectedFile: string;
   isLoading: boolean;
   sandboxUrl: string | null;
@@ -59,7 +53,7 @@ export const useFileSystem = (
   const logger = useProductLogger();
   const { userPlan } = useSubscriptionAccess();
   const [files, setFiles] = useState<Record<string, PrototypeFile>>({});
-  const [assets, setAssets] = useState<Record<string, AssetWithSignedUrl>>({});
+  const [assets, setAssets] = useState<Record<string, PrototypeAsset>>({});
   const [selectedFile, setSelectedFile] = useState<string>(defaultFile);
   const [isLoading, setIsLoading] = useState(false);
   const [sandboxUrl, setSandboxUrl] = useState<string | null>(null);
@@ -159,23 +153,13 @@ export const useFileSystem = (
           return;
         }
 
-        // Get signed URLs for all assets
-        const assetNames = (data || []).map((asset) => asset.name);
-        const signedUrls = await getBulkAssetSignedUrls(
-          prototypeId,
-          assetNames,
-        );
-
-        // Convert array to dictionary mapping name to AssetWithSignedUrl object
+        // Convert array to dictionary mapping name to PrototypeAsset object
         const assetsDict = (data || []).reduce(
           (acc, asset) => {
-            acc[asset.name] = {
-              ...asset,
-              storage_url: signedUrls[asset.name],
-            };
+            acc[asset.name] = asset;
             return acc;
           },
-          {} as Record<string, AssetWithSignedUrl>,
+          {} as Record<string, PrototypeAsset>,
         );
 
         setAssets(assetsDict);
@@ -274,18 +258,11 @@ export const useFileSystem = (
           table: "prototype_assets",
           filter: `prototype_id=eq.${prototypeId}`,
         },
-        async (payload) => {
+        (payload) => {
           const newAsset = payload.new as PrototypeAsset;
-          // Get signed URL for the new asset
-          const signedUrls = await getBulkAssetSignedUrls(prototypeId, [
-            newAsset.name,
-          ]);
           setAssets((prevAssets) => ({
             ...prevAssets,
-            [newAsset.name]: {
-              ...newAsset,
-              storage_url: signedUrls[newAsset.name],
-            },
+            [newAsset.name]: newAsset,
           }));
         },
       )
@@ -297,18 +274,11 @@ export const useFileSystem = (
           table: "prototype_assets",
           filter: `prototype_id=eq.${prototypeId}`,
         },
-        async (payload) => {
+        (payload) => {
           const updatedAsset = payload.new as PrototypeAsset;
-          // Get signed URL for the updated asset
-          const signedUrls = await getBulkAssetSignedUrls(prototypeId, [
-            updatedAsset.name,
-          ]);
           setAssets((prevAssets) => ({
             ...prevAssets,
-            [updatedAsset.name]: {
-              ...updatedAsset,
-              storage_url: signedUrls[updatedAsset.name],
-            },
+            [updatedAsset.name]: updatedAsset,
           }));
         },
       )

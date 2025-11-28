@@ -4,6 +4,7 @@ import { RenderStatus } from "@/app/dashboard/projects/[prototype_id]/InternalPr
 import { supabase } from "@/ClientConstants";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { getBulkAssetSignedUrls } from "@/lib/utils/assetUtils";
 import {
   Dialog,
   DialogContent,
@@ -249,12 +250,8 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
     isAsset(fileSystem.state.selectedFile) &&
     isImageFile(fileSystem.state.selectedFile);
 
-  const imageUrl =
-    isAssetImage && currentFile && "storage_url" in currentFile
-      ? currentFile?.storage_url
-      : null;
-
   // --- State ---
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [showNewFileModal, setShowNewFileModal] = useState(false);
   const [newFileName, setNewFileName] = useState("");
   const [newFileError, setNewFileError] = useState("");
@@ -393,6 +390,30 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
       setUploadError("");
     }
   }, [showUploadModal, defaultUploadFolderValue]);
+
+  // Generate signed URL on-demand when an image asset is selected
+  useEffect(() => {
+    async function generateImageUrl() {
+      if (!isAssetImage || !fileSystem.state.selectedFile || !prototypeId) {
+        setImageUrl(null);
+        return;
+      }
+
+      try {
+        const signedUrls = await getBulkAssetSignedUrls(prototypeId, [
+          fileSystem.state.selectedFile,
+        ]);
+        setImageUrl(signedUrls[fileSystem.state.selectedFile] || null);
+      } catch (error) {
+        logger.debug("error", "Failed to generate signed URL for image:", {
+          error: error instanceof Error ? error.message : String(error),
+        });
+        setImageUrl(null);
+      }
+    }
+
+    generateImageUrl();
+  }, [isAssetImage, fileSystem.state.selectedFile, prototypeId, logger]);
 
   const resolvedUploadFolder =
     uploadTargetFolder === ROOT_FOLDER_VALUE ? "" : uploadTargetFolder;
