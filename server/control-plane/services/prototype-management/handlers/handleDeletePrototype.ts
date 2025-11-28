@@ -1,6 +1,4 @@
-import { ECSClient, StopTaskCommand } from '@aws-sdk/client-ecs';
 import { S3Client } from '@aws-sdk/client-s3';
-import { createClient } from '@supabase/supabase-js';
 import { GlideClient } from '@valkey/valkey-glide';
 import { FastifyReply, FastifyRequest } from 'fastify';
 import { SystemLogger } from '../../../loggers/SystemLogger.js';
@@ -11,22 +9,24 @@ import {
   DeletePrototypeSuccessResponse,
   HTTP_STATUS,
 } from '../../../types/PublicAPITypes.js';
-import { Database } from '../../../types/supabase.js';
 import { checkUserHasPrototypeEditAccess } from '../../../utils/prototypeAuth.js';
-import { removeBuildDataFromCache } from '../../../utils/cacheInteractionUtils.js';
+import { hgetallAsActiveBuild } from '../../../utils/cacheInteractionUtils.js';
 import {
   deletePrototypeAssetsFromStorage,
   deletePrototypeChatImagesFromStorage,
   deletePrototypeS3Builds,
   deletePrototypeThumbnailFromSupabaseStorage,
 } from '../storageOperations.js';
-import { deleteCloudflareTunnel } from '../../../utils/cloudflareTunnelManagementUtils.js';
+import { CleanupService } from '../../cleanup/CleanupService.js';
+import { createClient } from '@supabase/supabase-js';
+import { Database } from '../../../types/supabase.js';
 
 export default async function handleDeletePrototypeImpl(
   request: FastifyRequest<{ Params: { prototype_id: string } }>,
   reply: FastifyReply,
   s3Client: S3Client,
   cache: GlideClient,
+  cleanupService: CleanupService,
 ): Promise<
   APIResponse<DeletePrototypeSuccessResponse, DeletePrototypeErrorResponse>
 > {
@@ -76,7 +76,12 @@ export default async function handleDeletePrototypeImpl(
           prototype_id,
           request.log2,
         ),
-        killActiveFargateInstanceIfItExists(prototype_id, cache, request.log2),
+        killActiveFargateInstanceIfItExists(
+          prototype_id,
+          cache,
+          request.log2,
+          cleanupService,
+        ),
       ]);
     const prototypeCleanupResult = await supabase
       .from('prototypes')
@@ -144,6 +149,7 @@ async function killActiveFargateInstanceIfItExists(
   prototypeId: string,
   cache: GlideClient,
   log2: SystemLogger,
+  cleanupService: CleanupService,
 ): Promise<void> {
   try {
     // 1. Check if there is a current active build for this prototype in the cache
@@ -151,46 +157,68 @@ async function killActiveFargateInstanceIfItExists(
       CACHE_KEYS.protoCurrentBuild(prototypeId),
     );
     if (!currentBuildIdRaw) {
+      log2.consoleLogDevOnly(
+        'info',
+        'No active build found for prototype during deletion',
+        { prototypeId },
+      );
       return; // No active build
     }
+
     const currentBuildId = currentBuildIdRaw.toString();
     const activeBuildKey = CACHE_KEYS.activeBuild(currentBuildId);
-    const buildJsonRaw = await cache.get(activeBuildKey);
-    if (!buildJsonRaw) {
+    const activeBuild = await hgetallAsActiveBuild(cache, activeBuildKey);
+
+    if (!activeBuild) {
+      log2.consoleLogDevOnly(
+        'warn',
+        'Build ID exists but build data not found during prototype deletion',
+        { prototypeId, currentBuildId },
+      );
       return; // Build data not found
     }
-    const activeBuild = JSON.parse(buildJsonRaw.toString());
 
-    // 2. If the fargate task ARN is not empty, then terminate the fargate task
-    if (activeBuild.fargate_task_arn) {
-      const ecsClient = new ECSClient({
-        region: process.env.AWS_REGION || 'us-east-1',
-      });
-      const stopCommand = new StopTaskCommand({
-        cluster: process.env.ECS_CLUSTER_NAME!,
-        task: activeBuild.fargate_task_arn,
-        reason: 'Prototype deletion - terminating active build',
-      });
-      await ecsClient.send(stopCommand);
-    }
+    log2.consoleLogDevOnly(
+      'info',
+      'Found active build during prototype deletion, using CleanupService to clean it up',
+      {
+        prototypeId,
+        buildId: currentBuildId,
+        fargateTaskArn: activeBuild.fargate_task_arn,
+        terminalTunnelId: activeBuild.terminal_tunnel_id,
+      },
+    );
 
-    // 3. Delete the cloudflare tunnel for the build if it exists
-    if (activeBuild.terminal_tunnel_id) {
-      await deleteCloudflareTunnel(
-        activeBuild.terminal_tunnel_id,
-        log2,
-        activeBuild.terminal_tunnel_hostname,
-        createClient<Database>(
-          process.env.SUPABASE_URL!,
-          process.env.SUPABASE_SERVICE_ROLE_KEY!,
-        ),
+    // 2. Use CleanupService to handle all cleanup logic (Fargate task, tunnel, cache)
+    // Pass shouldWaitForSuccessfulBuild=false since we're deleting the prototype anyway
+    const cleanupResult = await cleanupService.cleanupSingleBuild(
+      activeBuild,
+      currentBuildId,
+      activeBuildKey,
+      false, // shouldWaitForSuccessfulBuild = false
+    );
+
+    if (cleanupResult.success) {
+      log2.consoleLogDevOnly(
+        'info',
+        'Successfully cleaned up active build during prototype deletion',
+        { prototypeId, buildId: currentBuildId },
+      );
+    } else {
+      log2.warn(
+        'Failed to clean up active build during prototype deletion, but continuing with deletion',
+        {
+          prototypeId,
+          buildId: currentBuildId,
+          error: cleanupResult.error,
+          buildInProgress: cleanupResult.buildInProgress,
+        },
       );
     }
-
-    // 4. Clear all the cache entries for this prototype using the utility function
-    await removeBuildDataFromCache(cache, log2, prototypeId, currentBuildId);
   } catch (error) {
     // Log error but don't throw - prototype deletion should continue even if cleanup fails
-    log2.error(error, 'Error killing active Fargate instance:');
+    log2.error(error, 'Error killing active Fargate instance:', {
+      prototypeId,
+    });
   }
 }

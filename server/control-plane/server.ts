@@ -198,6 +198,7 @@ const start = async (): Promise<void> => {
       s3Client,
       cacheClient,
       dispatcherService,
+      cleanupService,
     );
     prototypeManagementService.registerRoutes(fastify);
 

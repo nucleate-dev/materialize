@@ -12,6 +12,7 @@ import type {
   FetchViewingUrlSuccessResponse,
   StandardErrorResponse,
 } from '../../types/PublicAPITypes.js';
+import { CleanupService } from '../cleanup/CleanupService.js';
 import { DispatcherService } from '../dispatcher/DispatcherService.js';
 import { handleCreatePrototypeImpl } from './handlers/handleCreatePrototype.js';
 import handleDeletePrototypeImpl from './handlers/handleDeletePrototype.js';
@@ -25,17 +26,20 @@ export class PrototypeManagementService {
   private s3Client: S3Client;
   private cache: GlideClient;
   private dispatcherService: DispatcherService;
+  private cleanupService: CleanupService;
 
   constructor(
     fastifyApp: FastifyInstance,
     s3Client: S3Client,
     cache: GlideClient,
     dispatcherService: DispatcherService,
+    cleanupService: CleanupService,
   ) {
     this.fastifyApp = fastifyApp;
     this.s3Client = s3Client;
     this.cache = cache;
     this.dispatcherService = dispatcherService;
+    this.cleanupService = cleanupService;
 
     // Environment validation
     this.supabaseUrl = process.env.SUPABASE_URL!;
@@ -177,6 +181,7 @@ export class PrototypeManagementService {
       reply,
       this.s3Client,
       this.cache,
+      this.cleanupService,
     );
   }
 }
