@@ -1079,12 +1079,7 @@ export default function InternalPrototypePage() {
               base_tunnel_url={baseTunnelUrl}
               prototypeId={prototypeId}
               files={fileSystem.state.files}
-              assets={Object.fromEntries(
-                Object.entries(fileSystem.state.assets).map(([key, asset]) => [
-                  key,
-                  { ...asset, storage_url: asset.storage_url || "" },
-                ]),
-              )}
+              assets={fileSystem.state.assets}
               onViewingUrlUpdate={setViewingUrl}
               currentRenderStatus={currentRenderStatus}
               onRenderStatusChange={setCurrentRenderStatus}
@@ -1153,13 +1148,7 @@ export default function InternalPrototypePage() {
                               files={fileSystem.state.files}
                               assets={Object.fromEntries(
                                 Object.entries(fileSystem.state.assets).map(
-                                  ([key, asset]) => [
-                                    key,
-                                    {
-                                      ...asset,
-                                      storage_url: asset.storage_url || "",
-                                    },
-                                  ],
+                                  ([key, { storage_url, ...asset }]) => [key, asset],
                                 ),
                               )}
                               selectedFile={fileSystem.state.selectedFile}
@@ -1189,13 +1178,7 @@ export default function InternalPrototypePage() {
                             files={fileSystem.state.files}
                             assets={Object.fromEntries(
                               Object.entries(fileSystem.state.assets).map(
-                                ([key, asset]) => [
-                                  key,
-                                  {
-                                    ...asset,
-                                    storage_url: asset.storage_url || "",
-                                  },
-                                ],
+                                ([key, { storage_url, ...asset }]) => [key, asset],
                               ),
                             )}
                             selectedFile={fileSystem.state.selectedFile}
