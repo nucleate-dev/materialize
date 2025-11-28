@@ -1028,10 +1028,6 @@ export default function InternalPrototypePage() {
               onPrototypeUpdate={setPrototype}
               currentRenderStatus={currentRenderStatus}
               currentViewingPath={currentViewingPath}
-              onFileSyncComplete={() => {
-                fileSystem.loadFilesFromDatabase(prototypeId);
-                fileSystem.loadAssetsFromDatabase(prototypeId);
-              }}
               externalWS={claudeCodeWS}
               externalWSConnected={claudeCodeWSConnected}
               externalWSConnecting={claudeCodeWSConnecting}

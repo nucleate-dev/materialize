@@ -39,7 +39,6 @@ interface ClaudeCodePanelProps {
   prototype?: Prototype | null;
   canEditPrototype?: boolean;
   onPrototypeUpdate?: (updatedPrototype: Prototype) => void;
-  onFileSyncComplete?: () => void;
   currentRenderStatus?: RenderStatus;
   currentViewingPath?: string;
   // External WebSocket management (required - InternalPrototypePage manages connection)
@@ -53,7 +52,6 @@ interface ClaudeCodePanelProps {
     handler: (msg: ChatServerMessage) => void,
   ) => void;
   onUnregisterMessageHandler: (id: string) => void;
-  onRestartDevServerComplete?: () => void;
 }
 
 export interface Message {
@@ -99,7 +97,6 @@ export default function ClaudeCodePanel({
   prototype,
   canEditPrototype = false,
   onPrototypeUpdate,
-  onFileSyncComplete,
   currentRenderStatus,
   currentViewingPath,
   externalWS,
@@ -109,7 +106,6 @@ export default function ClaudeCodePanel({
   onDisconnect,
   onRegisterMessageHandler,
   onUnregisterMessageHandler,
-  onRestartDevServerComplete,
 }: ClaudeCodePanelProps) {
   const logger = useProductLogger();
 
@@ -1085,78 +1081,6 @@ export default function ClaudeCodePanel({
         break;
       }
 
-      case ChatEvent.TOOL_COMPLETE: {
-        const { tool_name: toolName, tool_call_id: toolCallId = "" } =
-          message.data;
-
-        if (toolName) {
-          if (isThinkingTool(toolName)) {
-            updateThinkingMessage(toolCallId, "success");
-          } else {
-            updateToolMessage(toolCallId, "success");
-          }
-        }
-        if (
-          toolName.toLowerCase().includes("restartdevserver") &&
-          onRestartDevServerComplete
-        ) {
-          onRestartDevServerComplete();
-        }
-        break;
-      }
-
-      case ChatEvent.FILE_SYNC_COMPLETE: {
-        logger.debug("log", "File sync completed", {
-          data: message.data,
-        });
-
-        const {
-          filesUpdated,
-          filesDeleted,
-          assetsUpdated,
-          assetsDeleted,
-          errorCount,
-        } = message.data;
-
-        const updates: string[] = [];
-        if (filesUpdated > 0) {
-          updates.push(
-            `${filesUpdated} file${filesUpdated > 1 ? "s" : ""} updated`,
-          );
-        }
-        if (filesDeleted > 0) {
-          updates.push(
-            `${filesDeleted} file${filesDeleted > 1 ? "s" : ""} deleted`,
-          );
-        }
-        if (assetsUpdated > 0) {
-          updates.push(
-            `${assetsUpdated} asset${assetsUpdated > 1 ? "s" : ""} updated`,
-          );
-        }
-        if (assetsDeleted > 0) {
-          updates.push(
-            `${assetsDeleted} asset${assetsDeleted > 1 ? "s" : ""} deleted`,
-          );
-        }
-
-        // if (updates.length > 0) {
-        //   addMessage("system", `Files synced: ${updates.join(", ")}`);
-        // }
-
-        // if (errorCount > 0) {
-        //   addMessage(
-        //     "system",
-        //     `⚠️ ${errorCount} sync error${errorCount > 1 ? "s" : ""} occurred`,
-        //   );
-        // }
-
-        if (onFileSyncComplete) {
-          onFileSyncComplete();
-        }
-        break;
-      }
-
       case ChatEvent.MODIFIED_FILES: {
         const files = (
           Array.isArray(message.data?.files) ? message.data.files : []
@@ -1164,27 +1088,6 @@ export default function ClaudeCodePanel({
         if (files.length > 0) {
           const sanitized = files.map((filePath) => sanitizeFilePath(filePath));
           addMessage("system", `Files modified: ${sanitized.join(", ")}`);
-        }
-        break;
-      }
-
-      case ChatEvent.SYNC_COMPLETE: {
-        const { success, filesCount, assetsCount } = message.data;
-        if (success) {
-          const parts: string[] = [];
-          if (filesCount > 0) {
-            parts.push(`${filesCount} file${filesCount > 1 ? "s" : ""}`);
-          }
-          if (assetsCount > 0) {
-            parts.push(`${assetsCount} asset${assetsCount > 1 ? "s" : ""}`);
-          }
-          // if (parts.length > 0) {
-          //   addMessage("system", `Sync complete: ${parts.join(", ")}`);
-          // }
-        }
-
-        if (onFileSyncComplete) {
-          onFileSyncComplete();
         }
         break;
       }

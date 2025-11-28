@@ -32,10 +32,6 @@ export interface FileSystemActions {
   // Sandbox URL management
   setSandboxUrl: (url: string | null) => void;
 
-  // Database operations
-  loadFilesFromDatabase: (prototypeId: string) => Promise<void>;
-  loadAssetsFromDatabase: (prototypeId: string) => Promise<void>;
-
   // Unified function to sync all file/asset operations in one batch
   syncFilesAndAssets: (params: {
     filesToUpsert?: Array<{ name: string; content: string }>;
@@ -658,8 +654,6 @@ export const useFileSystem = (
     updateFileContentLocally,
     getSelectedFileContent,
     setSandboxUrl,
-    loadFilesFromDatabase,
-    loadAssetsFromDatabase,
     syncFilesAndAssets,
   };
 

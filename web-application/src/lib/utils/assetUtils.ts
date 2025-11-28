@@ -34,7 +34,7 @@ export async function getAssetSignedUrl(
 }
 
 /**
- * Generate signed URLs for multiple assets in bulk
+ * Generate signed URLs for multiple assets in bulk using Supabase's batch API
  *
  * @param prototypeId - The unique prototype ID
  * @param assetNames - Array of asset file names/paths
@@ -46,20 +46,53 @@ export async function getBulkAssetSignedUrls(
   assetNames: string[],
   expiresIn: number = 3600,
 ): Promise<Record<string, string | null>> {
-  const urls = await Promise.all(
-    assetNames.map(async (assetName) => ({
-      assetName,
-      url: await getAssetSignedUrl(prototypeId, assetName, expiresIn),
-    })),
-  );
+  if (assetNames.length === 0) {
+    return {};
+  }
 
-  return urls.reduce(
-    (acc, { assetName, url }) => {
-      acc[assetName] = url;
-      return acc;
-    },
-    {} as Record<string, string | null>,
-  );
+  try {
+    // Construct storage paths for all assets
+    const storagePaths = assetNames.map(
+      (assetName) => `${prototypeId}/${assetName}`,
+    );
+
+    // Use Supabase's batch signed URL API (single request for all URLs)
+    const { data, error } = await supabase.storage
+      .from(SUPABASE_PROTOTYPE_ASSETS_BUCKET)
+      .createSignedUrls(storagePaths, expiresIn);
+
+    if (error || !data) {
+      console.error("Failed to generate bulk signed URLs:", error);
+      // Fallback: return nulls for all assets
+      return assetNames.reduce(
+        (acc, assetName) => {
+          acc[assetName] = null;
+          return acc;
+        },
+        {} as Record<string, string | null>,
+      );
+    }
+
+    // Map storage paths back to asset names
+    return data.reduce(
+      (acc, item, index) => {
+        const assetName = assetNames[index];
+        acc[assetName] = item.signedUrl || null;
+        return acc;
+      },
+      {} as Record<string, string | null>,
+    );
+  } catch (error) {
+    console.error("Error in getBulkAssetSignedUrls:", error);
+    // Return nulls for all assets on error
+    return assetNames.reduce(
+      (acc, assetName) => {
+        acc[assetName] = null;
+        return acc;
+      },
+      {} as Record<string, string | null>,
+    );
+  }
 }
 
 /**

@@ -12,8 +12,6 @@ export enum ChatEvent {
   SESSION_RESET = "session_reset",
   TOOL_START = "tool_start",
   TOOL_COMPLETE = "tool_complete",
-  FILE_SYNC_COMPLETE = "file_sync_complete",
-  SYNC_COMPLETE = "sync_complete",
   HISTORY_REQUEST = "history_request",
   MODIFIED_FILES = "modified_files",
 }
@@ -195,24 +193,10 @@ export interface FileSyncResultData {
   errors?: string[];
 }
 
-export interface FileSyncCompleteMessage {
-  type: ChatEvent.FILE_SYNC_COMPLETE;
-  data: FileSyncResultData;
-}
-
 export interface ModifiedFilesMessage {
   type: ChatEvent.MODIFIED_FILES;
   data: {
     files: string[];
-  };
-}
-
-export interface SyncCompleteMessage {
-  type: ChatEvent.SYNC_COMPLETE;
-  data: {
-    success: boolean;
-    filesCount: number;
-    assetsCount: number;
   };
 }
 
@@ -249,8 +233,6 @@ export type ChatServerMessage =
   | SessionResetMessage
   | ToolStartMessage
   | ToolCompleteMessage
-  | FileSyncCompleteMessage
-  | SyncCompleteMessage
   | AuthenticatedMessage
   | MessageReceivedMessage
   | ReadyMessage

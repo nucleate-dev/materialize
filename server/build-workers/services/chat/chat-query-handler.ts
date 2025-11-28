@@ -1477,41 +1477,12 @@ export class ChatQueryHandler {
           },
         );
       }
-
-      // Send sync status to WebSocket client
-      sendMessage(socket, {
-        type: ChatEvent.FILE_SYNC_COMPLETE,
-        data: {
-          success: syncResult.success,
-          filesUpdated: syncResult.filesUpdated,
-          filesDeleted: syncResult.filesDeleted,
-          assetsUpdated: syncResult.assetsUpdated,
-          assetsDeleted: syncResult.assetsDeleted,
-          errorCount: syncResult.errors.length,
-          errors: syncResult.errors.length > 0 ? syncResult.errors : undefined,
-        },
-      });
     } catch (syncError) {
       this.logger.error(
         syncError instanceof Error ? syncError : new Error(String(syncError)),
         "Failed to sync files to Supabase",
         { prototypeId },
       );
-
-      sendMessage(socket, {
-        type: ChatEvent.FILE_SYNC_COMPLETE,
-        data: {
-          success: false,
-          filesUpdated: 0,
-          filesDeleted: 0,
-          assetsUpdated: 0,
-          assetsDeleted: 0,
-          errorCount: 1,
-          errors: [
-            syncError instanceof Error ? syncError.message : String(syncError),
-          ],
-        },
-      });
     }
 
     // Emit modified files list
