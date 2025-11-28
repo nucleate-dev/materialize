@@ -150,12 +150,12 @@ const MDXComponents = {
     };
 
     const colors = {
-      info: "bg-blue-50 border-blue-200 text-blue-800 dark:bg-blue-950/50 dark:border-blue-800 dark:text-blue-200",
+      info: "bg-blue-950/50 border-blue-800 text-blue-200",
       warning:
-        "bg-yellow-50 border-yellow-200 text-yellow-800 dark:bg-yellow-950/50 dark:border-yellow-800 dark:text-yellow-200",
+        "bg-yellow-950/50 border-yellow-800 text-yellow-200",
       success:
-        "bg-green-50 border-green-200 text-green-800 dark:bg-green-950/50 dark:border-green-800 dark:text-green-200",
-      tip: "bg-purple-50 border-purple-200 text-purple-800 dark:bg-purple-950/50 dark:border-purple-800 dark:text-purple-200",
+        "bg-green-950/50 border-green-800 text-green-200",
+      tip: "bg-purple-950/50 border-purple-800 text-purple-200",
     };
 
     return (

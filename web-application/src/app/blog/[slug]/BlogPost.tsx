@@ -49,7 +49,7 @@ export default function BlogPost({ post }: BlogPostProps) {
 
   return (
     <main className="relative min-h-screen bg-[#0B0C0E] text-white selection:bg-indigo-500/30 font-sans">
-      <GridBackground />
+      <GridBackground forceDarkMode />
 
       <div className="relative z-10">
         <PremiumHeader forceDarkMode />
@@ -89,18 +89,9 @@ export default function BlogPost({ post }: BlogPostProps) {
 
             {/* Meta & Share Row */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 py-6 border-y border-white/5">
-              <div className="flex items-center gap-4">
-                {/* Author Avatar Placeholder (can be dynamic) */}
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-sm font-bold text-white ring-2 ring-[#0B0C0E]">
-                  {post.author ? post.author.charAt(0) : "M"}
-                </div>
-                <div className="flex flex-col">
-                  <span className="text-sm font-medium text-white">{post.author || "Materialize Team"}</span>
-                  <div className="flex items-center text-xs text-[#8A8F98]">
-                    <CalendarDays className="w-3 h-3 mr-1.5" />
-                    {formatDate(post.publishedAt)}
-                  </div>
-                </div>
+              <div className="flex items-center text-sm text-[#8A8F98]">
+                <CalendarDays className="w-4 h-4 mr-2" />
+                {formatDate(post.publishedAt)}
               </div>
 
               <ShareButtons title={post.title} />
