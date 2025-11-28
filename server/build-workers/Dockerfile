@@ -107,7 +107,8 @@ RUN mkdir -p /root/.claude && \
     ]\n\
   },\n\
   "env": {\n\
-    "CLAUDE_BASH_MAINTAIN_PROJECT_WORKING_DIR": "true"\n\
+    "CLAUDE_BASH_MAINTAIN_PROJECT_WORKING_DIR": "true",\n\
+    "CLAUDE_CODE_STREAM_CLOSE_TIMEOUT": "300000"\n\
   }\n\
 }' > /root/.claude/settings.json
 

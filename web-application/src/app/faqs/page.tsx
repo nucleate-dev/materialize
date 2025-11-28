@@ -57,11 +57,7 @@ const FAQ_DATA = [
         items: [
             {
                 q: "Can I integrate Materialize with a database like Supabase or Firebase?",
-                a: "Yes, you can ask Materialize to integrate with Supabase or Firebase, but we do not offer an easy way to do this yet, so you'll need to spend time with it. Note that if you want Supabase/Firebase Auth or Firebase Push Notifications, you'll need to export the code locally and use external guidance/tutorials to implement them."
-            },
-            {
-                q: "What is Materialize Backend? Does it have a database or authentication service?",
-                a: "Materialize Backend are serverless backend functions that auto-scale with your demand and can securely call any third-party API or securely connect to external database. It doesn't require a server and works similarly to Supabase Functions. The reason we built backend functions is it's much more secure than connecting to Supabase directly like other platforms do – Materialize Backend can use Supabase in a fully secure way, no RLS policies needed. We do not support built-in database or authentication yet as this is a harder problem to solve for native iOS/Android apps, but we will support it soon. We are committed to hosting the backend for all paid users, so you can use it on production – though keep in mind that it's a beta feature."
+                a: "Yes, you can ask Materialize to integrate with Supabase or Firebase, but we do not offer an easy way to do this yet, so you'll need to spend time with it. Note that if you want Supabase/Firebase Auth or Firebase Push Notifications, you'll need to use external guidance/tutorials to implement them."
             },
             {
                 q: "How can I build apps that use AI features like chat, voice transcription, or image generation?",
@@ -69,7 +65,7 @@ const FAQ_DATA = [
             },
             {
                 q: "Can I integrate Materialize with my business tools like Google Sheets, Airtable, Notion, or my own API?",
-                a: "Yes, you can integrate Materialize with your business tools like Google Sheets, Airtable, Notion, or your own API. Just ask Materialize to integrate with the service you want. It will ask for an API key and might make mistakes in the API calls unless you send it the link to the API documentation."
+                a: "Yes, you can integrate Materialize with your business tools like Google Sheets, Airtable, Notion, or your own API. Just ask Materialize to integrate with the service you want. It will ask for an API key. It's recommended you send it the link to the API documentation."
             },
             {
                 q: "Can I import Figma files into Materialize?",
@@ -81,7 +77,7 @@ const FAQ_DATA = [
             },
             {
                 q: "How can I add authentication into my app?",
-                a: "First, make sure you really need authentication, because most mobile apps on the App Store do not have authentication as most of user data can be stored on the mobile device itself. If you really do need authentication (e.g. your app is a social media app, needs cloud sync or collaboration), we recommend integrating email/password or magic link authentication with Supabase Auth – ask Materialize to integrate it. If you want to use Social Login (Google, Apple, etc.), you will need to make a custom Expo Development Build and it's only possible with external guidance."
+                a: "First, make sure you really need authentication, because most mobile apps on the App Store do not have authentication as most of user data can be stored on the mobile device itself. If you really do need authentication (e.g. your app is a social media app, needs cloud sync or collaboration), we recommend integrating email/password or magic link authentication with Supabase Auth. Just ask Materialize to integrate it. If you want to use Social Login (Google, Apple, etc.), you will need to make a custom Expo Development Build and it's only possible with external guidance."
             },
             {
                 q: "How can I add push notifications into my app?",
@@ -89,42 +85,42 @@ const FAQ_DATA = [
             }
         ]
     },
-    {
-        category: "Publishing",
-        items: [
-            {
-                q: "What is App Preview? Can I share my mobile app with friends/colleagues without TestFlight?",
-                a: "App Preview is a feature that allows you to share your app with friends or colleagues in minutes, before it's published to App Store. It's a great way to get feedback and test your app before it's released. You can publish your app to App Preview and share the `.materialize.app` link that is generated for your app. Your friend will need to install the Materialize iOS app or Expo Go to open the shared app. They can also scan the QR code if they opened the link on their desktop."
-            },
-            {
-                q: "How can I publish to App Store or TestFlight?",
-                a: "First, make sure you really need to publish to App Store or TestFlight, because App Preview is a great way to use or share your app and can be good to publish the app for every day use. If you do, Materialize has an easy App Store publishing feature – just click Publish and follow the instructions. You'll need to have an Apple Developer Account and Expo account (you'll need a subscription if you use it too much)."
-            },
-            {
-                q: "How can I publish to Google Play? Or download an .apk file?",
-                a: "First, make sure you really need to publish to Google Play, because App Preview is a great way to use or share your app every day. If you do, right now Materialize does not have a native Google Play publishing feature, but it's coming! You can download your Materialize app code via GitHub integration, create an Expo account and publish your app via Expo Application Services (EAS)."
-            },
-            {
-                q: "How can I publish to web?",
-                a: "Materialize apps also work on the web, but we do not offer a hosting service for them. You can download your Materialize app code and host it on Expo, Vercel or Netlify."
-            }
-        ]
-    },
+    // {
+    //     category: "Publishing",
+    //     items: [
+    //         {
+    //             q: "What is App Preview? Can I share my mobile app with friends/colleagues without TestFlight?",
+    //             a: "App Preview is a feature that allows you to share your app with friends or colleagues in minutes, before it's published to App Store. It's a great way to get feedback and test your app before it's released. You can publish your app to App Preview and share the `.materialize.app` link that is generated for your app. Your friend will need to install the Materialize iOS app or Expo Go to open the shared app. They can also scan the QR code if they opened the link on their desktop."
+    //         },
+    //         {
+    //             q: "How can I publish to App Store or TestFlight?",
+    //             a: "First, make sure you really need to publish to App Store or TestFlight, because App Preview is a great way to use or share your app and can be good to publish the app for every day use. If you do, Materialize has an easy App Store publishing feature – just click Publish and follow the instructions. You'll need to have an Apple Developer Account and Expo account (you'll need a subscription if you use it too much)."
+    //         },
+    //         {
+    //             q: "How can I publish to Google Play? Or download an .apk file?",
+    //             a: "First, make sure you really need to publish to Google Play, because App Preview is a great way to use or share your app every day. If you do, right now Materialize does not have a native Google Play publishing feature, but it's coming! You can download your Materialize app code via GitHub integration, create an Expo account and publish your app via Expo Application Services (EAS)."
+    //         },
+    //         {
+    //             q: "How can I publish to web?",
+    //             a: "Materialize apps also work on the web, but we do not offer a hosting service for them. You can download your Materialize app code and host it on Expo, Vercel or Netlify."
+    //         }
+    //     ]
+    // },
     {
         category: "Code Export",
         items: [
             {
                 q: "Can I export the code?",
-                a: "Yes, you own all generated code, but only on paid plans. You can download the code via GitHub integration to continue coding in Cursor, or deploy your app to Expo, Vercel or Netlify."
+                a: "Yes, you own all generated code, but only on paid plans."
             },
             {
                 q: "How can I export the code?",
-                a: "You should subscribe to a paid plan to export the code, sign in to your GitHub account and then use Materialize's GitHub integration to export the code."
+                a: "You should subscribe to a paid plan to export the code and then you can download it from the Code Editor view."
             },
-            {
-                q: "How can I make changes locally and import them back to Materialize?",
-                a: "You should use Materialize's GitHub integration to sync your code with GitHub. It is a two-way sync, so you can make changes locally and import them back to Materialize."
-            }
+            // {
+            //     q: "How can I make changes locally and import them back to Materialize?",
+            //     a: "You should use Materialize's GitHub integration to sync your code with GitHub. It is a two-way sync, so you can make changes locally and import them back to Materialize."
+            // }
         ]
     },
     {
@@ -141,35 +137,35 @@ const FAQ_DATA = [
         items: [
             {
                 q: "How much does it cost?",
-                a: "We offer a free tier plus plans ranging from $25 to $1000 per month with different credit limits. Check our pricing page for details."
+                a: "We offer a free tier and a simple Materialize Plus plan ($25 per month). If you hit your credit limits on the plan, you can purchase credit packs to use Materialize as much as you need."
             },
             {
-                q: "I hit my credit limit, what should I do? Can I buy more credits without upgrading my plan?",
-                a: "You'll need to upgrade to a higher package ($25/$50/$100/$200+) or wait until the date of first purchase when credits reset. There's currently no way to separately buy additional credits."
+                q: "I hit my credit limit, what should I do?",
+                a: "You can purchase credits on the Account page. There are various options and price points available for credit packs."
             }
         ]
     },
-    {
-        category: "Support",
-        items: [
-            {
-                q: "Do you have priority support?",
-                a: "Paid subscribers starting from $50/month get chat support, but as we have a small team right now, we can't offer fast support or engineering help. We usually reply within 24 hours. If you're on Free or Junior plan, you can contact our support email. We are always hiring great support engineers, so if you're interested in working with us, please apply at hq.materialize.com."
-            },
-            {
-                q: "Materialize broke my app, what should I do? Can I revert to a previous version?",
-                a: "Yes, Materialize has a 'Restore' feature that allows you to revert to a previous version of the app. If you're unsure which version to restore, you can press on the version card to preview the version before restoring it."
-            },
-            {
-                q: "I got stuck, will support fix the issue with my code?",
-                a: "Unfortunately, we can't offer support for fixing issues with your code that AI made – though we update the AI every day so it makes less mistakes. Good news is we don't charge you credits for errors that AI makes. Try to ask Materialize to search the web or restore to a previous version of the app which didn't have the issue, and then ask Materialize to implement the original feature again."
-            },
-            {
-                q: "Materialize got in an error loop and can't fix the issue, what should I do?",
-                a: "You can ask Materialize to search the web to fix your problem, or try reverting to a previous version of the app and then ask Materialize to implement the original feature again."
-            }
-        ]
-    }
+    // {
+    //     category: "Support",
+    //     items: [
+    //         {
+    //             q: "Do you have priority support?",
+    //             a: "Our enterprise plans have priority support. You can email us and we will respond as soon as we can."
+    //         },
+    //         {
+    //             q: "Materialize broke my app, what should I do? Can I revert to a previous version?",
+    //             a: "Yes, Materialize has a 'Restore' feature that allows you to revert to a previous version of the app. If you're unsure which version to restore, you can press on the version card to preview the version before restoring it."
+    //         },
+    //         {
+    //             q: "I got stuck, will support fix the issue with my code?",
+    //             a: "Unfortunately, we can't offer support for fixing issues with your code that AI made – though we update the AI every day so it makes less mistakes. Good news is we don't charge you credits for errors that AI makes. Try to ask Materialize to search the web or restore to a previous version of the app which didn't have the issue, and then ask Materialize to implement the original feature again."
+    //         },
+    //         {
+    //             q: "Materialize got in an error loop and can't fix the issue, what should I do?",
+    //             a: "You can ask Materialize to search the web to fix your problem, or try reverting to a previous version of the app and then ask Materialize to implement the original feature again."
+    //         }
+    //     ]
+    // }
 ];
 
 export default function FAQPage() {
@@ -263,8 +259,8 @@ export default function FAQPage() {
                                                 key={cat.category}
                                                 onClick={() => scrollToCategory(cat.category)}
                                                 className={`w-full text-left px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${activeCategory === cat.category
-                                                        ? "bg-white/10 text-white"
-                                                        : "text-[#8A8F98] hover:text-white hover:bg-white/5"
+                                                    ? "bg-white/10 text-white"
+                                                    : "text-[#8A8F98] hover:text-white hover:bg-white/5"
                                                     }`}
                                             >
                                                 {cat.category}
@@ -372,7 +368,6 @@ function Footer() {
                 <div className="flex gap-6">
                     <span className="hover:text-white cursor-pointer transition-colors">Twitter</span>
                     <span className="hover:text-white cursor-pointer transition-colors">GitHub</span>
-                    <span className="hover:text-white cursor-pointer transition-colors">Discord</span>
                 </div>
                 <div className="flex gap-6">
                     <span className="hover:text-white cursor-pointer transition-colors">Privacy</span>
