@@ -1274,7 +1274,6 @@ export class MaterializeDevelopmentServerService {
               assets.push({
                 name: itemRelativePath,
                 contents: binaryContent.toString("base64"),
-                storage_url: "",
                 prototype_id: "",
                 created_at: "",
                 updated_at: "",

@@ -24,6 +24,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
+import type { AssetWithSignedUrl } from "@/hooks/useFileSystem";
 import type {
   APIResponse,
   RestartDevServerRequestBody,
@@ -146,7 +147,7 @@ interface MaterializeRenderSectionProps {
   // Props for dev server functionality
   prototypeId?: string;
   files?: Record<string, PrototypeFile>;
-  assets?: Record<string, PrototypeAsset>;
+  assets?: Record<string, AssetWithSignedUrl>;
   onViewingUrlUpdate?: (url: string) => void;
   // New render status props
   currentRenderStatus?: RenderStatus;
@@ -734,6 +735,10 @@ const MaterializeRenderSection = forwardRef<
                 const sanitizedName = asset.name.replace(/^assets\//i, "");
 
                 try {
+                  if (!asset.storage_url) {
+                    throw new Error(`No storage URL for asset: ${asset.name}`);
+                  }
+
                   const response = await fetch(asset.storage_url);
                   if (!response.ok) {
                     throw new Error(`Failed to fetch asset: ${asset.name}`);

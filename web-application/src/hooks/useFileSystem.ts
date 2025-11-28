@@ -468,12 +468,7 @@ export const useFileSystem = (
         // 3. Upload assets to Supabase storage with controlled concurrency
         // Realtime subscription will automatically update local state
         if (assetsToUpload.length > 0) {
-          const successfulUploads: Array<{
-            prototype_id: string;
-            name: string;
-            storage_url: string;
-            updated_at: string;
-          }> = [];
+          const successfulUploads: Array<PrototypeAssetInsert> = [];
 
           // Process assets in chunks for controlled concurrency
           const uploadChunks = chunkArray(
@@ -506,7 +501,6 @@ export const useFileSystem = (
                   successfulUploads.push({
                     prototype_id: prototypeId,
                     name: assetToUpload.path,
-                    storage_url: storagePath,
                     updated_at: new Date().toISOString(),
                   });
                 } catch (error) {

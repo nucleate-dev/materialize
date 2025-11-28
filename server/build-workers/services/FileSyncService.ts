@@ -1260,7 +1260,7 @@ export class FileSyncService {
                     const { data, error: downloadError } =
                       await this.supabaseClient.storage
                         .from("prototype-assets")
-                        .download(asset.storage_url);
+                        .download(asset.prototype_id + "/" + asset.name);
 
                     if (downloadError || !data) {
                       this.logger.warn("Failed to download asset", {

@@ -62,7 +62,6 @@ export async function getBulkAssetSignedUrls(
       .createSignedUrls(storagePaths, expiresIn);
 
     if (error || !data) {
-      console.error("Failed to generate bulk signed URLs:", error);
       // Fallback: return nulls for all assets
       return assetNames.reduce(
         (acc, assetName) => {
@@ -83,7 +82,6 @@ export async function getBulkAssetSignedUrls(
       {} as Record<string, string | null>,
     );
   } catch (error) {
-    console.error("Error in getBulkAssetSignedUrls:", error);
     // Return nulls for all assets on error
     return assetNames.reduce(
       (acc, assetName) => {
