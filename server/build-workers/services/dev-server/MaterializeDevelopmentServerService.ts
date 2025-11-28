@@ -42,6 +42,7 @@ export class MaterializeDevelopmentServerService {
   private readonly codeService: ChatService;
   private readonly workDir: string;
   private readonly supabaseClientService: SupabaseClientService;
+  private readonly fileSyncService: FileSyncService;
 
   constructor(
     expoDevServerService: ExpoDevServerService,
@@ -50,6 +51,7 @@ export class MaterializeDevelopmentServerService {
     codeService: ChatService,
     workDir: string,
     supabaseClientService: SupabaseClientService,
+    fileSyncService: FileSyncService,
   ) {
     this.expoDevServerService = expoDevServerService;
     this.sandboxService = sandboxService;
@@ -57,6 +59,7 @@ export class MaterializeDevelopmentServerService {
     this.codeService = codeService;
     this.workDir = workDir;
     this.supabaseClientService = supabaseClientService;
+    this.fileSyncService = fileSyncService;
   }
 
   public registerRoutes(app: FastifyInstance): void {
@@ -563,13 +566,7 @@ export class MaterializeDevelopmentServerService {
       }
 
       // Step 5: Sync files from Supabase
-      const fileSyncService = new FileSyncService(
-        this.workDir,
-        this.supabaseClientService,
-        request.log2,
-      );
-
-      const syncResult = await fileSyncService.syncSpecificFilesFromSupabase(
+      const syncResult = await this.fileSyncService.syncSpecificFilesFromSupabase(
         prototype_id,
         file_names,
         asset_names,

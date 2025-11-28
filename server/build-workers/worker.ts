@@ -9,6 +9,7 @@ import { ChatService } from "./services/chat/ChatService.js";
 import { CloudflareTunnelManagementService } from "./services/CloudflareTunnelManagementService.js";
 import { ExpoDevServerService } from "./services/dev-server/ExpoDevServerService.js";
 import { MaterializeDevelopmentServerService } from "./services/dev-server/MaterializeDevelopmentServerService.js";
+import { FileSyncService } from "./services/FileSyncService.js";
 import { SandboxService } from "./services/SandboxService.js";
 import { SupabaseClientService } from "./services/SupabaseClientService.js";
 import { TerminalService } from "./services/terminals/TerminalService.js";
@@ -79,12 +80,21 @@ await app.register(websocket, {
 
 // ---- Initialize Services ----
 export const terminalService = new TerminalService(app, WORK_DIR, baseLogger);
+
+// Initialize FileSyncService (single instance for all services)
+export const fileSyncService = new FileSyncService(
+  WORK_DIR,
+  supabaseClientService,
+  baseLogger,
+);
+
 const expoDevServerService = new ExpoDevServerService(
   WORK_DIR,
   defaultS3Client,
   terminalService,
   baseLogger,
   supabaseClientService,
+  fileSyncService,
 );
 const sandboxService = new SandboxService(
   app,
@@ -104,6 +114,7 @@ const chatService = new ChatService(
   sandboxService,
   expoDevServerService,
   terminalService,
+  fileSyncService,
 );
 const publicApiService = new MaterializeDevelopmentServerService(
   expoDevServerService,
@@ -112,6 +123,7 @@ const publicApiService = new MaterializeDevelopmentServerService(
   chatService,
   WORK_DIR,
   supabaseClientService,
+  fileSyncService,
 );
 
 app.addHook("onRequest", async (req) => {

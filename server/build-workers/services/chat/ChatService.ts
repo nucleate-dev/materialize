@@ -88,6 +88,7 @@ export class ChatService {
     sandboxService: SandboxService,
     expoDevServerService: ExpoDevServerService,
     terminalService: TerminalService,
+    fileSyncService: FileSyncService,
   ) {
     this.workDir = workDir;
     this.allowedRoot = path.resolve("/tmp/materialize-dev-server");
@@ -97,11 +98,7 @@ export class ChatService {
     this.sandboxService = sandboxService;
     this.expoDevServerService = expoDevServerService;
     this.terminalService = terminalService;
-    this.fileSyncService = new FileSyncService(
-      workDir,
-      supabaseClientService,
-      logger,
-    );
+    this.fileSyncService = fileSyncService;
     this.toolPermissionService = new ToolPermissionService(
       this.allowedRoot,
       logger,

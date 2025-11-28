@@ -112,6 +112,7 @@ export class ExpoDevServerService {
   private s3: S3Client | undefined;
   private readonly terminalService: TerminalService;
   private readonly supabaseClientService: SupabaseClientService;
+  private readonly fileSyncService: FileSyncService;
 
   constructor(
     workDir: string = "/tmp/materialize-dev-server",
@@ -119,6 +120,7 @@ export class ExpoDevServerService {
     terminalService: TerminalService,
     logger: SystemLogger,
     supabaseClientService: SupabaseClientService,
+    fileSyncService: FileSyncService,
   ) {
     this.workDir = workDir;
     this.s3 = s3Instance;
@@ -126,6 +128,7 @@ export class ExpoDevServerService {
     this.state.tunnelSubdomain = this.generateTunnelSubdomain();
     this.logger = logger;
     this.supabaseClientService = supabaseClientService;
+    this.fileSyncService = fileSyncService;
   }
 
   public getState(): DevServerState {
@@ -188,16 +191,11 @@ export class ExpoDevServerService {
 
     try {
       // Use FileSyncService to fetch files and assets
-      const fileSyncService = new FileSyncService(
-        this.workDir,
-        this.supabaseClientService,
-        log2,
-      );
       const {
         files,
         assets: assetsWithContent,
         errors: fetchErrors,
-      } = await fileSyncService.fetchAllFilesAndAssetsFromSupabaseForInitialSync(
+      } = await this.fileSyncService.fetchAllFilesAndAssetsFromSupabaseForInitialSync(
         prototype_id,
       );
 
@@ -1629,11 +1627,6 @@ export class ExpoDevServerService {
       return;
     }
 
-    const fileSyncService = new FileSyncService(
-      projectDir,
-      this.supabaseClientService,
-      log2,
-    );
     log2.consoleLogDevOnly(
       "info",
       "Syncing project files to Supabase before Expo build",
@@ -1644,7 +1637,7 @@ export class ExpoDevServerService {
     );
 
     try {
-      const syncResult = await fileSyncService.syncFilesToSupabase(
+      const syncResult = await this.fileSyncService.syncFilesToSupabase(
         prototypeId,
         "all",
       );
