@@ -982,8 +982,10 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
       return;
     }
 
+    let nextUploadAsProjectRoot = uploadAsProjectRoot;
+
     // Auto-detect project root upload: check if folder contains package.json at root level
-    if (uploadType === "folder" && !uploadAsProjectRoot) {
+    if (uploadType === "folder" && !nextUploadAsProjectRoot) {
       const hasRootPackageJson = filesList.some((file) => {
         if (file.webkitRelativePath) {
           const parts = file.webkitRelativePath.split("/");
@@ -995,6 +997,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
 
       if (hasRootPackageJson) {
         // Auto-enable project root mode
+        nextUploadAsProjectRoot = true;
         setUploadAsProjectRoot(true);
       }
     }
@@ -1008,15 +1011,14 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
 
     filesList.forEach((file) => {
       let targetPath: string;
-      if (uploadType === "folder" && file.webkitRelativePath) {
-        const relativePath = file.webkitRelativePath;
+      if (uploadType === "folder" && (file.webkitRelativePath || file.name)) {
+        const relativePath = file.webkitRelativePath || file.name;
 
         // Strip top-level folder if uploading as project root
-        if (uploadAsProjectRoot) {
+        if (nextUploadAsProjectRoot) {
           const parts = relativePath.split("/");
-          // Remove the first part (folder name) and join the rest
           const strippedPath = parts.slice(1).join("/");
-          targetPath = strippedPath;
+          targetPath = strippedPath || parts[parts.length - 1] || file.name;
         } else {
           targetPath = resolvedUploadFolder
             ? `${resolvedUploadFolder}/${relativePath}`
