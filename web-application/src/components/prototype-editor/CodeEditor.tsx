@@ -1,10 +1,8 @@
 "use client";
 
 import { RenderStatus } from "@/app/dashboard/projects/[prototype_id]/InternalPrototypePage";
-import { supabase } from "@/ClientConstants";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { getBulkAssetSignedUrls } from "@/lib/utils/assetUtils";
 import {
   Dialog,
   DialogContent,
@@ -39,12 +37,7 @@ import { UseFileSystemReturn } from "@/hooks/useFileSystem";
 import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import { cn } from "@/lib/classNames";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
-import type {
-  APIResponse,
-  UpdateFilesErrorResponse,
-  UpdateFilesRequestBody,
-  UpdateFilesSuccessResponse,
-} from "@/lib/types/serverAPITypes";
+import { getBulkAssetSignedUrls } from "@/lib/utils/assetUtils";
 import { handleCheckout } from "@/lib/utils/payments/CheckoutUtils";
 import Editor from "@monaco-editor/react";
 import {
@@ -237,12 +230,12 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
 
   const currentFile =
     fileSystem.state.selectedFile &&
-    fileSystem.state.files &&
-    fileSystem.state.selectedFile in fileSystem.state.files
+      fileSystem.state.files &&
+      fileSystem.state.selectedFile in fileSystem.state.files
       ? fileSystem.state.files[fileSystem.state.selectedFile]
       : fileSystem.state.selectedFile &&
-          fileSystem.state.assets &&
-          fileSystem.state.selectedFile in fileSystem.state.assets
+        fileSystem.state.assets &&
+        fileSystem.state.selectedFile in fileSystem.state.assets
         ? fileSystem.state.assets[fileSystem.state.selectedFile]
         : null;
 
@@ -283,7 +276,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
     | "too-large"
     | "conflict";
   const [fileValidation, setFileValidation] = useState<
-    Map<string, { status: FileValidationStatus; reason?: string; size: number }>
+    Map<string, { status: FileValidationStatus; reason?: string; size: number; }>
   >(new Map());
   const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set());
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(
@@ -316,7 +309,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
     filePaths: string[],
     validationMap: Map<
       string,
-      { status: FileValidationStatus; reason?: string; size: number }
+      { status: FileValidationStatus; reason?: string; size: number; }
     >,
   ): FileNode[] => {
     const root: FileNode[] = [];
@@ -505,10 +498,10 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
         name.split(".").pop() === name
           ? name
           : name
-              .split(".")[0]
-              .split("/")
-              .pop()
-              ?.replace(/[^a-zA-Z0-9]/g, "");
+            .split(".")[0]
+            .split("/")
+            .pop()
+            ?.replace(/[^a-zA-Z0-9]/g, "");
 
       switch (ext) {
         case "js":
@@ -868,7 +861,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
   const validateFile = (
     file: File,
     targetPath: string,
-  ): { status: FileValidationStatus; reason?: string } => {
+  ): { status: FileValidationStatus; reason?: string; } => {
     // Block system files
     const fileName = file.name.toLowerCase();
     if (
@@ -1031,7 +1024,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
 
     const validationMap = new Map<
       string,
-      { status: FileValidationStatus; reason?: string; size: number }
+      { status: FileValidationStatus; reason?: string; size: number; }
     >();
     const selectedSet = new Set<string>();
     const validFiles: File[] = [];
@@ -1127,7 +1120,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
     // We need to recalculate using the original upload context, not current uploadAsProjectRoot state
     const filePathMap = new Map<
       File,
-      { path: string; kind: "code" | "asset" }
+      { path: string; kind: "code" | "asset"; }
     >();
 
     uploadFiles.forEach((file) => {
@@ -1185,7 +1178,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
       }
 
       // Collect all code files to upsert
-      const filesToUpsert: Array<{ name: string; content: string }> = [];
+      const filesToUpsert: Array<{ name: string; content: string; }> = [];
       for (const [file, info] of uploads) {
         if (info.kind === "code") {
           const fileContents = await file.text();
@@ -1401,7 +1394,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
                             "h-7 w-7 p-0 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors",
                             isSaving && "text-indigo-400 animate-pulse",
                             saveButtonState.disabled &&
-                              "opacity-30 cursor-not-allowed hover:bg-transparent",
+                            "opacity-30 cursor-not-allowed hover:bg-transparent",
                           )}
                           onClick={
                             saveMode === "single-file"
@@ -1921,7 +1914,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
                           className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
                         >
                           {selectedFiles.size ===
-                          uploadSummary.total - uploadSummary.blocked
+                            uploadSummary.total - uploadSummary.blocked
                             ? "Deselect All"
                             : "Select All"}
                         </button>
