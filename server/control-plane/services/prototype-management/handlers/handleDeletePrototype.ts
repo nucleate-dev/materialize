@@ -13,6 +13,7 @@ import {
 } from '../../../types/PublicAPITypes.js';
 import { Database } from '../../../types/supabase.js';
 import { checkUserHasPrototypeEditAccess } from '../../../utils/prototypeAuth.js';
+import { removeBuildDataFromCache } from '../../../utils/cacheInteractionUtils.js';
 import {
   deletePrototypeAssetsFromStorage,
   deletePrototypeChatImagesFromStorage,
@@ -186,18 +187,8 @@ async function killActiveFargateInstanceIfItExists(
       );
     }
 
-    // 4. Clear all the cache entries for this prototype after the fargate task is successfully killed
-    try {
-      await cache.del([activeBuildKey]);
-      await cache.customCommand([
-        'ZREM',
-        CACHE_KEYS.protoBuilds(prototypeId),
-        currentBuildId,
-      ]);
-      await cache.del([CACHE_KEYS.protoCurrentBuild(prototypeId)]);
-    } catch (error) {
-      log2.error(error, 'Error clearing cache entries for prototype:');
-    }
+    // 4. Clear all the cache entries for this prototype using the utility function
+    await removeBuildDataFromCache(cache, log2, prototypeId, currentBuildId);
   } catch (error) {
     // Log error but don't throw - prototype deletion should continue even if cleanup fails
     log2.error(error, 'Error killing active Fargate instance:');
