@@ -24,6 +24,7 @@ import {
   PrototypeAssetInputWithContent,
   PrototypeFileInput,
   resolvePathWithinProject,
+  uploadAllClaudeSessionsToSupabase,
   writeProjectFiles,
 } from "../../utils/shared-utils.js";
 import { ChatService } from "../chat/ChatService.js";
@@ -1705,20 +1706,20 @@ export class ExpoDevServerService {
 
       // Upload all Claude session files to Supabase before build
       try {
-        const { uploadAllClaudeSessionsToSupabase } = await import(
-          "../../utils/shared-utils.js"
-        );
         const uploadResult = await uploadAllClaudeSessionsToSupabase(
           resolvedPrototypeId,
           this.supabaseClientService.getClient(),
           log2,
         );
 
-        logger.log(
-          "Claude session upload before Expo build",
-          uploadResult.success,
-          `Uploaded ${uploadResult.uploadedCount} session files`,
-          uploadResult.errors.join("; "),
+        log2.info(
+          "Claude session upload before Expo build, " +
+            `Uploaded ${uploadResult.uploadedCount} session files`,
+          {
+            success: uploadResult.success,
+            errorCount: uploadResult.errors.length,
+            errors: uploadResult.errors,
+          },
         );
 
         if (!uploadResult.success) {

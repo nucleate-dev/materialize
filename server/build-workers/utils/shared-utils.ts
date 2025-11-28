@@ -212,12 +212,58 @@ export async function uploadAllClaudeSessionsToSupabase(
     const sessionFiles = files.filter((file) => file.endsWith(".jsonl"));
 
     if (sessionFiles.length === 0) {
-      logger.consoleLogDevOnly(
-        "info",
-        "No Claude session files found to upload",
-        { prototypeId },
-      );
+      logger.warn("No Claude session files found to upload", { prototypeId });
       return { success: true, uploadedCount: 0, errors: [] };
+    }
+
+    // Debug: Check current user auth
+    const {
+      data: { user },
+      error: userError,
+    } = await supabaseClient.auth.getUser();
+
+    if (userError || !user) {
+      const errorMsg = `Authentication failed - cannot upload session files: ${userError?.message || "No user"}`;
+      logger.error(
+        userError || new Error("No authenticated user"),
+        "Failed to authenticate for session upload",
+        {
+          prototypeId,
+          hasUser: !!user,
+          userId: user?.id,
+        },
+      );
+      return { success: false, uploadedCount: 0, errors: [errorMsg] };
+    }
+
+    // Debug: Verify user owns the prototype
+    const { data: prototype, error: prototypeError } = await supabaseClient
+      .from("prototypes")
+      .select("id, owner_id")
+      .eq("id", prototypeId)
+      .single();
+
+    if (prototypeError || !prototype) {
+      const errorMsg = `Failed to verify prototype ownership: ${prototypeError?.message || "Prototype not found"}`;
+      logger.error(
+        prototypeError || new Error("Prototype not found"),
+        "Cannot verify prototype ownership for session upload",
+        {
+          prototypeId,
+          userId: user.id,
+        },
+      );
+      return { success: false, uploadedCount: 0, errors: [errorMsg] };
+    }
+
+    if (prototype.owner_id !== user.id) {
+      const errorMsg = `User ${user.id} does not own prototype ${prototypeId} (owner: ${prototype.owner_id})`;
+      logger.error(new Error(errorMsg), "User does not own prototype", {
+        prototypeId,
+        userId: user.id,
+        ownerId: prototype.owner_id,
+      });
+      return { success: false, uploadedCount: 0, errors: [errorMsg] };
     }
 
     logger.consoleLogDevOnly(
@@ -226,6 +272,9 @@ export async function uploadAllClaudeSessionsToSupabase(
       {
         prototypeId,
         sessionCount: sessionFiles.length,
+        userId: user.id,
+        ownerId: prototype.owner_id,
+        ownershipVerified: true,
       },
     );
 
@@ -237,6 +286,14 @@ export async function uploadAllClaudeSessionsToSupabase(
 
         // Storage path: prototype-id/session-id.jsonl
         const storagePath = `${prototypeId}/${filename}`;
+
+        logger.consoleLogDevOnly("info", "Attempting to upload session file", {
+          filename,
+          storagePath,
+          prototypeId,
+          userId: user.id,
+          fileSize: fileBuffer.byteLength,
+        });
 
         const { error } = await supabaseClient.storage
           .from("claude-code-chat-sessions")
@@ -251,6 +308,9 @@ export async function uploadAllClaudeSessionsToSupabase(
           logger.error(error, "Failed to upload session file", {
             filename,
             prototypeId,
+            storagePath,
+            userId: user.id,
+            errorDetails: error,
           });
           return { success: false, filename };
         } else {
