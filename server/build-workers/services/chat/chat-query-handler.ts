@@ -45,7 +45,6 @@ interface CodeSessionState {
   createdAt: number;
   lastActiveAt: number;
   abortController: AbortController | null;
-  trackedFiles: Set<string>;
   modifiedFilesThisQuery: Set<string>;
   designSystemId: string | null;
   designSystemRules: string | null;
@@ -1158,21 +1157,6 @@ export class ChatQueryHandler {
 
           if (filePath && sessionState) {
             const relativePath = this.getRelativePath(filePath);
-
-            // Track for incremental sync (legacy mode)
-            if (true) {
-              sessionState.trackedFiles.add(relativePath);
-              this.logger.consoleLogDevOnly(
-                "info",
-                "File tracked for sync (incremental)",
-                {
-                  tool: input.tool_name,
-                  filePath: relativePath,
-                  totalTrackedFiles: sessionState.trackedFiles.size,
-                },
-              );
-            }
-
             // Track for query-level reporting
             sessionState.modifiedFilesThisQuery.add(relativePath);
           }
@@ -1438,9 +1422,6 @@ export class ChatQueryHandler {
             assetsDeleted: syncResult.assetsDeleted,
           },
         );
-
-        // Clear tracked files after successful sync
-        sessionState.trackedFiles.clear();
       } else {
         this.logger.error(
           new Error("File sync completed with errors"),
