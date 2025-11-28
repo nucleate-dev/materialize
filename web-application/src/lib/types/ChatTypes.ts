@@ -257,8 +257,6 @@ export type ChatServerMessage =
   | SessionResetMessage
   | ToolStartMessage
   | ToolCompleteMessage
-  | FileSyncCompleteMessage
-  | SyncCompleteMessage
   | AuthenticatedMessage
   | MessageReceivedMessage
   | ReadyMessage

@@ -52,6 +52,7 @@ interface ClaudeCodePanelProps {
     handler: (msg: ChatServerMessage) => void,
   ) => void;
   onUnregisterMessageHandler: (id: string) => void;
+  onRestartDevServerComplete?: () => void;
 }
 
 export interface Message {
@@ -106,6 +107,7 @@ export default function ClaudeCodePanel({
   onDisconnect,
   onRegisterMessageHandler,
   onUnregisterMessageHandler,
+  onRestartDevServerComplete,
 }: ClaudeCodePanelProps) {
   const logger = useProductLogger();
 
@@ -1077,6 +1079,26 @@ export default function ClaudeCodePanel({
             );
             addToolMessage(toolName, toolCallId, toolInput, "running");
           }
+        }
+        break;
+      }
+
+      case ChatEvent.TOOL_COMPLETE: {
+        const { tool_name: toolName, tool_call_id: toolCallId = "" } =
+          message.data;
+
+        if (toolName) {
+          if (isThinkingTool(toolName)) {
+            updateThinkingMessage(toolCallId, "success");
+          } else {
+            updateToolMessage(toolCallId, "success");
+          }
+        }
+        if (
+          toolName.toLowerCase().includes("restartdevserver") &&
+          onRestartDevServerComplete
+        ) {
+          onRestartDevServerComplete();
         }
         break;
       }
