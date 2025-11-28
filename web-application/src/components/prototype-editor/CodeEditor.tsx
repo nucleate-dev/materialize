@@ -145,6 +145,16 @@ const ALLOWED_UPLOAD_EXTENSIONS = new Set([
   "yml", // Config files
   "sh", // Shell scripts
   "css", // Stylesheets
+  "md", // Markdown files
+  "txt", // Text files
+  "env", // Environment files
+  "gitignore", // Git configuration
+  "npmrc", // NPM configuration
+  "prettierrc", // Prettier configuration
+  "eslintrc", // ESLint configuration
+  "editorconfig", // Editor configuration
+  "watchmanconfig", // Watchman configuration
+  "xml", // XML/Android config files
 ]);
 
 const ALLOWED_ASSET_EXTENSIONS = new Set([
@@ -159,16 +169,6 @@ const ALLOWED_ASSET_EXTENSIONS = new Set([
   "otf",
   "woff",
   "woff2",
-  "md",
-  "txt",
-  "env",
-  "gitignore",
-  "npmrc",
-  "prettierrc",
-  "eslintrc",
-  "editorconfig",
-  "watchmanconfig",
-  "xml", // Android config files
 ]);
 
 type UploadMode = "merge" | "replace" | "replace-all";

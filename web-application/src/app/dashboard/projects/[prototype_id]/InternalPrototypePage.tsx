@@ -41,7 +41,7 @@ import { useUser } from "@/hooks/useUser";
 import { sidebarOpenAtom } from "@/lib/atoms/sidebar";
 import { cn } from "@/lib/classNames";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
-import { type ChatServerMessage, ChatClientEvent } from "@/lib/types/ChatTypes";
+import { type ChatServerMessage } from "@/lib/types/ChatTypes";
 import {
   type APIResponse,
   type CreatePrototypeErrorResponse,
@@ -97,7 +97,7 @@ export default function InternalPrototypePage() {
   const router = useRouter();
   const { user, userIsLoading } = useUser();
   const { userPlan } = useSubscriptionAccess();
-  const params = useParams<{ prototype_id: string }>();
+  const params = useParams<{ prototype_id: string; }>();
   const prototypeId = params?.prototype_id;
   const logger = useProductLogger();
   const setSidebarOpen = useSetAtom(sidebarOpenAtom);
@@ -164,7 +164,7 @@ export default function InternalPrototypePage() {
   >(new Map());
 
   const handleClaudeCodeMessage = useCallback(
-    (message: { type: string; data: unknown }) => {
+    (message: { type: string; data: unknown; }) => {
       const parsedMessage = message as ChatServerMessage;
       claudeCodeWSMessageHandlers.current.forEach((handler) =>
         handler(parsedMessage),
@@ -216,8 +216,8 @@ export default function InternalPrototypePage() {
   const designSystemBadgeLabel = DESIGN_STYLE_LABELS[currentDesignStyle];
   const currentCustomDesignSystemName = currentCustomDesignSystemId
     ? designSystems.find(
-        (system) => String(system.id) === currentCustomDesignSystemId,
-      )?.name || "Custom design system"
+      (system) => String(system.id) === currentCustomDesignSystemId,
+    )?.name || "Custom design system"
     : undefined;
   const canEditPrototype = Boolean(
     prototype && user && prototype.owner_id === user?.id,
@@ -671,10 +671,10 @@ export default function InternalPrototypePage() {
       setPrototype((prev) =>
         prev
           ? {
-              ...prev,
-              design_style: dialogDesignStyle,
-              custom_design_system: nextCustomDesignSystem,
-            }
+            ...prev,
+            design_style: dialogDesignStyle,
+            custom_design_system: nextCustomDesignSystem,
+          }
           : prev,
       );
       handleDesignSystemDialogOpenChange(false);
@@ -919,7 +919,7 @@ export default function InternalPrototypePage() {
         });
 
         // Collect code files to upsert
-        const filesToUpsert: Array<{ name: string; content: string }> = [];
+        const filesToUpsert: Array<{ name: string; content: string; }> = [];
         for (const upload of uploads.filter((u) => u.kind === "code")) {
           const fileContents = await upload.file.text();
           filesToUpsert.push({ name: upload.path, content: fileContents });
@@ -1007,11 +1007,10 @@ export default function InternalPrototypePage() {
       >
         {/* Left Panel - Claude Code */}
         <div
-          className={`${
-            isMobile
+          className={`${isMobile
               ? `${activePanel === "chat" ? "flex" : "hidden"} w-full h-full`
               : "flex"
-          } flex-col relative z-10 bg-[#0B0C0E] overflow-hidden`}
+            } flex-col relative z-10 bg-[#0B0C0E] overflow-hidden`}
           style={
             isMobile
               ? { height: "100%" }
@@ -1061,11 +1060,10 @@ export default function InternalPrototypePage() {
 
         {/* Right Panel - Preview/Code Toggle */}
         <div
-          className={`${
-            isMobile
+          className={`${isMobile
               ? `${activePanel === "preview" ? "flex" : "hidden"} w-full h-full`
               : "flex"
-          } flex-col relative z-10 bg-[#0B0C0E] overflow-hidden`}
+            } flex-col relative z-10 bg-[#0B0C0E] overflow-hidden`}
           style={
             isMobile
               ? {}
@@ -1345,11 +1343,10 @@ export default function InternalPrototypePage() {
                 )}
               </div>
               <label
-                className={`relative inline-flex items-center ${
-                  !IsUserPlanSubscribed(userPlan) && !isPublic
+                className={`relative inline-flex items-center ${!IsUserPlanSubscribed(userPlan) && !isPublic
                     ? "opacity-50 cursor-not-allowed"
                     : "cursor-pointer"
-                }`}
+                  }`}
               >
                 <input
                   type="checkbox"
