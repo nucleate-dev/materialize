@@ -349,11 +349,11 @@ function GallerySection() {
         <div className="flex flex-col md:flex-row md:items-end justify-between mb-12 gap-6">
           <div>
             <h2 className="text-3xl font-medium text-white mb-2">Built with Materialize</h2>
-            <p className="text-[#8A8F98]">Explore what others are building.</p>
+            {/* <p className="text-[#8A8F98]">Explore what others are building.</p> */}
           </div>
-          <Button variant="outline" className="border-white/10 bg-white/5 hover:bg-white/10 text-white rounded-full text-sm h-8">
+          {/* <Button variant="outline" className="border-white/10 bg-white/5 hover:bg-white/10 text-white rounded-full text-sm h-8">
             View all examples
-          </Button>
+          </Button> */}
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
