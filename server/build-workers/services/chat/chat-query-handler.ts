@@ -1431,7 +1431,7 @@ export class ChatQueryHandler {
         );
         syncResult = await this.fileSyncService.syncFilesToSupabase(
           prototypeId,
-          "all",
+          "all_files_only",
         );
       } else {
         // Incremental sync strategy: Upload only tracked files

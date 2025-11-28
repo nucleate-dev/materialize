@@ -18,7 +18,7 @@ interface SyncResult {
   errors: string[];
 }
 
-type SyncMode = "all" | "tracked" | "all_files";
+type SyncMode = "all" | "tracked" | "all_files_only";
 
 interface SyncTargets {
   files: string[];
@@ -163,7 +163,7 @@ export class FileSyncService {
    * Syncs files/assets to Supabase based on the requested mode.
    * - all: syncs all files and assets detected in the work directory.
    * - tracked: placeholder for incremental sync using tracked file list.
-   * - all_files: syncs only text files from the work directory.
+   * - all_files_only: syncs only text files from the work directory.
    */
   public async syncFilesToSupabase(
     prototypeId: string,
@@ -216,7 +216,7 @@ export class FileSyncService {
     switch (mode) {
       case "all":
         return this.loadAllSyncTargets();
-      case "all_files":
+      case "all_files_only":
         return this.loadAllFilesOnlySyncTargets();
       case "tracked":
       default:
