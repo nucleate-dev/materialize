@@ -469,29 +469,36 @@ export class FileSyncService {
 
       try {
         // Read all files in the batch concurrently
-        const fileDataPromises = chunk.map(async (filePath) => {
-          try {
-            const fullPath = path.join(this.workDir, filePath);
-            const contents = await fs.readFile(fullPath, "utf8");
-            return {
-              prototype_id: prototypeId,
-              name: filePath,
-              contents: contents,
-              updated_at: new Date().toISOString(),
-            };
-          } catch (error) {
-            const message =
-              error instanceof Error ? error.message : String(error);
-            this.logger.error(new Error(message), "Failed to read text file", {
-              path: filePath,
-            });
-            result.errors.push(`Failed to read ${filePath}: ${message}`);
-            return null;
-          }
-        });
+        const fileDataPromises = chunk.map(
+          async (
+            filePath,
+          ): Promise<Database["public"]["Tables"]["prototype_files"]["Insert"] | null> => {
+            try {
+              const fullPath = path.join(this.workDir, filePath);
+              const contents = await fs.readFile(fullPath, "utf8");
+              return {
+                prototype_id: prototypeId,
+                name: filePath,
+                contents: contents,
+                updated_at: new Date().toISOString(),
+              };
+            } catch (error) {
+              const message =
+                error instanceof Error ? error.message : String(error);
+              this.logger.error(new Error(message), "Failed to read text file", {
+                path: filePath,
+              });
+              result.errors.push(`Failed to read ${filePath}: ${message}`);
+              return null;
+            }
+          },
+        );
 
         const fileData = (await Promise.all(fileDataPromises)).filter(
-          (data): data is NonNullable<typeof data> => data !== null,
+          (
+            data,
+          ): data is Database["public"]["Tables"]["prototype_files"]["Insert"] =>
+            data !== null,
         );
 
         if (fileData.length === 0) {
@@ -590,12 +597,9 @@ export class FileSyncService {
 
     for (let batchIndex = 0; batchIndex < chunks.length; batchIndex++) {
       const batch = chunks[batchIndex];
-      const successfulUploads: Array<{
-        prototype_id: string;
-        name: string;
-        storage_url: string;
-        updated_at: string;
-      }> = [];
+      const successfulUploads: Array<
+        Database["public"]["Tables"]["prototype_assets"]["Insert"]
+      > = [];
 
       // Upload files to storage with controlled concurrency
       const uploadChunks = this.chunkArray(
@@ -642,7 +646,6 @@ export class FileSyncService {
                   successfulUploads.push({
                     prototype_id: prototypeId,
                     name: filePath,
-                    storage_url: `${prototypeId}/${filePath}`,
                     updated_at: new Date().toISOString(),
                   });
                 } else {
