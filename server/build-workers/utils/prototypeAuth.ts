@@ -1,36 +1,17 @@
 import { User, createClient } from "@supabase/supabase-js";
-import jwt from "jsonwebtoken";
 import { SystemLogger } from "../loggers/SystemLogger.js";
 import type { Database } from "../types/supabase.js";
-
-interface JWTPayload {
-  sub?: string;
-  userId?: string;
-  user_id?: string;
-}
 
 /**
  * Validate a JWT token using JWT_SECRET and return User
  */
 export async function validateJWTToken(
   token: string | undefined,
-  log2: SystemLogger,
 ): Promise<{ user: User | null; isServiceRole: boolean }> {
-  if (token === process.env.SUPABASE_SERVICE_ROLE_KEY) {
-    return { user: null, isServiceRole: true };
-  }
-
-  try {
-    if (!token) {
-      return { user: null, isServiceRole: false };
-    }
-
-    jwt.verify(token, process.env.JWT_SECRET!) as JWTPayload;
-  } catch (error) {
-    log2.error(error, "JWT validation error:", {
-      functionName: "validateJWTToken",
-    });
+  if (!token) {
     return { user: null, isServiceRole: false };
+  } else if (token === process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    return { user: null, isServiceRole: true };
   }
 
   const supabaseClient = createClient<Database>(
@@ -44,7 +25,6 @@ export async function validateJWTToken(
       },
     },
   );
-
   const {
     data: { user },
     error: authError,
@@ -97,7 +77,7 @@ export async function checkUserHasPrototypeViewingAccess(
       });
       return null;
     }
-    const { user, isServiceRole } = await validateJWTToken(jwtToken, log2);
+    const { user, isServiceRole } = await validateJWTToken(jwtToken);
     return { user, prototype, isServiceRole };
   } catch (error) {
     log2.error(error, "Error checking prototype viewing access:", {

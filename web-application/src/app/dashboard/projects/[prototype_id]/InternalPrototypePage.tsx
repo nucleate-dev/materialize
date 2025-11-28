@@ -182,8 +182,6 @@ export default function InternalPrototypePage() {
     isConnecting: claudeCodeWSConnecting,
     connect: connectClaudeCodeWS,
     disconnect: disconnectClaudeCodeWS,
-    sendSyncFiles,
-    sendAssetsChanged,
   } = useClaudeCodeWebSocket({
     prototypeId,
     baseTunnelUrl,
@@ -193,30 +191,15 @@ export default function InternalPrototypePage() {
   // Handler for when files are saved in CodeEditor
   const handleFilesSaved = useCallback(
     (fileNames: string[], assetNames: string[] = []) => {
-      // Immediately sync files to Claude Code working directory
-      if (claudeCodeWSConnected) {
-        logger.debug("log", "Triggering Claude Code file sync", {
-          fileNames,
-          assetNames,
-        });
-        sendSyncFiles(prototypeId, fileNames, assetNames);
-
-        if (assetNames.length > 0) {
-          const assetIds = assetNames
-            .map((name) => fileSystem.state.assets[name]?.id)
-            .filter(Boolean) as string[];
-          sendAssetsChanged(prototypeId, assetIds, [], assetNames);
-        }
+      if (!claudeCodeWSConnected) {
+        return;
       }
+      logger.debug("log", "Files saved in editor", {
+        fileNames,
+        assetNames,
+      });
     },
-    [
-      claudeCodeWSConnected,
-      sendSyncFiles,
-      sendAssetsChanged,
-      prototypeId,
-      logger,
-      fileSystem.state.assets,
-    ],
+    [claudeCodeWSConnected, logger],
   );
 
   const handleChatRestartDevServerComplete = useCallback(() => {
@@ -554,6 +537,20 @@ export default function InternalPrototypePage() {
     baseTunnelUrl,
   ]);
 
+  // USE EFFECT PURPOSE: Sync baseTunnelUrl to fileSystem sandboxUrl
+  useEffect(() => {
+    // Normalize the URL: convert wss:// to https:// or add https:// if no http prefix
+    let normalizedUrl = baseTunnelUrl;
+    if (normalizedUrl) {
+      if (normalizedUrl.startsWith("wss://")) {
+        normalizedUrl = "https://" + normalizedUrl.substring(6);
+      } else if (!normalizedUrl.startsWith("http://") && !normalizedUrl.startsWith("https://")) {
+        normalizedUrl = "https://" + normalizedUrl;
+      }
+    }
+    fileSystem.setSandboxUrl(normalizedUrl);
+  }, [baseTunnelUrl, fileSystem.setSandboxUrl]);
+
   // USE EFFECT PURPOSE: to poll the fetch viewing url endpoint in case build status changes
   useEffect(() => {
     let pollTimer: NodeJS.Timeout | null = null;
@@ -860,30 +857,30 @@ export default function InternalPrototypePage() {
     setIsDeleting(true);
 
     try {
+      const filesToDelete: string[] = [];
+      const assetsToDelete: string[] = [];
       const deletedAssetIds: string[] = [];
       const deletedAssetNames: string[] = [];
-      // Delete files using the new method that triggers rebuild
+
+      // Categorize files to delete
       for (const filePath of deleteTarget.filesToDelete) {
         const isAssetPath = fileSystem.state.assets[filePath];
-        const result = isAssetPath
-          ? await fileSystem.deleteAssetWithBuild(filePath)
-          : await fileSystem.deleteFileWithBuild(filePath);
-        if (result.success && result.viewingUrl) {
-          setViewingUrl(result.viewingUrl);
-        }
         if (isAssetPath) {
-          if (result.deletedAssetIds && result.deletedAssetIds.length > 0) {
-            deletedAssetIds.push(...result.deletedAssetIds);
-          } else if (fileSystem.state.assets[filePath]?.id) {
+          assetsToDelete.push(filePath);
+          if (fileSystem.state.assets[filePath]?.id) {
             deletedAssetIds.push(fileSystem.state.assets[filePath].id);
           }
           deletedAssetNames.push(filePath);
+        } else {
+          filesToDelete.push(filePath);
         }
       }
 
-      if (deletedAssetIds.length > 0 || deletedAssetNames.length > 0) {
-        sendAssetsChanged(prototypeId, [], deletedAssetIds, deletedAssetNames);
-      }
+      // Make ONE unified call to delete everything
+      await fileSystem.syncFilesAndAssets({
+        filesToDelete,
+        assetsToDelete,
+      });
 
       // Close dialog
       setShowDeleteConfirm(false);
@@ -902,7 +899,6 @@ export default function InternalPrototypePage() {
     logger,
     fileSystem,
     fileSystem.state.assets,
-    sendAssetsChanged,
   ]);
 
   const handleFileUpload = useCallback(
@@ -945,38 +941,23 @@ export default function InternalPrototypePage() {
           return { file, path: fullPath, kind };
         });
 
-        // Upload code files
+        // Collect code files to upsert
+        const filesToUpsert: Array<{ name: string; content: string }> = [];
         for (const upload of uploads.filter((u) => u.kind === "code")) {
           const fileContents = await upload.file.text();
-          const result = await fileSystem.createFileWithBuild(
-            upload.path,
-            fileContents,
-          );
-          if (result.success && result.viewingUrl) {
-            setViewingUrl(result.viewingUrl);
-          }
+          filesToUpsert.push({ name: upload.path, content: fileContents });
         }
 
-        // Upload assets in a single call
-        const assetUploads = uploads
+        // Collect assets to upload
+        const assetsToUpload = uploads
           .filter((u) => u.kind === "asset")
           .map((u) => ({ file: u.file, path: u.path }));
 
-        if (assetUploads.length > 0) {
-          const result = await fileSystem.uploadAssetsWithBuild(assetUploads);
-          if (result.success) {
-            const assetIds =
-              result.assetIds && result.assetIds.length > 0
-                ? result.assetIds
-                : assetUploads
-                  .map((a) => fileSystem.state.assets[a.path]?.id)
-                  .filter(Boolean) as string[];
-            sendAssetsChanged(prototypeId, assetIds, [], assetUploads.map((a) => a.path));
-            if (result.viewingUrl) {
-              setViewingUrl(result.viewingUrl);
-            }
-          }
-        }
+        // Make ONE unified call to sync everything
+        const result = await fileSystem.syncFilesAndAssets({
+          filesToUpsert,
+          assetsToUpload,
+        });
 
         logger.debug("log", "Files uploaded via drag and drop", {
           fileCount: files.length,
@@ -989,7 +970,7 @@ export default function InternalPrototypePage() {
         });
       }
     },
-    [prototypeId, fileSystem, logger, sendAssetsChanged],
+    [prototypeId, fileSystem, logger],
   );
 
   if (
@@ -1221,9 +1202,6 @@ export default function InternalPrototypePage() {
                               onViewingUrlUpdate={setViewingUrl}
                               currentRenderStatus={currentRenderStatus}
                               onFilesSaved={handleFilesSaved}
-                              onAssetsChanged={(assetIds = [], deletedAssetIds = [], names = []) =>
-                                sendAssetsChanged(prototypeId, assetIds, deletedAssetIds, names)
-                              }
                             />
                           </div>
                         )}
@@ -1260,9 +1238,6 @@ export default function InternalPrototypePage() {
                           onViewingUrlUpdate={setViewingUrl}
                           currentRenderStatus={currentRenderStatus}
                           onFilesSaved={handleFilesSaved}
-                          onAssetsChanged={(assetIds = [], deletedAssetIds = [], names = []) =>
-                            sendAssetsChanged(prototypeId, assetIds, deletedAssetIds, names)
-                          }
                         />
                       </div>
                     </>
