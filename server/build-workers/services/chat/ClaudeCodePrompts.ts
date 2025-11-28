@@ -79,13 +79,18 @@ const STYLESHEET_STACK_INFO = `
    - Import: import { env } from '@/config/env'
    - Access vars: env.API_URL, etc.
 7. Expo Router file-based rules, never multiple index.tsx
-8. Recommended: Use ScreenContainer component for screen layouts (imported from @/theme)
+8. Recommended: Use StyledText component for all text (imported from @/theme)
+   - Automatically applies theme typography styles
+   - Variants: h1, h2, h3, body, caption
+   - Example: <StyledText variant="h1">Title</StyledText>
+   - Prefer StyledText over plain Text for consistent typography
+9. Recommended: Use ScreenContainer component for screen layouts (imported from @/theme)
    - Automatically handles safe area insets with granular edge control
    - Props: padded (default: true), edges (default: ['top', 'bottom']), style
    - Example: <ScreenContainer edges={['top']}> for screens with tab bars
    - Never use SafeAreaView - use ScreenContainer instead
-9. Games avoid tabs
-10. Avoid expo-font, keep constants separate, never delete <RootLayoutNav/>
+10. Games avoid tabs
+11. Avoid expo-font, keep constants separate, never delete <RootLayoutNav/>
 </stack_info>
 `;
 
@@ -108,13 +113,18 @@ const NATIVEWIND_STACK_INFO = `
    - Import: import { env } from '@/config/env'
    - Access vars: env.API_URL, etc.
 8. Expo Router file-based rules, never multiple index.tsx
-9. Recommended: Use ScreenContainer component for screen layouts (imported from @/components)
+9. Recommended: Use StyledText component for all text (imported from @/components)
+   - Automatically applies themed typography with dark mode support
+   - Variants: h1, h2, h3, body, caption
+   - Example: <StyledText variant="h1">Title</StyledText>
+   - Prefer StyledText over plain Text for consistent typography
+10. Recommended: Use ScreenContainer component for screen layouts (imported from @/components)
    - Automatically handles safe area insets with granular edge control
    - Props: padded (default: true), edges (default: ['top', 'bottom']), className, style
    - Example: <ScreenContainer edges={['top']}> for screens with tab bars
    - Never use SafeAreaView - use ScreenContainer instead
-10. Games avoid tabs
-11. Avoid expo-font, keep constants separate, never delete <RootLayoutNav/>
+11. Games avoid tabs
+12. Avoid expo-font, keep constants separate, never delete <RootLayoutNav/>
 </stack_info>
 `;
 
