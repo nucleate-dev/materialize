@@ -110,11 +110,11 @@ function HeroSection() {
         {/* Hero Title */}
         <div className="text-center space-y-6 mb-12">
           <h1 className="text-5xl md:text-7xl lg:text-8xl font-medium tracking-tight text-transparent bg-clip-text bg-gradient-to-b from-white via-white to-white/60 pb-2">
-            Materialize is a tool for <br className="hidden md:block" />
-            building beautiful apps.
+            Materialize<br className="hidden md:block" />
+            your app ideas
           </h1>
           <p className="text-lg md:text-xl text-[#8A8F98] max-w-2xl mx-auto font-normal leading-relaxed">
-            Build apps, prototypes, flows, and screens fast.<br className="hidden md:block" />
+            Build beautifully designed apps, prototypes, flows, and screens fast.<br className="hidden md:block" />
           </p>
         </div>
 
@@ -327,9 +327,9 @@ function FeaturesBentoGrid() {
 function GallerySection() {
   const EXAMPLES = [
     {
-      name: "Flight Tracker",
-      iframeSrc: "https://2eb2bc6a-4fe7-4595-a5a5-447af2542522.render.materializeui.com",
-      publicLink: "https://materializeui.com/project/2eb2bc6a-4fe7-4595-a5a5-447af2542522"
+      name: "Animated Carousel",
+      iframeSrc: "https://10666dbd-f8e2-47ae-971d-45aef8aa8c2e.render.materializeui.com",
+      publicLink: "https://materializeui.com/project/10666dbd-f8e2-47ae-971d-45aef8aa8c2e"
     },
     {
       name: "Flight Tracker",
@@ -337,15 +337,15 @@ function GallerySection() {
       publicLink: "https://materializeui.com/project/2eb2bc6a-4fe7-4595-a5a5-447af2542522"
     },
     {
-      name: "Flight Tracker",
-      iframeSrc: "https://2eb2bc6a-4fe7-4595-a5a5-447af2542522.render.materializeui.com",
-      publicLink: "https://materializeui.com/project/2eb2bc6a-4fe7-4595-a5a5-447af2542522"
+      name: "Beats Store",
+      iframeSrc: "https://60e49673-fdb5-48ea-a53c-06352e250aba.render.materializeui.com",
+      publicLink: "https://materializeui.com/project/60e49673-fdb5-48ea-a53c-06352e250aba"
     }
   ];
 
   return (
     <section className="py-24 bg-[#0B0C0E] border-t border-white/5">
-      <div className="container mx-auto px-6 max-w-7xl">
+      <div className="container mx-auto px-6 max-w-6xl">
         <div className="flex flex-col md:flex-row md:items-end justify-between mb-12 gap-6">
           <div>
             <h2 className="text-3xl font-medium text-white mb-2">Built with Materialize</h2>
