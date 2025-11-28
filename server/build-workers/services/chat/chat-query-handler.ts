@@ -36,7 +36,6 @@ import { getToolDisplayName } from "./message-handlers.js";
 import { ToolPermissionService } from "./tool-permission-service.js";
 import { trackApiUsageBuildWorker } from "./usage-tracking.js";
 
-const ENABLE_FULL_SYNC = process.env.NODE_ENV === "production"; // in prod full sync for now to be safe. Dev test file watcher
 const HISTORY_MESSAGE_REQUEST_COUNT = 6;
 
 interface CodeSessionState {
@@ -1161,7 +1160,7 @@ export class ChatQueryHandler {
             const relativePath = this.getRelativePath(filePath);
 
             // Track for incremental sync (legacy mode)
-            if (!ENABLE_FULL_SYNC) {
+            if (true) {
               sessionState.trackedFiles.add(relativePath);
               this.logger.consoleLogDevOnly(
                 "info",
@@ -1415,37 +1414,17 @@ export class ChatQueryHandler {
   ): Promise<void> {
     // Sync file changes to Supabase
     try {
-      let syncResult: Awaited<
-        ReturnType<typeof this.fileSyncService.syncFilesToSupabase>
-      >;
-
-      if (ENABLE_FULL_SYNC) {
-        // Full sync strategy: Upload ALL files from workDir
-        this.logger.consoleLogDevOnly(
-          "info",
-          "Syncing all files to Supabase (full sync)",
-          {
-            prototypeId,
-          },
-        );
-        syncResult = await this.fileSyncService.syncFilesToSupabase(
+      this.logger.consoleLogDevOnly(
+        "info",
+        "Syncing file changes to Supabase (incremental sync)",
+        {
           prototypeId,
-          "all_files_only",
-        );
-      } else {
-        // Incremental sync strategy: Upload only tracked files
-        this.logger.consoleLogDevOnly(
-          "info",
-          "Syncing file changes to Supabase (incremental sync)",
-          {
-            prototypeId,
-          },
-        );
-        syncResult = await this.fileSyncService.syncFilesToSupabase(
-          prototypeId,
-          "tracked",
-        );
-      }
+        },
+      );
+      const syncResult = await this.fileSyncService.syncFilesToSupabase(
+        prototypeId,
+        "tracked",
+      );
 
       if (syncResult.success) {
         this.logger.consoleLogDevOnly(
