@@ -256,7 +256,7 @@ export class ExpoDevServerService {
       }
       log2.consoleLogDevOnly(
         "info",
-        `Starting dev server for prototype ${prototype_id} (${files.length} files, ${projectDir})`,
+        `Starting dev server for prototype ${prototype_id} (${projectDir})`,
       );
 
       // Start Expo dev server and wait for tunnel URL

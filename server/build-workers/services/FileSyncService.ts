@@ -929,6 +929,7 @@ export class FileSyncService {
     await fs.mkdir(this.workDir, { recursive: true });
     await this.cleanWorkspaceDirectory();
     await writeProjectFiles(files, assets, this.workDir);
+    this.resetTrackedChanges();
   }
 
   private async cleanWorkspaceDirectory(): Promise<void> {
@@ -1029,7 +1030,7 @@ export class FileSyncService {
         },
       );
 
-      await this.prepareWorkspaceWithProject(files, assetsWithContent);
+      await this.prepareWorkspaceWithProject(files, assetsWithContent); // resets tracked changes
 
       return { files, assets: assetsWithContent, errors };
     } catch (error) {
@@ -1087,6 +1088,8 @@ export class FileSyncService {
             const fullPath = path.join(this.workDir, fileName);
             await fs.unlink(fullPath);
             result.filesDeleted++;
+            this.updatedFiles.delete(fileName);
+            this.deletedFiles.delete(fileName);
           } catch (error) {
             // If file doesn't exist, that's fine - it's already deleted
             if (
@@ -1121,6 +1124,8 @@ export class FileSyncService {
             const fullPath = path.join(this.workDir, assetName);
             await fs.unlink(fullPath);
             result.assetsDeleted++;
+            this.updatedAssets.delete(assetName);
+            this.deletedAssets.delete(assetName);
           } catch (error) {
             // If file doesn't exist, that's fine - it's already deleted
             if (
@@ -1173,6 +1178,8 @@ export class FileSyncService {
                 await fs.mkdir(parentDir, { recursive: true });
                 await fs.writeFile(fullPath, file.contents, "utf-8");
                 result.filesUpdated++;
+                this.updatedFiles.delete(file.name);
+                this.deletedFiles.delete(file.name);
               } catch (error) {
                 const message =
                   error instanceof Error ? error.message : String(error);
@@ -1254,6 +1261,8 @@ export class FileSyncService {
                     const buffer = Buffer.from(arrayBuffer);
                     await fs.writeFile(fullPath, buffer);
                     result.assetsUpdated++;
+                    this.updatedAssets.delete(asset.name);
+                    this.deletedAssets.delete(asset.name);
                   } catch (error) {
                     const message =
                       error instanceof Error ? error.message : String(error);
