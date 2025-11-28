@@ -86,7 +86,8 @@ const ROOT_FOLDER_VALUE = "__ROOT__";
 const MAX_FILE_SIZE = 2 * 1024 * 1024; // 2MB
 const MAX_LOCK_FILE_SIZE = 5 * 1024 * 1024; // 5MB for lock files
 
-// Blocked folder patterns
+// Blocked folder patterns (common gitignore patterns)
+// Note: .env FILES are allowed (see ALLOWED_ASSET_EXTENSIONS), but env/venv FOLDERS are blocked
 const BLOCKED_FOLDERS = new Set([
   "ios",
   "android",
@@ -97,6 +98,34 @@ const BLOCKED_FOLDERS = new Set([
   ".expo",
   ".next",
   "out",
+  // Additional common gitignore folders
+  ".cache",
+  ".parcel-cache",
+  ".vscode",
+  ".idea",
+  ".DS_Store",
+  "coverage",
+  ".nyc_output",
+  ".pytest_cache",
+  "__pycache__",
+  "venv",
+  ".venv",
+  "env", // Block env folder but not .env file
+  ".gradle",
+  ".yarn",
+  ".pnp",
+  "tmp",
+  "temp",
+  ".tmp",
+  ".temp",
+  "logs",
+  ".turbo",
+  ".nuxt",
+  ".output",
+  ".vercel",
+  ".netlify",
+  "public/build",
+  "server/build",
 ]);
 
 const ALLOWED_UPLOAD_EXTENSIONS = new Set([
@@ -824,6 +853,77 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
         status: "blocked-extension",
         reason: "System files are not allowed",
       };
+    }
+
+    // Block common gitignore file patterns (except .env which is explicitly allowed)
+    const blockedFilePatterns = [
+      // Log files
+      /^\.log$/i,
+      /\.log$/i,
+      /^npm-debug\.log/i,
+      /^yarn-debug\.log/i,
+      /^yarn-error\.log/i,
+      /^lerna-debug\.log/i,
+      /^\.pnpm-debug\.log/i,
+      // Editor files
+      /\.swp$/i,
+      /\.swo$/i,
+      /~$/,
+      // Cache and build artifacts
+      /^\.cache$/i,
+      /^\.vscode$/i,
+      /^\.idea$/i,
+      /^\.*.pid$/i,
+      /^\.*.seed$/i,
+      /^\.grunt$/i,
+      /^bower_components/i,
+      /^\.lock-wscript$/i,
+      /^\.wafpickle-/i,
+      /^\.node_repl_history$/i,
+      /^\.npm$/i,
+      /^\.eslintcache$/i,
+      /^\.stylelintcache$/i,
+      /^\.rpt2_cache/i,
+      /^\.rts2_cache/i,
+      /^\.next$/i,
+      /^\.nuxt$/i,
+      /^\.vercel$/i,
+      /^\.serverless/i,
+      /^\.fusebox/i,
+      /^\.dynamodb/i,
+      /^\.tern-port$/i,
+      /^\.vscode-test$/i,
+      // Package manager artifacts
+      /^\.yarn\/cache/i,
+      /^\.yarn\/unplugged/i,
+      /^\.yarn\/build-state\.yml$/i,
+      /^\.yarn\/install-state\.gz$/i,
+      /^\.pnp\./i,
+      // OS and IDE files
+      /^Thumbs\.db$/i,
+      /^ehthumbs\.db$/i,
+      /^Desktop\.ini$/i,
+      /^\$RECYCLE\.BIN/i,
+      /^\.AppleDouble$/i,
+      /^\.LSOverride$/i,
+      // Python
+      /^\.pyc$/i,
+      /^\.pyo$/i,
+      /^\.pyd$/i,
+      // Misc
+      /^\.sass-cache/i,
+      /^\.turbo$/i,
+    ];
+
+    // Check if file matches any blocked patterns (but allow .env files)
+    // Allow .env but NOT .env.local, .env.*.local variants
+    for (const pattern of blockedFilePatterns) {
+      if (pattern.test(fileName) || pattern.test(targetPath)) {
+        return {
+          status: "blocked-extension",
+          reason: "File matches gitignore pattern and cannot be uploaded",
+        };
+      }
     }
 
     // Check blocked folders
