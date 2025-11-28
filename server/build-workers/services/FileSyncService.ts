@@ -472,7 +472,9 @@ export class FileSyncService {
         const fileDataPromises = chunk.map(
           async (
             filePath,
-          ): Promise<Database["public"]["Tables"]["prototype_files"]["Insert"] | null> => {
+          ): Promise<
+            Database["public"]["Tables"]["prototype_files"]["Insert"] | null
+          > => {
             try {
               const fullPath = path.join(this.workDir, filePath);
               const contents = await fs.readFile(fullPath, "utf8");
@@ -485,9 +487,13 @@ export class FileSyncService {
             } catch (error) {
               const message =
                 error instanceof Error ? error.message : String(error);
-              this.logger.error(new Error(message), "Failed to read text file", {
-                path: filePath,
-              });
+              this.logger.error(
+                new Error(message),
+                "Failed to read text file",
+                {
+                  path: filePath,
+                },
+              );
               result.errors.push(`Failed to read ${filePath}: ${message}`);
               return null;
             }
