@@ -11,11 +11,7 @@ import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import { setChatIntent } from "@/lib/utils/chatIntentUtils";
 import { handleCheckout } from "@/lib/utils/payments/CheckoutUtils";
 import {
-  ArrowRightIcon,
-  CheckIcon,
-  CommandLineIcon,
-  CpuChipIcon,
-  SparklesIcon
+  CheckIcon, SparklesIcon
 } from "@heroicons/react/24/solid";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -33,6 +29,7 @@ export default function Home() {
         <FeaturesBentoGrid />
         <GallerySection />
         <PricingSection />
+        <FAQSection />
         <Footer />
       </div>
     </main>
@@ -102,13 +99,13 @@ function HeroSection() {
       <div className="container mx-auto max-w-5xl">
 
         {/* Hero Badge */}
-        <div className="flex justify-center mb-8">
+        {/* <div className="flex justify-center mb-8">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-white/10 bg-white/5 text-xs font-medium text-white/70 backdrop-blur-md hover:bg-white/10 transition-colors cursor-default">
             <span className="flex h-2 w-2 rounded-full bg-indigo-500 animate-pulse"></span>
             Coming Soon
             <ArrowRightIcon className="w-3 h-3 text-white/40" />
           </div>
-        </div>
+        </div> */}
 
         {/* Hero Title */}
         <div className="text-center space-y-6 mb-12">
@@ -494,7 +491,61 @@ function PricingSection() {
   );
 }
 
+function FAQSection() {
+  const router = useRouter();
+
+  const featuredFAQs = [
+    {
+      q: "How does Materialize work?",
+      a: "Describe your app idea in plain English and Materialize generates a working app using React Native and Expo."
+    },
+    {
+      q: "Do I need coding experience?",
+      a: "Materialize makes a working prototype in minutes just from plain English descriptions."
+    },
+    {
+      q: "Can I export the code?",
+      a: "Yes, you own all generated code on paid plans."
+    }
+  ];
+
+  return (
+    <section className="py-24 bg-[#0B0C0E] border-t border-white/5">
+      <div className="container mx-auto px-6 max-w-6xl">
+        <div className="text-center mb-16">
+          <h2 className="text-4xl font-medium text-white mb-4">Questions?</h2>
+          <p className="text-[#8A8F98] text-lg">Quick answers to common questions about Materialize.</p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+          {featuredFAQs.map((faq, index) => (
+            <div
+              key={index}
+              className="bg-[#141517] border border-white/10 rounded-2xl p-6 hover:border-white/20 transition-all duration-300"
+            >
+              <h3 className="text-lg font-medium text-white mb-3">{faq.q}</h3>
+              <p className="text-[#8A8F98] text-sm leading-relaxed">{faq.a}</p>
+            </div>
+          ))}
+        </div>
+
+        <div className="text-center">
+          <Button
+            onClick={() => router.push('/faqs')}
+            variant="outline"
+            className="border-white/20 bg-white/5 hover:bg-white/10 text-white rounded-full px-6 h-10"
+          >
+            View all FAQs
+          </Button>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function Footer() {
+  const router = useRouter();
+
   return (
     <footer className="py-12 border-t border-white/5 bg-[#0B0C0E] text-sm">
       <div className="container mx-auto px-6 max-w-6xl flex flex-col md:flex-row justify-between items-center text-[#8A8F98] gap-6">
@@ -504,6 +555,7 @@ function Footer() {
           <span className="hover:text-white cursor-pointer transition-colors">Discord</span>
         </div>
         <div className="flex gap-6">
+          <span onClick={() => router.push('/faqs')} className="hover:text-white cursor-pointer transition-colors">FAQs</span>
           <span className="hover:text-white cursor-pointer transition-colors">Privacy</span>
           <span className="hover:text-white cursor-pointer transition-colors">Terms</span>
           <span>© 2025 Materialize UI</span>

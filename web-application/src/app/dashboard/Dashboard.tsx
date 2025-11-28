@@ -171,11 +171,11 @@ export default function DashboardPage() {
 
         {/* --- Header Section --- */}
         <div className="text-center mb-12 space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-700">
-          <div className="inline-flex items-center justify-center p-1 rounded-full bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 backdrop-blur-sm mb-4">
+          {/* <div className="inline-flex items-center justify-center p-1 rounded-full bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 backdrop-blur-sm mb-4">
             <span className="px-3 py-1 text-xs font-medium text-black/70 dark:text-white/70 tracking-wide uppercase">
               AI Prototype Engine
             </span>
-          </div>
+          </div> */}
 
           <h1 className="text-4xl md:text-6xl font-medium tracking-tight text-transparent bg-clip-text bg-gradient-to-b from-black via-black to-black/60 dark:from-white dark:via-white dark:to-white/60">
             Build Your Ideas
