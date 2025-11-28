@@ -1,6 +1,5 @@
 import { Options } from "@anthropic-ai/claude-agent-sdk";
 import axios from "axios";
-import { FSWatcher } from "chokidar";
 import { FastifyInstance, FastifyRequest } from "fastify";
 import path from "path";
 import WebSocket from "ws";
@@ -35,7 +34,6 @@ interface CodeSessionState {
   abortController: AbortController | null;
   trackedFiles: Set<string>; // Track files that were modified during the session
   modifiedFilesThisQuery: Set<string>; // Track files modified by tools for the current query
-  fileWatcher: FSWatcher | null; // File system watcher for tracking changes
   designSystemId: string | null; // ID of currently loaded design system
   designSystemRules: string | null; // Cached design system rules
 }
@@ -63,7 +61,6 @@ export class ChatService {
     abortController: null,
     trackedFiles: new Set<string>(),
     modifiedFilesThisQuery: new Set<string>(),
-    fileWatcher: null,
     designSystemId: null,
     designSystemRules: null,
   };
@@ -746,7 +743,6 @@ export class ChatService {
       lastActiveAt: 0,
       abortController: null,
       trackedFiles: new Set<string>(),
-      fileWatcher: null,
       designSystemId: null,
       designSystemRules: null,
       modifiedFilesThisQuery: new Set<string>(),
