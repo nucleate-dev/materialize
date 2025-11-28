@@ -97,6 +97,126 @@ export class FileSyncService {
     this.logger = logger.child({ service: "FileSyncService" });
   }
 
+  // ------------------------------------------------------------
+  // Sync files public API method
+  // ------------------------------------------------------------
+
+  /**
+   * Syncs files/assets to Supabase based on the requested mode.
+   * - all: syncs all files and assets detected in the work directory.
+   * - tracked: placeholder for incremental sync using tracked file list.
+   * - all_files_only: syncs only text files from the work directory.
+   */
+  public async syncFilesToSupabase(
+    prototypeId: string,
+    mode: SyncMode,
+  ): Promise<SyncResult> {
+    const result: SyncResult = {
+      success: true,
+      filesUpdated: 0,
+      filesDeleted: 0,
+      assetsUpdated: 0,
+      assetsDeleted: 0,
+      errors: [],
+    };
+
+    try {
+      this.logger.consoleLogDevOnly("info", "Starting file sync", {
+        prototypeId,
+        mode,
+      });
+
+      const { files, assets, deletedFiles, deletedAssets } =
+        await this.loadSyncTargets(mode);
+
+      await this.processDeletions(
+        [...deletedFiles, ...deletedAssets],
+        prototypeId,
+        result,
+      );
+      await this.processTextFiles(files, prototypeId, result);
+      await this.processBinaryFiles(assets, prototypeId, result);
+
+      if (result.errors.length > 0) {
+        result.success = false;
+      }
+
+      return result;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(new Error(message), "File sync failed", {
+        prototypeId,
+        mode,
+      });
+      result.errors.push(`Sync failed: ${message}`);
+      result.success = false;
+      return result;
+    }
+  }
+
+  // ------------------------------------------------------------
+  // Load files for sync helper functions
+  // ------------------------------------------------------------
+
+  private async loadSyncTargets(mode: SyncMode): Promise<SyncTargets> {
+    switch (mode) {
+      case "all":
+        return this.loadAllSyncTargets();
+      case "all_files_only":
+        return this.loadAllFilesOnlySyncTargets();
+      case "tracked":
+      default:
+        return this.loadTrackedSyncTargets();
+    }
+  }
+
+  private async loadAllSyncTargets(): Promise<SyncTargets> {
+    this.logger.consoleLogDevOnly(
+      "info",
+      "Scanning directory for full sync targets",
+      {
+        workDir: this.workDir,
+      },
+    );
+
+    const allFiles = await this.scanDirectory(this.workDir);
+
+    this.logger.consoleLogDevOnly("info", "Scanned directory for files", {
+      fileCount: allFiles.length,
+    });
+
+    const { textFiles, binaryFiles } = this.partitionFilesByType(allFiles);
+
+    return {
+      files: textFiles,
+      assets: binaryFiles,
+      deletedFiles: [],
+      deletedAssets: [],
+    };
+  }
+
+  private async loadTrackedSyncTargets(): Promise<SyncTargets> {
+    // Placeholder implementation until tracked sync is reintroduced
+    return {
+      files: [],
+      assets: [],
+      deletedFiles: [],
+      deletedAssets: [],
+    };
+  }
+
+  private async loadAllFilesOnlySyncTargets(): Promise<SyncTargets> {
+    const allFiles = await this.scanDirectory(this.workDir);
+    const { textFiles } = this.partitionFilesByType(allFiles);
+
+    return {
+      files: textFiles,
+      assets: [],
+      deletedFiles: [],
+      deletedAssets: [],
+    };
+  }
+
   /**
    * Recursively scans a directory and returns all file paths (relative to workDir).
    * Excludes common directories that shouldn't be synced.
@@ -159,118 +279,6 @@ export class FileSyncService {
     return files;
   }
 
-  /**
-   * Syncs files/assets to Supabase based on the requested mode.
-   * - all: syncs all files and assets detected in the work directory.
-   * - tracked: placeholder for incremental sync using tracked file list.
-   * - all_files_only: syncs only text files from the work directory.
-   */
-  public async syncFilesToSupabase(
-    prototypeId: string,
-    mode: SyncMode,
-  ): Promise<SyncResult> {
-    const result: SyncResult = {
-      success: true,
-      filesUpdated: 0,
-      filesDeleted: 0,
-      assetsUpdated: 0,
-      assetsDeleted: 0,
-      errors: [],
-    };
-
-    try {
-      this.logger.consoleLogDevOnly("info", "Starting file sync", {
-        prototypeId,
-        mode,
-      });
-
-      const { files, assets, deletedFiles, deletedAssets } =
-        await this.loadSyncTargets(mode);
-
-      await this.processDeletions(
-        [...deletedFiles, ...deletedAssets],
-        prototypeId,
-        result,
-      );
-      await this.processTextFiles(files, prototypeId, result);
-      await this.processBinaryFiles(assets, prototypeId, result);
-
-      if (result.errors.length > 0) {
-        result.success = false;
-      }
-
-      return result;
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      this.logger.error(new Error(message), "File sync failed", {
-        prototypeId,
-        mode,
-      });
-      result.errors.push(`Sync failed: ${message}`);
-      result.success = false;
-      return result;
-    }
-  }
-
-  private async loadSyncTargets(mode: SyncMode): Promise<SyncTargets> {
-    switch (mode) {
-      case "all":
-        return this.loadAllSyncTargets();
-      case "all_files_only":
-        return this.loadAllFilesOnlySyncTargets();
-      case "tracked":
-      default:
-        return this.loadTrackedSyncTargets();
-    }
-  }
-
-  private async loadAllSyncTargets(): Promise<SyncTargets> {
-    this.logger.consoleLogDevOnly(
-      "info",
-      "Scanning directory for full sync targets",
-      {
-        workDir: this.workDir,
-      },
-    );
-
-    const allFiles = await this.scanDirectory(this.workDir);
-
-    this.logger.consoleLogDevOnly("info", "Scanned directory for files", {
-      fileCount: allFiles.length,
-    });
-
-    const { textFiles, binaryFiles } = this.partitionFilesByType(allFiles);
-
-    return {
-      files: textFiles,
-      assets: binaryFiles,
-      deletedFiles: [],
-      deletedAssets: [],
-    };
-  }
-
-  private async loadTrackedSyncTargets(): Promise<SyncTargets> {
-    // Placeholder implementation until tracked sync is reintroduced
-    return {
-      files: [],
-      assets: [],
-      deletedFiles: [],
-      deletedAssets: [],
-    };
-  }
-
-  private async loadAllFilesOnlySyncTargets(): Promise<SyncTargets> {
-    const allFiles = await this.scanDirectory(this.workDir);
-    const { textFiles } = this.partitionFilesByType(allFiles);
-
-    return {
-      files: textFiles,
-      assets: [],
-      deletedFiles: [],
-      deletedAssets: [],
-    };
-  }
-
   private partitionFilesByType(filePaths: string[]): {
     textFiles: string[];
     binaryFiles: string[];
@@ -288,6 +296,10 @@ export class FileSyncService {
 
     return { textFiles, binaryFiles };
   }
+
+  // ------------------------------------------------------------
+  // Efficiently batch persist files to supabase helper functions
+  // ------------------------------------------------------------
 
   /**
    * Process deleted files using bulk DELETE operations
@@ -764,6 +776,10 @@ export class FileSyncService {
     return contentTypes[ext] || "application/octet-stream";
   }
 
+  // ----------------------------------------------------------------------
+  // PUBLIC API: Fetch files and assets from Supabase (whole or partial)
+  // ----------------------------------------------------------------------
+
   /**
    * Fetches all files and assets from Supabase for a given prototype.
    * Downloads asset content from storage and converts to base64.
@@ -834,241 +850,6 @@ export class FileSyncService {
       errors.push(`Fetch failed: ${message}`);
       return { files: [], assets: [], errors };
     }
-  }
-
-  /**
-   * Fetches files from Supabase in batches using pagination
-   */
-  private async fetchFilesInBatches(
-    prototypeId: string,
-    errors: string[],
-  ): Promise<PrototypeFileInput[]> {
-    const allFiles: PrototypeFileInput[] = [];
-    let offset = 0;
-    let hasMore = true;
-
-    while (hasMore) {
-      try {
-        const { data, error } = await this.supabaseClientService
-          .getClient()
-          .from("prototype_files")
-          .select("*")
-          .eq("prototype_id", prototypeId)
-          .range(offset, offset + BATCH_CONFIG.FILE_FETCH_BATCH_SIZE - 1)
-          .order("name", { ascending: true });
-
-        if (error) {
-          const errorMsg = `Failed to fetch files batch at offset ${offset}: ${error.message}`;
-          this.logger.error(new Error(errorMsg), "File batch fetch failed", {
-            error,
-            offset,
-          });
-          errors.push(errorMsg);
-          break;
-        }
-
-        if (data && data.length > 0) {
-          allFiles.push(...data);
-          this.logger.debug("Fetched file batch", {
-            batchSize: data.length,
-            offset,
-            totalSoFar: allFiles.length,
-          });
-
-          // Check if we got a full batch (indicates more data might exist)
-          hasMore = data.length === BATCH_CONFIG.FILE_FETCH_BATCH_SIZE;
-          offset += BATCH_CONFIG.FILE_FETCH_BATCH_SIZE;
-
-          // Small delay to avoid rate limiting
-          if (hasMore) {
-            await new Promise((resolve) =>
-              setTimeout(resolve, BATCH_CONFIG.BATCH_DELAY_MS),
-            );
-          }
-        } else {
-          hasMore = false;
-        }
-      } catch (err) {
-        const errorMsg = `Error fetching files batch: ${err instanceof Error ? err.message : String(err)}`;
-        this.logger.error(new Error(errorMsg), "File batch fetch error", {
-          offset,
-        });
-        errors.push(errorMsg);
-        break;
-      }
-    }
-
-    return allFiles;
-  }
-
-  /**
-   * Fetches asset metadata from Supabase in batches using pagination
-   */
-  private async fetchAssetMetadataInBatches(
-    prototypeId: string,
-    errors: string[],
-  ): Promise<PrototypeAssetInput[]> {
-    const allAssets: PrototypeAssetInput[] = [];
-    let offset = 0;
-    let hasMore = true;
-
-    while (hasMore) {
-      try {
-        const { data, error } = await this.supabaseClientService
-          .getClient()
-          .from("prototype_assets")
-          .select("*")
-          .eq("prototype_id", prototypeId)
-          .range(
-            offset,
-            offset + BATCH_CONFIG.ASSET_METADATA_FETCH_BATCH_SIZE - 1,
-          )
-          .order("name", { ascending: true });
-
-        if (error) {
-          const errorMsg = `Failed to fetch assets batch at offset ${offset}: ${error.message}`;
-          this.logger.error(new Error(errorMsg), "Asset batch fetch failed", {
-            error,
-            offset,
-          });
-          errors.push(errorMsg);
-          break;
-        }
-
-        if (data && data.length > 0) {
-          allAssets.push(...data);
-          this.logger.debug("Fetched asset metadata batch", {
-            batchSize: data.length,
-            offset,
-            totalSoFar: allAssets.length,
-          });
-
-          // Check if we got a full batch
-          hasMore =
-            data.length === BATCH_CONFIG.ASSET_METADATA_FETCH_BATCH_SIZE;
-          offset += BATCH_CONFIG.ASSET_METADATA_FETCH_BATCH_SIZE;
-
-          // Small delay to avoid rate limiting
-          if (hasMore) {
-            await new Promise((resolve) =>
-              setTimeout(resolve, BATCH_CONFIG.BATCH_DELAY_MS),
-            );
-          }
-        } else {
-          hasMore = false;
-        }
-      } catch (err) {
-        const errorMsg = `Error fetching asset metadata batch: ${err instanceof Error ? err.message : String(err)}`;
-        this.logger.error(new Error(errorMsg), "Asset metadata batch error", {
-          offset,
-        });
-        errors.push(errorMsg);
-        break;
-      }
-    }
-
-    return allAssets;
-  }
-
-  /**
-   * Downloads assets from Supabase storage with controlled concurrency
-   */
-  private async downloadAssetsInBatches(
-    assetMetadata: PrototypeAssetInput[],
-    errors: string[],
-  ): Promise<PrototypeAssetInputWithContent[]> {
-    const allAssetsWithContent: PrototypeAssetInputWithContent[] = [];
-
-    // Split assets into chunks for controlled concurrency
-    const chunks = this.chunkArray(
-      assetMetadata,
-      BATCH_CONFIG.ASSET_DOWNLOAD_CONCURRENCY,
-    );
-
-    let processedCount = 0;
-
-    for (const chunk of chunks) {
-      try {
-        // Download assets in this chunk in parallel
-        const downloadResults = await Promise.all(
-          chunk.map(async (asset) => {
-            try {
-              const { data, error } = await this.supabaseClientService
-                .getClient()
-                .storage.from("prototype-assets")
-                .download(`${asset.prototype_id}/${asset.name}`);
-
-              if (error || !data) {
-                this.logger.warn("Failed to download asset", {
-                  assetName: asset.name,
-                  error: error?.message ?? "unknown error",
-                });
-                errors.push(
-                  `Failed to download asset ${asset.name}: ${error?.message ?? "unknown error"}`,
-                );
-                return null;
-              }
-
-              const arrayBuffer = await data.arrayBuffer();
-              const base64Content = Buffer.from(arrayBuffer).toString("base64");
-
-              return {
-                ...asset,
-                contents: base64Content,
-              } as PrototypeAssetInputWithContent;
-            } catch (err) {
-              this.logger.warn("Error downloading asset", {
-                assetName: asset.name,
-                error: err instanceof Error ? err.message : String(err),
-              });
-              errors.push(
-                `Error downloading asset ${asset.name}: ${err instanceof Error ? err.message : String(err)}`,
-              );
-              return null;
-            }
-          }),
-        );
-
-        // Filter out failed downloads and add successful ones
-        const successfulDownloads = downloadResults.filter(
-          (result): result is PrototypeAssetInputWithContent => result !== null,
-        );
-        allAssetsWithContent.push(...successfulDownloads);
-
-        processedCount += chunk.length;
-        this.logger.debug("Downloaded asset batch", {
-          batchSize: chunk.length,
-          successfulDownloads: successfulDownloads.length,
-          processedCount,
-          totalAssets: assetMetadata.length,
-        });
-
-        // Small delay between batches to avoid overwhelming storage
-        if (processedCount < assetMetadata.length) {
-          await new Promise((resolve) =>
-            setTimeout(resolve, BATCH_CONFIG.BATCH_DELAY_MS),
-          );
-        }
-      } catch (err) {
-        const errorMsg = `Error downloading asset batch: ${err instanceof Error ? err.message : String(err)}`;
-        this.logger.error(new Error(errorMsg), "Asset download batch error");
-        errors.push(errorMsg);
-        // Continue with next batch despite error
-      }
-    }
-
-    return allAssetsWithContent;
-  }
-
-  /**
-   * Split array into chunks for parallel processing
-   */
-  private chunkArray<T>(array: T[], size: number): T[][] {
-    const chunks: T[][] = [];
-    for (let i = 0; i < array.length; i += size) {
-      chunks.push(array.slice(i, i + size));
-    }
-    return chunks;
   }
 
   /**
@@ -1327,5 +1108,243 @@ export class FileSyncService {
       result.success = false;
       return result;
     }
+  }
+
+  // ------------------------------------------------------------
+  // Fetch files and assets from Supabase helper functions
+  // ------------------------------------------------------------
+  /**
+   * Fetches files from Supabase in batches using pagination
+   */
+  private async fetchFilesInBatches(
+    prototypeId: string,
+    errors: string[],
+  ): Promise<PrototypeFileInput[]> {
+    const allFiles: PrototypeFileInput[] = [];
+    let offset = 0;
+    let hasMore = true;
+
+    while (hasMore) {
+      try {
+        const { data, error } = await this.supabaseClientService
+          .getClient()
+          .from("prototype_files")
+          .select("*")
+          .eq("prototype_id", prototypeId)
+          .range(offset, offset + BATCH_CONFIG.FILE_FETCH_BATCH_SIZE - 1)
+          .order("name", { ascending: true });
+
+        if (error) {
+          const errorMsg = `Failed to fetch files batch at offset ${offset}: ${error.message}`;
+          this.logger.error(new Error(errorMsg), "File batch fetch failed", {
+            error,
+            offset,
+          });
+          errors.push(errorMsg);
+          break;
+        }
+
+        if (data && data.length > 0) {
+          allFiles.push(...data);
+          this.logger.debug("Fetched file batch", {
+            batchSize: data.length,
+            offset,
+            totalSoFar: allFiles.length,
+          });
+
+          // Check if we got a full batch (indicates more data might exist)
+          hasMore = data.length === BATCH_CONFIG.FILE_FETCH_BATCH_SIZE;
+          offset += BATCH_CONFIG.FILE_FETCH_BATCH_SIZE;
+
+          // Small delay to avoid rate limiting
+          if (hasMore) {
+            await new Promise((resolve) =>
+              setTimeout(resolve, BATCH_CONFIG.BATCH_DELAY_MS),
+            );
+          }
+        } else {
+          hasMore = false;
+        }
+      } catch (err) {
+        const errorMsg = `Error fetching files batch: ${err instanceof Error ? err.message : String(err)}`;
+        this.logger.error(new Error(errorMsg), "File batch fetch error", {
+          offset,
+        });
+        errors.push(errorMsg);
+        break;
+      }
+    }
+
+    return allFiles;
+  }
+
+  /**
+   * Fetches asset metadata from Supabase in batches using pagination
+   */
+  private async fetchAssetMetadataInBatches(
+    prototypeId: string,
+    errors: string[],
+  ): Promise<PrototypeAssetInput[]> {
+    const allAssets: PrototypeAssetInput[] = [];
+    let offset = 0;
+    let hasMore = true;
+
+    while (hasMore) {
+      try {
+        const { data, error } = await this.supabaseClientService
+          .getClient()
+          .from("prototype_assets")
+          .select("*")
+          .eq("prototype_id", prototypeId)
+          .range(
+            offset,
+            offset + BATCH_CONFIG.ASSET_METADATA_FETCH_BATCH_SIZE - 1,
+          )
+          .order("name", { ascending: true });
+
+        if (error) {
+          const errorMsg = `Failed to fetch assets batch at offset ${offset}: ${error.message}`;
+          this.logger.error(new Error(errorMsg), "Asset batch fetch failed", {
+            error,
+            offset,
+          });
+          errors.push(errorMsg);
+          break;
+        }
+
+        if (data && data.length > 0) {
+          allAssets.push(...data);
+          this.logger.debug("Fetched asset metadata batch", {
+            batchSize: data.length,
+            offset,
+            totalSoFar: allAssets.length,
+          });
+
+          // Check if we got a full batch
+          hasMore =
+            data.length === BATCH_CONFIG.ASSET_METADATA_FETCH_BATCH_SIZE;
+          offset += BATCH_CONFIG.ASSET_METADATA_FETCH_BATCH_SIZE;
+
+          // Small delay to avoid rate limiting
+          if (hasMore) {
+            await new Promise((resolve) =>
+              setTimeout(resolve, BATCH_CONFIG.BATCH_DELAY_MS),
+            );
+          }
+        } else {
+          hasMore = false;
+        }
+      } catch (err) {
+        const errorMsg = `Error fetching asset metadata batch: ${err instanceof Error ? err.message : String(err)}`;
+        this.logger.error(new Error(errorMsg), "Asset metadata batch error", {
+          offset,
+        });
+        errors.push(errorMsg);
+        break;
+      }
+    }
+
+    return allAssets;
+  }
+
+  /**
+   * Downloads assets from Supabase storage with controlled concurrency
+   */
+  private async downloadAssetsInBatches(
+    assetMetadata: PrototypeAssetInput[],
+    errors: string[],
+  ): Promise<PrototypeAssetInputWithContent[]> {
+    const allAssetsWithContent: PrototypeAssetInputWithContent[] = [];
+
+    // Split assets into chunks for controlled concurrency
+    const chunks = this.chunkArray(
+      assetMetadata,
+      BATCH_CONFIG.ASSET_DOWNLOAD_CONCURRENCY,
+    );
+
+    let processedCount = 0;
+
+    for (const chunk of chunks) {
+      try {
+        // Download assets in this chunk in parallel
+        const downloadResults = await Promise.all(
+          chunk.map(async (asset) => {
+            try {
+              const { data, error } = await this.supabaseClientService
+                .getClient()
+                .storage.from("prototype-assets")
+                .download(`${asset.prototype_id}/${asset.name}`);
+
+              if (error || !data) {
+                this.logger.warn("Failed to download asset", {
+                  assetName: asset.name,
+                  error: error?.message ?? "unknown error",
+                });
+                errors.push(
+                  `Failed to download asset ${asset.name}: ${error?.message ?? "unknown error"}`,
+                );
+                return null;
+              }
+
+              const arrayBuffer = await data.arrayBuffer();
+              const base64Content = Buffer.from(arrayBuffer).toString("base64");
+
+              return {
+                ...asset,
+                contents: base64Content,
+              } as PrototypeAssetInputWithContent;
+            } catch (err) {
+              this.logger.warn("Error downloading asset", {
+                assetName: asset.name,
+                error: err instanceof Error ? err.message : String(err),
+              });
+              errors.push(
+                `Error downloading asset ${asset.name}: ${err instanceof Error ? err.message : String(err)}`,
+              );
+              return null;
+            }
+          }),
+        );
+
+        // Filter out failed downloads and add successful ones
+        const successfulDownloads = downloadResults.filter(
+          (result): result is PrototypeAssetInputWithContent => result !== null,
+        );
+        allAssetsWithContent.push(...successfulDownloads);
+
+        processedCount += chunk.length;
+        this.logger.debug("Downloaded asset batch", {
+          batchSize: chunk.length,
+          successfulDownloads: successfulDownloads.length,
+          processedCount,
+          totalAssets: assetMetadata.length,
+        });
+
+        // Small delay between batches to avoid overwhelming storage
+        if (processedCount < assetMetadata.length) {
+          await new Promise((resolve) =>
+            setTimeout(resolve, BATCH_CONFIG.BATCH_DELAY_MS),
+          );
+        }
+      } catch (err) {
+        const errorMsg = `Error downloading asset batch: ${err instanceof Error ? err.message : String(err)}`;
+        this.logger.error(new Error(errorMsg), "Asset download batch error");
+        errors.push(errorMsg);
+        // Continue with next batch despite error
+      }
+    }
+
+    return allAssetsWithContent;
+  }
+
+  /**
+   * Split array into chunks for parallel processing
+   */
+  private chunkArray<T>(array: T[], size: number): T[][] {
+    const chunks: T[][] = [];
+    for (let i = 0; i < array.length; i += size) {
+      chunks.push(array.slice(i, i + size));
+    }
+    return chunks;
   }
 }
