@@ -399,6 +399,14 @@ function PricingSection() {
     handleCheckout(productKey, router);
   };
 
+  const [copiedCode, setCopiedCode] = useState(false);
+
+  const handleCopyCode = () => {
+    navigator.clipboard.writeText('BLACKFRIDAY2025');
+    setCopiedCode(true);
+    setTimeout(() => setCopiedCode(false), 2000);
+  };
+
   const pricingPlans = [
     {
       name: "Free",
@@ -415,7 +423,7 @@ function PricingSection() {
       price: "$25",
       period: "per month",
       description: "For everyone",
-      features: ["Everything in Free", "100 credits a month included", "Additional credit packs available", "Unlimited projects", "Unlimited folders", "View, edit, and export Code"],
+      features: ["Everything in Free", "100 credits a month included", "Additional credit packs available", "Unlimited projects", "Unlimited folders", "View, edit, and export code"],
       cta: "Upgrade to Plus",
       highlighted: true,
       productKey: "plus",
@@ -435,9 +443,40 @@ function PricingSection() {
   return (
     <section className="py-32 bg-[#0B0C0E] border-t border-white/5">
       <div className="container mx-auto px-6 max-w-5xl">
-        <div className="text-center mb-16">
+        <div className="text-center mb-12">
           <h2 className="text-4xl font-medium text-white mb-4">Simple pricing</h2>
           <p className="text-[#8A8F98]">Start for free, scale as you grow.</p>
+        </div>
+
+        {/* Black Friday Banner */}
+        <div className="mb-12 max-w-3xl mx-auto">
+          <div className="relative group">
+            <div className="absolute -inset-0.5 bg-gradient-to-r from-rose-500/40 via-orange-500/40 to-rose-500/40 rounded-2xl blur opacity-60 group-hover:opacity-80 transition duration-500"></div>
+            <div className="relative bg-gradient-to-r from-rose-500/10 to-orange-500/10 border border-rose-500/30 rounded-xl p-6 backdrop-blur-sm">
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div className="text-center sm:text-left">
+                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-rose-500/20 border border-rose-500/30 text-xs font-bold text-rose-300 uppercase tracking-wider mb-2">
+                    <SparklesIcon className="w-3 h-3" />
+                    Black Friday Sale
+                  </div>
+                  <h3 className="text-xl font-semibold text-white mb-1">50% off your first month</h3>
+                  <p className="text-sm text-white/70">Use code at checkout to get started</p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2 px-4 py-2.5 bg-black/40 border border-white/20 rounded-lg backdrop-blur-sm">
+                    <code className="text-lg font-bold text-white tracking-wider">BLACKFRIDAY2025</code>
+                  </div>
+                  <Button
+                    onClick={handleCopyCode}
+                    size="sm"
+                    className="h-9 px-4 rounded-lg bg-white text-black hover:bg-white/90 font-semibold whitespace-nowrap"
+                  >
+                    {copiedCode ? "Copied!" : "Copy Code"}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -449,11 +488,11 @@ function PricingSection() {
                 : "bg-transparent border border-white/10"
                 }`}
             >
-              {plan.highlighted && (
+              {/* {plan.highlighted && (
                 <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-indigo-500 text-white text-[10px] font-bold uppercase tracking-wider rounded-full">
-                  Sale
+                  Best Value
                 </div>
-              )}
+              )} */}
 
               <div className="mb-8">
                 <h3 className="text-lg font-medium text-white">{plan.name}</h3>
