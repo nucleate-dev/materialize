@@ -1111,7 +1111,75 @@ export class FileSyncService {
         deletedAssetNamesCount: deletedAssetNames.length,
       });
 
-      // Step 1: Fetch specified files from Supabase
+      // Step 1: Delete specified files from disk
+      if (deletedFileNames.length > 0) {
+        for (const fileName of deletedFileNames) {
+          try {
+            const fullPath = path.join(this.workDir, fileName);
+            await fs.unlink(fullPath);
+            result.filesDeleted++;
+          } catch (error) {
+            // If file doesn't exist, that's fine - it's already deleted
+            if (
+              error instanceof Error &&
+              "code" in error &&
+              error.code !== "ENOENT"
+            ) {
+              const message =
+                error instanceof Error ? error.message : String(error);
+              this.logger.warn("Failed to delete file from disk", {
+                fileName,
+                error: message,
+              });
+              result.errors.push(
+                `Failed to delete file ${fileName}: ${message}`,
+              );
+            } else {
+              // File doesn't exist, count it as deleted
+              result.filesDeleted++;
+            }
+          }
+        }
+        this.logger.consoleLogDevOnly("info", "Files deleted from disk", {
+          count: result.filesDeleted,
+        });
+      }
+
+      // Step 2: Delete specified assets from disk
+      if (deletedAssetNames.length > 0) {
+        for (const assetName of deletedAssetNames) {
+          try {
+            const fullPath = path.join(this.workDir, assetName);
+            await fs.unlink(fullPath);
+            result.assetsDeleted++;
+          } catch (error) {
+            // If file doesn't exist, that's fine - it's already deleted
+            if (
+              error instanceof Error &&
+              "code" in error &&
+              error.code !== "ENOENT"
+            ) {
+              const message =
+                error instanceof Error ? error.message : String(error);
+              this.logger.warn("Failed to delete asset from disk", {
+                assetName,
+                error: message,
+              });
+              result.errors.push(
+                `Failed to delete asset ${assetName}: ${message}`,
+              );
+            } else {
+              // File doesn't exist, count it as deleted
+              result.assetsDeleted++;
+            }
+          }
+        }
+        this.logger.consoleLogDevOnly("info", "Assets deleted from disk", {
+          count: result.assetsDeleted,
+        });
+      }
+
+      // Step 3: Fetch specified files from Supabase
       if (fileNames.length > 0) {
         try {
           const { data: files, error } = await this.supabaseClient
@@ -1151,7 +1219,8 @@ export class FileSyncService {
             });
           }
         } catch (error) {
-          const message = error instanceof Error ? error.message : String(error);
+          const message =
+            error instanceof Error ? error.message : String(error);
           this.logger.error(
             new Error(message),
             "Error fetching files from Supabase",
@@ -1161,7 +1230,7 @@ export class FileSyncService {
         }
       }
 
-      // Step 2: Fetch specified assets from Supabase and download from storage
+      // Step 4: Fetch specified assets from Supabase and download from storage
       if (assetNames.length > 0) {
         try {
           const { data: assets, error } = await this.supabaseClient
@@ -1233,7 +1302,8 @@ export class FileSyncService {
             });
           }
         } catch (error) {
-          const message = error instanceof Error ? error.message : String(error);
+          const message =
+            error instanceof Error ? error.message : String(error);
           this.logger.error(
             new Error(message),
             "Error fetching assets from Supabase",
@@ -1241,72 +1311,6 @@ export class FileSyncService {
           );
           result.errors.push(`Failed to fetch assets: ${message}`);
         }
-      }
-
-      // Step 3: Delete specified files from disk
-      if (deletedFileNames.length > 0) {
-        for (const fileName of deletedFileNames) {
-          try {
-            const fullPath = path.join(this.workDir, fileName);
-            await fs.unlink(fullPath);
-            result.filesDeleted++;
-          } catch (error) {
-            // If file doesn't exist, that's fine - it's already deleted
-            if (
-              error instanceof Error &&
-              "code" in error &&
-              error.code !== "ENOENT"
-            ) {
-              const message =
-                error instanceof Error ? error.message : String(error);
-              this.logger.warn("Failed to delete file from disk", {
-                fileName,
-                error: message,
-              });
-              result.errors.push(`Failed to delete file ${fileName}: ${message}`);
-            } else {
-              // File doesn't exist, count it as deleted
-              result.filesDeleted++;
-            }
-          }
-        }
-        this.logger.consoleLogDevOnly("info", "Files deleted from disk", {
-          count: result.filesDeleted,
-        });
-      }
-
-      // Step 4: Delete specified assets from disk
-      if (deletedAssetNames.length > 0) {
-        for (const assetName of deletedAssetNames) {
-          try {
-            const fullPath = path.join(this.workDir, assetName);
-            await fs.unlink(fullPath);
-            result.assetsDeleted++;
-          } catch (error) {
-            // If file doesn't exist, that's fine - it's already deleted
-            if (
-              error instanceof Error &&
-              "code" in error &&
-              error.code !== "ENOENT"
-            ) {
-              const message =
-                error instanceof Error ? error.message : String(error);
-              this.logger.warn("Failed to delete asset from disk", {
-                assetName,
-                error: message,
-              });
-              result.errors.push(
-                `Failed to delete asset ${assetName}: ${message}`,
-              );
-            } else {
-              // File doesn't exist, count it as deleted
-              result.assetsDeleted++;
-            }
-          }
-        }
-        this.logger.consoleLogDevOnly("info", "Assets deleted from disk", {
-          count: result.assetsDeleted,
-        });
       }
 
       // Set success to false if any errors occurred
@@ -1317,11 +1321,9 @@ export class FileSyncService {
       return result;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      this.logger.error(
-        new Error(message),
-        "Selective file sync failed",
-        { prototypeId },
-      );
+      this.logger.error(new Error(message), "Selective file sync failed", {
+        prototypeId,
+      });
       result.errors.push(`Sync failed: ${message}`);
       result.success = false;
       return result;
