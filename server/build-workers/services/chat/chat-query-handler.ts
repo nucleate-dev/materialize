@@ -36,7 +36,7 @@ import { getToolDisplayName } from "./message-handlers.js";
 import { ToolPermissionService } from "./tool-permission-service.js";
 import { trackApiUsageBuildWorker } from "./usage-tracking.js";
 
-const ENABLE_FULL_SYNC = true;
+const ENABLE_FULL_SYNC = process.env.NODE_ENV === "production"; // in prod full sync for now to be safe. Dev test file watcher
 const HISTORY_MESSAGE_REQUEST_COUNT = 6;
 
 interface CodeSessionState {
@@ -48,7 +48,6 @@ interface CodeSessionState {
   abortController: AbortController | null;
   trackedFiles: Set<string>;
   modifiedFilesThisQuery: Set<string>;
-  fileWatcher: unknown | null;
   designSystemId: string | null;
   designSystemRules: string | null;
 }
@@ -1440,8 +1439,6 @@ export class ChatQueryHandler {
           "Syncing file changes to Supabase (incremental sync)",
           {
             prototypeId,
-            trackedFilesCount: sessionState.trackedFiles.size,
-            trackedFiles: Array.from(sessionState.trackedFiles),
           },
         );
         syncResult = await this.fileSyncService.syncFilesToSupabase(

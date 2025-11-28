@@ -1,3 +1,4 @@
+import chokidar from "chokidar";
 import fs from "fs/promises";
 import path from "path";
 import { SystemLogger } from "../loggers/SystemLogger.js";
@@ -44,6 +45,11 @@ export class FileSyncService {
   private readonly workDir: string;
   private readonly logger: SystemLogger;
   private readonly supabaseClientService: SupabaseClientService;
+  private fileWatcher?: chokidar.FSWatcher;
+  private readonly updatedFiles = new Set<string>();
+  private readonly updatedAssets = new Set<string>();
+  private readonly deletedFiles = new Set<string>();
+  private readonly deletedAssets = new Set<string>();
 
   // Binary file extensions (matching PublicApiService)
   private readonly binaryExtensions = [
@@ -86,6 +92,18 @@ export class FileSyncService {
     ".db",
     ".sqlite",
   ];
+  private readonly skipRootDirectories = new Set([
+    "node_modules",
+    ".git",
+    ".next",
+    "dist",
+    "build",
+    ".cache",
+    "tmp",
+    ".npm-cache",
+    ".expo",
+  ]);
+  private readonly skipFileNames = new Set([".DS_Store", ".npmrc", ".yarnrc"]);
 
   constructor(
     workDir: string,
@@ -95,6 +113,150 @@ export class FileSyncService {
     this.workDir = workDir;
     this.supabaseClientService = supabaseClientService;
     this.logger = logger.child({ service: "FileSyncService" });
+    this.initializeFileWatcher();
+  }
+
+  private initializeFileWatcher(): void {
+    if (this.fileWatcher) {
+      return;
+    }
+
+    try {
+      this.fileWatcher = chokidar
+        .watch(this.workDir, {
+          persistent: true,
+          ignoreInitial: true,
+          awaitWriteFinish: {
+            stabilityThreshold: 200,
+            pollInterval: 100,
+          },
+          ignored: (targetPath) => this.shouldIgnoreWatcherTarget(targetPath),
+        })
+        .on("add", (filePath) => this.handleWatcherUpdate(filePath))
+        .on("change", (filePath) => this.handleWatcherUpdate(filePath))
+        .on("unlink", (filePath) => this.handleWatcherDeletion(filePath))
+        .on("error", (error) => {
+          this.logger.warn("File watcher error", {
+            error: error instanceof Error ? error.message : String(error),
+          });
+        });
+
+      this.logger.consoleLogDevOnly("info", "Initialized file watcher", {
+        workDir: this.workDir,
+      });
+    } catch (error) {
+      this.logger.warn("Failed to initialize file watcher", {
+        workDir: this.workDir,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  private shouldIgnoreWatcherTarget(targetPath: string): boolean {
+    const relativePath = path.relative(this.workDir, targetPath);
+
+    if (relativePath === "") {
+      // Root directory itself
+      return false;
+    }
+
+    if (relativePath.startsWith("..")) {
+      return true;
+    }
+
+    return this.shouldSkipRelativePath(relativePath, path.basename(targetPath));
+  }
+
+  private handleWatcherUpdate(fullPath: string): void {
+    const relativePath = this.getTrackedRelativePath(fullPath);
+    if (!relativePath) {
+      return;
+    }
+
+    const isAsset = this.isBinaryFile(relativePath);
+    if (isAsset) {
+      this.updatedAssets.add(relativePath);
+      this.deletedAssets.delete(relativePath);
+      this.updatedFiles.delete(relativePath);
+      this.deletedFiles.delete(relativePath);
+    } else {
+      this.updatedFiles.add(relativePath);
+      this.deletedFiles.delete(relativePath);
+      this.updatedAssets.delete(relativePath);
+      this.deletedAssets.delete(relativePath);
+    }
+  }
+
+  private handleWatcherDeletion(fullPath: string): void {
+    const relativePath = this.getTrackedRelativePath(fullPath);
+    if (!relativePath) {
+      return;
+    }
+
+    const isAsset = this.isBinaryFile(relativePath);
+    if (isAsset) {
+      this.updatedAssets.delete(relativePath);
+      this.deletedAssets.add(relativePath);
+      this.updatedFiles.delete(relativePath);
+      this.deletedFiles.delete(relativePath);
+    } else {
+      this.updatedFiles.delete(relativePath);
+      this.deletedFiles.add(relativePath);
+      this.updatedAssets.delete(relativePath);
+      this.deletedAssets.delete(relativePath);
+    }
+  }
+
+  private getTrackedRelativePath(fullPath: string): string | null {
+    const relativePath = path.relative(this.workDir, fullPath);
+
+    if (!relativePath || relativePath.startsWith("..")) {
+      return null;
+    }
+
+    if (this.shouldSkipRelativePath(relativePath, path.basename(fullPath))) {
+      return null;
+    }
+
+    return relativePath;
+  }
+
+  private consumeFileWatcherChanges(): SyncTargets {
+    const targets: SyncTargets = {
+      files: Array.from(this.updatedFiles),
+      assets: Array.from(this.updatedAssets),
+      deletedFiles: Array.from(this.deletedFiles),
+      deletedAssets: Array.from(this.deletedAssets),
+    };
+
+    this.resetTrackedChanges();
+    return targets;
+  }
+
+  private resetTrackedChanges(): void {
+    this.updatedFiles.clear();
+    this.updatedAssets.clear();
+    this.deletedFiles.clear();
+    this.deletedAssets.clear();
+  }
+
+  private resetFileChangesOnly(): void {
+    this.updatedFiles.clear();
+    this.deletedFiles.clear();
+  }
+
+  private shouldSkipRelativePath(
+    relativePath: string,
+    entryName: string,
+  ): boolean {
+    const relativeSegments = relativePath.split(path.sep);
+    const topLevelSegment = relativeSegments[0];
+
+    if (topLevelSegment && this.skipRootDirectories.has(topLevelSegment)) {
+      return true;
+    }
+
+    return this.skipFileNames.has(entryName);
   }
 
   // ------------------------------------------------------------
@@ -171,6 +333,8 @@ export class FileSyncService {
   }
 
   private async loadAllSyncTargets(): Promise<SyncTargets> {
+    this.resetTrackedChanges();
+
     this.logger.consoleLogDevOnly(
       "info",
       "Scanning directory for full sync targets",
@@ -196,16 +360,12 @@ export class FileSyncService {
   }
 
   private async loadTrackedSyncTargets(): Promise<SyncTargets> {
-    // Placeholder implementation until tracked sync is reintroduced
-    return {
-      files: [],
-      assets: [],
-      deletedFiles: [],
-      deletedAssets: [],
-    };
+    return this.consumeFileWatcherChanges();
   }
 
   private async loadAllFilesOnlySyncTargets(): Promise<SyncTargets> {
+    this.resetFileChangesOnly();
+
     const allFiles = await this.scanDirectory(this.workDir);
     const { textFiles } = this.partitionFilesByType(allFiles);
 
@@ -237,25 +397,9 @@ export class FileSyncService {
           : entry.name;
 
         // Skip common top-level directories and special files only at root
-        const skipRootDirs = new Set([
-          "node_modules",
-          ".git",
-          ".next",
-          "dist",
-          "build",
-          ".cache",
-          "tmp",
-          ".npm-cache",
-          ".expo",
-        ]);
-        const skipFiles = new Set([".DS_Store", ".npmrc", ".yarnrc"]);
-
-        const relativeSegments = entryRelativePath.split(path.sep);
-        const isTopLevelSkip =
-          relativeSegments.length > 0 && skipRootDirs.has(relativeSegments[0]);
-        const isSkippedFile = skipFiles.has(entry.name);
-
-        if (isTopLevelSkip || isSkippedFile) continue;
+        if (this.shouldSkipRelativePath(entryRelativePath, entry.name)) {
+          continue;
+        }
 
         if (entry.isDirectory()) {
           // Recursively scan subdirectories
