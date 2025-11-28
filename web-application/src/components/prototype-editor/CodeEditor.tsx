@@ -428,7 +428,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
   }, [currentRenderStatus, saveMode, userPlan]);
 
   // --- Handlers ---
-  const handleCreateFile = () => {
+  const handleCreateFile = async () => {
     if (userPlan === "free")
       return setNewFileError("Upgrade plan to create files");
     if (!newFileName.trim()) return setNewFileError("File name is required");
@@ -472,10 +472,30 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
       }
     };
 
-    fileSystem.createFile(fileName, getDefaultContent(fileName));
-    setShowNewFileModal(false);
-    setNewFileName("");
-    setNewFileError("");
+    setIsSaving(true);
+    onBuildingStateChange?.(true);
+
+    try {
+      const content = getDefaultContent(fileName);
+      const result = await fileSystem.syncFilesAndAssets({
+        filesToUpsert: [{ name: fileName, content }],
+      });
+
+      if (result.success) {
+        fileSystem.selectFile(fileName);
+        setShowNewFileModal(false);
+        setNewFileName("");
+        setNewFileError("");
+      } else {
+        setNewFileError("Failed to create file. Please try again.");
+      }
+    } catch (error) {
+      logger.debug("error", "Error creating file");
+      setNewFileError("Failed to create file. Please try again.");
+    } finally {
+      setIsSaving(false);
+      onBuildingStateChange?.(false);
+    }
   };
 
   const handleDeleteFile = () => {
@@ -1886,7 +1906,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
                 Cancel
               </Button>
               <Button
-                onClick={handleCreateFile}
+                onClick={() => void handleCreateFile()}
                 className="bg-white text-black hover:bg-white/90 rounded-full font-semibold"
               >
                 Create File

@@ -36,9 +36,6 @@ export interface FileSystemActions {
   loadFilesFromDatabase: (prototypeId: string) => Promise<void>;
   loadAssetsFromDatabase: (prototypeId: string) => Promise<void>;
 
-  // File management operations (DB only, no rebuild)
-  createFile: (fileName: string, initialContent?: string) => Promise<void>;
-
   // Unified function to sync all file/asset operations in one batch
   syncFilesAndAssets: (params: {
     filesToUpsert?: Array<{ name: string; content: string }>;
@@ -73,7 +70,7 @@ export const useFileSystem = (
   const SUPABASE_PROTOTYPE_ASSETS_BUCKET = "prototype-assets";
 
   // Utility function to split array into chunks for batching
-  const chunkArray = useCallback(<T,>(array: T[], size: number): T[][] => {
+  const chunkArray = useCallback(<T>(array: T[], size: number): T[][] => {
     const chunks: T[][] = [];
     for (let i = 0; i < array.length; i += size) {
       chunks.push(array.slice(i, i + size));
@@ -376,134 +373,6 @@ export const useFileSystem = (
     return files[selectedFile]?.contents || "";
   }, [files, selectedFile]);
 
-  // Create a new file
-  const createFile = useCallback(
-    async (fileName: string, initialContent = "") => {
-      // Prevent file creation for free users
-      if (userPlan === "free") {
-        logger.debug(
-          "error",
-          "Create file failed: free users cannot create files",
-        );
-        return;
-      }
-
-      if (!prototypeId) {
-        logger.debug("error", "Create file failed: no prototype ID");
-        return;
-      }
-
-      if (files[fileName]) {
-        logger.debug("error", "File already exists:", {
-          fileName,
-        });
-        return;
-      }
-
-      try {
-        // Create file in database
-        const { data: newFile, error } = await supabase
-          .from("prototype_files")
-          .insert({
-            prototype_id: prototypeId,
-            name: fileName,
-            contents: initialContent,
-          })
-          .select()
-          .single();
-
-        if (error) {
-          logger.debug("error", `Error creating file ${fileName}:`, {
-            ...error,
-          });
-          return;
-        }
-
-        // Update local state
-        setFiles((prevFiles) => ({
-          ...prevFiles,
-          [fileName]: newFile,
-        }));
-
-        // Select the new file
-        setSelectedFile(fileName);
-      } catch (error) {
-        logger.debug("error", `Error creating file ${fileName}:`, {
-          error: error instanceof Error ? error.message : String(error),
-          stack: error instanceof Error ? error.stack : undefined,
-        });
-      }
-    },
-    [prototypeId, files, logger, userPlan],
-  );
-
-  // Delete a file
-  const deleteFile = useCallback(
-    async (fileName: string) => {
-      // Prevent file deletion for free users
-      if (userPlan === "free") {
-        logger.debug(
-          "error",
-          "Delete file failed: free users cannot delete files",
-        );
-        return;
-      }
-
-      if (!prototypeId) {
-        logger.debug("error", "Delete file failed: no prototype ID");
-        return;
-      }
-
-      const fileToDelete = files[fileName];
-      if (!fileToDelete) {
-        logger.debug("error", "File not found:", {
-          fileName,
-        });
-        return;
-      }
-
-      // Prevent deleting the last file
-      if (Object.keys(files).length <= 1) {
-        logger.debug("error", "Cannot delete the last file");
-        return;
-      }
-
-      try {
-        // Delete file from database
-        const { error } = await supabase
-          .from("prototype_files")
-          .delete()
-          .eq("id", fileToDelete.id);
-
-        if (error) {
-          logger.debug("error", `Error deleting file ${fileName}:`, {
-            ...error,
-          });
-          return;
-        }
-
-        // Update local state
-        const newFiles = { ...files };
-        delete newFiles[fileName];
-        setFiles(newFiles);
-
-        // If the deleted file was selected, select another file
-        if (selectedFile === fileName) {
-          const remainingFiles = Object.keys(newFiles);
-          if (remainingFiles.length > 0) {
-            setSelectedFile(remainingFiles[0]);
-          }
-        }
-      } catch (error) {
-        logger.debug("error", `Error deleting file ${fileName}:`, {
-          error: error instanceof Error ? error.message : String(error),
-          stack: error instanceof Error ? error.stack : undefined,
-        });
-      }
-    },
-    [prototypeId, files, selectedFile, logger, userPlan],
-  );
-
   // Unified function to sync all file/asset operations in one batch
   const syncFilesAndAssets = useCallback(
     async (params: {
@@ -541,7 +410,10 @@ export const useFileSystem = (
         // 1. Upsert files in Supabase with batching
         // Realtime subscription will automatically update local state
         if (filesToUpsert.length > 0) {
-          const chunks = chunkArray(filesToUpsert, BATCH_CONFIG.FILE_UPSERT_BATCH_SIZE);
+          const chunks = chunkArray(
+            filesToUpsert,
+            BATCH_CONFIG.FILE_UPSERT_BATCH_SIZE,
+          );
 
           for (let i = 0; i < chunks.length; i++) {
             const chunk = chunks[i];
@@ -573,7 +445,7 @@ export const useFileSystem = (
             // Small delay between batches
             if (i < chunks.length - 1) {
               await new Promise((resolve) =>
-                setTimeout(resolve, BATCH_CONFIG.BATCH_DELAY_MS)
+                setTimeout(resolve, BATCH_CONFIG.BATCH_DELAY_MS),
               );
             }
           }
@@ -610,7 +482,7 @@ export const useFileSystem = (
           // Process assets in chunks for controlled concurrency
           const uploadChunks = chunkArray(
             assetsToUpload,
-            BATCH_CONFIG.ASSET_UPLOAD_CONCURRENCY
+            BATCH_CONFIG.ASSET_UPLOAD_CONCURRENCY,
           );
 
           for (const uploadChunk of uploadChunks) {
@@ -644,10 +516,11 @@ export const useFileSystem = (
                 } catch (error) {
                   logger.debug("error", "Error uploading asset", {
                     assetPath: assetToUpload.path,
-                    error: error instanceof Error ? error.message : String(error),
+                    error:
+                      error instanceof Error ? error.message : String(error),
                   });
                 }
-              })
+              }),
             );
           }
 
@@ -676,7 +549,7 @@ export const useFileSystem = (
         if (assetsToDelete.length > 0) {
           // Bulk delete from storage
           const storagePaths = assetsToDelete.map(
-            (assetPath) => `${prototypeId}/${assetPath}`
+            (assetPath) => `${prototypeId}/${assetPath}`,
           );
           const { error: storageError } = await supabase.storage
             .from(SUPABASE_PROTOTYPE_ASSETS_BUCKET)
@@ -697,10 +570,14 @@ export const useFileSystem = (
             .in("name", assetsToDelete);
 
           if (dbError) {
-            logger.debug("error", "Failed to bulk delete assets from database", {
-              assetsCount: assetsToDelete.length,
-              error: dbError.message,
-            });
+            logger.debug(
+              "error",
+              "Failed to bulk delete assets from database",
+              {
+                assetsCount: assetsToDelete.length,
+                error: dbError.message,
+              },
+            );
           }
         }
 
@@ -783,7 +660,6 @@ export const useFileSystem = (
     setSandboxUrl,
     loadFilesFromDatabase,
     loadAssetsFromDatabase,
-    createFile,
     syncFilesAndAssets,
   };
 
