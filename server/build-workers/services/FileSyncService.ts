@@ -3,12 +3,12 @@ import type { Dirent } from "fs";
 import fs from "fs/promises";
 import path from "path";
 import { SystemLogger } from "../loggers/SystemLogger.js";
-import { Database } from "../types/supabase.js";
 import {
-  PrototypeFileInput,
   PrototypeAssetInput,
   PrototypeAssetInputWithContent,
+  PrototypeFileInput,
 } from "../types/BuildWorkerTypes.js";
+import { Database } from "../types/supabase.js";
 import { writeProjectFiles } from "../utils/shared-utils.js";
 import { SupabaseClientService } from "./SupabaseClientService.js";
 
@@ -1244,10 +1244,10 @@ export class FileSyncService {
                     if (downloadError || !data) {
                       this.logger.warn("Failed to download asset", {
                         assetName: asset.name,
-                        error: downloadError?.message ?? "unknown error",
+                        error: JSON.stringify(downloadError),
                       });
                       result.errors.push(
-                        `Failed to download asset ${asset.name}: ${downloadError?.message ?? "unknown error"}`,
+                        `Failed to download asset ${asset.name}: ${JSON.stringify(downloadError)}`,
                       );
                       return;
                     }

@@ -95,8 +95,8 @@ function HeroSection() {
   };
 
   return (
-    <section className="relative pt-32 pb-24 lg:pt-48 lg:pb-32 px-6">
-      <div className="container mx-auto max-w-5xl">
+    <section className="relative min-h-screen flex flex-col justify-center px-6 py-20">
+      <div className="container mx-auto max-w-5xl w-full">
 
         {/* Hero Badge */}
         {/* <div className="flex justify-center mb-8">

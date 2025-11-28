@@ -379,7 +379,67 @@ export const useFileSystem = (
         const allFileNames: string[] = [];
         const allAssetNames: string[] = [];
 
-        // 1. Upsert files in Supabase with batching
+        // PHASE 1: Delete operations (must complete before upserts to avoid conflicts)
+        // This is critical for project root uploads where we delete everything first
+
+        // 1. Delete files from Supabase with bulk operation
+        // Realtime subscription will automatically update local state
+        if (filesToDelete.length > 0) {
+          // Use bulk delete with .in() for efficiency
+          const { error } = await supabase
+            .from("prototype_files")
+            .delete()
+            .eq("prototype_id", prototypeId)
+            .in("name", filesToDelete);
+
+          if (error) {
+            logger.debug("error", "Error bulk deleting files:", {
+              filesCount: filesToDelete.length,
+              error,
+            });
+          }
+        }
+
+        // 2. Delete assets from Supabase with bulk operations
+        // Realtime subscription will automatically update local state
+        if (assetsToDelete.length > 0) {
+          // Bulk delete from storage
+          const storagePaths = assetsToDelete.map(
+            (assetPath) => `${prototypeId}/${assetPath}`,
+          );
+          const { error: storageError } = await supabase.storage
+            .from(SUPABASE_PROTOTYPE_ASSETS_BUCKET)
+            .remove(storagePaths);
+
+          if (storageError) {
+            logger.debug("error", "Failed to bulk delete assets from storage", {
+              assetsCount: assetsToDelete.length,
+              error: storageError.message,
+            });
+          }
+
+          // Bulk delete from database
+          const { error: dbError } = await supabase
+            .from("prototype_assets")
+            .delete()
+            .eq("prototype_id", prototypeId)
+            .in("name", assetsToDelete);
+
+          if (dbError) {
+            logger.debug(
+              "error",
+              "Failed to bulk delete assets from database",
+              {
+                assetsCount: assetsToDelete.length,
+                error: dbError.message,
+              },
+            );
+          }
+        }
+
+        // PHASE 2: Upsert operations (after deletions complete)
+
+        // 3. Upsert files in Supabase with batching
         // Realtime subscription will automatically update local state
         if (filesToUpsert.length > 0) {
           const chunks = chunkArray(
@@ -423,25 +483,7 @@ export const useFileSystem = (
           }
         }
 
-        // 2. Delete files from Supabase with bulk operation
-        // Realtime subscription will automatically update local state
-        if (filesToDelete.length > 0) {
-          // Use bulk delete with .in() for efficiency
-          const { error } = await supabase
-            .from("prototype_files")
-            .delete()
-            .eq("prototype_id", prototypeId)
-            .in("name", filesToDelete);
-
-          if (error) {
-            logger.debug("error", "Error bulk deleting files:", {
-              filesCount: filesToDelete.length,
-              error,
-            });
-          }
-        }
-
-        // 3. Upload assets to Supabase storage with controlled concurrency
+        // 4. Upload assets to Supabase storage with controlled concurrency
         // Realtime subscription will automatically update local state
         if (assetsToUpload.length > 0) {
           const successfulUploads: Array<PrototypeAssetInsert> = [];
@@ -507,43 +549,6 @@ export const useFileSystem = (
               // Add successfully uploaded asset names
               allAssetNames.push(...successfulUploads.map((a) => a.name));
             }
-          }
-        }
-
-        // 4. Delete assets from Supabase with bulk operations
-        // Realtime subscription will automatically update local state
-        if (assetsToDelete.length > 0) {
-          // Bulk delete from storage
-          const storagePaths = assetsToDelete.map(
-            (assetPath) => `${prototypeId}/${assetPath}`,
-          );
-          const { error: storageError } = await supabase.storage
-            .from(SUPABASE_PROTOTYPE_ASSETS_BUCKET)
-            .remove(storagePaths);
-
-          if (storageError) {
-            logger.debug("error", "Failed to bulk delete assets from storage", {
-              assetsCount: assetsToDelete.length,
-              error: storageError.message,
-            });
-          }
-
-          // Bulk delete from database
-          const { error: dbError } = await supabase
-            .from("prototype_assets")
-            .delete()
-            .eq("prototype_id", prototypeId)
-            .in("name", assetsToDelete);
-
-          if (dbError) {
-            logger.debug(
-              "error",
-              "Failed to bulk delete assets from database",
-              {
-                assetsCount: assetsToDelete.length,
-                error: dbError.message,
-              },
-            );
           }
         }
 

@@ -23,11 +23,11 @@
     "gen:supabase:types": "supabase gen types typescript --project-id hfgjmwidcoszkmvejxhw --schema public > types/supabase.ts"
   },
   "dependencies": {
-    "@anthropic-ai/claude-agent-sdk": "^0.1.49",
+    "@anthropic-ai/claude-agent-sdk": "^0.1.55",
     "@aws-sdk/client-s3": "^3.937.0",
     "@fastify/cors": "^11.1.0",
     "@fastify/websocket": "^11.2.0",
-    "@supabase/supabase-js": "^2.84.0",
+    "@supabase/supabase-js": "^2.86.0",
     "axios": "^1.7.9",
     "dotenv": "^16.4.5",
     "fastify": "^5.6.2",
