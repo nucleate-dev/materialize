@@ -531,7 +531,11 @@ export default function InternalPrototypePage() {
         normalizedUrl = "https://" + normalizedUrl;
       }
     }
-    fileSystem.setSandboxUrl(normalizedUrl);
+    const finalNormalizedUrl =
+      (process.env.NEXT_PUBLIC_FARGATE_DEV_MODE === "true"
+        ? process.env.NEXT_PUBLIC_INTERNAL_BUILD_WORKERS_SERVER_ENDPOINT
+        : null) || normalizedUrl;
+    fileSystem.setSandboxUrl(finalNormalizedUrl);
   }, [baseTunnelUrl, fileSystem.setSandboxUrl]);
 
   // USE EFFECT PURPOSE: to poll the fetch viewing url endpoint in case build status changes
@@ -1008,8 +1012,8 @@ export default function InternalPrototypePage() {
         {/* Left Panel - Claude Code */}
         <div
           className={`${isMobile
-              ? `${activePanel === "chat" ? "flex" : "hidden"} w-full h-full`
-              : "flex"
+            ? `${activePanel === "chat" ? "flex" : "hidden"} w-full h-full`
+            : "flex"
             } flex-col relative z-10 bg-[#0B0C0E] overflow-hidden`}
           style={
             isMobile
@@ -1061,8 +1065,8 @@ export default function InternalPrototypePage() {
         {/* Right Panel - Preview/Code Toggle */}
         <div
           className={`${isMobile
-              ? `${activePanel === "preview" ? "flex" : "hidden"} w-full h-full`
-              : "flex"
+            ? `${activePanel === "preview" ? "flex" : "hidden"} w-full h-full`
+            : "flex"
             } flex-col relative z-10 bg-[#0B0C0E] overflow-hidden`}
           style={
             isMobile
@@ -1344,8 +1348,8 @@ export default function InternalPrototypePage() {
               </div>
               <label
                 className={`relative inline-flex items-center ${!IsUserPlanSubscribed(userPlan) && !isPublic
-                    ? "opacity-50 cursor-not-allowed"
-                    : "cursor-pointer"
+                  ? "opacity-50 cursor-not-allowed"
+                  : "cursor-pointer"
                   }`}
               >
                 <input
