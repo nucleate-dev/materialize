@@ -270,10 +270,6 @@ export class MaterializeDevelopmentServerService {
         request.log2.warn("No Anthropic API key provided");
       }
 
-      // Restore Claude session files from Supabase for this prototype
-      // TODO: move this to the file sync service initial sync functionality
-      await this.restoreClaudeSessions(prototypeId, request.log2);
-
       reply.status(200);
       return {
         data: {
@@ -1349,53 +1345,4 @@ export class MaterializeDevelopmentServerService {
     return binaryExtensions.includes(ext);
   }
 
-  /**
-   * Restores Claude session .jsonl files from Supabase Storage to ~/.claude/projects/
-   */
-  private async restoreClaudeSessions(
-    prototypeId: string,
-    log2: SystemLogger,
-  ): Promise<void> {
-    try {
-      // Import utility function
-      const { restoreClaudeSessionsFromSupabase } = await import(
-        "../../utils/shared-utils.js"
-      );
-
-      // Restore all session files from Storage
-      const result = await restoreClaudeSessionsFromSupabase(
-        prototypeId,
-        this.supabaseClientService.getClient(),
-        log2,
-      );
-
-      // Register restored session IDs with CodeService for validation
-      if (result.restoredSessionIds.length > 0) {
-        this.codeService.registerValidSessionIds(result.restoredSessionIds);
-        log2.consoleLogDevOnly(
-          "info",
-          "Registered restored Claude sessions with CodeService",
-          {
-            prototypeId,
-            restoredCount: result.restoredSessionIds.length,
-          },
-        );
-      }
-
-      // Log any errors but don't fail the allocation
-      if (result.errors.length > 0) {
-        log2.warn("Claude session restoration had errors", {
-          prototypeId,
-          errorCount: result.errors.length,
-          errors: result.errors,
-        });
-      }
-    } catch (error) {
-      log2.error(
-        error instanceof Error ? error : new Error(String(error)),
-        "Error restoring Claude sessions",
-        { prototypeId },
-      );
-    }
-  }
 }

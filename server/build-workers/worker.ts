@@ -88,6 +88,15 @@ export const fileSyncService = new FileSyncService(
   baseLogger,
 );
 
+const sandboxService = new SandboxService(
+  app,
+  WORK_DIR,
+  baseLogger,
+  terminalService,
+);
+
+// Create ExpoDevServerService with undefined chatService (will be set after ChatService is created)
+// This is needed to break the circular dependency between ChatService and ExpoDevServerService
 const expoDevServerService = new ExpoDevServerService(
   WORK_DIR,
   defaultS3Client,
@@ -95,17 +104,9 @@ const expoDevServerService = new ExpoDevServerService(
   baseLogger,
   supabaseClientService,
   fileSyncService,
+  undefined!, // chatService - will be set after ChatService is created
 );
-const sandboxService = new SandboxService(
-  app,
-  WORK_DIR,
-  baseLogger,
-  terminalService,
-);
-const cloudflareTunnelManagementService = new CloudflareTunnelManagementService(
-  WORK_DIR,
-  baseLogger,
-);
+
 const chatService = new ChatService(
   app,
   WORK_DIR,
@@ -115,6 +116,15 @@ const chatService = new ChatService(
   expoDevServerService,
   terminalService,
   fileSyncService,
+);
+
+// Now set the chatService reference in ExpoDevServerService
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+(expoDevServerService as any).chatService = chatService;
+
+const cloudflareTunnelManagementService = new CloudflareTunnelManagementService(
+  WORK_DIR,
+  baseLogger,
 );
 const publicApiService = new MaterializeDevelopmentServerService(
   expoDevServerService,

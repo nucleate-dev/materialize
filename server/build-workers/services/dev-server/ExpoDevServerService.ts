@@ -26,6 +26,7 @@ import {
   resolvePathWithinProject,
   writeProjectFiles,
 } from "../../utils/shared-utils.js";
+import { ChatService } from "../chat/ChatService.js";
 import { FileSyncService } from "../FileSyncService.js";
 import { SupabaseClientService } from "../SupabaseClientService.js";
 import { TerminalService } from "../terminals/TerminalService.js";
@@ -113,6 +114,7 @@ export class ExpoDevServerService {
   private readonly terminalService: TerminalService;
   private readonly supabaseClientService: SupabaseClientService;
   private readonly fileSyncService: FileSyncService;
+  private readonly chatService: ChatService;
 
   constructor(
     workDir: string = "/tmp/materialize-dev-server",
@@ -121,6 +123,7 @@ export class ExpoDevServerService {
     logger: SystemLogger,
     supabaseClientService: SupabaseClientService,
     fileSyncService: FileSyncService,
+    chatService: ChatService,
   ) {
     this.workDir = workDir;
     this.s3 = s3Instance;
@@ -129,6 +132,7 @@ export class ExpoDevServerService {
     this.logger = logger;
     this.supabaseClientService = supabaseClientService;
     this.fileSyncService = fileSyncService;
+    this.chatService = chatService;
   }
 
   public getState(): DevServerState {
@@ -204,6 +208,9 @@ export class ExpoDevServerService {
           error: errorMsg,
         };
       }
+
+      // Restore Claude session files from Supabase after fetching project files
+      await this.restoreClaudeSessions(prototype_id, log2);
 
       // Handle file scope (fixed path per instance)
       const projectDir = this.workDir;
@@ -1927,5 +1934,55 @@ export class ExpoDevServerService {
       result.stderr,
     );
     return distPath;
+  }
+
+  /**
+   * Restores Claude session .jsonl files from Supabase Storage to ~/.claude/projects/
+   */
+  private async restoreClaudeSessions(
+    prototypeId: string,
+    log2: SystemLogger,
+  ): Promise<void> {
+    try {
+      // Import utility function
+      const { restoreClaudeSessionsFromSupabase } = await import(
+        "../../utils/shared-utils.js"
+      );
+
+      // Restore all session files from Storage
+      const result = await restoreClaudeSessionsFromSupabase(
+        prototypeId,
+        this.supabaseClientService.getClient(),
+        log2,
+      );
+
+      // Register restored session IDs with ChatService for validation
+      if (result.restoredSessionIds.length > 0) {
+        this.chatService.registerValidSessionIds(result.restoredSessionIds);
+        log2.consoleLogDevOnly(
+          "info",
+          "Registered restored Claude sessions with ChatService",
+          {
+            prototypeId,
+            restoredCount: result.restoredSessionIds.length,
+          },
+        );
+      }
+
+      // Log any errors but don't fail the dev server start
+      if (result.errors.length > 0) {
+        log2.warn("Claude session restoration had errors", {
+          prototypeId,
+          errorCount: result.errors.length,
+          errors: result.errors,
+        });
+      }
+    } catch (error) {
+      log2.error(
+        error instanceof Error ? error : new Error(String(error)),
+        "Error restoring Claude sessions",
+        { prototypeId },
+      );
+    }
   }
 }
