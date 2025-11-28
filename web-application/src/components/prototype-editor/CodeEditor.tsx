@@ -78,11 +78,6 @@ interface CodeEditorProps {
   saveMode?: "single-file" | "all-files";
   currentRenderStatus?: RenderStatus;
   onFilesSaved?: (fileNames: string[], assetNames?: string[]) => void;
-  onAssetsChanged?: (
-    assetIds?: string[],
-    deletedAssetIds?: string[],
-    names?: string[],
-  ) => void;
 }
 
 const ROOT_FOLDER_VALUE = "__ROOT__";
@@ -133,7 +128,6 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
   saveMode = "single-file",
   currentRenderStatus,
   onFilesSaved,
-  onAssetsChanged,
 }) => {
   const logger = useProductLogger();
   const router = useRouter();
@@ -974,17 +968,10 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
 
     try {
       const wasAsset = isAsset(fileName);
-      const result = await fileSystem.syncFilesAndAssets({
+      await fileSystem.syncFilesAndAssets({
         filesToDelete: wasAsset ? [] : [fileName],
         assetsToDelete: wasAsset ? [fileName] : [],
       });
-
-      if (wasAsset && result.success) {
-        const deletedIds = fileSystem.state.assets[fileName]?.id
-          ? [fileSystem.state.assets[fileName].id]
-          : [];
-        onAssetsChanged?.([], deletedIds, [fileName]);
-      }
     } catch (error) {
       logger.debug("error", "Error deleting file");
     } finally {

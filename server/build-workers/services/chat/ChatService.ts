@@ -350,9 +350,6 @@ export class ChatService {
         // await this.handleResetSession(socket);
         break;
 
-      case ChatClientEvent.SYNC_FILES:
-        break;
-
       case ChatClientEvent.HISTORY_RESPONSE:
         await this.handleHistoryResponse(socket, message.data, prototypeId);
         break;

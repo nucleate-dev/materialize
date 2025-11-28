@@ -182,8 +182,6 @@ export default function InternalPrototypePage() {
     isConnecting: claudeCodeWSConnecting,
     connect: connectClaudeCodeWS,
     disconnect: disconnectClaudeCodeWS,
-    sendSyncFiles,
-    sendAssetsChanged,
   } = useClaudeCodeWebSocket({
     prototypeId,
     baseTunnelUrl,
@@ -193,30 +191,15 @@ export default function InternalPrototypePage() {
   // Handler for when files are saved in CodeEditor
   const handleFilesSaved = useCallback(
     (fileNames: string[], assetNames: string[] = []) => {
-      // Immediately sync files to Claude Code working directory
-      if (claudeCodeWSConnected) {
-        logger.debug("log", "Triggering Claude Code file sync", {
-          fileNames,
-          assetNames,
-        });
-        sendSyncFiles(prototypeId, fileNames, assetNames);
-
-        if (assetNames.length > 0) {
-          const assetIds = assetNames
-            .map((name) => fileSystem.state.assets[name]?.id)
-            .filter(Boolean) as string[];
-          sendAssetsChanged(prototypeId, assetIds, [], assetNames);
-        }
+      if (!claudeCodeWSConnected) {
+        return;
       }
+      logger.debug("log", "Files saved in editor", {
+        fileNames,
+        assetNames,
+      });
     },
-    [
-      claudeCodeWSConnected,
-      sendSyncFiles,
-      sendAssetsChanged,
-      prototypeId,
-      logger,
-      fileSystem.state.assets,
-    ],
+    [claudeCodeWSConnected, logger],
   );
 
   const handleChatRestartDevServerComplete = useCallback(() => {
@@ -899,10 +882,6 @@ export default function InternalPrototypePage() {
         assetsToDelete,
       });
 
-      if (deletedAssetIds.length > 0 || deletedAssetNames.length > 0) {
-        sendAssetsChanged(prototypeId, [], deletedAssetIds, deletedAssetNames);
-      }
-
       // Close dialog
       setShowDeleteConfirm(false);
       setDeleteTarget(null);
@@ -920,7 +899,6 @@ export default function InternalPrototypePage() {
     logger,
     fileSystem,
     fileSystem.state.assets,
-    sendAssetsChanged,
   ]);
 
   const handleFileUpload = useCallback(
@@ -981,18 +959,6 @@ export default function InternalPrototypePage() {
           assetsToUpload,
         });
 
-        if (result.success && assetsToUpload.length > 0) {
-          const assetIds = assetsToUpload
-            .map((a) => fileSystem.state.assets[a.path]?.id)
-            .filter(Boolean) as string[];
-          sendAssetsChanged(
-            prototypeId,
-            assetIds,
-            [],
-            assetsToUpload.map((a) => a.path),
-          );
-        }
-
         logger.debug("log", "Files uploaded via drag and drop", {
           fileCount: files.length,
           targetPath: resolvedTargetPath,
@@ -1004,7 +970,7 @@ export default function InternalPrototypePage() {
         });
       }
     },
-    [prototypeId, fileSystem, logger, sendAssetsChanged],
+    [prototypeId, fileSystem, logger],
   );
 
   if (
@@ -1236,9 +1202,6 @@ export default function InternalPrototypePage() {
                               onViewingUrlUpdate={setViewingUrl}
                               currentRenderStatus={currentRenderStatus}
                               onFilesSaved={handleFilesSaved}
-                              onAssetsChanged={(assetIds = [], deletedAssetIds = [], names = []) =>
-                                sendAssetsChanged(prototypeId, assetIds, deletedAssetIds, names)
-                              }
                             />
                           </div>
                         )}
@@ -1275,9 +1238,6 @@ export default function InternalPrototypePage() {
                           onViewingUrlUpdate={setViewingUrl}
                           currentRenderStatus={currentRenderStatus}
                           onFilesSaved={handleFilesSaved}
-                          onAssetsChanged={(assetIds = [], deletedAssetIds = [], names = []) =>
-                            sendAssetsChanged(prototypeId, assetIds, deletedAssetIds, names)
-                          }
                         />
                       </div>
                     </>
