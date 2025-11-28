@@ -75,10 +75,7 @@ type Prototype = Database["public"]["Tables"]["prototypes"]["Row"];
 type DesignStyle = Database["public"]["Enums"]["design_style"];
 type DesignSystemRow = Database["public"]["Tables"]["design_systems"]["Row"];
 
-const DESIGN_STYLE_OPTIONS: DesignStyle[] = [
-  "stylesheets",
-  "nativewind",
-];
+const DESIGN_STYLE_OPTIONS: DesignStyle[] = ["stylesheets", "nativewind"];
 
 const DESIGN_STYLE_LABELS: Record<DesignStyle, string> = {
   tamagui: "Tamagui",
@@ -100,7 +97,7 @@ export default function InternalPrototypePage() {
   const router = useRouter();
   const { user, userIsLoading } = useUser();
   const { userPlan } = useSubscriptionAccess();
-  const params = useParams<{ prototype_id: string; }>();
+  const params = useParams<{ prototype_id: string }>();
   const prototypeId = params?.prototype_id;
   const logger = useProductLogger();
   const setSidebarOpen = useSetAtom(sidebarOpenAtom);
@@ -167,7 +164,7 @@ export default function InternalPrototypePage() {
   >(new Map());
 
   const handleClaudeCodeMessage = useCallback(
-    (message: { type: string; data: unknown; }) => {
+    (message: { type: string; data: unknown }) => {
       const parsedMessage = message as ChatServerMessage;
       claudeCodeWSMessageHandlers.current.forEach((handler) =>
         handler(parsedMessage),
@@ -210,23 +207,6 @@ export default function InternalPrototypePage() {
     materializeRenderRef.current?.forceRefresh();
   }, [logger]);
 
-  const handleRefetchFiles = useCallback(() => {
-    if (!claudeCodeWS || !claudeCodeWSConnected || !prototypeId) {
-      logger.debug("log", "Cannot refetch files: WebSocket not connected or prototypeId missing");
-      return;
-    }
-
-    logger.debug("log", "Sending refetch files request");
-    claudeCodeWS.send(
-      JSON.stringify({
-        type: ChatClientEvent.REFETCH_FILES,
-        data: {
-          prototype_id: prototypeId,
-        },
-      }),
-    );
-  }, [claudeCodeWS, claudeCodeWSConnected, prototypeId, logger]);
-
   const canEditDesignSystem = Boolean(
     prototype && user && prototype.owner_id === user.id,
   );
@@ -236,8 +216,8 @@ export default function InternalPrototypePage() {
   const designSystemBadgeLabel = DESIGN_STYLE_LABELS[currentDesignStyle];
   const currentCustomDesignSystemName = currentCustomDesignSystemId
     ? designSystems.find(
-      (system) => String(system.id) === currentCustomDesignSystemId,
-    )?.name || "Custom design system"
+        (system) => String(system.id) === currentCustomDesignSystemId,
+      )?.name || "Custom design system"
     : undefined;
   const canEditPrototype = Boolean(
     prototype && user && prototype.owner_id === user?.id,
@@ -544,7 +524,10 @@ export default function InternalPrototypePage() {
     if (normalizedUrl) {
       if (normalizedUrl.startsWith("wss://")) {
         normalizedUrl = "https://" + normalizedUrl.substring(6);
-      } else if (!normalizedUrl.startsWith("http://") && !normalizedUrl.startsWith("https://")) {
+      } else if (
+        !normalizedUrl.startsWith("http://") &&
+        !normalizedUrl.startsWith("https://")
+      ) {
         normalizedUrl = "https://" + normalizedUrl;
       }
     }
@@ -688,10 +671,10 @@ export default function InternalPrototypePage() {
       setPrototype((prev) =>
         prev
           ? {
-            ...prev,
-            design_style: dialogDesignStyle,
-            custom_design_system: nextCustomDesignSystem,
-          }
+              ...prev,
+              design_style: dialogDesignStyle,
+              custom_design_system: nextCustomDesignSystem,
+            }
           : prev,
       );
       handleDesignSystemDialogOpenChange(false);
@@ -893,13 +876,7 @@ export default function InternalPrototypePage() {
     } finally {
       setIsDeleting(false);
     }
-  }, [
-    deleteTarget,
-    prototypeId,
-    logger,
-    fileSystem,
-    fileSystem.state.assets,
-  ]);
+  }, [deleteTarget, prototypeId, logger, fileSystem, fileSystem.state.assets]);
 
   const handleFileUpload = useCallback(
     async (files: File[], targetPath?: string) => {
@@ -1030,10 +1007,11 @@ export default function InternalPrototypePage() {
       >
         {/* Left Panel - Claude Code */}
         <div
-          className={`${isMobile
-            ? `${activePanel === "chat" ? "flex" : "hidden"} w-full h-full`
-            : "flex"
-            } flex-col relative z-10 bg-[#0B0C0E] overflow-hidden`}
+          className={`${
+            isMobile
+              ? `${activePanel === "chat" ? "flex" : "hidden"} w-full h-full`
+              : "flex"
+          } flex-col relative z-10 bg-[#0B0C0E] overflow-hidden`}
           style={
             isMobile
               ? { height: "100%" }
@@ -1087,10 +1065,11 @@ export default function InternalPrototypePage() {
 
         {/* Right Panel - Preview/Code Toggle */}
         <div
-          className={`${isMobile
-            ? `${activePanel === "preview" ? "flex" : "hidden"} w-full h-full`
-            : "flex"
-            } flex-col relative z-10 bg-[#0B0C0E] overflow-hidden`}
+          className={`${
+            isMobile
+              ? `${activePanel === "preview" ? "flex" : "hidden"} w-full h-full`
+              : "flex"
+          } flex-col relative z-10 bg-[#0B0C0E] overflow-hidden`}
           style={
             isMobile
               ? {}
@@ -1129,7 +1108,6 @@ export default function InternalPrototypePage() {
               onShare={handleShare}
               onClone={handleClone}
               isCloningPrototype={isCloningPrototype}
-              onRefetchFiles={handleRefetchFiles}
               codeView={
                 <div className={`flex h-full ${isMobile ? "flex-col" : ""}`}>
                   {isMobile ? (
@@ -1257,7 +1235,9 @@ export default function InternalPrototypePage() {
       >
         <AlertDialogContent className="bg-background border-border text-foreground">
           <AlertDialogHeader>
-            <AlertDialogTitle className="text-foreground">Change design system</AlertDialogTitle>
+            <AlertDialogTitle className="text-foreground">
+              Change design system
+            </AlertDialogTitle>
             <AlertDialogDescription className="text-muted-foreground">
               Changing the design system can modify component structures and
               styling. This may require additional clean up in your prototype.
@@ -1394,10 +1374,11 @@ export default function InternalPrototypePage() {
                 )}
               </div>
               <label
-                className={`relative inline-flex items-center ${!IsUserPlanSubscribed(userPlan) && !isPublic
-                  ? "opacity-50 cursor-not-allowed"
-                  : "cursor-pointer"
-                  }`}
+                className={`relative inline-flex items-center ${
+                  !IsUserPlanSubscribed(userPlan) && !isPublic
+                    ? "opacity-50 cursor-not-allowed"
+                    : "cursor-pointer"
+                }`}
               >
                 <input
                   type="checkbox"
@@ -1460,20 +1441,39 @@ export default function InternalPrototypePage() {
           <AlertDialogHeader>
             <AlertDialogTitle className="text-destructive flex items-center gap-2">
               <AlertTriangle className="w-5 h-5" />
-              Delete {deleteTarget?.type === "folder" ? "Folder" : deleteTarget?.type === "asset" ? "Asset" : "File"}?
+              Delete{" "}
+              {deleteTarget?.type === "folder"
+                ? "Folder"
+                : deleteTarget?.type === "asset"
+                  ? "Asset"
+                  : "File"}
+              ?
             </AlertDialogTitle>
             <AlertDialogDescription className="text-muted-foreground">
               {deleteTarget?.type === "folder" ? (
                 <>
-                  Are you sure you want to delete the folder <span className="text-foreground font-mono bg-accent px-1 py-0.5 rounded">{deleteTarget.path}</span>?
+                  Are you sure you want to delete the folder{" "}
+                  <span className="text-foreground font-mono bg-accent px-1 py-0.5 rounded">
+                    {deleteTarget.path}
+                  </span>
+                  ?
                   <br />
-                  This will delete <span className="font-semibold text-foreground">{deleteTarget.filesToDelete.length} file{deleteTarget.filesToDelete.length !== 1 ? 's' : ''}</span> inside this folder.
+                  This will delete{" "}
+                  <span className="font-semibold text-foreground">
+                    {deleteTarget.filesToDelete.length} file
+                    {deleteTarget.filesToDelete.length !== 1 ? "s" : ""}
+                  </span>{" "}
+                  inside this folder.
                   <br />
                   This action cannot be undone.
                 </>
               ) : (
                 <>
-                  Are you sure you want to delete <span className="text-foreground font-mono bg-accent px-1 py-0.5 rounded">{deleteTarget?.path}</span>?
+                  Are you sure you want to delete{" "}
+                  <span className="text-foreground font-mono bg-accent px-1 py-0.5 rounded">
+                    {deleteTarget?.path}
+                  </span>
+                  ?
                   <br />
                   This action cannot be undone.
                 </>
