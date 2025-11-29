@@ -18,7 +18,7 @@ import {
   CACHE_PATTERNS,
   isActiveBuildType,
 } from '../../types/InternalTypes.js';
-import { Database, TablesUpdate } from '../../types/supabase.js';
+import { TablesUpdate } from '../../types/supabase.js';
 import {
   activeBuildToStringRecord,
   hgetallAsActiveBuild,
