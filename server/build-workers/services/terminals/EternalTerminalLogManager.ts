@@ -39,6 +39,7 @@ export class EternalTerminalLogManager {
   private readonly trackedSessionIds: Set<string>;
   private readonly logger: SystemLogger;
   private readonly sessionLogs = new Map<string, EternalTerminalLogTracker>();
+  private static readonly UPLOAD_CONCURRENCY = 3;
 
   constructor(
     logRoot: string,
@@ -205,50 +206,59 @@ export class EternalTerminalLogManager {
       return result;
     }
 
-    for (const artifact of artifacts) {
-      try {
-        const logBuffer = await fsPromises.readFile(artifact.filePath);
-        const folder = `${options.prototypeId}/${artifact.sessionId}_${artifact.createdAt}`;
-        const storagePath = `${folder}/output.log`;
-        const { error } = await options.supabaseClient.storage
-          .from(options.bucket)
-          .upload(storagePath, logBuffer, {
-            contentType: "text/plain; charset=utf-8",
-            upsert: true,
-          });
+    const artifactChunks = this.chunkArray(
+      artifacts,
+      EternalTerminalLogManager.UPLOAD_CONCURRENCY,
+    );
 
-        if (error) {
-          throw error;
-        }
+    for (const chunk of artifactChunks) {
+      await Promise.all(
+        chunk.map(async (artifact) => {
+          try {
+            const logBuffer = await fsPromises.readFile(artifact.filePath);
+            const folder = `${options.prototypeId}/${artifact.sessionId}_${artifact.createdAt}`;
+            const storagePath = `${folder}/output.log`;
+            const { error } = await options.supabaseClient.storage
+              .from(options.bucket)
+              .upload(storagePath, logBuffer, {
+                contentType: "text/plain; charset=utf-8",
+                upsert: true,
+              });
 
-        result.uploaded.push({ sessionId: artifact.sessionId, storagePath });
-        activeLogger.consoleLogDevOnly(
-          "info",
-          "Uploaded eternal terminal log",
-          {
-            sessionId: artifact.sessionId,
-            storagePath,
-            prototypeId: options.prototypeId,
-            bytes: logBuffer.byteLength,
-          },
-        );
-      } catch (error) {
-        const normalizedError =
-          error instanceof Error ? error : new Error(String(error));
-        result.failed.push({
-          sessionId: artifact.sessionId,
-          error: normalizedError.message,
-        });
-        activeLogger.error(
-          normalizedError,
-          "Failed to persist terminal log to Supabase Storage",
-          {
-            sessionId: artifact.sessionId,
-            prototypeId: options.prototypeId,
-            filePath: artifact.filePath,
-          },
-        );
-      }
+            if (error) {
+              throw error;
+            }
+
+            result.uploaded.push({ sessionId: artifact.sessionId, storagePath });
+            activeLogger.consoleLogDevOnly(
+              "info",
+              "Uploaded eternal terminal log",
+              {
+                sessionId: artifact.sessionId,
+                storagePath,
+                prototypeId: options.prototypeId,
+                bytes: logBuffer.byteLength,
+              },
+            );
+          } catch (error) {
+            const normalizedError =
+              error instanceof Error ? error : new Error(String(error));
+            result.failed.push({
+              sessionId: artifact.sessionId,
+              error: normalizedError.message,
+            });
+            activeLogger.error(
+              normalizedError,
+              "Failed to persist terminal log to Supabase Storage",
+              {
+                sessionId: artifact.sessionId,
+                prototypeId: options.prototypeId,
+                filePath: artifact.filePath,
+              },
+            );
+          }
+        }),
+      );
     }
 
     return result;
@@ -281,5 +291,16 @@ export class EternalTerminalLogManager {
     return `[${new Date(event.timestamp).toISOString()}] ${event.type.toUpperCase()} ${JSON.stringify(
       event.payload,
     )}\n`;
+  }
+
+  private chunkArray<T>(items: T[], chunkSize: number): T[][] {
+    if (chunkSize <= 0) {
+      return [items];
+    }
+    const chunks: T[][] = [];
+    for (let i = 0; i < items.length; i += chunkSize) {
+      chunks.push(items.slice(i, i + chunkSize));
+    }
+    return chunks;
   }
 }
