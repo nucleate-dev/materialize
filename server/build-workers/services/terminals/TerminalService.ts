@@ -82,7 +82,7 @@ export class TerminalService {
   private readonly allowedRoot: string;
   private readonly sessionInputBuffers = new Map<string, string>();
   private readonly commandValidator?: TerminalCommandValidator;
-  private logger: SystemLogger;
+  private log2: SystemLogger;
   private readonly fastifyApp: FastifyInstance;
   private readonly sessions = new Map<string, TerminalSession>();
   private readonly terminalUserIdentity: TerminalUserIdentity | null;
@@ -116,7 +116,7 @@ export class TerminalService {
       this.workDir = normalizedWorkDir;
     }
     this.fastifyApp = fastifyApp;
-    this.logger = logger;
+    this.log2 = logger;
     this.supabaseClientService = supabaseClientService;
     this.prototypeIdProvider = options.prototypeIdProvider;
     const trackedSessionIds = new Set(
@@ -124,19 +124,19 @@ export class TerminalService {
     );
     this.eternalTerminalLogManager = new EternalTerminalLogManager(
       path.join(this.workDir, "eternal-terminal-logs"),
-      this.logger.child({ component: "EternalTerminalLogManager" }),
+      this.log2.child({ component: "EternalTerminalLogManager" }),
       trackedSessionIds,
     );
 
     // Always resolve the terminal user identity for non-test terminals
     const terminalUsername = process.env.TERMINAL_USER ?? "materialize-user";
     this.terminalUserIdentity = resolveTerminalUserIdentity(
-      this.logger,
+      this.log2,
       terminalUsername,
       process.env.TERMINAL_GROUP,
     );
     if (this.terminalUserIdentity) {
-      this.logger.consoleLogDevOnly(
+      this.log2.consoleLogDevOnly(
         "info",
         "Terminal sessions configured to drop privileges (except test terminal if LAUNCH_TERMINALS_AS_ROOT=true)",
         {
@@ -148,14 +148,14 @@ export class TerminalService {
         },
       );
     } else {
-      this.logger.warn(
+      this.log2.warn(
         "Falling back to root for terminal sessions (terminal user not found)",
         { terminalUsername },
       );
     }
 
     if (LAUNCH_TEST_TERMINAL_AS_ROOT) {
-      this.logger.warn(
+      this.log2.warn(
         "Test terminal will run as root (LAUNCH_TERMINALS_AS_ROOT=true)",
       );
     }
@@ -165,7 +165,7 @@ export class TerminalService {
       this.commandValidator &&
       !this.commandValidator.isPathInsideAllowedRoot(normalizedWorkDir)
     ) {
-      this.logger.warn("WorkDir is outside the allowed root for terminals", {
+      this.log2.warn("WorkDir is outside the allowed root for terminals", {
         workDir: normalizedWorkDir,
         allowedRoot: this.allowedRoot,
       });
@@ -174,13 +174,13 @@ export class TerminalService {
     // Make sure work directory exists
     try {
       if (!existsSync(this.workDir)) {
-        this.logger.warn("workDir does not exist; creating it", {
+        this.log2.warn("workDir does not exist; creating it", {
           workDir: this.workDir,
         });
         mkdirSync(this.workDir, { recursive: true });
       }
     } catch (error) {
-      this.logger.error(
+      this.log2.error(
         error instanceof Error ? error : new Error(String(error)),
         "Failed to ensure workDir exists",
         { workDir: this.workDir },
@@ -190,7 +190,7 @@ export class TerminalService {
 
     // Every build worker is instantiated with three pre-configured terminals.
     // These terminals live throughout the entire lifecycle of the container.
-    this.logger.consoleLogDevOnly(
+    this.log2.consoleLogDevOnly(
       "info",
       "Creating pre-configured terminal sessions",
     );
@@ -201,7 +201,7 @@ export class TerminalService {
         args: ["-i"],
       });
     } catch (error) {
-      this.logger.error(
+      this.log2.error(
         error instanceof Error ? error : new Error(String(error)),
         "Failed to create dev-server terminal",
       );
@@ -212,7 +212,7 @@ export class TerminalService {
         args: ["-i"],
       });
     } catch (error) {
-      this.logger.error(
+      this.log2.error(
         error instanceof Error ? error : new Error(String(error)),
         "Failed to create build terminal",
       );
@@ -223,13 +223,13 @@ export class TerminalService {
         args: ["-i"],
       });
     } catch (error) {
-      this.logger.error(
+      this.log2.error(
         error instanceof Error ? error : new Error(String(error)),
         "Failed to create test terminal",
       );
     }
 
-    this.logger.consoleLogDevOnly(
+    this.log2.consoleLogDevOnly(
       "info",
       "TerminalService initialization complete",
       {
@@ -311,15 +311,12 @@ export class TerminalService {
         this.commandValidator.normalizePathToAllowedRoot(requestedCwd);
       cwd = withinRoot ? normalizedCwd : this.allowedRoot;
       if (!withinRoot) {
-        this.logger.warn(
-          "Requested terminal cwd outside allowed root; clamped",
-          {
-            sessionId,
-            requestedCwd,
-            normalizedCwd,
-            allowedRoot: this.allowedRoot,
-          },
-        );
+        this.log2.warn("Requested terminal cwd outside allowed root; clamped", {
+          sessionId,
+          requestedCwd,
+          normalizedCwd,
+          allowedRoot: this.allowedRoot,
+        });
       }
     } else {
       cwd = path.resolve(requestedCwd);
@@ -331,7 +328,7 @@ export class TerminalService {
         ? requestedCommand
         : defaultShell;
     if (command !== requestedCommand) {
-      this.logger.warn("Terminal command overridden to default shell", {
+      this.log2.warn("Terminal command overridden to default shell", {
         sessionId,
         requestedCommand,
         command,
@@ -347,7 +344,7 @@ export class TerminalService {
       );
     const args = argsUnsafe ? ["-i"] : requestedArgs;
     if (argsUnsafe) {
-      this.logger.warn("Terminal args reset to safe defaults", {
+      this.log2.warn("Terminal args reset to safe defaults", {
         sessionId,
         requestedArgs,
         args: ["-i"],
@@ -378,7 +375,7 @@ export class TerminalService {
         unixOptions.uid = this.terminalUserIdentity.uid;
         unixOptions.gid = this.terminalUserIdentity.gid;
       } else if (sessionId === "test" && LAUNCH_TEST_TERMINAL_AS_ROOT) {
-        this.logger.info(
+        this.log2.info(
           "Launching test terminal as root (LAUNCH_TERMINALS_AS_ROOT=true)",
           {
             sessionId,
@@ -389,7 +386,7 @@ export class TerminalService {
 
       pty = spawnPty(command, args, spawnOptions);
     } catch (error) {
-      this.logger.error(
+      this.log2.error(
         error instanceof Error ? error : new Error(String(error)),
         "Failed to spawn PTY process",
         {
@@ -465,7 +462,7 @@ export class TerminalService {
   ): void {
     const session = this.requireSession(sessionId);
     if (!session.pty) {
-      this.logger.error(
+      this.log2.error(
         new Error(`Terminal session ${sessionId} has no PTY`),
         "Cannot send input - PTY is null",
         {
@@ -479,7 +476,7 @@ export class TerminalService {
 
     // Skip validation if explicitly bypassed by trusted internal services
     if (options?.bypassValidation === true) {
-      this.logger.consoleLogDevOnly(
+      this.log2.consoleLogDevOnly(
         "debug",
         "Terminal input bypassing validation (trusted internal command)",
         {
@@ -491,7 +488,7 @@ export class TerminalService {
       try {
         session.pty.write(input);
       } catch (error) {
-        this.logger.error(
+        this.log2.error(
           error instanceof Error ? error : new Error(String(error)),
           "Failed to write input to PTY",
           {
@@ -523,7 +520,7 @@ export class TerminalService {
 
       if (error) {
         this.abortCurrentLine(session);
-        this.logger.warn("Terminal input blocked by policy", {
+        this.log2.warn("Terminal input blocked by policy", {
           sessionId,
           reason: error.message,
           inputPreview: input.slice(0, 200),
@@ -543,7 +540,7 @@ export class TerminalService {
     try {
       session.pty.write(input);
     } catch (error) {
-      this.logger.error(
+      this.log2.error(
         error instanceof Error ? error : new Error(String(error)),
         "Failed to write input to PTY",
         {
@@ -654,7 +651,7 @@ export class TerminalService {
     try {
       session.pty.write("\u0003");
     } catch (error) {
-      this.logger.warn("Failed to abort terminal line after validation error", {
+      this.log2.warn("Failed to abort terminal line after validation error", {
         sessionId: session.id,
         error: error instanceof Error ? error.message : String(error),
       });
@@ -769,7 +766,7 @@ export class TerminalService {
         failed: [],
         skippedReason: "missing-prototype-id",
       };
-      this.logger.warn("Skipping terminal log persistence - no prototype id");
+      this.log2.warn("Skipping terminal log persistence - no prototype id");
       return result;
     }
 
@@ -874,7 +871,7 @@ export class TerminalService {
 
     // Check if this is an abnormal exit
     if (timeSinceCreation < 1000) {
-      this.logger.error(
+      this.log2.error(
         new Error(
           `PTY exited immediately after spawn (${timeSinceCreation}ms)`,
         ),
@@ -976,7 +973,7 @@ export class TerminalService {
 
       setTimeout(() => {
         if (session.pty) {
-          this.logger.warn(
+          this.log2.warn(
             "Process did not terminate after SIGTERM, sending SIGKILL",
             {
               sessionId: session.id,
@@ -987,7 +984,7 @@ export class TerminalService {
           try {
             session.pty.kill("SIGKILL");
           } catch (killError) {
-            this.logger.error(
+            this.log2.error(
               killError instanceof Error
                 ? killError
                 : new Error(String(killError)),
@@ -1003,7 +1000,7 @@ export class TerminalService {
     } catch (error) {
       const message =
         error instanceof Error ? error.message : JSON.stringify(error);
-      this.logger.warn("Failed to kill terminal process cleanly", {
+      this.log2.warn("Failed to kill terminal process cleanly", {
         sessionId: session.id,
         terminalType: session.type,
         ptyPid,
@@ -1044,7 +1041,7 @@ export class TerminalService {
     } catch (error: unknown) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
-      this.logger.error(
+      this.log2.error(
         new Error(errorMessage),
         "Unexpected error in handleTerminalCreateRoute",
       );
@@ -1074,7 +1071,7 @@ export class TerminalService {
     } catch (error: unknown) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
-      this.logger.error(
+      this.log2.error(
         new Error(errorMessage),
         "Unexpected error in handleTerminalInfo",
         { sessionId },
@@ -1105,7 +1102,7 @@ export class TerminalService {
     } catch (error: unknown) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
-      this.logger.error(
+      this.log2.error(
         new Error(errorMessage),
         "Unexpected error in handleTerminalClose",
         { sessionId },
@@ -1129,7 +1126,7 @@ export class TerminalService {
     const { input } = request.body;
 
     if (input === undefined) {
-      this.logger.error(
+      this.log2.error(
         new Error("Missing required parameter: input"),
         "Missing required parameter: input",
         { sessionId },
@@ -1154,16 +1151,16 @@ export class TerminalService {
           errorMessage.toLowerCase().includes("rejected"));
 
       if (isNotFound) {
-        this.logger.warn("Terminal session not found", { sessionId });
+        this.log2.warn("Terminal session not found", { sessionId });
         reply.code(404);
       } else if (isValidationError) {
-        this.logger.warn("Terminal input rejected by policy", {
+        this.log2.warn("Terminal input rejected by policy", {
           sessionId,
           error: errorMessage,
         });
         reply.code(400);
       } else {
-        this.logger.error(
+        this.log2.error(
           new Error(errorMessage),
           "Failed to send input to terminal",
           { sessionId },
@@ -1189,7 +1186,7 @@ export class TerminalService {
     const { cols, rows } = request.body;
 
     if (!cols || !rows) {
-      this.logger.error(
+      this.log2.error(
         new Error("Missing required parameters: cols and rows"),
         "Missing required parameters: cols and rows",
       );
@@ -1209,14 +1206,12 @@ export class TerminalService {
       const isNotFound = errorMessage.includes("not found");
 
       if (isNotFound) {
-        this.logger.warn("Terminal session not found", { sessionId });
+        this.log2.warn("Terminal session not found", { sessionId });
         reply.code(404);
       } else {
-        this.logger.error(
-          new Error(errorMessage),
-          "Failed to resize terminal",
-          { sessionId },
-        );
+        this.log2.error(new Error(errorMessage), "Failed to resize terminal", {
+          sessionId,
+        });
         reply.code(500);
       }
 
@@ -1232,7 +1227,7 @@ export class TerminalService {
     req: FastifyRequest,
   ): void {
     const { sessionId } = req.params as { sessionId: string };
-    this.logger.consoleLogDevOnly("info", "handleWebSocketConnection", {
+    this.log2.consoleLogDevOnly("info", "handleWebSocketConnection", {
       sessionId,
     });
     // Attach the WebSocket to the session
@@ -1251,7 +1246,7 @@ export class TerminalService {
           try {
             this.sendInput(sessionId, message.data);
           } catch (error) {
-            this.logger.warn("Failed to handle WebSocket terminal input", {
+            this.log2.warn("Failed to handle WebSocket terminal input", {
               error: JSON.stringify(error),
               sessionId,
             });
@@ -1281,7 +1276,7 @@ export class TerminalService {
           try {
             this.sendInput(sessionId, "\x03");
           } catch (error) {
-            this.logger.warn("Failed to send SIGINT to terminal", {
+            this.log2.warn("Failed to send SIGINT to terminal", {
               error: JSON.stringify(error),
             });
           }
@@ -1292,7 +1287,7 @@ export class TerminalService {
           try {
             this.sendInput(sessionId, raw.toString());
           } catch (inputError) {
-            this.logger.error(
+            this.log2.error(
               inputError instanceof Error
                 ? inputError
                 : new Error(String(inputError)),
@@ -1336,7 +1331,7 @@ export class TerminalService {
         : undefined);
 
     if (!session) {
-      this.logger.warn(
+      this.log2.warn(
         "Client connection rejected - terminal session not found",
         {
           sessionId,
@@ -1351,7 +1346,7 @@ export class TerminalService {
       try {
         socket.send(message);
       } catch (error) {
-        this.logger.warn("Failed to send error message to client", {
+        this.log2.warn("Failed to send error message to client", {
           sessionId,
           error: error instanceof Error ? error.message : String(error),
         });
@@ -1374,7 +1369,7 @@ export class TerminalService {
     };
 
     socket.on("close", (code: number, reason: Buffer) => {
-      this.logger.warn("WebSocket closed", {
+      this.log2.warn("WebSocket closed", {
         sessionId,
         clientId,
         code,
@@ -1384,7 +1379,7 @@ export class TerminalService {
     });
 
     socket.on("error", (error: Error) => {
-      this.logger.warn("WebSocket error", {
+      this.log2.warn("WebSocket error", {
         sessionId,
         clientId,
         error: error.message,
@@ -1448,7 +1443,7 @@ export class TerminalService {
         client.socket.send(message);
       }
     } catch (error) {
-      this.logger.error(
+      this.log2.error(
         error instanceof Error ? error : new Error(String(error)),
         "Failed to send WebSocket message",
         { sessionId: session.id, eventType, error: JSON.stringify(error) },
@@ -1461,7 +1456,7 @@ export class TerminalService {
     void this.eternalTerminalLogManager
       .finalizeSession(sessionId)
       .catch((error) => {
-        this.logger.error(
+        this.log2.error(
           error instanceof Error ? error : new Error(String(error)),
           "Failed to finalize eternal terminal log",
           { sessionId },
