@@ -10,6 +10,7 @@ import {
 import { CACHE_KEYS } from '../../types/InternalTypes.js';
 import { hgetallAsActiveBuild } from '../../utils/cacheInteractionUtils.js';
 import { SystemLogger } from '../../loggers/SystemLogger.js';
+import { isDevServerInShutdownStages } from '../../utils/prototypeDevServerStatusUtils.js';
 
 export class OrchestrationService {
   private fastifyApp: FastifyInstance;
@@ -178,8 +179,35 @@ export class OrchestrationService {
       });
     }
 
-    // Update active build state in cache
+    // Check if build is in shutdown stages (cleaning or building)
     const activeBuildKey = CACHE_KEYS.activeBuild(validation.buildId!);
+    const activeBuild = await hgetallAsActiveBuild(this.cache, activeBuildKey);
+
+    if (!activeBuild) {
+      this.logger.error(
+        new Error('Active build data not found in cache'),
+        'Build metadata missing during start chat',
+        { prototypeId: prototype_id, buildId: validation.buildId },
+      );
+      return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
+        success: false,
+        message: 'Build metadata not found',
+      });
+    }
+
+    if (isDevServerInShutdownStages(activeBuild.status)) {
+      this.logger.warn('Cannot start chat - build is in shutdown stage', {
+        prototypeId: prototype_id,
+        buildId: validation.buildId,
+        currentStatus: activeBuild.status,
+      });
+      return reply.status(HTTP_STATUS.CONFLICT).send({
+        success: false,
+        message: `Cannot start chat while sandbox is in cleanup stages ${activeBuild.status}. Please get a new dev-server.`,
+      });
+    }
+
+    // Update active build state in cache
     const currentTime = Math.floor(Date.now() / 1000);
 
     try {
