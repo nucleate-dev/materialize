@@ -1,11 +1,12 @@
-import { createSdkMcpServer, tool } from "@anthropic-ai/claude-agent-sdk";
+import { createSdkMcpServer, McpSdkServerConfigWithInstance, tool } from "@anthropic-ai/claude-agent-sdk";
+import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 
 // Define the signature for the command runner callback
 export type CommandRunner = (
   command: string,
   args: string[],
-) => Promise<{ stdout: string; isError: boolean }>;
+) => Promise<{ stdout: string; isError: boolean; }>;
 
 // Define the signature for the dev server restart callback
 export type DevServerRestartCallback = () => Promise<void>;
@@ -14,20 +15,20 @@ export type DevServerRestartCallback = () => Promise<void>;
 export type FileWriter = (
   filePath: string,
   content: string,
-) => Promise<{ success: boolean; error?: string; bytesWritten?: number }>;
+) => Promise<{ success: boolean; error?: string; bytesWritten?: number; }>;
 
 // Import TerminalService type
 export type TerminalServiceInstance = {
   getSession: (sessionId: string) =>
     | {
-        id: string;
-        state: string;
-        buffer: Array<{
-          type: string;
-          payload: { [key: string]: unknown };
-          timestamp: number;
-        }>;
-      }
+      id: string;
+      state: string;
+      buffer: Array<{
+        type: string;
+        payload: { [key: string]: unknown; };
+        timestamp: number;
+      }>;
+    }
     | undefined;
 };
 
@@ -36,7 +37,7 @@ export function createDevelopmentToolsMcpServer(
   writeFile: FileWriter,
   terminalService: TerminalServiceInstance,
   restartDevServer: DevServerRestartCallback,
-): ReturnType<typeof createSdkMcpServer> {
+): McpSdkServerConfigWithInstance {
   return createSdkMcpServer({
     name: "devtools",
     version: "1.0.0",
@@ -51,7 +52,7 @@ export function createDevelopmentToolsMcpServer(
             .describe("The absolute path to the file to write"),
           content: z.string().describe("The content to write to the file"),
         },
-        async ({ file_path, content }) => {
+        async ({ file_path, content }): Promise<CallToolResult> => {
           try {
             const result = await writeFile(file_path, content);
 
@@ -105,7 +106,7 @@ export function createDevelopmentToolsMcpServer(
               "Number of recent output lines to retrieve (default: 20)",
             ),
         },
-        async ({ lines }) => {
+        async ({ lines }): Promise<CallToolResult> => {
           const linesToRetrieve = lines ?? 20;
           const session = terminalService.getSession("dev-server");
 
@@ -172,7 +173,7 @@ export function createDevelopmentToolsMcpServer(
         "RestartDevServer",
         "Restart the Expo dev server. Use this when you need to pick up changes that require a full restart (e.g., after modifying configuration files, installing packages, or if the dev server is in a bad state). The dev server will be stopped and restarted with the same configuration.",
         {},
-        async () => {
+        async (): Promise<CallToolResult> => {
           try {
             await restartDevServer();
             return {
@@ -212,7 +213,7 @@ export function createDevelopmentToolsMcpServer(
               "Optional arguments to pass to the command (e.g., ['install'] for npm install)",
             ),
         },
-        async ({ command, args }) => {
+        async ({ command, args }): Promise<CallToolResult> => {
           const result = await runCommand(command, args ?? []);
 
           if (result.isError) {

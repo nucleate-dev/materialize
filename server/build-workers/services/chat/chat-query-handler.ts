@@ -882,6 +882,10 @@ export class ChatQueryHandler {
           },
           async (filePath: string, content: string) => {
             const writeFileResult = await this.handleMcpWriteFile(filePath, content);
+            this.logger.consoleLogDevOnly("info", "MCP writeFile tool: write file result:", {
+              filePath,
+              content,
+            });
             return writeFileResult;
           },
           this.terminalService,

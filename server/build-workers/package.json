@@ -27,6 +27,7 @@
     "@aws-sdk/client-s3": "^3.937.0",
     "@fastify/cors": "^11.1.0",
     "@fastify/websocket": "^11.2.0",
+    "@modelcontextprotocol/sdk": "^1.23.0",
     "@supabase/supabase-js": "^2.86.0",
     "axios": "^1.7.9",
     "dotenv": "^16.4.5",
