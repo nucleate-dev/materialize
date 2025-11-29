@@ -105,13 +105,12 @@ export default async function handleResetPrototypeImpl(
     }
 
     // 3. Re-create the prototype with same metadata and use existing createPrototype logic to apply all defaults to this prototype
-    const prototypeToRecreate: TablesInsert<'prototypes'> = {
-      ...authResponse.prototype,
-      latest_build_key: null,
-    };
     const { error: newPrototypeError } = await supabase
       .from('prototypes')
-      .insert(prototypeToRecreate);
+      .insert({
+        ...authResponse.prototype,
+        latest_build_key: null,
+      } satisfies TablesInsert<'prototypes'>);
     if (newPrototypeError) {
       request.log2.error(
         newPrototypeError,
@@ -156,12 +155,9 @@ export default async function handleResetPrototypeImpl(
       });
     }
 
-    const prototypeUpdate: TablesUpdate<'prototypes'> = {
-      latest_build_key: version,
-    };
     const { error: updateLatestBuildError } = await supabase
       .from('prototypes')
-      .update(prototypeUpdate)
+      .update({ latest_build_key: version } satisfies TablesUpdate<'prototypes'>)
       .eq('id', prototype_id);
 
     if (updateLatestBuildError) {

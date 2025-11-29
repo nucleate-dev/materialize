@@ -173,23 +173,20 @@ export async function handleCreatePrototypeImpl(
       resolvedDesignStyle = 'stylesheets';
     }
 
-    // Create properly typed insert object
-    const prototypeInsert: TablesInsert<'prototypes'> = {
-      name,
-      description,
-      owner_id: user.id,
-      folder_id,
-      visibility:
-        visibility || (limitCheck.plan === 'plus' ? 'SELF' : 'PUBLIC'),
-      design_style: resolvedDesignStyle,
-      custom_design_system: forkPrototypeId
-        ? null
-        : resolvedCustomDesignSystem,
-    };
-
     const { data: newPrototype, error: prototypeInsertError } = await supabase
       .from('prototypes')
-      .insert(prototypeInsert)
+      .insert({
+        name,
+        description,
+        owner_id: user.id,
+        folder_id,
+        visibility:
+          visibility || (limitCheck.plan === 'plus' ? 'SELF' : 'PUBLIC'),
+        design_style: resolvedDesignStyle,
+        custom_design_system: forkPrototypeId
+          ? null
+          : resolvedCustomDesignSystem,
+      } satisfies TablesInsert<'prototypes'>)
       .select()
       .single();
 
@@ -235,12 +232,9 @@ export async function handleCreatePrototypeImpl(
       // 5.5. Update prototype with latest_build_key if version was created
       if (version) {
         try {
-          const prototypeUpdate: TablesUpdate<'prototypes'> = {
-            latest_build_key: version,
-          };
           const { error: updateError } = await supabase
             .from('prototypes')
-            .update(prototypeUpdate)
+            .update({ latest_build_key: version } satisfies TablesUpdate<'prototypes'>)
             .eq('id', newPrototypeId);
 
           if (updateError) {
