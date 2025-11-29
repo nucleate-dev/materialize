@@ -1,6 +1,11 @@
-import { createSdkMcpServer, McpSdkServerConfigWithInstance, tool } from "@anthropic-ai/claude-agent-sdk";
+import {
+  createSdkMcpServer,
+  McpSdkServerConfigWithInstance,
+  tool,
+} from "@anthropic-ai/claude-agent-sdk";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
+import { stripAnsiSequences } from "../terminals/TerminalAnsiUtils.js";
 
 // Define the signature for the command runner callback
 export type CommandRunner = (
@@ -151,9 +156,7 @@ export function createDevelopmentToolsMcpServer(
           }
 
           // Strip ANSI escape sequences
-          const ANSI_REGEX =
-            /[\u001B\u009B][[\]()#;?]*(?:(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-PR-TZcf-ntqry=><~])/g;
-          const cleanOutput = allOutput.replace(ANSI_REGEX, "");
+          const cleanOutput = stripAnsiSequences(allOutput);
 
           // Split by newlines and get last N lines
           const allLines = cleanOutput.split("\n");

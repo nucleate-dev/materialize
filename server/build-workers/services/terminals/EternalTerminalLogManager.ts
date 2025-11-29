@@ -8,6 +8,7 @@ import type {
   TerminalEvent,
   TerminalSession,
 } from "./TerminalService.js";
+import { stripAnsiSequences } from "./TerminalAnsiUtils.js";
 
 type EternalTerminalLogTracker = {
   sessionId: string;
@@ -285,7 +286,7 @@ export class EternalTerminalLogManager {
         typeof event.payload.chunk === "string"
           ? event.payload.chunk
           : String(event.payload.chunk ?? "");
-      return chunk;
+      return stripAnsiSequences(chunk);
     }
 
     return `[${new Date(event.timestamp).toISOString()}] ${event.type.toUpperCase()} ${JSON.stringify(
