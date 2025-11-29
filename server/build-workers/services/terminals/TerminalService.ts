@@ -5,6 +5,11 @@ import path from "path";
 import { v4 as uuidv4 } from "uuid";
 import WebSocket from "ws";
 import { SystemLogger } from "../../loggers/SystemLogger.js";
+import { SupabaseClientService } from "../SupabaseClientService.js";
+import {
+  EternalTerminalLogManager,
+  TerminalLogPersistenceResult,
+} from "./EternalTerminalLogManager.js";
 import {
   TerminalCloseResponse,
   TerminalCreateRequest,
@@ -30,6 +35,8 @@ const LAUNCH_TEST_TERMINAL_AS_ROOT =
   false && process.env.NODE_ENV === "development";
 const TERMINAL_VALIDATION_DISABLED =
   true && process.env.NODE_ENV === "development";
+const ETERNAL_TERMINAL_BUCKET = "terminal-sessions";
+const DEFAULT_TRACKED_SESSION_IDS = ["dev-server", "test", "build"];
 
 export type TerminalRuntimeState = "running" | "exited" | "closed";
 
@@ -79,11 +86,19 @@ export class TerminalService {
   private readonly fastifyApp: FastifyInstance;
   private readonly sessions = new Map<string, TerminalSession>();
   private readonly terminalUserIdentity: TerminalUserIdentity | null;
+  private readonly supabaseClientService: SupabaseClientService;
+  private readonly eternalTerminalLogManager: EternalTerminalLogManager;
+  private readonly prototypeIdProvider?: () => string | undefined;
 
   constructor(
     fastifyApp: FastifyInstance,
     workDir: string,
     logger: SystemLogger,
+    supabaseClientService: SupabaseClientService,
+    options: {
+      prototypeIdProvider?: () => string | undefined;
+      trackedSessionIds?: string[];
+    } = {},
   ) {
     this.allowedRoot = path.resolve("/tmp/materialize-dev-server");
     if (!TERMINAL_VALIDATION_DISABLED) {
@@ -102,6 +117,16 @@ export class TerminalService {
     }
     this.fastifyApp = fastifyApp;
     this.logger = logger;
+    this.supabaseClientService = supabaseClientService;
+    this.prototypeIdProvider = options.prototypeIdProvider;
+    const trackedSessionIds = new Set(
+      options.trackedSessionIds ?? DEFAULT_TRACKED_SESSION_IDS,
+    );
+    this.eternalTerminalLogManager = new EternalTerminalLogManager(
+      path.join(this.workDir, "eternal-terminal-logs"),
+      this.logger.child({ component: "EternalTerminalLogManager" }),
+      trackedSessionIds,
+    );
 
     // Always resolve the terminal user identity for non-test terminals
     const terminalUsername = process.env.TERMINAL_USER ?? "materialize-user";
@@ -395,6 +420,7 @@ export class TerminalService {
       clients: new Map(),
     };
     this.sessions.set(sessionId, session);
+    this.eternalTerminalLogManager.registerSession(session);
 
     pty.onData((chunk) => {
       session.updatedAt = Date.now();
@@ -676,6 +702,8 @@ export class TerminalService {
     this.sessions.delete(sessionId);
     this.sessionInputBuffers.delete(sessionId);
 
+    this.finalizeEternalLog(sessionId);
+
     return {
       status: "success",
     };
@@ -733,6 +761,27 @@ export class TerminalService {
     }
   }
 
+  public async persistTrackedTerminalLogs(): Promise<TerminalLogPersistenceResult> {
+    const prototypeId = this.prototypeIdProvider?.();
+    if (!prototypeId) {
+      const result: TerminalLogPersistenceResult = {
+        uploaded: [],
+        failed: [],
+        skippedReason: "missing-prototype-id",
+      };
+      this.logger.warn("Skipping terminal log persistence - no prototype id");
+      return result;
+    }
+
+    const supabaseClient = this.supabaseClientService.getClient();
+
+    return this.eternalTerminalLogManager.persistTrackedTerminalLogs({
+      prototypeId,
+      supabaseClient,
+      bucket: ETERNAL_TERMINAL_BUCKET,
+    });
+  }
+
   private requireSession(sessionId: string): TerminalSession {
     const session = this.sessions.get(sessionId);
     if (!session) {
@@ -786,6 +835,7 @@ export class TerminalService {
       }
     } else {
     }
+    this.eternalTerminalLogManager.recordEvent(session, event);
   }
 
   private removeClient(session: TerminalSession, clientId: string): void {
@@ -855,6 +905,8 @@ export class TerminalService {
       this.sessions.delete(session.id);
       this.sessionInputBuffers.delete(session.id);
     }
+
+    this.finalizeEternalLog(session.id);
   }
 
   private normalizeEnv(
@@ -1403,5 +1455,17 @@ export class TerminalService {
       );
       this.removeClient(session, client.id);
     }
+  }
+
+  private finalizeEternalLog(sessionId: string): void {
+    void this.eternalTerminalLogManager
+      .finalizeSession(sessionId)
+      .catch((error) => {
+        this.logger.error(
+          error instanceof Error ? error : new Error(String(error)),
+          "Failed to finalize eternal terminal log",
+          { sessionId },
+        );
+      });
   }
 }
