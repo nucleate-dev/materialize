@@ -192,7 +192,7 @@ export class EternalTerminalLogManager {
       prototypeId: options.prototypeId,
     };
 
-    await this.finalizeAllSessions();
+    await this.flushActiveStreams();
     const artifacts = this.getArtifacts();
 
     if (artifacts.length === 0) {
@@ -263,6 +263,47 @@ export class EternalTerminalLogManager {
     }
 
     return result;
+  }
+
+  private async flushActiveStreams(): Promise<void> {
+    await Promise.all(
+      Array.from(this.sessionLogs.values()).map((tracker) =>
+        this.flushTracker(tracker),
+      ),
+    );
+  }
+
+  private async flushTracker(tracker: EternalTerminalLogTracker): Promise<void> {
+    const stream = tracker.stream;
+    if (!stream) {
+      return;
+    }
+
+    if (stream.writableNeedDrain) {
+      await new Promise<void>((resolve, reject) => {
+        const onError = (error: Error): void => {
+          stream.off("drain", onDrain);
+          reject(error);
+        };
+        const onDrain = (): void => {
+          stream.off("error", onError);
+          resolve();
+        };
+        stream.once("drain", onDrain);
+        stream.once("error", onError);
+      });
+    }
+
+    if (typeof stream.fd === "number" && stream.fd >= 0) {
+      try {
+        await fsPromises.fsync(stream.fd);
+      } catch (error) {
+        this.logger.warn("Failed to fsync eternal terminal log stream", {
+          sessionId: tracker.sessionId,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
   }
 
   private ensureLogDir(): void {

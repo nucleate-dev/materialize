@@ -1089,6 +1089,23 @@ export class ExpoDevServerService {
         s3KeyPrefix,
       );
 
+      try {
+        const persistenceResult =
+          await this.terminalService.persistTrackedTerminalLogs(log2);
+        this.logTerminalPersistenceResult(
+          log2,
+          persistenceResult,
+          "post-s3-upload",
+        );
+      } catch (error) {
+        const errorMessage =
+          error instanceof Error ? error.message : String(error);
+        log2.warn("Failed to persist terminal logs after S3 upload", {
+          prototypeId: resolvedPrototypeId,
+          error: errorMessage,
+        });
+      }
+
       const buildUrl = `https://${resolvedPrototypeId}.render.materializeui.com`;
       this.state.builtVersion = uploadResult.version;
       return {
@@ -1760,23 +1777,6 @@ export class ExpoDevServerService {
           "",
           `Skipped due to error: ${errorMessage}`,
         );
-      }
-
-      try {
-        const persistenceResult =
-          await this.terminalService.persistTrackedTerminalLogs(log2);
-        this.logTerminalPersistenceResult(
-          log2,
-          persistenceResult,
-          "pre-expo-build",
-        );
-      } catch (error) {
-        const errorMessage =
-          error instanceof Error ? error.message : String(error);
-        log2.warn("Failed to persist terminal logs before Expo build", {
-          prototypeId: resolvedPrototypeId,
-          error: errorMessage,
-        });
       }
     }
 
