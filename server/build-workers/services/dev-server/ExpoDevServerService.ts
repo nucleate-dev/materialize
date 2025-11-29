@@ -30,7 +30,10 @@ import {
 import { ChatService } from "../chat/ChatService.js";
 import { FileSyncService } from "../FileSyncService.js";
 import { SupabaseClientService } from "../SupabaseClientService.js";
-import { TerminalService } from "../terminals/TerminalService.js";
+import {
+  TerminalService,
+  type TerminalLogPersistenceResult,
+} from "../terminals/TerminalService.js";
 
 const S3_BUCKET = process.env.S3_BUCKET || "materialize-sites";
 
@@ -619,6 +622,47 @@ export class ExpoDevServerService {
       this.state.clearOperation();
       log2.error(new Error(errorMessage), "Failed to restart dev server");
       throw error;
+    }
+  }
+
+  public async persistTerminalLogs(
+    log2?: SystemLogger,
+  ): Promise<TerminalLogPersistenceResult> {
+    return this.terminalService.persistTrackedTerminalLogs(
+      log2 ?? this.logger,
+    );
+  }
+
+  private logTerminalPersistenceResult(
+    log2: SystemLogger,
+    result: TerminalLogPersistenceResult,
+    context: string,
+  ): void {
+    if (result.failed.length > 0) {
+      log2.warn("Terminal log persistence completed with errors", {
+        context,
+        prototypeId: result.prototypeId,
+        failed: result.failed,
+        uploaded: result.uploaded.length,
+      });
+      return;
+    }
+
+    if (result.skippedReason) {
+      log2.consoleLogDevOnly("info", "Terminal log persistence skipped", {
+        context,
+        prototypeId: result.prototypeId,
+        reason: result.skippedReason,
+      });
+      return;
+    }
+
+    if (result.uploaded.length > 0) {
+      log2.consoleLogDevOnly("info", "Terminal logs persisted", {
+        context,
+        prototypeId: result.prototypeId,
+        uploaded: result.uploaded,
+      });
     }
   }
 
@@ -1742,6 +1786,22 @@ export class ExpoDevServerService {
           "",
           `Skipped due to error: ${errorMessage}`,
         );
+      }
+
+      try {
+        const persistenceResult = await this.persistTerminalLogs(log2);
+        this.logTerminalPersistenceResult(
+          log2,
+          persistenceResult,
+          "pre-expo-build",
+        );
+      } catch (error) {
+        const errorMessage =
+          error instanceof Error ? error.message : String(error);
+        log2.warn("Failed to persist terminal logs before Expo build", {
+          prototypeId: resolvedPrototypeId,
+          error: errorMessage,
+        });
       }
     }
 
