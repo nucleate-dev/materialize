@@ -108,9 +108,9 @@ interface MessageHandlers {
   uploadChatImages: (
     prototypeId: string,
     chatSessionId: string,
-    images: Array<{ base64: string; mediaType: string }>,
+    images: Array<{ base64: string; mediaType: string; }>,
   ) => Promise<
-    Array<{ storage_path: string; media_type: string; file_size: number }>
+    Array<{ storage_path: string; media_type: string; file_size: number; }>
   >;
   updatePersistenceClient?: (client: unknown) => void;
   notifyOrchestrationStartChat: (prototypeId: string) => Promise<void>;
@@ -119,9 +119,9 @@ interface MessageHandlers {
 
 interface StreamContext {
   messageContent:
-    | string
-    | Array<{ type: string; text?: string; source?: unknown }>;
-  queryOptions: Options & { resume?: string };
+  | string
+  | Array<{ type: string; text?: string; source?: unknown; }>;
+  queryOptions: Options & { resume?: string; };
   sessionState: CodeSessionState;
   validAiChatSessionIds: Set<string>;
   socket: WebSocket;
@@ -735,7 +735,7 @@ export class ChatQueryHandler {
   private prepareMessageContent(
     prompt: string | undefined,
     content: ChatContentBlock[] | undefined,
-  ): string | Array<{ type: string; text?: string; source?: unknown }> {
+  ): string | Array<{ type: string; text?: string; source?: unknown; }> {
     if (content) {
       return content.map((block) => {
         if (block.type === "text") {
@@ -761,8 +761,8 @@ export class ChatQueryHandler {
   private extractImagesFromContent(
     messageContent:
       | string
-      | Array<{ type: string; text?: string; source?: unknown }>,
-  ): Array<{ base64: string; mediaType: string }> {
+      | Array<{ type: string; text?: string; source?: unknown; }>,
+  ): Array<{ base64: string; mediaType: string; }> {
     if (!Array.isArray(messageContent)) {
       return [];
     }
@@ -770,8 +770,8 @@ export class ChatQueryHandler {
     return messageContent
       .filter((block) => block.type === "image")
       .map((block) => ({
-        base64: (block.source as { data: string }).data,
-        mediaType: (block.source as { media_type: string }).media_type,
+        base64: (block.source as { data: string; }).data,
+        mediaType: (block.source as { media_type: string; }).media_type,
       }));
   }
 
@@ -781,8 +781,8 @@ export class ChatQueryHandler {
   private async persistUserMessage(
     messageContent:
       | string
-      | Array<{ type: string; text?: string; source?: unknown }>,
-    imagesFromContent: Array<{ base64: string; mediaType: string }>,
+      | Array<{ type: string; text?: string; source?: unknown; }>,
+    imagesFromContent: Array<{ base64: string; mediaType: string; }>,
     imageMetadata: Array<{
       storage_path: string;
       media_type: string;
@@ -800,9 +800,9 @@ export class ChatQueryHandler {
       typeof messageContent === "string"
         ? messageContent
         : messageContent
-            .filter((block) => block.type === "text")
-            .map((block) => block.text || "")
-            .join("\n");
+          .filter((block) => block.type === "text")
+          .map((block) => block.text || "")
+          .join("\n");
 
     const hasImages = imagesFromContent.length > 0;
     const userMessageDisplay = hasImages
@@ -826,7 +826,7 @@ export class ChatQueryHandler {
     socket: WebSocket,
     sessionState: CodeSessionState,
     handlers: MessageHandlers,
-  ): Promise<Options & { resume?: string }> {
+  ): Promise<Options & { resume?: string; }> {
     const canUseTool: CanUseTool = async (
       toolName: ToolName,
       input: ToolInput,
@@ -852,7 +852,17 @@ export class ChatQueryHandler {
       cwd: this.workDir,
       maxTurns: options?.maxTurns ?? 50,
       disallowedTools: ["Write", "Bash"],
-      allowedTools: options?.allowedTools ?? ["Read", "Edit", "Glob", "Grep"],
+      allowedTools: options?.allowedTools ?? [
+        "Read",
+        "Edit",
+        "Glob",
+        "Grep",
+        // MCP tools from devtools server
+        "mcp__devtools__SafeWrite",
+        "mcp__devtools__SafeBash",
+        "mcp__devtools__checkTerminal",
+        "mcp__devtools__RestartDevServer",
+      ],
       model: options?.model ?? "claude-sonnet-4-5",
       systemPrompt: {
         type: "preset" as const,
@@ -865,7 +875,7 @@ export class ChatQueryHandler {
       canUseTool,
       // Add MCP servers with development tools
       mcpServers: {
-        "development-tools": createDevelopmentToolsMcpServer(
+        "devtools": createDevelopmentToolsMcpServer(
           async (command, args) => {
             return this.executeSandboxCommand(command, args);
           },
@@ -890,7 +900,7 @@ export class ChatQueryHandler {
               async (
                 input: HookInput,
                 toolUseID: string | undefined,
-                _options: { signal: AbortSignal },
+                _options: { signal: AbortSignal; },
               ): Promise<HookJSONOutput> => {
                 const hookContext: HookContext = {
                   input,
@@ -908,7 +918,7 @@ export class ChatQueryHandler {
               async (
                 input: HookInput,
                 toolUseID: string | undefined,
-                _options: { signal: AbortSignal },
+                _options: { signal: AbortSignal; },
               ): Promise<HookJSONOutput> => {
                 const hookContext: HookContext = {
                   input,
@@ -931,7 +941,7 @@ export class ChatQueryHandler {
   private async executeSandboxCommand(
     command: string,
     args: string[],
-  ): Promise<{ stdout: string; isError: boolean }> {
+  ): Promise<{ stdout: string; isError: boolean; }> {
     try {
       const { response: responseRaw } =
         await this.sandboxService.runCommandInternal({
@@ -1221,8 +1231,8 @@ export class ChatQueryHandler {
       message: {
         role: "user";
         content:
-          | string
-          | Array<{ type: string; text?: string; source?: unknown }>;
+        | string
+        | Array<{ type: string; text?: string; source?: unknown; }>;
       };
     }> {
       yield {

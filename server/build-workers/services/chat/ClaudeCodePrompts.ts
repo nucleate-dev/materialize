@@ -164,14 +164,14 @@ Think outside the box and surprise the user.
 </design>
 
 <tool_usage>
-CRITICAL: When writing files, you MUST use the SafeWrite tool (mcp__development-tools__SafeWrite) instead of the built-in Write tool.
+CRITICAL: When writing files, you MUST use the SafeWrite tool (mcp__devtools__SafeWrite) instead of the built-in Write tool.
 The SafeWrite tool is specifically configured for this environment and ensures proper file permissions and tracking.
 
-CRITICAL: When running bash commands, you MUST use the SafeBash tool (mcp__development-tools__SafeBash) instead of the built-in Bash tool, and only run bash commands that finish.
+CRITICAL: When running bash commands, you MUST use the SafeBash tool (mcp__devtools__SafeBash) instead of the built-in Bash tool, and only run bash commands that finish.
 
-After running any npm install or npx expo install commands, you MUST use the RestartDevServer tool (mcp__development-tools__RestartDevServer) to restart the dev server.
+After running any npm install or npx expo install commands, you MUST use the RestartDevServer tool (mcp__devtools__RestartDevServer) to restart the dev server.
 
-The checkTerminal tool (mcp__development-tools__checkTerminal) should ONLY be used when you need to debug errors or check for issues in the dev server.
+The checkTerminal tool (mcp__devtools__checkTerminal) should ONLY be used when you need to debug errors or check for issues in the dev server.
 Do not use it for general monitoring or informational purposes.
 </tool_usage>
 `;
@@ -182,23 +182,23 @@ Do not use it for general monitoring or informational purposes.
  * @returns The complete system prompt with design-specific instructions
  */
 export function getSystemPromptForDesignStyle(
-  designStyle?: string | null,
+   designStyle?: string | null,
 ): string {
-  let stackInfo: string;
+   let stackInfo: string;
 
-  switch (designStyle) {
-    case "nativewind":
-      stackInfo = NATIVEWIND_STACK_INFO;
-      break;
-    case "tamagui":
-      stackInfo = TAMAGUI_STACK_INFO;
-      break;
-    case "stylesheets":
-    case "custom":
-    default:
-      stackInfo = STYLESHEET_STACK_INFO;
-      break;
-  }
+   switch (designStyle) {
+      case "nativewind":
+         stackInfo = NATIVEWIND_STACK_INFO;
+         break;
+      case "tamagui":
+         stackInfo = TAMAGUI_STACK_INFO;
+         break;
+      case "stylesheets":
+      case "custom":
+      default:
+         stackInfo = STYLESHEET_STACK_INFO;
+         break;
+   }
 
-  return BASE_SYSTEM_PROMPT + " " + stackInfo + " " + SHARED_SECTIONS;
+   return BASE_SYSTEM_PROMPT + " " + stackInfo + " " + SHARED_SECTIONS;
 }

@@ -1,11 +1,11 @@
-import { tool, createSdkMcpServer } from "@anthropic-ai/claude-agent-sdk";
+import { createSdkMcpServer, tool } from "@anthropic-ai/claude-agent-sdk";
 import { z } from "zod";
 
 // Define the signature for the command runner callback
 export type CommandRunner = (
   command: string,
   args: string[],
-) => Promise<{ stdout: string; isError: boolean }>;
+) => Promise<{ stdout: string; isError: boolean; }>;
 
 // Define the signature for the dev server restart callback
 export type DevServerRestartCallback = () => Promise<void>;
@@ -14,20 +14,20 @@ export type DevServerRestartCallback = () => Promise<void>;
 export type FileWriter = (
   filePath: string,
   content: string,
-) => Promise<{ success: boolean; error?: string; bytesWritten?: number }>;
+) => Promise<{ success: boolean; error?: string; bytesWritten?: number; }>;
 
 // Import TerminalService type
 export type TerminalServiceInstance = {
   getSession: (sessionId: string) =>
     | {
-        id: string;
-        state: string;
-        buffer: Array<{
-          type: string;
-          payload: { [key: string]: unknown };
-          timestamp: number;
-        }>;
-      }
+      id: string;
+      state: string;
+      buffer: Array<{
+        type: string;
+        payload: { [key: string]: unknown; };
+        timestamp: number;
+      }>;
+    }
     | undefined;
 };
 
@@ -38,7 +38,7 @@ export function createDevelopmentToolsMcpServer(
   restartDevServer: DevServerRestartCallback,
 ): ReturnType<typeof createSdkMcpServer> {
   return createSdkMcpServer({
-    name: "development-tools",
+    name: "devtools",
     version: "1.0.0",
     tools: [
       // --- SafeWrite File Tool ---
