@@ -49,6 +49,7 @@ export function createDevelopmentToolsMcpServer(
         {
           file_path: z
             .string()
+            .min(1)
             .describe("The absolute path to the file to write"),
           content: z.string().describe("The content to write to the file"),
         },
@@ -86,7 +87,7 @@ export function createDevelopmentToolsMcpServer(
               content: [
                 {
                   type: "text",
-                  text: `Error writing file: ${errorMessage}`,
+                  text: `Failed to write file: ${errorMessage}`,
                 },
               ],
             };
@@ -101,9 +102,11 @@ export function createDevelopmentToolsMcpServer(
         {
           lines: z
             .number()
+            .min(1)
+            .max(1000)
             .optional()
             .describe(
-              "Number of recent output lines to retrieve (default: 20)",
+              "Number of recent output lines to retrieve (default: 20, max: 1000)",
             ),
         },
         async ({ lines }): Promise<CallToolResult> => {
@@ -205,7 +208,7 @@ export function createDevelopmentToolsMcpServer(
         "SafeBash",
         "Execute bash commands in a safe terminal environment. Only run bash commands that finish. Long-running or background processes will hang and time out. Safe commands: git, npm/npx, etc. For dev server related commands, use the RestartDevServer tool instead.",
         {
-          command: z.string().describe("The bash command to execute"),
+          command: z.string().min(1).describe("The bash command to execute"),
           args: z
             .array(z.string())
             .optional()
@@ -214,15 +217,29 @@ export function createDevelopmentToolsMcpServer(
             ),
         },
         async ({ command, args }): Promise<CallToolResult> => {
-          const result = await runCommand(command, args ?? []);
+          try {
+            const result = await runCommand(command, args ?? []);
 
-          if (result.isError) {
+            if (result.isError) {
+              return {
+                isError: true,
+                content: [{ type: "text", text: result.stdout }],
+              };
+            }
+            return { content: [{ type: "text", text: result.stdout }] };
+          } catch (error) {
+            const errorMessage =
+              error instanceof Error ? error.message : String(error);
             return {
               isError: true,
-              content: [{ type: "text", text: result.stdout }],
+              content: [
+                {
+                  type: "text",
+                  text: `Failed to execute command: ${errorMessage}`,
+                },
+              ],
             };
           }
-          return { content: [{ type: "text", text: result.stdout }] };
         },
       ),
     ],
