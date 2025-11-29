@@ -5,7 +5,7 @@ import { z } from "zod";
 export type CommandRunner = (
   command: string,
   args: string[],
-) => Promise<{ stdout: string; isError: boolean; }>;
+) => Promise<{ stdout: string; isError: boolean }>;
 
 // Define the signature for the dev server restart callback
 export type DevServerRestartCallback = () => Promise<void>;
@@ -14,20 +14,20 @@ export type DevServerRestartCallback = () => Promise<void>;
 export type FileWriter = (
   filePath: string,
   content: string,
-) => Promise<{ success: boolean; error?: string; bytesWritten?: number; }>;
+) => Promise<{ success: boolean; error?: string; bytesWritten?: number }>;
 
 // Import TerminalService type
 export type TerminalServiceInstance = {
   getSession: (sessionId: string) =>
     | {
-      id: string;
-      state: string;
-      buffer: Array<{
-        type: string;
-        payload: { [key: string]: unknown; };
-        timestamp: number;
-      }>;
-    }
+        id: string;
+        state: string;
+        buffer: Array<{
+          type: string;
+          payload: { [key: string]: unknown };
+          timestamp: number;
+        }>;
+      }
     | undefined;
 };
 
