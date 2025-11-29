@@ -758,7 +758,9 @@ export class TerminalService {
     }
   }
 
-  public async persistTrackedTerminalLogs(): Promise<TerminalLogPersistenceResult> {
+  public async persistTrackedTerminalLogs(
+    logger?: SystemLogger,
+  ): Promise<TerminalLogPersistenceResult> {
     const prototypeId = this.prototypeIdProvider?.();
     if (!prototypeId) {
       const result: TerminalLogPersistenceResult = {
@@ -766,7 +768,9 @@ export class TerminalService {
         failed: [],
         skippedReason: "missing-prototype-id",
       };
-      this.log2.warn("Skipping terminal log persistence - no prototype id");
+      (logger ?? this.log2).warn(
+        "Skipping terminal log persistence - no prototype id",
+      );
       return result;
     }
 
@@ -776,6 +780,7 @@ export class TerminalService {
       prototypeId,
       supabaseClient,
       bucket: ETERNAL_TERMINAL_BUCKET,
+      logger: logger ?? this.log2,
     });
   }
 

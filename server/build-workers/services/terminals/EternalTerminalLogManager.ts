@@ -181,7 +181,9 @@ export class EternalTerminalLogManager {
     prototypeId: string;
     supabaseClient: SupabaseClient;
     bucket: string;
+    logger?: SystemLogger;
   }): Promise<TerminalLogPersistenceResult> {
+    const activeLogger = options.logger ?? this.logger;
     const result: TerminalLogPersistenceResult = {
       uploaded: [],
       failed: [],
@@ -193,7 +195,7 @@ export class EternalTerminalLogManager {
 
     if (artifacts.length === 0) {
       result.skippedReason = "no-artifacts";
-      this.logger.consoleLogDevOnly(
+      activeLogger.consoleLogDevOnly(
         "info",
         "No eternal terminal logs to persist",
         {
@@ -220,7 +222,7 @@ export class EternalTerminalLogManager {
         }
 
         result.uploaded.push({ sessionId: artifact.sessionId, storagePath });
-        this.logger.consoleLogDevOnly(
+        activeLogger.consoleLogDevOnly(
           "info",
           "Uploaded eternal terminal log",
           {
@@ -237,7 +239,7 @@ export class EternalTerminalLogManager {
           sessionId: artifact.sessionId,
           error: normalizedError.message,
         });
-        this.logger.error(
+        activeLogger.error(
           normalizedError,
           "Failed to persist terminal log to Supabase Storage",
           {
