@@ -1066,12 +1066,11 @@ export class ChatQueryHandler {
   ): Promise<HookJSONOutput> {
     const { input, toolUseID, socket } = hookContext;
 
-    this.logger.debug("PreToolUse Hook called: ", {
-      input: JSON.stringify(input),
-    });
+
 
     try {
       if (input.hook_event_name === "PreToolUse") {
+        this.logger.debug(`PreToolUse Hook called for tool ${input.tool_name}.`);
         const permission = this.toolPermissionService.evaluateToolPermission(
           input.tool_name as ToolName,
           (input.tool_input ?? {}) as ToolInput,
