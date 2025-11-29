@@ -14,7 +14,7 @@ import {
   CreatePrototypeSuccessResponse,
   HTTP_STATUS,
 } from '../../../types/PublicAPITypes.js';
-import { Database } from '../../../types/supabase.js';
+import { Database, TablesInsert, TablesUpdate } from '../../../types/supabase.js';
 import {
   checkUserHasPrototypeViewingAccess,
   validateJWTToken,
@@ -158,16 +158,13 @@ export async function handleCreatePrototypeImpl(
       } else if (folderData) {
         // 1. Use the folder's default_design_style if it's valid
         const folderStyle = folderData.default_design_style;
-        if (
-          typeof folderStyle === 'string' &&
-          VALID_DESIGN_STYLES.includes(folderStyle as DesignStyle)
-        ) {
-          resolvedDesignStyle = folderStyle as DesignStyle;
+        if (VALID_DESIGN_STYLES.includes(folderStyle as DesignStyle)) {
+          resolvedDesignStyle = folderStyle;
         }
 
         // 2. Inherit the folder's custom_design_system UUID if we don't already have one
         if (!resolvedCustomDesignSystem && folderData.custom_design_system) {
-          resolvedCustomDesignSystem = String(folderData.custom_design_system);
+          resolvedCustomDesignSystem = folderData.custom_design_system;
         }
       }
     }
@@ -176,20 +173,23 @@ export async function handleCreatePrototypeImpl(
       resolvedDesignStyle = 'stylesheets';
     }
 
+    // Create properly typed insert object
+    const prototypeInsert: TablesInsert<'prototypes'> = {
+      name,
+      description,
+      owner_id: user.id,
+      folder_id,
+      visibility:
+        visibility || (limitCheck.plan === 'plus' ? 'SELF' : 'PUBLIC'),
+      design_style: resolvedDesignStyle,
+      custom_design_system: forkPrototypeId
+        ? null
+        : resolvedCustomDesignSystem,
+    };
+
     const { data: newPrototype, error: prototypeInsertError } = await supabase
       .from('prototypes')
-      .insert({
-        name,
-        description,
-        owner_id: user.id,
-        folder_id,
-        visibility:
-          visibility || (limitCheck.plan === 'plus' ? 'SELF' : 'PUBLIC'),
-        design_style: resolvedDesignStyle,
-        custom_design_system: forkPrototypeId
-          ? null
-          : resolvedCustomDesignSystem,
-      })
+      .insert(prototypeInsert)
       .select()
       .single();
 
@@ -235,9 +235,12 @@ export async function handleCreatePrototypeImpl(
       // 5.5. Update prototype with latest_build_key if version was created
       if (version) {
         try {
+          const prototypeUpdate: TablesUpdate<'prototypes'> = {
+            latest_build_key: version,
+          };
           const { error: updateError } = await supabase
             .from('prototypes')
-            .update({ latest_build_key: version })
+            .update(prototypeUpdate)
             .eq('id', newPrototypeId);
 
           if (updateError) {
@@ -475,10 +478,12 @@ export async function copyAllDefaultsForNewPrototype(
   ] = await Promise.all([
     supabase.from('prototype_files').insert(defaultFilesResult.files ?? []),
     supabase.from('prototype_assets').insert(
-      (defaultFilesResult.assets ?? []).map((asset) => ({
-        prototype_id: asset.prototype_id,
-        name: asset.name,
-      })),
+      (defaultFilesResult.assets ?? []).map(
+        (asset): PrototypeAssetInsert => ({
+          prototype_id: asset.prototype_id,
+          name: asset.name,
+        }),
+      ),
     ),
     uploadDefaultAssetsToSupabaseStorage(
       supabase,
