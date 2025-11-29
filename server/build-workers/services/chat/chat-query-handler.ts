@@ -877,10 +877,12 @@ export class ChatQueryHandler {
       mcpServers: {
         "devtools": createDevelopmentToolsMcpServer(
           async (command, args) => {
-            return this.executeSandboxCommand(command, args);
+            const executeSandboxCommandResult = await this.executeSandboxCommand(command, args);
+            return executeSandboxCommandResult;
           },
           async (filePath: string, content: string) => {
-            return this.handleMcpWriteFile(filePath, content);
+            const writeFileResult = await this.handleMcpWriteFile(filePath, content);
+            return writeFileResult;
           },
           this.terminalService,
           async () => {
