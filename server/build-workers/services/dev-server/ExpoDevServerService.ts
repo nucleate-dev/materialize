@@ -30,10 +30,8 @@ import {
 import { ChatService } from "../chat/ChatService.js";
 import { FileSyncService } from "../FileSyncService.js";
 import { SupabaseClientService } from "../SupabaseClientService.js";
-import {
-  TerminalService,
-  type TerminalLogPersistenceResult,
-} from "../terminals/TerminalService.js";
+import { TerminalService } from "../terminals/TerminalService.js";
+import { TerminalLogPersistenceResult } from "../terminals/EternalTerminalLogManager.js";
 
 const S3_BUCKET = process.env.S3_BUCKET || "materialize-sites";
 
@@ -623,14 +621,6 @@ export class ExpoDevServerService {
       log2.error(new Error(errorMessage), "Failed to restart dev server");
       throw error;
     }
-  }
-
-  public async persistTerminalLogs(
-    log2?: SystemLogger,
-  ): Promise<TerminalLogPersistenceResult> {
-    return this.terminalService.persistTrackedTerminalLogs(
-      log2 ?? this.logger,
-    );
   }
 
   private logTerminalPersistenceResult(
@@ -1789,7 +1779,8 @@ export class ExpoDevServerService {
       }
 
       try {
-        const persistenceResult = await this.persistTerminalLogs(log2);
+        const persistenceResult =
+          await this.terminalService.persistTrackedTerminalLogs(log2);
         this.logTerminalPersistenceResult(
           log2,
           persistenceResult,
