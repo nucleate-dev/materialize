@@ -144,6 +144,13 @@ interface HookContext {
  * - Usage tracking
  */
 export class ChatQueryHandler {
+  // Feature flags for MCP stream fix
+  // When enabled, keeps the input stream open until the result message arrives
+  // to prevent premature MCP server connection closure during multi-turn conversations
+  private static readonly ENABLE_MCP_STREAM_FIX = true;
+  private static readonly MCP_STREAM_MAX_WAIT_MS = 120000; // 2 minutes (accounting for maxTurns: 50)
+  private static readonly MCP_STREAM_POLL_INTERVAL_MS = 100; // Check every 100ms
+
   private readonly workDir: string;
   private readonly logger: SystemLogger;
   private readonly supabaseClientService: SupabaseClientService;
@@ -1230,8 +1237,12 @@ export class ChatQueryHandler {
       validAiChatSessionIds,
       socket,
     } = streamContext;
+
+    // Shared state for MCP stream fix - allows generator to monitor for result message
+    const messages: Array<{ type: string;[key: string]: unknown; }> = [];
+
     // Create async generator for streaming input
-    async function* generateMessages(): AsyncGenerator<{
+    const generateMessages = async function* (): AsyncGenerator<{
       type: "user";
       message: {
         role: "user";
@@ -1247,7 +1258,31 @@ export class ChatQueryHandler {
           content: messageContent,
         },
       };
-    }
+
+      // MCP stream fix: Keep input stream open until result message arrives
+      // This prevents premature MCP server connection closure during multi-turn conversations
+      if (ChatQueryHandler.ENABLE_MCP_STREAM_FIX) {
+        const maxChecks =
+          ChatQueryHandler.MCP_STREAM_MAX_WAIT_MS /
+          ChatQueryHandler.MCP_STREAM_POLL_INTERVAL_MS;
+
+        for (let i = 0; i < maxChecks; i++) {
+          // Check if query was aborted
+          if (queryOptions.abortController?.signal.aborted) {
+            break;
+          }
+
+          await new Promise((resolve) =>
+            setTimeout(resolve, ChatQueryHandler.MCP_STREAM_POLL_INTERVAL_MS),
+          );
+
+          // Check if result message has arrived
+          if (messages.some((m) => m.type === "result")) {
+            break;
+          }
+        }
+      }
+    }.bind(this);
 
     // Stream responses back to client
     const response = query({
@@ -1262,6 +1297,10 @@ export class ChatQueryHandler {
     let creditsUsed: number | undefined = undefined;
 
     for await (const msg of response) {
+      // Push to shared array for MCP stream fix monitoring
+      if (ChatQueryHandler.ENABLE_MCP_STREAM_FIX) {
+        messages.push(msg);
+      }
       // Capture session ID from init message
       if (msg.type === "system" && msg.subtype === "init") {
         const isNewSession = sessionState.sessionId !== msg.session_id;
