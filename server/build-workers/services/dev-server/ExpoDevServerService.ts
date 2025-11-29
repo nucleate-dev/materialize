@@ -1082,27 +1082,11 @@ export class ExpoDevServerService {
         resolvedPrototypeId,
       );
 
-      // Log memory after expo build (likely peak memory usage)
-      const memUsageAfterBuild = process.memoryUsage();
-      logger.log(
-        "Memory after expo build",
-        true,
-        `Heap: ${Math.round(memUsageAfterBuild.heapUsed / 1024 / 1024)}MB / ${Math.round(memUsageAfterBuild.heapTotal / 1024 / 1024)}MB, RSS: ${Math.round(memUsageAfterBuild.rss / 1024 / 1024)}MB`,
-      );
-
       const s3KeyPrefix = `${resolvedPrototypeId}`;
       const uploadResult = await this.uploadDirectoryToS3(
         log2,
         outputPath,
         s3KeyPrefix,
-      );
-
-      // Log memory after S3 upload
-      const memUsageAfterUpload = process.memoryUsage();
-      logger.log(
-        "Memory after S3 upload",
-        true,
-        `Heap: ${Math.round(memUsageAfterUpload.heapUsed / 1024 / 1024)}MB / ${Math.round(memUsageAfterUpload.heapTotal / 1024 / 1024)}MB, RSS: ${Math.round(memUsageAfterUpload.rss / 1024 / 1024)}MB`,
       );
 
       const buildUrl = `https://${resolvedPrototypeId}.render.materializeui.com`;
