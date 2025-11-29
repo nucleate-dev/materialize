@@ -18,6 +18,7 @@ import {
   CACHE_PATTERNS,
   isActiveBuildType,
 } from '../../types/InternalTypes.js';
+import { TablesUpdate } from '../../types/supabase.js';
 import {
   activeBuildToStringRecord,
   hgetallAsActiveBuild,
@@ -472,7 +473,7 @@ export class CleanupService {
             .from('prototypes')
             .update({
               latest_build_key: responseData.data.version,
-            })
+            } satisfies TablesUpdate<'prototypes'>)
             .eq('id', prototypeId);
           if (updateBuildVersionError) {
             this.log2.error(
@@ -498,7 +499,7 @@ export class CleanupService {
             .from('prototypes')
             .update({
               latest_build_key: null,
-            })
+            } satisfies TablesUpdate<'prototypes'>)
             .eq('id', prototypeId);
           if (clearBuildVersionError) {
             this.log2.error(

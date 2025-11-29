@@ -2,7 +2,7 @@ import { S3Client } from '@aws-sdk/client-s3';
 import { createClient } from '@supabase/supabase-js';
 import { FastifyReply, FastifyRequest } from 'fastify';
 import { HTTP_STATUS } from '../../../types/PublicAPITypes.js';
-import { Database } from '../../../types/supabase.js';
+import { Database, TablesInsert, TablesUpdate } from '../../../types/supabase.js';
 import { checkUserHasPrototypeEditAccess } from '../../../utils/prototypeAuth.js';
 import { isEditableDevServer } from '../../../utils/prototypeDevServerStatusUtils.js';
 import { DispatcherService } from '../../dispatcher/DispatcherService.js';
@@ -105,13 +105,12 @@ export default async function handleResetPrototypeImpl(
     }
 
     // 3. Re-create the prototype with same metadata and use existing createPrototype logic to apply all defaults to this prototype
-    const prototypeToRecreate = {
-      ...authResponse.prototype,
-      latest_build_key: null,
-    };
     const { error: newPrototypeError } = await supabase
       .from('prototypes')
-      .insert(prototypeToRecreate);
+      .insert({
+        ...authResponse.prototype,
+        latest_build_key: null,
+      } satisfies TablesInsert<'prototypes'>);
     if (newPrototypeError) {
       request.log2.error(
         newPrototypeError,
@@ -158,7 +157,7 @@ export default async function handleResetPrototypeImpl(
 
     const { error: updateLatestBuildError } = await supabase
       .from('prototypes')
-      .update({ latest_build_key: version })
+      .update({ latest_build_key: version } satisfies TablesUpdate<'prototypes'>)
       .eq('id', prototype_id);
 
     if (updateLatestBuildError) {
