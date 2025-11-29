@@ -40,6 +40,7 @@ export class EternalTerminalLogManager {
   private readonly trackedSessionIds: Set<string>;
   private readonly logger: SystemLogger;
   private readonly sessionLogs = new Map<string, EternalTerminalLogTracker>();
+  private readonly completedTrackers: EternalTerminalLogTracker[] = [];
   private static readonly UPLOAD_CONCURRENCY = 3;
 
   constructor(
@@ -57,8 +58,18 @@ export class EternalTerminalLogManager {
     if (!this.trackedSessionIds.has(session.id)) {
       return;
     }
-    if (this.sessionLogs.has(session.id)) {
+    const existingTracker = this.sessionLogs.get(session.id);
+    if (existingTracker && existingTracker.stream) {
       return;
+    }
+
+    if (!existingTracker) {
+      const archivedIndex = this.completedTrackers.findIndex(
+        (tracker) => tracker.sessionId === session.id,
+      );
+      if (archivedIndex >= 0) {
+        this.completedTrackers.splice(archivedIndex, 1);
+      }
     }
 
     this.ensureLogDir();
@@ -154,6 +165,8 @@ export class EternalTerminalLogManager {
         stream.off("error", handleError);
         tracker.stream = null;
         tracker.closed = true;
+        this.completedTrackers.push(tracker);
+        this.sessionLogs.delete(sessionId);
         resolve();
       });
     });
@@ -193,7 +206,8 @@ export class EternalTerminalLogManager {
     };
 
     await this.flushActiveStreams();
-    const artifacts = this.getArtifacts();
+    const activeArtifacts = this.getArtifacts();
+    const artifacts = [...activeArtifacts, ...this.completedTrackers];
 
     if (artifacts.length === 0) {
       result.skippedReason = "no-artifacts";
@@ -217,7 +231,7 @@ export class EternalTerminalLogManager {
         chunk.map(async (artifact) => {
           try {
             const logBuffer = await fsPromises.readFile(artifact.filePath);
-            const folder = `${options.prototypeId}/${artifact.sessionId}_${artifact.createdAt}`;
+        const folder = `${options.prototypeId}/${artifact.sessionId}_${artifact.createdAt}`;
             const storagePath = `${folder}/output.log`;
             const { error } = await options.supabaseClient.storage
               .from(options.bucket)
@@ -231,7 +245,13 @@ export class EternalTerminalLogManager {
             }
 
             result.uploaded.push({ sessionId: artifact.sessionId, storagePath });
-            await this.resetTrackerAfterUpload(artifact.sessionId);
+            const isActive = this.sessionLogs.has(artifact.sessionId);
+            if (isActive) {
+              await this.resetTrackerAfterUpload(artifact.sessionId);
+            } else {
+              this.removeCompletedTracker(artifact.sessionId);
+              await fsPromises.truncate(artifact.filePath, 0);
+            }
             activeLogger.consoleLogDevOnly(
               "info",
               "Uploaded eternal terminal log",
@@ -384,6 +404,15 @@ export class EternalTerminalLogManager {
         "Failed to truncate eternal terminal log file after upload",
         { sessionId: tracker.sessionId, filePath: tracker.filePath },
       );
+    }
+  }
+
+  private removeCompletedTracker(sessionId: string): void {
+    const index = this.completedTrackers.findIndex(
+      (tracker) => tracker.sessionId === sessionId,
+    );
+    if (index >= 0) {
+      this.completedTrackers.splice(index, 1);
     }
   }
 }
