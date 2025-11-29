@@ -231,6 +231,7 @@ export class EternalTerminalLogManager {
             }
 
             result.uploaded.push({ sessionId: artifact.sessionId, storagePath });
+            await this.resetTrackerAfterUpload(artifact.sessionId);
             activeLogger.consoleLogDevOnly(
               "info",
               "Uploaded eternal terminal log",
@@ -344,5 +345,45 @@ export class EternalTerminalLogManager {
       chunks.push(items.slice(i, i + chunkSize));
     }
     return chunks;
+  }
+
+  private async resetTrackerAfterUpload(sessionId: string): Promise<void> {
+    const tracker = this.sessionLogs.get(sessionId);
+    if (!tracker) {
+      return;
+    }
+
+    try {
+      const stream = tracker.stream;
+      if (stream && typeof stream.fd === "number" && stream.fd >= 0) {
+        await fsPromises.ftruncate(stream.fd, 0);
+      } else {
+        await fsPromises.truncate(tracker.filePath, 0);
+        if (!tracker.stream) {
+          const reopen = createWriteStream(tracker.filePath, {
+            flags: "a",
+            encoding: "utf8",
+          });
+          reopen.on("error", (error) => {
+            this.logger.error(
+              error instanceof Error ? error : new Error(String(error)),
+              "Failed to reopen eternal terminal log stream",
+              { sessionId: tracker.sessionId, filePath: tracker.filePath },
+            );
+          });
+          tracker.stream = reopen;
+        }
+      }
+
+      tracker.bytesWritten = 0;
+      tracker.createdAt = Date.now();
+      tracker.lastEventAt = tracker.createdAt;
+    } catch (error) {
+      this.logger.error(
+        error instanceof Error ? error : new Error(String(error)),
+        "Failed to truncate eternal terminal log file after upload",
+        { sessionId: tracker.sessionId, filePath: tracker.filePath },
+      );
+    }
   }
 }
