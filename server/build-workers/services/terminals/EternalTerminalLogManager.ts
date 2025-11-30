@@ -39,6 +39,8 @@ export type TerminalLogPersistenceResult = {
 };
 
 export class EternalTerminalLogManager {
+  public static readonly DEFAULT_LOG_ROOT =
+    "/tmp/materialize-eternal-terminal-logs";
   private readonly logRoot: string;
   private readonly trackedSessionIds: Set<string>;
   private readonly logger: SystemLogger;
@@ -176,11 +178,24 @@ export class EternalTerminalLogManager {
         tracker.stream = null;
         tracker.closed = true;
         tracker.pendingBuffer = undefined;
-        this.completedTrackers.push(tracker);
-        this.sessionLogs.delete(sessionId);
         resolve();
       });
     });
+
+    const completedPath = `${tracker.filePath}.${tracker.createdAt}.completed`;
+    try {
+      await fsPromises.rename(tracker.filePath, completedPath);
+      tracker.filePath = completedPath;
+    } catch (error) {
+      this.logger.warn("Failed to rotate completed terminal log", {
+        sessionId,
+        filePath: tracker.filePath,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+
+    this.completedTrackers.push(tracker);
+    this.sessionLogs.delete(sessionId);
   }
 
   public async finalizeAllSessions(): Promise<void> {

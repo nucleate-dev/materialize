@@ -123,7 +123,7 @@ export class TerminalService {
       options.trackedSessionIds ?? DEFAULT_TRACKED_SESSION_IDS,
     );
     this.eternalTerminalLogManager = new EternalTerminalLogManager(
-      path.join(this.workDir, "eternal-terminal-logs"),
+      EternalTerminalLogManager.DEFAULT_LOG_ROOT,
       this.log2.child({ component: "EternalTerminalLogManager" }),
       trackedSessionIds,
     );
