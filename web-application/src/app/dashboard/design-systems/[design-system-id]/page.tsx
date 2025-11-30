@@ -29,14 +29,18 @@ interface DesignSystemDetailPageProps {
   }>;
 }
 
-export default function DesignSystemDetailPage({ params }: DesignSystemDetailPageProps) {
+export default function DesignSystemDetailPage({
+  params,
+}: DesignSystemDetailPageProps) {
   const { user } = useUser();
   const router = useRouter();
   const logger = useProductLogger();
   const unwrappedParams = use(params);
   const designSystemId = unwrappedParams["design-system-id"];
 
-  const [designSystem, setDesignSystem] = useState<DesignSystemRow | null>(null);
+  const [designSystem, setDesignSystem] = useState<DesignSystemRow | null>(
+    null,
+  );
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -126,7 +130,15 @@ export default function DesignSystemDetailPage({ params }: DesignSystemDetailPag
     } finally {
       setIsSaving(false);
     }
-  }, [designSystem, userId, editedName, editedDescription, editedDesignRules, fetchDesignSystem, logger]);
+  }, [
+    designSystem,
+    userId,
+    editedName,
+    editedDescription,
+    editedDesignRules,
+    fetchDesignSystem,
+    logger,
+  ]);
 
   const handleDelete = async () => {
     if (!designSystem) return;
@@ -146,7 +158,7 @@ export default function DesignSystemDetailPage({ params }: DesignSystemDetailPag
 
       if ((count ?? 0) > 0) {
         setDeleteError(
-          `This design system is currently linked to ${count} prototype${(count ?? 0) === 1 ? '' : 's'}. Disconnect those prototypes before deleting.`,
+          `This design system is currently linked to ${count} prototype${(count ?? 0) === 1 ? "" : "s"}. Disconnect those prototypes before deleting.`,
         );
         setIsDeleting(false);
         return;
@@ -164,17 +176,19 @@ export default function DesignSystemDetailPage({ params }: DesignSystemDetailPag
       router.push("/dashboard/design-systems");
     } catch (error) {
       setDeleteError(
-        error instanceof Error ? error.message : "Failed to delete design system.",
+        error instanceof Error
+          ? error.message
+          : "Failed to delete design system.",
       );
       setIsDeleting(false);
     }
   };
 
-  const hasChanges = designSystem && (
-    editedName !== (designSystem.name ?? "") ||
-    editedDescription !== (designSystem.description ?? "") ||
-    editedDesignRules !== (designSystem.design_rules ?? "")
-  );
+  const hasChanges =
+    designSystem &&
+    (editedName !== (designSystem.name ?? "") ||
+      editedDescription !== (designSystem.description ?? "") ||
+      editedDesignRules !== (designSystem.design_rules ?? ""));
 
   if (isLoading || !designSystem) {
     return (
@@ -189,9 +203,7 @@ export default function DesignSystemDetailPage({ params }: DesignSystemDetailPag
 
   return (
     <div className="relative min-h-screen text-foreground font-sans">
-
       <div className="container mx-auto px-6 py-12 max-w-5xl">
-
         {/* --- Header --- */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
           <div className="flex items-center gap-4">
@@ -254,7 +266,6 @@ export default function DesignSystemDetailPage({ params }: DesignSystemDetailPag
 
         {/* --- Editor Layout --- */}
         <div className="grid gap-8 max-w-4xl mx-auto">
-
           {/* Configuration Panel */}
           <div className="bg-card border border-border rounded-xl overflow-hidden">
             <div className="px-6 py-4 border-b border-border bg-accent/20 flex items-center gap-2 text-sm font-medium text-muted-foreground">
@@ -304,7 +315,6 @@ export default function DesignSystemDetailPage({ params }: DesignSystemDetailPag
               />
             </div>
           </div>
-
         </div>
       </div>
 
@@ -322,14 +332,20 @@ export default function DesignSystemDetailPage({ params }: DesignSystemDetailPag
           <AlertDialogHeader>
             <AlertDialogTitle>Delete design system?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. It will permanently delete <span className="font-medium">{designSystem.name}</span>.
+              This action cannot be undone. It will permanently delete{" "}
+              <span className="font-medium">{designSystem.name}</span>.
             </AlertDialogDescription>
           </AlertDialogHeader>
           {deleteError && (
-            <p className="text-sm text-destructive bg-destructive/10 p-2 rounded border border-destructive/20">{deleteError}</p>
+            <p className="text-sm text-destructive bg-destructive/10 p-2 rounded border border-destructive/20">
+              {deleteError}
+            </p>
           )}
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setIsDeleteDialogOpen(false)} disabled={isDeleting}>
+            <AlertDialogCancel
+              onClick={() => setIsDeleteDialogOpen(false)}
+              disabled={isDeleting}
+            >
               Cancel
             </AlertDialogCancel>
             <AlertDialogAction
@@ -337,7 +353,11 @@ export default function DesignSystemDetailPage({ params }: DesignSystemDetailPag
               disabled={isDeleting}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Delete"}
+              {isDeleting ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                "Delete"
+              )}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

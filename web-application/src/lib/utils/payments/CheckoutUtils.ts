@@ -80,7 +80,14 @@ export async function handleRedirectToPaymentsPage(
   );
 
   const requestBody: CheckoutRequestBody = {
-    productID: productID as "free" | "plus" | "pro" | "max" | "credit_pack_100" | "credit_pack_500" | "credit_pack_1000",
+    productID: productID as
+      | "free"
+      | "plus"
+      | "pro"
+      | "max"
+      | "credit_pack_100"
+      | "credit_pack_500"
+      | "credit_pack_1000",
   };
 
   const checkoutEndpoint = `${process.env.NEXT_PUBLIC_SERVER_ENDPOINT}/payments/checkout`;

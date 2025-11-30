@@ -286,7 +286,7 @@ export async function getRemainingCredits(
   try {
     const subscriptionInfo = await getSubscriptionInfo(jwtToken, userId, log2);
 
-    if (subscriptionInfo.userPlan === "free") {
+    if (subscriptionInfo.userPlan === 'free') {
       const freeCreditInfo = await calculateFreeTierCreditInfo(
         supabaseClient,
         userId,
@@ -332,19 +332,19 @@ export async function getRemainingCredits(
     // Get the credit limit for this plan
     let creditLimit = 0;
     switch (subscriptionInfo.userPlan as string) {
-      case "free":
+      case 'free':
         creditLimit = CreditLimits.FREE;
         break;
-      case "plus":
+      case 'plus':
         creditLimit = CreditLimits.PLUS;
         break;
-      case "pro":
+      case 'pro':
         creditLimit = CreditLimits.PRO;
         break;
-      case "max":
+      case 'max':
         creditLimit = CreditLimits.MAX;
         break;
-      case "team":
+      case 'team':
         creditLimit = CreditLimits.TEAM;
         break;
       default:
@@ -371,7 +371,7 @@ export async function getRemainingCredits(
       granted: 0,
       used: 0,
       limit: CreditLimits.FREE,
-      plan: "free",
+      plan: 'free',
       currentPeriodStart: startOfMonth,
       currentPeriodEnd: endOfMonth,
       stripeCustomerId: '',
@@ -421,7 +421,7 @@ export async function hasExceededCreditLimit(
       granted: 0,
       used: 0,
       limit: CreditLimits.FREE,
-      plan: "free",
+      plan: 'free',
       currentPeriodStart: startOfMonth,
       currentPeriodEnd: endOfMonth,
       stripeCustomerId: '',

@@ -36,7 +36,8 @@ interface CreditUsageHook extends CreditUsageState {
  */
 export function useCreditUsage(): CreditUsageHook {
   const logger = useProductLogger();
-  const { user, userIsLoading, userPlan, loadingSubscriptionData } = useSubscriptionAccess();
+  const { user, userIsLoading, userPlan, loadingSubscriptionData } =
+    useSubscriptionAccess();
 
   const [state, setState] = useState<CreditUsageState>({
     creditsUsed: 0,
@@ -244,7 +245,10 @@ export function useCreditUsage(): CreditUsageHook {
         const newState = { ...prev, ...updates };
 
         // Recalculate derived fields if needed
-        if (updates.creditsUsed !== undefined || updates.creditLimit !== undefined) {
+        if (
+          updates.creditsUsed !== undefined ||
+          updates.creditLimit !== undefined
+        ) {
           const used = updates.creditsUsed ?? newState.creditsUsed;
           const limit = updates.creditLimit ?? newState.creditLimit;
 

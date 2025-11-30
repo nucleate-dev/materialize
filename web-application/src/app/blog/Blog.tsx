@@ -8,12 +8,13 @@ import { Input } from "@/components/ui/input";
 import { BlogPost } from "@/lib/blog";
 import {
   ArrowRight,
-  BookOpen, Clock,
+  BookOpen,
+  Clock,
   Code2,
   Lightbulb,
   Rocket,
   Search,
-  Sparkles
+  Sparkles,
 } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
@@ -83,7 +84,9 @@ export default function Blog({ initialPosts }: BlogProps) {
                 Blog
               </h1>
               <p className="text-lg md:text-xl text-[#8A8F98] max-w-2xl mx-auto font-normal leading-relaxed">
-                Insights, tutorials, and updates on building products <br className="hidden md:block" /> with Materialize and React Native.
+                Insights, tutorials, and updates on building products{" "}
+                <br className="hidden md:block" /> with Materialize and React
+                Native.
               </p>
             </div>
 
@@ -116,9 +119,10 @@ export default function Blog({ initialPosts }: BlogProps) {
                       onClick={() => setSelectedCategory(category.key)}
                       className={`
                         flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200
-                        ${isSelected
-                          ? "bg-white text-black hover:bg-white/90"
-                          : "bg-white/5 text-white/70 hover:bg-white/10 hover:text-white border border-white/5"
+                        ${
+                          isSelected
+                            ? "bg-white text-black hover:bg-white/90"
+                            : "bg-white/5 text-white/70 hover:bg-white/10 hover:text-white border border-white/5"
                         }
                       `}
                     >
@@ -135,7 +139,6 @@ export default function Blog({ initialPosts }: BlogProps) {
         {/* Content Section */}
         <section className="pb-24 px-6">
           <div className="container mx-auto max-w-6xl">
-
             {/* Featured Posts */}
             {featuredPosts.length > 0 && (
               <div className="mb-20">
@@ -145,7 +148,11 @@ export default function Blog({ initialPosts }: BlogProps) {
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                   {featuredPosts.map((post) => (
-                    <Link key={post.slug} href={`/blog/${post.slug}`} className="block h-full">
+                    <Link
+                      key={post.slug}
+                      href={`/blog/${post.slug}`}
+                      className="block h-full"
+                    >
                       <article className="group relative h-full rounded-2xl bg-[#141517] border border-white/10 overflow-hidden hover:border-white/20 transition-all duration-300 flex flex-col">
                         <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/40 z-10 pointer-events-none" />
 
@@ -179,9 +186,12 @@ export default function Blog({ initialPosts }: BlogProps) {
                                 {post.authorAvatar}
                               </div>
                               <div className="flex flex-col">
-                                <span className="text-sm text-white font-medium">{post.author}</span>
+                                <span className="text-sm text-white font-medium">
+                                  {post.author}
+                                </span>
                                 <span className="text-xs text-white/40 flex items-center gap-1">
-                                  {formatDate(post.publishedAt)} • {post.readTime} min read
+                                  {formatDate(post.publishedAt)} •{" "}
+                                  {post.readTime} min read
                                 </span>
                               </div>
                             </div>
@@ -209,7 +219,11 @@ export default function Blog({ initialPosts }: BlogProps) {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {regularPosts.map((post) => (
-                    <Link key={post.slug} href={`/blog/${post.slug}`} className="block">
+                    <Link
+                      key={post.slug}
+                      href={`/blog/${post.slug}`}
+                      className="block"
+                    >
                       <article className="group h-full flex flex-col rounded-2xl bg-[#141517] border border-white/10 overflow-hidden hover:border-white/20 transition-all duration-300 hover:shadow-2xl hover:shadow-black/50">
                         <div className="p-6 flex flex-col h-full">
                           <div className="flex items-center justify-between mb-4">
@@ -235,7 +249,9 @@ export default function Blog({ initialPosts }: BlogProps) {
                               {post.authorAvatar}
                             </div>
                             <div className="text-xs text-white/40">
-                              <span className="text-white/60">{post.author}</span>
+                              <span className="text-white/60">
+                                {post.author}
+                              </span>
                               <span className="mx-1">·</span>
                               {formatDate(post.publishedAt)}
                             </div>
@@ -254,9 +270,12 @@ export default function Blog({ initialPosts }: BlogProps) {
                 <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-6">
                   <Search className="w-6 h-6 text-white/40" />
                 </div>
-                <h3 className="text-xl font-medium text-white mb-2">No posts found</h3>
+                <h3 className="text-xl font-medium text-white mb-2">
+                  No posts found
+                </h3>
                 <p className="text-[#8A8F98] mb-8">
-                  We couldn&apos;t find any posts matching &ldquo;{searchQuery}&rdquo;
+                  We couldn&apos;t find any posts matching &ldquo;{searchQuery}
+                  &rdquo;
                 </p>
                 <Button
                   variant="outline"
@@ -286,7 +305,8 @@ export default function Blog({ initialPosts }: BlogProps) {
                   Stay in the loop
                 </h2>
                 <p className="text-[#8A8F98] mb-8 text-lg">
-                  Get the latest insights on React Native development and AI-powered prototyping delivered directly to your inbox.
+                  Get the latest insights on React Native development and
+                  AI-powered prototyping delivered directly to your inbox.
                 </p>
 
                 <div className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto">
@@ -301,7 +321,6 @@ export default function Blog({ initialPosts }: BlogProps) {
                 </div>
               </div>
             </div>
-
           </div>
         </section>
 
@@ -309,13 +328,23 @@ export default function Blog({ initialPosts }: BlogProps) {
         <footer className="py-12 border-t border-white/5 bg-[#0B0C0E] text-sm">
           <div className="container mx-auto px-6 max-w-6xl flex flex-col md:flex-row justify-between items-center text-[#8A8F98] gap-6">
             <div className="flex gap-6">
-              <span className="hover:text-white cursor-pointer transition-colors">Twitter</span>
-              <span className="hover:text-white cursor-pointer transition-colors">GitHub</span>
-              <span className="hover:text-white cursor-pointer transition-colors">Discord</span>
+              <span className="hover:text-white cursor-pointer transition-colors">
+                Twitter
+              </span>
+              <span className="hover:text-white cursor-pointer transition-colors">
+                GitHub
+              </span>
+              <span className="hover:text-white cursor-pointer transition-colors">
+                Discord
+              </span>
             </div>
             <div className="flex gap-6">
-              <span className="hover:text-white cursor-pointer transition-colors">Privacy</span>
-              <span className="hover:text-white cursor-pointer transition-colors">Terms</span>
+              <span className="hover:text-white cursor-pointer transition-colors">
+                Privacy
+              </span>
+              <span className="hover:text-white cursor-pointer transition-colors">
+                Terms
+              </span>
               <span>© 2025 Materialize Inc.</span>
             </div>
           </div>

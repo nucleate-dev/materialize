@@ -182,23 +182,23 @@ Do not use it for general monitoring or informational purposes.
  * @returns The complete system prompt with design-specific instructions
  */
 export function getSystemPromptForDesignStyle(
-   designStyle?: string | null,
+  designStyle?: string | null,
 ): string {
-   let stackInfo: string;
+  let stackInfo: string;
 
-   switch (designStyle) {
-      case "nativewind":
-         stackInfo = NATIVEWIND_STACK_INFO;
-         break;
-      case "tamagui":
-         stackInfo = TAMAGUI_STACK_INFO;
-         break;
-      case "stylesheets":
-      case "custom":
-      default:
-         stackInfo = STYLESHEET_STACK_INFO;
-         break;
-   }
+  switch (designStyle) {
+    case "nativewind":
+      stackInfo = NATIVEWIND_STACK_INFO;
+      break;
+    case "tamagui":
+      stackInfo = TAMAGUI_STACK_INFO;
+      break;
+    case "stylesheets":
+    case "custom":
+    default:
+      stackInfo = STYLESHEET_STACK_INFO;
+      break;
+  }
 
-   return BASE_SYSTEM_PROMPT + " " + stackInfo + " " + SHARED_SECTIONS;
+  return BASE_SYSTEM_PROMPT + " " + stackInfo + " " + SHARED_SECTIONS;
 }

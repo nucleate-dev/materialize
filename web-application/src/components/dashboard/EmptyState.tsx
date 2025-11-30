@@ -56,9 +56,13 @@ const EmptyState: React.FC<EmptyStateProps> = ({
 
   return (
     <div className="relative w-full flex flex-col items-center justify-center p-8 md:p-12 text-center overflow-hidden rounded-3xl">
-
       {/* Background Glow Effect (Subtle) */}
-      <div className={cn("absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 blur-[100px] rounded-full pointer-events-none opacity-50", content.glowColor)} />
+      <div
+        className={cn(
+          "absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 blur-[100px] rounded-full pointer-events-none opacity-50",
+          content.glowColor,
+        )}
+      />
 
       {/* Icon Container */}
       <div className="relative group mb-6">
@@ -67,7 +71,9 @@ const EmptyState: React.FC<EmptyStateProps> = ({
 
         <div className="relative w-16 h-16 bg-white dark:bg-[#141517] border border-black/10 dark:border-white/10 rounded-2xl flex items-center justify-center shadow-2xl">
           <div className="absolute inset-0 opacity-20 rounded-2xl" />
-          <IconComponent className={cn("w-6 h-6 relative z-10", content.iconColor)} />
+          <IconComponent
+            className={cn("w-6 h-6 relative z-10", content.iconColor)}
+          />
         </div>
 
         {/* Floating decorative sparkle */}

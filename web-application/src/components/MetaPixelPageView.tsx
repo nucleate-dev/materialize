@@ -1,7 +1,7 @@
 "use client";
 
-import { Suspense, useEffect } from 'react';
-import { usePathname, useSearchParams } from 'next/navigation';
+import { Suspense, useEffect } from "react";
+import { usePathname, useSearchParams } from "next/navigation";
 
 /**
  * Component to track Meta Pixel page views on route changes
@@ -12,8 +12,8 @@ function MetaPixelPageViewInner() {
   const searchParams = useSearchParams();
 
   useEffect(() => {
-    if (typeof window !== 'undefined' && window.fbq) {
-      window.fbq('track', 'PageView');
+    if (typeof window !== "undefined" && window.fbq) {
+      window.fbq("track", "PageView");
     }
   }, [pathname, searchParams]);
 
@@ -34,7 +34,7 @@ declare global {
     fbq?: (
       action: string,
       eventName: string,
-      params?: Record<string, unknown>
+      params?: Record<string, unknown>,
     ) => void;
   }
 }

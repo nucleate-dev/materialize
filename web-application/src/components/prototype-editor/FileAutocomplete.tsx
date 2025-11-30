@@ -101,7 +101,10 @@ export function FileAutocomplete({
 
     try {
       // Escape special regex characters to prevent crashes
-      const escapedSearchTerm = searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const escapedSearchTerm = searchTerm.replace(
+        /[.*+?^${}()|[\]\\]/g,
+        "\\$&",
+      );
       const parts = text.split(new RegExp(`(${escapedSearchTerm})`, "gi"));
       return parts.map((part, index) =>
         part.toLowerCase() === searchTerm.toLowerCase() ? (

@@ -68,15 +68,13 @@ export default function FoldersPage() {
   };
 
   // Filter folders client-side for instant feedback
-  const filteredFolders = folders.filter(f =>
-    f.name.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredFolders = folders.filter((f) =>
+    f.name.toLowerCase().includes(searchQuery.toLowerCase()),
   );
 
   return (
     <div className="relative min-h-screen text-foreground font-sans">
-
       <div className="container mx-auto px-6 py-12 max-w-7xl">
-
         {/* --- Header Section --- */}
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
           <div className="space-y-2">
@@ -116,7 +114,9 @@ export default function FoldersPage() {
         {isLoading ? (
           <div className="flex flex-col items-center justify-center py-32 text-muted-foreground">
             <Loader2 className="h-8 w-8 animate-spin mb-4 text-muted-foreground/50" />
-            <p className="text-sm font-medium animate-pulse">Loading your workspace...</p>
+            <p className="text-sm font-medium animate-pulse">
+              Loading your workspace...
+            </p>
           </div>
         ) : (
           <>
@@ -137,7 +137,9 @@ export default function FoldersPage() {
                           ? new Date(folder.updated_at).toLocaleDateString()
                           : new Date(folder.created_at!).toLocaleDateString()
                       }
-                      onClick={() => router.push(`/dashboard/folders/${folder.id}`)}
+                      onClick={() =>
+                        router.push(`/dashboard/folders/${folder.id}`)
+                      }
                     />
                   </div>
                 ))}
@@ -147,8 +149,8 @@ export default function FoldersPage() {
                 <EmptyState
                   type="folders"
                   onButtonClick={handleOpenModal}
-                // You might need to pass explicit styles to EmptyState if it doesn't adapt automatically,
-                // but usually standard Tailwind classes work fine inside dark containers.
+                  // You might need to pass explicit styles to EmptyState if it doesn't adapt automatically,
+                  // but usually standard Tailwind classes work fine inside dark containers.
                 />
               </div>
             )}

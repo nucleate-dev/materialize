@@ -34,7 +34,7 @@ import {
   LayoutTemplate,
   Loader2,
   Sparkles,
-  Wand2
+  Wand2,
 } from "lucide-react"; // Kept Lucide
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -43,17 +43,13 @@ import { useEffect, useState } from "react";
 type DesignSystemRow = Database["public"]["Tables"]["design_systems"]["Row"];
 type DesignStyle = Database["public"]["Enums"]["design_style"];
 
-const DESIGN_STYLE_OPTIONS: DesignStyle[] = [
-  "stylesheets",
-  "nativewind",
-];
+const DESIGN_STYLE_OPTIONS: DesignStyle[] = ["stylesheets", "nativewind"];
 
 const DESIGN_STYLE_LABELS: Partial<Record<DesignStyle, string>> = {
   nativewind: "NativeWind",
   stylesheets: "StyleSheet",
-  custom: "Custom"
+  custom: "Custom",
 };
-
 
 export default function DashboardPage() {
   // --- Logic / Hooks (Preserved) ---
@@ -64,9 +60,13 @@ export default function DashboardPage() {
   const [showUpsellModal, setShowUpsellModal] = useState(false);
   const router = useRouter();
   const { user } = useUser();
-  const [redirectAfterLogin, setRedirectAfterLogin] = useAtom(redirectAfterLoginAtom);
+  const [redirectAfterLogin, setRedirectAfterLogin] = useAtom(
+    redirectAfterLoginAtom,
+  );
   const [designSystems, setDesignSystems] = useState<DesignSystemRow[]>([]);
-  const [customDesignSystemId, setCustomDesignSystemId] = useState<string | null>(null);
+  const [customDesignSystemId, setCustomDesignSystemId] = useState<
+    string | null
+  >(null);
   const [, setIsLoadingDesignSystems] = useState(false);
   const [designStyle, setDesignStyle] = useState<DesignStyle>("stylesheets");
   const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
@@ -96,7 +96,7 @@ export default function DashboardPage() {
           logger.debug("error", "Error fetching design systems:", { ...error });
           return;
         }
-        setDesignSystems(data as DesignSystemRow[] || []);
+        setDesignSystems((data as DesignSystemRow[]) || []);
       } catch (error) {
         logger.debug("error", "Error fetching design systems:", {
           error: error instanceof Error ? error.message : String(error),
@@ -168,7 +168,6 @@ export default function DashboardPage() {
       <GridBackground />
 
       <div className="container mx-auto px-4 pt-24 pb-16 max-w-4xl relative z-10">
-
         {/* --- Header Section --- */}
         <div className="text-center mb-12 space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-700">
           {/* <div className="inline-flex items-center justify-center p-1 rounded-full bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 backdrop-blur-sm mb-4">
@@ -181,7 +180,8 @@ export default function DashboardPage() {
             Build Your Ideas
           </h1>
           <p className="text-lg text-gray-600 dark:text-[#8A8F98] max-w-xl mx-auto font-light">
-            Describe your mobile app, screen, or flow. <br className="hidden sm:block" />
+            Describe your mobile app, screen, or flow.{" "}
+            <br className="hidden sm:block" />
             We will generate the React Native code instantly.
           </p>
         </div>
@@ -192,7 +192,6 @@ export default function DashboardPage() {
           <div className="absolute -inset-0.5 bg-gradient-to-r from-purple-500/20 to-blue-500/20 rounded-2xl blur-xl opacity-20 group-hover:opacity-30 transition duration-500"></div>
 
           <div className="relative bg-gray-50 dark:bg-[#141517] border border-black/10 dark:border-white/10 rounded-xl overflow-hidden shadow-2xl flex flex-col transition-all duration-200 focus-within:border-black/20 dark:focus-within:border-white/20 focus-within:bg-gray-100 dark:focus-within:bg-[#18191B] focus-within:ring-1 focus-within:ring-black/5 dark:focus-within:ring-white/5">
-
             {/* Input Area */}
             <div className="px-5 pt-5">
               <Textarea
@@ -208,14 +207,14 @@ export default function DashboardPage() {
 
             {/* Toolbar / Action Bar */}
             <div className="px-4 py-3 mt-2 bg-black/[0.02] dark:bg-white/[0.02] border-t border-black/5 dark:border-white/5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-
               {/* Left: Configuration Tools (Desktop) */}
               <div className="hidden md:flex items-center gap-2">
-
                 {/* Design Style Selector */}
                 <Select
                   value={designStyle}
-                  onValueChange={(value) => setDesignStyle(value as DesignStyle)}
+                  onValueChange={(value) =>
+                    setDesignStyle(value as DesignStyle)
+                  }
                   disabled={isLoading}
                 >
                   <SelectTrigger className="h-8 border-0 bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 text-black/70 dark:text-white/70 hover:text-black dark:hover:text-white text-xs font-medium rounded-md transition-colors gap-2 w-auto min-w-[130px] focus:ring-0">
@@ -239,7 +238,9 @@ export default function DashboardPage() {
                 {designSystems.length > 0 && (
                   <Select
                     value={customDesignSystemId ?? "none"}
-                    onValueChange={(value) => setCustomDesignSystemId(value === "none" ? null : value)}
+                    onValueChange={(value) =>
+                      setCustomDesignSystemId(value === "none" ? null : value)
+                    }
                     disabled={isLoading}
                   >
                     <SelectTrigger className="h-8 border-0 bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 text-black/70 dark:text-white/70 hover:text-black dark:hover:text-white text-xs font-medium rounded-md transition-colors gap-2 w-auto max-w-[180px] focus:ring-0">
@@ -247,7 +248,10 @@ export default function DashboardPage() {
                       <SelectValue placeholder="Design System" />
                     </SelectTrigger>
                     <SelectContent className="bg-white dark:bg-[#1A1B1E] border-black/10 dark:border-white/10 text-black dark:text-white">
-                      <SelectItem value="none" className="focus:bg-black/10 dark:focus:bg-white/10 focus:text-black dark:focus:text-white text-black/70 dark:text-white/70 cursor-pointer text-xs py-2">
+                      <SelectItem
+                        value="none"
+                        className="focus:bg-black/10 dark:focus:bg-white/10 focus:text-black dark:focus:text-white text-black/70 dark:text-white/70 cursor-pointer text-xs py-2"
+                      >
                         Default System
                       </SelectItem>
                       {designSystems.map((system) => (
@@ -266,20 +270,32 @@ export default function DashboardPage() {
 
               {/* Left: Mobile Collapsible Tools */}
               <div className="md:hidden w-full">
-                <Collapsible open={showAdvancedOptions} onOpenChange={setShowAdvancedOptions}>
+                <Collapsible
+                  open={showAdvancedOptions}
+                  onOpenChange={setShowAdvancedOptions}
+                >
                   <CollapsibleTrigger asChild>
-                    <Button variant="ghost" size="sm" className="h-8 w-full justify-between text-black/60 dark:text-white/60 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5 text-xs px-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 w-full justify-between text-black/60 dark:text-white/60 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5 text-xs px-2"
+                    >
                       <span className="flex items-center gap-2">
                         <Cpu className="w-3.5 h-3.5" />
                         Configuration
                       </span>
-                      <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${showAdvancedOptions ? 'rotate-180' : ''}`} />
+                      <ChevronDown
+                        className={`w-3.5 h-3.5 transition-transform duration-200 ${showAdvancedOptions ? "rotate-180" : ""}`}
+                      />
                     </Button>
                   </CollapsibleTrigger>
                   <CollapsibleContent className="space-y-2 pt-2 pb-1 animate-in slide-in-from-top-2">
                     {/* Mobile Selects */}
                     <div className="grid grid-cols-1 gap-2">
-                      <Select value={designStyle} onValueChange={(v) => setDesignStyle(v as DesignStyle)}>
+                      <Select
+                        value={designStyle}
+                        onValueChange={(v) => setDesignStyle(v as DesignStyle)}
+                      >
                         <SelectTrigger className="h-9 border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/5 text-black dark:text-white text-xs w-full">
                           <div className="flex items-center gap-2">
                             <SwatchIcon className="w-3.5 h-3.5" />
@@ -288,13 +304,24 @@ export default function DashboardPage() {
                         </SelectTrigger>
                         <SelectContent className="bg-white dark:bg-[#1A1B1E] border-black/10 dark:border-white/10 text-black dark:text-white">
                           {DESIGN_STYLE_OPTIONS.map((s) => (
-                            <SelectItem key={s} value={s} className="focus:bg-black/10 dark:focus:bg-white/10 text-black/80 dark:text-white/80 text-xs">{DESIGN_STYLE_LABELS[s]}</SelectItem>
+                            <SelectItem
+                              key={s}
+                              value={s}
+                              className="focus:bg-black/10 dark:focus:bg-white/10 text-black/80 dark:text-white/80 text-xs"
+                            >
+                              {DESIGN_STYLE_LABELS[s]}
+                            </SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
 
                       {designSystems.length > 0 && (
-                        <Select value={customDesignSystemId ?? "none"} onValueChange={(v) => setCustomDesignSystemId(v === "none" ? null : v)}>
+                        <Select
+                          value={customDesignSystemId ?? "none"}
+                          onValueChange={(v) =>
+                            setCustomDesignSystemId(v === "none" ? null : v)
+                          }
+                        >
                           <SelectTrigger className="h-9 border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/5 text-black dark:text-white text-xs w-full">
                             <div className="flex items-center gap-2">
                               <PaintBrushIcon className="w-3.5 h-3.5" />
@@ -302,9 +329,20 @@ export default function DashboardPage() {
                             </div>
                           </SelectTrigger>
                           <SelectContent className="bg-white dark:bg-[#1A1B1E] border-black/10 dark:border-white/10 text-black dark:text-white">
-                            <SelectItem value="none" className="focus:bg-black/10 dark:focus:bg-white/10 text-black/80 dark:text-white/80 text-xs">Default System</SelectItem>
+                            <SelectItem
+                              value="none"
+                              className="focus:bg-black/10 dark:focus:bg-white/10 text-black/80 dark:text-white/80 text-xs"
+                            >
+                              Default System
+                            </SelectItem>
                             {designSystems.map((s) => (
-                              <SelectItem key={s.id} value={String(s.id)} className="focus:bg-black/10 dark:focus:bg-white/10 text-black/80 dark:text-white/80 text-xs">{s.name}</SelectItem>
+                              <SelectItem
+                                key={s.id}
+                                value={String(s.id)}
+                                className="focus:bg-black/10 dark:focus:bg-white/10 text-black/80 dark:text-white/80 text-xs"
+                              >
+                                {s.name}
+                              </SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
@@ -358,7 +396,6 @@ export default function DashboardPage() {
             </div>
           </div>
         </div>
-
       </div>
 
       <ProPlanUpsellModal

@@ -8,9 +8,10 @@ import {
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
-  SidebarMenuItem, SidebarSeparator,
+  SidebarMenuItem,
+  SidebarSeparator,
   SidebarTrigger,
-  useSidebar
+  useSidebar,
 } from "@/components/ui/sidebar";
 import { SHOW_WHITEBOARDS } from "@/GlobalConstants";
 import { sidebarOpenAtom } from "@/lib/atoms/sidebar";
@@ -63,13 +64,13 @@ const DashboardSidebarContent = () => {
     },
     ...(SHOW_WHITEBOARDS
       ? [
-        {
-          href: "/dashboard/whiteboards",
-          icon: SquareStack,
-          label: "Whiteboards",
-          active: pathname?.includes("whiteboards"),
-        },
-      ]
+          {
+            href: "/dashboard/whiteboards",
+            icon: SquareStack,
+            label: "Whiteboards",
+            active: pathname?.includes("whiteboards"),
+          },
+        ]
       : []),
   ];
 
@@ -78,7 +79,11 @@ const DashboardSidebarContent = () => {
       <SidebarHeader className="border-b border-gray-200 dark:border-sidebar-border">
         {isCollapsed ? (
           <div className="flex flex-col items-center gap-2 py-2">
-            <Link href="/dashboard" className="p-2" onClick={handleMobileLinkClick}>
+            <Link
+              href="/dashboard"
+              className="p-2"
+              onClick={handleMobileLinkClick}
+            >
               <FlaskConical className="w-6 h-6 text-primary" />
             </Link>
             <SidebarTrigger
@@ -88,7 +93,11 @@ const DashboardSidebarContent = () => {
           </div>
         ) : (
           <div className="flex items-center justify-between gap-3 px-2 py-2">
-            <Link href="/dashboard" className="group flex-1 min-w-0" onClick={handleMobileLinkClick}>
+            <Link
+              href="/dashboard"
+              className="group flex-1 min-w-0"
+              onClick={handleMobileLinkClick}
+            >
               <div className="relative flex items-center gap-3 px-3 py-2">
                 <div className="absolute inset-0 bg-gradient-to-r from-primary/20 to-secondary/20 dark:from-primary/30 dark:to-secondary/30 rounded-xl blur-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                 <FlaskConical className="relative w-6 h-6 text-primary transition-transform duration-300 group-hover:scale-110 flex-shrink-0" />
@@ -109,7 +118,13 @@ const DashboardSidebarContent = () => {
           <SidebarGroupContent>
             <SidebarMenu>
               <SidebarMenuItem>
-                <SidebarMenuButton asChild isActive={pathname === "/dashboard"} size="lg" tooltip={isCollapsed ? "New chat +" : undefined} className={isCollapsed ? "justify-center" : ""}>
+                <SidebarMenuButton
+                  asChild
+                  isActive={pathname === "/dashboard"}
+                  size="lg"
+                  tooltip={isCollapsed ? "New chat +" : undefined}
+                  className={isCollapsed ? "justify-center" : ""}
+                >
                   <Link href="/dashboard" onClick={handleMobileLinkClick}>
                     <Sparkles className="w-5 h-5" />
                     {!isCollapsed && <span>New chat +</span>}
@@ -125,7 +140,13 @@ const DashboardSidebarContent = () => {
             <SidebarMenu>
               {menuItems.map((item) => (
                 <SidebarMenuItem key={item.href}>
-                  <SidebarMenuButton asChild isActive={item.active} size="lg" tooltip={isCollapsed ? item.label : undefined} className={isCollapsed ? "justify-center" : ""}>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={item.active}
+                    size="lg"
+                    tooltip={isCollapsed ? item.label : undefined}
+                    className={isCollapsed ? "justify-center" : ""}
+                  >
                     <Link href={item.href} onClick={handleMobileLinkClick}>
                       <item.icon className="w-5 h-5" />
                       {!isCollapsed && <span>{item.label}</span>}
@@ -143,7 +164,13 @@ const DashboardSidebarContent = () => {
             <HorizontalModeToggle sidebarExpanded={!isCollapsed} />
           </SidebarMenuItem>
           <SidebarMenuItem>
-            <SidebarMenuButton asChild isActive={pathname?.includes("account")} size="lg" tooltip={isCollapsed ? "Settings" : undefined} className={isCollapsed ? "justify-center" : ""}>
+            <SidebarMenuButton
+              asChild
+              isActive={pathname?.includes("account")}
+              size="lg"
+              tooltip={isCollapsed ? "Settings" : undefined}
+              className={isCollapsed ? "justify-center" : ""}
+            >
               <Link href="/dashboard/account" onClick={handleMobileLinkClick}>
                 <Settings className="w-5 h-5" />
                 {!isCollapsed && <span>Settings</span>}
@@ -151,7 +178,12 @@ const DashboardSidebarContent = () => {
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>
-            <SidebarMenuButton onClick={logout} size="lg" tooltip={isCollapsed ? "Logout" : undefined} className={isCollapsed ? "justify-center" : ""}>
+            <SidebarMenuButton
+              onClick={logout}
+              size="lg"
+              tooltip={isCollapsed ? "Logout" : undefined}
+              className={isCollapsed ? "justify-center" : ""}
+            >
               <LogOut className="w-5 h-5" />
               {!isCollapsed && <span>Logout</span>}
             </SidebarMenuButton>

@@ -12,7 +12,7 @@ import {
   Loader2,
   MoreHorizontal,
   Pencil,
-  Smartphone
+  Smartphone,
 } from "lucide-react";
 import React from "react";
 
@@ -46,17 +46,41 @@ const ThumbnailCard: React.FC<ThumbnailCardProps> = ({
   const getTypeConfig = () => {
     switch (type) {
       case "folder":
-        return { label: "Folder", icon: Folder, color: "text-blue-400", bg: "bg-blue-400/10" };
+        return {
+          label: "Folder",
+          icon: Folder,
+          color: "text-blue-400",
+          bg: "bg-blue-400/10",
+        };
       case "prototype":
-        return { label: "Project", icon: Smartphone, color: "text-emerald-400", bg: "bg-emerald-400/10" };
+        return {
+          label: "Project",
+          icon: Smartphone,
+          color: "text-emerald-400",
+          bg: "bg-emerald-400/10",
+        };
       case "canvas":
-        return { label: "Canvas", icon: Layout, color: "text-orange-400", bg: "bg-orange-400/10" };
+        return {
+          label: "Canvas",
+          icon: Layout,
+          color: "text-orange-400",
+          bg: "bg-orange-400/10",
+        };
       default:
-        return { label: "Item", icon: FileBox, color: "text-gray-400", bg: "bg-gray-400/10" };
+        return {
+          label: "Item",
+          icon: FileBox,
+          color: "text-gray-400",
+          bg: "bg-gray-400/10",
+        };
     }
   };
 
-  const { label: typeLabel, icon: TypeIcon, color: typeColor } = getTypeConfig();
+  const {
+    label: typeLabel,
+    icon: TypeIcon,
+    color: typeColor,
+  } = getTypeConfig();
   const EditIcon = type === "folder" ? ArrowUpRight : Pencil;
   const editLabel = type === "folder" ? "Open" : "Edit";
 
@@ -67,12 +91,13 @@ const ThumbnailCard: React.FC<ThumbnailCardProps> = ({
     >
       {/* --- Thumbnail Area --- */}
       <div className="relative aspect-[9/16] w-full rounded-xl border border-black/10 dark:border-white/10 bg-gray-100 dark:bg-[#141517] overflow-hidden transition-all duration-300 group-hover:border-black/20 dark:group-hover:border-white/20 group-hover:shadow-[0_0_20px_-10px_rgba(0,0,0,0.1)] dark:group-hover:shadow-[0_0_20px_-10px_rgba(255,255,255,0.1)]">
-
         {/* Loading State */}
         {loading && (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-100 dark:bg-[#141517] z-20">
             <Loader2 className="w-6 h-6 text-black/20 dark:text-white/20 animate-spin mb-2" />
-            <span className="text-xs text-black/40 dark:text-white/40 font-medium">Loading...</span>
+            <span className="text-xs text-black/40 dark:text-white/40 font-medium">
+              Loading...
+            </span>
           </div>
         )}
 
@@ -111,7 +136,6 @@ const ThumbnailCard: React.FC<ThumbnailCardProps> = ({
         {/* --- Interaction Overlay (Bottom) --- */}
         <div className="absolute inset-0 flex items-end justify-center p-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-20 pointer-events-none">
           <div className="flex items-center gap-2 w-full pointer-events-auto">
-
             {/* View Button */}
             {onView && (
               <Button
@@ -135,7 +159,7 @@ const ThumbnailCard: React.FC<ThumbnailCardProps> = ({
                 className={cn(
                   "flex-1 h-8 text-xs font-medium rounded-lg shadow-lg transition-all transform translate-y-2 group-hover:translate-y-0 duration-300 delay-75",
                   // Primary style logic
-                  "bg-black dark:bg-white text-white dark:text-black hover:bg-black/90 dark:hover:bg-white/90 border-0"
+                  "bg-black dark:bg-white text-white dark:text-black hover:bg-black/90 dark:hover:bg-white/90 border-0",
                 )}
                 onClick={(e) => {
                   e.stopPropagation();
@@ -157,7 +181,12 @@ const ThumbnailCard: React.FC<ThumbnailCardProps> = ({
             {name}
           </h3>
           {/* Type Indicator (Pill) */}
-          <div className={cn("flex items-center gap-1.5 px-1.5 py-0.5 rounded text-[10px] font-medium bg-black/5 dark:bg-white/5 border border-black/5 dark:border-white/5", typeColor)}>
+          <div
+            className={cn(
+              "flex items-center gap-1.5 px-1.5 py-0.5 rounded text-[10px] font-medium bg-black/5 dark:bg-white/5 border border-black/5 dark:border-white/5",
+              typeColor,
+            )}
+          >
             <TypeIcon className="w-3 h-3" />
             <span className="hidden xs:inline">{typeLabel}</span>
           </div>

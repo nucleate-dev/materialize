@@ -43,7 +43,7 @@ import {
   MoreVertical,
   Pencil,
   Share2,
-  X
+  X,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -176,7 +176,7 @@ export default function PublicPrototypeHeader({
   };
 
   const handleVisibilityChange = async (
-    newVisibility: Database["public"]["Enums"]["visibility_level"]
+    newVisibility: Database["public"]["Enums"]["visibility_level"],
   ) => {
     if (!prototype || !user || prototype.owner_id !== user.id) return;
 
@@ -302,13 +302,16 @@ export default function PublicPrototypeHeader({
                   </h1>
 
                   {/* Info Button / Modal */}
-                  <Dialog open={showInfoModal} onOpenChange={(open) => {
-                    setShowInfoModal(open);
-                    if (!open) {
-                      setIsEditing(false);
-                      setEditedName("");
-                    }
-                  }}>
+                  <Dialog
+                    open={showInfoModal}
+                    onOpenChange={(open) => {
+                      setShowInfoModal(open);
+                      if (!open) {
+                        setIsEditing(false);
+                        setEditedName("");
+                      }
+                    }}
+                  >
                     <DialogTrigger asChild>
                       <Button
                         size="icon"
@@ -332,17 +335,19 @@ export default function PublicPrototypeHeader({
                             <span className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
                               Name
                             </span>
-                            {user && prototype.owner_id === user.id && !isEditing && (
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={handleStartEdit}
-                                className="h-6 px-2 text-xs text-indigo-500 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-500/10"
-                              >
-                                <Pencil className="w-3 h-3 mr-1" />
-                                Edit
-                              </Button>
-                            )}
+                            {user &&
+                              prototype.owner_id === user.id &&
+                              !isEditing && (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={handleStartEdit}
+                                  className="h-6 px-2 text-xs text-indigo-500 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-500/10"
+                                >
+                                  <Pencil className="w-3 h-3 mr-1" />
+                                  Edit
+                                </Button>
+                              )}
                           </div>
                           {isEditing ? (
                             <div className="flex items-center gap-2">
@@ -352,7 +357,8 @@ export default function PublicPrototypeHeader({
                                 className="text-sm flex-1 bg-gray-50 dark:bg-[#0B0C0E] border-gray-200 dark:border-white/10"
                                 onKeyDown={(e) => {
                                   if (e.key === "Enter") handleSaveEdit();
-                                  else if (e.key === "Escape") handleCancelEdit();
+                                  else if (e.key === "Escape")
+                                    handleCancelEdit();
                                 }}
                                 autoFocus
                                 disabled={isUpdating}
@@ -391,8 +397,12 @@ export default function PublicPrototypeHeader({
                           <span className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
                             Files
                           </span>
-                          <Badge variant="secondary" className="bg-gray-100 dark:bg-white/10 text-gray-700 dark:text-white hover:bg-gray-200 dark:hover:bg-white/20">
-                            <FileCode className="w-3 h-3 mr-1" /> {fileCount} files
+                          <Badge
+                            variant="secondary"
+                            className="bg-gray-100 dark:bg-white/10 text-gray-700 dark:text-white hover:bg-gray-200 dark:hover:bg-white/20"
+                          >
+                            <FileCode className="w-3 h-3 mr-1" /> {fileCount}{" "}
+                            files
                           </Badge>
                         </div>
 
@@ -403,11 +413,21 @@ export default function PublicPrototypeHeader({
                           </span>
                           <Badge
                             variant="outline"
-                            className={`text-xs border-gray-200 dark:border-white/10 ${user && prototype.owner_id === user.id ? 'cursor-pointer hover:bg-gray-50 dark:hover:bg-white/5' : ''}`}
-                            onClick={user && prototype.owner_id === user.id ? handleVisibilityClick : undefined}
+                            className={`text-xs border-gray-200 dark:border-white/10 ${user && prototype.owner_id === user.id ? "cursor-pointer hover:bg-gray-50 dark:hover:bg-white/5" : ""}`}
+                            onClick={
+                              user && prototype.owner_id === user.id
+                                ? handleVisibilityClick
+                                : undefined
+                            }
                           >
-                            {prototype.visibility === "SELF" ? <Lock className="w-3 h-3 mr-1 text-gray-400" /> : <Globe className="w-3 h-3 mr-1 text-indigo-400" />}
-                            {prototype.visibility === "SELF" ? "Private" : "Public"}
+                            {prototype.visibility === "SELF" ? (
+                              <Lock className="w-3 h-3 mr-1 text-gray-400" />
+                            ) : (
+                              <Globe className="w-3 h-3 mr-1 text-indigo-400" />
+                            )}
+                            {prototype.visibility === "SELF"
+                              ? "Private"
+                              : "Public"}
                           </Badge>
                         </div>
 
@@ -465,17 +485,28 @@ export default function PublicPrototypeHeader({
               {/* Mobile dropdown */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="sm:hidden text-gray-500 dark:text-[#8A8F98]">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="sm:hidden text-gray-500 dark:text-[#8A8F98]"
+                  >
                     <MoreVertical className="w-4 h-4" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-48 bg-white dark:bg-[#141517] border-gray-200 dark:border-white/10 text-gray-900 dark:text-white">
+                <DropdownMenuContent
+                  align="end"
+                  className="w-48 bg-white dark:bg-[#141517] border-gray-200 dark:border-white/10 text-gray-900 dark:text-white"
+                >
                   <DropdownMenuItem
                     onClick={handleClonePrototype}
                     disabled={isCloning}
                     className="cursor-pointer focus:bg-gray-100 dark:focus:bg-white/10"
                   >
-                    {isCloning ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Copy className="w-4 h-4 mr-2" />}
+                    {isCloning ? (
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    ) : (
+                      <Copy className="w-4 h-4 mr-2" />
+                    )}
                     Clone Project
                   </DropdownMenuItem>
                   <DropdownMenuItem
@@ -534,10 +565,7 @@ export default function PublicPrototypeHeader({
       </Dialog>
 
       {/* Visibility Change Modal */}
-      <Dialog
-        open={showVisibilityModal}
-        onOpenChange={setShowVisibilityModal}
-      >
+      <Dialog open={showVisibilityModal} onOpenChange={setShowVisibilityModal}>
         <DialogContent className="sm:max-w-md bg-white dark:bg-[#141517] border-gray-200 dark:border-white/10 text-gray-900 dark:text-white">
           <DialogHeader>
             <DialogTitle>Change Visibility</DialogTitle>
@@ -572,7 +600,10 @@ export default function PublicPrototypeHeader({
                   <Lock className="w-4 h-4 text-gray-500" />
                   Private
                   {!IsUserPlanSubscribed(userPlan) && (
-                    <Badge variant="secondary" className="ml-2 text-[10px] h-5 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400">
+                    <Badge
+                      variant="secondary"
+                      className="ml-2 text-[10px] h-5 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400"
+                    >
                       Plus
                     </Badge>
                   )}

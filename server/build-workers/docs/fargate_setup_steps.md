@@ -3,6 +3,7 @@
 This guide walks through setting up AWS Fargate to run your Fastify build worker containers programmatically.
 
 ## Project Context
+
 - **Main project**: TypeScript Fastify server in `build-workers/` directory
 - **Main file**: `dist/worker.js` (built from TypeScript)
 - **Node version**: 22
@@ -12,7 +13,7 @@ This guide walks through setting up AWS Fargate to run your Fastify build worker
 ## Step 1: Create ECR Repository
 
 1. Go to **Amazon ECR** in AWS Console
-2. Click **Private registry** → **Repositories** 
+2. Click **Private registry** → **Repositories**
 3. Click **Create repository**
 4. Repository name: `fastify-build-worker`
 5. Leave everything else as default
@@ -67,6 +68,7 @@ docker push YOUR_ACCOUNT_ID.dkr.ecr.us-east-2.amazonaws.com/fastify-build-worker
 ```
 
 ### Troubleshooting Authentication
+
 - If you get `UnrecognizedClientException`: Run `aws configure` to set up credentials
 - If you get `AccessDeniedException`: Add `AmazonEC2ContainerRegistryPowerUser` policy to your IAM user
 
@@ -91,15 +93,17 @@ docker push YOUR_ACCOUNT_ID.dkr.ecr.us-east-2.amazonaws.com/fastify-build-worker
 7. **Memory**: `2 GB`
 
 ### Container Configuration
+
 8. **Container details**:
    - **Container name**: `materialize-fargate-build-worker-container`
    - **Image URI**: `YOUR_ACCOUNT_ID.dkr.ecr.us-east-2.amazonaws.com/fastify-build-worker:latest`
-   - **Port mappings**: 
+   - **Port mappings**:
      - **Container port**: `3002`
      - **Protocol**: `TCP`
      - **Port name**: `fastify-port`
 
 ### Environment Variables
+
 9. **Environment variables** (add each one):
    - `PORT` = `3002`
    - `WORK_DIR` = `/tmp/materialize-dev-server`
@@ -107,6 +111,7 @@ docker push YOUR_ACCOUNT_ID.dkr.ecr.us-east-2.amazonaws.com/fastify-build-worker
    - `S3_BUCKET` = `materialize-sites`
 
 ### Task Roles
+
 10. **Task roles**:
     - **Task execution role**: Use default `ecsTaskExecutionRole`
     - **Task role**: `fastify-task-role` (create this next)
@@ -132,7 +137,7 @@ docker push YOUR_ACCOUNT_ID.dkr.ecr.us-east-2.amazonaws.com/fastify-build-worker
 
 ## Step 7: Update Task Definition with Role
 
-1. Go to **ECS** → **Task definitions** 
+1. Go to **ECS** → **Task definitions**
 2. Click on `fastify-build-worker`
 3. Click **Create new revision**
 4. Scroll down to **Task roles**
@@ -150,6 +155,7 @@ docker push YOUR_ACCOUNT_ID.dkr.ecr.us-east-2.amazonaws.com/fastify-build-worker
 6. **Platform version**: `LATEST`
 
 ### Networking Setup
+
 7. **Networking**:
    - **VPC**: Select your default VPC
    - **Subnets**: Select at least 2 subnets
@@ -187,6 +193,7 @@ You should see your Fastify server's health check response!
 ## Next Steps
 
 Now that you have the manual setup working, you can:
+
 1. Create a programmatic dispatcher to manage these Fargate instances
 2. Implement auto-scaling based on workload
 3. Set up proper CI/CD to automatically update the container image

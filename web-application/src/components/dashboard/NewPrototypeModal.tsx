@@ -371,9 +371,7 @@ export default function NewPrototypeModal({
                     <Loader2 className="w-3 h-3 animate-spin" /> Check Limits
                   </span>
                 ) : (
-                  <span>
-                    {prototypeCount}/5 Free Projects Used
-                  </span>
+                  <span>{prototypeCount}/5 Free Projects Used</span>
                 )}
               </div>
             )}
@@ -388,7 +386,8 @@ export default function NewPrototypeModal({
                     Limit Reached
                   </h4>
                   <p className="text-xs text-yellow-200/70 mb-3 leading-relaxed">
-                    Free plans include 5 projects. Upgrade to Plus for unlimited projects.
+                    Free plans include 5 projects. Upgrade to Plus for unlimited
+                    projects.
                   </p>
                   <Button
                     type="button"
@@ -405,11 +404,19 @@ export default function NewPrototypeModal({
 
           <form
             onSubmit={handleSubmit}
-            className={cn("space-y-5", userPlan === "free" && prototypeCount >= 5 && "opacity-50 pointer-events-none")}
+            className={cn(
+              "space-y-5",
+              userPlan === "free" &&
+                prototypeCount >= 5 &&
+                "opacity-50 pointer-events-none",
+            )}
           >
             {/* Project Name Input */}
             <div className="space-y-2">
-              <Label htmlFor="prototype-name" className="text-xs font-medium text-[#8A8F98]">
+              <Label
+                htmlFor="prototype-name"
+                className="text-xs font-medium text-[#8A8F98]"
+              >
                 Project Name
               </Label>
               <Input
@@ -420,7 +427,9 @@ export default function NewPrototypeModal({
                 onChange={(e) => setName(e.target.value)}
                 className={cn(
                   "h-11 bg-[#0B0C0E] border-white/10 text-white focus:border-white/20 placeholder:text-white/20 transition-all",
-                  touched && !name.trim() && "border-red-500/50 focus-visible:ring-red-500/20"
+                  touched &&
+                    !name.trim() &&
+                    "border-red-500/50 focus-visible:ring-red-500/20",
                 )}
                 autoFocus
                 maxLength={64}
@@ -433,32 +442,56 @@ export default function NewPrototypeModal({
             {/* Visibility Select */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <Label htmlFor="prototype-visibility" className="text-xs font-medium text-[#8A8F98]">
+                <Label
+                  htmlFor="prototype-visibility"
+                  className="text-xs font-medium text-[#8A8F98]"
+                >
                   Visibility
                 </Label>
                 {!IsUserPlanSubscribed(userPlan) && (
-                  <span className="text-[10px] text-[#8A8F98] bg-white/5 px-1.5 py-0.5 rounded">Upgrade for Private</span>
+                  <span className="text-[10px] text-[#8A8F98] bg-white/5 px-1.5 py-0.5 rounded">
+                    Upgrade for Private
+                  </span>
                 )}
               </div>
               <Select
                 value={visibility}
                 onValueChange={(value) =>
-                  setVisibility(value as Database["public"]["Enums"]["visibility_level"])
+                  setVisibility(
+                    value as Database["public"]["Enums"]["visibility_level"],
+                  )
                 }
                 disabled={!IsUserPlanSubscribed(userPlan) || isCreating}
               >
-                <SelectTrigger id="prototype-visibility" className="h-11 bg-[#0B0C0E] border-white/10 text-white focus:ring-0">
+                <SelectTrigger
+                  id="prototype-visibility"
+                  className="h-11 bg-[#0B0C0E] border-white/10 text-white focus:ring-0"
+                >
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="bg-[#141517] border-white/10 text-white">
-                  <SelectItem value="PUBLIC" className="focus:bg-white/10 focus:text-white cursor-pointer">Public</SelectItem>
-                  <SelectItem value="SELF" className="focus:bg-white/10 focus:text-white cursor-pointer">Private (Self)</SelectItem>
+                  <SelectItem
+                    value="PUBLIC"
+                    className="focus:bg-white/10 focus:text-white cursor-pointer"
+                  >
+                    Public
+                  </SelectItem>
+                  <SelectItem
+                    value="SELF"
+                    className="focus:bg-white/10 focus:text-white cursor-pointer"
+                  >
+                    Private (Self)
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             {/* Advanced Options Collapsible */}
-            <Collapsible open={showAdvanced} onOpenChange={setShowAdvanced} className="border-t border-white/5 pt-4">
+            <Collapsible
+              open={showAdvanced}
+              onOpenChange={setShowAdvanced}
+              className="border-t border-white/5 pt-4"
+            >
               <CollapsibleTrigger asChild>
                 <Button
                   type="button"
@@ -467,7 +500,10 @@ export default function NewPrototypeModal({
                 >
                   <span>Advanced Options</span>
                   <ChevronDown
-                    className={cn("w-3 h-3 transition-transform duration-200", showAdvanced && "rotate-180")}
+                    className={cn(
+                      "w-3 h-3 transition-transform duration-200",
+                      showAdvanced && "rotate-180",
+                    )}
                   />
                 </Button>
               </CollapsibleTrigger>
@@ -475,7 +511,10 @@ export default function NewPrototypeModal({
               <CollapsibleContent className="space-y-4 pt-4 animate-in slide-in-from-top-2">
                 {/* Folder Select */}
                 <div className="space-y-2">
-                  <Label htmlFor="project-select" className="text-xs font-medium text-[#8A8F98]">
+                  <Label
+                    htmlFor="project-select"
+                    className="text-xs font-medium text-[#8A8F98]"
+                  >
                     Folder
                   </Label>
                   <Select
@@ -493,14 +532,24 @@ export default function NewPrototypeModal({
                       </div>
                     </SelectTrigger>
                     <SelectContent className="bg-[#141517] border-white/10 text-white">
-                      <SelectItem value="none" className="focus:bg-white/10 focus:text-white cursor-pointer text-sm">No folder</SelectItem>
+                      <SelectItem
+                        value="none"
+                        className="focus:bg-white/10 focus:text-white cursor-pointer text-sm"
+                      >
+                        No folder
+                      </SelectItem>
                       {isLoadingFolders ? (
                         <div className="px-2 py-2 text-xs text-white/50 flex items-center gap-2">
-                          <Loader2 className="w-3 h-3 animate-spin" /> Loading...
+                          <Loader2 className="w-3 h-3 animate-spin" />{" "}
+                          Loading...
                         </div>
                       ) : (
                         folders.map((project) => (
-                          <SelectItem key={project.id} value={project.id} className="focus:bg-white/10 focus:text-white cursor-pointer text-sm">
+                          <SelectItem
+                            key={project.id}
+                            value={project.id}
+                            className="focus:bg-white/10 focus:text-white cursor-pointer text-sm"
+                          >
                             <div className="flex items-center gap-2">
                               <Folder className="w-3.5 h-3.5 text-white/50" />
                               {project.name}
@@ -514,7 +563,10 @@ export default function NewPrototypeModal({
 
                 {/* Design Style */}
                 <div className="space-y-2">
-                  <Label htmlFor="design-style" className="text-xs font-medium text-[#8A8F98]">
+                  <Label
+                    htmlFor="design-style"
+                    className="text-xs font-medium text-[#8A8F98]"
+                  >
                     Style
                   </Label>
                   <Select
@@ -524,7 +576,10 @@ export default function NewPrototypeModal({
                       setHasManualDesignSelection(true);
                     }}
                   >
-                    <SelectTrigger id="design-style" className="h-10 bg-[#0B0C0E] border-white/10 text-white text-sm focus:ring-0">
+                    <SelectTrigger
+                      id="design-style"
+                      className="h-10 bg-[#0B0C0E] border-white/10 text-white text-sm focus:ring-0"
+                    >
                       <div className="flex items-center gap-2">
                         <Palette className="w-3.5 h-3.5 text-white/50" />
                         <SelectValue />
@@ -532,7 +587,11 @@ export default function NewPrototypeModal({
                     </SelectTrigger>
                     <SelectContent className="bg-[#141517] border-white/10 text-white">
                       {DESIGN_STYLE_OPTIONS.map((style) => (
-                        <SelectItem key={style} value={style} className="focus:bg-white/10 focus:text-white cursor-pointer text-sm">
+                        <SelectItem
+                          key={style}
+                          value={style}
+                          className="focus:bg-white/10 focus:text-white cursor-pointer text-sm"
+                        >
                           {DESIGN_STYLE_LABELS[style]}
                         </SelectItem>
                       ))}
@@ -543,23 +602,40 @@ export default function NewPrototypeModal({
                 {/* Custom Design System */}
                 {designSystems.length > 0 && (
                   <div className="space-y-2">
-                    <Label htmlFor="custom-design-system" className="text-xs font-medium text-[#8A8F98]">
+                    <Label
+                      htmlFor="custom-design-system"
+                      className="text-xs font-medium text-[#8A8F98]"
+                    >
                       Design System
                     </Label>
                     <Select
                       value={customDesignSystemId ?? "none"}
                       onValueChange={(value) => {
-                        setCustomDesignSystemId(value === "none" ? null : value);
+                        setCustomDesignSystemId(
+                          value === "none" ? null : value,
+                        );
                         setHasManualDesignSelection(true);
                       }}
                     >
-                      <SelectTrigger id="custom-design-system" className="h-10 bg-[#0B0C0E] border-white/10 text-white text-sm focus:ring-0">
+                      <SelectTrigger
+                        id="custom-design-system"
+                        className="h-10 bg-[#0B0C0E] border-white/10 text-white text-sm focus:ring-0"
+                      >
                         <SelectValue placeholder="None" />
                       </SelectTrigger>
                       <SelectContent className="bg-[#141517] border-white/10 text-white">
-                        <SelectItem value="none" className="focus:bg-white/10 focus:text-white cursor-pointer text-sm">None</SelectItem>
+                        <SelectItem
+                          value="none"
+                          className="focus:bg-white/10 focus:text-white cursor-pointer text-sm"
+                        >
+                          None
+                        </SelectItem>
                         {designSystems.map((system) => (
-                          <SelectItem key={system.id} value={String(system.id)} className="focus:bg-white/10 focus:text-white cursor-pointer text-sm">
+                          <SelectItem
+                            key={system.id}
+                            value={String(system.id)}
+                            className="focus:bg-white/10 focus:text-white cursor-pointer text-sm"
+                          >
                             {system.name}
                           </SelectItem>
                         ))}
@@ -572,7 +648,11 @@ export default function NewPrototypeModal({
 
             <Button
               type="submit"
-              disabled={isCreating || !name.trim() || (userPlan === "free" && prototypeCount >= 5)}
+              disabled={
+                isCreating ||
+                !name.trim() ||
+                (userPlan === "free" && prototypeCount >= 5)
+              }
               className="w-full h-11 bg-white text-black hover:bg-white/90 font-medium rounded-lg"
             >
               {isCreating ? (

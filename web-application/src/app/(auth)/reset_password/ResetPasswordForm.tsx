@@ -186,7 +186,13 @@ export default function ResetPasswordForm() {
             <Button
               type="submit"
               className="w-full"
-              disabled={isLoading || !!passwordError || !!confirmPasswordError || !password || !confirmPassword}
+              disabled={
+                isLoading ||
+                !!passwordError ||
+                !!confirmPasswordError ||
+                !password ||
+                !confirmPassword
+              }
             >
               {isLoading ? "Updating password..." : "Update password"}
             </Button>

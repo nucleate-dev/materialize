@@ -14,8 +14,12 @@
  * @param totalCostUsd - The total cost in USD from the API response
  * @returns The number of credits used (rounded to 2 decimal places), or undefined if cost is not available
  */
-export function costFunctionV1(totalCostUsd: number | undefined): number | undefined {
-  return totalCostUsd !== undefined ? Math.round((totalCostUsd / 0.12) * 100) / 100 : undefined;
+export function costFunctionV1(
+  totalCostUsd: number | undefined,
+): number | undefined {
+  return totalCostUsd !== undefined
+    ? Math.round((totalCostUsd / 0.12) * 100) / 100
+    : undefined;
 }
 
 /**

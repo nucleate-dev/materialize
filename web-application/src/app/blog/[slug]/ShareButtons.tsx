@@ -30,15 +30,17 @@ export default function ShareButtons({ title }: ShareButtonsProps) {
   const shareTitle = encodeURIComponent(title);
 
   // Common button style for consistency
-  const buttonClass = "h-9 px-3 flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 text-sm font-medium text-white/70 hover:text-white hover:bg-white/10 hover:border-white/20 transition-all duration-200";
+  const buttonClass =
+    "h-9 px-3 flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 text-sm font-medium text-white/70 hover:text-white hover:bg-white/10 hover:border-white/20 transition-all duration-200";
 
   return (
     <div className="flex items-center gap-2">
-      <button
-        onClick={copyToClipboard}
-        className={buttonClass}
-      >
-        {copied ? <Check className="w-4 h-4 text-emerald-400" /> : <LinkIcon className="w-4 h-4" />}
+      <button onClick={copyToClipboard} className={buttonClass}>
+        {copied ? (
+          <Check className="w-4 h-4 text-emerald-400" />
+        ) : (
+          <LinkIcon className="w-4 h-4" />
+        )}
         {copied ? "Copied" : "Copy Link"}
       </button>
 

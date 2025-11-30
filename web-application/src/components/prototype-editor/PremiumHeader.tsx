@@ -8,7 +8,9 @@ interface PremiumHeaderProps {
   forceDarkMode?: boolean;
 }
 
-export default function PremiumHeader({ forceDarkMode = false }: PremiumHeaderProps) {
+export default function PremiumHeader({
+  forceDarkMode = false,
+}: PremiumHeaderProps) {
   const { user, userIsLoading } = useUser();
   const [isScrolled, setIsScrolled] = useState(false);
 
@@ -59,11 +61,13 @@ export default function PremiumHeader({ forceDarkMode = false }: PremiumHeaderPr
               Blog
             </Link>
             {userIsLoading ? (
-              <div className={`px-4 py-2 rounded-full text-sm ${
-                forceDarkMode
-                  ? "border border-white/20 text-white/80"
-                  : "border border-black/20 dark:border-white/20 text-black/80 dark:text-white/80"
-              }`}>
+              <div
+                className={`px-4 py-2 rounded-full text-sm ${
+                  forceDarkMode
+                    ? "border border-white/20 text-white/80"
+                    : "border border-black/20 dark:border-white/20 text-black/80 dark:text-white/80"
+                }`}
+              >
                 Loading...
               </div>
             ) : user ? (

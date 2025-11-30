@@ -158,7 +158,6 @@ export default function LoginForm() {
 
       {/* Premium Card Container */}
       <div className="bg-[#141517] border border-white/10 rounded-2xl shadow-2xl overflow-hidden">
-
         {/* Header */}
         <div className="px-8 pt-8 pb-6 text-center space-y-2 border-b border-white/5 bg-white/[0.01]">
           <div className="mx-auto w-10 h-10 bg-white/5 rounded-xl flex items-center justify-center border border-white/10 mb-4 shadow-inner">
@@ -175,11 +174,15 @@ export default function LoginForm() {
         {/* Content */}
         <div className="p-8 space-y-6">
           <form onSubmit={handleSubmit} className="space-y-5">
-
             {/* Email Field */}
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
-                <Label htmlFor="email" className="text-xs font-medium text-[#8A8F98]">Email</Label>
+                <Label
+                  htmlFor="email"
+                  className="text-xs font-medium text-[#8A8F98]"
+                >
+                  Email
+                </Label>
                 {lastLoginMethod === "email" && (
                   <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
                     Last used
@@ -202,7 +205,12 @@ export default function LoginForm() {
 
             {/* Password Field */}
             <div className="space-y-1.5">
-              <Label htmlFor="password" className="text-xs font-medium text-[#8A8F98]">Password</Label>
+              <Label
+                htmlFor="password"
+                className="text-xs font-medium text-[#8A8F98]"
+              >
+                Password
+              </Label>
               <Input
                 id="password"
                 name="password"
@@ -222,7 +230,11 @@ export default function LoginForm() {
               className="w-full h-10 bg-white text-black hover:bg-white/90 font-medium mt-2"
               disabled={isLoading}
             >
-              {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Sign in"}
+              {isLoading ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                "Sign in"
+              )}
             </Button>
           </form>
 
@@ -231,9 +243,7 @@ export default function LoginForm() {
               <Separator className="w-full bg-white/5" />
             </div>
             <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-[#141517] px-2 text-[#8A8F98]">
-                Or
-              </span>
+              <span className="bg-[#141517] px-2 text-[#8A8F98]">Or</span>
             </div>
           </div>
 

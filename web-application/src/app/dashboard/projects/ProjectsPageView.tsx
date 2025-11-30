@@ -35,10 +35,10 @@ type ProjectsPageViewProps = {
 const formatDate = (value: string | null) =>
   value
     ? new Date(value).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    })
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+      })
     : "";
 
 export default function ProjectsPageView({
@@ -61,12 +61,9 @@ export default function ProjectsPageView({
   onPrototypeUpdated,
   onPrototypeDeleted,
 }: ProjectsPageViewProps) {
-
   return (
     <div className="relative min-h-screen text-foreground font-sans">
-
       <div className="container mx-auto px-6 py-12 max-w-7xl">
-
         {/* --- Header Section --- */}
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
           <div className="space-y-2">

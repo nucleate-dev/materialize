@@ -99,7 +99,8 @@ export default function BlogPost({ post }: BlogPostProps) {
           </header>
 
           {/* Article Content */}
-          <article className="prose prose-invert prose-lg max-w-none 
+          <article
+            className="prose prose-invert prose-lg max-w-none 
             prose-headings:font-medium prose-headings:tracking-tight prose-headings:text-white 
             prose-p:text-[#8A8F98] prose-p:leading-8 
             prose-strong:text-white prose-strong:font-medium
@@ -108,13 +109,16 @@ export default function BlogPost({ post }: BlogPostProps) {
             prose-pre:bg-[#141517] prose-pre:border prose-pre:border-white/10
             prose-blockquote:border-l-indigo-500 prose-blockquote:text-white prose-blockquote:bg-white/5 prose-blockquote:py-2 prose-blockquote:px-6 prose-blockquote:not-italic prose-blockquote:rounded-r-lg
             prose-li:text-[#8A8F98] prose-li:marker:text-white/20
-            mb-16">
+            mb-16"
+          >
             <MDXRemote source={post.content} components={MDXComponents} />
           </article>
 
           {/* Tags */}
           <div className="mb-20 pt-10 border-t border-white/5">
-            <h3 className="text-sm font-semibold text-white/40 uppercase tracking-wider mb-4">Tags</h3>
+            <h3 className="text-sm font-semibold text-white/40 uppercase tracking-wider mb-4">
+              Tags
+            </h3>
             <div className="flex flex-wrap gap-2">
               {post.tags.map((tag) => (
                 <span

@@ -4,7 +4,11 @@ import {
   createCloudflareTunnelForContainer,
   deleteCloudflareTunnel,
 } from '../../utils/cloudflareTunnelManagementUtils.js';
-import type { Database, TablesInsert, TablesUpdate } from '../../types/supabase.js';
+import type {
+  Database,
+  TablesInsert,
+  TablesUpdate,
+} from '../../types/supabase.js';
 
 const MAX_IDLE_TUNNELS: number = 0;
 
@@ -114,7 +118,9 @@ export class IdleCloudflareTunnelSystem {
     );
     const { data: placeholderEntry, error: insertError } = await this.supabase
       .from('cloudflare_tunnels')
-      .insert({ status: 'creating' } satisfies TablesInsert<'cloudflare_tunnels'>)
+      .insert({
+        status: 'creating',
+      } satisfies TablesInsert<'cloudflare_tunnels'>)
       .select('*')
       .single();
 
@@ -248,7 +254,10 @@ export class IdleCloudflareTunnelSystem {
     // 1. Create a placeholder entry in the database with status 'creating'
     const { data: placeholderEntry, error: insertError } = await this.supabase
       .from('cloudflare_tunnels')
-      .insert({ status: 'creating', prototype_id: prototypeId } satisfies TablesInsert<'cloudflare_tunnels'>)
+      .insert({
+        status: 'creating',
+        prototype_id: prototypeId,
+      } satisfies TablesInsert<'cloudflare_tunnels'>)
       .select('*')
       .single();
 

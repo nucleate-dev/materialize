@@ -90,13 +90,13 @@ function AppSidebar() {
     },
     ...(SHOW_WHITEBOARDS
       ? [
-        {
-          href: "/dashboard/whiteboards",
-          icon: SquareStack,
-          label: "Whiteboards",
-          active: pathname?.includes("whiteboards"),
-        },
-      ]
+          {
+            href: "/dashboard/whiteboards",
+            icon: SquareStack,
+            label: "Whiteboards",
+            active: pathname?.includes("whiteboards"),
+          },
+        ]
       : []),
   ];
 
@@ -155,11 +155,17 @@ function AppSidebar() {
                     size="lg"
                     className={cn(
                       "text-gray-600 dark:text-[#8A8F98] hover:text-gray-900 dark:hover:text-white transition-colors",
-                      item.active && "bg-gray-100 dark:bg-white/5 text-gray-900 dark:text-white font-medium"
+                      item.active &&
+                        "bg-gray-100 dark:bg-white/5 text-gray-900 dark:text-white font-medium",
                     )}
                   >
                     <Link href={item.href}>
-                      <item.icon className={cn("w-5 h-5", item.active ? "text-indigo-500" : "opacity-70")} />
+                      <item.icon
+                        className={cn(
+                          "w-5 h-5",
+                          item.active ? "text-indigo-500" : "opacity-70",
+                        )}
+                      />
                       <span>{item.label}</span>
                     </Link>
                   </SidebarMenuButton>
@@ -204,7 +210,11 @@ function AppSidebar() {
           )}
           {!isAuthenticated && (
             <SidebarMenuItem>
-              <SidebarMenuButton asChild size="lg" className="text-gray-600 dark:text-[#8A8F98] hover:text-gray-900 dark:hover:text-white">
+              <SidebarMenuButton
+                asChild
+                size="lg"
+                className="text-gray-600 dark:text-[#8A8F98] hover:text-gray-900 dark:hover:text-white"
+              >
                 <Link href="/login">
                   <LogOut className="w-5 h-5 rotate-180" />
                   <span>Login</span>
@@ -219,7 +229,7 @@ function AppSidebar() {
 }
 
 export default function PrototypePage() {
-  const params = useParams<{ prototype_id: string; }>();
+  const params = useParams<{ prototype_id: string }>();
   const prototypeId = params?.prototype_id;
   const logger = useProductLogger();
 
@@ -227,7 +237,8 @@ export default function PrototypePage() {
   const [viewingUrl, setViewingUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [renderStatus, setRenderStatus] = useState<RenderStatus>("Static build");
+  const [renderStatus, setRenderStatus] =
+    useState<RenderStatus>("Static build");
   const [isPreviewView, setIsPreviewView] = useState(true);
 
   useEffect(() => {
@@ -278,8 +289,10 @@ export default function PrototypePage() {
           );
 
           if (fetchViewResponse.ok) {
-            const fetchViewData: APIResponse<FetchViewingUrlSuccessResponse, StandardErrorResponse> =
-              await fetchViewResponse.json();
+            const fetchViewData: APIResponse<
+              FetchViewingUrlSuccessResponse,
+              StandardErrorResponse
+            > = await fetchViewResponse.json();
             if (fetchViewData.data) {
               setViewingUrl(fetchViewData.data.viewing_url);
             } else if (fetchViewData.error) {
@@ -309,9 +322,7 @@ export default function PrototypePage() {
           error: err instanceof Error ? err.message : String(err),
           stack: err instanceof Error ? err.stack : undefined,
         });
-        setError(
-          err instanceof Error ? err.message : "Failed to load project",
-        );
+        setError(err instanceof Error ? err.message : "Failed to load project");
       } finally {
         setIsLoading(false);
       }
@@ -348,7 +359,10 @@ export default function PrototypePage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="text-center pt-6">
-            <Button asChild className="bg-gray-900 dark:bg-white text-white dark:text-black hover:bg-gray-800 dark:hover:bg-white/90 rounded-full px-6">
+            <Button
+              asChild
+              className="bg-gray-900 dark:bg-white text-white dark:text-black hover:bg-gray-800 dark:hover:bg-white/90 rounded-full px-6"
+            >
               <Link href="/dashboard">Back to Dashboard</Link>
             </Button>
           </CardContent>
@@ -374,7 +388,10 @@ export default function PrototypePage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="text-center pt-6">
-            <Button asChild className="bg-gray-900 dark:bg-white text-white dark:text-black hover:bg-gray-800 dark:hover:bg-white/90 rounded-full px-6">
+            <Button
+              asChild
+              className="bg-gray-900 dark:bg-white text-white dark:text-black hover:bg-gray-800 dark:hover:bg-white/90 rounded-full px-6"
+            >
               <Link href="/dashboard">Back to Dashboard</Link>
             </Button>
           </CardContent>

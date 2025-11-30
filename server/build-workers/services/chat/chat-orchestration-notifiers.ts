@@ -48,11 +48,9 @@ export async function notifyOrchestrationStartChat(
         timeout: 5000,
       },
     );
-    logger.consoleLogDevOnly(
-      "info",
-      "Notified control plane of chat start",
-      { prototypeId },
-    );
+    logger.consoleLogDevOnly("info", "Notified control plane of chat start", {
+      prototypeId,
+    });
   } catch (error) {
     const axiosError = axios.isAxiosError(error) ? error : null;
     logger.error(
@@ -123,14 +121,10 @@ export async function notifyOrchestrationEndChat(
           timeout: 5000,
         },
       );
-      logger.consoleLogDevOnly(
-        "info",
-        "Notified control plane of chat end",
-        {
-          prototypeId,
-          attempt,
-        },
-      );
+      logger.consoleLogDevOnly("info", "Notified control plane of chat end", {
+        prototypeId,
+        attempt,
+      });
       return; // Success - exit the function
     } catch (error) {
       const axiosError = axios.isAxiosError(error) ? error : null;

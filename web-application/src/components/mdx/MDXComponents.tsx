@@ -151,10 +151,8 @@ const MDXComponents = {
 
     const colors = {
       info: "bg-blue-950/50 border-blue-800 text-blue-200",
-      warning:
-        "bg-yellow-950/50 border-yellow-800 text-yellow-200",
-      success:
-        "bg-green-950/50 border-green-800 text-green-200",
+      warning: "bg-yellow-950/50 border-yellow-800 text-yellow-200",
+      success: "bg-green-950/50 border-green-800 text-green-200",
       tip: "bg-purple-950/50 border-purple-800 text-purple-200",
     };
 

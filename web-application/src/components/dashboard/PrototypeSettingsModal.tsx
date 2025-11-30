@@ -39,7 +39,16 @@ import type {
 } from "@/lib/types/serverAPITypes";
 import { Database } from "@/lib/types/supabase";
 import { IsUserPlanSubscribed } from "@/lib/utils/payments/SubscriptionManagementUtils";
-import { AlertTriangle, FileText, Globe, Lock, Settings, Sparkles, Trash2, Type } from "lucide-react";
+import {
+  AlertTriangle,
+  FileText,
+  Globe,
+  Lock,
+  Settings,
+  Sparkles,
+  Trash2,
+  Type,
+} from "lucide-react";
 import { useEffect, useState } from "react";
 
 interface PrototypeSettingsModalProps {
@@ -47,7 +56,7 @@ interface PrototypeSettingsModalProps {
   onClose: () => void;
   prototype: Database["public"]["Tables"]["prototypes"]["Row"] | null;
   onUpdated: (
-    updatedPrototype: Database["public"]["Tables"]["prototypes"]["Row"]
+    updatedPrototype: Database["public"]["Tables"]["prototypes"]["Row"],
   ) => void;
   onDeleted?: () => void;
 }
@@ -134,11 +143,14 @@ export default function PrototypeSettingsModal({
         },
       );
 
-      const responseData: APIResponse<DeletePrototypeSuccessResponse, DeletePrototypeErrorResponse> =
-        await response.json();
+      const responseData: APIResponse<
+        DeletePrototypeSuccessResponse,
+        DeletePrototypeErrorResponse
+      > = await response.json();
 
       if (!response.ok || responseData.error) {
-        const errorMessage = responseData.error?.message || "Failed to delete prototype";
+        const errorMessage =
+          responseData.error?.message || "Failed to delete prototype";
         throw new Error(errorMessage);
       }
 
@@ -158,7 +170,6 @@ export default function PrototypeSettingsModal({
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-lg p-0 gap-0 overflow-hidden bg-white dark:bg-[#141517] border-gray-200 dark:border-white/10 shadow-2xl">
-
         {/* Header */}
         <DialogHeader className="p-6 pb-4 border-b border-gray-200 dark:border-white/5 bg-gray-50 dark:bg-white/[0.02]">
           <DialogTitle className="flex items-center gap-2 text-xl font-medium tracking-tight text-gray-900 dark:text-white">
@@ -166,17 +177,22 @@ export default function PrototypeSettingsModal({
             Project Settings
           </DialogTitle>
           <p className="text-sm text-gray-600 dark:text-[#8A8F98]">
-            Manage configuration for <span className="font-mono text-gray-800 dark:text-white/80">{prototype?.name}</span>
+            Manage configuration for{" "}
+            <span className="font-mono text-gray-800 dark:text-white/80">
+              {prototype?.name}
+            </span>
           </p>
         </DialogHeader>
 
         {prototype && (
           <form onSubmit={handleSave}>
             <div className="p-6 space-y-6">
-
               {/* Name Input */}
               <div className="space-y-2">
-                <Label htmlFor="prototype-name" className="text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-white/40 flex items-center gap-2">
+                <Label
+                  htmlFor="prototype-name"
+                  className="text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-white/40 flex items-center gap-2"
+                >
                   <Type className="w-3.5 h-3.5" /> Project Name
                 </Label>
                 <Input
@@ -191,7 +207,10 @@ export default function PrototypeSettingsModal({
 
               {/* Description Input */}
               <div className="space-y-2">
-                <Label htmlFor="prototype-description" className="text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-white/40 flex items-center gap-2">
+                <Label
+                  htmlFor="prototype-description"
+                  className="text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-white/40 flex items-center gap-2"
+                >
                   <FileText className="w-3.5 h-3.5" /> Description
                 </Label>
                 <Textarea
@@ -206,14 +225,19 @@ export default function PrototypeSettingsModal({
 
               {/* Visibility Select */}
               <div className="space-y-3">
-                <Label htmlFor="prototype-visibility" className="text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-white/40 flex items-center gap-2">
+                <Label
+                  htmlFor="prototype-visibility"
+                  className="text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-white/40 flex items-center gap-2"
+                >
                   <Globe className="w-3.5 h-3.5" /> Visibility
                 </Label>
 
-                <div className={cn(
-                  "relative rounded-lg transition-opacity",
-                  IsUserPlanSubscribed(userPlan) ? "opacity-100" : ""
-                )}>
+                <div
+                  className={cn(
+                    "relative rounded-lg transition-opacity",
+                    IsUserPlanSubscribed(userPlan) ? "opacity-100" : "",
+                  )}
+                >
                   <Select
                     value={visibility}
                     onValueChange={(v) =>
@@ -230,13 +254,19 @@ export default function PrototypeSettingsModal({
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent className="bg-white dark:bg-[#141517] border-gray-200 dark:border-white/10 text-gray-900 dark:text-white">
-                      <SelectItem value="SELF" className="cursor-pointer focus:bg-gray-100 dark:focus:bg-white/10">
+                      <SelectItem
+                        value="SELF"
+                        className="cursor-pointer focus:bg-gray-100 dark:focus:bg-white/10"
+                      >
                         <div className="flex items-center gap-2">
                           <Lock className="w-4 h-4 text-gray-500 dark:text-gray-400" />
                           <span>Private (Only You)</span>
                         </div>
                       </SelectItem>
-                      <SelectItem value="PUBLIC" className="cursor-pointer focus:bg-gray-100 dark:focus:bg-white/10">
+                      <SelectItem
+                        value="PUBLIC"
+                        className="cursor-pointer focus:bg-gray-100 dark:focus:bg-white/10"
+                      >
                         <div className="flex items-center gap-2">
                           <Globe className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
                           <span>Public (Shareable Link)</span>
@@ -250,7 +280,8 @@ export default function PrototypeSettingsModal({
                     <div className="mt-2 flex items-start gap-2 p-2 rounded bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-500/20 text-amber-800 dark:text-amber-400">
                       <Sparkles className="w-4 h-4 mt-0.5 flex-shrink-0" />
                       <p className="text-xs leading-relaxed">
-                        Upgrade to <span className="font-semibold">Pro</span> to make projects public and share them with the world.
+                        Upgrade to <span className="font-semibold">Pro</span> to
+                        make projects public and share them with the world.
                       </p>
                     </div>
                   )}
@@ -302,9 +333,14 @@ export default function PrototypeSettingsModal({
               Delete Project
             </AlertDialogTitle>
             <AlertDialogDescription className="text-gray-600 dark:text-[#8A8F98]">
-              Are you sure you want to delete <span className="font-medium text-gray-900 dark:text-white">{prototype?.name}</span>?
+              Are you sure you want to delete{" "}
+              <span className="font-medium text-gray-900 dark:text-white">
+                {prototype?.name}
+              </span>
+              ?
               <br className="mb-2" />
-              This action cannot be undone and will permanently remove all associated files and data.
+              This action cannot be undone and will permanently remove all
+              associated files and data.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

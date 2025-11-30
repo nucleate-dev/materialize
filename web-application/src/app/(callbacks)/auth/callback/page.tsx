@@ -27,7 +27,7 @@ export default function AuthCallback() {
 
       // Read intents from localStorage inside useEffect to ensure they're available
       let productId: string | null = null;
-      let chatIntent: { message: string; prototype_id?: string; } | null = null;
+      let chatIntent: { message: string; prototype_id?: string } | null = null;
 
       if (typeof window !== "undefined") {
         productId = localStorage?.getItem("checkout_intent");
@@ -56,7 +56,7 @@ export default function AuthCallback() {
           "identify" in posthogClient
         ) {
           (
-            posthogClient as { identify: (id: string, props: object) => void; }
+            posthogClient as { identify: (id: string, props: object) => void }
           ).identify(data.session?.user.id, {
             email: data.session.user.email ?? "",
           });

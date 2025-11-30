@@ -20,7 +20,8 @@ export async function processImage(
   const imageBuffer = Buffer.from(base64Data, "base64");
 
   // Determine output format based on input type
-  const isTransparent = originalMediaType === "image/png" || originalMediaType === "image/webp";
+  const isTransparent =
+    originalMediaType === "image/png" || originalMediaType === "image/webp";
   const outputFormat = isTransparent ? "png" : "jpeg";
   const mediaType = isTransparent ? "image/png" : "image/jpeg";
 

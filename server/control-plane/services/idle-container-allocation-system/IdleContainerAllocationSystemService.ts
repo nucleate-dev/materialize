@@ -5,7 +5,11 @@ import {
   StopTaskCommand,
   waitUntilTasksRunning,
 } from '@aws-sdk/client-ecs';
-import { AssumeRoleCommand, GetCallerIdentityCommand, STSClient } from '@aws-sdk/client-sts';
+import {
+  AssumeRoleCommand,
+  GetCallerIdentityCommand,
+  STSClient,
+} from '@aws-sdk/client-sts';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { GlideClient } from '@valkey/valkey-glide';
 import axios from 'axios';
@@ -594,17 +598,17 @@ export class IdleContainerAllocationSystemService {
     let out;
     try {
       const callerIdentity = await this.stsClient.send(
-  new GetCallerIdentityCommand({}),
-);
-this.log2.consoleLogDevOnly(
-  'debug',
-  'STS caller identity from Node before AssumeRole',
-  { callerIdentity },
-);
-this.log2.consoleLogDevOnly('debug', 'AWS env in Node', {
-  AWS_ACCESS_KEY_ID: process.env.AWS_ACCESS_KEY_ID,
-  AWS_PROFILE: process.env.AWS_PROFILE,
-});
+        new GetCallerIdentityCommand({}),
+      );
+      this.log2.consoleLogDevOnly(
+        'debug',
+        'STS caller identity from Node before AssumeRole',
+        { callerIdentity },
+      );
+      this.log2.consoleLogDevOnly('debug', 'AWS env in Node', {
+        AWS_ACCESS_KEY_ID: process.env.AWS_ACCESS_KEY_ID,
+        AWS_PROFILE: process.env.AWS_PROFILE,
+      });
       out = await this.stsClient.send(
         new AssumeRoleCommand({
           RoleArn: process.env.S3_PROTOTYPE_ACCESS_ROLE_ARN!,
