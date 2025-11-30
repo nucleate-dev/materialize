@@ -562,13 +562,14 @@ export class MaterializeDevelopmentServerService {
       }
 
       // Step 5: Sync files from Supabase
-      const syncResult = await this.fileSyncService.syncSpecificFilesFromSupabase(
-        prototype_id,
-        file_names,
-        asset_names,
-        deleted_file_names || [],
-        deleted_asset_names || [],
-      );
+      const syncResult =
+        await this.fileSyncService.syncSpecificFilesFromSupabase(
+          prototype_id,
+          file_names,
+          asset_names,
+          deleted_file_names || [],
+          deleted_asset_names || [],
+        );
 
       if (!syncResult.success) {
         request.log2.error(
@@ -1344,5 +1345,4 @@ export class MaterializeDevelopmentServerService {
     const ext = path.extname(fileName).toLowerCase();
     return binaryExtensions.includes(ext);
   }
-
 }
