@@ -1,4 +1,10 @@
-import { existsSync, mkdirSync, createWriteStream, WriteStream, fsync } from "fs";
+import {
+  existsSync,
+  mkdirSync,
+  createWriteStream,
+  WriteStream,
+  fsync,
+} from "fs";
 import { promises as fsPromises } from "fs";
 import { promisify } from "util";
 
@@ -6,10 +12,7 @@ const fsyncAsync = promisify(fsync);
 import path from "path";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { SystemLogger } from "../../loggers/SystemLogger.js";
-import type {
-  TerminalEvent,
-  TerminalSession,
-} from "./TerminalService.js";
+import type { TerminalEvent, TerminalSession } from "./TerminalService.js";
 import { stripAnsiSequences } from "./TerminalAnsiUtils.js";
 
 type EternalTerminalLogTracker = {
@@ -233,7 +236,11 @@ export class EternalTerminalLogManager {
 
     const carryoverSnapshots = this.collectPendingSnapshots();
     const activeSnapshots = await this.rotateActiveTrackers();
-    const artifacts = [...carryoverSnapshots, ...activeSnapshots, ...this.completedTrackers];
+    const artifacts = [
+      ...carryoverSnapshots,
+      ...activeSnapshots,
+      ...this.completedTrackers,
+    ];
 
     if (artifacts.length === 0) {
       result.skippedReason = "no-artifacts";
@@ -270,8 +277,13 @@ export class EternalTerminalLogManager {
               throw error;
             }
 
-            result.uploaded.push({ sessionId: artifact.sessionId, storagePath });
-            const pendingSnapshot = this.removePendingSnapshot(artifact.filePath);
+            result.uploaded.push({
+              sessionId: artifact.sessionId,
+              storagePath,
+            });
+            const pendingSnapshot = this.removePendingSnapshot(
+              artifact.filePath,
+            );
             if (pendingSnapshot) {
               await fsPromises.unlink(artifact.filePath);
             } else {
@@ -366,9 +378,13 @@ export class EternalTerminalLogManager {
     this.pendingSnapshots.set(artifact.sessionId, list);
   }
 
-  private removePendingSnapshot(filePath: string): EternalTerminalLogArtifact | null {
+  private removePendingSnapshot(
+    filePath: string,
+  ): EternalTerminalLogArtifact | null {
     for (const [sessionId, list] of this.pendingSnapshots.entries()) {
-      const index = list.findIndex((artifact) => artifact.filePath === filePath);
+      const index = list.findIndex(
+        (artifact) => artifact.filePath === filePath,
+      );
       if (index >= 0) {
         const [removed] = list.splice(index, 1);
         if (list.length === 0) {
@@ -433,7 +449,9 @@ export class EternalTerminalLogManager {
     return snapshots;
   }
 
-  private async flushTracker(tracker: EternalTerminalLogTracker): Promise<void> {
+  private async flushTracker(
+    tracker: EternalTerminalLogTracker,
+  ): Promise<void> {
     const stream = tracker.stream;
     if (!stream) {
       return;
