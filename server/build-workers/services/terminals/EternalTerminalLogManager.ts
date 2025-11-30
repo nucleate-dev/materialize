@@ -264,8 +264,7 @@ export class EternalTerminalLogManager {
         chunk.map(async (artifact) => {
           try {
             const logBuffer = await fsPromises.readFile(artifact.filePath);
-            const folder = `${options.prototypeId}/${artifact.sessionId}_${artifact.createdAt}`;
-            const storagePath = `${folder}/output.log`;
+            const storagePath = `${options.prototypeId}/${artifact.sessionId}_${artifact.createdAt}.log`;
             const { error } = await options.supabaseClient.storage
               .from(options.bucket)
               .upload(storagePath, logBuffer, {
