@@ -270,7 +270,6 @@ export class EternalTerminalLogManager {
               .from(options.bucket)
               .upload(storagePath, logBuffer, {
                 contentType: "text/plain; charset=utf-8",
-                upsert: true,
               });
 
             if (error) {
