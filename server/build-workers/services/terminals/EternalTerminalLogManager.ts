@@ -18,6 +18,7 @@ type EternalTerminalLogTracker = {
   lastEventAt: number;
   bytesWritten: number;
   closed: boolean;
+  pendingBuffer?: string;
 };
 
 export type EternalTerminalLogArtifact = {
@@ -41,6 +42,10 @@ export class EternalTerminalLogManager {
   private readonly logger: SystemLogger;
   private readonly sessionLogs = new Map<string, EternalTerminalLogTracker>();
   private readonly completedTrackers: EternalTerminalLogTracker[] = [];
+  private readonly pendingSnapshots = new Map<
+    string,
+    EternalTerminalLogArtifact[]
+  >();
   private static readonly UPLOAD_CONCURRENCY = 3;
 
   constructor(
@@ -63,14 +68,7 @@ export class EternalTerminalLogManager {
       return;
     }
 
-    if (!existingTracker) {
-      const archivedIndex = this.completedTrackers.findIndex(
-        (tracker) => tracker.sessionId === session.id,
-      );
-      if (archivedIndex >= 0) {
-        this.completedTrackers.splice(archivedIndex, 1);
-      }
-    }
+    // Allow re-registration even if a previous tracker exists but is inactive
 
     this.ensureLogDir();
 
@@ -123,9 +121,6 @@ export class EternalTerminalLogManager {
       this.registerSession(session);
       tracker = this.sessionLogs.get(session.id);
     }
-    if (!tracker || !tracker.stream) {
-      return;
-    }
 
     const line = this.formatEvent(event);
     if (!line) {
@@ -133,6 +128,19 @@ export class EternalTerminalLogManager {
     }
 
     tracker.lastEventAt = event.timestamp;
+
+    if (!tracker) {
+      this.logger.warn("Eternal log tracker missing after registration", {
+        sessionId: session.id,
+      });
+      return;
+    }
+
+    if (!tracker.stream) {
+      tracker.pendingBuffer = (tracker.pendingBuffer ?? "") + line;
+      return;
+    }
+
     tracker.bytesWritten += Buffer.byteLength(line);
     if (!tracker.stream.write(line)) {
       tracker.stream.once("drain", () => undefined);
@@ -165,6 +173,7 @@ export class EternalTerminalLogManager {
         stream.off("error", handleError);
         tracker.stream = null;
         tracker.closed = true;
+        tracker.pendingBuffer = undefined;
         this.completedTrackers.push(tracker);
         this.sessionLogs.delete(sessionId);
         resolve();
@@ -205,9 +214,9 @@ export class EternalTerminalLogManager {
       prototypeId: options.prototypeId,
     };
 
-    await this.flushActiveStreams();
-    const activeArtifacts = this.getArtifacts();
-    const artifacts = [...activeArtifacts, ...this.completedTrackers];
+    const carryoverSnapshots = this.collectPendingSnapshots();
+    const activeSnapshots = await this.rotateActiveTrackers();
+    const artifacts = [...carryoverSnapshots, ...activeSnapshots, ...this.completedTrackers];
 
     if (artifacts.length === 0) {
       result.skippedReason = "no-artifacts";
@@ -231,7 +240,7 @@ export class EternalTerminalLogManager {
         chunk.map(async (artifact) => {
           try {
             const logBuffer = await fsPromises.readFile(artifact.filePath);
-        const folder = `${options.prototypeId}/${artifact.sessionId}_${artifact.createdAt}`;
+            const folder = `${options.prototypeId}/${artifact.sessionId}_${artifact.createdAt}`;
             const storagePath = `${folder}/output.log`;
             const { error } = await options.supabaseClient.storage
               .from(options.bucket)
@@ -245,12 +254,12 @@ export class EternalTerminalLogManager {
             }
 
             result.uploaded.push({ sessionId: artifact.sessionId, storagePath });
-            const isActive = this.sessionLogs.has(artifact.sessionId);
-            if (isActive) {
-              await this.resetTrackerAfterUpload(artifact.sessionId);
+            const pendingSnapshot = this.removePendingSnapshot(artifact.filePath);
+            if (pendingSnapshot) {
+              await fsPromises.unlink(artifact.filePath);
             } else {
               this.removeCompletedTracker(artifact.sessionId);
-              await fsPromises.truncate(artifact.filePath, 0);
+              await fsPromises.unlink(artifact.filePath);
             }
             activeLogger.consoleLogDevOnly(
               "info",
@@ -284,47 +293,6 @@ export class EternalTerminalLogManager {
     }
 
     return result;
-  }
-
-  private async flushActiveStreams(): Promise<void> {
-    await Promise.all(
-      Array.from(this.sessionLogs.values()).map((tracker) =>
-        this.flushTracker(tracker),
-      ),
-    );
-  }
-
-  private async flushTracker(tracker: EternalTerminalLogTracker): Promise<void> {
-    const stream = tracker.stream;
-    if (!stream) {
-      return;
-    }
-
-    if (stream.writableNeedDrain) {
-      await new Promise<void>((resolve, reject) => {
-        const onError = (error: Error): void => {
-          stream.off("drain", onDrain);
-          reject(error);
-        };
-        const onDrain = (): void => {
-          stream.off("error", onError);
-          resolve();
-        };
-        stream.once("drain", onDrain);
-        stream.once("error", onError);
-      });
-    }
-
-    if (typeof stream.fd === "number" && stream.fd >= 0) {
-      try {
-        await fsPromises.fsync(stream.fd);
-      } catch (error) {
-        this.logger.warn("Failed to fsync eternal terminal log stream", {
-          sessionId: tracker.sessionId,
-          error: error instanceof Error ? error.message : String(error),
-        });
-      }
-    }
   }
 
   private ensureLogDir(): void {
@@ -367,43 +335,117 @@ export class EternalTerminalLogManager {
     return chunks;
   }
 
-  private async resetTrackerAfterUpload(sessionId: string): Promise<void> {
-    const tracker = this.sessionLogs.get(sessionId);
-    if (!tracker) {
-      return;
+  private collectPendingSnapshots(): EternalTerminalLogArtifact[] {
+    const artifacts: EternalTerminalLogArtifact[] = [];
+    for (const snapshotList of this.pendingSnapshots.values()) {
+      artifacts.push(...snapshotList);
     }
+    return artifacts;
+  }
 
-    try {
-      const stream = tracker.stream;
-      if (stream && typeof stream.fd === "number" && stream.fd >= 0) {
-        await fsPromises.ftruncate(stream.fd, 0);
-      } else {
-        await fsPromises.truncate(tracker.filePath, 0);
-        if (!tracker.stream) {
-          const reopen = createWriteStream(tracker.filePath, {
-            flags: "a",
-            encoding: "utf8",
-          });
-          reopen.on("error", (error) => {
-            this.logger.error(
-              error instanceof Error ? error : new Error(String(error)),
-              "Failed to reopen eternal terminal log stream",
-              { sessionId: tracker.sessionId, filePath: tracker.filePath },
-            );
-          });
-          tracker.stream = reopen;
+  private addPendingSnapshot(artifact: EternalTerminalLogArtifact): void {
+    const list = this.pendingSnapshots.get(artifact.sessionId) ?? [];
+    list.push(artifact);
+    this.pendingSnapshots.set(artifact.sessionId, list);
+  }
+
+  private removePendingSnapshot(filePath: string): EternalTerminalLogArtifact | null {
+    for (const [sessionId, list] of this.pendingSnapshots.entries()) {
+      const index = list.findIndex((artifact) => artifact.filePath === filePath);
+      if (index >= 0) {
+        const [removed] = list.splice(index, 1);
+        if (list.length === 0) {
+          this.pendingSnapshots.delete(sessionId);
         }
+        return removed;
+      }
+    }
+    return null;
+  }
+
+  private async rotateActiveTrackers(): Promise<EternalTerminalLogArtifact[]> {
+    const snapshots: EternalTerminalLogArtifact[] = [];
+    for (const tracker of this.sessionLogs.values()) {
+      await this.flushTracker(tracker);
+      const oldStream = tracker.stream;
+      if (oldStream) {
+        tracker.stream = null;
+        await new Promise<void>((resolve, reject) => {
+          oldStream.end(() => resolve());
+          oldStream.once("error", reject);
+        });
       }
 
+      const snapshotPath = `${tracker.filePath}.${Date.now()}.snapshot`;
+      await fsPromises.appendFile(tracker.filePath, "");
+      await fsPromises.rename(tracker.filePath, snapshotPath);
+
+      const newStream = createWriteStream(tracker.filePath, {
+        flags: "a",
+        encoding: "utf8",
+      });
+      newStream.on("error", (error) => {
+        this.logger.error(
+          error instanceof Error ? error : new Error(String(error)),
+          "Failed to create new eternal terminal log stream",
+          { sessionId: tracker.sessionId, filePath: tracker.filePath },
+        );
+      });
+
+      const snapshotArtifact: EternalTerminalLogArtifact = {
+        sessionId: tracker.sessionId,
+        filePath: snapshotPath,
+        createdAt: tracker.createdAt,
+        lastEventAt: tracker.lastEventAt,
+        bytesWritten: tracker.bytesWritten,
+      };
+      this.addPendingSnapshot(snapshotArtifact);
+      snapshots.push(snapshotArtifact);
+
+      tracker.stream = newStream;
       tracker.bytesWritten = 0;
       tracker.createdAt = Date.now();
       tracker.lastEventAt = tracker.createdAt;
-    } catch (error) {
-      this.logger.error(
-        error instanceof Error ? error : new Error(String(error)),
-        "Failed to truncate eternal terminal log file after upload",
-        { sessionId: tracker.sessionId, filePath: tracker.filePath },
-      );
+
+      if (tracker.pendingBuffer) {
+        tracker.stream.write(tracker.pendingBuffer);
+        tracker.bytesWritten += Buffer.byteLength(tracker.pendingBuffer);
+        tracker.pendingBuffer = undefined;
+      }
+    }
+    return snapshots;
+  }
+
+  private async flushTracker(tracker: EternalTerminalLogTracker): Promise<void> {
+    const stream = tracker.stream;
+    if (!stream) {
+      return;
+    }
+
+    if (stream.writableNeedDrain) {
+      await new Promise<void>((resolve, reject) => {
+        const onError = (error: Error): void => {
+          stream.off("drain", onDrain);
+          reject(error);
+        };
+        const onDrain = (): void => {
+          stream.off("error", onError);
+          resolve();
+        };
+        stream.once("drain", onDrain);
+        stream.once("error", onError);
+      });
+    }
+
+    if (typeof stream.fd === "number" && stream.fd >= 0) {
+      try {
+        await fsPromises.fsync(stream.fd);
+      } catch (error) {
+        this.logger.warn("Failed to fsync eternal terminal log stream", {
+          sessionId: tracker.sessionId,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
     }
   }
 
