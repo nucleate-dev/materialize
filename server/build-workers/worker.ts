@@ -85,7 +85,7 @@ export const terminalService = new TerminalService(
   baseLogger,
   supabaseClientService,
   {
-    prototypeIdProvider: () => workerContext.prototypeId,
+    prototypeIdProvider: (): string | undefined => workerContext.prototypeId ?? undefined,
   },
 );
 

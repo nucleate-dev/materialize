@@ -1,6 +1,8 @@
-import { existsSync, mkdirSync, createWriteStream } from "fs";
+import { existsSync, mkdirSync, createWriteStream, WriteStream, fsync } from "fs";
 import { promises as fsPromises } from "fs";
-import type { WriteStream } from "fs";
+import { promisify } from "util";
+
+const fsyncAsync = promisify(fsync);
 import path from "path";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { SystemLogger } from "../../loggers/SystemLogger.js";
@@ -127,14 +129,14 @@ export class EternalTerminalLogManager {
       return;
     }
 
-    tracker.lastEventAt = event.timestamp;
-
     if (!tracker) {
       this.logger.warn("Eternal log tracker missing after registration", {
         sessionId: session.id,
       });
       return;
     }
+
+    tracker.lastEventAt = event.timestamp;
 
     if (!tracker.stream) {
       tracker.pendingBuffer = (tracker.pendingBuffer ?? "") + line;
@@ -437,9 +439,10 @@ export class EternalTerminalLogManager {
       });
     }
 
-    if (typeof stream.fd === "number" && stream.fd >= 0) {
+    const streamFd = (stream as { fd?: number }).fd;
+    if (typeof streamFd === "number" && streamFd >= 0) {
       try {
-        await fsPromises.fsync(stream.fd);
+        await fsyncAsync(streamFd);
       } catch (error) {
         this.logger.warn("Failed to fsync eternal terminal log stream", {
           sessionId: tracker.sessionId,
