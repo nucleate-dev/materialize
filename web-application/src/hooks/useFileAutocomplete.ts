@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
+import { useState, useCallback, useMemo, useRef, useEffect } from "react";
 
 interface FileAutocompleteState {
   isOpen: boolean;
@@ -30,12 +30,13 @@ export function useFileAutocomplete({
 }: UseFileAutocompleteProps): UseFileAutocompleteReturn {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  const [autocompleteState, setAutocompleteState] = useState<FileAutocompleteState>({
-    isOpen: false,
-    searchTerm: '',
-    searchStartIndex: -1,
-    filteredFiles: [],
-  });
+  const [autocompleteState, setAutocompleteState] =
+    useState<FileAutocompleteState>({
+      isOpen: false,
+      searchTerm: "",
+      searchStartIndex: -1,
+      filteredFiles: [],
+    });
 
   // Get all file paths from the files object
   const allFilePaths = useMemo(() => {
@@ -50,17 +51,19 @@ export function useFileAutocomplete({
 
     const searchLower = autocompleteState.searchTerm.toLowerCase();
     return allFilePaths
-      .filter(path => {
-        const fileName = path.split('/').pop() || '';
+      .filter((path) => {
+        const fileName = path.split("/").pop() || "";
         const pathLower = path.toLowerCase();
         const fileNameLower = fileName.toLowerCase();
 
         // Prioritize matches in filename, then full path
-        return fileNameLower.includes(searchLower) || pathLower.includes(searchLower);
+        return (
+          fileNameLower.includes(searchLower) || pathLower.includes(searchLower)
+        );
       })
       .sort((a, b) => {
-        const aFileName = a.split('/').pop() || '';
-        const bFileName = b.split('/').pop() || '';
+        const aFileName = a.split("/").pop() || "";
+        const bFileName = b.split("/").pop() || "";
         const searchLower = autocompleteState.searchTerm.toLowerCase();
 
         // Prioritize filename matches over path matches
@@ -78,7 +81,7 @@ export function useFileAutocomplete({
 
   // Update filtered files in state
   useEffect(() => {
-    setAutocompleteState(prev => ({
+    setAutocompleteState((prev) => ({
       ...prev,
       filteredFiles,
     }));
@@ -87,104 +90,125 @@ export function useFileAutocomplete({
   const closeAutocomplete = useCallback(() => {
     setAutocompleteState({
       isOpen: false,
-      searchTerm: '',
+      searchTerm: "",
       searchStartIndex: -1,
       filteredFiles: [],
     });
   }, []);
 
-  const detectAtMention = useCallback((text: string, cursorPosition: number) => {
-    // Look for @ symbol before cursor position
-    let searchStart = -1;
+  const detectAtMention = useCallback(
+    (text: string, cursorPosition: number) => {
+      // Look for @ symbol before cursor position
+      let searchStart = -1;
 
-    // Find the last @ symbol before the cursor that's not inside a file mention
-    for (let i = cursorPosition - 1; i >= 0; i--) {
-      const char = text[i];
+      // Find the last @ symbol before the cursor that's not inside a file mention
+      for (let i = cursorPosition - 1; i >= 0; i--) {
+        const char = text[i];
 
-      if (char === '@') {
-        // Check if this @ is already part of a complete file mention
-        const afterAt = text.substring(i);
-        const nextClosingBracket = afterAt.indexOf(']');
-        const nextOpeningBracket = afterAt.indexOf('[', 1);
+        if (char === "@") {
+          // Check if this @ is already part of a complete file mention
+          const afterAt = text.substring(i);
+          const nextClosingBracket = afterAt.indexOf("]");
+          const nextOpeningBracket = afterAt.indexOf("[", 1);
 
-        // If we find [file] pattern after @, this is already a complete mention
-        if (afterAt.startsWith('@[') && nextClosingBracket > 0 &&
-            (nextOpeningBracket === -1 || nextClosingBracket < nextOpeningBracket)) {
-          continue; // Skip this @, it's already a complete mention
+          // If we find [file] pattern after @, this is already a complete mention
+          if (
+            afterAt.startsWith("@[") &&
+            nextClosingBracket > 0 &&
+            (nextOpeningBracket === -1 ||
+              nextClosingBracket < nextOpeningBracket)
+          ) {
+            continue; // Skip this @, it's already a complete mention
+          }
+
+          searchStart = i;
+          break;
+        } else if (char === " " || char === "\n") {
+          // Stop searching if we hit whitespace
+          break;
         }
-
-        searchStart = i;
-        break;
-      } else if (char === ' ' || char === '\n') {
-        // Stop searching if we hit whitespace
-        break;
       }
-    }
 
-    if (searchStart === -1) {
-      return null;
-    }
+      if (searchStart === -1) {
+        return null;
+      }
 
-    // Extract the search term (everything after @ until cursor)
-    const searchTerm = text.substring(searchStart + 1, cursorPosition);
+      // Extract the search term (everything after @ until cursor)
+      const searchTerm = text.substring(searchStart + 1, cursorPosition);
 
-    // Don't show autocomplete if there's already a closing bracket
-    if (searchTerm.includes(']')) {
-      return null;
-    }
+      // Don't show autocomplete if there's already a closing bracket
+      if (searchTerm.includes("]")) {
+        return null;
+      }
 
-    return {
-      searchStart: searchStart + 1, // Position after the @
-      searchTerm,
-    };
-  }, []);
+      return {
+        searchStart: searchStart + 1, // Position after the @
+        searchTerm,
+      };
+    },
+    [],
+  );
 
-  const handleTextareaChange = useCallback((value: string, cursorPosition?: number) => {
-    onMessageChange(value);
+  const handleTextareaChange = useCallback(
+    (value: string, cursorPosition?: number) => {
+      onMessageChange(value);
 
-    const textarea = textareaRef.current;
-    const cursor = cursorPosition ?? textarea?.selectionStart ?? value.length;
+      const textarea = textareaRef.current;
+      const cursor = cursorPosition ?? textarea?.selectionStart ?? value.length;
 
-    const atMention = detectAtMention(value, cursor);
+      const atMention = detectAtMention(value, cursor);
 
-    if (atMention) {
-      setAutocompleteState(prev => ({
-        ...prev,
-        isOpen: true,
-        searchTerm: atMention.searchTerm,
-        searchStartIndex: atMention.searchStart,
-      }));
-    } else {
+      if (atMention) {
+        setAutocompleteState((prev) => ({
+          ...prev,
+          isOpen: true,
+          searchTerm: atMention.searchTerm,
+          searchStartIndex: atMention.searchStart,
+        }));
+      } else {
+        closeAutocomplete();
+      }
+    },
+    [onMessageChange, detectAtMention, closeAutocomplete],
+  );
+
+  const handleFileSelect = useCallback(
+    (filePath: string) => {
+      if (autocompleteState.searchStartIndex === -1) return;
+
+      const textarea = textareaRef.current;
+      if (!textarea) return;
+
+      // Calculate the replacement positions
+      const beforeAt = currentMessage.substring(
+        0,
+        autocompleteState.searchStartIndex - 1,
+      ); // -1 to include the @
+      const afterSearch = currentMessage.substring(textarea.selectionStart);
+
+      // Create the new message with the file mention
+      const newMessage = `${beforeAt}@[${filePath}]${afterSearch}`;
+
+      // Update the message
+      onMessageChange(newMessage);
+
+      // Close autocomplete
       closeAutocomplete();
-    }
-  }, [onMessageChange, detectAtMention, closeAutocomplete]);
 
-  const handleFileSelect = useCallback((filePath: string) => {
-    if (autocompleteState.searchStartIndex === -1) return;
-
-    const textarea = textareaRef.current;
-    if (!textarea) return;
-
-    // Calculate the replacement positions
-    const beforeAt = currentMessage.substring(0, autocompleteState.searchStartIndex - 1); // -1 to include the @
-    const afterSearch = currentMessage.substring(textarea.selectionStart);
-
-    // Create the new message with the file mention
-    const newMessage = `${beforeAt}@[${filePath}]${afterSearch}`;
-
-    // Update the message
-    onMessageChange(newMessage);
-
-    // Close autocomplete
-    closeAutocomplete();
-
-    // Set cursor position after the file mention
-    setTimeout(() => {
-      const newCursorPosition = beforeAt.length + `@[${filePath}]`.length;
-      textarea.setSelectionRange(newCursorPosition, newCursorPosition);
-      textarea.focus();
-    }, 0);
-  }, [currentMessage, autocompleteState.searchStartIndex, onMessageChange, closeAutocomplete]);
+      // Set cursor position after the file mention
+      setTimeout(() => {
+        const newCursorPosition = beforeAt.length + `@[${filePath}]`.length;
+        textarea.setSelectionRange(newCursorPosition, newCursorPosition);
+        textarea.focus();
+      }, 0);
+    },
+    [
+      currentMessage,
+      autocompleteState.searchStartIndex,
+      onMessageChange,
+      closeAutocomplete,
+    ],
+  );
 
   return {
     autocompleteState: {

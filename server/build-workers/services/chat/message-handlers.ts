@@ -115,10 +115,7 @@ export class MessagePersistenceService {
   private supabaseClient: SupabaseClient<Database>;
   private readonly logger: SystemLogger;
 
-  constructor(
-    supabaseClient: SupabaseClient<Database>,
-    logger: SystemLogger,
-  ) {
+  constructor(supabaseClient: SupabaseClient<Database>, logger: SystemLogger) {
     this.supabaseClient = supabaseClient;
     this.logger = logger.child({ service: "MessagePersistenceService" });
   }
@@ -155,7 +152,10 @@ export class MessagePersistenceService {
 
     try {
       // Check if client is authenticated
-      const { data: { user }, error: authError } = await this.supabaseClient.auth.getUser();
+      const {
+        data: { user },
+        error: authError,
+      } = await this.supabaseClient.auth.getUser();
 
       this.logger.consoleLogDevOnly("debug", "Attempting to persist message", {
         chatSessionId,
@@ -191,7 +191,9 @@ export class MessagePersistenceService {
           messageType,
           eventType,
           hasEventData: !!eventData,
-          eventDataSample: eventData ? JSON.stringify(eventData).substring(0, 200) : null,
+          eventDataSample: eventData
+            ? JSON.stringify(eventData).substring(0, 200)
+            : null,
           isAuthenticated: !!user,
           userId: user?.id,
         });
@@ -230,7 +232,9 @@ export class MessagePersistenceService {
     prototypeId: string,
     chatSessionId: string,
     images: Array<{ base64: string; mediaType: string }>,
-  ): Promise<Array<{ storage_path: string; media_type: string; file_size: number }>> {
+  ): Promise<
+    Array<{ storage_path: string; media_type: string; file_size: number }>
+  > {
     try {
       this.logger.consoleLogDevOnly(
         "info",

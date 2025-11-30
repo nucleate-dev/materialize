@@ -14,7 +14,11 @@ import {
   CreatePrototypeSuccessResponse,
   HTTP_STATUS,
 } from '../../../types/PublicAPITypes.js';
-import { Database, TablesInsert, TablesUpdate } from '../../../types/supabase.js';
+import {
+  Database,
+  TablesInsert,
+  TablesUpdate,
+} from '../../../types/supabase.js';
 import {
   checkUserHasPrototypeViewingAccess,
   validateJWTToken,
@@ -234,7 +238,9 @@ export async function handleCreatePrototypeImpl(
         try {
           const { error: updateError } = await supabase
             .from('prototypes')
-            .update({ latest_build_key: version } satisfies TablesUpdate<'prototypes'>)
+            .update({
+              latest_build_key: version,
+            } satisfies TablesUpdate<'prototypes'>)
             .eq('id', newPrototypeId);
 
           if (updateError) {

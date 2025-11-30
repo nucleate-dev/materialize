@@ -20,11 +20,11 @@ function CheckoutSuccessContent() {
   const [hasRedirected, setHasRedirected] = useState(false);
 
   useEffect(() => {
-    const sessionId = searchParams.get('session_id');
+    const sessionId = searchParams.get("session_id");
 
     if (!sessionId) {
-      logger.debug('warn', 'No session_id in checkout success URL');
-      router.push('/dashboard/account');
+      logger.debug("warn", "No session_id in checkout success URL");
+      router.push("/dashboard/account");
       return;
     }
 
@@ -32,10 +32,12 @@ function CheckoutSuccessContent() {
     const trackPurchase = async () => {
       try {
         // Fetch checkout session details to get purchase info
-        const response = await fetch(`/api/checkout/session?session_id=${sessionId}`);
+        const response = await fetch(
+          `/api/checkout/session?session_id=${sessionId}`,
+        );
 
         if (!response.ok) {
-          logger.debug('warn', 'Failed to fetch checkout session details');
+          logger.debug("warn", "Failed to fetch checkout session details");
           setIsTracking(false);
           return;
         }
@@ -44,17 +46,17 @@ function CheckoutSuccessContent() {
 
         // Track Meta Pixel Purchase event with session_id as eventID for deduplication
         // Meta will deduplicate this with the server-side event using the same eventID
-        trackEvent('Purchase', {
+        trackEvent("Purchase", {
           value: sessionData.amount_total / 100, // Convert cents to dollars
-          currency: sessionData.currency?.toUpperCase() || 'USD',
-          content_name: sessionData.content_name || 'Subscription',
-          content_type: 'product',
+          currency: sessionData.currency?.toUpperCase() || "USD",
+          content_name: sessionData.content_name || "Subscription",
+          content_type: "product",
           eventID: sessionId, // Used for deduplication with server-side Conversions API
         });
 
-        logger.debug('log', 'Meta Pixel Purchase event tracked', { sessionId });
+        logger.debug("log", "Meta Pixel Purchase event tracked", { sessionId });
       } catch (error) {
-        logger.debug('error', 'Error tracking purchase event', {
+        logger.debug("error", "Error tracking purchase event", {
           error: error instanceof Error ? error.message : String(error),
         });
       } finally {
@@ -74,15 +76,13 @@ function CheckoutSuccessContent() {
       return;
     }
     setHasRedirected(true);
-    router.replace('/dashboard/account');
+    router.replace("/dashboard/account");
   }, [isTracking, hasRedirected, router]);
 
   return (
     <div className="relative min-h-screen text-gray-900 dark:text-white font-sans flex items-center justify-center">
-
       <div className="container mx-auto px-6 max-w-2xl">
         <div className="bg-white dark:bg-[#141517] border border-black/5 dark:border-white/5 rounded-2xl shadow-lg dark:shadow-none overflow-hidden">
-
           {/* Success Icon */}
           <div className="relative bg-gradient-to-b from-emerald-500/10 to-transparent dark:from-emerald-500/5 px-8 pt-12 pb-8 text-center border-b border-black/5 dark:border-white/5">
             <div className="w-20 h-20 mx-auto mb-6 bg-emerald-500/20 dark:bg-emerald-500/10 rounded-full flex items-center justify-center">
@@ -101,9 +101,12 @@ function CheckoutSuccessContent() {
             <div className="flex items-start gap-4 p-4 rounded-lg bg-purple-500/5 dark:bg-purple-500/5 border border-purple-500/20">
               <Sparkles className="w-5 h-5 text-purple-600 dark:text-purple-400 mt-0.5 shrink-0" />
               <div className="space-y-1">
-                <h3 className="font-medium text-gray-900 dark:text-white">What&apos;s Next?</h3>
+                <h3 className="font-medium text-gray-900 dark:text-white">
+                  What&apos;s Next?
+                </h3>
                 <p className="text-sm text-gray-600 dark:text-[#8A8F98]">
-                  Your new features are now active. Start creating amazing prototypes with your upgraded plan!
+                  Your new features are now active. Start creating amazing
+                  prototypes with your upgraded plan!
                 </p>
               </div>
             </div>
@@ -119,7 +122,7 @@ function CheckoutSuccessContent() {
             {!isTracking && (
               <div className="space-y-3 pt-4">
                 <Button
-                  onClick={() => router.replace('/dashboard/account')}
+                  onClick={() => router.replace("/dashboard/account")}
                   className="w-full bg-black dark:bg-white text-white dark:text-black hover:bg-black/90 dark:hover:bg-white/90 h-11"
                 >
                   Continue to Account Settings
@@ -138,11 +141,13 @@ function CheckoutSuccessContent() {
 
 export default function CheckoutSuccess() {
   return (
-    <Suspense fallback={
-      <div className="relative min-h-screen flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-gray-600 dark:text-[#8A8F98]" />
-      </div>
-    }>
+    <Suspense
+      fallback={
+        <div className="relative min-h-screen flex items-center justify-center">
+          <Loader2 className="w-8 h-8 animate-spin text-gray-600 dark:text-[#8A8F98]" />
+        </div>
+      }
+    >
       <CheckoutSuccessContent />
     </Suspense>
   );

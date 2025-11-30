@@ -7,6 +7,7 @@ import { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import fs from "fs/promises";
 import path from "path";
 import { SystemLogger } from "../loggers/SystemLogger.js";
+import { stripAnsiSequences } from "./terminals/TerminalAnsiUtils.js";
 import {
   PublicRunCommandRequest,
   PublicRunCommandSuccessResponse,
@@ -263,7 +264,7 @@ export class SandboxService {
 
       // Strip ANSI sequences if requested
       if (stripAnsi) {
-        cleanOutput = this.stripAnsiSequences(cleanOutput);
+        cleanOutput = stripAnsiSequences(cleanOutput);
       }
 
       this.log2.consoleLogDevOnly("info", "Command completed successfully", {
@@ -434,12 +435,6 @@ export class SandboxService {
       });
       return { success: false, error: errorMessage };
     }
-  }
-
-  private stripAnsiSequences(output: string): string {
-    const ANSI_REGEX =
-      /[\u001B\u009B][[\]()#;?]*(?:(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-PR-TZcf-ntqry=><~])/g;
-    return output.replace(ANSI_REGEX, "");
   }
 
   /**

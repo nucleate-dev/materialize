@@ -267,9 +267,12 @@ const FileTree: React.FC<FileTreeProps> = ({
                   // Folder Hover State
                   "hover:bg-accent",
                   // Drag over state
-                  isDraggedOver && "bg-indigo-500/20 border-2 border-indigo-500/50 border-dashed",
+                  isDraggedOver &&
+                    "bg-indigo-500/20 border-2 border-indigo-500/50 border-dashed",
                   // Active State (if needed, usually folders aren't 'selected' in this view, but visual feedback helps)
-                  isExpanded ? "text-foreground" : "text-muted-foreground hover:text-foreground"
+                  isExpanded
+                    ? "text-foreground"
+                    : "text-muted-foreground hover:text-foreground",
                 )}
                 style={{ paddingLeft: `${paddingLeft}px` }}
                 onClick={() => toggleFolder(node.path)}
@@ -330,15 +333,22 @@ const FileTree: React.FC<FileTreeProps> = ({
                 "flex items-center py-1.5 pr-2 my-0.5 rounded cursor-pointer transition-all duration-200 select-none",
                 isSelected
                   ? "bg-indigo-500/10 text-indigo-300"
-                  : "text-muted-foreground hover:text-foreground hover:bg-accent"
+                  : "text-muted-foreground hover:text-foreground hover:bg-accent",
               )}
               style={{ paddingLeft: `${paddingLeft + 18}px` }} // +18 to align with folder text, skipping arrows
             >
-              <span className={cn(
-                "mr-2 transition-colors",
-                isSelected ? "text-indigo-400" : "text-muted-foreground/50 group-hover:text-muted-foreground"
-              )}>
-                {getFileIcon(node.name, node.type === "asset" ? "asset" : "file")}
+              <span
+                className={cn(
+                  "mr-2 transition-colors",
+                  isSelected
+                    ? "text-indigo-400"
+                    : "text-muted-foreground/50 group-hover:text-muted-foreground",
+                )}
+              >
+                {getFileIcon(
+                  node.name,
+                  node.type === "asset" ? "asset" : "file",
+                )}
               </span>
 
               <span className="text-xs font-medium truncate tracking-tight">
@@ -387,7 +397,9 @@ const FileTree: React.FC<FileTreeProps> = ({
       <div
         className={cn(
           "flex-1 overflow-y-auto py-2 px-2 custom-scrollbar transition-colors",
-          dragOver && !dragOverPath && "bg-indigo-500/10 border-2 border-indigo-500/30 border-dashed"
+          dragOver &&
+            !dragOverPath &&
+            "bg-indigo-500/10 border-2 border-indigo-500/30 border-dashed",
         )}
         onDragOver={(e) => handleDragOver(e, "")}
         onDragLeave={handleDragLeave}
@@ -399,7 +411,9 @@ const FileTree: React.FC<FileTreeProps> = ({
           <div className="flex flex-col items-center justify-center h-40 text-center px-4">
             <FolderOpen className="w-8 h-8 text-muted-foreground/20 mb-2" />
             <p className="text-xs text-muted-foreground">
-              {dragOver ? "Drop files here to add to project" : "No files in this project"}
+              {dragOver
+                ? "Drop files here to add to project"
+                : "No files in this project"}
             </p>
           </div>
         )}

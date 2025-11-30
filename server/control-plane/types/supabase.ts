@@ -3,14 +3,14 @@ export type Json =
   | number
   | boolean
   | null
-  | { [key: string]: Json | undefined; }
+  | { [key: string]: Json | undefined }
   | Json[];
 
 export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "12.2.3 (519615d)";
+    PostgrestVersion: '12.2.3 (519615d)';
   };
   public: {
     Tables: {
@@ -44,25 +44,25 @@ export type Database = {
         };
         Relationships: [
           {
-            foreignKeyName: "api_usage_credit_grant_id_fkey";
-            columns: ["credit_grant_id"];
+            foreignKeyName: 'api_usage_credit_grant_id_fkey';
+            columns: ['credit_grant_id'];
             isOneToOne: false;
-            referencedRelation: "credit_grant_balances";
-            referencedColumns: ["id"];
+            referencedRelation: 'credit_grant_balances';
+            referencedColumns: ['id'];
           },
           {
-            foreignKeyName: "api_usage_credit_grant_id_fkey";
-            columns: ["credit_grant_id"];
+            foreignKeyName: 'api_usage_credit_grant_id_fkey';
+            columns: ['credit_grant_id'];
             isOneToOne: false;
-            referencedRelation: "credit_grants";
-            referencedColumns: ["id"];
+            referencedRelation: 'credit_grants';
+            referencedColumns: ['id'];
           },
           {
-            foreignKeyName: "api_usage_user_id_fkey";
-            columns: ["user_id"];
+            foreignKeyName: 'api_usage_user_id_fkey';
+            columns: ['user_id'];
             isOneToOne: false;
-            referencedRelation: "users";
-            referencedColumns: ["id"];
+            referencedRelation: 'users';
+            referencedColumns: ['id'];
           },
         ];
       };
@@ -90,11 +90,11 @@ export type Database = {
         };
         Relationships: [
           {
-            foreignKeyName: "canvas_documents_canvas_id_fkey";
-            columns: ["canvas_id"];
+            foreignKeyName: 'canvas_documents_canvas_id_fkey';
+            columns: ['canvas_id'];
             isOneToOne: false;
-            referencedRelation: "canvases";
-            referencedColumns: ["id"];
+            referencedRelation: 'canvases';
+            referencedColumns: ['id'];
           },
         ];
       };
@@ -119,18 +119,18 @@ export type Database = {
         };
         Relationships: [
           {
-            foreignKeyName: "canvas_sessions_canvas_id_fkey";
-            columns: ["canvas_id"];
+            foreignKeyName: 'canvas_sessions_canvas_id_fkey';
+            columns: ['canvas_id'];
             isOneToOne: false;
-            referencedRelation: "canvases";
-            referencedColumns: ["id"];
+            referencedRelation: 'canvases';
+            referencedColumns: ['id'];
           },
           {
-            foreignKeyName: "canvas_sessions_user_id_fkey";
-            columns: ["user_id"];
+            foreignKeyName: 'canvas_sessions_user_id_fkey';
+            columns: ['user_id'];
             isOneToOne: false;
-            referencedRelation: "users";
-            referencedColumns: ["id"];
+            referencedRelation: 'users';
+            referencedColumns: ['id'];
           },
         ];
       };
@@ -144,7 +144,7 @@ export type Database = {
           owner_id: string;
           thumbnail_url: string | null;
           updated_at: string | null;
-          visibility: Database["public"]["Enums"]["visibility_level"] | null;
+          visibility: Database['public']['Enums']['visibility_level'] | null;
         };
         Insert: {
           created_at?: string | null;
@@ -155,7 +155,7 @@ export type Database = {
           owner_id: string;
           thumbnail_url?: string | null;
           updated_at?: string | null;
-          visibility?: Database["public"]["Enums"]["visibility_level"] | null;
+          visibility?: Database['public']['Enums']['visibility_level'] | null;
         };
         Update: {
           created_at?: string | null;
@@ -166,22 +166,22 @@ export type Database = {
           owner_id?: string;
           thumbnail_url?: string | null;
           updated_at?: string | null;
-          visibility?: Database["public"]["Enums"]["visibility_level"] | null;
+          visibility?: Database['public']['Enums']['visibility_level'] | null;
         };
         Relationships: [
           {
-            foreignKeyName: "canvases_owner_id_fkey";
-            columns: ["owner_id"];
+            foreignKeyName: 'canvases_owner_id_fkey';
+            columns: ['owner_id'];
             isOneToOne: false;
-            referencedRelation: "users";
-            referencedColumns: ["id"];
+            referencedRelation: 'users';
+            referencedColumns: ['id'];
           },
           {
-            foreignKeyName: "canvases_project_id_fkey";
-            columns: ["folder_id"];
+            foreignKeyName: 'canvases_project_id_fkey';
+            columns: ['folder_id'];
             isOneToOne: false;
-            referencedRelation: "folders";
-            referencedColumns: ["id"];
+            referencedRelation: 'folders';
+            referencedColumns: ['id'];
           },
         ];
       };
@@ -192,7 +192,7 @@ export type Database = {
           hostname: string | null;
           id: string;
           prototype_id: string | null;
-          status: Database["public"]["Enums"]["tunnel_status"];
+          status: Database['public']['Enums']['tunnel_status'];
           token: string | null;
           tunnel_id: string | null;
           updated_at: string;
@@ -203,7 +203,7 @@ export type Database = {
           hostname?: string | null;
           id?: string;
           prototype_id?: string | null;
-          status?: Database["public"]["Enums"]["tunnel_status"];
+          status?: Database['public']['Enums']['tunnel_status'];
           token?: string | null;
           tunnel_id?: string | null;
           updated_at?: string;
@@ -214,7 +214,7 @@ export type Database = {
           hostname?: string | null;
           id?: string;
           prototype_id?: string | null;
-          status?: Database["public"]["Enums"]["tunnel_status"];
+          status?: Database['public']['Enums']['tunnel_status'];
           token?: string | null;
           tunnel_id?: string | null;
           updated_at?: string;
@@ -260,18 +260,18 @@ export type Database = {
         };
         Relationships: [
           {
-            foreignKeyName: "credit_grants_subscription_id_fkey";
-            columns: ["subscription_id"];
+            foreignKeyName: 'credit_grants_subscription_id_fkey';
+            columns: ['subscription_id'];
             isOneToOne: false;
-            referencedRelation: "subscriptions";
-            referencedColumns: ["id"];
+            referencedRelation: 'subscriptions';
+            referencedColumns: ['id'];
           },
           {
-            foreignKeyName: "credit_grants_user_id_fkey";
-            columns: ["user_id"];
+            foreignKeyName: 'credit_grants_user_id_fkey';
+            columns: ['user_id'];
             isOneToOne: false;
-            referencedRelation: "users";
-            referencedColumns: ["id"];
+            referencedRelation: 'users';
+            referencedColumns: ['id'];
           },
         ];
       };
@@ -326,11 +326,11 @@ export type Database = {
         };
         Relationships: [
           {
-            foreignKeyName: "design_systems_user_owner_fkey";
-            columns: ["owner_id"];
+            foreignKeyName: 'design_systems_user_owner_fkey';
+            columns: ['owner_id'];
             isOneToOne: false;
-            referencedRelation: "users";
-            referencedColumns: ["id"];
+            referencedRelation: 'users';
+            referencedColumns: ['id'];
           },
         ];
       };
@@ -338,7 +338,7 @@ export type Database = {
         Row: {
           created_at: string | null;
           custom_design_system: string | null;
-          default_design_style: Database["public"]["Enums"]["design_style"];
+          default_design_style: Database['public']['Enums']['design_style'];
           description: string | null;
           folder_context: Json | null;
           id: string;
@@ -346,12 +346,12 @@ export type Database = {
           owner_id: string | null;
           thumbnail_url: string | null;
           updated_at: string | null;
-          visibility: Database["public"]["Enums"]["visibility_level"] | null;
+          visibility: Database['public']['Enums']['visibility_level'] | null;
         };
         Insert: {
           created_at?: string | null;
           custom_design_system?: string | null;
-          default_design_style?: Database["public"]["Enums"]["design_style"];
+          default_design_style?: Database['public']['Enums']['design_style'];
           description?: string | null;
           folder_context?: Json | null;
           id?: string;
@@ -359,12 +359,12 @@ export type Database = {
           owner_id?: string | null;
           thumbnail_url?: string | null;
           updated_at?: string | null;
-          visibility?: Database["public"]["Enums"]["visibility_level"] | null;
+          visibility?: Database['public']['Enums']['visibility_level'] | null;
         };
         Update: {
           created_at?: string | null;
           custom_design_system?: string | null;
-          default_design_style?: Database["public"]["Enums"]["design_style"];
+          default_design_style?: Database['public']['Enums']['design_style'];
           description?: string | null;
           folder_context?: Json | null;
           id?: string;
@@ -372,22 +372,22 @@ export type Database = {
           owner_id?: string | null;
           thumbnail_url?: string | null;
           updated_at?: string | null;
-          visibility?: Database["public"]["Enums"]["visibility_level"] | null;
+          visibility?: Database['public']['Enums']['visibility_level'] | null;
         };
         Relationships: [
           {
-            foreignKeyName: "projects_custom_design_system_fkey";
-            columns: ["custom_design_system"];
+            foreignKeyName: 'projects_custom_design_system_fkey';
+            columns: ['custom_design_system'];
             isOneToOne: false;
-            referencedRelation: "design_systems";
-            referencedColumns: ["id"];
+            referencedRelation: 'design_systems';
+            referencedColumns: ['id'];
           },
           {
-            foreignKeyName: "projects_owner_id_fkey";
-            columns: ["owner_id"];
+            foreignKeyName: 'projects_owner_id_fkey';
+            columns: ['owner_id'];
             isOneToOne: false;
-            referencedRelation: "users";
-            referencedColumns: ["id"];
+            referencedRelation: 'users';
+            referencedColumns: ['id'];
           },
         ];
       };
@@ -427,18 +427,18 @@ export type Database = {
         };
         Relationships: [
           {
-            foreignKeyName: "payments_subscription_id_fkey";
-            columns: ["subscription_id"];
+            foreignKeyName: 'payments_subscription_id_fkey';
+            columns: ['subscription_id'];
             isOneToOne: false;
-            referencedRelation: "subscriptions";
-            referencedColumns: ["id"];
+            referencedRelation: 'subscriptions';
+            referencedColumns: ['id'];
           },
           {
-            foreignKeyName: "payments_user_id_fkey";
-            columns: ["user_id"];
+            foreignKeyName: 'payments_user_id_fkey';
+            columns: ['user_id'];
             isOneToOne: false;
-            referencedRelation: "users";
-            referencedColumns: ["id"];
+            referencedRelation: 'users';
+            referencedColumns: ['id'];
           },
         ];
       };
@@ -466,11 +466,11 @@ export type Database = {
         };
         Relationships: [
           {
-            foreignKeyName: "prototype_assets_prototype_id_fkey";
-            columns: ["prototype_id"];
+            foreignKeyName: 'prototype_assets_prototype_id_fkey';
+            columns: ['prototype_id'];
             isOneToOne: false;
-            referencedRelation: "prototypes";
-            referencedColumns: ["id"];
+            referencedRelation: 'prototypes';
+            referencedColumns: ['id'];
           },
         ];
       };
@@ -488,7 +488,7 @@ export type Database = {
           image_url: string | null;
           message_type: string;
           phase: string | null;
-          role: Database["public"]["Enums"]["chat_role"];
+          role: Database['public']['Enums']['chat_role'];
           sequence: number | null;
         };
         Insert: {
@@ -504,7 +504,7 @@ export type Database = {
           image_url?: string | null;
           message_type?: string;
           phase?: string | null;
-          role: Database["public"]["Enums"]["chat_role"];
+          role: Database['public']['Enums']['chat_role'];
           sequence?: number | null;
         };
         Update: {
@@ -520,16 +520,16 @@ export type Database = {
           image_url?: string | null;
           message_type?: string;
           phase?: string | null;
-          role?: Database["public"]["Enums"]["chat_role"];
+          role?: Database['public']['Enums']['chat_role'];
           sequence?: number | null;
         };
         Relationships: [
           {
-            foreignKeyName: "prototype_chat_messages_chat_session_id_fkey";
-            columns: ["chat_session_id"];
+            foreignKeyName: 'prototype_chat_messages_chat_session_id_fkey';
+            columns: ['chat_session_id'];
             isOneToOne: false;
-            referencedRelation: "prototype_chat_sessions";
-            referencedColumns: ["id"];
+            referencedRelation: 'prototype_chat_sessions';
+            referencedColumns: ['id'];
           },
         ];
       };
@@ -563,18 +563,18 @@ export type Database = {
         };
         Relationships: [
           {
-            foreignKeyName: "prototype_chat_sessions_prototype_id_fkey";
-            columns: ["prototype_id"];
+            foreignKeyName: 'prototype_chat_sessions_prototype_id_fkey';
+            columns: ['prototype_id'];
             isOneToOne: false;
-            referencedRelation: "prototypes";
-            referencedColumns: ["id"];
+            referencedRelation: 'prototypes';
+            referencedColumns: ['id'];
           },
           {
-            foreignKeyName: "prototype_chat_sessions_user_id_fkey";
-            columns: ["user_id"];
+            foreignKeyName: 'prototype_chat_sessions_user_id_fkey';
+            columns: ['user_id'];
             isOneToOne: false;
-            referencedRelation: "users";
-            referencedColumns: ["id"];
+            referencedRelation: 'users';
+            referencedColumns: ['id'];
           },
         ];
       };
@@ -605,11 +605,11 @@ export type Database = {
         };
         Relationships: [
           {
-            foreignKeyName: "prototype_files_prototype_id_fkey";
-            columns: ["prototype_id"];
+            foreignKeyName: 'prototype_files_prototype_id_fkey';
+            columns: ['prototype_id'];
             isOneToOne: false;
-            referencedRelation: "prototypes";
-            referencedColumns: ["id"];
+            referencedRelation: 'prototypes';
+            referencedColumns: ['id'];
           },
         ];
       };
@@ -618,7 +618,7 @@ export type Database = {
           created_at: string | null;
           custom_design_system: string | null;
           description: string | null;
-          design_style: Database["public"]["Enums"]["design_style"];
+          design_style: Database['public']['Enums']['design_style'];
           folder_id: string | null;
           id: string;
           latest_build_key: string | null;
@@ -626,14 +626,13 @@ export type Database = {
           owner_id: string | null;
           prototype_context: Json | null;
           updated_at: string | null;
-          visibility: Database["public"]["Enums"]["visibility_level"] | null;
-          project_context: string;
+          visibility: Database['public']['Enums']['visibility_level'] | null;
         };
         Insert: {
           created_at?: string | null;
           custom_design_system?: string | null;
           description?: string | null;
-          design_style?: Database["public"]["Enums"]["design_style"];
+          design_style?: Database['public']['Enums']['design_style'];
           folder_id?: string | null;
           id?: string;
           latest_build_key?: string | null;
@@ -641,14 +640,13 @@ export type Database = {
           owner_id?: string | null;
           prototype_context?: Json | null;
           updated_at?: string | null;
-          visibility?: Database["public"]["Enums"]["visibility_level"] | null;
-          project_context?: string;
+          visibility?: Database['public']['Enums']['visibility_level'] | null;
         };
         Update: {
           created_at?: string | null;
           custom_design_system?: string | null;
           description?: string | null;
-          design_style?: Database["public"]["Enums"]["design_style"];
+          design_style?: Database['public']['Enums']['design_style'];
           folder_id?: string | null;
           id?: string;
           latest_build_key?: string | null;
@@ -656,30 +654,29 @@ export type Database = {
           owner_id?: string | null;
           prototype_context?: Json | null;
           updated_at?: string | null;
-          visibility?: Database["public"]["Enums"]["visibility_level"] | null;
-          project_context?: string;
+          visibility?: Database['public']['Enums']['visibility_level'] | null;
         };
         Relationships: [
           {
-            foreignKeyName: "prototypes_custom_design_system_fkey";
-            columns: ["custom_design_system"];
+            foreignKeyName: 'prototypes_custom_design_system_fkey';
+            columns: ['custom_design_system'];
             isOneToOne: false;
-            referencedRelation: "design_systems";
-            referencedColumns: ["id"];
+            referencedRelation: 'design_systems';
+            referencedColumns: ['id'];
           },
           {
-            foreignKeyName: "prototypes_folder_id_fkey";
-            columns: ["folder_id"];
+            foreignKeyName: 'prototypes_folder_id_fkey';
+            columns: ['folder_id'];
             isOneToOne: false;
-            referencedRelation: "folders";
-            referencedColumns: ["id"];
+            referencedRelation: 'folders';
+            referencedColumns: ['id'];
           },
           {
-            foreignKeyName: "prototypes_owner_id_fkey";
-            columns: ["owner_id"];
+            foreignKeyName: 'prototypes_owner_id_fkey';
+            columns: ['owner_id'];
             isOneToOne: false;
-            referencedRelation: "users";
-            referencedColumns: ["id"];
+            referencedRelation: 'users';
+            referencedColumns: ['id'];
           },
         ];
       };
@@ -689,10 +686,10 @@ export type Database = {
           current_period_end: number | null;
           current_period_start: number | null;
           id: string;
-          plan_id: Database["public"]["Enums"]["subscription_plan_type"];
+          plan_id: Database['public']['Enums']['subscription_plan_type'];
           price_id: string | null;
           scheduled_for_cancellation: boolean | null;
-          status: Database["public"]["Enums"]["subscription_status"] | null;
+          status: Database['public']['Enums']['subscription_status'] | null;
           stripe_customer_id: string | null;
           updated_at: string | null;
           user_id: string | null;
@@ -702,10 +699,10 @@ export type Database = {
           current_period_end?: number | null;
           current_period_start?: number | null;
           id: string;
-          plan_id?: Database["public"]["Enums"]["subscription_plan_type"];
+          plan_id?: Database['public']['Enums']['subscription_plan_type'];
           price_id?: string | null;
           scheduled_for_cancellation?: boolean | null;
-          status?: Database["public"]["Enums"]["subscription_status"] | null;
+          status?: Database['public']['Enums']['subscription_status'] | null;
           stripe_customer_id?: string | null;
           updated_at?: string | null;
           user_id?: string | null;
@@ -715,21 +712,21 @@ export type Database = {
           current_period_end?: number | null;
           current_period_start?: number | null;
           id?: string;
-          plan_id?: Database["public"]["Enums"]["subscription_plan_type"];
+          plan_id?: Database['public']['Enums']['subscription_plan_type'];
           price_id?: string | null;
           scheduled_for_cancellation?: boolean | null;
-          status?: Database["public"]["Enums"]["subscription_status"] | null;
+          status?: Database['public']['Enums']['subscription_status'] | null;
           stripe_customer_id?: string | null;
           updated_at?: string | null;
           user_id?: string | null;
         };
         Relationships: [
           {
-            foreignKeyName: "subscriptions_user_id_fkey";
-            columns: ["user_id"];
+            foreignKeyName: 'subscriptions_user_id_fkey';
+            columns: ['user_id'];
             isOneToOne: false;
-            referencedRelation: "users";
-            referencedColumns: ["id"];
+            referencedRelation: 'users';
+            referencedColumns: ['id'];
           },
         ];
       };
@@ -757,11 +754,11 @@ export type Database = {
         };
         Relationships: [
           {
-            foreignKeyName: "user_internal_metadata_user_id_fkey";
-            columns: ["user_id"];
+            foreignKeyName: 'user_internal_metadata_user_id_fkey';
+            columns: ['user_id'];
             isOneToOne: true;
-            referencedRelation: "users";
-            referencedColumns: ["id"];
+            referencedRelation: 'users';
+            referencedColumns: ['id'];
           },
         ];
       };
@@ -808,45 +805,45 @@ export type Database = {
         };
         Relationships: [
           {
-            foreignKeyName: "credit_grants_subscription_id_fkey";
-            columns: ["subscription_id"];
+            foreignKeyName: 'credit_grants_subscription_id_fkey';
+            columns: ['subscription_id'];
             isOneToOne: false;
-            referencedRelation: "subscriptions";
-            referencedColumns: ["id"];
+            referencedRelation: 'subscriptions';
+            referencedColumns: ['id'];
           },
           {
-            foreignKeyName: "credit_grants_user_id_fkey";
-            columns: ["user_id"];
+            foreignKeyName: 'credit_grants_user_id_fkey';
+            columns: ['user_id'];
             isOneToOne: false;
-            referencedRelation: "users";
-            referencedColumns: ["id"];
+            referencedRelation: 'users';
+            referencedColumns: ['id'];
           },
         ];
       };
     };
     Functions: {
       allocate_idle_tunnel: {
-        Args: { p_prototype_id: string; };
+        Args: { p_prototype_id: string };
         Returns: {
           cname_target: string | null;
           created_at: string;
           hostname: string | null;
           id: string;
           prototype_id: string | null;
-          status: Database["public"]["Enums"]["tunnel_status"];
+          status: Database['public']['Enums']['tunnel_status'];
           token: string | null;
           tunnel_id: string | null;
           updated_at: string;
         };
         SetofOptions: {
-          from: "*";
-          to: "cloudflare_tunnels";
+          from: '*';
+          to: 'cloudflare_tunnels';
           isOneToOne: true;
           isSetofReturn: false;
         };
       };
       consume_credits: {
-        Args: { p_credits: number; p_prototype_id: string; p_user_id: string; };
+        Args: { p_credits: number; p_prototype_id: string; p_user_id: string };
         Returns: {
           consumed_grants: Json;
           error: string;
@@ -857,147 +854,150 @@ export type Database = {
       };
     };
     Enums: {
-      chat_role: "user" | "assistant" | "system";
-      design_style: "tamagui" | "stylesheets" | "nativewind" | "custom";
-      file_type: "text" | "asset";
-      subscription_plan_type: "free" | "team" | "pro" | "plus" | "max";
-      subscription_status: "active" | "past_due" | "canceled";
-      tunnel_status: "creating" | "idle" | "allocated";
-      visibility_level: "SELF" | "TEAM_SUBSET" | "TEAM" | "PUBLIC";
+      chat_role: 'user' | 'assistant' | 'system';
+      design_style: 'tamagui' | 'stylesheets' | 'nativewind' | 'custom';
+      file_type: 'text' | 'asset';
+      subscription_plan_type: 'free' | 'team' | 'pro' | 'plus' | 'max';
+      subscription_status: 'active' | 'past_due' | 'canceled';
+      tunnel_status: 'creating' | 'idle' | 'allocated';
+      visibility_level: 'SELF' | 'TEAM_SUBSET' | 'TEAM' | 'PUBLIC';
     };
     CompositeTypes: {
-      [_ in never]: never
+      [_ in never]: never;
     };
   };
 };
 
-type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">;
+type DatabaseWithoutInternals = Omit<Database, '__InternalSupabase'>;
 
-type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">];
+type DefaultSchema = DatabaseWithoutInternals[Extract<
+  keyof Database,
+  'public'
+>];
 
 export type Tables<
   DefaultSchemaTableNameOrOptions extends
-  | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
-  | { schema: keyof DatabaseWithoutInternals; },
+    | keyof (DefaultSchema['Tables'] & DefaultSchema['Views'])
+    | { schema: keyof DatabaseWithoutInternals },
   TableName extends DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals;
   }
-  ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
-    DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-  : never = never,
+    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Tables'] &
+        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Views'])
+    : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals;
 }
-  ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
-    DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
+  ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Tables'] &
+      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Views'])[TableName] extends {
       Row: infer R;
     }
-  ? R
-  : never
-  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
-    DefaultSchema["Views"])
-  ? (DefaultSchema["Tables"] &
-    DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
-      Row: infer R;
-    }
-  ? R
-  : never
-  : never;
+    ? R
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema['Tables'] &
+        DefaultSchema['Views'])
+    ? (DefaultSchema['Tables'] &
+        DefaultSchema['Views'])[DefaultSchemaTableNameOrOptions] extends {
+        Row: infer R;
+      }
+      ? R
+      : never
+    : never;
 
 export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
-  | keyof DefaultSchema["Tables"]
-  | { schema: keyof DatabaseWithoutInternals; },
+    | keyof DefaultSchema['Tables']
+    | { schema: keyof DatabaseWithoutInternals },
   TableName extends DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals;
   }
-  ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-  : never = never,
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Tables']
+    : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals;
 }
-  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
-    Insert: infer I;
-  }
-  ? I
-  : never
-  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
-  ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
-    Insert: infer I;
-  }
-  ? I
-  : never
-  : never;
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Tables'][TableName] extends {
+      Insert: infer I;
+    }
+    ? I
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema['Tables']
+    ? DefaultSchema['Tables'][DefaultSchemaTableNameOrOptions] extends {
+        Insert: infer I;
+      }
+      ? I
+      : never
+    : never;
 
 export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
-  | keyof DefaultSchema["Tables"]
-  | { schema: keyof DatabaseWithoutInternals; },
+    | keyof DefaultSchema['Tables']
+    | { schema: keyof DatabaseWithoutInternals },
   TableName extends DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals;
   }
-  ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-  : never = never,
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Tables']
+    : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals;
 }
-  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
-    Update: infer U;
-  }
-  ? U
-  : never
-  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
-  ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
-    Update: infer U;
-  }
-  ? U
-  : never
-  : never;
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Tables'][TableName] extends {
+      Update: infer U;
+    }
+    ? U
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema['Tables']
+    ? DefaultSchema['Tables'][DefaultSchemaTableNameOrOptions] extends {
+        Update: infer U;
+      }
+      ? U
+      : never
+    : never;
 
 export type Enums<
   DefaultSchemaEnumNameOrOptions extends
-  | keyof DefaultSchema["Enums"]
-  | { schema: keyof DatabaseWithoutInternals; },
+    | keyof DefaultSchema['Enums']
+    | { schema: keyof DatabaseWithoutInternals },
   EnumName extends DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals;
   }
-  ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-  : never = never,
+    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions['schema']]['Enums']
+    : never = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals;
 }
-  ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
-  : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
-  ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
-  : never;
+  ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions['schema']]['Enums'][EnumName]
+  : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema['Enums']
+    ? DefaultSchema['Enums'][DefaultSchemaEnumNameOrOptions]
+    : never;
 
 export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
-  | keyof DefaultSchema["CompositeTypes"]
-  | { schema: keyof DatabaseWithoutInternals; },
+    | keyof DefaultSchema['CompositeTypes']
+    | { schema: keyof DatabaseWithoutInternals },
   CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals;
   }
-  ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-  : never = never,
+    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions['schema']]['CompositeTypes']
+    : never = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals;
 }
-  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
-  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
-  ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
-  : never;
+  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions['schema']]['CompositeTypes'][CompositeTypeName]
+  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema['CompositeTypes']
+    ? DefaultSchema['CompositeTypes'][PublicCompositeTypeNameOrOptions]
+    : never;
 
 export const Constants = {
   public: {
     Enums: {
-      chat_role: ["user", "assistant", "system"],
-      design_style: ["tamagui", "stylesheets", "nativewind", "custom"],
-      file_type: ["text", "asset"],
-      subscription_plan_type: ["free", "team", "pro", "plus", "max"],
-      subscription_status: ["active", "past_due", "canceled"],
-      tunnel_status: ["creating", "idle", "allocated"],
-      visibility_level: ["SELF", "TEAM_SUBSET", "TEAM", "PUBLIC"],
+      chat_role: ['user', 'assistant', 'system'],
+      design_style: ['tamagui', 'stylesheets', 'nativewind', 'custom'],
+      file_type: ['text', 'asset'],
+      subscription_plan_type: ['free', 'team', 'pro', 'plus', 'max'],
+      subscription_status: ['active', 'past_due', 'canceled'],
+      tunnel_status: ['creating', 'idle', 'allocated'],
+      visibility_level: ['SELF', 'TEAM_SUBSET', 'TEAM', 'PUBLIC'],
     },
   },
 } as const;

@@ -10,8 +10,9 @@ import {
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
-  SidebarMenuItem, SidebarTrigger,
-  useSidebar
+  SidebarMenuItem,
+  SidebarTrigger,
+  useSidebar,
 } from "@/components/ui/sidebar";
 import { SHOW_WHITEBOARDS } from "@/GlobalConstants";
 import { sidebarOpenAtom } from "@/lib/atoms/sidebar";
@@ -58,13 +59,13 @@ const DashboardSidebarContent = () => {
     },
     ...(SHOW_WHITEBOARDS
       ? [
-        {
-          href: "/dashboard/whiteboards",
-          icon: SquareStack,
-          label: "Whiteboards",
-          active: pathname?.includes("whiteboards"),
-        },
-      ]
+          {
+            href: "/dashboard/whiteboards",
+            icon: SquareStack,
+            label: "Whiteboards",
+            active: pathname?.includes("whiteboards"),
+          },
+        ]
       : []),
   ];
 
@@ -74,7 +75,10 @@ const DashboardSidebarContent = () => {
       <SidebarHeader className="h-14 border-b border-gray-200 dark:border-white/5 flex items-center justify-center px-4 bg-white dark:bg-[#0B0C0E]">
         {isCollapsed ? (
           <div className="flex flex-col items-center gap-4">
-            <Link href="/dashboard" className="flex items-center justify-center">
+            <Link
+              href="/dashboard"
+              className="flex items-center justify-center"
+            >
               <div className="p-1.5 rounded-lg bg-gray-100 dark:bg-white/5 text-gray-900 dark:text-white hover:bg-gray-200 dark:hover:bg-white/10 transition-colors">
                 <FlaskConical className="w-5 h-5" />
               </div>
@@ -100,7 +104,6 @@ const DashboardSidebarContent = () => {
 
       {/* --- Main Content --- */}
       <SidebarContent className="bg-white dark:bg-[#0B0C0E] px-2 py-4 gap-4">
-
         {/* Primary Action: New Chat */}
         <SidebarGroup className="p-0">
           <SidebarGroupContent>
@@ -118,8 +121,18 @@ const DashboardSidebarContent = () => {
                       : "bg-gray-200 dark:bg-white/10 text-gray-900 dark:text-white hover:bg-gray-300 dark:hover:bg-white/20 justify-center aspect-square",
                   )}
                 >
-                  <Link href="/dashboard" className="flex items-center gap-2 font-semibold">
-                    <Plus className={cn("w-4 h-4", !isCollapsed ? "text-white dark:text-black" : "text-gray-900 dark:text-white")} />
+                  <Link
+                    href="/dashboard"
+                    className="flex items-center gap-2 font-semibold"
+                  >
+                    <Plus
+                      className={cn(
+                        "w-4 h-4",
+                        !isCollapsed
+                          ? "text-white dark:text-black"
+                          : "text-gray-900 dark:text-white",
+                      )}
+                    />
                     {!isCollapsed && <span>New Chat</span>}
                   </Link>
                 </SidebarMenuButton>
@@ -149,11 +162,18 @@ const DashboardSidebarContent = () => {
                       isCollapsed ? "justify-center" : "px-3",
                       item.active
                         ? "bg-gray-100 dark:bg-[#1A1B1E] text-gray-900 dark:text-white shadow-sm border border-gray-200 dark:border-white/5"
-                        : "text-gray-600 dark:text-[#8A8F98] hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/5"
+                        : "text-gray-600 dark:text-[#8A8F98] hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/5",
                     )}
                   >
                     <Link href={item.href} className="flex items-center gap-3">
-                      <item.icon className={cn("w-4 h-4", item.active ? "text-indigo-600 dark:text-purple-400" : "text-current opacity-70")} />
+                      <item.icon
+                        className={cn(
+                          "w-4 h-4",
+                          item.active
+                            ? "text-indigo-600 dark:text-purple-400"
+                            : "text-current opacity-70",
+                        )}
+                      />
                       {!isCollapsed && <span>{item.label}</span>}
                     </Link>
                   </SidebarMenuButton>
@@ -167,10 +187,14 @@ const DashboardSidebarContent = () => {
       {/* --- Footer --- */}
       <SidebarFooter className="bg-white dark:bg-[#0B0C0E] border-t border-gray-200 dark:border-white/5 p-2">
         <SidebarMenu className="gap-1">
-
           {/* Mode Toggle */}
           <SidebarMenuItem>
-            <div className={cn("flex items-center", isCollapsed ? "justify-center" : "px-2")}>
+            <div
+              className={cn(
+                "flex items-center",
+                isCollapsed ? "justify-center" : "px-2",
+              )}
+            >
               <HorizontalModeToggle sidebarExpanded={!isCollapsed} />
             </div>
           </SidebarMenuItem>
@@ -183,10 +207,13 @@ const DashboardSidebarContent = () => {
               tooltip={isCollapsed ? "Settings" : undefined}
               className={cn(
                 "h-9 text-gray-600 dark:text-[#8A8F98] hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/5",
-                isCollapsed ? "justify-center" : "px-3"
+                isCollapsed ? "justify-center" : "px-3",
               )}
             >
-              <Link href="/dashboard/account" className="flex items-center gap-3">
+              <Link
+                href="/dashboard/account"
+                className="flex items-center gap-3"
+              >
                 <Settings className="w-4 h-4 opacity-70" />
                 {!isCollapsed && <span>Settings</span>}
               </Link>
@@ -200,7 +227,7 @@ const DashboardSidebarContent = () => {
               tooltip={isCollapsed ? "Logout" : undefined}
               className={cn(
                 "h-9 text-gray-600 dark:text-[#8A8F98] hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors",
-                isCollapsed ? "justify-center" : "px-3"
+                isCollapsed ? "justify-center" : "px-3",
               )}
             >
               <LogOut className="w-4 h-4 opacity-70" />

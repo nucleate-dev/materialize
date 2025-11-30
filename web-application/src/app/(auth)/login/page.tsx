@@ -9,7 +9,9 @@ import LoginForm from "./LoginForm";
 function LoginContent() {
   const searchParams = useSearchParams();
   const redirectParam = searchParams.get("redirect");
-  const registerHref = redirectParam ? `/register?redirect=${redirectParam}` : "/register";
+  const registerHref = redirectParam
+    ? `/register?redirect=${redirectParam}`
+    : "/register";
 
   return (
     <main className="relative bg-background overflow-hidden min-h-screen">

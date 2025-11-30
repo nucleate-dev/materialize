@@ -82,8 +82,7 @@ async function fetchSubscriptionAccess(
       latestSubscription.current_period_start &&
       latestSubscription.current_period_end
     ) {
-      const periodStart =
-        latestSubscription.current_period_start * 1000;
+      const periodStart = latestSubscription.current_period_start * 1000;
       const periodEnd = latestSubscription.current_period_end * 1000;
       const now = Date.now();
 
@@ -161,11 +160,10 @@ export function useSubscriptionAccess() {
     staleTime: 1000 * 60 * 5,
   });
 
-  const subscriptionData =
-    subscriptionQuery.data ??
-    getFreeTierAccess();
+  const subscriptionData = subscriptionQuery.data ?? getFreeTierAccess();
   const loadingSubscriptionData =
-    userState.userIsLoading || (queryEnabled ? subscriptionQuery.isPending : false);
+    userState.userIsLoading ||
+    (queryEnabled ? subscriptionQuery.isPending : false);
 
   return {
     userPlan: subscriptionData.userPlan,

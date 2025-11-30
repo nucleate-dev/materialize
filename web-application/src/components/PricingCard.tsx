@@ -104,8 +104,9 @@ export function PricingCard({
   // Light theme for paywall and other components
   return (
     <div
-      className={`flex flex-col p-8 bg-white rounded-lg shadow-md transition-transform transform hover:scale-105 ${popular ? "border-2 border-purple-500" : "border"
-        }`}
+      className={`flex flex-col p-8 bg-white rounded-lg shadow-md transition-transform transform hover:scale-105 ${
+        popular ? "border-2 border-purple-500" : "border"
+      }`}
     >
       {popular && (
         <span className="px-3 py-1 bg-purple-500 text-white rounded-full text-sm font-semibold mb-3 inline-block">

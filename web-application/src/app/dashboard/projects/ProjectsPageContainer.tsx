@@ -67,9 +67,7 @@ export default function ProjectsPageContainer() {
         }
 
         const nextData = data || [];
-        setPrototypes((prev) =>
-          append ? [...prev, ...nextData] : nextData,
-        );
+        setPrototypes((prev) => (append ? [...prev, ...nextData] : nextData));
         setHasMore(nextData.length === PAGE_SIZE);
         setOffset((prev) =>
           append ? prev + nextData.length : nextData.length,
@@ -149,9 +147,7 @@ export default function ProjectsPageContainer() {
   };
 
   const handlePrototypeDeleted = () => {
-    setPrototypes((prev) =>
-      prev.filter((p) => p.id !== activePrototype?.id),
-    );
+    setPrototypes((prev) => prev.filter((p) => p.id !== activePrototype?.id));
     setOffset((prev) => Math.max(prev - 1, 0));
     handleCloseSettings();
   };

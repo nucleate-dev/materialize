@@ -1,9 +1,6 @@
 "use client";
 
-import {
-  SidebarInset,
-  SidebarProvider
-} from "@/components/ui/sidebar";
+import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { sidebarOpenAtom } from "@/lib/atoms/sidebar";
 import { useAtom } from "jotai";
 import { usePathname } from "next/navigation";
@@ -13,7 +10,7 @@ import DashboardSidebar from "../../components/dashboard/Sidebar";
 import RequireAuth from "./RequireAuth";
 // import WithPaywall from "./Paywall";
 
-function DashboardContent({ children }: { children: React.ReactNode; }) {
+function DashboardContent({ children }: { children: React.ReactNode }) {
   const [, setSidebarOpen] = useAtom(sidebarOpenAtom);
   const pathname = usePathname();
 
@@ -50,7 +47,7 @@ function DashboardContent({ children }: { children: React.ReactNode; }) {
   );
 }
 
-function DashboardLayout({ children }: { children: React.ReactNode; }) {
+function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useAtom(sidebarOpenAtom);
 
   return (

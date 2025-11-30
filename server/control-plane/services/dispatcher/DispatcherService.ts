@@ -102,7 +102,9 @@ export class DispatcherService {
     body: PublicRunCommandRequest & { prototype_id: string },
     jwt: string,
     log2: SystemLogger,
-  ): Promise<APIResponse<PublicRunCommandSuccessResponse, StandardErrorResponse>> {
+  ): Promise<
+    APIResponse<PublicRunCommandSuccessResponse, StandardErrorResponse>
+  > {
     const localLog = log2.child({
       function: 'runCommand',
     });
@@ -113,7 +115,9 @@ export class DispatcherService {
     body: PublicRunCommandRequest & { prototype_id: string },
     jwt: string,
     log2: SystemLogger,
-  ): Promise<APIResponse<PublicRunCommandSuccessResponse, StandardErrorResponse>> {
+  ): Promise<
+    APIResponse<PublicRunCommandSuccessResponse, StandardErrorResponse>
+  > {
     return this.runCommand(body, jwt, log2);
   }
 }

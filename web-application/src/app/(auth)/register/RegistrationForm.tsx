@@ -15,7 +15,13 @@ import { signInWithOAuth, signUp } from "@/lib/utils/auth/SupabaseAuthUtils";
 import { useAtom } from "jotai";
 import { Loader2, Sparkles } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ChangeEvent, FormEvent, useCallback, useEffect, useState } from "react";
+import {
+  ChangeEvent,
+  FormEvent,
+  useCallback,
+  useEffect,
+  useState,
+} from "react";
 import { OAuthSignInButton } from "../AuthComponents";
 import RegistrationAccountCreatedEmailVerificationPending from "./RegistrationAccountCreatedEmailVerificationPending";
 
@@ -45,7 +51,8 @@ export default function RegistrationForm() {
 
   // Check if form has any validation errors or missing required fields
   const hasErrors = emailError || passwordError || confirmPasswordError;
-  const hasRequiredFields = email && password && firstName && lastName && confirmPassword;
+  const hasRequiredFields =
+    email && password && firstName && lastName && confirmPassword;
   const isFormValid = !hasErrors && hasRequiredFields;
 
   // Store redirect parameter in Jotai atom if present
@@ -80,19 +87,26 @@ export default function RegistrationForm() {
           }
         } else if (name === "password") {
           const passwordError = isValidPassword(value);
-          setFormErrors((prev) => ({ ...prev, passwordError: passwordError || "" }));
+          setFormErrors((prev) => ({
+            ...prev,
+            passwordError: passwordError || "",
+          }));
 
           // Revalidate confirmPassword when password changes
           setFormErrors((prev) => {
             if (prev.confirmPasswordError && newFormData.confirmPassword) {
-              const confirmPasswordError = newFormData.confirmPassword !== value ? "Passwords do not match" : "";
+              const confirmPasswordError =
+                newFormData.confirmPassword !== value
+                  ? "Passwords do not match"
+                  : "";
               return { ...prev, confirmPasswordError };
             }
             return prev;
           });
         } else if (name === "confirmPassword") {
           // Compare against current password in newFormData
-          const confirmPasswordError = newFormData.password !== value ? "Passwords do not match" : "";
+          const confirmPasswordError =
+            newFormData.password !== value ? "Passwords do not match" : "";
           setFormErrors((prev) => ({ ...prev, confirmPasswordError }));
         }
 
@@ -107,11 +121,18 @@ export default function RegistrationForm() {
       e.preventDefault();
 
       // Validate all fields before submission
-      const emailValidationError = !isValidEmailInput(email) ? "Please enter a valid email" : "";
+      const emailValidationError = !isValidEmailInput(email)
+        ? "Please enter a valid email"
+        : "";
       const passwordValidationError = isValidPassword(password) || "";
-      const confirmPasswordValidationError = password !== confirmPassword ? "Passwords do not match" : "";
+      const confirmPasswordValidationError =
+        password !== confirmPassword ? "Passwords do not match" : "";
 
-      if (emailValidationError || passwordValidationError || confirmPasswordValidationError) {
+      if (
+        emailValidationError ||
+        passwordValidationError ||
+        confirmPasswordValidationError
+      ) {
         setFormErrors({
           emailError: emailValidationError,
           passwordError: passwordValidationError,
@@ -159,7 +180,6 @@ export default function RegistrationForm() {
 
       {/* Premium Container */}
       <div className="bg-[#141517] border border-white/10 rounded-2xl shadow-2xl overflow-hidden">
-
         {/* Header */}
         <div className="px-8 pt-8 pb-6 text-center space-y-2 border-b border-white/5 bg-white/[0.01]">
           <div className="mx-auto w-10 h-10 bg-white/5 rounded-xl flex items-center justify-center border border-white/10 mb-4 shadow-inner">
@@ -176,11 +196,15 @@ export default function RegistrationForm() {
         {/* Content */}
         <div className="p-8 space-y-6">
           <form onSubmit={handleSubmit} className="space-y-5">
-
             {/* Name Fields */}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <Label htmlFor="firstName" className="text-xs font-medium text-[#8A8F98]">First Name</Label>
+                <Label
+                  htmlFor="firstName"
+                  className="text-xs font-medium text-[#8A8F98]"
+                >
+                  First Name
+                </Label>
                 <Input
                   id="firstName"
                   name="firstName"
@@ -194,7 +218,12 @@ export default function RegistrationForm() {
                 />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="lastName" className="text-xs font-medium text-[#8A8F98]">Last Name</Label>
+                <Label
+                  htmlFor="lastName"
+                  className="text-xs font-medium text-[#8A8F98]"
+                >
+                  Last Name
+                </Label>
                 <Input
                   id="lastName"
                   name="lastName"
@@ -211,7 +240,12 @@ export default function RegistrationForm() {
 
             {/* Email */}
             <div className="space-y-1.5">
-              <Label htmlFor="email" className="text-xs font-medium text-[#8A8F98]">Email address</Label>
+              <Label
+                htmlFor="email"
+                className="text-xs font-medium text-[#8A8F98]"
+              >
+                Email address
+              </Label>
               <Input
                 id="email"
                 name="email"
@@ -223,7 +257,7 @@ export default function RegistrationForm() {
                 disabled={isLoading}
                 className={cn(
                   "bg-[#0B0C0E] border-white/10 text-white focus:border-white/20 focus:ring-0 placeholder:text-white/20 h-10",
-                  emailError && "border-red-500/50 focus:border-red-500/50"
+                  emailError && "border-red-500/50 focus:border-red-500/50",
                 )}
               />
               {emailError && (
@@ -233,7 +267,12 @@ export default function RegistrationForm() {
 
             {/* Password */}
             <div className="space-y-1.5">
-              <Label htmlFor="password" className="text-xs font-medium text-[#8A8F98]">Password</Label>
+              <Label
+                htmlFor="password"
+                className="text-xs font-medium text-[#8A8F98]"
+              >
+                Password
+              </Label>
               <Input
                 id="password"
                 name="password"
@@ -245,7 +284,7 @@ export default function RegistrationForm() {
                 disabled={isLoading}
                 className={cn(
                   "bg-[#0B0C0E] border-white/10 text-white focus:border-white/20 focus:ring-0 placeholder:text-white/20 h-10",
-                  passwordError && "border-red-500/50 focus:border-red-500/50"
+                  passwordError && "border-red-500/50 focus:border-red-500/50",
                 )}
               />
               {passwordError && (
@@ -255,7 +294,12 @@ export default function RegistrationForm() {
 
             {/* Confirm Password */}
             <div className="space-y-1.5">
-              <Label htmlFor="confirmPassword" className="text-xs font-medium text-[#8A8F98]">Confirm Password</Label>
+              <Label
+                htmlFor="confirmPassword"
+                className="text-xs font-medium text-[#8A8F98]"
+              >
+                Confirm Password
+              </Label>
               <Input
                 id="confirmPassword"
                 name="confirmPassword"
@@ -267,7 +311,8 @@ export default function RegistrationForm() {
                 disabled={isLoading}
                 className={cn(
                   "bg-[#0B0C0E] border-white/10 text-white focus:border-white/20 focus:ring-0 placeholder:text-white/20 h-10",
-                  confirmPasswordError && "border-red-500/50 focus:border-red-500/50"
+                  confirmPasswordError &&
+                    "border-red-500/50 focus:border-red-500/50",
                 )}
               />
               {confirmPasswordError && (
@@ -287,7 +332,9 @@ export default function RegistrationForm() {
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                   Creating account...
                 </>
-              ) : "Create account"}
+              ) : (
+                "Create account"
+              )}
             </Button>
           </form>
 

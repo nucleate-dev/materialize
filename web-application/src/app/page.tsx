@@ -10,9 +10,7 @@ import { useUser } from "@/hooks/useUser";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import { setChatIntent } from "@/lib/utils/chatIntentUtils";
 import { handleCheckout } from "@/lib/utils/payments/CheckoutUtils";
-import {
-  CheckIcon, SparklesIcon
-} from "@heroicons/react/24/solid";
+import { CheckIcon, SparklesIcon } from "@heroicons/react/24/solid";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
@@ -46,9 +44,12 @@ function HeroSection() {
   const { user } = useUser();
 
   const presetPrompts = {
-    onboarding: "Create a React Native onboarding flow with 3 screens: welcome screen, features overview, and sign-up form",
-    paywall: "Design a paywall screen with pricing tiers (Basic $9.99, Premium $19.99), feature comparison, and subscribe button",
-    recipeApp: "Build a recipe app home screen with search bar, category filters, featured recipes carousel, and cards"
+    onboarding:
+      "Create a React Native onboarding flow with 3 screens: welcome screen, features overview, and sign-up form",
+    paywall:
+      "Design a paywall screen with pricing tiers (Basic $9.99, Premium $19.99), feature comparison, and subscribe button",
+    recipeApp:
+      "Build a recipe app home screen with search bar, category filters, featured recipes carousel, and cards",
   };
 
   const handlePresetClick = (presetKey: keyof typeof presetPrompts) => {
@@ -97,7 +98,6 @@ function HeroSection() {
   return (
     <section className="relative min-h-screen flex flex-col justify-center px-6 py-20">
       <div className="container mx-auto max-w-5xl w-full">
-
         {/* Hero Badge */}
         {/* <div className="flex justify-center mb-8">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-white/10 bg-white/5 text-xs font-medium text-white/70 backdrop-blur-md hover:bg-white/10 transition-colors cursor-default">
@@ -110,11 +110,14 @@ function HeroSection() {
         {/* Hero Title */}
         <div className="text-center space-y-6 mb-12">
           <h1 className="text-5xl md:text-7xl lg:text-8xl font-medium tracking-tight text-transparent bg-clip-text bg-gradient-to-b from-white via-white to-white/60 pb-2">
-            Materialize<br className="hidden md:block" />
+            Materialize
+            <br className="hidden md:block" />
             your app ideas
           </h1>
           <p className="text-lg md:text-xl text-[#8A8F98] max-w-2xl mx-auto font-normal leading-relaxed">
-            Build beautifully designed apps, prototypes, flows, and screens fast.<br className="hidden md:block" />
+            Build beautifully designed apps, prototypes, flows, and screens
+            fast.
+            <br className="hidden md:block" />
           </p>
         </div>
 
@@ -134,7 +137,7 @@ function HeroSection() {
                   value={prompt}
                   onChange={(e) => setPrompt(e.target.value)}
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
+                    if (e.key === "Enter" && !e.shiftKey) {
                       e.preventDefault();
                       handleSend();
                     }
@@ -148,10 +151,27 @@ function HeroSection() {
 
             <div className="px-4 pb-3 flex flex-col sm:flex-row sm:items-center gap-2 border-t border-white/5 mt-2 pt-2 bg-white/[0.02]">
               <div className="flex items-center gap-2 overflow-x-auto no-scrollbar flex-1 min-w-0 order-2 sm:order-1">
-                <span className="text-xs text-white/30 uppercase tracking-wider font-semibold shrink-0">Try:</span>
-                <button onClick={() => handlePresetClick('onboarding')} className="text-xs text-white/60 hover:text-white px-2 py-1 rounded hover:bg-white/10 transition-colors whitespace-nowrap shrink-0">Onboarding</button>
-                <button onClick={() => handlePresetClick('paywall')} className="text-xs text-white/60 hover:text-white px-2 py-1 rounded hover:bg-white/10 transition-colors whitespace-nowrap shrink-0">Paywall</button>
-                <button onClick={() => handlePresetClick('recipeApp')} className="text-xs text-white/60 hover:text-white px-2 py-1 rounded hover:bg-white/10 transition-colors whitespace-nowrap shrink-0">Recipe App</button>
+                <span className="text-xs text-white/30 uppercase tracking-wider font-semibold shrink-0">
+                  Try:
+                </span>
+                <button
+                  onClick={() => handlePresetClick("onboarding")}
+                  className="text-xs text-white/60 hover:text-white px-2 py-1 rounded hover:bg-white/10 transition-colors whitespace-nowrap shrink-0"
+                >
+                  Onboarding
+                </button>
+                <button
+                  onClick={() => handlePresetClick("paywall")}
+                  className="text-xs text-white/60 hover:text-white px-2 py-1 rounded hover:bg-white/10 transition-colors whitespace-nowrap shrink-0"
+                >
+                  Paywall
+                </button>
+                <button
+                  onClick={() => handlePresetClick("recipeApp")}
+                  className="text-xs text-white/60 hover:text-white px-2 py-1 rounded hover:bg-white/10 transition-colors whitespace-nowrap shrink-0"
+                >
+                  Recipe App
+                </button>
               </div>
 
               <Button
@@ -168,7 +188,9 @@ function HeroSection() {
 
         {/* Bottom visual anchor */}
         <div className="mt-20 opacity-50 grayscale hover:grayscale-0 transition-all duration-700">
-          <p className="text-center text-xs text-white/30 mb-6 uppercase tracking-widest font-semibold">Powering next-gen builders</p>
+          <p className="text-center text-xs text-white/30 mb-6 uppercase tracking-widest font-semibold">
+            Powering next-gen builders
+          </p>
           {/* You could add logo strip here */}
         </div>
       </div>
@@ -191,7 +213,8 @@ function FeaturesBentoGrid() {
             Made to build beautiful apps fast
           </h2>
           <p className="text-xl text-[#8A8F98] max-w-2xl">
-            Materialize is shaped by the practices and principles that distinguish world-class product teams from the rest.
+            Materialize is shaped by the practices and principles that
+            distinguish world-class product teams from the rest.
           </p>
         </div>
 
@@ -207,18 +230,47 @@ function FeaturesBentoGrid() {
                   <div className="w-2 h-2 rounded-full bg-red-500/60"></div>
                   <div className="w-2 h-2 rounded-full bg-yellow-500/60"></div>
                   <div className="w-2 h-2 rounded-full bg-green-500/60"></div>
-                  <span className="ml-2 text-[10px] text-white/30 font-mono">HomeScreen.tsx</span>
+                  <span className="ml-2 text-[10px] text-white/30 font-mono">
+                    HomeScreen.tsx
+                  </span>
                 </div>
                 <div className="p-4 font-mono text-[10px] leading-relaxed space-y-1">
-                  <div className="text-purple-400">import <span className="text-white/90">{"{ View, Text }"}</span> from <span className="text-green-400">&apos;react-native&apos;</span>;</div>
+                  <div className="text-purple-400">
+                    import{" "}
+                    <span className="text-white/90">{"{ View, Text }"}</span>{" "}
+                    from{" "}
+                    <span className="text-green-400">
+                      &apos;react-native&apos;
+                    </span>
+                    ;
+                  </div>
                   <div className="h-2"></div>
-                  <div className="text-blue-400">export default function <span className="text-yellow-300">HomeScreen</span>() {"{"}</div>
+                  <div className="text-blue-400">
+                    export default function{" "}
+                    <span className="text-yellow-300">HomeScreen</span>() {"{"}
+                  </div>
                   <div className="pl-4 text-white/60">return (</div>
-                  <div className="pl-8"><span className="text-blue-300">&lt;View</span> <span className="text-purple-300">style</span>=<span className="text-white/90">{"{styles.container}"}</span><span className="text-blue-300">&gt;</span></div>
-                  <div className="pl-12"><span className="text-blue-300">&lt;Text</span> <span className="text-purple-300">style</span>=<span className="text-white/90">{"{styles.title}"}</span><span className="text-blue-300">&gt;</span></div>
+                  <div className="pl-8">
+                    <span className="text-blue-300">&lt;View</span>{" "}
+                    <span className="text-purple-300">style</span>=
+                    <span className="text-white/90">
+                      {"{styles.container}"}
+                    </span>
+                    <span className="text-blue-300">&gt;</span>
+                  </div>
+                  <div className="pl-12">
+                    <span className="text-blue-300">&lt;Text</span>{" "}
+                    <span className="text-purple-300">style</span>=
+                    <span className="text-white/90">{"{styles.title}"}</span>
+                    <span className="text-blue-300">&gt;</span>
+                  </div>
                   <div className="pl-16 text-green-300">Welcome!</div>
-                  <div className="pl-12"><span className="text-blue-300">&lt;/Text&gt;</span></div>
-                  <div className="pl-8"><span className="text-blue-300">&lt;/View&gt;</span></div>
+                  <div className="pl-12">
+                    <span className="text-blue-300">&lt;/Text&gt;</span>
+                  </div>
+                  <div className="pl-8">
+                    <span className="text-blue-300">&lt;/View&gt;</span>
+                  </div>
                   <div className="pl-4 text-white/60">)</div>
                   <div className="text-blue-400">{"}"}</div>
                 </div>
@@ -226,9 +278,12 @@ function FeaturesBentoGrid() {
             </div>
 
             <div className="absolute bottom-0 left-0 right-0 p-8 z-20">
-              <h3 className="text-2xl font-medium text-white mb-2">Built for beauty</h3>
+              <h3 className="text-2xl font-medium text-white mb-2">
+                Built for beauty
+              </h3>
               <p className="text-[#8A8F98] leading-relaxed">
-                Start with a prompt. AI generates complete React Native apps you can export and ship instantly.
+                Start with a prompt. AI generates complete React Native apps you
+                can export and ship instantly.
               </p>
             </div>
           </div>
@@ -241,17 +296,23 @@ function FeaturesBentoGrid() {
             <div className="absolute inset-0 p-6 pt-16 space-y-3 overflow-hidden">
               <div className="flex justify-end animate-[slideIn_0.5s_ease-out]">
                 <div className="max-w-[80%] bg-white/5 border border-white/10 rounded-2xl rounded-tr-sm px-4 py-2.5">
-                  <p className="text-xs text-white/70">Make the header gradient more vibrant</p>
+                  <p className="text-xs text-white/70">
+                    Make the header gradient more vibrant
+                  </p>
                 </div>
               </div>
               <div className="flex justify-start animate-[slideIn_0.7s_ease-out]">
                 <div className="max-w-[80%] bg-indigo-500/20 border border-indigo-500/30 rounded-2xl rounded-tl-sm px-4 py-2.5">
-                  <p className="text-xs text-white/90">Updated the gradient! Check it out</p>
+                  <p className="text-xs text-white/90">
+                    Updated the gradient! Check it out
+                  </p>
                 </div>
               </div>
               <div className="flex justify-end animate-[slideIn_0.9s_ease-out]">
                 <div className="max-w-[80%] bg-white/5 border border-white/10 rounded-2xl rounded-tr-sm px-4 py-2.5">
-                  <p className="text-xs text-white/70">Perfect! Now add a search bar</p>
+                  <p className="text-xs text-white/70">
+                    Perfect! Now add a search bar
+                  </p>
                 </div>
               </div>
               <div className="flex justify-start animate-[slideIn_1.1s_ease-out]">
@@ -266,7 +327,9 @@ function FeaturesBentoGrid() {
             </div>
 
             <div className="absolute bottom-0 left-0 right-0 p-8 z-20">
-              <h3 className="text-2xl font-medium text-white mb-2">Designed to move fast</h3>
+              <h3 className="text-2xl font-medium text-white mb-2">
+                Designed to move fast
+              </h3>
               <p className="text-[#8A8F98] leading-relaxed">
                 Chat with and edit your app in real-time.
               </p>
@@ -281,11 +344,17 @@ function FeaturesBentoGrid() {
             <div className="absolute inset-0 p-6 pt-12 overflow-hidden">
               <div className="bg-[#1A1B1E] border border-white/10 rounded-xl overflow-hidden shadow-2xl group-hover:scale-[1.02] transition-transform duration-500">
                 <div className="p-4 border-b border-white/10 bg-white/[0.02]">
-                  <h4 className="text-sm font-medium text-white/90 mb-1">Studio Aurora</h4>
-                  <p className="text-[10px] text-white/40">Modern design system</p>
+                  <h4 className="text-sm font-medium text-white/90 mb-1">
+                    Studio Aurora
+                  </h4>
+                  <p className="text-[10px] text-white/40">
+                    Modern design system
+                  </p>
                 </div>
                 <div className="p-4 bg-white/[0.01]">
-                  <div className="text-[9px] font-medium text-white/30 uppercase tracking-wider mb-2">Design Tokens</div>
+                  <div className="text-[9px] font-medium text-white/30 uppercase tracking-wider mb-2">
+                    Design Tokens
+                  </div>
                   <div className="space-y-2 font-mono text-[9px] text-white/60">
                     <div className="flex items-center gap-2">
                       <div className="w-4 h-4 rounded bg-indigo-500 border border-white/20"></div>
@@ -301,7 +370,9 @@ function FeaturesBentoGrid() {
                     </div>
                   </div>
                   <div className="mt-3 pt-3 border-t border-white/5">
-                    <div className="text-[9px] font-medium text-white/30 uppercase tracking-wider mb-2">Typography</div>
+                    <div className="text-[9px] font-medium text-white/30 uppercase tracking-wider mb-2">
+                      Typography
+                    </div>
                     <div className="space-y-1.5 text-[9px] text-white/60">
                       <div>Font: Inter, sans-serif</div>
                       <div>Scale: 1.250 (Major Third)</div>
@@ -312,7 +383,9 @@ function FeaturesBentoGrid() {
             </div>
 
             <div className="absolute bottom-0 left-0 right-0 p-8 z-20">
-              <h3 className="text-2xl font-medium text-white mb-2">Crafted to perfection</h3>
+              <h3 className="text-2xl font-medium text-white mb-2">
+                Crafted to perfection
+              </h3>
               <p className="text-[#8A8F98] leading-relaxed">
                 Import your design tokens, components, assets, and instructions.
               </p>
@@ -328,19 +401,25 @@ function GallerySection() {
   const EXAMPLES = [
     {
       name: "Animated Carousel",
-      iframeSrc: "https://10666dbd-f8e2-47ae-971d-45aef8aa8c2e.render.materializeui.com",
-      publicLink: "https://materializeui.com/project/10666dbd-f8e2-47ae-971d-45aef8aa8c2e"
+      iframeSrc:
+        "https://10666dbd-f8e2-47ae-971d-45aef8aa8c2e.render.materializeui.com",
+      publicLink:
+        "https://materializeui.com/project/10666dbd-f8e2-47ae-971d-45aef8aa8c2e",
     },
     {
       name: "Flight Tracker",
-      iframeSrc: "https://2eb2bc6a-4fe7-4595-a5a5-447af2542522.render.materializeui.com",
-      publicLink: "https://materializeui.com/project/2eb2bc6a-4fe7-4595-a5a5-447af2542522"
+      iframeSrc:
+        "https://2eb2bc6a-4fe7-4595-a5a5-447af2542522.render.materializeui.com",
+      publicLink:
+        "https://materializeui.com/project/2eb2bc6a-4fe7-4595-a5a5-447af2542522",
     },
     {
       name: "Beats Store",
-      iframeSrc: "https://60e49673-fdb5-48ea-a53c-06352e250aba.render.materializeui.com",
-      publicLink: "https://materializeui.com/project/60e49673-fdb5-48ea-a53c-06352e250aba"
-    }
+      iframeSrc:
+        "https://60e49673-fdb5-48ea-a53c-06352e250aba.render.materializeui.com",
+      publicLink:
+        "https://materializeui.com/project/60e49673-fdb5-48ea-a53c-06352e250aba",
+    },
   ];
 
   return (
@@ -348,7 +427,9 @@ function GallerySection() {
       <div className="container mx-auto px-6 max-w-6xl">
         <div className="flex flex-col md:flex-row md:items-end justify-between mb-12 gap-6">
           <div>
-            <h2 className="text-3xl font-medium text-white mb-2">Built with Materialize</h2>
+            <h2 className="text-3xl font-medium text-white mb-2">
+              Built with Materialize
+            </h2>
             {/* <p className="text-[#8A8F98]">Explore what others are building.</p> */}
           </div>
           {/* <Button variant="outline" className="border-white/10 bg-white/5 hover:bg-white/10 text-white rounded-full text-sm h-8">
@@ -382,7 +463,9 @@ function GallerySection() {
               </div>
 
               <div>
-                <h3 className="text-base font-medium text-white/90 leading-tight truncate">{example.name}</h3>
+                <h3 className="text-base font-medium text-white/90 leading-tight truncate">
+                  {example.name}
+                </h3>
               </div>
             </a>
           ))}
@@ -402,7 +485,7 @@ function PricingSection() {
   const [copiedCode, setCopiedCode] = useState(false);
 
   const handleCopyCode = () => {
-    navigator.clipboard.writeText('BLACKFRIDAY2025');
+    navigator.clipboard.writeText("BLACKFRIDAY2025");
     setCopiedCode(true);
     setTimeout(() => setCopiedCode(false), 2000);
   };
@@ -413,7 +496,11 @@ function PricingSection() {
       price: "$0",
       period: "forever",
       description: "For trying out Materialize",
-      features: ["5 free projects", "15 free messages", "Fork projects for free"],
+      features: [
+        "5 free projects",
+        "15 free messages",
+        "Fork projects for free",
+      ],
       cta: "Get Started",
       highlighted: false,
       productKey: "free",
@@ -423,7 +510,14 @@ function PricingSection() {
       price: "$25",
       period: "per month",
       description: "For everyone",
-      features: ["Everything in Free", "100 credits a month included", "Additional credit packs available", "Unlimited projects", "Unlimited folders", "View, edit, and export code"],
+      features: [
+        "Everything in Free",
+        "100 credits a month included",
+        "Additional credit packs available",
+        "Unlimited projects",
+        "Unlimited folders",
+        "View, edit, and export code",
+      ],
       cta: "Upgrade to Plus",
       highlighted: true,
       productKey: "plus",
@@ -433,7 +527,13 @@ function PricingSection() {
       price: "Custom",
       period: "",
       description: "For large teams",
-      features: ["Everything in Pro", "Dedicated support", "Team collaboration", "SSO & Security", "Custom SLA"],
+      features: [
+        "Everything in Pro",
+        "Dedicated support",
+        "Team collaboration",
+        "SSO & Security",
+        "Custom SLA",
+      ],
       cta: "Contact Sales",
       highlighted: false,
       productKey: "max",
@@ -444,7 +544,9 @@ function PricingSection() {
     <section className="py-32 bg-[#0B0C0E] border-t border-white/5">
       <div className="container mx-auto px-6 max-w-5xl">
         <div className="text-center mb-12">
-          <h2 className="text-4xl font-medium text-white mb-4">Simple pricing</h2>
+          <h2 className="text-4xl font-medium text-white mb-4">
+            Simple pricing
+          </h2>
           <p className="text-[#8A8F98]">Start for free, scale as you grow.</p>
         </div>
 
@@ -459,12 +561,18 @@ function PricingSection() {
                     <SparklesIcon className="w-3 h-3" />
                     Black Friday Sale
                   </div>
-                  <h3 className="text-xl font-semibold text-white mb-1">50% off your first month</h3>
-                  <p className="text-sm text-white/70">Use code at checkout to get started</p>
+                  <h3 className="text-xl font-semibold text-white mb-1">
+                    50% off your first month
+                  </h3>
+                  <p className="text-sm text-white/70">
+                    Use code at checkout to get started
+                  </p>
                 </div>
                 <div className="flex items-center gap-3">
                   <div className="flex items-center gap-2 px-4 py-2.5 bg-black/40 border border-white/20 rounded-lg backdrop-blur-sm">
-                    <code className="text-lg font-bold text-white tracking-wider">BLACKFRIDAY2025</code>
+                    <code className="text-lg font-bold text-white tracking-wider">
+                      BLACKFRIDAY2025
+                    </code>
                   </div>
                   <Button
                     onClick={handleCopyCode}
@@ -483,10 +591,11 @@ function PricingSection() {
           {pricingPlans.map((plan, index) => (
             <div
               key={index}
-              className={`relative p-6 rounded-2xl flex flex-col ${plan.highlighted
-                ? "bg-[#141517] border border-indigo-500/50 shadow-[0_0_40px_-10px_rgba(99,102,241,0.15)]"
-                : "bg-transparent border border-white/10"
-                }`}
+              className={`relative p-6 rounded-2xl flex flex-col ${
+                plan.highlighted
+                  ? "bg-[#141517] border border-indigo-500/50 shadow-[0_0_40px_-10px_rgba(99,102,241,0.15)]"
+                  : "bg-transparent border border-white/10"
+              }`}
             >
               {/* {plan.highlighted && (
                 <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-indigo-500 text-white text-[10px] font-bold uppercase tracking-wider rounded-full">
@@ -496,27 +605,40 @@ function PricingSection() {
 
               <div className="mb-8">
                 <h3 className="text-lg font-medium text-white">{plan.name}</h3>
-                <p className="text-sm text-[#8A8F98] mt-1 h-10">{plan.description}</p>
+                <p className="text-sm text-[#8A8F98] mt-1 h-10">
+                  {plan.description}
+                </p>
               </div>
 
               <div className="mb-8 flex items-baseline gap-1">
-                <span className="text-4xl font-medium text-white">{plan.price}</span>
-                {plan.price !== "$0" && <span className="text-[#8A8F98] text-sm">{plan.period !== "" && "/"}{plan.period}</span>}
+                <span className="text-4xl font-medium text-white">
+                  {plan.price}
+                </span>
+                {plan.price !== "$0" && (
+                  <span className="text-[#8A8F98] text-sm">
+                    {plan.period !== "" && "/"}
+                    {plan.period}
+                  </span>
+                )}
               </div>
 
               <Button
                 onClick={() => handleGetStarted(plan.productKey)}
-                className={`w-full h-10 rounded-full text-sm font-medium transition-all mb-8 ${plan.highlighted
-                  ? "bg-white text-black hover:bg-white/90"
-                  : "bg-white/5 text-white hover:bg-white/10 border border-white/10"
-                  }`}
+                className={`w-full h-10 rounded-full text-sm font-medium transition-all mb-8 ${
+                  plan.highlighted
+                    ? "bg-white text-black hover:bg-white/90"
+                    : "bg-white/5 text-white hover:bg-white/10 border border-white/10"
+                }`}
               >
                 {plan.cta}
               </Button>
 
               <div className="space-y-3 mt-auto">
                 {plan.features.map((feature, i) => (
-                  <div key={i} className="flex items-center gap-3 text-sm text-[#8A8F98]">
+                  <div
+                    key={i}
+                    className="flex items-center gap-3 text-sm text-[#8A8F98]"
+                  >
                     <CheckIcon className="w-4 h-4 text-white/40" />
                     {feature}
                   </div>
@@ -536,16 +658,16 @@ function FAQSection() {
   const featuredFAQs = [
     {
       q: "How does Materialize work?",
-      a: "Describe your app idea in plain English and Materialize generates a working app using React Native and Expo."
+      a: "Describe your app idea in plain English and Materialize generates a working app using React Native and Expo.",
     },
     {
       q: "Do I need coding experience?",
-      a: "Materialize makes a working prototype in minutes just from plain English descriptions."
+      a: "Materialize makes a working prototype in minutes just from plain English descriptions.",
     },
     {
       q: "Can I export the code?",
-      a: "Yes, you own all generated code on paid plans."
-    }
+      a: "Yes, you own all generated code on paid plans.",
+    },
   ];
 
   return (
@@ -553,7 +675,9 @@ function FAQSection() {
       <div className="container mx-auto px-6 max-w-6xl">
         <div className="text-center mb-16">
           <h2 className="text-4xl font-medium text-white mb-4">Questions?</h2>
-          <p className="text-[#8A8F98] text-lg">Quick answers to common questions about Materialize.</p>
+          <p className="text-[#8A8F98] text-lg">
+            Quick answers to common questions about Materialize.
+          </p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
@@ -570,7 +694,7 @@ function FAQSection() {
 
         <div className="text-center">
           <Button
-            onClick={() => router.push('/faqs')}
+            onClick={() => router.push("/faqs")}
             variant="outline"
             className="border-white/20 bg-white/5 hover:bg-white/10 text-white rounded-full px-6 h-10"
           >
@@ -589,14 +713,29 @@ function Footer() {
     <footer className="py-12 border-t border-white/5 bg-[#0B0C0E] text-sm">
       <div className="container mx-auto px-6 max-w-6xl flex flex-col md:flex-row justify-between items-center text-[#8A8F98] gap-6">
         <div className="flex gap-6">
-          <span className="hover:text-white cursor-pointer transition-colors">Twitter</span>
-          <span className="hover:text-white cursor-pointer transition-colors">GitHub</span>
-          <span className="hover:text-white cursor-pointer transition-colors">Discord</span>
+          <span className="hover:text-white cursor-pointer transition-colors">
+            Twitter
+          </span>
+          <span className="hover:text-white cursor-pointer transition-colors">
+            GitHub
+          </span>
+          <span className="hover:text-white cursor-pointer transition-colors">
+            Discord
+          </span>
         </div>
         <div className="flex gap-6">
-          <span onClick={() => router.push('/faqs')} className="hover:text-white cursor-pointer transition-colors">FAQs</span>
-          <span className="hover:text-white cursor-pointer transition-colors">Privacy</span>
-          <span className="hover:text-white cursor-pointer transition-colors">Terms</span>
+          <span
+            onClick={() => router.push("/faqs")}
+            className="hover:text-white cursor-pointer transition-colors"
+          >
+            FAQs
+          </span>
+          <span className="hover:text-white cursor-pointer transition-colors">
+            Privacy
+          </span>
+          <span className="hover:text-white cursor-pointer transition-colors">
+            Terms
+          </span>
           <span>© 2025 Materialize UI</span>
         </div>
       </div>

@@ -103,10 +103,11 @@ export default function NewFolderModal({
               placeholder="e.g. E-commerce Mobile App ✨"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className={`h-12 text-lg ${touched && !name.trim()
-                ? "border-destructive focus-visible:ring-destructive"
-                : "focus-visible:ring-primary"
-                }`}
+              className={`h-12 text-lg ${
+                touched && !name.trim()
+                  ? "border-destructive focus-visible:ring-destructive"
+                  : "focus-visible:ring-primary"
+              }`}
               autoFocus
               maxLength={64}
             />

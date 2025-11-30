@@ -8,9 +8,9 @@
 /* eslint-disable no-restricted-syntax */
 // Console is allowed in server-side utilities where ClientProductLogger is not available
 
-import crypto from 'crypto';
+import crypto from "crypto";
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const bizSdk = require('facebook-nodejs-business-sdk');
+const bizSdk = require("facebook-nodejs-business-sdk");
 
 const accessToken = process.env.META_CONVERSIONS_API_ACCESS_TOKEN;
 const pixelId = process.env.META_PIXEL_ID;
@@ -25,7 +25,10 @@ const CustomData = bizSdk.CustomData;
  */
 function hashData(data: string | null | undefined): string | null {
   if (!data) return null;
-  return crypto.createHash('sha256').update(data.toLowerCase().trim()).digest('hex');
+  return crypto
+    .createHash("sha256")
+    .update(data.toLowerCase().trim())
+    .digest("hex");
 }
 
 /**
@@ -49,8 +52,8 @@ export async function sendMetaPurchaseEvent(params: {
   eventSourceUrl?: string;
 }): Promise<{ success: boolean; error?: unknown }> {
   if (!accessToken || !pixelId) {
-    console.error('Meta Conversions API credentials not configured');
-    return { success: false, error: 'Missing credentials' };
+    console.error("Meta Conversions API credentials not configured");
+    return { success: false, error: "Missing credentials" };
   }
 
   try {
@@ -60,8 +63,8 @@ export async function sendMetaPurchaseEvent(params: {
     // Create user data with hashed PII
     const userData = new UserData()
       .setExternalId(params.userId) // Your internal user ID
-      .setClientIpAddress('0.0.0.0') // We don't have IP in webhook context
-      .setClientUserAgent('Stripe-Webhook'); // We don't have user agent in webhook context
+      .setClientIpAddress("0.0.0.0") // We don't have IP in webhook context
+      .setClientUserAgent("Stripe-Webhook"); // We don't have user agent in webhook context
 
     // Add email if available
     if (params.email) {
@@ -73,15 +76,15 @@ export async function sendMetaPurchaseEvent(params: {
       .setValue(params.value)
       .setCurrency(params.currency.toUpperCase())
       .setContentName(params.contentName)
-      .setContentType('product');
+      .setContentType("product");
 
     // Create the server event
     const serverEvent = new ServerEvent()
-      .setEventName('Purchase')
+      .setEventName("Purchase")
       .setEventTime(currentTimestamp)
       .setUserData(userData)
       .setCustomData(customData)
-      .setActionSource('system_generated'); // This is a server-side event
+      .setActionSource("system_generated"); // This is a server-side event
 
     // Add event ID for deduplication if available
     if (params.transactionId) {
@@ -95,14 +98,15 @@ export async function sendMetaPurchaseEvent(params: {
 
     // Create and send the event request
     const eventsData = [serverEvent];
-    const eventRequest = new EventRequest(accessToken, pixelId)
-      .setEvents(eventsData);
+    const eventRequest = new EventRequest(accessToken, pixelId).setEvents(
+      eventsData,
+    );
 
     await eventRequest.execute();
 
     return { success: true };
   } catch (error) {
-    console.error('Error sending Meta Purchase event:', error);
+    console.error("Error sending Meta Purchase event:", error);
     return { success: false, error };
   }
 }
@@ -119,8 +123,8 @@ export async function sendMetaInitiateCheckoutEvent(params: {
   contentName: string;
 }): Promise<{ success: boolean; error?: unknown }> {
   if (!accessToken || !pixelId) {
-    console.error('Meta Conversions API credentials not configured');
-    return { success: false, error: 'Missing credentials' };
+    console.error("Meta Conversions API credentials not configured");
+    return { success: false, error: "Missing credentials" };
   }
 
   try {
@@ -129,8 +133,8 @@ export async function sendMetaInitiateCheckoutEvent(params: {
 
     const userData = new UserData()
       .setExternalId(params.userId)
-      .setClientIpAddress('0.0.0.0')
-      .setClientUserAgent('Web');
+      .setClientIpAddress("0.0.0.0")
+      .setClientUserAgent("Web");
 
     if (params.email) {
       userData.setEmail(hashData(params.email));
@@ -140,24 +144,25 @@ export async function sendMetaInitiateCheckoutEvent(params: {
       .setValue(params.value)
       .setCurrency(params.currency.toUpperCase())
       .setContentName(params.contentName)
-      .setContentType('product');
+      .setContentType("product");
 
     const serverEvent = new ServerEvent()
-      .setEventName('InitiateCheckout')
+      .setEventName("InitiateCheckout")
       .setEventTime(currentTimestamp)
       .setUserData(userData)
       .setCustomData(customData)
-      .setActionSource('website');
+      .setActionSource("website");
 
     const eventsData = [serverEvent];
-    const eventRequest = new EventRequest(accessToken, pixelId)
-      .setEvents(eventsData);
+    const eventRequest = new EventRequest(accessToken, pixelId).setEvents(
+      eventsData,
+    );
 
     await eventRequest.execute();
 
     return { success: true };
   } catch (error) {
-    console.error('Error sending Meta InitiateCheckout event:', error);
+    console.error("Error sending Meta InitiateCheckout event:", error);
     return { success: false, error };
   }
 }

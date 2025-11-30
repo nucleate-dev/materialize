@@ -1,10 +1,6 @@
 {
-    "watch": [
-        "worker.ts"
-    ],
-    "ext": "ts",
-    "exec": "node --loader ts-node/esm worker.ts",
-    "ignore": [
-        "./dist"
-    ]
+  "watch": ["worker.ts"],
+  "ext": "ts",
+  "exec": "node --loader ts-node/esm worker.ts",
+  "ignore": ["./dist"]
 }

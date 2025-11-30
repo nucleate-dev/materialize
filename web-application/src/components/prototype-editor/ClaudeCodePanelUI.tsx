@@ -88,16 +88,16 @@ interface ClaudeCodePanelUIProps {
   isCurrentSessionMostRecent: boolean;
   isDragOver: boolean;
   uploadingImages: boolean;
-  uploadProgress: { [key: string]: number; };
+  uploadProgress: { [key: string]: number };
   scrollAreaRef:
-  | RefObject<HTMLDivElement | null>
-  | MutableRefObject<HTMLDivElement | null>;
+    | RefObject<HTMLDivElement | null>
+    | MutableRefObject<HTMLDivElement | null>;
   fileInputRef:
-  | RefObject<HTMLInputElement | null>
-  | MutableRefObject<HTMLInputElement | null>;
+    | RefObject<HTMLInputElement | null>
+    | MutableRefObject<HTMLInputElement | null>;
   textareaRef:
-  | RefObject<HTMLTextAreaElement | null>
-  | MutableRefObject<HTMLTextAreaElement | null>;
+    | RefObject<HTMLTextAreaElement | null>
+    | MutableRefObject<HTMLTextAreaElement | null>;
   handleStartTitleEdit: () => void;
   handleCancelTitleEdit: () => void;
   handleSaveTitle: () => void;
@@ -272,9 +272,9 @@ export default function ClaudeCodePanelUI({
                     const dateStr = isToday
                       ? "Today"
                       : date.toLocaleDateString(undefined, {
-                        month: "short",
-                        day: "numeric",
-                      });
+                          month: "short",
+                          day: "numeric",
+                        });
                     const timeStr = date.toLocaleTimeString(undefined, {
                       hour: "numeric",
                       minute: "2-digit",
@@ -492,7 +492,7 @@ export default function ClaudeCodePanelUI({
                       >
                         <div className="text-muted-foreground">
                           {message.toolCallId &&
-                            expandedThinking.has(message.toolCallId) ? (
+                          expandedThinking.has(message.toolCallId) ? (
                             <ChevronDown className="w-3.5 h-3.5" />
                           ) : (
                             <ChevronRight className="w-3.5 h-3.5" />

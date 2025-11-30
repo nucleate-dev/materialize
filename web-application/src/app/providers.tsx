@@ -19,5 +19,7 @@ export function CSPostHogProvider({ children }: { children: ReactNode }) {
 
 export function QueryProvider({ children }: { children: ReactNode }) {
   const [queryClient] = useState(() => getQueryClient());
-  return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
+  return (
+    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+  );
 }

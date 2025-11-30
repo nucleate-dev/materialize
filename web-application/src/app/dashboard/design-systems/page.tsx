@@ -1,7 +1,13 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { ChangeEvent, FormEvent, useCallback, useEffect, useState } from "react";
+import {
+  ChangeEvent,
+  FormEvent,
+  useCallback,
+  useEffect,
+  useState,
+} from "react";
 
 import { supabase } from "@/ClientConstants";
 import {
@@ -29,10 +35,17 @@ import { Textarea } from "@/components/ui/textarea";
 import { useUser } from "@/hooks/useUser";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import { Database } from "@/lib/types/supabase";
-import { Check, Copy, Loader2, Paintbrush, Plus, Search, Trash } from "lucide-react";
+import {
+  Check,
+  Copy,
+  Loader2,
+  Paintbrush,
+  Plus,
+  Search,
+  Trash,
+} from "lucide-react";
 
 type DesignSystemRow = Database["public"]["Tables"]["design_systems"]["Row"];
-
 
 export default function DesignSystemsPage() {
   const { user } = useUser();
@@ -46,7 +59,9 @@ export default function DesignSystemsPage() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [deleteTarget, setDeleteTarget] = useState<DesignSystemRow | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<DesignSystemRow | null>(
+    null,
+  );
   const [formError, setFormError] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState(""); // Added for UI polish
@@ -75,7 +90,9 @@ export default function DesignSystemsPage() {
     try {
       const { data, error } = await supabase
         .from("design_systems")
-        .select("id, name, description, design_rules, updated_at, created_at, owner_id")
+        .select(
+          "id, name, description, design_rules, updated_at, created_at, owner_id",
+        )
         .eq("owner_id", userId)
         .order("updated_at", { ascending: false });
 
@@ -87,7 +104,7 @@ export default function DesignSystemsPage() {
         return;
       }
 
-      setDesignSystems(data as DesignSystemRow[] ?? []);
+      setDesignSystems((data as DesignSystemRow[]) ?? []);
     } catch (error) {
       logger.debug("error", "Unexpected error fetching design systems:", {
         error: error instanceof Error ? error.message : String(error),
@@ -103,19 +120,22 @@ export default function DesignSystemsPage() {
     fetchDesignSystems();
   }, [fetchDesignSystems]);
 
-  const handleCopyRules = useCallback(async (system: DesignSystemRow) => {
-    if (!system.design_rules) return;
+  const handleCopyRules = useCallback(
+    async (system: DesignSystemRow) => {
+      if (!system.design_rules) return;
 
-    try {
-      await navigator.clipboard.writeText(system.design_rules);
-      setCopiedId(system.id);
-      setTimeout(() => setCopiedId(null), 1500);
-    } catch (error) {
-      logger.debug("error", "Failed to copy design rules:", {
-        error: error instanceof Error ? error.message : String(error),
-      });
-    }
-  }, [logger]);
+      try {
+        await navigator.clipboard.writeText(system.design_rules);
+        setCopiedId(system.id);
+        setTimeout(() => setCopiedId(null), 1500);
+      } catch (error) {
+        logger.debug("error", "Failed to copy design rules:", {
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    },
+    [logger],
+  );
 
   const handleFieldChange = useCallback(
     (field: "name" | "description" | "design_rules") =>
@@ -184,7 +204,9 @@ export default function DesignSystemsPage() {
       handleCloseDialogs();
     } catch (error) {
       setFormError(
-        error instanceof Error ? error.message : "Failed to create design system.",
+        error instanceof Error
+          ? error.message
+          : "Failed to create design system.",
       );
     } finally {
       setIsSaving(false);
@@ -211,7 +233,7 @@ export default function DesignSystemsPage() {
 
       if ((count ?? 0) > 0) {
         setDeleteError(
-          `This design system is currently linked to ${count} prototype${(count ?? 0) === 1 ? '' : 's'}. Disconnect those prototypes before deleting.`,
+          `This design system is currently linked to ${count} prototype${(count ?? 0) === 1 ? "" : "s"}. Disconnect those prototypes before deleting.`,
         );
         setIsDeleting(false);
         return;
@@ -230,14 +252,16 @@ export default function DesignSystemsPage() {
       handleCloseDeleteDialog();
     } catch (error) {
       setDeleteError(
-        error instanceof Error ? error.message : "Failed to delete design system.",
+        error instanceof Error
+          ? error.message
+          : "Failed to delete design system.",
       );
       setIsDeleting(false);
     }
   };
 
-  const filteredSystems = designSystems.filter(s =>
-    s.name.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredSystems = designSystems.filter((s) =>
+    s.name.toLowerCase().includes(searchQuery.toLowerCase()),
   );
 
   const shouldShowEmptyState = !isLoading && designSystems.length === 0;
@@ -245,7 +269,6 @@ export default function DesignSystemsPage() {
   return (
     <div className="relative min-h-screen text-foreground font-sans">
       <div className="container mx-auto px-6 py-12 max-w-7xl">
-
         {/* --- Header --- */}
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
           <div className="space-y-2">
@@ -288,7 +311,9 @@ export default function DesignSystemsPage() {
         {isLoading ? (
           <div className="flex flex-col items-center justify-center py-32 text-muted-foreground">
             <Loader2 className="h-8 w-8 animate-spin mb-4 text-muted-foreground/50" />
-            <p className="text-sm font-medium animate-pulse">Loading design systems...</p>
+            <p className="text-sm font-medium animate-pulse">
+              Loading design systems...
+            </p>
           </div>
         ) : shouldShowEmptyState ? (
           <div className="flex flex-col items-center justify-center py-24 border border-dashed border-border rounded-2xl bg-accent/20">
@@ -297,7 +322,8 @@ export default function DesignSystemsPage() {
             </div>
             <h2 className="text-xl font-medium mb-2">No design systems yet</h2>
             <p className="text-muted-foreground max-w-md text-center mb-6">
-              Create a design system to capture your preferred components, tokens, and prompts.
+              Create a design system to capture your preferred components,
+              tokens, and prompts.
             </p>
             <Button onClick={handleOpenCreateDialog} variant="outline">
               Create your first system
@@ -312,7 +338,9 @@ export default function DesignSystemsPage() {
                 <div
                   key={system.id}
                   className="group relative flex flex-col bg-card border border-border rounded-xl overflow-hidden transition-all duration-300 hover:border-border/80 hover:shadow-2xl cursor-pointer"
-                  onClick={() => router.push(`/dashboard/design-systems/${system.id}`)}
+                  onClick={() =>
+                    router.push(`/dashboard/design-systems/${system.id}`)
+                  }
                 >
                   {/* Card Header */}
                   <div className="p-6 border-b border-border bg-accent/20">
@@ -322,7 +350,9 @@ export default function DesignSystemsPage() {
                           {system.name}
                         </h3>
                         {system.description && (
-                          <p className="text-sm text-muted-foreground">{system.description}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {system.description}
+                          </p>
                         )}
                       </div>
                       <div className="flex items-center">
@@ -347,7 +377,9 @@ export default function DesignSystemsPage() {
                   {/* Card Content (Rules Preview) */}
                   <div className="flex-1 p-6 bg-accent/10">
                     <div className="flex items-center justify-between mb-3">
-                      <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Rules Snippet</span>
+                      <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                        Rules Snippet
+                      </span>
                       {hasRules && (
                         <Button
                           variant="ghost"
@@ -373,7 +405,13 @@ export default function DesignSystemsPage() {
 
                     <ScrollArea className="h-32 w-full rounded-lg border border-border bg-background">
                       <div className="p-3 font-mono text-xs text-muted-foreground whitespace-pre-wrap">
-                        {hasRules ? system.design_rules : <span className="italic opacity-50">No custom rules defined.</span>}
+                        {hasRules ? (
+                          system.design_rules
+                        ) : (
+                          <span className="italic opacity-50">
+                            No custom rules defined.
+                          </span>
+                        )}
                       </div>
                     </ScrollArea>
                   </div>
@@ -409,7 +447,9 @@ export default function DesignSystemsPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="design-system-description">Description (optional)</Label>
+                <Label htmlFor="design-system-description">
+                  Description (optional)
+                </Label>
                 <Input
                   id="design-system-description"
                   value={formValues.description}
@@ -435,11 +475,20 @@ export default function DesignSystemsPage() {
               <p className="text-sm text-destructive">{formError}</p>
             )}
             <DialogFooter>
-              <Button type="button" variant="ghost" onClick={handleCloseDialogs} disabled={isSaving}>
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={handleCloseDialogs}
+                disabled={isSaving}
+              >
                 Cancel
               </Button>
               <Button type="submit" disabled={isSaving}>
-                {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : "Create"}
+                {isSaving ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  "Create"
+                )}
               </Button>
             </DialogFooter>
           </form>
@@ -456,14 +505,20 @@ export default function DesignSystemsPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete design system?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. It will permanently delete <span className="font-medium">{deleteTarget?.name}</span>.
+              This action cannot be undone. It will permanently delete{" "}
+              <span className="font-medium">{deleteTarget?.name}</span>.
             </AlertDialogDescription>
           </AlertDialogHeader>
           {deleteError && (
-            <p className="text-sm text-destructive bg-destructive/10 p-2 rounded border border-destructive/20">{deleteError}</p>
+            <p className="text-sm text-destructive bg-destructive/10 p-2 rounded border border-destructive/20">
+              {deleteError}
+            </p>
           )}
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={handleCloseDeleteDialog} disabled={isDeleting}>
+            <AlertDialogCancel
+              onClick={handleCloseDeleteDialog}
+              disabled={isDeleting}
+            >
               Cancel
             </AlertDialogCancel>
             <AlertDialogAction
@@ -471,7 +526,11 @@ export default function DesignSystemsPage() {
               disabled={isDeleting || !deleteTarget}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Delete"}
+              {isDeleting ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                "Delete"
+              )}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

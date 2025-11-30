@@ -10,7 +10,9 @@ import RegistrationForm from "./RegistrationForm";
 function RegisterContent() {
   const searchParams = useSearchParams();
   const redirectParam = searchParams.get("redirect");
-  const loginHref = redirectParam ? `/login?redirect=${redirectParam}` : "/login";
+  const loginHref = redirectParam
+    ? `/login?redirect=${redirectParam}`
+    : "/login";
 
   return (
     <main className="relative min-h-screen bg-[#0B0C0E] text-white overflow-hidden font-sans">
@@ -46,7 +48,13 @@ function RegisterContent() {
 
 export default function Register() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-[#0B0C0E] flex items-center justify-center text-[#8A8F98]">Loading...</div>}>
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-[#0B0C0E] flex items-center justify-center text-[#8A8F98]">
+          Loading...
+        </div>
+      }
+    >
       <RegisterContent />
     </Suspense>
   );
