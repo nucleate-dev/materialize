@@ -31,6 +31,7 @@ import { ChatService } from "../chat/ChatService.js";
 import { FileSyncService } from "../FileSyncService.js";
 import { SupabaseClientService } from "../SupabaseClientService.js";
 import { TerminalService } from "../terminals/TerminalService.js";
+import { TerminalLogPersistenceResult } from "../terminals/EternalTerminalLogManager.js";
 
 const S3_BUCKET = process.env.S3_BUCKET || "materialize-sites";
 
@@ -622,6 +623,39 @@ export class ExpoDevServerService {
     }
   }
 
+  private logTerminalPersistenceResult(
+    log2: SystemLogger,
+    result: TerminalLogPersistenceResult,
+    context: string,
+  ): void {
+    if (result.failed.length > 0) {
+      log2.warn("Terminal log persistence completed with errors", {
+        context,
+        prototypeId: result.prototypeId,
+        failed: result.failed,
+        uploaded: result.uploaded.length,
+      });
+      return;
+    }
+
+    if (result.skippedReason) {
+      log2.consoleLogDevOnly("info", "Terminal log persistence skipped", {
+        context,
+        prototypeId: result.prototypeId,
+        reason: result.skippedReason,
+      });
+      return;
+    }
+
+    if (result.uploaded.length > 0) {
+      log2.consoleLogDevOnly("info", "Terminal logs persisted", {
+        context,
+        prototypeId: result.prototypeId,
+        uploaded: result.uploaded,
+      });
+    }
+  }
+
   private async initGitRepository(
     projectDir: string,
     terminalSession: { id: string },
@@ -1048,14 +1082,6 @@ export class ExpoDevServerService {
         resolvedPrototypeId,
       );
 
-      // Log memory after expo build (likely peak memory usage)
-      const memUsageAfterBuild = process.memoryUsage();
-      logger.log(
-        "Memory after expo build",
-        true,
-        `Heap: ${Math.round(memUsageAfterBuild.heapUsed / 1024 / 1024)}MB / ${Math.round(memUsageAfterBuild.heapTotal / 1024 / 1024)}MB, RSS: ${Math.round(memUsageAfterBuild.rss / 1024 / 1024)}MB`,
-      );
-
       const s3KeyPrefix = `${resolvedPrototypeId}`;
       const uploadResult = await this.uploadDirectoryToS3(
         log2,
@@ -1063,13 +1089,22 @@ export class ExpoDevServerService {
         s3KeyPrefix,
       );
 
-      // Log memory after S3 upload
-      const memUsageAfterUpload = process.memoryUsage();
-      logger.log(
-        "Memory after S3 upload",
-        true,
-        `Heap: ${Math.round(memUsageAfterUpload.heapUsed / 1024 / 1024)}MB / ${Math.round(memUsageAfterUpload.heapTotal / 1024 / 1024)}MB, RSS: ${Math.round(memUsageAfterUpload.rss / 1024 / 1024)}MB`,
-      );
+      try {
+        const persistenceResult =
+          await this.terminalService.persistTrackedTerminalLogs(log2);
+        this.logTerminalPersistenceResult(
+          log2,
+          persistenceResult,
+          "post-s3-upload",
+        );
+      } catch (error) {
+        const errorMessage =
+          error instanceof Error ? error.message : String(error);
+        log2.warn("Failed to persist terminal logs after S3 upload", {
+          prototypeId: resolvedPrototypeId,
+          error: errorMessage,
+        });
+      }
 
       const buildUrl = `https://${resolvedPrototypeId}.render.materializeui.com`;
       this.state.builtVersion = uploadResult.version;

@@ -79,7 +79,15 @@ await app.register(websocket, {
 });
 
 // ---- Initialize Services ----
-export const terminalService = new TerminalService(app, WORK_DIR, baseLogger);
+export const terminalService = new TerminalService(
+  app,
+  WORK_DIR,
+  baseLogger,
+  supabaseClientService,
+  {
+    prototypeIdProvider: (): string | undefined => workerContext.prototypeId ?? undefined,
+  },
+);
 
 // Initialize FileSyncService (single instance for all services)
 export const fileSyncService = new FileSyncService(
