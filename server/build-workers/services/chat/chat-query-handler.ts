@@ -31,7 +31,7 @@ import {
   CURRENT_COST_FUNCTION_NAME,
 } from "./cost-calculation.js";
 import { hasRemainingCredits } from "./credit-checks.js";
-import { createDevelopmentToolsMcpServer } from "./mcp-tools.js";
+import { createDevelopmentToolsMcpServer } from "./mcp-dev-tools.js";
 import { getToolDisplayName } from "./message-handlers.js";
 import { ToolPermissionService } from "./tool-permission-service.js";
 import { trackApiUsageBuildWorker } from "./usage-tracking.js";
@@ -883,7 +883,7 @@ export class ChatQueryHandler {
       // Add MCP servers with development tools
       mcpServers: {
         devtools: createDevelopmentToolsMcpServer(
-          async (command, args) => {
+          async (command: string, args: string[]) => {
             const executeSandboxCommandResult =
               await this.executeSandboxCommand(command, args);
             return executeSandboxCommandResult;
