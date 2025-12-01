@@ -27,8 +27,8 @@ import { SupabaseClientService } from "../SupabaseClientService.js";
 import { TerminalService } from "../terminals/TerminalService.js";
 import { getSystemPromptForDesignStyle } from "./ClaudeCodePrompts.js";
 import {
-  costFunctionV1,
-  CURRENT_COST_FUNCTION_NAME,
+  costFunctionV2,
+  CURRENT_COST_FUNCTION_NAME
 } from "./cost-calculation.js";
 import { hasRemainingCredits } from "./credit-checks.js";
 import { createDevelopmentToolsMcpServer } from "./mcp-dev-tools.js";
@@ -108,9 +108,9 @@ interface MessageHandlers {
   uploadChatImages: (
     prototypeId: string,
     chatSessionId: string,
-    images: Array<{ base64: string; mediaType: string }>,
+    images: Array<{ base64: string; mediaType: string; }>,
   ) => Promise<
-    Array<{ storage_path: string; media_type: string; file_size: number }>
+    Array<{ storage_path: string; media_type: string; file_size: number; }>
   >;
   updatePersistenceClient?: (client: unknown) => void;
   notifyOrchestrationStartChat: (prototypeId: string) => Promise<void>;
@@ -119,12 +119,17 @@ interface MessageHandlers {
 
 interface StreamContext {
   messageContent:
-    | string
-    | Array<{ type: string; text?: string; source?: unknown }>;
-  queryOptions: Options & { resume?: string };
+  | string
+  | Array<{ type: string; text?: string; source?: unknown; }>;
+  queryOptions: Options & { resume?: string; };
   sessionState: CodeSessionState;
   validAiChatSessionIds: Set<string>;
   socket: WebSocket;
+  bufferState: {
+    assistantMessageBuffer: string;
+    creditsUsed: number | undefined;
+    costFunction: string | undefined;
+  };
 }
 
 interface HookContext {
@@ -132,6 +137,7 @@ interface HookContext {
   toolUseID: string | undefined;
   socket: WebSocket;
   sessionState?: CodeSessionState;
+  flushAssistantBuffer?: () => Promise<void>;
 }
 
 /**
@@ -617,6 +623,28 @@ export class ChatQueryHandler {
         handlers.persistMessage,
       );
 
+      // Create shared state for assistant message buffering
+      // This allows the flush callback to access and clear the buffer
+      const bufferState = {
+        assistantMessageBuffer: "",
+        creditsUsed: undefined as number | undefined,
+        costFunction: undefined as string | undefined,
+      };
+
+      // Create flush callback that will be passed to hooks
+      const flushAssistantBuffer = async (): Promise<void> => {
+        if (bufferState.assistantMessageBuffer.trim()) {
+          await this.persistAssistantMessageBuffer(
+            bufferState.assistantMessageBuffer,
+            handlers.persistMessage,
+            bufferState.creditsUsed,
+            bufferState.costFunction,
+          );
+          // Clear buffer after persisting
+          bufferState.assistantMessageBuffer = "";
+        }
+      };
+
       // Setup query options
       const queryOptions = await this.setupQueryOptions(
         options,
@@ -625,6 +653,7 @@ export class ChatQueryHandler {
         socket,
         sessionState,
         handlers,
+        flushAssistantBuffer,
       );
 
       // Check if session is valid for resumption
@@ -678,6 +707,7 @@ export class ChatQueryHandler {
         sessionState,
         validAiChatSessionIds,
         socket,
+        bufferState,
       };
       const totalCostUsd = await this.streamQueryResponse(
         streamContext,
@@ -742,7 +772,7 @@ export class ChatQueryHandler {
   private prepareMessageContent(
     prompt: string | undefined,
     content: ChatContentBlock[] | undefined,
-  ): string | Array<{ type: string; text?: string; source?: unknown }> {
+  ): string | Array<{ type: string; text?: string; source?: unknown; }> {
     if (content) {
       return content.map((block) => {
         if (block.type === "text") {
@@ -768,8 +798,8 @@ export class ChatQueryHandler {
   private extractImagesFromContent(
     messageContent:
       | string
-      | Array<{ type: string; text?: string; source?: unknown }>,
-  ): Array<{ base64: string; mediaType: string }> {
+      | Array<{ type: string; text?: string; source?: unknown; }>,
+  ): Array<{ base64: string; mediaType: string; }> {
     if (!Array.isArray(messageContent)) {
       return [];
     }
@@ -777,8 +807,8 @@ export class ChatQueryHandler {
     return messageContent
       .filter((block) => block.type === "image")
       .map((block) => ({
-        base64: (block.source as { data: string }).data,
-        mediaType: (block.source as { media_type: string }).media_type,
+        base64: (block.source as { data: string; }).data,
+        mediaType: (block.source as { media_type: string; }).media_type,
       }));
   }
 
@@ -788,8 +818,8 @@ export class ChatQueryHandler {
   private async persistUserMessage(
     messageContent:
       | string
-      | Array<{ type: string; text?: string; source?: unknown }>,
-    imagesFromContent: Array<{ base64: string; mediaType: string }>,
+      | Array<{ type: string; text?: string; source?: unknown; }>,
+    imagesFromContent: Array<{ base64: string; mediaType: string; }>,
     imageMetadata: Array<{
       storage_path: string;
       media_type: string;
@@ -807,9 +837,9 @@ export class ChatQueryHandler {
       typeof messageContent === "string"
         ? messageContent
         : messageContent
-            .filter((block) => block.type === "text")
-            .map((block) => block.text || "")
-            .join("\n");
+          .filter((block) => block.type === "text")
+          .map((block) => block.text || "")
+          .join("\n");
 
     const hasImages = imagesFromContent.length > 0;
     const userMessageDisplay = hasImages
@@ -833,7 +863,8 @@ export class ChatQueryHandler {
     socket: WebSocket,
     sessionState: CodeSessionState,
     handlers: MessageHandlers,
-  ): Promise<Options & { resume?: string }> {
+    flushAssistantBuffer: () => Promise<void>,
+  ): Promise<Options & { resume?: string; }> {
     const canUseTool: CanUseTool = async (
       toolName: ToolName,
       input: ToolInput,
@@ -921,12 +952,13 @@ export class ChatQueryHandler {
               async (
                 input: HookInput,
                 toolUseID: string | undefined,
-                _options: { signal: AbortSignal },
+                _options: { signal: AbortSignal; },
               ): Promise<HookJSONOutput> => {
                 const hookContext: HookContext = {
                   input,
                   toolUseID,
                   socket,
+                  flushAssistantBuffer,
                 };
                 return this.handlePreToolUseHook(hookContext, handlers);
               },
@@ -939,7 +971,7 @@ export class ChatQueryHandler {
               async (
                 input: HookInput,
                 toolUseID: string | undefined,
-                _options: { signal: AbortSignal },
+                _options: { signal: AbortSignal; },
               ): Promise<HookJSONOutput> => {
                 const hookContext: HookContext = {
                   input,
@@ -962,7 +994,7 @@ export class ChatQueryHandler {
   private async executeSandboxCommand(
     command: string,
     args: string[],
-  ): Promise<{ stdout: string; isError: boolean }> {
+  ): Promise<{ stdout: string; isError: boolean; }> {
     try {
       const { response: responseRaw } =
         await this.sandboxService.runCommandInternal({
@@ -1079,7 +1111,7 @@ export class ChatQueryHandler {
     hookContext: HookContext,
     handlers: MessageHandlers,
   ): Promise<HookJSONOutput> {
-    const { input, toolUseID, socket } = hookContext;
+    const { input, toolUseID, socket, flushAssistantBuffer } = hookContext;
 
     try {
       if (input.hook_event_name === "PreToolUse") {
@@ -1108,6 +1140,11 @@ export class ChatQueryHandler {
         }
 
         const normalizedToolInput = permission.updatedInput ?? input.tool_input;
+
+        // Flush any accumulated assistant message buffer BEFORE persisting tool
+        if (flushAssistantBuffer) {
+          await flushAssistantBuffer();
+        }
 
         // Send tool start event to WebSocket client
         if (socket.readyState === WebSocket.OPEN) {
@@ -1232,6 +1269,41 @@ export class ChatQueryHandler {
   }
 
   /**
+   * Persists accumulated assistant message buffer if it contains content
+   */
+  private async persistAssistantMessageBuffer(
+    buffer: string,
+    persistMessage: (
+      role: "user" | "assistant" | "system",
+      content: string,
+      messageType: "text" | "tool_use" | "tool_result" | "error" | "system",
+      eventType?: string | null,
+      eventData?: unknown,
+      creditsUsed?: number | null,
+      costFunction?: string | null,
+    ) => Promise<void>,
+    creditsUsed?: number,
+    costFunction?: string,
+  ): Promise<boolean> {
+    const trimmedBuffer = buffer.trim();
+    if (!trimmedBuffer) {
+      return false;
+    }
+
+    await persistMessage(
+      "assistant",
+      trimmedBuffer,
+      "text",
+      null,
+      null,
+      creditsUsed ?? null,
+      costFunction ?? null,
+    );
+
+    return true;
+  }
+
+  /**
    * Streams query response and handles session updates
    */
   private async streamQueryResponse(
@@ -1244,10 +1316,11 @@ export class ChatQueryHandler {
       sessionState,
       validAiChatSessionIds,
       socket,
+      bufferState,
     } = streamContext;
 
     // Shared state for MCP stream fix - allows generator to monitor for result message
-    const messages: Array<{ type: string; [key: string]: unknown }> = [];
+    const messages: Array<{ type: string;[key: string]: unknown; }> = [];
 
     // Create async generator for streaming input
     const generateMessages = async function* (): AsyncGenerator<{
@@ -1255,8 +1328,8 @@ export class ChatQueryHandler {
       message: {
         role: "user";
         content:
-          | string
-          | Array<{ type: string; text?: string; source?: unknown }>;
+        | string
+        | Array<{ type: string; text?: string; source?: unknown; }>;
       };
     }> {
       yield {
@@ -1298,11 +1371,9 @@ export class ChatQueryHandler {
       options: queryOptions,
     });
 
-    // Buffer for assistant message text (to persist at the end)
-    let assistantMessageBuffer = "";
+    // Token usage tracking
     let tokenUsageLogged = false;
     let totalCostUsd: number | undefined = undefined;
-    let creditsUsed: number | undefined = undefined;
 
     for await (const msg of response) {
       // Push to shared array for MCP stream fix monitoring
@@ -1386,7 +1457,7 @@ export class ChatQueryHandler {
         if (message?.content) {
           for (const content of message.content) {
             if (content.type === "text" && content.text) {
-              assistantMessageBuffer += content.text;
+              bufferState.assistantMessageBuffer += content.text;
             }
           }
         }
@@ -1403,7 +1474,8 @@ export class ChatQueryHandler {
           totalCostUsd = total_cost_usd;
 
           // Calculate credits used using the shared cost calculation function
-          creditsUsed = costFunctionV1(total_cost_usd);
+          bufferState.creditsUsed = costFunctionV2(total_cost_usd);
+          bufferState.costFunction = CURRENT_COST_FUNCTION_NAME;
 
           this.logger.metricTokenUsage(
             queryOptions.model ?? "unknown",
@@ -1432,16 +1504,14 @@ export class ChatQueryHandler {
       });
     }
 
-    // Persist accumulated assistant message if there is any
-    if (assistantMessageBuffer.trim()) {
-      await handlers.persistMessage(
-        "assistant",
-        assistantMessageBuffer,
-        "text",
-        null,
-        null,
-        creditsUsed ?? null,
-        creditsUsed !== undefined ? CURRENT_COST_FUNCTION_NAME : null,
+    // Persist any remaining accumulated assistant message if there is any
+    // This handles cases where the conversation ends with assistant text (no tools after)
+    if (bufferState.assistantMessageBuffer.trim()) {
+      await this.persistAssistantMessageBuffer(
+        bufferState.assistantMessageBuffer,
+        handlers.persistMessage,
+        bufferState.creditsUsed,
+        bufferState.costFunction,
       );
     }
 
@@ -1537,7 +1607,7 @@ export class ChatQueryHandler {
         });
       } else {
         // Calculate credits used using the shared cost calculation function
-        const creditsUsed = costFunctionV1(totalCostUsd) ?? 1.0;
+        const creditsUsed = costFunctionV2(totalCostUsd) ?? 1.0;
 
         this.logger.consoleLogDevOnly("info", "Tracking API usage", {
           userId: user.id,

@@ -22,9 +22,17 @@ export function costFunctionV1(
     : undefined;
 }
 
+export function costFunctionV2(
+  totalCostUsd: number | undefined,
+): number | undefined {
+  return totalCostUsd !== undefined
+    ? Math.round((totalCostUsd / 0.19) * 100) / 100
+    : undefined;
+}
+
 /**
  * Name of the current cost function being used.
  * This should be stored in the database alongside the credits/cost to track
  * which pricing formula was used for historical records.
  */
-export const CURRENT_COST_FUNCTION_NAME = "costFunctionV1";
+export const CURRENT_COST_FUNCTION_NAME = "costFunctionV2";
