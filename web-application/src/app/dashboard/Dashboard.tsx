@@ -128,6 +128,7 @@ export default function DashboardPage() {
       const result = await createPrototype({
         design_style: designStyle,
         custom_design_system: customDesignSystemId ?? undefined,
+        visibility: 'PUBLIC',
       });
 
       if (result.data) {

@@ -56,6 +56,7 @@ You must output a structured System Prompt that includes:
 ### YOUR QUALITY STANDARD:
 - Never suggest "default" colors like pure Blue (#0000FF) or pure Red (#FF0000). Use complex, designer shades (e.g., Slate, Emerald, Indigo, Amber).
 - The design must feel like an "Apple Design Award" winner.
+- Think about apps with similar concepts to the user's request (e.g., if asked for a social media image app, think about Instagram or Pinterest) and incorporate their best design patterns.
 - The output must be ready for me to copy-paste into a new chat to start coding immediately.
 
 ### INPUT:
@@ -182,23 +183,23 @@ Do not use it for general monitoring or informational purposes.
  * @returns The complete system prompt with design-specific instructions
  */
 export function getSystemPromptForDesignStyle(
-  designStyle?: string | null,
+   designStyle?: string | null,
 ): string {
-  let stackInfo: string;
+   let stackInfo: string;
 
-  switch (designStyle) {
-    case "nativewind":
-      stackInfo = NATIVEWIND_STACK_INFO;
-      break;
-    case "tamagui":
-      stackInfo = TAMAGUI_STACK_INFO;
-      break;
-    case "stylesheets":
-    case "custom":
-    default:
-      stackInfo = STYLESHEET_STACK_INFO;
-      break;
-  }
+   switch (designStyle) {
+      case "nativewind":
+         stackInfo = NATIVEWIND_STACK_INFO;
+         break;
+      case "tamagui":
+         stackInfo = TAMAGUI_STACK_INFO;
+         break;
+      case "stylesheets":
+      case "custom":
+      default:
+         stackInfo = STYLESHEET_STACK_INFO;
+         break;
+   }
 
-  return BASE_SYSTEM_PROMPT + " " + stackInfo + " " + SHARED_SECTIONS;
+   return BASE_SYSTEM_PROMPT + " " + stackInfo + " " + SHARED_SECTIONS;
 }
