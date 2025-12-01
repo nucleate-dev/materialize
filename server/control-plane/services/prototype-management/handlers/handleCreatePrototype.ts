@@ -45,7 +45,7 @@ const VALID_DESIGN_STYLES: DesignStyle[] = [
 ];
 
 export async function handleCreatePrototypeImpl(
-  request: FastifyRequest<{ Body: CreatePrototypeRequestBody }>,
+  request: FastifyRequest<{ Body: CreatePrototypeRequestBody; }>,
   reply: FastifyReply,
   s3Client: S3Client,
 ): Promise<
@@ -88,7 +88,7 @@ export async function handleCreatePrototypeImpl(
     }
 
     // 3. Extract validated body (validation handled by Fastify schema)
-    const {
+    let {
       name,
       description,
       folder_id,
@@ -97,7 +97,9 @@ export async function handleCreatePrototypeImpl(
       design_style,
       custom_design_system,
     } = request.body;
-
+    if (!visibility) {
+      visibility = 'PUBLIC';
+    }
     if (visibility !== 'PUBLIC' && limitCheck.plan === 'free') {
       const errorResponse: CreatePrototypeErrorResponse = {
         error: 'INVALID_REQUEST',
@@ -198,7 +200,7 @@ export async function handleCreatePrototypeImpl(
       request.log2.error(
         new Error(prototypeInsertError.message),
         '[handleCreatePrototype] Error creating prototype:' +
-          prototypeInsertError.message,
+        prototypeInsertError.message,
       );
       const errorResponse: CreatePrototypeErrorResponse = {
         error: 'DATABASE_ERROR',
@@ -369,10 +371,10 @@ async function forkPrototype(
     );
     throw new Error(
       filesResult.error?.message ||
-        assetsResult.error?.message ||
-        thumbnailCopyResult.error ||
-        s3CopyResult.error ||
-        'Failed copy operations or fetching protototype files+assets',
+      assetsResult.error?.message ||
+      thumbnailCopyResult.error ||
+      s3CopyResult.error ||
+      'Failed copy operations or fetching protototype files+assets',
     );
   }
 
@@ -411,13 +413,12 @@ async function forkPrototype(
   ) {
     log2.error(
       filesInsertResult.error ||
-        assetsInsertResult.error ||
-        assetsStorageCopyResult.error,
+      assetsInsertResult.error ||
+      assetsStorageCopyResult.error,
       '[forkPrototype] Failed to insert files or assets',
     );
     throw new Error(
-      `Failed to copy prototype files or assets: ${
-        filesInsertResult.error?.message || assetsInsertResult.error?.message
+      `Failed to copy prototype files or assets: ${filesInsertResult.error?.message || assetsInsertResult.error?.message
       }`,
     );
   }
@@ -458,15 +459,14 @@ export async function copyAllDefaultsForNewPrototype(
   ) {
     log2.error(
       defaultFilesResult.error ||
-        s3CopyResult.error ||
-        thumbnailCopyResult.error,
+      s3CopyResult.error ||
+      thumbnailCopyResult.error,
       '[createNewPrototype] Failed to get default files from S3 or copy thumbnail',
     );
     throw new Error(
-      `Failed to get default files from S3 or copy thumbnail: ${
-        defaultFilesResult.error ||
-        s3CopyResult.error ||
-        thumbnailCopyResult.error
+      `Failed to get default files from S3 or copy thumbnail: ${defaultFilesResult.error ||
+      s3CopyResult.error ||
+      thumbnailCopyResult.error
       }`,
     );
   }
@@ -498,15 +498,14 @@ export async function copyAllDefaultsForNewPrototype(
   ) {
     log2.error(
       filesInsertResult.error ||
-        assetsInsertResult.error ||
-        supabaseStorageAssetUploadResult.error,
+      assetsInsertResult.error ||
+      supabaseStorageAssetUploadResult.error,
       '[createNewPrototype] Failed to insert default files or assets',
     );
     throw new Error(
-      `Failed to insert default files or assets: ${
-        filesInsertResult.error?.message ||
-        assetsInsertResult.error?.message ||
-        supabaseStorageAssetUploadResult.error
+      `Failed to insert default files or assets: ${filesInsertResult.error?.message ||
+      assetsInsertResult.error?.message ||
+      supabaseStorageAssetUploadResult.error
       }`,
     );
   }
