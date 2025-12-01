@@ -8,13 +8,23 @@ import { Textarea } from "@/components/ui/textarea";
 import { useCreatePrototype } from "@/hooks/useCreatePrototype";
 import { useUser } from "@/hooks/useUser";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
+import { captureUTMParams } from "@/lib/utils/analytics/utmTracking";
 import { setChatIntent } from "@/lib/utils/chatIntentUtils";
 import { handleCheckout } from "@/lib/utils/payments/CheckoutUtils";
 import { CheckIcon, SparklesIcon } from "@heroicons/react/24/solid";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
 
-export default function Home() {
+function HomeContent() {
+  const searchParams = useSearchParams();
+
+  // Capture UTM parameters when user lands on homepage
+  useEffect(() => {
+    if (searchParams) {
+      captureUTMParams(searchParams);
+    }
+  }, [searchParams]);
+
   return (
     <main className="relative min-h-screen bg-[#0B0C0E] text-white selection:bg-indigo-500/30 overflow-hidden font-sans">
       <GridBackground forceDarkMode />
@@ -31,6 +41,20 @@ export default function Home() {
         <Footer />
       </div>
     </main>
+  );
+}
+
+export default function Home() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-[#0B0C0E] flex items-center justify-center">
+          <div className="text-white/50">Loading...</div>
+        </div>
+      }
+    >
+      <HomeContent />
+    </Suspense>
   );
 }
 

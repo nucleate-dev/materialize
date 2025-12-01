@@ -5,8 +5,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import { useMetaPixel } from "@/hooks/useMetaPixel";
+import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import { redirectAfterLoginAtom } from "@/lib/atoms/sidebar";
 import { cn } from "@/lib/classNames";
+import { getUTMParams } from "@/lib/utils/analytics/utmTracking";
 import {
   isValidEmailInput,
   isValidPassword,
@@ -29,6 +32,8 @@ export default function RegistrationForm() {
   // Declare state variables
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { trackEvent } = useMetaPixel();
+  const logger = useProductLogger();
   const [, setRedirectAfterLogin] = useAtom(redirectAfterLoginAtom);
   const [formData, setFormData] = useState({
     firstName: "",
@@ -155,13 +160,52 @@ export default function RegistrationForm() {
         return;
       }
 
+      // Get UTM parameters - either from current URL or from sessionStorage
+      // This ensures we capture attribution even if user came from homepage
+      const utmParams = getUTMParams(searchParams);
+
+      // Track successful registration with Meta Pixel
+      trackEvent("CompleteRegistration", {
+        content_name: "Account Registration",
+        status: authResponse.data.session ? "immediate" : "email_verification",
+        ...utmParams, // Include UTM params for Meta attribution
+      });
+
+      // Track successful registration with PostHog
+      logger.log({
+        event: "user_registration_completed",
+        properties: {
+          source: "registration_form",
+          component: "RegistrationForm",
+          functionName: "handleSubmit",
+          registration_method: "email",
+          verification_status: authResponse.data.session
+            ? "immediate"
+            : "email_verification_pending",
+          additionalData: {
+            has_session: !!authResponse.data.session,
+            ...utmParams, // Include UTM params for attribution analysis
+          },
+        },
+      });
+
       if (authResponse.data.session) {
         router.push("/auth/callback");
       } else {
         setShowSuccessState(true);
       }
     },
-    [email, firstName, lastName, password, confirmPassword, router],
+    [
+      email,
+      firstName,
+      lastName,
+      password,
+      confirmPassword,
+      router,
+      trackEvent,
+      logger,
+      searchParams,
+    ],
   );
 
   if (showSuccessState) {
@@ -352,6 +396,24 @@ export default function RegistrationForm() {
           <div className="grid grid-cols-1 gap-2">
             <OAuthSignInButton
               onClick={async () => {
+                // Get UTM parameters - either from current URL or from sessionStorage
+                const utmParams = getUTMParams(searchParams);
+
+                // Track OAuth registration initiation
+                logger.log({
+                  event: "oauth_registration_initiated",
+                  properties: {
+                    source: "registration_form",
+                    component: "RegistrationForm",
+                    functionName: "handleOAuthClick",
+                    registration_method: "google_oauth",
+                    additionalData: {
+                      provider: "google",
+                      ...utmParams,
+                    },
+                  },
+                });
+
                 const redirectParam = searchParams.get("redirect");
                 if (redirectParam) {
                   const decodedRedirect = decodeURIComponent(redirectParam);
