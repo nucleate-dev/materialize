@@ -88,15 +88,15 @@ export async function handleCreatePrototypeImpl(
     }
 
     // 3. Extract validated body (validation handled by Fastify schema)
-    let {
+    const {
       name,
       description,
       folder_id,
       prototype_id: forkPrototypeId, // If provided, this is a fork
-      visibility,
       design_style,
       custom_design_system,
     } = request.body;
+    let { visibility } = request.body;
     if (!visibility) {
       visibility = 'PUBLIC';
     }
