@@ -16,7 +16,7 @@ function RegisterContent() {
 
   return (
     <main className="relative min-h-screen bg-[#0B0C0E] text-white overflow-hidden font-sans">
-      <GridBackground />
+      <GridBackground forceDarkMode={true} />
 
       <div className="relative z-10">
         <PremiumHeader />
