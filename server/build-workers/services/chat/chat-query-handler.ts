@@ -89,6 +89,12 @@ interface DesignSystemResult {
   designSystemRules: string | null;
 }
 
+interface DesignAgentMetadata {
+  scope: "app" | "screen" | "component" | "other" | "unknown";
+  addToProjectContext: boolean;
+  isMasterDesignSpec: boolean;
+}
+
 interface QueryExecutionContext {
   prototypeId: string;
   socket: WebSocket;
@@ -279,6 +285,7 @@ export class ChatQueryHandler {
     // Step 6: Check if this is the first message and execute design agent if needed
     let designAgentCost: number | undefined = undefined;
     let designSpec: string | null = null;
+    let designMetadata: DesignAgentMetadata | null = null;
 
     if (sessionState.prototypeChatSessionId) {
       const isFirst = await this.isFirstMessage(
@@ -309,6 +316,7 @@ export class ChatQueryHandler {
             data: {
               status: "started",
               message: "Generating design specification...",
+              runDesignAgent: true,
             },
           });
 
@@ -316,10 +324,47 @@ export class ChatQueryHandler {
             prototypeId,
             userMessageText,
             designAbortController,
+            DESIGN_AGENT_PROMPT,
           );
 
-          designSpec = designResult.designSpec;
           designAgentCost = designResult.costUsd;
+
+          if (designResult.designSpec) {
+            const { spec, metadata } = this.parseDesignAgentSpec(
+              designResult.designSpec,
+            );
+            designSpec = spec;
+            designMetadata = metadata;
+
+            if (metadata.addToProjectContext) {
+              const { error: updateError } =
+                await this.supabaseClientService
+                  .getClient()
+                  .from("prototypes")
+                  .update({ project_context: designSpec })
+                  .eq("id", prototypeId);
+
+              if (updateError) {
+                this.logger.error(
+                  updateError,
+                  "Failed to store design specification in project_context",
+                  { prototypeId },
+                );
+              } else {
+                this.logger.consoleLogDevOnly(
+                  "info",
+                  "Stored design specification in project_context",
+                  { prototypeId, specLength: designSpec.length },
+                );
+              }
+            } else {
+              this.logger.consoleLogDevOnly(
+                "info",
+                "Skipping project_context update for narrow scope design spec",
+                { prototypeId },
+              );
+            }
+          }
 
           this.logger.consoleLogDevOnly(
             "info",
@@ -328,6 +373,7 @@ export class ChatQueryHandler {
               prototypeId,
               hasDesignSpec: !!designSpec,
               designAgentCost,
+              metadata: designMetadata,
             },
           );
         }
@@ -357,6 +403,7 @@ export class ChatQueryHandler {
         finalSystemPrompt,
         handlers,
         designSpec,
+        designMetadata ?? undefined,
       );
     } finally {
       // Step 10: Combine costs from design agent and implementation
@@ -745,6 +792,7 @@ export class ChatQueryHandler {
     prototypeId: string,
     userMessage: string,
     abortController: AbortController,
+    systemPrompt: string,
   ): Promise<{ designSpec: string | null; costUsd: number | undefined }> {
     try {
 
@@ -777,7 +825,7 @@ export class ChatQueryHandler {
         options: {
           cwd: this.workDir,
           model: "claude-sonnet-4-5",
-          systemPrompt: DESIGN_AGENT_PROMPT,
+          systemPrompt,
           abortController,
           maxTurns: 1, // Only need one response from design agent
         },
@@ -820,27 +868,6 @@ export class ChatQueryHandler {
         return { designSpec: null, costUsd: totalCostUsd };
       }
 
-      // Store design spec in prototypes.project_context
-      const { error: updateError } = await this.supabaseClientService
-        .getClient()
-        .from("prototypes")
-        .update({ project_context: designSpec })
-        .eq("id", prototypeId);
-
-      if (updateError) {
-        this.logger.error(
-          updateError,
-          "Failed to store design specification in project_context",
-          { prototypeId },
-        );
-      } else {
-        this.logger.consoleLogDevOnly(
-          "info",
-          "Stored design specification in project_context",
-          { prototypeId, specLength: designSpec.length },
-        );
-      }
-
       return { designSpec, costUsd: totalCostUsd };
     } catch (error) {
       this.logger.error(
@@ -853,6 +880,62 @@ export class ChatQueryHandler {
     }
   }
 
+  private parseDesignAgentSpec(
+    rawSpec: string,
+  ): { spec: string; metadata: DesignAgentMetadata } {
+    const defaultMetadata: DesignAgentMetadata = {
+      scope: "unknown",
+      addToProjectContext: false,
+      isMasterDesignSpec: false,
+    };
+
+    const metadataHeading = "### METADATA";
+    const headingIndex = rawSpec.lastIndexOf(metadataHeading);
+
+    if (headingIndex === -1) {
+      return { spec: rawSpec.trim(), metadata: defaultMetadata };
+    }
+
+    const specWithoutMetadata = rawSpec.slice(0, headingIndex).trim();
+    const metadataSection = rawSpec
+      .slice(headingIndex + metadataHeading.length)
+      .trim();
+
+    const metadataLines = metadataSection
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean);
+
+    const metadata: DesignAgentMetadata = { ...defaultMetadata };
+
+    for (const line of metadataLines) {
+      const [rawKey, ...rest] = line.split(":");
+      if (!rawKey || rest.length === 0) {
+        continue;
+      }
+      const key = rawKey.trim().toLowerCase();
+      const value = rest.join(":").trim().toLowerCase();
+
+      if (key === "scope") {
+        if (value === "app") {
+          metadata.scope = "app";
+        } else if (value === "screen") {
+          metadata.scope = "screen";
+        } else if (value === "component") {
+          metadata.scope = "component";
+        } else if (value === "other") {
+          metadata.scope = "other";
+        }
+      } else if (key === "addtoprojectcontext") {
+        metadata.addToProjectContext = value === "true";
+      } else if (key === "ismasterdesignspec") {
+        metadata.isMasterDesignSpec = value === "true";
+      }
+    }
+
+    return { spec: specWithoutMetadata, metadata };
+  }
+
   /**
    * Executes the Claude query with hooks and streaming
    */
@@ -861,6 +944,7 @@ export class ChatQueryHandler {
     systemPromptAppend: string,
     handlers: MessageHandlers,
     designSpec?: string | null,
+    designMetadata?: DesignAgentMetadata,
   ): Promise<number | undefined> {
     const { prototypeId, socket, data, sessionState, validAiChatSessionIds } =
       context;
@@ -868,6 +952,16 @@ export class ChatQueryHandler {
     const options = (data.options ?? {}) as Options;
 
     try {
+      const metadata: DesignAgentMetadata = designMetadata ?? {
+        scope: "unknown",
+        addToProjectContext: false,
+        isMasterDesignSpec: false,
+      };
+      const isAppLevel = metadata.scope === "app";
+      const isNarrowBuild =
+        metadata.scope === "screen" || metadata.scope === "component";
+      const shouldRunDesignAgent = !!designSpec;
+
       // Create a new AbortController for this query
       const abortController = new AbortController();
       sessionState.abortController = abortController;
@@ -907,14 +1001,20 @@ export class ChatQueryHandler {
         );
 
         // Send design generation completed message to client
-        handlers.sendMessage(socket, {
-          type: ChatEvent.DESIGN_GENERATION,
-          data: {
-            status: "completed",
-            message: "Design specification generated",
-            designSpec: designSpec, // Include the actual spec content
-          },
-        });
+            handlers.sendMessage(socket, {
+              type: ChatEvent.DESIGN_GENERATION,
+              data: {
+                status: "completed",
+                message: "Design specification generated",
+                designSpec: designSpec, // Include the actual spec content
+                runDesignAgent: shouldRunDesignAgent,
+                isAppLevel,
+                isNarrowBuild,
+                persistToProjectContext: metadata.addToProjectContext,
+                isMasterDesignSpec: metadata.isMasterDesignSpec,
+                scope: metadata.scope,
+              },
+            });
 
         this.logger.consoleLogDevOnly(
           "info",

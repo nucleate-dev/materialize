@@ -5,7 +5,7 @@
 // To update these types, modify the source file and run:
 // npm run build (in the control-plane directory)
 //
-// Last synced: 2025-12-01T17:40:11.438Z
+// Last synced: 2025-12-02T07:21:55.868Z
 
 export enum ChatEvent {
   AUTHENTICATED = "authenticated",
@@ -238,6 +238,12 @@ export interface DesignGenerationMessage {
     status: "started" | "completed";
     message: string;
     designSpec?: string; // The actual design specification content (only present when status is "completed")
+    runDesignAgent?: boolean;
+    isAppLevel?: boolean;
+    isNarrowBuild?: boolean;
+    persistToProjectContext?: boolean;
+    scope?: "app" | "screen" | "component" | "other" | "unknown";
+    isMasterDesignSpec?: boolean;
   };
 }
 
