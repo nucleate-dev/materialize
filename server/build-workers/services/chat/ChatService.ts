@@ -96,6 +96,8 @@ export class ChatService {
     );
 
     // Initialize ChatQueryHandler
+    // FLAG!
+    const enableDesignAgentOnFirstMessage = false;
     this.chatQueryHandler = new ChatQueryHandler(
       workDir,
       logger,
@@ -105,6 +107,7 @@ export class ChatService {
       sandboxService,
       expoDevServerService,
       terminalService,
+      enableDesignAgentOnFirstMessage,
       () => this.getAak(),
     );
 
@@ -172,7 +175,7 @@ export class ChatService {
 
   private handleWebSocketConnection(
     socket: WebSocket,
-    req: FastifyRequest<{ Params: { prototypeId: string } }>,
+    req: FastifyRequest<{ Params: { prototypeId: string; }; }>,
   ): void {
     const { prototypeId } = req.params;
     const connectionId = `${prototypeId}-${Date.now()}`;
@@ -354,7 +357,7 @@ export class ChatService {
         uploadChatImages: async (
           prototypeId: string,
           chatSessionId: string,
-          images: Array<{ base64: string; mediaType: string }>,
+          images: Array<{ base64: string; mediaType: string; }>,
         ) => {
           return await this.messagePersistenceService.uploadChatImages(
             prototypeId,
@@ -394,7 +397,7 @@ export class ChatService {
     let historyContext = "";
     if (historical_messages.length > 0) {
       const formattedMessages = historical_messages
-        .map((msg: { role: string; content: string }) => {
+        .map((msg: { role: string; content: string; }) => {
           const role = msg.role === "user" ? "User" : "Assistant";
           return `${role}: ${msg.content}`;
         })

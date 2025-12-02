@@ -175,6 +175,7 @@ export class ChatQueryHandler {
   private readonly expoDevServerService: ExpoDevServerService;
   private readonly terminalService: TerminalService;
   private readonly getAak: () => string | null;
+  private readonly enableDesignAgentOnFirstMessage: boolean;
 
   constructor(
     workDir: string,
@@ -185,6 +186,7 @@ export class ChatQueryHandler {
     sandboxService: SandboxService,
     expoDevServerService: ExpoDevServerService,
     terminalService: TerminalService,
+    enableDesignAgentOnFirstMessage: boolean,
     getAak: () => string | null,
   ) {
     this.workDir = workDir;
@@ -195,6 +197,7 @@ export class ChatQueryHandler {
     this.sandboxService = sandboxService;
     this.expoDevServerService = expoDevServerService;
     this.terminalService = terminalService;
+    this.enableDesignAgentOnFirstMessage = enableDesignAgentOnFirstMessage;
     this.getAak = getAak;
   }
 
@@ -287,7 +290,10 @@ export class ChatQueryHandler {
     let designSpec: string | null = null;
     let designMetadata: DesignAgentMetadata | null = null;
 
-    if (sessionState.prototypeChatSessionId) {
+    if (
+      this.enableDesignAgentOnFirstMessage &&
+      sessionState.prototypeChatSessionId
+    ) {
       const isFirst = await this.isFirstMessage(
         prototypeId,
         sessionState.prototypeChatSessionId,
