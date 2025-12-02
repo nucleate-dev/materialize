@@ -12,6 +12,7 @@ import type {
 import { handleRedirectToPaymentsPage } from "@/lib/utils/payments/CheckoutUtils";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { useMetaPixel } from "@/hooks/useMetaPixel";
 import RegistrationAccountCreatedEmailVerificationPending from "../../../(auth)/register/RegistrationAccountCreatedEmailVerificationPending";
 
 export default function AuthCallback() {
@@ -20,6 +21,7 @@ export default function AuthCallback() {
   const router = useRouter();
   const { userPlan } = useSubscriptionAccess();
   const logger = useProductLogger();
+  const { trackEvent } = useMetaPixel();
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -60,6 +62,49 @@ export default function AuthCallback() {
           ).identify(data.session?.user.id, {
             email: data.session.user.email ?? "",
           });
+        }
+
+        // Fire Meta Pixel registration event for OAuth sign-ups if pending
+        if (typeof window !== "undefined") {
+          const pendingMetaRegistration = localStorage.getItem(
+            "pending_meta_registration",
+          );
+          if (pendingMetaRegistration) {
+            try {
+              const parsed = JSON.parse(pendingMetaRegistration) as {
+                provider?: string;
+                utm?: Record<string, unknown>;
+              };
+              const sentKey = `meta_registration_sent_${data.session.user.id}`;
+              const isNewUser =
+                data.session.user.created_at ===
+                data.session.user.last_sign_in_at;
+
+              if (!localStorage.getItem(sentKey)) {
+                trackEvent("CompleteRegistration", {
+                  content_name: "Account Registration",
+                  status: "oauth",
+                  provider: parsed.provider ?? "google",
+                  is_new_user: isNewUser,
+                  ...(parsed.utm ?? {}),
+                });
+                localStorage.setItem(sentKey, "true");
+              }
+            } catch (trackingError) {
+              logger.debug(
+                "warn",
+                "Failed to track pending Meta registration event",
+                {
+                  error:
+                    trackingError instanceof Error
+                      ? trackingError.message
+                      : String(trackingError),
+                },
+              );
+            } finally {
+              localStorage.removeItem("pending_meta_registration");
+            }
+          }
         }
       }
 
@@ -138,7 +183,7 @@ export default function AuthCallback() {
     };
 
     checkAuth();
-  }, [router, userPlan, logger]);
+  }, [router, userPlan, logger, trackEvent]);
 
   if (showEmailVerificationRequired) {
     return <RegistrationAccountCreatedEmailVerificationPending />;

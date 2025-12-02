@@ -414,6 +414,29 @@ export default function RegistrationForm() {
                   },
                 });
 
+                // Store pending Meta Pixel registration intent to fire after OAuth redirect
+                if (typeof window !== "undefined") {
+                  try {
+                    localStorage.setItem(
+                      "pending_meta_registration",
+                      JSON.stringify({
+                        provider: "google",
+                        utm: utmParams,
+                        ts: Date.now(),
+                      }),
+                    );
+                    // Clear any prior sent marker so we can emit for this new OAuth sign-up
+                    localStorage.removeItem("meta_registration_sent");
+                  } catch (storageError) {
+                    logger.debug("warn", "Failed to persist pending meta registration intent", {
+                      error:
+                        storageError instanceof Error
+                          ? storageError.message
+                          : String(storageError),
+                    });
+                  }
+                }
+
                 const redirectParam = searchParams.get("redirect");
                 if (redirectParam) {
                   const decodedRedirect = decodeURIComponent(redirectParam);
