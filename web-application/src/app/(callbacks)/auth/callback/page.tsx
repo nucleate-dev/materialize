@@ -74,6 +74,7 @@ export default function AuthCallback() {
               const parsed = JSON.parse(pendingMetaRegistration) as {
                 provider?: string;
                 utm?: Record<string, unknown>;
+                eventId?: string;
               };
               const sentKey = `meta_registration_sent_${data.session.user.id}`;
               const isNewUser =
@@ -81,13 +82,21 @@ export default function AuthCallback() {
                 data.session.user.last_sign_in_at;
 
               if (!localStorage.getItem(sentKey)) {
-                trackEvent("CompleteRegistration", {
-                  content_name: "Account Registration",
-                  status: "oauth",
-                  provider: parsed.provider ?? "google",
-                  is_new_user: isNewUser,
-                  ...(parsed.utm ?? {}),
-                });
+                // Use stored eventId or generate a new one
+                const eventId =
+                  parsed.eventId ?? `reg_oauth_${data.session.user.id}_${Date.now()}`;
+
+                trackEvent(
+                  "CompleteRegistration",
+                  {
+                    content_name: "Account Registration",
+                    status: "oauth",
+                    provider: parsed.provider ?? "google",
+                    is_new_user: isNewUser,
+                    ...(parsed.utm ?? {}),
+                  },
+                  eventId, // Add event_id for deduplication
+                );
                 localStorage.setItem(sentKey, "true");
               }
             } catch (trackingError) {
