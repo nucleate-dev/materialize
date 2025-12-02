@@ -64,7 +64,8 @@ export interface Message {
     | "error"
     | "tool"
     | "thinking"
-    | "usage";
+    | "usage"
+    | "design_spec";
   content: string;
   timestamp: number;
   toolName?: string;
@@ -77,6 +78,8 @@ export interface Message {
   isQueued?: boolean; // For queued messages waiting for dev server
   imageUrls?: string[]; // Signed URLs for historical images
   creditsUsed?: number; // For usage messages
+  designSpec?: string; // For design_spec messages - the full specification
+  isCollapsed?: boolean; // For design_spec messages - whether it's collapsed
 }
 
 export interface Todo {
@@ -1138,6 +1141,29 @@ export default function ClaudeCodePanel({
         addMessage("system", message.message);
         break;
 
+      case ChatEvent.DESIGN_GENERATION: {
+        const { status, message: designMessage, designSpec } = message.data;
+
+        if (status === "started") {
+          // Show design generation in progress
+          addMessage("system", designMessage);
+        } else if (status === "completed" && designSpec) {
+          // Design generation completed - add a collapsible design spec message
+          setMessages((prev) => [
+            ...prev,
+            {
+              id: `design-spec-${Date.now()}`,
+              type: "design_spec" as const,
+              content: "Generated Design Spec",
+              timestamp: Date.now(),
+              designSpec: designSpec,
+              isCollapsed: true, // Start collapsed
+            },
+          ]);
+        }
+        break;
+      }
+
       case ChatEvent.HISTORY_REQUEST: {
         // Server is requesting historical messages
         const { requested_message_count, original_query } = message.data;
@@ -2127,6 +2153,13 @@ export default function ClaudeCodePanel({
       hasReachedCreditLimit={creditUsage.hasReachedLimit}
       creditsUsed={creditUsage.creditsUsed}
       totalAvailableCredits={creditUsage.totalAvailableCredits}
+      onMessageUpdate={(updatedMessage) => {
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === updatedMessage.id ? updatedMessage : msg,
+          ),
+        );
+      }}
     />
   );
 }

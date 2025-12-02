@@ -33,6 +33,7 @@ import {
   Check,
   ChevronDown,
   ChevronRight,
+  ChevronUp,
   CircleAlert,
   Edit2,
   Info,
@@ -123,6 +124,7 @@ interface ClaudeCodePanelUIProps {
   hasReachedCreditLimit: boolean;
   creditsUsed: number;
   totalAvailableCredits: number;
+  onMessageUpdate?: (message: Message) => void;
 }
 
 export default function ClaudeCodePanelUI({
@@ -182,6 +184,7 @@ export default function ClaudeCodePanelUI({
   hasReachedCreditLimit,
   creditsUsed,
   totalAvailableCredits,
+  onMessageUpdate,
 }: ClaudeCodePanelUIProps) {
   const [showCreditLimitModal, setShowCreditLimitModal] = useState(false);
   const hasShownModalRef = useRef(false);
@@ -553,6 +556,36 @@ export default function ClaudeCodePanelUI({
                   {message.type === "usage" && (
                     <div className="text-xs text-muted-foreground/60 px-1">
                       {message.content}
+                    </div>
+                  )}
+
+                  {/* Design Spec Message - Collapsible */}
+                  {message.type === "design_spec" && (
+                    <div className="w-full">
+                      <div
+                        className="flex items-center gap-2 p-3 rounded-lg bg-purple-500/10 border border-purple-500/20 cursor-pointer hover:bg-purple-500/15 transition-colors"
+                        onClick={() => {
+                          onMessageUpdate?.({
+                            ...message,
+                            isCollapsed: !message.isCollapsed,
+                          });
+                        }}
+                      >
+                        <Sparkles className="w-4 h-4 text-purple-600 dark:text-purple-400 shrink-0" />
+                        <div className="flex-1 text-sm font-medium text-purple-600 dark:text-purple-400">
+                          {message.content}
+                        </div>
+                        {message.isCollapsed ? (
+                          <ChevronDown className="w-4 h-4 text-purple-600 dark:text-purple-400 shrink-0" />
+                        ) : (
+                          <ChevronUp className="w-4 h-4 text-purple-600 dark:text-purple-400 shrink-0" />
+                        )}
+                      </div>
+                      {!message.isCollapsed && message.designSpec && (
+                        <div className="mt-2 p-4 rounded-lg bg-muted/30 border border-border/50 text-sm whitespace-pre-wrap font-mono text-foreground/80 max-h-96 overflow-y-auto">
+                          {message.designSpec}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>

@@ -25,7 +25,10 @@ import { FileSyncService } from "../FileSyncService.js";
 import { SandboxService } from "../SandboxService.js";
 import { SupabaseClientService } from "../SupabaseClientService.js";
 import { TerminalService } from "../terminals/TerminalService.js";
-import { getSystemPromptForDesignStyle } from "./ClaudeCodePrompts.js";
+import {
+  getSystemPromptForDesignStyle,
+  DESIGN_AGENT_PROMPT,
+} from "./ClaudeCodePrompts.js";
 import {
   costFunctionV2,
   CURRENT_COST_FUNCTION_NAME
@@ -273,20 +276,100 @@ export class ChatQueryHandler {
       return;
     }
 
-    // Step 6: Notify orchestration that chat is starting
+    // Step 6: Check if this is the first message and execute design agent if needed
+    let designAgentCost: number | undefined = undefined;
+    let designSpec: string | null = null;
+
+    if (sessionState.prototypeChatSessionId) {
+      const isFirst = await this.isFirstMessage(
+        prototypeId,
+        sessionState.prototypeChatSessionId,
+      );
+
+      if (isFirst) {
+        // Extract user message text for design agent
+        const userMessageText =
+          typeof content === "string"
+            ? content
+            : Array.isArray(content)
+              ? content
+                  .filter((block) => block.type === "text")
+                  .map((block) => block.text || "")
+                  .join("\n")
+              : prompt || "";
+
+        if (userMessageText) {
+          // Create abort controller for design agent (will be replaced for main query)
+          const designAbortController = new AbortController();
+          sessionState.abortController = designAbortController;
+
+          // Send design generation started message to client
+          handlers.sendMessage(socket, {
+            type: ChatEvent.DESIGN_GENERATION,
+            data: {
+              status: "started",
+              message: "Generating design specification...",
+            },
+          });
+
+          const designResult = await this.executeDesignAgent(
+            prototypeId,
+            userMessageText,
+            designAbortController,
+          );
+
+          designSpec = designResult.designSpec;
+          designAgentCost = designResult.costUsd;
+
+          this.logger.consoleLogDevOnly(
+            "info",
+            "Design agent execution completed",
+            {
+              prototypeId,
+              hasDesignSpec: !!designSpec,
+              designAgentCost,
+            },
+          );
+        }
+      }
+    }
+
+    // Step 7: Augment system prompt with design spec if available
+    let finalSystemPrompt = designSystemResult.systemPrompt;
+    if (designSpec) {
+      finalSystemPrompt += `\n\n## Design Specification:\n${designSpec}\n\nNow implement the app according to this design specification.`;
+      this.logger.consoleLogDevOnly(
+        "info",
+        "Injected design specification into system prompt",
+        { designSpecLength: designSpec.length },
+      );
+    }
+
+    // Step 8: Notify orchestration that chat is starting
     await handlers.notifyOrchestrationStartChat(prototypeId);
 
-    // Step 7: Execute query with proper cleanup
-    let totalCostUsd: number | undefined = undefined;
+    // Step 9: Execute query with proper cleanup
+    let implementationCostUsd: number | undefined = undefined;
 
     try {
-      totalCostUsd = await this.executeClaudeQuery(
+      implementationCostUsd = await this.executeClaudeQuery(
         context,
-        designSystemResult.systemPrompt,
+        finalSystemPrompt,
         handlers,
+        designSpec,
       );
     } finally {
-      // Step 8: Sync files and track usage
+      // Step 10: Combine costs from design agent and implementation
+      const totalCostUsd =
+        (designAgentCost ?? 0) + (implementationCostUsd ?? 0);
+
+      this.logger.consoleLogDevOnly("info", "Combined cost calculation", {
+        designAgentCost,
+        implementationCostUsd,
+        totalCostUsd,
+      });
+
+      // Step 11: Sync files and track usage
       await this.syncAndTrackUsage(
         prototypeId,
         socket,
@@ -295,7 +378,7 @@ export class ChatQueryHandler {
         handlers.sendMessage,
       );
 
-      // Step 9: Always notify orchestration that chat has ended
+      // Step 12: Always notify orchestration that chat has ended
       await handlers.notifyOrchestrationEndChat(prototypeId);
     }
   }
@@ -582,12 +665,202 @@ export class ChatQueryHandler {
   }
 
   /**
+   * Checks if this is the user's first message for the entire prototype
+   * Returns true only if:
+   * 1. No messages exist in prototype_chat_messages for this session
+   * 2. This is the only chat session in prototype_chat_sessions for this prototype
+   */
+  private async isFirstMessage(
+    prototypeId: string,
+    prototypeChatSessionId: string,
+  ): Promise<boolean> {
+    try {
+      // Check if any messages exist for this chat session
+      const { count: messageCount, error: messageError } =
+        await this.supabaseClientService
+          .getClient()
+          .from("prototype_chat_messages")
+          .select("*", { count: "exact", head: true })
+          .eq("chat_session_id", prototypeChatSessionId);
+
+      if (messageError) {
+        this.logger.error(
+          messageError,
+          "Failed to check message count for first message detection",
+          { prototypeChatSessionId },
+        );
+        return false;
+      }
+
+      // If messages exist, not the first message
+      if (messageCount && messageCount > 0) {
+        return false;
+      }
+
+      // Check if this is the only chat session for this prototype
+      const { count: sessionCount, error: sessionError } =
+        await this.supabaseClientService
+          .getClient()
+          .from("prototype_chat_sessions")
+          .select("*", { count: "exact", head: true })
+          .eq("prototype_id", prototypeId);
+
+      if (sessionError) {
+        this.logger.error(
+          sessionError,
+          "Failed to check session count for first message detection",
+          { prototypeId },
+        );
+        return false;
+      }
+
+      // This is the first message if this is the only session
+      const isFirst = sessionCount === 1;
+
+      this.logger.consoleLogDevOnly("info", "First message detection result", {
+        prototypeId,
+        prototypeChatSessionId,
+        messageCount,
+        sessionCount,
+        isFirst,
+      });
+
+      return isFirst;
+    } catch (error) {
+      this.logger.error(
+        error instanceof Error ? error : new Error(String(error)),
+        "Error during first message detection",
+        { prototypeId, prototypeChatSessionId },
+      );
+      return false;
+    }
+  }
+
+  /**
+   * Executes the design agent to generate a comprehensive design specification
+   * Only called on the user's first message for a prototype
+   * Note: Does NOT persist the message - caller should persist after user message
+   */
+  private async executeDesignAgent(
+    prototypeId: string,
+    userMessage: string,
+    abortController: AbortController,
+  ): Promise<{ designSpec: string | null; costUsd: number | undefined }> {
+    try {
+
+      this.logger.consoleLogDevOnly(
+        "info",
+        "Executing design agent for first message",
+        { prototypeId, userMessageLength: userMessage.length },
+      );
+
+      // Create async generator for the design agent query
+      const generateDesignMessages = async function* (): AsyncGenerator<{
+        type: "user";
+        message: {
+          role: "user";
+          content: string;
+        };
+      }> {
+        yield {
+          type: "user" as const,
+          message: {
+            role: "user" as const,
+            content: userMessage,
+          },
+        };
+      };
+
+      // Query the design agent
+      const response = query({
+        prompt: generateDesignMessages() as AsyncIterable<SDKUserMessage>,
+        options: {
+          cwd: this.workDir,
+          model: "claude-sonnet-4-5",
+          systemPrompt: DESIGN_AGENT_PROMPT,
+          abortController,
+          maxTurns: 1, // Only need one response from design agent
+        },
+      });
+
+      // Collect the design specification
+      let designSpec = "";
+      let totalCostUsd: number | undefined = undefined;
+
+      for await (const msg of response) {
+        if (msg.type === "assistant") {
+          const message = (msg as SDKAssistantMessage).message;
+          if (message?.content) {
+            for (const content of message.content) {
+              if (content.type === "text" && content.text) {
+                designSpec += content.text;
+              }
+            }
+          }
+        }
+
+        if (msg.type === "result") {
+          totalCostUsd = msg.total_cost_usd;
+          this.logger.consoleLogDevOnly(
+            "info",
+            "Design agent completed",
+            {
+              prototypeId,
+              designSpecLength: designSpec.length,
+              costUsd: totalCostUsd,
+            },
+          );
+        }
+      }
+
+      if (!designSpec) {
+        this.logger.warn("Design agent returned empty specification", {
+          prototypeId,
+        });
+        return { designSpec: null, costUsd: totalCostUsd };
+      }
+
+      // Store design spec in prototypes.project_context
+      const { error: updateError } = await this.supabaseClientService
+        .getClient()
+        .from("prototypes")
+        .update({ project_context: designSpec })
+        .eq("id", prototypeId);
+
+      if (updateError) {
+        this.logger.error(
+          updateError,
+          "Failed to store design specification in project_context",
+          { prototypeId },
+        );
+      } else {
+        this.logger.consoleLogDevOnly(
+          "info",
+          "Stored design specification in project_context",
+          { prototypeId, specLength: designSpec.length },
+        );
+      }
+
+      return { designSpec, costUsd: totalCostUsd };
+    } catch (error) {
+      this.logger.error(
+        error instanceof Error ? error : new Error(String(error)),
+        "Design agent execution failed",
+        { prototypeId },
+      );
+
+      return { designSpec: null, costUsd: undefined };
+    }
+  }
+
+  /**
    * Executes the Claude query with hooks and streaming
    */
   private async executeClaudeQuery(
     context: QueryExecutionContext,
     systemPromptAppend: string,
     handlers: MessageHandlers,
+    designSpec?: string | null,
   ): Promise<number | undefined> {
     const { prototypeId, socket, data, sessionState, validAiChatSessionIds } =
       context;
@@ -622,6 +895,33 @@ export class ChatQueryHandler {
         imageMetadata,
         handlers.persistMessage,
       );
+
+      // Persist design spec as assistant message right after user message (if available)
+      if (designSpec) {
+        await handlers.persistMessage(
+          "assistant",
+          designSpec,
+          "text",
+          "design_generation",
+          { prototypeId },
+        );
+
+        // Send design generation completed message to client
+        handlers.sendMessage(socket, {
+          type: ChatEvent.DESIGN_GENERATION,
+          data: {
+            status: "completed",
+            message: "Design specification generated",
+            designSpec: designSpec, // Include the actual spec content
+          },
+        });
+
+        this.logger.consoleLogDevOnly(
+          "info",
+          "Persisted design spec after user message",
+          { prototypeId, designSpecLength: designSpec.length },
+        );
+      }
 
       // Create shared state for assistant message buffering
       // This allows the flush callback to access and clear the buffer
