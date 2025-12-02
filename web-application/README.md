@@ -8,7 +8,7 @@ The prototype system uses a flow where default app files are stored in S3 and sy
 
 ### 1. Creating a New Prototype
 
-When creating a new prototype (non-fork), the system: ...
+When creating a new prototype (non-fork), the system: ....
 
 1. Reads default app files from S3 `default-app-raw-files/` directory
 2. Inserts these files into Supabase `prototype_files` table
