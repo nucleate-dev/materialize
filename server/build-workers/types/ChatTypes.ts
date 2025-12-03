@@ -49,6 +49,8 @@ export interface ChatQueryData {
   prompt?: string;
   content?: ChatContentBlock[];
   options?: Record<string, unknown>;
+  // Provider/model are kept inside options to maintain backward compatibility with existing clients.
+  // Downstream handlers should read provider/model from options and default to Claude if absent.
   token?: string;
   ai_chat_session_id?: string | null; // Claude SDK session ID for resuming conversations
   prototype_chat_session_id?: string | null; // Database primary key from prototype_chat_sessions table

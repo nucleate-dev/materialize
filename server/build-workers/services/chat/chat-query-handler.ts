@@ -113,6 +113,8 @@ interface MessageHandlers {
     eventData?: unknown,
     creditsUsed?: number | null,
     costFunction?: string | null,
+    provider?: string | null,
+    model?: string | null,
   ) => Promise<void>;
   uploadChatImages: (
     prototypeId: string,

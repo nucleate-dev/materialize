@@ -79,6 +79,11 @@ interface ClaudeCodePanelUIProps {
   isProcessing: boolean;
   baseTunnelUrl: string | null;
   currentRenderStatus?: RenderStatus;
+  modelProvider: "claude" | "vercel";
+  model: string;
+  vercelModels: Array<{ value: string; label: string }>;
+  onModelProviderChange: (value: "claude" | "vercel") => void;
+  onModelChange: (value: string) => void;
   messages: Message[];
   expandedThinking: Set<string>;
   currentTodos: Todo[];
@@ -145,6 +150,11 @@ export default function ClaudeCodePanelUI({
   isProcessing,
   baseTunnelUrl,
   currentRenderStatus,
+  modelProvider,
+  model,
+  vercelModels,
+  onModelProviderChange,
+  onModelChange,
   messages,
   expandedThinking,
   currentTodos,
@@ -895,6 +905,57 @@ export default function ClaudeCodePanelUI({
                   <p className="text-sm text-foreground font-mono">
                     {createdAtLabel}
                   </p>
+                </div>
+              )}
+            </div>
+
+            {/* Model / Provider */}
+            <div className="space-y-3">
+              <div className="space-y-2">
+                <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Model Provider
+                </label>
+                <Select
+                  value={modelProvider}
+                  onValueChange={(value) =>
+                    onModelProviderChange(value as "claude" | "vercel")
+                  }
+                >
+                  <SelectTrigger className="w-full bg-accent/50 border-border">
+                    <SelectValue placeholder="Select provider" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-background border-border">
+                    <SelectItem value="claude" className="text-sm">
+                      Claude (default)
+                    </SelectItem>
+                    <SelectItem value="vercel" className="text-sm">
+                      Vercel AI (OpenAI/Google)
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {modelProvider === "vercel" && (
+                <div className="space-y-2">
+                  <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    Model
+                  </label>
+                  <Select value={model} onValueChange={(value) => onModelChange(value)}>
+                    <SelectTrigger className="w-full bg-accent/50 border-border">
+                      <SelectValue placeholder="Select model" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-background border-border">
+                      {vercelModels.map((option) => (
+                        <SelectItem
+                          key={option.value}
+                          value={option.value}
+                          className="text-sm"
+                        >
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               )}
             </div>

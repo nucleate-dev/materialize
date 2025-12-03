@@ -12,7 +12,7 @@ import {
 import { Database } from "@/lib/types/supabase";
 import { clearChatIntent, getChatIntent } from "@/lib/utils/chatIntentUtils";
 import type React from "react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ClaudeCodePanelUI from "./ClaudeCodePanelUI";
 import { RenderStatus } from "@/app/dashboard/projects/[prototype_id]/InternalPrototypePage";
 
@@ -169,6 +169,31 @@ export default function ClaudeCodePanel({
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editedTitle, setEditedTitle] = useState("");
   const [isUpdatingTitle, setIsUpdatingTitle] = useState(false);
+  const [modelProvider, setModelProvider] = useState<"claude" | "vercel">(
+    "claude",
+  );
+  const [model, setModel] = useState<string>("gpt-5.1-codex-mini");
+  const vercelModelOptions = useMemo(
+    () => [
+      { value: "gpt-5.1-codex-mini", label: "GPT-5.1 Codex Mini" },
+      { value: "gpt-5.1-codex", label: "GPT-5.1 Codex" },
+      { value: "gemini-3-pro-preview", label: "Gemini 3 Pro (preview)" },
+      { value: "gemini-2.5-flash", label: "Gemini 2.5 Flash" },
+    ],
+    [],
+  );
+
+  useEffect(() => {
+    if (modelProvider === "vercel") {
+      const firstModel = vercelModelOptions[0]?.value;
+      const isValidModel = vercelModelOptions.some(
+        (option) => option.value === model,
+      );
+      if (!isValidModel && firstModel) {
+        setModel(firstModel);
+      }
+    }
+  }, [modelProvider, model, vercelModelOptions]);
 
   // Reset confirmation modal state
   const [showResetConfirmation, setShowResetConfirmation] = useState(false);
@@ -795,6 +820,10 @@ export default function ClaudeCodePanel({
               data: {
                 content: messageContent,
                 token: authTokenRef.current,
+                options: {
+                  provider: modelProvider,
+                  model: modelProvider === "vercel" ? model : undefined,
+                },
                 // Force new session if corrupted, otherwise use existing session
                 ai_chat_session_id: isCorruptedSession
                   ? null
@@ -1834,17 +1863,21 @@ export default function ClaudeCodePanel({
       // Send message in the format expected by CodeService
       if (ws) {
         ws.send(
-          JSON.stringify({
-            type: "query",
-            data: {
-              content,
-              token,
-              ai_chat_session_id: isCorruptedSession
-                ? null
-                : sessionIdRef.current,
-              prototype_chat_session_id: prototypeChatSessionId,
-              custom_design_system_id: prototype?.custom_design_system,
-              design_style: prototype?.design_style,
+            JSON.stringify({
+              type: "query",
+              data: {
+                content,
+                token,
+                options: {
+                  provider: modelProvider,
+                  model: modelProvider === "vercel" ? model : undefined,
+                },
+                ai_chat_session_id: isCorruptedSession
+                  ? null
+                  : sessionIdRef.current,
+                prototype_chat_session_id: prototypeChatSessionId,
+                custom_design_system_id: prototype?.custom_design_system,
+                design_style: prototype?.design_style,
               current_viewing_path: currentViewingPath,
               image_metadata: uploadedImageMetadata.map((img) => ({
                 storage_path: img.storage_path,
@@ -2114,6 +2147,11 @@ export default function ClaudeCodePanel({
       isProcessing={isProcessing}
       baseTunnelUrl={baseTunnelUrl}
       currentRenderStatus={currentRenderStatus}
+      modelProvider={modelProvider}
+      model={model}
+      vercelModels={vercelModelOptions}
+      onModelProviderChange={(value) => setModelProvider(value)}
+      onModelChange={(value) => setModel(value)}
       messages={messages}
       expandedThinking={expandedThinking}
       currentTodos={currentTodos}

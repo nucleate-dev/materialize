@@ -36,3 +36,18 @@ export function costFunctionV2(
  * which pricing formula was used for historical records.
  */
 export const CURRENT_COST_FUNCTION_NAME = "costFunctionV2";
+
+/**
+ * Provider/model specific cost metadata for the Vercel AI SDK backed models.
+ * This map is intentionally explicit to avoid surprises when new models appear.
+ * If a model is missing here, cost reporting should be treated as unknown/unsupported.
+ */
+export const VERCEL_MODEL_COSTS_USD: Record<
+  string,
+  { inputUsdPer1M?: number; outputUsdPer1M?: number }
+> = {
+  "gpt-5.1-codex-mini": {},
+  "gpt-5.1-codex": {},
+  "gemini-3-pro-preview": {},
+  "gemini-2.5-flash": {},
+};

@@ -140,6 +140,8 @@ export class MessagePersistenceService {
     eventData?: unknown,
     creditsUsed?: number | null,
     costFunction?: string | null,
+    provider?: string | null,
+    model?: string | null,
   ): Promise<void> {
     if (!chatSessionId) {
       this.logger.warn("Cannot persist message - no chat session ID", {
@@ -166,10 +168,18 @@ export class MessagePersistenceService {
         eventDataType: eventData ? typeof eventData : null,
         creditsUsed,
         costFunction,
+        provider,
+        model,
         isAuthenticated: !!user,
         userId: user?.id,
         authError: authError?.message,
       });
+
+      const mergedEventData = {
+        ...(eventData ?? {}),
+        provider: provider ?? null,
+        model: model ?? null,
+      };
 
       const { error } = await this.supabaseClient
         .from("prototype_chat_messages")
@@ -179,7 +189,7 @@ export class MessagePersistenceService {
           content,
           message_type: messageType,
           event_type: eventType || null,
-          event_data: eventData ? JSON.stringify(eventData) : null,
+          event_data: mergedEventData ? JSON.stringify(mergedEventData) : null,
           credits_used: creditsUsed ?? null,
           cost_function: costFunction ?? null,
         });
