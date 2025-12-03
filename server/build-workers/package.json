@@ -19,7 +19,6 @@
     "test:public-dev-server": "node --loader ts-node/esm testscripts/test-public-dev-server-endpoint.ts",
     "test:public-dev-server:local": "node --loader ts-node/esm testscripts/test-public-dev-server-endpoint.ts --local",
     "typecheck": "tsc -p . --noEmit",
-    "postinstall": "patch-package",
     "gen:supabase:types": "supabase gen types typescript --project-id hfgjmwidcoszkmvejxhw --schema public > types/supabase.ts"
   },
   "dependencies": {
