@@ -134,9 +134,9 @@ function HeroSection() {
         {/* Hero Title */}
         <div className="text-center space-y-6 mb-12">
           <h1 className="text-5xl md:text-7xl lg:text-8xl font-medium tracking-tight text-transparent bg-clip-text bg-gradient-to-b from-white via-white to-white/60 pb-2">
-            Materialize
+            Build
             <br className="hidden md:block" />
-            your app ideas
+            beautiful mobile apps fast
           </h1>
           <p className="text-lg md:text-xl text-[#8A8F98] max-w-2xl mx-auto font-normal leading-relaxed">
             Build beautifully designed apps, prototypes, flows, and screens
@@ -615,11 +615,10 @@ function PricingSection() {
           {pricingPlans.map((plan, index) => (
             <div
               key={index}
-              className={`relative p-6 rounded-2xl flex flex-col ${
-                plan.highlighted
-                  ? "bg-[#141517] border border-indigo-500/50 shadow-[0_0_40px_-10px_rgba(99,102,241,0.15)]"
-                  : "bg-transparent border border-white/10"
-              }`}
+              className={`relative p-6 rounded-2xl flex flex-col ${plan.highlighted
+                ? "bg-[#141517] border border-indigo-500/50 shadow-[0_0_40px_-10px_rgba(99,102,241,0.15)]"
+                : "bg-transparent border border-white/10"
+                }`}
             >
               {/* {plan.highlighted && (
                 <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-indigo-500 text-white text-[10px] font-bold uppercase tracking-wider rounded-full">
@@ -648,11 +647,10 @@ function PricingSection() {
 
               <Button
                 onClick={() => handleGetStarted(plan.productKey)}
-                className={`w-full h-10 rounded-full text-sm font-medium transition-all mb-8 ${
-                  plan.highlighted
-                    ? "bg-white text-black hover:bg-white/90"
-                    : "bg-white/5 text-white hover:bg-white/10 border border-white/10"
-                }`}
+                className={`w-full h-10 rounded-full text-sm font-medium transition-all mb-8 ${plan.highlighted
+                  ? "bg-white text-black hover:bg-white/90"
+                  : "bg-white/5 text-white hover:bg-white/10 border border-white/10"
+                  }`}
               >
                 {plan.cta}
               </Button>
