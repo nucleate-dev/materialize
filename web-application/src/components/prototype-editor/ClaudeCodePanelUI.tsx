@@ -958,6 +958,9 @@ export default function ClaudeCodePanelUI({
                   </Select>
                 </div>
               )}
+              <p className="text-xs text-muted-foreground">
+                Switching providers or models starts a fresh chat session automatically.
+              </p>
             </div>
           </div>
         </DialogContent>

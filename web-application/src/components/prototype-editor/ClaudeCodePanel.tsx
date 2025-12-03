@@ -2120,6 +2120,19 @@ export default function ClaudeCodePanel({
     }
   };
 
+  // Changing models/providers should always start a fresh chat session
+  const handleModelProviderChange = (value: "claude" | "vercel") => {
+    if (value === modelProvider) return;
+    setModelProvider(value);
+    void createNewChatSession();
+  };
+
+  const handleModelChange = (value: string) => {
+    if (value === model) return;
+    setModel(value);
+    void createNewChatSession();
+  };
+
   // Handle Enter key
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -2150,8 +2163,8 @@ export default function ClaudeCodePanel({
       modelProvider={modelProvider}
       model={model}
       vercelModels={vercelModelOptions}
-      onModelProviderChange={(value) => setModelProvider(value)}
-      onModelChange={(value) => setModel(value)}
+      onModelProviderChange={handleModelProviderChange}
+      onModelChange={handleModelChange}
       messages={messages}
       expandedThinking={expandedThinking}
       currentTodos={currentTodos}
