@@ -25,13 +25,12 @@ export default function PremiumHeader({
 
   return (
     <header
-      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-        isScrolled
-          ? forceDarkMode
-            ? "bg-black/90 backdrop-blur-xl border-b border-gray-700/20 py-3"
-            : "bg-white/90 dark:bg-black/90 backdrop-blur-xl border-b border-gray-200/20 dark:border-gray-700/20 py-3"
-          : "bg-transparent py-6"
-      }`}
+      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${isScrolled
+        ? forceDarkMode
+          ? "bg-black/90 backdrop-blur-xl border-b border-gray-700/20 py-3"
+          : "bg-white/90 dark:bg-black/90 backdrop-blur-xl border-b border-gray-200/20 dark:border-gray-700/20 py-3"
+        : "bg-transparent py-6"
+        }`}
     >
       <div className="container mx-auto px-6">
         <nav className="flex items-center justify-between">
@@ -39,12 +38,11 @@ export default function PremiumHeader({
           <div className="flex items-center space-x-3">
             <Link
               href={user ? "/dashboard" : "/"}
-              className={`flex items-center gap-2 text-2xl font-bold hover:opacity-80 transition-opacity duration-200 ${
-                forceDarkMode ? "text-white" : "text-black dark:text-white"
-              }`}
+              className={`flex items-center gap-2 text-2xl font-bold hover:opacity-80 transition-opacity duration-200 ${forceDarkMode ? "text-white" : "text-black dark:text-white"
+                }`}
             >
               <FlaskConical className="w-6 h-6 text-primary" />
-              <span>Materialize</span>
+              <span>Sanara</span>
             </Link>
           </div>
 
@@ -52,32 +50,29 @@ export default function PremiumHeader({
           <div className="flex items-center space-x-3">
             <Link
               href="/blog"
-              className={`hidden md:block transition-all duration-200 text-sm font-medium ${
-                forceDarkMode
-                  ? "text-white/70 hover:text-white"
-                  : "text-black/70 hover:text-black dark:text-white/70 dark:hover:text-white"
-              }`}
+              className={`hidden md:block transition-all duration-200 text-sm font-medium ${forceDarkMode
+                ? "text-white/70 hover:text-white"
+                : "text-black/70 hover:text-black dark:text-white/70 dark:hover:text-white"
+                }`}
             >
               Blog
             </Link>
             {userIsLoading ? (
               <div
-                className={`px-4 py-2 rounded-full text-sm ${
-                  forceDarkMode
-                    ? "border border-white/20 text-white/80"
-                    : "border border-black/20 dark:border-white/20 text-black/80 dark:text-white/80"
-                }`}
+                className={`px-4 py-2 rounded-full text-sm ${forceDarkMode
+                  ? "border border-white/20 text-white/80"
+                  : "border border-black/20 dark:border-white/20 text-black/80 dark:text-white/80"
+                  }`}
               >
                 Loading...
               </div>
             ) : user ? (
               <Link
                 href="/dashboard"
-                className={`px-4 py-2 rounded-full font-medium transition-all duration-300 hover:scale-105 text-sm ${
-                  forceDarkMode
-                    ? "bg-white text-black"
-                    : "bg-black text-white dark:bg-white dark:text-black"
-                }`}
+                className={`px-4 py-2 rounded-full font-medium transition-all duration-300 hover:scale-105 text-sm ${forceDarkMode
+                  ? "bg-white text-black"
+                  : "bg-black text-white dark:bg-white dark:text-black"
+                  }`}
               >
                 Dashboard
               </Link>
@@ -85,21 +80,19 @@ export default function PremiumHeader({
               <>
                 <Link
                   href="/login"
-                  className={`px-4 py-2 transition-all duration-200 text-sm font-medium ${
-                    forceDarkMode
-                      ? "text-white/70 hover:text-white"
-                      : "text-black/70 dark:text-white/70 hover:text-black dark:hover:text-white"
-                  }`}
+                  className={`px-4 py-2 transition-all duration-200 text-sm font-medium ${forceDarkMode
+                    ? "text-white/70 hover:text-white"
+                    : "text-black/70 dark:text-white/70 hover:text-black dark:hover:text-white"
+                    }`}
                 >
                   Sign in
                 </Link>
                 <Link
                   href="/register"
-                  className={`px-4 py-2 rounded-full font-medium transition-all duration-300 hover:scale-105 text-sm ${
-                    forceDarkMode
-                      ? "bg-white text-black"
-                      : "bg-black text-white dark:bg-white dark:text-black"
-                  }`}
+                  className={`px-4 py-2 rounded-full font-medium transition-all duration-300 hover:scale-105 text-sm ${forceDarkMode
+                    ? "bg-white text-black"
+                    : "bg-black text-white dark:bg-white dark:text-black"
+                    }`}
                 >
                   Create Account
                 </Link>
