@@ -100,7 +100,7 @@ export class ChatService {
 
     // Initialize ChatQueryHandler
     // FLAG!
-    const enableDesignAgentOnFirstMessage = false;
+    const enableDesignAgentOnFirstMessage = true;
     this.chatQueryHandler = new ChatQueryHandler(
       workDir,
       logger,

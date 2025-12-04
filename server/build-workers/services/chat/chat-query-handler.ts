@@ -388,33 +388,22 @@ export class ChatQueryHandler {
       }
     }
 
-    // Step 7: Augment system prompt with design spec if available
-    let finalSystemPrompt = designSystemResult.systemPrompt;
-    if (designSpec) {
-      finalSystemPrompt += `\n\n## Design Specification:\n${designSpec}\n\nNow implement the app according to this design specification.`;
-      this.logger.consoleLogDevOnly(
-        "info",
-        "Injected design specification into system prompt",
-        { designSpecLength: designSpec.length },
-      );
-    }
-
-    // Step 8: Notify orchestration that chat is starting
+    // Step 7: Notify orchestration that chat is starting
     await handlers.notifyOrchestrationStartChat(prototypeId);
 
-    // Step 9: Execute query with proper cleanup
+    // Step 8: Execute query with proper cleanup
     let implementationCostUsd: number | undefined = undefined;
 
     try {
       implementationCostUsd = await this.executeClaudeQuery(
         context,
-        finalSystemPrompt,
+        designSystemResult.systemPrompt,
         handlers,
         designSpec,
         designMetadata ?? undefined,
       );
     } finally {
-      // Step 10: Combine costs from design agent and implementation
+      // Step 9: Combine costs from design agent and implementation
       const totalCostUsd =
         (designAgentCost ?? 0) + (implementationCostUsd ?? 0);
 
@@ -424,7 +413,7 @@ export class ChatQueryHandler {
         totalCostUsd,
       });
 
-      // Step 11: Sync files and track usage
+      // Step 10: Sync files and track usage
       await this.syncAndTrackUsage(
         prototypeId,
         socket,
@@ -433,7 +422,7 @@ export class ChatQueryHandler {
         handlers.sendMessage,
       );
 
-      // Step 12: Always notify orchestration that chat has ended
+      // Step 11: Always notify orchestration that chat has ended
       await handlers.notifyOrchestrationEndChat(prototypeId);
     }
   }
@@ -558,7 +547,7 @@ export class ChatQueryHandler {
     sessionState: CodeSessionState,
     design_style: string | undefined,
     current_viewing_path: string | undefined,
-    options: Options,
+    _options: Options,
   ): Promise<DesignSystemResult> {
     // Check if design system changed or needs to be loaded
     if (custom_design_system_id !== sessionState.designSystemId) {
@@ -628,27 +617,8 @@ export class ChatQueryHandler {
         "\n\n## Custom Design System Rules:\n" + sessionState.designSystemRules;
     }
 
-    // Append current viewing path context if available
-    if (current_viewing_path) {
-      systemPromptAppend += `\n\n## Current Viewing Context:\nThe user is currently viewing the route: ${current_viewing_path}\n(Note: This context may or may not be relevant to the user's query)`;
-    }
-
-    // Append history context if provided (from handleQueryWithHistory)
-    // const historyContext = (options as Record<string, unknown>)
-    //   ?.__historyContext as string | undefined;
-    // if (historyContext) {
-    //   systemPromptAppend += historyContext;
-    //   this.logger.consoleLogDevOnly(
-    //     "info",
-    //     "Injected history context into system prompt",
-    //     {
-    //       contextLength: historyContext.length,
-    //     },
-    //   );
-    // }
-
     return {
-      systemPrompt: getSystemPromptForDesignStyle(),
+      systemPrompt: systemPromptAppend,
       designSystemId: sessionState.designSystemId,
       designSystemRules: sessionState.designSystemRules,
     };
@@ -1120,6 +1090,7 @@ export class ChatQueryHandler {
       const totalCostUsd = await this.streamQueryResponse(
         streamContext,
         handlers,
+        designSpec,
       );
 
       // Images were already uploaded before persisting the user message
@@ -1717,6 +1688,7 @@ export class ChatQueryHandler {
   private async streamQueryResponse(
     streamContext: StreamContext,
     handlers: MessageHandlers,
+    designSpec?: string | null,
   ): Promise<number | undefined> {
     const {
       messageContent,
@@ -1732,14 +1704,25 @@ export class ChatQueryHandler {
 
     // Create async generator for streaming input
     const generateMessages = async function* (): AsyncGenerator<{
-      type: "user";
+      type: "user" | "system";
       message: {
-        role: "user";
+        role: "user" | "system";
         content:
         | string
         | Array<{ type: string; text?: string; source?: unknown; }>;
       };
     }> {
+      // If design spec exists, yield it as a system message first
+      if (designSpec) {
+        yield {
+          type: "system" as const,
+          message: {
+            role: "system" as const,
+            content: `Design Specification:\n${designSpec}\n\nNow implement the app according to this design specification.`,
+          },
+        };
+      }
+
       yield {
         type: "user" as const,
         message: {
