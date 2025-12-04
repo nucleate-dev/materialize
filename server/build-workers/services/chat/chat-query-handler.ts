@@ -546,7 +546,7 @@ export class ChatQueryHandler {
     custom_design_system_id: string | null,
     sessionState: CodeSessionState,
     design_style: string | undefined,
-    current_viewing_path: string | undefined,
+    _current_viewing_path: string | undefined,
     _options: Options,
   ): Promise<DesignSystemResult> {
     // Check if design system changed or needs to be loaded
@@ -770,7 +770,7 @@ export class ChatQueryHandler {
     prototypeId: string,
     userMessage: string,
     abortController: AbortController,
-    systemPrompt: string,
+    _systemPrompt: string,
   ): Promise<{ designSpec: string | null; costUsd: number | undefined; }> {
     try {
 
