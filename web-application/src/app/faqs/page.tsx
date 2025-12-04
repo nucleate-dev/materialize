@@ -259,8 +259,8 @@ export default function FAQPage() {
                         key={cat.category}
                         onClick={() => scrollToCategory(cat.category)}
                         className={`w-full text-left px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${activeCategory === cat.category
-                            ? "bg-white/10 text-white"
-                            : "text-[#8A8F98] hover:text-white hover:bg-white/5"
+                          ? "bg-white/10 text-white"
+                          : "text-[#8A8F98] hover:text-white hover:bg-white/5"
                           }`}
                       >
                         {cat.category}

@@ -788,7 +788,7 @@ export default function ClaudeCodePanelUI({
             placeholder={
               !isCurrentSessionMostRecent
                 ? "Session is read-only"
-                : "Ask Sanara AI to edit code..."
+                : "Ask Sanara to edit code..."
             }
             disabled={isProcessing || !isCurrentSessionMostRecent}
             className="flex-1 min-h-[44px] max-h-32 bg-transparent border-0 focus-visible:ring-0 p-2.5 text-sm resize-none placeholder:text-muted-foreground text-foreground"

@@ -1,5 +1,6 @@
 "use client";
 
+import { RenderStatus } from "@/app/dashboard/projects/[prototype_id]/InternalPrototypePage";
 import { supabase } from "@/ClientConstants";
 import { useCreditUsage } from "@/hooks/useCreditUsage";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
@@ -14,7 +15,6 @@ import { clearChatIntent, getChatIntent } from "@/lib/utils/chatIntentUtils";
 import type React from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ClaudeCodePanelUI from "./ClaudeCodePanelUI";
-import { RenderStatus } from "@/app/dashboard/projects/[prototype_id]/InternalPrototypePage";
 
 type Prototype = Database["public"]["Tables"]["prototypes"]["Row"];
 export type PrototypeChatSession =
@@ -58,14 +58,14 @@ interface ClaudeCodePanelProps {
 export interface Message {
   id: string;
   type:
-    | "user"
-    | "assistant"
-    | "system"
-    | "error"
-    | "tool"
-    | "thinking"
-    | "usage"
-    | "design_spec";
+  | "user"
+  | "assistant"
+  | "system"
+  | "error"
+  | "tool"
+  | "thinking"
+  | "usage"
+  | "design_spec";
   content: string;
   timestamp: number;
   toolName?: string;
@@ -161,7 +161,7 @@ export default function ClaudeCodePanel({
     allChatSessions.length === 0 ||
     Boolean(
       prototypeChatSessionId &&
-        allChatSessions[0]?.id === prototypeChatSessionId,
+      allChatSessions[0]?.id === prototypeChatSessionId,
     );
 
   // Settings modal state
@@ -598,7 +598,7 @@ export default function ClaudeCodePanel({
               id: `corruption-warning-${Date.now()}`,
               type: "system",
               content:
-                "Chat session has been corrupted. Materialize AI won't be able to see previous messages before this point.",
+                "Chat session has been corrupted. Sanara won't be able to see previous messages before this point.",
               timestamp: Date.now(),
             });
           }
@@ -1237,7 +1237,7 @@ export default function ClaudeCodePanel({
       }
 
       default: {
-        const unknownMessage = message as { type: string };
+        const unknownMessage = message as { type: string; };
         logger.debug("log", "Unknown message type", {
           messageType: unknownMessage.type,
         });
@@ -1801,7 +1801,7 @@ export default function ClaudeCodePanel({
       const content: Array<{
         type: string;
         text?: string;
-        source?: { type: string; url: string };
+        source?: { type: string; url: string; };
       }> = [];
 
       // Add text if present
@@ -1863,21 +1863,21 @@ export default function ClaudeCodePanel({
       // Send message in the format expected by CodeService
       if (ws) {
         ws.send(
-            JSON.stringify({
-              type: "query",
-              data: {
-                content,
-                token,
-                options: {
-                  provider: modelProvider,
-                  model: modelProvider === "vercel" ? model : undefined,
-                },
-                ai_chat_session_id: isCorruptedSession
-                  ? null
-                  : sessionIdRef.current,
-                prototype_chat_session_id: prototypeChatSessionId,
-                custom_design_system_id: prototype?.custom_design_system,
-                design_style: prototype?.design_style,
+          JSON.stringify({
+            type: "query",
+            data: {
+              content,
+              token,
+              options: {
+                provider: modelProvider,
+                model: modelProvider === "vercel" ? model : undefined,
+              },
+              ai_chat_session_id: isCorruptedSession
+                ? null
+                : sessionIdRef.current,
+              prototype_chat_session_id: prototypeChatSessionId,
+              custom_design_system_id: prototype?.custom_design_system,
+              design_style: prototype?.design_style,
               current_viewing_path: currentViewingPath,
               image_metadata: uploadedImageMetadata.map((img) => ({
                 storage_path: img.storage_path,
