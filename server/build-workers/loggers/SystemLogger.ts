@@ -34,14 +34,14 @@ type NormalizedError = {
 type EMFMetric = {
   Name: string;
   Unit?:
-    | "Count"
-    | "Milliseconds"
-    | "Seconds"
-    | "Percent"
-    | "Bytes"
-    | "Kilobytes"
-    | "Megabytes"
-    | "Gigabytes";
+  | "Count"
+  | "Milliseconds"
+  | "Seconds"
+  | "Percent"
+  | "Bytes"
+  | "Kilobytes"
+  | "Megabytes"
+  | "Gigabytes";
 };
 
 type EMFStructure = {
@@ -158,15 +158,29 @@ export class SystemLogger {
    * WARNING: Only use low-cardinality dimensions (model, intent) to avoid high costs.
    * DO NOT add userId or prototypeId as dimensions - they're already in log context for searching.
    */
-  metricTokenUsage(
-    modelName: string,
-    inputTokens: number,
-    outputTokens: number,
-    costInUsd: number,
-    durationMs: number,
-    durationApiMs: number,
-    extraDims: Record<string, string> = {},
-  ): void {
+  metricTokenUsage(params: {
+    modelName: string;
+    inputTokens: number;
+    outputTokens: number;
+    cacheReadInputTokens?: number;
+    cacheCreationOutputTokens?: number;
+    costInUsd: number;
+    durationMs: number;
+    durationApiMs: number;
+    extraDims?: Record<string, string>;
+  }): void {
+    const {
+      modelName,
+      inputTokens,
+      outputTokens,
+      cacheReadInputTokens,
+      cacheCreationOutputTokens,
+      costInUsd,
+      durationMs,
+      durationApiMs,
+      extraDims = {},
+    } = params;
+
     // Also log as structured data for CloudWatch Logs Insights queries
     const logData: Record<string, unknown> = {
       model: modelName,
@@ -174,6 +188,12 @@ export class SystemLogger {
       outputTokens,
       ...extraDims,
     };
+    if (cacheReadInputTokens !== undefined) {
+      logData.cacheReadInputTokens = cacheReadInputTokens;
+    }
+    if (cacheCreationOutputTokens !== undefined) {
+      logData.cacheCreationOutputTokens = cacheCreationOutputTokens;
+    }
     if (costInUsd !== undefined) {
       logData.costInUsd = costInUsd;
     }
@@ -194,6 +214,16 @@ export class SystemLogger {
       LLM_InputTokens: inputTokens,
       LLM_OutputTokens: outputTokens,
     };
+
+    if (cacheReadInputTokens !== undefined) {
+      metrics.push({ Name: "LLM_CacheReadInputTokens", Unit: "Count" });
+      metricValues.LLM_CacheReadInputTokens = cacheReadInputTokens;
+    }
+
+    if (cacheCreationOutputTokens !== undefined) {
+      metrics.push({ Name: "LLM_CacheCreationOutputTokens", Unit: "Count" });
+      metricValues.LLM_CacheCreationOutputTokens = cacheCreationOutputTokens;
+    }
 
     if (costInUsd !== undefined) {
       metrics.push({ Name: "LLM_CostInUsd" });
@@ -430,7 +460,7 @@ export class SystemLogger {
 
 export function genRequestIds(
   headers: Record<string, string | string[] | undefined>,
-): { requestId: string; traceId: string } {
+): { requestId: string; traceId: string; } {
   const fromHeader = (name: string): string => {
     const value = headers[name] ?? headers[name.toLowerCase()];
     if (Array.isArray(value)) {

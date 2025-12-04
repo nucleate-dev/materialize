@@ -26,8 +26,8 @@ import { SandboxService } from "../SandboxService.js";
 import { SupabaseClientService } from "../SupabaseClientService.js";
 import { TerminalService } from "../terminals/TerminalService.js";
 import {
-  getSystemPromptForDesignStyle,
   DESIGN_AGENT_PROMPT,
+  getSystemPromptForDesignStyle,
 } from "./ClaudeCodePrompts.js";
 import {
   costFunctionV2,
@@ -308,9 +308,9 @@ export class ChatQueryHandler {
             ? content
             : Array.isArray(content)
               ? content
-                  .filter((block) => block.type === "text")
-                  .map((block) => block.text || "")
-                  .join("\n")
+                .filter((block) => block.type === "text")
+                .map((block) => block.text || "")
+                .join("\n")
               : prompt || "";
 
         if (userMessageText) {
@@ -801,7 +801,7 @@ export class ChatQueryHandler {
     userMessage: string,
     abortController: AbortController,
     systemPrompt: string,
-  ): Promise<{ designSpec: string | null; costUsd: number | undefined }> {
+  ): Promise<{ designSpec: string | null; costUsd: number | undefined; }> {
     try {
 
       this.logger.consoleLogDevOnly(
@@ -890,7 +890,7 @@ export class ChatQueryHandler {
 
   private parseDesignAgentSpec(
     rawSpec: string,
-  ): { spec: string; metadata: DesignAgentMetadata } {
+  ): { spec: string; metadata: DesignAgentMetadata; } {
     const defaultMetadata: DesignAgentMetadata = {
       scope: "unknown",
       addToProjectContext: false,
@@ -1009,20 +1009,20 @@ export class ChatQueryHandler {
         );
 
         // Send design generation completed message to client
-            handlers.sendMessage(socket, {
-              type: ChatEvent.DESIGN_GENERATION,
-              data: {
-                status: "completed",
-                message: "Design specification generated",
-                designSpec: designSpec, // Include the actual spec content
-                runDesignAgent: shouldRunDesignAgent,
-                isAppLevel,
-                isNarrowBuild,
-                persistToProjectContext: metadata.addToProjectContext,
-                isMasterDesignSpec: metadata.isMasterDesignSpec,
-                scope: metadata.scope,
-              },
-            });
+        handlers.sendMessage(socket, {
+          type: ChatEvent.DESIGN_GENERATION,
+          data: {
+            status: "completed",
+            message: "Design specification generated",
+            designSpec: designSpec, // Include the actual spec content
+            runDesignAgent: shouldRunDesignAgent,
+            isAppLevel,
+            isNarrowBuild,
+            persistToProjectContext: metadata.addToProjectContext,
+            isMasterDesignSpec: metadata.isMasterDesignSpec,
+            scope: metadata.scope,
+          },
+        });
 
         this.logger.consoleLogDevOnly(
           "info",
@@ -1877,6 +1877,8 @@ export class ChatQueryHandler {
           const { usage, total_cost_usd, duration_ms, duration_api_ms } = msg;
           const inputTokens = usage?.input_tokens ?? 0;
           const outputTokens = usage?.output_tokens ?? 0;
+          const cacheReadInputTokens = usage?.cache_read_input_tokens ?? 0;
+          const cacheCreationOutputTokens = usage?.cache_creation_output_tokens ?? 0;
 
           // Store total_cost_usd for usage tracking in finally block
           totalCostUsd = total_cost_usd;
@@ -1885,14 +1887,16 @@ export class ChatQueryHandler {
           bufferState.creditsUsed = costFunctionV2(total_cost_usd);
           bufferState.costFunction = CURRENT_COST_FUNCTION_NAME;
 
-          this.logger.metricTokenUsage(
-            queryOptions.model ?? "unknown",
+          this.logger.metricTokenUsage({
+            modelName: queryOptions.model ?? "unknown",
             inputTokens,
             outputTokens,
-            total_cost_usd,
-            duration_ms,
-            duration_api_ms,
-          );
+            cacheReadInputTokens,
+            cacheCreationOutputTokens,
+            costInUsd: total_cost_usd,
+            durationMs: duration_ms,
+            durationApiMs: duration_api_ms,
+          });
           tokenUsageLogged = true;
         } catch (logError) {
           this.logger.error(
