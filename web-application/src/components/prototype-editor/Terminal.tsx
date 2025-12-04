@@ -124,8 +124,7 @@ export default function Terminal({
         "\x1b[1;32m┌─────────────────────────────────────────┐\x1b[0m",
       );
       terminal.writeln(
-        `\x1b[1;32m│  \x1b[1;37mMaterialize Terminal - ${
-          TERMINAL_SESSION_LABELS[session]
+        `\x1b[1;32m│  \x1b[1;37mSanara Terminal - ${TERMINAL_SESSION_LABELS[session]
         }\x1b[1;32m${" ".repeat(
           Math.max(0, 13 - TERMINAL_SESSION_LABELS[session].length),
         )}│\x1b[0m`,
@@ -258,14 +257,12 @@ export default function Terminal({
             instance.xterm.write(message.data.chunk);
           } else if (message.event === "exit") {
             instance.xterm.writeln(
-              `\r\n\x1b[33mProcess exited with code: ${
-                message.data?.exitCode ?? "unknown"
+              `\r\n\x1b[33mProcess exited with code: ${message.data?.exitCode ?? "unknown"
               }\x1b[0m`,
             );
           } else if (message.event === "error") {
             instance.xterm.writeln(
-              `\r\n\x1b[31mError: ${
-                message.data?.error || "Terminal error occurred"
+              `\r\n\x1b[31mError: ${message.data?.error || "Terminal error occurred"
               }\x1b[0m`,
             );
           }
@@ -316,10 +313,9 @@ export default function Terminal({
               onClick={() => setActiveSession(session)}
               className={`
                 px-4 py-2 text-sm font-medium transition-colors relative
-                ${
-                  activeSession === session
-                    ? "text-foreground bg-[#0a0a0a] border-b-2 border-primary"
-                    : "text-muted-foreground hover:text-foreground hover:bg-[#0a0a0a]/50"
+                ${activeSession === session
+                  ? "text-foreground bg-[#0a0a0a] border-b-2 border-primary"
+                  : "text-muted-foreground hover:text-foreground hover:bg-[#0a0a0a]/50"
                 }
               `}
             >
@@ -327,9 +323,8 @@ export default function Terminal({
                 {TERMINAL_SESSION_LABELS[session]}
                 {/* Connection indicator */}
                 <div
-                  className={`w-2 h-2 rounded-full ${
-                    isConnected ? "bg-green-500" : "bg-gray-500"
-                  }`}
+                  className={`w-2 h-2 rounded-full ${isConnected ? "bg-green-500" : "bg-gray-500"
+                    }`}
                   title={isConnected ? "Connected" : "Disconnected"}
                 />
               </div>
@@ -346,9 +341,8 @@ export default function Terminal({
             ref={(el) => {
               if (el) terminalRefsMap.current.set(session, el);
             }}
-            className={`w-full h-full bg-[#0a0a0a] overflow-hidden absolute inset-0 ${
-              activeSession === session ? "block" : "hidden"
-            }`}
+            className={`w-full h-full bg-[#0a0a0a] overflow-hidden absolute inset-0 ${activeSession === session ? "block" : "hidden"
+              }`}
           />
         ))}
       </div>

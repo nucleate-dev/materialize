@@ -224,7 +224,7 @@ const MaterializeRenderSection = forwardRef<
     const [editingScreenId, setEditingScreenId] = useState<number | null>(null);
     const [tempPath, setTempPath] = useState<string>("");
     const [routeSuggestions, setRouteSuggestions] = useState<
-      Array<{ route: string; group?: string }>
+      Array<{ route: string; group?: string; }>
     >([]);
 
     // Terminal state
@@ -391,7 +391,7 @@ const MaterializeRenderSection = forwardRef<
     const availableRoutes = React.useMemo(() => {
       if (!files) return [];
 
-      const routes: Array<{ route: string; group?: string }> = [];
+      const routes: Array<{ route: string; group?: string; }> = [];
       Object.keys(files).forEach((filePath) => {
         // Look for files in app/ directory that could be routes
         if (filePath.startsWith("app/")) {
@@ -770,8 +770,8 @@ const MaterializeRenderSection = forwardRef<
         const downloadUrl = URL.createObjectURL(zipBlob);
         const link = document.createElement("a");
         const exportName = prototypeId
-          ? `materialize-project-${prototypeId}.zip`
-          : "materialize-project-export.zip";
+          ? `sanara-project-${prototypeId}.zip`
+          : "sanara-project-export.zip";
 
         link.href = downloadUrl;
         link.download = exportName;
@@ -1001,7 +1001,7 @@ const MaterializeRenderSection = forwardRef<
     };
 
     // Connection loading overlay for iframe
-    const ConnectionLoadingOverlay = ({ mode }: { mode: PreviewMode }) => (
+    const ConnectionLoadingOverlay = ({ mode }: { mode: PreviewMode; }) => (
       <div className="absolute inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm z-10">
         <div className="text-center bg-accent p-6 rounded-xl border border-border shadow-2xl">
           <Loader2 className="w-6 h-6 animate-spin mx-auto mb-3 text-muted-foreground" />
@@ -1018,7 +1018,7 @@ const MaterializeRenderSection = forwardRef<
     );
 
     // Error overlay for iframe
-    const ConnectionErrorOverlay = ({ mode }: { mode: PreviewMode }) => (
+    const ConnectionErrorOverlay = ({ mode }: { mode: PreviewMode; }) => (
       <div className="absolute inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm z-10">
         <div className="text-center bg-accent p-6 rounded-xl border border-red-500/20 shadow-2xl">
           <div className="w-8 h-8 mx-auto mb-3 text-red-400 bg-red-400/10 rounded-full flex items-center justify-center">

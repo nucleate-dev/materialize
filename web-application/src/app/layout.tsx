@@ -1,5 +1,5 @@
-import { ThemeProvider } from "@/components/theme-provider";
 import { MetaPixelPageView } from "@/components/MetaPixelPageView";
+import { ThemeProvider } from "@/components/theme-provider";
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import Script from "next/script";
@@ -9,9 +9,9 @@ import { CSPostHogProvider, QueryProvider } from "./providers";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Materialize - Speed of Thought Prototyping",
+  title: "Sanara - Speed of Thought Prototyping",
   description:
-    "Materialize helps you prototype your ideas, workshop new designs, and build out high-quality user flows.",
+    "Sanara helps you prototype your ideas, workshop new designs, and build out high-quality user flows.",
   keywords: [
     "prototyping",
     "design",
@@ -21,18 +21,18 @@ export const metadata: Metadata = {
     "user flows",
     "canvas",
   ],
-  authors: [{ name: "Materialize" }],
+  authors: [{ name: "Sanara" }],
   openGraph: {
-    title: "Materialize - Speed of Thought Prototyping",
+    title: "Sanara - Speed of Thought Prototyping",
     description:
-      "Prototype your ideas, workshop new designs, and build high-quality user flows.",
+      "Sanara helps you prototype your ideas, workshop new designs, and build high-quality user flows.",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Materialize - Speed of Thought Prototyping",
+    title: "Sanara - Speed of Thought Prototyping",
     description:
-      "Prototype your ideas, workshop new designs, and build high-quality user flows.",
+      "Sanara helps you prototype your ideas, workshop new designs, and build high-quality user flows.",
   },
   verification: {
     other: {

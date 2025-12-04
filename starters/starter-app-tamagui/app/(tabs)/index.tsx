@@ -11,7 +11,7 @@ export default function HomeScreen() {
       gap="$4"
     >
       <H1 size="$8" fontWeight="bold" color="$color" textAlign="center">
-        Welcome to Materialize!
+        Welcome to Sanara!
       </H1>
 
       <Separator width="80%" borderColor="$borderColor" />

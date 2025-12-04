@@ -23,6 +23,6 @@ export const env = {
   ENV: process.env.EXPO_PUBLIC_ENV || 'development',
 
   // App
-  APP_NAME: process.env.EXPO_PUBLIC_APP_NAME || expoConfig?.name || 'Materialize',
+  APP_NAME: process.env.EXPO_PUBLIC_APP_NAME || expoConfig?.name || 'sanara',
   APP_VERSION: process.env.EXPO_PUBLIC_APP_VERSION || expoConfig?.version || '1.0.0',
 } as const;

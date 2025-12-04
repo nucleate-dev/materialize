@@ -1,6 +1,6 @@
+import { getAllPosts, getPostBySlug } from "@/lib/blog";
 import { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { getPostBySlug, getAllPosts } from "@/lib/blog";
 import BlogPost from "./BlogPost";
 
 interface BlogPostPageProps {
@@ -24,12 +24,12 @@ export async function generateMetadata({
 
   if (!post) {
     return {
-      title: "Post Not Found | Materialize Blog",
+      title: "Post Not Found | Sanara Blog",
     };
   }
 
   return {
-    title: `${post.title} | Materialize Blog`,
+    title: `${post.title} | Sanara Blog`,
     description: post.excerpt,
     keywords: post.tags,
     authors: [{ name: post.author }],

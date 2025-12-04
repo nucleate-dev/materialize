@@ -85,7 +85,7 @@ export default function Blog({ initialPosts }: BlogProps) {
               </h1>
               <p className="text-lg md:text-xl text-[#8A8F98] max-w-2xl mx-auto font-normal leading-relaxed">
                 Insights, tutorials, and updates on building products{" "}
-                <br className="hidden md:block" /> with Materialize and React
+                <br className="hidden md:block" /> with Sanara and React
                 Native.
               </p>
             </div>
@@ -119,10 +119,9 @@ export default function Blog({ initialPosts }: BlogProps) {
                       onClick={() => setSelectedCategory(category.key)}
                       className={`
                         flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200
-                        ${
-                          isSelected
-                            ? "bg-white text-black hover:bg-white/90"
-                            : "bg-white/5 text-white/70 hover:bg-white/10 hover:text-white border border-white/5"
+                        ${isSelected
+                          ? "bg-white text-black hover:bg-white/90"
+                          : "bg-white/5 text-white/70 hover:bg-white/10 hover:text-white border border-white/5"
                         }
                       `}
                     >
@@ -345,7 +344,7 @@ export default function Blog({ initialPosts }: BlogProps) {
               <span className="hover:text-white cursor-pointer transition-colors">
                 Terms
               </span>
-              <span>© 2025 Materialize Inc.</span>
+              <span>© 2025 Sanara.</span>
             </div>
           </div>
         </footer>

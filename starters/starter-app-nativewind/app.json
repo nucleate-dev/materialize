@@ -1,9 +1,9 @@
 {
   "expo": {
-    "name": "materialize-nativewind",
-    "slug": "materialize-nativewind",
+    "name": "sanara-nativewind",
+    "slug": "sanara-nativewind",
     "version": "1.0.0",
-    "scheme": "materialize-nativewind",
+    "scheme": "sanara-nativewind",
     "web": {
       "favicon": "./assets/favicon.png",
       "bundler": "metro"
@@ -11,7 +11,12 @@
     "experiments": {
       "tsconfigPaths": true
     },
-    "plugins": ["expo-router", "expo-sqlite", "expo-font", "expo-web-browser"],
+    "plugins": [
+      "expo-router",
+      "expo-sqlite",
+      "expo-font",
+      "expo-web-browser"
+    ],
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -20,17 +25,19 @@
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.materialize.nativewind"
+      "bundleIdentifier": "com.sanara.nativewind"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.materialize.nativewind"
+      "package": "com.sanara.nativewind"
     }
   }
 }

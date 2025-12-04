@@ -6,9 +6,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { useMetaPixel } from "@/hooks/useMetaPixel";
-import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import { redirectAfterLoginAtom } from "@/lib/atoms/sidebar";
 import { cn } from "@/lib/classNames";
+import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import { getUTMParams } from "@/lib/utils/analytics/utmTracking";
 import {
   isValidEmailInput,
@@ -242,7 +242,7 @@ export default function RegistrationForm() {
             Create an account
           </h2>
           <p className="text-[#8A8F98] text-sm">
-            Enter your details to get started with Materialize
+            Enter your details to get started with Sanara
           </p>
         </div>
 
@@ -365,7 +365,7 @@ export default function RegistrationForm() {
                 className={cn(
                   "bg-[#0B0C0E] border-white/10 text-white focus:border-white/20 focus:ring-0 placeholder:text-white/20 h-10",
                   confirmPasswordError &&
-                    "border-red-500/50 focus:border-red-500/50",
+                  "border-red-500/50 focus:border-red-500/50",
                 )}
               />
               {confirmPasswordError && (

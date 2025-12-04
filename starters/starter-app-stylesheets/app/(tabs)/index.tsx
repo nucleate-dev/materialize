@@ -1,5 +1,5 @@
+import { StyledText, Theme, useTheme } from '@/theme';
 import { StyleSheet, View } from 'react-native';
-import { useTheme, Theme, StyledText } from '@/theme';
 
 export default function HomeScreen() {
   const theme = useTheme();
@@ -8,7 +8,7 @@ export default function HomeScreen() {
   return (
     <View style={styles.container}>
       <StyledText variant="h1" style={styles.title}>
-        Welcome to Materialize!
+        Welcome to Sanara!
       </StyledText>
 
       <View style={styles.separator} />

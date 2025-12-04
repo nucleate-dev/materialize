@@ -237,7 +237,7 @@ function FeaturesBentoGrid() {
             Made to build beautiful apps fast
           </h2>
           <p className="text-xl text-[#8A8F98] max-w-2xl">
-            Materialize is shaped by the practices and principles that
+            Sanara is shaped by the practices and principles that
             distinguish world-class product teams from the rest.
           </p>
         </div>
@@ -452,7 +452,7 @@ function GallerySection() {
         <div className="flex flex-col md:flex-row md:items-end justify-between mb-12 gap-6">
           <div>
             <h2 className="text-3xl font-medium text-white mb-2">
-              Built with Materialize
+              Built with Sanara
             </h2>
             {/* <p className="text-[#8A8F98]">Explore what others are building.</p> */}
           </div>
@@ -519,7 +519,7 @@ function PricingSection() {
       name: "Free",
       price: "$0",
       period: "forever",
-      description: "For trying out Materialize",
+      description: "For trying out Sanara",
       features: [
         "5 free projects",
         "15 free messages",
@@ -679,12 +679,12 @@ function FAQSection() {
 
   const featuredFAQs = [
     {
-      q: "How does Materialize work?",
-      a: "Describe your app idea in plain English and Materialize generates a working app using React Native and Expo.",
+      q: "How does Sanara work?",
+      a: "Describe your app idea in plain English and Sanara generates a working app using React Native and Expo.",
     },
     {
       q: "Do I need coding experience?",
-      a: "Materialize makes a working prototype in minutes just from plain English descriptions.",
+      a: "Sanara makes a working prototype in minutes just from plain English descriptions.",
     },
     {
       q: "Can I export the code?",
@@ -698,7 +698,7 @@ function FAQSection() {
         <div className="text-center mb-16">
           <h2 className="text-4xl font-medium text-white mb-4">Questions?</h2>
           <p className="text-[#8A8F98] text-lg">
-            Quick answers to common questions about Materialize.
+            Quick answers to common questions about Sanara.
           </p>
         </div>
 
@@ -758,7 +758,7 @@ function Footer() {
           <span className="hover:text-white cursor-pointer transition-colors">
             Terms
           </span>
-          <span>© 2025 Materialize UI</span>
+          <span>© 2025 Sanara</span>
         </div>
       </div>
     </footer>

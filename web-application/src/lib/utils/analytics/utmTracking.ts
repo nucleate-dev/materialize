@@ -11,7 +11,7 @@
 
 import { ClientProductLogger } from "@/lib/loggers/ClientProductLogger";
 
-const UTM_STORAGE_KEY = "materialize_utm_params";
+const UTM_STORAGE_KEY = "sanara_utm_params";
 
 // Create a logger instance for this utility
 const logger = new ClientProductLogger();

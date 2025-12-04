@@ -1,11 +1,11 @@
-import { Metadata } from "next";
 import { getAllPosts } from "@/lib/blog";
+import { Metadata } from "next";
 import Blog from "./Blog";
 
 export const metadata: Metadata = {
-  title: "Blog | Materialize",
+  title: "Blog | Sanara",
   description:
-    "Latest insights, tutorials, and updates from the Materialize team on React Native development, AI-powered prototyping, and mobile app design.",
+    "Latest insights, tutorials, and updates from the Sanara team on React Native development, AI-powered prototyping, and mobile app design.",
   keywords: [
     "React Native",
     "Mobile Development",
@@ -15,9 +15,9 @@ export const metadata: Metadata = {
     "Blog",
   ],
   openGraph: {
-    title: "Materialize Blog",
+    title: "Sanara Blog",
     description:
-      "Latest insights, tutorials, and updates from the Materialize team",
+      "Latest insights, tutorials, and updates from the Sanara team",
     type: "website",
   },
 };

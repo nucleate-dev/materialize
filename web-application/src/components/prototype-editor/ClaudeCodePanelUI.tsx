@@ -207,6 +207,9 @@ export default function ClaudeCodePanelUI({
     }
   }, [hasReachedCreditLimit]);
 
+  const sanitizeErrorText = (text: string) =>
+    text.replace(/Claude Code/g, "Sanara");
+
   return (
     <div
       className="flex flex-col h-full bg-background border-l border-border relative"
@@ -479,7 +482,9 @@ export default function ClaudeCodePanelUI({
                         )}
                       />
                       <code className="text-xs font-mono text-muted-foreground truncate max-w-[200px] sm:max-w-md">
-                        {message.content}
+                        {message.status === "error"
+                          ? sanitizeErrorText(message.content)
+                          : message.content}
                       </code>
                       {message.status === "running" && (
                         <Loader2 className="w-3 h-3 text-muted-foreground animate-spin ml-1" />
@@ -558,7 +563,7 @@ export default function ClaudeCodePanelUI({
                   {message.type === "error" && (
                     <div className="flex items-start gap-3 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-600 dark:text-red-400 text-sm">
                       <CircleAlert className="w-4 h-4 mt-0.5 shrink-0" />
-                      <div>{message.content}</div>
+                      <div>{sanitizeErrorText(message.content)}</div>
                     </div>
                   )}
 
@@ -783,7 +788,7 @@ export default function ClaudeCodePanelUI({
             placeholder={
               !isCurrentSessionMostRecent
                 ? "Session is read-only"
-                : "Ask Materialize AI to edit code..."
+                : "Ask Sanara AI to edit code..."
             }
             disabled={isProcessing || !isCurrentSessionMostRecent}
             className="flex-1 min-h-[44px] max-h-32 bg-transparent border-0 focus-visible:ring-0 p-2.5 text-sm resize-none placeholder:text-muted-foreground text-foreground"

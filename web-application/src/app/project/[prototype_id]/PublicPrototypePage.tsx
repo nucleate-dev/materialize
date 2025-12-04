@@ -90,13 +90,13 @@ function AppSidebar() {
     },
     ...(SHOW_WHITEBOARDS
       ? [
-          {
-            href: "/dashboard/whiteboards",
-            icon: SquareStack,
-            label: "Whiteboards",
-            active: pathname?.includes("whiteboards"),
-          },
-        ]
+        {
+          href: "/dashboard/whiteboards",
+          icon: SquareStack,
+          label: "Whiteboards",
+          active: pathname?.includes("whiteboards"),
+        },
+      ]
       : []),
   ];
 
@@ -112,7 +112,7 @@ function AppSidebar() {
               <FlaskConical className="relative w-6 h-6 text-primary transition-transform duration-300 group-hover:scale-110 flex-shrink-0" />
 
               <span className="relative text-xl font-bold text-gray-900 dark:text-foreground transition-transform duration-300 group-hover:scale-105">
-                Materialize
+                Sanara
               </span>
             </div>
           </Link>
@@ -156,7 +156,7 @@ function AppSidebar() {
                     className={cn(
                       "text-gray-600 dark:text-[#8A8F98] hover:text-gray-900 dark:hover:text-white transition-colors",
                       item.active &&
-                        "bg-gray-100 dark:bg-white/5 text-gray-900 dark:text-white font-medium",
+                      "bg-gray-100 dark:bg-white/5 text-gray-900 dark:text-white font-medium",
                     )}
                   >
                     <Link href={item.href}>
@@ -229,7 +229,7 @@ function AppSidebar() {
 }
 
 export default function PrototypePage() {
-  const params = useParams<{ prototype_id: string }>();
+  const params = useParams<{ prototype_id: string; }>();
   const prototypeId = params?.prototype_id;
   const logger = useProductLogger();
 

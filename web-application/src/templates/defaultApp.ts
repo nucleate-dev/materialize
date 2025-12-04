@@ -27,7 +27,7 @@ export default function App() {
         <Stack.Screen 
           name="Home" 
           component={HomeScreen} 
-          options={{ title: 'Materialize App' }}
+          options={{ title: 'Sanara App' }}
         />
       </Stack.Navigator>
     </NavigationContainer>
@@ -91,7 +91,7 @@ export default function App() {
         <Stack.Screen 
           name="Home" 
           component={HomeScreen} 
-          options={{ title: 'Materialize App' }}
+          options={{ title: 'Sanara App' }}
         />
       </Stack.Navigator>
     </NavigationContainer>
@@ -125,7 +125,7 @@ const styles = StyleSheet.create({
   "package.json": {
     contents: JSON.stringify(
       {
-        name: "materialize-project",
+        name: "Sanara-project",
         version: "1.0.0",
         main: "App.js",
         scripts: {
@@ -233,9 +233,9 @@ export const spacing = {
     type: "CODE",
   },
   "README.md": {
-    contents: `# Materialize Project
+    contents: `# Sanara Project
 
-This is a React Native project created with Materialize.
+This is a React Native project created with Sanara.
 
 ## Getting Started
 
@@ -265,7 +265,7 @@ This is a React Native project created with Materialize.
 - Component library
 - Traditional React Native tab navigation
 
-Built with ❤️ using Materialize
+Built with ❤️ using Sanara
 `,
     type: "CODE",
   },
@@ -302,7 +302,7 @@ export default function App(): React.JSX.Element {
         <Stack.Screen 
           name="Home" 
           component={HomeScreen} 
-          options={{ title: 'Materialize App' }}
+          options={{ title: 'Sanara App' }}
         />
       </Stack.Navigator>
     </NavigationContainer>
@@ -470,7 +470,7 @@ export const spacing: Spacing = {
   "package.json": {
     contents: JSON.stringify(
       {
-        name: "materialize-project",
+        name: "Sanara-project",
         version: "1.0.0",
         main: "App.tsx",
         scripts: {
@@ -512,9 +512,9 @@ export const spacing: Spacing = {
     type: "CODE",
   },
   "README.md": {
-    contents: `# Materialize Project (TypeScript)
+    contents: `# Sanara (TypeScript)
 
-This is a React Native project created with Materialize using TypeScript.
+This is a React Native project created with Sanara using TypeScript.
 
 ## Getting Started
 
@@ -545,7 +545,7 @@ This is a React Native project created with Materialize using TypeScript.
 - Type-safe navigation with React Navigation
 - Strict TypeScript configuration
 
-Built with ❤️ using Materialize
+Built with ❤️ using Sanara
 `,
     type: "CODE",
   },
