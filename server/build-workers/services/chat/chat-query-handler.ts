@@ -634,21 +634,21 @@ export class ChatQueryHandler {
     }
 
     // Append history context if provided (from handleQueryWithHistory)
-    const historyContext = (options as Record<string, unknown>)
-      ?.__historyContext as string | undefined;
-    if (historyContext) {
-      systemPromptAppend += historyContext;
-      this.logger.consoleLogDevOnly(
-        "info",
-        "Injected history context into system prompt",
-        {
-          contextLength: historyContext.length,
-        },
-      );
-    }
+    // const historyContext = (options as Record<string, unknown>)
+    //   ?.__historyContext as string | undefined;
+    // if (historyContext) {
+    //   systemPromptAppend += historyContext;
+    //   this.logger.consoleLogDevOnly(
+    //     "info",
+    //     "Injected history context into system prompt",
+    //     {
+    //       contextLength: historyContext.length,
+    //     },
+    //   );
+    // }
 
     return {
-      systemPrompt: systemPromptAppend,
+      systemPrompt: getSystemPromptForDesignStyle(),
       designSystemId: sessionState.designSystemId,
       designSystemRules: sessionState.designSystemRules,
     };
@@ -833,7 +833,7 @@ export class ChatQueryHandler {
         options: {
           cwd: this.workDir,
           model: "claude-sonnet-4-5",
-          systemPrompt,
+          systemPrompt: getSystemPromptForDesignStyle(),
           abortController,
           maxTurns: 1, // Only need one response from design agent
         },
@@ -1313,7 +1313,7 @@ export class ChatQueryHandler {
       systemPrompt: {
         type: "preset" as const,
         preset: "claude_code" as const,
-        append: systemPromptAppend,
+        append: getSystemPromptForDesignStyle(),
       },
       settingSources: ["user"] as SettingSource[],
       permissionMode: "default" as PermissionMode,
