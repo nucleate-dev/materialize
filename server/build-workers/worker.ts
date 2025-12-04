@@ -5,7 +5,7 @@ import dotenv from "dotenv";
 import fastify, { FastifyInstance } from "fastify";
 import fs from "fs/promises";
 import { SystemLogger, genRequestIds } from "./loggers/SystemLogger.js";
-import { ChatService } from "./services/chat/ChatService.js";
+import { CodeService } from "./services/code/CodeService.js";
 import { CloudflareTunnelManagementService } from "./services/CloudflareTunnelManagementService.js";
 import { ExpoDevServerService } from "./services/dev-server/ExpoDevServerService.js";
 import { MaterializeDevelopmentServerService } from "./services/dev-server/MaterializeDevelopmentServerService.js";
@@ -116,7 +116,7 @@ const expoDevServerService = new ExpoDevServerService(
   undefined!, // chatService - will be set after ChatService is created
 );
 
-const chatService = new ChatService(
+const chatService = new CodeService(
   app,
   WORK_DIR,
   baseLogger,

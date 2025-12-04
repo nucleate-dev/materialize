@@ -9,18 +9,14 @@ export enum ChatEvent {
   USAGE_UPDATE = "usage_update",
   INTERRUPTED = "interrupted",
   INFO = "info",
-  SESSION_RESET = "session_reset",
   TOOL_START = "tool_start",
   TOOL_COMPLETE = "tool_complete",
   HISTORY_REQUEST = "history_request",
-  MODIFIED_FILES = "modified_files",
 }
 
 export enum ChatClientEvent {
   QUERY = "query",
   INTERRUPT = "interrupt",
-  RESET_SESSION = "reset_session",
-  SYNC_FILES = "sync_files",
   HISTORY_RESPONSE = "history_response",
 }
 
@@ -71,22 +67,6 @@ export interface InterruptMessage {
   type: ChatClientEvent.INTERRUPT;
 }
 
-export interface ResetSessionMessage {
-  type: ChatClientEvent.RESET_SESSION;
-}
-
-export interface SyncFilesRequest {
-  prototypeId?: string;
-  filenames?: string[];
-  assetNames?: string[];
-  token?: string;
-}
-
-export interface SyncFilesMessage {
-  type: ChatClientEvent.SYNC_FILES;
-  data: SyncFilesRequest;
-}
-
 export interface HistoricalMessage {
   role: "user" | "assistant";
   content: string;
@@ -106,8 +86,6 @@ export interface HistoryResponseMessage {
 export type ChatClientMessage =
   | QueryMessage
   | InterruptMessage
-  | ResetSessionMessage
-  | SyncFilesMessage
   | HistoryResponseMessage;
 
 export interface SystemConnectionMessage {
@@ -158,13 +136,6 @@ export interface InfoMessage {
   message: string;
 }
 
-export interface SessionResetMessage {
-  type: ChatEvent.SESSION_RESET;
-  data: {
-    message: string;
-  };
-}
-
 export interface ToolEventPayload {
   tool_name: string;
   tool_call_id?: string;
@@ -191,13 +162,6 @@ export interface FileSyncResultData {
   assetsDeleted: number;
   errorCount: number;
   errors?: string[];
-}
-
-export interface ModifiedFilesMessage {
-  type: ChatEvent.MODIFIED_FILES;
-  data: {
-    files: string[];
-  };
 }
 
 export interface AuthenticatedMessage {
@@ -230,11 +194,9 @@ export type ChatServerMessage =
   | UsageUpdateMessage
   | InterruptedMessage
   | InfoMessage
-  | SessionResetMessage
   | ToolStartMessage
   | ToolCompleteMessage
   | AuthenticatedMessage
   | MessageReceivedMessage
   | ReadyMessage
-  | ModifiedFilesMessage
   | HistoryRequestMessage;

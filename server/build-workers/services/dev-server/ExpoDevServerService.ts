@@ -27,7 +27,7 @@ import {
   uploadAllClaudeSessionsToSupabase,
   writeProjectFiles,
 } from "../../utils/shared-utils.js";
-import { ChatService } from "../chat/ChatService.js";
+import { CodeService } from "../code/CodeService.js";
 import { FileSyncService } from "../FileSyncService.js";
 import { SupabaseClientService } from "../SupabaseClientService.js";
 import { TerminalService } from "../terminals/TerminalService.js";
@@ -116,7 +116,7 @@ export class ExpoDevServerService {
   private readonly terminalService: TerminalService;
   private readonly supabaseClientService: SupabaseClientService;
   private readonly fileSyncService: FileSyncService;
-  private readonly chatService: ChatService;
+  private readonly chatService: CodeService;
 
   constructor(
     workDir: string = "/tmp/materialize-dev-server",
@@ -125,7 +125,7 @@ export class ExpoDevServerService {
     logger: SystemLogger,
     supabaseClientService: SupabaseClientService,
     fileSyncService: FileSyncService,
-    chatService: ChatService,
+    chatService: CodeService,
   ) {
     this.workDir = workDir;
     this.s3 = s3Instance;

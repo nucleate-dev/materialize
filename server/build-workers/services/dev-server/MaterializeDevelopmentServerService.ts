@@ -29,7 +29,7 @@ import { baseLogger } from "../../worker.js";
 import { CloudflareTunnelManagementService } from "../CloudflareTunnelManagementService.js";
 import { SandboxService } from "../SandboxService.js";
 import { SupabaseClientService } from "../SupabaseClientService.js";
-import { ChatService } from "../chat/ChatService.js";
+import { CodeService } from "../code/CodeService.js";
 import { ExpoDevServerService } from "./ExpoDevServerService.js";
 import { FileSyncService } from "../FileSyncService.js";
 import { checkUserHasPrototypeEditAccess } from "../../utils/prototypeAuth.js";
@@ -39,7 +39,7 @@ export class MaterializeDevelopmentServerService {
   private readonly expoDevServerService: ExpoDevServerService;
   private readonly sandboxService: SandboxService;
   private readonly cloudflareTunnelManagementService: CloudflareTunnelManagementService;
-  private readonly codeService: ChatService;
+  private readonly codeService: CodeService;
   private readonly workDir: string;
   private readonly supabaseClientService: SupabaseClientService;
   private readonly fileSyncService: FileSyncService;
@@ -48,7 +48,7 @@ export class MaterializeDevelopmentServerService {
     expoDevServerService: ExpoDevServerService,
     sandboxService: SandboxService,
     cloudflareTunnelManagementService: CloudflareTunnelManagementService,
-    codeService: ChatService,
+    codeService: CodeService,
     workDir: string,
     supabaseClientService: SupabaseClientService,
     fileSyncService: FileSyncService,
