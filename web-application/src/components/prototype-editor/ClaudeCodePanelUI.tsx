@@ -33,6 +33,7 @@ import {
   Check,
   ChevronDown,
   ChevronRight,
+  ChevronUp,
   CircleAlert,
   Edit2,
   Info,
@@ -78,6 +79,11 @@ interface ClaudeCodePanelUIProps {
   isProcessing: boolean;
   baseTunnelUrl: string | null;
   currentRenderStatus?: RenderStatus;
+  modelProvider: "claude" | "vercel";
+  model: string;
+  vercelModels: Array<{ value: string; label: string; }>;
+  onModelProviderChange: (value: "claude" | "vercel") => void;
+  onModelChange: (value: string) => void;
   messages: Message[];
   expandedThinking: Set<string>;
   currentTodos: Todo[];
@@ -88,16 +94,16 @@ interface ClaudeCodePanelUIProps {
   isCurrentSessionMostRecent: boolean;
   isDragOver: boolean;
   uploadingImages: boolean;
-  uploadProgress: { [key: string]: number };
+  uploadProgress: { [key: string]: number; };
   scrollAreaRef:
-    | RefObject<HTMLDivElement | null>
-    | MutableRefObject<HTMLDivElement | null>;
+  | RefObject<HTMLDivElement | null>
+  | MutableRefObject<HTMLDivElement | null>;
   fileInputRef:
-    | RefObject<HTMLInputElement | null>
-    | MutableRefObject<HTMLInputElement | null>;
+  | RefObject<HTMLInputElement | null>
+  | MutableRefObject<HTMLInputElement | null>;
   textareaRef:
-    | RefObject<HTMLTextAreaElement | null>
-    | MutableRefObject<HTMLTextAreaElement | null>;
+  | RefObject<HTMLTextAreaElement | null>
+  | MutableRefObject<HTMLTextAreaElement | null>;
   handleStartTitleEdit: () => void;
   handleCancelTitleEdit: () => void;
   handleSaveTitle: () => void;
@@ -123,6 +129,7 @@ interface ClaudeCodePanelUIProps {
   hasReachedCreditLimit: boolean;
   creditsUsed: number;
   totalAvailableCredits: number;
+  onMessageUpdate?: (message: Message) => void;
 }
 
 export default function ClaudeCodePanelUI({
@@ -143,6 +150,11 @@ export default function ClaudeCodePanelUI({
   isProcessing,
   baseTunnelUrl,
   currentRenderStatus,
+  modelProvider,
+  model,
+  vercelModels,
+  onModelProviderChange,
+  onModelChange,
   messages,
   expandedThinking,
   currentTodos,
@@ -182,6 +194,7 @@ export default function ClaudeCodePanelUI({
   hasReachedCreditLimit,
   creditsUsed,
   totalAvailableCredits,
+  onMessageUpdate,
 }: ClaudeCodePanelUIProps) {
   const [showCreditLimitModal, setShowCreditLimitModal] = useState(false);
   const hasShownModalRef = useRef(false);
@@ -272,9 +285,9 @@ export default function ClaudeCodePanelUI({
                     const dateStr = isToday
                       ? "Today"
                       : date.toLocaleDateString(undefined, {
-                          month: "short",
-                          day: "numeric",
-                        });
+                        month: "short",
+                        day: "numeric",
+                      });
                     const timeStr = date.toLocaleTimeString(undefined, {
                       hour: "numeric",
                       minute: "2-digit",
@@ -492,7 +505,7 @@ export default function ClaudeCodePanelUI({
                       >
                         <div className="text-muted-foreground">
                           {message.toolCallId &&
-                          expandedThinking.has(message.toolCallId) ? (
+                            expandedThinking.has(message.toolCallId) ? (
                             <ChevronDown className="w-3.5 h-3.5" />
                           ) : (
                             <ChevronRight className="w-3.5 h-3.5" />
@@ -553,6 +566,36 @@ export default function ClaudeCodePanelUI({
                   {message.type === "usage" && (
                     <div className="text-xs text-muted-foreground/60 px-1">
                       {message.content}
+                    </div>
+                  )}
+
+                  {/* Design Spec Message - Collapsible */}
+                  {message.type === "design_spec" && (
+                    <div className="w-full">
+                      <div
+                        className="flex items-center gap-2 p-3 rounded-lg bg-purple-500/10 border border-purple-500/20 cursor-pointer hover:bg-purple-500/15 transition-colors"
+                        onClick={() => {
+                          onMessageUpdate?.({
+                            ...message,
+                            isCollapsed: !message.isCollapsed,
+                          });
+                        }}
+                      >
+                        <Sparkles className="w-4 h-4 text-purple-600 dark:text-purple-400 shrink-0" />
+                        <div className="flex-1 text-sm font-medium text-purple-600 dark:text-purple-400">
+                          {message.content}
+                        </div>
+                        {message.isCollapsed ? (
+                          <ChevronDown className="w-4 h-4 text-purple-600 dark:text-purple-400 shrink-0" />
+                        ) : (
+                          <ChevronUp className="w-4 h-4 text-purple-600 dark:text-purple-400 shrink-0" />
+                        )}
+                      </div>
+                      {!message.isCollapsed && message.designSpec && (
+                        <div className="mt-2 p-4 rounded-lg bg-muted/30 border border-border/50 text-sm whitespace-pre-wrap font-mono text-foreground/80 max-h-96 overflow-y-auto">
+                          {message.designSpec}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -865,6 +908,60 @@ export default function ClaudeCodePanelUI({
                 </div>
               )}
             </div>
+
+            {/* Model / Provider */}
+            {/* <div className="space-y-3">
+              <div className="space-y-2">
+                <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Model Provider
+                </label>
+                <Select
+                  value={modelProvider}
+                  onValueChange={(value) =>
+                    onModelProviderChange(value as "claude" | "vercel")
+                  }
+                >
+                  <SelectTrigger className="w-full bg-accent/50 border-border">
+                    <SelectValue placeholder="Select provider" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-background border-border">
+                    <SelectItem value="claude" className="text-sm">
+                      Claude (default)
+                    </SelectItem>
+                    <SelectItem value="vercel" className="text-sm">
+                      Vercel AI (OpenAI/Google)
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {modelProvider === "vercel" && (
+                <div className="space-y-2">
+                  <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    Model
+                  </label>
+                  <Select value={model} onValueChange={(value) => onModelChange(value)}>
+                    <SelectTrigger className="w-full bg-accent/50 border-border">
+                      <SelectValue placeholder="Select model" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-background border-border">
+                      {vercelModels.map((option) => (
+                        <SelectItem
+                          key={option.value}
+                          value={option.value}
+                          className="text-sm"
+                        >
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+              <p className="text-xs text-muted-foreground">
+                Switching providers or models starts a fresh chat session automatically.
+              </p>
+            </div> */}
           </div>
         </DialogContent>
       </Dialog>

@@ -19,8 +19,10 @@ import { FileSyncService } from "../FileSyncService.js";
 import { SandboxService } from "../SandboxService.js";
 import { SupabaseClientService } from "../SupabaseClientService.js";
 import { TerminalService } from "../terminals/TerminalService.js";
+import { VercelChatQueryHandler } from "./chat-query-handler-vercel.js";
 import { ChatQueryHandler } from "./chat-query-handler.js";
 import { MessagePersistenceService } from "./message-handlers.js";
+import { ChatProvider, isAllowedModel } from "./model-providers.js";
 import { ToolPermissionService } from "./tool-permission-service.js";
 
 const CHAT_HEARTBEAT_INTERVAL_MS = 15000;
@@ -52,6 +54,7 @@ export class ChatService {
   private readonly toolPermissionService: ToolPermissionService;
   private readonly messagePersistenceService: MessagePersistenceService;
   private readonly chatQueryHandler: ChatQueryHandler;
+  private readonly vercelChatQueryHandler: VercelChatQueryHandler;
   private sessionState: CodeSessionState = {
     sessionId: null,
     prototypeChatSessionId: null,
@@ -96,6 +99,8 @@ export class ChatService {
     );
 
     // Initialize ChatQueryHandler
+    // FLAG!
+    const enableDesignAgentOnFirstMessage = true;
     this.chatQueryHandler = new ChatQueryHandler(
       workDir,
       logger,
@@ -105,8 +110,26 @@ export class ChatService {
       sandboxService,
       expoDevServerService,
       terminalService,
+      enableDesignAgentOnFirstMessage,
       () => this.getAak(),
     );
+    try {
+      this.vercelChatQueryHandler = new VercelChatQueryHandler(
+        workDir,
+        logger,
+        supabaseClientService,
+        this.fileSyncService,
+        this.toolPermissionService,
+        sandboxService,
+        expoDevServerService,
+        terminalService,
+        enableDesignAgentOnFirstMessage,
+      );
+    } catch (error) {
+      this.logger.error({ error }, "Failed to initialize VercelChatQueryHandler");
+      // Fallback or rethrow depending on severity, for now just log
+      throw error;
+    }
 
     this.logger.consoleLogDevOnly("info", "CodeService initialized", {
       workDir: this.workDir,
@@ -172,7 +195,7 @@ export class ChatService {
 
   private handleWebSocketConnection(
     socket: WebSocket,
-    req: FastifyRequest<{ Params: { prototypeId: string } }>,
+    req: FastifyRequest<{ Params: { prototypeId: string; }; }>,
   ): void {
     const { prototypeId } = req.params;
     const connectionId = `${prototypeId}-${Date.now()}`;
@@ -316,8 +339,30 @@ export class ChatService {
     data: ChatQueryData,
     prototypeId: string,
   ): Promise<void> {
+    const options = (data.options ?? {}) as Options & {
+      provider?: ChatProvider;
+      model?: string;
+    };
+
+    const provider: ChatProvider = (options.provider as ChatProvider) || "claude";
+    const model = options.model;
+
+    if (model && !isAllowedModel(provider, model)) {
+      this.sendMessage(socket, {
+        type: ChatEvent.ERROR,
+        error: {
+          message: `Model ${model} is not allowed for provider ${provider}`,
+          details: "Please choose a supported model.",
+        },
+      });
+      return;
+    }
+
     // Delegate to ChatQueryHandler with proper context and handlers
-    await this.chatQueryHandler.handleQuery(
+    const handler =
+      provider === "vercel" ? this.vercelChatQueryHandler : this.chatQueryHandler;
+
+    await handler.handleQuery(
       {
         prototypeId,
         socket,
@@ -335,6 +380,8 @@ export class ChatService {
           eventData?: unknown,
           creditsUsed?: number | null,
           costFunction?: string | null,
+          provider?: string | null,
+          model?: string | null,
         ) => {
           if (!this.sessionState.prototypeChatSessionId) {
             this.logger.warn("Cannot persist message - no chat session ID");
@@ -346,15 +393,21 @@ export class ChatService {
             content,
             messageType,
             eventType,
-            eventData,
+            {
+              ...(eventData ?? {}),
+              provider: provider ?? null,
+              model: model ?? null,
+            },
             creditsUsed,
             costFunction,
+            provider,
+            model,
           );
         },
         uploadChatImages: async (
           prototypeId: string,
           chatSessionId: string,
-          images: Array<{ base64: string; mediaType: string }>,
+          images: Array<{ base64: string; mediaType: string; }>,
         ) => {
           return await this.messagePersistenceService.uploadChatImages(
             prototypeId,
@@ -394,7 +447,7 @@ export class ChatService {
     let historyContext = "";
     if (historical_messages.length > 0) {
       const formattedMessages = historical_messages
-        .map((msg: { role: string; content: string }) => {
+        .map((msg: { role: string; content: string; }) => {
           const role = msg.role === "user" ? "User" : "Assistant";
           return `${role}: ${msg.content}`;
         })

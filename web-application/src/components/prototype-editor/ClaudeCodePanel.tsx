@@ -12,7 +12,7 @@ import {
 import { Database } from "@/lib/types/supabase";
 import { clearChatIntent, getChatIntent } from "@/lib/utils/chatIntentUtils";
 import type React from "react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ClaudeCodePanelUI from "./ClaudeCodePanelUI";
 import { RenderStatus } from "@/app/dashboard/projects/[prototype_id]/InternalPrototypePage";
 
@@ -64,7 +64,8 @@ export interface Message {
     | "error"
     | "tool"
     | "thinking"
-    | "usage";
+    | "usage"
+    | "design_spec";
   content: string;
   timestamp: number;
   toolName?: string;
@@ -77,6 +78,8 @@ export interface Message {
   isQueued?: boolean; // For queued messages waiting for dev server
   imageUrls?: string[]; // Signed URLs for historical images
   creditsUsed?: number; // For usage messages
+  designSpec?: string; // For design_spec messages - the full specification
+  isCollapsed?: boolean; // For design_spec messages - whether it's collapsed
 }
 
 export interface Todo {
@@ -166,6 +169,31 @@ export default function ClaudeCodePanel({
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editedTitle, setEditedTitle] = useState("");
   const [isUpdatingTitle, setIsUpdatingTitle] = useState(false);
+  const [modelProvider, setModelProvider] = useState<"claude" | "vercel">(
+    "claude",
+  );
+  const [model, setModel] = useState<string>("gpt-5.1-codex-mini");
+  const vercelModelOptions = useMemo(
+    () => [
+      { value: "gpt-5.1-codex-mini", label: "GPT-5.1 Codex Mini" },
+      { value: "gpt-5.1-codex", label: "GPT-5.1 Codex" },
+      { value: "gemini-3-pro-preview", label: "Gemini 3 Pro (preview)" },
+      { value: "gemini-2.5-flash", label: "Gemini 2.5 Flash" },
+    ],
+    [],
+  );
+
+  useEffect(() => {
+    if (modelProvider === "vercel") {
+      const firstModel = vercelModelOptions[0]?.value;
+      const isValidModel = vercelModelOptions.some(
+        (option) => option.value === model,
+      );
+      if (!isValidModel && firstModel) {
+        setModel(firstModel);
+      }
+    }
+  }, [modelProvider, model, vercelModelOptions]);
 
   // Reset confirmation modal state
   const [showResetConfirmation, setShowResetConfirmation] = useState(false);
@@ -792,6 +820,10 @@ export default function ClaudeCodePanel({
               data: {
                 content: messageContent,
                 token: authTokenRef.current,
+                options: {
+                  provider: modelProvider,
+                  model: modelProvider === "vercel" ? model : undefined,
+                },
                 // Force new session if corrupted, otherwise use existing session
                 ai_chat_session_id: isCorruptedSession
                   ? null
@@ -1137,6 +1169,29 @@ export default function ClaudeCodePanel({
       case ChatEvent.INFO:
         addMessage("system", message.message);
         break;
+
+      case ChatEvent.DESIGN_GENERATION: {
+        const { status, message: designMessage, designSpec } = message.data;
+
+        if (status === "started") {
+          // Show design generation in progress
+          addMessage("system", designMessage);
+        } else if (status === "completed" && designSpec) {
+          // Design generation completed - add a collapsible design spec message
+          setMessages((prev) => [
+            ...prev,
+            {
+              id: `design-spec-${Date.now()}`,
+              type: "design_spec" as const,
+              content: "Generated Design Spec",
+              timestamp: Date.now(),
+              designSpec: designSpec,
+              isCollapsed: true, // Start collapsed
+            },
+          ]);
+        }
+        break;
+      }
 
       case ChatEvent.HISTORY_REQUEST: {
         // Server is requesting historical messages
@@ -1808,17 +1863,21 @@ export default function ClaudeCodePanel({
       // Send message in the format expected by CodeService
       if (ws) {
         ws.send(
-          JSON.stringify({
-            type: "query",
-            data: {
-              content,
-              token,
-              ai_chat_session_id: isCorruptedSession
-                ? null
-                : sessionIdRef.current,
-              prototype_chat_session_id: prototypeChatSessionId,
-              custom_design_system_id: prototype?.custom_design_system,
-              design_style: prototype?.design_style,
+            JSON.stringify({
+              type: "query",
+              data: {
+                content,
+                token,
+                options: {
+                  provider: modelProvider,
+                  model: modelProvider === "vercel" ? model : undefined,
+                },
+                ai_chat_session_id: isCorruptedSession
+                  ? null
+                  : sessionIdRef.current,
+                prototype_chat_session_id: prototypeChatSessionId,
+                custom_design_system_id: prototype?.custom_design_system,
+                design_style: prototype?.design_style,
               current_viewing_path: currentViewingPath,
               image_metadata: uploadedImageMetadata.map((img) => ({
                 storage_path: img.storage_path,
@@ -2061,6 +2120,19 @@ export default function ClaudeCodePanel({
     }
   };
 
+  // Changing models/providers should always start a fresh chat session
+  const handleModelProviderChange = (value: "claude" | "vercel") => {
+    if (value === modelProvider) return;
+    setModelProvider(value);
+    void createNewChatSession();
+  };
+
+  const handleModelChange = (value: string) => {
+    if (value === model) return;
+    setModel(value);
+    void createNewChatSession();
+  };
+
   // Handle Enter key
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -2088,6 +2160,11 @@ export default function ClaudeCodePanel({
       isProcessing={isProcessing}
       baseTunnelUrl={baseTunnelUrl}
       currentRenderStatus={currentRenderStatus}
+      modelProvider={modelProvider}
+      model={model}
+      vercelModels={vercelModelOptions}
+      onModelProviderChange={handleModelProviderChange}
+      onModelChange={handleModelChange}
       messages={messages}
       expandedThinking={expandedThinking}
       currentTodos={currentTodos}
@@ -2127,6 +2204,13 @@ export default function ClaudeCodePanel({
       hasReachedCreditLimit={creditUsage.hasReachedLimit}
       creditsUsed={creditUsage.creditsUsed}
       totalAvailableCredits={creditUsage.totalAvailableCredits}
+      onMessageUpdate={(updatedMessage) => {
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === updatedMessage.id ? updatedMessage : msg,
+          ),
+        );
+      }}
     />
   );
 }

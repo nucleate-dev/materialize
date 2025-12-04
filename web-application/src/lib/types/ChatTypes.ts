@@ -5,7 +5,7 @@
 // To update these types, modify the source file and run:
 // npm run build (in the control-plane directory)
 //
-// Last synced: 2025-12-01T17:40:51.947Z
+// Last synced: 2025-12-02T07:21:55.868Z
 
 export enum ChatEvent {
   AUTHENTICATED = "authenticated",
@@ -23,6 +23,7 @@ export enum ChatEvent {
   TOOL_COMPLETE = "tool_complete",
   HISTORY_REQUEST = "history_request",
   MODIFIED_FILES = "modified_files",
+  DESIGN_GENERATION = "design_generation",
 }
 
 export enum ChatClientEvent {
@@ -231,6 +232,21 @@ export interface HistoryRequestMessage {
   };
 }
 
+export interface DesignGenerationMessage {
+  type: ChatEvent.DESIGN_GENERATION;
+  data: {
+    status: "started" | "completed";
+    message: string;
+    designSpec?: string; // The actual design specification content (only present when status is "completed")
+    runDesignAgent?: boolean;
+    isAppLevel?: boolean;
+    isNarrowBuild?: boolean;
+    persistToProjectContext?: boolean;
+    scope?: "app" | "screen" | "component" | "other" | "unknown";
+    isMasterDesignSpec?: boolean;
+  };
+}
+
 export type ChatServerMessage =
   | SystemConnectionMessage
   | ErrorMessage
@@ -246,4 +262,5 @@ export type ChatServerMessage =
   | MessageReceivedMessage
   | ReadyMessage
   | ModifiedFilesMessage
-  | HistoryRequestMessage;
+  | HistoryRequestMessage
+  | DesignGenerationMessage;

@@ -16,6 +16,7 @@ declare global {
       action: string,
       eventName: string,
       params?: Record<string, unknown>,
+      options?: { eventID?: string },
     ) => void;
   }
 }
@@ -43,9 +44,18 @@ export function useMetaPixel() {
   const logger = useProductLogger();
 
   const trackEvent = useCallback(
-    (eventName: MetaPixelEvent, params?: Record<string, unknown>) => {
+    (
+      eventName: MetaPixelEvent,
+      params?: Record<string, unknown>,
+      eventId?: string,
+    ) => {
       if (typeof window !== "undefined" && window.fbq) {
-        window.fbq("track", eventName, params);
+        // If eventId is provided, pass it as part of the options object
+        if (eventId) {
+          window.fbq("track", eventName, params, { eventID: eventId });
+        } else {
+          window.fbq("track", eventName, params);
+        }
       } else {
         logger.debug("warn", "Meta Pixel is not loaded");
       }

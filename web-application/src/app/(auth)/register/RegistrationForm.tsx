@@ -164,12 +164,21 @@ export default function RegistrationForm() {
       // This ensures we capture attribution even if user came from homepage
       const utmParams = getUTMParams(searchParams);
 
+      // Generate a unique event_id for deduplication between browser and server events
+      const eventId = `reg_${authResponse.data.user?.id}_${Date.now()}`;
+
       // Track successful registration with Meta Pixel
-      trackEvent("CompleteRegistration", {
-        content_name: "Account Registration",
-        status: authResponse.data.session ? "immediate" : "email_verification",
-        ...utmParams, // Include UTM params for Meta attribution
-      });
+      trackEvent(
+        "CompleteRegistration",
+        {
+          content_name: "Account Registration",
+          status: authResponse.data.session
+            ? "immediate"
+            : "email_verification",
+          ...utmParams, // Include UTM params for Meta attribution
+        },
+        eventId, // Add event_id for deduplication
+      );
 
       // Track successful registration with PostHog
       logger.log({
@@ -417,12 +426,15 @@ export default function RegistrationForm() {
                 // Store pending Meta Pixel registration intent to fire after OAuth redirect
                 if (typeof window !== "undefined") {
                   try {
+                    // Generate event_id upfront for OAuth flow
+                    const oauthEventId = `reg_oauth_${Date.now()}`;
                     localStorage.setItem(
                       "pending_meta_registration",
                       JSON.stringify({
                         provider: "google",
                         utm: utmParams,
                         ts: Date.now(),
+                        eventId: oauthEventId,
                       }),
                     );
                     // Clear any prior sent marker so we can emit for this new OAuth sign-up

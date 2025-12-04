@@ -14,6 +14,7 @@ export enum ChatEvent {
   TOOL_COMPLETE = "tool_complete",
   HISTORY_REQUEST = "history_request",
   MODIFIED_FILES = "modified_files",
+  DESIGN_GENERATION = "design_generation",
 }
 
 export enum ChatClientEvent {
@@ -48,6 +49,8 @@ export interface ChatQueryData {
   prompt?: string;
   content?: ChatContentBlock[];
   options?: Record<string, unknown>;
+  // Provider/model are kept inside options to maintain backward compatibility with existing clients.
+  // Downstream handlers should read provider/model from options and default to Claude if absent.
   token?: string;
   ai_chat_session_id?: string | null; // Claude SDK session ID for resuming conversations
   prototype_chat_session_id?: string | null; // Database primary key from prototype_chat_sessions table
@@ -222,6 +225,21 @@ export interface HistoryRequestMessage {
   };
 }
 
+export interface DesignGenerationMessage {
+  type: ChatEvent.DESIGN_GENERATION;
+  data: {
+    status: "started" | "completed";
+    message: string;
+    designSpec?: string; // The actual design specification content (only present when status is "completed")
+    runDesignAgent?: boolean;
+    isAppLevel?: boolean;
+    isNarrowBuild?: boolean;
+    persistToProjectContext?: boolean;
+    scope?: "app" | "screen" | "component" | "other" | "unknown";
+    isMasterDesignSpec?: boolean;
+  };
+}
+
 export type ChatServerMessage =
   | SystemConnectionMessage
   | ErrorMessage
@@ -237,4 +255,5 @@ export type ChatServerMessage =
   | MessageReceivedMessage
   | ReadyMessage
   | ModifiedFilesMessage
-  | HistoryRequestMessage;
+  | HistoryRequestMessage
+  | DesignGenerationMessage;

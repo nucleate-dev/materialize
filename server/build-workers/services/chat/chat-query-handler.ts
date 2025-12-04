@@ -25,7 +25,10 @@ import { FileSyncService } from "../FileSyncService.js";
 import { SandboxService } from "../SandboxService.js";
 import { SupabaseClientService } from "../SupabaseClientService.js";
 import { TerminalService } from "../terminals/TerminalService.js";
-import { getSystemPromptForDesignStyle } from "./ClaudeCodePrompts.js";
+import {
+  DESIGN_AGENT_PROMPT,
+  getSystemPromptForDesignStyle,
+} from "./ClaudeCodePrompts.js";
 import {
   costFunctionV2,
   CURRENT_COST_FUNCTION_NAME
@@ -86,6 +89,12 @@ interface DesignSystemResult {
   designSystemRules: string | null;
 }
 
+interface DesignAgentMetadata {
+  scope: "app" | "screen" | "component" | "other" | "unknown";
+  addToProjectContext: boolean;
+  isMasterDesignSpec: boolean;
+}
+
 interface QueryExecutionContext {
   prototypeId: string;
   socket: WebSocket;
@@ -104,6 +113,8 @@ interface MessageHandlers {
     eventData?: unknown,
     creditsUsed?: number | null,
     costFunction?: string | null,
+    provider?: string | null,
+    model?: string | null,
   ) => Promise<void>;
   uploadChatImages: (
     prototypeId: string,
@@ -166,6 +177,7 @@ export class ChatQueryHandler {
   private readonly expoDevServerService: ExpoDevServerService;
   private readonly terminalService: TerminalService;
   private readonly getAak: () => string | null;
+  private readonly enableDesignAgentOnFirstMessage: boolean;
 
   constructor(
     workDir: string,
@@ -176,6 +188,7 @@ export class ChatQueryHandler {
     sandboxService: SandboxService,
     expoDevServerService: ExpoDevServerService,
     terminalService: TerminalService,
+    enableDesignAgentOnFirstMessage: boolean,
     getAak: () => string | null,
   ) {
     this.workDir = workDir;
@@ -186,6 +199,7 @@ export class ChatQueryHandler {
     this.sandboxService = sandboxService;
     this.expoDevServerService = expoDevServerService;
     this.terminalService = terminalService;
+    this.enableDesignAgentOnFirstMessage = enableDesignAgentOnFirstMessage;
     this.getAak = getAak;
   }
 
@@ -273,20 +287,133 @@ export class ChatQueryHandler {
       return;
     }
 
-    // Step 6: Notify orchestration that chat is starting
+    // Step 6: Check if this is the first message and execute design agent if needed
+    let designAgentCost: number | undefined = undefined;
+    let designSpec: string | null = null;
+    let designMetadata: DesignAgentMetadata | null = null;
+
+    if (
+      this.enableDesignAgentOnFirstMessage &&
+      sessionState.prototypeChatSessionId
+    ) {
+      const isFirst = await this.isFirstMessage(
+        prototypeId,
+        sessionState.prototypeChatSessionId,
+      );
+
+      if (isFirst) {
+        // Extract user message text for design agent
+        const userMessageText =
+          typeof content === "string"
+            ? content
+            : Array.isArray(content)
+              ? content
+                .filter((block) => block.type === "text")
+                .map((block) => block.text || "")
+                .join("\n")
+              : prompt || "";
+
+        if (userMessageText) {
+          // Create abort controller for design agent (will be replaced for main query)
+          const designAbortController = new AbortController();
+          sessionState.abortController = designAbortController;
+
+          // Send design generation started message to client
+          handlers.sendMessage(socket, {
+            type: ChatEvent.DESIGN_GENERATION,
+            data: {
+              status: "started",
+              message: "Generating design specification...",
+              runDesignAgent: true,
+            },
+          });
+
+          const designResult = await this.executeDesignAgent(
+            prototypeId,
+            userMessageText,
+            designAbortController,
+            DESIGN_AGENT_PROMPT,
+          );
+
+          designAgentCost = designResult.costUsd;
+
+          if (designResult.designSpec) {
+            const { spec, metadata } = this.parseDesignAgentSpec(
+              designResult.designSpec,
+            );
+            designSpec = spec;
+            designMetadata = metadata;
+
+            if (metadata.addToProjectContext) {
+              const { error: updateError } =
+                await this.supabaseClientService
+                  .getClient()
+                  .from("prototypes")
+                  .update({ project_context: designSpec })
+                  .eq("id", prototypeId);
+
+              if (updateError) {
+                this.logger.error(
+                  updateError,
+                  "Failed to store design specification in project_context",
+                  { prototypeId },
+                );
+              } else {
+                this.logger.consoleLogDevOnly(
+                  "info",
+                  "Stored design specification in project_context",
+                  { prototypeId, specLength: designSpec.length },
+                );
+              }
+            } else {
+              this.logger.consoleLogDevOnly(
+                "info",
+                "Skipping project_context update for narrow scope design spec",
+                { prototypeId },
+              );
+            }
+          }
+
+          this.logger.consoleLogDevOnly(
+            "info",
+            "Design agent execution completed",
+            {
+              prototypeId,
+              hasDesignSpec: !!designSpec,
+              designAgentCost,
+              metadata: designMetadata,
+            },
+          );
+        }
+      }
+    }
+
+    // Step 7: Notify orchestration that chat is starting
     await handlers.notifyOrchestrationStartChat(prototypeId);
 
-    // Step 7: Execute query with proper cleanup
-    let totalCostUsd: number | undefined = undefined;
+    // Step 8: Execute query with proper cleanup
+    let implementationCostUsd: number | undefined = undefined;
 
     try {
-      totalCostUsd = await this.executeClaudeQuery(
+      implementationCostUsd = await this.executeClaudeQuery(
         context,
         designSystemResult.systemPrompt,
         handlers,
+        designSpec,
+        designMetadata ?? undefined,
       );
     } finally {
-      // Step 8: Sync files and track usage
+      // Step 9: Combine costs from design agent and implementation
+      const totalCostUsd =
+        (designAgentCost ?? 0) + (implementationCostUsd ?? 0);
+
+      this.logger.consoleLogDevOnly("info", "Combined cost calculation", {
+        designAgentCost,
+        implementationCostUsd,
+        totalCostUsd,
+      });
+
+      // Step 10: Sync files and track usage
       await this.syncAndTrackUsage(
         prototypeId,
         socket,
@@ -295,7 +422,7 @@ export class ChatQueryHandler {
         handlers.sendMessage,
       );
 
-      // Step 9: Always notify orchestration that chat has ended
+      // Step 11: Always notify orchestration that chat has ended
       await handlers.notifyOrchestrationEndChat(prototypeId);
     }
   }
@@ -419,8 +546,8 @@ export class ChatQueryHandler {
     custom_design_system_id: string | null,
     sessionState: CodeSessionState,
     design_style: string | undefined,
-    current_viewing_path: string | undefined,
-    options: Options,
+    _current_viewing_path: string | undefined,
+    _options: Options,
   ): Promise<DesignSystemResult> {
     // Check if design system changed or needs to be loaded
     if (custom_design_system_id !== sessionState.designSystemId) {
@@ -488,25 +615,6 @@ export class ChatQueryHandler {
     if (sessionState.designSystemRules) {
       systemPromptAppend +=
         "\n\n## Custom Design System Rules:\n" + sessionState.designSystemRules;
-    }
-
-    // Append current viewing path context if available
-    if (current_viewing_path) {
-      systemPromptAppend += `\n\n## Current Viewing Context:\nThe user is currently viewing the route: ${current_viewing_path}\n(Note: This context may or may not be relevant to the user's query)`;
-    }
-
-    // Append history context if provided (from handleQueryWithHistory)
-    const historyContext = (options as Record<string, unknown>)
-      ?.__historyContext as string | undefined;
-    if (historyContext) {
-      systemPromptAppend += historyContext;
-      this.logger.consoleLogDevOnly(
-        "info",
-        "Injected history context into system prompt",
-        {
-          contextLength: historyContext.length,
-        },
-      );
     }
 
     return {
@@ -582,12 +690,239 @@ export class ChatQueryHandler {
   }
 
   /**
+   * Checks if this is the user's first message for the entire prototype
+   * Returns true only if:
+   * 1. No messages exist in prototype_chat_messages for this session
+   * 2. This is the only chat session in prototype_chat_sessions for this prototype
+   */
+  private async isFirstMessage(
+    prototypeId: string,
+    prototypeChatSessionId: string,
+  ): Promise<boolean> {
+    try {
+      // Check if any messages exist for this chat session
+      const { count: messageCount, error: messageError } =
+        await this.supabaseClientService
+          .getClient()
+          .from("prototype_chat_messages")
+          .select("*", { count: "exact", head: true })
+          .eq("chat_session_id", prototypeChatSessionId);
+
+      if (messageError) {
+        this.logger.error(
+          messageError,
+          "Failed to check message count for first message detection",
+          { prototypeChatSessionId },
+        );
+        return false;
+      }
+
+      // If messages exist, not the first message
+      if (messageCount && messageCount > 0) {
+        return false;
+      }
+
+      // Check if this is the only chat session for this prototype
+      const { count: sessionCount, error: sessionError } =
+        await this.supabaseClientService
+          .getClient()
+          .from("prototype_chat_sessions")
+          .select("*", { count: "exact", head: true })
+          .eq("prototype_id", prototypeId);
+
+      if (sessionError) {
+        this.logger.error(
+          sessionError,
+          "Failed to check session count for first message detection",
+          { prototypeId },
+        );
+        return false;
+      }
+
+      // This is the first message if this is the only session
+      const isFirst = sessionCount === 1;
+
+      this.logger.consoleLogDevOnly("info", "First message detection result", {
+        prototypeId,
+        prototypeChatSessionId,
+        messageCount,
+        sessionCount,
+        isFirst,
+      });
+
+      return isFirst;
+    } catch (error) {
+      this.logger.error(
+        error instanceof Error ? error : new Error(String(error)),
+        "Error during first message detection",
+        { prototypeId, prototypeChatSessionId },
+      );
+      return false;
+    }
+  }
+
+  /**
+   * Executes the design agent to generate a comprehensive design specification
+   * Only called on the user's first message for a prototype
+   * Note: Does NOT persist the message - caller should persist after user message
+   */
+  private async executeDesignAgent(
+    prototypeId: string,
+    userMessage: string,
+    abortController: AbortController,
+    _systemPrompt: string,
+  ): Promise<{ designSpec: string | null; costUsd: number | undefined; }> {
+    try {
+
+      this.logger.consoleLogDevOnly(
+        "info",
+        "Executing design agent for first message",
+        { prototypeId, userMessageLength: userMessage.length },
+      );
+
+      // Create async generator for the design agent query
+      const generateDesignMessages = async function* (): AsyncGenerator<{
+        type: "user";
+        message: {
+          role: "user";
+          content: string;
+        };
+      }> {
+        yield {
+          type: "user" as const,
+          message: {
+            role: "user" as const,
+            content: userMessage,
+          },
+        };
+      };
+
+      // Query the design agent
+      const response = query({
+        prompt: generateDesignMessages() as AsyncIterable<SDKUserMessage>,
+        options: {
+          cwd: this.workDir,
+          model: "claude-sonnet-4-5",
+          systemPrompt: getSystemPromptForDesignStyle(),
+          abortController,
+          maxTurns: 1, // Only need one response from design agent
+        },
+      });
+
+      // Collect the design specification
+      let designSpec = "";
+      let totalCostUsd: number | undefined = undefined;
+
+      for await (const msg of response) {
+        if (msg.type === "assistant") {
+          const message = (msg as SDKAssistantMessage).message;
+          if (message?.content) {
+            for (const content of message.content) {
+              if (content.type === "text" && content.text) {
+                designSpec += content.text;
+              }
+            }
+          }
+        }
+
+        if (msg.type === "result") {
+          totalCostUsd = msg.total_cost_usd;
+          this.logger.consoleLogDevOnly(
+            "info",
+            "Design agent completed",
+            {
+              prototypeId,
+              designSpecLength: designSpec.length,
+              costUsd: totalCostUsd,
+            },
+          );
+        }
+      }
+
+      if (!designSpec) {
+        this.logger.warn("Design agent returned empty specification", {
+          prototypeId,
+        });
+        return { designSpec: null, costUsd: totalCostUsd };
+      }
+
+      return { designSpec, costUsd: totalCostUsd };
+    } catch (error) {
+      this.logger.error(
+        error instanceof Error ? error : new Error(String(error)),
+        "Design agent execution failed",
+        { prototypeId },
+      );
+
+      return { designSpec: null, costUsd: undefined };
+    }
+  }
+
+  private parseDesignAgentSpec(
+    rawSpec: string,
+  ): { spec: string; metadata: DesignAgentMetadata; } {
+    const defaultMetadata: DesignAgentMetadata = {
+      scope: "unknown",
+      addToProjectContext: false,
+      isMasterDesignSpec: false,
+    };
+
+    const metadataHeading = "### METADATA";
+    const headingIndex = rawSpec.lastIndexOf(metadataHeading);
+
+    if (headingIndex === -1) {
+      return { spec: rawSpec.trim(), metadata: defaultMetadata };
+    }
+
+    const specWithoutMetadata = rawSpec.slice(0, headingIndex).trim();
+    const metadataSection = rawSpec
+      .slice(headingIndex + metadataHeading.length)
+      .trim();
+
+    const metadataLines = metadataSection
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean);
+
+    const metadata: DesignAgentMetadata = { ...defaultMetadata };
+
+    for (const line of metadataLines) {
+      const [rawKey, ...rest] = line.split(":");
+      if (!rawKey || rest.length === 0) {
+        continue;
+      }
+      const key = rawKey.trim().toLowerCase();
+      const value = rest.join(":").trim().toLowerCase();
+
+      if (key === "scope") {
+        if (value === "app") {
+          metadata.scope = "app";
+        } else if (value === "screen") {
+          metadata.scope = "screen";
+        } else if (value === "component") {
+          metadata.scope = "component";
+        } else if (value === "other") {
+          metadata.scope = "other";
+        }
+      } else if (key === "addtoprojectcontext") {
+        metadata.addToProjectContext = value === "true";
+      } else if (key === "ismasterdesignspec") {
+        metadata.isMasterDesignSpec = value === "true";
+      }
+    }
+
+    return { spec: specWithoutMetadata, metadata };
+  }
+
+  /**
    * Executes the Claude query with hooks and streaming
    */
   private async executeClaudeQuery(
     context: QueryExecutionContext,
     systemPromptAppend: string,
     handlers: MessageHandlers,
+    designSpec?: string | null,
+    designMetadata?: DesignAgentMetadata,
   ): Promise<number | undefined> {
     const { prototypeId, socket, data, sessionState, validAiChatSessionIds } =
       context;
@@ -595,6 +930,16 @@ export class ChatQueryHandler {
     const options = (data.options ?? {}) as Options;
 
     try {
+      const metadata: DesignAgentMetadata = designMetadata ?? {
+        scope: "unknown",
+        addToProjectContext: false,
+        isMasterDesignSpec: false,
+      };
+      const isAppLevel = metadata.scope === "app";
+      const isNarrowBuild =
+        metadata.scope === "screen" || metadata.scope === "component";
+      const shouldRunDesignAgent = !!designSpec;
+
       // Create a new AbortController for this query
       const abortController = new AbortController();
       sessionState.abortController = abortController;
@@ -622,6 +967,39 @@ export class ChatQueryHandler {
         imageMetadata,
         handlers.persistMessage,
       );
+
+      // Persist design spec as assistant message right after user message (if available)
+      if (designSpec) {
+        await handlers.persistMessage(
+          "assistant",
+          designSpec,
+          "text",
+          "design_generation",
+          { prototypeId },
+        );
+
+        // Send design generation completed message to client
+        handlers.sendMessage(socket, {
+          type: ChatEvent.DESIGN_GENERATION,
+          data: {
+            status: "completed",
+            message: "Design specification generated",
+            designSpec: designSpec, // Include the actual spec content
+            runDesignAgent: shouldRunDesignAgent,
+            isAppLevel,
+            isNarrowBuild,
+            persistToProjectContext: metadata.addToProjectContext,
+            isMasterDesignSpec: metadata.isMasterDesignSpec,
+            scope: metadata.scope,
+          },
+        });
+
+        this.logger.consoleLogDevOnly(
+          "info",
+          "Persisted design spec after user message",
+          { prototypeId, designSpecLength: designSpec.length },
+        );
+      }
 
       // Create shared state for assistant message buffering
       // This allows the flush callback to access and clear the buffer
@@ -712,6 +1090,7 @@ export class ChatQueryHandler {
       const totalCostUsd = await this.streamQueryResponse(
         streamContext,
         handlers,
+        designSpec,
       );
 
       // Images were already uploaded before persisting the user message
@@ -905,7 +1284,7 @@ export class ChatQueryHandler {
       systemPrompt: {
         type: "preset" as const,
         preset: "claude_code" as const,
-        append: systemPromptAppend,
+        append: getSystemPromptForDesignStyle(),
       },
       settingSources: ["user"] as SettingSource[],
       permissionMode: "default" as PermissionMode,
@@ -1309,6 +1688,7 @@ export class ChatQueryHandler {
   private async streamQueryResponse(
     streamContext: StreamContext,
     handlers: MessageHandlers,
+    designSpec?: string | null,
   ): Promise<number | undefined> {
     const {
       messageContent,
@@ -1324,14 +1704,25 @@ export class ChatQueryHandler {
 
     // Create async generator for streaming input
     const generateMessages = async function* (): AsyncGenerator<{
-      type: "user";
+      type: "user" | "system";
       message: {
-        role: "user";
+        role: "user" | "system";
         content:
         | string
         | Array<{ type: string; text?: string; source?: unknown; }>;
       };
     }> {
+      // If design spec exists, yield it as a system message first
+      if (designSpec) {
+        yield {
+          type: "system" as const,
+          message: {
+            role: "system" as const,
+            content: `Design Specification:\n${designSpec}\n\nNow implement the app according to this design specification.`,
+          },
+        };
+      }
+
       yield {
         type: "user" as const,
         message: {
@@ -1469,6 +1860,8 @@ export class ChatQueryHandler {
           const { usage, total_cost_usd, duration_ms, duration_api_ms } = msg;
           const inputTokens = usage?.input_tokens ?? 0;
           const outputTokens = usage?.output_tokens ?? 0;
+          const cacheReadInputTokens = usage?.cache_read_input_tokens ?? 0;
+          const cacheCreationOutputTokens = usage?.cache_creation_output_tokens ?? 0;
 
           // Store total_cost_usd for usage tracking in finally block
           totalCostUsd = total_cost_usd;
@@ -1477,14 +1870,16 @@ export class ChatQueryHandler {
           bufferState.creditsUsed = costFunctionV2(total_cost_usd);
           bufferState.costFunction = CURRENT_COST_FUNCTION_NAME;
 
-          this.logger.metricTokenUsage(
-            queryOptions.model ?? "unknown",
+          this.logger.metricTokenUsage({
+            modelName: queryOptions.model ?? "unknown",
             inputTokens,
             outputTokens,
-            total_cost_usd,
-            duration_ms,
-            duration_api_ms,
-          );
+            cacheReadInputTokens,
+            cacheCreationOutputTokens,
+            costInUsd: total_cost_usd,
+            durationMs: duration_ms,
+            durationApiMs: duration_api_ms,
+          });
           tokenUsageLogged = true;
         } catch (logError) {
           this.logger.error(
