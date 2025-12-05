@@ -54,8 +54,20 @@ export const VERCEL_MODEL_COSTS_USD: Record<
   string,
   { inputUsdPer1M?: number; outputUsdPer1M?: number; }
 > = {
-  "gpt-5.1-codex-mini": {},
-  "gpt-5.1-codex": {},
-  "gemini-3-pro-preview": {},
-  "gemini-2.5-flash": {},
+  "gpt-5.1-codex-mini": {
+    inputUsdPer1M: 0.25,
+    outputUsdPer1M: 2,
+  },
+  "gpt-5.1-codex": {
+    inputUsdPer1M: 1.25,
+    outputUsdPer1M: 10,
+  },
+  "gemini-3-pro-preview": {
+    inputUsdPer1M: 2,
+    outputUsdPer1M: 12,
+  },
+  "gemini-2.5-flash": {
+    inputUsdPer1M: 0.3,
+    outputUsdPer1M: 2.5,
+  },
 };

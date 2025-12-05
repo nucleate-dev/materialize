@@ -3,6 +3,7 @@ import { openai } from "@ai-sdk/openai";
 import { generateText, type LanguageModel } from "ai";
 import { SystemLogger } from "../../loggers/SystemLogger.js";
 import { DESIGN_AGENT_PROMPT } from "./ClaudeCodePrompts.js";
+import { VERCEL_MODEL_COSTS_USD } from "./cost-calculation.js";
 
 /**
  * Supported model providers for the design agent
@@ -58,8 +59,8 @@ function resolveModel(
 }
 
 /**
- * Estimates the cost in USD based on usage information from AI SDK
- * This is a simplified estimation - actual costs may vary
+ * Estimates the cost in USD based on usage information from AI SDK.
+ * Uses the centralized VERCEL_MODEL_COSTS_USD from cost-calculation.ts.
  */
 function estimateCostUsd(
   provider: DesignAgentProvider,
@@ -75,22 +76,7 @@ function estimateCostUsd(
   const promptTokens = usage.promptTokens ?? 0;
   const completionTokens = usage.completionTokens ?? 0;
 
-  // Rough cost estimates per 1M tokens (these should be updated based on actual pricing)
-  const costMap: Record<
-    string,
-    { inputUsdPer1M?: number; outputUsdPer1M?: number }
-  > = {
-    // Google models
-    "gemini-2.0-flash-exp": { inputUsdPer1M: 0.0, outputUsdPer1M: 0.0 }, // Free during preview
-    "gemini-1.5-pro": { inputUsdPer1M: 1.25, outputUsdPer1M: 5.0 },
-    "gemini-1.5-flash": { inputUsdPer1M: 0.075, outputUsdPer1M: 0.3 },
-
-    // OpenAI models
-    "gpt-4o": { inputUsdPer1M: 2.5, outputUsdPer1M: 10.0 },
-    "gpt-4o-mini": { inputUsdPer1M: 0.15, outputUsdPer1M: 0.6 },
-  };
-
-  const pricing = costMap[modelName];
+  const pricing = VERCEL_MODEL_COSTS_USD[modelName];
   if (!pricing) return undefined;
 
   const inputCost = pricing.inputUsdPer1M
@@ -204,6 +190,6 @@ export async function executeDesignAgent(
  * Default model configurations for design agent
  */
 export const DEFAULT_DESIGN_AGENT_MODELS = {
-  google: "gemini-2.0-flash-exp",
-  openai: "gpt-4o-mini",
+  google: "gemini-3-pro-preview",
+  openai: "gpt-5.1-codex-mini",
 } as const;
