@@ -2,6 +2,7 @@
 "use client";
 
 import PremiumHeader from "@/components/prototype-editor/PremiumHeader";
+import Footer from "@/components/shared/Footer";
 import { GridBackground } from "@/components/shared/GridComponent";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -323,31 +324,7 @@ export default function Blog({ initialPosts }: BlogProps) {
           </div>
         </section>
 
-        {/* Footer */}
-        <footer className="py-12 border-t border-white/5 bg-[#0B0C0E] text-sm">
-          <div className="container mx-auto px-6 max-w-6xl flex flex-col md:flex-row justify-between items-center text-[#8A8F98] gap-6">
-            <div className="flex gap-6">
-              <span className="hover:text-white cursor-pointer transition-colors">
-                Twitter
-              </span>
-              <span className="hover:text-white cursor-pointer transition-colors">
-                GitHub
-              </span>
-              <span className="hover:text-white cursor-pointer transition-colors">
-                Discord
-              </span>
-            </div>
-            <div className="flex gap-6">
-              <span className="hover:text-white cursor-pointer transition-colors">
-                Privacy
-              </span>
-              <span className="hover:text-white cursor-pointer transition-colors">
-                Terms
-              </span>
-              <span>© 2025 Nucleate.</span>
-            </div>
-          </div>
-        </footer>
+        <Footer />
       </div>
     </main>
   );
