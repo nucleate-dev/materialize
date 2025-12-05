@@ -10,6 +10,7 @@ import {
   SDKUserMessage,
   SettingSource,
 } from "@anthropic-ai/claude-agent-sdk";
+import fs from "fs/promises";
 import path from "path";
 import WebSocket from "ws";
 import { SystemLogger } from "../../loggers/SystemLogger.js";
@@ -26,14 +27,18 @@ import { SandboxService } from "../SandboxService.js";
 import { SupabaseClientService } from "../SupabaseClientService.js";
 import { TerminalService } from "../terminals/TerminalService.js";
 import {
-  DESIGN_AGENT_PROMPT,
   getSystemPromptForDesignStyle,
 } from "./ClaudeCodePrompts.js";
 import {
-  costFunctionV2,
+  costFunctionV3,
   CURRENT_COST_FUNCTION_NAME
 } from "./cost-calculation.js";
 import { hasRemainingCredits } from "./credit-checks.js";
+import {
+  DEFAULT_DESIGN_AGENT_MODELS,
+  executeDesignAgent,
+  type DesignAgentProvider,
+} from "./design-agent-service.js";
 import { createDevelopmentToolsMcpServer } from "./mcp-dev-tools.js";
 import { getToolDisplayName } from "./message-handlers.js";
 import { ToolPermissionService } from "./tool-permission-service.js";
@@ -328,11 +333,11 @@ export class ChatQueryHandler {
             },
           });
 
-          const designResult = await this.executeDesignAgent(
+          const designResult = await this.executeDesignAgentWrapper(
             prototypeId,
             userMessageText,
             designAbortController,
-            DESIGN_AGENT_PROMPT,
+            "", // system prompt not used anymore (handled by design-agent-service)
           );
 
           designAgentCost = designResult.costUsd;
@@ -345,6 +350,26 @@ export class ChatQueryHandler {
             designMetadata = metadata;
 
             if (metadata.addToProjectContext) {
+              // Write design spec to CLAUDE.md in the project directory
+              // This allows Claude Code SDK to automatically read it as project context
+              try {
+                const claudeMdPath = path.join(this.workDir, "CLAUDE.md");
+                await fs.writeFile(claudeMdPath, designSpec, "utf-8");
+
+                this.logger.consoleLogDevOnly(
+                  "info",
+                  "Wrote design specification to CLAUDE.md",
+                  { prototypeId, specLength: designSpec.length, path: claudeMdPath },
+                );
+              } catch (writeError) {
+                this.logger.error(
+                  writeError instanceof Error ? writeError : new Error(String(writeError)),
+                  "Failed to write design specification to CLAUDE.md",
+                  { prototypeId },
+                );
+              }
+
+              // Also store in database for backup/reference
               const { error: updateError } =
                 await this.supabaseClientService
                   .getClient()
@@ -361,7 +386,7 @@ export class ChatQueryHandler {
               } else {
                 this.logger.consoleLogDevOnly(
                   "info",
-                  "Stored design specification in project_context",
+                  "Stored design specification in project_context database",
                   { prototypeId, specLength: designSpec.length },
                 );
               }
@@ -764,98 +789,34 @@ export class ChatQueryHandler {
   /**
    * Executes the design agent to generate a comprehensive design specification
    * Only called on the user's first message for a prototype
+   * Uses AI SDK for flexible model support (Google, OpenAI)
    * Note: Does NOT persist the message - caller should persist after user message
    */
-  private async executeDesignAgent(
+  private async executeDesignAgentWrapper(
     prototypeId: string,
     userMessage: string,
     abortController: AbortController,
     _systemPrompt: string,
   ): Promise<{ designSpec: string | null; costUsd: number | undefined; }> {
-    try {
+    // Use Gemini by default for design agent (fast and free)
+    const provider: DesignAgentProvider = "google";
+    const model = DEFAULT_DESIGN_AGENT_MODELS[provider];
 
-      this.logger.consoleLogDevOnly(
-        "info",
-        "Executing design agent for first message",
-        { prototypeId, userMessageLength: userMessage.length },
-      );
+    this.logger.consoleLogDevOnly(
+      "info",
+      "Executing design agent via AI SDK",
+      { prototypeId, provider, model, userMessageLength: userMessage.length },
+    );
 
-      // Create async generator for the design agent query
-      const generateDesignMessages = async function* (): AsyncGenerator<{
-        type: "user";
-        message: {
-          role: "user";
-          content: string;
-        };
-      }> {
-        yield {
-          type: "user" as const,
-          message: {
-            role: "user" as const,
-            content: userMessage,
-          },
-        };
-      };
-
-      // Query the design agent
-      const response = query({
-        prompt: generateDesignMessages() as AsyncIterable<SDKUserMessage>,
-        options: {
-          cwd: this.workDir,
-          model: "claude-sonnet-4-5",
-          systemPrompt: getSystemPromptForDesignStyle(),
-          abortController,
-          maxTurns: 1, // Only need one response from design agent
-        },
-      });
-
-      // Collect the design specification
-      let designSpec = "";
-      let totalCostUsd: number | undefined = undefined;
-
-      for await (const msg of response) {
-        if (msg.type === "assistant") {
-          const message = (msg as SDKAssistantMessage).message;
-          if (message?.content) {
-            for (const content of message.content) {
-              if (content.type === "text" && content.text) {
-                designSpec += content.text;
-              }
-            }
-          }
-        }
-
-        if (msg.type === "result") {
-          totalCostUsd = msg.total_cost_usd;
-          this.logger.consoleLogDevOnly(
-            "info",
-            "Design agent completed",
-            {
-              prototypeId,
-              designSpecLength: designSpec.length,
-              costUsd: totalCostUsd,
-            },
-          );
-        }
-      }
-
-      if (!designSpec) {
-        this.logger.warn("Design agent returned empty specification", {
-          prototypeId,
-        });
-        return { designSpec: null, costUsd: totalCostUsd };
-      }
-
-      return { designSpec, costUsd: totalCostUsd };
-    } catch (error) {
-      this.logger.error(
-        error instanceof Error ? error : new Error(String(error)),
-        "Design agent execution failed",
-        { prototypeId },
-      );
-
-      return { designSpec: null, costUsd: undefined };
-    }
+    return executeDesignAgent({
+      provider,
+      model,
+      userMessage,
+      workDir: this.workDir,
+      abortController,
+      logger: this.logger,
+      prototypeId,
+    });
   }
 
   private parseDesignAgentSpec(
@@ -1090,7 +1051,6 @@ export class ChatQueryHandler {
       const totalCostUsd = await this.streamQueryResponse(
         streamContext,
         handlers,
-        designSpec,
       );
 
       // Images were already uploaded before persisting the user message
@@ -1688,7 +1648,6 @@ export class ChatQueryHandler {
   private async streamQueryResponse(
     streamContext: StreamContext,
     handlers: MessageHandlers,
-    designSpec?: string | null,
   ): Promise<number | undefined> {
     const {
       messageContent,
@@ -1704,24 +1663,16 @@ export class ChatQueryHandler {
 
     // Create async generator for streaming input
     const generateMessages = async function* (): AsyncGenerator<{
-      type: "user" | "system";
+      type: "user";
       message: {
-        role: "user" | "system";
+        role: "user";
         content:
         | string
         | Array<{ type: string; text?: string; source?: unknown; }>;
       };
     }> {
-      // If design spec exists, yield it as a system message first
-      if (designSpec) {
-        yield {
-          type: "system" as const,
-          message: {
-            role: "system" as const,
-            content: `Design Specification:\n${designSpec}\n\nNow implement the app according to this design specification.`,
-          },
-        };
-      }
+      // Design spec is now written to CLAUDE.md and automatically read by Claude Code SDK
+      // No need to inject it into the message stream
 
       yield {
         type: "user" as const,
@@ -1867,7 +1818,7 @@ export class ChatQueryHandler {
           totalCostUsd = total_cost_usd;
 
           // Calculate credits used using the shared cost calculation function
-          bufferState.creditsUsed = costFunctionV2(total_cost_usd);
+          bufferState.creditsUsed = costFunctionV3(total_cost_usd);
           bufferState.costFunction = CURRENT_COST_FUNCTION_NAME;
 
           this.logger.metricTokenUsage({
@@ -2002,7 +1953,7 @@ export class ChatQueryHandler {
         });
       } else {
         // Calculate credits used using the shared cost calculation function
-        const creditsUsed = costFunctionV2(totalCostUsd) ?? 1.0;
+        const creditsUsed = costFunctionV3(totalCostUsd) ?? 1.0;
 
         this.logger.consoleLogDevOnly("info", "Tracking API usage", {
           userId: user.id,

@@ -30,12 +30,20 @@ export function costFunctionV2(
     : undefined;
 }
 
+export function costFunctionV3(
+  totalCostUsd: number | undefined,
+): number | undefined {
+  return totalCostUsd !== undefined
+    ? Math.round((totalCostUsd / 0.15) * 100) / 100
+    : undefined;
+}
+
 /**
  * Name of the current cost function being used.
  * This should be stored in the database alongside the credits/cost to track
  * which pricing formula was used for historical records.
  */
-export const CURRENT_COST_FUNCTION_NAME = "costFunctionV2";
+export const CURRENT_COST_FUNCTION_NAME = "costFunctionV3";
 
 /**
  * Provider/model specific cost metadata for the Vercel AI SDK backed models.
@@ -44,7 +52,7 @@ export const CURRENT_COST_FUNCTION_NAME = "costFunctionV2";
  */
 export const VERCEL_MODEL_COSTS_USD: Record<
   string,
-  { inputUsdPer1M?: number; outputUsdPer1M?: number }
+  { inputUsdPer1M?: number; outputUsdPer1M?: number; }
 > = {
   "gpt-5.1-codex-mini": {},
   "gpt-5.1-codex": {},

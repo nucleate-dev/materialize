@@ -2,6 +2,7 @@ import { google } from "@ai-sdk/google";
 import { openai } from "@ai-sdk/openai";
 import type { Options } from "@anthropic-ai/claude-agent-sdk";
 import { streamText, type LanguageModel } from "ai";
+import fs from "fs/promises";
 import path from "path";
 import WebSocket from "ws";
 import { SystemLogger } from "../../loggers/SystemLogger.js";
@@ -18,11 +19,16 @@ import { SandboxService } from "../SandboxService.js";
 import { SupabaseClientService } from "../SupabaseClientService.js";
 import { TerminalService } from "../terminals/TerminalService.js";
 import {
-  costFunctionV2,
+  costFunctionV3,
   CURRENT_COST_FUNCTION_NAME,
-  VERCEL_MODEL_COSTS_USD,
+  VERCEL_MODEL_COSTS_USD
 } from "./cost-calculation.js";
 import { hasRemainingCredits } from "./credit-checks.js";
+import {
+  DEFAULT_DESIGN_AGENT_MODELS,
+  executeDesignAgent,
+  type DesignAgentProvider,
+} from "./design-agent-service.js";
 import { createVercelDevTools } from "./mcp-dev-tools-vercel.js";
 import { ALLOWED_MODELS, ChatProvider } from "./model-providers.js";
 import { ToolPermissionService } from "./tool-permission-service.js";
@@ -231,26 +237,73 @@ export class VercelChatQueryHandler {
             },
           });
 
-          const designResult = await this.executeDesignAgent(
+          const designResult = await this.executeDesignAgentWrapper(
             prototypeId,
             userMessageText,
             designAbortController,
-            "Generate a design specification for the requested app.",
+            "", // system prompt not used anymore (handled by design-agent-service)
           );
 
           if (designResult.designSpec) {
             const parsed = this.parseDesignAgentSpec(designResult.designSpec);
             designSpec = parsed.spec;
             designMetadata = parsed.metadata;
+
+            if (parsed.metadata.addToProjectContext) {
+              // Write design spec to CLAUDE.md in the project directory
+              // This allows the AI SDK to read it as project context
+              try {
+                const claudeMdPath = path.join(this.workDir, "CLAUDE.md");
+                await fs.writeFile(claudeMdPath, designSpec, "utf-8");
+
+                this.logger.consoleLogDevOnly(
+                  "info",
+                  "Wrote design specification to CLAUDE.md",
+                  { prototypeId, specLength: designSpec.length, path: claudeMdPath },
+                );
+              } catch (writeError) {
+                this.logger.error(
+                  writeError instanceof Error ? writeError : new Error(String(writeError)),
+                  "Failed to write design specification to CLAUDE.md",
+                  { prototypeId },
+                );
+              }
+
+              // Also store in database for backup/reference
+              const { error: updateError } =
+                await this.supabaseClientService
+                  .getClient()
+                  .from("prototypes")
+                  .update({ project_context: designSpec })
+                  .eq("id", prototypeId);
+
+              if (updateError) {
+                this.logger.error(
+                  updateError,
+                  "Failed to store design specification in project_context",
+                  { prototypeId },
+                );
+              } else {
+                this.logger.consoleLogDevOnly(
+                  "info",
+                  "Stored design specification in project_context database",
+                  { prototypeId, specLength: designSpec.length },
+                );
+              }
+            } else {
+              this.logger.consoleLogDevOnly(
+                "info",
+                "Skipping CLAUDE.md write for narrow scope design spec",
+                { prototypeId },
+              );
+            }
           }
         }
       }
     }
 
-    let finalSystemPrompt = designSystemResult.systemPrompt;
-    if (designSpec) {
-      finalSystemPrompt += `\n\n## Design Specification:\n${designSpec}\n\nNow implement the app according to this design specification.`;
-    }
+    // Design spec is now in CLAUDE.md - no need to append to system prompt
+    const finalSystemPrompt = designSystemResult.systemPrompt;
 
     await handlers.notifyOrchestrationStartChat(prototypeId);
 
@@ -496,52 +549,35 @@ export class VercelChatQueryHandler {
     }
   }
 
-  private async executeDesignAgent(
+  /**
+   * Executes the design agent to generate a comprehensive design specification
+   * Uses AI SDK for flexible model support (Google, OpenAI)
+   */
+  private async executeDesignAgentWrapper(
     prototypeId: string,
     userMessage: string,
     abortController: AbortController,
-    systemPrompt: string,
+    _systemPrompt: string,
   ): Promise<{ designSpec: string | null; costUsd: number | undefined; }> {
-    try {
-      const { query } = await import("@anthropic-ai/claude-agent-sdk");
+    // Use Gemini by default for design agent (fast and free)
+    const provider: DesignAgentProvider = "google";
+    const model = DEFAULT_DESIGN_AGENT_MODELS[provider];
 
-      const response = query({
-        prompt: userMessage,
-        options: {
-          cwd: this.workDir,
-          model: "claude-sonnet-4-5",
-          systemPrompt,
-          abortController,
-          maxTurns: 1,
-        },
-      });
+    this.logger.consoleLogDevOnly(
+      "info",
+      "Executing design agent via AI SDK (Vercel handler)",
+      { prototypeId, provider, model, userMessageLength: userMessage.length },
+    );
 
-      let designSpec = "";
-      let totalCostUsd: number | undefined = undefined;
-
-      for await (const msg of response) {
-        if (msg.type === "assistant" && msg.message?.content) {
-          for (const c of msg.message.content) {
-            if (c.type === "text" && c.text) {
-              designSpec += c.text;
-            }
-          }
-        }
-        if (msg.type === "result") {
-          totalCostUsd = msg.total_cost_usd;
-        }
-      }
-
-      if (!designSpec) {
-        return { designSpec: null, costUsd: totalCostUsd };
-      }
-      return { designSpec, costUsd: totalCostUsd };
-    } catch (error) {
-      this.logger.error(error, "Design agent execution failed", {
-        prototypeId,
-      });
-      return { designSpec: null, costUsd: undefined };
-    }
+    return executeDesignAgent({
+      provider,
+      model,
+      userMessage,
+      workDir: this.workDir,
+      abortController,
+      logger: this.logger,
+      prototypeId,
+    });
   }
 
   private parseDesignAgentSpec(
@@ -970,7 +1006,7 @@ export class VercelChatQueryHandler {
           error: userError,
         });
       } else {
-        const creditsUsed = costFunctionV2(totalCostUsd) ?? 1.0;
+        const creditsUsed = costFunctionV3(totalCostUsd) ?? 1.0;
 
         const { totalRemainingCredits } = await trackApiUsageBuildWorker(
           this.supabaseClientService.getClient(),
