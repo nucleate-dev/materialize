@@ -428,21 +428,21 @@ function GallerySection() {
       iframeSrc:
         "https://10666dbd-f8e2-47ae-971d-45aef8aa8c2e.render.materializeui.com",
       publicLink:
-        "https://materializeui.com/project/10666dbd-f8e2-47ae-971d-45aef8aa8c2e",
+        "https://nucleate.dev/project/10666dbd-f8e2-47ae-971d-45aef8aa8c2e",
     },
     {
       name: "Flight Tracker",
       iframeSrc:
         "https://2eb2bc6a-4fe7-4595-a5a5-447af2542522.render.materializeui.com",
       publicLink:
-        "https://materializeui.com/project/2eb2bc6a-4fe7-4595-a5a5-447af2542522",
+        "https://nucleate.dev/project/2eb2bc6a-4fe7-4595-a5a5-447af2542522",
     },
     {
       name: "Beats Store",
       iframeSrc:
         "https://60e49673-fdb5-48ea-a53c-06352e250aba.render.materializeui.com",
       publicLink:
-        "https://materializeui.com/project/60e49673-fdb5-48ea-a53c-06352e250aba",
+        "https://nucleate.dev/project/60e49673-fdb5-48ea-a53c-06352e250aba",
     },
   ];
 
