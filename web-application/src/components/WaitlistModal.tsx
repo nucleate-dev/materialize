@@ -34,7 +34,7 @@ export default function WaitlistModal({
             Coming Soon!
           </DialogTitle>
           <DialogDescription className="text-center text-lg">
-            Materialize is still in development. We&apos;re working hard to
+            Nucleate is still in development. We&apos;re working hard to
             bring you the best React Native prototyping experience.
           </DialogDescription>
         </DialogHeader>

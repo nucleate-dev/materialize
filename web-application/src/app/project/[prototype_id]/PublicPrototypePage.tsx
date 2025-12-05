@@ -112,7 +112,7 @@ function AppSidebar() {
               <FlaskConical className="relative w-6 h-6 text-primary transition-transform duration-300 group-hover:scale-110 flex-shrink-0" />
 
               <span className="relative text-xl font-bold text-gray-900 dark:text-foreground transition-transform duration-300 group-hover:scale-105">
-                Sanara
+                Nucleate
               </span>
             </div>
           </Link>

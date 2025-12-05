@@ -124,7 +124,7 @@ export default function Terminal({
         "\x1b[1;32m┌─────────────────────────────────────────┐\x1b[0m",
       );
       terminal.writeln(
-        `\x1b[1;32m│  \x1b[1;37mSanara Terminal - ${TERMINAL_SESSION_LABELS[session]
+        `\x1b[1;32m│  \x1b[1;37mNucleate Terminal - ${TERMINAL_SESSION_LABELS[session]
         }\x1b[1;32m${" ".repeat(
           Math.max(0, 13 - TERMINAL_SESSION_LABELS[session].length),
         )}│\x1b[0m`,

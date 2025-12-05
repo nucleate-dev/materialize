@@ -1,9 +1,9 @@
 {
   "expo": {
-    "name": "sanara-nativewind",
-    "slug": "sanara-nativewind",
+    "name": "nucleate-nativewind",
+    "slug": "nucleate-nativewind",
     "version": "1.0.0",
-    "scheme": "sanara-nativewind",
+    "scheme": "nucleate-nativewind",
     "web": {
       "favicon": "./assets/favicon.png",
       "bundler": "metro"
@@ -30,14 +30,14 @@
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.sanara.nativewind"
+      "bundleIdentifier": "com.nucleate.nativewind"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.sanara.nativewind"
+      "package": "com.nucleate.nativewind"
     }
   }
 }

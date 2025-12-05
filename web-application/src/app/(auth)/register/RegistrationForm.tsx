@@ -242,7 +242,7 @@ export default function RegistrationForm() {
             Create an account
           </h2>
           <p className="text-[#8A8F98] text-sm">
-            Enter your details to get started with Sanara
+            Enter your details to get started with Nucleate
           </p>
         </div>
 

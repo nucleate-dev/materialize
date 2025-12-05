@@ -59,13 +59,13 @@ const DashboardSidebarContent = () => {
     },
     ...(SHOW_WHITEBOARDS
       ? [
-          {
-            href: "/dashboard/whiteboards",
-            icon: SquareStack,
-            label: "Whiteboards",
-            active: pathname?.includes("whiteboards"),
-          },
-        ]
+        {
+          href: "/dashboard/whiteboards",
+          icon: SquareStack,
+          label: "Whiteboards",
+          active: pathname?.includes("whiteboards"),
+        },
+      ]
       : []),
   ];
 
@@ -91,7 +91,7 @@ const DashboardSidebarContent = () => {
                 <FlaskConical className="w-4 h-4 text-gray-900 dark:text-white" />
               </div>
               <span className="font-medium text-gray-900 dark:text-white tracking-tight text-[15px]">
-                Materialize
+                Nucleate
               </span>
             </Link>
             <SidebarTrigger

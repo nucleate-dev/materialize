@@ -1,5 +1,5 @@
 {
-  "name": "sanara-nativewind",
+  "name": "nucleate-nativewind",
   "version": "1.0.0",
   "scripts": {
     "android": "expo start --android",

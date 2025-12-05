@@ -85,7 +85,7 @@ export default function Blog({ initialPosts }: BlogProps) {
               </h1>
               <p className="text-lg md:text-xl text-[#8A8F98] max-w-2xl mx-auto font-normal leading-relaxed">
                 Insights, tutorials, and updates on building products{" "}
-                <br className="hidden md:block" /> with Sanara and React
+                <br className="hidden md:block" /> with Nucleate and React
                 Native.
               </p>
             </div>
@@ -344,7 +344,7 @@ export default function Blog({ initialPosts }: BlogProps) {
               <span className="hover:text-white cursor-pointer transition-colors">
                 Terms
               </span>
-              <span>© 2025 Sanara.</span>
+              <span>© 2025 Nucleate.</span>
             </div>
           </div>
         </footer>

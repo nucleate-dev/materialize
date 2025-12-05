@@ -3,9 +3,9 @@ import { Metadata } from "next";
 import Blog from "./Blog";
 
 export const metadata: Metadata = {
-  title: "Blog | Sanara",
+  title: "Blog | Nucleate",
   description:
-    "Latest insights, tutorials, and updates from the Sanara team on React Native development, AI-powered prototyping, and mobile app design.",
+    "Latest insights, tutorials, and updates from the Nucleate team on React Native development, AI-powered prototyping, and mobile app design.",
   keywords: [
     "React Native",
     "Mobile Development",
@@ -15,9 +15,9 @@ export const metadata: Metadata = {
     "Blog",
   ],
   openGraph: {
-    title: "Sanara Blog",
+    title: "Nucleate Blog",
     description:
-      "Latest insights, tutorials, and updates from the Sanara team",
+      "Latest insights, tutorials, and updates from the Nucleate team",
     type: "website",
   },
 };

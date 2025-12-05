@@ -9,9 +9,9 @@ import { CSPostHogProvider, QueryProvider } from "./providers";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Sanara - Speed of Thought Prototyping",
+  title: "Nucleate - Speed of Thought Prototyping",
   description:
-    "Sanara helps you prototype your ideas, workshop new designs, and build out high-quality user flows.",
+    "Nucleate helps you prototype your ideas, workshop new designs, and build out high-quality user flows.",
   keywords: [
     "prototyping",
     "design",
@@ -21,18 +21,18 @@ export const metadata: Metadata = {
     "user flows",
     "canvas",
   ],
-  authors: [{ name: "Sanara" }],
+  authors: [{ name: "Nucleate" }],
   openGraph: {
-    title: "Sanara - Speed of Thought Prototyping",
+    title: "Nucleate - Speed of Thought Prototyping",
     description:
-      "Sanara helps you prototype your ideas, workshop new designs, and build high-quality user flows.",
+      "Nucleate helps you prototype your ideas, workshop new designs, and build high-quality user flows.",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Sanara - Speed of Thought Prototyping",
+    title: "Nucleate - Speed of Thought Prototyping",
     description:
-      "Sanara helps you prototype your ideas, workshop new designs, and build high-quality user flows.",
+      "Nucleate helps you prototype your ideas, workshop new designs, and build high-quality user flows.",
   },
   verification: {
     other: {

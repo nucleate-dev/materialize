@@ -24,12 +24,12 @@ export async function generateMetadata({
 
   if (!post) {
     return {
-      title: "Post Not Found | Sanara Blog",
+      title: "Post Not Found | Nucleate Blog",
     };
   }
 
   return {
-    title: `${post.title} | Sanara Blog`,
+    title: `${post.title} | Nucleate Blog`,
     description: post.excerpt,
     keywords: post.tags,
     authors: [{ name: post.author }],

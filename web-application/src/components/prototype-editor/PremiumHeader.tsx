@@ -1,6 +1,6 @@
 "use client";
 import { useUser } from "@/hooks/useUser";
-import { FlaskConical } from "lucide-react";
+import { Atom } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
@@ -41,8 +41,8 @@ export default function PremiumHeader({
               className={`flex items-center gap-2 text-2xl font-bold hover:opacity-80 transition-opacity duration-200 ${forceDarkMode ? "text-white" : "text-black dark:text-white"
                 }`}
             >
-              <FlaskConical className="w-6 h-6 text-primary" />
-              <span>Sanara</span>
+              <Atom className="w-6 h-6 text-primary" />
+              <span>Nucleate</span>
             </Link>
           </div>
 

@@ -770,8 +770,8 @@ const MaterializeRenderSection = forwardRef<
         const downloadUrl = URL.createObjectURL(zipBlob);
         const link = document.createElement("a");
         const exportName = prototypeId
-          ? `sanara-project-${prototypeId}.zip`
-          : "sanara-project-export.zip";
+          ? `nucleate-project-${prototypeId}.zip`
+          : "nucleate-project-export.zip";
 
         link.href = downloadUrl;
         link.download = exportName;

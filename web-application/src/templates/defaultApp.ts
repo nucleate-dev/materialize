@@ -27,7 +27,7 @@ export default function App() {
         <Stack.Screen 
           name="Home" 
           component={HomeScreen} 
-          options={{ title: 'Sanara App' }}
+          options={{ title: 'Nucleate App' }}
         />
       </Stack.Navigator>
     </NavigationContainer>
@@ -91,7 +91,7 @@ export default function App() {
         <Stack.Screen 
           name="Home" 
           component={HomeScreen} 
-          options={{ title: 'Sanara App' }}
+          options={{ title: 'Nucleate App' }}
         />
       </Stack.Navigator>
     </NavigationContainer>
@@ -125,7 +125,7 @@ const styles = StyleSheet.create({
   "package.json": {
     contents: JSON.stringify(
       {
-        name: "Sanara-project",
+        name: "Nucleate-project",
         version: "1.0.0",
         main: "App.js",
         scripts: {
@@ -233,9 +233,9 @@ export const spacing = {
     type: "CODE",
   },
   "README.md": {
-    contents: `# Sanara Project
+    contents: `# Nucleate Project
 
-This is a React Native project created with Sanara.
+This is a React Native project created with Nucleate.
 
 ## Getting Started
 
@@ -265,7 +265,7 @@ This is a React Native project created with Sanara.
 - Component library
 - Traditional React Native tab navigation
 
-Built with ❤️ using Sanara
+Built with ❤️ using Nucleate
 `,
     type: "CODE",
   },
@@ -302,7 +302,7 @@ export default function App(): React.JSX.Element {
         <Stack.Screen 
           name="Home" 
           component={HomeScreen} 
-          options={{ title: 'Sanara App' }}
+          options={{ title: 'Nucleate App' }}
         />
       </Stack.Navigator>
     </NavigationContainer>
@@ -470,7 +470,7 @@ export const spacing: Spacing = {
   "package.json": {
     contents: JSON.stringify(
       {
-        name: "Sanara-project",
+        name: "Nucleate-project",
         version: "1.0.0",
         main: "App.tsx",
         scripts: {
@@ -512,9 +512,9 @@ export const spacing: Spacing = {
     type: "CODE",
   },
   "README.md": {
-    contents: `# Sanara (TypeScript)
+    contents: `# Nucleate (TypeScript)
 
-This is a React Native project created with Sanara using TypeScript.
+This is a React Native project created with Nucleate using TypeScript.
 
 ## Getting Started
 
@@ -545,7 +545,7 @@ This is a React Native project created with Sanara using TypeScript.
 - Type-safe navigation with React Navigation
 - Strict TypeScript configuration
 
-Built with ❤️ using Sanara
+Built with ❤️ using Nucleate
 `,
     type: "CODE",
   },

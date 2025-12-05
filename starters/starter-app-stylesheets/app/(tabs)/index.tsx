@@ -8,14 +8,10 @@ export default function HomeScreen() {
   return (
     <View style={styles.container}>
       <StyledText variant="h1" style={styles.title}>
-        Welcome to Sanara!
+        Nucleate
       </StyledText>
 
       <View style={styles.separator} />
-
-      <StyledText variant="bodyLarge" style={styles.paragraph}>
-        This is your main screen. You can start building your app here with beautiful components.
-      </StyledText>
 
       <StyledText variant="caption" color="textSecondary" style={styles.subtext}>
         The app automatically supports dark and light mode with theme support.

@@ -598,7 +598,7 @@ export default function ClaudeCodePanel({
               id: `corruption-warning-${Date.now()}`,
               type: "system",
               content:
-                "Chat session has been corrupted. Sanara won't be able to see previous messages before this point.",
+                "Chat session has been corrupted. Nucleate won't be able to see previous messages before this point.",
               timestamp: Date.now(),
             });
           }
