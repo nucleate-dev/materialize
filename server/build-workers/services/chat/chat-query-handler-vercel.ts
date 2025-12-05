@@ -29,6 +29,7 @@ import {
   executeDesignAgent,
   type DesignAgentProvider,
 } from "./design-agent-service.js";
+import { classifyDesignIntent } from "./design-intent-classifier.js";
 import { createVercelDevTools } from "./mcp-dev-tools-vercel.js";
 import { ALLOWED_MODELS, ChatProvider } from "./model-providers.js";
 import { ToolPermissionService } from "./tool-permission-service.js";
@@ -204,6 +205,8 @@ export class VercelChatQueryHandler {
 
     let designSpec: string | null = null;
     let designMetadata: DesignAgentMetadata | null = null;
+    let classifierCost: number | undefined = undefined;
+
     if (
       this.enableDesignAgentOnFirstMessage &&
       sessionState.prototypeChatSessionId
@@ -225,78 +228,118 @@ export class VercelChatQueryHandler {
               : prompt || "";
 
         if (userMessageText) {
-          const designAbortController = new AbortController();
-          sessionState.abortController = designAbortController;
+          const classifierAbortController = new AbortController();
+          sessionState.abortController = classifierAbortController;
 
-          handlers.sendMessage(socket, {
-            type: ChatEvent.DESIGN_GENERATION,
-            data: {
-              status: "started",
-              message: "Generating design specification...",
-              runDesignAgent: true,
-            },
-          });
-
-          const designResult = await this.executeDesignAgentWrapper(
-            prototypeId,
-            userMessageText,
-            designAbortController,
-            "", // system prompt not used anymore (handled by design-agent-service)
+          // Classify the user's intent
+          this.logger.consoleLogDevOnly(
+            "info",
+            "Classifying user intent on first message (Vercel handler)",
+            { prototypeId, userMessageLength: userMessageText.length },
           );
 
-          if (designResult.designSpec) {
-            const parsed = this.parseDesignAgentSpec(designResult.designSpec);
-            designSpec = parsed.spec;
-            designMetadata = parsed.metadata;
+          const classificationResult = await classifyDesignIntent({
+            userMessage: userMessageText,
+            abortController: classifierAbortController,
+            logger: this.logger,
+            prototypeId,
+          });
 
-            if (parsed.metadata.addToProjectContext) {
-              // Write design spec to CLAUDE.md in the project directory
-              // This allows the AI SDK to read it as project context
-              try {
-                const claudeMdPath = path.join(this.workDir, "CLAUDE.md");
-                await fs.writeFile(claudeMdPath, designSpec, "utf-8");
+          classifierCost = classificationResult.costUsd;
 
-                this.logger.consoleLogDevOnly(
-                  "info",
-                  "Wrote design specification to CLAUDE.md",
-                  { prototypeId, specLength: designSpec.length, path: claudeMdPath },
-                );
-              } catch (writeError) {
-                this.logger.error(
-                  writeError instanceof Error ? writeError : new Error(String(writeError)),
-                  "Failed to write design specification to CLAUDE.md",
-                  { prototypeId },
-                );
-              }
+          this.logger.consoleLogDevOnly(
+            "info",
+            "User intent classified (Vercel handler)",
+            {
+              prototypeId,
+              intent: classificationResult.intent,
+              classifierCost,
+            },
+          );
 
-              // Also store in database for backup/reference
-              const { error: updateError } =
-                await this.supabaseClientService
-                  .getClient()
-                  .from("prototypes")
-                  .update({ project_context: designSpec })
-                  .eq("id", prototypeId);
+          // Only run design agent if user wants a full app
+          if (classificationResult.intent === "full_app") {
+            handlers.sendMessage(socket, {
+              type: ChatEvent.DESIGN_GENERATION,
+              data: {
+                status: "started",
+                message: "Generating design specification...",
+                runDesignAgent: true,
+              },
+            });
 
-              if (updateError) {
-                this.logger.error(
-                  updateError,
-                  "Failed to store design specification in project_context",
-                  { prototypeId },
-                );
+            const designResult = await this.executeDesignAgentWrapper(
+              prototypeId,
+              userMessageText,
+              classifierAbortController,
+              "", // system prompt not used anymore (handled by design-agent-service)
+            );
+
+            if (designResult.designSpec) {
+              const parsed = this.parseDesignAgentSpec(designResult.designSpec);
+              designSpec = parsed.spec;
+              designMetadata = parsed.metadata;
+
+              if (parsed.metadata.addToProjectContext) {
+                // Write design spec to CLAUDE.md in the project directory
+                // This allows the AI SDK to read it as project context
+                try {
+                  const claudeMdPath = path.join(this.workDir, "CLAUDE.md");
+                  await fs.writeFile(claudeMdPath, designSpec, "utf-8");
+
+                  this.logger.consoleLogDevOnly(
+                    "info",
+                    "Wrote design specification to CLAUDE.md",
+                    { prototypeId, specLength: designSpec.length, path: claudeMdPath },
+                  );
+                } catch (writeError) {
+                  this.logger.error(
+                    writeError instanceof Error ? writeError : new Error(String(writeError)),
+                    "Failed to write design specification to CLAUDE.md",
+                    { prototypeId },
+                  );
+                }
+
+                // Also store in database for backup/reference
+                const { error: updateError } =
+                  await this.supabaseClientService
+                    .getClient()
+                    .from("prototypes")
+                    .update({ project_context: designSpec })
+                    .eq("id", prototypeId);
+
+                if (updateError) {
+                  this.logger.error(
+                    updateError,
+                    "Failed to store design specification in project_context",
+                    { prototypeId },
+                  );
+                } else {
+                  this.logger.consoleLogDevOnly(
+                    "info",
+                    "Stored design specification in project_context database",
+                    { prototypeId, specLength: designSpec.length },
+                  );
+                }
               } else {
                 this.logger.consoleLogDevOnly(
                   "info",
-                  "Stored design specification in project_context database",
-                  { prototypeId, specLength: designSpec.length },
+                  "Skipping CLAUDE.md write for narrow scope design spec",
+                  { prototypeId },
                 );
               }
-            } else {
-              this.logger.consoleLogDevOnly(
-                "info",
-                "Skipping CLAUDE.md write for narrow scope design spec",
-                { prototypeId },
-              );
             }
+          } else {
+            // User wants specific component - skip design agent
+            this.logger.consoleLogDevOnly(
+              "info",
+              "Skipping design agent - user wants specific component (Vercel handler)",
+              {
+                prototypeId,
+                intent: classificationResult.intent,
+                classifierCost,
+              },
+            );
           }
         }
       }

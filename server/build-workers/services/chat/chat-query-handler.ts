@@ -39,6 +39,7 @@ import {
   executeDesignAgent,
   type DesignAgentProvider,
 } from "./design-agent-service.js";
+import { classifyDesignIntent } from "./design-intent-classifier.js";
 import { createDevelopmentToolsMcpServer } from "./mcp-dev-tools.js";
 import { getToolDisplayName } from "./message-handlers.js";
 import { ToolPermissionService } from "./tool-permission-service.js";
@@ -319,96 +320,138 @@ export class ChatQueryHandler {
               : prompt || "";
 
         if (userMessageText) {
-          // Create abort controller for design agent (will be replaced for main query)
-          const designAbortController = new AbortController();
-          sessionState.abortController = designAbortController;
+          // Create abort controller for classifier and potential design agent
+          const classifierAbortController = new AbortController();
+          sessionState.abortController = classifierAbortController;
 
-          // Send design generation started message to client
-          handlers.sendMessage(socket, {
-            type: ChatEvent.DESIGN_GENERATION,
-            data: {
-              status: "started",
-              message: "Generating design specification...",
-              runDesignAgent: true,
-            },
-          });
-
-          const designResult = await this.executeDesignAgentWrapper(
-            prototypeId,
-            userMessageText,
-            designAbortController,
-            "", // system prompt not used anymore (handled by design-agent-service)
+          // Step 6a: Classify the user's intent
+          this.logger.consoleLogDevOnly(
+            "info",
+            "Classifying user intent on first message",
+            { prototypeId, userMessageLength: userMessageText.length },
           );
 
-          designAgentCost = designResult.costUsd;
+          const classificationResult = await classifyDesignIntent({
+            userMessage: userMessageText,
+            abortController: classifierAbortController,
+            logger: this.logger,
+            prototypeId,
+          });
 
-          if (designResult.designSpec) {
-            const { spec, metadata } = this.parseDesignAgentSpec(
-              designResult.designSpec,
-            );
-            designSpec = spec;
-            designMetadata = metadata;
-
-            if (metadata.addToProjectContext) {
-              // Write design spec to CLAUDE.md in the project directory
-              // This allows Claude Code SDK to automatically read it as project context
-              try {
-                const claudeMdPath = path.join(this.workDir, "CLAUDE.md");
-                await fs.writeFile(claudeMdPath, designSpec, "utf-8");
-
-                this.logger.consoleLogDevOnly(
-                  "info",
-                  "Wrote design specification to CLAUDE.md",
-                  { prototypeId, specLength: designSpec.length, path: claudeMdPath },
-                );
-              } catch (writeError) {
-                this.logger.error(
-                  writeError instanceof Error ? writeError : new Error(String(writeError)),
-                  "Failed to write design specification to CLAUDE.md",
-                  { prototypeId },
-                );
-              }
-
-              // Also store in database for backup/reference
-              const { error: updateError } =
-                await this.supabaseClientService
-                  .getClient()
-                  .from("prototypes")
-                  .update({ project_context: designSpec })
-                  .eq("id", prototypeId);
-
-              if (updateError) {
-                this.logger.error(
-                  updateError,
-                  "Failed to store design specification in project_context",
-                  { prototypeId },
-                );
-              } else {
-                this.logger.consoleLogDevOnly(
-                  "info",
-                  "Stored design specification in project_context database",
-                  { prototypeId, specLength: designSpec.length },
-                );
-              }
-            } else {
-              this.logger.consoleLogDevOnly(
-                "info",
-                "Skipping project_context update for narrow scope design spec",
-                { prototypeId },
-              );
-            }
-          }
+          const classifierCost = classificationResult.costUsd;
 
           this.logger.consoleLogDevOnly(
             "info",
-            "Design agent execution completed",
+            "User intent classified",
             {
               prototypeId,
-              hasDesignSpec: !!designSpec,
-              designAgentCost,
-              metadata: designMetadata,
+              intent: classificationResult.intent,
+              classifierCost,
             },
           );
+
+          // Step 6b: Only run design agent if user wants a full app
+          if (classificationResult.intent === "full_app") {
+            // Send design generation started message to client
+            handlers.sendMessage(socket, {
+              type: ChatEvent.DESIGN_GENERATION,
+              data: {
+                status: "started",
+                message: "Generating design specification...",
+                runDesignAgent: true,
+              },
+            });
+
+            const designResult = await this.executeDesignAgentWrapper(
+              prototypeId,
+              userMessageText,
+              classifierAbortController,
+              "", // system prompt not used anymore (handled by design-agent-service)
+            );
+
+            // Add classifier cost to design agent cost
+            designAgentCost = (designResult.costUsd ?? 0) + (classifierCost ?? 0);
+
+            if (designResult.designSpec) {
+              const { spec, metadata } = this.parseDesignAgentSpec(
+                designResult.designSpec,
+              );
+              designSpec = spec;
+              designMetadata = metadata;
+
+              if (metadata.addToProjectContext) {
+                // Write design spec to CLAUDE.md in the project directory
+                // This allows Claude Code SDK to automatically read it as project context
+                try {
+                  const claudeMdPath = path.join(this.workDir, "CLAUDE.md");
+                  await fs.writeFile(claudeMdPath, designSpec, "utf-8");
+
+                  this.logger.consoleLogDevOnly(
+                    "info",
+                    "Wrote design specification to CLAUDE.md",
+                    { prototypeId, specLength: designSpec.length, path: claudeMdPath },
+                  );
+                } catch (writeError) {
+                  this.logger.error(
+                    writeError instanceof Error ? writeError : new Error(String(writeError)),
+                    "Failed to write design specification to CLAUDE.md",
+                    { prototypeId },
+                  );
+                }
+
+                // Also store in database for backup/reference
+                const { error: updateError } =
+                  await this.supabaseClientService
+                    .getClient()
+                    .from("prototypes")
+                    .update({ project_context: designSpec })
+                    .eq("id", prototypeId);
+
+                if (updateError) {
+                  this.logger.error(
+                    updateError,
+                    "Failed to store design specification in project_context",
+                    { prototypeId },
+                  );
+                } else {
+                  this.logger.consoleLogDevOnly(
+                    "info",
+                    "Stored design specification in project_context database",
+                    { prototypeId, specLength: designSpec.length },
+                  );
+                }
+              } else {
+                this.logger.consoleLogDevOnly(
+                  "info",
+                  "Skipping project_context update for narrow scope design spec",
+                  { prototypeId },
+                );
+              }
+            }
+
+            this.logger.consoleLogDevOnly(
+              "info",
+              "Design agent execution completed",
+              {
+                prototypeId,
+                hasDesignSpec: !!designSpec,
+                designAgentCost,
+                metadata: designMetadata,
+              },
+            );
+          } else {
+            // User wants specific component - skip design agent, just track classifier cost
+            designAgentCost = classifierCost;
+            this.logger.consoleLogDevOnly(
+              "info",
+              "Skipping design agent - user wants specific component",
+              {
+                prototypeId,
+                intent: classificationResult.intent,
+                classifierCost,
+              },
+            );
+          }
         }
       }
     }
