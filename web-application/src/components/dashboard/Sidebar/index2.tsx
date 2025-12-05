@@ -20,14 +20,13 @@ import { cn } from "@/lib/classNames";
 import { logout } from "@/lib/utils/auth/SupabaseAuthUtils";
 import { useAtom } from "jotai";
 import {
-  FlaskConical,
-  Folder,
+  Atom, Folder,
   LogOut,
   Palette,
   Plus,
   Rocket,
   Settings,
-  SquareStack,
+  SquareStack
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -80,7 +79,7 @@ const DashboardSidebarContent = () => {
               className="flex items-center justify-center"
             >
               <div className="p-1.5 rounded-lg bg-gray-100 dark:bg-white/5 text-gray-900 dark:text-white hover:bg-gray-200 dark:hover:bg-white/10 transition-colors">
-                <FlaskConical className="w-5 h-5" />
+                <Atom className="w-5 h-5" />
               </div>
             </Link>
           </div>
@@ -88,7 +87,7 @@ const DashboardSidebarContent = () => {
           <div className="flex w-full items-center justify-between">
             <Link href="/dashboard" className="flex items-center gap-3 group">
               <div className="relative flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-gray-200 to-gray-100 dark:from-white/10 dark:to-white/5 border border-gray-200 dark:border-white/10 group-hover:border-gray-300 dark:group-hover:border-white/20 transition-all">
-                <FlaskConical className="w-4 h-4 text-gray-900 dark:text-white" />
+                <Atom className="w-4 h-4 text-gray-900 dark:text-white" />
               </div>
               <span className="font-medium text-gray-900 dark:text-white tracking-tight text-[15px]">
                 Nucleate

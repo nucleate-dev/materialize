@@ -18,14 +18,13 @@ import { sidebarOpenAtom } from "@/lib/atoms/sidebar";
 import { logout } from "@/lib/utils/auth/SupabaseAuthUtils";
 import { useAtom } from "jotai";
 import {
-  FlaskConical,
-  Folder,
+  Atom, Folder,
   LogOut,
   Palette,
   Rocket,
   Settings,
   Sparkles,
-  SquareStack,
+  SquareStack
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -84,7 +83,7 @@ const DashboardSidebarContent = () => {
               className="p-2"
               onClick={handleMobileLinkClick}
             >
-              <FlaskConical className="w-6 h-6 text-primary" />
+              <Atom className="w-6 h-6 text-primary" />
             </Link>
             <SidebarTrigger
               className="h-6 w-6"
@@ -100,7 +99,7 @@ const DashboardSidebarContent = () => {
             >
               <div className="relative flex items-center gap-3 px-3 py-2">
                 <div className="absolute inset-0 bg-gradient-to-r from-primary/20 to-secondary/20 dark:from-primary/30 dark:to-secondary/30 rounded-xl blur-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                <FlaskConical className="relative w-6 h-6 text-primary transition-transform duration-300 group-hover:scale-110 flex-shrink-0" />
+                <Atom className="relative w-6 h-6 text-primary transition-transform duration-300 group-hover:scale-110 flex-shrink-0" />
                 <span className="relative text-xl font-bold text-gray-900 dark:text-foreground transition-transform duration-300 group-hover:scale-105">
                   Nucleate
                 </span>

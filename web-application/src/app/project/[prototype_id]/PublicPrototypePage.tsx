@@ -41,13 +41,12 @@ import { Database } from "@/lib/types/supabase";
 import { logout } from "@/lib/utils/auth/SupabaseAuthUtils";
 import { EyeIcon, SparklesIcon } from "@heroicons/react/24/outline";
 import {
-  FlaskConical,
-  Folder,
+  Atom, Folder,
   LogOut,
   Rocket,
   Settings,
   Sparkles,
-  SquareStack,
+  SquareStack
 } from "lucide-react";
 import Link from "next/link";
 import { useParams, usePathname } from "next/navigation";
@@ -109,7 +108,7 @@ function AppSidebar() {
               {/* Glow Effect */}
               <div className="absolute inset-0 bg-gradient-to-r from-primary/20 to-secondary/20 dark:from-primary/30 dark:to-secondary/30 rounded-xl blur-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
 
-              <FlaskConical className="relative w-6 h-6 text-primary transition-transform duration-300 group-hover:scale-110 flex-shrink-0" />
+              <Atom className="relative w-6 h-6 text-primary transition-transform duration-300 group-hover:scale-110 flex-shrink-0" />
 
               <span className="relative text-xl font-bold text-gray-900 dark:text-foreground transition-transform duration-300 group-hover:scale-105">
                 Nucleate
