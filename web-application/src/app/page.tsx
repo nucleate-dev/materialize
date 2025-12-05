@@ -234,7 +234,7 @@ function FeaturesBentoGrid() {
       <div className="container mx-auto px-6 max-w-6xl">
         <div className="mb-16">
           <h2 className="text-4xl md:text-5xl font-medium tracking-tight text-white mb-6">
-            Made to build beautiful apps fast
+            Build beautiful, production-ready apps fast
           </h2>
           <p className="text-xl text-[#8A8F98] max-w-2xl">
             Nucleate is shaped by the practices and principles that
