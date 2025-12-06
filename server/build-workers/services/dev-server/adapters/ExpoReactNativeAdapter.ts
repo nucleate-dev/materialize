@@ -217,8 +217,13 @@ export class ExpoReactNativeAdapter implements IDevelopmentServerAdapter {
   /**
    * Restarts the Expo development server.
    */
-  async restartDevServer(): Promise<void> {
-    // TODO: Implement Expo dev server restart logic
+  async restartDevServer(log2: SystemLogger): Promise<void> {
+    await this.stopDevServer(log2);
+    const command = `cd ${WORK_DIR} && EXPO_NO_TELEMETRY=1 EXPO_TUNNEL_SUBDOMAIN=${this.tunnelSubdomain} npx expo start --web --tunnel --port ${DEV_SERVER_PORT} --clear\n`;
+    this.terminalService.sendInput("dev-server", command, {
+      bypassValidation: true,
+    });
+    await new Promise((resolve) => setTimeout(resolve, 1000));
   }
 
   /**

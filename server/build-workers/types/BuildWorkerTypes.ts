@@ -63,6 +63,7 @@ export enum DevServerStatus {
   STARTING = "starting",
   RUNNING = "running",
   ERROR = "error",
+  RESTARTING = "restarting",
 }
 
 export interface BuildLogEntry {

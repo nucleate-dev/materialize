@@ -30,7 +30,7 @@ export interface IDevelopmentServerAdapter {
   /**
    * Restarts the development server.
    */
-  restartDevServer(): Promise<void>;
+  restartDevServer(log2: SystemLogger): Promise<void>;
 
   /**
    * Builds the project.
