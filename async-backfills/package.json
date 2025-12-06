@@ -1,7 +1,7 @@
 {
   "name": "async-backfills",
   "version": "1.0.0",
-  "description": "Database backfill scripts for Materialize",
+  "description": "Database backfill scripts for Nucleate",
   "private": true,
   "scripts": {
     "gen:supabase:types": "supabase gen types typescript --project-id hfgjmwidcoszkmvejxhw --schema public > types/supabase.ts",

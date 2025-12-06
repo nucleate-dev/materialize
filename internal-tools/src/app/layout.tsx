@@ -16,7 +16,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Internal Tools",
-  description: "Materialize Internal Tools Dashboard",
+  description: "Nucleate Internal Tools Dashboard",
 };
 
 export default function RootLayout({
@@ -31,9 +31,7 @@ export default function RootLayout({
       >
         <SidebarProvider>
           <InternalToolsSidebar />
-          <main className="flex-1 flex flex-col min-h-screen">
-            {children}
-          </main>
+          <main className="flex-1 flex flex-col min-h-screen">{children}</main>
         </SidebarProvider>
       </body>
     </html>
