@@ -39,12 +39,11 @@ import {
   Info,
   Loader2,
   Paperclip,
-  Plus,
-  Send,
+  Plus, Send,
   Sparkles,
   StopCircle,
   Terminal,
-  X,
+  X
 } from "lucide-react";
 import type {
   ChangeEvent,
@@ -207,8 +206,10 @@ export default function ClaudeCodePanelUI({
     }
   }, [hasReachedCreditLimit]);
 
-  const sanitizeErrorText = (text: string) =>
-    text.replace(/Claude Code/g, "Nucleate");
+  const sanitizeText = (text: string) =>
+    text
+      .replace(/Claude Code/g, "Nucleate")
+      .replace(/\/tmp\/materialize-dev-server/g, "");
 
   return (
     <div
@@ -421,7 +422,7 @@ export default function ClaudeCodePanelUI({
                           </div>
                         )}
                         <pre className="whitespace-pre-wrap break-words font-sans">
-                          {message.content}
+                          {sanitizeText(message.content)}
                         </pre>
 
                         {/* User Images */}
@@ -463,7 +464,7 @@ export default function ClaudeCodePanelUI({
                         prose-code:bg-indigo-50 dark:prose-code:bg-indigo-950/50 prose-code:px-1 prose-code:rounded
                         prose-code:before:content-none prose-code:after:content-none"
                       >
-                        <ReactMarkdown>{message.content}</ReactMarkdown>
+                        <ReactMarkdown>{sanitizeText(message.content)}</ReactMarkdown>
                       </div>
                     </div>
                   )}
@@ -482,9 +483,7 @@ export default function ClaudeCodePanelUI({
                         )}
                       />
                       <code className="text-xs font-mono text-muted-foreground truncate max-w-[200px] sm:max-w-md">
-                        {message.status === "error"
-                          ? sanitizeErrorText(message.content)
-                          : message.content}
+                        {sanitizeText(message.content)}
                       </code>
                       {message.status === "running" && (
                         <Loader2 className="w-3 h-3 text-muted-foreground animate-spin ml-1" />
@@ -530,7 +529,7 @@ export default function ClaudeCodePanelUI({
                         expandedThinking.has(message.toolCallId) && (
                           <div className="ml-2 pl-4 border-l border-border mt-0.5 py-0.5">
                             <div className="text-xs font-mono text-muted-foreground whitespace-pre-wrap leading-relaxed bg-accent/50 p-2.5 rounded-md border border-border">
-                              {message.content}
+                              {sanitizeText(message.content)}
                               {message.toolInput && (
                                 <div className="mt-3 pt-3 border-t border-dashed border-border">
                                   {message.toolInput.prompt && (
@@ -563,14 +562,14 @@ export default function ClaudeCodePanelUI({
                   {message.type === "error" && (
                     <div className="flex items-start gap-3 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-600 dark:text-red-400 text-sm">
                       <CircleAlert className="w-4 h-4 mt-0.5 shrink-0" />
-                      <div>{sanitizeErrorText(message.content)}</div>
+                      <div>{sanitizeText(message.content)}</div>
                     </div>
                   )}
 
                   {/* Usage Message */}
                   {message.type === "usage" && (
                     <div className="text-xs text-muted-foreground/60 px-1">
-                      {message.content}
+                      {sanitizeText(message.content)}
                     </div>
                   )}
 
@@ -588,7 +587,7 @@ export default function ClaudeCodePanelUI({
                       >
                         <Sparkles className="w-4 h-4 text-purple-600 dark:text-purple-400 shrink-0" />
                         <div className="flex-1 text-sm font-medium text-purple-600 dark:text-purple-400">
-                          {message.content}
+                          {sanitizeText(message.content)}
                         </div>
                         {message.isCollapsed ? (
                           <ChevronDown className="w-4 h-4 text-purple-600 dark:text-purple-400 shrink-0" />
