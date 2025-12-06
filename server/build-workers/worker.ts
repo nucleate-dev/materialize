@@ -7,7 +7,6 @@ import fs from "fs/promises";
 import { SystemLogger, genRequestIds } from "./loggers/SystemLogger.js";
 import { ChatService } from "./services/chat/ChatService.js";
 import { CloudflareTunnelManagementService } from "./services/CloudflareTunnelManagementService.js";
-import { ExpoDevServerService } from "./services/dev-server/ExpoDevServerService.js";
 import { NucleateDevelopmentServerService } from "./services/dev-server/NucleateDevelopmentServerService.js";
 import { FileSyncService } from "./services/FileSyncService.js";
 import { SandboxService } from "./services/SandboxService.js";
@@ -104,24 +103,13 @@ const sandboxService = new SandboxService(
   terminalService,
 );
 
-// Create ExpoDevServerService with undefined chatService (will be set after ChatService is created)
-// This is needed to break the circular dependency between ChatService and ExpoDevServerService
-const expoDevServerService = new ExpoDevServerService(
-  WORK_DIR,
-  defaultS3Client,
-  terminalService,
-  baseLogger,
-  supabaseClientService,
-  fileSyncService,
-  undefined!, // chatService - will be set after ChatService is created
-);
-
 const cloudflareTunnelManagementService = new CloudflareTunnelManagementService(
   WORK_DIR,
   baseLogger,
 );
+// Create NucleateDevelopmentServerService with undefined chatService (will be set after ChatService is created)
+// This is needed to break the circular dependency between ChatService and NucleateDevelopmentServerService
 const nucleateDevelopmentServerService = new NucleateDevelopmentServerService(
-  expoDevServerService,
   sandboxService,
   cloudflareTunnelManagementService,
   WORK_DIR,
@@ -142,9 +130,7 @@ const chatService = new ChatService(
   fileSyncService,
 );
 
-// Now set the chatService reference in ExpoDevServerService
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-(expoDevServerService as any).chatService = chatService;
+// Now set the chatService reference in NucleateDevelopmentServerService
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 (nucleateDevelopmentServerService as any).codeService = chatService;
 
@@ -168,28 +154,12 @@ app.addHook("onRequest", async (req) => {
 
 // --- Health Check ---
 app.get("/health", async () => {
-  try {
-    const resources = await expoDevServerService.checkSystemResources();
-    return {
-      status: "ok",
-      timestamp: new Date().toISOString(),
-      service: "fargate-build-worker",
-      system: {
-        disk: resources.disk.split("\n")[1],
-        memory: resources.memory.split("\n")[1],
-        nodeProcesses: resources.processes,
-      },
-      workDir: WORK_DIR,
-    };
-  } catch {
-    return {
-      status: "ok",
-      timestamp: new Date().toISOString(),
-      service: "fargate-build-worker",
-      system: "Unable to check",
-      workDir: WORK_DIR,
-    };
-  }
+  return {
+    status: "ok",
+    timestamp: new Date().toISOString(),
+    service: "fargate-build-worker",
+    workDir: WORK_DIR,
+  };
 });
 
 // Register public API endpoints
@@ -208,7 +178,9 @@ chatService.registerRoutes();
 const close = async (): Promise<void> => {
   baseLogger.info("Shutting down build worker...");
   try {
-    await expoDevServerService.shutdown(baseLogger);
+    await nucleateDevelopmentServerService.developmentServerAdapter.stopDevServer(
+      baseLogger,
+    );
     terminalService.shutdownAllSessions();
     await chatService.shutdown();
     await app.close();
