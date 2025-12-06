@@ -40,7 +40,7 @@ import { S3Client } from "@aws-sdk/client-s3";
 export const S3_BUCKET = process.env.S3_BUCKET || "materialize-sites";
 export const DEV_SERVER_PORT = 19006;
 
-export class MaterializeDevelopmentServerService {
+export class NucleateDevelopmentServerService {
   public readonly expoDevServerService: ExpoDevServerService;
   public readonly sandboxService: SandboxService;
   public readonly cloudflareTunnelManagementService: CloudflareTunnelManagementService;

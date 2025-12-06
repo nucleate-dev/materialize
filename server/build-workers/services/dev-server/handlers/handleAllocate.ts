@@ -11,7 +11,7 @@ import { S3Client } from "@aws-sdk/client-s3";
 import { ExpoDevServerService } from "../ExpoDevServerService.js";
 import { CloudflareTunnelManagementService } from "../../CloudflareTunnelManagementService.js";
 import { ChatService } from "../../chat/ChatService.js";
-import { MaterializeDevelopmentServerService } from "../MaterializeDevelopmentServerService.js";
+import { NucleateDevelopmentServerService } from "../NucleateDevelopmentServerService.js";
 
 export async function handleAllocateImpl(
   request: FastifyRequest<{ Body: PublicAllocateRequest }>,
@@ -20,7 +20,7 @@ export async function handleAllocateImpl(
   expoDevServerService: ExpoDevServerService,
   cloudflareTunnelManagementService: CloudflareTunnelManagementService,
   codeService: ChatService,
-  materializeDevelopmentServerService: MaterializeDevelopmentServerService,
+  materializeDevelopmentServerService: NucleateDevelopmentServerService,
 ): Promise<
   SandboxAPIResponse<PublicAllocateSuccessResponse, StandardErrorResponse>
 > {

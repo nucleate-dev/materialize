@@ -7,7 +7,7 @@ import {
 } from "@aws-sdk/client-s3";
 import fs from "fs/promises";
 import path from "path";
-import { S3_BUCKET } from "./MaterializeDevelopmentServerService.js";
+import { S3_BUCKET } from "./NucleateDevelopmentServerService.js";
 
 export async function uploadDirectoryToS3(
   log2: SystemLogger,

@@ -7,7 +7,7 @@ import {
   SandboxAPIResponse,
   StandardErrorResponse,
 } from "../../../types/BuildWorkerTypes.js";
-import { MaterializeDevelopmentServerService } from "../MaterializeDevelopmentServerService.js";
+import { NucleateDevelopmentServerService } from "../NucleateDevelopmentServerService.js";
 import { SystemLogger } from "../../../loggers/SystemLogger.js";
 import { restoreClaudeSessionsFromSupabase } from "../../../utils/shared-utils.js";
 import { SupabaseClientService } from "../../SupabaseClientService.js";
@@ -16,7 +16,7 @@ import { ChatService } from "../../chat/ChatService.js";
 export async function handleStartDevServerImpl(
   request: FastifyRequest<{ Body: PublicStartDevServerRequest }>,
   reply: FastifyReply,
-  developmentServerService: MaterializeDevelopmentServerService,
+  developmentServerService: NucleateDevelopmentServerService,
 ): Promise<
   SandboxAPIResponse<PublicDevServerStartSuccessResponse, StandardErrorResponse>
 > {

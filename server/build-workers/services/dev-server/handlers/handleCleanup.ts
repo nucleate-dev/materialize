@@ -7,7 +7,7 @@ import {
   OperationStatus,
   HTTP_STATUS,
 } from "../../../types/BuildWorkerTypes.js";
-import { MaterializeDevelopmentServerService } from "../MaterializeDevelopmentServerService.js";
+import { NucleateDevelopmentServerService } from "../NucleateDevelopmentServerService.js";
 import { getWorkerContext } from "../../../worker.js";
 import { SystemLogger } from "../../../loggers/SystemLogger.js";
 import { uploadAllClaudeSessionsToSupabase } from "../../../utils/shared-utils.js";
@@ -16,7 +16,7 @@ import { uploadDirectoryToS3 } from "../s3-upload-utils.js";
 export async function handleCleanup(
   request: FastifyRequest<{}>,
   reply: FastifyReply,
-  developmentServerService: MaterializeDevelopmentServerService,
+  developmentServerService: NucleateDevelopmentServerService,
 ): Promise<
   SandboxAPIResponse<PublicDevServerStopSuccessResponse, StandardErrorResponse>
 > {
@@ -34,6 +34,8 @@ export async function handleCleanup(
       await developmentServerService.developmentServerAdapter.stopDevServer(
         request.log2,
       );
+      developmentServerService.developmentServerState.devServerStatus =
+        DevServerStatus.STOPPED;
       request.log2.consoleLogDevOnly("info", "Dev server stopped successfully");
     } catch (error) {
       const errorMessage =
@@ -45,9 +47,6 @@ export async function handleCleanup(
     // so that the dev server can continue to be active while we are building in case the user comes back
 
     // 1.4. Return a success response
-    state.devServerStatus = DevServerStatus.STOPPED;
-    state.buildIsValid = false;
-
     reply.code(HTTP_STATUS.OK);
     return {
       data: {
@@ -110,7 +109,7 @@ export async function handleCleanup(
 }
 
 async function triggerBackgroundDevServerBuildAndUploadToS3(
-  developmentServerService: MaterializeDevelopmentServerService,
+  developmentServerService: NucleateDevelopmentServerService,
   prototypeId: string,
   log2: SystemLogger,
 ): Promise<void> {
@@ -133,6 +132,7 @@ async function triggerBackgroundDevServerBuildAndUploadToS3(
     await developmentServerService.developmentServerAdapter.build(log2);
   developmentServerService.developmentServerState.isBuilding = false;
   if (buildResult.error) {
+    log2.error(buildResult.error, "Build failed");
     throw new Error(buildResult.error.message);
   }
   developmentServerService.developmentServerState.buildIsValid = true;

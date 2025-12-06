@@ -10,7 +10,7 @@ import {
   StandardErrorResponse,
 } from "../../../types/BuildWorkerTypes.js";
 import { WORK_DIR } from "../../../worker.js";
-import { DEV_SERVER_PORT } from "../MaterializeDevelopmentServerService.js";
+import { DEV_SERVER_PORT } from "../NucleateDevelopmentServerService.js";
 import fs from "fs/promises";
 import path from "path";
 import { execSync } from "child_process";
