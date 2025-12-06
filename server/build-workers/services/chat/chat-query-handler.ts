@@ -339,6 +339,7 @@ export class ChatQueryHandler {
           });
 
           const classifierCost = classificationResult.costUsd;
+          const shouldRunDesignAgent = classificationResult.intent === "full_app";
 
           this.logger.consoleLogDevOnly(
             "info",
@@ -350,8 +351,18 @@ export class ChatQueryHandler {
             },
           );
 
+          this.logger.consoleLogDevOnly(
+            "info",
+            "Design agent routing decision",
+            {
+              prototypeId,
+              shouldRunDesignAgent,
+              intent: classificationResult.intent,
+            },
+          );
+
           // Step 6b: Only run design agent if user wants a full app
-          if (classificationResult.intent === "full_app") {
+          if (shouldRunDesignAgent) {
             // Send design generation started message to client
             handlers.sendMessage(socket, {
               type: ChatEvent.DESIGN_GENERATION,

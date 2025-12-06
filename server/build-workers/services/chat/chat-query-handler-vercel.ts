@@ -246,6 +246,7 @@ export class VercelChatQueryHandler {
           });
 
           classifierCost = classificationResult.costUsd;
+          const shouldRunDesignAgent = classificationResult.intent === "full_app";
 
           this.logger.consoleLogDevOnly(
             "info",
@@ -257,8 +258,18 @@ export class VercelChatQueryHandler {
             },
           );
 
+          this.logger.consoleLogDevOnly(
+            "info",
+            "Design agent routing decision (Vercel handler)",
+            {
+              prototypeId,
+              shouldRunDesignAgent,
+              intent: classificationResult.intent,
+            },
+          );
+
           // Only run design agent if user wants a full app
-          if (classificationResult.intent === "full_app") {
+          if (shouldRunDesignAgent) {
             handlers.sendMessage(socket, {
               type: ChatEvent.DESIGN_GENERATION,
               data: {
