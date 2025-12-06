@@ -25,32 +25,28 @@ export async function handleAllocateImpl(
   const { s3_credentials, user_details, cloudflare_credentials, keys } =
     request.body;
 
+  // 1. USER CREDENTIALS:
   // Import setWorkerContext dynamically to avoid circular dependency
   const { setWorkerContext } = await import("../../../worker.js");
-
   // Set worker context so all future requests include userId and prototypeId in logs
   setWorkerContext(user_details.userId, user_details.prototypeId);
-
   // Also update current request's logger
   request.log2 = request.log2.child({
     userId: user_details.userId,
     prototypeId: user_details.prototypeId,
   });
 
+  // 2. SUPABASE CLIENT INSTANTIATION:
   // Extract JWT token from Authorization header
   const authHeader = request.headers.authorization;
   let jwtToken: string | undefined;
-
   if (authHeader) {
-    // Support both "Bearer <token>" and raw token formats
     if (authHeader.startsWith("Bearer ")) {
       jwtToken = authHeader.substring(7);
     } else {
       jwtToken = authHeader;
     }
   }
-
-  // JWT token is required - fail if not provided
   if (!jwtToken) {
     const errorMessage = "No JWT token provided in Authorization header";
     request.log2.error(new Error(errorMessage), "Allocation failed");
@@ -64,8 +60,6 @@ export async function handleAllocateImpl(
       },
     };
   }
-
-  // Create authenticated Supabase client - fail allocation if this fails
   try {
     supabaseClientService.refreshClientWithToken(jwtToken);
     request.log2.consoleLogDevOnly(
@@ -95,7 +89,7 @@ export async function handleAllocateImpl(
   }
 
   try {
-    // Set up S3 client with provided credentials
+    // 3. S3 CLIENT INSTANTIATION:
     const scopedS3 = new S3Client({
       region: process.env.AWS_REGION!,
       credentials: {
@@ -110,7 +104,7 @@ export async function handleAllocateImpl(
       "Allocated worker to prototype for S3 access",
     );
 
-    // Start the Cloudflare tunnel
+    // 4. CLOUDFLARE TUNNEL:
     let tunnelStatus: "connected" | "error" | "timeout" | "not_started" =
       "not_started";
     let tunnelMessage: string | undefined;
@@ -142,22 +136,12 @@ export async function handleAllocateImpl(
       request.log2.error(tunnelError, "Failed to start Cloudflare tunnel");
     }
 
-    // Store orchestration token
+    // 5. CREDENTIALS:
     codeService.setOrchestrationToken(keys.orchestration_token);
-    request.log2.consoleLogDevOnly(
-      "info",
-      "Orchestration token received and stored in CodeService",
-    );
-
-    // Store Anthropic API key if provided
     if (keys.aak) {
       codeService.setAak(keys.aak);
-      request.log2.consoleLogDevOnly(
-        "info",
-        "Anthropic API key received and stored in CodeService",
-      );
     } else {
-      request.log2.warn("No Anthropic API key provided");
+      request.log2.warn("No aak provided during allocation");
     }
 
     reply.status(200);

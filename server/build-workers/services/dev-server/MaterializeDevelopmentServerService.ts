@@ -35,6 +35,10 @@ import { handleUpdateFilesImpl } from "./handlers/handleUpdateFiles.js";
 import { IDevelopmentServerAdapter } from "./adapters/IDevelopmentServerAdapter.js";
 import { TerminalService } from "../terminals/TerminalService.js";
 import { ExpoReactNativeAdapter } from "./adapters/ExpoReactNativeAdapter.js";
+import { S3Client } from "@aws-sdk/client-s3";
+
+const S3_BUCKET = process.env.S3_BUCKET || "materialize-sites";
+const DEV_SERVER_PORT = 19006;
 
 export class MaterializeDevelopmentServerService {
   private readonly expoDevServerService: ExpoDevServerService;
@@ -46,6 +50,13 @@ export class MaterializeDevelopmentServerService {
   private readonly fileSyncService: FileSyncService;
   private readonly terminalService: TerminalService;
   private developmentServerAdapter: IDevelopmentServerAdapter;
+  private s3Client: S3Client | undefined;
+  private developmentServerState: {
+    tunnelSubdomain: string;
+    tunnelUrl: string;
+    devServerStatus: DevServerStatus;
+    buildIsValid: boolean;
+  };
 
   constructor(
     expoDevServerService: ExpoDevServerService,
@@ -66,6 +77,12 @@ export class MaterializeDevelopmentServerService {
     this.fileSyncService = fileSyncService;
     this.terminalService = terminalService;
     this.developmentServerAdapter = new ExpoReactNativeAdapter(terminalService); // default adapter
+    this.developmentServerState = {
+      tunnelUrl: "",
+      tunnelSubdomain: "",
+      devServerStatus: DevServerStatus.STOPPED,
+      buildIsValid: false,
+    };
   }
 
   public registerRoutes(app: FastifyInstance): void {
