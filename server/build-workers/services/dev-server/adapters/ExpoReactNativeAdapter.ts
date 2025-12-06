@@ -44,7 +44,7 @@ export class ExpoReactNativeAdapter implements IDevelopmentServerAdapter {
   > {
     log2.consoleLogDevOnly(
       "info",
-      "Starting Expo dev server using terminal session",
+      "Starting Expo dev server in NEW ADAPTER using terminal session",
       { port: DEV_SERVER_PORT },
     );
 
