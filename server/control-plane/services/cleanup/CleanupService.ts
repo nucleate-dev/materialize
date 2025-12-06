@@ -441,13 +441,17 @@ export class CleanupService {
     fargatePrivateIp: string,
     shouldWaitForSuccessfulBuild: boolean = true,
   ): Promise<CleanupOperationResult> {
+    this.log2.consoleLogDevOnly(
+      'info',
+      'cleanup endpoint is: ' + `http://${fargatePrivateIp}:3002/cleanup`,
+    );
     try {
       const response = await axios.delete<
         SandboxAPIResponse<
           PublicDevServerStopSuccessResponse,
           BuildWorkerStandardErrorResponse
         >
-      >(`http://${fargatePrivateIp}:3002/dev-server`, {
+      >(`http://${fargatePrivateIp}:3002/cleanup`, {
         data: { prototype_id: prototypeId },
         timeout: 3000, // 3 second timeout -- we require an immediate response from the worker
         headers: {

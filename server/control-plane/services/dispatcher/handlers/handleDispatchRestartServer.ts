@@ -57,6 +57,7 @@ export async function handleRestartDevServerImpl(
     const restartResponse = await callFargateRestart(
       process.env.FARGATE_DEV_IP,
       log2,
+      jwt,
     );
     if (restartResponse.success) {
       return {
@@ -144,6 +145,7 @@ export async function handleRestartDevServerImpl(
     const restartResponse = await callFargateRestart(
       existingBuild.fargate_private_ip,
       log2,
+      jwt,
     );
 
     if (restartResponse.success) {
@@ -190,6 +192,7 @@ export async function handleRestartDevServerImpl(
 async function callFargateRestart(
   fargatePrivateIp: string,
   log2: SystemLogger,
+  token: string,
 ): Promise<{ success: boolean; message?: string }> {
   try {
     const response = await axios.post<
@@ -198,13 +201,14 @@ async function callFargateRestart(
         BuildWorkerStandardErrorResponse
       >
     >(
-      `http://${fargatePrivateIp}:3002/dev-server/restart`,
+      `http://${fargatePrivateIp}:3002/dev-server/restart-v2`,
       {},
       {
         timeout: 90000, // 90 second timeout for restart
         headers: {
           'Content-Type': 'application/json',
           'x-trace-id': log2.getTraceId(),
+          Authorization: `Bearer ${token}`,
         },
       },
     );

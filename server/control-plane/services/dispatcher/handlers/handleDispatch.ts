@@ -484,7 +484,7 @@ async function dispatchRequestToFargateInstanceServer({
     log2,
   });
   const endpoint =
-    file_scope === 'complete' ? '/start-dev-server' : '/update-files';
+    file_scope === 'complete' ? '/dev-server/start-v2' : '/update-files';
   log2.consoleLogDevOnly(
     'info',
     `Dispatching request to fargate instance at ${fargate_private_ip}:3002${endpoint}: `,
@@ -612,7 +612,9 @@ async function dispatchFormedRequestToFargateInstanceServer(
   try {
     // Determine the endpoint based on the request body type
     const isStartDevServer = 'framework' in requestBody;
-    const endpoint = isStartDevServer ? '/start-dev-server' : '/update-files';
+    const endpoint = isStartDevServer
+      ? '/dev-server/start-v2'
+      : '/update-files';
 
     const response = await axios.post<
       SandboxAPIResponse<
