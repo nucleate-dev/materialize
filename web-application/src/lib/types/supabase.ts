@@ -615,6 +615,8 @@ export type Database = {
       };
       prototypes: {
         Row: {
+          slug: string | null;
+          is_deployed: boolean;
           created_at: string | null;
           custom_design_system: string | null;
           description: string | null;
@@ -630,6 +632,8 @@ export type Database = {
           project_context: string;
         };
         Insert: {
+          slug?: string | null;
+          is_deployed?: boolean;
           created_at?: string | null;
           custom_design_system?: string | null;
           description?: string | null;
@@ -645,6 +649,8 @@ export type Database = {
           project_context?: string;
         };
         Update: {
+          slug?: string | null;
+          is_deployed?: boolean;
           created_at?: string | null;
           custom_design_system?: string | null;
           description?: string | null;

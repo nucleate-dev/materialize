@@ -31,6 +31,10 @@ import {
   type CreatePrototypeSuccessResponse,
 } from "@/lib/types/serverAPITypes";
 import { Database } from "@/lib/types/supabase";
+import {
+  normalizePrototypeVisibility,
+  type PrototypeVisibility,
+} from "@/lib/types/prototypes";
 import { IsUserPlanSubscribed } from "@/lib/utils/payments/SubscriptionManagementUtils";
 import {
   Check,
@@ -77,6 +81,9 @@ export default function PublicPrototypeHeader({
   const [linkCopied, setLinkCopied] = useState(false);
   const [showVisibilityModal, setShowVisibilityModal] = useState(false);
   const [isUpdatingVisibility, setIsUpdatingVisibility] = useState(false);
+  const normalizedVisibility = normalizePrototypeVisibility(
+    prototype.visibility,
+  );
 
   // Fetch file count for display
   useEffect(() => {
@@ -175,12 +182,10 @@ export default function PublicPrototypeHeader({
     setShowVisibilityModal(true);
   };
 
-  const handleVisibilityChange = async (
-    newVisibility: Database["public"]["Enums"]["visibility_level"],
-  ) => {
+  const handleVisibilityChange = async (newVisibility: PrototypeVisibility) => {
     if (!prototype || !user || prototype.owner_id !== user.id) return;
 
-    // If trying to set to SELF (Private) and not a Pro user, show upsell
+    // If trying to set to private and not a Pro user, show upsell
     if (newVisibility === "SELF" && !IsUserPlanSubscribed(userPlan)) {
       setShowVisibilityModal(false);
       setShowUpsellModal(true);
@@ -420,14 +425,18 @@ export default function PublicPrototypeHeader({
                                 : undefined
                             }
                           >
-                            {prototype.visibility === "SELF" ? (
+                            {normalizedVisibility === "SELF" ? (
                               <Lock className="w-3 h-3 mr-1 text-gray-400" />
                             ) : (
                               <Globe className="w-3 h-3 mr-1 text-indigo-400" />
                             )}
-                            {prototype.visibility === "SELF"
+                            {normalizedVisibility === "SELF"
                               ? "Private"
-                              : "Public"}
+                              : normalizedVisibility === "TEAM_SUBSET"
+                                ? "Unlisted"
+                                : normalizedVisibility === "TEAM"
+                                  ? "Team"
+                                  : "Public"}
                           </Badge>
                         </div>
 
@@ -586,6 +595,30 @@ export default function PublicPrototypeHeader({
                 </div>
                 <div className="text-sm text-gray-500 dark:text-[#8A8F98]">
                   Anyone with the link can view
+                </div>
+              </div>
+            </Button>
+            <Button
+              variant="outline"
+              className="w-full justify-start text-left h-auto py-4 px-4 border-gray-200 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-white/5 bg-transparent"
+              onClick={() => handleVisibilityChange("TEAM_SUBSET")}
+              disabled={isUpdatingVisibility}
+            >
+              <div className="flex flex-col items-start gap-1">
+                <div className="font-medium flex items-center gap-2">
+                  <Share2 className="w-4 h-4 text-indigo-500" />
+                  Unlisted
+                  {!IsUserPlanSubscribed(userPlan) && (
+                    <Badge
+                      variant="secondary"
+                      className="ml-2 text-[10px] h-5 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400"
+                    >
+                      Plus
+                    </Badge>
+                  )}
+                </div>
+                <div className="text-sm text-gray-500 dark:text-[#8A8F98]">
+                  Only people with the link can view
                 </div>
               </div>
             </Button>

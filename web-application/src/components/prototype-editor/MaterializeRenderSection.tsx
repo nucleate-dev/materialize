@@ -60,6 +60,7 @@ import {
   Share2,
   Smartphone,
   Terminal as TerminalIcon,
+  Rocket,
   X,
   Zap,
 } from "lucide-react";
@@ -169,6 +170,11 @@ interface MaterializeRenderSectionProps {
   isCloningPrototype?: boolean;
   // Public view mode - hides preview/code switch, status badge, and terminal
   publicView?: boolean;
+  // Deployment
+  onDeploy?: () => void;
+  deploymentUrl?: string | null;
+  isDeploying?: boolean;
+  deployedView?: boolean;
 }
 
 export interface MaterializeRenderSectionRef {
@@ -203,7 +209,10 @@ const MaterializeRenderSection = forwardRef<
       onShare,
       onClone,
       isCloningPrototype = false,
-
+      onDeploy,
+      deploymentUrl,
+      isDeploying = false,
+      deployedView = false,
       publicView = false,
     },
     ref,
@@ -226,6 +235,7 @@ const MaterializeRenderSection = forwardRef<
     const [routeSuggestions, setRouteSuggestions] = useState<
       Array<{ route: string; group?: string; }>
     >([]);
+    const isReadOnlyView = publicView || deployedView;
 
     // Terminal state
     const [isTerminalOpen, setIsTerminalOpen] = useState(false);
@@ -1315,7 +1325,7 @@ const MaterializeRenderSection = forwardRef<
           <div className="flex flex-wrap items-center justify-between gap-3">
             {/* Left: View Toggles */}
             <div className="flex items-center gap-3 flex-wrap">
-              {!publicView && (
+              {!isReadOnlyView && (
                 <>
                   <div className="bg-accent p-1 rounded-lg border border-border flex items-center gap-1">
                     <Button
@@ -1371,7 +1381,7 @@ const MaterializeRenderSection = forwardRef<
 
             {/* Right: Actions */}
             <div className="flex items-center gap-2">
-              {!publicView && !isPreviewView && (
+              {!isReadOnlyView && !isPreviewView && (
                 <Button
                   variant="ghost"
                   size="sm"
@@ -1390,7 +1400,7 @@ const MaterializeRenderSection = forwardRef<
                   </span>
                 </Button>
               )}
-              {!publicView && (
+              {!isReadOnlyView && (
                 <Button
                   variant="ghost"
                   size="sm"
@@ -1405,7 +1415,7 @@ const MaterializeRenderSection = forwardRef<
                   </span>
                 </Button>
               )}
-              {!publicView && (
+              {!isReadOnlyView && (
                 <Button
                   variant="ghost"
                   size="sm"
@@ -1432,6 +1442,26 @@ const MaterializeRenderSection = forwardRef<
                   className="h-8 bg-accent border border-border text-muted-foreground hover:text-foreground hover:border-border/80 hover:bg-accent/80 hidden sm:flex items-center gap-2 transition-all"
                 >
                   <Palette className="w-3.5 h-3.5" />
+                </Button>
+              )}
+              {onDeploy && !isReadOnlyView && (
+                <Button
+                  size="sm"
+                  onClick={onDeploy}
+                  disabled={isDeploying}
+                  className={cn(
+                    "h-8 px-3 text-xs font-semibold text-white shadow-sm",
+                    deploymentUrl
+                      ? "bg-emerald-600 hover:bg-emerald-700"
+                      : "bg-indigo-600 hover:bg-indigo-700",
+                  )}
+                >
+                  {isDeploying ? (
+                    <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" />
+                  ) : (
+                    <Rocket className="w-3.5 h-3.5 mr-2" />
+                  )}
+                  {deploymentUrl ? "Manage deploy" : "Deploy app"}
                 </Button>
               )}
               <DropdownMenu>
@@ -1497,7 +1527,7 @@ const MaterializeRenderSection = forwardRef<
                       {isCloningPrototype ? "Cloning..." : "Clone"}
                     </DropdownMenuItem>
                   )}
-                  {!publicView && (
+                  {!isReadOnlyView && (
                     <>
                       <DropdownMenuSeparator className="bg-border" />
                       <DropdownMenuItem
@@ -1556,7 +1586,7 @@ const MaterializeRenderSection = forwardRef<
         </div>
 
         {/* Terminal Panel */}
-        {!publicView && isTerminalOpen && (
+        {!isReadOnlyView && isTerminalOpen && (
           <div
             className="relative border-t border-border bg-background"
             style={{ height: `${terminalHeight}px` }}

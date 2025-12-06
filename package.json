@@ -3,6 +3,7 @@
   "private": true,
   "workspaces": [
     "web-application",
+    "web-application-apps",
     "internal-tools",
     "server/control-plane",
     "server/build-workers"

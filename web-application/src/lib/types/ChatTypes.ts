@@ -5,7 +5,7 @@
 // To update these types, modify the source file and run:
 // npm run build (in the control-plane directory)
 //
-// Last synced: 2025-12-02T07:21:55.868Z
+// Last synced: 2025-12-06T04:57:30.007Z
 
 export enum ChatEvent {
   AUTHENTICATED = "authenticated",
@@ -58,6 +58,8 @@ export interface ChatQueryData {
   prompt?: string;
   content?: ChatContentBlock[];
   options?: Record<string, unknown>;
+  // Provider/model are kept inside options to maintain backward compatibility with existing clients.
+  // Downstream handlers should read provider/model from options and default to Claude if absent.
   token?: string;
   ai_chat_session_id?: string | null; // Claude SDK session ID for resuming conversations
   prototype_chat_session_id?: string | null; // Database primary key from prototype_chat_sessions table

@@ -11,6 +11,7 @@ import {
   ChatSystemEventSubtype,
 } from "@/lib/types/ChatTypes";
 import { Database } from "@/lib/types/supabase";
+import { normalizePrototypeVisibility } from "@/lib/types/prototypes";
 import { clearChatIntent, getChatIntent } from "@/lib/utils/chatIntentUtils";
 import type React from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -199,13 +200,17 @@ export default function ClaudeCodePanel({
   const [showResetConfirmation, setShowResetConfirmation] = useState(false);
 
   const prototypeTitle = prototype?.name?.trim() || "Project";
-  const visibility = prototype?.visibility?.toLowerCase();
+  const normalizedVisibility = prototype
+    ? normalizePrototypeVisibility(prototype.visibility)
+    : null;
   const visibilityLabel =
-    visibility === "public"
+    normalizedVisibility === "PUBLIC"
       ? "Public"
-      : visibility === "team"
+      : normalizedVisibility === "TEAM"
         ? "Team"
-        : "Private";
+        : normalizedVisibility === "TEAM_SUBSET"
+          ? "Unlisted"
+          : "Private";
   const createdAtLabel = prototype?.created_at
     ? new Date(prototype.created_at).toLocaleDateString()
     : null;

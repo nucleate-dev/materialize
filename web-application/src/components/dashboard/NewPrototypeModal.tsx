@@ -33,6 +33,7 @@ import type {
   CreatePrototypeSuccessResponse,
 } from "@/lib/types/serverAPITypes";
 import { Database } from "@/lib/types/supabase";
+import { type PrototypeVisibility } from "@/lib/types/prototypes";
 import { handleCheckout } from "@/lib/utils/payments/CheckoutUtils";
 import { IsUserPlanSubscribed } from "@/lib/utils/payments/SubscriptionManagementUtils";
 import { User } from "@supabase/supabase-js";
@@ -97,9 +98,9 @@ export default function NewPrototypeModal({
   const [selectedFolder, setSelectedFolder] = useState<string | null>(null);
   const [isLoadingFolders, setIsLoadingFolders] = useState(false);
   const { userPlan } = useSubscriptionAccess();
-  const [visibility, setVisibility] = useState<
-    Database["public"]["Enums"]["visibility_level"]
-  >(userPlan === "free" ? "PUBLIC" : "SELF");
+  const [visibility, setVisibility] = useState<PrototypeVisibility>(
+    userPlan === "free" ? "PUBLIC" : "SELF",
+  );
   const [prototypeCount, setPrototypeCount] = useState(0);
   const [isLoadingCount, setIsLoadingCount] = useState(false);
   const [showUpsellModal, setShowUpsellModal] = useState(false);
@@ -457,11 +458,19 @@ export default function NewPrototypeModal({
               <Select
                 value={visibility}
                 onValueChange={(value) =>
-                  setVisibility(
-                    value as Database["public"]["Enums"]["visibility_level"],
-                  )
+                  setVisibility(() => {
+                    const nextVisibility = value as PrototypeVisibility;
+                    if (
+                      !IsUserPlanSubscribed(userPlan) &&
+                      nextVisibility === "SELF"
+                    ) {
+                      setShowUpsellModal(true);
+                      return "PUBLIC";
+                    }
+                    return nextVisibility;
+                  })
                 }
-                disabled={!IsUserPlanSubscribed(userPlan) || isCreating}
+                disabled={isCreating}
               >
                 <SelectTrigger
                   id="prototype-visibility"
@@ -475,6 +484,12 @@ export default function NewPrototypeModal({
                     className="focus:bg-white/10 focus:text-white cursor-pointer"
                   >
                     Public
+                  </SelectItem>
+                  <SelectItem
+                    value="TEAM_SUBSET"
+                    className="focus:bg-white/10 focus:text-white cursor-pointer"
+                  >
+                    Unlisted
                   </SelectItem>
                   <SelectItem
                     value="SELF"

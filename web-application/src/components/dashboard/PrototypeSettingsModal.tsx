@@ -32,6 +32,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import { cn } from "@/lib/classNames"; // Assuming this utility exists based on context
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
+import {
+  normalizePrototypeVisibility,
+  type PrototypeVisibility,
+} from "@/lib/types/prototypes";
 import type {
   APIResponse,
   DeletePrototypeErrorResponse,
@@ -45,6 +49,7 @@ import {
   Globe,
   Lock,
   Settings,
+  Share2,
   Sparkles,
   Trash2,
   Type,
@@ -71,8 +76,7 @@ export default function PrototypeSettingsModal({
   const logger = useProductLogger();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [visibility, setVisibility] =
-    useState<Database["public"]["Enums"]["visibility_level"]>("SELF");
+  const [visibility, setVisibility] = useState<PrototypeVisibility>("SELF");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const { userPlan } = useSubscriptionAccess();
@@ -81,10 +85,7 @@ export default function PrototypeSettingsModal({
     if (prototype) {
       setName(prototype.name || "");
       setDescription(prototype.description || "");
-      setVisibility(
-        (prototype.visibility ??
-          "SELF") as Database["public"]["Enums"]["visibility_level"],
-      );
+      setVisibility(normalizePrototypeVisibility(prototype.visibility));
     }
   }, [prototype]);
 
@@ -240,11 +241,7 @@ export default function PrototypeSettingsModal({
                 >
                   <Select
                     value={visibility}
-                    onValueChange={(v) =>
-                      setVisibility(
-                        v as Database["public"]["Enums"]["visibility_level"],
-                      )
-                    }
+                    onValueChange={(v) => setVisibility(v as PrototypeVisibility)}
                     disabled={isSubmitting || !IsUserPlanSubscribed(userPlan)}
                   >
                     <SelectTrigger
@@ -261,6 +258,15 @@ export default function PrototypeSettingsModal({
                         <div className="flex items-center gap-2">
                           <Lock className="w-4 h-4 text-gray-500 dark:text-gray-400" />
                           <span>Private (Only You)</span>
+                        </div>
+                      </SelectItem>
+                      <SelectItem
+                        value="TEAM_SUBSET"
+                        className="cursor-pointer focus:bg-gray-100 dark:focus:bg-white/10"
+                      >
+                        <div className="flex items-center gap-2">
+                          <Share2 className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
+                          <span>Unlisted (Link only)</span>
                         </div>
                       </SelectItem>
                       <SelectItem
