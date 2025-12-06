@@ -26,6 +26,8 @@ import { ChatProvider, isAllowedModel } from "./model-providers.js";
 import { ToolPermissionService } from "./tool-permission-service.js";
 
 const CHAT_HEARTBEAT_INTERVAL_MS = 15000;
+// FLAG!
+const ENABLE_DESIGN_AGENT_ON_FIRST_MESSAGE = false;
 
 interface CodeSessionState {
   sessionId: string | null;
@@ -99,8 +101,6 @@ export class ChatService {
     );
 
     // Initialize ChatQueryHandler
-    // FLAG!
-    const enableDesignAgentOnFirstMessage = true;
     this.chatQueryHandler = new ChatQueryHandler(
       workDir,
       logger,
@@ -110,7 +110,7 @@ export class ChatService {
       sandboxService,
       expoDevServerService,
       terminalService,
-      enableDesignAgentOnFirstMessage,
+      ENABLE_DESIGN_AGENT_ON_FIRST_MESSAGE,
       () => this.getAak(),
     );
     try {
@@ -123,7 +123,7 @@ export class ChatService {
         sandboxService,
         expoDevServerService,
         terminalService,
-        enableDesignAgentOnFirstMessage,
+        ENABLE_DESIGN_AGENT_ON_FIRST_MESSAGE,
       );
     } catch (error) {
       this.logger.error({ error }, "Failed to initialize VercelChatQueryHandler");
