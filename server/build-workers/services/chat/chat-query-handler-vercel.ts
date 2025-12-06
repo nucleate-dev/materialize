@@ -207,16 +207,40 @@ export class VercelChatQueryHandler {
     let designMetadata: DesignAgentMetadata | null = null;
     let classifierCost: number | undefined = undefined;
 
-    if (
+    const canAttemptClassification =
       this.enableDesignAgentOnFirstMessage &&
-      sessionState.prototypeChatSessionId
-    ) {
+      !!sessionState.prototypeChatSessionId;
+
+    if (!canAttemptClassification) {
+      this.logger.consoleLogDevOnly(
+        "info",
+        "Skipping design intent classification gate (Vercel handler)",
+        {
+          prototypeId,
+          enableDesignAgentOnFirstMessage: this.enableDesignAgentOnFirstMessage,
+          hasPrototypeChatSessionId: !!sessionState.prototypeChatSessionId,
+        },
+      );
+    }
+
+    if (canAttemptClassification) {
       const isFirst = await this.isFirstMessage(
         prototypeId,
-        sessionState.prototypeChatSessionId,
+        sessionState.prototypeChatSessionId ?? '',
       );
 
       if (isFirst) {
+        this.logger.consoleLogDevOnly(
+          "info",
+          "Preparing to classify user intent (Vercel handler)",
+          {
+            prototypeId,
+            enableDesignAgentOnFirstMessage: this.enableDesignAgentOnFirstMessage,
+            hasSession: !!sessionState.prototypeChatSessionId,
+            willClassify: true,
+          },
+        );
+
         const userMessageText =
           typeof content === "string"
             ? content
@@ -279,12 +303,25 @@ export class VercelChatQueryHandler {
               },
             });
 
+            this.logger.debug("Calling design agent (Vercel handler)", {
+              prototypeId,
+              userMessageLength: userMessageText.length,
+              hasAbortController: !!classifierAbortController,
+            });
+
             const designResult = await this.executeDesignAgentWrapper(
               prototypeId,
               userMessageText,
               classifierAbortController,
               "", // system prompt not used anymore (handled by design-agent-service)
             );
+
+            this.logger.debug("Design agent returned (Vercel handler)", {
+              prototypeId,
+              hasDesignSpec: !!designResult.designSpec,
+              designSpecLength: designResult.designSpec?.length,
+              costUsd: designResult.costUsd,
+            });
 
             if (designResult.designSpec) {
               const parsed = this.parseDesignAgentSpec(designResult.designSpec);

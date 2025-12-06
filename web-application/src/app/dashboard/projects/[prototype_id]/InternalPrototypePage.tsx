@@ -591,9 +591,9 @@ export default function InternalPrototypePage() {
             headers["Authorization"] = `Bearer ${token}`;
           }
 
-          logger.debug("log", "Polling fetch viewing url endpoint:", {
-            viewingUrl,
-          });
+          // logger.debug("log", "Polling fetch viewing url endpoint:", {
+          //   viewingUrl,
+          // });
           const response = await fetch(
             `${process.env.NEXT_PUBLIC_SERVER_ENDPOINT!}/prototype/fetch-viewing-url`,
             {
@@ -922,11 +922,11 @@ export default function InternalPrototypePage() {
       setPrototype((prev) =>
         prev
           ? {
-              ...prev,
-              slug: nextSlug,
-              is_deployed: true,
-              visibility: deployVisibility,
-            }
+            ...prev,
+            slug: nextSlug,
+            is_deployed: true,
+            visibility: deployVisibility,
+          }
           : prev,
       );
       setDeploySlug(nextSlug);

@@ -362,6 +362,18 @@ export class ChatService {
     const handler =
       provider === "vercel" ? this.vercelChatQueryHandler : this.chatQueryHandler;
 
+    this.logger.consoleLogDevOnly(
+      "info",
+      "Dispatching chat query to handler",
+      {
+        prototypeId,
+        handler: provider === "vercel" ? "vercel" : "claude",
+        hasPrototypeChatSessionId: !!this.sessionState.prototypeChatSessionId,
+        enableDesignAgentOnFirstMessage: true,
+        sessionId: this.sessionState.sessionId,
+      },
+    );
+
     await handler.handleQuery(
       {
         prototypeId,

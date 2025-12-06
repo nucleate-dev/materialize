@@ -298,16 +298,39 @@ export class ChatQueryHandler {
     let designSpec: string | null = null;
     let designMetadata: DesignAgentMetadata | null = null;
 
-    if (
+    const canAttemptClassification =
       this.enableDesignAgentOnFirstMessage &&
-      sessionState.prototypeChatSessionId
-    ) {
+      !!sessionState.prototypeChatSessionId;
+
+    if (!canAttemptClassification) {
+      this.logger.consoleLogDevOnly(
+        "info",
+        "Skipping design intent classification gate",
+        {
+          prototypeId,
+          enableDesignAgentOnFirstMessage: this.enableDesignAgentOnFirstMessage,
+          hasPrototypeChatSessionId: !!sessionState.prototypeChatSessionId,
+        },
+      );
+    }
+
+    if (canAttemptClassification) {
       const isFirst = await this.isFirstMessage(
         prototypeId,
-        sessionState.prototypeChatSessionId,
+        sessionState.prototypeChatSessionId ?? '',
       );
 
       if (isFirst) {
+        this.logger.debug(
+          "Preparing to classify user intent",
+          {
+            prototypeId,
+            enableDesignAgentOnFirstMessage: this.enableDesignAgentOnFirstMessage,
+            hasSession: !!sessionState.prototypeChatSessionId,
+            willClassify: true,
+          },
+        );
+
         // Extract user message text for design agent
         const userMessageText =
           typeof content === "string"
@@ -325,8 +348,7 @@ export class ChatQueryHandler {
           sessionState.abortController = classifierAbortController;
 
           // Step 6a: Classify the user's intent
-          this.logger.consoleLogDevOnly(
-            "info",
+          this.logger.debug(
             "Classifying user intent on first message",
             { prototypeId, userMessageLength: userMessageText.length },
           );
@@ -341,8 +363,7 @@ export class ChatQueryHandler {
           const classifierCost = classificationResult.costUsd;
           const shouldRunDesignAgent = classificationResult.intent === "full_app";
 
-          this.logger.consoleLogDevOnly(
-            "info",
+          this.logger.debug(
             "User intent classified",
             {
               prototypeId,
@@ -351,8 +372,7 @@ export class ChatQueryHandler {
             },
           );
 
-          this.logger.consoleLogDevOnly(
-            "info",
+          this.logger.debug(
             "Design agent routing decision",
             {
               prototypeId,
@@ -373,12 +393,25 @@ export class ChatQueryHandler {
               },
             });
 
+            this.logger.debug("Calling design agent", {
+              prototypeId,
+              userMessageLength: userMessageText.length,
+              hasAbortController: !!classifierAbortController,
+            });
+
             const designResult = await this.executeDesignAgentWrapper(
               prototypeId,
               userMessageText,
               classifierAbortController,
               "", // system prompt not used anymore (handled by design-agent-service)
             );
+
+            this.logger.debug("Design agent returned", {
+              prototypeId,
+              hasDesignSpec: !!designResult.designSpec,
+              designSpecLength: designResult.designSpec?.length,
+              costUsd: designResult.costUsd,
+            });
 
             // Add classifier cost to design agent cost
             designAgentCost = (designResult.costUsd ?? 0) + (classifierCost ?? 0);
