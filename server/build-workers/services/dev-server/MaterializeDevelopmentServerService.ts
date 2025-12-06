@@ -9,8 +9,6 @@ import {
   PrototypeAssetInputWithContent,
   PublicAllocateRequest,
   PublicAllocateSuccessResponse,
-  PublicBuildAndDeployRequest,
-  PublicBuildAndDeploySuccessResponse,
   PublicDevServerRestartSuccessResponse,
   PublicDevServerStartSuccessResponse,
   PublicDevServerStopRequest,
