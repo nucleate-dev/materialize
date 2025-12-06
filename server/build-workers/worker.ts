@@ -116,13 +116,28 @@ const expoDevServerService = new ExpoDevServerService(
   undefined!, // chatService - will be set after ChatService is created
 );
 
+const cloudflareTunnelManagementService = new CloudflareTunnelManagementService(
+  WORK_DIR,
+  baseLogger,
+);
+const nucleateDevelopmentServerService = new NucleateDevelopmentServerService(
+  expoDevServerService,
+  sandboxService,
+  cloudflareTunnelManagementService,
+  WORK_DIR,
+  supabaseClientService,
+  fileSyncService,
+  terminalService,
+  undefined!, // chatService - will be set after ChatService is created
+);
+
 const chatService = new ChatService(
   app,
   WORK_DIR,
   baseLogger,
   supabaseClientService,
   sandboxService,
-  expoDevServerService,
+  nucleateDevelopmentServerService,
   terminalService,
   fileSyncService,
 );
@@ -130,21 +145,8 @@ const chatService = new ChatService(
 // Now set the chatService reference in ExpoDevServerService
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 (expoDevServerService as any).chatService = chatService;
-
-const cloudflareTunnelManagementService = new CloudflareTunnelManagementService(
-  WORK_DIR,
-  baseLogger,
-);
-const publicApiService = new NucleateDevelopmentServerService(
-  expoDevServerService,
-  sandboxService,
-  cloudflareTunnelManagementService,
-  chatService,
-  WORK_DIR,
-  supabaseClientService,
-  fileSyncService,
-  terminalService,
-);
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+(nucleateDevelopmentServerService as any).codeService = chatService;
 
 app.addHook("onRequest", async (req) => {
   const { requestId, traceId } = genRequestIds(
@@ -191,7 +193,7 @@ app.get("/health", async () => {
 });
 
 // Register public API endpoints
-publicApiService.registerRoutes(app);
+nucleateDevelopmentServerService.registerRoutes(app);
 
 // Setup terminal WebSocket routes
 terminalService.registerRoutes();

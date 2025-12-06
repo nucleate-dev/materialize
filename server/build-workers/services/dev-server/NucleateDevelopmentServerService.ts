@@ -64,11 +64,11 @@ export class NucleateDevelopmentServerService {
     expoDevServerService: ExpoDevServerService,
     sandboxService: SandboxService,
     cloudflareTunnelManagementService: CloudflareTunnelManagementService,
-    codeService: ChatService,
     workDir: string,
     supabaseClientService: SupabaseClientService,
     fileSyncService: FileSyncService,
     terminalService: TerminalService,
+    codeService: ChatService,
   ) {
     this.expoDevServerService = expoDevServerService;
     this.sandboxService = sandboxService;
@@ -140,15 +140,7 @@ export class NucleateDevelopmentServerService {
   ): Promise<
     SandboxAPIResponse<PublicAllocateSuccessResponse, StandardErrorResponse>
   > {
-    return handleAllocateImpl(
-      request,
-      reply,
-      this.supabaseClientService,
-      this.expoDevServerService,
-      this.cloudflareTunnelManagementService,
-      this.codeService,
-      this,
-    );
+    return handleAllocateImpl(request, reply, this);
   }
 
   private async startDevServerV2(
