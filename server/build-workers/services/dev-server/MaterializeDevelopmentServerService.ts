@@ -32,6 +32,7 @@ import { ExpoDevServerService } from "./ExpoDevServerService.js";
 import { FileSyncService } from "../FileSyncService.js";
 import { handleAllocateImpl } from "./handlers/handleAllocate.js";
 import { handleUpdateFilesImpl } from "./handlers/handleUpdateFiles.js";
+import { handleStartDevServerImpl } from "./handlers/handleStartDevServer.js";
 import { IDevelopmentServerAdapter } from "./adapters/IDevelopmentServerAdapter.js";
 import { TerminalService } from "../terminals/TerminalService.js";
 import { ExpoReactNativeAdapter } from "./adapters/ExpoReactNativeAdapter.js";
@@ -41,18 +42,17 @@ const S3_BUCKET = process.env.S3_BUCKET || "materialize-sites";
 const DEV_SERVER_PORT = 19006;
 
 export class MaterializeDevelopmentServerService {
-  private readonly expoDevServerService: ExpoDevServerService;
-  private readonly sandboxService: SandboxService;
-  private readonly cloudflareTunnelManagementService: CloudflareTunnelManagementService;
-  private readonly codeService: ChatService;
-  private readonly workDir: string;
-  private readonly supabaseClientService: SupabaseClientService;
-  private readonly fileSyncService: FileSyncService;
-  private readonly terminalService: TerminalService;
-  private developmentServerAdapter: IDevelopmentServerAdapter;
-  private s3Client: S3Client | undefined;
-  private developmentServerState: {
-    tunnelSubdomain: string;
+  public readonly expoDevServerService: ExpoDevServerService;
+  public readonly sandboxService: SandboxService;
+  public readonly cloudflareTunnelManagementService: CloudflareTunnelManagementService;
+  public readonly codeService: ChatService;
+  public readonly workDir: string;
+  public readonly supabaseClientService: SupabaseClientService;
+  public readonly fileSyncService: FileSyncService;
+  public readonly terminalService: TerminalService;
+  public developmentServerAdapter: IDevelopmentServerAdapter;
+  public s3Client: S3Client | undefined;
+  public developmentServerState: {
     tunnelUrl: string;
     devServerStatus: DevServerStatus;
     buildIsValid: boolean;
@@ -76,10 +76,9 @@ export class MaterializeDevelopmentServerService {
     this.supabaseClientService = supabaseClientService;
     this.fileSyncService = fileSyncService;
     this.terminalService = terminalService;
-    this.developmentServerAdapter = new ExpoReactNativeAdapter(terminalService); // default adapter
+    this.developmentServerAdapter = new ExpoReactNativeAdapter(terminalService); // default adapter]
     this.developmentServerState = {
       tunnelUrl: "",
-      tunnelSubdomain: "",
       devServerStatus: DevServerStatus.STOPPED,
       buildIsValid: false,
     };
@@ -120,10 +119,10 @@ export class MaterializeDevelopmentServerService {
       this.updateFilesV2.bind(this),
     );
 
-    // app.post<{ Body: PublicStartDevServerRequest }>(
-    //   "/start-dev-server-v2",
-    //   this.startDevServerV2.bind(this),
-    // );
+    app.post<{ Body: PublicStartDevServerRequest }>(
+      "/start-dev-server-v2",
+      this.startDevServerV2.bind(this),
+    );
   }
 
   public setS3Client(s3Client: S3Client): void {
@@ -145,6 +144,38 @@ export class MaterializeDevelopmentServerService {
       this.codeService,
       this,
     );
+  }
+
+  private async updateFilesV2(
+    request: FastifyRequest<{ Body: PublicUpdateFilesV2Request }>,
+    reply: FastifyReply,
+  ): Promise<
+    SandboxAPIResponse<
+      PublicUpdateFilesV2SuccessResponse,
+      StandardErrorResponse
+    >
+  > {
+    return handleUpdateFilesImpl(
+      request,
+      reply,
+      this.workDir,
+      this.fileSyncService,
+      this.sandboxService,
+      this.supabaseClientService,
+      this.expoDevServerService,
+    );
+  }
+
+  private async startDevServerV2(
+    request: FastifyRequest<{ Body: PublicStartDevServerRequest }>,
+    reply: FastifyReply,
+  ): Promise<
+    SandboxAPIResponse<
+      PublicDevServerStartSuccessResponse,
+      StandardErrorResponse
+    >
+  > {
+    return handleStartDevServerImpl(request, reply, this);
   }
 
   private async startDevServerNew(
@@ -270,26 +301,6 @@ export class MaterializeDevelopmentServerService {
         },
       };
     }
-  }
-
-  private async updateFilesV2(
-    request: FastifyRequest<{ Body: PublicUpdateFilesV2Request }>,
-    reply: FastifyReply,
-  ): Promise<
-    SandboxAPIResponse<
-      PublicUpdateFilesV2SuccessResponse,
-      StandardErrorResponse
-    >
-  > {
-    return handleUpdateFilesImpl(
-      request,
-      reply,
-      this.workDir,
-      this.fileSyncService,
-      this.sandboxService,
-      this.supabaseClientService,
-      this.expoDevServerService,
-    );
   }
 
   private async restartDevServer(

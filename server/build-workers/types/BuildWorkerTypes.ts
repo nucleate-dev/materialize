@@ -17,6 +17,18 @@ export type SandboxAPIResponse<TData = any, TError = any> =
 // COMMON TYPES
 // ============================================================================
 
+export const HTTP_STATUS = {
+  OK: 200,
+  BAD_REQUEST: 400,
+  UNAUTHORIZED: 401,
+  PAYMENT_REQUIRED: 402,
+  NOT_FOUND: 404,
+  CONFLICT: 409,
+  INTERNAL_SERVER_ERROR: 500,
+  BAD_GATEWAY: 502,
+  GATEWAY_TIMEOUT: 504,
+} as const;
+
 /**
  * Standard error response format
  */

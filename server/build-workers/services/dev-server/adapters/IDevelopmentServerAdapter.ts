@@ -1,3 +1,9 @@
+import { SystemLogger } from "../../../loggers/SystemLogger.js";
+import {
+  SandboxAPIResponse,
+  StandardErrorResponse,
+} from "../../../types/BuildWorkerTypes.js";
+
 /**
  * Type definition for supported development server frameworks.
  */
@@ -17,20 +23,22 @@ export interface IDevelopmentServerAdapter {
   /**
    * Starts the development server.
    */
-  startDevServer(): void;
+  startDevServer(
+    log2: SystemLogger,
+  ): Promise<SandboxAPIResponse<{ tunnel_url: string }, StandardErrorResponse>>;
 
   /**
    * Restarts the development server.
    */
-  restartDevServer(): void;
+  restartDevServer(): Promise<void>;
 
   /**
    * Builds the project.
    */
-  build(): void;
+  build(): Promise<void>;
 
   /**
    * Shuts down the development server and cleans up resources.
    */
-  shutdown(): void;
+  shutdown(): Promise<void>;
 }
