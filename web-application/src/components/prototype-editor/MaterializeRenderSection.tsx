@@ -59,10 +59,8 @@ import {
   RotateCcw,
   Share2,
   Smartphone,
-  Terminal as TerminalIcon,
-  Rocket,
-  X,
-  Zap,
+  Terminal as TerminalIcon, X,
+  Zap
 } from "lucide-react";
 import dynamic from "next/dynamic";
 import React, {
@@ -1444,7 +1442,7 @@ const MaterializeRenderSection = forwardRef<
                   <Palette className="w-3.5 h-3.5" />
                 </Button>
               )}
-              {onDeploy && !isReadOnlyView && (
+              {/* {onDeploy && !isReadOnlyView && (
                 <Button
                   size="sm"
                   onClick={onDeploy}
@@ -1463,7 +1461,7 @@ const MaterializeRenderSection = forwardRef<
                   )}
                   {deploymentUrl ? "Manage deploy" : "Deploy app"}
                 </Button>
-              )}
+              )} */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
