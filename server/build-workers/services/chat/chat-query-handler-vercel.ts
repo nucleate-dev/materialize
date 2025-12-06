@@ -404,6 +404,9 @@ export class VercelChatQueryHandler {
     // Design spec is now in CLAUDE.md - no need to append to system prompt
     const finalSystemPrompt = designSystemResult.systemPrompt;
 
+    // Invalidate build before chat starts
+    this.devServerService.developmentServerState.buildIsValid = false;
+
     await handlers.notifyOrchestrationStartChat(prototypeId);
 
     try {
@@ -433,6 +436,9 @@ export class VercelChatQueryHandler {
         },
       });
     } finally {
+      // Invalidate build after chat ends
+      this.devServerService.developmentServerState.buildIsValid = false;
+
       await handlers.notifyOrchestrationEndChat(prototypeId);
     }
   }

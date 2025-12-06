@@ -497,10 +497,13 @@ export class ChatQueryHandler {
       }
     }
 
-    // Step 7: Notify orchestration that chat is starting
+    // Step 7: Invalidate build before chat starts
+    this.devServerService.developmentServerState.buildIsValid = false;
+
+    // Step 8: Notify orchestration that chat is starting
     await handlers.notifyOrchestrationStartChat(prototypeId);
 
-    // Step 8: Execute query with proper cleanup
+    // Step 9: Execute query with proper cleanup
     let implementationCostUsd: number | undefined = undefined;
 
     try {
@@ -512,7 +515,7 @@ export class ChatQueryHandler {
         designMetadata ?? undefined,
       );
     } finally {
-      // Step 9: Combine costs from design agent and implementation
+      // Step 10: Combine costs from design agent and implementation
       const totalCostUsd =
         (designAgentCost ?? 0) + (implementationCostUsd ?? 0);
 
@@ -522,7 +525,7 @@ export class ChatQueryHandler {
         totalCostUsd,
       });
 
-      // Step 10: Sync files and track usage
+      // Step 11: Sync files and track usage
       await this.syncAndTrackUsage(
         prototypeId,
         socket,
@@ -531,7 +534,10 @@ export class ChatQueryHandler {
         handlers.sendMessage,
       );
 
-      // Step 11: Always notify orchestration that chat has ended
+      // Step 12: Invalidate build after chat ends
+      this.devServerService.developmentServerState.buildIsValid = false;
+
+      // Step 13: Always notify orchestration that chat has ended
       await handlers.notifyOrchestrationEndChat(prototypeId);
     }
   }
