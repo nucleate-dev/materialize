@@ -697,14 +697,23 @@ export class IdleContainerAllocationSystemService {
     }
 
     const creds: PublicAllocateRequest = {
-      accessKeyId: out.Credentials.AccessKeyId!,
-      secretAccessKey: out.Credentials.SecretAccessKey!,
-      sessionToken: out.Credentials.SessionToken!,
-      prototypeId,
-      userId: userId || 'unknown',
-      cloudflare_tunnel_token: tunnelConfig.token || '',
-      orchestration_token: orchestrationToken,
-      aak: process.env.ANTHROPIC_API_KEY!,
+      s3_credentials: {
+        accessKeyId: out.Credentials.AccessKeyId!,
+        secretAccessKey: out.Credentials.SecretAccessKey!,
+        sessionToken: out.Credentials.SessionToken!,
+        expiration: out.Credentials.Expiration!.toISOString(),
+      },
+      user_details: {
+        prototypeId,
+        userId: userId || 'unknown',
+      },
+      cloudflare_credentials: {
+        cloudflare_tunnel_token: tunnelConfig.token || '',
+      },
+      keys: {
+        orchestration_token: orchestrationToken,
+        aak: process.env.ANTHROPIC_API_KEY,
+      },
     };
 
     // Send creds to worker

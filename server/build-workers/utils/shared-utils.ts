@@ -382,15 +382,6 @@ export async function restoreClaudeSessionsFromSupabase(
   const restoredSessionIds: string[] = [];
 
   try {
-    logger.consoleLogDevOnly(
-      "info",
-      "Restoring Claude sessions from Supabase Storage",
-      {
-        prototypeId,
-        CLAUDE_PROJECTS_DIR,
-      },
-    );
-
     // Ensure CLAUDE_PROJECTS_DIR exists
     await fs.mkdir(CLAUDE_PROJECTS_DIR, { recursive: true });
 
@@ -432,11 +423,6 @@ export async function restoreClaudeSessionsFromSupabase(
       return { success: true, restoredSessionIds: [], errors: [] };
     }
 
-    logger.consoleLogDevOnly("info", "Found Claude session files to restore", {
-      prototypeId,
-      sessionCount: sessionFiles.length,
-    });
-
     // Download and restore all session files in parallel
     const restorePromises = sessionFiles.map(async (file) => {
       try {
@@ -466,12 +452,6 @@ export async function restoreClaudeSessionsFromSupabase(
         // Extract session ID from filename (remove .jsonl extension)
         const sessionId = file.name.replace(/\.jsonl$/, "");
 
-        logger.debug("Restored Claude session file", {
-          sessionId,
-          filename: file.name,
-          filePath: localFilePath,
-        });
-
         return { success: true, sessionId };
       } catch (error) {
         const errorMsg = `Error restoring ${file.name}: ${error instanceof Error ? error.message : String(error)}`;
@@ -492,14 +472,6 @@ export async function restoreClaudeSessionsFromSupabase(
         .filter((r) => r.success && r.sessionId)
         .map((r) => r.sessionId!),
     );
-
-    logger.consoleLogDevOnly("info", "Claude session restoration completed", {
-      prototypeId,
-      restoredCount: restoredSessionIds.length,
-      totalFiles: sessionFiles.length,
-      errorCount: errors.length,
-    });
-
     return {
       success: errors.length === 0,
       restoredSessionIds,

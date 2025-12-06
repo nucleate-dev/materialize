@@ -8,7 +8,7 @@ import { SystemLogger, genRequestIds } from "./loggers/SystemLogger.js";
 import { ChatService } from "./services/chat/ChatService.js";
 import { CloudflareTunnelManagementService } from "./services/CloudflareTunnelManagementService.js";
 import { ExpoDevServerService } from "./services/dev-server/ExpoDevServerService.js";
-import { MaterializeDevelopmentServerService } from "./services/dev-server/MaterializeDevelopmentServerService.js";
+import { NucleateDevelopmentServerService } from "./services/dev-server/NucleateDevelopmentServerService.js";
 import { FileSyncService } from "./services/FileSyncService.js";
 import { SandboxService } from "./services/SandboxService.js";
 import { SupabaseClientService } from "./services/SupabaseClientService.js";
@@ -33,7 +33,7 @@ export const baseLogger = new SystemLogger({
 
 // --- Configuration ---
 const PORT = parseInt(process.env.PORT || "3002", 10);
-const WORK_DIR = process.env.WORK_DIR || "/tmp/materialize-dev-server";
+export const WORK_DIR = process.env.WORK_DIR || "/tmp/materialize-dev-server";
 
 // Store worker context (set by /allocate endpoint)
 let workerContext: { userId?: string; prototypeId?: string } = {};
@@ -135,7 +135,7 @@ const cloudflareTunnelManagementService = new CloudflareTunnelManagementService(
   WORK_DIR,
   baseLogger,
 );
-const publicApiService = new MaterializeDevelopmentServerService(
+const publicApiService = new NucleateDevelopmentServerService(
   expoDevServerService,
   sandboxService,
   cloudflareTunnelManagementService,
@@ -143,6 +143,7 @@ const publicApiService = new MaterializeDevelopmentServerService(
   WORK_DIR,
   supabaseClientService,
   fileSyncService,
+  terminalService,
 );
 
 app.addHook("onRequest", async (req) => {

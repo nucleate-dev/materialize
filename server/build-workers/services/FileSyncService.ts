@@ -986,20 +986,8 @@ export class FileSyncService {
     const errors: string[] = [];
 
     try {
-      this.logger.consoleLogDevOnly(
-        "info",
-        "Starting batched fetch from Supabase",
-        {
-          prototype_id: prototypeId,
-        },
-      );
-
       // Fetch files in batches using pagination
       const files = await this.fetchFilesInBatches(prototypeId, errors);
-
-      this.logger.consoleLogDevOnly("info", "Fetched all files from Supabase", {
-        fileCount: files.length,
-      });
 
       // Fetch asset metadata in batches
       const assetMetadata = await this.fetchAssetMetadataInBatches(
@@ -1007,31 +995,12 @@ export class FileSyncService {
         errors,
       );
 
-      this.logger.consoleLogDevOnly(
-        "info",
-        "Fetched asset metadata from Supabase",
-        {
-          assetCount: assetMetadata.length,
-        },
-      );
-
       // Download assets with controlled concurrency
       const assetsWithContent = await this.downloadAssetsInBatches(
         assetMetadata,
         errors,
       );
-
-      this.logger.consoleLogDevOnly(
-        "info",
-        "Downloaded all assets from Supabase storage",
-        {
-          downloadedCount: assetsWithContent.length,
-          failedCount: assetMetadata.length - assetsWithContent.length,
-        },
-      );
-
       await this.prepareWorkspaceWithProject(files, assetsWithContent); // resets tracked changes
-
       return { files, assets: assetsWithContent, errors };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
