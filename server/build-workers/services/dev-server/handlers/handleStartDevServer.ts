@@ -68,7 +68,7 @@ export async function handleStartDevServerImpl(
     prototype_id,
     request.log2,
     developmentServerService.supabaseClientService,
-    developmentServerService.codeService,
+    developmentServerService.chatService,
   );
 
   // 2. Install dependencies with sandboxService runCommandInternal
@@ -223,14 +223,6 @@ async function restoreClaudeSessions(
     // Register restored session IDs with ChatService for validation
     if (result.restoredSessionIds.length > 0) {
       chatService.registerValidSessionIds(result.restoredSessionIds);
-      log2.consoleLogDevOnly(
-        "info",
-        "Registered restored Claude sessions with ChatService",
-        {
-          prototypeId,
-          restoredCount: result.restoredSessionIds.length,
-        },
-      );
     }
 
     // Log any errors but don't fail the dev server start

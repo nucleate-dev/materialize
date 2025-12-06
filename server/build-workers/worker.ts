@@ -1,4 +1,3 @@
-import { S3Client } from "@aws-sdk/client-s3";
 import corsPlugin from "@fastify/cors";
 import websocket from "@fastify/websocket";
 import dotenv from "dotenv";
@@ -48,12 +47,6 @@ export function getWorkerContext(): { userId?: string; prototypeId?: string } {
 // Initialize Supabase client service (single source of truth)
 export const supabaseClientService =
   SupabaseClientService.getInstance(baseLogger);
-
-// Initialize default S3 client (uses EC2 IAM role credentials)
-// This will be replaced with scoped credentials when /allocate is called
-const defaultS3Client = new S3Client({
-  region: process.env.AWS_REGION || "us-east-1",
-});
 
 // --- Fastify Setup ---
 const app: FastifyInstance = fastify({
@@ -131,8 +124,7 @@ const chatService = new ChatService(
 );
 
 // Now set the chatService reference in NucleateDevelopmentServerService
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-(nucleateDevelopmentServerService as any).codeService = chatService;
+nucleateDevelopmentServerService.chatService = chatService;
 
 app.addHook("onRequest", async (req) => {
   const { requestId, traceId } = genRequestIds(

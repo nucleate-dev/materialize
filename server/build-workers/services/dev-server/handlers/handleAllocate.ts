@@ -130,11 +130,11 @@ export async function handleAllocateImpl(
     }
 
     // 5. CREDENTIALS:
-    materializeDevelopmentServerService.codeService.setOrchestrationToken(
+    materializeDevelopmentServerService.chatService.setOrchestrationToken(
       keys.orchestration_token,
     );
     if (keys.aak) {
-      materializeDevelopmentServerService.codeService.setAak(keys.aak);
+      materializeDevelopmentServerService.chatService.setAak(keys.aak);
     } else {
       request.log2.warn("No aak provided during allocation");
     }

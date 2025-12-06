@@ -35,7 +35,7 @@ export const DEV_SERVER_PORT = 19006;
 export class NucleateDevelopmentServerService {
   public readonly sandboxService: SandboxService;
   public readonly cloudflareTunnelManagementService: CloudflareTunnelManagementService;
-  public readonly codeService: ChatService;
+  public chatService: ChatService;
   public readonly workDir: string;
   public readonly supabaseClientService: SupabaseClientService;
   public readonly fileSyncService: FileSyncService;
@@ -61,7 +61,7 @@ export class NucleateDevelopmentServerService {
   ) {
     this.sandboxService = sandboxService;
     this.cloudflareTunnelManagementService = cloudflareTunnelManagementService;
-    this.codeService = codeService;
+    this.chatService = codeService;
     this.workDir = workDir;
     this.supabaseClientService = supabaseClientService;
     this.fileSyncService = fileSyncService;
