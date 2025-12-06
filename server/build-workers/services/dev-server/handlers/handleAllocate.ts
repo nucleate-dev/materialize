@@ -11,6 +11,7 @@ import { S3Client } from "@aws-sdk/client-s3";
 import { ExpoDevServerService } from "../ExpoDevServerService.js";
 import { CloudflareTunnelManagementService } from "../../CloudflareTunnelManagementService.js";
 import { ChatService } from "../../chat/ChatService.js";
+import { MaterializeDevelopmentServerService } from "../MaterializeDevelopmentServerService.js";
 
 export async function handleAllocateImpl(
   request: FastifyRequest<{ Body: PublicAllocateRequest }>,
@@ -19,6 +20,7 @@ export async function handleAllocateImpl(
   expoDevServerService: ExpoDevServerService,
   cloudflareTunnelManagementService: CloudflareTunnelManagementService,
   codeService: ChatService,
+  materializeDevelopmentServerService: MaterializeDevelopmentServerService,
 ): Promise<
   SandboxAPIResponse<PublicAllocateSuccessResponse, StandardErrorResponse>
 > {
@@ -99,10 +101,7 @@ export async function handleAllocateImpl(
       },
     });
     expoDevServerService.setS3Client(scopedS3);
-    request.log2.consoleLogDevOnly(
-      "info",
-      "Allocated worker to prototype for S3 access",
-    );
+    materializeDevelopmentServerService.setS3Client(scopedS3);
 
     // 4. CLOUDFLARE TUNNEL:
     let tunnelStatus: "connected" | "error" | "timeout" | "not_started" =

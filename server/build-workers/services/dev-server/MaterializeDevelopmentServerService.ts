@@ -126,6 +126,10 @@ export class MaterializeDevelopmentServerService {
     // );
   }
 
+  public setS3Client(s3Client: S3Client): void {
+    this.s3Client = s3Client;
+  }
+
   private async allocate(
     request: FastifyRequest<{ Body: PublicAllocateRequest }>,
     reply: FastifyReply,
@@ -139,6 +143,7 @@ export class MaterializeDevelopmentServerService {
       this.expoDevServerService,
       this.cloudflareTunnelManagementService,
       this.codeService,
+      this,
     );
   }
 
