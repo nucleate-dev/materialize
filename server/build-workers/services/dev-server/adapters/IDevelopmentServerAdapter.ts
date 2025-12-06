@@ -35,12 +35,14 @@ export interface IDevelopmentServerAdapter {
   /**
    * Builds the project.
    */
-  build(): Promise<
+  build(
+    log2: SystemLogger,
+  ): Promise<
     SandboxAPIResponse<{ output_path: string }, StandardErrorResponse>
   >;
 
   /**
    * Shuts down the development server and cleans up resources.
    */
-  shutdown(): Promise<void>;
+  stopDevServer(log2: SystemLogger): Promise<void>;
 }

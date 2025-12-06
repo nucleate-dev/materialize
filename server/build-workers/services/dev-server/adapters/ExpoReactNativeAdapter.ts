@@ -12,6 +12,9 @@ import {
 } from "../../../types/BuildWorkerTypes.js";
 import { WORK_DIR } from "../../../worker.js";
 import { DEV_SERVER_PORT } from "../MaterializeDevelopmentServerService.js";
+import fs from "fs/promises";
+import path from "path";
+import { execSync } from "child_process";
 
 /**
  * Adapter for Expo React Native development server.
@@ -222,13 +225,168 @@ export class ExpoReactNativeAdapter implements IDevelopmentServerAdapter {
   /**
    * Builds the Expo project.
    */
-  async build(): Promise<
+  async build(
+    log2: SystemLogger,
+  ): Promise<
     SandboxAPIResponse<{ output_path: string }, StandardErrorResponse>
   > {
     // TODO: Implement Expo project build logic
+    const result = await new Promise<{
+      stdout: string;
+      stderr: string;
+      code: number;
+    }>((resolve, reject) => {
+      let stdout = "";
+      let commandComplete = false;
+      let cleanup: (() => void) | null = null;
+      let exitCodeCheckInterval: NodeJS.Timeout | null = null;
+      let exitIntervalCleanupTimeout: NodeJS.Timeout | null = null;
+
+      const timeoutHandle = setTimeout(() => {
+        if (!commandComplete) {
+          commandComplete = true;
+          if (exitCodeCheckInterval) {
+            clearInterval(exitCodeCheckInterval);
+            exitCodeCheckInterval = null;
+          }
+          if (exitIntervalCleanupTimeout) {
+            clearTimeout(exitIntervalCleanupTimeout);
+            exitIntervalCleanupTimeout = null;
+          }
+          cleanup?.();
+          cleanup = null;
+          reject(new Error("Expo export command timed out after 900000ms"));
+        }
+      }, 900000);
+
+      const processOutput = (chunk: string): void => {
+        const output = chunk.toString();
+        stdout += output;
+      };
+
+      const listenerDisposer = this.terminalService.addOutputListener(
+        "build",
+        processOutput,
+      );
+
+      if (!listenerDisposer) {
+        clearTimeout(timeoutHandle);
+        reject(new Error("build terminal session not found or not running"));
+        return;
+      }
+
+      cleanup = (): void => {
+        listenerDisposer();
+        if (exitIntervalCleanupTimeout) {
+          clearTimeout(exitIntervalCleanupTimeout);
+          exitIntervalCleanupTimeout = null;
+        }
+      };
+
+      const envString = `EXPO_NO_TELEMETRY="1" NODE_OPTIONS="--max-old-space-size=2048" `;
+      const commandString = `${envString}cd ${WORK_DIR} && npx expo export --platform web; echo "EXIT_CODE=$?"\n`;
+
+      try {
+        // Bypass validation for trusted internal command
+        this.terminalService.sendInput("build", commandString, {
+          bypassValidation: true,
+        });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        clearTimeout(timeoutHandle);
+        cleanup?.();
+        cleanup = null;
+        commandComplete = true;
+        log2.error(
+          new Error(message),
+          "Failed to send Expo export command to terminal session",
+          { projectDir: WORK_DIR },
+        );
+        reject(
+          new Error(
+            `Failed to send Expo export command to terminal session: ${message}`,
+          ),
+        );
+        return;
+      }
+
+      exitCodeCheckInterval = setInterval(() => {
+        const match = stdout.match(/EXIT_CODE=(\d+)/);
+        if (match && !commandComplete) {
+          commandComplete = true;
+          clearTimeout(timeoutHandle);
+          const code = parseInt(match[1], 10);
+
+          if (exitCodeCheckInterval) {
+            clearInterval(exitCodeCheckInterval);
+            exitCodeCheckInterval = null;
+          }
+          if (exitIntervalCleanupTimeout) {
+            clearTimeout(exitIntervalCleanupTimeout);
+            exitIntervalCleanupTimeout = null;
+          }
+          cleanup?.();
+          cleanup = null;
+
+          const cleanStdout = stdout.replace(/EXIT_CODE=\d+/, "").trim();
+          resolve({
+            stdout: cleanStdout,
+            stderr: code !== 0 ? cleanStdout : "",
+            code,
+          });
+        }
+      }, 100);
+
+      exitIntervalCleanupTimeout = setTimeout(() => {
+        if (commandComplete && exitCodeCheckInterval) {
+          clearInterval(exitCodeCheckInterval);
+          exitCodeCheckInterval = null;
+        }
+      }, 901000);
+    });
+
+    if (result.code !== 0) {
+      log2.error(
+        new Error(`Expo build failed with exit code ${result.code}`),
+        "Build Expo project",
+        { projectDir: WORK_DIR },
+      );
+      return {
+        data: null,
+        error: {
+          error: "Expo build failed",
+          message: `Expo build failed with exit code ${result.code}`,
+        },
+      };
+    }
+
+    const distPath = path.join(WORK_DIR, "dist");
+
+    try {
+      const distStats = await fs.stat(distPath);
+      if (!distStats.isDirectory()) {
+        return {
+          data: null,
+          error: {
+            error: "Dist is not a directory",
+            message: "Dist is not a directory",
+          },
+        };
+      }
+    } catch (error) {
+      log2.error(error, "Dist is not a directory");
+      return {
+        data: null,
+        error: {
+          error: "Dist is not a directory",
+          message: "Dist is not a directory",
+        },
+      };
+    }
+
     return {
       data: {
-        output_path: "",
+        output_path: distPath,
       },
       error: null,
     };
@@ -237,7 +395,65 @@ export class ExpoReactNativeAdapter implements IDevelopmentServerAdapter {
   /**
    * Shuts down the Expo development server and cleans up resources.
    */
-  async shutdown(): Promise<void> {
-    // TODO: Implement Expo dev server shutdown logic
+  async stopDevServer(log2: SystemLogger): Promise<void> {
+    log2.consoleLogDevOnly(
+      "info",
+      "Stopping Expo dev server in terminal session",
+    );
+
+    try {
+      // Get the dev-server terminal session
+      const session = this.terminalService.getSession("dev-server");
+      if (!session) {
+        log2.warn("dev-server terminal session not found");
+        return;
+      }
+
+      // Send Ctrl+C to interrupt the running process
+      log2.consoleLogDevOnly("info", "Sending Ctrl+C to stop Expo process");
+      try {
+        // Bypass validation for trusted internal command
+        this.terminalService.sendInput("dev-server", "\x03", {
+          bypassValidation: true,
+        }); // Ctrl+C
+      } catch (inputError) {
+        const message =
+          inputError instanceof Error ? inputError.message : String(inputError);
+        log2.error(
+          new Error(message),
+          "Failed to send Ctrl+C to terminal session",
+        );
+      }
+
+      // Wait a moment for graceful shutdown
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+
+      // If process is still running on the port, force kill it
+      try {
+        const killCommand = `lsof -ti:${DEV_SERVER_PORT} | xargs -r kill -9`;
+        execSync(killCommand, { stdio: "pipe", timeout: 5000 });
+        log2.consoleLogDevOnly(
+          "info",
+          "Force killed any remaining processes on port",
+          {
+            port: DEV_SERVER_PORT,
+          },
+        );
+      } catch (error: unknown) {
+        const errorMessage =
+          error instanceof Error ? error.message : String(error);
+        log2.debug("No processes found on port", {
+          port: DEV_SERVER_PORT,
+          error: errorMessage,
+        });
+      }
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      log2.error(
+        new Error(errorMessage),
+        "Failed to kill Expo process in terminal",
+      );
+    }
   }
 }

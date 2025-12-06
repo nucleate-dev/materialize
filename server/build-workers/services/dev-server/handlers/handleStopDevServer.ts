@@ -31,7 +31,9 @@ export async function handleStopDevServerImpl(
 
     // 1.1. Stop the dev server
     try {
-      await developmentServerService.developmentServerAdapter.shutdown();
+      await developmentServerService.developmentServerAdapter.stopDevServer(
+        request.log2,
+      );
       request.log2.consoleLogDevOnly("info", "Dev server stopped successfully");
     } catch (error) {
       const errorMessage =
@@ -128,7 +130,7 @@ async function triggerBackgroundDevServerBuildAndUploadToS3(
   // 2. Build the project using the adapter
   developmentServerService.developmentServerState.isBuilding = true;
   const buildResult =
-    await developmentServerService.developmentServerAdapter.build();
+    await developmentServerService.developmentServerAdapter.build(log2);
   developmentServerService.developmentServerState.isBuilding = false;
   if (buildResult.error) {
     throw new Error(buildResult.error.message);
