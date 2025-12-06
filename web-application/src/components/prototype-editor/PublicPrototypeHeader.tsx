@@ -157,7 +157,7 @@ export default function PublicPrototypeHeader({
   const handleCopyLink = async () => {
     if (!prototype) return;
 
-    const publicUrl = `${window.location.origin}/project/${prototype.id}`;
+    const publicUrl = `${window.location.origin}/p/${prototype.id}`;
     try {
       await navigator.clipboard.writeText(publicUrl);
       setLinkCopied(true);
@@ -538,7 +538,7 @@ export default function PublicPrototypeHeader({
             <div className="flex items-center gap-2">
               <Input
                 readOnly
-                value={`${typeof window !== "undefined" ? window.location.origin : ""}/project/${prototype.id}`}
+                value={`${typeof window !== "undefined" ? window.location.origin : ""}/p/${prototype.id}`}
                 className="flex-1 text-sm bg-gray-50 dark:bg-[#0B0C0E] border-gray-200 dark:border-white/10 text-gray-600 dark:text-gray-300"
                 onClick={(e) => e.currentTarget.select()}
               />

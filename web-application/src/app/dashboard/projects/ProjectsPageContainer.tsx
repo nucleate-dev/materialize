@@ -1,10 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
 import { supabase } from "@/ClientConstants";
 import { useUser } from "@/hooks/useUser";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
+import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useRef, useState } from "react";
 import ProjectsPageView from "./ProjectsPageView";
 import { Prototype } from "./types";
 
@@ -30,7 +30,7 @@ export default function ProjectsPageContainer() {
     async ({
       offset: start = 0,
       append = false,
-    }: { offset?: number; append?: boolean } = {}) => {
+    }: { offset?: number; append?: boolean; } = {}) => {
       if (!user?.id) {
         setPrototypes([]);
         setHasMore(false);
@@ -153,7 +153,7 @@ export default function ProjectsPageContainer() {
   };
 
   const handleViewPrototype = (prototypeId: string) => {
-    router.push(`/project/${prototypeId}`);
+    router.push(`/p/${prototypeId}`);
   };
 
   const handleEditPrototype = (prototypeId: string) => {

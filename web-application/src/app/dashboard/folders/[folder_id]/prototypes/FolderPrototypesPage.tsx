@@ -90,7 +90,7 @@ export default function FolderPrototypesPage() {
   }, [fetchData]);
 
   const handlePrototypeView = (prototypeId: string) => {
-    router.push(`/project/${prototypeId}`);
+    router.push(`/p/${prototypeId}`);
   };
 
   const handlePrototypeEdit = (prototypeId: string) => {
