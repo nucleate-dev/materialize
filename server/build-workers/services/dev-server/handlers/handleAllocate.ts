@@ -6,20 +6,12 @@ import {
   SandboxAPIResponse,
   StandardErrorResponse,
 } from "../../../types/BuildWorkerTypes.js";
-import { SupabaseClientService } from "../../../services/SupabaseClientService.js";
 import { S3Client } from "@aws-sdk/client-s3";
-import { ExpoDevServerService } from "../ExpoDevServerService.js";
-import { CloudflareTunnelManagementService } from "../../CloudflareTunnelManagementService.js";
-import { ChatService } from "../../chat/ChatService.js";
 import { NucleateDevelopmentServerService } from "../NucleateDevelopmentServerService.js";
 
 export async function handleAllocateImpl(
   request: FastifyRequest<{ Body: PublicAllocateRequest }>,
   reply: FastifyReply,
-  supabaseClientService: SupabaseClientService,
-  expoDevServerService: ExpoDevServerService,
-  cloudflareTunnelManagementService: CloudflareTunnelManagementService,
-  codeService: ChatService,
   materializeDevelopmentServerService: NucleateDevelopmentServerService,
 ): Promise<
   SandboxAPIResponse<PublicAllocateSuccessResponse, StandardErrorResponse>
@@ -63,7 +55,9 @@ export async function handleAllocateImpl(
     };
   }
   try {
-    supabaseClientService.refreshClientWithToken(jwtToken);
+    materializeDevelopmentServerService.supabaseClientService.refreshClientWithToken(
+      jwtToken,
+    );
     request.log2.consoleLogDevOnly(
       "info",
       "Initialized authenticated Supabase client for worker",
@@ -100,7 +94,6 @@ export async function handleAllocateImpl(
         sessionToken: s3_credentials.sessionToken,
       },
     });
-    expoDevServerService.setS3Client(scopedS3);
     materializeDevelopmentServerService.setS3Client(scopedS3);
 
     // 4. CLOUDFLARE TUNNEL:
@@ -110,9 +103,10 @@ export async function handleAllocateImpl(
 
     request.log2.consoleLogDevOnly("info", "Starting Cloudflare tunnel setup");
     try {
-      const result = await cloudflareTunnelManagementService.createTunnel(
-        cloudflare_credentials.cloudflare_tunnel_token,
-      );
+      const result =
+        await materializeDevelopmentServerService.cloudflareTunnelManagementService.createTunnel(
+          cloudflare_credentials.cloudflare_tunnel_token,
+        );
       tunnelStatus = result.status;
       tunnelMessage = result.message;
 
@@ -136,9 +130,11 @@ export async function handleAllocateImpl(
     }
 
     // 5. CREDENTIALS:
-    codeService.setOrchestrationToken(keys.orchestration_token);
+    materializeDevelopmentServerService.chatService.setOrchestrationToken(
+      keys.orchestration_token,
+    );
     if (keys.aak) {
-      codeService.setAak(keys.aak);
+      materializeDevelopmentServerService.chatService.setAak(keys.aak);
     } else {
       request.log2.warn("No aak provided during allocation");
     }

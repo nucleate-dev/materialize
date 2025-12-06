@@ -1,4 +1,3 @@
-import { S3Client } from "@aws-sdk/client-s3";
 import corsPlugin from "@fastify/cors";
 import websocket from "@fastify/websocket";
 import dotenv from "dotenv";
@@ -7,7 +6,6 @@ import fs from "fs/promises";
 import { SystemLogger, genRequestIds } from "./loggers/SystemLogger.js";
 import { ChatService } from "./services/chat/ChatService.js";
 import { CloudflareTunnelManagementService } from "./services/CloudflareTunnelManagementService.js";
-import { ExpoDevServerService } from "./services/dev-server/ExpoDevServerService.js";
 import { NucleateDevelopmentServerService } from "./services/dev-server/NucleateDevelopmentServerService.js";
 import { FileSyncService } from "./services/FileSyncService.js";
 import { SandboxService } from "./services/SandboxService.js";
@@ -49,12 +47,6 @@ export function getWorkerContext(): { userId?: string; prototypeId?: string } {
 // Initialize Supabase client service (single source of truth)
 export const supabaseClientService =
   SupabaseClientService.getInstance(baseLogger);
-
-// Initialize default S3 client (uses EC2 IAM role credentials)
-// This will be replaced with scoped credentials when /allocate is called
-const defaultS3Client = new S3Client({
-  region: process.env.AWS_REGION || "us-east-1",
-});
 
 // --- Fastify Setup ---
 const app: FastifyInstance = fastify({
@@ -104,15 +96,19 @@ const sandboxService = new SandboxService(
   terminalService,
 );
 
-// Create ExpoDevServerService with undefined chatService (will be set after ChatService is created)
-// This is needed to break the circular dependency between ChatService and ExpoDevServerService
-const expoDevServerService = new ExpoDevServerService(
+const cloudflareTunnelManagementService = new CloudflareTunnelManagementService(
   WORK_DIR,
-  defaultS3Client,
-  terminalService,
   baseLogger,
+);
+// Create NucleateDevelopmentServerService with undefined chatService (will be set after ChatService is created)
+// This is needed to break the circular dependency between ChatService and NucleateDevelopmentServerService
+const nucleateDevelopmentServerService = new NucleateDevelopmentServerService(
+  sandboxService,
+  cloudflareTunnelManagementService,
+  WORK_DIR,
   supabaseClientService,
   fileSyncService,
+  terminalService,
   undefined!, // chatService - will be set after ChatService is created
 );
 
@@ -122,29 +118,13 @@ const chatService = new ChatService(
   baseLogger,
   supabaseClientService,
   sandboxService,
-  expoDevServerService,
+  nucleateDevelopmentServerService,
   terminalService,
   fileSyncService,
 );
 
-// Now set the chatService reference in ExpoDevServerService
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-(expoDevServerService as any).chatService = chatService;
-
-const cloudflareTunnelManagementService = new CloudflareTunnelManagementService(
-  WORK_DIR,
-  baseLogger,
-);
-const publicApiService = new NucleateDevelopmentServerService(
-  expoDevServerService,
-  sandboxService,
-  cloudflareTunnelManagementService,
-  chatService,
-  WORK_DIR,
-  supabaseClientService,
-  fileSyncService,
-  terminalService,
-);
+// Now set the chatService reference in NucleateDevelopmentServerService
+nucleateDevelopmentServerService.chatService = chatService;
 
 app.addHook("onRequest", async (req) => {
   const { requestId, traceId } = genRequestIds(
@@ -166,32 +146,16 @@ app.addHook("onRequest", async (req) => {
 
 // --- Health Check ---
 app.get("/health", async () => {
-  try {
-    const resources = await expoDevServerService.checkSystemResources();
-    return {
-      status: "ok",
-      timestamp: new Date().toISOString(),
-      service: "fargate-build-worker",
-      system: {
-        disk: resources.disk.split("\n")[1],
-        memory: resources.memory.split("\n")[1],
-        nodeProcesses: resources.processes,
-      },
-      workDir: WORK_DIR,
-    };
-  } catch {
-    return {
-      status: "ok",
-      timestamp: new Date().toISOString(),
-      service: "fargate-build-worker",
-      system: "Unable to check",
-      workDir: WORK_DIR,
-    };
-  }
+  return {
+    status: "ok",
+    timestamp: new Date().toISOString(),
+    service: "fargate-build-worker",
+    workDir: WORK_DIR,
+  };
 });
 
 // Register public API endpoints
-publicApiService.registerRoutes(app);
+nucleateDevelopmentServerService.registerRoutes(app);
 
 // Setup terminal WebSocket routes
 terminalService.registerRoutes();
@@ -206,7 +170,9 @@ chatService.registerRoutes();
 const close = async (): Promise<void> => {
   baseLogger.info("Shutting down build worker...");
   try {
-    await expoDevServerService.shutdown(baseLogger);
+    await nucleateDevelopmentServerService.developmentServerAdapter.stopDevServer(
+      baseLogger,
+    );
     terminalService.shutdownAllSessions();
     await chatService.shutdown();
     await app.close();
