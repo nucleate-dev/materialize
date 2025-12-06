@@ -551,6 +551,11 @@ export default function InternalPrototypePage() {
   ]);
 
   // USE EFFECT PURPOSE: Sync baseTunnelUrl to fileSystem sandboxUrl
+  // Also compute normalized sandbox URL for passing to MaterializeRenderSection
+  const [normalizedSandboxUrl, setNormalizedSandboxUrl] = useState<
+    string | null
+  >(null);
+
   useEffect(() => {
     // Normalize the URL: convert wss:// to https:// or add https:// if no http prefix
     let normalizedUrl = baseTunnelUrl;
@@ -569,6 +574,7 @@ export default function InternalPrototypePage() {
         ? process.env.NEXT_PUBLIC_INTERNAL_BUILD_WORKERS_SERVER_ENDPOINT
         : null) || normalizedUrl;
     fileSystem.setSandboxUrl(finalNormalizedUrl);
+    setNormalizedSandboxUrl(finalNormalizedUrl);
   }, [baseTunnelUrl, fileSystem.setSandboxUrl]);
 
   // USE EFFECT PURPOSE: to poll the fetch viewing url endpoint in case build status changes
@@ -1283,6 +1289,7 @@ export default function InternalPrototypePage() {
               ref={materializeRenderRef}
               viewing_url={viewingUrl ?? ""}
               base_tunnel_url={baseTunnelUrl}
+              sandbox_url={normalizedSandboxUrl}
               prototypeId={prototypeId}
               files={fileSystem.state.files}
               assets={fileSystem.state.assets}
