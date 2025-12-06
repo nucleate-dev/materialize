@@ -223,7 +223,7 @@ export class ExpoReactNativeAdapter implements IDevelopmentServerAdapter {
     this.terminalService.sendInput("dev-server", command, {
       bypassValidation: true,
     });
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    await new Promise((resolve) => setTimeout(resolve, 5000));
   }
 
   /**
