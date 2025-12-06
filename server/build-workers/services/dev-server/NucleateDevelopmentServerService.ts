@@ -172,15 +172,7 @@ export class NucleateDevelopmentServerService {
       StandardErrorResponse
     >
   > {
-    return handleUpdateFilesImpl(
-      request,
-      reply,
-      this.workDir,
-      this.fileSyncService,
-      this.sandboxService,
-      this.supabaseClientService,
-      this.expoDevServerService,
-    );
+    return handleUpdateFilesImpl(request, reply, this);
   }
 
   private async cleanup(
