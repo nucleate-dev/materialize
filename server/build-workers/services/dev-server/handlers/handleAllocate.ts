@@ -22,27 +22,19 @@ export async function handleAllocateImpl(
 ): Promise<
   SandboxAPIResponse<PublicAllocateSuccessResponse, StandardErrorResponse>
 > {
-  const {
-    accessKeyId,
-    secretAccessKey,
-    sessionToken,
-    prototypeId,
-    userId,
-    cloudflare_tunnel_token,
-    orchestration_token,
-    aak,
-  } = request.body;
+  const { s3_credentials, user_details, cloudflare_credentials, keys } =
+    request.body;
 
   // Import setWorkerContext dynamically to avoid circular dependency
   const { setWorkerContext } = await import("../../../worker.js");
 
   // Set worker context so all future requests include userId and prototypeId in logs
-  setWorkerContext(userId, prototypeId);
+  setWorkerContext(user_details.userId, user_details.prototypeId);
 
   // Also update current request's logger
   request.log2 = request.log2.child({
-    userId,
-    prototypeId,
+    userId: user_details.userId,
+    prototypeId: user_details.prototypeId,
   });
 
   // Extract JWT token from Authorization header
@@ -103,76 +95,63 @@ export async function handleAllocateImpl(
   }
 
   try {
-    // Only set up S3 client if credentials are provided
-    if (accessKeyId && secretAccessKey && sessionToken) {
-      const scopedS3 = new S3Client({
-        region: process.env.AWS_REGION!,
-        credentials: { accessKeyId, secretAccessKey, sessionToken },
-      });
-      expoDevServerService.setS3Client(scopedS3);
-      request.log2.consoleLogDevOnly(
-        "info",
-        "Allocated worker to prototype for S3 access",
-      );
-    } else {
-      request.log2.info(
-        "No S3 credentials provided, skipping S3 client setup (dev mode)",
-      );
-    }
+    // Set up S3 client with provided credentials
+    const scopedS3 = new S3Client({
+      region: process.env.AWS_REGION!,
+      credentials: {
+        accessKeyId: s3_credentials.accessKeyId,
+        secretAccessKey: s3_credentials.secretAccessKey,
+        sessionToken: s3_credentials.sessionToken,
+      },
+    });
+    expoDevServerService.setS3Client(scopedS3);
+    request.log2.consoleLogDevOnly(
+      "info",
+      "Allocated worker to prototype for S3 access",
+    );
 
-    // If cloudflare tunnel token is provided, start the tunnel
+    // Start the Cloudflare tunnel
     let tunnelStatus: "connected" | "error" | "timeout" | "not_started" =
       "not_started";
     let tunnelMessage: string | undefined;
 
-    if (cloudflare_tunnel_token) {
-      request.log2.consoleLogDevOnly(
-        "info",
-        "Starting Cloudflare tunnel setup",
+    request.log2.consoleLogDevOnly("info", "Starting Cloudflare tunnel setup");
+    try {
+      const result = await cloudflareTunnelManagementService.createTunnel(
+        cloudflare_credentials.cloudflare_tunnel_token,
       );
-      try {
-        const result = await cloudflareTunnelManagementService.createTunnel(
-          cloudflare_tunnel_token,
+      tunnelStatus = result.status;
+      tunnelMessage = result.message;
+
+      if (tunnelStatus === "connected") {
+        request.log2.info("Cloudflare tunnel connected successfully");
+      } else if (tunnelStatus === "timeout") {
+        request.log2.warn("Cloudflare tunnel connection timed out");
+      } else if (tunnelStatus === "error") {
+        request.log2.error(
+          new Error(tunnelMessage ?? "Cloudflare tunnel failed to connect"),
+          "Cloudflare tunnel connection error",
         );
-        tunnelStatus = result.status;
-        tunnelMessage = result.message;
-
-        if (tunnelStatus === "connected") {
-          request.log2.info("Cloudflare tunnel connected successfully");
-        } else if (tunnelStatus === "timeout") {
-          request.log2.warn("Cloudflare tunnel connection timed out");
-        } else if (tunnelStatus === "error") {
-          request.log2.error(
-            new Error(tunnelMessage ?? "Cloudflare tunnel failed to connect"),
-            "Cloudflare tunnel connection error",
-          );
-        }
-      } catch (tunnelError) {
-        tunnelStatus = "error";
-        tunnelMessage =
-          tunnelError instanceof Error
-            ? tunnelError.message
-            : "Failed to start Cloudflare tunnel";
-        request.log2.error(tunnelError, "Failed to start Cloudflare tunnel");
       }
+    } catch (tunnelError) {
+      tunnelStatus = "error";
+      tunnelMessage =
+        tunnelError instanceof Error
+          ? tunnelError.message
+          : "Failed to start Cloudflare tunnel";
+      request.log2.error(tunnelError, "Failed to start Cloudflare tunnel");
     }
 
-    // Store orchestration token if provided
-    if (orchestration_token) {
-      codeService.setOrchestrationToken(orchestration_token);
-      request.log2.consoleLogDevOnly(
-        "info",
-        "Orchestration token received and stored in CodeService",
-      );
-    } else {
-      request.log2.error(
-        new Error("No orchestration token provided"),
-        "No orchestration token provided",
-      );
-    }
+    // Store orchestration token
+    codeService.setOrchestrationToken(keys.orchestration_token);
+    request.log2.consoleLogDevOnly(
+      "info",
+      "Orchestration token received and stored in CodeService",
+    );
 
-    if (aak) {
-      codeService.setAak(aak);
+    // Store Anthropic API key if provided
+    if (keys.aak) {
+      codeService.setAak(keys.aak);
       request.log2.consoleLogDevOnly(
         "info",
         "Anthropic API key received and stored in CodeService",

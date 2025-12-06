@@ -215,16 +215,32 @@ export interface PublicRunCommandSuccessResponse {
   stdout: string;
 }
 
-export interface PublicAllocateRequest {
-  accessKeyId?: string;
-  secretAccessKey?: string;
-  sessionToken?: string;
-  expiration?: string;
+export interface AllocationS3CredentialsInput {
+  accessKeyId: string;
+  secretAccessKey: string;
+  sessionToken: string;
+  expiration: string;
+}
+
+export interface AllocationUserDetails {
   prototypeId: string;
   userId: string;
-  cloudflare_tunnel_token?: string;
-  orchestration_token?: string;
+}
+
+export interface AllocationCloudflareTunnelCredentials {
+  cloudflare_tunnel_token: string;
+}
+
+export interface AllocationKeys {
+  orchestration_token: string;
   aak?: string;
+}
+
+export interface PublicAllocateRequest {
+  s3_credentials: AllocationS3CredentialsInput;
+  user_details: AllocationUserDetails;
+  cloudflare_credentials: AllocationCloudflareTunnelCredentials;
+  keys: AllocationKeys;
 }
 
 export interface PublicAllocateSuccessResponse {
