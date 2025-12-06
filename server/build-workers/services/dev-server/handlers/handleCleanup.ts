@@ -13,7 +13,7 @@ import { SystemLogger } from "../../../loggers/SystemLogger.js";
 import { uploadAllClaudeSessionsToSupabase } from "../../../utils/shared-utils.js";
 import { uploadDirectoryToS3 } from "../s3-upload-utils.js";
 
-export async function handleStopDevServerImpl(
+export async function handleCleanup(
   request: FastifyRequest<{}>,
   reply: FastifyReply,
   developmentServerService: MaterializeDevelopmentServerService,

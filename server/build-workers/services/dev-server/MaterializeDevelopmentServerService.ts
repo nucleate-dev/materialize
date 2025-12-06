@@ -31,7 +31,7 @@ import { FileSyncService } from "../FileSyncService.js";
 import { handleAllocateImpl } from "./handlers/handleAllocate.js";
 import { handleUpdateFilesImpl } from "./handlers/handleUpdateFiles.js";
 import { handleStartDevServerImpl } from "./handlers/handleStartDevServer.js";
-import { handleStopDevServerImpl } from "./handlers/handleStopDevServer.js";
+import { handleCleanup } from "./handlers/handleCleanup.js";
 import { IDevelopmentServerAdapter } from "./adapters/IDevelopmentServerAdapter.js";
 import { TerminalService } from "../terminals/TerminalService.js";
 import { ExpoReactNativeAdapter } from "./adapters/ExpoReactNativeAdapter.js";
@@ -122,8 +122,8 @@ export class MaterializeDevelopmentServerService {
     );
 
     app.delete<{ Body: PublicDevServerStopRequest }>(
-      "/dev-server/stop-v2",
-      this.stopDevServerV2.bind(this),
+      "/cleanup",
+      this.cleanup.bind(this),
     );
   }
 
@@ -180,7 +180,7 @@ export class MaterializeDevelopmentServerService {
     );
   }
 
-  private async stopDevServerV2(
+  private async cleanup(
     request: FastifyRequest<{ Body: PublicDevServerStopRequest }>,
     reply: FastifyReply,
   ): Promise<
@@ -189,7 +189,7 @@ export class MaterializeDevelopmentServerService {
       StandardErrorResponse
     >
   > {
-    return handleStopDevServerImpl(request, reply, this);
+    return handleCleanup(request, reply, this);
   }
 
   private async startDevServerNew(

@@ -8,7 +8,6 @@ import { SystemLogger } from "../../../loggers/SystemLogger.js";
 import {
   SandboxAPIResponse,
   StandardErrorResponse,
-  HTTP_STATUS,
 } from "../../../types/BuildWorkerTypes.js";
 import { WORK_DIR } from "../../../worker.js";
 import { DEV_SERVER_PORT } from "../MaterializeDevelopmentServerService.js";
