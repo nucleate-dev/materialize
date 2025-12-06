@@ -2,6 +2,7 @@ import {
   IDevelopmentServerAdapter,
   DevelopmentServerType,
 } from "./IDevelopmentServerAdapter.js";
+import { TerminalService } from "../../terminals/TerminalService.js";
 
 /**
  * Adapter for Expo React Native development server.
@@ -9,6 +10,11 @@ import {
  */
 export class ExpoReactNativeAdapter implements IDevelopmentServerAdapter {
   readonly serverType: DevelopmentServerType = "expo-react-native";
+  private readonly terminalService: TerminalService;
+
+  constructor(terminalService: TerminalService) {
+    this.terminalService = terminalService;
+  }
 
   /**
    * Starts the Expo development server.

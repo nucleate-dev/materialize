@@ -32,6 +32,9 @@ import { ExpoDevServerService } from "./ExpoDevServerService.js";
 import { FileSyncService } from "../FileSyncService.js";
 import { handleAllocateImpl } from "./handlers/handleAllocate.js";
 import { handleUpdateFilesImpl } from "./handlers/handleUpdateFiles.js";
+import { IDevelopmentServerAdapter } from "./adapters/IDevelopmentServerAdapter.js";
+import { TerminalService } from "../terminals/TerminalService.js";
+import { ExpoReactNativeAdapter } from "./adapters/ExpoReactNativeAdapter.js";
 
 export class MaterializeDevelopmentServerService {
   private readonly expoDevServerService: ExpoDevServerService;
@@ -41,6 +44,8 @@ export class MaterializeDevelopmentServerService {
   private readonly workDir: string;
   private readonly supabaseClientService: SupabaseClientService;
   private readonly fileSyncService: FileSyncService;
+  private readonly terminalService: TerminalService;
+  private developmentServerAdapter: IDevelopmentServerAdapter;
 
   constructor(
     expoDevServerService: ExpoDevServerService,
@@ -50,6 +55,7 @@ export class MaterializeDevelopmentServerService {
     workDir: string,
     supabaseClientService: SupabaseClientService,
     fileSyncService: FileSyncService,
+    terminalService: TerminalService,
   ) {
     this.expoDevServerService = expoDevServerService;
     this.sandboxService = sandboxService;
@@ -58,6 +64,8 @@ export class MaterializeDevelopmentServerService {
     this.workDir = workDir;
     this.supabaseClientService = supabaseClientService;
     this.fileSyncService = fileSyncService;
+    this.terminalService = terminalService;
+    this.developmentServerAdapter = new ExpoReactNativeAdapter(terminalService); // default adapter
   }
 
   public registerRoutes(app: FastifyInstance): void {
@@ -94,6 +102,11 @@ export class MaterializeDevelopmentServerService {
       "/update-files-v2",
       this.updateFilesV2.bind(this),
     );
+
+    // app.post<{ Body: PublicStartDevServerRequest }>(
+    //   "/start-dev-server-v2",
+    //   this.startDevServerV2.bind(this),
+    // );
   }
 
   private async allocate(

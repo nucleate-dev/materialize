@@ -143,6 +143,7 @@ const publicApiService = new MaterializeDevelopmentServerService(
   WORK_DIR,
   supabaseClientService,
   fileSyncService,
+  terminalService,
 );
 
 app.addHook("onRequest", async (req) => {
