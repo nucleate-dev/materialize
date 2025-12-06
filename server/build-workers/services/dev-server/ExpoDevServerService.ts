@@ -1738,6 +1738,46 @@ export class ExpoDevServerService {
           `Skipped due to error: ${errorMessage}`,
         );
       }
+
+      // Upload all Claude session files to Supabase before build
+      try {
+        const uploadResult = await uploadAllClaudeSessionsToSupabase(
+          resolvedPrototypeId,
+          this.supabaseClientService.getClient(),
+          log2,
+        );
+
+        log2.info(
+          "Claude session upload before Expo build, " +
+            `Uploaded ${uploadResult.uploadedCount} session files`,
+          {
+            success: uploadResult.success,
+            errorCount: uploadResult.errors.length,
+            errors: uploadResult.errors,
+          },
+        );
+
+        if (!uploadResult.success) {
+          log2.warn("Claude session upload had errors", {
+            prototypeId: resolvedPrototypeId,
+            errorCount: uploadResult.errors.length,
+            errors: uploadResult.errors,
+          });
+        }
+      } catch (error: unknown) {
+        const errorMessage =
+          error instanceof Error ? error.message : String(error);
+        log2.warn("Proceeding with Expo build despite session upload failure", {
+          prototypeId: resolvedPrototypeId,
+          error: errorMessage,
+        });
+        logger.log(
+          "Claude session upload before Expo build",
+          false,
+          "",
+          `Skipped due to error: ${errorMessage}`,
+        );
+      }
     }
 
     try {
