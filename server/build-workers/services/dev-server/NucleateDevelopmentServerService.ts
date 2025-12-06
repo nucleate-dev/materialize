@@ -32,6 +32,7 @@ import { handleAllocateImpl } from "./handlers/handleAllocate.js";
 import { handleUpdateFilesImpl } from "./handlers/handleUpdateFiles.js";
 import { handleStartDevServerImpl } from "./handlers/handleStartDevServer.js";
 import { handleCleanup } from "./handlers/handleCleanup.js";
+import { handleRestartDevServerImpl } from "./handlers/handleRestartDevServer.js";
 import { IDevelopmentServerAdapter } from "./adapters/IDevelopmentServerAdapter.js";
 import { TerminalService } from "../terminals/TerminalService.js";
 import { ExpoReactNativeAdapter } from "./adapters/ExpoReactNativeAdapter.js";
@@ -121,6 +122,8 @@ export class NucleateDevelopmentServerService {
       this.startDevServerV2.bind(this),
     );
 
+    app.post("/dev-server/restart-v2", this.restartDevServerV2.bind(this));
+
     app.delete<{ Body: PublicDevServerStopRequest }>(
       "/cleanup",
       this.cleanup.bind(this),
@@ -190,6 +193,18 @@ export class NucleateDevelopmentServerService {
     >
   > {
     return handleCleanup(request, reply, this);
+  }
+
+  private async restartDevServerV2(
+    request: FastifyRequest,
+    reply: FastifyReply,
+  ): Promise<
+    SandboxAPIResponse<
+      PublicDevServerRestartSuccessResponse,
+      StandardErrorResponse
+    >
+  > {
+    return handleRestartDevServerImpl(request, reply, this);
   }
 
   private async startDevServerNew(
