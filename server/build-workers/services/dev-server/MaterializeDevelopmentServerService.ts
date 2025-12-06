@@ -75,18 +75,6 @@ export class MaterializeDevelopmentServerService {
       this.updateFiles.bind(this),
     );
 
-    // POST /update-files-v2
-    app.post<{ Body: PublicUpdateFilesV2Request }>(
-      "/update-files-v2",
-      this.handleUpdateFilesV2.bind(this),
-    );
-
-    // POST /dev-server (legacy route - keeping for backward compatibility)
-    app.post<{ Body: PublicDevServerStartRequest }>(
-      "/dev-server",
-      this.startDevServer.bind(this),
-    );
-
     // DELETE /dev-server
     app.delete<{ Body: PublicDevServerStopRequest }>(
       "/dev-server",
@@ -102,6 +90,12 @@ export class MaterializeDevelopmentServerService {
     );
 
     app.post("/allocate", this.allocate.bind(this));
+
+    // ----------- V2 ENDPOINTS -----------
+    app.post<{ Body: PublicUpdateFilesV2Request }>(
+      "/update-files-v2",
+      this.handleUpdateFilesV2.bind(this),
+    );
   }
 
   private async allocate(
@@ -685,114 +679,6 @@ export class MaterializeDevelopmentServerService {
       request.log2.error(
         new Error(errorMessage),
         "Internal server error in handleUpdateFilesV2",
-        { stack: errorStack },
-      );
-      reply.code(500);
-      return {
-        data: null,
-        error: {
-          error: "Internal server error",
-          message: errorMessage,
-        },
-      };
-    }
-  }
-
-  private async startDevServer(
-    request: FastifyRequest<{ Body: PublicDevServerStartRequest }>,
-    reply: FastifyReply,
-  ): Promise<
-    SandboxAPIResponse<
-      PublicDevServerStartSuccessResponse,
-      StandardErrorResponse
-    >
-  > {
-    const { prototype_id, framework } = request.body;
-
-    if (!prototype_id || !framework) {
-      reply.code(400);
-      return {
-        data: null,
-        error: {
-          error: "Missing required parameters",
-          message: "prototype_id and framework are required",
-        },
-      };
-    }
-
-    try {
-      if (request.body.file_scope === "complete") {
-        // For starting dev server, files will be fetched from Supabase directly in the ExpoDevServerService
-        const startResponse = await this.expoDevServerService.startDevServer(
-          prototype_id,
-          framework,
-          request.log2,
-        );
-
-        // Set appropriate status code based on response
-        if (!startResponse.success) {
-          reply.code(500);
-          return {
-            data: null,
-            error: {
-              error: "Dev server start failed",
-              message: "Failed to start dev server",
-            },
-          };
-        }
-
-        // Convert response format from ExpoDevServerService to PublicApiService format
-        reply.status(200);
-        return {
-          data: {
-            tunnel_url: startResponse.tunnelUrl,
-          },
-          error: null,
-        };
-      } else if (request.body.file_scope === "updates") {
-        const startResponse =
-          await this.expoDevServerService.updateDevServerFiles(
-            request.log2,
-            request.body.files,
-            request.body.assets,
-            request.body?.deleted_files || [],
-          );
-
-        if (!startResponse.success) {
-          reply.code(500);
-          return {
-            data: null,
-            error: {
-              error: "File update failed",
-              message: "Failed to update files on dev server",
-            },
-          };
-        }
-
-        reply.status(200);
-        return {
-          data: {
-            tunnel_url: startResponse.tunnelUrl,
-          },
-          error: null,
-        };
-      }
-      // Invalid file scope
-      reply.code(400);
-      return {
-        data: null,
-        error: {
-          error: "Invalid file scope",
-          message: "file_scope must be either 'complete' or 'updates'",
-        },
-      };
-    } catch (error: unknown) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
-      const errorStack = error instanceof Error ? error.stack : undefined;
-      request.log2.error(
-        new Error(errorMessage),
-        "Internal server error in startDevServer",
         { stack: errorStack },
       );
       reply.code(500);
