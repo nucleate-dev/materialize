@@ -423,52 +423,43 @@ export class ChatQueryHandler {
               designSpec = spec;
               designMetadata = metadata;
 
-              if (metadata.addToProjectContext) {
-                // Write design spec to CLAUDE.md in the project directory
-                // This allows Claude Code SDK to automatically read it as project context
-                try {
-                  const claudeMdPath = path.join(this.workDir, "CLAUDE.md");
-                  await fs.writeFile(claudeMdPath, designSpec, "utf-8");
+              // Always persist design spec to CLAUDE.md and project_context for now
+              try {
+                const claudeMdPath = path.join(this.workDir, "CLAUDE.md");
+                await fs.writeFile(claudeMdPath, designSpec, "utf-8");
 
-                  this.logger.consoleLogDevOnly(
-                    "info",
-                    "Wrote design specification to CLAUDE.md",
-                    { prototypeId, specLength: designSpec.length, path: claudeMdPath },
-                  );
-                } catch (writeError) {
-                  this.logger.error(
-                    writeError instanceof Error ? writeError : new Error(String(writeError)),
-                    "Failed to write design specification to CLAUDE.md",
-                    { prototypeId },
-                  );
-                }
+                this.logger.consoleLogDevOnly(
+                  "info",
+                  "Wrote design specification to CLAUDE.md",
+                  { prototypeId, specLength: designSpec.length, path: claudeMdPath },
+                );
+              } catch (writeError) {
+                this.logger.error(
+                  writeError instanceof Error ? writeError : new Error(String(writeError)),
+                  "Failed to write design specification to CLAUDE.md",
+                  { prototypeId },
+                );
+              }
 
-                // Also store in database for backup/reference
-                const { error: updateError } =
-                  await this.supabaseClientService
-                    .getClient()
-                    .from("prototypes")
-                    .update({ project_context: designSpec })
-                    .eq("id", prototypeId);
+              // Also store in database for backup/reference
+              const { error: updateError } =
+                await this.supabaseClientService
+                  .getClient()
+                  .from("prototypes")
+                  .update({ project_context: designSpec })
+                  .eq("id", prototypeId);
 
-                if (updateError) {
-                  this.logger.error(
-                    updateError,
-                    "Failed to store design specification in project_context",
-                    { prototypeId },
-                  );
-                } else {
-                  this.logger.consoleLogDevOnly(
-                    "info",
-                    "Stored design specification in project_context database",
-                    { prototypeId, specLength: designSpec.length },
-                  );
-                }
+              if (updateError) {
+                this.logger.error(
+                  updateError,
+                  "Failed to store design specification in project_context",
+                  { prototypeId },
+                );
               } else {
                 this.logger.consoleLogDevOnly(
                   "info",
-                  "Skipping project_context update for narrow scope design spec",
-                  { prototypeId },
+                  "Stored design specification in project_context database",
+                  { prototypeId, specLength: designSpec.length },
                 );
               }
             }
@@ -1029,18 +1020,18 @@ export class ChatQueryHandler {
         // Send design generation completed message to client
         handlers.sendMessage(socket, {
           type: ChatEvent.DESIGN_GENERATION,
-          data: {
-            status: "completed",
-            message: "Design specification generated",
-            designSpec: designSpec, // Include the actual spec content
-            runDesignAgent: shouldRunDesignAgent,
-            isAppLevel,
-            isNarrowBuild,
-            persistToProjectContext: metadata.addToProjectContext,
-            isMasterDesignSpec: metadata.isMasterDesignSpec,
-            scope: metadata.scope,
-          },
-        });
+            data: {
+              status: "completed",
+              message: "Design specification generated",
+              designSpec: designSpec, // Include the actual spec content
+              runDesignAgent: shouldRunDesignAgent,
+              isAppLevel,
+              isNarrowBuild,
+              persistToProjectContext: true,
+              isMasterDesignSpec: metadata.isMasterDesignSpec,
+              scope: metadata.scope,
+            },
+          });
 
         this.logger.consoleLogDevOnly(
           "info",
