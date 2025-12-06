@@ -103,7 +103,14 @@ export class MaterializeDevelopmentServerService {
   ): Promise<
     SandboxAPIResponse<PublicAllocateSuccessResponse, StandardErrorResponse>
   > {
-    return handleAllocateImpl(request, reply, this.supabaseClientService, this.expoDevServerService, this.cloudflareTunnelManagementService, this.codeService);
+    return handleAllocateImpl(
+      request,
+      reply,
+      this.supabaseClientService,
+      this.expoDevServerService,
+      this.cloudflareTunnelManagementService,
+      this.codeService,
+    );
   }
 
   private async startDevServerNew(
