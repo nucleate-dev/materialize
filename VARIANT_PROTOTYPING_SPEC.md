@@ -2,11 +2,12 @@
 
 ## Overview
 
-This document outlines the design and implementation plan for adding variant prototyping capabilities to Materialize. This feature enables users to prototype and compare 3-5 different variations of UI components or screens simultaneously.
+This document outlines the design and implementation plan for adding variant prototyping capabilities to Nucleate. This feature enables users to prototype and compare 3-5 different variations of UI components or screens simultaneously.
 
 ## Use Cases
 
 ### Primary Use Cases
+
 - **Paywall Testing**: Create 3-5 different paywall designs and compare them side-by-side
 - **Component Variations**: Test different layouts, color schemes, or interaction patterns for a single component
 - **A/B Testing Exploration**: Visualize multiple options before committing to implementation
@@ -14,6 +15,7 @@ This document outlines the design and implementation plan for adding variant pro
 - **Iteration Speed**: Quickly explore different design directions without losing context
 
 ### Example Scenarios
+
 ```
 "Create 3 paywall variations:
  1. One with monthly/yearly toggle
@@ -28,6 +30,7 @@ This document outlines the design and implementation plan for adding variant pro
 ## Technical Approach: Route-Based Variants
 
 ### Why Route-Based?
+
 1. **Simple Mental Model**: Users already understand routes in Expo Router
 2. **AI-Friendly**: Easy to prompt and generate
 3. **Low Friction**: Works with existing multi-screen infrastructure
@@ -51,6 +54,7 @@ app/
 ```
 
 **Why `(variants)` route group?**
+
 - Keeps variants organized and separate from main app routes
 - Doesn't create a visible route segment (parentheses = route group in Expo Router)
 - Easy to identify variant files vs production code
@@ -59,6 +63,7 @@ app/
 ### URL Structure
 
 Each variant has a clean route path:
+
 ```
 /paywall-v1
 /paywall-v2
@@ -72,6 +77,7 @@ The multi-screen preview shows these routes simultaneously in separate mobile fr
 ### What Already Exists ✅
 
 From `MaterializeRenderSection.tsx`:
+
 - Multi-screen rendering (`mobileScreens` array)
 - Independent navigation per screen
 - Path editing per screen with route autocomplete
@@ -80,6 +86,7 @@ From `MaterializeRenderSection.tsx`:
 - Add/remove screen functionality
 
 From `CodeService.ts`:
+
 - File system watcher that tracks ALL file changes (lines 1605-1694)
 - WebSocket-based communication with frontend
 - Tool hooks (PreToolUse, PostToolUse) for custom behavior
@@ -88,23 +95,27 @@ From `CodeService.ts`:
 ### What Needs to Change 🔧
 
 #### 1. Backend (CodeService.ts)
+
 - [ ] Add `mode` parameter to `ChatQueryData` type
 - [ ] Build different system prompts for prototyping mode
 - [ ] Add `show_variants` custom tool/event
 - [ ] Send WebSocket event when AI calls show_variants
 
 #### 2. Frontend (ClaudeCodePanel.tsx)
+
 - [ ] Mode toggle UI (Standard vs Prototyping)
 - [ ] Handle `show_variants` WebSocket event
 - [ ] Variant confirmation modal
 - [ ] Communication with parent to update mobile screens
 
 #### 3. State Management & Integration
+
 - [ ] How ClaudeCodePanel communicates with MaterializeRenderSection
 - [ ] Parent component (InternalPrototypePage) orchestrates state
 - [ ] Callback pattern or shared state context
 
 #### 4. UI/UX Enhancements (Future)
+
 - [ ] "Create Variants" button workflow
 - [ ] Variant labeling (not just paths)
 - [ ] Visual grouping of related variants
@@ -141,6 +152,7 @@ From `CodeService.ts`:
 ### Decision: Explicit "Prototyping Mode" Toggle
 
 **Why Explicit Mode?**
+
 - Crystal clear behavior - no ambiguity
 - Users know exactly what to expect in each mode
 - No room for detection errors or edge cases
@@ -148,22 +160,23 @@ From `CodeService.ts`:
 
 ### Mode Comparison
 
-| Aspect | Standard Mode | Prototyping Mode |
-|--------|--------------|------------------|
-| **Purpose** | Build polished features | Quick variant exploration |
-| **Execution Plan** | Detailed, step-by-step | Lightweight, per-variant |
-| **Design Polish** | High (spacing, typography, etc.) | Medium (functional focus) |
-| **File Organization** | Feature-based | `(variants)/` grouping |
-| **Mock Data** | Realistic, diverse | Quick placeholders OK |
-| **Target Output** | Single cohesive feature | Multiple explorations |
-| **Speed** | Thorough | Fast iteration |
-| **System Prompt** | Full Claude Code prompt | Variant-focused prompt |
+| Aspect                | Standard Mode                    | Prototyping Mode          |
+| --------------------- | -------------------------------- | ------------------------- |
+| **Purpose**           | Build polished features          | Quick variant exploration |
+| **Execution Plan**    | Detailed, step-by-step           | Lightweight, per-variant  |
+| **Design Polish**     | High (spacing, typography, etc.) | Medium (functional focus) |
+| **File Organization** | Feature-based                    | `(variants)/` grouping    |
+| **Mock Data**         | Realistic, diverse               | Quick placeholders OK     |
+| **Target Output**     | Single cohesive feature          | Multiple explorations     |
+| **Speed**             | Thorough                         | Fast iteration            |
+| **System Prompt**     | Full Claude Code prompt          | Variant-focused prompt    |
 
 ### UI/UX for Mode Toggle
 
 **Location:** ClaudeCodePanel header, near connection status
 
 **Visual Design:**
+
 ```
 ┌─────────────────────────────────────────┐
 │ ● Project  [Session ▼] [+]             │
@@ -175,6 +188,7 @@ From `CodeService.ts`:
 ```
 
 **States:**
+
 - **Standard Mode** (default): Primary color
 - **Prototyping Mode**: Distinct accent color (e.g., purple)
 - Tooltip on hover explaining each mode
@@ -182,22 +196,26 @@ From `CodeService.ts`:
 ### Prototyping Mode Workflow
 
 **1. User Switches to Prototyping Mode**
+
 ```
 User clicks "Prototyping" → Mode state updates → Badge shows "Prototyping Mode"
 ```
 
 **2. User Requests Variants**
+
 ```
 User: "Create 3 paywall variations with different pricing strategies"
 ```
 
 **3. AI Generates Variants**
+
 - Uses prototyping-focused system prompt
 - Creates files in `app/(variants)/`
 - Calls custom `show_variants` tool
 
 **4. AI Calls show_variants Tool**
 The AI invokes a custom tool (not a standard Claude Code SDK tool):
+
 ```json
 {
   "name": "show_variants",
@@ -210,6 +228,7 @@ The AI invokes a custom tool (not a standard Claude Code SDK tool):
 
 **5. Backend Sends WebSocket Event**
 CodeService.ts detects the tool call and sends:
+
 ```json
 {
   "type": "show_variants",
@@ -222,6 +241,7 @@ CodeService.ts detects the tool call and sends:
 
 **6. Frontend Shows Confirmation Modal**
 ClaudeCodePanel displays:
+
 ```
 ┌──────────────────────────────────────────┐
 │  🎨 Show 3 Variants?                     │
@@ -236,6 +256,7 @@ ClaudeCodePanel displays:
 ```
 
 **7. User Confirms**
+
 - User clicks "Show Variants"
 - ClaudeCodePanel calls parent callback: `onShowVariants(paths)`
 - Parent updates MaterializeRenderSection's `mobileScreens` state
@@ -246,17 +267,21 @@ ClaudeCodePanel displays:
 **Hybrid Approach: Natural Language + Explicit References**
 
 **Natural Language (Primary):**
+
 ```
 "Make the middle one darker"
 "Update the first paywall to emphasize annual savings"
 "Change the minimalist version to use blue accents"
 ```
+
 AI infers which variant based on:
+
 - Position (left, middle, right, first, last)
 - Description (minimalist, free trial, etc.)
 - Context from previous generation
 
 **Explicit References (Fallback):**
+
 ```
 "@app/(variants)/paywall-v2.tsx make the button larger"
 "Update variant 2: change primary color to blue"
@@ -264,6 +289,7 @@ AI infers which variant based on:
 
 **Ambiguity Handling:**
 If unclear, AI asks:
+
 ```
 "Which variant did you mean?
  1. /paywall-v1 (Monthly/Yearly Toggle)
@@ -276,6 +302,7 @@ If unclear, AI asks:
 ### Phase 1: Backend Changes (CodeService.ts)
 
 #### 1.1 Add Mode to ChatQueryData Type
+
 **File:** `server/build-workers/types/ChatTypes.ts`
 
 ```typescript
@@ -287,14 +314,16 @@ export interface ChatQueryData {
   chat_session_id?: string | null;
   options?: Record<string, unknown>;
   custom_design_system_id?: string | null;
-  mode?: 'standard' | 'prototyping'; // NEW
+  mode?: "standard" | "prototyping"; // NEW
 }
 ```
 
 #### 1.2 Extract and Use Mode in handleQuery
+
 **File:** `server/build-workers/services/CodeService.ts`
 
 In `handleQuery` method (around line 262):
+
 ```typescript
 const {
   prompt,
@@ -302,14 +331,16 @@ const {
   token,
   session_id,
   chat_session_id,
-  mode = 'standard', // NEW - extract mode, default to standard
+  mode = "standard", // NEW - extract mode, default to standard
 } = data;
 ```
 
 #### 1.3 Build Different System Prompts Based on Mode
+
 **File:** `server/build-workers/utils/ClaudeCodePrompts.ts`
 
 Add a new prototyping prompt:
+
 ```typescript
 export const PROTOTYPING_MODE_PROMPT = `
 You are an expert React Native engineer creating quick prototype variations for comparison.
@@ -344,14 +375,16 @@ The labels should briefly describe what makes each variant unique.
 **File:** `server/build-workers/services/CodeService.ts`
 
 Update system prompt building (around line 495):
+
 ```typescript
 // Build system prompt with optional design system rules
-const basePrompt = mode === 'prototyping'
-  ? PROTOTYPING_MODE_PROMPT
-  : SYSTEM_PROMPT;
+const basePrompt =
+  mode === "prototyping" ? PROTOTYPING_MODE_PROMPT : SYSTEM_PROMPT;
 
 const systemPromptAppend = this.sessionState.designSystemRules
-  ? basePrompt + '\n\n## Custom Design System Rules:\n' + this.sessionState.designSystemRules
+  ? basePrompt +
+    "\n\n## Custom Design System Rules:\n" +
+    this.sessionState.designSystemRules
   : basePrompt;
 ```
 
@@ -362,6 +395,7 @@ The `show_variants` tool is NOT a standard Claude Code SDK tool. It needs to be 
 **Option A: Handle in PreToolUse Hook** (Recommended)
 
 In the `hooks` section of `queryOptions` (around line 520):
+
 ```typescript
 PreToolUse: [
   {
@@ -420,6 +454,7 @@ PreToolUse: [
 This requires Claude SDK to support custom tools, which may not be available. Option A is more reliable.
 
 #### 1.5 Add SHOW_VARIANTS Event Type
+
 **File:** `server/build-workers/types/ChatTypes.ts`
 
 ```typescript
@@ -447,12 +482,16 @@ export type ChatServerMessage =
 ### Phase 2: Frontend Changes (ClaudeCodePanel.tsx)
 
 #### 2.1 Add Mode State
+
 **File:** `web-application/src/components/prototype-editor/ClaudeCodePanel.tsx`
 
 After other state declarations (around line 144):
+
 ```typescript
 // Mode state
-const [chatMode, setChatMode] = useState<'standard' | 'prototyping'>('standard');
+const [chatMode, setChatMode] = useState<"standard" | "prototyping">(
+  "standard",
+);
 
 // Variants modal state
 const [showVariantsModal, setShowVariantsModal] = useState(false);
@@ -463,13 +502,14 @@ const [pendingVariants, setPendingVariants] = useState<{
 ```
 
 Add effect to load mode from chat session (in the same section where chat session is loaded):
+
 ```typescript
 // Load mode from chat session
 useEffect(() => {
   if (chatSessionId) {
-    const session = allChatSessions.find(s => s.id === chatSessionId);
+    const session = allChatSessions.find((s) => s.id === chatSessionId);
     if (session?.mode) {
-      setChatMode(session.mode as 'standard' | 'prototyping');
+      setChatMode(session.mode as "standard" | "prototyping");
     }
   }
 }, [chatSessionId, allChatSessions]);
@@ -478,8 +518,9 @@ useEffect(() => {
 #### 2.2 Add Mode Toggle UI and Persistence
 
 Create a handler to save mode changes to database:
+
 ```typescript
-const handleModeChange = async (newMode: 'standard' | 'prototyping') => {
+const handleModeChange = async (newMode: "standard" | "prototyping") => {
   if (!chatSessionId) return;
 
   try {
@@ -487,17 +528,17 @@ const handleModeChange = async (newMode: 'standard' | 'prototyping') => {
 
     // Save to database
     const { error } = await supabase
-      .from('prototype_chat_sessions')
+      .from("prototype_chat_sessions")
       .update({ mode: newMode })
-      .eq('id', chatSessionId);
+      .eq("id", chatSessionId);
 
     if (error) {
-      logger.debug('error', 'Failed to update chat mode', { error });
+      logger.debug("error", "Failed to update chat mode", { error });
     } else {
-      logger.debug('log', 'Chat mode updated', { mode: newMode });
+      logger.debug("log", "Chat mode updated", { mode: newMode });
     }
   } catch (error) {
-    logger.debug('error', 'Error updating chat mode', {
+    logger.debug("error", "Error updating chat mode", {
       error: error instanceof Error ? error.message : String(error),
     });
   }
@@ -505,6 +546,7 @@ const handleModeChange = async (newMode: 'standard' | 'prototyping') => {
 ```
 
 In the header section (around line 1742), add mode toggle:
+
 ```tsx
 <div className="flex items-center justify-between p-3 border-b">
   <div className="flex items-center gap-2 flex-1">
@@ -544,6 +586,7 @@ In the header section (around line 1742), add mode toggle:
 #### 2.3 Pass Mode in WebSocket Query
 
 In `sendQuery` method (around line 1510):
+
 ```typescript
 // Send message in the format expected by CodeService
 ws.send(
@@ -564,6 +607,7 @@ ws.send(
 #### 2.4 Handle SHOW_VARIANTS Event
 
 In `handleServerMessage` method (around line 862), add new case:
+
 ```typescript
 case ChatEvent.SHOW_VARIANTS: {
   const { paths, labels } = message.data;
@@ -576,17 +620,18 @@ case ChatEvent.SHOW_VARIANTS: {
 #### 2.5 Add Variants Confirmation Modal
 
 At the end of the component (around line 2287), before the closing `</div>`:
+
 ```tsx
-{/* Variants Confirmation Modal */}
+{
+  /* Variants Confirmation Modal */
+}
 <Dialog open={showVariantsModal} onOpenChange={setShowVariantsModal}>
   <DialogContent className="sm:max-w-md">
     <DialogHeader>
       <DialogTitle>🎨 Show Variants?</DialogTitle>
     </DialogHeader>
     <div className="space-y-4">
-      <p className="text-sm text-muted-foreground">
-        I created these variants:
-      </p>
+      <p className="text-sm text-muted-foreground">I created these variants:</p>
       <ul className="space-y-2">
         {pendingVariants?.paths.map((path, idx) => (
           <li key={path} className="flex items-center gap-2 text-sm">
@@ -625,12 +670,13 @@ At the end of the component (around line 2287), before the closing `</div>`:
       </div>
     </div>
   </DialogContent>
-</Dialog>
+</Dialog>;
 ```
 
 #### 2.6 Add onShowVariants Prop
 
 Update the component props interface (around line 68):
+
 ```typescript
 interface ClaudeCodePanelProps {
   prototypeId: string;
@@ -654,6 +700,7 @@ interface ClaudeCodePanelProps {
 ```
 
 Extract in component:
+
 ```typescript
 export default function ClaudeCodePanel({
   prototypeId,
@@ -706,6 +753,7 @@ const handleShowVariants = useCallback((paths: string[]) => {
 
 **Implementation Note:**
 The exact implementation depends on MaterializeRenderSection's current architecture. You may need to:
+
 - Lift `mobileScreens` state to parent component if it's currently internal
 - Or expose an update method from MaterializeRenderSection via ref
 - Or use a shared context if components are far apart in the tree
@@ -713,26 +761,32 @@ The exact implementation depends on MaterializeRenderSection's current architect
 ## Technical Considerations
 
 ### File System Watcher
+
 The current implementation uses a file watcher (CodeService.ts:1605-1694) which is **perfect** for variants:
+
 - Automatically tracks all variant files created
 - No need for special handling in hooks
 - Files are synced to Supabase after chat session ends
 - Works regardless of which tool (Write, Edit, Bash) creates the files
 
 ### Performance
+
 - **Multiple iframes**: 3-5 iframes should be fine, all loading from same dev server
 - **Memory**: Each iframe maintains separate state (good for testing isolation)
 - **Lazy loading**: Could implement if needed, but probably not necessary
 
 ### State Isolation
+
 - Each iframe is isolated (desired behavior for variant testing)
 - Shared state (auth, user data) could be injected via localStorage if needed
 - For most prototyping, isolation is a feature, not a bug
 
 ### Tool Reliability
+
 **Risk:** The AI might forget to call `show_variants` after creating files.
 
 **Mitigations:**
+
 1. Strong prompt instructions ("ALWAYS call show_variants")
 2. Prototyping mode uses a focused, shorter prompt
 3. User can manually trigger screen addition if needed
@@ -741,6 +795,7 @@ The current implementation uses a file watcher (CodeService.ts:1605-1694) which 
 ## Design Decisions
 
 ### Mode Persistence
+
 **Decision:** Mode is saved per-session in `prototype_chat_sessions` table.
 
 - Add `mode` column to `prototype_chat_sessions` table
@@ -749,15 +804,18 @@ The current implementation uses a file watcher (CodeService.ts:1605-1694) which 
 - Users can switch modes within a session
 
 **Implementation:**
+
 ```sql
 ALTER TABLE prototype_chat_sessions
 ADD COLUMN mode TEXT DEFAULT 'standard' CHECK (mode IN ('standard', 'prototyping'));
 ```
 
 ### Variant Path Display
+
 **Decision:** Show the route path prominently on top of each variant preview.
 
 MaterializeRenderSection should display the current route path (e.g., `/paywall-v1`) above each mobile preview frame. This helps users:
+
 - Quickly identify which variant they're viewing
 - Understand the relationship between files and previews
 - Navigate between variants when editing
@@ -765,9 +823,11 @@ MaterializeRenderSection should display the current route path (e.g., `/paywall-
 The path should be displayed in a badge or label, matching the existing UI style.
 
 ### Variant File Cleanup
+
 **Decision:** No special UI for clearing variants folder initially.
 
 Users manage variant files like any other files in the codebase:
+
 - Delete via file tree
 - Ask AI to remove them in chat
 - Manual file system cleanup
@@ -775,9 +835,11 @@ Users manage variant files like any other files in the codebase:
 Future enhancement: Add "Clear variants folder" quick action in file tree.
 
 ### Tool Validation
+
 **Decision:** Show modal regardless of file validation.
 
 When AI calls `show_variants`:
+
 - Display the confirmation modal immediately
 - Don't validate that files exist beforehand
 - Let iframes show 404 if paths are invalid
@@ -795,10 +857,12 @@ This keeps the flow simple and fast.
 ## Implementation Checklist
 
 ### Database
+
 - [ ] Add `mode` column to `prototype_chat_sessions` table
 - [ ] Run migration: `ALTER TABLE prototype_chat_sessions ADD COLUMN mode TEXT DEFAULT 'standard' CHECK (mode IN ('standard', 'prototyping'));`
 
 ### Backend
+
 - [ ] Add `mode` to `ChatQueryData` type (ChatTypes.ts)
 - [ ] Add `PROTOTYPING_MODE_PROMPT` constant (ClaudeCodePrompts.ts)
 - [ ] Extract `mode` in `handleQuery` (CodeService.ts:262)
@@ -807,6 +871,7 @@ This keeps the flow simple and fast.
 - [ ] Add `ChatEvent.SHOW_VARIANTS` event type (ChatTypes.ts)
 
 ### Frontend - ClaudeCodePanel
+
 - [ ] Add mode state to ClaudeCodePanel (ClaudeCodePanel.tsx:144)
 - [ ] Load mode from chat session on mount
 - [ ] Add mode toggle UI (ClaudeCodePanel.tsx:1742)
@@ -817,16 +882,19 @@ This keeps the flow simple and fast.
 - [ ] Add `onShowVariants` prop (ClaudeCodePanel.tsx:68)
 
 ### Frontend - MaterializeRenderSection
+
 - [ ] Display route path above each mobile preview frame
 - [ ] Style path badge to match existing UI
 - [ ] Ensure path updates when navigation occurs in iframe
 
 ### Integration
+
 - [ ] Add `handleShowVariants` callback (InternalPrototypePage.tsx)
 - [ ] Implement screen update logic based on MaterializeRenderSection architecture
 - [ ] Pass callback to ClaudeCodePanel
 
 ### Testing
+
 - [ ] Test mode toggle UI
 - [ ] Test prototyping prompt generates variant files
 - [ ] Test `show_variants` tool call triggers modal

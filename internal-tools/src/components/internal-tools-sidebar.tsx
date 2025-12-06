@@ -86,7 +86,7 @@ export function InternalToolsSidebar() {
           <div className="grid flex-1 text-left text-sm leading-tight">
             <span className="truncate font-semibold">Internal Tools</span>
             <span className="truncate text-xs text-muted-foreground">
-              Materialize
+              Nucleate
             </span>
           </div>
         </div>
@@ -103,7 +103,7 @@ export function InternalToolsSidebar() {
                     className={cn(
                       "w-full justify-start",
                       pathname === item.url &&
-                        "bg-accent text-accent-foreground"
+                        "bg-accent text-accent-foreground",
                     )}
                   >
                     <Link href={item.url}>

@@ -97,6 +97,7 @@ CREATE UNIQUE INDEX idx_one_default_per_user ON saved_payment_methods(user_id) W
 ```
 
 **Key Constraints:**
+
 - One default payment method per user (enforced by unique partial index)
 - Cascading delete when user is deleted
 - `stripe_payment_method_id` must be unique globally
@@ -122,12 +123,14 @@ CREATE INDEX idx_auto_topup_rules_enabled ON auto_topup_rules(enabled) WHERE ena
 ```
 
 **Key Constraints:**
+
 - One rule per user (enforced by UNIQUE on user_id)
 - `topup_credit_amount` must be 100, 500, or 1000 (matching available credit packs)
 - `threshold_credits` cannot be negative
 - `max_topup_per_month` is optional but must be non-negative if set
 
 **Example Row:**
+
 ```json
 {
   "user_id": "abc-123",
@@ -135,9 +138,10 @@ CREATE INDEX idx_auto_topup_rules_enabled ON auto_topup_rules(enabled) WHERE ena
   "threshold_credits": 50,
   "topup_credit_amount": 500,
   "payment_method_id": "pm-xyz",
-  "max_topup_per_month": 100.00
+  "max_topup_per_month": 100.0
 }
 ```
+
 _Interpretation: When balance falls to 50 or below, charge $50 for 500 credits, max $100/month._
 
 ### 3. `auto_topup_transactions` Table
@@ -165,6 +169,7 @@ CREATE INDEX idx_auto_topup_transactions_status ON auto_topup_transactions(statu
 ```
 
 **Status Flow:**
+
 1. `pending` - Payment Intent created, awaiting Stripe confirmation
 2. `succeeded` - Payment confirmed, credits granted
 3. `failed` - Payment failed, user notified
@@ -178,6 +183,7 @@ CREATE INDEX idx_auto_topup_transactions_status ON auto_topup_transactions(statu
 **Location:** `server/control-plane/services/PaymentMethodService.ts`
 
 #### Responsibilities
+
 - Manage user's saved payment methods
 - Interface with Stripe Setup Intents
 - Attach/detach payment methods from Stripe Customers
@@ -185,14 +191,17 @@ CREATE INDEX idx_auto_topup_transactions_status ON auto_topup_transactions(statu
 #### API Endpoints
 
 ##### `POST /payments/setup-intent`
+
 Create a Stripe Setup Intent for collecting payment method without charging.
 
 **Request:**
+
 ```typescript
 // Headers: Authorization: Bearer <JWT>
 ```
 
 **Response:**
+
 ```typescript
 {
   data: {
@@ -203,6 +212,7 @@ Create a Stripe Setup Intent for collecting payment method without charging.
 ```
 
 **Implementation:**
+
 ```typescript
 async createSetupIntent(userId: string): Promise<string> {
   const subscriptionInfo = await getSubscriptionInfo(token, userId, logger);
@@ -220,9 +230,11 @@ async createSetupIntent(userId: string): Promise<string> {
 ```
 
 ##### `POST /payments/save-payment-method`
+
 Save payment method to database after Setup Intent succeeds.
 
 **Request:**
+
 ```typescript
 {
   stripe_payment_method_id: string,
@@ -231,6 +243,7 @@ Save payment method to database after Setup Intent succeeds.
 ```
 
 **Response:**
+
 ```typescript
 {
   data: {
@@ -245,9 +258,11 @@ Save payment method to database after Setup Intent succeeds.
 ```
 
 ##### `GET /payments/payment-methods`
+
 List all saved payment methods for authenticated user.
 
 **Response:**
+
 ```typescript
 {
   data: [
@@ -265,18 +280,22 @@ List all saved payment methods for authenticated user.
 ```
 
 ##### `DELETE /payments/payment-method/:id`
+
 Remove a saved payment method.
 
 **Implementation:**
+
 1. Verify user owns the payment method
 2. Check if it's being used by an active auto-top-up rule → reject if true
 3. Detach from Stripe customer: `stripe.paymentMethods.detach(stripePaymentMethodId)`
 4. Delete from database
 
 ##### `PUT /payments/payment-method/:id/set-default`
+
 Set a payment method as default.
 
 **Implementation:**
+
 1. Start transaction
 2. Set all user's payment methods `is_default = false`
 3. Set target payment method `is_default = true`
@@ -289,6 +308,7 @@ Set a payment method as default.
 **Location:** `server/control-plane/services/AutoTopUpService.ts`
 
 #### Responsibilities
+
 - Manage auto-top-up rules
 - Trigger automatic credit purchases
 - Validate spending limits
@@ -297,9 +317,11 @@ Set a payment method as default.
 #### API Endpoints
 
 ##### `POST /auto-topup/configure`
+
 Create or update auto-top-up rule for authenticated user.
 
 **Request:**
+
 ```typescript
 {
   enabled: boolean,
@@ -311,6 +333,7 @@ Create or update auto-top-up rule for authenticated user.
 ```
 
 **Response:**
+
 ```typescript
 {
   data: {
@@ -327,6 +350,7 @@ Create or update auto-top-up rule for authenticated user.
 ```
 
 **Validations:**
+
 1. User must have active paid subscription
 2. Payment method must belong to user
 3. `threshold_credits` must be positive
@@ -334,9 +358,11 @@ Create or update auto-top-up rule for authenticated user.
 5. If `max_topup_per_month` set, must be ≥ price of one credit pack
 
 ##### `GET /auto-topup/rule`
+
 Get current auto-top-up rule for authenticated user.
 
 **Response:**
+
 ```typescript
 {
   data: {
@@ -357,16 +383,20 @@ Get current auto-top-up rule for authenticated user.
 ```
 
 ##### `DELETE /auto-topup/rule`
+
 Disable auto-top-up (soft delete - set `enabled = false`).
 
 ##### `GET /auto-topup/transactions`
+
 Get transaction history for authenticated user.
 
 **Query Params:**
+
 - `limit?: number` (default 50)
 - `offset?: number` (default 0)
 
 **Response:**
+
 ```typescript
 {
   data: [
@@ -390,6 +420,7 @@ Get transaction history for authenticated user.
 Called from `usage-tracking.ts` after consuming credits.
 
 **Logic:**
+
 ```typescript
 async checkAndTriggerTopUp(userId: string, currentBalance: number): Promise<void> {
   // 1. Fetch active rule
@@ -435,6 +466,7 @@ async checkAndTriggerTopUp(userId: string, currentBalance: number): Promise<void
 ##### `validateMonthlySpendingCap(userId: string, rule: AutoTopUpRule): Promise<boolean>`
 
 **Logic:**
+
 ```typescript
 async validateMonthlySpendingCap(userId: string, rule: AutoTopUpRule): Promise<boolean> {
   const startOfMonth = new Date();
@@ -458,6 +490,7 @@ async validateMonthlySpendingCap(userId: string, rule: AutoTopUpRule): Promise<b
 ##### `processTopUp(userId: string, rule: AutoTopUpRule): Promise<void>`
 
 **Logic:**
+
 ```typescript
 async processTopUp(userId: string, rule: AutoTopUpRule): Promise<void> {
   const priceId = getCreditPackPriceId(rule.topup_credit_amount);
@@ -518,22 +551,31 @@ async processTopUp(userId: string, rule: AutoTopUpRule): Promise<void> {
 ```
 
 **Helper Functions:**
+
 ```typescript
 function getCreditPackPriceId(credits: number): string {
   switch (credits) {
-    case 100: return process.env.STRIPE_CREDIT_PACK_100_PRICE_ID;
-    case 500: return process.env.STRIPE_CREDIT_PACK_500_PRICE_ID;
-    case 1000: return process.env.STRIPE_CREDIT_PACK_1000_PRICE_ID;
-    default: throw new Error(`Invalid credit amount: ${credits}`);
+    case 100:
+      return process.env.STRIPE_CREDIT_PACK_100_PRICE_ID;
+    case 500:
+      return process.env.STRIPE_CREDIT_PACK_500_PRICE_ID;
+    case 1000:
+      return process.env.STRIPE_CREDIT_PACK_1000_PRICE_ID;
+    default:
+      throw new Error(`Invalid credit amount: ${credits}`);
   }
 }
 
 function getCreditPackPrice(credits: number): number {
   switch (credits) {
-    case 100: return 10;
-    case 500: return 50;
-    case 1000: return 100;
-    default: throw new Error(`Invalid credit amount: ${credits}`);
+    case 100:
+      return 10;
+    case 500:
+      return 50;
+    case 1000:
+      return 100;
+    default:
+      throw new Error(`Invalid credit amount: ${credits}`);
   }
 }
 ```
@@ -602,24 +644,27 @@ export async function trackApiUsageBuildWorker(
     if (autoTopupRule && remainingCredits <= autoTopupRule.threshold_credits) {
       log2.info("Auto-top-up threshold reached, triggering top-up", {
         remainingCredits,
-        threshold: autoTopupRule.threshold_credits
+        threshold: autoTopupRule.threshold_credits,
       });
 
       // Trigger async auto-top-up via API call
       // Use fetch to call AutoTopUpService endpoint
       try {
-        await fetch(`${process.env.CONTROL_PLANE_BASE_URL}/auto-topup/trigger`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Internal-Auth': process.env.INTERNAL_API_SECRET  // Internal auth
+        await fetch(
+          `${process.env.CONTROL_PLANE_BASE_URL}/auto-topup/trigger`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "X-Internal-Auth": process.env.INTERNAL_API_SECRET, // Internal auth
+            },
+            body: JSON.stringify({
+              user_id: userId,
+              current_balance: remainingCredits,
+              rule_id: autoTopupRule.id,
+            }),
           },
-          body: JSON.stringify({
-            user_id: userId,
-            current_balance: remainingCredits,
-            rule_id: autoTopupRule.id
-          })
-        });
+        );
       } catch (topupError) {
         log2.error(topupError, "Failed to trigger auto-top-up");
         // Don't fail the main request if top-up trigger fails
@@ -640,6 +685,7 @@ export async function trackApiUsageBuildWorker(
 ```
 
 **New Internal Endpoint in AutoTopUpService:**
+
 ```typescript
 // POST /auto-topup/trigger (internal only, not exposed to public)
 async handleTriggerTopUp(request: FastifyRequest, reply: FastifyReply) {
@@ -718,7 +764,7 @@ async function handlePaymentIntentSucceeded(
   paymentIntent: Stripe.PaymentIntent,
 ): Promise<void> {
   // Only process auto-top-up payments
-  if (paymentIntent.metadata?.auto_topup !== 'true') {
+  if (paymentIntent.metadata?.auto_topup !== "true") {
     return;
   }
 
@@ -727,7 +773,7 @@ async function handlePaymentIntentSucceeded(
   const creditAmount = parseInt(paymentIntent.metadata.credit_amount);
 
   if (!userId || !transactionId || !creditAmount) {
-    console.error('Missing metadata in payment intent:', paymentIntent.id);
+    console.error("Missing metadata in payment intent:", paymentIntent.id);
     return;
   }
 
@@ -757,26 +803,32 @@ async function handlePaymentIntentSucceeded(
       properties: {
         source: LoggingEventSource.API_PAYMENTS_HANDLE_SUBSCRIPTION,
         error: creditGrantError,
-        context: 'auto_topup_payment_intent_succeeded',
+        context: "auto_topup_payment_intent_succeeded",
       },
     });
-    console.error('Error creating credit grant for auto-top-up:', creditGrantError);
+    console.error(
+      "Error creating credit grant for auto-top-up:",
+      creditGrantError,
+    );
     return;
   }
 
   // 2. Update auto_topup_transaction record
   const { error: transactionUpdateError } = await supabase
-    .from('auto_topup_transactions')
+    .from("auto_topup_transactions")
     .update({
-      status: 'succeeded',
+      status: "succeeded",
       credit_grant_id: creditGrant.id,
       stripe_payment_intent_id: paymentIntent.id,
-      updated_at: new Date().toISOString()
+      updated_at: new Date().toISOString(),
     })
-    .eq('id', transactionId);
+    .eq("id", transactionId);
 
   if (transactionUpdateError) {
-    console.error('Error updating auto-top-up transaction:', transactionUpdateError);
+    console.error(
+      "Error updating auto-top-up transaction:",
+      transactionUpdateError,
+    );
   }
 
   // 3. Record payment in payments table (for consistency with other purchases)
@@ -787,14 +839,14 @@ async function handlePaymentIntentSucceeded(
     stripe_customer_id: paymentIntent.customer as string,
     amount: paymentIntent.amount,
     currency: paymentIntent.currency,
-    status: 'paid',
+    status: "paid",
   });
 
   // 4. Send success email
   const { data: userData } = await supabase
-    .from('users')
-    .select('email, name')
-    .eq('id', userId)
+    .from("users")
+    .select("email, name")
+    .eq("id", userId)
     .single();
 
   if (userData?.email) {
@@ -802,7 +854,7 @@ async function handlePaymentIntentSucceeded(
       userData.email,
       userData.name,
       creditAmount,
-      paymentIntent.amount / 100  // Convert cents to dollars
+      paymentIntent.amount / 100, // Convert cents to dollars
     );
   }
 
@@ -826,7 +878,7 @@ async function handlePaymentIntentFailed(
   paymentIntent: Stripe.PaymentIntent,
 ): Promise<void> {
   // Only process auto-top-up payments
-  if (paymentIntent.metadata?.auto_topup !== 'true') {
+  if (paymentIntent.metadata?.auto_topup !== "true") {
     return;
   }
 
@@ -835,29 +887,33 @@ async function handlePaymentIntentFailed(
   const creditAmount = parseInt(paymentIntent.metadata.credit_amount);
 
   if (!userId || !transactionId) {
-    console.error('Missing metadata in failed payment intent:', paymentIntent.id);
+    console.error(
+      "Missing metadata in failed payment intent:",
+      paymentIntent.id,
+    );
     return;
   }
 
   // Get failure reason
-  const failureReason = paymentIntent.last_payment_error?.message || 'Unknown error';
+  const failureReason =
+    paymentIntent.last_payment_error?.message || "Unknown error";
 
   // 1. Update transaction status
   await supabase
-    .from('auto_topup_transactions')
+    .from("auto_topup_transactions")
     .update({
-      status: 'failed',
+      status: "failed",
       failure_reason: failureReason,
       stripe_payment_intent_id: paymentIntent.id,
-      updated_at: new Date().toISOString()
+      updated_at: new Date().toISOString(),
     })
-    .eq('id', transactionId);
+    .eq("id", transactionId);
 
   // 2. Send failure email with action link
   const { data: userData } = await supabase
-    .from('users')
-    .select('email, name')
-    .eq('id', userId)
+    .from("users")
+    .select("email, name")
+    .eq("id", userId)
     .single();
 
   if (userData?.email) {
@@ -866,7 +922,7 @@ async function handlePaymentIntentFailed(
       userData.name,
       creditAmount,
       failureReason,
-      `${process.env.NEXT_PUBLIC_SITE_BASE_URL}/dashboard/account`  // Link to payment settings
+      `${process.env.NEXT_PUBLIC_SITE_BASE_URL}/dashboard/account`, // Link to payment settings
     );
   }
 
@@ -896,7 +952,7 @@ async function handleSetupIntentSucceeded(
   const userId = setupIntent.metadata?.user_id;
 
   if (!userId) {
-    console.error('Missing user_id in setup intent metadata:', setupIntent.id);
+    console.error("Missing user_id in setup intent metadata:", setupIntent.id);
     return;
   }
 
@@ -1655,15 +1711,15 @@ export async function triggerAutoTopUpTriggeredEmail(
 ): Promise<ErrorOption | null> {
   try {
     await resend.emails.send({
-      from: 'Materialize <noreply@materialize.app>',
+      from: "Nucleate <noreply@nucleate.dev>",
       to: email,
-      subject: 'Auto-Top-Up In Progress',
+      subject: "Auto-Top-Up In Progress",
       react: AutoTopUpTriggered({ userName: name, credits, amount }),
     });
     return null;
   } catch (error) {
-    console.error('Error sending auto-top-up triggered email:', error);
-    return { message: 'Failed to send email' };
+    console.error("Error sending auto-top-up triggered email:", error);
+    return { message: "Failed to send email" };
   }
 }
 
@@ -1675,15 +1731,15 @@ export async function triggerAutoTopUpSucceededEmail(
 ): Promise<ErrorOption | null> {
   try {
     await resend.emails.send({
-      from: 'Materialize <noreply@materialize.app>',
+      from: "Nucleate <noreply@nucleate.dev>",
       to: email,
-      subject: '✅ Auto-Top-Up Successful',
+      subject: "✅ Auto-Top-Up Successful",
       react: AutoTopUpSucceeded({ userName: name, credits, amount }),
     });
     return null;
   } catch (error) {
-    console.error('Error sending auto-top-up success email:', error);
-    return { message: 'Failed to send email' };
+    console.error("Error sending auto-top-up success email:", error);
+    return { message: "Failed to send email" };
   }
 }
 
@@ -1696,15 +1752,20 @@ export async function triggerAutoTopUpFailedEmail(
 ): Promise<ErrorOption | null> {
   try {
     await resend.emails.send({
-      from: 'Materialize <noreply@materialize.app>',
+      from: "Nucleate <noreply@nucleate.dev>",
       to: email,
-      subject: '⚠️ Auto-Top-Up Payment Failed',
-      react: AutoTopUpFailed({ userName: name, credits, failureReason, actionUrl }),
+      subject: "⚠️ Auto-Top-Up Payment Failed",
+      react: AutoTopUpFailed({
+        userName: name,
+        credits,
+        failureReason,
+        actionUrl,
+      }),
     });
     return null;
   } catch (error) {
-    console.error('Error sending auto-top-up failed email:', error);
-    return { message: 'Failed to send email' };
+    console.error("Error sending auto-top-up failed email:", error);
+    return { message: "Failed to send email" };
   }
 }
 
@@ -1715,15 +1776,15 @@ export async function triggerMonthlyCapReachedEmail(
 ): Promise<ErrorOption | null> {
   try {
     await resend.emails.send({
-      from: 'Materialize <noreply@materialize.app>',
+      from: "Nucleate <noreply@nucleate.dev>",
       to: email,
-      subject: 'Monthly Auto-Top-Up Cap Reached',
+      subject: "Monthly Auto-Top-Up Cap Reached",
       react: MonthlyCapReached({ userName: name, monthlyCapAmount }),
     });
     return null;
   } catch (error) {
-    console.error('Error sending monthly cap email:', error);
-    return { message: 'Failed to send email' };
+    console.error("Error sending monthly cap email:", error);
+    return { message: "Failed to send email" };
   }
 }
 ```
@@ -1733,12 +1794,14 @@ export async function triggerMonthlyCapReachedEmail(
 ## Implementation Timeline
 
 ### Week 1: Database Foundation
+
 - [ ] Create database migration files for 3 new tables
 - [ ] Run migrations in development/staging
 - [ ] Update TypeScript types in `supabase.ts`
 - [ ] Create seed data for testing
 
 ### Week 2: Payment Method Management
+
 - [ ] Implement `PaymentMethodService`
 - [ ] Add API endpoints for payment method CRUD
 - [ ] Implement Stripe Setup Intent flow
@@ -1747,6 +1810,7 @@ export async function triggerMonthlyCapReachedEmail(
 - [ ] Test saving/deleting payment methods
 
 ### Week 3: Auto-Top-Up Rule Configuration
+
 - [ ] Implement `AutoTopUpService` core logic
 - [ ] Add API endpoints for rule CRUD
 - [ ] Implement validation (paid subscribers only)
@@ -1755,6 +1819,7 @@ export async function triggerMonthlyCapReachedEmail(
 - [ ] Test rule configuration UI
 
 ### Week 4: Usage Tracking Integration
+
 - [ ] Modify `trackApiUsageBuildWorker` to check thresholds
 - [ ] Add internal `/auto-topup/trigger` endpoint
 - [ ] Implement `checkAndTriggerTopUp` function
@@ -1762,6 +1827,7 @@ export async function triggerMonthlyCapReachedEmail(
 - [ ] Test threshold detection in dev environment
 
 ### Week 5: Payment Processing & Webhooks
+
 - [ ] Implement `processTopUp` function with Payment Intents
 - [ ] Add webhook handlers for `payment_intent.succeeded`
 - [ ] Add webhook handlers for `payment_intent.payment_failed`
@@ -1770,6 +1836,7 @@ export async function triggerMonthlyCapReachedEmail(
 - [ ] Test webhook handling in Stripe CLI
 
 ### Week 6: Email Notifications & UI Polish
+
 - [ ] Create 4 email templates
 - [ ] Implement email utility functions
 - [ ] Test emails in development
@@ -1778,6 +1845,7 @@ export async function triggerMonthlyCapReachedEmail(
 - [ ] Create transaction history view
 
 ### Week 7: Security, Testing & Launch
+
 - [ ] Security audit (PCI compliance, authorization checks)
 - [ ] Rate limiting implementation (max 1 top-up/hour)
 - [ ] Test edge cases (failed payments, caps, disabled rules)
@@ -1791,29 +1859,34 @@ export async function triggerMonthlyCapReachedEmail(
 ## Security & Compliance
 
 ### PCI Compliance
+
 - ✅ **Never store raw card data** - only Stripe `payment_method_id`
 - ✅ **All payments via Stripe** - leverage their PCI Level 1 compliance
 - ✅ **Stripe Elements for card collection** - no card data touches our servers
 - ✅ **HTTPS only** for all payment-related endpoints
 
 ### Authorization & Authentication
+
 - ✅ **JWT validation** on all endpoints
 - ✅ **User ownership checks** - users can only manage their own payment methods/rules
 - ✅ **Paid subscriber validation** - auto-top-up only for active subscriptions
 - ✅ **Payment method ownership** - verify user owns payment method before charging
 
 ### Spending Protection
+
 - ✅ **Optional monthly cap** - prevent runaway charges
 - ✅ **Rate limiting** - max 1 auto-top-up per hour
 - ✅ **Email notifications** - immediate alerts on all transactions
 - ✅ **Transaction audit log** - complete history in `auto_topup_transactions`
 
 ### Webhook Security
+
 - ✅ **Stripe signature verification** - already implemented in `verifyStripeSignature()`
 - ✅ **Metadata validation** - check `user_id` matches payment method owner
 - ✅ **Idempotency** - prevent duplicate credit grants on webhook retries
 
 ### Error Handling
+
 - ✅ **Graceful degradation** - failed top-up doesn't break main request
 - ✅ **User notifications** - immediate email on payment failure
 - ✅ **Logging** - comprehensive error logging with PostHog
@@ -1824,12 +1897,14 @@ export async function triggerMonthlyCapReachedEmail(
 ## Testing Strategy
 
 ### Unit Tests
+
 - [ ] `AutoTopUpService.validateMonthlySpendingCap()` - edge cases
 - [ ] `getCreditPackPriceId()` - all credit amounts
 - [ ] `getCreditPackPrice()` - pricing logic
 - [ ] Payment method validation logic
 
 ### Integration Tests
+
 - [ ] Setup Intent flow (save payment method)
 - [ ] Payment Intent flow (charge saved method)
 - [ ] Webhook event handling
@@ -1837,6 +1912,7 @@ export async function triggerMonthlyCapReachedEmail(
 - [ ] Transaction logging
 
 ### End-to-End Tests
+
 1. **Happy Path:**
    - User saves payment method
    - User enables auto-top-up
@@ -1863,6 +1939,7 @@ export async function triggerMonthlyCapReachedEmail(
    - Verify second top-up blocked within 1 hour
 
 ### Stripe Test Cards
+
 - `4242 4242 4242 4242` - Success
 - `4000 0000 0000 0002` - Declined
 - `4000 0000 0000 9995` - Insufficient funds
@@ -1878,20 +1955,21 @@ export async function triggerMonthlyCapReachedEmail(
 ```typescript
 export const SuccessEvents = {
   // ... existing events
-  AUTO_TOPUP_SUCCEEDED: 'auto_topup_succeeded',
-  PAYMENT_METHOD_SAVED: 'payment_method_saved',
-  AUTO_TOPUP_RULE_CONFIGURED: 'auto_topup_rule_configured',
+  AUTO_TOPUP_SUCCEEDED: "auto_topup_succeeded",
+  PAYMENT_METHOD_SAVED: "payment_method_saved",
+  AUTO_TOPUP_RULE_CONFIGURED: "auto_topup_rule_configured",
 } as const;
 
 export const ExceptionEvents = {
   // ... existing events
-  AUTO_TOPUP_FAILED: 'auto_topup_failed',
-  AUTO_TOPUP_RATE_LIMITED: 'auto_topup_rate_limited',
-  AUTO_TOPUP_MONTHLY_CAP_REACHED: 'auto_topup_monthly_cap_reached',
+  AUTO_TOPUP_FAILED: "auto_topup_failed",
+  AUTO_TOPUP_RATE_LIMITED: "auto_topup_rate_limited",
+  AUTO_TOPUP_MONTHLY_CAP_REACHED: "auto_topup_monthly_cap_reached",
 } as const;
 ```
 
 ### Key Metrics to Track
+
 1. **Adoption Rate:** % of paid subscribers who enable auto-top-up
 2. **Success Rate:** % of auto-top-ups that succeed
 3. **Failure Reasons:** Distribution of payment failure causes
@@ -1900,6 +1978,7 @@ export const ExceptionEvents = {
 6. **Rate Limit Hits:** Frequency of rate limiting triggers
 
 ### Dashboards to Create
+
 - Auto-top-up health dashboard (success/failure rates)
 - Revenue impact (total auto-top-up revenue)
 - User engagement (adoption trends)
@@ -1912,25 +1991,16 @@ export const ExceptionEvents = {
 ### New Files (24 total)
 
 **Database:**
+
 1. `migrations/YYYYMMDD_create_saved_payment_methods.sql`
 2. `migrations/YYYYMMDD_create_auto_topup_rules.sql`
 3. `migrations/YYYYMMDD_create_auto_topup_transactions.sql`
 
-**Backend Services:**
-4. `server/control-plane/services/PaymentMethodService.ts`
-5. `server/control-plane/services/AutoTopUpService.ts`
+**Backend Services:** 4. `server/control-plane/services/PaymentMethodService.ts` 5. `server/control-plane/services/AutoTopUpService.ts`
 
-**Frontend Components:**
-6. `web-application/src/components/SavedPaymentMethodsList.tsx`
-7. `web-application/src/components/SetupPaymentMethodModal.tsx`
-8. `web-application/src/components/AutoTopUpSettings.tsx`
-9. `web-application/src/components/AutoTopUpTransactionHistory.tsx`
+**Frontend Components:** 6. `web-application/src/components/SavedPaymentMethodsList.tsx` 7. `web-application/src/components/SetupPaymentMethodModal.tsx` 8. `web-application/src/components/AutoTopUpSettings.tsx` 9. `web-application/src/components/AutoTopUpTransactionHistory.tsx`
 
-**Email Templates:**
-10. `web-application/src/components/emails/AutoTopUpTriggered.tsx`
-11. `web-application/src/components/emails/AutoTopUpSucceeded.tsx`
-12. `web-application/src/components/emails/AutoTopUpFailed.tsx`
-13. `web-application/src/components/emails/MonthlyCapReached.tsx`
+**Email Templates:** 10. `web-application/src/components/emails/AutoTopUpTriggered.tsx` 11. `web-application/src/components/emails/AutoTopUpSucceeded.tsx` 12. `web-application/src/components/emails/AutoTopUpFailed.tsx` 13. `web-application/src/components/emails/MonthlyCapReached.tsx`
 
 ### Modified Files (6 total)
 
@@ -1961,7 +2031,7 @@ STRIPE_CREDIT_PACK_1000_PRICE_ID=price_...
 INTERNAL_API_SECRET=your-random-secret-here
 
 # Control plane URL for build workers to call
-CONTROL_PLANE_BASE_URL=https://api.materialize.app
+CONTROL_PLANE_BASE_URL=https://api.materializeui.com
 ```
 
 ---
@@ -1969,25 +2039,32 @@ CONTROL_PLANE_BASE_URL=https://api.materialize.app
 ## FAQ & Edge Cases
 
 ### What if a user's subscription is canceled while auto-top-up is enabled?
+
 Auto-top-up is restricted to paid subscribers only. If subscription status changes to "canceled", the system will reject the auto-top-up trigger and send an email asking the user to renew their subscription.
 
 ### What if a user deletes the payment method being used for auto-top-up?
+
 The DELETE endpoint checks if the payment method is referenced by an active auto-top-up rule and rejects the deletion. User must first disable auto-top-up or switch to a different payment method.
 
 ### What happens if Stripe requires 3D Secure authentication?
+
 The `off_session: true` flag tells Stripe to only charge payment methods that don't require authentication. If authentication is required, the Payment Intent will fail, and the user receives an email to update their payment method.
 
 ### Can a user have multiple auto-top-up rules?
+
 No, the database schema enforces one rule per user (UNIQUE constraint on `user_id`). Users can modify their single rule at any time.
 
 ### What if the webhook arrives before the API response?
+
 Webhooks may arrive out of order. The transaction status flow is:
+
 1. API creates transaction with `status='pending'`
 2. Webhook updates to `status='succeeded'` or `status='failed'`
 
 Both operations are idempotent and handle missing records gracefully.
 
 ### How do we prevent double-charging if the webhook fires twice?
+
 Stripe webhooks are idempotent by design. We use `stripe_payment_intent_id` as a unique identifier. If a webhook fires twice for the same Payment Intent, the second update will be a no-op.
 
 ---

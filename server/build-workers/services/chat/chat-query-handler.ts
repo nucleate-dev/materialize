@@ -21,17 +21,14 @@ import {
   ChatServerMessage,
 } from "../../types/ChatTypes.js";
 import { Database } from "../../types/supabase.js";
-import { ExpoDevServerService } from "../dev-server/ExpoDevServerService.js";
 import { FileSyncService } from "../FileSyncService.js";
 import { SandboxService } from "../SandboxService.js";
 import { SupabaseClientService } from "../SupabaseClientService.js";
 import { TerminalService } from "../terminals/TerminalService.js";
-import {
-  getSystemPromptForDesignStyle,
-} from "./ClaudeCodePrompts.js";
+import { getSystemPromptForDesignStyle } from "./ClaudeCodePrompts.js";
 import {
   costFunctionV3,
-  CURRENT_COST_FUNCTION_NAME
+  CURRENT_COST_FUNCTION_NAME,
 } from "./cost-calculation.js";
 import { hasRemainingCredits } from "./credit-checks.js";
 import {
@@ -44,6 +41,8 @@ import { createDevelopmentToolsMcpServer } from "./mcp-dev-tools.js";
 import { getToolDisplayName } from "./message-handlers.js";
 import { ToolPermissionService } from "./tool-permission-service.js";
 import { trackApiUsageBuildWorker } from "./usage-tracking.js";
+import { NucleateDevelopmentServerService } from "../dev-server/NucleateDevelopmentServerService.js";
+import { DevServerStatus } from "../../types/BuildWorkerTypes.js";
 
 const HISTORY_MESSAGE_REQUEST_COUNT = 6;
 
@@ -125,9 +124,9 @@ interface MessageHandlers {
   uploadChatImages: (
     prototypeId: string,
     chatSessionId: string,
-    images: Array<{ base64: string; mediaType: string; }>,
+    images: Array<{ base64: string; mediaType: string }>,
   ) => Promise<
-    Array<{ storage_path: string; media_type: string; file_size: number; }>
+    Array<{ storage_path: string; media_type: string; file_size: number }>
   >;
   updatePersistenceClient?: (client: unknown) => void;
   notifyOrchestrationStartChat: (prototypeId: string) => Promise<void>;
@@ -136,9 +135,9 @@ interface MessageHandlers {
 
 interface StreamContext {
   messageContent:
-  | string
-  | Array<{ type: string; text?: string; source?: unknown; }>;
-  queryOptions: Options & { resume?: string; };
+    | string
+    | Array<{ type: string; text?: string; source?: unknown }>;
+  queryOptions: Options & { resume?: string };
   sessionState: CodeSessionState;
   validAiChatSessionIds: Set<string>;
   socket: WebSocket;
@@ -180,7 +179,7 @@ export class ChatQueryHandler {
   private readonly fileSyncService: FileSyncService;
   private readonly toolPermissionService: ToolPermissionService;
   private readonly sandboxService: SandboxService;
-  private readonly expoDevServerService: ExpoDevServerService;
+  private readonly devServerService: NucleateDevelopmentServerService;
   private readonly terminalService: TerminalService;
   private readonly getAak: () => string | null;
   private readonly enableDesignAgentOnFirstMessage: boolean;
@@ -192,7 +191,7 @@ export class ChatQueryHandler {
     fileSyncService: FileSyncService,
     toolPermissionService: ToolPermissionService,
     sandboxService: SandboxService,
-    expoDevServerService: ExpoDevServerService,
+    devServerService: NucleateDevelopmentServerService,
     terminalService: TerminalService,
     enableDesignAgentOnFirstMessage: boolean,
     getAak: () => string | null,
@@ -203,7 +202,7 @@ export class ChatQueryHandler {
     this.fileSyncService = fileSyncService;
     this.toolPermissionService = toolPermissionService;
     this.sandboxService = sandboxService;
-    this.expoDevServerService = expoDevServerService;
+    this.devServerService = devServerService;
     this.terminalService = terminalService;
     this.enableDesignAgentOnFirstMessage = enableDesignAgentOnFirstMessage;
     this.getAak = getAak;
@@ -317,19 +316,16 @@ export class ChatQueryHandler {
     if (canAttemptClassification) {
       const isFirst = await this.isFirstMessage(
         prototypeId,
-        sessionState.prototypeChatSessionId ?? '',
+        sessionState.prototypeChatSessionId ?? "",
       );
 
       if (isFirst) {
-        this.logger.debug(
-          "Preparing to classify user intent",
-          {
-            prototypeId,
-            enableDesignAgentOnFirstMessage: this.enableDesignAgentOnFirstMessage,
-            hasSession: !!sessionState.prototypeChatSessionId,
-            willClassify: true,
-          },
-        );
+        this.logger.debug("Preparing to classify user intent", {
+          prototypeId,
+          enableDesignAgentOnFirstMessage: this.enableDesignAgentOnFirstMessage,
+          hasSession: !!sessionState.prototypeChatSessionId,
+          willClassify: true,
+        });
 
         // Extract user message text for design agent
         const userMessageText =
@@ -337,9 +333,9 @@ export class ChatQueryHandler {
             ? content
             : Array.isArray(content)
               ? content
-                .filter((block) => block.type === "text")
-                .map((block) => block.text || "")
-                .join("\n")
+                  .filter((block) => block.type === "text")
+                  .map((block) => block.text || "")
+                  .join("\n")
               : prompt || "";
 
         if (userMessageText) {
@@ -348,10 +344,10 @@ export class ChatQueryHandler {
           sessionState.abortController = classifierAbortController;
 
           // Step 6a: Classify the user's intent
-          this.logger.debug(
-            "Classifying user intent on first message",
-            { prototypeId, userMessageLength: userMessageText.length },
-          );
+          this.logger.debug("Classifying user intent on first message", {
+            prototypeId,
+            userMessageLength: userMessageText.length,
+          });
 
           const classificationResult = await classifyDesignIntent({
             userMessage: userMessageText,
@@ -361,25 +357,20 @@ export class ChatQueryHandler {
           });
 
           const classifierCost = classificationResult.costUsd;
-          const shouldRunDesignAgent = classificationResult.intent === "full_app";
+          const shouldRunDesignAgent =
+            classificationResult.intent === "full_app";
 
-          this.logger.debug(
-            "User intent classified",
-            {
-              prototypeId,
-              intent: classificationResult.intent,
-              classifierCost,
-            },
-          );
+          this.logger.debug("User intent classified", {
+            prototypeId,
+            intent: classificationResult.intent,
+            classifierCost,
+          });
 
-          this.logger.debug(
-            "Design agent routing decision",
-            {
-              prototypeId,
-              shouldRunDesignAgent,
-              intent: classificationResult.intent,
-            },
-          );
+          this.logger.debug("Design agent routing decision", {
+            prototypeId,
+            shouldRunDesignAgent,
+            intent: classificationResult.intent,
+          });
 
           // Step 6b: Only run design agent if user wants a full app
           if (shouldRunDesignAgent) {
@@ -414,7 +405,8 @@ export class ChatQueryHandler {
             });
 
             // Add classifier cost to design agent cost
-            designAgentCost = (designResult.costUsd ?? 0) + (classifierCost ?? 0);
+            designAgentCost =
+              (designResult.costUsd ?? 0) + (classifierCost ?? 0);
 
             if (designResult.designSpec) {
               const { spec, metadata } = this.parseDesignAgentSpec(
@@ -431,23 +423,28 @@ export class ChatQueryHandler {
                 this.logger.consoleLogDevOnly(
                   "info",
                   "Wrote design specification to CLAUDE.md",
-                  { prototypeId, specLength: designSpec.length, path: claudeMdPath },
+                  {
+                    prototypeId,
+                    specLength: designSpec.length,
+                    path: claudeMdPath,
+                  },
                 );
               } catch (writeError) {
                 this.logger.error(
-                  writeError instanceof Error ? writeError : new Error(String(writeError)),
+                  writeError instanceof Error
+                    ? writeError
+                    : new Error(String(writeError)),
                   "Failed to write design specification to CLAUDE.md",
                   { prototypeId },
                 );
               }
 
               // Also store in database for backup/reference
-              const { error: updateError } =
-                await this.supabaseClientService
-                  .getClient()
-                  .from("prototypes")
-                  .update({ project_context: designSpec })
-                  .eq("id", prototypeId);
+              const { error: updateError } = await this.supabaseClientService
+                .getClient()
+                .from("prototypes")
+                .update({ project_context: designSpec })
+                .eq("id", prototypeId);
 
               if (updateError) {
                 this.logger.error(
@@ -491,10 +488,13 @@ export class ChatQueryHandler {
       }
     }
 
-    // Step 7: Notify orchestration that chat is starting
+    // Step 7: Invalidate build before chat starts
+    this.devServerService.developmentServerState.buildIsValid = false;
+
+    // Step 8: Notify orchestration that chat is starting
     await handlers.notifyOrchestrationStartChat(prototypeId);
 
-    // Step 8: Execute query with proper cleanup
+    // Step 9: Execute query with proper cleanup
     let implementationCostUsd: number | undefined = undefined;
 
     try {
@@ -506,7 +506,7 @@ export class ChatQueryHandler {
         designMetadata ?? undefined,
       );
     } finally {
-      // Step 9: Combine costs from design agent and implementation
+      // Step 10: Combine costs from design agent and implementation
       const totalCostUsd =
         (designAgentCost ?? 0) + (implementationCostUsd ?? 0);
 
@@ -516,7 +516,7 @@ export class ChatQueryHandler {
         totalCostUsd,
       });
 
-      // Step 10: Sync files and track usage
+      // Step 11: Sync files and track usage
       await this.syncAndTrackUsage(
         prototypeId,
         socket,
@@ -525,7 +525,10 @@ export class ChatQueryHandler {
         handlers.sendMessage,
       );
 
-      // Step 11: Always notify orchestration that chat has ended
+      // Step 12: Invalidate build after chat ends
+      this.devServerService.developmentServerState.buildIsValid = false;
+
+      // Step 13: Always notify orchestration that chat has ended
       await handlers.notifyOrchestrationEndChat(prototypeId);
     }
   }
@@ -875,16 +878,17 @@ export class ChatQueryHandler {
     userMessage: string,
     abortController: AbortController,
     _systemPrompt: string,
-  ): Promise<{ designSpec: string | null; costUsd: number | undefined; }> {
+  ): Promise<{ designSpec: string | null; costUsd: number | undefined }> {
     // Use Gemini by default for design agent (fast and free)
     const provider: DesignAgentProvider = "google";
     const model = DEFAULT_DESIGN_AGENT_MODELS[provider];
 
-    this.logger.consoleLogDevOnly(
-      "info",
-      "Executing design agent via AI SDK",
-      { prototypeId, provider, model, userMessageLength: userMessage.length },
-    );
+    this.logger.consoleLogDevOnly("info", "Executing design agent via AI SDK", {
+      prototypeId,
+      provider,
+      model,
+      userMessageLength: userMessage.length,
+    });
 
     return executeDesignAgent({
       provider,
@@ -897,9 +901,10 @@ export class ChatQueryHandler {
     });
   }
 
-  private parseDesignAgentSpec(
-    rawSpec: string,
-  ): { spec: string; metadata: DesignAgentMetadata; } {
+  private parseDesignAgentSpec(rawSpec: string): {
+    spec: string;
+    metadata: DesignAgentMetadata;
+  } {
     const defaultMetadata: DesignAgentMetadata = {
       scope: "unknown",
       addToProjectContext: false,
@@ -1189,7 +1194,7 @@ export class ChatQueryHandler {
   private prepareMessageContent(
     prompt: string | undefined,
     content: ChatContentBlock[] | undefined,
-  ): string | Array<{ type: string; text?: string; source?: unknown; }> {
+  ): string | Array<{ type: string; text?: string; source?: unknown }> {
     if (content) {
       return content.map((block) => {
         if (block.type === "text") {
@@ -1215,8 +1220,8 @@ export class ChatQueryHandler {
   private extractImagesFromContent(
     messageContent:
       | string
-      | Array<{ type: string; text?: string; source?: unknown; }>,
-  ): Array<{ base64: string; mediaType: string; }> {
+      | Array<{ type: string; text?: string; source?: unknown }>,
+  ): Array<{ base64: string; mediaType: string }> {
     if (!Array.isArray(messageContent)) {
       return [];
     }
@@ -1224,8 +1229,8 @@ export class ChatQueryHandler {
     return messageContent
       .filter((block) => block.type === "image")
       .map((block) => ({
-        base64: (block.source as { data: string; }).data,
-        mediaType: (block.source as { media_type: string; }).media_type,
+        base64: (block.source as { data: string }).data,
+        mediaType: (block.source as { media_type: string }).media_type,
       }));
   }
 
@@ -1235,8 +1240,8 @@ export class ChatQueryHandler {
   private async persistUserMessage(
     messageContent:
       | string
-      | Array<{ type: string; text?: string; source?: unknown; }>,
-    imagesFromContent: Array<{ base64: string; mediaType: string; }>,
+      | Array<{ type: string; text?: string; source?: unknown }>,
+    imagesFromContent: Array<{ base64: string; mediaType: string }>,
     imageMetadata: Array<{
       storage_path: string;
       media_type: string;
@@ -1254,9 +1259,9 @@ export class ChatQueryHandler {
       typeof messageContent === "string"
         ? messageContent
         : messageContent
-          .filter((block) => block.type === "text")
-          .map((block) => block.text || "")
-          .join("\n");
+            .filter((block) => block.type === "text")
+            .map((block) => block.text || "")
+            .join("\n");
 
     const hasImages = imagesFromContent.length > 0;
     const userMessageDisplay = hasImages
@@ -1281,7 +1286,7 @@ export class ChatQueryHandler {
     sessionState: CodeSessionState,
     handlers: MessageHandlers,
     flushAssistantBuffer: () => Promise<void>,
-  ): Promise<Options & { resume?: string; }> {
+  ): Promise<Options & { resume?: string }> {
     const canUseTool: CanUseTool = async (
       toolName: ToolName,
       input: ToolInput,
@@ -1357,7 +1362,13 @@ export class ChatQueryHandler {
               "info",
               "MCP restartDevServer tool: restarting dev server",
             );
-            await this.expoDevServerService.restartDevServer(this.logger);
+            this.devServerService.developmentServerState.devServerStatus =
+              DevServerStatus.RESTARTING;
+            await this.devServerService.developmentServerAdapter.restartDevServer(
+              this.logger,
+            );
+            this.devServerService.developmentServerState.devServerStatus =
+              DevServerStatus.RUNNING;
           },
         ),
       },
@@ -1369,7 +1380,7 @@ export class ChatQueryHandler {
               async (
                 input: HookInput,
                 toolUseID: string | undefined,
-                _options: { signal: AbortSignal; },
+                _options: { signal: AbortSignal },
               ): Promise<HookJSONOutput> => {
                 const hookContext: HookContext = {
                   input,
@@ -1388,7 +1399,7 @@ export class ChatQueryHandler {
               async (
                 input: HookInput,
                 toolUseID: string | undefined,
-                _options: { signal: AbortSignal; },
+                _options: { signal: AbortSignal },
               ): Promise<HookJSONOutput> => {
                 const hookContext: HookContext = {
                   input,
@@ -1411,7 +1422,7 @@ export class ChatQueryHandler {
   private async executeSandboxCommand(
     command: string,
     args: string[],
-  ): Promise<{ stdout: string; isError: boolean; }> {
+  ): Promise<{ stdout: string; isError: boolean }> {
     try {
       const { response: responseRaw } =
         await this.sandboxService.runCommandInternal({
@@ -1737,7 +1748,7 @@ export class ChatQueryHandler {
     } = streamContext;
 
     // Shared state for MCP stream fix - allows generator to monitor for result message
-    const messages: Array<{ type: string;[key: string]: unknown; }> = [];
+    const messages: Array<{ type: string; [key: string]: unknown }> = [];
 
     // Create async generator for streaming input
     const generateMessages = async function* (): AsyncGenerator<{
@@ -1745,8 +1756,8 @@ export class ChatQueryHandler {
       message: {
         role: "user";
         content:
-        | string
-        | Array<{ type: string; text?: string; source?: unknown; }>;
+          | string
+          | Array<{ type: string; text?: string; source?: unknown }>;
       };
     }> {
       // Design spec is now written to CLAUDE.md and automatically read by Claude Code SDK
@@ -1890,7 +1901,8 @@ export class ChatQueryHandler {
           const inputTokens = usage?.input_tokens ?? 0;
           const outputTokens = usage?.output_tokens ?? 0;
           const cacheReadInputTokens = usage?.cache_read_input_tokens ?? 0;
-          const cacheCreationOutputTokens = usage?.cache_creation_output_tokens ?? 0;
+          const cacheCreationOutputTokens =
+            usage?.cache_creation_output_tokens ?? 0;
 
           // Store total_cost_usd for usage tracking in finally block
           totalCostUsd = total_cost_usd;

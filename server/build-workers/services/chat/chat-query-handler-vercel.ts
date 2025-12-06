@@ -13,7 +13,6 @@ import {
   ChatServerMessage,
 } from "../../types/ChatTypes.js";
 import { Database } from "../../types/supabase.js";
-import { ExpoDevServerService } from "../dev-server/ExpoDevServerService.js";
 import { FileSyncService } from "../FileSyncService.js";
 import { SandboxService } from "../SandboxService.js";
 import { SupabaseClientService } from "../SupabaseClientService.js";
@@ -21,7 +20,7 @@ import { TerminalService } from "../terminals/TerminalService.js";
 import {
   costFunctionV3,
   CURRENT_COST_FUNCTION_NAME,
-  VERCEL_MODEL_COSTS_USD
+  VERCEL_MODEL_COSTS_USD,
 } from "./cost-calculation.js";
 import { hasRemainingCredits } from "./credit-checks.js";
 import {
@@ -34,6 +33,8 @@ import { createVercelDevTools } from "./mcp-dev-tools-vercel.js";
 import { ALLOWED_MODELS, ChatProvider } from "./model-providers.js";
 import { ToolPermissionService } from "./tool-permission-service.js";
 import { trackApiUsageBuildWorker } from "./usage-tracking.js";
+import { NucleateDevelopmentServerService } from "../dev-server/NucleateDevelopmentServerService.js";
+import { DevServerStatus } from "../../types/BuildWorkerTypes.js";
 
 interface CodeSessionState {
   sessionId: string | null;
@@ -89,9 +90,9 @@ interface MessageHandlers {
   uploadChatImages: (
     prototypeId: string,
     chatSessionId: string,
-    images: Array<{ base64: string; mediaType: string; }>,
+    images: Array<{ base64: string; mediaType: string }>,
   ) => Promise<
-    Array<{ storage_path: string; media_type: string; file_size: number; }>
+    Array<{ storage_path: string; media_type: string; file_size: number }>
   >;
   updatePersistenceClient?: (client: unknown) => void;
   notifyOrchestrationStartChat: (prototypeId: string) => Promise<void>;
@@ -105,7 +106,7 @@ export class VercelChatQueryHandler {
   private readonly fileSyncService: FileSyncService;
   private readonly toolPermissionService: ToolPermissionService;
   private readonly sandboxService: SandboxService;
-  private readonly expoDevServerService: ExpoDevServerService;
+  private readonly devServerService: NucleateDevelopmentServerService;
   private readonly terminalService: TerminalService;
   private readonly enableDesignAgentOnFirstMessage: boolean;
 
@@ -116,7 +117,7 @@ export class VercelChatQueryHandler {
     fileSyncService: FileSyncService,
     toolPermissionService: ToolPermissionService,
     sandboxService: SandboxService,
-    expoDevServerService: ExpoDevServerService,
+    devServerService: NucleateDevelopmentServerService,
     terminalService: TerminalService,
     enableDesignAgentOnFirstMessage: boolean,
   ) {
@@ -126,7 +127,7 @@ export class VercelChatQueryHandler {
     this.fileSyncService = fileSyncService;
     this.toolPermissionService = toolPermissionService;
     this.sandboxService = sandboxService;
-    this.expoDevServerService = expoDevServerService;
+    this.devServerService = devServerService;
     this.terminalService = terminalService;
     this.enableDesignAgentOnFirstMessage = enableDesignAgentOnFirstMessage;
   }
@@ -226,7 +227,7 @@ export class VercelChatQueryHandler {
     if (canAttemptClassification) {
       const isFirst = await this.isFirstMessage(
         prototypeId,
-        sessionState.prototypeChatSessionId ?? '',
+        sessionState.prototypeChatSessionId ?? "",
       );
 
       if (isFirst) {
@@ -235,7 +236,8 @@ export class VercelChatQueryHandler {
           "Preparing to classify user intent (Vercel handler)",
           {
             prototypeId,
-            enableDesignAgentOnFirstMessage: this.enableDesignAgentOnFirstMessage,
+            enableDesignAgentOnFirstMessage:
+              this.enableDesignAgentOnFirstMessage,
             hasSession: !!sessionState.prototypeChatSessionId,
             willClassify: true,
           },
@@ -246,9 +248,9 @@ export class VercelChatQueryHandler {
             ? content
             : Array.isArray(content)
               ? content
-                .filter((block) => block.type === "text")
-                .map((block) => block.text || "")
-                .join("\n")
+                  .filter((block) => block.type === "text")
+                  .map((block) => block.text || "")
+                  .join("\n")
               : prompt || "";
 
         if (userMessageText) {
@@ -270,7 +272,8 @@ export class VercelChatQueryHandler {
           });
 
           classifierCost = classificationResult.costUsd;
-          const shouldRunDesignAgent = classificationResult.intent === "full_app";
+          const shouldRunDesignAgent =
+            classificationResult.intent === "full_app";
 
           this.logger.consoleLogDevOnly(
             "info",
@@ -338,23 +341,28 @@ export class VercelChatQueryHandler {
                   this.logger.consoleLogDevOnly(
                     "info",
                     "Wrote design specification to CLAUDE.md",
-                    { prototypeId, specLength: designSpec.length, path: claudeMdPath },
+                    {
+                      prototypeId,
+                      specLength: designSpec.length,
+                      path: claudeMdPath,
+                    },
                   );
                 } catch (writeError) {
                   this.logger.error(
-                    writeError instanceof Error ? writeError : new Error(String(writeError)),
+                    writeError instanceof Error
+                      ? writeError
+                      : new Error(String(writeError)),
                     "Failed to write design specification to CLAUDE.md",
                     { prototypeId },
                   );
                 }
 
                 // Also store in database for backup/reference
-                const { error: updateError } =
-                  await this.supabaseClientService
-                    .getClient()
-                    .from("prototypes")
-                    .update({ project_context: designSpec })
-                    .eq("id", prototypeId);
+                const { error: updateError } = await this.supabaseClientService
+                  .getClient()
+                  .from("prototypes")
+                  .update({ project_context: designSpec })
+                  .eq("id", prototypeId);
 
                 if (updateError) {
                   this.logger.error(
@@ -396,6 +404,9 @@ export class VercelChatQueryHandler {
     // Design spec is now in CLAUDE.md - no need to append to system prompt
     const finalSystemPrompt = designSystemResult.systemPrompt;
 
+    // Invalidate build before chat starts
+    this.devServerService.developmentServerState.buildIsValid = false;
+
     await handlers.notifyOrchestrationStartChat(prototypeId);
 
     try {
@@ -425,6 +436,9 @@ export class VercelChatQueryHandler {
         },
       });
     } finally {
+      // Invalidate build after chat ends
+      this.devServerService.developmentServerState.buildIsValid = false;
+
       await handlers.notifyOrchestrationEndChat(prototypeId);
     }
   }
@@ -455,7 +469,9 @@ export class VercelChatQueryHandler {
     try {
       this.supabaseClientService.refreshClientWithToken(token);
       if (handlers.updatePersistenceClient) {
-        handlers.updatePersistenceClient(this.supabaseClientService.getClient());
+        handlers.updatePersistenceClient(
+          this.supabaseClientService.getClient(),
+        );
       }
       return { success: true };
     } catch (error) {
@@ -494,7 +510,10 @@ export class VercelChatQueryHandler {
     options: Options,
   ): Promise<DesignSystemResult> {
     if (custom_design_system_id !== sessionState.designSystemId) {
-      if (custom_design_system_id === null || custom_design_system_id === undefined) {
+      if (
+        custom_design_system_id === null ||
+        custom_design_system_id === undefined
+      ) {
         sessionState.designSystemId = null;
         sessionState.designSystemRules = null;
       } else {
@@ -649,7 +668,7 @@ export class VercelChatQueryHandler {
     userMessage: string,
     abortController: AbortController,
     _systemPrompt: string,
-  ): Promise<{ designSpec: string | null; costUsd: number | undefined; }> {
+  ): Promise<{ designSpec: string | null; costUsd: number | undefined }> {
     // Use Gemini by default for design agent (fast and free)
     const provider: DesignAgentProvider = "google";
     const model = DEFAULT_DESIGN_AGENT_MODELS[provider];
@@ -671,9 +690,10 @@ export class VercelChatQueryHandler {
     });
   }
 
-  private parseDesignAgentSpec(
-    rawSpec: string,
-  ): { spec: string; metadata: DesignAgentMetadata; } {
+  private parseDesignAgentSpec(rawSpec: string): {
+    spec: string;
+    metadata: DesignAgentMetadata;
+  } {
     const defaultMetadata: DesignAgentMetadata = {
       scope: "unknown",
       addToProjectContext: false,
@@ -770,7 +790,12 @@ export class VercelChatQueryHandler {
       );
 
       const metadata: DesignAgentMetadata =
-        designMetadata ?? ({ scope: "unknown", addToProjectContext: false, isMasterDesignSpec: false } as DesignAgentMetadata);
+        designMetadata ??
+        ({
+          scope: "unknown",
+          addToProjectContext: false,
+          isMasterDesignSpec: false,
+        } as DesignAgentMetadata);
       const isAppLevel = metadata.scope === "app";
       const isNarrowBuild =
         metadata.scope === "screen" || metadata.scope === "component";
@@ -796,12 +821,26 @@ export class VercelChatQueryHandler {
         return this.executeSandboxCommand(command, args);
       },
       async (filePath: string, content: string) => {
-        const result = await this.handleMcpWriteFile(filePath, content, sessionState);
+        const result = await this.handleMcpWriteFile(
+          filePath,
+          content,
+          sessionState,
+        );
         return result;
       },
       this.terminalService,
       async () => {
-        await this.expoDevServerService.restartDevServer(this.logger);
+        this.logger.consoleLogDevOnly(
+          "info",
+          "MCP restartDevServer tool: restarting dev server",
+        );
+        this.devServerService.developmentServerState.devServerStatus =
+          DevServerStatus.RESTARTING;
+        await this.devServerService.developmentServerAdapter.restartDevServer(
+          this.logger,
+        );
+        this.devServerService.developmentServerState.devServerStatus =
+          DevServerStatus.RUNNING;
       },
     );
 
@@ -874,12 +913,17 @@ export class VercelChatQueryHandler {
 
   private extractImagesFromContent(
     messageContent: string | ChatContentBlock[],
-  ): Array<{ base64: string; mediaType: string; }> {
+  ): Array<{ base64: string; mediaType: string }> {
     if (typeof messageContent === "string" || !Array.isArray(messageContent)) {
       return [];
     }
     return messageContent
-      .filter((block) => block.type === "image" && block.source?.data && block.source?.media_type)
+      .filter(
+        (block) =>
+          block.type === "image" &&
+          block.source?.data &&
+          block.source?.media_type,
+      )
       .map((block) => {
         const source = block.source!;
         return {
@@ -892,8 +936,8 @@ export class VercelChatQueryHandler {
   private async persistUserMessage(
     messageContent:
       | string
-      | Array<{ type: string; text?: string; source?: unknown; }>,
-    imagesFromContent: Array<{ base64: string; mediaType: string; }>,
+      | Array<{ type: string; text?: string; source?: unknown }>,
+    imagesFromContent: Array<{ base64: string; mediaType: string }>,
     imageMetadata: Array<{
       storage_path: string;
       media_type: string;
@@ -906,9 +950,9 @@ export class VercelChatQueryHandler {
       typeof messageContent === "string"
         ? messageContent
         : messageContent
-          .filter((block) => block.type === "text")
-          .map((block) => block.text || "")
-          .join("\n");
+            .filter((block) => block.type === "text")
+            .map((block) => block.text || "")
+            .join("\n");
 
     await persistMessage(
       "user",
@@ -925,7 +969,7 @@ export class VercelChatQueryHandler {
 
   private toAiContentParts(
     messageContent: string | ChatContentBlock[],
-  ): Array<{ type: "text"; text: string; }> {
+  ): Array<{ type: "text"; text: string }> {
     if (typeof messageContent === "string") {
       return [{ type: "text", text: messageContent }];
     }
@@ -946,7 +990,13 @@ export class VercelChatQueryHandler {
 
   private estimateCostUsd(
     model: string,
-    usage: { promptTokens?: number; completionTokens?: number; totalTokens?: number; } | undefined,
+    usage:
+      | {
+          promptTokens?: number;
+          completionTokens?: number;
+          totalTokens?: number;
+        }
+      | undefined,
   ): number | undefined {
     if (!usage) return undefined;
     const pricing = VERCEL_MODEL_COSTS_USD[model];
@@ -969,24 +1019,28 @@ export class VercelChatQueryHandler {
   private async executeSandboxCommand(
     command: string,
     args: string[],
-  ): Promise<{ stdout: string; isError: boolean; }> {
-    const permission = this.toolPermissionService.evaluateToolPermission("Bash", {
-      command,
-      args,
-    });
+  ): Promise<{ stdout: string; isError: boolean }> {
+    const permission = this.toolPermissionService.evaluateToolPermission(
+      "Bash",
+      {
+        command,
+        args,
+      },
+    );
     if (permission.behavior === "deny") {
       return { stdout: permission.message ?? "Command denied", isError: true };
     }
 
     try {
-      const { response: responseRaw } = await this.sandboxService.runCommandInternal({
-        command,
-        args,
-        cwd: this.workDir,
-        session_id: "test",
-        timeout_ms: 30000,
-        strip_ansi: true,
-      });
+      const { response: responseRaw } =
+        await this.sandboxService.runCommandInternal({
+          command,
+          args,
+          cwd: this.workDir,
+          session_id: "test",
+          timeout_ms: 30000,
+          strip_ansi: true,
+        });
       const response = responseRaw.data;
       if (!response) {
         this.logger.error(JSON.stringify(responseRaw));
@@ -994,10 +1048,16 @@ export class VercelChatQueryHandler {
       }
 
       if (response.status === "success") {
-        return { stdout: response.stdout || "Command executed successfully", isError: false };
+        return {
+          stdout: response.stdout || "Command executed successfully",
+          isError: false,
+        };
       }
       if (response.status === "timeout") {
-        return { stdout: response.stdout || "Command timed out", isError: true };
+        return {
+          stdout: response.stdout || "Command timed out",
+          isError: true,
+        };
       }
       return { stdout: response.stdout || "Unknown error", isError: true };
     } catch (error) {
@@ -1011,17 +1071,23 @@ export class VercelChatQueryHandler {
     filePath: string,
     content: string,
     sessionState: CodeSessionState,
-  ): Promise<{ success: boolean; bytesWritten?: number; error?: string; }> {
-    const permission = this.toolPermissionService.evaluateToolPermission("Write", {
-      file_path: filePath,
-    });
+  ): Promise<{ success: boolean; bytesWritten?: number; error?: string }> {
+    const permission = this.toolPermissionService.evaluateToolPermission(
+      "Write",
+      {
+        file_path: filePath,
+      },
+    );
     if (permission.behavior === "deny") {
       return { success: false, error: permission.message ?? "Write denied" };
     }
 
     try {
       const resolvedPath = path.resolve(this.workDir, filePath);
-      const relativePath = path.relative(this.workDir, path.dirname(resolvedPath));
+      const relativePath = path.relative(
+        this.workDir,
+        path.dirname(resolvedPath),
+      );
       const filename = path.basename(resolvedPath);
 
       const result = await this.sandboxService.writeFile(
@@ -1031,7 +1097,9 @@ export class VercelChatQueryHandler {
       );
 
       if (result.success) {
-        sessionState.modifiedFilesThisQuery.add(path.join(relativePath, filename));
+        sessionState.modifiedFilesThisQuery.add(
+          path.join(relativePath, filename),
+        );
         return { success: true, bytesWritten: content.length };
       }
 

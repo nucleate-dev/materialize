@@ -2,6 +2,7 @@ import { FastifyReply, FastifyRequest } from "fastify";
 import fs from "fs/promises";
 import path from "path";
 import {
+  DevServerStatus,
   PublicUpdateFilesV2Request,
   PublicUpdateFilesV2SuccessResponse,
   SandboxAPIResponse,
@@ -9,19 +10,13 @@ import {
 } from "../../../types/BuildWorkerTypes.js";
 import { fetchUserPlan } from "../../chat/credit-checks.js";
 import { checkUserHasPrototypeEditAccess } from "../../../utils/prototypeAuth.js";
-import { FileSyncService } from "../../FileSyncService.js";
-import { SandboxService } from "../../SandboxService.js";
-import { ExpoDevServerService } from "../ExpoDevServerService.js";
-import { SupabaseClientService } from "../../SupabaseClientService.js";
+import { NucleateDevelopmentServerService } from "../NucleateDevelopmentServerService.js";
+import { WORK_DIR } from "../../../worker.js";
 
 export async function handleUpdateFilesImpl(
   request: FastifyRequest<{ Body: PublicUpdateFilesV2Request }>,
   reply: FastifyReply,
-  workDir: string,
-  fileSyncService: FileSyncService,
-  sandboxService: SandboxService,
-  supabaseClientService: SupabaseClientService,
-  expoDevServerService: ExpoDevServerService,
+  developmentServerService: NucleateDevelopmentServerService,
 ): Promise<
   SandboxAPIResponse<PublicUpdateFilesV2SuccessResponse, StandardErrorResponse>
 > {
@@ -76,7 +71,7 @@ export async function handleUpdateFilesImpl(
 
     // Step 3: Paywall check - ensure user is NOT on free plan
     const userPlan = await fetchUserPlan(
-      supabaseClientService.getClient(),
+      developmentServerService.supabaseClientService.getClient(),
       authResult.user.id,
       request.log2,
     );
@@ -97,6 +92,9 @@ export async function handleUpdateFilesImpl(
       };
     }
 
+    // invalidate any existing builds so far, since files have changed
+    developmentServerService.developmentServerState.buildIsValid = false;
+
     // Step 4: Check if package.json is in the updated files
     const packageJsonUpdated = file_names.includes("package.json");
     let hasPackageJsonChanges = false;
@@ -104,12 +102,12 @@ export async function handleUpdateFilesImpl(
     if (packageJsonUpdated) {
       try {
         // Read current package.json from disk
-        const packageJsonPath = path.join(workDir, "package.json");
+        const packageJsonPath = path.join(WORK_DIR, "package.json");
         const currentPackageJson = await fs.readFile(packageJsonPath, "utf-8");
 
         // Fetch new package.json from Supabase
         const { data: newPackageJsonData, error: fetchError } =
-          await supabaseClientService
+          await developmentServerService.supabaseClientService
             .getClient()
             .from("prototype_files")
             .select("contents")
@@ -154,13 +152,14 @@ export async function handleUpdateFilesImpl(
     }
 
     // Step 5: Sync files from Supabase
-    const syncResult = await fileSyncService.syncSpecificFilesFromSupabase(
-      prototype_id,
-      file_names,
-      asset_names,
-      deleted_file_names || [],
-      deleted_asset_names || [],
-    );
+    const syncResult =
+      await developmentServerService.fileSyncService.syncSpecificFilesFromSupabase(
+        prototype_id,
+        file_names,
+        asset_names,
+        deleted_file_names || [],
+        deleted_asset_names || [],
+      );
 
     if (!syncResult.success) {
       request.log2.error(
@@ -197,14 +196,15 @@ export async function handleUpdateFilesImpl(
         );
 
         // Run npm install
-        const npmInstallResult = await sandboxService.runCommandInternal({
-          command: "npm",
-          args: ["install"],
-          cwd: workDir,
-          session_id: "test",
-          timeout_ms: 60000,
-          strip_ansi: true,
-        });
+        const npmInstallResult =
+          await developmentServerService.sandboxService.runCommandInternal({
+            command: "npm",
+            args: ["install"],
+            cwd: WORK_DIR,
+            session_id: "test",
+            timeout_ms: 60000,
+            strip_ansi: true,
+          });
 
         if (
           npmInstallResult.response.error ||
@@ -235,7 +235,13 @@ export async function handleUpdateFilesImpl(
         );
 
         // Restart dev server
-        await expoDevServerService.restartDevServer(request.log2);
+        developmentServerService.developmentServerState.devServerStatus =
+          DevServerStatus.RESTARTING;
+        await developmentServerService.developmentServerAdapter.restartDevServer(
+          request.log2,
+        );
+        developmentServerService.developmentServerState.devServerStatus =
+          DevServerStatus.RUNNING;
         request.log2.consoleLogDevOnly(
           "info",
           "Dev server restarted successfully",
