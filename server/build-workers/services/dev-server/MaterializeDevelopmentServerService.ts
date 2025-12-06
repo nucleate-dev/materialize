@@ -39,7 +39,7 @@ import { ExpoReactNativeAdapter } from "./adapters/ExpoReactNativeAdapter.js";
 import { S3Client } from "@aws-sdk/client-s3";
 
 const S3_BUCKET = process.env.S3_BUCKET || "materialize-sites";
-const DEV_SERVER_PORT = 19006;
+export const DEV_SERVER_PORT = 19006;
 
 export class MaterializeDevelopmentServerService {
   public readonly expoDevServerService: ExpoDevServerService;
@@ -104,12 +104,6 @@ export class MaterializeDevelopmentServerService {
     );
 
     app.post("/dev-server/restart", this.restartDevServer.bind(this));
-
-    // POST /build-and-deploy
-    app.post<{ Body: PublicBuildAndDeployRequest }>(
-      "/build-and-deploy",
-      this.buildAndDeploy.bind(this),
-    );
 
     app.post("/allocate", this.allocate.bind(this));
 
@@ -442,166 +436,6 @@ export class MaterializeDevelopmentServerService {
       request.log2.error(
         new Error(errorMessage),
         "Internal server error in stopDevServer",
-        { stack: errorStack },
-      );
-      reply.code(500);
-      return {
-        data: null,
-        error: {
-          error: "Internal server error",
-          message: errorMessage,
-        },
-      };
-    }
-  }
-
-  /**
-   * Kick off a one-shot build for the requesting prototype using the assets currently on disk.
-   *
-   * The handler intentionally:
-   *   1. Validates that the caller specified both the prototype id and framework.
-   *   2. Reads the worker's directory to confirm the dev server has hydrated files.
-   *   3. Invokes ExpoDevServerService.buildAndDeployProjectCore with the caller-provided prototype id
-   *      (rather than relying on mutable worker state) so the build uploads to the expected S3 prefix.
-   *   4. Parses the build log for structured errors/warnings that align with the public API schema.
-   */
-  private async buildAndDeploy(
-    request: FastifyRequest<{ Body: PublicBuildAndDeployRequest }>,
-    reply: FastifyReply,
-  ): Promise<
-    SandboxAPIResponse<
-      PublicBuildAndDeploySuccessResponse,
-      StandardErrorResponse
-    >
-  > {
-    const { prototype_id, framework } = request.body;
-
-    if (!prototype_id || !framework) {
-      baseLogger.error(
-        new Error("Missing required parameters"),
-        "Missing required parameters",
-        { prototype_id, framework },
-      );
-      reply.code(400);
-      return {
-        data: null,
-        error: {
-          error: "Missing required parameters",
-          message: "prototype_id and framework are required",
-        },
-      };
-    }
-
-    try {
-      // Check if project directory exists and read files from disk (fixed path)
-      const projectDir = this.workDir;
-
-      try {
-        await fs.stat(projectDir);
-      } catch (error: unknown) {
-        const errorMessage =
-          error instanceof Error ? error.message : String(error);
-        request.log2.error(
-          new Error(errorMessage),
-          "Project directory not found",
-          { projectDir },
-        );
-        reply.code(404);
-        return {
-          data: null,
-          error: {
-            error: "Project directory not found",
-            message: "Project directory does not exist",
-            details: errorMessage,
-          },
-        };
-      }
-
-      // Read all files from the project directory
-      const { files } = await this.readAllFilesFromDirectory(projectDir);
-
-      if (files.length === 0) {
-        request.log2.error(
-          new Error("No files found in project directory"),
-          "No files found in project directory",
-          { projectDir },
-        );
-        reply.code(400);
-        return {
-          data: null,
-          error: {
-            error: "No files found",
-            message: "No files found in project directory",
-          },
-        };
-      }
-
-      // Use ExpoDevServerService to build and deploy
-      try {
-        const buildResponse =
-          await this.expoDevServerService.buildAndDeployProjectCore(
-            request.log2,
-            prototype_id,
-          );
-
-        if (buildResponse.success && buildResponse.buildUrl) {
-          reply.status(200);
-          return {
-            data: {
-              build_url: buildResponse.buildUrl,
-              version: buildResponse.version,
-            },
-            error: null,
-          };
-        } else if (buildResponse.error) {
-          request.log2.error(
-            new Error(buildResponse.error),
-            "Build and deploy failed",
-            { buildLog: buildResponse.buildLog },
-          );
-          reply.code(500);
-          return {
-            data: null,
-            error: {
-              error: "Build and deploy failed",
-              message: buildResponse.error,
-            },
-          };
-        } else {
-          reply.code(500);
-          return {
-            data: null,
-            error: {
-              error: "Build and deploy failed",
-              message: "Build completed but no build URL was generated",
-            },
-          };
-        }
-      } catch (error: unknown) {
-        const errorMessage =
-          error instanceof Error ? error.message : String(error);
-        const errorStack = error instanceof Error ? error.stack : undefined;
-        request.log2.error(
-          new Error(errorMessage),
-          "Build and deploy process failed",
-          { stack: errorStack },
-        );
-        reply.code(500);
-        return {
-          data: null,
-          error: {
-            error: "Build and deploy process failed",
-            message: errorMessage,
-          },
-        };
-      }
-    } catch (error: unknown) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
-      const errorStack = error instanceof Error ? error.stack : undefined;
-      request.log2.error(
-        new Error(errorMessage),
-        "Internal server error in buildAndDeploy",
         { stack: errorStack },
       );
       reply.code(500);
