@@ -31,12 +31,13 @@ import { FileSyncService } from "../FileSyncService.js";
 import { handleAllocateImpl } from "./handlers/handleAllocate.js";
 import { handleUpdateFilesImpl } from "./handlers/handleUpdateFiles.js";
 import { handleStartDevServerImpl } from "./handlers/handleStartDevServer.js";
+import { handleStopDevServerImpl } from "./handlers/handleStopDevServer.js";
 import { IDevelopmentServerAdapter } from "./adapters/IDevelopmentServerAdapter.js";
 import { TerminalService } from "../terminals/TerminalService.js";
 import { ExpoReactNativeAdapter } from "./adapters/ExpoReactNativeAdapter.js";
 import { S3Client } from "@aws-sdk/client-s3";
 
-const S3_BUCKET = process.env.S3_BUCKET || "materialize-sites";
+export const S3_BUCKET = process.env.S3_BUCKET || "materialize-sites";
 export const DEV_SERVER_PORT = 19006;
 
 export class MaterializeDevelopmentServerService {
@@ -54,6 +55,8 @@ export class MaterializeDevelopmentServerService {
     tunnelUrl: string;
     devServerStatus: DevServerStatus;
     buildIsValid: boolean;
+    isBuilding: boolean;
+    builtVersion: string;
   };
 
   constructor(
@@ -79,6 +82,8 @@ export class MaterializeDevelopmentServerService {
       tunnelUrl: "",
       devServerStatus: DevServerStatus.STOPPED,
       buildIsValid: false,
+      isBuilding: false,
+      builtVersion: "",
     };
   }
 
@@ -112,8 +117,13 @@ export class MaterializeDevelopmentServerService {
     );
 
     app.post<{ Body: PublicStartDevServerRequest }>(
-      "/start-dev-server-v2",
+      "/dev-server/start-v2",
       this.startDevServerV2.bind(this),
+    );
+
+    app.delete<{ Body: PublicDevServerStopRequest }>(
+      "/dev-server/stop-v2",
+      this.stopDevServerV2.bind(this),
     );
   }
 
@@ -138,6 +148,18 @@ export class MaterializeDevelopmentServerService {
     );
   }
 
+  private async startDevServerV2(
+    request: FastifyRequest<{ Body: PublicStartDevServerRequest }>,
+    reply: FastifyReply,
+  ): Promise<
+    SandboxAPIResponse<
+      PublicDevServerStartSuccessResponse,
+      StandardErrorResponse
+    >
+  > {
+    return handleStartDevServerImpl(request, reply, this);
+  }
+
   private async updateFilesV2(
     request: FastifyRequest<{ Body: PublicUpdateFilesV2Request }>,
     reply: FastifyReply,
@@ -158,16 +180,16 @@ export class MaterializeDevelopmentServerService {
     );
   }
 
-  private async startDevServerV2(
-    request: FastifyRequest<{ Body: PublicStartDevServerRequest }>,
+  private async stopDevServerV2(
+    request: FastifyRequest<{ Body: PublicDevServerStopRequest }>,
     reply: FastifyReply,
   ): Promise<
     SandboxAPIResponse<
-      PublicDevServerStartSuccessResponse,
+      PublicDevServerStopSuccessResponse,
       StandardErrorResponse
     >
   > {
-    return handleStartDevServerImpl(request, reply, this);
+    return handleStopDevServerImpl(request, reply, this);
   }
 
   private async startDevServerNew(

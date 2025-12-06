@@ -222,8 +222,16 @@ export class ExpoReactNativeAdapter implements IDevelopmentServerAdapter {
   /**
    * Builds the Expo project.
    */
-  async build(): Promise<void> {
+  async build(): Promise<
+    SandboxAPIResponse<{ output_path: string }, StandardErrorResponse>
+  > {
     // TODO: Implement Expo project build logic
+    return {
+      data: {
+        output_path: "",
+      },
+      error: null,
+    };
   }
 
   /**

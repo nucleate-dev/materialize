@@ -35,7 +35,9 @@ export interface IDevelopmentServerAdapter {
   /**
    * Builds the project.
    */
-  build(): Promise<void>;
+  build(): Promise<
+    SandboxAPIResponse<{ output_path: string }, StandardErrorResponse>
+  >;
 
   /**
    * Shuts down the development server and cleans up resources.
