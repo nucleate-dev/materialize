@@ -1020,18 +1020,18 @@ export class ChatQueryHandler {
         // Send design generation completed message to client
         handlers.sendMessage(socket, {
           type: ChatEvent.DESIGN_GENERATION,
-            data: {
-              status: "completed",
-              message: "Design specification generated",
-              designSpec: designSpec, // Include the actual spec content
-              runDesignAgent: shouldRunDesignAgent,
-              isAppLevel,
-              isNarrowBuild,
-              persistToProjectContext: true,
-              isMasterDesignSpec: metadata.isMasterDesignSpec,
-              scope: metadata.scope,
-            },
-          });
+          data: {
+            status: "completed",
+            message: "Design specification generated",
+            designSpec: designSpec, // Include the actual spec content
+            runDesignAgent: shouldRunDesignAgent,
+            isAppLevel,
+            isNarrowBuild,
+            persistToProjectContext: true,
+            isMasterDesignSpec: metadata.isMasterDesignSpec,
+            scope: metadata.scope,
+          },
+        });
 
         this.logger.consoleLogDevOnly(
           "info",
@@ -1324,7 +1324,7 @@ export class ChatQueryHandler {
         preset: "claude_code" as const,
         append: getSystemPromptForDesignStyle(),
       },
-      settingSources: ["user"] as SettingSource[],
+      settingSources: ["project"] as SettingSource[],
       permissionMode: "default" as PermissionMode,
       abortController,
       canUseTool,
