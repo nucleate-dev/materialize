@@ -5,7 +5,7 @@
 // To update these types, modify the source file and run:
 // npm run sync-build-worker-types
 //
-// Last synced: 2025-12-06T04:57:30.042Z
+// Last synced: 2025-12-07T04:08:42.846Z
 
 import { Database } from "./supabase.js";
 
@@ -25,6 +25,18 @@ export type SandboxAPIResponse<TData = any, TError = any> =
 // ============================================================================
 // COMMON TYPES
 // ============================================================================
+
+export const HTTP_STATUS = {
+  OK: 200,
+  BAD_REQUEST: 400,
+  UNAUTHORIZED: 401,
+  PAYMENT_REQUIRED: 402,
+  NOT_FOUND: 404,
+  CONFLICT: 409,
+  INTERNAL_SERVER_ERROR: 500,
+  BAD_GATEWAY: 502,
+  GATEWAY_TIMEOUT: 504,
+} as const;
 
 /**
  * Standard error response format
@@ -60,6 +72,7 @@ export enum DevServerStatus {
   STARTING = "starting",
   RUNNING = "running",
   ERROR = "error",
+  RESTARTING = "restarting",
 }
 
 export interface BuildLogEntry {

@@ -1,102 +1,21 @@
-# CLAUDE.md
+This repository contains code for an application that allows users to create prototypes/applications using AI.
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This is a monorepository. The directories are as follows:
 
-## Technology Stack
-
-This is a Next.js 14 application with the following key technologies:
-- **Framework**: Next.js 14 with App Router
-- **Language**: TypeScript
-- **Styling**: Tailwind CSS
-- **UI Components**: shadcn/ui component library
-- **Authentication**: Supabase Auth
-- **Analytics**: PostHog
-- **Payments**: Stripe
-- **Email**: Resend with React Email components
-
-## Common Development Commands
-
-```bash
-# Development
-npm run dev          # Start development server
-npm run build        # Build for production
-npm run start        # Start production server
-npm run lint         # Run ESLint
-
-# No test command is configured in package.json
-```
-
-## Project Architecture
-
-### App Structure
-The project uses Next.js App Router with the following key patterns:
-
-- **Route Groups**: Uses `(auth)` and `(callbacks)` route groups to organize authentication-related pages
-- **Landing vs Dashboard**: Separate UI patterns for public landing pages vs authenticated dashboard
-- **Authentication Flow**: Comprehensive auth system with login, register, password reset, and OAuth
-- **Payment Integration**: Stripe integration with subscription management
-
-### Key Directories
-
-**`src/app/`** - Next.js App Router pages
-- `(auth)/` - Authentication pages (login, register, forgot password, reset password)
-- `(callbacks)/` - OAuth callback handlers
-- `dashboard/` - Protected dashboard area with sidebar navigation
-- `landing_components/` - Public landing page components
-
-**`src/lib/utils/`** - Utility modules organized by domain
-- `auth/` - Supabase authentication wrappers and validation
-- `payments/` - Stripe checkout and subscription management
-- `emails/` - Email utilities using Resend
-
-**`src/components/`** - Shared components
-- Form components (Button, Fields, ErrorModal)
-- Email templates using React Email
-- shadcn/ui components in `src/components/ui/`
-
-### Authentication System
-The app uses Supabase Auth with comprehensive wrapper utilities in `src/lib/utils/auth/SupabaseAuthUtils.ts`:
-- `useUser()` - Get current user without refreshing token
-- `useRequireAuth()` - Enforce authentication with automatic redirect
-- OAuth providers supported
-- Password reset and update flows
-
-### UI Component System
-The project uses shadcn/ui for consistent, accessible UI components:
-- Components are located in `src/components/ui/`
-- Uses Radix UI primitives under the hood
-- Fully customizable with Tailwind CSS
-- Dark mode support built-in
-- Accessible by default
-
-### Dashboard Structure
-The dashboard area (`src/app/dashboard/`) includes:
-- Sidebar navigation with collapsible groups
-- Header with user dropdown and notifications
-- Chart components using ApexCharts
-- Table components for data display
-- Form elements and UI components
-- Dark mode support
-
-### Payment Integration
-Stripe integration handles:
-- One-time payments and subscriptions
-- Checkout flow with webhook handling
-- Billing management
-- Payment validation utilities
-
-## Important Files
-
-- `src/GlobalConstants.ts` - Global configuration and constants
-- `src/LoggingEvents.ts` - Event tracking definitions
-- `tailwind.config.ts` - Tailwind configuration
-- `src/app/providers.tsx` - PostHog analytics provider setup
-- `components.json` - shadcn/ui configuration
-
-## Development Notes
-
-- The app has both public landing pages and protected dashboard areas
-- Supabase is configured for auth, ensure environment variables are set
-- PostHog analytics is integrated for event tracking
-- shadcn/ui components should be used for consistent UI patterns
-- Extensive TypeScript interfaces defined in `src/app/dashboard/types/`
+- web-application: contains the website code for nucleate.dev, which our user's interact with. This is where they can chat with AI and see their applications run in realtime.
+  - key files: InternalPrototypePage.tsx is the primary page to edit a prototype/project. On the left side we have a chat panel which makes a websocket connection to the sandbox to send/receive messages from the LLM. On the right side we have the render section where we have an iframe to render the application via a tunnel URL.
+- server/control-plane: This is our primary server/backend. It runs on an EC2 instance in an AutoScaling group in AWS. It is responsible for all orchestration logic (managing sandboxes by creating them and cleaning them when they are idle) along with all other server calls (creating prototypes, deleting prototypes, stripe, etc)
+  - key files:
+    - DispatcherService + IdleContainerAllocationSystemService + IdleCloudflareTunnelSystem: responsible for creating/allocating new sandboxes (AWS Fargate Tasks) and creating tunnels to access them outsite the VPC
+    - CleanupService: responsible for cleaning up idle sandboxes and tunnels, and screenshotting builds
+    - OrchestrationService: responsible for updating state of sandbox when user initiates actions directly on the sandbox
+- server/build-workers: This contains the fastify server that runs in the sandboxes (AWS Fargate tasks). Each Fargate task is configured to have a root user and a materialize-user with restricted permissions to the tmp/materialize-dev-server directory. The fastify server runs as root, but we run the development server as the restricted user (to protect our own code and our own environment variables)
+  - key files:
+    - NucleateDevelopmentServerService: responsible for starting/stopping development servers and managing state. The type of development server depends on the adapter being used
+    - ChatService: responsible for handling chat messages and sending them to the LLM
+    - FileSyncService: keeps files in sync with supabase which is the source of truth
+    - Dockerfile: responsible for building the image that runs in the Fargate task
+- internal-tools: This contains the internal tools that we use for project development. All server requests go through the server/control-plane in a special internal-services directory, which requires additional authentication to ensure the requests come from a trusted internal source
+- starters: This directory contains the various starter apps that user's can select from when creating a new project. These are generally expo react native apps or nextjs apps
+- async-backfills: This directory contains the various async backfill scripts that we use to populate our database with initial data or fix existing data
+- web-application-app: contains the code for apps.nucleate.dev, which acts as a host for user apps on the web.

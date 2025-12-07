@@ -45,9 +45,10 @@ export class NucleateDevelopmentServerService {
   public developmentServerState: {
     tunnelUrl: string;
     devServerStatus: DevServerStatus;
-    buildIsValid: boolean;
     isBuilding: boolean;
     builtVersion: string;
+    buildStartTime: Date;
+    lastUpdatedTime: Date;
   };
 
   constructor(
@@ -67,12 +68,14 @@ export class NucleateDevelopmentServerService {
     this.fileSyncService = fileSyncService;
     this.terminalService = terminalService;
     this.developmentServerAdapter = new ExpoReactNativeAdapter(terminalService); // default adapter]
+    const now = new Date();
     this.developmentServerState = {
       tunnelUrl: "",
       devServerStatus: DevServerStatus.STOPPED,
-      buildIsValid: false,
       isBuilding: false,
       builtVersion: "",
+      buildStartTime: now,
+      lastUpdatedTime: now,
     };
   }
 

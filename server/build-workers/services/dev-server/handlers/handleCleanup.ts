@@ -23,13 +23,29 @@ export async function handleCleanup(
   const state = developmentServerService.developmentServerState;
 
   // 1. Check if build is valid (check state). If it is valid, then:
-  if (state.buildIsValid) {
+  if (state.buildStartTime >= state.lastUpdatedTime && !state.isBuilding) {
     request.log2.consoleLogDevOnly(
       "info",
       "Build is valid, stopping dev server and uploading files",
     );
 
-    // 1.1. Stop the dev server
+    // 1.1. Kill the cloudflare tunnel
+    try {
+      await developmentServerService.cloudflareTunnelManagementService.killTunnel();
+      request.log2.consoleLogDevOnly(
+        "info",
+        "Cloudflare tunnel killed successfully",
+      );
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      request.log2.error(
+        new Error(errorMessage),
+        "Failed to kill Cloudflare tunnel",
+      );
+    }
+
+    // 1.2 Stop the dev server
     try {
       await developmentServerService.developmentServerAdapter.stopDevServer(
         request.log2,
@@ -43,10 +59,7 @@ export async function handleCleanup(
       request.log2.error(new Error(errorMessage), "Failed to stop dev server");
     }
 
-    // TODO: eventually move cloudflare tunnel kill to here and sync supabase files here
-    // so that the dev server can continue to be active while we are building in case the user comes back
-
-    // 1.4. Return a success response
+    // 1.3. Return a success response
     reply.code(HTTP_STATUS.OK);
     return {
       data: {
@@ -113,21 +126,13 @@ async function triggerBackgroundDevServerBuildAndUploadToS3(
   prototypeId: string,
   log2: SystemLogger,
 ): Promise<void> {
-  // 1. Kill the cloudflare tunnel
-  try {
-    await developmentServerService.cloudflareTunnelManagementService.killTunnel();
-    log2.consoleLogDevOnly("info", "Cloudflare tunnel killed successfully");
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    log2.error(new Error(errorMessage), "Failed to kill Cloudflare tunnel");
-  }
-
   if (!developmentServerService.s3Client) {
     throw new Error("S3 client not initialized");
   }
 
   // 2. Build the project using the adapter
   developmentServerService.developmentServerState.isBuilding = true;
+  developmentServerService.developmentServerState.buildStartTime = new Date();
   const buildResult =
     await developmentServerService.developmentServerAdapter.build(log2);
   developmentServerService.developmentServerState.isBuilding = false;
@@ -135,8 +140,10 @@ async function triggerBackgroundDevServerBuildAndUploadToS3(
     log2.error(buildResult.error, "Build failed");
     throw new Error(buildResult.error.message);
   }
-  developmentServerService.developmentServerState.buildIsValid = true;
-  log2.consoleLogDevOnly("info", "Build completed successfully");
+  log2.consoleLogDevOnly(
+    "info",
+    "Build completed successfully, state reset to not building and up",
+  );
 
   // 3. Upload the build to S3
   const uploadResult = await uploadDirectoryToS3(

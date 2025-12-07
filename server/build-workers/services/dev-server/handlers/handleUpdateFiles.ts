@@ -93,7 +93,8 @@ export async function handleUpdateFilesImpl(
     }
 
     // invalidate any existing builds so far, since files have changed
-    developmentServerService.developmentServerState.buildIsValid = false;
+    developmentServerService.developmentServerState.lastUpdatedTime =
+      new Date();
 
     // Step 4: Check if package.json is in the updated files
     const packageJsonUpdated = file_names.includes("package.json");
