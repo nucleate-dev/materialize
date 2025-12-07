@@ -123,9 +123,9 @@ interface MessageHandlers {
   uploadChatImages: (
     prototypeId: string,
     chatSessionId: string,
-    images: Array<{ base64: string; mediaType: string; }>,
+    images: Array<{ base64: string; mediaType: string }>,
   ) => Promise<
-    Array<{ storage_path: string; media_type: string; file_size: number; }>
+    Array<{ storage_path: string; media_type: string; file_size: number }>
   >;
   updatePersistenceClient?: (client: unknown) => void;
   notifyOrchestrationStartChat: (prototypeId: string) => Promise<void>;
@@ -134,9 +134,9 @@ interface MessageHandlers {
 
 interface StreamContext {
   messageContent:
-  | string
-  | Array<{ type: string; text?: string; source?: unknown; }>;
-  queryOptions: Options & { resume?: string; };
+    | string
+    | Array<{ type: string; text?: string; source?: unknown }>;
+  queryOptions: Options & { resume?: string };
   sessionState: CodeSessionState;
   validAiChatSessionIds: Set<string>;
   socket: WebSocket;
@@ -332,9 +332,9 @@ export class ChatQueryHandler {
             ? content
             : Array.isArray(content)
               ? content
-                .filter((block) => block.type === "text")
-                .map((block) => block.text || "")
-                .join("\n")
+                  .filter((block) => block.type === "text")
+                  .map((block) => block.text || "")
+                  .join("\n")
               : prompt || "";
 
         if (userMessageText) {
@@ -861,7 +861,7 @@ export class ChatQueryHandler {
     userMessage: string,
     abortController: AbortController,
     _systemPrompt: string,
-  ): Promise<{ designSpec: string | null; costUsd: number | undefined; }> {
+  ): Promise<{ designSpec: string | null; costUsd: number | undefined }> {
     // Use Gemini by default for design agent (fast and free)
     const provider: DesignAgentProvider = "google";
     const model = DEFAULT_DESIGN_AGENT_MODELS[provider];
@@ -1173,7 +1173,7 @@ export class ChatQueryHandler {
   private prepareMessageContent(
     prompt: string | undefined,
     content: ChatContentBlock[] | undefined,
-  ): string | Array<{ type: string; text?: string; source?: unknown; }> {
+  ): string | Array<{ type: string; text?: string; source?: unknown }> {
     if (content) {
       return content.map((block) => {
         if (block.type === "text") {
@@ -1199,8 +1199,8 @@ export class ChatQueryHandler {
   private extractImagesFromContent(
     messageContent:
       | string
-      | Array<{ type: string; text?: string; source?: unknown; }>,
-  ): Array<{ base64: string; mediaType: string; }> {
+      | Array<{ type: string; text?: string; source?: unknown }>,
+  ): Array<{ base64: string; mediaType: string }> {
     if (!Array.isArray(messageContent)) {
       return [];
     }
@@ -1208,8 +1208,8 @@ export class ChatQueryHandler {
     return messageContent
       .filter((block) => block.type === "image")
       .map((block) => ({
-        base64: (block.source as { data: string; }).data,
-        mediaType: (block.source as { media_type: string; }).media_type,
+        base64: (block.source as { data: string }).data,
+        mediaType: (block.source as { media_type: string }).media_type,
       }));
   }
 
@@ -1219,8 +1219,8 @@ export class ChatQueryHandler {
   private async persistUserMessage(
     messageContent:
       | string
-      | Array<{ type: string; text?: string; source?: unknown; }>,
-    imagesFromContent: Array<{ base64: string; mediaType: string; }>,
+      | Array<{ type: string; text?: string; source?: unknown }>,
+    imagesFromContent: Array<{ base64: string; mediaType: string }>,
     imageMetadata: Array<{
       storage_path: string;
       media_type: string;
@@ -1238,9 +1238,9 @@ export class ChatQueryHandler {
       typeof messageContent === "string"
         ? messageContent
         : messageContent
-          .filter((block) => block.type === "text")
-          .map((block) => block.text || "")
-          .join("\n");
+            .filter((block) => block.type === "text")
+            .map((block) => block.text || "")
+            .join("\n");
 
     const hasImages = imagesFromContent.length > 0;
     const userMessageDisplay = hasImages
@@ -1265,7 +1265,7 @@ export class ChatQueryHandler {
     sessionState: CodeSessionState,
     handlers: MessageHandlers,
     flushAssistantBuffer: () => Promise<void>,
-  ): Promise<Options & { resume?: string; }> {
+  ): Promise<Options & { resume?: string }> {
     const canUseTool: CanUseTool = async (
       toolName: ToolName,
       input: ToolInput,
@@ -1359,7 +1359,7 @@ export class ChatQueryHandler {
               async (
                 input: HookInput,
                 toolUseID: string | undefined,
-                _options: { signal: AbortSignal; },
+                _options: { signal: AbortSignal },
               ): Promise<HookJSONOutput> => {
                 const hookContext: HookContext = {
                   input,
@@ -1378,7 +1378,7 @@ export class ChatQueryHandler {
               async (
                 input: HookInput,
                 toolUseID: string | undefined,
-                _options: { signal: AbortSignal; },
+                _options: { signal: AbortSignal },
               ): Promise<HookJSONOutput> => {
                 const hookContext: HookContext = {
                   input,
@@ -1401,7 +1401,7 @@ export class ChatQueryHandler {
   private async executeSandboxCommand(
     command: string,
     args: string[],
-  ): Promise<{ stdout: string; isError: boolean; }> {
+  ): Promise<{ stdout: string; isError: boolean }> {
     try {
       const { response: responseRaw } =
         await this.sandboxService.runCommandInternal({
@@ -1727,7 +1727,7 @@ export class ChatQueryHandler {
     } = streamContext;
 
     // Shared state for MCP stream fix - allows generator to monitor for result message
-    const messages: Array<{ type: string;[key: string]: unknown; }> = [];
+    const messages: Array<{ type: string; [key: string]: unknown }> = [];
 
     // Create async generator for streaming input
     const generateMessages = async function* (): AsyncGenerator<{
@@ -1735,8 +1735,8 @@ export class ChatQueryHandler {
       message: {
         role: "user";
         content:
-        | string
-        | Array<{ type: string; text?: string; source?: unknown; }>;
+          | string
+          | Array<{ type: string; text?: string; source?: unknown }>;
       };
     }> {
       // Design spec is now written to CLAUDE.md and automatically read by Claude Code SDK
