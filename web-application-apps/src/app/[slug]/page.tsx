@@ -1,19 +1,19 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import Link from "next/link";
 import { supabase } from "@/ClientConstants";
 import MaterializeRenderSection from "@/components/prototype-editor/MaterializeRenderSection";
-import { Database } from "@/lib/types/supabase";
-import { normalizePrototypeVisibility } from "@/lib/types/prototypes";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Shield, Sparkles } from "lucide-react";
+import { normalizePrototypeVisibility } from "@/lib/types/prototypes";
 import type {
   APIResponse,
   FetchViewingUrlRequestBody,
   FetchViewingUrlSuccessResponse,
   StandardErrorResponse,
 } from "@/lib/types/serverAPITypes";
+import { Database } from "@/lib/types/supabase";
+import { ArrowRight, Shield, Sparkles } from "lucide-react";
+import Link from "next/link";
+import { use, useEffect, useState } from "react";
 
 type Prototype = Database["public"]["Tables"]["prototypes"]["Row"];
 
@@ -77,8 +77,9 @@ function MinimalHeader({
 export default function DeployedAppPage({
   params,
 }: {
-  params: { slug: string };
+  params: Promise<{ slug: string; }>;
 }) {
+  const { slug } = use(params);
   const [prototype, setPrototype] = useState<Prototype | null>(null);
   const [viewingUrl, setViewingUrl] = useState<string>("");
   const [renderStatus, setRenderStatus] =
@@ -94,7 +95,7 @@ export default function DeployedAppPage({
       const { data, error: prototypeError } = await supabase
         .from("prototypes")
         .select("*")
-        .eq("slug", params.slug)
+        .eq("slug", slug)
         .eq("is_deployed", true)
         .single();
 
@@ -116,7 +117,7 @@ export default function DeployedAppPage({
       }
 
       let resolvedViewingUrl =
-        (data as Prototype & { viewing_url?: string }).viewing_url ?? "";
+        (data as Prototype & { viewing_url?: string; }).viewing_url ?? "";
       let resolvedStatus: RenderStatus = "Static build";
       const serverEndpoint = process.env.NEXT_PUBLIC_SERVER_ENDPOINT;
 
@@ -148,7 +149,7 @@ export default function DeployedAppPage({
 
           if (response.ok && result.data) {
             resolvedViewingUrl = result.data.viewing_url;
-            resolvedStatus = result.data.status ?? resolvedStatus;
+            resolvedStatus = (result.data.status === "error" ? "Error" : result.data.status) as RenderStatus ?? resolvedStatus;
           }
         } catch (err) {
           console.error("Failed to fetch viewing URL for deployed app", err);
@@ -162,7 +163,7 @@ export default function DeployedAppPage({
     };
 
     fetchPrototype();
-  }, [params.slug]);
+  }, [slug]);
 
   if (loading) {
     return (

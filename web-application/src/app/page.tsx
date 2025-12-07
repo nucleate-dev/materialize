@@ -584,7 +584,7 @@ function PricingSection() {
                 <div className="text-center sm:text-left">
                   <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-rose-500/20 border border-rose-500/30 text-xs font-bold text-rose-300 uppercase tracking-wider mb-2">
                     <SparklesIcon className="w-3 h-3" />
-                    Black Friday Sale
+                    Holiday Sale
                   </div>
                   <h3 className="text-xl font-semibold text-white mb-1">
                     50% off your first month
