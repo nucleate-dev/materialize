@@ -263,7 +263,14 @@ export class FileSyncService {
       return true;
     }
 
-    return this.skipFileNames.has(entryName);
+    if (
+      relativeSegments.some((segment) => this.skipFileNames.has(segment)) ||
+      this.skipFileNames.has(entryName)
+    ) {
+      return true;
+    }
+
+    return false;
   }
 
   // ------------------------------------------------------------
