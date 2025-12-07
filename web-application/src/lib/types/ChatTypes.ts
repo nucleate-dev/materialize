@@ -5,7 +5,7 @@
 // To update these types, modify the source file and run:
 // npm run build (in the control-plane directory)
 //
-// Last synced: 2025-12-06T04:57:30.007Z
+// Last synced: 2025-12-06T23:27:10.963Z
 
 export enum ChatEvent {
   AUTHENTICATED = "authenticated",
