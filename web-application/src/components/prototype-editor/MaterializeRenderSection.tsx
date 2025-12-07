@@ -165,6 +165,13 @@ type PrototypeAsset = Database["public"]["Tables"]["prototype_assets"]["Row"];
 type PrototypeEnvVar =
   Database["public"]["Views"]["prototype_env_vars_view"]["Row"];
 
+interface NewEnvVarInput {
+  id: string;
+  name: string;
+  value: string;
+  visibility: "client" | "backend";
+}
+
 interface MaterializeRenderSectionProps {
   viewing_url: string; // ASSUMPTION: viewing_url is always normalized with protocol (e.g., https://)
   base_tunnel_url?: string | null; // WebSocket URL for terminal connection
@@ -275,11 +282,9 @@ const MaterializeRenderSection = forwardRef<
     const [isLoadingEnvVars, setIsLoadingEnvVars] = useState(false);
     const [isSavingEnvVar, setIsSavingEnvVar] = useState(false);
     const [envVarFormError, setEnvVarFormError] = useState<string | null>(null);
-    const [newEnvVarName, setNewEnvVarName] = useState("");
-    const [newEnvVarValue, setNewEnvVarValue] = useState("");
-    const [newEnvVarVisibility, setNewEnvVarVisibility] = useState<
-      "public" | "private"
-    >("private");
+    const [newEnvVarInputs, setNewEnvVarInputs] = useState<NewEnvVarInput[]>([
+      { id: crypto.randomUUID(), name: "", value: "", visibility: "backend" },
+    ]);
     const [isSyncingEnvFile, setIsSyncingEnvFile] = useState(false);
 
     const nextMobileScreenId = useRef(1);
@@ -620,7 +625,15 @@ const MaterializeRenderSection = forwardRef<
           return;
         }
 
-        setEnvVars(data ?? []);
+        // Transform the data to strip EXPO_PUBLIC_ prefix for display
+        const transformedData = (data ?? []).map((envVar) => ({
+          ...envVar,
+          name: envVar.name.startsWith("EXPO_PUBLIC_")
+            ? envVar.name.substring(12) // Remove "EXPO_PUBLIC_" prefix
+            : envVar.name,
+        }));
+
+        setEnvVars(transformedData);
       } catch (error) {
         logger.debug("error", "Error fetching environment variables", {
           error: error instanceof Error ? error.message : String(error),
@@ -642,9 +655,9 @@ const MaterializeRenderSection = forwardRef<
       setIsEnvVarDialogOpen(open);
       if (!open) {
         setEnvVarFormError(null);
-        setNewEnvVarName("");
-        setNewEnvVarValue("");
-        setNewEnvVarVisibility("private");
+        setNewEnvVarInputs([
+          { id: crypto.randomUUID(), name: "", value: "", visibility: "backend" },
+        ]);
       }
     };
 
@@ -696,32 +709,59 @@ const MaterializeRenderSection = forwardRef<
       }
     }, [sandbox_url, prototypeId, logger]);
 
-    const handleAddEnvVar = useCallback(async () => {
+    const handleAddEnvVars = useCallback(async () => {
       if (!prototypeId) {
         setEnvVarFormError("Prototype is still initializing");
         return;
       }
 
-      const normalizedName = normalizeEnvVarNameInput(newEnvVarName);
-      if (!normalizedName) {
-        setEnvVarFormError("Environment variable name is required");
+      // Filter out empty inputs
+      const validInputs = newEnvVarInputs.filter(
+        (input) => input.name.trim() || input.value.trim(),
+      );
+
+      if (validInputs.length === 0) {
+        setEnvVarFormError("At least one environment variable is required");
         return;
       }
 
-      if (!newEnvVarValue.trim()) {
-        setEnvVarFormError("Environment variable value is required");
-        return;
+      // Validate each input
+      for (const input of validInputs) {
+        const normalizedName = normalizeEnvVarNameInput(input.name);
+        if (!normalizedName) {
+          setEnvVarFormError(`Environment variable name is required for all entries`);
+          return;
+        }
+
+        if (!input.value.trim()) {
+          setEnvVarFormError(`Value is required for ${input.name}`);
+          return;
+        }
       }
 
       setIsSavingEnvVar(true);
       setEnvVarFormError(null);
       try {
-        const { error } = await supabase.from("prototype_env_vars").insert({
-          prototype_id: prototypeId,
-          name: normalizedName,
-          is_public: newEnvVarVisibility === "public",
-          secret_value: newEnvVarValue,
+        // Prepare all environment variables for insertion
+        const envVarsToInsert = validInputs.map((input) => {
+          const normalizedName = normalizeEnvVarNameInput(input.name);
+          // Add EXPO_PUBLIC_ prefix for client visibility
+          const finalName =
+            input.visibility === "client"
+              ? `EXPO_PUBLIC_${normalizedName}`
+              : normalizedName;
+
+          return {
+            prototype_id: prototypeId,
+            name: finalName,
+            is_public: input.visibility === "client",
+            secret_value: input.value,
+          };
         });
+
+        const { error } = await supabase
+          .from("prototype_env_vars")
+          .insert(envVarsToInsert);
 
         if (error) {
           setEnvVarFormError(error.message);
@@ -729,30 +769,30 @@ const MaterializeRenderSection = forwardRef<
         }
 
         await fetchEnvVars();
-        setNewEnvVarName("");
-        setNewEnvVarValue("");
-        setNewEnvVarVisibility("private");
-        toast.success("Environment variable added");
+        setNewEnvVarInputs([
+          { id: crypto.randomUUID(), name: "", value: "", visibility: "backend" },
+        ]);
+        toast.success(
+          `${validInputs.length} environment variable${validInputs.length > 1 ? "s" : ""} added`,
+        );
 
         if (sandbox_url) {
           await refetchEnvVarsOnDevServer();
         }
       } catch (error) {
-        logger.debug("error", "Failed to add environment variable", {
+        logger.debug("error", "Failed to add environment variables", {
           error: error instanceof Error ? error.message : String(error),
           prototypeId,
         });
         setEnvVarFormError(
-          error instanceof Error ? error.message : "Failed to add variable",
+          error instanceof Error ? error.message : "Failed to add variables",
         );
       } finally {
         setIsSavingEnvVar(false);
       }
     }, [
       prototypeId,
-      newEnvVarName,
-      newEnvVarValue,
-      newEnvVarVisibility,
+      newEnvVarInputs,
       supabase,
       fetchEnvVars,
       sandbox_url,
@@ -1932,6 +1972,11 @@ const MaterializeRenderSection = forwardRef<
                       >
                         <div className="space-y-1">
                           <p className="font-mono text-xs text-foreground break-all">
+                            {envVar.is_public && (
+                              <span className="text-muted-foreground">
+                                EXPO_PUBLIC_
+                              </span>
+                            )}
                             {envVar.name}
                           </p>
                           <p className="text-xs text-muted-foreground break-all">
@@ -1944,7 +1989,7 @@ const MaterializeRenderSection = forwardRef<
                             variant={envVar.is_public ? "secondary" : "outline"}
                             className="text-[10px] uppercase tracking-wide"
                           >
-                            {envVar.is_public ? "Public" : "Private"}
+                            {envVar.is_public ? "Client" : "Backend"}
                           </Badge>
                           {envVar.secret_value && (
                             <Button
@@ -1975,66 +2020,122 @@ const MaterializeRenderSection = forwardRef<
 
               <div className="border-t border-border/70 pt-4 space-y-3">
                 <p className="text-sm font-medium text-foreground">
-                  Add environment variable
+                  Add environment variables
                 </p>
-                <div className="grid gap-3">
-                  <div className="space-y-1">
+
+                <div className="space-y-3">
+                  {/* Column Headers */}
+                  <div className="grid grid-cols-[1fr_1.5fr_120px] gap-2">
                     <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
                       Name
                     </p>
-                    <Input
-                      value={newEnvVarName}
-                      onChange={(e) => setNewEnvVarName(e.target.value)}
-                      placeholder="MY_SECRET_KEY"
-                      className="h-9 text-sm"
-                      disabled={isSavingEnvVar}
-                    />
-                  </div>
-                  <div className="space-y-1">
                     <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                      Secret value
+                      Value
                     </p>
-                    <Textarea
-                      value={newEnvVarValue}
-                      onChange={(e) => setNewEnvVarValue(e.target.value)}
-                      placeholder="Value stored on your dev server"
-                      className="text-sm"
-                      rows={3}
-                      disabled={isSavingEnvVar}
-                    />
-                  </div>
-                  <div className="space-y-1">
                     <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
                       Visibility
                     </p>
-                    <Select
-                      value={newEnvVarVisibility}
-                      onValueChange={(value) =>
-                        setNewEnvVarVisibility(value as "public" | "private")
-                      }
-                      disabled={isSavingEnvVar}
-                    >
-                      <SelectTrigger className="h-9">
-                        <SelectValue placeholder="Select visibility" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="private">Private</SelectItem>
-                        <SelectItem value="public">Public</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <p className="text-[11px] text-muted-foreground">
-                      Public values can be exposed in your build. Private values
-                      stay on the server.
-                    </p>
                   </div>
+
+                  {/* Environment Variable Inputs */}
+                  {newEnvVarInputs.map((input, index) => (
+                    <div
+                      key={input.id}
+                      className="grid grid-cols-[1fr_1.5fr_120px] gap-2 items-start"
+                    >
+                      {/* Name Input with Prefix */}
+                      <div className="relative">
+                        {input.visibility === "client" && (
+                          <div className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground font-mono pointer-events-none">
+                            EXPO_PUBLIC_
+                          </div>
+                        )}
+                        <Input
+                          value={input.name}
+                          onChange={(e) => {
+                            const updated = [...newEnvVarInputs];
+                            updated[index].name = e.target.value;
+                            setNewEnvVarInputs(updated);
+                          }}
+                          placeholder="API_KEY"
+                          className={cn(
+                            "h-9 text-sm font-mono",
+                            input.visibility === "client" && "pl-[105px]",
+                          )}
+                          disabled={isSavingEnvVar}
+                        />
+                      </div>
+
+                      {/* Value Input */}
+                      <Input
+                        value={input.value}
+                        onChange={(e) => {
+                          const updated = [...newEnvVarInputs];
+                          updated[index].value = e.target.value;
+                          setNewEnvVarInputs(updated);
+                        }}
+                        placeholder="Enter value"
+                        className="h-9 text-sm"
+                        disabled={isSavingEnvVar}
+                      />
+
+                      {/* Visibility Select */}
+                      <Select
+                        value={input.visibility}
+                        onValueChange={(value) => {
+                          const updated = [...newEnvVarInputs];
+                          updated[index].visibility = value as "client" | "backend";
+                          setNewEnvVarInputs(updated);
+                        }}
+                        disabled={isSavingEnvVar}
+                      >
+                        <SelectTrigger className="h-9">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="backend">Backend</SelectItem>
+                          <SelectItem value="client">Client</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  ))}
+
+                  {/* Add More Button */}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setNewEnvVarInputs([
+                        ...newEnvVarInputs,
+                        {
+                          id: crypto.randomUUID(),
+                          name: "",
+                          value: "",
+                          visibility: "backend",
+                        },
+                      ]);
+                    }}
+                    disabled={isSavingEnvVar}
+                    className="h-8 text-xs"
+                  >
+                    <Plus className="w-3.5 h-3.5 mr-2" />
+                    Add another
+                  </Button>
+
+                  <p className="text-[11px] text-muted-foreground">
+                    Client variables are prefixed with EXPO_PUBLIC_ and exposed in your build.
+                    Backend variables stay on the server.
+                  </p>
                 </div>
+
                 {envVarFormError && (
                   <p className="text-xs text-red-500">{envVarFormError}</p>
                 )}
+
                 <div className="flex justify-end">
                   <Button
                     onClick={() => {
-                      void handleAddEnvVar();
+                      void handleAddEnvVars();
                     }}
                     disabled={isSavingEnvVar || !prototypeId}
                     className="h-9 px-4"
@@ -2044,7 +2145,7 @@ const MaterializeRenderSection = forwardRef<
                     ) : (
                       <Plus className="w-3.5 h-3.5 mr-2" />
                     )}
-                    Save variable
+                    Save variables
                   </Button>
                 </div>
               </div>
