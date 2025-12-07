@@ -31,7 +31,7 @@ import {
   type DesignAgentProvider,
 } from "./design-agent-service.js";
 import { classifyDesignIntent } from "./design-intent-classifier.js";
-import { createVercelDevTools } from "./mcp-dev-tools-vercel.js";
+import { createVercelDevTools } from "./mcp/mcp-dev-tools-vercel.js";
 import { ALLOWED_MODELS, ChatProvider } from "./model-providers.js";
 import { ToolPermissionService } from "./tool-permission-service.js";
 import { trackApiUsageBuildWorker } from "./usage-tracking.js";
@@ -107,7 +107,7 @@ export class VercelChatQueryHandler {
   private readonly sandboxService: SandboxService;
   private readonly devServerService: NucleateDevelopmentServerService;
   private readonly terminalService: TerminalService;
-  private readonly enableDesignAgentOnFirstMessage: boolean;
+  private enableDesignAgentOnFirstMessage: boolean;
 
   constructor(
     workDir: string,
@@ -129,6 +129,10 @@ export class VercelChatQueryHandler {
     this.devServerService = devServerService;
     this.terminalService = terminalService;
     this.enableDesignAgentOnFirstMessage = enableDesignAgentOnFirstMessage;
+  }
+
+  public setEnableDesignAgentOnFirstMessage(enabled: boolean): void {
+    this.enableDesignAgentOnFirstMessage = enabled;
   }
 
   public async handleQuery(

@@ -20,7 +20,7 @@
     "baseUrl": ".",
     "paths": {
       "@/*": [
-        "../web-application-apps/src/*"
+        "../web-application/src/*"
       ],
       "@local/*": [
         "./src/*"

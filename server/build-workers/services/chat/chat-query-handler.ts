@@ -39,7 +39,8 @@ import {
   type DesignAgentProvider,
 } from "./design-agent-service.js";
 import { classifyDesignIntent } from "./design-intent-classifier.js";
-import { createDevelopmentToolsMcpServer } from "./mcp-dev-tools.js";
+import { createDesignToolsMcpServer } from "./mcp/mcp-design-tools.js";
+import { createDevelopmentToolsMcpServer } from "./mcp/mcp-dev-tools.js";
 import { getToolDisplayName } from "./message-handlers.js";
 import { ToolPermissionService } from "./tool-permission-service.js";
 import { trackApiUsageBuildWorker } from "./usage-tracking.js";
@@ -181,7 +182,7 @@ export class ChatQueryHandler {
   private readonly devServerService: NucleateDevelopmentServerService;
   private readonly terminalService: TerminalService;
   private readonly getAak: () => string | null;
-  private readonly enableDesignAgentOnFirstMessage: boolean;
+  private enableDesignAgentOnFirstMessage: boolean;
 
   constructor(
     workDir: string,
@@ -203,8 +204,12 @@ export class ChatQueryHandler {
     this.sandboxService = sandboxService;
     this.devServerService = devServerService;
     this.terminalService = terminalService;
-    this.enableDesignAgentOnFirstMessage = enableDesignAgentOnFirstMessage;
     this.getAak = getAak;
+    this.enableDesignAgentOnFirstMessage = enableDesignAgentOnFirstMessage;
+  }
+
+  public setEnableDesignAgentOnFirstMessage(enabled: boolean): void {
+    this.enableDesignAgentOnFirstMessage = enabled;
   }
 
   /**
@@ -1296,6 +1301,7 @@ export class ChatQueryHandler {
         "Edit",
         "Glob",
         "Grep",
+        "mcp__design__GeminiDesignExpert",
         // MCP tools from devtools server
         "mcp__devtools__SafeWrite",
         "mcp__devtools__SafeBash",
@@ -1314,6 +1320,7 @@ export class ChatQueryHandler {
       canUseTool,
       // Add MCP servers with development tools
       mcpServers: {
+        design: createDesignToolsMcpServer(this.logger),
         devtools: createDevelopmentToolsMcpServer(
           async (command: string, args: string[]) => {
             const executeSandboxCommandResult =

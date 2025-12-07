@@ -3,6 +3,7 @@ import axios from "axios";
 import { FastifyInstance, FastifyRequest } from "fastify";
 import path from "path";
 import WebSocket from "ws";
+import { DEFAULT_FLAGS, FeatureFlags, FlagName } from "../../FLAGS.js";
 import { SystemLogger } from "../../loggers/SystemLogger.js";
 import {
   ChatClientEvent,
@@ -14,6 +15,7 @@ import {
   HistoryResponseData,
 } from "../../types/ChatTypes.js";
 import { Database } from "../../types/supabase.js";
+import { NucleateDevelopmentServerService } from "../dev-server/NucleateDevelopmentServerService.js";
 import { FileSyncService } from "../FileSyncService.js";
 import { SandboxService } from "../SandboxService.js";
 import { SupabaseClientService } from "../SupabaseClientService.js";
@@ -23,11 +25,8 @@ import { ChatQueryHandler } from "./chat-query-handler.js";
 import { MessagePersistenceService } from "./message-handlers.js";
 import { ChatProvider, isAllowedModel } from "./model-providers.js";
 import { ToolPermissionService } from "./tool-permission-service.js";
-import { NucleateDevelopmentServerService } from "../dev-server/NucleateDevelopmentServerService.js";
 
 const CHAT_HEARTBEAT_INTERVAL_MS = 15000;
-// FLAG!
-const ENABLE_DESIGN_AGENT_ON_FIRST_MESSAGE = false;
 
 interface CodeSessionState {
   sessionId: string | null;
@@ -51,12 +50,14 @@ export class ChatService {
   private readonly workDir: string;
   private readonly allowedRoot: string;
   private readonly logger: SystemLogger;
+  private readonly supabaseClientService: SupabaseClientService;
   private readonly fastifyApp: FastifyInstance;
   private readonly fileSyncService: FileSyncService;
   private readonly toolPermissionService: ToolPermissionService;
   private readonly messagePersistenceService: MessagePersistenceService;
   private readonly chatQueryHandler: ChatQueryHandler;
   private readonly vercelChatQueryHandler: VercelChatQueryHandler;
+  private featureFlags: FeatureFlags = { ...DEFAULT_FLAGS };
   private sessionState: CodeSessionState = {
     sessionId: null,
     prototypeChatSessionId: null,
@@ -88,6 +89,7 @@ export class ChatService {
     this.allowedRoot = path.resolve("/tmp/materialize-dev-server");
     this.fastifyApp = fastifyApp;
     this.logger = logger.child({ service: "CodeService" });
+    this.supabaseClientService = supabaseClientService;
     this.fileSyncService = fileSyncService;
     this.toolPermissionService = new ToolPermissionService(
       this.allowedRoot,
@@ -110,7 +112,7 @@ export class ChatService {
       sandboxService,
       devServerService,
       terminalService,
-      ENABLE_DESIGN_AGENT_ON_FIRST_MESSAGE,
+      this.featureFlags.ENABLE_DESIGN_AGENT_ON_FIRST_MESSAGE,
       () => this.getAak(),
     );
     try {
@@ -123,7 +125,7 @@ export class ChatService {
         sandboxService,
         devServerService,
         terminalService,
-        ENABLE_DESIGN_AGENT_ON_FIRST_MESSAGE,
+        this.featureFlags.ENABLE_DESIGN_AGENT_ON_FIRST_MESSAGE,
       );
     } catch (error) {
       this.logger.error(
@@ -139,12 +141,63 @@ export class ChatService {
       allowedRoot: this.allowedRoot,
     });
 
+    void this.refreshFeatureFlagsFromSupabase();
+
     const normalizedWorkDir = path.resolve(this.workDir);
     if (!this.isPathInsideAllowedRoot(normalizedWorkDir)) {
       this.logger.warn("WorkDir is outside the allowed root for Claude Code", {
         workDir: normalizedWorkDir,
         allowedRoot: this.allowedRoot,
       });
+    }
+  }
+
+  private async refreshFeatureFlagsFromSupabase(): Promise<void> {
+    try {
+      const { data, error } = await this.supabaseClientService
+        .getClient()
+        .from("flags")
+        .select("flag_name, is_enabled");
+
+      if (error) {
+        this.logger.warn(
+          "Failed to load feature flags from Supabase - using defaults",
+          { error },
+        );
+        return;
+      }
+
+      if (!data) {
+        return;
+      }
+
+      const updatedFlags: FeatureFlags = { ...this.featureFlags };
+      for (const row of data) {
+        const flagName = row.flag_name as FlagName;
+        if (
+          flagName in updatedFlags &&
+          typeof row.is_enabled === "boolean"
+        ) {
+          updatedFlags[flagName] = row.is_enabled;
+        }
+      }
+
+      this.featureFlags = updatedFlags;
+      this.chatQueryHandler.setEnableDesignAgentOnFirstMessage(
+        updatedFlags.ENABLE_DESIGN_AGENT_ON_FIRST_MESSAGE,
+      );
+      this.vercelChatQueryHandler.setEnableDesignAgentOnFirstMessage(
+        updatedFlags.ENABLE_DESIGN_AGENT_ON_FIRST_MESSAGE,
+      );
+
+      this.logger.consoleLogDevOnly("info", "Feature flags refreshed", {
+        featureFlags: this.featureFlags,
+      });
+    } catch (error) {
+      this.logger.warn(
+        "Unexpected error refreshing feature flags from Supabase",
+        { error },
+      );
     }
   }
 
@@ -198,7 +251,7 @@ export class ChatService {
 
   private handleWebSocketConnection(
     socket: WebSocket,
-    req: FastifyRequest<{ Params: { prototypeId: string } }>,
+    req: FastifyRequest<{ Params: { prototypeId: string; }; }>,
   ): void {
     const { prototypeId } = req.params;
     const connectionId = `${prototypeId}-${Date.now()}`;
@@ -372,7 +425,8 @@ export class ChatService {
       prototypeId,
       handler: provider === "vercel" ? "vercel" : "claude",
       hasPrototypeChatSessionId: !!this.sessionState.prototypeChatSessionId,
-      enableDesignAgentOnFirstMessage: true,
+      enableDesignAgentOnFirstMessage:
+        this.featureFlags.ENABLE_DESIGN_AGENT_ON_FIRST_MESSAGE,
       sessionId: this.sessionState.sessionId,
     });
 
@@ -421,7 +475,7 @@ export class ChatService {
         uploadChatImages: async (
           prototypeId: string,
           chatSessionId: string,
-          images: Array<{ base64: string; mediaType: string }>,
+          images: Array<{ base64: string; mediaType: string; }>,
         ) => {
           return await this.messagePersistenceService.uploadChatImages(
             prototypeId,
@@ -461,7 +515,7 @@ export class ChatService {
     let historyContext = "";
     if (historical_messages.length > 0) {
       const formattedMessages = historical_messages
-        .map((msg: { role: string; content: string }) => {
+        .map((msg: { role: string; content: string; }) => {
           const role = msg.role === "user" ? "User" : "Assistant";
           return `${role}: ${msg.content}`;
         })
