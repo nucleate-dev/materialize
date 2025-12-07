@@ -6,7 +6,8 @@ export function isEditableDevServer(status: BuildStatus | null): boolean {
     status === 'creating' ||
     status === 'stable' ||
     status === 'error' ||
-    status === 'chatting'
+    status === 'chatting' ||
+    status === 'building'
   );
 }
 
@@ -19,5 +20,5 @@ export function isDispatchInProgress(status: BuildStatus | null): boolean {
 export function isDevServerInShutdownStages(
   status: BuildStatus | null,
 ): boolean {
-  return status === 'cleaning' || status === 'building';
+  return status === 'cleaning';
 }
