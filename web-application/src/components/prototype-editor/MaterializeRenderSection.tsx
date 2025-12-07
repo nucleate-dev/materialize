@@ -55,7 +55,6 @@ import { IsUserPlanSubscribed } from "@/lib/utils/payments/SubscriptionManagemen
 import {
   Check,
   ChevronDown,
-  Code2,
   Copy,
   Download,
   Eye,
@@ -69,10 +68,13 @@ import {
   Share2,
   KeyRound,
   Smartphone,
-  Terminal as TerminalIcon, X,
+  Terminal as TerminalIcon,
+  X,
   Plus,
   Zap,
-  Trash2
+  Trash2,
+  Pencil,
+  Code2,
 } from "lucide-react";
 import dynamic from "next/dynamic";
 import React, {
@@ -282,9 +284,15 @@ const MaterializeRenderSection = forwardRef<
     const [envVars, setEnvVars] = useState<PrototypeEnvVar[]>([]);
     const [isLoadingEnvVars, setIsLoadingEnvVars] = useState(false);
     const [isSavingEnvVar, setIsSavingEnvVar] = useState(false);
-    const [editingEnvVars, setEditingEnvVars] = useState<Set<string>>(new Set());
-    const [updatingEnvVarIds, setUpdatingEnvVarIds] = useState<Set<string>>(new Set());
-    const [deletingEnvVarIds, setDeletingEnvVarIds] = useState<Set<string>>(new Set());
+    const [editingEnvVars, setEditingEnvVars] = useState<Set<string>>(
+      new Set(),
+    );
+    const [updatingEnvVarIds, setUpdatingEnvVarIds] = useState<Set<string>>(
+      new Set(),
+    );
+    const [deletingEnvVarIds, setDeletingEnvVarIds] = useState<Set<string>>(
+      new Set(),
+    );
     const [envVarFormError, setEnvVarFormError] = useState<string | null>(null);
     const [newEnvVarInputs, setNewEnvVarInputs] = useState<NewEnvVarInput[]>([
       { id: crypto.randomUUID(), name: "", value: "", visibility: "client" },
@@ -660,58 +668,67 @@ const MaterializeRenderSection = forwardRef<
       if (!open) {
         setEnvVarFormError(null);
         setNewEnvVarInputs([
-          { id: crypto.randomUUID(), name: "", value: "", visibility: "client" },
+          {
+            id: crypto.randomUUID(),
+            name: "",
+            value: "",
+            visibility: "client",
+          },
         ]);
       }
     };
 
-    const refetchEnvVarsOnDevServer = useCallback(async (): Promise<boolean> => {
-      if (!sandbox_url || !prototypeId) {
-        return false;
-      }
-
-      setIsSyncingEnvFile(true);
-      try {
-        const session = await supabase.auth.getSession();
-        const token = session.data.session?.access_token;
-        if (!token) {
-          toast.error("Sign in again to sync environment variables.");
+    const refetchEnvVarsOnDevServer =
+      useCallback(async (): Promise<boolean> => {
+        if (!sandbox_url || !prototypeId) {
           return false;
         }
 
-        const response = await fetch(`${sandbox_url}/dev-server/refetch-env`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({ prototype_id: prototypeId }),
-        });
+        setIsSyncingEnvFile(true);
+        try {
+          const session = await supabase.auth.getSession();
+          const token = session.data.session?.access_token;
+          if (!token) {
+            toast.error("Sign in again to sync environment variables.");
+            return false;
+          }
 
-        const result: APIResponse<
-          { env_var_count: number; message: string },
-          StandardErrorResponse
-        > = await response.json().catch(() => ({ data: null, error: null }));
+          const response = await fetch(
+            `${sandbox_url}/dev-server/refetch-env`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${token}`,
+              },
+              body: JSON.stringify({ prototype_id: prototypeId }),
+            },
+          );
 
-        if (!response.ok || result.error) {
-          const message =
-            result.error?.message ?? "Failed to refresh dev server env vars";
-          throw new Error(message);
+          const result: APIResponse<
+            { env_var_count: number; message: string },
+            StandardErrorResponse
+          > = await response.json().catch(() => ({ data: null, error: null }));
+
+          if (!response.ok || result.error) {
+            const message =
+              result.error?.message ?? "Failed to refresh dev server env vars";
+            throw new Error(message);
+          }
+
+          toast.success("Dev server environment updated");
+          return true;
+        } catch (error) {
+          logger.debug("error", "Failed to refresh dev server env vars", {
+            error: error instanceof Error ? error.message : String(error),
+            sandbox_url,
+          });
+          toast.error("Unable to refresh dev server env vars");
+          return false;
+        } finally {
+          setIsSyncingEnvFile(false);
         }
-
-        toast.success("Dev server environment updated");
-        return true;
-      } catch (error) {
-        logger.debug("error", "Failed to refresh dev server env vars", {
-          error: error instanceof Error ? error.message : String(error),
-          sandbox_url,
-        });
-        toast.error("Unable to refresh dev server env vars");
-        return false;
-      } finally {
-        setIsSyncingEnvFile(false);
-      }
-    }, [sandbox_url, prototypeId, logger]);
+      }, [sandbox_url, prototypeId, logger]);
 
     const handleUpdateEnvVar = useCallback(
       async (envVarId: string, newValue: string) => {
@@ -734,7 +751,7 @@ const MaterializeRenderSection = forwardRef<
 
           if (error) {
             toast.error(error.message);
-            return;
+            throw new Error(error.message);
           }
 
           // Update local state
@@ -762,7 +779,9 @@ const MaterializeRenderSection = forwardRef<
             error: error instanceof Error ? error.message : String(error),
             envVarId,
           });
-          toast.error("Unable to update environment variable");
+          if (error instanceof Error && !error.message.includes("prototype_env_vars")) {
+            toast.error("Unable to update environment variable");
+          }
         } finally {
           setUpdatingEnvVarIds((prev) => {
             const updated = new Set(prev);
@@ -799,7 +818,7 @@ const MaterializeRenderSection = forwardRef<
 
           if (error) {
             toast.error(error.message);
-            return;
+            throw new Error(error.message);
           }
 
           // Update local state
@@ -815,7 +834,9 @@ const MaterializeRenderSection = forwardRef<
             error: error instanceof Error ? error.message : String(error),
             envVarId,
           });
-          toast.error("Unable to delete environment variable");
+          if (error instanceof Error && !error.message.includes("prototype_env_vars")) {
+            toast.error("Unable to delete environment variable");
+          }
         } finally {
           setDeletingEnvVarIds((prev) => {
             const updated = new Set(prev);
@@ -847,12 +868,38 @@ const MaterializeRenderSection = forwardRef<
       for (const input of validInputs) {
         const normalizedName = normalizeEnvVarNameInput(input.name);
         if (!normalizedName) {
-          setEnvVarFormError(`Environment variable name is required for all entries`);
+          setEnvVarFormError(
+            `Environment variable name is required for all entries`,
+          );
           return;
         }
 
         if (!input.value.trim()) {
           setEnvVarFormError(`Value is required for ${input.name}`);
+          return;
+        }
+
+        // Check for duplicates with existing environment variables
+        const finalName =
+          input.visibility === "client"
+            ? `EXPO_PUBLIC_${normalizedName}`
+            : normalizedName;
+
+        // Get the original names from the database (before stripping the prefix for display)
+        // In fetchEnvVars, we strip EXPO_PUBLIC_ from all names for display
+        // So we need to reconstruct the original database name
+        const existingNames = envVars.map((envVar) => {
+          // If it's a public variable, the original name in DB has EXPO_PUBLIC_ prefix
+          if (envVar.is_public) {
+            return `EXPO_PUBLIC_${envVar.name}`;
+          }
+          return envVar.name;
+        });
+
+        if (existingNames.includes(finalName)) {
+          setEnvVarFormError(
+            `Environment variable "${input.visibility === "client" ? `EXPO_PUBLIC_${normalizedName}` : normalizedName}" already exists. Please edit the existing variable instead.`,
+          );
           return;
         }
       }
@@ -888,7 +935,12 @@ const MaterializeRenderSection = forwardRef<
 
         await fetchEnvVars();
         setNewEnvVarInputs([
-          { id: crypto.randomUUID(), name: "", value: "", visibility: "client" },
+          {
+            id: crypto.randomUUID(),
+            name: "",
+            value: "",
+            visibility: "client",
+          },
         ]);
         toast.success(
           `${validInputs.length} environment variable${validInputs.length > 1 ? "s" : ""} added`,
@@ -911,6 +963,7 @@ const MaterializeRenderSection = forwardRef<
     }, [
       prototypeId,
       newEnvVarInputs,
+      envVars,
       supabase,
       fetchEnvVars,
       sandbox_url,
@@ -2050,7 +2103,9 @@ const MaterializeRenderSection = forwardRef<
                               variant="ghost"
                               size="sm"
                               className="h-8 px-3 text-xs"
-                              disabled={!canSyncEnvToDevServer || isSyncingEnvFile}
+                              disabled={
+                                !canSyncEnvToDevServer || isSyncingEnvFile
+                              }
                               onClick={() => {
                                 void refetchEnvVarsOnDevServer();
                               }}
@@ -2107,6 +2162,7 @@ const MaterializeRenderSection = forwardRef<
                               {isEditing ? (
                                 <div className="flex items-center gap-2">
                                   <Input
+                                    id={`env-var-input-${envVar.id}`}
                                     defaultValue={envVar.secret_value ?? ""}
                                     onKeyDown={(e) => {
                                       if (e.key === "Enter") {
@@ -2131,11 +2187,10 @@ const MaterializeRenderSection = forwardRef<
                                     variant="ghost"
                                     size="icon"
                                     className="h-7 w-7 hover:bg-emerald-500/20 hover:text-emerald-400 text-emerald-500/70"
-                                    onClick={(e) => {
-                                      const input =
-                                        e.currentTarget.parentElement?.querySelector(
-                                          "input",
-                                        );
+                                    onClick={() => {
+                                      const input = document.getElementById(
+                                        `env-var-input-${envVar.id}`,
+                                      ) as HTMLInputElement | null;
                                       if (input) {
                                         void handleUpdateEnvVar(
                                           envVar.id ?? "",
@@ -2197,7 +2252,9 @@ const MaterializeRenderSection = forwardRef<
                                             navigator.clipboard.writeText(
                                               envVar.secret_value ?? "",
                                             );
-                                            toast.success("Secret value copied");
+                                            toast.success(
+                                              "Secret value copied",
+                                            );
                                           }}
                                           disabled={isDeleting}
                                         >
@@ -2218,12 +2275,14 @@ const MaterializeRenderSection = forwardRef<
                                           className="h-7 w-7 text-muted-foreground hover:text-foreground hover:bg-accent"
                                           onClick={() => {
                                             setEditingEnvVars((prev) =>
-                                              new Set(prev).add(envVar.id ?? ""),
+                                              new Set(prev).add(
+                                                envVar.id ?? "",
+                                              ),
                                             );
                                           }}
                                           disabled={isDeleting}
                                         >
-                                          <Code2 className="w-3.5 h-3.5" />
+                                          <Pencil className="w-3.5 h-3.5" />
                                         </Button>
                                       </TooltipTrigger>
                                       <TooltipContent>
@@ -2345,7 +2404,9 @@ const MaterializeRenderSection = forwardRef<
                         value={input.visibility}
                         onValueChange={(value) => {
                           const updated = [...newEnvVarInputs];
-                          updated[index].visibility = value as "client" | "backend";
+                          updated[index].visibility = value as
+                            | "client"
+                            | "backend";
                           setNewEnvVarInputs(updated);
                         }}
                         disabled={isSavingEnvVar}
@@ -2384,8 +2445,8 @@ const MaterializeRenderSection = forwardRef<
                   </Button>
 
                   <p className="text-[11px] text-muted-foreground">
-                    Client variables are prefixed with EXPO_PUBLIC_ and exposed in your build.
-                    Backend variables stay on the server.
+                    Client variables are prefixed with EXPO_PUBLIC_ and exposed
+                    in your build. Backend variables stay on the server.
                   </p>
                 </div>
 
