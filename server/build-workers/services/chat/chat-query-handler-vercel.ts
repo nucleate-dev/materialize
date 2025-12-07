@@ -89,9 +89,9 @@ interface MessageHandlers {
   uploadChatImages: (
     prototypeId: string,
     chatSessionId: string,
-    images: Array<{ base64: string; mediaType: string; }>,
+    images: Array<{ base64: string; mediaType: string }>,
   ) => Promise<
-    Array<{ storage_path: string; media_type: string; file_size: number; }>
+    Array<{ storage_path: string; media_type: string; file_size: number }>
   >;
   updatePersistenceClient?: (client: unknown) => void;
   notifyOrchestrationStartChat: (prototypeId: string) => Promise<void>;
@@ -247,9 +247,9 @@ export class VercelChatQueryHandler {
             ? content
             : Array.isArray(content)
               ? content
-                .filter((block) => block.type === "text")
-                .map((block) => block.text || "")
-                .join("\n")
+                  .filter((block) => block.type === "text")
+                  .map((block) => block.text || "")
+                  .join("\n")
               : prompt || "";
 
         if (userMessageText) {
@@ -380,7 +380,7 @@ export class VercelChatQueryHandler {
     const finalSystemPrompt = designSystemResult.systemPrompt;
 
     // Invalidate build before chat starts
-    this.devServerService.developmentServerState.buildIsValid = false;
+    this.devServerService.developmentServerState.lastUpdatedTime = new Date();
 
     await handlers.notifyOrchestrationStartChat(prototypeId);
 
@@ -412,7 +412,7 @@ export class VercelChatQueryHandler {
       });
     } finally {
       // Invalidate build after chat ends
-      this.devServerService.developmentServerState.buildIsValid = false;
+      this.devServerService.developmentServerState.lastUpdatedTime = new Date();
 
       await handlers.notifyOrchestrationEndChat(prototypeId);
     }
@@ -643,7 +643,7 @@ export class VercelChatQueryHandler {
     userMessage: string,
     abortController: AbortController,
     _systemPrompt: string,
-  ): Promise<{ designSpec: string | null; costUsd: number | undefined; }> {
+  ): Promise<{ designSpec: string | null; costUsd: number | undefined }> {
     // Use Gemini by default for design agent (fast and free)
     const provider: DesignAgentProvider = "google";
     const model = DEFAULT_DESIGN_AGENT_MODELS[provider];
@@ -884,7 +884,7 @@ export class VercelChatQueryHandler {
 
   private extractImagesFromContent(
     messageContent: string | ChatContentBlock[],
-  ): Array<{ base64: string; mediaType: string; }> {
+  ): Array<{ base64: string; mediaType: string }> {
     if (typeof messageContent === "string" || !Array.isArray(messageContent)) {
       return [];
     }
@@ -907,8 +907,8 @@ export class VercelChatQueryHandler {
   private async persistUserMessage(
     messageContent:
       | string
-      | Array<{ type: string; text?: string; source?: unknown; }>,
-    imagesFromContent: Array<{ base64: string; mediaType: string; }>,
+      | Array<{ type: string; text?: string; source?: unknown }>,
+    imagesFromContent: Array<{ base64: string; mediaType: string }>,
     imageMetadata: Array<{
       storage_path: string;
       media_type: string;
@@ -921,9 +921,9 @@ export class VercelChatQueryHandler {
       typeof messageContent === "string"
         ? messageContent
         : messageContent
-          .filter((block) => block.type === "text")
-          .map((block) => block.text || "")
-          .join("\n");
+            .filter((block) => block.type === "text")
+            .map((block) => block.text || "")
+            .join("\n");
 
     await persistMessage(
       "user",
@@ -940,7 +940,7 @@ export class VercelChatQueryHandler {
 
   private toAiContentParts(
     messageContent: string | ChatContentBlock[],
-  ): Array<{ type: "text"; text: string; }> {
+  ): Array<{ type: "text"; text: string }> {
     if (typeof messageContent === "string") {
       return [{ type: "text", text: messageContent }];
     }
@@ -963,10 +963,10 @@ export class VercelChatQueryHandler {
     model: string,
     usage:
       | {
-        promptTokens?: number;
-        completionTokens?: number;
-        totalTokens?: number;
-      }
+          promptTokens?: number;
+          completionTokens?: number;
+          totalTokens?: number;
+        }
       | undefined,
   ): number | undefined {
     if (!usage) return undefined;
@@ -990,7 +990,7 @@ export class VercelChatQueryHandler {
   private async executeSandboxCommand(
     command: string,
     args: string[],
-  ): Promise<{ stdout: string; isError: boolean; }> {
+  ): Promise<{ stdout: string; isError: boolean }> {
     const permission = this.toolPermissionService.evaluateToolPermission(
       "Bash",
       {
@@ -1042,7 +1042,7 @@ export class VercelChatQueryHandler {
     filePath: string,
     content: string,
     sessionState: CodeSessionState,
-  ): Promise<{ success: boolean; bytesWritten?: number; error?: string; }> {
+  ): Promise<{ success: boolean; bytesWritten?: number; error?: string }> {
     const permission = this.toolPermissionService.evaluateToolPermission(
       "Write",
       {

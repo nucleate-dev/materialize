@@ -23,7 +23,7 @@ export async function handleCleanup(
   const state = developmentServerService.developmentServerState;
 
   // 1. Check if build is valid (check state). If it is valid, then:
-  if (state.buildIsValid) {
+  if (state.buildStartTime >= state.lastUpdatedTime && !state.isBuilding) {
     request.log2.consoleLogDevOnly(
       "info",
       "Build is valid, stopping dev server and uploading files",
@@ -135,7 +135,7 @@ async function triggerBackgroundDevServerBuildAndUploadToS3(
     log2.error(buildResult.error, "Build failed");
     throw new Error(buildResult.error.message);
   }
-  developmentServerService.developmentServerState.buildIsValid = true;
+  developmentServerService.developmentServerState.lastUpdatedTime = new Date();
   log2.consoleLogDevOnly("info", "Build completed successfully");
 
   // 3. Upload the build to S3

@@ -472,7 +472,7 @@ export class ChatQueryHandler {
     }
 
     // Step 7: Invalidate build before chat starts
-    this.devServerService.developmentServerState.buildIsValid = false;
+    this.devServerService.developmentServerState.lastUpdatedTime = new Date();
 
     // Step 8: Notify orchestration that chat is starting
     await handlers.notifyOrchestrationStartChat(prototypeId);
@@ -509,7 +509,7 @@ export class ChatQueryHandler {
       );
 
       // Step 12: Invalidate build after chat ends
-      this.devServerService.developmentServerState.buildIsValid = false;
+      this.devServerService.developmentServerState.lastUpdatedTime = new Date();
 
       // Step 13: Always notify orchestration that chat has ended
       await handlers.notifyOrchestrationEndChat(prototypeId);
