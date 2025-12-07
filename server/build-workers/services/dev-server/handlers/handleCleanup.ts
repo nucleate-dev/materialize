@@ -29,20 +29,7 @@ export async function handleCleanup(
       "Build is valid, stopping dev server and uploading files",
     );
 
-    // 1.1. Stop the dev server
-    try {
-      await developmentServerService.developmentServerAdapter.stopDevServer(
-        request.log2,
-      );
-      developmentServerService.developmentServerState.devServerStatus =
-        DevServerStatus.STOPPED;
-      request.log2.consoleLogDevOnly("info", "Dev server stopped successfully");
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
-      request.log2.error(new Error(errorMessage), "Failed to stop dev server");
-    }
-
+    // 1.1. Kill the cloudflare tunnel
     try {
       await developmentServerService.cloudflareTunnelManagementService.killTunnel();
       request.log2.consoleLogDevOnly(
@@ -58,7 +45,21 @@ export async function handleCleanup(
       );
     }
 
-    // 1.4. Return a success response
+    // 1.2 Stop the dev server
+    try {
+      await developmentServerService.developmentServerAdapter.stopDevServer(
+        request.log2,
+      );
+      developmentServerService.developmentServerState.devServerStatus =
+        DevServerStatus.STOPPED;
+      request.log2.consoleLogDevOnly("info", "Dev server stopped successfully");
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      request.log2.error(new Error(errorMessage), "Failed to stop dev server");
+    }
+
+    // 1.3. Return a success response
     reply.code(HTTP_STATUS.OK);
     return {
       data: {
