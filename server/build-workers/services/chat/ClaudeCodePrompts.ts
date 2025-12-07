@@ -85,10 +85,9 @@ Return a structured Markdown design spec. It must contain ONLY these sections:
 
 ### METADATA
 Scope: app | screen | component | other
-addToProjectContext: true | false
 isMasterDesignSpec: true | false
 
-(Set \`addToProjectContext\` to \`true\` if this covers the whole app. Set \`isMasterDesignSpec\` to \`true\` if this is the foundational blueprint.)
+(Set \`isMasterDesignSpec\` to \`true\` if this is the foundational blueprint.)
 
 ### INPUT:
 Wait for me to give you the App Idea.

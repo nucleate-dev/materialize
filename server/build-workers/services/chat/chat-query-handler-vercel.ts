@@ -2,10 +2,10 @@ import { google } from "@ai-sdk/google";
 import { openai } from "@ai-sdk/openai";
 import type { Options } from "@anthropic-ai/claude-agent-sdk";
 import { streamText, type LanguageModel } from "ai";
-import fs from "fs/promises";
 import path from "path";
 import WebSocket from "ws";
 import { SystemLogger } from "../../loggers/SystemLogger.js";
+import { DevServerStatus } from "../../types/BuildWorkerTypes.js";
 import {
   ChatContentBlock,
   ChatEvent,
@@ -13,6 +13,7 @@ import {
   ChatServerMessage,
 } from "../../types/ChatTypes.js";
 import { Database } from "../../types/supabase.js";
+import { NucleateDevelopmentServerService } from "../dev-server/NucleateDevelopmentServerService.js";
 import { FileSyncService } from "../FileSyncService.js";
 import { SandboxService } from "../SandboxService.js";
 import { SupabaseClientService } from "../SupabaseClientService.js";
@@ -26,6 +27,7 @@ import { hasRemainingCredits } from "./credit-checks.js";
 import {
   DEFAULT_DESIGN_AGENT_MODELS,
   executeDesignAgent,
+  persistDesignSpecToFiles,
   type DesignAgentProvider,
 } from "./design-agent-service.js";
 import { classifyDesignIntent } from "./design-intent-classifier.js";
@@ -33,8 +35,6 @@ import { createVercelDevTools } from "./mcp-dev-tools-vercel.js";
 import { ALLOWED_MODELS, ChatProvider } from "./model-providers.js";
 import { ToolPermissionService } from "./tool-permission-service.js";
 import { trackApiUsageBuildWorker } from "./usage-tracking.js";
-import { NucleateDevelopmentServerService } from "../dev-server/NucleateDevelopmentServerService.js";
-import { DevServerStatus } from "../../types/BuildWorkerTypes.js";
 
 interface CodeSessionState {
   sessionId: string | null;
@@ -62,7 +62,6 @@ interface DesignSystemResult {
 
 interface DesignAgentMetadata {
   scope: "app" | "screen" | "component" | "other" | "unknown";
-  addToProjectContext: boolean;
   isMasterDesignSpec: boolean;
 }
 
@@ -90,9 +89,9 @@ interface MessageHandlers {
   uploadChatImages: (
     prototypeId: string,
     chatSessionId: string,
-    images: Array<{ base64: string; mediaType: string }>,
+    images: Array<{ base64: string; mediaType: string; }>,
   ) => Promise<
-    Array<{ storage_path: string; media_type: string; file_size: number }>
+    Array<{ storage_path: string; media_type: string; file_size: number; }>
   >;
   updatePersistenceClient?: (client: unknown) => void;
   notifyOrchestrationStartChat: (prototypeId: string) => Promise<void>;
@@ -248,9 +247,9 @@ export class VercelChatQueryHandler {
             ? content
             : Array.isArray(content)
               ? content
-                  .filter((block) => block.type === "text")
-                  .map((block) => block.text || "")
-                  .join("\n")
+                .filter((block) => block.type === "text")
+                .map((block) => block.text || "")
+                .join("\n")
               : prompt || "";
 
         if (userMessageText) {
@@ -331,57 +330,33 @@ export class VercelChatQueryHandler {
               designSpec = parsed.spec;
               designMetadata = parsed.metadata;
 
-              if (parsed.metadata.addToProjectContext) {
-                // Write design spec to CLAUDE.md in the project directory
-                // This allows the AI SDK to read it as project context
-                try {
-                  const claudeMdPath = path.join(this.workDir, "CLAUDE.md");
-                  await fs.writeFile(claudeMdPath, designSpec, "utf-8");
+              // Write design spec to CLAUDE.md in the project directory
+              // This allows the AI SDK to read it as project context
+              await persistDesignSpecToFiles(
+                this.workDir,
+                designSpec,
+                this.logger,
+                prototypeId,
+              );
 
-                  this.logger.consoleLogDevOnly(
-                    "info",
-                    "Wrote design specification to CLAUDE.md",
-                    {
-                      prototypeId,
-                      specLength: designSpec.length,
-                      path: claudeMdPath,
-                    },
-                  );
-                } catch (writeError) {
-                  this.logger.error(
-                    writeError instanceof Error
-                      ? writeError
-                      : new Error(String(writeError)),
-                    "Failed to write design specification to CLAUDE.md",
-                    { prototypeId },
-                  );
-                }
+              // Also store in database for backup/reference
+              const { error: updateError } = await this.supabaseClientService
+                .getClient()
+                .from("prototypes")
+                .update({ project_context: designSpec })
+                .eq("id", prototypeId);
 
-                // Also store in database for backup/reference
-                const { error: updateError } = await this.supabaseClientService
-                  .getClient()
-                  .from("prototypes")
-                  .update({ project_context: designSpec })
-                  .eq("id", prototypeId);
-
-                if (updateError) {
-                  this.logger.error(
-                    updateError,
-                    "Failed to store design specification in project_context",
-                    { prototypeId },
-                  );
-                } else {
-                  this.logger.consoleLogDevOnly(
-                    "info",
-                    "Stored design specification in project_context database",
-                    { prototypeId, specLength: designSpec.length },
-                  );
-                }
+              if (updateError) {
+                this.logger.error(
+                  updateError,
+                  "Failed to store design specification in project_context",
+                  { prototypeId },
+                );
               } else {
                 this.logger.consoleLogDevOnly(
                   "info",
-                  "Skipping CLAUDE.md write for narrow scope design spec",
-                  { prototypeId },
+                  "Stored design specification in project_context database",
+                  { prototypeId, specLength: designSpec.length },
                 );
               }
             }
@@ -668,7 +643,7 @@ export class VercelChatQueryHandler {
     userMessage: string,
     abortController: AbortController,
     _systemPrompt: string,
-  ): Promise<{ designSpec: string | null; costUsd: number | undefined }> {
+  ): Promise<{ designSpec: string | null; costUsd: number | undefined; }> {
     // Use Gemini by default for design agent (fast and free)
     const provider: DesignAgentProvider = "google";
     const model = DEFAULT_DESIGN_AGENT_MODELS[provider];
@@ -696,7 +671,6 @@ export class VercelChatQueryHandler {
   } {
     const defaultMetadata: DesignAgentMetadata = {
       scope: "unknown",
-      addToProjectContext: false,
       isMasterDesignSpec: false,
     };
 
@@ -732,8 +706,6 @@ export class VercelChatQueryHandler {
         else if (value === "screen") metadata.scope = "screen";
         else if (value === "component") metadata.scope = "component";
         else if (value === "other") metadata.scope = "other";
-      } else if (key === "addtoprojectcontext") {
-        metadata.addToProjectContext = value === "true";
       } else if (key === "ismasterdesignspec") {
         metadata.isMasterDesignSpec = value === "true";
       }
@@ -793,7 +765,6 @@ export class VercelChatQueryHandler {
         designMetadata ??
         ({
           scope: "unknown",
-          addToProjectContext: false,
           isMasterDesignSpec: false,
         } as DesignAgentMetadata);
       const isAppLevel = metadata.scope === "app";
@@ -809,7 +780,7 @@ export class VercelChatQueryHandler {
           runDesignAgent: true,
           isAppLevel,
           isNarrowBuild,
-          persistToProjectContext: metadata.addToProjectContext,
+          persistToProjectContext: true,
           isMasterDesignSpec: metadata.isMasterDesignSpec,
           scope: metadata.scope,
         },
@@ -913,7 +884,7 @@ export class VercelChatQueryHandler {
 
   private extractImagesFromContent(
     messageContent: string | ChatContentBlock[],
-  ): Array<{ base64: string; mediaType: string }> {
+  ): Array<{ base64: string; mediaType: string; }> {
     if (typeof messageContent === "string" || !Array.isArray(messageContent)) {
       return [];
     }
@@ -936,8 +907,8 @@ export class VercelChatQueryHandler {
   private async persistUserMessage(
     messageContent:
       | string
-      | Array<{ type: string; text?: string; source?: unknown }>,
-    imagesFromContent: Array<{ base64: string; mediaType: string }>,
+      | Array<{ type: string; text?: string; source?: unknown; }>,
+    imagesFromContent: Array<{ base64: string; mediaType: string; }>,
     imageMetadata: Array<{
       storage_path: string;
       media_type: string;
@@ -950,9 +921,9 @@ export class VercelChatQueryHandler {
       typeof messageContent === "string"
         ? messageContent
         : messageContent
-            .filter((block) => block.type === "text")
-            .map((block) => block.text || "")
-            .join("\n");
+          .filter((block) => block.type === "text")
+          .map((block) => block.text || "")
+          .join("\n");
 
     await persistMessage(
       "user",
@@ -969,7 +940,7 @@ export class VercelChatQueryHandler {
 
   private toAiContentParts(
     messageContent: string | ChatContentBlock[],
-  ): Array<{ type: "text"; text: string }> {
+  ): Array<{ type: "text"; text: string; }> {
     if (typeof messageContent === "string") {
       return [{ type: "text", text: messageContent }];
     }
@@ -992,10 +963,10 @@ export class VercelChatQueryHandler {
     model: string,
     usage:
       | {
-          promptTokens?: number;
-          completionTokens?: number;
-          totalTokens?: number;
-        }
+        promptTokens?: number;
+        completionTokens?: number;
+        totalTokens?: number;
+      }
       | undefined,
   ): number | undefined {
     if (!usage) return undefined;
@@ -1019,7 +990,7 @@ export class VercelChatQueryHandler {
   private async executeSandboxCommand(
     command: string,
     args: string[],
-  ): Promise<{ stdout: string; isError: boolean }> {
+  ): Promise<{ stdout: string; isError: boolean; }> {
     const permission = this.toolPermissionService.evaluateToolPermission(
       "Bash",
       {
@@ -1071,7 +1042,7 @@ export class VercelChatQueryHandler {
     filePath: string,
     content: string,
     sessionState: CodeSessionState,
-  ): Promise<{ success: boolean; bytesWritten?: number; error?: string }> {
+  ): Promise<{ success: boolean; bytesWritten?: number; error?: string; }> {
     const permission = this.toolPermissionService.evaluateToolPermission(
       "Write",
       {

@@ -1,6 +1,8 @@
 import { google } from "@ai-sdk/google";
 import { openai } from "@ai-sdk/openai";
 import { generateText, type LanguageModel } from "ai";
+import fs from "fs/promises";
+import path from "path";
 import { SystemLogger } from "../../loggers/SystemLogger.js";
 import { DESIGN_AGENT_PROMPT } from "./ClaudeCodePrompts.js";
 import { VERCEL_MODEL_COSTS_USD } from "./cost-calculation.js";
@@ -183,6 +185,50 @@ export async function executeDesignAgent(
     );
 
     return { designSpec: null, costUsd: undefined };
+  }
+}
+
+/**
+ * Persists the design specification to both CLAUDE.md and AGENTS.md in the working directory.
+ *
+ * @param workDir - The working directory of the project
+ * @param designSpec - The design specification content to write
+ * @param logger - System logger instance
+ * @param prototypeId - Optional prototype ID for logging context
+ */
+export async function persistDesignSpecToFiles(
+  workDir: string,
+  designSpec: string,
+  logger: SystemLogger,
+  prototypeId?: string,
+): Promise<void> {
+  try {
+    const claudeMdPath = path.join(workDir, "CLAUDE.md");
+    const agentsMdPath = path.join(workDir, "AGENTS.md");
+
+    await Promise.all([
+      fs.writeFile(claudeMdPath, designSpec, "utf-8"),
+      fs.writeFile(agentsMdPath, designSpec, "utf-8"),
+    ]);
+
+    logger.consoleLogDevOnly(
+      "info",
+      "Wrote design specification to CLAUDE.md and AGENTS.md",
+      {
+        prototypeId,
+        specLength: designSpec.length,
+        claudeMdPath,
+        agentsMdPath,
+      },
+    );
+  } catch (writeError) {
+    logger.error(
+      writeError instanceof Error
+        ? writeError
+        : new Error(String(writeError)),
+      "Failed to write design specification to CLAUDE.md and AGENTS.md",
+      { prototypeId },
+    );
   }
 }
 
