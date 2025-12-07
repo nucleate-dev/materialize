@@ -283,7 +283,7 @@ const MaterializeRenderSection = forwardRef<
     const [isSavingEnvVar, setIsSavingEnvVar] = useState(false);
     const [envVarFormError, setEnvVarFormError] = useState<string | null>(null);
     const [newEnvVarInputs, setNewEnvVarInputs] = useState<NewEnvVarInput[]>([
-      { id: crypto.randomUUID(), name: "", value: "", visibility: "backend" },
+      { id: crypto.randomUUID(), name: "", value: "", visibility: "client" },
     ]);
     const [isSyncingEnvFile, setIsSyncingEnvFile] = useState(false);
 
@@ -656,7 +656,7 @@ const MaterializeRenderSection = forwardRef<
       if (!open) {
         setEnvVarFormError(null);
         setNewEnvVarInputs([
-          { id: crypto.randomUUID(), name: "", value: "", visibility: "backend" },
+          { id: crypto.randomUUID(), name: "", value: "", visibility: "client" },
         ]);
       }
     };
@@ -770,7 +770,7 @@ const MaterializeRenderSection = forwardRef<
 
         await fetchEnvVars();
         setNewEnvVarInputs([
-          { id: crypto.randomUUID(), name: "", value: "", visibility: "backend" },
+          { id: crypto.randomUUID(), name: "", value: "", visibility: "client" },
         ]);
         toast.success(
           `${validInputs.length} environment variable${validInputs.length > 1 ? "s" : ""} added`,
@@ -2111,7 +2111,7 @@ const MaterializeRenderSection = forwardRef<
                           id: crypto.randomUUID(),
                           name: "",
                           value: "",
-                          visibility: "backend",
+                          visibility: "client",
                         },
                       ]);
                     }}
