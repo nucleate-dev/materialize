@@ -71,7 +71,8 @@ import {
   Smartphone,
   Terminal as TerminalIcon, X,
   Plus,
-  Zap
+  Zap,
+  Trash2
 } from "lucide-react";
 import dynamic from "next/dynamic";
 import React, {
@@ -281,6 +282,9 @@ const MaterializeRenderSection = forwardRef<
     const [envVars, setEnvVars] = useState<PrototypeEnvVar[]>([]);
     const [isLoadingEnvVars, setIsLoadingEnvVars] = useState(false);
     const [isSavingEnvVar, setIsSavingEnvVar] = useState(false);
+    const [editingEnvVars, setEditingEnvVars] = useState<Set<string>>(new Set());
+    const [updatingEnvVarIds, setUpdatingEnvVarIds] = useState<Set<string>>(new Set());
+    const [deletingEnvVarIds, setDeletingEnvVarIds] = useState<Set<string>>(new Set());
     const [envVarFormError, setEnvVarFormError] = useState<string | null>(null);
     const [newEnvVarInputs, setNewEnvVarInputs] = useState<NewEnvVarInput[]>([
       { id: crypto.randomUUID(), name: "", value: "", visibility: "client" },
@@ -708,6 +712,120 @@ const MaterializeRenderSection = forwardRef<
         setIsSyncingEnvFile(false);
       }
     }, [sandbox_url, prototypeId, logger]);
+
+    const handleUpdateEnvVar = useCallback(
+      async (envVarId: string, newValue: string) => {
+        if (!prototypeId) {
+          toast.error("Prototype is still initializing");
+          return;
+        }
+
+        if (!newValue.trim()) {
+          toast.error("Value cannot be empty");
+          return;
+        }
+
+        setUpdatingEnvVarIds((prev) => new Set(prev).add(envVarId));
+        try {
+          const { error } = await supabase
+            .from("prototype_env_vars")
+            .update({ secret_value: newValue })
+            .eq("id", envVarId);
+
+          if (error) {
+            toast.error(error.message);
+            return;
+          }
+
+          // Update local state
+          setEnvVars((prev) =>
+            prev.map((envVar) =>
+              envVar.id === envVarId
+                ? { ...envVar, secret_value: newValue }
+                : envVar,
+            ),
+          );
+
+          setEditingEnvVars((prev) => {
+            const updated = new Set(prev);
+            updated.delete(envVarId);
+            return updated;
+          });
+
+          toast.success("Environment variable updated");
+
+          if (sandbox_url) {
+            await refetchEnvVarsOnDevServer();
+          }
+        } catch (error) {
+          logger.debug("error", "Failed to update environment variable", {
+            error: error instanceof Error ? error.message : String(error),
+            envVarId,
+          });
+          toast.error("Unable to update environment variable");
+        } finally {
+          setUpdatingEnvVarIds((prev) => {
+            const updated = new Set(prev);
+            updated.delete(envVarId);
+            return updated;
+          });
+        }
+      },
+      [prototypeId, supabase, sandbox_url, logger, refetchEnvVarsOnDevServer],
+    );
+
+    const handleDeleteEnvVar = useCallback(
+      async (envVarId: string, envVarName: string) => {
+        if (!prototypeId) {
+          toast.error("Prototype is still initializing");
+          return;
+        }
+
+        // Confirm deletion
+        if (
+          !confirm(
+            `Are you sure you want to delete the environment variable "${envVarName}"?`,
+          )
+        ) {
+          return;
+        }
+
+        setDeletingEnvVarIds((prev) => new Set(prev).add(envVarId));
+        try {
+          const { error } = await supabase
+            .from("prototype_env_vars")
+            .delete()
+            .eq("id", envVarId);
+
+          if (error) {
+            toast.error(error.message);
+            return;
+          }
+
+          // Update local state
+          setEnvVars((prev) => prev.filter((envVar) => envVar.id !== envVarId));
+
+          toast.success("Environment variable deleted");
+
+          if (sandbox_url) {
+            await refetchEnvVarsOnDevServer();
+          }
+        } catch (error) {
+          logger.debug("error", "Failed to delete environment variable", {
+            error: error instanceof Error ? error.message : String(error),
+            envVarId,
+          });
+          toast.error("Unable to delete environment variable");
+        } finally {
+          setDeletingEnvVarIds((prev) => {
+            const updated = new Set(prev);
+            updated.delete(envVarId);
+            return updated;
+          });
+        }
+      },
+      [prototypeId, supabase, sandbox_url, logger, refetchEnvVarsOnDevServer],
+    );
 
     const handleAddEnvVars = useCallback(async () => {
       if (!prototypeId) {
@@ -1965,50 +2083,193 @@ const MaterializeRenderSection = forwardRef<
                       No environment variables yet.
                     </p>
                   ) : (
-                    envVars.map((envVar, index) => (
-                      <div
-                        key={envVar.id ?? `${envVar.name}-${index}`}
-                        className="flex flex-col gap-2 rounded-md border border-border bg-accent/40 p-3 sm:flex-row sm:items-center sm:justify-between"
-                      >
-                        <div className="space-y-1">
-                          <p className="font-mono text-xs text-foreground break-all">
-                            {envVar.is_public && (
-                              <span className="text-muted-foreground">
-                                EXPO_PUBLIC_
-                              </span>
-                            )}
-                            {envVar.name}
-                          </p>
-                          <p className="text-xs text-muted-foreground break-all">
-                            {envVar.secret_value ??
-                              "Only the owner can view this value"}
-                          </p>
+                    envVars.map((envVar, index) => {
+                      const isEditing = editingEnvVars.has(envVar.id ?? "");
+                      const isUpdating = updatingEnvVarIds.has(envVar.id ?? "");
+                      const isDeleting = deletingEnvVarIds.has(envVar.id ?? "");
+                      const canEdit = envVar.secret_value !== null;
+
+                      return (
+                        <div
+                          key={envVar.id ?? `${envVar.name}-${index}`}
+                          className="flex flex-col gap-2 rounded-md border border-border bg-accent/40 p-3"
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex-1 space-y-1">
+                              <p className="font-mono text-xs text-foreground break-all">
+                                {envVar.is_public && (
+                                  <span className="text-muted-foreground">
+                                    EXPO_PUBLIC_
+                                  </span>
+                                )}
+                                {envVar.name}
+                              </p>
+                              {isEditing ? (
+                                <div className="flex items-center gap-2">
+                                  <Input
+                                    defaultValue={envVar.secret_value ?? ""}
+                                    onKeyDown={(e) => {
+                                      if (e.key === "Enter") {
+                                        const value = e.currentTarget.value;
+                                        void handleUpdateEnvVar(
+                                          envVar.id ?? "",
+                                          value,
+                                        );
+                                      } else if (e.key === "Escape") {
+                                        setEditingEnvVars((prev) => {
+                                          const updated = new Set(prev);
+                                          updated.delete(envVar.id ?? "");
+                                          return updated;
+                                        });
+                                      }
+                                    }}
+                                    className="h-8 text-xs"
+                                    autoFocus
+                                    disabled={isUpdating}
+                                  />
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-7 w-7 hover:bg-emerald-500/20 hover:text-emerald-400 text-emerald-500/70"
+                                    onClick={(e) => {
+                                      const input =
+                                        e.currentTarget.parentElement?.querySelector(
+                                          "input",
+                                        );
+                                      if (input) {
+                                        void handleUpdateEnvVar(
+                                          envVar.id ?? "",
+                                          input.value,
+                                        );
+                                      }
+                                    }}
+                                    disabled={isUpdating}
+                                  >
+                                    {isUpdating ? (
+                                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                    ) : (
+                                      <Check className="w-3.5 h-3.5" />
+                                    )}
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-7 w-7 hover:bg-red-500/20 hover:text-red-400 text-red-500/70"
+                                    onClick={() => {
+                                      setEditingEnvVars((prev) => {
+                                        const updated = new Set(prev);
+                                        updated.delete(envVar.id ?? "");
+                                        return updated;
+                                      });
+                                    }}
+                                    disabled={isUpdating}
+                                  >
+                                    <X className="w-3.5 h-3.5" />
+                                  </Button>
+                                </div>
+                              ) : (
+                                <p className="text-xs text-muted-foreground break-all">
+                                  {envVar.secret_value === null
+                                    ? "Value not set yet"
+                                    : envVar.secret_value}
+                                </p>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Badge
+                                variant={
+                                  envVar.is_public ? "secondary" : "outline"
+                                }
+                                className="text-[10px] uppercase tracking-wide"
+                              >
+                                {envVar.is_public ? "Client" : "Backend"}
+                              </Badge>
+                              {!isEditing && canEdit && (
+                                <>
+                                  <TooltipProvider delayDuration={200}>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <Button
+                                          variant="ghost"
+                                          size="icon"
+                                          className="h-7 w-7 text-muted-foreground hover:text-foreground hover:bg-accent"
+                                          onClick={() => {
+                                            navigator.clipboard.writeText(
+                                              envVar.secret_value ?? "",
+                                            );
+                                            toast.success("Secret value copied");
+                                          }}
+                                          disabled={isDeleting}
+                                        >
+                                          <Copy className="w-3.5 h-3.5" />
+                                        </Button>
+                                      </TooltipTrigger>
+                                      <TooltipContent>
+                                        <p>Copy value</p>
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  </TooltipProvider>
+                                  <TooltipProvider delayDuration={200}>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <Button
+                                          variant="ghost"
+                                          size="icon"
+                                          className="h-7 w-7 text-muted-foreground hover:text-foreground hover:bg-accent"
+                                          onClick={() => {
+                                            setEditingEnvVars((prev) =>
+                                              new Set(prev).add(envVar.id ?? ""),
+                                            );
+                                          }}
+                                          disabled={isDeleting}
+                                        >
+                                          <Code2 className="w-3.5 h-3.5" />
+                                        </Button>
+                                      </TooltipTrigger>
+                                      <TooltipContent>
+                                        <p>Edit value</p>
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  </TooltipProvider>
+                                </>
+                              )}
+                              {!isEditing && (
+                                <TooltipProvider delayDuration={200}>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-7 w-7 text-muted-foreground hover:text-red-400 hover:bg-red-500/10"
+                                        onClick={() => {
+                                          const displayName = envVar.is_public
+                                            ? `EXPO_PUBLIC_${envVar.name}`
+                                            : envVar.name;
+                                          void handleDeleteEnvVar(
+                                            envVar.id ?? "",
+                                            displayName,
+                                          );
+                                        }}
+                                        disabled={isDeleting}
+                                      >
+                                        {isDeleting ? (
+                                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                        ) : (
+                                          <Trash2 className="w-3.5 h-3.5" />
+                                        )}
+                                      </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      <p>Delete variable</p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
+                              )}
+                            </div>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <Badge
-                            variant={envVar.is_public ? "secondary" : "outline"}
-                            className="text-[10px] uppercase tracking-wide"
-                          >
-                            {envVar.is_public ? "Client" : "Backend"}
-                          </Badge>
-                          {envVar.secret_value && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7 text-muted-foreground hover:text-foreground hover:bg-accent"
-                              onClick={() => {
-                                navigator.clipboard.writeText(
-                                  envVar.secret_value ?? "",
-                                );
-                                toast.success("Secret value copied");
-                              }}
-                            >
-                              <Copy className="w-3.5 h-3.5" />
-                            </Button>
-                          )}
-                        </div>
-                      </div>
-                    ))
+                      );
+                    })
                   )}
                 </div>
                 {areEnvSecretsHidden && !isLoadingEnvVars && (
