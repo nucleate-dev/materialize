@@ -5,6 +5,8 @@ import {
   PublicAllocateRequest,
   PublicAllocateSuccessResponse,
   PublicDevServerRestartSuccessResponse,
+  PublicDevServerRefetchEnvRequest,
+  PublicDevServerRefetchEnvSuccessResponse,
   PublicDevServerStartSuccessResponse,
   PublicDevServerStopRequest,
   PublicDevServerStopSuccessResponse,
@@ -28,6 +30,7 @@ import { IDevelopmentServerAdapter } from "./adapters/IDevelopmentServerAdapter.
 import { TerminalService } from "../terminals/TerminalService.js";
 import { ExpoReactNativeAdapter } from "./adapters/ExpoReactNativeAdapter.js";
 import { S3Client } from "@aws-sdk/client-s3";
+import { handleRefetchEnvImpl } from "./handlers/handleRefetchEnv.js";
 
 export const S3_BUCKET = process.env.S3_BUCKET || "materialize-sites";
 export const DEV_SERVER_PORT = 19006;
@@ -94,6 +97,10 @@ export class NucleateDevelopmentServerService {
     );
 
     app.post("/dev-server/restart-v2", this.restartDevServerV2.bind(this));
+    app.post<{ Body: PublicDevServerRefetchEnvRequest }>(
+      "/dev-server/refetch-env",
+      this.refetchEnvVars.bind(this),
+    );
 
     app.delete<{ Body: PublicDevServerStopRequest }>(
       "/cleanup",
@@ -160,5 +167,17 @@ export class NucleateDevelopmentServerService {
     >
   > {
     return handleRestartDevServerImpl(request, reply, this);
+  }
+
+  private async refetchEnvVars(
+    request: FastifyRequest<{ Body: PublicDevServerRefetchEnvRequest }>,
+    reply: FastifyReply,
+  ): Promise<
+    SandboxAPIResponse<
+      PublicDevServerRefetchEnvSuccessResponse,
+      StandardErrorResponse
+    >
+  > {
+    return handleRefetchEnvImpl(request, reply, this);
   }
 }

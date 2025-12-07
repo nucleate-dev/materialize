@@ -613,6 +613,44 @@ export type Database = {
           },
         ];
       };
+      prototype_env_vars: {
+        Row: {
+          created_at: string | null;
+          id: string;
+          is_public: boolean;
+          name: string;
+          prototype_id: string;
+          secret_value: string | null;
+          updated_at: string | null;
+        };
+        Insert: {
+          created_at?: string | null;
+          id?: string;
+          is_public?: boolean;
+          name: string;
+          prototype_id: string;
+          secret_value?: string | null;
+          updated_at?: string | null;
+        };
+        Update: {
+          created_at?: string | null;
+          id?: string;
+          is_public?: boolean;
+          name?: string;
+          prototype_id?: string;
+          secret_value?: string | null;
+          updated_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'prototype_env_vars_prototype_id_fkey';
+            columns: ['prototype_id'];
+            isOneToOne: false;
+            referencedRelation: 'prototypes';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       prototypes: {
         Row: {
           created_at: string | null;
@@ -819,6 +857,26 @@ export type Database = {
             columns: ['user_id'];
             isOneToOne: false;
             referencedRelation: 'users';
+          referencedColumns: ['id'];
+        },
+      ];
+    };
+      prototype_env_vars_view: {
+        Row: {
+          created_at: string | null;
+          id: string | null;
+          is_public: boolean | null;
+          name: string | null;
+          prototype_id: string | null;
+          secret_value: string | null;
+          updated_at: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'prototype_env_vars_prototype_id_fkey';
+            columns: ['prototype_id'];
+            isOneToOne: false;
+            referencedRelation: 'prototypes';
             referencedColumns: ['id'];
           },
         ];

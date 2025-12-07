@@ -105,7 +105,12 @@ export class FileSyncService {
     ".npm-cache",
     ".expo",
   ]);
-  private readonly skipFileNames = new Set([".DS_Store", ".npmrc", ".yarnrc"]);
+  private readonly skipFileNames = new Set([
+    ".DS_Store",
+    ".npmrc",
+    ".yarnrc",
+    ".env",
+  ]);
 
   constructor(
     workDir: string,

@@ -337,8 +337,17 @@ async function forkPrototype(
   }
 
   // 1. Fetch files and assets from source prototype and copy assets + s3 builds + thumbnail to new prototype
-  const [filesResult, assetsResult, s3CopyResult, thumbnailCopyResult] =
-    await Promise.all([
+  const isSourceOwner =
+    accessResult.prototype.owner_id === accessResult.user?.id ||
+    accessResult.isServiceRole;
+
+  const [
+    filesResult,
+    assetsResult,
+    s3CopyResult,
+    thumbnailCopyResult,
+    envVarResult,
+  ] = await Promise.all([
       supabase
         .from('prototype_files')
         .select('*')
@@ -358,22 +367,28 @@ async function forkPrototype(
         sourcePrototypeId,
         newPrototypeId,
       ),
+      supabase
+        .from('prototype_env_vars_view')
+        .select('name,is_public,secret_value')
+        .eq('prototype_id', sourcePrototypeId),
     ]);
   if (
     filesResult.error ||
     assetsResult.error ||
     !s3CopyResult.success ||
-    !thumbnailCopyResult.success
+    !thumbnailCopyResult.success ||
+    envVarResult.error
   ) {
     log2.error(
       filesResult.error,
-      '[forkPrototype] Failed to copy prototype storage items or fetch prototype files+assets',
+      '[forkPrototype] Failed to copy prototype storage items or fetch prototype files/assets/env vars',
     );
     throw new Error(
       filesResult.error?.message ||
       assetsResult.error?.message ||
       thumbnailCopyResult.error ||
       s3CopyResult.error ||
+      envVarResult.error?.message ||
       'Failed copy operations or fetching protototype files+assets',
     );
   }
@@ -421,6 +436,39 @@ async function forkPrototype(
       `Failed to copy prototype files or assets: ${filesInsertResult.error?.message || assetsInsertResult.error?.message
       }`,
     );
+  }
+
+  if (envVarResult.data && envVarResult.data.length > 0) {
+    const envVarPayload = envVarResult.data
+      .filter((envVar) => envVar.name)
+      .map(
+        (envVar) =>
+        ({
+          prototype_id: newPrototypeId,
+          name: envVar.name!,
+          is_public: envVar.is_public ?? false,
+          secret_value:
+            isSourceOwner && envVar.secret_value
+              ? envVar.secret_value
+              : null,
+        }) satisfies TablesInsert<'prototype_env_vars'>,
+      );
+
+    if (envVarPayload.length > 0) {
+      const { error: envInsertError } = await supabase
+        .from('prototype_env_vars')
+        .insert(envVarPayload);
+      if (envInsertError) {
+        log2.error(
+          envInsertError,
+          '[forkPrototype] Failed to copy prototype env vars',
+        );
+        throw new Error(
+          envInsertError.message ||
+          'Failed to copy prototype environment variables',
+        );
+      }
+    }
   }
   return s3CopyResult.version;
 }

@@ -169,6 +169,15 @@ export interface PublicDevServerRestartSuccessResponse {
   message?: string;
 }
 
+export interface PublicDevServerRefetchEnvRequest {
+  prototype_id: string;
+}
+
+export interface PublicDevServerRefetchEnvSuccessResponse {
+  message: string;
+  env_var_count: number;
+}
+
 export interface PublicBuildAndDeployRequest {
   prototype_id: string;
   framework: "expo_react_native" | "react";

@@ -1,6 +1,7 @@
 "use client";
 
 import { supabase } from "@/ClientConstants";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -17,6 +18,14 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Tooltip,
   TooltipContent,
@@ -58,8 +67,10 @@ import {
   RefreshCw,
   RotateCcw,
   Share2,
+  KeyRound,
   Smartphone,
   Terminal as TerminalIcon, X,
+  Plus,
   Zap
 } from "lucide-react";
 import dynamic from "next/dynamic";
@@ -136,8 +147,23 @@ const resolveIframeSrc = (baseUrl: string, path: string) => {
   }
 };
 
+const normalizeEnvVarNameInput = (value: string) => {
+  if (!value) {
+    return "";
+  }
+
+  return value
+    .trim()
+    .replace(/[^A-Za-z0-9_]/g, "_")
+    .replace(/_+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .toUpperCase();
+};
+
 type PrototypeFile = Database["public"]["Tables"]["prototype_files"]["Row"];
 type PrototypeAsset = Database["public"]["Tables"]["prototype_assets"]["Row"];
+type PrototypeEnvVar =
+  Database["public"]["Views"]["prototype_env_vars_view"]["Row"];
 
 interface MaterializeRenderSectionProps {
   viewing_url: string; // ASSUMPTION: viewing_url is always normalized with protocol (e.g., https://)
@@ -244,6 +270,17 @@ const MaterializeRenderSection = forwardRef<
 
     // QR code modal state
     const [isQRModalOpen, setIsQRModalOpen] = useState(false);
+    const [isEnvVarDialogOpen, setIsEnvVarDialogOpen] = useState(false);
+    const [envVars, setEnvVars] = useState<PrototypeEnvVar[]>([]);
+    const [isLoadingEnvVars, setIsLoadingEnvVars] = useState(false);
+    const [isSavingEnvVar, setIsSavingEnvVar] = useState(false);
+    const [envVarFormError, setEnvVarFormError] = useState<string | null>(null);
+    const [newEnvVarName, setNewEnvVarName] = useState("");
+    const [newEnvVarValue, setNewEnvVarValue] = useState("");
+    const [newEnvVarVisibility, setNewEnvVarVisibility] = useState<
+      "public" | "private"
+    >("private");
+    const [isSyncingEnvFile, setIsSyncingEnvFile] = useState(false);
 
     const nextMobileScreenId = useRef(1);
 
@@ -558,6 +595,170 @@ const MaterializeRenderSection = forwardRef<
       }),
       [forceRefresh],
     );
+
+    const fetchEnvVars = useCallback(async () => {
+      if (!prototypeId) {
+        setEnvVars([]);
+        return;
+      }
+
+      setIsLoadingEnvVars(true);
+      setEnvVarFormError(null);
+      try {
+        const { data, error } = await supabase
+          .from("prototype_env_vars_view")
+          .select("*")
+          .eq("prototype_id", prototypeId)
+          .order("name", { ascending: true });
+
+        if (error) {
+          logger.debug("error", "Failed to fetch environment variables", {
+            error: error.message,
+            prototypeId,
+          });
+          toast.error("Unable to load environment variables");
+          return;
+        }
+
+        setEnvVars(data ?? []);
+      } catch (error) {
+        logger.debug("error", "Error fetching environment variables", {
+          error: error instanceof Error ? error.message : String(error),
+          prototypeId,
+        });
+        toast.error("Unable to load environment variables");
+      } finally {
+        setIsLoadingEnvVars(false);
+      }
+    }, [prototypeId, logger]);
+
+    useEffect(() => {
+      if (isEnvVarDialogOpen) {
+        void fetchEnvVars();
+      }
+    }, [isEnvVarDialogOpen, fetchEnvVars]);
+
+    const handleEnvVarDialogChange = (open: boolean) => {
+      setIsEnvVarDialogOpen(open);
+      if (!open) {
+        setEnvVarFormError(null);
+        setNewEnvVarName("");
+        setNewEnvVarValue("");
+        setNewEnvVarVisibility("private");
+      }
+    };
+
+    const refetchEnvVarsOnDevServer = useCallback(async (): Promise<boolean> => {
+      if (!sandbox_url || !prototypeId) {
+        return false;
+      }
+
+      setIsSyncingEnvFile(true);
+      try {
+        const session = await supabase.auth.getSession();
+        const token = session.data.session?.access_token;
+        if (!token) {
+          toast.error("Sign in again to sync environment variables.");
+          return false;
+        }
+
+        const response = await fetch(`${sandbox_url}/dev-server/refetch-env`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ prototype_id: prototypeId }),
+        });
+
+        const result: APIResponse<
+          { env_var_count: number; message: string },
+          StandardErrorResponse
+        > = await response.json().catch(() => ({ data: null, error: null }));
+
+        if (!response.ok || result.error) {
+          const message =
+            result.error?.message ?? "Failed to refresh dev server env vars";
+          throw new Error(message);
+        }
+
+        toast.success("Dev server environment updated");
+        return true;
+      } catch (error) {
+        logger.debug("error", "Failed to refresh dev server env vars", {
+          error: error instanceof Error ? error.message : String(error),
+          sandbox_url,
+        });
+        toast.error("Unable to refresh dev server env vars");
+        return false;
+      } finally {
+        setIsSyncingEnvFile(false);
+      }
+    }, [sandbox_url, prototypeId, logger]);
+
+    const handleAddEnvVar = useCallback(async () => {
+      if (!prototypeId) {
+        setEnvVarFormError("Prototype is still initializing");
+        return;
+      }
+
+      const normalizedName = normalizeEnvVarNameInput(newEnvVarName);
+      if (!normalizedName) {
+        setEnvVarFormError("Environment variable name is required");
+        return;
+      }
+
+      if (!newEnvVarValue.trim()) {
+        setEnvVarFormError("Environment variable value is required");
+        return;
+      }
+
+      setIsSavingEnvVar(true);
+      setEnvVarFormError(null);
+      try {
+        const { error } = await supabase.from("prototype_env_vars").insert({
+          prototype_id: prototypeId,
+          name: normalizedName,
+          is_public: newEnvVarVisibility === "public",
+          secret_value: newEnvVarValue,
+        });
+
+        if (error) {
+          setEnvVarFormError(error.message);
+          return;
+        }
+
+        await fetchEnvVars();
+        setNewEnvVarName("");
+        setNewEnvVarValue("");
+        setNewEnvVarVisibility("private");
+        toast.success("Environment variable added");
+
+        if (sandbox_url) {
+          await refetchEnvVarsOnDevServer();
+        }
+      } catch (error) {
+        logger.debug("error", "Failed to add environment variable", {
+          error: error instanceof Error ? error.message : String(error),
+          prototypeId,
+        });
+        setEnvVarFormError(
+          error instanceof Error ? error.message : "Failed to add variable",
+        );
+      } finally {
+        setIsSavingEnvVar(false);
+      }
+    }, [
+      prototypeId,
+      newEnvVarName,
+      newEnvVarValue,
+      newEnvVarVisibility,
+      supabase,
+      fetchEnvVars,
+      sandbox_url,
+      logger,
+      refetchEnvVarsOnDevServer,
+    ]);
 
     // Function to start dev server with all files
     const handleStartDevServer = async () => {
@@ -1318,6 +1519,10 @@ const MaterializeRenderSection = forwardRef<
       );
     };
 
+    const canSyncEnvToDevServer = Boolean(sandbox_url && prototypeId);
+    const areEnvSecretsHidden =
+      envVars.length > 0 && envVars.every((envVar) => !envVar.secret_value);
+
     return (
       <div className="flex flex-col h-full bg-background">
         {/* Compact Responsive Toolbar */}
@@ -1431,6 +1636,21 @@ const MaterializeRenderSection = forwardRef<
                   <TerminalIcon className="w-3.5 h-3.5" />
                   <span className="ml-2 hidden md:inline text-xs font-medium">
                     Terminal
+                  </span>
+                </Button>
+              )}
+              {!isReadOnlyView && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setIsEnvVarDialogOpen(true)}
+                  className="h-8 bg-accent border border-border text-muted-foreground hover:text-foreground hover:border-border/80 hover:bg-accent/80 transition-all"
+                  title="Manage environment variables"
+                  disabled={!prototypeId}
+                >
+                  <KeyRound className="w-3.5 h-3.5" />
+                  <span className="ml-2 hidden md:inline text-xs font-medium">
+                    Env
                   </span>
                 </Button>
               )}
@@ -1626,6 +1846,211 @@ const MaterializeRenderSection = forwardRef<
             </div>
           </div>
         )}
+
+        {/* Environment Variables Modal */}
+        <Dialog
+          open={isEnvVarDialogOpen}
+          onOpenChange={handleEnvVarDialogChange}
+        >
+          <DialogContent className="sm:max-w-2xl bg-accent border-border text-foreground">
+            <DialogHeader>
+              <DialogTitle className="text-foreground">
+                Environment Variables
+              </DialogTitle>
+              <DialogDescription className="text-muted-foreground">
+                Securely manage values for this prototype. Secrets are only
+                visible to the owner.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-5">
+              <div className="space-y-2">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <p className="text-sm font-medium text-foreground">
+                    Existing variables
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 px-3 text-xs"
+                      onClick={() => void fetchEnvVars()}
+                      disabled={isLoadingEnvVars}
+                    >
+                      <RefreshCw
+                        className={cn(
+                          "w-3.5 h-3.5 mr-2",
+                          isLoadingEnvVars ? "animate-spin" : "",
+                        )}
+                      />
+                      Refresh
+                    </Button>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 px-3 text-xs"
+                              disabled={!canSyncEnvToDevServer || isSyncingEnvFile}
+                              onClick={() => {
+                                void refetchEnvVarsOnDevServer();
+                              }}
+                            >
+                              {isSyncingEnvFile ? (
+                                <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" />
+                              ) : (
+                                <RotateCcw className="w-3.5 h-3.5 mr-2" />
+                              )}
+                              Sync .env
+                            </Button>
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          {canSyncEnvToDevServer
+                            ? "Rewrite the .env file in the dev server workspace"
+                            : "Start the dev server to sync .env values"}
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
+                </div>
+                <div className="max-h-60 overflow-y-auto rounded-lg border border-border/70 bg-background/70 px-3 py-2 space-y-2">
+                  {isLoadingEnvVars ? (
+                    <p className="text-xs text-muted-foreground">
+                      Loading environment variables...
+                    </p>
+                  ) : envVars.length === 0 ? (
+                    <p className="text-xs text-muted-foreground">
+                      No environment variables yet.
+                    </p>
+                  ) : (
+                    envVars.map((envVar, index) => (
+                      <div
+                        key={envVar.id ?? `${envVar.name}-${index}`}
+                        className="flex flex-col gap-2 rounded-md border border-border bg-accent/40 p-3 sm:flex-row sm:items-center sm:justify-between"
+                      >
+                        <div className="space-y-1">
+                          <p className="font-mono text-xs text-foreground break-all">
+                            {envVar.name}
+                          </p>
+                          <p className="text-xs text-muted-foreground break-all">
+                            {envVar.secret_value ??
+                              "Only the owner can view this value"}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Badge
+                            variant={envVar.is_public ? "secondary" : "outline"}
+                            className="text-[10px] uppercase tracking-wide"
+                          >
+                            {envVar.is_public ? "Public" : "Private"}
+                          </Badge>
+                          {envVar.secret_value && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-muted-foreground hover:text-foreground hover:bg-accent"
+                              onClick={() => {
+                                navigator.clipboard.writeText(
+                                  envVar.secret_value ?? "",
+                                );
+                                toast.success("Secret value copied");
+                              }}
+                            >
+                              <Copy className="w-3.5 h-3.5" />
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+                {areEnvSecretsHidden && !isLoadingEnvVars && (
+                  <p className="text-[11px] text-muted-foreground">
+                    Secret values are redacted because you are not the owner.
+                  </p>
+                )}
+              </div>
+
+              <div className="border-t border-border/70 pt-4 space-y-3">
+                <p className="text-sm font-medium text-foreground">
+                  Add environment variable
+                </p>
+                <div className="grid gap-3">
+                  <div className="space-y-1">
+                    <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                      Name
+                    </p>
+                    <Input
+                      value={newEnvVarName}
+                      onChange={(e) => setNewEnvVarName(e.target.value)}
+                      placeholder="MY_SECRET_KEY"
+                      className="h-9 text-sm"
+                      disabled={isSavingEnvVar}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                      Secret value
+                    </p>
+                    <Textarea
+                      value={newEnvVarValue}
+                      onChange={(e) => setNewEnvVarValue(e.target.value)}
+                      placeholder="Value stored on your dev server"
+                      className="text-sm"
+                      rows={3}
+                      disabled={isSavingEnvVar}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                      Visibility
+                    </p>
+                    <Select
+                      value={newEnvVarVisibility}
+                      onValueChange={(value) =>
+                        setNewEnvVarVisibility(value as "public" | "private")
+                      }
+                      disabled={isSavingEnvVar}
+                    >
+                      <SelectTrigger className="h-9">
+                        <SelectValue placeholder="Select visibility" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="private">Private</SelectItem>
+                        <SelectItem value="public">Public</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-[11px] text-muted-foreground">
+                      Public values can be exposed in your build. Private values
+                      stay on the server.
+                    </p>
+                  </div>
+                </div>
+                {envVarFormError && (
+                  <p className="text-xs text-red-500">{envVarFormError}</p>
+                )}
+                <div className="flex justify-end">
+                  <Button
+                    onClick={() => {
+                      void handleAddEnvVar();
+                    }}
+                    disabled={isSavingEnvVar || !prototypeId}
+                    className="h-9 px-4"
+                  >
+                    {isSavingEnvVar ? (
+                      <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" />
+                    ) : (
+                      <Plus className="w-3.5 h-3.5 mr-2" />
+                    )}
+                    Save variable
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
 
         {/* QR Code Modal */}
         <Dialog open={isQRModalOpen} onOpenChange={setIsQRModalOpen}>
