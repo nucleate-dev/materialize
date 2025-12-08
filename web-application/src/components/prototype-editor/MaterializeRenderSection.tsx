@@ -779,7 +779,10 @@ const MaterializeRenderSection = forwardRef<
             error: error instanceof Error ? error.message : String(error),
             envVarId,
           });
-          if (error instanceof Error && !error.message.includes("prototype_env_vars")) {
+          if (
+            error instanceof Error &&
+            !error.message.includes("prototype_env_vars")
+          ) {
             toast.error("Unable to update environment variable");
           }
         } finally {
@@ -834,7 +837,10 @@ const MaterializeRenderSection = forwardRef<
             error: error instanceof Error ? error.message : String(error),
             envVarId,
           });
-          if (error instanceof Error && !error.message.includes("prototype_env_vars")) {
+          if (
+            error instanceof Error &&
+            !error.message.includes("prototype_env_vars")
+          ) {
             toast.error("Unable to delete environment variable");
           }
         } finally {
@@ -2306,7 +2312,7 @@ const MaterializeRenderSection = forwardRef<
                                             : envVar.name;
                                           void handleDeleteEnvVar(
                                             envVar.id ?? "",
-                                            displayName,
+                                            displayName ?? "",
                                           );
                                         }}
                                         disabled={isDeleting}
