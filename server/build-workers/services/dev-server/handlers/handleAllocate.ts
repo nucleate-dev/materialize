@@ -1,4 +1,5 @@
 // PublicApiService.ts
+import { S3Client } from "@aws-sdk/client-s3";
 import { FastifyReply, FastifyRequest } from "fastify";
 import {
   PublicAllocateRequest,
@@ -6,11 +7,10 @@ import {
   SandboxAPIResponse,
   StandardErrorResponse,
 } from "../../../types/BuildWorkerTypes.js";
-import { S3Client } from "@aws-sdk/client-s3";
 import { NucleateDevelopmentServerService } from "../NucleateDevelopmentServerService.js";
 
 export async function handleAllocateImpl(
-  request: FastifyRequest<{ Body: PublicAllocateRequest }>,
+  request: FastifyRequest<{ Body: PublicAllocateRequest; }>,
   reply: FastifyReply,
   materializeDevelopmentServerService: NucleateDevelopmentServerService,
 ): Promise<
@@ -86,57 +86,66 @@ export async function handleAllocateImpl(
 
   try {
     // 3. S3 CLIENT INSTANTIATION:
-    const scopedS3 = new S3Client({
-      region: process.env.AWS_REGION!,
-      credentials: {
-        accessKeyId: s3_credentials.accessKeyId,
-        secretAccessKey: s3_credentials.secretAccessKey,
-        sessionToken: s3_credentials.sessionToken,
-      },
-    });
+    // TODO: for dev ec2 flow, just do S3Client()
+    let scopedS3: S3Client;
+    if (process.env.FARGATE_DEV_MODE === "true") {
+      scopedS3 = new S3Client();
+    } else {
+      scopedS3 = new S3Client({
+        region: process.env.AWS_REGION!,
+        credentials: {
+          accessKeyId: s3_credentials.accessKeyId,
+          secretAccessKey: s3_credentials.secretAccessKey,
+          sessionToken: s3_credentials.sessionToken,
+        },
+      });
+    }
     materializeDevelopmentServerService.setS3Client(scopedS3);
 
-    // 4. CLOUDFLARE TUNNEL:
     let tunnelStatus: "connected" | "error" | "timeout" | "not_started" =
       "not_started";
     let tunnelMessage: string | undefined;
+    // 4. CLOUDFLARE TUNNEL:
+    if (process.env.FARGATE_DEV_MODE !== "true") {
+      request.log2.consoleLogDevOnly("info", "Starting Cloudflare tunnel setup");
+      try {
+        const result =
+          await materializeDevelopmentServerService.cloudflareTunnelManagementService.createTunnel(
+            cloudflare_credentials.cloudflare_tunnel_token,
+          );
+        tunnelStatus = result.status;
+        tunnelMessage = result.message;
 
-    request.log2.consoleLogDevOnly("info", "Starting Cloudflare tunnel setup");
-    try {
-      const result =
-        await materializeDevelopmentServerService.cloudflareTunnelManagementService.createTunnel(
-          cloudflare_credentials.cloudflare_tunnel_token,
-        );
-      tunnelStatus = result.status;
-      tunnelMessage = result.message;
-
-      if (tunnelStatus === "connected") {
-        request.log2.info("Cloudflare tunnel connected successfully");
-      } else if (tunnelStatus === "timeout") {
-        request.log2.warn("Cloudflare tunnel connection timed out");
-      } else if (tunnelStatus === "error") {
-        request.log2.error(
-          new Error(tunnelMessage ?? "Cloudflare tunnel failed to connect"),
-          "Cloudflare tunnel connection error",
-        );
+        if (tunnelStatus === "connected") {
+          request.log2.info("Cloudflare tunnel connected successfully");
+        } else if (tunnelStatus === "timeout") {
+          request.log2.warn("Cloudflare tunnel connection timed out");
+        } else if (tunnelStatus === "error") {
+          request.log2.error(
+            new Error(tunnelMessage ?? "Cloudflare tunnel failed to connect"),
+            "Cloudflare tunnel connection error",
+          );
+        }
+      } catch (tunnelError) {
+        tunnelStatus = "error";
+        tunnelMessage =
+          tunnelError instanceof Error
+            ? tunnelError.message
+            : "Failed to start Cloudflare tunnel";
+        request.log2.error(tunnelError, "Failed to start Cloudflare tunnel");
       }
-    } catch (tunnelError) {
-      tunnelStatus = "error";
-      tunnelMessage =
-        tunnelError instanceof Error
-          ? tunnelError.message
-          : "Failed to start Cloudflare tunnel";
-      request.log2.error(tunnelError, "Failed to start Cloudflare tunnel");
     }
 
     // 5. CREDENTIALS:
-    materializeDevelopmentServerService.chatService.setOrchestrationToken(
-      keys.orchestration_token,
-    );
-    if (keys.aak) {
-      materializeDevelopmentServerService.chatService.setAak(keys.aak);
-    } else {
-      request.log2.warn("No aak provided during allocation");
+    if (process.env.FARGATE_DEV_MODE === "true") {
+      materializeDevelopmentServerService.chatService.setOrchestrationToken(
+        keys.orchestration_token,
+      );
+      if (keys.aak) {
+        materializeDevelopmentServerService.chatService.setAak(keys.aak);
+      } else {
+        request.log2.warn("No aak provided during allocation");
+      }
     }
 
     reply.status(200);

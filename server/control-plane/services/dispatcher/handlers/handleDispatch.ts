@@ -1,15 +1,16 @@
-import {
-  APIResponse,
-  BuildStatus,
-  DispatchRequestBody,
-  DispatchSuccessResponse,
-  PrototypeAssetInput,
-  PrototypeAssetInputWithContent,
-  PrototypeFileInput,
-  StandardErrorResponse,
-} from '../../../types/PublicAPITypes.js';
-import { checkUserHasPrototypeEditAccess } from '../../../utils/prototypeAuth.js';
+import { createClient } from '@supabase/supabase-js';
 import { GlideClient } from '@valkey/valkey-glide';
+import axios from 'axios';
+import { LatencyEvents } from '../../../loggers/LatencyEvents.js';
+import { SystemLogger } from '../../../loggers/SystemLogger.js';
+import {
+  StandardErrorResponse as BuildWorkerStandardErrorResponse,
+  PublicAllocateSuccessResponse,
+  PublicDevServerStartSuccessResponse,
+  PublicStartDevServerRequest,
+  PublicUpdateFilesRequest,
+  SandboxAPIResponse,
+} from '../../../types/BuildWorkerTypes.js';
 import {
   ActiveBuild,
   BUILD_TIMEOUTS,
@@ -21,29 +22,28 @@ import {
   S3_URL_TEMPLATE,
 } from '../../../types/InternalTypes.js';
 import {
+  APIResponse,
+  BuildStatus,
+  DispatchRequestBody,
+  DispatchSuccessResponse,
+  PrototypeAssetInput,
+  PrototypeAssetInputWithContent,
+  PrototypeFileInput,
+  StandardErrorResponse,
+} from '../../../types/PublicAPITypes.js';
+import { Database } from '../../../types/supabase.js';
+import {
   activeBuildToStringRecord,
   hgetallAsActiveBuild,
   hgetallAsDevBuild,
   removeBuildDataFromCache,
 } from '../../../utils/cacheInteractionUtils.js';
+import { checkUserHasPrototypeEditAccess } from '../../../utils/prototypeAuth.js';
 import {
   isDevServerInShutdownStages,
   isDispatchInProgress,
 } from '../../../utils/prototypeDevServerStatusUtils.js';
-import { LatencyEvents } from '../../../loggers/LatencyEvents.js';
 import { IdleContainerAllocationSystemService } from '../../idle-container-allocation-system/IdleContainerAllocationSystemService.js';
-import { SystemLogger } from '../../../loggers/SystemLogger.js';
-import { Database } from '../../../types/supabase.js';
-import { createClient } from '@supabase/supabase-js';
-import axios from 'axios';
-import {
-  SandboxAPIResponse,
-  PublicAllocateSuccessResponse,
-  PublicDevServerStartSuccessResponse,
-  PublicStartDevServerRequest,
-  PublicUpdateFilesRequest,
-  StandardErrorResponse as BuildWorkerStandardErrorResponse,
-} from '../../../types/BuildWorkerTypes.js';
 
 export async function handleDispatchImpl(
   body: DispatchRequestBody,
@@ -102,8 +102,23 @@ export async function handleDispatchImpl(
         >(
           `http://${process.env.FARGATE_DEV_IP}:3002/allocate`,
           {
-            prototypeId: prototype_id,
-            userId: 'dev-user', // Placeholder for dev mode since auth is skipped
+            s3_credentials: {
+              accessKeyId: "",
+              secretAccessKey: "",
+              sessionToken: "",
+              expiration: "",
+            },
+            user_details: {
+              prototypeId: prototype_id,
+              userId: 'dev-user', // Placeholder for dev mode since auth is skipped
+            },
+            cloudflare_credentials: {
+              cloudflare_tunnel_token: '',
+            },
+            keys: {
+              orchestration_token: '',
+              aak: '',
+            },
           },
           {
             headers: {
@@ -565,8 +580,7 @@ async function constructRequestBody({
         if (error || !data) {
           log2.error(
             error,
-            `[constructRequestBody] Failed to download asset ${asset.name}: ${
-              error?.message ?? 'unknown error'
+            `[constructRequestBody] Failed to download asset ${asset.name}: ${error?.message ?? 'unknown error'
             }`,
           );
           return null;

@@ -3,7 +3,7 @@ import axios from "axios";
 import { FastifyInstance, FastifyRequest } from "fastify";
 import path from "path";
 import WebSocket from "ws";
-import { DEFAULT_FLAGS, FeatureFlags, FlagName } from "../../FLAGS.js";
+import { DEFAULT_FLAGS, FeatureFlags } from "../../FLAGS.js";
 import { SystemLogger } from "../../loggers/SystemLogger.js";
 import {
   ChatClientEvent,
@@ -17,6 +17,7 @@ import {
 import { Database } from "../../types/supabase.js";
 import { NucleateDevelopmentServerService } from "../dev-server/NucleateDevelopmentServerService.js";
 import { FileSyncService } from "../FileSyncService.js";
+import { FlagsService } from "../FlagsService.js";
 import { SandboxService } from "../SandboxService.js";
 import { SupabaseClientService } from "../SupabaseClientService.js";
 import { TerminalService } from "../terminals/TerminalService.js";
@@ -113,6 +114,7 @@ export class ChatService {
       devServerService,
       terminalService,
       this.featureFlags.ENABLE_DESIGN_AGENT_ON_FIRST_MESSAGE,
+      this.featureFlags.ENABLE_MCP_DESIGN_TOOLS,
       () => this.getAak(),
     );
     try {
@@ -141,7 +143,7 @@ export class ChatService {
       allowedRoot: this.allowedRoot,
     });
 
-    void this.refreshFeatureFlagsFromSupabase();
+    void this.refreshFeatureFlags();
 
     const normalizedWorkDir = path.resolve(this.workDir);
     if (!this.isPathInsideAllowedRoot(normalizedWorkDir)) {
@@ -152,53 +154,23 @@ export class ChatService {
     }
   }
 
-  private async refreshFeatureFlagsFromSupabase(): Promise<void> {
-    try {
-      const { data, error } = await this.supabaseClientService
-        .getClient()
-        .from("flags")
-        .select("flag_name, is_enabled");
+  private async refreshFeatureFlags(): Promise<void> {
+    const updatedFlags = await FlagsService.loadFlags(
+      this.supabaseClientService.getClient(),
+      this.logger,
+      this.featureFlags,
+    );
 
-      if (error) {
-        this.logger.warn(
-          "Failed to load feature flags from Supabase - using defaults",
-          { error },
-        );
-        return;
-      }
-
-      if (!data) {
-        return;
-      }
-
-      const updatedFlags: FeatureFlags = { ...this.featureFlags };
-      for (const row of data) {
-        const flagName = row.flag_name as FlagName;
-        if (
-          flagName in updatedFlags &&
-          typeof row.is_enabled === "boolean"
-        ) {
-          updatedFlags[flagName] = row.is_enabled;
-        }
-      }
-
-      this.featureFlags = updatedFlags;
-      this.chatQueryHandler.setEnableDesignAgentOnFirstMessage(
-        updatedFlags.ENABLE_DESIGN_AGENT_ON_FIRST_MESSAGE,
-      );
-      this.vercelChatQueryHandler.setEnableDesignAgentOnFirstMessage(
-        updatedFlags.ENABLE_DESIGN_AGENT_ON_FIRST_MESSAGE,
-      );
-
-      this.logger.consoleLogDevOnly("info", "Feature flags refreshed", {
-        featureFlags: this.featureFlags,
-      });
-    } catch (error) {
-      this.logger.warn(
-        "Unexpected error refreshing feature flags from Supabase",
-        { error },
-      );
-    }
+    this.featureFlags = updatedFlags;
+    this.chatQueryHandler.setEnableDesignAgentOnFirstMessage(
+      updatedFlags.ENABLE_DESIGN_AGENT_ON_FIRST_MESSAGE,
+    );
+    this.chatQueryHandler.setEnableDesignMcpTools(
+      updatedFlags.ENABLE_MCP_DESIGN_TOOLS,
+    );
+    this.vercelChatQueryHandler.setEnableDesignAgentOnFirstMessage(
+      updatedFlags.ENABLE_DESIGN_AGENT_ON_FIRST_MESSAGE,
+    );
   }
 
   public setOrchestrationToken(token: string): void {
@@ -253,6 +225,8 @@ export class ChatService {
     socket: WebSocket,
     req: FastifyRequest<{ Params: { prototypeId: string; }; }>,
   ): void {
+    void this.refreshFeatureFlags();
+
     const { prototypeId } = req.params;
     const connectionId = `${prototypeId}-${Date.now()}`;
 

@@ -1,13 +1,13 @@
+import { google } from "@ai-sdk/google";
 import {
   createSdkMcpServer,
   McpSdkServerConfigWithInstance,
   tool,
 } from "@anthropic-ai/claude-agent-sdk";
-import { google } from "@ai-sdk/google";
-import { generateText } from "ai";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import { generateText } from "ai";
 import { z } from "zod";
-import { SystemLogger } from "../../loggers/SystemLogger.js";
+import { SystemLogger } from "../../../loggers/SystemLogger.js";
 
 const GEMINI_DESIGN_SYSTEM_PROMPT = `
 You are "Gemini Design Partner"—a principal mobile product designer and UI/UX specialist.
@@ -72,6 +72,14 @@ export function createDesignToolsMcpServer(
               model: google(modelName),
               system: GEMINI_DESIGN_SYSTEM_PROMPT,
               prompt,
+              // providerOptions: {
+              //   google: {
+              //     thinkingConfig: {
+              //       includeThoughts: true,
+              //       thinkingLevel: 'low',
+              //     },
+              //   } satisfies GoogleGenerativeAIProviderOptions,
+              // },
             });
 
             return {

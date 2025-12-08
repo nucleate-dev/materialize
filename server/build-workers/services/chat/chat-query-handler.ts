@@ -2,6 +2,7 @@ import {
   CanUseTool,
   HookInput,
   HookJSONOutput,
+  McpSdkServerConfigWithInstance,
   Options,
   PermissionMode,
   PermissionResult,
@@ -183,6 +184,7 @@ export class ChatQueryHandler {
   private readonly terminalService: TerminalService;
   private readonly getAak: () => string | null;
   private enableDesignAgentOnFirstMessage: boolean;
+  private enableDesignMcpTools: boolean;
 
   constructor(
     workDir: string,
@@ -194,6 +196,7 @@ export class ChatQueryHandler {
     devServerService: NucleateDevelopmentServerService,
     terminalService: TerminalService,
     enableDesignAgentOnFirstMessage: boolean,
+    enableDesignMcpTools: boolean,
     getAak: () => string | null,
   ) {
     this.workDir = workDir;
@@ -206,10 +209,15 @@ export class ChatQueryHandler {
     this.terminalService = terminalService;
     this.getAak = getAak;
     this.enableDesignAgentOnFirstMessage = enableDesignAgentOnFirstMessage;
+    this.enableDesignMcpTools = enableDesignMcpTools;
   }
 
   public setEnableDesignAgentOnFirstMessage(enabled: boolean): void {
     this.enableDesignAgentOnFirstMessage = enabled;
+  }
+
+  public setEnableDesignMcpTools(enabled: boolean): void {
+    this.enableDesignMcpTools = enabled;
   }
 
   /**
@@ -1290,24 +1298,72 @@ export class ChatQueryHandler {
       env.ANTHROPIC_API_KEY = aak;
     }
 
+    const allowedToolsDefault = [
+      "Read",
+      "Edit",
+      "Glob",
+      "Grep",
+      // MCP tools from devtools server
+      "mcp__devtools__SafeWrite",
+      "mcp__devtools__SafeBash",
+      "mcp__devtools__checkTerminal",
+      "mcp__devtools__RestartDevServer",
+    ];
+
+    if (this.enableDesignMcpTools) {
+      allowedToolsDefault.push("mcp__design__GeminiDesignExpert");
+    }
+
+    const mcpServers: Record<string, McpSdkServerConfigWithInstance> = {
+      devtools: createDevelopmentToolsMcpServer(
+        async (command: string, args: string[]) => {
+          const executeSandboxCommandResult =
+            await this.executeSandboxCommand(command, args);
+          return executeSandboxCommandResult;
+        },
+        async (filePath: string, content: string) => {
+          const writeFileResult = await this.handleMcpWriteFile(
+            filePath,
+            content,
+          );
+          this.logger.consoleLogDevOnly(
+            "info",
+            "MCP writeFile tool: write file result:",
+            {
+              filePath,
+              content,
+            },
+          );
+          return writeFileResult;
+        },
+        this.terminalService,
+        async () => {
+          this.logger.consoleLogDevOnly(
+            "info",
+            "MCP restartDevServer tool: restarting dev server",
+          );
+          this.devServerService.developmentServerState.devServerStatus =
+            DevServerStatus.RESTARTING;
+          await this.devServerService.developmentServerAdapter.restartDevServer(
+            this.logger,
+          );
+          this.devServerService.developmentServerState.devServerStatus =
+            DevServerStatus.RUNNING;
+        },
+      ),
+    };
+
+    if (this.enableDesignMcpTools) {
+      mcpServers.design = createDesignToolsMcpServer(this.logger);
+    }
+
     return {
       ...options,
       includePartialMessages: false,
       cwd: this.workDir,
       maxTurns: options?.maxTurns ?? 50,
       disallowedTools: ["Write", "Bash"],
-      allowedTools: options?.allowedTools ?? [
-        "Read",
-        "Edit",
-        "Glob",
-        "Grep",
-        "mcp__design__GeminiDesignExpert",
-        // MCP tools from devtools server
-        "mcp__devtools__SafeWrite",
-        "mcp__devtools__SafeBash",
-        "mcp__devtools__checkTerminal",
-        "mcp__devtools__RestartDevServer",
-      ],
+      allowedTools: options?.allowedTools ?? allowedToolsDefault,
       model: options?.model ?? "claude-sonnet-4-5",
       systemPrompt: {
         type: "preset" as const,
@@ -1319,45 +1375,7 @@ export class ChatQueryHandler {
       abortController,
       canUseTool,
       // Add MCP servers with development tools
-      mcpServers: {
-        design: createDesignToolsMcpServer(this.logger),
-        devtools: createDevelopmentToolsMcpServer(
-          async (command: string, args: string[]) => {
-            const executeSandboxCommandResult =
-              await this.executeSandboxCommand(command, args);
-            return executeSandboxCommandResult;
-          },
-          async (filePath: string, content: string) => {
-            const writeFileResult = await this.handleMcpWriteFile(
-              filePath,
-              content,
-            );
-            this.logger.consoleLogDevOnly(
-              "info",
-              "MCP writeFile tool: write file result:",
-              {
-                filePath,
-                content,
-              },
-            );
-            return writeFileResult;
-          },
-          this.terminalService,
-          async () => {
-            this.logger.consoleLogDevOnly(
-              "info",
-              "MCP restartDevServer tool: restarting dev server",
-            );
-            this.devServerService.developmentServerState.devServerStatus =
-              DevServerStatus.RESTARTING;
-            await this.devServerService.developmentServerAdapter.restartDevServer(
-              this.logger,
-            );
-            this.devServerService.developmentServerState.devServerStatus =
-              DevServerStatus.RUNNING;
-          },
-        ),
-      },
+      mcpServers,
       // Add hooks to stream tool usage to WebSocket clients
       hooks: {
         PreToolUse: [
