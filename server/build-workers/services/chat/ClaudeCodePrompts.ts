@@ -61,11 +61,11 @@ Return a structured Markdown design spec. It must contain ONLY these sections:
     -   **Design Archetype:** (e.g., "Cyberpunk Industrial," "Swiss International," "Neobrutalism," "Soft Pop").
 
 2.  **Visual Language:**
-    -   **Palette:** 6 specific HEX codes. *Must be complex, designer shades (e.g., #1E293B, not #000000).*
+    -   **Palette:** 6 specific HEX codes. *Must be good-looking designer shades (e.g., #1E293B, not #000000).*
         -   Background, Surface, Primary, Secondary, TextMain, TextMuted.
     -   **Typography:** Hard constraints for headers vs body (e.g., "Headers: System Serif Bold; Body: System Sans").
     -   **The "Signature":** Define ONE key visual trait that makes the app look expensive (e.g., "Heavy use of 30px border-radius," "Glassmorphism overlays," or "High-contrast black and white borders").
-
+   -    **Theme**: You need to be mindful of both dark mode and light mode, in terms of the color palette you provide.
 3.  **UX Physics & Polish:**
     -   **Animation Style:** Define the motion vibe (e.g., "Bouncy & Playful" or "Minimal & Fast").
     -   **Haptics:** Define a feedback strategy (e.g., "Light impact on all taps").
@@ -83,7 +83,302 @@ Return a structured Markdown design spec. It must contain ONLY these sections:
 -   **No Defaults:** Never use pure Black (#000) or pure White (#FFF). Use Off-Black (#0F172A) or Off-White (#F8FAFC).
 -   **Concise:** Do not describe every screen. Focus on the "Hero" experience.
 -   **Cohesive:** Ensure the system status bar color matches the app background for a seamless look.
--   **Output:** Do not provide code yet. Provide the *instructions* for the code.
+-   **Output:** STRICTLY NO CODE. Do not write React Native components or functions. Provide high-level design rules, token values, color recommendations, and layout instructions only.
+
+### METADATA
+Scope: app | screen | component | other
+
+<existing_design_system>
+The following files exist in the project and define the core design system. 
+You must ensure your design specification is compatible with these components and theme structure.
+Pay special attention to the Theme interface in theme.ts - your color palette must map to these keys.
+
+File: theme/theme.ts
+\`\`\`typescript
+export interface Theme {
+  colors: {
+    background: string;
+    surface: string;
+    primary: string;
+    secondary: string;
+    text: string;
+    textSecondary: string;
+    border: string;
+    error: string;
+    success: string;
+    warning: string;
+    info: string;
+  };
+  spacing: {
+    xs: number;
+    sm: number;
+    md: number;
+    lg: number;
+    xl: number;
+    xxl: number;
+  };
+  typography: {
+    sizes: {
+      xs: number;
+      sm: number;
+      md: number;
+      lg: number;
+      xl: number;
+      xxl: number;
+    };
+    weights: {
+      normal: '400';
+      medium: '500';
+      semibold: '600';
+      bold: '700';
+    };
+  };
+  borderRadius: {
+    sm: number;
+    md: number;
+    lg: number;
+    xl: number;
+    full: number;
+  };
+}
+
+export const lightTheme: Theme = {
+  colors: {
+    background: '#ffffff',
+    surface: '#f5f5f5',
+    primary: '#007AFF',
+    secondary: '#5856D6',
+    text: '#000000',
+    textSecondary: '#666666',
+    border: '#cccccc',
+    error: '#FF3B30',
+    success: '#34C759',
+    warning: '#FF9500',
+    info: '#007AFF',
+  },
+  spacing: {
+    xs: 4,
+    sm: 8,
+    md: 16,
+    lg: 24,
+    xl: 32,
+    xxl: 48,
+  },
+  typography: {
+    sizes: {
+      xs: 12,
+      sm: 14,
+      md: 16,
+      lg: 18,
+      xl: 24,
+      xxl: 32,
+    },
+    weights: {
+      normal: '400',
+      medium: '500',
+      semibold: '600',
+      bold: '700',
+    },
+  },
+  borderRadius: {
+    sm: 4,
+    md: 8,
+    lg: 12,
+    xl: 16,
+    full: 9999,
+  },
+};
+
+export const darkTheme: Theme = {
+  colors: {
+    background: '#000000',
+    surface: '#1c1c1e',
+    primary: '#0A84FF',
+    secondary: '#5E5CE6',
+    text: '#ffffff',
+    textSecondary: '#aaaaaa',
+    border: '#333333',
+    error: '#FF453A',
+    success: '#32D74B',
+    warning: '#FF9F0A',
+    info: '#0A84FF',
+  },
+  spacing: {
+    xs: 4,
+    sm: 8,
+    md: 16,
+    lg: 24,
+    xl: 32,
+    xxl: 48,
+  },
+  typography: {
+    sizes: {
+      xs: 12,
+      sm: 14,
+      md: 16,
+      lg: 18,
+      xl: 24,
+      xxl: 32,
+    },
+    weights: {
+      normal: '400',
+      medium: '500',
+      semibold: '600',
+      bold: '700',
+    },
+  },
+  borderRadius: {
+    sm: 4,
+    md: 8,
+    lg: 12,
+    xl: 16,
+    full: 9999,
+  },
+};
+\`\`\`
+
+File: theme/StyledText.tsx
+\`\`\`typescript
+import React from 'react';
+import { Text, TextProps, StyleSheet, TextStyle } from 'react-native';
+import { useTheme } from './useTheme';
+import { Theme } from './theme';
+
+export type TextVariant =
+  | 'h1'
+  | 'h2'
+  | 'h3'
+  | 'body'
+  | 'bodyLarge'
+  | 'caption'
+  | 'label';
+
+interface StyledTextProps extends TextProps {
+  variant?: TextVariant;
+  color?: 'primary' | 'secondary' | 'text' | 'textSecondary' | 'error' | 'success' | 'warning' | 'info';
+}
+
+const getVariantStyle = (variant: TextVariant, theme: Theme): TextStyle => {
+  switch (variant) {
+    case 'h1':
+      return {
+        fontSize: theme.typography.sizes.xxl,
+        fontWeight: theme.typography.weights.bold,
+        lineHeight: theme.typography.sizes.xxl * 1.2,
+      };
+    case 'h2':
+      return {
+        fontSize: theme.typography.sizes.xl,
+        fontWeight: theme.typography.weights.bold,
+        lineHeight: theme.typography.sizes.xl * 1.2,
+      };
+    case 'h3':
+      return {
+        fontSize: theme.typography.sizes.lg,
+        fontWeight: theme.typography.weights.semibold,
+        lineHeight: theme.typography.sizes.lg * 1.3,
+      };
+    case 'bodyLarge':
+      return {
+        fontSize: theme.typography.sizes.lg,
+        fontWeight: theme.typography.weights.normal,
+        lineHeight: theme.typography.sizes.lg * 1.5,
+      };
+    case 'body':
+      return {
+        fontSize: theme.typography.sizes.md,
+        fontWeight: theme.typography.weights.normal,
+        lineHeight: theme.typography.sizes.md * 1.5,
+      };
+    case 'caption':
+      return {
+        fontSize: theme.typography.sizes.sm,
+        fontWeight: theme.typography.weights.normal,
+        lineHeight: theme.typography.sizes.sm * 1.4,
+      };
+    case 'label':
+      return {
+        fontSize: theme.typography.sizes.xs,
+        fontWeight: theme.typography.weights.medium,
+        lineHeight: theme.typography.sizes.xs * 1.4,
+        letterSpacing: 0.5,
+      };
+    default:
+      return {
+        fontSize: theme.typography.sizes.md,
+        fontWeight: theme.typography.weights.normal,
+      };
+  }
+};
+
+export const StyledText: React.FC<StyledTextProps> = ({
+  variant = 'body',
+  color = 'text',
+  style,
+  ...props
+}) => {
+  const theme = useTheme();
+
+  const variantStyle = getVariantStyle(variant, theme);
+  const colorStyle = { color: theme.colors[color] };
+
+  return (
+    <Text
+      style={[variantStyle, colorStyle, style]}
+      {...props}
+    />
+  );
+};
+\`\`\`
+
+File: theme/ScreenContainer.tsx
+\`\`\`typescript
+import React from 'react';
+import { View, StyleSheet, ViewStyle } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTheme } from './useTheme';
+
+type SafeAreaEdge = 'top' | 'bottom' | 'left' | 'right';
+
+export interface ScreenContainerProps {
+  children: React.ReactNode;
+  padded?: boolean;
+  edges?: SafeAreaEdge[];
+  style?: ViewStyle;
+}
+
+export const ScreenContainer: React.FC<ScreenContainerProps> = ({
+  children,
+  padded = true,
+  edges = ['top', 'bottom'],
+  style,
+}) => {
+  const theme = useTheme();
+  const insets = useSafeAreaInsets();
+
+  return (
+    <View
+      style={[
+        {
+          flex: 1,
+          backgroundColor: theme.colors.background,
+        },
+        padded && { paddingHorizontal: theme.spacing.md },
+        {
+          paddingTop: edges.includes('top') ? insets.top : 0,
+          paddingBottom: edges.includes('bottom') ? insets.bottom : 0,
+          paddingLeft: edges.includes('left') ? insets.left : 0,
+          paddingRight: edges.includes('right') ? insets.right : 0,
+        },
+        style,
+      ]}
+    >
+      {children}
+    </View>
+  );
+};
+\`\`\`
+</existing_design_system>
 
 ### METADATA
 Scope: app | screen | component | other
