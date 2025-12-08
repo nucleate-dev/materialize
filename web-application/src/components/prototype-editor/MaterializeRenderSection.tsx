@@ -750,7 +750,10 @@ const MaterializeRenderSection = forwardRef<
             .eq("id", envVarId);
 
           if (error) {
-            toast.error(error.message);
+            logger.debug("error", "Failed to update env var", {
+              error: error instanceof Error ? error.message : String(error),
+              envVarId,
+            });
             throw new Error(error.message);
           }
 
