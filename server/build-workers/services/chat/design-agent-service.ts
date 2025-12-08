@@ -130,12 +130,30 @@ export async function executeDesignAgent(
     // Execute design agent using AI SDK's generateText
     const result = await generateText({
       model: modelInstance,
-      system: DESIGN_AGENT_PROMPT,
-      prompt: userMessage,
+      prompt: DESIGN_AGENT_PROMPT + "\n\n" + userMessage,
       abortSignal: abortController.signal,
+      providerOptions: {
+        google: {
+          thinkingConfig: {
+            includeThoughts: true,
+            thinkingLevel: 'low',
+          },
+        },
+      }
     });
 
     const designSpec = result.text;
+    logger.consoleLogDevOnly(
+      "info",
+      "Design agent execution completed",
+      {
+        provider,
+        model,
+        designSpecLength: designSpec.length,
+        designSpec,
+        prototypeId,
+      },
+    );
 
     // Extract usage information
     // AI SDK v5 has usage property - we cast to unknown then to our type for compatibility

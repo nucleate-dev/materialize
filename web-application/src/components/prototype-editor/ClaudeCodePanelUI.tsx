@@ -39,7 +39,7 @@ import {
   Info,
   Loader2,
   Paperclip,
-  Plus, Send,
+  Plus, RefreshCw, Send,
   Sparkles,
   StopCircle,
   Terminal,
@@ -356,7 +356,7 @@ export default function ClaudeCodePanelUI({
             </Button>
           )}
 
-          {/* <TooltipProvider>
+          <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
@@ -371,7 +371,7 @@ export default function ClaudeCodePanelUI({
               </TooltipTrigger>
               <TooltipContent>Reset Session</TooltipContent>
             </Tooltip>
-          </TooltipProvider> */}
+          </TooltipProvider>
         </div>
       </div>
 

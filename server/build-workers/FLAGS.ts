@@ -4,7 +4,7 @@ export type FeatureFlags = {
 };
 
 export const DEFAULT_FLAGS: FeatureFlags = {
-  ENABLE_DESIGN_AGENT_ON_FIRST_MESSAGE: false,
+  ENABLE_DESIGN_AGENT_ON_FIRST_MESSAGE: true,
   ENABLE_MCP_DESIGN_TOOLS: false,
 };
 

@@ -40,6 +40,7 @@ interface CodeSessionState {
   modifiedFilesThisQuery: Set<string>; // Track files modified by tools for the current query
   designSystemId: string | null; // ID of currently loaded design system
   designSystemRules: string | null; // Cached design system rules
+  firstMessageStatus: { sessionId: string; isFirst: boolean } | null; // Cache first-message detection
 }
 
 interface ChatConnection {
@@ -70,6 +71,7 @@ export class ChatService {
     modifiedFilesThisQuery: new Set<string>(),
     designSystemId: null,
     designSystemRules: null,
+    firstMessageStatus: null,
   };
   private activeConnections = new Map<string, ChatConnection>();
   private orchestrationToken: string | null = null;
@@ -841,6 +843,7 @@ export class ChatService {
       designSystemId: null,
       designSystemRules: null,
       modifiedFilesThisQuery: new Set<string>(),
+      firstMessageStatus: null,
     };
 
     this.logger.info("CodeService shutdown complete");

@@ -236,7 +236,6 @@ export interface DesignGenerationMessage {
     isNarrowBuild?: boolean;
     persistToProjectContext?: boolean;
     scope?: "app" | "screen" | "component" | "other" | "unknown";
-    isMasterDesignSpec?: boolean;
   };
 }
 

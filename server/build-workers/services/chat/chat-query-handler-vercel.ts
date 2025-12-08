@@ -46,6 +46,7 @@ interface CodeSessionState {
   modifiedFilesThisQuery: Set<string>;
   designSystemId: string | null;
   designSystemRules: string | null;
+  firstMessageStatus: { sessionId: string; isFirst: boolean; } | null;
 }
 
 interface QueryValidationResult {
@@ -62,7 +63,6 @@ interface DesignSystemResult {
 
 interface DesignAgentMetadata {
   scope: "app" | "screen" | "component" | "other" | "unknown";
-  isMasterDesignSpec: boolean;
 }
 
 interface QueryExecutionContext {
@@ -89,9 +89,9 @@ interface MessageHandlers {
   uploadChatImages: (
     prototypeId: string,
     chatSessionId: string,
-    images: Array<{ base64: string; mediaType: string }>,
+    images: Array<{ base64: string; mediaType: string; }>,
   ) => Promise<
-    Array<{ storage_path: string; media_type: string; file_size: number }>
+    Array<{ storage_path: string; media_type: string; file_size: number; }>
   >;
   updatePersistenceClient?: (client: unknown) => void;
   notifyOrchestrationStartChat: (prototypeId: string) => Promise<void>;
@@ -231,6 +231,7 @@ export class VercelChatQueryHandler {
       const isFirst = await this.isFirstMessage(
         prototypeId,
         sessionState.prototypeChatSessionId ?? "",
+        sessionState,
       );
 
       if (isFirst) {
@@ -251,9 +252,9 @@ export class VercelChatQueryHandler {
             ? content
             : Array.isArray(content)
               ? content
-                  .filter((block) => block.type === "text")
-                  .map((block) => block.text || "")
-                  .join("\n")
+                .filter((block) => block.type === "text")
+                .map((block) => block.text || "")
+                .join("\n")
               : prompt || "";
 
         if (userMessageText) {
@@ -377,6 +378,13 @@ export class VercelChatQueryHandler {
             );
           }
         }
+
+        if (sessionState.prototypeChatSessionId) {
+          sessionState.firstMessageStatus = {
+            sessionId: sessionState.prototypeChatSessionId,
+            isFirst: false,
+          };
+        }
       }
     }
 
@@ -470,14 +478,20 @@ export class VercelChatQueryHandler {
     sessionState: CodeSessionState,
   ): void {
     const { prototype_chat_session_id, ai_chat_session_id } = data;
+    const previousPrototypeChatSessionId = sessionState.prototypeChatSessionId;
     if (prototype_chat_session_id) {
       sessionState.prototypeChatSessionId = prototype_chat_session_id;
+      if (previousPrototypeChatSessionId !== prototype_chat_session_id) {
+        sessionState.firstMessageStatus = null;
+      }
     } else {
       sessionState.prototypeChatSessionId = null;
+      sessionState.firstMessageStatus = null;
     }
 
     if (ai_chat_session_id === null) {
       sessionState.sessionId = null;
+      sessionState.firstMessageStatus = null;
     }
   }
 
@@ -600,7 +614,17 @@ export class VercelChatQueryHandler {
   private async isFirstMessage(
     prototypeId: string,
     prototypeChatSessionId: string,
+    sessionState: CodeSessionState,
   ): Promise<boolean> {
+    if (!prototypeChatSessionId) {
+      return false;
+    }
+
+    const cached = sessionState.firstMessageStatus;
+    if (cached && cached.sessionId === prototypeChatSessionId) {
+      return cached.isFirst;
+    }
+
     try {
       const { count: messageCount, error: messageError } =
         await this.supabaseClientService
@@ -628,7 +652,14 @@ export class VercelChatQueryHandler {
         return false;
       }
 
-      return sessionCount === 1;
+      const isFirst = sessionCount === 1;
+
+      sessionState.firstMessageStatus = {
+        sessionId: prototypeChatSessionId,
+        isFirst,
+      };
+
+      return isFirst;
     } catch (error) {
       this.logger.error(error, "Error during first message detection", {
         prototypeId,
@@ -647,7 +678,7 @@ export class VercelChatQueryHandler {
     userMessage: string,
     abortController: AbortController,
     _systemPrompt: string,
-  ): Promise<{ designSpec: string | null; costUsd: number | undefined }> {
+  ): Promise<{ designSpec: string | null; costUsd: number | undefined; }> {
     // Use Gemini by default for design agent (fast and free)
     const provider: DesignAgentProvider = "google";
     const model = DEFAULT_DESIGN_AGENT_MODELS[provider];
@@ -675,7 +706,6 @@ export class VercelChatQueryHandler {
   } {
     const defaultMetadata: DesignAgentMetadata = {
       scope: "unknown",
-      isMasterDesignSpec: false,
     };
 
     const metadataHeading = "### METADATA";
@@ -710,8 +740,6 @@ export class VercelChatQueryHandler {
         else if (value === "screen") metadata.scope = "screen";
         else if (value === "component") metadata.scope = "component";
         else if (value === "other") metadata.scope = "other";
-      } else if (key === "ismasterdesignspec") {
-        metadata.isMasterDesignSpec = value === "true";
       }
     }
 
@@ -769,7 +797,6 @@ export class VercelChatQueryHandler {
         designMetadata ??
         ({
           scope: "unknown",
-          isMasterDesignSpec: false,
         } as DesignAgentMetadata);
       const isAppLevel = metadata.scope === "app";
       const isNarrowBuild =
@@ -785,7 +812,6 @@ export class VercelChatQueryHandler {
           isAppLevel,
           isNarrowBuild,
           persistToProjectContext: true,
-          isMasterDesignSpec: metadata.isMasterDesignSpec,
           scope: metadata.scope,
         },
       });
@@ -888,7 +914,7 @@ export class VercelChatQueryHandler {
 
   private extractImagesFromContent(
     messageContent: string | ChatContentBlock[],
-  ): Array<{ base64: string; mediaType: string }> {
+  ): Array<{ base64: string; mediaType: string; }> {
     if (typeof messageContent === "string" || !Array.isArray(messageContent)) {
       return [];
     }
@@ -911,8 +937,8 @@ export class VercelChatQueryHandler {
   private async persistUserMessage(
     messageContent:
       | string
-      | Array<{ type: string; text?: string; source?: unknown }>,
-    imagesFromContent: Array<{ base64: string; mediaType: string }>,
+      | Array<{ type: string; text?: string; source?: unknown; }>,
+    imagesFromContent: Array<{ base64: string; mediaType: string; }>,
     imageMetadata: Array<{
       storage_path: string;
       media_type: string;
@@ -925,9 +951,9 @@ export class VercelChatQueryHandler {
       typeof messageContent === "string"
         ? messageContent
         : messageContent
-            .filter((block) => block.type === "text")
-            .map((block) => block.text || "")
-            .join("\n");
+          .filter((block) => block.type === "text")
+          .map((block) => block.text || "")
+          .join("\n");
 
     await persistMessage(
       "user",
@@ -944,7 +970,7 @@ export class VercelChatQueryHandler {
 
   private toAiContentParts(
     messageContent: string | ChatContentBlock[],
-  ): Array<{ type: "text"; text: string }> {
+  ): Array<{ type: "text"; text: string; }> {
     if (typeof messageContent === "string") {
       return [{ type: "text", text: messageContent }];
     }
@@ -967,10 +993,10 @@ export class VercelChatQueryHandler {
     model: string,
     usage:
       | {
-          promptTokens?: number;
-          completionTokens?: number;
-          totalTokens?: number;
-        }
+        promptTokens?: number;
+        completionTokens?: number;
+        totalTokens?: number;
+      }
       | undefined,
   ): number | undefined {
     if (!usage) return undefined;
@@ -994,7 +1020,7 @@ export class VercelChatQueryHandler {
   private async executeSandboxCommand(
     command: string,
     args: string[],
-  ): Promise<{ stdout: string; isError: boolean }> {
+  ): Promise<{ stdout: string; isError: boolean; }> {
     const permission = this.toolPermissionService.evaluateToolPermission(
       "Bash",
       {
@@ -1046,7 +1072,7 @@ export class VercelChatQueryHandler {
     filePath: string,
     content: string,
     sessionState: CodeSessionState,
-  ): Promise<{ success: boolean; bytesWritten?: number; error?: string }> {
+  ): Promise<{ success: boolean; bytesWritten?: number; error?: string; }> {
     const permission = this.toolPermissionService.evaluateToolPermission(
       "Write",
       {

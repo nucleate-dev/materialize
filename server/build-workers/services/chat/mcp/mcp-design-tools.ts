@@ -72,14 +72,14 @@ export function createDesignToolsMcpServer(
               model: google(modelName),
               system: GEMINI_DESIGN_SYSTEM_PROMPT,
               prompt,
-              // providerOptions: {
-              //   google: {
-              //     thinkingConfig: {
-              //       includeThoughts: true,
-              //       thinkingLevel: 'low',
-              //     },
-              //   } satisfies GoogleGenerativeAIProviderOptions,
-              // },
+              providerOptions: {
+                google: {
+                  thinkingConfig: {
+                    includeThoughts: true,
+                    thinkingLevel: 'low',
+                  },
+                },
+              },
             });
 
             return {
