@@ -576,7 +576,7 @@ function PricingSection() {
         </div>
 
         {/* Black Friday Banner */}
-        <div className="mb-12 max-w-3xl mx-auto">
+        {/* <div className="mb-12 max-w-3xl mx-auto">
           <div className="relative group">
             <div className="absolute -inset-0.5 bg-gradient-to-r from-rose-500/40 via-orange-500/40 to-rose-500/40 rounded-2xl blur opacity-60 group-hover:opacity-80 transition duration-500"></div>
             <div className="relative bg-gradient-to-r from-rose-500/10 to-orange-500/10 border border-rose-500/30 rounded-xl p-6 backdrop-blur-sm">
@@ -610,7 +610,7 @@ function PricingSection() {
               </div>
             </div>
           </div>
-        </div>
+        </div> */}
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {pricingPlans.map((plan, index) => (
