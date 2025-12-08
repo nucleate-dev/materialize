@@ -105,7 +105,12 @@ export class FileSyncService {
     ".npm-cache",
     ".expo",
   ]);
-  private readonly skipFileNames = new Set([".DS_Store", ".npmrc", ".yarnrc"]);
+  private readonly skipFileNames = new Set([
+    ".DS_Store",
+    ".npmrc",
+    ".yarnrc",
+    ".env",
+  ]);
 
   constructor(
     workDir: string,
@@ -258,7 +263,14 @@ export class FileSyncService {
       return true;
     }
 
-    return this.skipFileNames.has(entryName);
+    if (
+      relativeSegments.some((segment) => this.skipFileNames.has(segment)) ||
+      this.skipFileNames.has(entryName)
+    ) {
+      return true;
+    }
+
+    return false;
   }
 
   // ------------------------------------------------------------

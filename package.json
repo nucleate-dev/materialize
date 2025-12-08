@@ -5,12 +5,13 @@
     "web-application",
     "web-application-apps",
     "internal-tools",
+    "async-backfills",
     "server/control-plane",
     "server/build-workers"
   ],
   "scripts": {
     "install:all": "npm install",
-    "clean": "node -e \"require('fs').rmSync('node_modules',{recursive:true,force:true});['web-application','internal-tools','server/control-plane','server/build-workers'].forEach(d=>require('fs').rmSync(d+'/node_modules',{recursive:true,force:true}))\" && rm -f package-lock.json",
+    "clean": "node -e \"require('fs').rmSync('node_modules',{recursive:true,force:true});['web-application','web-application-apps','internal-tools','async-backfills','server/control-plane','server/build-workers'].forEach(d=>require('fs').rmSync(d+'/node_modules',{recursive:true,force:true}))\" && rm -f package-lock.json",
     "build": "npm run build -ws --if-present",
     "dev": "npm run dev:web",
     "dev:web": "npm -w web-starter-pack run dev",
@@ -23,7 +24,8 @@
     "start:worker": "npm -w rn-web-build-worker run start",
     "lint": "npm run lint -ws --if-present",
     "typecheck": "npm run typecheck -ws --if-present",
-    "test": "npm run test -ws --if-present"
+    "test": "npm run test -ws --if-present",
+    "gen:supabase:types": "npm run gen:supabase:types -ws --if-present"
   },
   "engines": {
     "node": ">=20 <=22",

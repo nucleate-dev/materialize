@@ -12,6 +12,7 @@ import { SystemLogger } from "../../../loggers/SystemLogger.js";
 import { restoreClaudeSessionsFromSupabase } from "../../../utils/shared-utils.js";
 import { SupabaseClientService } from "../../SupabaseClientService.js";
 import { ChatService } from "../../chat/ChatService.js";
+import { syncPrototypeEnvVarsToDisk } from "../utils/envVarUtils.js";
 
 export async function handleStartDevServerImpl(
   request: FastifyRequest<{ Body: PublicStartDevServerRequest }>,
@@ -61,6 +62,24 @@ export async function handleStartDevServerImpl(
       error: {
         error: "Failed to fetch files and assets from Supabase",
         message: errorMsg,
+      },
+    };
+  }
+
+  const envSyncResult = await syncPrototypeEnvVarsToDisk({
+    prototypeId: prototype_id,
+    workDir: developmentServerService.workDir,
+    supabaseClientService: developmentServerService.supabaseClientService,
+    logger: request.log2,
+  });
+
+  if (!envSyncResult.success) {
+    reply.code(HTTP_STATUS.INTERNAL_SERVER_ERROR);
+    return {
+      data: null,
+      error: {
+        error: "Failed to synchronize environment variables",
+        message: envSyncResult.error ?? "Failed to sync env vars",
       },
     };
   }
