@@ -334,6 +334,21 @@ export type Database = {
           },
         ]
       }
+      flags: {
+        Row: {
+          flag_name: string
+          is_enabled: boolean
+        }
+        Insert: {
+          flag_name: string
+          is_enabled: boolean
+        }
+        Update: {
+          flag_name?: string
+          is_enabled?: boolean
+        }
+        Relationships: []
+      }
       folders: {
         Row: {
           created_at: string | null
