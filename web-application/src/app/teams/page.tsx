@@ -212,7 +212,7 @@ function ValuePropSection() {
                         </div>
                         <h3 className="text-2xl font-medium text-white mb-3">Production Quality</h3>
                         <p className="text-zinc-400 leading-relaxed">
-                            Every variant uses your system: tokens, spacing, components. No "throwaway" code.
+                            Every variant uses your system: tokens, spacing, components. No &ldquo;throwaway&rdquo; code.
                         </p>
                     </div>
                 </div>
@@ -285,11 +285,11 @@ function VariantsSection() {
                                             <div className="w-8 h-8 bg-black/5 rounded-full backdrop-blur-sm" />
                                         </div>
                                         <div className="h-2/3 bg-zinc-100 relative">
-                                            <img src="https://images.unsplash.com/photo-1514525253440-b393335a898c?w=800&q=80" alt="Cover" className="w-full h-full object-cover" />
+                                            <div className="w-full h-full object-cover bg-zinc-200" />
                                         </div>
                                         <div className="p-6">
                                             <h3 className="text-xl font-bold text-zinc-900 mb-1">Midnight City</h3>
-                                            <p className="text-zinc-500 text-sm mb-6">M83 • Hurry Up, We're Dreaming</p>
+                                            <p className="text-zinc-500 text-sm mb-6">M83 • Hurry Up, We&apos;re Dreaming</p>
                                             <div className="flex justify-between items-center gap-4">
                                                 <div className="w-8 h-8 rounded-full border border-black/10 flex items-center justify-center"><div className="w-0 h-0 border-t-[5px] border-t-transparent border-l-[8px] border-l-black border-b-[5px] border-b-transparent ml-0.5" /></div>
                                                 <div className="h-1 flex-1 bg-zinc-100 rounded-full overflow-hidden"><div className="h-full w-1/3 bg-black" /></div>
@@ -307,13 +307,13 @@ function VariantsSection() {
                                                 <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
                                             </div>
                                             <div className="w-full aspect-square border-2 border-white/20 rounded-none mb-8 relative">
-                                                <img src="https://images.unsplash.com/photo-1493225255756-d9584f8606e9?w=800&q=80" alt="Cover" className="w-full h-full object-cover grayscale opacity-60" />
+                                                <div className="w-full h-full object-cover grayscale opacity-60 bg-zinc-600" />
                                                 <div className="absolute inset-0 flex items-center justify-center">
                                                     <div className="w-16 h-16 rounded-full border border-white flex items-center justify-center"><div className="w-0 h-0 border-t-[8px] border-t-transparent border-l-[12px] border-l-white border-b-[8px] border-b-transparent ml-1" /></div>
                                                 </div>
                                             </div>
                                             <h3 className="text-3xl font-black text-white leading-none mb-2 mix-blend-difference">MIDNIGHT<br />CITY</h3>
-                                            <p className="text-zinc-500 font-mono text-xs uppercase">M83 / Hurry Up, We're Dreaming</p>
+                                            <p className="text-zinc-500 font-mono text-xs uppercase">M83 / Hurry Up, We&apos;re Dreaming</p>
                                             <div className="mt-auto pt-8 border-t border-white/10 flex justify-between items-end">
                                                 <div className="text-4xl font-mono text-white/20">01</div>
                                                 <div className="h-16 w-32 flex items-end gap-1">
@@ -329,12 +329,12 @@ function VariantsSection() {
                                     {/* Variant 3: Glassmorphism */}
                                     <div className="aspect-[9/16] bg-zinc-900 rounded-3xl overflow-hidden shadow-2xl border border-white/10 relative group">
                                         <div className="absolute inset-0">
-                                            <img src="https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?w=800&q=80" alt="Background" className="w-full h-full object-cover opacity-60 blur-xl scale-125" />
+                                            <div className="w-full h-full object-cover opacity-60 blur-xl scale-125 bg-indigo-500" />
                                             <div className="absolute inset-0 bg-black/20" />
                                         </div>
                                         <div className="relative z-10 p-6 h-full flex flex-col justify-end">
                                             <div className="w-full aspect-square rounded-2xl overflow-hidden shadow-2xl mb-8 border border-white/10">
-                                                <img src="https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?w=800&q=80" alt="Cover" className="w-full h-full object-cover" />
+                                                <div className="w-full h-full object-cover bg-indigo-400" />
                                             </div>
                                             <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/10">
                                                 <h3 className="text-lg font-semibold text-white mb-1">Midnight City</h3>
@@ -397,7 +397,7 @@ function VariantsSection() {
                                             <X className="w-8 h-8" />
                                         </div>
                                         <h3 className="text-zinc-900 font-bold text-xl mb-2">Connection Failed</h3>
-                                        <p className="text-zinc-500 text-sm mb-8 text-center px-4">We couldn't load your feed. Please check your internet connection.</p>
+                                        <p className="text-zinc-500 text-sm mb-8 text-center px-4">We couldn&apos;t load your feed. Please check your internet connection.</p>
                                         <button className="flex items-center gap-2 px-6 py-2.5 bg-red-50 text-red-600 rounded-full font-medium text-sm hover:bg-red-100 transition-colors">
                                             <RefreshCw className="w-4 h-4" /> Try Again
                                         </button>
@@ -518,7 +518,7 @@ function VariantsSection() {
                                                     </div>
                                                     <div>
                                                         <div className="text-sm font-bold text-slate-900">Day 5</div>
-                                                        <div className="text-xs text-slate-500 leading-snug">We'll remind you with a notification that your trial is ending.</div>
+                                                        <div className="text-xs text-slate-500 leading-snug">We&apos;ll remind you with a notification that your trial is ending.</div>
                                                     </div>
                                                 </div>
 
@@ -572,7 +572,7 @@ function VariantsSection() {
                                                     </div>
                                                     <div className="pt-1">
                                                         <div className="text-sm font-bold text-slate-900">Today</div>
-                                                        <div className="text-xs text-slate-500 mt-0.5">Unlock premium access. You don't have to pay anything.</div>
+                                                        <div className="text-xs text-slate-500 mt-0.5">Unlock premium access. You don&apos;t have to pay anything.</div>
                                                     </div>
                                                 </div>
 
