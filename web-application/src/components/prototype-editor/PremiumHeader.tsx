@@ -49,6 +49,15 @@ export default function PremiumHeader({
           {/* CTA Buttons */}
           <div className="flex items-center space-x-3">
             <Link
+              href="/teams"
+              className={`hidden md:block transition-all duration-200 text-sm font-medium ${forceDarkMode
+                ? "text-white/70 hover:text-white"
+                : "text-black/70 hover:text-black dark:text-white/70 dark:hover:text-white"
+                }`}
+            >
+              For Teams
+            </Link>
+            <Link
               href="/blog"
               className={`hidden md:block transition-all duration-200 text-sm font-medium ${forceDarkMode
                 ? "text-white/70 hover:text-white"

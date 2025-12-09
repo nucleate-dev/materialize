@@ -23,6 +23,7 @@ import { redirectAfterLoginAtom } from "@/lib/atoms/sidebar";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import { Database } from "@/lib/types/supabase";
 import { setChatIntent } from "@/lib/utils/chatIntentUtils";
+import { checkSurveyCompleted } from "@/lib/utils/survey/SurveyUtils";
 import { SwatchIcon } from "@heroicons/react/24/outline"; // Kept Heroicons
 import { PaintBrushIcon } from "@heroicons/react/24/solid";
 import { useAtom } from "jotai";
@@ -70,6 +71,33 @@ export default function DashboardPage() {
   const [, setIsLoadingDesignSystems] = useState(false);
   const [designStyle, setDesignStyle] = useState<DesignStyle>("stylesheets");
   const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
+  const [isSurveyChecking, setIsSurveyChecking] = useState(true);
+
+  // Check if user has completed survey (Scenario 2)
+  useEffect(() => {
+    async function checkSurvey() {
+      if (!user?.id) {
+        setIsSurveyChecking(false);
+        return;
+      }
+
+      try {
+        const completed = await checkSurveyCompleted(user.id);
+        if (!completed) {
+          router.push("/welcome-survey");
+          return;
+        }
+        setIsSurveyChecking(false);
+      } catch (error) {
+        logger.debug("error", "Error checking survey status", {
+          error: error instanceof Error ? error.message : String(error),
+        });
+        setIsSurveyChecking(false);
+      }
+    }
+
+    checkSurvey();
+  }, [user, router, logger]);
 
   // Handle redirect after login
   useEffect(() => {
@@ -163,6 +191,19 @@ export default function DashboardPage() {
       handleSubmit();
     }
   };
+
+  // Show loading state while checking survey
+  if (isSurveyChecking) {
+    return (
+      <div className="relative min-h-screen text-black dark:text-white selection:bg-purple-500/30 font-sans flex items-center justify-center">
+        <GridBackground />
+        <div className="relative z-10 flex flex-col items-center gap-4">
+          <Loader2 className="w-8 h-8 animate-spin text-gray-400" />
+          <p className="text-sm text-gray-500">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="relative min-h-screen text-black dark:text-white selection:bg-purple-500/30 font-sans">

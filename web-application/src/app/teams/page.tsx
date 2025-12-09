@@ -212,7 +212,7 @@ function ValuePropSection() {
                         </div>
                         <h3 className="text-2xl font-medium text-white mb-3">Production Quality</h3>
                         <p className="text-zinc-400 leading-relaxed">
-                            Every variant uses your system: tokens, spacing, components. No "throwaway" code.
+                            Every variant uses your system: tokens, spacing, components. No &quot;throwaway&quot; code.
                         </p>
                     </div>
                 </div>
@@ -289,7 +289,7 @@ function VariantsSection() {
                                         </div>
                                         <div className="p-6">
                                             <h3 className="text-xl font-bold text-zinc-900 mb-1">Midnight City</h3>
-                                            <p className="text-zinc-500 text-sm mb-6">M83 • Hurry Up, We're Dreaming</p>
+                                            <p className="text-zinc-500 text-sm mb-6">M83 • Hurry Up, We&apos;re Dreaming</p>
                                             <div className="flex justify-between items-center gap-4">
                                                 <div className="w-8 h-8 rounded-full border border-black/10 flex items-center justify-center"><div className="w-0 h-0 border-t-[5px] border-t-transparent border-l-[8px] border-l-black border-b-[5px] border-b-transparent ml-0.5" /></div>
                                                 <div className="h-1 flex-1 bg-zinc-100 rounded-full overflow-hidden"><div className="h-full w-1/3 bg-black" /></div>
@@ -313,7 +313,7 @@ function VariantsSection() {
                                                 </div>
                                             </div>
                                             <h3 className="text-3xl font-black text-white leading-none mb-2 mix-blend-difference">MIDNIGHT<br />CITY</h3>
-                                            <p className="text-zinc-500 font-mono text-xs uppercase">M83 / Hurry Up, We're Dreaming</p>
+                                            <p className="text-zinc-500 font-mono text-xs uppercase">M83 / Hurry Up, We&apos;re Dreaming</p>
                                             <div className="mt-auto pt-8 border-t border-white/10 flex justify-between items-end">
                                                 <div className="text-4xl font-mono text-white/20">01</div>
                                                 <div className="h-16 w-32 flex items-end gap-1">
@@ -397,7 +397,7 @@ function VariantsSection() {
                                             <X className="w-8 h-8" />
                                         </div>
                                         <h3 className="text-zinc-900 font-bold text-xl mb-2">Connection Failed</h3>
-                                        <p className="text-zinc-500 text-sm mb-8 text-center px-4">We couldn't load your feed. Please check your internet connection.</p>
+                                        <p className="text-zinc-500 text-sm mb-8 text-center px-4">We couldn&apos;t load your feed. Please check your internet connection.</p>
                                         <button className="flex items-center gap-2 px-6 py-2.5 bg-red-50 text-red-600 rounded-full font-medium text-sm hover:bg-red-100 transition-colors">
                                             <RefreshCw className="w-4 h-4" /> Try Again
                                         </button>
@@ -518,7 +518,7 @@ function VariantsSection() {
                                                     </div>
                                                     <div>
                                                         <div className="text-sm font-bold text-slate-900">Day 5</div>
-                                                        <div className="text-xs text-slate-500 leading-snug">We'll remind you with a notification that your trial is ending.</div>
+                                                        <div className="text-xs text-slate-500 leading-snug">We&apos;ll remind you with a notification that your trial is ending.</div>
                                                     </div>
                                                 </div>
 
@@ -572,7 +572,7 @@ function VariantsSection() {
                                                     </div>
                                                     <div className="pt-1">
                                                         <div className="text-sm font-bold text-slate-900">Today</div>
-                                                        <div className="text-xs text-slate-500 mt-0.5">Unlock premium access. You don't have to pay anything.</div>
+                                                        <div className="text-xs text-slate-500 mt-0.5">Unlock premium access. You don&apos;t have to pay anything.</div>
                                                     </div>
                                                 </div>
 
