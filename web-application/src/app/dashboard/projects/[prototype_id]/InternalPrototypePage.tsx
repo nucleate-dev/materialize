@@ -61,6 +61,7 @@ import {
 import { Database } from "@/lib/types/supabase";
 import { IsUserPlanSubscribed } from "@/lib/utils/payments/SubscriptionManagementUtils";
 import { SLUG_RULES, isValidSlug, normalizeSlug } from "@/lib/utils/slugUtils";
+import { toast } from "sonner";
 import { useSetAtom } from "jotai";
 import {
   AlertTriangle,
@@ -978,7 +979,11 @@ export default function InternalPrototypePage() {
         setDeployVisibility("PUBLIC");
       }
 
-      await navigator.clipboard.writeText(window.location.href);
+      await navigator.clipboard.writeText(
+        window.location.href.replace("dashboard/projects", "p"),
+      );
+
+      toast.success("Copied!");
 
       setTimeout(() => {
         setShowShareModal(false);
@@ -1717,7 +1722,7 @@ export default function InternalPrototypePage() {
                 <Input
                   value={window.location.href.replace(
                     "dashboard/projects",
-                    "project",
+                    "p",
                   )}
                   readOnly
                   className="flex-1 bg-[#0B0C0E] border-white/10 text-white/80 h-9 text-xs"

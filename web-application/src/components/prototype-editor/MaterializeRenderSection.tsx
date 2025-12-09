@@ -1875,6 +1875,20 @@ const MaterializeRenderSection = forwardRef<
                   <Palette className="w-3.5 h-3.5" />
                 </Button>
               )}
+              {onShare && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={onShare}
+                  className="h-8 bg-accent border border-border text-muted-foreground hover:text-foreground hover:border-border/80 hover:bg-accent/80 transition-all"
+                  title="Share"
+                >
+                  <Share2 className="w-3.5 h-3.5" />
+                  <span className="ml-2 hidden md:inline text-xs font-medium">
+                    Share
+                  </span>
+                </Button>
+              )}
               {/* {onDeploy && !isReadOnlyView && (
                 <Button
                   size="sm"
@@ -1934,29 +1948,22 @@ const MaterializeRenderSection = forwardRef<
                     <Monitor className="w-4 h-4 mr-2 opacity-70" />
                     Web View
                   </DropdownMenuItem>
-                  <DropdownMenuSeparator className="bg-border" />
-                  {onShare && (
-                    <DropdownMenuItem
-                      onClick={onShare}
-                      className="focus:bg-accent/80 focus:text-foreground text-muted-foreground text-sm cursor-pointer"
-                    >
-                      <Share2 className="w-4 h-4 mr-2 opacity-70" />
-                      Share
-                    </DropdownMenuItem>
-                  )}
                   {onClone && (
-                    <DropdownMenuItem
-                      onClick={onClone}
-                      disabled={isCloningPrototype}
-                      className="focus:bg-accent/80 focus:text-foreground text-muted-foreground text-sm cursor-pointer"
-                    >
-                      {isCloningPrototype ? (
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      ) : (
-                        <Copy className="w-4 h-4 mr-2 opacity-70" />
-                      )}
-                      {isCloningPrototype ? "Cloning..." : "Clone"}
-                    </DropdownMenuItem>
+                    <>
+                      <DropdownMenuSeparator className="bg-border" />
+                      <DropdownMenuItem
+                        onClick={onClone}
+                        disabled={isCloningPrototype}
+                        className="focus:bg-accent/80 focus:text-foreground text-muted-foreground text-sm cursor-pointer"
+                      >
+                        {isCloningPrototype ? (
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        ) : (
+                          <Copy className="w-4 h-4 mr-2 opacity-70" />
+                        )}
+                        {isCloningPrototype ? "Cloning..." : "Clone"}
+                      </DropdownMenuItem>
+                    </>
                   )}
                   {!isReadOnlyView && (
                     <>

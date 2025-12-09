@@ -497,6 +497,8 @@ After running any npm install or npx expo install commands, you MUST use the Res
 
 The checkTerminal tool (mcp__devtools__checkTerminal) should ONLY be used when you need to debug errors or check for issues in the dev server.
 Do not use it for general monitoring or informational purposes.
+
+CRITICAL: If you use a package, you should verify that it is installed; else, install it.
 </tool_usage>
 `;
 
@@ -506,23 +508,23 @@ Do not use it for general monitoring or informational purposes.
  * @returns The complete system prompt with design-specific instructions
  */
 export function getSystemPromptForDesignStyle(
-   designStyle?: string | null,
+  designStyle?: string | null,
 ): string {
-   let stackInfo: string;
+  let stackInfo: string;
 
-   switch (designStyle) {
-      case "nativewind":
-         stackInfo = NATIVEWIND_STACK_INFO;
-         break;
-      case "tamagui":
-         stackInfo = TAMAGUI_STACK_INFO;
-         break;
-      case "stylesheets":
-      case "custom":
-      default:
-         stackInfo = STYLESHEET_STACK_INFO;
-         break;
-   }
+  switch (designStyle) {
+    case "nativewind":
+      stackInfo = NATIVEWIND_STACK_INFO;
+      break;
+    case "tamagui":
+      stackInfo = TAMAGUI_STACK_INFO;
+      break;
+    case "stylesheets":
+    case "custom":
+    default:
+      stackInfo = STYLESHEET_STACK_INFO;
+      break;
+  }
 
-   return BASE_SYSTEM_PROMPT + " " + stackInfo + " " + SHARED_SECTIONS;
+  return BASE_SYSTEM_PROMPT + " " + stackInfo + " " + SHARED_SECTIONS;
 }
