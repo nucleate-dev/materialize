@@ -1580,6 +1580,33 @@ export default function ClaudeCodePanel({
     }
   };
 
+  // Handle paste events (for pasting images from clipboard)
+  const handlePaste = (e: React.ClipboardEvent) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+
+    const imageFiles: File[] = [];
+
+    // Check all clipboard items for images
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+
+      // If the item is an image file
+      if (item.type.startsWith("image/")) {
+        const file = item.getAsFile();
+        if (file) {
+          imageFiles.push(file);
+        }
+      }
+    }
+
+    // If we found image files, process them and prevent default paste behavior
+    if (imageFiles.length > 0) {
+      e.preventDefault();
+      processImageFiles(imageFiles);
+    }
+  };
+
   // Remove an uploaded image
   const removeImage = (imageId: string) => {
     setUploadedImages((prev) => prev.filter((img) => img.id !== imageId));
@@ -2206,6 +2233,7 @@ export default function ClaudeCodePanel({
       handleDragLeave={handleDragLeave}
       handleDragOver={handleDragOver}
       handleDrop={handleDrop}
+      handlePaste={handlePaste}
       hasReachedCreditLimit={creditUsage.hasReachedLimit}
       creditsUsed={creditUsage.creditsUsed}
       totalAvailableCredits={creditUsage.totalAvailableCredits}

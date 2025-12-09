@@ -125,6 +125,7 @@ interface ClaudeCodePanelUIProps {
   handleDragLeave: (event: React.DragEvent) => void;
   handleDragOver: (event: React.DragEvent) => void;
   handleDrop: (event: React.DragEvent) => void;
+  handlePaste: (event: React.ClipboardEvent) => void;
   hasReachedCreditLimit: boolean;
   creditsUsed: number;
   totalAvailableCredits: number;
@@ -190,6 +191,7 @@ export default function ClaudeCodePanelUI({
   handleDragLeave,
   handleDragOver,
   handleDrop,
+  handlePaste,
   hasReachedCreditLimit,
   creditsUsed,
   totalAvailableCredits,
@@ -784,6 +786,7 @@ export default function ClaudeCodePanelUI({
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             onKeyDown={handleKeyPress}
+            onPaste={handlePaste}
             placeholder={
               !isCurrentSessionMostRecent
                 ? "Session is read-only"
