@@ -1,14 +1,14 @@
 import * as path from "path"
 import * as dotenv from "dotenv"
 import { createClient, SupabaseClient } from "@supabase/supabase-js"
-import type { Database } from "../types/supabase"
+import type { Database } from "./types/supabase"
 import type {
   NucleateBackfill,
   TableName,
   TableRow,
-} from "../types/nucleate-backfill"
+} from "./nucleate-backfill"
 
-dotenv.config({ path: path.join(__dirname, "../.env") })
+dotenv.config({ path: path.join(__dirname, ".env") })
 
 const ROW_FETCH_BATCH_SIZE = 250
 const CONSISTENCY_CONCURRENCY = 10

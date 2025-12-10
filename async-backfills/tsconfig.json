@@ -14,7 +14,7 @@
     "baseUrl": ".",
     "allowSyntheticDefaultImports": true
   },
-  "include": ["backfills/**/*.ts", "types/**/*.ts"],
+  "include": ["*.ts", "backfills/**/*.ts", "types/**/*.ts"],
   "ts-node": {
     "transpileOnly": true,
     "files": true,

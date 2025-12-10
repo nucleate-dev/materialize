@@ -10,7 +10,7 @@
  *   npm run backfill backfills/example-backfill.ts --where-column id --where-value 123  # Single row
  */
 
-import type { NucleateBackfill } from "../types/nucleate-backfill"
+import type { NucleateBackfill } from "../nucleate-backfill"
 
 // Example: Fix prototypes that have inconsistent data
 export const backfill: NucleateBackfill<"prototypes"> = {

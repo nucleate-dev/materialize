@@ -30,7 +30,7 @@ npm run backfill backfills/your-backfill.ts --where-column id --where-value "abc
 1. **Create the file:**
 ```typescript
 // backfills/fix-missing-slugs.ts
-import type { NucleateBackfill } from "../types/nucleate-backfill"
+import type { NucleateBackfill } from "../nucleate-backfill"
 
 export const backfill: NucleateBackfill<"prototypes"> = {
   table: "prototypes",

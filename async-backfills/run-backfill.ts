@@ -26,7 +26,7 @@
 
 import * as path from "path"
 import { runAsyncBackfill, BackfillOptions } from "./AsyncBackfillExecutor"
-import type { NucleateBackfill, TableName } from "../types/nucleate-backfill"
+import type { NucleateBackfill, TableName } from "./nucleate-backfill"
 
 interface CliArgs {
   scriptPath: string
