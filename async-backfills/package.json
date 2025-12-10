@@ -7,8 +7,9 @@
     "gen:supabase:types": "supabase gen types typescript --project-id hfgjmwidcoszkmvejxhw --schema public > types/supabase.ts",
     "update-gitignore": "node backfills/update-gitignore.js",
     "list-storage-thumbnails": "node backfills/list-storage-thumbnails.js",
-    "run:ts": "ts-node --project tsconfig.json",
-    "exec": "npm run run:ts --"
+    "exec": "ts-node --project tsconfig.json",
+    "build": "tsc --noEmit",
+    "check": "tsc --noEmit"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.84.0",

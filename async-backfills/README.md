@@ -21,23 +21,99 @@ SUPABASE_URL=your_supabase_url
 SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
 ```
 
-## TypeScript Backfills
+## Writing TypeScript Scripts
 
-You can write new backfills in TypeScript using the shared Supabase types.
+You can write backfill scripts in TypeScript with full type safety using the shared Supabase types.
 
-1. Create your script in `backfills/your-script.ts`
-2. Import shared helpers and interfaces, e.g.:
-   ```ts
-   import { NucleateBackfill } from "../types/nucleate-backfill"
-   ```
-3. Execute the script with:
+### Quick Start
+
+1. **Create your script** in `backfills/your-script.ts`
+2. **Run it directly** without compilation:
    ```bash
-   npm run exec -- backfills/your-script.ts
+   npm run exec backfills/your-script.ts
    ```
 
-The `npm run exec` helper wraps `ts-node` with the local `tsconfig.json`, so any `.ts` file in `backfills/` can run without compilation.
+### Two Patterns for Writing Scripts
+
+#### Pattern 1: Using AsyncBackfillExecutor (Recommended for table backfills)
+
+Best for processing all rows in a table and fixing inconsistencies:
+
+```ts
+import type { NucleateBackfill } from "../types/nucleate-backfill"
+import { runAsyncBackfill } from "./AsyncBackfillExecutor"
+
+const backfill: NucleateBackfill<"your_table"> = {
+  table: "your_table",
+  async genIsInconsistent(row) {
+    return /* check if row needs fixing */
+  },
+  async genFixRow(row) {
+    return /* return fixed row */
+  },
+}
+
+await runAsyncBackfill(backfill)
+```
+
+See `backfills/example-backfill.ts` for a complete example.
+
+#### Pattern 2: Standalone Script (For custom operations)
+
+Best for custom queries or operations:
+
+```ts
+import path from "path"
+import dotenv from "dotenv"
+import { createClient } from "@supabase/supabase-js"
+import type { Database } from "../types/supabase"
+
+dotenv.config({ path: path.join(__dirname, "../.env") })
+
+const supabase = createClient<Database>(
+  process.env.SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+)
+
+// Your custom logic here
+```
+
+See `backfills/example-simple-script.ts` for a complete example.
+
+### Available Commands
+
+- `npm run exec backfills/your-script.ts` - Run a TypeScript script directly
+- `npm run check` - Type-check all TypeScript files without running them
+- `npm run build` - Verify TypeScript compilation (same as check)
 
 ## Scripts
+
+### AsyncBackfillExecutor
+
+`backfills/AsyncBackfillExecutor.ts` provides the common runner logic:
+
+```ts
+import { NucleateBackfill } from "../types/nucleate-backfill"
+import { runAsyncBackfill } from "./AsyncBackfillExecutor"
+
+const backfill: NucleateBackfill<"your_table"> = {
+  table: "your_table",
+  async genIsInconsistent(row) {
+    return /* ... */
+  },
+  async genFixRow(row) {
+    return /* ... */
+  },
+}
+
+await runAsyncBackfill(backfill)
+```
+
+It automatically:
+- Streams database rows in batches of 250 using the Supabase service role
+- Checks 10 rows at a time for inconsistencies
+- Fixes inconsistent rows concurrently (10 at a time)
+- Upserts fixes in batches of 100 rows
 
 ### Update .gitignore Files
 

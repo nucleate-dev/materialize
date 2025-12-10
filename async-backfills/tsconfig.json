@@ -11,7 +11,15 @@
     "rootDir": ".",
     "outDir": "dist",
     "types": ["node"],
-    "baseUrl": "."
+    "baseUrl": ".",
+    "allowSyntheticDefaultImports": true
   },
-  "include": ["backfills/**/*.ts", "types/**/*.ts"]
+  "include": ["backfills/**/*.ts", "types/**/*.ts"],
+  "ts-node": {
+    "transpileOnly": true,
+    "files": true,
+    "compilerOptions": {
+      "module": "CommonJS"
+    }
+  }
 }
