@@ -26,6 +26,7 @@ import {
 import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import { cn } from "@/lib/classNames";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
+import { type PrototypeVisibility } from "@/lib/types/prototypes";
 import type {
   APIResponse,
   CreatePrototypeErrorResponse,
@@ -33,7 +34,6 @@ import type {
   CreatePrototypeSuccessResponse,
 } from "@/lib/types/serverAPITypes";
 import { Database } from "@/lib/types/supabase";
-import { type PrototypeVisibility } from "@/lib/types/prototypes";
 import { handleCheckout } from "@/lib/utils/payments/CheckoutUtils";
 import { IsUserPlanSubscribed } from "@/lib/utils/payments/SubscriptionManagementUtils";
 import { User } from "@supabase/supabase-js";
@@ -355,18 +355,18 @@ export default function NewPrototypeModal({
   return (
     <>
       <Dialog open={open} onOpenChange={onClose}>
-        <DialogContent className="sm:max-w-md bg-[#141517] border border-white/10 text-white shadow-2xl">
+        <DialogContent className="sm:max-w-md bg-white dark:bg-[#141517] border border-zinc-200 dark:border-white/10 text-zinc-900 dark:text-white shadow-2xl">
           <DialogHeader className="text-center space-y-3 pb-2">
             <div className="flex items-center justify-center">
-              <div className="p-2.5 bg-[#0B0C0E] border border-white/10 rounded-xl shadow-inner">
-                <Sparkles className="w-5 h-5 text-white" />
+              <div className="p-2.5 bg-zinc-50 dark:bg-[#0B0C0E] border border-zinc-200 dark:border-white/10 rounded-xl shadow-inner">
+                <Sparkles className="w-5 h-5 text-zinc-900 dark:text-white" />
               </div>
             </div>
-            <DialogTitle className="text-xl font-medium tracking-tight text-white">
+            <DialogTitle className="text-xl font-medium tracking-tight text-zinc-900 dark:text-white">
               Create New Project
             </DialogTitle>
             {userPlan === "free" && (
-              <div className="text-xs font-medium text-[#8A8F98] uppercase tracking-wider">
+              <div className="text-xs font-medium text-zinc-500 dark:text-[#8A8F98] uppercase tracking-wider">
                 {isLoadingCount ? (
                   <span className="flex items-center justify-center gap-2">
                     <Loader2 className="w-3 h-3 animate-spin" /> Check Limits
@@ -379,21 +379,21 @@ export default function NewPrototypeModal({
           </DialogHeader>
 
           {userPlan === "free" && prototypeCount >= 5 && (
-            <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-4 mb-4">
+            <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-4 mb-4">
               <div className="flex items-start gap-3">
-                <AlertTriangle className="w-4 h-4 text-yellow-500 mt-0.5" />
+                <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-500 mt-0.5" />
                 <div className="flex-1">
-                  <h4 className="text-sm font-medium text-yellow-200 mb-1">
+                  <h4 className="text-sm font-medium text-amber-800 dark:text-yellow-200 mb-1">
                     Limit Reached
                   </h4>
-                  <p className="text-xs text-yellow-200/70 mb-3 leading-relaxed">
+                  <p className="text-xs text-amber-700 dark:text-yellow-200/70 mb-3 leading-relaxed">
                     Free plans include 5 projects. Upgrade to Plus for unlimited
                     projects.
                   </p>
                   <Button
                     type="button"
                     size="sm"
-                    className="h-7 text-xs bg-yellow-500 text-black hover:bg-yellow-400 border-0"
+                    className="h-7 text-xs bg-amber-500 text-white dark:text-black hover:bg-amber-600 dark:hover:bg-yellow-400 border-0"
                     onClick={() => handleCheckout("plus", router)}
                   >
                     Upgrade Now
@@ -408,15 +408,15 @@ export default function NewPrototypeModal({
             className={cn(
               "space-y-5",
               userPlan === "free" &&
-                prototypeCount >= 5 &&
-                "opacity-50 pointer-events-none",
+              prototypeCount >= 5 &&
+              "opacity-50 pointer-events-none",
             )}
           >
             {/* Project Name Input */}
             <div className="space-y-2">
               <Label
                 htmlFor="prototype-name"
-                className="text-xs font-medium text-[#8A8F98]"
+                className="text-xs font-medium text-zinc-500 dark:text-[#8A8F98]"
               >
                 Project Name
               </Label>
@@ -427,16 +427,18 @@ export default function NewPrototypeModal({
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 className={cn(
-                  "h-11 bg-[#0B0C0E] border-white/10 text-white focus:border-white/20 placeholder:text-white/20 transition-all",
+                  "h-11 bg-white dark:bg-[#0B0C0E] border-zinc-200 dark:border-white/10 text-zinc-900 dark:text-white focus:border-indigo-500 dark:focus:border-white/20 placeholder:text-zinc-400 dark:placeholder:text-white/20 transition-all",
                   touched &&
-                    !name.trim() &&
-                    "border-red-500/50 focus-visible:ring-red-500/20",
+                  !name.trim() &&
+                  "border-red-500/50 focus-visible:ring-red-500/20",
                 )}
                 autoFocus
                 maxLength={64}
               />
               {touched && !name.trim() && (
-                <p className="text-xs text-red-400">Name is required</p>
+                <p className="text-xs text-red-500 dark:text-red-400">
+                  Name is required
+                </p>
               )}
             </div>
 
@@ -445,12 +447,12 @@ export default function NewPrototypeModal({
               <div className="flex items-center justify-between">
                 <Label
                   htmlFor="prototype-visibility"
-                  className="text-xs font-medium text-[#8A8F98]"
+                  className="text-xs font-medium text-zinc-500 dark:text-[#8A8F98]"
                 >
                   Visibility
                 </Label>
                 {!IsUserPlanSubscribed(userPlan) && (
-                  <span className="text-[10px] text-[#8A8F98] bg-white/5 px-1.5 py-0.5 rounded">
+                  <span className="text-[10px] text-zinc-500 dark:text-[#8A8F98] bg-zinc-100 dark:bg-white/5 px-1.5 py-0.5 rounded">
                     Upgrade for Private
                   </span>
                 )}
@@ -474,26 +476,26 @@ export default function NewPrototypeModal({
               >
                 <SelectTrigger
                   id="prototype-visibility"
-                  className="h-11 bg-[#0B0C0E] border-white/10 text-white focus:ring-0"
+                  className="h-11 bg-white dark:bg-[#0B0C0E] border-zinc-200 dark:border-white/10 text-zinc-900 dark:text-white focus:ring-0"
                 >
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent className="bg-[#141517] border-white/10 text-white">
+                <SelectContent className="bg-white dark:bg-[#141517] border-zinc-200 dark:border-white/10 text-zinc-900 dark:text-white">
                   <SelectItem
                     value="PUBLIC"
-                    className="focus:bg-white/10 focus:text-white cursor-pointer"
+                    className="focus:bg-zinc-100 dark:focus:bg-white/10 focus:text-zinc-900 dark:focus:text-white cursor-pointer"
                   >
                     Public
                   </SelectItem>
                   <SelectItem
                     value="TEAM_SUBSET"
-                    className="focus:bg-white/10 focus:text-white cursor-pointer"
+                    className="focus:bg-zinc-100 dark:focus:bg-white/10 focus:text-zinc-900 dark:focus:text-white cursor-pointer"
                   >
                     Unlisted
                   </SelectItem>
                   <SelectItem
                     value="SELF"
-                    className="focus:bg-white/10 focus:text-white cursor-pointer"
+                    className="focus:bg-zinc-100 dark:focus:bg-white/10 focus:text-zinc-900 dark:focus:text-white cursor-pointer"
                   >
                     Private (Self)
                   </SelectItem>
@@ -505,13 +507,13 @@ export default function NewPrototypeModal({
             <Collapsible
               open={showAdvanced}
               onOpenChange={setShowAdvanced}
-              className="border-t border-white/5 pt-4"
+              className="border-t border-zinc-200 dark:border-white/5 pt-4"
             >
               <CollapsibleTrigger asChild>
                 <Button
                   type="button"
                   variant="ghost"
-                  className="flex items-center justify-between w-full p-0 h-auto text-xs font-medium text-[#8A8F98] hover:text-white hover:bg-transparent transition-colors"
+                  className="flex items-center justify-between w-full p-0 h-auto text-xs font-medium text-zinc-500 dark:text-[#8A8F98] hover:text-zinc-900 dark:hover:text-white hover:bg-transparent transition-colors"
                 >
                   <span>Advanced Options</span>
                   <ChevronDown
@@ -528,7 +530,7 @@ export default function NewPrototypeModal({
                 <div className="space-y-2">
                   <Label
                     htmlFor="project-select"
-                    className="text-xs font-medium text-[#8A8F98]"
+                    className="text-xs font-medium text-zinc-500 dark:text-[#8A8F98]"
                   >
                     Folder
                   </Label>
@@ -540,21 +542,21 @@ export default function NewPrototypeModal({
                       setHasManualDesignSelection(false);
                     }}
                   >
-                    <SelectTrigger className="h-10 bg-[#0B0C0E] border-white/10 text-white text-sm focus:ring-0">
+                    <SelectTrigger className="h-10 bg-white dark:bg-[#0B0C0E] border-zinc-200 dark:border-white/10 text-zinc-900 dark:text-white text-sm focus:ring-0">
                       <div className="flex items-center gap-2 truncate">
-                        <Folder className="w-3.5 h-3.5 text-white/50" />
+                        <Folder className="w-3.5 h-3.5 text-zinc-400 dark:text-white/50" />
                         <SelectValue placeholder="Select folder..." />
                       </div>
                     </SelectTrigger>
-                    <SelectContent className="bg-[#141517] border-white/10 text-white">
+                    <SelectContent className="bg-white dark:bg-[#141517] border-zinc-200 dark:border-white/10 text-zinc-900 dark:text-white">
                       <SelectItem
                         value="none"
-                        className="focus:bg-white/10 focus:text-white cursor-pointer text-sm"
+                        className="focus:bg-zinc-100 dark:focus:bg-white/10 focus:text-zinc-900 dark:focus:text-white cursor-pointer text-sm"
                       >
                         No folder
                       </SelectItem>
                       {isLoadingFolders ? (
-                        <div className="px-2 py-2 text-xs text-white/50 flex items-center gap-2">
+                        <div className="px-2 py-2 text-xs text-zinc-500 dark:text-white/50 flex items-center gap-2">
                           <Loader2 className="w-3 h-3 animate-spin" />{" "}
                           Loading...
                         </div>
@@ -563,10 +565,10 @@ export default function NewPrototypeModal({
                           <SelectItem
                             key={project.id}
                             value={project.id}
-                            className="focus:bg-white/10 focus:text-white cursor-pointer text-sm"
+                            className="focus:bg-zinc-100 dark:focus:bg-white/10 focus:text-zinc-900 dark:focus:text-white cursor-pointer text-sm"
                           >
                             <div className="flex items-center gap-2">
-                              <Folder className="w-3.5 h-3.5 text-white/50" />
+                              <Folder className="w-3.5 h-3.5 text-zinc-400 dark:text-white/50" />
                               {project.name}
                             </div>
                           </SelectItem>
@@ -580,7 +582,7 @@ export default function NewPrototypeModal({
                 <div className="space-y-2">
                   <Label
                     htmlFor="design-style"
-                    className="text-xs font-medium text-[#8A8F98]"
+                    className="text-xs font-medium text-zinc-500 dark:text-[#8A8F98]"
                   >
                     Style
                   </Label>
@@ -593,19 +595,19 @@ export default function NewPrototypeModal({
                   >
                     <SelectTrigger
                       id="design-style"
-                      className="h-10 bg-[#0B0C0E] border-white/10 text-white text-sm focus:ring-0"
+                      className="h-10 bg-white dark:bg-[#0B0C0E] border-zinc-200 dark:border-white/10 text-zinc-900 dark:text-white text-sm focus:ring-0"
                     >
                       <div className="flex items-center gap-2">
-                        <Palette className="w-3.5 h-3.5 text-white/50" />
+                        <Palette className="w-3.5 h-3.5 text-zinc-400 dark:text-white/50" />
                         <SelectValue />
                       </div>
                     </SelectTrigger>
-                    <SelectContent className="bg-[#141517] border-white/10 text-white">
+                    <SelectContent className="bg-white dark:bg-[#141517] border-zinc-200 dark:border-white/10 text-zinc-900 dark:text-white">
                       {DESIGN_STYLE_OPTIONS.map((style) => (
                         <SelectItem
                           key={style}
                           value={style}
-                          className="focus:bg-white/10 focus:text-white cursor-pointer text-sm"
+                          className="focus:bg-zinc-100 dark:focus:bg-white/10 focus:text-zinc-900 dark:focus:text-white cursor-pointer text-sm"
                         >
                           {DESIGN_STYLE_LABELS[style]}
                         </SelectItem>
@@ -619,7 +621,7 @@ export default function NewPrototypeModal({
                   <div className="space-y-2">
                     <Label
                       htmlFor="custom-design-system"
-                      className="text-xs font-medium text-[#8A8F98]"
+                      className="text-xs font-medium text-zinc-500 dark:text-[#8A8F98]"
                     >
                       Design System
                     </Label>
@@ -634,14 +636,14 @@ export default function NewPrototypeModal({
                     >
                       <SelectTrigger
                         id="custom-design-system"
-                        className="h-10 bg-[#0B0C0E] border-white/10 text-white text-sm focus:ring-0"
+                        className="h-10 bg-white dark:bg-[#0B0C0E] border-zinc-200 dark:border-white/10 text-zinc-900 dark:text-white text-sm focus:ring-0"
                       >
                         <SelectValue placeholder="None" />
                       </SelectTrigger>
-                      <SelectContent className="bg-[#141517] border-white/10 text-white">
+                      <SelectContent className="bg-white dark:bg-[#141517] border-zinc-200 dark:border-white/10 text-zinc-900 dark:text-white">
                         <SelectItem
                           value="none"
-                          className="focus:bg-white/10 focus:text-white cursor-pointer text-sm"
+                          className="focus:bg-zinc-100 dark:focus:bg-white/10 focus:text-zinc-900 dark:focus:text-white cursor-pointer text-sm"
                         >
                           None
                         </SelectItem>
@@ -649,7 +651,7 @@ export default function NewPrototypeModal({
                           <SelectItem
                             key={system.id}
                             value={String(system.id)}
-                            className="focus:bg-white/10 focus:text-white cursor-pointer text-sm"
+                            className="focus:bg-zinc-100 dark:focus:bg-white/10 focus:text-zinc-900 dark:focus:text-white cursor-pointer text-sm"
                           >
                             {system.name}
                           </SelectItem>
@@ -668,7 +670,7 @@ export default function NewPrototypeModal({
                 !name.trim() ||
                 (userPlan === "free" && prototypeCount >= 5)
               }
-              className="w-full h-11 bg-white text-black hover:bg-white/90 font-medium rounded-lg"
+              className="w-full h-11 bg-zinc-900 text-white hover:bg-zinc-800 dark:bg-white dark:text-black dark:hover:bg-white/90 font-medium rounded-lg"
             >
               {isCreating ? (
                 <>
