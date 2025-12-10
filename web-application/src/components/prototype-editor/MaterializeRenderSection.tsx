@@ -655,7 +655,7 @@ const MaterializeRenderSection = forwardRef<
                 ? originalName.substring(12)
                 : originalName,
               secret_value:
-                prototype_env_var_secrets?.secret_value ?? null,
+                prototype_env_var_secrets?.[0]?.secret_value ?? null,
             } as PrototypeEnvVar;
           },
         );
