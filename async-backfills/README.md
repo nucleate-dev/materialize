@@ -82,9 +82,79 @@ See `backfills/example-simple-script.ts` for a complete example.
 
 ### Available Commands
 
+- `npm run backfill <script> [options]` - Run a backfill with the CLI (recommended)
 - `npm run exec backfills/your-script.ts` - Run a TypeScript script directly
 - `npm run check` - Type-check all TypeScript files without running them
 - `npm run build` - Verify TypeScript compilation (same as check)
+
+### Running Backfills with the CLI
+
+The recommended way to run backfills is using the CLI, which provides dry-run mode, single-row testing, and detailed stats.
+
+#### Basic Usage
+
+```bash
+# Dry run on entire table (default - safe to run, makes no changes)
+npm run backfill backfills/your-backfill.ts
+
+# Live run - actually applies fixes to the database
+npm run backfill backfills/your-backfill.ts --no-dry-run
+
+# Test on a single row (dry run)
+npm run backfill backfills/your-backfill.ts --where-column id --where-value "abc-123"
+
+# Fix a single row (live)
+npm run backfill backfills/your-backfill.ts --no-dry-run --where-column id --where-value "abc-123"
+```
+
+#### CLI Options
+
+- `--no-dry-run` - Run in LIVE mode (applies fixes to database). By default, runs in DRY RUN mode.
+- `--where-column <column>` - Column name to filter by (for single row execution)
+- `--where-value <value>` - Value to match (for single row execution)
+
+#### CLI Features
+
+✅ **Dry run by default** - Always safe to run, see what would be fixed without making changes
+✅ **Single-row testing** - Test your backfill logic on one row before running on the full table
+✅ **Detailed statistics** - See total rows processed, inconsistencies found, and fix rate
+✅ **Clear output** - Know exactly what mode you're in and what will happen
+✅ **Dynamic script loading** - No need to modify the executor, just write your backfill script
+
+#### Example Workflow
+
+1. **Write your backfill script:**
+   ```typescript
+   // backfills/fix-missing-slugs.ts
+   import type { NucleateBackfill } from "../types/nucleate-backfill"
+
+   export const backfill: NucleateBackfill<"prototypes"> = {
+     table: "prototypes",
+     async genIsInconsistent(row) {
+       return !row.slug
+     },
+     async genFixRow(row) {
+       return { ...row, slug: `project-${row.id}` }
+     },
+   }
+
+   export default backfill
+   ```
+
+2. **Test on a single row (dry run):**
+   ```bash
+   npm run backfill backfills/fix-missing-slugs.ts --where-column id --where-value "abc-123"
+   ```
+
+3. **Run dry run on full table:**
+   ```bash
+   npm run backfill backfills/fix-missing-slugs.ts
+   ```
+
+4. **Apply fixes (live run):**
+   ```bash
+   npm run backfill backfills/fix-missing-slugs.ts --no-dry-run
+   ```
 
 ## Scripts
 

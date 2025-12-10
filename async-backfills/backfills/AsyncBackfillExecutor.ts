@@ -17,10 +17,30 @@ const UPSERT_BATCH_SIZE = 100
 
 type SupabaseTableRow<TName extends TableName> = TableRow<TName>
 
+export interface BackfillOptions {
+  dryRun?: boolean
+  whereColumn?: string
+  whereValue?: string | number
+}
+
+export interface BackfillStats {
+  totalRowsProcessed: number
+  inconsistentRowsFound: number
+  rowsFixed: number
+}
+
 export class AsyncBackfillExecutor<TName extends TableName> {
   private readonly supabase: SupabaseClient<Database>
+  private stats: BackfillStats = {
+    totalRowsProcessed: 0,
+    inconsistentRowsFound: 0,
+    rowsFixed: 0,
+  }
 
-  constructor(private readonly backfill: NucleateBackfill<TName>) {
+  constructor(
+    private readonly backfill: NucleateBackfill<TName>,
+    private readonly options: BackfillOptions = {},
+  ) {
     this.validateEnv()
     this.supabase = createClient<Database>(
       process.env.SUPABASE_URL!,
@@ -28,7 +48,71 @@ export class AsyncBackfillExecutor<TName extends TableName> {
     )
   }
 
-  async run(): Promise<void> {
+  async run(): Promise<BackfillStats> {
+    const isDryRun = this.options.dryRun !== false // default to true
+    const isSingleRow = !!(this.options.whereColumn && this.options.whereValue)
+
+    console.log(
+      `\n🚀 Starting backfill on table: ${this.backfill.table}`,
+    )
+    console.log(`   Mode: ${isDryRun ? "DRY RUN (no changes will be made)" : "LIVE (will fix rows)"}`)
+    if (isSingleRow) {
+      console.log(
+        `   Target: Single row where ${this.options.whereColumn} = ${this.options.whereValue}`,
+      )
+    } else {
+      console.log(`   Target: All rows in table`)
+    }
+    console.log("")
+
+    if (isSingleRow) {
+      await this.runSingleRow()
+    } else {
+      await this.runFullTable(isDryRun)
+    }
+
+    this.printSummary(isDryRun)
+    return this.stats
+  }
+
+  private async runSingleRow(): Promise<void> {
+    const row = await this.fetchSingleRow()
+    if (!row) {
+      console.log(
+        `❌ No row found where ${this.options.whereColumn} = ${this.options.whereValue}`,
+      )
+      return
+    }
+
+    console.log(`✅ Found row:`)
+    console.log(JSON.stringify(row, null, 2))
+    console.log("")
+
+    this.stats.totalRowsProcessed = 1
+
+    const isInconsistent = await this.backfill.genIsInconsistent(row)
+    console.log(
+      `   ${isInconsistent ? "❌" : "✅"} Row is ${isInconsistent ? "INCONSISTENT" : "consistent"}`,
+    )
+
+    if (isInconsistent) {
+      this.stats.inconsistentRowsFound = 1
+
+      if (this.options.dryRun === false) {
+        console.log("   🔧 Fixing row...")
+        const fixedRow = await this.backfill.genFixRow(row)
+        await this.upsertRows([fixedRow])
+        this.stats.rowsFixed = 1
+
+        console.log("\n   Fixed row:")
+        console.log(JSON.stringify(fixedRow, null, 2))
+      } else {
+        console.log("   ⏭️  Skipping fix (dry run mode)")
+      }
+    }
+  }
+
+  private async runFullTable(isDryRun: boolean): Promise<void> {
     let offset = 0
     let batchNumber = 0
 
@@ -43,14 +127,21 @@ export class AsyncBackfillExecutor<TName extends TableName> {
         `📦 Processing batch #${batchNumber} (${rows.length} rows) starting at offset ${offset}`,
       )
 
+      this.stats.totalRowsProcessed += rows.length
+
       const inconsistentRows = await this.filterInconsistentRows(rows)
+      this.stats.inconsistentRowsFound += inconsistentRows.length
+
       console.log(
         `   👉 Found ${inconsistentRows.length} inconsistent rows in batch #${batchNumber}`,
       )
 
-      if (inconsistentRows.length > 0) {
+      if (inconsistentRows.length > 0 && !isDryRun) {
         const fixedRows = await this.fixRows(inconsistentRows)
         await this.upsertRows(fixedRows)
+        this.stats.rowsFixed += fixedRows.length
+      } else if (inconsistentRows.length > 0 && isDryRun) {
+        console.log(`   ⏭️  Skipping fix for ${inconsistentRows.length} rows (dry run mode)`)
       }
 
       if (rows.length < ROW_FETCH_BATCH_SIZE) {
@@ -59,6 +150,30 @@ export class AsyncBackfillExecutor<TName extends TableName> {
 
       offset += ROW_FETCH_BATCH_SIZE
     }
+  }
+
+  private printSummary(isDryRun: boolean): void {
+    console.log("\n" + "=".repeat(70))
+    console.log("📊 BACKFILL SUMMARY")
+    console.log("=".repeat(70))
+    console.log(`Table:                    ${this.backfill.table}`)
+    console.log(`Mode:                     ${isDryRun ? "DRY RUN" : "LIVE"}`)
+    console.log(`Total rows processed:     ${this.stats.totalRowsProcessed}`)
+    console.log(`Inconsistent rows found:  ${this.stats.inconsistentRowsFound}`)
+    console.log(`Rows fixed:               ${this.stats.rowsFixed}`)
+
+    const percentage = this.stats.totalRowsProcessed > 0
+      ? ((this.stats.inconsistentRowsFound / this.stats.totalRowsProcessed) * 100).toFixed(2)
+      : "0.00"
+    console.log(`Inconsistency rate:       ${percentage}%`)
+
+    if (isDryRun && this.stats.inconsistentRowsFound > 0) {
+      console.log("\n⚠️  This was a DRY RUN. No changes were made to the database.")
+      console.log("   Run with --no-dry-run to apply fixes.")
+    } else if (!isDryRun && this.stats.rowsFixed > 0) {
+      console.log("\n✅ Changes have been applied to the database.")
+    }
+    console.log("=".repeat(70) + "\n")
   }
 
   private async fetchBatch(
@@ -76,6 +191,30 @@ export class AsyncBackfillExecutor<TName extends TableName> {
     }
 
     return (data ?? []) as unknown as SupabaseTableRow<TName>[]
+  }
+
+  private async fetchSingleRow(): Promise<SupabaseTableRow<TName> | null> {
+    if (!this.options.whereColumn || this.options.whereValue === undefined) {
+      return null
+    }
+
+    const { data, error } = await this.supabase
+      .from(this.backfill.table)
+      .select("*")
+      .eq(this.options.whereColumn as any, this.options.whereValue as any)
+      .single()
+
+    if (error) {
+      if (error.code === "PGRST116") {
+        // No rows found
+        return null
+      }
+      throw new Error(
+        `Failed to fetch row from table "${this.backfill.table}" where ${this.options.whereColumn} = ${this.options.whereValue}: ${error.message}`,
+      )
+    }
+
+    return data as unknown as SupabaseTableRow<TName>
   }
 
   private async filterInconsistentRows(
@@ -160,7 +299,8 @@ export class AsyncBackfillExecutor<TName extends TableName> {
 
 export async function runAsyncBackfill<TName extends TableName>(
   backfill: NucleateBackfill<TName>,
-): Promise<void> {
-  const executor = new AsyncBackfillExecutor(backfill)
-  await executor.run()
+  options?: BackfillOptions,
+): Promise<BackfillStats> {
+  const executor = new AsyncBackfillExecutor(backfill, options)
+  return await executor.run()
 }

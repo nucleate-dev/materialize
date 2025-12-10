@@ -4,14 +4,16 @@
  * This demonstrates how to use the AsyncBackfillExecutor to create
  * a backfill that processes database rows in batches.
  *
- * Run with: npm run exec backfills/example-backfill.ts
+ * Run with:
+ *   npm run backfill backfills/example-backfill.ts                    # Dry run on all rows
+ *   npm run backfill backfills/example-backfill.ts --no-dry-run       # Live run on all rows
+ *   npm run backfill backfills/example-backfill.ts --where-column id --where-value 123  # Single row
  */
 
 import type { NucleateBackfill } from "../types/nucleate-backfill"
-import { runAsyncBackfill } from "./AsyncBackfillExecutor"
 
 // Example: Fix prototypes that have inconsistent data
-const exampleBackfill: NucleateBackfill<"prototypes"> = {
+export const backfill: NucleateBackfill<"prototypes"> = {
   table: "prototypes",
 
   // Check if a row needs fixing
@@ -41,21 +43,5 @@ const exampleBackfill: NucleateBackfill<"prototypes"> = {
   },
 }
 
-// Run the backfill
-async function main() {
-  console.log("🚀 Starting example backfill...")
-  console.log("⚠️  This is an EXAMPLE script - modify it for your use case")
-  console.log("")
-
-  // Uncomment the line below to actually run the backfill
-  // await runAsyncBackfill(exampleBackfill)
-
-  console.log("")
-  console.log("✅ Example backfill setup complete!")
-  console.log("📝 Edit this file to implement your actual backfill logic")
-}
-
-main().catch((error) => {
-  console.error("❌ Backfill failed:", error)
-  process.exit(1)
-})
+// Export as default as well for convenience
+export default backfill

@@ -8,6 +8,7 @@
     "update-gitignore": "node backfills/update-gitignore.js",
     "list-storage-thumbnails": "node backfills/list-storage-thumbnails.js",
     "exec": "ts-node --project tsconfig.json",
+    "backfill": "ts-node --project tsconfig.json backfills/run-backfill.ts",
     "build": "tsc --noEmit",
     "check": "tsc --noEmit"
   },

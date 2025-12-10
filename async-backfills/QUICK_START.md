@@ -1,22 +1,28 @@
 # Quick Start Guide
 
-## Running TypeScript Scripts
+## Running Backfills
 
-The async-backfills directory is fully configured for writing and running TypeScript scripts with zero compilation steps.
+The async-backfills directory is fully configured for writing and running TypeScript backfills with zero compilation steps.
 
-### Basic Usage
+### Basic Usage (CLI - Recommended)
 
 ```bash
-# Run any TypeScript script directly
-npm run exec backfills/your-script.ts
+# Dry run (safe - no changes made)
+npm run backfill backfills/your-backfill.ts
 
-# Type-check all scripts without running them
+# Live run (applies fixes)
+npm run backfill backfills/your-backfill.ts --no-dry-run
+
+# Test single row
+npm run backfill backfills/your-backfill.ts --where-column id --where-value "abc-123"
+
+# Type-check all scripts
 npm run check
 ```
 
 ### Creating a New Script
 
-**Option 1: Table Backfill (Use AsyncBackfillExecutor)**
+**Option 1: Table Backfill (Use CLI - Recommended)**
 
 ```bash
 # Create a new file
@@ -25,9 +31,8 @@ touch backfills/my-backfill.ts
 
 ```typescript
 import type { NucleateBackfill } from "../types/nucleate-backfill"
-import { runAsyncBackfill } from "./AsyncBackfillExecutor"
 
-const backfill: NucleateBackfill<"prototypes"> = {
+export const backfill: NucleateBackfill<"prototypes"> = {
   table: "prototypes",
 
   async genIsInconsistent(row) {
@@ -44,10 +49,16 @@ const backfill: NucleateBackfill<"prototypes"> = {
   },
 }
 
-runAsyncBackfill(backfill).catch((error) => {
-  console.error("Backfill failed:", error)
-  process.exit(1)
-})
+export default backfill
+```
+
+Then run it:
+```bash
+# Dry run first (safe)
+npm run backfill backfills/my-backfill.ts
+
+# If results look good, run live
+npm run backfill backfills/my-backfill.ts --no-dry-run
 ```
 
 **Option 2: Custom Script**
