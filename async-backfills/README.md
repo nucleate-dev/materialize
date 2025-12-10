@@ -21,6 +21,22 @@ SUPABASE_URL=your_supabase_url
 SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
 ```
 
+## TypeScript Backfills
+
+You can write new backfills in TypeScript using the shared Supabase types.
+
+1. Create your script in `backfills/your-script.ts`
+2. Import shared helpers and interfaces, e.g.:
+   ```ts
+   import { NucleateBackfill } from "../types/nucleate-backfill"
+   ```
+3. Execute the script with:
+   ```bash
+   npm run exec -- backfills/your-script.ts
+   ```
+
+The `npm run exec` helper wraps `ts-node` with the local `tsconfig.json`, so any `.ts` file in `backfills/` can run without compilation.
+
 ## Scripts
 
 ### Update .gitignore Files
@@ -94,12 +110,13 @@ npm run list-storage-thumbnails
 
 When adding new backfill scripts:
 
-1. Create a new `.js` file in the `backfills/` directory
-2. Follow the same pattern as existing scripts:
+1. Create a new `.ts` (or `.js` if you prefer) file in the `backfills/` directory
+2. Reuse shared types from `types/` (e.g. `NucleateBackfill`) for stronger type safety
+3. Follow the same runtime pattern as existing scripts:
    - Load environment variables
    - Validate configuration
    - Process data in batches
    - Provide progress feedback
    - Handle errors gracefully
-3. Add a script entry in `package.json`
-4. Document it in this README
+4. Run the script via `npm run exec -- backfills/your-script.ts` (or add a dedicated npm script)
+5. Document it in this README

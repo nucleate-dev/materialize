@@ -6,10 +6,17 @@
   "scripts": {
     "gen:supabase:types": "supabase gen types typescript --project-id hfgjmwidcoszkmvejxhw --schema public > types/supabase.ts",
     "update-gitignore": "node backfills/update-gitignore.js",
-    "list-storage-thumbnails": "node backfills/list-storage-thumbnails.js"
+    "list-storage-thumbnails": "node backfills/list-storage-thumbnails.js",
+    "run:ts": "ts-node --project tsconfig.json",
+    "exec": "npm run run:ts --"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.84.0",
     "dotenv": "^16.4.5"
+  },
+  "devDependencies": {
+    "@types/node": "^20.12.12",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.4.5"
   }
 }
