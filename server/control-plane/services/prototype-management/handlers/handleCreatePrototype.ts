@@ -368,8 +368,10 @@ async function forkPrototype(
         newPrototypeId,
       ),
       supabase
-        .from('prototype_env_vars_view')
-        .select('name,is_public,secret_value')
+        .from('prototype_env_vars')
+        .select(
+          'name,is_public,prototype_env_var_secrets(secret_value)',
+        )
         .eq('prototype_id', sourcePrototypeId),
     ]);
   if (
@@ -439,25 +441,24 @@ async function forkPrototype(
   }
 
   if (envVarResult.data && envVarResult.data.length > 0) {
-    const envVarPayload = envVarResult.data
-      .filter((envVar) => envVar.name)
-      .map(
-        (envVar) =>
+    const sourceEnvVars = envVarResult.data.filter(
+      (envVar) => envVar.name,
+    );
+    const envVarPayload = sourceEnvVars.map(
+      (envVar) =>
         ({
           prototype_id: newPrototypeId,
           name: envVar.name!,
           is_public: envVar.is_public ?? false,
-          secret_value:
-            isSourceOwner && envVar.secret_value
-              ? envVar.secret_value
-              : null,
         }) satisfies TablesInsert<'prototype_env_vars'>,
-      );
+    );
 
     if (envVarPayload.length > 0) {
-      const { error: envInsertError } = await supabase
-        .from('prototype_env_vars')
-        .insert(envVarPayload);
+      const { data: insertedEnvVars, error: envInsertError } =
+        await supabase
+          .from('prototype_env_vars')
+          .insert(envVarPayload)
+          .select('id,name');
       if (envInsertError) {
         log2.error(
           envInsertError,
@@ -465,8 +466,58 @@ async function forkPrototype(
         );
         throw new Error(
           envInsertError.message ||
-          'Failed to copy prototype environment variables',
+            'Failed to copy prototype environment variables',
         );
+      }
+
+      if (isSourceOwner && insertedEnvVars) {
+        const secretByName = new Map(
+          sourceEnvVars
+            .map((envVar) => ({
+              name: envVar.name!,
+              secret:
+                envVar.prototype_env_var_secrets?.secret_value ?? null,
+            }))
+            .filter(
+              (entry) => entry.secret && entry.secret.length > 0,
+            )
+            .map((entry) => [entry.name, entry.secret as string]),
+        );
+
+        const secretPayload =
+          insertedEnvVars
+            .map((envVar) => {
+              const secretValue = secretByName.get(envVar.name);
+              if (!secretValue) {
+                return null;
+              }
+              return {
+                env_var_id: envVar.id,
+                secret_value: secretValue,
+              } satisfies TablesInsert<'prototype_env_var_secrets'>;
+            })
+            .filter(
+              (
+                entry,
+              ): entry is TablesInsert<'prototype_env_var_secrets'> =>
+                Boolean(entry),
+            ) ?? [];
+
+        if (secretPayload.length > 0) {
+          const { error: envSecretInsertError } = await supabase
+            .from('prototype_env_var_secrets')
+            .upsert(secretPayload);
+          if (envSecretInsertError) {
+            log2.error(
+              envSecretInsertError,
+              '[forkPrototype] Failed to copy prototype env var secrets',
+            );
+            throw new Error(
+              envSecretInsertError.message ||
+                'Failed to copy prototype environment variable secrets',
+            );
+          }
+        }
       }
     }
   }
