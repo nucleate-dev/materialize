@@ -51,6 +51,7 @@ import { cn } from "@/lib/classNames";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import { IsUserPlanSubscribed } from "@/lib/utils/payments/SubscriptionManagementUtils";
 import {
+  AlertTriangle,
   Check,
   ChevronDown,
   Code2,
@@ -2191,7 +2192,7 @@ const MaterializeRenderSection = forwardRef<
                       const isEditing = editingEnvVars.has(envVar.id ?? "");
                       const isUpdating = updatingEnvVarIds.has(envVar.id ?? "");
                       const isDeleting = deletingEnvVarIds.has(envVar.id ?? "");
-                      const canEdit = envVar.secret_value !== null;
+                      const canCopyValue = envVar.secret_value !== null;
 
                       return (
                         <div
@@ -2271,11 +2272,14 @@ const MaterializeRenderSection = forwardRef<
                                     <X className="w-3.5 h-3.5" />
                                   </Button>
                                 </div>
+                              ) : envVar.secret_value === null ? (
+                                <div className="flex items-center gap-1 text-xs text-amber-500">
+                                  <AlertTriangle className="w-3.5 h-3.5" />
+                                  <span>Value not set yet</span>
+                                </div>
                               ) : (
                                 <p className="text-xs text-muted-foreground break-all">
-                                  {envVar.secret_value === null
-                                    ? "Value not set yet"
-                                    : envVar.secret_value}
+                                  {envVar.secret_value}
                                 </p>
                               )}
                             </div>
@@ -2288,33 +2292,35 @@ const MaterializeRenderSection = forwardRef<
                               >
                                 {envVar.is_public ? "Client" : "Backend"}
                               </Badge>
-                              {!isEditing && canEdit && (
+                              {!isEditing && (
                                 <>
-                                  <TooltipProvider delayDuration={200}>
-                                    <Tooltip>
-                                      <TooltipTrigger asChild>
-                                        <Button
-                                          variant="ghost"
-                                          size="icon"
-                                          className="h-7 w-7 text-muted-foreground hover:text-foreground hover:bg-accent"
-                                          onClick={() => {
-                                            navigator.clipboard.writeText(
-                                              envVar.secret_value ?? "",
-                                            );
-                                            toast.success(
-                                              "Secret value copied",
-                                            );
-                                          }}
-                                          disabled={isDeleting}
-                                        >
-                                          <Copy className="w-3.5 h-3.5" />
-                                        </Button>
-                                      </TooltipTrigger>
-                                      <TooltipContent>
-                                        <p>Copy value</p>
-                                      </TooltipContent>
-                                    </Tooltip>
-                                  </TooltipProvider>
+                                  {canCopyValue && (
+                                    <TooltipProvider delayDuration={200}>
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-7 w-7 text-muted-foreground hover:text-foreground hover:bg-accent"
+                                            onClick={() => {
+                                              navigator.clipboard.writeText(
+                                                envVar.secret_value ?? "",
+                                              );
+                                              toast.success(
+                                                "Secret value copied",
+                                              );
+                                            }}
+                                            disabled={isDeleting}
+                                          >
+                                            <Copy className="w-3.5 h-3.5" />
+                                          </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                          <p>Copy value</p>
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    </TooltipProvider>
+                                  )}
                                   <TooltipProvider delayDuration={200}>
                                     <Tooltip>
                                       <TooltipTrigger asChild>
