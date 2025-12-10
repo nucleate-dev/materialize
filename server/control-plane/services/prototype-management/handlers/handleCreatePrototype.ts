@@ -484,24 +484,17 @@ async function forkPrototype(
             .map((entry) => [entry.name, entry.secret as string]),
         );
 
-        const secretPayload =
-          insertedEnvVars
-            .map((envVar) => {
-              const secretValue = secretByName.get(envVar.name);
-              if (!secretValue) {
-                return null;
-              }
-              return {
-                env_var_id: envVar.id,
-                secret_value: secretValue,
-              } satisfies TablesInsert<'prototype_env_var_secrets'>;
-            })
-            .filter(
-              (
-                entry,
-              ): entry is TablesInsert<'prototype_env_var_secrets'> =>
-                Boolean(entry),
-            ) ?? [];
+        const secretPayload: TablesInsert<'prototype_env_var_secrets'>[] = [];
+        insertedEnvVars.forEach((envVar) => {
+          const secretValue = secretByName.get(envVar.name);
+          if (!secretValue) {
+            return;
+          }
+          secretPayload.push({
+            env_var_id: envVar.id,
+            secret_value: secretValue,
+          });
+        });
 
         if (secretPayload.length > 0) {
           const { error: envSecretInsertError } = await supabase
