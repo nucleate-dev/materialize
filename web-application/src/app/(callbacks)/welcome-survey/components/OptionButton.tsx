@@ -1,4 +1,4 @@
-import { Check } from "lucide-react";
+import { Check, Circle, LucideIcon } from "lucide-react";
 import * as LucideIcons from "lucide-react";
 import { cn } from "@/lib/classNames";
 
@@ -18,7 +18,7 @@ export function OptionButton({
   showCheckmark = false,
 }: OptionButtonProps) {
   // Dynamically get the icon component from lucide-react
-  const IconComponent = (LucideIcons as any)[icon] || LucideIcons.Circle;
+  const IconComponent = (LucideIcons[icon as keyof typeof LucideIcons] as LucideIcon) || Circle;
 
   return (
     <button

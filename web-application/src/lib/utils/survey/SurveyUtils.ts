@@ -1,5 +1,5 @@
 import { supabase } from "@/ClientConstants";
-import type { SurveyResponses, SurveyStatus } from "@/lib/types/surveyTypes";
+import type { SurveyResponses } from "@/lib/types/surveyTypes";
 
 /**
  * Check if user has completed the onboarding survey
@@ -14,13 +14,11 @@ export async function checkSurveyCompleted(userId: string): Promise<boolean> {
 
     if (error && error.code !== "PGRST116") {
       // PGRST116 = not found
-      console.error("Error checking survey status:", error);
       return false;
     }
 
     return !!data;
-  } catch (error) {
-    console.error("Error checking survey status:", error);
+  } catch {
     return false;
   }
 }
@@ -57,7 +55,6 @@ export async function submitSurvey(
         .eq("user_id", userId);
 
       if (error) {
-        console.error("Error updating survey:", error);
         return {
           success: false,
           error: error.message,
@@ -79,7 +76,6 @@ export async function submitSurvey(
         });
 
       if (error) {
-        console.error("Error inserting survey:", error);
         return {
           success: false,
           error: error.message,
@@ -89,7 +85,6 @@ export async function submitSurvey(
 
     return { success: true };
   } catch (error) {
-    console.error("Error submitting survey:", error);
     return {
       success: false,
       error: error instanceof Error ? error.message : "Unknown error",
@@ -115,8 +110,8 @@ export function saveSurveyProgress(
         savedAt: new Date().toISOString(),
       })
     );
-  } catch (error) {
-    console.error("Failed to save survey progress:", error);
+  } catch {
+    // Silently fail - localStorage may be unavailable
   }
 }
 
@@ -147,8 +142,7 @@ export function loadSurveyProgress(): {
       step: parsed.step,
       responses: parsed.responses,
     };
-  } catch (error) {
-    console.error("Failed to load survey progress:", error);
+  } catch {
     return null;
   }
 }
@@ -161,7 +155,7 @@ export function clearSurveyProgress(): void {
 
   try {
     localStorage.removeItem("survey_progress");
-  } catch (error) {
-    console.error("Failed to clear survey progress:", error);
+  } catch {
+    // Silently fail - localStorage may be unavailable
   }
 }

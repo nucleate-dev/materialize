@@ -11,7 +11,6 @@ import {
   checkSurveyCompleted,
   submitSurvey,
 } from "@/lib/utils/survey/SurveyUtils";
-import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 interface SurveyOverlayProps {
@@ -20,7 +19,6 @@ interface SurveyOverlayProps {
 }
 
 export function SurveyOverlay({ userId, isBuildRunning }: SurveyOverlayProps) {
-  const router = useRouter();
   const logger = useProductLogger();
   const [showSurvey, setShowSurvey] = useState(false);
   const [hasChecked, setHasChecked] = useState(false);
