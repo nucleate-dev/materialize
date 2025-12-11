@@ -79,6 +79,7 @@ import {
 } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 
 type Prototype = Database["public"]["Tables"]["prototypes"]["Row"];
 type DesignStyle = Database["public"]["Enums"]["design_style"];
@@ -980,8 +981,11 @@ export default function InternalPrototypePage() {
         setDeployVisibility("PUBLIC");
       }
 
-      const shareUrl = window.location.href.replace("dashboard/projects", "p");
-      await navigator.clipboard.writeText(shareUrl);
+      await navigator.clipboard.writeText(
+        window.location.href.replace("dashboard/projects", "p"),
+      );
+
+      toast.success("Copied!");
 
       setHasCopied(true);
       setTimeout(() => {

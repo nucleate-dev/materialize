@@ -1,105 +1,126 @@
 # Async Backfills
 
-This directory contains scripts for performing database backfills and migrations.
+Database backfill scripts for Nucleate with TypeScript support and zero-compilation execution.
 
 ## Setup
 
-1. Install dependencies:
 ```bash
 npm install
-```
-
-2. Create a `.env` file based on `.env.example`:
-```bash
 cp .env.example .env
+# Edit .env with your Supabase credentials
 ```
 
-3. Fill in the environment variables in `.env`:
-```
-SUPABASE_ANON_KEY=your_anon_key
-SUPABASE_URL=your_supabase_url
-SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
-```
+## Quick Start
 
-## Scripts
+### Running a Backfill
 
-### Update .gitignore Files
-
-Updates the `.gitignore` file for all prototypes in the `prototype_files` table.
-
-**Usage:**
 ```bash
-npm run update-gitignore
+# Dry run (safe - no changes made)
+npm run backfill backfills/your-backfill.ts
+
+# Live run (applies fixes)
+npm run backfill backfills/your-backfill.ts --no-dry-run
+
+# Test on single row
+npm run backfill backfills/your-backfill.ts --where-column id --where-value "abc-123"
 ```
 
-**What it does:**
-- Reads the `.gitignore` file from `starters/starter-app-stylesheets/`
-- Fetches all prototypes from the database in batches (100 at a time)
-- Upserts the `.gitignore` file for each prototype in the `prototype_files` table
-- Processes efficiently by batching both reads and writes
+### Creating a New Backfill
 
-**Features:**
-- ✅ Batch processing for efficiency
-- ✅ Progress reporting
-- ✅ Error handling with detailed messages
-- ✅ Environment validation
-- ✅ Uses `upsert` to handle both inserts and updates
+1. **Create the file:**
+```typescript
+// backfills/fix-missing-slugs.ts
+import type { NucleateBackfill } from "../nucleate-backfill"
 
-### List Storage Thumbnails
+export const backfill: NucleateBackfill<"prototypes"> = {
+  table: "prototypes",
 
-Lists and analyzes all files in the `prototype-thumbnails` Supabase storage bucket.
+  async genIsInconsistent(row) {
+    // Return true if row needs fixing
+    return !row.slug
+  },
 
-**Usage:**
+  async genFixRow(row) {
+    // Return the fixed row
+    return {
+      ...row,
+      slug: `project-${row.id}`,
+    }
+  },
+}
+
+export default backfill
+```
+
+2. **Test it:**
 ```bash
-npm run list-storage-thumbnails
+# Test on single row first
+npm run backfill backfills/fix-missing-slugs.ts --where-column id --where-value "abc-123"
+
+# Dry run on full table
+npm run backfill backfills/fix-missing-slugs.ts
+
+# Apply fixes
+npm run backfill backfills/fix-missing-slugs.ts --no-dry-run
 ```
 
-**What it does:**
-- Connects to the `prototype-thumbnails` storage bucket
-- Lists all files in batches (1000 at a time)
-- Generates comprehensive statistics including:
-  - Total file count and size
-  - File type breakdown with percentages
-  - Largest and smallest files
-  - Average file size
-  - Sample file listing
+## CLI Options
 
-**Features:**
-- ✅ Batch fetching for large buckets
-- ✅ Detailed statistics and analytics
-- ✅ Human-readable file sizes
-- ✅ File type distribution analysis
-- ✅ Sample file preview
+| Option | Description | Default |
+|--------|-------------|---------|
+| `--no-dry-run` | Apply fixes to database | DRY RUN mode |
+| `--where-column <column>` | Filter by column | Process all rows |
+| `--where-value <value>` | Value to match | Process all rows |
 
-**Output example:**
-```
-📊 STORAGE BUCKET STATISTICS
-======================================================================
+## NucleateBackfill Interface
 
-📁 Overall Statistics:
-   Total Files: 1,234
-   Total Size: 45.67 MB
-   Average File Size: 37.02 KB
+```typescript
+interface NucleateBackfill<TName extends TableName> {
+  // The table to process
+  table: TName
 
-📈 Largest File:
-   Name: prototype-abc123.png
-   Size: 2.5 MB
+  // Check if a row needs fixing
+  genIsInconsistent: (row: TableRow<TName>) => Promise<boolean> | boolean
 
-📝 File Types Breakdown:
-   .png              856 files  (69.4%)  32.1 MB
-   .jpg              378 files  (30.6%)  13.57 MB
+  // Return the fixed row
+  genFixRow: (row: TableRow<TName>) => Promise<TableRow<TName>> | TableRow<TName>
+}
 ```
 
-## Adding New Scripts
+**Available tables:** See `types/supabase.ts` for all table names with full TypeScript autocomplete.
 
-When adding new backfill scripts:
+## How It Works
 
-1. Create a new `.js` file in the `backfills/` directory
-2. Follow the same pattern as existing scripts:
-   - Load environment variables
-   - Validate configuration
-   - Process data in batches
-   - Provide progress feedback
-   - Handle errors gracefully
-3. Add a script entry in `package.json`
-4. Document it in this README
+The backfill executor automatically:
+- Streams rows in batches of 250
+- Checks inconsistencies with 10 concurrent workers
+- Fixes rows with 10 concurrent workers
+- Upserts in batches of 100
+- Provides detailed statistics
+
+## Examples
+
+- `backfills/example-backfill.ts` - Full backfill example
+- `backfills/example-simple-script.ts` - Custom script example
+
+## Other Commands
+
+```bash
+npm run exec backfills/your-script.ts  # Run any TypeScript file
+npm run check                          # Type-check all files
+npm run gen:supabase:types             # Regenerate database types
+```
+
+## Safety Features
+
+✅ **Dry run by default** - Must explicitly use `--no-dry-run` to make changes
+✅ **Single-row testing** - Test logic on one row before running on full table
+✅ **Clear mode indicators** - Always shows DRY RUN vs LIVE
+✅ **Detailed statistics** - See exactly what will be changed
+
+## Workflow
+
+1. Write your backfill implementing `NucleateBackfill<"table_name">`
+2. Test on single row: `npm run backfill backfills/my-script.ts --where-column id --where-value "123"`
+3. Dry run on full table: `npm run backfill backfills/my-script.ts`
+4. Apply fixes: `npm run backfill backfills/my-script.ts --no-dry-run`

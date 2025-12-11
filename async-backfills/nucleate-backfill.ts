@@ -1,0 +1,14 @@
+import type { Database } from "./types/supabase";
+
+type Tables = Database["public"]["Tables"];
+export type TableName = keyof Tables;
+
+export type TableRow<TName extends TableName> = Tables[TName]["Row"];
+
+export interface NucleateBackfill<TName extends TableName> {
+  table: TName;
+  genIsInconsistent: (row: TableRow<TName>) => Promise<boolean> | boolean;
+  genFixRow: (
+    row: TableRow<TName>,
+  ) => Promise<TableRow<TName>> | TableRow<TName>;
+}

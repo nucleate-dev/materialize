@@ -4,8 +4,22 @@ import { SystemLogger } from "../../../loggers/SystemLogger.js";
 import { SupabaseClientService } from "../../SupabaseClientService.js";
 import type { Database } from "../../../types/supabase.js";
 
-type PrototypeEnvVarViewRow =
-  Database["public"]["Views"]["prototype_env_vars_view"]["Row"];
+type PrototypeEnvVarRow =
+  Database["public"]["Tables"]["prototype_env_vars"]["Row"];
+type PrototypeEnvVarSecretRow =
+  Database["public"]["Tables"]["prototype_env_var_secrets"]["Row"];
+
+type PrototypeEnvVarWithSecret = PrototypeEnvVarRow & {
+  prototype_env_var_secrets?: Pick<
+    PrototypeEnvVarSecretRow,
+    "secret_value"
+  > | null;
+};
+
+type EnvVarRecord = PrototypeEnvVarWithSecret & {
+  name: string;
+  secret_value: string | null;
+};
 
 export async function syncPrototypeEnvVarsToDisk(options: {
   prototypeId: string;
@@ -26,8 +40,8 @@ export async function syncPrototypeEnvVarsToDisk(options: {
   try {
     const supabaseClient = supabaseClientService.getClient();
     const { data, error } = await supabaseClient
-      .from("prototype_env_vars_view")
-      .select("name, secret_value")
+      .from("prototype_env_vars")
+      .select("name, prototype_env_var_secrets(secret_value)")
       .eq("prototype_id", prototypeId)
       .order("name", { ascending: true });
 
@@ -44,27 +58,33 @@ export async function syncPrototypeEnvVarsToDisk(options: {
       };
     }
 
-    type NamedEnvVar = PrototypeEnvVarViewRow & { name: string };
-    type WritableEnvVar = NamedEnvVar & { secret_value: string };
+    type WritableEnvVar = EnvVarRecord & { secret_value: string };
 
-    const namedEnvVars = (data ?? []).filter(
-      (row): row is NamedEnvVar => Boolean(row?.name),
+    const envVarRows = (data ?? []) as PrototypeEnvVarWithSecret[];
+    const envVarRecords: EnvVarRecord[] = envVarRows.map((row) => ({
+      ...row,
+      name: row.name ?? "",
+      secret_value: row.prototype_env_var_secrets?.secret_value ?? null,
+    }));
+
+    const namedEnvVars = envVarRecords.filter((row) => Boolean(row.name));
+
+    const writableEnvVars = namedEnvVars.filter(
+      (row): row is WritableEnvVar => {
+        const trimmedValue = row.secret_value?.trim();
+        if (!trimmedValue) {
+          logger.warn(
+            "Skipping environment variable without a secret value while syncing to disk",
+            {
+              prototypeId,
+              envVarName: row.name,
+            },
+          );
+          return false;
+        }
+        return true;
+      },
     );
-
-    const writableEnvVars = namedEnvVars.filter((row): row is WritableEnvVar => {
-      const trimmedValue = row.secret_value?.trim();
-      if (!trimmedValue) {
-        logger.warn(
-          "Skipping environment variable without a secret value while syncing to disk",
-          {
-            prototypeId,
-            envVarName: row.name,
-          },
-        );
-        return false;
-      }
-      return true;
-    });
 
     const envFileLines = writableEnvVars.map(
       (row) =>
@@ -105,7 +125,10 @@ export async function syncPrototypeEnvVarsToDisk(options: {
 }
 
 function normalizeEnvVarName(name: string): string {
-  return name.trim().replace(/[^A-Z0-9_]/gi, "_").toUpperCase();
+  return name
+    .trim()
+    .replace(/[^A-Z0-9_]/gi, "_")
+    .toUpperCase();
 }
 
 function escapeEnvValue(value: string): string {

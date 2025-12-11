@@ -452,40 +452,17 @@ const NATIVEWIND_STACK_INFO = `
 </stack_info>
 `;
 
-const TAMAGUI_STACK_INFO = `
-<stack_info>
-1. Use PanResponder
-2. Prefer Animated, use Reanimated only if required
-3. CRITICAL: Use @/ imports for all internal imports (configured in tsconfig.json and metro.config.js)
-4. CRITICAL: Use Tamagui components and styling system for ALL UI components
-5. CRITICAL: Always use the custom Tamagui theme tokens defined in tamagui.config.ts:
-   - Colors: $background, $surface, $primary, $secondary, $color (text), $color11 (secondary text), $borderColor, $error, $success, $warning, $info
-   - Spacing: $xs (4), $sm (8), $md (16), $lg (24), $xl (32), $xxl (48) - use with padding, margin, gap props
-   - Border radius: $sm (4), $md (8), $lg (12), $xl (16), $full (9999) - use with borderRadius prop
-   - Use Tamagui components: YStack, XStack, Text, H1, H2, Paragraph, Button, etc.
-   - Dark mode automatically handled by TamaguiProvider - theme tokens adapt automatically
-   - NEVER hardcode colors, spacing, or typography values - always use theme tokens
-6. Use @/config/env for environment variables - NEVER access process.env directly
-   - Import: import { env } from '@/config/env'
-   - Access vars: env.API_URL, etc.
-7. Expo Router file-based rules, never multiple index.tsx
-8. No SafeAreaView, use useSafeAreaInsets only when removing headers
-9. Games avoid tabs
-10. Avoid expo-font, keep constants separate, never delete <RootLayoutNav/>
-</stack_info>
-`;
-
 const SHARED_SECTIONS = `
 <web_compatibility>
-Use Platform.OS guards. Must run on web + device without crashing.
+Use Platform.OS guards. The app MUST run on web + device without crashing.
 </web_compatibility>
 
-<design>
-Premium, non-cookie-cutter layouts. Inspired by iOS, Instagram, Airbnb, Coinbase.
+<general_design_guidelines>
+Premium, non-cookie-cutter layouts.
 Use cohesive color themes, motion via Animated, atmospheric backgrounds.
-Avoid purple AI slop. Use @expo/vector-icons not emojis.
+Avoid purple gradients and purple AI slop. Use @expo/vector-icons not emojis.
 Think outside the box and surprise the user.
-</design>
+</general_design_guidelines>
 
 <tool_usage>
 CRITICAL: When writing files, you MUST use the SafeWrite tool (mcp__devtools__SafeWrite) instead of the built-in Write tool.
@@ -497,6 +474,8 @@ After running any npm install or npx expo install commands, you MUST use the Res
 
 The checkTerminal tool (mcp__devtools__checkTerminal) should ONLY be used when you need to debug errors or check for issues in the dev server.
 Do not use it for general monitoring or informational purposes.
+
+CRITICAL: If you use a package, you should verify that it is installed; else, install it.
 </tool_usage>
 `;
 
@@ -506,23 +485,20 @@ Do not use it for general monitoring or informational purposes.
  * @returns The complete system prompt with design-specific instructions
  */
 export function getSystemPromptForDesignStyle(
-   designStyle?: string | null,
+  designStyle?: string | null,
 ): string {
-   let stackInfo: string;
+  let stackInfo: string;
 
-   switch (designStyle) {
-      case "nativewind":
-         stackInfo = NATIVEWIND_STACK_INFO;
-         break;
-      case "tamagui":
-         stackInfo = TAMAGUI_STACK_INFO;
-         break;
-      case "stylesheets":
-      case "custom":
-      default:
-         stackInfo = STYLESHEET_STACK_INFO;
-         break;
-   }
+  switch (designStyle) {
+    case "nativewind":
+      stackInfo = NATIVEWIND_STACK_INFO;
+      break;
+    case "stylesheets":
+    case "custom":
+    default:
+      stackInfo = STYLESHEET_STACK_INFO;
+      break;
+  }
 
-   return BASE_SYSTEM_PROMPT + " " + stackInfo + " " + SHARED_SECTIONS;
+  return BASE_SYSTEM_PROMPT + " " + stackInfo + " " + SHARED_SECTIONS;
 }

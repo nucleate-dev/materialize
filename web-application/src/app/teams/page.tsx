@@ -212,7 +212,7 @@ function ValuePropSection() {
                         </div>
                         <h3 className="text-2xl font-medium text-white mb-3">Production Quality</h3>
                         <p className="text-zinc-400 leading-relaxed">
-                            Every variant uses your system: tokens, spacing, components. No &quot;throwaway&quot; code.
+                            Every variant uses your system: tokens, spacing, components. No &ldquo;throwaway&rdquo; code.
                         </p>
                     </div>
                 </div>
@@ -285,7 +285,7 @@ function VariantsSection() {
                                             <div className="w-8 h-8 bg-black/5 rounded-full backdrop-blur-sm" />
                                         </div>
                                         <div className="h-2/3 bg-zinc-100 relative">
-                                            <img src="https://images.unsplash.com/photo-1514525253440-b393335a898c?w=800&q=80" alt="Cover" className="w-full h-full object-cover" />
+                                            <div className="w-full h-full object-cover bg-zinc-200" />
                                         </div>
                                         <div className="p-6">
                                             <h3 className="text-xl font-bold text-zinc-900 mb-1">Midnight City</h3>
@@ -307,7 +307,7 @@ function VariantsSection() {
                                                 <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
                                             </div>
                                             <div className="w-full aspect-square border-2 border-white/20 rounded-none mb-8 relative">
-                                                <img src="https://images.unsplash.com/photo-1493225255756-d9584f8606e9?w=800&q=80" alt="Cover" className="w-full h-full object-cover grayscale opacity-60" />
+                                                <div className="w-full h-full object-cover grayscale opacity-60 bg-zinc-600" />
                                                 <div className="absolute inset-0 flex items-center justify-center">
                                                     <div className="w-16 h-16 rounded-full border border-white flex items-center justify-center"><div className="w-0 h-0 border-t-[8px] border-t-transparent border-l-[12px] border-l-white border-b-[8px] border-b-transparent ml-1" /></div>
                                                 </div>
@@ -329,12 +329,12 @@ function VariantsSection() {
                                     {/* Variant 3: Glassmorphism */}
                                     <div className="aspect-[9/16] bg-zinc-900 rounded-3xl overflow-hidden shadow-2xl border border-white/10 relative group">
                                         <div className="absolute inset-0">
-                                            <img src="https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?w=800&q=80" alt="Background" className="w-full h-full object-cover opacity-60 blur-xl scale-125" />
+                                            <div className="w-full h-full object-cover opacity-60 blur-xl scale-125 bg-indigo-500" />
                                             <div className="absolute inset-0 bg-black/20" />
                                         </div>
                                         <div className="relative z-10 p-6 h-full flex flex-col justify-end">
                                             <div className="w-full aspect-square rounded-2xl overflow-hidden shadow-2xl mb-8 border border-white/10">
-                                                <img src="https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?w=800&q=80" alt="Cover" className="w-full h-full object-cover" />
+                                                <div className="w-full h-full object-cover bg-indigo-400" />
                                             </div>
                                             <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/10">
                                                 <h3 className="text-lg font-semibold text-white mb-1">Midnight City</h3>

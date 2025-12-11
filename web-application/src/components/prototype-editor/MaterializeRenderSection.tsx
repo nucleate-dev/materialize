@@ -33,10 +33,11 @@ import {
 } from "@/components/ui/tooltip";
 import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import type {
-  APIResponse, RestartDevServerSuccessResponse,
+  APIResponse,
+  RestartDevServerSuccessResponse,
   StandardErrorResponse,
   StartDevServerRequestBody,
-  StartDevServerSuccessResponse
+  StartDevServerSuccessResponse,
 } from "@/lib/types/serverAPITypes";
 import { Database } from "@/lib/types/supabase";
 import { getBulkAssetSignedUrls } from "@/lib/utils/assetUtils";
@@ -50,6 +51,7 @@ import { cn } from "@/lib/classNames";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import { IsUserPlanSubscribed } from "@/lib/utils/payments/SubscriptionManagementUtils";
 import {
+  AlertTriangle,
   Check,
   ChevronDown,
   Code2,
@@ -162,8 +164,14 @@ const normalizeEnvVarNameInput = (value: string) => {
 
 type PrototypeFile = Database["public"]["Tables"]["prototype_files"]["Row"];
 type PrototypeAsset = Database["public"]["Tables"]["prototype_assets"]["Row"];
-type PrototypeEnvVar =
-  Database["public"]["Views"]["prototype_env_vars_view"]["Row"];
+type PrototypeEnvVarRow =
+  Database["public"]["Tables"]["prototype_env_vars"]["Row"];
+type PrototypeEnvVarSecretRow =
+  Database["public"]["Tables"]["prototype_env_var_secrets"]["Row"];
+
+type PrototypeEnvVar = PrototypeEnvVarRow & {
+  secret_value: PrototypeEnvVarSecretRow["secret_value"];
+};
 
 interface NewEnvVarInput {
   id: string;
@@ -266,7 +274,7 @@ const MaterializeRenderSection = forwardRef<
     const [editingScreenId, setEditingScreenId] = useState<number | null>(null);
     const [tempPath, setTempPath] = useState<string>("");
     const [routeSuggestions, setRouteSuggestions] = useState<
-      Array<{ route: string; group?: string; }>
+      Array<{ route: string; group?: string }>
     >([]);
     const isReadOnlyView = publicView || deployedView;
 
@@ -452,7 +460,7 @@ const MaterializeRenderSection = forwardRef<
     const availableRoutes = React.useMemo(() => {
       if (!files) return [];
 
-      const routes: Array<{ route: string; group?: string; }> = [];
+      const routes: Array<{ route: string; group?: string }> = [];
       Object.keys(files).forEach((filePath) => {
         // Look for files in app/ directory that could be routes
         if (filePath.startsWith("app/")) {
@@ -620,8 +628,10 @@ const MaterializeRenderSection = forwardRef<
       setEnvVarFormError(null);
       try {
         const { data, error } = await supabase
-          .from("prototype_env_vars_view")
-          .select("*")
+          .from("prototype_env_vars")
+          .select(
+            "id, prototype_id, name, is_public, created_at, updated_at, prototype_env_var_secrets(secret_value)",
+          )
           .eq("prototype_id", prototypeId)
           .order("name", { ascending: true });
 
@@ -635,12 +645,20 @@ const MaterializeRenderSection = forwardRef<
         }
 
         // Transform the data to strip EXPO_PUBLIC_ prefix for display
-        const transformedData = (data ?? []).map((envVar) => ({
-          ...envVar,
-          name: envVar.name.startsWith("EXPO_PUBLIC_")
-            ? envVar.name.substring(12) // Remove "EXPO_PUBLIC_" prefix
-            : envVar.name,
-        }));
+        const transformedData: PrototypeEnvVar[] = (data ?? []).map(
+          (envVar) => {
+            const { prototype_env_var_secrets, ...rest } = envVar;
+            const originalName = rest.name;
+            return {
+              ...rest,
+              name: originalName.startsWith("EXPO_PUBLIC_")
+                ? originalName.substring(12)
+                : originalName,
+              secret_value:
+                prototype_env_var_secrets?.[0]?.secret_value ?? null,
+            } as PrototypeEnvVar;
+          },
+        );
 
         setEnvVars(transformedData);
       } catch (error) {
@@ -703,7 +721,7 @@ const MaterializeRenderSection = forwardRef<
           );
 
           const result: APIResponse<
-            { env_var_count: number; message: string; },
+            { env_var_count: number; message: string },
             StandardErrorResponse
           > = await response.json().catch(() => ({ data: null, error: null }));
 
@@ -742,9 +760,8 @@ const MaterializeRenderSection = forwardRef<
         setUpdatingEnvVarIds((prev) => new Set(prev).add(envVarId));
         try {
           const { error } = await supabase
-            .from("prototype_env_vars")
-            .update({ secret_value: newValue })
-            .eq("id", envVarId);
+            .from("prototype_env_var_secrets")
+            .upsert({ env_var_id: envVarId, secret_value: newValue });
 
           if (error) {
             logger.debug("error", "Failed to update env var", {
@@ -781,7 +798,8 @@ const MaterializeRenderSection = forwardRef<
           });
           if (
             error instanceof Error &&
-            !error.message.includes("prototype_env_vars")
+            !error.message.includes("prototype_env_vars") &&
+            !error.message.includes("prototype_env_var_secrets")
           ) {
             toast.error("Unable to update environment variable");
           }
@@ -914,29 +932,54 @@ const MaterializeRenderSection = forwardRef<
       setEnvVarFormError(null);
       try {
         // Prepare all environment variables for insertion
+        const envVarSecrets = new Map<string, string>();
         const envVarsToInsert = validInputs.map((input) => {
           const normalizedName = normalizeEnvVarNameInput(input.name);
-          // Add EXPO_PUBLIC_ prefix for client visibility
           const finalName =
             input.visibility === "client"
               ? `EXPO_PUBLIC_${normalizedName}`
               : normalizedName;
 
+          envVarSecrets.set(finalName, input.value);
+
           return {
             prototype_id: prototypeId,
             name: finalName,
             is_public: input.visibility === "client",
-            secret_value: input.value,
           };
         });
 
-        const { error } = await supabase
+        const { data: insertedEnvVars, error } = await supabase
           .from("prototype_env_vars")
-          .insert(envVarsToInsert);
+          .insert(envVarsToInsert)
+          .select("id, name");
 
         if (error) {
           setEnvVarFormError(error.message);
           return;
+        }
+
+        const insertedIds = insertedEnvVars?.map((envVar) => envVar.id) ?? [];
+        const secretRows =
+          insertedEnvVars?.map((envVar) => ({
+            env_var_id: envVar.id,
+            secret_value: envVarSecrets.get(envVar.name) ?? "",
+          })) ?? [];
+
+        if (secretRows.length > 0) {
+          const { error: secretError } = await supabase
+            .from("prototype_env_var_secrets")
+            .upsert(secretRows);
+          if (secretError) {
+            setEnvVarFormError(secretError.message);
+            if (insertedIds.length > 0) {
+              await supabase
+                .from("prototype_env_vars")
+                .delete()
+                .in("id", insertedIds);
+            }
+            return;
+          }
         }
 
         await fetchEnvVars();
@@ -1429,7 +1472,7 @@ const MaterializeRenderSection = forwardRef<
     };
 
     // Connection loading overlay for iframe
-    const ConnectionLoadingOverlay = ({ mode }: { mode: PreviewMode; }) => (
+    const ConnectionLoadingOverlay = ({ mode }: { mode: PreviewMode }) => (
       <div className="absolute inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm z-10">
         <div className="text-center bg-accent p-6 rounded-xl border border-border shadow-2xl">
           <Loader2 className="w-6 h-6 animate-spin mx-auto mb-3 text-muted-foreground" />
@@ -1446,7 +1489,7 @@ const MaterializeRenderSection = forwardRef<
     );
 
     // Error overlay for iframe
-    const ConnectionErrorOverlay = ({ mode }: { mode: PreviewMode; }) => (
+    const ConnectionErrorOverlay = ({ mode }: { mode: PreviewMode }) => (
       <div className="absolute inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm z-10">
         <div className="text-center bg-accent p-6 rounded-xl border border-red-500/20 shadow-2xl">
           <div className="w-8 h-8 mx-auto mb-3 text-red-400 bg-red-400/10 rounded-full flex items-center justify-center">
@@ -1875,6 +1918,20 @@ const MaterializeRenderSection = forwardRef<
                   <Palette className="w-3.5 h-3.5" />
                 </Button>
               )}
+              {onShare && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={onShare}
+                  className="h-8 bg-accent border border-border text-muted-foreground hover:text-foreground hover:border-border/80 hover:bg-accent/80 transition-all"
+                  title="Share"
+                >
+                  <Share2 className="w-3.5 h-3.5" />
+                  <span className="ml-2 hidden md:inline text-xs font-medium">
+                    Share
+                  </span>
+                </Button>
+              )}
               {/* {onDeploy && !isReadOnlyView && (
                 <Button
                   size="sm"
@@ -1934,29 +1991,22 @@ const MaterializeRenderSection = forwardRef<
                     <Monitor className="w-4 h-4 mr-2 opacity-70" />
                     Web View
                   </DropdownMenuItem>
-                  <DropdownMenuSeparator className="bg-border" />
-                  {onShare && (
-                    <DropdownMenuItem
-                      onClick={onShare}
-                      className="focus:bg-accent/80 focus:text-foreground text-muted-foreground text-sm cursor-pointer"
-                    >
-                      <Share2 className="w-4 h-4 mr-2 opacity-70" />
-                      Share
-                    </DropdownMenuItem>
-                  )}
                   {onClone && (
-                    <DropdownMenuItem
-                      onClick={onClone}
-                      disabled={isCloningPrototype}
-                      className="focus:bg-accent/80 focus:text-foreground text-muted-foreground text-sm cursor-pointer"
-                    >
-                      {isCloningPrototype ? (
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      ) : (
-                        <Copy className="w-4 h-4 mr-2 opacity-70" />
-                      )}
-                      {isCloningPrototype ? "Cloning..." : "Clone"}
-                    </DropdownMenuItem>
+                    <>
+                      <DropdownMenuSeparator className="bg-border" />
+                      <DropdownMenuItem
+                        onClick={onClone}
+                        disabled={isCloningPrototype}
+                        className="focus:bg-accent/80 focus:text-foreground text-muted-foreground text-sm cursor-pointer"
+                      >
+                        {isCloningPrototype ? (
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        ) : (
+                          <Copy className="w-4 h-4 mr-2 opacity-70" />
+                        )}
+                        {isCloningPrototype ? "Cloning..." : "Clone"}
+                      </DropdownMenuItem>
+                    </>
                   )}
                   {!isReadOnlyView && (
                     <>
@@ -2142,7 +2192,7 @@ const MaterializeRenderSection = forwardRef<
                       const isEditing = editingEnvVars.has(envVar.id ?? "");
                       const isUpdating = updatingEnvVarIds.has(envVar.id ?? "");
                       const isDeleting = deletingEnvVarIds.has(envVar.id ?? "");
-                      const canEdit = envVar.secret_value !== null;
+                      const canCopyValue = envVar.secret_value !== null;
 
                       return (
                         <div
@@ -2222,11 +2272,14 @@ const MaterializeRenderSection = forwardRef<
                                     <X className="w-3.5 h-3.5" />
                                   </Button>
                                 </div>
+                              ) : envVar.secret_value === null ? (
+                                <div className="flex items-center gap-1 text-xs text-amber-500">
+                                  <AlertTriangle className="w-3.5 h-3.5" />
+                                  <span>Value not set yet</span>
+                                </div>
                               ) : (
                                 <p className="text-xs text-muted-foreground break-all">
-                                  {envVar.secret_value === null
-                                    ? "Value not set yet"
-                                    : envVar.secret_value}
+                                  {envVar.secret_value}
                                 </p>
                               )}
                             </div>
@@ -2239,33 +2292,35 @@ const MaterializeRenderSection = forwardRef<
                               >
                                 {envVar.is_public ? "Client" : "Backend"}
                               </Badge>
-                              {!isEditing && canEdit && (
+                              {!isEditing && (
                                 <>
-                                  <TooltipProvider delayDuration={200}>
-                                    <Tooltip>
-                                      <TooltipTrigger asChild>
-                                        <Button
-                                          variant="ghost"
-                                          size="icon"
-                                          className="h-7 w-7 text-muted-foreground hover:text-foreground hover:bg-accent"
-                                          onClick={() => {
-                                            navigator.clipboard.writeText(
-                                              envVar.secret_value ?? "",
-                                            );
-                                            toast.success(
-                                              "Secret value copied",
-                                            );
-                                          }}
-                                          disabled={isDeleting}
-                                        >
-                                          <Copy className="w-3.5 h-3.5" />
-                                        </Button>
-                                      </TooltipTrigger>
-                                      <TooltipContent>
-                                        <p>Copy value</p>
-                                      </TooltipContent>
-                                    </Tooltip>
-                                  </TooltipProvider>
+                                  {canCopyValue && (
+                                    <TooltipProvider delayDuration={200}>
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-7 w-7 text-muted-foreground hover:text-foreground hover:bg-accent"
+                                            onClick={() => {
+                                              navigator.clipboard.writeText(
+                                                envVar.secret_value ?? "",
+                                              );
+                                              toast.success(
+                                                "Secret value copied",
+                                              );
+                                            }}
+                                            disabled={isDeleting}
+                                          >
+                                            <Copy className="w-3.5 h-3.5" />
+                                          </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                          <p>Copy value</p>
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    </TooltipProvider>
+                                  )}
                                   <TooltipProvider delayDuration={200}>
                                     <Tooltip>
                                       <TooltipTrigger asChild>

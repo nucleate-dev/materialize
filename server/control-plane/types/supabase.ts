@@ -593,6 +593,35 @@ export type Database = {
           },
         ]
       }
+      prototype_env_var_secrets: {
+        Row: {
+          created_at: string
+          env_var_id: string
+          secret_value: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          env_var_id: string
+          secret_value?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          env_var_id?: string
+          secret_value?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prototype_env_var_secrets_env_var_id_fkey"
+            columns: ["env_var_id"]
+            isOneToOne: true
+            referencedRelation: "prototype_env_vars"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       prototype_env_vars: {
         Row: {
           created_at: string
@@ -600,7 +629,6 @@ export type Database = {
           is_public: boolean
           name: string
           prototype_id: string
-          secret_value: string | null
           updated_at: string
         }
         Insert: {
@@ -609,7 +637,6 @@ export type Database = {
           is_public?: boolean
           name: string
           prototype_id: string
-          secret_value?: string | null
           updated_at?: string
         }
         Update: {
@@ -618,7 +645,6 @@ export type Database = {
           is_public?: boolean
           name?: string
           prototype_id?: string
-          secret_value?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -824,6 +850,48 @@ export type Database = {
           },
         ]
       }
+      user_onboarding_survey: {
+        Row: {
+          ai_coding_experience: string
+          completed_at: string | null
+          created_at: string | null
+          referral_source: string
+          referral_source_other: string | null
+          role: string
+          role_other: string | null
+          updated_at: string | null
+          use_cases: string[]
+          use_cases_other: string | null
+          user_id: string
+        }
+        Insert: {
+          ai_coding_experience: string
+          completed_at?: string | null
+          created_at?: string | null
+          referral_source: string
+          referral_source_other?: string | null
+          role: string
+          role_other?: string | null
+          updated_at?: string | null
+          use_cases?: string[]
+          use_cases_other?: string | null
+          user_id: string
+        }
+        Update: {
+          ai_coding_experience?: string
+          completed_at?: string | null
+          created_at?: string | null
+          referral_source?: string
+          referral_source_other?: string | null
+          role?: string
+          role_other?: string | null
+          updated_at?: string | null
+          use_cases?: string[]
+          use_cases_other?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       users: {
         Row: {
           avatar_url: string | null
@@ -878,26 +946,6 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      prototype_env_vars_view: {
-        Row: {
-          created_at: string | null
-          id: string | null
-          is_public: boolean | null
-          name: string | null
-          prototype_id: string | null
-          secret_value: string | null
-          updated_at: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "prototype_env_vars_prototype_id_fkey"
-            columns: ["prototype_id"]
-            isOneToOne: false
-            referencedRelation: "prototypes"
             referencedColumns: ["id"]
           },
         ]

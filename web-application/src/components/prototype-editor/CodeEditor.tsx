@@ -230,12 +230,12 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
 
   const currentFile =
     fileSystem.state.selectedFile &&
-    fileSystem.state.files &&
-    fileSystem.state.selectedFile in fileSystem.state.files
+      fileSystem.state.files &&
+      fileSystem.state.selectedFile in fileSystem.state.files
       ? fileSystem.state.files[fileSystem.state.selectedFile]
       : fileSystem.state.selectedFile &&
-          fileSystem.state.assets &&
-          fileSystem.state.selectedFile in fileSystem.state.assets
+        fileSystem.state.assets &&
+        fileSystem.state.selectedFile in fileSystem.state.assets
         ? fileSystem.state.assets[fileSystem.state.selectedFile]
         : null;
 
@@ -276,7 +276,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
     | "too-large"
     | "conflict";
   const [fileValidation, setFileValidation] = useState<
-    Map<string, { status: FileValidationStatus; reason?: string; size: number }>
+    Map<string, { status: FileValidationStatus; reason?: string; size: number; }>
   >(new Map());
   const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set());
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(
@@ -309,7 +309,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
     filePaths: string[],
     validationMap: Map<
       string,
-      { status: FileValidationStatus; reason?: string; size: number }
+      { status: FileValidationStatus; reason?: string; size: number; }
     >,
   ): FileNode[] => {
     const root: FileNode[] = [];
@@ -498,10 +498,10 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
         name.split(".").pop() === name
           ? name
           : name
-              .split(".")[0]
-              .split("/")
-              .pop()
-              ?.replace(/[^a-zA-Z0-9]/g, "");
+            .split(".")[0]
+            .split("/")
+            .pop()
+            ?.replace(/[^a-zA-Z0-9]/g, "");
 
       switch (ext) {
         case "js":
@@ -861,7 +861,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
   const validateFile = (
     file: File,
     targetPath: string,
-  ): { status: FileValidationStatus; reason?: string } => {
+  ): { status: FileValidationStatus; reason?: string; } => {
     // Block system files
     const fileName = file.name.toLowerCase();
     if (
@@ -1024,7 +1024,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
 
     const validationMap = new Map<
       string,
-      { status: FileValidationStatus; reason?: string; size: number }
+      { status: FileValidationStatus; reason?: string; size: number; }
     >();
     const selectedSet = new Set<string>();
     const validFiles: File[] = [];
@@ -1120,7 +1120,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
     // We need to recalculate using the original upload context, not current uploadAsProjectRoot state
     const filePathMap = new Map<
       File,
-      { path: string; kind: "code" | "asset" }
+      { path: string; kind: "code" | "asset"; }
     >();
 
     uploadFiles.forEach((file) => {
@@ -1178,7 +1178,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
       }
 
       // Collect all code files to upsert
-      const filesToUpsert: Array<{ name: string; content: string }> = [];
+      const filesToUpsert: Array<{ name: string; content: string; }> = [];
       for (const [file, info] of uploads) {
         if (info.kind === "code") {
           const fileContents = await file.text();
@@ -1394,7 +1394,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
                             "h-7 w-7 p-0 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors",
                             isSaving && "text-indigo-400 animate-pulse",
                             saveButtonState.disabled &&
-                              "opacity-30 cursor-not-allowed hover:bg-transparent",
+                            "opacity-30 cursor-not-allowed hover:bg-transparent",
                           )}
                           onClick={
                             saveMode === "single-file"
@@ -1635,8 +1635,8 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
             if (!open) handleUploadModalClose();
           }}
         >
-          <DialogContent className="sm:max-w-2xl max-h-[90vh] bg-accent border border-border text-foreground shadow-2xl p-0 overflow-hidden gap-0 flex flex-col">
-            <DialogHeader className="p-6 border-b border-border bg-accent/50">
+          <DialogContent className="sm:max-w-2xl max-h-[90vh] bg-white dark:bg-[#141517] border border-zinc-200 dark:border-white/10 text-zinc-900 dark:text-white shadow-2xl p-0 overflow-hidden gap-0 flex flex-col">
+            <DialogHeader className="p-6 border-b border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-[#0B0C0E]">
               <DialogTitle className="text-lg font-medium flex items-center gap-2">
                 <Upload className="w-5 h-5 text-indigo-500" />
                 Upload Files
@@ -1646,7 +1646,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
             <div className="p-6 space-y-6 overflow-y-auto flex-1">
               {/* Type Selection */}
               <div className="space-y-3">
-                <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                <Label className="text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-[#8A8F98]">
                   Upload Type
                 </Label>
                 <RadioGroup
@@ -1664,7 +1664,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
                       "flex items-center gap-3 p-3 rounded-lg border transition-all cursor-pointer",
                       uploadType === "files"
                         ? "bg-indigo-500/10 border-indigo-500/50"
-                        : "bg-accent/50 border-border hover:bg-accent",
+                        : "bg-white dark:bg-[#0B0C0E] border-zinc-200 dark:border-white/10 hover:bg-zinc-50 dark:hover:bg-white/5",
                     )}
                   >
                     <RadioGroupItem
@@ -1684,7 +1684,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
                       "flex items-center gap-3 p-3 rounded-lg border transition-all cursor-pointer",
                       uploadType === "folder"
                         ? "bg-indigo-500/10 border-indigo-500/50"
-                        : "bg-accent/50 border-border hover:bg-accent",
+                        : "bg-white dark:bg-[#0B0C0E] border-zinc-200 dark:border-white/10 hover:bg-zinc-50 dark:hover:bg-white/5",
                     )}
                   >
                     <RadioGroupItem
@@ -1729,7 +1729,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
                         Upload as Project Root
                         <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
                       </Label>
-                      <p className="text-xs text-muted-foreground">
+                      <p className="text-xs text-zinc-500 dark:text-zinc-400">
                         Replace entire project structure. All existing files
                         will be deleted.
                       </p>
@@ -1756,17 +1756,17 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
               {/* Destination (if files or folder without project root) */}
               {uploadType === "files" && !uploadAsProjectRoot && (
                 <div className="space-y-3">
-                  <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  <Label className="text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-[#8A8F98]">
                     Destination
                   </Label>
                   <Select
                     value={uploadTargetFolder}
                     onValueChange={handleUploadFolderChange}
                   >
-                    <SelectTrigger className="bg-background border-border text-foreground focus:ring-indigo-500/50">
+                    <SelectTrigger className="bg-white dark:bg-[#0B0C0E] border-zinc-200 dark:border-white/10 text-zinc-900 dark:text-white focus:ring-indigo-500/50">
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent className="bg-accent border-border text-foreground">
+                    <SelectContent className="bg-white dark:bg-[#141517] border-zinc-200 dark:border-white/10 text-zinc-900 dark:text-white">
                       {directoryOptions.map((dir) => (
                         <SelectItem
                           key={dir}
@@ -1783,7 +1783,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
 
               {/* File Input */}
               <div className="space-y-3">
-                <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                <Label className="text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-[#8A8F98]">
                   Select Content
                 </Label>
                 <div className="relative">
@@ -1810,7 +1810,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
                   {/* Conflict Mode Selection */}
                   {uploadSummary.conflicts > 0 && (
                     <div className="space-y-3">
-                      <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                      <Label className="text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-[#8A8F98]">
                         Conflict Resolution
                       </Label>
                       <RadioGroup
@@ -1823,7 +1823,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
                             "flex items-center gap-2 p-2.5 rounded-lg border transition-all cursor-pointer",
                             uploadMode === "merge"
                               ? "bg-indigo-500/10 border-indigo-500/50"
-                              : "bg-accent/50 border-border hover:bg-accent",
+                              : "bg-white dark:bg-[#0B0C0E] border-zinc-200 dark:border-white/10 hover:bg-zinc-50 dark:hover:bg-white/5",
                           )}
                         >
                           <RadioGroupItem
@@ -1843,7 +1843,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
                             "flex items-center gap-2 p-2.5 rounded-lg border transition-all cursor-pointer",
                             uploadMode === "replace"
                               ? "bg-indigo-500/10 border-indigo-500/50"
-                              : "bg-accent/50 border-border hover:bg-accent",
+                              : "bg-white dark:bg-[#0B0C0E] border-zinc-200 dark:border-white/10 hover:bg-zinc-50 dark:hover:bg-white/5",
                           )}
                         >
                           <RadioGroupItem
@@ -1865,7 +1865,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
                   {/* File List */}
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
-                      <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                      <Label className="text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-[#8A8F98]">
                         Files to Upload
                       </Label>
                       <div className="flex items-center gap-2">
@@ -1901,7 +1901,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
                                 setExpandedFolders(allFolderPaths);
                               }
                             }}
-                            className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                            className="text-xs text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white transition-colors"
                           >
                             {expandedFolders.size === 0
                               ? "Expand All"
@@ -1914,14 +1914,14 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
                           className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
                         >
                           {selectedFiles.size ===
-                          uploadSummary.total - uploadSummary.blocked
+                            uploadSummary.total - uploadSummary.blocked
                             ? "Deselect All"
                             : "Select All"}
                         </button>
                       </div>
                     </div>
 
-                    <div className="max-h-96 overflow-y-auto border border-border rounded-lg bg-background/50">
+                    <div className="max-h-96 overflow-y-auto border border-zinc-200 dark:border-white/10 rounded-lg bg-white/50 dark:bg-[#0B0C0E]/50">
                       <div>
                         {fileTree.map((node) => renderFileNode(node, 0))}
                       </div>
@@ -1929,11 +1929,11 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
                   </div>
 
                   {/* Summary */}
-                  <div className="p-3 rounded-lg bg-accent/50 border border-border">
+                  <div className="p-3 rounded-lg bg-zinc-50 dark:bg-[#0B0C0E] border border-zinc-200 dark:border-white/10">
                     <div className="grid grid-cols-2 gap-2 text-xs">
                       <div className="flex items-center gap-2">
                         <Check className="w-3 h-3 text-green-400" />
-                        <span className="text-muted-foreground">Selected:</span>
+                        <span className="text-zinc-500 dark:text-[#8A8F98]">Selected:</span>
                         <span className="font-semibold text-foreground">
                           {uploadSummary.selected}/{uploadSummary.total}
                         </span>
@@ -1941,7 +1941,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
                       {uploadSummary.blocked > 0 && (
                         <div className="flex items-center gap-2">
                           <X className="w-3 h-3 text-red-400" />
-                          <span className="text-muted-foreground">
+                          <span className="text-zinc-500 dark:text-[#8A8F98]">
                             Blocked:
                           </span>
                           <span className="font-semibold text-foreground">
@@ -1952,7 +1952,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
                       {uploadSummary.conflicts > 0 && (
                         <div className="flex items-center gap-2">
                           <AlertTriangle className="w-3 h-3 text-amber-400" />
-                          <span className="text-muted-foreground">
+                          <span className="text-zinc-500 dark:text-[#8A8F98]">
                             Conflicts:
                           </span>
                           <span className="font-semibold text-foreground">
@@ -1962,7 +1962,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
                       )}
                       <div className="flex items-center gap-2">
                         <Minus className="w-3 h-3 text-indigo-400" />
-                        <span className="text-muted-foreground">Size:</span>
+                        <span className="text-zinc-500 dark:text-[#8A8F98]">Size:</span>
                         <span className="font-semibold text-foreground">
                           {formatFileSize(uploadSummary.totalSize)}
                         </span>
@@ -1973,18 +1973,18 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
               )}
             </div>
 
-            <DialogFooter className="p-6 bg-accent/50 border-t border-border">
+            <DialogFooter className="p-6 bg-zinc-50 dark:bg-[#0B0C0E] border-t border-zinc-200 dark:border-white/10">
               <Button
                 variant="ghost"
                 onClick={() => setShowUploadModal(false)}
-                className="text-muted-foreground hover:text-foreground hover:bg-accent"
+                className="text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-white/5"
               >
                 Cancel
               </Button>
               <Button
                 onClick={handleUploadFiles}
                 disabled={isUploading || selectedFiles.size === 0}
-                className="bg-white text-black hover:bg-white/90 rounded-full px-6 font-semibold"
+                className="bg-zinc-900 text-white hover:bg-zinc-800 dark:bg-white dark:text-black dark:hover:bg-white/90 rounded-full px-6 font-semibold"
               >
                 {isUploading
                   ? `Uploading ${uploadProgress.current}/${uploadProgress.total}...`
@@ -2002,7 +2002,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
             if (!open) handleModalClose();
           }}
         >
-          <DialogContent className="sm:max-w-md bg-accent border border-border text-foreground shadow-2xl">
+          <DialogContent className="sm:max-w-md bg-white dark:bg-[#141517] border border-zinc-200 dark:border-white/10 text-zinc-900 dark:text-white shadow-2xl">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <FileCode className="w-5 h-5 text-indigo-500" />
@@ -2013,7 +2013,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
               <div className="space-y-2">
                 <Label
                   htmlFor="fileName"
-                  className="text-xs text-muted-foreground uppercase tracking-wider font-semibold"
+                  className="text-xs text-zinc-500 dark:text-[#8A8F98] uppercase tracking-wider font-semibold"
                 >
                   Path & Name
                 </Label>
@@ -2025,14 +2025,14 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
                     setNewFileError("");
                   }}
                   placeholder="components/Button.tsx"
-                  className="bg-background border-border text-foreground focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50"
+                  className="bg-white dark:bg-[#0B0C0E] border-zinc-200 dark:border-white/10 text-zinc-900 dark:text-white focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50"
                   autoFocus
                 />
                 {newFileError && (
                   <p className="text-red-400 text-xs">{newFileError}</p>
                 )}
               </div>
-              <div className="p-3 rounded bg-accent/50 border border-border text-xs text-muted-foreground space-y-1">
+              <div className="p-3 rounded bg-zinc-50 dark:bg-[#0B0C0E] border border-zinc-200 dark:border-white/10 text-xs text-zinc-500 dark:text-[#8A8F98] space-y-1">
                 <p className="flex items-center gap-2">
                   <Sparkles className="w-3 h-3 text-indigo-400" /> Tips:
                 </p>
@@ -2050,13 +2050,13 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
               <Button
                 variant="ghost"
                 onClick={() => setShowNewFileModal(false)}
-                className="text-muted-foreground hover:text-foreground"
+                className="text-muted-foreground hover:text-zinc-900 dark:hover:text-white"
               >
                 Cancel
               </Button>
               <Button
                 onClick={() => void handleCreateFile()}
-                className="bg-white text-black hover:bg-white/90 rounded-full font-semibold"
+                className="bg-zinc-900 text-white hover:bg-zinc-800 dark:bg-white dark:text-black dark:hover:bg-white/90 rounded-full font-semibold"
               >
                 Create File
               </Button>
@@ -2066,16 +2066,16 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
 
         {/* Delete Confirm */}
         <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
-          <DialogContent className="sm:max-w-sm bg-accent border border-border text-foreground">
+          <DialogContent className="sm:max-w-sm bg-white dark:bg-[#141517] border border-zinc-200 dark:border-white/10 text-zinc-900 dark:text-white">
             <DialogHeader>
-              <DialogTitle className="text-red-400 flex items-center gap-2">
+              <DialogTitle className="text-red-600 dark:text-red-400 flex items-center gap-2">
                 <AlertTriangle className="w-5 h-5" />
                 Delete File?
               </DialogTitle>
             </DialogHeader>
-            <div className="py-4 text-sm text-muted-foreground leading-relaxed">
+            <div className="py-4 text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed">
               Are you sure you want to delete{" "}
-              <span className="text-foreground font-mono bg-accent px-1 py-0.5 rounded">
+              <span className="text-zinc-900 dark:text-white font-mono bg-zinc-100 dark:bg-white/10 px-1 py-0.5 rounded">
                 {fileSystem.state.selectedFile}
               </span>
               ?
@@ -2086,7 +2086,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
               <Button
                 variant="ghost"
                 onClick={() => setShowDeleteConfirm(false)}
-                className="text-muted-foreground hover:text-foreground"
+                className="text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white"
               >
                 Cancel
               </Button>
@@ -2099,7 +2099,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
                     );
                   setShowDeleteConfirm(false);
                 }}
-                className="bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20"
+                className="bg-red-500/10 text-red-600 dark:text-red-400 hover:bg-red-500/20 border border-red-200 dark:border-red-500/20"
               >
                 {isDeleting ? "Deleting..." : "Delete Permanently"}
               </Button>
@@ -2112,17 +2112,17 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
           open={showProjectRootConfirm}
           onOpenChange={setShowProjectRootConfirm}
         >
-          <DialogContent className="sm:max-w-md bg-accent border border-border text-foreground">
+          <DialogContent className="sm:max-w-md bg-white dark:bg-[#141517] border border-zinc-200 dark:border-white/10 text-zinc-900 dark:text-white">
             <DialogHeader>
-              <DialogTitle className="text-amber-400 flex items-center gap-2">
+              <DialogTitle className="text-amber-600 dark:text-amber-400 flex items-center gap-2">
                 <AlertTriangle className="w-5 h-5" />
                 Replace Entire Project?
               </DialogTitle>
             </DialogHeader>
             <div className="py-4 space-y-3">
-              <p className="text-sm text-muted-foreground leading-relaxed">
+              <p className="text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed">
                 This will{" "}
-                <span className="text-foreground font-semibold">
+                <span className="text-zinc-900 dark:text-white font-semibold">
                   delete all existing files
                 </span>{" "}
                 and replace your entire project structure with the uploaded
@@ -2155,7 +2155,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
               <Button
                 variant="ghost"
                 onClick={() => setShowProjectRootConfirm(false)}
-                className="text-muted-foreground hover:text-foreground"
+                className="text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white"
               >
                 Cancel
               </Button>
@@ -2164,7 +2164,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
                   setShowProjectRootConfirm(false);
                   await executeUpload();
                 }}
-                className="bg-amber-500 text-black hover:bg-amber-400 rounded-full font-semibold"
+                className="bg-amber-500 text-white dark:text-black hover:bg-amber-600 dark:hover:bg-amber-400 rounded-full font-semibold"
               >
                 Replace Project
               </Button>
