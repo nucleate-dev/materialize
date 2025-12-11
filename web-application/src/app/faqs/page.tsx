@@ -273,7 +273,7 @@ export default function FAQPage() {
               {/* Questions Area */}
               <div className="flex-1 min-w-0 space-y-16 pb-32">
                 {filteredData.length > 0 ? (
-                  filteredData.map((section, idx) => (
+                  filteredData.map((section) => (
                     <div
                       key={section.category}
                       id={`category-${section.category}`}

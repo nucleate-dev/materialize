@@ -9,6 +9,7 @@ import MaterializeRenderSection, {
   MaterializeRenderSectionRef,
 } from "@/components/prototype-editor/MaterializeRenderSection";
 import ProPlanUpsellModal from "@/components/prototype-editor/ProPlanUpsellModal";
+import { SurveyOverlay } from "@/components/survey/SurveyOverlay";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -61,7 +62,6 @@ import {
 import { Database } from "@/lib/types/supabase";
 import { IsUserPlanSubscribed } from "@/lib/utils/payments/SubscriptionManagementUtils";
 import { SLUG_RULES, isValidSlug, normalizeSlug } from "@/lib/utils/slugUtils";
-import { toast } from "sonner";
 import { useSetAtom } from "jotai";
 import {
   AlertTriangle,
@@ -79,6 +79,7 @@ import {
 } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 
 type Prototype = Database["public"]["Tables"]["prototypes"]["Row"];
 type DesignStyle = Database["public"]["Enums"]["design_style"];
@@ -124,6 +125,7 @@ export default function InternalPrototypePage() {
   const [showShareModal, setShowShareModal] = useState(false);
   const [isPublic, setIsPublic] = useState(false);
   const [isCopying, setIsCopying] = useState(false);
+  const [hasCopied, setHasCopied] = useState(false);
   const [isCloningPrototype, setIsCloningPrototype] = useState(false);
   const [showCloneUpsellModal, setShowCloneUpsellModal] = useState(false);
   const [viewingUrl, setViewingUrl] = useState<string | null>(null);
@@ -985,8 +987,10 @@ export default function InternalPrototypePage() {
 
       toast.success("Copied!");
 
+      setHasCopied(true);
       setTimeout(() => {
         setShowShareModal(false);
+        setHasCopied(false);
       }, 1000);
     } catch (err) {
       logger.debug("error", "Failed to copy URL:", {
@@ -1729,16 +1733,23 @@ export default function InternalPrototypePage() {
                 />
                 <Button
                   onClick={handleCopyLink}
-                  disabled={isCopying}
+                  disabled={isCopying || hasCopied}
                   size="sm"
-                  className="flex items-center gap-2 bg-white text-black hover:bg-white/90 h-9"
+                  className={cn(
+                    "flex items-center gap-2 h-9",
+                    hasCopied
+                      ? "bg-green-500 text-white hover:bg-green-600"
+                      : "bg-white text-black hover:bg-white/90",
+                  )}
                 >
                   {isCopying ? (
                     <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : hasCopied ? (
+                    <Check className="w-3.5 h-3.5" />
                   ) : (
                     <Copy className="w-3.5 h-3.5" />
                   )}
-                  {isCopying ? "Copying..." : "Copy"}
+                  {isCopying ? "Copying..." : hasCopied ? "Copied!" : "Copy"}
                 </Button>
               </div>
               {!isPublic && (
@@ -1821,6 +1832,18 @@ export default function InternalPrototypePage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Survey Overlay (Scenario 1: during build) */}
+      {user?.id && (
+        <SurveyOverlay
+          userId={user.id}
+          isBuildRunning={
+            currentRenderStatus === "Starting Dev Server.." ||
+            currentRenderStatus === "Updating.." ||
+            currentRenderStatus === "Connecting.."
+          }
+        />
+      )}
     </div>
   );
 }
