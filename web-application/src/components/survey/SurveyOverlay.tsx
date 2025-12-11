@@ -1,21 +1,18 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { supabase } from "@/ClientConstants";
+import { QuestionCard } from "@/app/(callbacks)/welcome-survey/components/QuestionCard";
+import { SurveyHeader } from "@/app/(callbacks)/welcome-survey/components/SurveyHeader";
+import { posthogClient } from "@/ClientConstants";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import type { SurveyResponses } from "@/lib/types/surveyTypes";
 import { SURVEY_QUESTIONS } from "@/lib/utils/survey/surveyQuestions";
 import {
-  submitSurvey,
   checkSurveyCompleted,
+  submitSurvey,
 } from "@/lib/utils/survey/SurveyUtils";
-import { SurveyHeader } from "@/app/(callbacks)/welcome-survey/components/SurveyHeader";
-import { QuestionCard } from "@/app/(callbacks)/welcome-survey/components/QuestionCard";
-import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
-import { posthogClient } from "@/ClientConstants";
-import { X } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 
 interface SurveyOverlayProps {
   userId: string;
@@ -110,7 +107,7 @@ export function SurveyOverlay({ userId, isBuildRunning }: SurveyOverlayProps) {
           "capture" in posthogClient
         ) {
           (
-            posthogClient as { capture: (event: string, props: object) => void }
+            posthogClient as { capture: (event: string, props: object) => void; }
           ).capture("survey_completed", {
             user_id: userId,
             context: "build_overlay",
@@ -184,20 +181,14 @@ export function SurveyOverlay({ userId, isBuildRunning }: SurveyOverlayProps) {
   if (!showSurvey) return null;
 
   return (
-    <Dialog open={showSurvey} onOpenChange={(open) => !isSubmitting && setShowSurvey(open)}>
-      <DialogContent className="max-w-md p-0 bg-white rounded-3xl border-4 border-slate-900 shadow-2xl overflow-hidden h-[90vh] max-h-[800px] flex flex-col">
-        {/* Dismiss button */}
-        <div className="absolute top-4 right-4 z-50">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setShowSurvey(false)}
-            className="h-8 w-8 rounded-full hover:bg-slate-100"
-            disabled={isSubmitting}
-          >
-            <X className="h-4 w-4" />
-          </Button>
-        </div>
+    <Dialog open={showSurvey} onOpenChange={() => { }}>
+      <DialogContent
+        className="max-w-lg p-0 bg-[#141517] rounded-2xl border border-white/10 shadow-2xl overflow-hidden flex flex-col gap-0"
+        hideCloseButton
+        onPointerDownOutside={(e) => e.preventDefault()}
+        onEscapeKeyDown={(e) => e.preventDefault()}
+        onInteractOutside={(e) => e.preventDefault()}
+      >
 
         <SurveyHeader
           currentStep={currentStep}
@@ -214,6 +205,8 @@ export function SurveyOverlay({ userId, isBuildRunning }: SurveyOverlayProps) {
           onOtherTextChange={handleOtherTextChange}
           onContinue={handleNext}
           canContinue={canContinue() && !isSubmitting}
+          isSubmitting={isSubmitting}
+          isLastStep={currentStep === totalSteps}
         />
       </DialogContent>
     </Dialog>

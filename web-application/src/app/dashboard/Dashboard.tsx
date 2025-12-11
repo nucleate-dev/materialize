@@ -72,6 +72,7 @@ export default function DashboardPage() {
   const [designStyle, setDesignStyle] = useState<DesignStyle>("stylesheets");
   const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
   const [isSurveyChecking, setIsSurveyChecking] = useState(true);
+  const [hasCheckedIntent, setHasCheckedIntent] = useState(false);
 
   // Check if user has completed survey (Scenario 2)
   useEffect(() => {
@@ -98,6 +99,35 @@ export default function DashboardPage() {
 
     checkSurvey();
   }, [user, router, logger]);
+
+  // Pre-fill prompt from chat_intent if user came from landing page
+  useEffect(() => {
+    if (hasCheckedIntent || isSurveyChecking) return;
+
+    if (typeof window !== "undefined") {
+      const chatIntent = localStorage.getItem("chat_intent");
+      if (chatIntent) {
+        try {
+          const parsed = JSON.parse(chatIntent) as {
+            prototype_id?: string;
+            message: string;
+          };
+          // Only pre-fill if there's a message but no prototype_id
+          // (meaning user typed a prompt before registering)
+          if (parsed.message && !parsed.prototype_id) {
+            setPrompt(parsed.message);
+            // Clear the intent after using it
+            localStorage.removeItem("chat_intent");
+          }
+        } catch (e) {
+          logger.debug("error", "Failed to parse chat_intent for pre-fill", {
+            error: e instanceof Error ? e.message : String(e),
+          });
+        }
+      }
+    }
+    setHasCheckedIntent(true);
+  }, [isSurveyChecking, hasCheckedIntent, logger]);
 
   // Handle redirect after login
   useEffect(() => {

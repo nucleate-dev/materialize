@@ -1,8 +1,8 @@
-import { useState } from "react";
 import type { SurveyQuestion } from "@/lib/types/surveyTypes";
 import { OptionButton } from "./OptionButton";
 import { TextInput } from "./TextInput";
 import { Button } from "@/components/ui/button";
+import { Loader2, ArrowRight } from "lucide-react";
 
 interface QuestionCardProps {
   question: SurveyQuestion;
@@ -12,6 +12,8 @@ interface QuestionCardProps {
   onOtherTextChange: (text: string) => void;
   onContinue: () => void;
   canContinue: boolean;
+  isSubmitting?: boolean;
+  isLastStep?: boolean;
 }
 
 export function QuestionCard({
@@ -22,6 +24,8 @@ export function QuestionCard({
   onOtherTextChange,
   onContinue,
   canContinue,
+  isSubmitting = false,
+  isLastStep = false,
 }: QuestionCardProps) {
   const isMultiSelect = question.type === "multi-select";
   const selectedArray = Array.isArray(selectedValues)
@@ -47,19 +51,19 @@ export function QuestionCard({
   const showOtherInput = selectedArray.includes("other");
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col">
       {/* Question Title */}
-      <div className="px-6 pb-4">
-        <h3 className="text-2xl font-bold text-slate-900 leading-tight mb-2">
+      <div className="px-6 pt-6 pb-4">
+        <h3 className="text-xl font-medium text-white leading-tight mb-1.5">
           {question.title}
         </h3>
         {question.subtitle && (
-          <p className="text-sm text-slate-500">{question.subtitle}</p>
+          <p className="text-sm text-[#8A8F98]">{question.subtitle}</p>
         )}
       </div>
 
       {/* Options */}
-      <div className="flex-1 px-4 overflow-y-auto no-scrollbar space-y-3 pb-6">
+      <div className="px-6 space-y-2.5 pb-4 max-h-[340px] overflow-y-auto no-scrollbar">
         {question.options.map((option) => (
           <OptionButton
             key={option.value}
@@ -82,13 +86,25 @@ export function QuestionCard({
       </div>
 
       {/* Continue Button */}
-      <div className="p-6 bg-gradient-to-t from-white via-white to-transparent">
+      <div className="p-6 pt-4 border-t border-white/5">
         <Button
           onClick={onContinue}
-          disabled={!canContinue}
-          className="w-full py-6 bg-slate-900 text-white rounded-2xl font-bold text-sm shadow-xl hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed"
+          disabled={!canContinue || isSubmitting}
+          className="w-full h-11 bg-white text-black hover:bg-white/90 rounded-xl font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed transition-all"
         >
-          Continue
+          {isSubmitting ? (
+            <>
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              Getting ready...
+            </>
+          ) : isLastStep ? (
+            <>
+              Get Started
+              <ArrowRight className="w-4 h-4 ml-2" />
+            </>
+          ) : (
+            "Continue"
+          )}
         </Button>
       </div>
     </div>

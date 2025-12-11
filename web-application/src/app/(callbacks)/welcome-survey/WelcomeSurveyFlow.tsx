@@ -15,6 +15,7 @@ import { SurveyHeader } from "./components/SurveyHeader";
 import { QuestionCard } from "./components/QuestionCard";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import { posthogClient } from "@/ClientConstants";
+import { GridBackground } from "@/components/shared/GridComponent";
 
 export function WelcomeSurveyFlow() {
   const router = useRouter();
@@ -137,7 +138,8 @@ export function WelcomeSurveyFlow() {
           );
         }
 
-        // Check for stored intents
+        // Check for stored intents - always redirect to dashboard
+        // The dashboard will handle the chat intent and pre-fill the prompt
         let redirectPath = "/dashboard";
 
         if (typeof window !== "undefined") {
@@ -148,6 +150,8 @@ export function WelcomeSurveyFlow() {
                 prototype_id?: string;
                 message: string;
               };
+              // If there's a prototype_id, redirect to that project
+              // Otherwise, just go to dashboard where the prompt will be pre-filled
               if (parsed.prototype_id) {
                 redirectPath = `/dashboard/projects/${parsed.prototype_id}`;
               }
@@ -226,24 +230,46 @@ export function WelcomeSurveyFlow() {
   const otherText = otherTexts[otherKey] || "";
 
   return (
-    <div className="min-h-screen bg-white flex items-center justify-center p-4">
-      <div className="w-full max-w-md bg-white rounded-3xl border-4 border-slate-900 shadow-2xl overflow-hidden flex flex-col h-[90vh] max-h-[800px]">
-        <SurveyHeader
-          currentStep={currentStep}
-          totalSteps={totalSteps}
-          onBack={handleBack}
-          canGoBack={currentStep > 1 && !isSubmitting}
-        />
+    <div className="relative min-h-screen bg-[#0B0C0E] text-white selection:bg-indigo-500/30 overflow-hidden font-sans">
+      <GridBackground forceDarkMode />
 
-        <QuestionCard
-          question={currentQuestion}
-          selectedValues={currentValue}
-          otherText={otherText}
-          onSelect={handleSelect}
-          onOtherTextChange={handleOtherTextChange}
-          onContinue={handleNext}
-          canContinue={canContinue() && !isSubmitting}
-        />
+      <div className="relative z-10 min-h-screen flex flex-col items-center justify-center px-4 py-12">
+        {/* Welcome Header */}
+        <div className="text-center mb-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+          <h1 className="text-3xl md:text-4xl font-medium tracking-tight text-transparent bg-clip-text bg-gradient-to-b from-white via-white to-white/60 mb-3">
+            Welcome to Nucleate
+          </h1>
+          <p className="text-[#8A8F98] text-base max-w-md mx-auto">
+            Help us personalize your experience with a few quick questions
+          </p>
+        </div>
+
+        {/* Survey Card */}
+        <div className="w-full max-w-lg animate-in fade-in slide-in-from-bottom-8 duration-1000 delay-100">
+          {/* Glow Effect */}
+          <div className="absolute -inset-0.5 bg-gradient-to-r from-indigo-500/20 to-blue-500/20 rounded-2xl blur-xl opacity-20"></div>
+
+          <div className="relative bg-[#141517] border border-white/10 rounded-2xl shadow-2xl overflow-hidden">
+            <SurveyHeader
+              currentStep={currentStep}
+              totalSteps={totalSteps}
+              onBack={handleBack}
+              canGoBack={currentStep > 1 && !isSubmitting}
+            />
+
+            <QuestionCard
+              question={currentQuestion}
+              selectedValues={currentValue}
+              otherText={otherText}
+              onSelect={handleSelect}
+              onOtherTextChange={handleOtherTextChange}
+              onContinue={handleNext}
+              canContinue={canContinue() && !isSubmitting}
+              isSubmitting={isSubmitting}
+              isLastStep={currentStep === totalSteps}
+            />
+          </div>
+        </div>
       </div>
     </div>
   );

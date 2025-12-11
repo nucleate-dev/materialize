@@ -3,7 +3,7 @@ import type { SurveyQuestion } from "@/lib/types/surveyTypes";
 export const SURVEY_QUESTIONS: SurveyQuestion[] = [
   {
     id: "useCases",
-    title: "What are you using Materialize for?",
+    title: "What are you using Nucleate for?",
     subtitle: "Select all that apply",
     type: "multi-select",
     options: [
@@ -116,6 +116,26 @@ export const SURVEY_QUESTIONS: SurveyQuestion[] = [
     type: "single-select",
     options: [
       {
+        value: "newsletter",
+        label: "Newsletter",
+        icon: "Mail",
+      },
+      {
+        value: "friend_family",
+        label: "Friend or family",
+        icon: "Users",
+      },
+      {
+        value: "search_engine",
+        label: "Google",
+        icon: "Search",
+      },
+      {
+        value: "ai_recommendation",
+        label: "AI (ChatGPT, Gemini, Claude)",
+        icon: "Zap",
+      },
+      {
         value: "instagram",
         label: "Instagram",
         icon: "Camera",
@@ -126,6 +146,11 @@ export const SURVEY_QUESTIONS: SurveyQuestion[] = [
         icon: "Music2",
       },
       {
+        value: "linkedin",
+        label: "LinkedIn",
+        icon: "Link2",
+      },
+      {
         value: "youtube",
         label: "YouTube",
         icon: "Play",
@@ -134,16 +159,6 @@ export const SURVEY_QUESTIONS: SurveyQuestion[] = [
         value: "twitter",
         label: "Twitter/X",
         icon: "Twitter",
-      },
-      {
-        value: "friend_family",
-        label: "Friend or family",
-        icon: "Users",
-      },
-      {
-        value: "search_engine",
-        label: "Search engine",
-        icon: "Search",
       },
       {
         value: "other",

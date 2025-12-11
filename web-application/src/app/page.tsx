@@ -136,6 +136,7 @@ function HeroSection() {
         <div className="text-center space-y-6 mb-12">
           <h1 className="text-5xl md:text-7xl lg:text-8xl font-medium tracking-tight text-transparent bg-clip-text bg-gradient-to-b from-white via-white to-white/60 pb-2">
             Build
+            <span className="md:hidden">&nbsp;</span>
             <br className="hidden md:block" />
             beautiful mobile apps fast
           </h1>

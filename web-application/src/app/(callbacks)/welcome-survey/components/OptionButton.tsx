@@ -1,6 +1,6 @@
 import { Check } from "lucide-react";
 import * as LucideIcons from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn } from "@/lib/classNames";
 
 interface OptionButtonProps {
   icon: string;
@@ -24,26 +24,35 @@ export function OptionButton({
     <button
       onClick={onClick}
       className={cn(
-        "w-full p-4 rounded-2xl flex items-center gap-4 text-left transition-all duration-200",
-        "border-2 hover:scale-[1.02] active:scale-[0.98]",
+        "w-full p-3.5 rounded-xl flex items-center gap-3.5 text-left transition-all duration-200",
+        "border hover:scale-[1.01] active:scale-[0.99]",
         isSelected
-          ? "bg-slate-950 border-slate-900 text-white shadow-lg"
-          : "bg-slate-50 border-slate-200 text-slate-900 hover:border-slate-300"
+          ? "bg-white/10 border-white/20 text-white shadow-lg shadow-white/5"
+          : "bg-white/[0.02] border-white/10 text-white/80 hover:bg-white/[0.05] hover:border-white/15"
       )}
     >
       <div
         className={cn(
-          "w-10 h-10 rounded-full flex items-center justify-center shrink-0 transition-colors",
-          isSelected ? "bg-white/20" : "bg-slate-200"
+          "w-9 h-9 rounded-lg flex items-center justify-center shrink-0 transition-colors",
+          isSelected ? "bg-gradient-to-br from-indigo-500 to-blue-500" : "bg-white/10"
         )}
       >
         <IconComponent
-          className={cn("w-5 h-5", isSelected ? "text-white" : "text-slate-600")}
+          className={cn("w-4 h-4", isSelected ? "text-white" : "text-white/60")}
         />
       </div>
       <span className="font-medium text-sm flex-1">{label}</span>
-      {showCheckmark && isSelected && (
-        <Check className="w-5 h-5 text-white shrink-0" />
+      {showCheckmark && (
+        <div
+          className={cn(
+            "w-5 h-5 rounded-md border flex items-center justify-center shrink-0 transition-all",
+            isSelected
+              ? "bg-white border-white"
+              : "bg-transparent border-white/20"
+          )}
+        >
+          {isSelected && <Check className="w-3.5 h-3.5 text-[#141517]" />}
+        </div>
       )}
     </button>
   );
