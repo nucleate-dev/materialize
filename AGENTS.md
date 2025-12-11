@@ -18,5 +18,5 @@ This is a monorepository. The directories are as follows:
 - internal-tools: This contains the internal tools that we use for project development. All server requests go through the server/control-plane in a special internal-services directory, which requires additional authentication to ensure the requests come from a trusted internal source
 - starters: This directory contains the various starter apps that user's can select from when creating a new project. These are generally expo react native apps or nextjs apps
 - async-backfills: This directory contains the various async backfill scripts that we use to populate our database with initial data or fix existing data
-- web-application-app: Contains the directory for user hosted apps on web, through apps.nucleate.dev/{slug}.
+- web-application-app: Contains the directory for user hosted apps on web, through apps.nucleate.dev/{slug}
 
