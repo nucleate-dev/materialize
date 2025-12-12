@@ -1361,7 +1361,28 @@ export default function ClaudeCodePanel({
 
     // Handle result messages - don't show completion in chat
     if (data.type === "result") {
-      // Just log errors, don't show success completion
+      // Always stop processing when we receive a result
+      setIsProcessing(false);
+
+      // Mark all todos as completed
+      setCurrentTodos((prev) =>
+        prev.map((todo) => ({ ...todo, status: "completed" as const })),
+      );
+
+      // Mark all running tools as success
+      setMessages((prev) =>
+        prev.map((msg) => {
+          if (msg.type === "tool" && msg.status === "running") {
+            return { ...msg, status: "success" as const, isComplete: true };
+          }
+          if (msg.type === "thinking" && msg.status === "running") {
+            return { ...msg, status: "success" as const, isComplete: true };
+          }
+          return msg;
+        }),
+      );
+
+      // Show error messages for error subtypes
       if (data.subtype === "error_max_turns") {
         addMessage("error", "Maximum turns reached");
       } else if (data.subtype === "error_during_execution") {

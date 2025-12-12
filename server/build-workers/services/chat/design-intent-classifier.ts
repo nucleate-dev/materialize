@@ -4,9 +4,9 @@ import { SystemLogger } from "../../loggers/SystemLogger.js";
 import { VERCEL_MODEL_COSTS_USD } from "./cost-calculation.js";
 
 /**
- * Classification result indicating whether user wants a full app or something specific/small
+ * Classification result indicating whether user wants to design/create UI vs standard chat
  */
-export type DesignIntent = "full_app" | "specific_component";
+export type DesignIntent = "design_mode" | "standard_mode";
 
 /**
  * Configuration for design intent classification
@@ -35,26 +35,28 @@ export interface DesignIntentClassifierResult {
 /**
  * Prompt for the design intent classifier
  */
-const CLASSIFIER_PROMPT = `You are a classifier that determines if a user wants to build a complete app or something specific and small.
+const CLASSIFIER_PROMPT = `You are a classifier that determines if a user wants to DESIGN or BUILD user interface elements, or if they just have a general question or logic request.
 
 Classify the user's request as either:
-- "full_app": User wants to build a complete application with multiple features, screens, and functionality
-- "specific_component": User wants something specific and small like a single component, paywall, screen, or small feature
+- "design_mode": User wants to create, modify, or design UI elements. This applies to FULL APPS, SPECIFIC SCREENS, OR SINGLE COMPONENTS (buttons, cards, inputs, etc).
+- "standard_mode": User has a general question, debugging request, explanation request, or pure logic change with no visual component.
 
-Examples of "full_app":
-- "Build me a fitness tracking app"
-- "I want to create a social media app for pet owners"
-- "Make an expense tracking application"
-- "Create a recipe sharing platform"
+Examples of "design_mode" (REQUIRES DESIGN THOUGHT):
+- "Build me a fitness tracking app" (Full App)
+- "Create a login screen" (Screen)
+- "Add a profile card" (Component)
+- "Make a beautiful button" (Component)
+- "Redesign this page to look modern" (Modification)
+- "Change the colors to be dark mode" (Modification)
 
-Examples of "specific_component":
-- "Recreate the blinkist paywall for me"
-- "Make a login screen"
-- "Build a todo list component"
-- "Create a settings page"
-- "Add a profile card"
+Examples of "standard_mode" (NO DESIGN THOUGHT REQUIRED):
+- "Why is my build failing?"
+- "Explain how useEffect works"
+- "Fix the bug in the calculation function"
+- "Add a console.log here"
+- "Refactor this code to be cleaner" (Logic refactor)
 
-Respond with ONLY one word: either "full_app" or "specific_component". No explanation, no punctuation, just the classification.`;
+Respond with ONLY one word: either "design_mode" or "standard_mode". No explanation, no punctuation, just the classification.`;
 
 /**
  * Model to use for classification - fast and cheap
@@ -92,7 +94,7 @@ function estimateCostUsd(
 }
 
 /**
- * Classifies user intent to determine if they want a full app or specific component.
+ * Classifies user intent to determine if they want strict design mode or standard mode.
  * Uses gemini-2.5-flash for fast, cheap classification.
  *
  * @param config - Configuration for design intent classification
@@ -128,20 +130,20 @@ export async function classifyDesignIntent(
 
     // Parse the classification result
     let intent: DesignIntent;
-    if (classificationText.includes("full_app")) {
-      intent = "full_app";
-    } else if (classificationText.includes("specific_component")) {
-      intent = "specific_component";
+    if (classificationText.includes("design_mode")) {
+      intent = "design_mode";
+    } else if (classificationText.includes("standard_mode")) {
+      intent = "standard_mode";
     } else {
-      // Default to specific_component if unclear (safer default - faster path)
+      // Default to standard_mode if unclear (safer default - less intrusive)
       logger.warn(
-        "Design intent classifier returned unexpected result, defaulting to specific_component",
+        "Design intent classifier returned unexpected result, defaulting to standard_mode",
         {
           classificationText,
           prototypeId,
         },
       );
-      intent = "specific_component";
+      intent = "standard_mode";
     }
 
     // Extract usage information
@@ -171,7 +173,7 @@ export async function classifyDesignIntent(
   } catch (error) {
     logger.error(
       error instanceof Error ? error : new Error(String(error)),
-      "Design intent classification failed, defaulting to specific_component",
+      "Design intent classification failed, defaulting to standard_mode",
       {
         model: CLASSIFIER_MODEL,
         prototypeId,
@@ -179,7 +181,7 @@ export async function classifyDesignIntent(
       },
     );
 
-    // On error, default to specific_component (safer, faster path)
-    return { intent: "specific_component", costUsd: undefined };
+    // On error, default to standard_mode (safer path)
+    return { intent: "standard_mode", costUsd: undefined };
   }
 }
