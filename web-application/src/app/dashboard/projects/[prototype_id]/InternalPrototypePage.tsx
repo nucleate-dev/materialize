@@ -945,6 +945,20 @@ export default function InternalPrototypePage() {
       setIsDeployModalOpen(false);
       setSlugError(null);
       setSlugAvailable(true);
+
+      // Trigger build-and-deploy on sandbox (fire and forget)
+      if (normalizedSandboxUrl) {
+        fetch(`${normalizedSandboxUrl}/build-and-deploy`, {
+          method: "POST",
+        }).catch((err) => {
+          logger.debug("error", "Failed to trigger build-and-deploy", {
+            error: err instanceof Error ? err.message : String(err),
+          });
+        });
+        toast.success(
+          "Deploy started! Expect your new deploy to be up in about 3-5 minutes.",
+        );
+      }
     } catch (error) {
       setSlugError(
         error instanceof Error ? error.message : "Unable to deploy app",
