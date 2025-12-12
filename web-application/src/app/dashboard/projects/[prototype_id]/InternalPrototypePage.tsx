@@ -1628,6 +1628,7 @@ export default function InternalPrototypePage() {
               )}
             </div>
 
+            {/* Visibility options - commented out for now, deployments are public by default
             <div className="space-y-2">
               <p className="text-xs uppercase tracking-wide text-[#8A8F98]">
                 Visibility
@@ -1652,6 +1653,7 @@ export default function InternalPrototypePage() {
                 required.
               </p>
             </div>
+            */}
 
             <div className="flex justify-end gap-2 pt-2">
               <Button
