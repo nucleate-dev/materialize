@@ -58,6 +58,7 @@ import {
   Copy,
   Download,
   Eye,
+  Hammer,
   KeyRound,
   Loader2,
   Monitor,
@@ -268,6 +269,9 @@ const MaterializeRenderSection = forwardRef<
     const [iframeError, setIframeError] = useState(false);
     const [isExporting, setIsExporting] = useState(false);
     const [isRestartingDevServer, setIsRestartingDevServer] = useState(false);
+    const [isBuilding, setIsBuilding] = useState(false);
+    const [buildError, setBuildError] = useState<string | null>(null);
+    const buildPollIntervalRef = useRef<NodeJS.Timeout | null>(null);
     const [mobileScreens, setMobileScreens] = useState<MobileScreenConfig[]>(
       () =>
         viewing_url ? [{ id: 0, path: extractInitialPath(viewing_url) }] : [],
@@ -1164,6 +1168,78 @@ const MaterializeRenderSection = forwardRef<
       }
     };
 
+    const stopBuildPolling = useCallback(() => {
+      if (buildPollIntervalRef.current) {
+        clearInterval(buildPollIntervalRef.current);
+        buildPollIntervalRef.current = null;
+      }
+    }, []);
+
+    const pollBuildStatus = useCallback(async () => {
+      if (!sandbox_url) return;
+
+      try {
+        const response = await fetch(`${sandbox_url}/build-status`);
+        const status = await response.json();
+
+        if (!status.isBuilding) {
+          // Build completed or failed
+          stopBuildPolling();
+          setIsBuilding(false);
+
+          if (status.buildError) {
+            setBuildError(status.buildError);
+            toast.error(`Build failed: ${status.buildError}`);
+          } else if (status.builtVersion) {
+            setBuildError(null);
+            toast.success(
+              `Build completed! Version: ${status.builtVersion}`,
+            );
+          }
+        }
+      } catch (error) {
+        logger.debug("error", "Error polling build status:", {
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }, [sandbox_url, stopBuildPolling, logger]);
+
+    const handleBuildAndDeploy = async () => {
+      if (!sandbox_url || !prototypeId) {
+        logger.debug(
+          "error",
+          "Cannot build: missing sandbox URL or prototype ID",
+        );
+        return;
+      }
+
+      // Clear any previous error
+      setBuildError(null);
+      setIsBuilding(true);
+
+      // Fire-and-forget the build request
+      fetch(`${sandbox_url}/build-and-deploy`, {
+        method: "POST",
+      }).catch((error) => {
+        logger.debug("error", "Error triggering build:", {
+          error: error instanceof Error ? error.message : String(error),
+        });
+      });
+
+      toast.info("Build started! This may take 3-5 minutes...");
+
+      // Start polling for build status
+      stopBuildPolling();
+      buildPollIntervalRef.current = setInterval(pollBuildStatus, 3000);
+    };
+
+    // Cleanup polling on unmount
+    useEffect(() => {
+      return () => {
+        stopBuildPolling();
+      };
+    }, [stopBuildPolling]);
+
     const handleRefresh = () => {
       if (webPreviewRef.current && viewing_url) {
         setIsIframeLoading(true);
@@ -2025,6 +2101,18 @@ const MaterializeRenderSection = forwardRef<
                         {isRestartingDevServer
                           ? "Restarting..."
                           : "Restart Dev Server"}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={handleBuildAndDeploy}
+                        disabled={!sandbox_url || !prototypeId || isBuilding}
+                        className="focus:bg-accent/80 focus:text-foreground text-muted-foreground text-sm cursor-pointer"
+                      >
+                        {isBuilding ? (
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        ) : (
+                          <Hammer className="w-4 h-4 mr-2 opacity-70" />
+                        )}
+                        {isBuilding ? "Building..." : "Build & Deploy"}
                       </DropdownMenuItem>
                     </>
                   )}
