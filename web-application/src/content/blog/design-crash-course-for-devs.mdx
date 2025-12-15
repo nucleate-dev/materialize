@@ -17,7 +17,9 @@ You do not need to be a designer to make things look good. If you are a develope
 
 ## Introduction
 
-Design is not about making things pretty. It is about making decisions obvious, content readable, and interactions smooth. By learning a few simple rules, you can improve your UI without needing years of design training.
+You've built the feature. It works. But something feels... off. The spacing looks random, the colors clash, and you can't pinpoint why. This guide fixes that.
+
+Design is not about making things pretty. It is about making decisions obvious, content readable, and interactions smooth. By learning a few simple rules, you can take your UI from "hacky" to "professional" without needing years of design training.
 
 <Callout type="info">
   Think of design like coding: small consistent rules add up to a system that
@@ -48,15 +50,27 @@ Decide on a set of colors, font choices, border radius, and spacing rules and th
 
 You do not need ten fonts. One typeface with bold, regular, and italic weights plus a monospace for code is usually enough. Consistency here avoids visual clutter. Use font weight and size for emphasis instead of grabbing a new font.
 
-### Balance Your Colors with 60-30-10
+### Define a Type Scale
 
-A common mistake is using a brand color (like heavy blue) everywhere. To fix this, you can borrow a rule from interior design called **60-30-10**. It helps you balance your palette without needing a "vision."
+Just like spacing, font sizes should follow a scale. Don't guess between `15px` and `16px`. Pick a set and stick to it.
+
+* **Small:** 12px, 14px
+* **Body:** 16px
+* **Headings:** 20px, 24px, 32px
+
+Jumping from `16px` to `18px` is barely noticeable. Jumping from `16px` to `20px` creates clear hierarchy.
+
+## Balance Your Colors with 60-30-10
+
+A common mistake is using a brand color (like heavy blue) everywhere. To fix this, you can borrow a rule from interior design called **60-30-10**.
+
+> Think of a man in a business suit: **60%** is the slacks and jacket (neutral), **30%** is the shirt (secondary), and **10%** is the tie (accent).
 
 * **60% Neutral:** This is your canvas. Whites, creams, or soft grays. It should cover the majority of the screen (backgrounds, negative space).
 * **30% Secondary:** This supports the content. Medium grays for text, light borders, or subtle card backgrounds.
 * **10% Accent:** This is your "Action Color." Use it strictly for the things you want users to click, like primary buttons or active states.
 
-If your UI feels overwhelming, check your ratio. You likely have too much "10%" and not enough "60%".
+If your UI feels overwhelming, check your ratio. You likely have too much "10%" (buttons, badges, links) and not enough "60%".
 
 ## Contrast Makes Text Readable
 
@@ -82,6 +96,12 @@ Icons should support meaning. A trash can for delete, a plus for add, a gear for
 
 Do not overthink your first pass. Get something clear and usable on the screen. Add refinement like colors, shadows, and micro interactions after the layout and hierarchy work. Design is iterative just like code.
 
+## Quick Wins (Common Mistakes)
+
+* **Avoid Pure Black:** Pure black (`#000000`) naturally spreads and can cause eye strain on bright screens. Use a dark gray like `#111` or `#1A1A1A`.
+* **Don't Center Long Text:** Centered text is hard to read for paragraphs. Left-align body text.
+* **Clickable vs. Disabled:** Low contrast gray buttons look disabled. Make sure your secondary buttons still look interactive (e.g., use a border or decent contrast).
+
 ## The Developer’s Advantage
 
 As a developer, you already think in systems. That is what design really is: consistent rules, components, and constraints. Treat your UI like a codebase, refactor messy parts, reuse components, and apply patterns consistently.
@@ -93,22 +113,24 @@ Let's look at a common scenario: a simple user card.
 <RefactorComparison />
 
 **The "Before" State**
-Here is a typical "developer-first" implementation. It is functional, but it feels rigid. The spacing is random (7px, 5px), the borders are harsh, and the contrast is too high (pure black on white).
+Here is a typical "developer-first" implementation. It works, but it feels "off". The spacing is random, the hierarchy is confused (why is the "Admin" badge so loud?), and the colors clash.
 
 ```jsx
-// ❌ BEFORE: Inconsistent and harsh
-// - Random pixel values (7px, 15px) = Visual Clutter
-// - Pure black borders = Too heavy
-// - "Edit" button dominates the hierarchy unnecessarily
+// ❌ BEFORE: "Almost" right, but subtly off
+// - Arbitrary values (p-[15px]) break the rhythm
+// - Blue background on Admin badge distracts from the primary action
+// - Badge and Button compete for attention
 
-const UserCardBad = () => (
-  <div style={{ border: '1px solid black', padding: '10px' }}>
-    <div style={{ borderBottom: '1px solid black', paddingBottom: '5px', marginBottom: '10px' }}>
-      <span style={{ fontSize: '20px', fontWeight: 'bold' }}>Jane Doe</span>
-      <span style={{ float: 'right', color: 'gray' }}>Admin</span>
+const UserCardBefore = () => (
+  <div className="border border-[#e5e5e5] rounded-[6px] p-[15px]">
+    <div className="flex justify-between mb-[12px]">
+      <span className="text-[18px] font-semibold">Jane Doe</span>
+      <span className="bg-[#3b82f6] text-white px-[8px] py-[4px] rounded-[4px] text-[12px]">
+        Admin
+      </span>
     </div>
-    <p style={{ marginTop: '5px' }}>jane@example.com</p>
-    <button style={{ backgroundColor: 'blue', color: 'white', width: '100%', marginTop: '10px' }}>
+    <p className="text-[#666] mb-[15px]">jane@example.com</p>
+    <button className="bg-[#3b82f6] text-white py-[10px] px-[16px] w-full rounded-[6px] font-semibold">
       Edit Profile
     </button>
   </div>
