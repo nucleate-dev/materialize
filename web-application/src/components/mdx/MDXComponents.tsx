@@ -1,9 +1,11 @@
+import { RefactorComparison } from "@/components/blog/RefactorExample";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { AlertCircle, CheckCircle, Info, Lightbulb } from "lucide-react";
 
 // Custom components for MDX
 const MDXComponents = {
+  RefactorComparison,
   // Typography
   h1: ({ children, ...props }: React.HTMLAttributes<HTMLHeadingElement>) => (
     <h1
