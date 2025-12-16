@@ -1,6 +1,8 @@
 // PublicApiService.ts
 import { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import {
+  BuildAndDeployResponse,
+  BuildStatusResponse,
   DevServerStatus,
   PublicAllocateRequest,
   PublicAllocateSuccessResponse,
@@ -31,6 +33,7 @@ import { TerminalService } from "../terminals/TerminalService.js";
 import { ExpoReactNativeAdapter } from "./adapters/ExpoReactNativeAdapter.js";
 import { S3Client } from "@aws-sdk/client-s3";
 import { handleRefetchEnvImpl } from "./handlers/handleRefetchEnv.js";
+import { uploadDirectoryToS3 } from "./s3-upload-utils.js";
 
 export const S3_BUCKET = process.env.S3_BUCKET || "materialize-sites";
 export const DEV_SERVER_PORT = 19006;
@@ -52,6 +55,7 @@ export class NucleateDevelopmentServerService {
     builtVersion: string;
     buildStartTime: Date;
     lastUpdatedTime: Date;
+    buildError?: string;
   };
 
   constructor(
@@ -106,6 +110,9 @@ export class NucleateDevelopmentServerService {
       "/cleanup",
       this.cleanup.bind(this),
     );
+
+    app.post("/build-and-deploy", this.buildAndDeploy.bind(this));
+    app.get("/build-status", this.getBuildStatus.bind(this));
   }
 
   public setS3Client(s3Client: S3Client): void {
@@ -179,5 +186,120 @@ export class NucleateDevelopmentServerService {
     >
   > {
     return handleRefetchEnvImpl(request, reply, this);
+  }
+
+  private async getBuildStatus(
+    _request: FastifyRequest,
+    reply: FastifyReply,
+  ): Promise<BuildStatusResponse> {
+    return reply.send({
+      isBuilding: this.developmentServerState.isBuilding,
+      devServerStatus: this.developmentServerState.devServerStatus,
+      builtVersion: this.developmentServerState.builtVersion,
+      buildStartTime: this.developmentServerState.buildStartTime.toISOString(),
+      lastUpdatedTime: this.developmentServerState.lastUpdatedTime.toISOString(),
+      buildError: this.developmentServerState.buildError,
+    });
+  }
+
+  private async buildAndDeploy(
+    request: FastifyRequest,
+    reply: FastifyReply,
+  ): Promise<BuildAndDeployResponse> {
+    const log2 = request.log2;
+
+    // Set building state
+    this.developmentServerState.isBuilding = true;
+    this.developmentServerState.buildError = undefined;
+    this.developmentServerState.buildStartTime = new Date();
+    this.developmentServerState.lastUpdatedTime = new Date();
+
+    try {
+      // Step 1: Build the project using the adapter
+      const buildResult = await this.developmentServerAdapter.build(log2);
+
+      if (buildResult.error || !buildResult.data) {
+        const errorMsg = buildResult.error?.message || "Build failed";
+        this.developmentServerState.isBuilding = false;
+        this.developmentServerState.buildError = errorMsg;
+        this.developmentServerState.lastUpdatedTime = new Date();
+        return reply.send({
+          success: false,
+          error: errorMsg,
+          buildLog: [],
+        });
+      }
+
+      const outputPath = buildResult.data.output_path;
+
+      // Step 2: Upload to S3
+      if (!this.s3Client) {
+        const errorMsg = "S3 client not configured";
+        this.developmentServerState.isBuilding = false;
+        this.developmentServerState.buildError = errorMsg;
+        this.developmentServerState.lastUpdatedTime = new Date();
+        return reply.send({
+          success: false,
+          error: errorMsg,
+          buildLog: [],
+        });
+      }
+
+      // Get prototype ID from worker context
+      const { getWorkerContext } = await import("../../worker.js");
+      const context = getWorkerContext();
+      const prototypeId = context.prototypeId;
+
+      if (!prototypeId) {
+        const errorMsg = "Prototype ID not available";
+        this.developmentServerState.isBuilding = false;
+        this.developmentServerState.buildError = errorMsg;
+        this.developmentServerState.lastUpdatedTime = new Date();
+        return reply.send({
+          success: false,
+          error: errorMsg,
+          buildLog: [],
+        });
+      }
+
+      const uploadResult = await uploadDirectoryToS3(
+        log2,
+        outputPath,
+        prototypeId,
+        this.s3Client,
+      );
+
+      const buildUrl = `https://${prototypeId}.render.materializeui.com`;
+
+      // Success - update state
+      this.developmentServerState.isBuilding = false;
+      this.developmentServerState.builtVersion = uploadResult.version;
+      this.developmentServerState.lastUpdatedTime = new Date();
+
+      return reply.send({
+        success: true,
+        buildUrl,
+        buildLog: [],
+        uploadedFiles: uploadResult.uploadResults,
+        version: uploadResult.version,
+      });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      log2.error(
+        error instanceof Error ? error : new Error(errorMessage),
+        "Failed to upload to S3",
+      );
+
+      // Error - update state
+      this.developmentServerState.isBuilding = false;
+      this.developmentServerState.buildError = `S3 upload failed: ${errorMessage}`;
+      this.developmentServerState.lastUpdatedTime = new Date();
+
+      return reply.send({
+        success: false,
+        error: `S3 upload failed: ${errorMessage}`,
+        buildLog: [],
+      });
+    }
   }
 }

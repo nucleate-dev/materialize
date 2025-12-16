@@ -1023,6 +1023,7 @@ export class ExpoDevServerService {
     log2: SystemLogger,
     prototypeId?: string,
     jobId?: string,
+    keepDevServerRunning: boolean = false,
   ): Promise<BuildAndDeployResponse> {
     const actualJobId = jobId || uuidv4();
     const logger = this.createLogger(actualJobId, log2);
@@ -1135,13 +1136,21 @@ export class ExpoDevServerService {
         buildLog: logger.getBuildLog(),
       };
     } finally {
-      this.state.currentOperation = OperationStatus.STOPPING;
-      await this.killExpoProcess(log2);
-      this.state.devServerStatus = DevServerStatus.STOPPED;
-      log2.consoleLogDevOnly(
-        "info",
-        "Dev server stopped after build and deploy completion",
-      );
+      if (!keepDevServerRunning) {
+        this.state.currentOperation = OperationStatus.STOPPING;
+        await this.killExpoProcess(log2);
+        this.state.devServerStatus = DevServerStatus.STOPPED;
+        log2.consoleLogDevOnly(
+          "info",
+          "Dev server stopped after build and deploy completion",
+        );
+      } else {
+        this.state.clearOperation();
+        log2.consoleLogDevOnly(
+          "info",
+          "Build and deploy completed, dev server kept running",
+        );
+      }
     }
   }
 

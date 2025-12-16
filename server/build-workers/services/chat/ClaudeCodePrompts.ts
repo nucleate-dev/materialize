@@ -85,6 +85,13 @@ Return a structured Markdown design spec. It must contain ONLY these sections:
 -   **Cohesive:** Ensure the system status bar color matches the app background for a seamless look.
 -   **Output:** STRICTLY NO CODE. Do not write React Native components or functions. Provide high-level design rules, token values, color recommendations, and layout instructions only.
 
+### COMPONENT & MICRO-INTERACTION RULES (If scope is "component"):
+-   **Focus on Detail:** If the user asks for a specific component (e.g. "a button", "a card"), you must go DEEP on that specific item.
+-   **Micro-interactions:** Define the "Pressed" and "Active" states. What happens when the user touches it? (e.g. "Scale down to 0.98", "Opacity change to 0.8").
+-   **Shadows & Depth:** Don't just say "add shadow". specificy "Shadow: 0px 4px 12px rgba(0,0,0,0.1)".
+-   **Borders:** Define exact border widths (e.g. "1px solid #E2E8F0") and radius.
+-   **"Simple" != "Plain":** Even a simple component like a checkbox needs to look PREMIUM. Use custom icons, smooth animations, and perfect spacing.
+
 ### METADATA
 Scope: app | screen | component | other
 

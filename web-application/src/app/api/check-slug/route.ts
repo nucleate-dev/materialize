@@ -31,11 +31,15 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  const { data, error } = await supabase
-    .from("prototypes")
-    .select("id")
-    .eq("slug", slug)
-    .limit(1);
+  const excludePrototypeId = searchParams.get("exclude_prototype_id");
+
+  let query = supabase.from("prototypes").select("id").eq("slug", slug);
+
+  if (excludePrototypeId) {
+    query = query.neq("id", excludePrototypeId);
+  }
+
+  const { data, error } = await query.limit(1);
 
   if (error) {
     return NextResponse.json(

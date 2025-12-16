@@ -371,7 +371,7 @@ export class ChatQueryHandler {
 
           const classifierCost = classificationResult.costUsd;
           const shouldRunDesignAgent =
-            classificationResult.intent === "full_app";
+            classificationResult.intent === "design_mode";
 
           this.logger.debug("User intent classified", {
             prototypeId,
@@ -385,7 +385,7 @@ export class ChatQueryHandler {
             intent: classificationResult.intent,
           });
 
-          // Step 6b: Only run design agent if user wants a full app
+          // Step 6b: Only run design agent if user wants a design mode
           if (shouldRunDesignAgent) {
             // Send design generation started message to client
             handlers.sendMessage(socket, {
@@ -469,11 +469,11 @@ export class ChatQueryHandler {
               },
             );
           } else {
-            // User wants specific component - skip design agent, just track classifier cost
+            // User wants standard mode - skip design agent, just track classifier cost
             designAgentCost = classifierCost;
             this.logger.consoleLogDevOnly(
               "info",
-              "Skipping design agent - user wants specific component",
+              "Skipping design agent - user wants standard mode",
               {
                 prototypeId,
                 intent: classificationResult.intent,
@@ -1327,6 +1327,9 @@ export class ChatQueryHandler {
       "Edit",
       "Glob",
       "Grep",
+      "WebSearch",
+      "WebFetch",
+      "TodoWrite",
       // MCP tools from devtools server
       "mcp__devtools__SafeWrite",
       "mcp__devtools__SafeBash",

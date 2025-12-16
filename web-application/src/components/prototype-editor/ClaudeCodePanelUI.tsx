@@ -333,6 +333,22 @@ export default function ClaudeCodePanelUI({
         </div>
 
         <div className="flex items-center gap-1">
+          {/* Credits Indicator */}
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="flex items-center justify-center h-7 w-7 rounded-md hover:bg-accent cursor-default">
+                  <Sparkles className="w-3.5 h-3.5 text-muted-foreground" />
+                </div>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                <span className="text-xs">
+                  {creditsUsed} / {totalAvailableCredits} credits used
+                </span>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+
           {/* Reconnect Button */}
           {/* {!isConnected &&
             baseTunnelUrl &&
