@@ -46,7 +46,7 @@ This document outlines the plan for implementing a new `claude-code-cli-query-ha
 │                                                                      │
 │  6. User pastes token into input field                              │
 │                                                                      │
-│  7. We validate and store token (encrypted) in Supabase             │
+│  7. We validate and store token in Supabase                         │
 │                                                                      │
 │  8. User sees: "✓ Claude Max subscription connected"                │
 │                                                                      │
@@ -969,59 +969,7 @@ private async buildAuthEnvironment(userId: string): Promise<{
 }
 ```
 
-### 2. Token Encryption at Application Level
-
-**Problem:** Database-level encryption isn't enough. Tokens should be encrypted before storage.
-
-**Implementation:**
-```typescript
-// server/build-workers/services/auth/token-encryption.ts
-import { createCipheriv, createDecipheriv, randomBytes, scryptSync } from 'crypto';
-
-const ALGORITHM = 'aes-256-gcm';
-const KEY = scryptSync(process.env.TOKEN_ENCRYPTION_SECRET!, 'salt', 32);
-
-export function encryptToken(token: string): { encrypted: string; iv: string; tag: string } {
-  const iv = randomBytes(16);
-  const cipher = createCipheriv(ALGORITHM, KEY, iv);
-  const encrypted = Buffer.concat([cipher.update(token, 'utf8'), cipher.final()]);
-  const tag = cipher.getAuthTag();
-
-  return {
-    encrypted: encrypted.toString('base64'),
-    iv: iv.toString('base64'),
-    tag: tag.toString('base64'),
-  };
-}
-
-export function decryptToken(encrypted: string, iv: string, tag: string): string {
-  const decipher = createDecipheriv(
-    ALGORITHM,
-    KEY,
-    Buffer.from(iv, 'base64')
-  );
-  decipher.setAuthTag(Buffer.from(tag, 'base64'));
-
-  return decipher.update(Buffer.from(encrypted, 'base64')) + decipher.final('utf8');
-}
-```
-
-**Updated schema:**
-```sql
-CREATE TABLE user_claude_tokens (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID REFERENCES auth.users(id) NOT NULL UNIQUE,
-
-  -- Encrypted token fields (NOT plaintext)
-  encrypted_token TEXT NOT NULL,
-  encryption_iv TEXT NOT NULL,
-  encryption_tag TEXT NOT NULL,
-
-  -- ... rest of fields
-);
-```
-
-### 3. WebSocket Authentication Required
+### 2. WebSocket Authentication Required
 
 **Problem:** The WebSocket route must verify the user is authenticated and authorized.
 
@@ -1048,7 +996,7 @@ app.get(
 );
 ```
 
-### 4. Per-User Setup Session Management
+### 3. Per-User Setup Session Management
 
 **Problem:** Global `setupTokenParser` causes race conditions with multiple users.
 
@@ -1122,7 +1070,7 @@ export class TerminalService {
 }
 ```
 
-### 5. Stricter Code Sanitization
+### 4. Stricter Code Sanitization
 
 **Problem:** Regex validation alone isn't sufficient for terminal input.
 
@@ -1155,7 +1103,7 @@ async submitSetupTokenCode(userId: string, code: string): Promise<void> {
 }
 ```
 
-### 6. Await Token Save Before Confirming
+### 5. Await Token Save Before Confirming
 
 **Problem:** Race condition if WebSocket disconnects during async save.
 
@@ -1188,7 +1136,7 @@ case 'token':
   break;
 ```
 
-### 7. Frontend: Missing userId Prop
+### 6. Frontend: Missing userId Prop
 
 **Problem:** `userId` is used but not defined in the component.
 
@@ -1215,7 +1163,7 @@ export function ClaudeSetupWizard({ userId, onComplete }: ClaudeSetupWizardProps
 <ClaudeSetupWizard userId={currentUser.id} onComplete={handleComplete} />
 ```
 
-### 8. Claude CLI Availability Check
+### 7. Claude CLI Availability Check
 
 **Add pre-flight check:**
 ```typescript
@@ -1241,7 +1189,7 @@ if (!cliAvailable) {
 }
 ```
 
-### 9. Pop-up Blocker Handling
+### 8. Pop-up Blocker Handling
 
 ```tsx
 const openOAuthUrl = () => {
@@ -1259,7 +1207,7 @@ const openOAuthUrl = () => {
 };
 ```
 
-### 10. Token Cache Cleanup
+### 9. Token Cache Cleanup
 
 **Add periodic cleanup to prevent memory leaks:**
 ```typescript
@@ -1987,16 +1935,17 @@ Before deployment, implement these test suites:
 
 ```typescript
 describe('Claude Token Service', () => {
-  describe('Token Encryption', () => {
-    it('should encrypt tokens before storage');
-    it('should decrypt tokens correctly');
-    it('should fail gracefully with invalid encryption data');
-  });
-
   describe('Token Validation', () => {
     it('should reject tokens that are too short');
     it('should reject tokens with whitespace');
     it('should accept valid token formats');
+  });
+
+  describe('Token Storage', () => {
+    it('should save token to database');
+    it('should retrieve token from database');
+    it('should cache tokens briefly');
+    it('should mark invalid tokens');
   });
 });
 
@@ -2076,111 +2025,7 @@ CREATE INDEX idx_user_claude_tokens_user_id ON user_claude_tokens(user_id);
 
 ---
 
-### Phase 2: Control Plane API Endpoints
-
-**File: `server/control-plane/routes/claude-token-routes.ts`**
-
-```typescript
-import { FastifyInstance } from 'fastify';
-import { SupabaseClient } from '@supabase/supabase-js';
-
-interface SaveTokenBody {
-  oauth_token: string;
-}
-
-export function registerClaudeTokenRoutes(
-  app: FastifyInstance,
-  supabase: SupabaseClient,
-) {
-  // Save/update user's Claude token
-  app.post<{ Body: SaveTokenBody }>(
-    '/api/user/claude-token',
-    async (request, reply) => {
-      const user = request.user; // From auth middleware
-      if (!user) {
-        return reply.status(401).send({ error: 'Unauthorized' });
-      }
-
-      const { oauth_token } = request.body;
-
-      // Basic validation - tokens from setup-token start with specific prefixes
-      if (!oauth_token || oauth_token.length < 20) {
-        return reply.status(400).send({ error: 'Invalid token format' });
-      }
-
-      // Upsert the token
-      const { data, error } = await supabase
-        .from('user_claude_tokens')
-        .upsert({
-          user_id: user.id,
-          oauth_token,
-          is_valid: true,
-          validation_error: null,
-          updated_at: new Date().toISOString(),
-        }, {
-          onConflict: 'user_id',
-        })
-        .select()
-        .single();
-
-      if (error) {
-        return reply.status(500).send({ error: 'Failed to save token' });
-      }
-
-      return { success: true, connected: true };
-    },
-  );
-
-  // Get user's token status (not the token itself)
-  app.get('/api/user/claude-token/status', async (request, reply) => {
-    const user = request.user;
-    if (!user) {
-      return reply.status(401).send({ error: 'Unauthorized' });
-    }
-
-    const { data, error } = await supabase
-      .from('user_claude_tokens')
-      .select('is_valid, last_used_at, last_validated_at, validation_error, created_at')
-      .eq('user_id', user.id)
-      .single();
-
-    if (error || !data) {
-      return { connected: false };
-    }
-
-    return {
-      connected: true,
-      is_valid: data.is_valid,
-      last_used_at: data.last_used_at,
-      validation_error: data.validation_error,
-      connected_at: data.created_at,
-    };
-  });
-
-  // Delete user's token (disconnect)
-  app.delete('/api/user/claude-token', async (request, reply) => {
-    const user = request.user;
-    if (!user) {
-      return reply.status(401).send({ error: 'Unauthorized' });
-    }
-
-    const { error } = await supabase
-      .from('user_claude_tokens')
-      .delete()
-      .eq('user_id', user.id);
-
-    if (error) {
-      return reply.status(500).send({ error: 'Failed to delete token' });
-    }
-
-    return { success: true, connected: false };
-  });
-}
-```
-
----
-
-### Phase 3: Build Worker - Token Fetching Service
+### Phase 2: Build Worker - Token Service
 
 **File: `server/build-workers/services/auth/claude-token-service.ts`**
 
@@ -2295,7 +2140,7 @@ export class ClaudeTokenService {
 
 ---
 
-### Phase 4: CLI Query Handler
+### Phase 3: CLI Query Handler
 
 **File: `server/build-workers/services/chat/claude-code-cli-query-handler.ts`**
 
@@ -2610,7 +2455,7 @@ export class ClaudeCodeCliQueryHandler {
 
 ---
 
-### Phase 5: Frontend Components
+### Phase 4: Frontend Components
 
 **Token Connection UI in Settings:**
 
@@ -2840,9 +2685,8 @@ ORDER BY 1 DESC;
 
 ### Phase 1: Database & Core Services (Week 1)
 - [ ] Create database migration for `user_claude_tokens` table
-- [ ] Implement `ClaudeTokenService` in build-workers
+- [ ] Implement `ClaudeTokenService` in build-workers (direct Supabase access)
 - [ ] Implement basic `ClaudeCodeCliQueryHandler`
-- [ ] Add API endpoints for token management (save/status/delete)
 
 ### Phase 2: Manual Token Entry (Week 2)
 - [ ] Build manual token connection UI in Settings
