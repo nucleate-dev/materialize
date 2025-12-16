@@ -69,6 +69,861 @@ This document outlines the plan for implementing a new `claude-code-cli-query-ha
 
 ---
 
+## Alternative Flow: In-App Terminal Token Setup (Recommended UX)
+
+Instead of requiring users to have Claude Code installed locally, we can let them run `claude setup-token` directly in the Nucleate terminal. Since the Fargate container can't open a browser, we parse the terminal output, extract the OAuth URL, and display it in the web app for the user to click.
+
+### Flow Diagram
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           NUCLEATE WEB APP                                  │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │                      SETTINGS PAGE                                   │   │
+│  │                                                                      │   │
+│  │   ┌────────────────────────────────────────────────────────────┐    │   │
+│  │   │  Connect Claude Subscription                                │    │   │
+│  │   │                                                             │    │   │
+│  │   │  [Option A: Manual Token Entry]  [Option B: Setup in App]  │    │   │
+│  │   │                                    ◀── CLICK                │    │   │
+│  │   └────────────────────────────────────────────────────────────┘    │   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
+│                                     │                                       │
+│                                     ▼                                       │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │                   SETUP WIZARD MODAL                                │   │
+│  │                                                                      │   │
+│  │   Step 1: Starting setup...                                         │   │
+│  │   ┌────────────────────────────────────────────────────────────┐    │   │
+│  │   │  $ claude setup-token                                       │    │   │
+│  │   │  Welcome to Claude Code v2.0.70                             │    │   │
+│  │   │  ...                                                        │    │   │
+│  │   │  Browser didn't open? Use the url below to sign in:         │    │   │
+│  │   │  https://claude.ai/oauth/authorize?code=true&client_id=...  │    │   │
+│  │   └────────────────────────────────────────────────────────────┘    │   │
+│  │                                                                      │   │
+│  │   ┌────────────────────────────────────────────────────────────┐    │   │
+│  │   │  🔗 Click here to authorize with Claude                     │    │   │
+│  │   │     (Opens in new tab)                                      │    │   │
+│  │   └────────────────────────────────────────────────────────────┘    │   │
+│  │                                                                      │   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
+│                                     │                                       │
+└─────────────────────────────────────│───────────────────────────────────────┘
+                                      │
+                                      ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                        USER'S BROWSER (NEW TAB)                             │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│   claude.ai/oauth/authorize?...                                             │
+│                                                                             │
+│   ┌─────────────────────────────────────────────────────────────────────┐  │
+│   │                                                                      │  │
+│   │   Sign in to authorize this application                              │  │
+│   │                                                                      │  │
+│   │   [Continue with Google]  [Continue with Email]                      │  │
+│   │                                                                      │  │
+│   └─────────────────────────────────────────────────────────────────────┘  │
+│                                     │                                       │
+│                              User logs in                                   │
+│                                     │                                       │
+│                                     ▼                                       │
+│   ┌─────────────────────────────────────────────────────────────────────┐  │
+│   │                                                                      │  │
+│   │   Authorization successful!                                          │  │
+│   │                                                                      │  │
+│   │   Your code: XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX                    │  │
+│   │                                                                      │  │
+│   │   Copy this code and paste it in your terminal.                      │  │
+│   │                                                                      │  │
+│   │   [📋 Copy Code]                                                     │  │
+│   │                                                                      │  │
+│   └─────────────────────────────────────────────────────────────────────┘  │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                      │
+                              User copies code
+                                      │
+                                      ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           NUCLEATE WEB APP                                  │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │                   SETUP WIZARD MODAL (Step 2)                       │   │
+│  │                                                                      │   │
+│  │   Step 2: Paste the authorization code                              │   │
+│  │                                                                      │   │
+│  │   ┌────────────────────────────────────────────────────────────┐    │   │
+│  │   │  Paste code here: [________________________] [Submit]       │    │   │
+│  │   └────────────────────────────────────────────────────────────┘    │   │
+│  │                                                                      │   │
+│  │   OR paste directly in the terminal below:                          │   │
+│  │   ┌────────────────────────────────────────────────────────────┐    │   │
+│  │   │  Paste code here if prompted > _                            │    │   │
+│  │   └────────────────────────────────────────────────────────────┘    │   │
+│  │                                                                      │   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
+│                                     │                                       │
+│                        User pastes code (either way)                        │
+│                                     │                                       │
+│                                     ▼                                       │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │                   SETUP WIZARD MODAL (Step 3)                       │   │
+│  │                                                                      │   │
+│  │   ✓ Success! Your Claude subscription is now connected.             │   │
+│  │                                                                      │   │
+│  │   Token has been securely saved.                                    │   │
+│  │                                                                      │   │
+│  │   [Done]                                                            │   │
+│  │                                                                      │   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Terminal Output Parsing
+
+The `claude setup-token` command outputs specific patterns we need to detect:
+
+**Pattern 1: OAuth URL Detection**
+```
+Browser didn't open? Use the url below to sign in:
+
+https://claude.ai/oauth/authorize?code=true&client_id=9d1c250a-e61b-44d9-88ed-5944d1962f5e&response_type=code&redirect_uri=...
+```
+
+**Pattern 2: Code Prompt Detection**
+```
+Paste code here if prompted >
+```
+
+**Pattern 3: Success Token Output**
+```
+Authentication successful!
+Your token: eyJhbGciOiJIUzI1NiIs...
+```
+OR
+```
+Token saved successfully.
+CLAUDE_CODE_OAUTH_TOKEN=eyJhbGciOiJIUzI1NiIs...
+```
+
+### Implementation: Terminal Output Parser
+
+**File: `server/build-workers/services/auth/claude-setup-token-parser.ts`**
+
+```typescript
+/**
+ * Parses terminal output from `claude setup-token` command
+ * to extract OAuth URLs, detect prompts, and capture tokens.
+ */
+
+export interface SetupTokenParseResult {
+  type: 'oauth_url' | 'code_prompt' | 'token' | 'error' | 'unknown';
+  data?: {
+    url?: string;
+    token?: string;
+    error?: string;
+  };
+}
+
+// Regex patterns for parsing claude setup-token output
+const OAUTH_URL_PATTERN = /https:\/\/claude\.ai\/oauth\/authorize\?[^\s\n]+/;
+const CODE_PROMPT_PATTERN = /Paste code here if prompted\s*>/i;
+const TOKEN_PATTERNS = [
+  // Pattern: "Your token: <token>"
+  /Your token:\s*([A-Za-z0-9_\-\.]+)/i,
+  // Pattern: "CLAUDE_CODE_OAUTH_TOKEN=<token>"
+  /CLAUDE_CODE_OAUTH_TOKEN=([A-Za-z0-9_\-\.]+)/i,
+  // Pattern: JWT-like token on its own line after success message
+  /Authentication successful[^\n]*\n+\s*([A-Za-z0-9_\-]{20,}\.[A-Za-z0-9_\-]+\.[A-Za-z0-9_\-]+)/i,
+  // Pattern: Generic long token after "token" keyword
+  /token[:\s]+([A-Za-z0-9_\-\.]{50,})/i,
+];
+const ERROR_PATTERNS = [
+  /error:\s*(.+)/i,
+  /failed:\s*(.+)/i,
+  /invalid code/i,
+  /authentication failed/i,
+  /expired/i,
+];
+
+export function parseSetupTokenOutput(output: string): SetupTokenParseResult {
+  // Check for OAuth URL
+  const urlMatch = output.match(OAUTH_URL_PATTERN);
+  if (urlMatch) {
+    return {
+      type: 'oauth_url',
+      data: { url: urlMatch[0] },
+    };
+  }
+
+  // Check for code prompt
+  if (CODE_PROMPT_PATTERN.test(output)) {
+    return {
+      type: 'code_prompt',
+    };
+  }
+
+  // Check for token
+  for (const pattern of TOKEN_PATTERNS) {
+    const tokenMatch = output.match(pattern);
+    if (tokenMatch && tokenMatch[1]) {
+      // Validate token looks reasonable (not a command or error)
+      const token = tokenMatch[1].trim();
+      if (token.length >= 20 && !token.includes(' ')) {
+        return {
+          type: 'token',
+          data: { token },
+        };
+      }
+    }
+  }
+
+  // Check for errors
+  for (const pattern of ERROR_PATTERNS) {
+    const errorMatch = output.match(pattern);
+    if (errorMatch) {
+      return {
+        type: 'error',
+        data: { error: errorMatch[1] || errorMatch[0] },
+      };
+    }
+  }
+
+  return { type: 'unknown' };
+}
+
+/**
+ * Incrementally parse streaming output, maintaining state
+ */
+export class SetupTokenStreamParser {
+  private buffer = '';
+  private detectedUrl: string | null = null;
+  private detectedToken: string | null = null;
+  private isWaitingForCode = false;
+  private hasError = false;
+  private errorMessage: string | null = null;
+
+  /**
+   * Feed new output chunk and get any detected events
+   */
+  processChunk(chunk: string): SetupTokenParseResult[] {
+    this.buffer += chunk;
+    const results: SetupTokenParseResult[] = [];
+
+    // Check for OAuth URL (only report once)
+    if (!this.detectedUrl) {
+      const urlMatch = this.buffer.match(OAUTH_URL_PATTERN);
+      if (urlMatch) {
+        this.detectedUrl = urlMatch[0];
+        results.push({
+          type: 'oauth_url',
+          data: { url: this.detectedUrl },
+        });
+      }
+    }
+
+    // Check for code prompt
+    if (!this.isWaitingForCode && CODE_PROMPT_PATTERN.test(this.buffer)) {
+      this.isWaitingForCode = true;
+      results.push({ type: 'code_prompt' });
+    }
+
+    // Check for token (only after URL was detected, suggesting flow completion)
+    if (this.detectedUrl && !this.detectedToken) {
+      for (const pattern of TOKEN_PATTERNS) {
+        const tokenMatch = this.buffer.match(pattern);
+        if (tokenMatch && tokenMatch[1]) {
+          const token = tokenMatch[1].trim();
+          if (token.length >= 20 && !token.includes(' ')) {
+            this.detectedToken = token;
+            results.push({
+              type: 'token',
+              data: { token },
+            });
+            break;
+          }
+        }
+      }
+    }
+
+    // Check for errors
+    if (!this.hasError) {
+      for (const pattern of ERROR_PATTERNS) {
+        const errorMatch = this.buffer.match(pattern);
+        if (errorMatch) {
+          this.hasError = true;
+          this.errorMessage = errorMatch[1] || errorMatch[0];
+          results.push({
+            type: 'error',
+            data: { error: this.errorMessage },
+          });
+          break;
+        }
+      }
+    }
+
+    // Trim buffer to prevent unbounded growth (keep last 2KB)
+    if (this.buffer.length > 2048) {
+      this.buffer = this.buffer.slice(-2048);
+    }
+
+    return results;
+  }
+
+  getState() {
+    return {
+      detectedUrl: this.detectedUrl,
+      detectedToken: this.detectedToken,
+      isWaitingForCode: this.isWaitingForCode,
+      hasError: this.hasError,
+      errorMessage: this.errorMessage,
+    };
+  }
+
+  reset() {
+    this.buffer = '';
+    this.detectedUrl = null;
+    this.detectedToken = null;
+    this.isWaitingForCode = false;
+    this.hasError = false;
+    this.errorMessage = null;
+  }
+}
+```
+
+### WebSocket Events for Setup Flow
+
+**New event types in `ChatTypes.ts`:**
+
+```typescript
+// Add to ChatEvent enum
+export enum ChatEvent {
+  // ... existing events ...
+
+  // Claude token setup events
+  CLAUDE_SETUP_OAUTH_URL = 'claude_setup_oauth_url',
+  CLAUDE_SETUP_CODE_PROMPT = 'claude_setup_code_prompt',
+  CLAUDE_SETUP_TOKEN_CAPTURED = 'claude_setup_token_captured',
+  CLAUDE_SETUP_ERROR = 'claude_setup_error',
+  CLAUDE_SETUP_COMPLETE = 'claude_setup_complete',
+}
+
+// Event payloads
+export interface ClaudeSetupOAuthUrlEvent {
+  type: ChatEvent.CLAUDE_SETUP_OAUTH_URL;
+  data: {
+    url: string;
+  };
+}
+
+export interface ClaudeSetupCodePromptEvent {
+  type: ChatEvent.CLAUDE_SETUP_CODE_PROMPT;
+  data: {
+    message: string;
+  };
+}
+
+export interface ClaudeSetupTokenCapturedEvent {
+  type: ChatEvent.CLAUDE_SETUP_TOKEN_CAPTURED;
+  data: {
+    // Token is NOT sent to frontend for security
+    // Instead, we auto-save and confirm
+    saved: boolean;
+  };
+}
+
+export interface ClaudeSetupErrorEvent {
+  type: ChatEvent.CLAUDE_SETUP_ERROR;
+  data: {
+    error: string;
+    canRetry: boolean;
+  };
+}
+```
+
+### Terminal Service Integration
+
+**File: `server/build-workers/services/terminals/TerminalService.ts` (additions)**
+
+```typescript
+import {
+  SetupTokenStreamParser,
+  SetupTokenParseResult,
+} from '../auth/claude-setup-token-parser.js';
+
+export class TerminalService {
+  // ... existing code ...
+
+  private setupTokenParser: SetupTokenStreamParser | null = null;
+  private setupTokenSessionId: string | null = null;
+
+  /**
+   * Start the claude setup-token process and monitor output
+   */
+  async startClaudeSetupToken(
+    userId: string,
+    onEvent: (event: SetupTokenParseResult) => void,
+  ): Promise<{ sessionId: string }> {
+    // Create dedicated terminal session for setup
+    const sessionId = `claude-setup-${userId}-${Date.now()}`;
+    this.setupTokenSessionId = sessionId;
+    this.setupTokenParser = new SetupTokenStreamParser();
+
+    // Spawn terminal with setup-token command
+    const pty = this.createPty(sessionId, {
+      command: 'claude',
+      args: ['setup-token'],
+      cwd: '/tmp',
+      env: {
+        ...process.env,
+        // Ensure no existing auth interferes
+        CLAUDE_CODE_OAUTH_TOKEN: undefined,
+        ANTHROPIC_API_KEY: undefined,
+      },
+    });
+
+    // Monitor output for OAuth URL and token
+    pty.onData((data: string) => {
+      if (this.setupTokenParser) {
+        const events = this.setupTokenParser.processChunk(data);
+        for (const event of events) {
+          onEvent(event);
+        }
+      }
+    });
+
+    return { sessionId };
+  }
+
+  /**
+   * Send the authorization code to the setup-token process
+   */
+  async submitSetupTokenCode(sessionId: string, code: string): Promise<void> {
+    const pty = this.getPty(sessionId);
+    if (!pty) {
+      throw new Error('Setup session not found');
+    }
+
+    // Validate code format (UUID-like)
+    if (!/^[A-Za-z0-9\-]{20,50}$/.test(code)) {
+      throw new Error('Invalid code format');
+    }
+
+    // Send code to terminal (with newline to submit)
+    pty.write(code + '\n');
+  }
+
+  /**
+   * Clean up setup-token session
+   */
+  cleanupSetupTokenSession(sessionId: string): void {
+    this.killPty(sessionId);
+    if (this.setupTokenSessionId === sessionId) {
+      this.setupTokenParser?.reset();
+      this.setupTokenParser = null;
+      this.setupTokenSessionId = null;
+    }
+  }
+}
+```
+
+### API Endpoint for In-App Setup
+
+**File: `server/build-workers/routes/claude-setup-routes.ts`**
+
+```typescript
+import { FastifyInstance, FastifyRequest } from 'fastify';
+import WebSocket from 'ws';
+import { TerminalService } from '../services/terminals/TerminalService.js';
+import { ClaudeTokenService } from '../services/auth/claude-token-service.js';
+import { ChatEvent } from '../types/ChatTypes.js';
+
+interface SetupTokenSubmitBody {
+  sessionId: string;
+  code: string;
+}
+
+export function registerClaudeSetupRoutes(
+  app: FastifyInstance,
+  terminalService: TerminalService,
+  tokenService: ClaudeTokenService,
+) {
+  // WebSocket endpoint for setup-token flow
+  app.get(
+    '/claude-setup/ws/:userId',
+    { websocket: true },
+    async (socket: WebSocket, req: FastifyRequest<{ Params: { userId: string } }>) => {
+      const { userId } = req.params;
+
+      let sessionId: string | null = null;
+      let capturedToken: string | null = null;
+
+      try {
+        // Start the setup-token process
+        const result = await terminalService.startClaudeSetupToken(
+          userId,
+          (event) => {
+            switch (event.type) {
+              case 'oauth_url':
+                socket.send(JSON.stringify({
+                  type: ChatEvent.CLAUDE_SETUP_OAUTH_URL,
+                  data: { url: event.data?.url },
+                }));
+                break;
+
+              case 'code_prompt':
+                socket.send(JSON.stringify({
+                  type: ChatEvent.CLAUDE_SETUP_CODE_PROMPT,
+                  data: { message: 'Please paste your authorization code' },
+                }));
+                break;
+
+              case 'token':
+                capturedToken = event.data?.token || null;
+                // Auto-save token to database
+                if (capturedToken) {
+                  void tokenService.saveToken(userId, capturedToken).then((saved) => {
+                    socket.send(JSON.stringify({
+                      type: ChatEvent.CLAUDE_SETUP_TOKEN_CAPTURED,
+                      data: { saved },
+                    }));
+                    socket.send(JSON.stringify({
+                      type: ChatEvent.CLAUDE_SETUP_COMPLETE,
+                      data: { success: true },
+                    }));
+                  });
+                }
+                break;
+
+              case 'error':
+                socket.send(JSON.stringify({
+                  type: ChatEvent.CLAUDE_SETUP_ERROR,
+                  data: {
+                    error: event.data?.error || 'Unknown error',
+                    canRetry: true,
+                  },
+                }));
+                break;
+            }
+          },
+        );
+
+        sessionId = result.sessionId;
+
+        // Send session started confirmation
+        socket.send(JSON.stringify({
+          type: 'setup_started',
+          data: { sessionId },
+        }));
+
+      } catch (error) {
+        socket.send(JSON.stringify({
+          type: ChatEvent.CLAUDE_SETUP_ERROR,
+          data: {
+            error: error instanceof Error ? error.message : 'Failed to start setup',
+            canRetry: true,
+          },
+        }));
+        return;
+      }
+
+      // Handle messages from client
+      socket.on('message', async (data: Buffer) => {
+        try {
+          const message = JSON.parse(data.toString());
+
+          if (message.type === 'submit_code' && sessionId) {
+            await terminalService.submitSetupTokenCode(sessionId, message.code);
+          }
+
+          if (message.type === 'cancel' && sessionId) {
+            terminalService.cleanupSetupTokenSession(sessionId);
+            socket.close();
+          }
+
+        } catch (error) {
+          socket.send(JSON.stringify({
+            type: ChatEvent.CLAUDE_SETUP_ERROR,
+            data: {
+              error: error instanceof Error ? error.message : 'Failed to process message',
+              canRetry: false,
+            },
+          }));
+        }
+      });
+
+      // Cleanup on close
+      socket.on('close', () => {
+        if (sessionId) {
+          terminalService.cleanupSetupTokenSession(sessionId);
+        }
+      });
+    },
+  );
+}
+```
+
+### Frontend: Setup Wizard Component
+
+**File: `web-application/src/components/settings/ClaudeSetupWizard.tsx`**
+
+```tsx
+import { useState, useEffect, useRef } from 'react';
+
+type SetupStep = 'idle' | 'starting' | 'waiting_for_url' | 'waiting_for_code' | 'processing' | 'success' | 'error';
+
+interface SetupState {
+  step: SetupStep;
+  oauthUrl: string | null;
+  error: string | null;
+}
+
+export function ClaudeSetupWizard({ onComplete }: { onComplete: () => void }) {
+  const [state, setState] = useState<SetupState>({
+    step: 'idle',
+    oauthUrl: null,
+    error: null,
+  });
+  const [code, setCode] = useState('');
+  const wsRef = useRef<WebSocket | null>(null);
+
+  const startSetup = () => {
+    setState({ step: 'starting', oauthUrl: null, error: null });
+
+    // Connect to setup WebSocket
+    const ws = new WebSocket(`wss://${window.location.host}/claude-setup/ws/${userId}`);
+    wsRef.current = ws;
+
+    ws.onmessage = (event) => {
+      const message = JSON.parse(event.data);
+
+      switch (message.type) {
+        case 'claude_setup_oauth_url':
+          setState(s => ({
+            ...s,
+            step: 'waiting_for_code',
+            oauthUrl: message.data.url,
+          }));
+          break;
+
+        case 'claude_setup_code_prompt':
+          // Already waiting for code, just confirm
+          break;
+
+        case 'claude_setup_token_captured':
+          setState(s => ({ ...s, step: 'processing' }));
+          break;
+
+        case 'claude_setup_complete':
+          setState(s => ({ ...s, step: 'success' }));
+          setTimeout(onComplete, 1500);
+          break;
+
+        case 'claude_setup_error':
+          setState(s => ({
+            ...s,
+            step: 'error',
+            error: message.data.error,
+          }));
+          break;
+      }
+    };
+
+    ws.onerror = () => {
+      setState(s => ({
+        ...s,
+        step: 'error',
+        error: 'Connection failed. Please try again.',
+      }));
+    };
+  };
+
+  const submitCode = () => {
+    if (wsRef.current && code.trim()) {
+      wsRef.current.send(JSON.stringify({
+        type: 'submit_code',
+        code: code.trim(),
+      }));
+      setState(s => ({ ...s, step: 'processing' }));
+    }
+  };
+
+  const openOAuthUrl = () => {
+    if (state.oauthUrl) {
+      window.open(state.oauthUrl, '_blank', 'noopener,noreferrer');
+    }
+  };
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (wsRef.current) {
+        wsRef.current.send(JSON.stringify({ type: 'cancel' }));
+        wsRef.current.close();
+      }
+    };
+  }, []);
+
+  return (
+    <div className="p-6 max-w-lg mx-auto">
+      <h2 className="text-xl font-bold mb-4">Connect Your Claude Subscription</h2>
+
+      {state.step === 'idle' && (
+        <div className="space-y-4">
+          <p className="text-gray-600">
+            Connect your Claude Pro or Max subscription to use your own account
+            for AI interactions. This gives you unlimited usage based on your plan.
+          </p>
+          <button
+            onClick={startSetup}
+            className="w-full px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          >
+            Start Setup
+          </button>
+        </div>
+      )}
+
+      {state.step === 'starting' && (
+        <div className="flex items-center justify-center py-8">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
+          <span className="ml-3">Starting setup...</span>
+        </div>
+      )}
+
+      {state.step === 'waiting_for_code' && (
+        <div className="space-y-4">
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <p className="font-medium text-blue-800 mb-2">Step 1: Authorize with Claude</p>
+            <p className="text-sm text-blue-700 mb-3">
+              Click the button below to open Claude's authorization page in a new tab.
+              After logging in, you'll receive a code to paste here.
+            </p>
+            <button
+              onClick={openOAuthUrl}
+              className="w-full px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 flex items-center justify-center"
+            >
+              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+              </svg>
+              Open Claude Authorization
+            </button>
+          </div>
+
+          <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+            <p className="font-medium text-gray-800 mb-2">Step 2: Paste the code</p>
+            <p className="text-sm text-gray-600 mb-3">
+              After authorizing, copy the code from Claude and paste it here:
+            </p>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={code}
+                onChange={(e) => setCode(e.target.value)}
+                placeholder="Paste your authorization code"
+                className="flex-1 px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+              <button
+                onClick={submitCode}
+                disabled={!code.trim()}
+                className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50"
+              >
+                Submit
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {state.step === 'processing' && (
+        <div className="flex items-center justify-center py-8">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
+          <span className="ml-3">Verifying and saving token...</span>
+        </div>
+      )}
+
+      {state.step === 'success' && (
+        <div className="bg-green-50 border border-green-200 rounded-lg p-6 text-center">
+          <div className="text-green-600 text-4xl mb-2">✓</div>
+          <p className="font-medium text-green-800">Successfully connected!</p>
+          <p className="text-sm text-green-700 mt-1">
+            Your Claude subscription is now linked to your account.
+          </p>
+        </div>
+      )}
+
+      {state.step === 'error' && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <p className="font-medium text-red-800">Setup failed</p>
+          <p className="text-sm text-red-700 mt-1">{state.error}</p>
+          <button
+            onClick={() => setState({ step: 'idle', oauthUrl: null, error: null })}
+            className="mt-3 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+          >
+            Try Again
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+```
+
+### Security Considerations for In-App Flow
+
+1. **Token Never Sent to Frontend**
+   - Token is captured server-side and saved directly to database
+   - Frontend only receives confirmation of success/failure
+
+2. **Session Isolation**
+   - Each setup session has unique ID
+   - Sessions are cleaned up on completion/error/disconnect
+
+3. **Code Validation**
+   - Authorization codes are validated before submission
+   - Prevents injection attacks through terminal
+
+4. **Timeout Handling**
+   - Setup sessions timeout after 5 minutes of inactivity
+   - Prevents orphaned processes
+
+5. **Rate Limiting**
+   - Users can only have one active setup session
+   - Prevents abuse of setup endpoint
+
+```typescript
+// Rate limiting example
+const activeSetupSessions = new Map<string, number>();
+const SETUP_COOLDOWN_MS = 60000; // 1 minute between attempts
+
+function canStartSetup(userId: string): boolean {
+  const lastAttempt = activeSetupSessions.get(userId);
+  if (lastAttempt && Date.now() - lastAttempt < SETUP_COOLDOWN_MS) {
+    return false;
+  }
+  activeSetupSessions.set(userId, Date.now());
+  return true;
+}
+```
+
+### Error Scenarios and Handling
+
+| Scenario | Detection | User Message | Recovery |
+|----------|-----------|--------------|----------|
+| OAuth URL not detected after 30s | Timeout | "Setup is taking too long. Please try again." | Restart |
+| Invalid authorization code | CLI error output | "Invalid code. Please copy the code again." | Re-enter code |
+| Token not captured after code | Timeout | "Failed to receive token. Please try again." | Restart |
+| Network disconnect | WebSocket close | "Connection lost. Please try again." | Restart |
+| User already has valid token | Check before start | "You already have a connected subscription." | Show status |
+| Claude CLI not installed | spawn error | "Claude CLI not available." | Show manual instructions |
+
+---
+
 ## Implementation Plan
 
 ### Phase 1: Database Schema
@@ -882,22 +1737,31 @@ ORDER BY 1 DESC;
 
 ## Rollout Plan
 
-### Phase 1: MVP (Week 1)
+### Phase 1: Database & Core Services (Week 1)
 - [ ] Create database migration for `user_claude_tokens` table
 - [ ] Implement `ClaudeTokenService` in build-workers
 - [ ] Implement basic `ClaudeCodeCliQueryHandler`
-- [ ] Add API endpoints for token management
+- [ ] Add API endpoints for token management (save/status/delete)
 
-### Phase 2: Frontend (Week 2)
-- [ ] Build token connection UI in Settings
+### Phase 2: Manual Token Entry (Week 2)
+- [ ] Build manual token connection UI in Settings
 - [ ] Add token status indicator in chat interface
 - [ ] Show which auth method is being used
+- [ ] Test end-to-end with manually provided tokens
 
-### Phase 3: Polish (Week 3)
+### Phase 3: In-App Setup Flow (Week 3)
+- [ ] Implement `SetupTokenStreamParser` for terminal output parsing
+- [ ] Add setup-token methods to `TerminalService`
+- [ ] Create WebSocket endpoint for setup flow
+- [ ] Build `ClaudeSetupWizard` frontend component
+- [ ] Add rate limiting and session timeout handling
+
+### Phase 4: Polish & Error Handling (Week 4)
 - [ ] Add error recovery with API key fallback
-- [ ] Implement token refresh notifications
-- [ ] Add analytics/monitoring
-- [ ] Documentation for users
+- [ ] Implement token expiration detection and refresh notifications
+- [ ] Add analytics/monitoring for auth method usage
+- [ ] User documentation and help tooltips
+- [ ] E2E testing of all flows
 
 ---
 
