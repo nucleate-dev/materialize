@@ -1291,6 +1291,215 @@ export class ClaudeTokenService {
 
 ---
 
+## UI Integration: Reusing ClaudeCodePanel
+
+**Good news:** The existing `ClaudeCodePanel` and `ClaudeCodePanelUI` components can be reused for Claude Code CLI output with minimal modifications.
+
+### Key Components Analyzed
+
+| Component | Purpose | Lines |
+|-----------|---------|-------|
+| `InternalPrototypePage.tsx` | Central orchestrator, WebSocket management | ~1,200 |
+| `ClaudeCodePanel.tsx` | Message processing, handler registry | ~2,270 |
+| `ClaudeCodePanelUI.tsx` | Message rendering | ~1,043 |
+| `Terminal.tsx` | xterm.js terminal (for setup-token only) | ~352 |
+
+### CLI JSON → Existing Message Type Mapping
+
+The CLI's `--output-format stream-json` produces JSON lines that map directly to existing message handlers:
+
+| CLI JSON Event Type | Maps To | Rendered By |
+|---------------------|---------|-------------|
+| `assistant` (text content) | `AGENT_MESSAGE` | `AssistantMessage` component |
+| `tool_use` | `TOOL_START` | `ToolCallMessage` component |
+| `tool_result` | `TOOL_COMPLETE` | `ToolCallMessage` component |
+| `result` (final) | `RESULT` | `ResultMessage` component |
+| `system` | `STATUS` | Status indicator |
+| `error` | `ERROR` | Error alert component |
+
+### Message Handler Registry (Already Extensible)
+
+`ClaudeCodePanel.tsx` already uses a handler registry pattern:
+
+```typescript
+// Existing pattern in ClaudeCodePanel.tsx
+const messageHandlers: Record<string, (message: any) => void> = {
+  [ChatEvent.AGENT_MESSAGE]: handleAgentMessage,
+  [ChatEvent.TOOL_START]: handleToolStart,
+  [ChatEvent.TOOL_COMPLETE]: handleToolComplete,
+  // ... etc
+};
+
+// Messages are routed through:
+socket.onmessage = (event) => {
+  const message = JSON.parse(event.data);
+  const handler = messageHandlers[message.type];
+  if (handler) handler(message);
+};
+```
+
+**No changes needed** - the CLI handler on the backend transforms CLI output to these existing event types.
+
+### Backend Transformer: CLI JSON → WebSocket Messages
+
+The `claude-code-cli-query-handler.ts` transforms CLI output to match existing frontend expectations:
+
+```typescript
+// In handleCliMessage method
+private handleCliMessage(
+  socket: WebSocket,
+  cliMessage: ClaudeCodeMessage,
+  sendMessage: (socket: WebSocket, message: ChatServerMessage) => void,
+): void {
+  // Transform CLI message to match existing frontend message types
+  switch (cliMessage.type) {
+    case 'assistant':
+      // Extract text from content blocks
+      const text = cliMessage.message?.content
+        ?.filter(c => c.type === 'text')
+        .map(c => c.text)
+        .join('') || '';
+
+      sendMessage(socket, {
+        type: ChatEvent.AGENT_MESSAGE,
+        data: {
+          role: 'assistant',
+          content: text,
+          // Include any tool use blocks
+          toolCalls: cliMessage.message?.content?.filter(c => c.type === 'tool_use'),
+        },
+      });
+      break;
+
+    case 'result':
+      sendMessage(socket, {
+        type: ChatEvent.RESULT,
+        data: {
+          sessionId: cliMessage.session_id,
+          usage: cliMessage.usage,
+          cost: cliMessage.total_cost_usd,
+        },
+      });
+      break;
+
+    case 'system':
+      sendMessage(socket, {
+        type: ChatEvent.STATUS,
+        data: {
+          subtype: cliMessage.subtype,
+          message: cliMessage.message,
+        },
+      });
+      break;
+
+    case 'error':
+      sendMessage(socket, {
+        type: ChatEvent.ERROR,
+        error: {
+          message: cliMessage.message?.content?.[0]?.text || 'Unknown error',
+        },
+      });
+      break;
+
+    default:
+      // Pass through unknown types for debugging
+      sendMessage(socket, {
+        type: ChatEvent.AGENT_MESSAGE,
+        data: cliMessage,
+      });
+  }
+}
+```
+
+### CLI Tool Call Format → Existing ToolCallMessage
+
+The CLI outputs tool calls in this format:
+```json
+{
+  "type": "assistant",
+  "message": {
+    "content": [
+      { "type": "text", "text": "Let me edit the file..." },
+      { "type": "tool_use", "id": "toolu_123", "name": "Edit", "input": {...} }
+    ]
+  }
+}
+```
+
+This maps to the existing `ToolCallMessage` component which already handles:
+- Tool name display
+- Expandable input parameters
+- Status indicators (pending, running, complete)
+- Result display
+
+### Minimal Frontend Changes Required
+
+1. **No changes to ClaudeCodePanelUI.tsx** - All message types already supported
+2. **No changes to AssistantMessage component** - Already handles markdown content
+3. **No changes to ToolCallMessage component** - Already displays tool calls
+
+**Optional enhancements:**
+- Add subscription status indicator (show "Using your Claude Pro subscription" vs "Using API")
+- Add cost tracking display if user wants to see usage
+
+### Terminal.tsx Usage
+
+`Terminal.tsx` (xterm.js-based) is a **separate component** only needed for:
+- The `claude setup-token` flow (displays raw terminal output for OAuth URL)
+- NOT needed for regular chat - messages go through ClaudeCodePanel
+
+### Architecture Summary
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                    InternalPrototypePage.tsx                            │
+│                                                                         │
+│  ┌─────────────────┐     WebSocket      ┌─────────────────────────────┐│
+│  │                 │ ◄───────────────── │                             ││
+│  │ ClaudeCodePanel │   (same format)    │  Build Worker (Fargate)     ││
+│  │                 │                    │                             ││
+│  │ ┌─────────────┐ │                    │  ┌───────────────────────┐  ││
+│  │ │ Handler     │ │                    │  │ claude-code-cli-      │  ││
+│  │ │ Registry    │ │                    │  │ query-handler.ts      │  ││
+│  │ │             │ │                    │  │                       │  ││
+│  │ │ AGENT_MSG ──┼─┼──────────────────┐ │  │ CLI JSON → ChatEvent  │  ││
+│  │ │ TOOL_START ─┼─┼─────────────────┐│ │  │                       │  ││
+│  │ │ TOOL_DONE ──┼─┼────────────────┐││ │  └───────────────────────┘  ││
+│  │ │ RESULT ─────┼─┼───────────────┐│││ │            ▲                ││
+│  │ └─────────────┘ │               ││││ │            │                ││
+│  │                 │               ││││ │  ┌─────────┴─────────────┐  ││
+│  └─────────────────┘               ││││ │  │ claude CLI process    │  ││
+│           │                        ││││ │  │ --output-format       │  ││
+│           ▼                        ││││ │  │   stream-json         │  ││
+│  ┌────────────────────────────┐    ││││ │  └───────────────────────┘  ││
+│  │    ClaudeCodePanelUI       │◄───┘│││ │                             ││
+│  │                            │◄────┘││ └─────────────────────────────┘│
+│  │  ┌──────────────────────┐  │◄─────┘│                                │
+│  │  │ AssistantMessage     │  │◄──────┘                                │
+│  │  │ ToolCallMessage      │  │                                        │
+│  │  │ ResultMessage        │  │                                        │
+│  │  └──────────────────────┘  │                                        │
+│  └────────────────────────────┘                                        │
+│                                                                         │
+│  ┌────────────────────────────┐                                        │
+│  │    Terminal.tsx            │  ◄── Only for setup-token flow         │
+│  │    (xterm.js)              │                                        │
+│  └────────────────────────────┘                                        │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+### Integration Checklist
+
+- [x] CLI JSON output format analyzed
+- [x] Existing message types identified
+- [x] Handler registry pattern confirmed
+- [x] No frontend changes required for basic functionality
+- [ ] Backend transformer implemented in `claude-code-cli-query-handler.ts`
+- [ ] Test with real CLI output to verify mapping
+- [ ] Add subscription status indicator (optional)
+
+---
+
 ## Testing Strategy (Required)
 
 Before deployment, implement these test suites:
