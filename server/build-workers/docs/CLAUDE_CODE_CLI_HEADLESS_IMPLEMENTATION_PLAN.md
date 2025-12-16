@@ -924,6 +924,417 @@ function canStartSetup(userId: string): boolean {
 
 ---
 
+## Critical Implementation Notes (Review Findings)
+
+The following issues were identified during technical review and **MUST be addressed** during implementation:
+
+### 1. Environment Variable Handling Bug
+
+**Problem:** Setting env vars to `undefined` doesn't remove them in Node.js - it sets them to string `"undefined"`.
+
+**Wrong:**
+```typescript
+env: {
+  ...baseEnv,
+  CLAUDE_CODE_OAUTH_TOKEN: userToken,
+  ANTHROPIC_API_KEY: undefined,  // ❌ Sets to string "undefined"
+}
+```
+
+**Correct:**
+```typescript
+private async buildAuthEnvironment(userId: string): Promise<{
+  env: NodeJS.ProcessEnv;
+  authMethod: 'user_token' | 'api_key';
+}> {
+  const env = { ...process.env };
+
+  // 1. Try user's OAuth token first
+  const userToken = await this.tokenService.getUserToken(userId);
+  if (userToken) {
+    env.CLAUDE_CODE_OAUTH_TOKEN = userToken;
+    delete env.ANTHROPIC_API_KEY;  // ✅ Actually removes the key
+    return { env, authMethod: 'user_token' };
+  }
+
+  // 2. Fall back to API key
+  const apiKey = this.getApiKey();
+  if (apiKey) {
+    env.ANTHROPIC_API_KEY = apiKey;
+    delete env.CLAUDE_CODE_OAUTH_TOKEN;  // ✅ Actually removes the key
+    return { env, authMethod: 'api_key' };
+  }
+
+  throw new Error('No authentication available');
+}
+```
+
+### 2. Token Encryption at Application Level
+
+**Problem:** Database-level encryption isn't enough. Tokens should be encrypted before storage.
+
+**Implementation:**
+```typescript
+// server/build-workers/services/auth/token-encryption.ts
+import { createCipheriv, createDecipheriv, randomBytes, scryptSync } from 'crypto';
+
+const ALGORITHM = 'aes-256-gcm';
+const KEY = scryptSync(process.env.TOKEN_ENCRYPTION_SECRET!, 'salt', 32);
+
+export function encryptToken(token: string): { encrypted: string; iv: string; tag: string } {
+  const iv = randomBytes(16);
+  const cipher = createCipheriv(ALGORITHM, KEY, iv);
+  const encrypted = Buffer.concat([cipher.update(token, 'utf8'), cipher.final()]);
+  const tag = cipher.getAuthTag();
+
+  return {
+    encrypted: encrypted.toString('base64'),
+    iv: iv.toString('base64'),
+    tag: tag.toString('base64'),
+  };
+}
+
+export function decryptToken(encrypted: string, iv: string, tag: string): string {
+  const decipher = createDecipheriv(
+    ALGORITHM,
+    KEY,
+    Buffer.from(iv, 'base64')
+  );
+  decipher.setAuthTag(Buffer.from(tag, 'base64'));
+
+  return decipher.update(Buffer.from(encrypted, 'base64')) + decipher.final('utf8');
+}
+```
+
+**Updated schema:**
+```sql
+CREATE TABLE user_claude_tokens (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES auth.users(id) NOT NULL UNIQUE,
+
+  -- Encrypted token fields (NOT plaintext)
+  encrypted_token TEXT NOT NULL,
+  encryption_iv TEXT NOT NULL,
+  encryption_tag TEXT NOT NULL,
+
+  -- ... rest of fields
+);
+```
+
+### 3. WebSocket Authentication Required
+
+**Problem:** The WebSocket route must verify the user is authenticated and authorized.
+
+**Fix:**
+```typescript
+app.get(
+  '/claude-setup/ws/:userId',
+  {
+    websocket: true,
+    preValidation: [app.authenticate]  // Add auth middleware
+  },
+  async (socket: WebSocket, req: FastifyRequest<{ Params: { userId: string } }>) => {
+    const authenticatedUserId = req.user?.id;
+    const { userId } = req.params;
+
+    // Verify user can only access their own setup
+    if (!authenticatedUserId || authenticatedUserId !== userId) {
+      socket.close(1008, 'Unauthorized');
+      return;
+    }
+
+    // ... rest of implementation
+  }
+);
+```
+
+### 4. Per-User Setup Session Management
+
+**Problem:** Global `setupTokenParser` causes race conditions with multiple users.
+
+**Fix:** Use Map for per-user sessions:
+```typescript
+export class TerminalService {
+  // ✅ Per-user session tracking
+  private setupSessions = new Map<string, {
+    parser: SetupTokenStreamParser;
+    sessionId: string;
+    ptyProcess: IPty;
+    createdAt: number;
+    timeoutId: NodeJS.Timeout;
+  }>();
+
+  async startClaudeSetupToken(
+    userId: string,
+    onEvent: (event: SetupTokenParseResult) => void,
+  ): Promise<{ sessionId: string }> {
+    // Cleanup any existing session for this user
+    if (this.setupSessions.has(userId)) {
+      this.cleanupSetupTokenSession(userId);
+    }
+
+    const sessionId = `claude-setup-${userId}-${Date.now()}`;
+    const parser = new SetupTokenStreamParser();
+
+    const pty = this.createPty(sessionId, {
+      command: 'claude',
+      args: ['setup-token'],
+      cwd: '/tmp',
+      env: { ...process.env },
+    });
+
+    // Set 5-minute timeout
+    const timeoutId = setTimeout(() => {
+      this.cleanupSetupTokenSession(userId);
+      onEvent({
+        type: 'error',
+        data: { error: 'Setup timed out. Please try again.' },
+      });
+    }, 5 * 60 * 1000);
+
+    this.setupSessions.set(userId, {
+      parser,
+      sessionId,
+      ptyProcess: pty,
+      createdAt: Date.now(),
+      timeoutId,
+    });
+
+    pty.onData((data: string) => {
+      const session = this.setupSessions.get(userId);
+      if (session) {
+        const events = session.parser.processChunk(data);
+        events.forEach(onEvent);
+      }
+    });
+
+    return { sessionId };
+  }
+
+  cleanupSetupTokenSession(userId: string): void {
+    const session = this.setupSessions.get(userId);
+    if (session) {
+      clearTimeout(session.timeoutId);
+      this.killPty(session.sessionId);
+      this.setupSessions.delete(userId);
+    }
+  }
+}
+```
+
+### 5. Stricter Code Sanitization
+
+**Problem:** Regex validation alone isn't sufficient for terminal input.
+
+**Fix:**
+```typescript
+function sanitizeAuthCode(code: string): string {
+  // Strip everything except alphanumeric and hyphens
+  const cleaned = code.replace(/[^A-Za-z0-9\-]/g, '');
+
+  // Validate length and format
+  if (cleaned.length < 20 || cleaned.length > 50) {
+    throw new Error('Invalid authorization code length');
+  }
+
+  if (!/^[A-Za-z0-9\-]+$/.test(cleaned)) {
+    throw new Error('Invalid authorization code format');
+  }
+
+  return cleaned;
+}
+
+async submitSetupTokenCode(userId: string, code: string): Promise<void> {
+  const session = this.setupSessions.get(userId);
+  if (!session) {
+    throw new Error('No active setup session');
+  }
+
+  const sanitized = sanitizeAuthCode(code);
+  session.ptyProcess.write(sanitized + '\n');
+}
+```
+
+### 6. Await Token Save Before Confirming
+
+**Problem:** Race condition if WebSocket disconnects during async save.
+
+**Fix:**
+```typescript
+case 'token':
+  capturedToken = event.data?.token || null;
+  if (capturedToken) {
+    try {
+      // ✅ Await the save operation
+      const saved = await tokenService.saveToken(userId, capturedToken);
+      socket.send(JSON.stringify({
+        type: ChatEvent.CLAUDE_SETUP_TOKEN_CAPTURED,
+        data: { saved },
+      }));
+      socket.send(JSON.stringify({
+        type: ChatEvent.CLAUDE_SETUP_COMPLETE,
+        data: { success: true },
+      }));
+    } catch (saveError) {
+      socket.send(JSON.stringify({
+        type: ChatEvent.CLAUDE_SETUP_ERROR,
+        data: {
+          error: 'Failed to save token. Please try again.',
+          canRetry: true,
+        },
+      }));
+    }
+  }
+  break;
+```
+
+### 7. Frontend: Missing userId Prop
+
+**Problem:** `userId` is used but not defined in the component.
+
+**Fix:**
+```tsx
+interface ClaudeSetupWizardProps {
+  userId: string;  // ✅ Add required prop
+  onComplete: () => void;
+}
+
+export function ClaudeSetupWizard({ userId, onComplete }: ClaudeSetupWizardProps) {
+  // ... rest of implementation
+
+  const startSetup = () => {
+    // Now userId is defined
+    const ws = new WebSocket(
+      `wss://${window.location.host}/claude-setup/ws/${userId}`
+    );
+    // ...
+  };
+}
+
+// Usage:
+<ClaudeSetupWizard userId={currentUser.id} onComplete={handleComplete} />
+```
+
+### 8. Claude CLI Availability Check
+
+**Add pre-flight check:**
+```typescript
+async function checkClaudeCLIAvailable(): Promise<boolean> {
+  return new Promise((resolve) => {
+    const proc = spawn('which', ['claude']);
+    proc.on('close', (code) => resolve(code === 0));
+    proc.on('error', () => resolve(false));
+  });
+}
+
+// Before starting setup:
+const cliAvailable = await checkClaudeCLIAvailable();
+if (!cliAvailable) {
+  socket.send(JSON.stringify({
+    type: ChatEvent.CLAUDE_SETUP_ERROR,
+    data: {
+      error: 'Claude CLI is not available. Please use manual token entry.',
+      canRetry: false,
+    },
+  }));
+  return;
+}
+```
+
+### 9. Pop-up Blocker Handling
+
+```tsx
+const openOAuthUrl = () => {
+  if (state.oauthUrl) {
+    const newWindow = window.open(state.oauthUrl, '_blank', 'noopener,noreferrer');
+
+    // Check if blocked
+    if (!newWindow || newWindow.closed || typeof newWindow.closed === 'undefined') {
+      setState(s => ({
+        ...s,
+        error: 'Pop-up was blocked. Please allow pop-ups for this site and try again.',
+      }));
+    }
+  }
+};
+```
+
+### 10. Token Cache Cleanup
+
+**Add periodic cleanup to prevent memory leaks:**
+```typescript
+export class ClaudeTokenService {
+  private tokenCache = new Map<string, { token: string; expiresAt: number }>();
+  private cleanupInterval: NodeJS.Timeout;
+
+  constructor(supabase: SupabaseClient<Database>, logger: SystemLogger) {
+    this.supabase = supabase;
+    this.logger = logger.child({ service: 'ClaudeTokenService' });
+
+    // Cleanup expired entries every minute
+    this.cleanupInterval = setInterval(() => {
+      const now = Date.now();
+      for (const [userId, entry] of this.tokenCache.entries()) {
+        if (entry.expiresAt < now) {
+          this.tokenCache.delete(userId);
+        }
+      }
+    }, 60000);
+  }
+
+  destroy(): void {
+    clearInterval(this.cleanupInterval);
+    this.tokenCache.clear();
+  }
+}
+```
+
+---
+
+## Testing Strategy (Required)
+
+Before deployment, implement these test suites:
+
+```typescript
+describe('Claude Token Service', () => {
+  describe('Token Encryption', () => {
+    it('should encrypt tokens before storage');
+    it('should decrypt tokens correctly');
+    it('should fail gracefully with invalid encryption data');
+  });
+
+  describe('Token Validation', () => {
+    it('should reject tokens that are too short');
+    it('should reject tokens with whitespace');
+    it('should accept valid token formats');
+  });
+});
+
+describe('Setup Token Parser', () => {
+  it('should extract OAuth URL from CLI output');
+  it('should detect "Paste code here" prompt');
+  it('should capture token from success output');
+  it('should handle malformed output without crashing');
+  it('should not match partial URLs');
+});
+
+describe('WebSocket Setup Flow', () => {
+  it('should reject unauthenticated connections');
+  it('should reject connections for other users');
+  it('should handle concurrent setup sessions');
+  it('should timeout after 5 minutes');
+  it('should cleanup on disconnect');
+});
+
+describe('Security', () => {
+  it('should sanitize authorization codes');
+  it('should not log tokens');
+  it('should rate limit setup attempts');
+});
+```
+
+---
+
 ## Implementation Plan
 
 ### Phase 1: Database Schema
