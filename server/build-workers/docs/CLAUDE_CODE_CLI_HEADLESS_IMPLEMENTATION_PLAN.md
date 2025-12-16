@@ -1500,6 +1500,487 @@ This maps to the existing `ToolCallMessage` component which already handles:
 
 ---
 
+## Hooks: Matching chat-query-handler.ts Behavior
+
+The existing `chat-query-handler.ts` uses SDK hooks for important functionality. We need equivalent behavior in the CLI handler.
+
+### Current SDK Hooks in chat-query-handler.ts
+
+| Hook | Purpose |
+|------|---------|
+| **PreToolUse** | Evaluate permissions, deny tools, update inputs, send `TOOL_START` event, persist to DB |
+| **PostToolUse** | Track file modifications, send `TOOL_COMPLETE` event, persist to DB |
+
+### Two Approaches for CLI Hooks
+
+**Option A: Parse CLI Stream (Recommended)**
+- CLI's `--output-format stream-json` includes tool events in output
+- Parse these events and call our hook logic directly
+- No external dependencies, all in-process
+
+**Option B: File-Based Hooks**
+- Configure hooks in `.claude/settings.json`
+- CLI executes shell scripts that communicate back via IPC/HTTP
+- More complex, more moving parts
+
+**Recommendation: Option A** - The CLI stream already contains all the information we need.
+
+### CLI Stream Events for Tool Calls
+
+The CLI outputs these event types for tool operations:
+
+```json
+// Tool start (within assistant message)
+{
+  "type": "assistant",
+  "message": {
+    "content": [
+      { "type": "text", "text": "Let me edit..." },
+      { "type": "tool_use", "id": "toolu_123", "name": "Edit", "input": {...} }
+    ]
+  }
+}
+
+// Tool result
+{
+  "type": "tool_result",
+  "tool_use_id": "toolu_123",
+  "content": "File edited successfully"
+}
+```
+
+### Hook Implementation in claude-code-cli-query-handler.ts
+
+```typescript
+import { ToolPermissionService, ToolName, ToolInput } from '../permissions/tool-permission-service.js';
+
+interface ToolUseBlock {
+  type: 'tool_use';
+  id: string;
+  name: string;
+  input: Record<string, unknown>;
+}
+
+interface ToolResultEvent {
+  type: 'tool_result';
+  tool_use_id: string;
+  content: string;
+  is_error?: boolean;
+}
+
+interface SessionState {
+  modifiedFilesThisQuery: Set<string>;
+  pendingToolCalls: Map<string, ToolUseBlock>;
+}
+
+export class ClaudeCodeCliQueryHandler {
+  private readonly toolPermissionService: ToolPermissionService;
+  private sessionState: SessionState;
+
+  constructor(
+    workDir: string,
+    logger: SystemLogger,
+    tokenService: ClaudeTokenService,
+    getApiKey: () => string | null,
+    toolPermissionService: ToolPermissionService,
+  ) {
+    this.workDir = workDir;
+    this.logger = logger.child({ service: 'ClaudeCodeCliQueryHandler' });
+    this.tokenService = tokenService;
+    this.getApiKey = getApiKey;
+    this.toolPermissionService = toolPermissionService;
+    this.sessionState = {
+      modifiedFilesThisQuery: new Set(),
+      pendingToolCalls: new Map(),
+    };
+  }
+
+  /**
+   * Handle CLI message - equivalent to SDK hooks
+   */
+  private handleCliMessage(
+    socket: WebSocket,
+    cliMessage: ClaudeCodeMessage,
+    sendMessage: (socket: WebSocket, message: ChatServerMessage) => void,
+    handlers: MessageHandlers,
+  ): void {
+    switch (cliMessage.type) {
+      case 'assistant':
+        this.handleAssistantMessage(socket, cliMessage, sendMessage, handlers);
+        break;
+
+      case 'tool_result':
+        this.handleToolResult(socket, cliMessage as ToolResultEvent, sendMessage, handlers);
+        break;
+
+      case 'result':
+        this.handleQueryComplete(socket, cliMessage, sendMessage);
+        break;
+
+      default:
+        // Pass through other message types
+        sendMessage(socket, {
+          type: ChatEvent.AGENT_MESSAGE,
+          data: cliMessage,
+        });
+    }
+  }
+
+  /**
+   * Handle assistant message - extract tool calls and apply PreToolUse logic
+   */
+  private async handleAssistantMessage(
+    socket: WebSocket,
+    message: ClaudeCodeMessage,
+    sendMessage: (socket: WebSocket, message: ChatServerMessage) => void,
+    handlers: MessageHandlers,
+  ): Promise<void> {
+    const content = message.message?.content || [];
+
+    // Process text content
+    const textParts = content
+      .filter((c): c is { type: 'text'; text: string } => c.type === 'text')
+      .map(c => c.text);
+
+    if (textParts.length > 0) {
+      const text = textParts.join('');
+      sendMessage(socket, {
+        type: ChatEvent.AGENT_MESSAGE,
+        data: { role: 'assistant', content: text },
+      });
+
+      // Persist text to database
+      await handlers.persistMessage('assistant', text, 'text');
+    }
+
+    // Process tool calls - apply PreToolUse hook logic
+    const toolUses = content.filter(
+      (c): c is ToolUseBlock => c.type === 'tool_use'
+    );
+
+    for (const toolUse of toolUses) {
+      await this.handlePreToolUse(socket, toolUse, sendMessage, handlers);
+    }
+  }
+
+  /**
+   * PreToolUse hook equivalent - runs before tool execution
+   */
+  private async handlePreToolUse(
+    socket: WebSocket,
+    toolUse: ToolUseBlock,
+    sendMessage: (socket: WebSocket, message: ChatServerMessage) => void,
+    handlers: MessageHandlers,
+  ): Promise<void> {
+    const { id: toolUseId, name: toolName, input: toolInput } = toolUse;
+
+    this.logger.debug(`PreToolUse: ${toolName}`, { toolUseId, toolInput });
+
+    // 1. Evaluate tool permission (same as SDK hook)
+    const permission = this.toolPermissionService.evaluateToolPermission(
+      toolName as ToolName,
+      toolInput as ToolInput,
+    );
+
+    if (permission.behavior === 'deny') {
+      const message = permission.message ?? 'Tool denied by policy';
+      this.logger.warn(`Tool denied: ${toolName}`, { message });
+
+      // Send denial to WebSocket
+      sendMessage(socket, {
+        type: ChatEvent.TOOL_DENIED,
+        data: {
+          tool_name: toolName,
+          tool_call_id: toolUseId,
+          reason: message,
+        },
+      });
+
+      // Note: CLI doesn't support blocking tool calls mid-execution
+      // This is a monitoring/notification only in CLI mode
+      return;
+    }
+
+    // 2. Normalize tool input (apply any updates from permission service)
+    const normalizedInput = permission.updatedInput ?? toolInput;
+
+    // 3. Track pending tool call
+    this.sessionState.pendingToolCalls.set(toolUseId, {
+      ...toolUse,
+      input: normalizedInput as Record<string, unknown>,
+    });
+
+    // 4. Send TOOL_START event to WebSocket (same as SDK hook)
+    sendMessage(socket, {
+      type: ChatEvent.TOOL_START,
+      data: {
+        tool_name: toolName,
+        tool_input: normalizedInput,
+        tool_call_id: toolUseId,
+      },
+    });
+
+    // 5. Persist tool start to database (same as SDK hook)
+    const displayName = getToolDisplayName(toolName, normalizedInput as ToolInput);
+    await handlers.persistMessage(
+      'assistant',
+      displayName,
+      'tool_use',
+      'tool_start',
+      {
+        tool_name: toolName,
+        tool_input: normalizedInput,
+        tool_call_id: toolUseId,
+      },
+    );
+  }
+
+  /**
+   * PostToolUse hook equivalent - runs after tool execution
+   */
+  private async handleToolResult(
+    socket: WebSocket,
+    result: ToolResultEvent,
+    sendMessage: (socket: WebSocket, message: ChatServerMessage) => void,
+    handlers: MessageHandlers,
+  ): Promise<void> {
+    const { tool_use_id: toolUseId, content, is_error: isError } = result;
+
+    // Get the original tool call
+    const toolUse = this.sessionState.pendingToolCalls.get(toolUseId);
+    if (!toolUse) {
+      this.logger.warn('Tool result for unknown tool call', { toolUseId });
+      return;
+    }
+
+    const { name: toolName, input: toolInput } = toolUse;
+
+    this.logger.debug(`PostToolUse: ${toolName}`, { toolUseId, isError });
+
+    // 1. Track file modifications (same as SDK hook)
+    const fileModifyingTools = ['Write', 'Edit', 'NotebookEdit', 'SafeWrite'];
+    if (fileModifyingTools.includes(toolName)) {
+      const filePath = (toolInput as { file_path?: string; notebook_path?: string })
+        .file_path || (toolInput as { notebook_path?: string }).notebook_path;
+
+      if (filePath) {
+        const relativePath = this.getRelativePath(filePath);
+        this.sessionState.modifiedFilesThisQuery.add(relativePath);
+        this.logger.debug('File modified', { relativePath });
+      }
+    }
+
+    // 2. Send TOOL_COMPLETE event to WebSocket (same as SDK hook)
+    sendMessage(socket, {
+      type: ChatEvent.TOOL_COMPLETE,
+      data: {
+        tool_name: toolName,
+        tool_input: toolInput,
+        tool_response: content,
+        tool_call_id: toolUseId,
+        is_error: isError,
+      },
+    });
+
+    // 3. Persist tool completion to database (same as SDK hook)
+    await handlers.persistMessage(
+      'assistant',
+      `Tool completed: ${toolName}`,
+      'tool_result',
+      'tool_complete',
+      {
+        tool_name: toolName,
+        tool_input: toolInput,
+        tool_response: content,
+        tool_call_id: toolUseId,
+        is_error: isError,
+      },
+    );
+
+    // 4. Clean up pending tool call
+    this.sessionState.pendingToolCalls.delete(toolUseId);
+  }
+
+  /**
+   * Handle query completion - report modified files
+   */
+  private handleQueryComplete(
+    socket: WebSocket,
+    message: ClaudeCodeMessage,
+    sendMessage: (socket: WebSocket, message: ChatServerMessage) => void,
+  ): void {
+    const modifiedFiles = Array.from(this.sessionState.modifiedFilesThisQuery);
+
+    sendMessage(socket, {
+      type: ChatEvent.QUERY_COMPLETE,
+      data: {
+        sessionId: message.session_id,
+        usage: message.usage,
+        cost: message.total_cost_usd,
+        modifiedFiles,
+      },
+    });
+
+    // Reset session state for next query
+    this.sessionState.modifiedFilesThisQuery.clear();
+    this.sessionState.pendingToolCalls.clear();
+  }
+
+  private getRelativePath(absolutePath: string): string {
+    if (absolutePath.startsWith(this.workDir)) {
+      return absolutePath.slice(this.workDir.length).replace(/^\//, '');
+    }
+    return absolutePath;
+  }
+}
+```
+
+### Hook Feature Comparison: SDK vs CLI
+
+| Feature | SDK (chat-query-handler) | CLI (claude-code-cli-query-handler) |
+|---------|--------------------------|-------------------------------------|
+| **PreToolUse: Evaluate Permissions** | ✅ Can deny/allow | ⚠️ Monitor only (CLI executes regardless) |
+| **PreToolUse: Update Inputs** | ✅ Can modify inputs | ❌ Not possible (CLI already has inputs) |
+| **PreToolUse: Send TOOL_START** | ✅ | ✅ Parse from stream |
+| **PreToolUse: Persist to DB** | ✅ | ✅ |
+| **PostToolUse: Track Files** | ✅ | ✅ Parse from stream |
+| **PostToolUse: Send TOOL_COMPLETE** | ✅ | ✅ Parse from stream |
+| **PostToolUse: Persist to DB** | ✅ | ✅ |
+
+### Important Limitation: CLI Cannot Block Tools
+
+Unlike the SDK, **the CLI cannot be stopped mid-execution**. When we detect a tool call in the stream, the CLI has already executed it. Our PreToolUse hook equivalent can:
+- ✅ Log the tool call
+- ✅ Send events to WebSocket
+- ✅ Persist to database
+- ❌ **Cannot block or modify the tool call**
+
+**Workaround: Use `.claude/settings.json` for critical blocking**
+
+If you need to actually block tools (e.g., prevent writes outside project dir), configure file-based hooks:
+
+```json
+// .claude/settings.json in the project directory
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Write|Edit|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/app/hooks/validate-file-write.sh"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+**validate-file-write.sh:**
+```bash
+#!/bin/bash
+input=$(cat)
+file_path=$(echo "$input" | jq -r '.tool_input.file_path // .tool_input.notebook_path // ""')
+
+# Block writes outside /tmp/materialize-dev-server
+if [[ ! "$file_path" =~ ^/tmp/materialize-dev-server ]]; then
+  echo '{"hookSpecificOutput":{"permissionDecision":"deny","permissionDecisionReason":"Write outside allowed directory"}}'
+  exit 0
+fi
+
+# Allow
+exit 0
+```
+
+### Full Hooks Configuration for CLI Mode
+
+**File: `.claude/settings.json` (deployed to Fargate)**
+
+```json
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Write|Edit|NotebookEdit|SafeWrite",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/app/hooks/validate-file-write.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/app/hooks/validate-bash-command.sh"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/app/hooks/post-file-write.sh"
+          }
+        ]
+      }
+    ]
+  },
+  "permissions": {
+    "allow": [
+      "Read",
+      "Glob",
+      "Grep",
+      "LS"
+    ],
+    "deny": [
+      "mcp__*"
+    ]
+  }
+}
+```
+
+### Deploying Hook Scripts to Fargate
+
+Add to Dockerfile:
+
+```dockerfile
+# Copy hook scripts
+COPY hooks/ /app/hooks/
+RUN chmod +x /app/hooks/*.sh
+```
+
+**Hook script structure:**
+```
+server/build-workers/
+├── hooks/
+│   ├── validate-file-write.sh
+│   ├── validate-bash-command.sh
+│   └── post-file-write.sh
+└── ...
+```
+
+### Hooks Implementation Checklist
+
+- [ ] Implement stream parsing for tool_use blocks in CLI output
+- [ ] Implement handlePreToolUse for TOOL_START events and DB persistence
+- [ ] Implement handleToolResult for TOOL_COMPLETE events and file tracking
+- [ ] Add ToolPermissionService integration (monitoring mode)
+- [ ] Create `.claude/settings.json` template for file-based blocking hooks
+- [ ] Create hook shell scripts for critical security checks
+- [ ] Update Dockerfile to include hooks directory
+- [ ] Test hook execution in headless mode
+- [ ] Document hook configuration in README
+
+---
+
 ## Testing Strategy (Required)
 
 Before deployment, implement these test suites:
