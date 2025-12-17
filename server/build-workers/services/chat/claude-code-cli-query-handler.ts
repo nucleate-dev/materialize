@@ -1,4 +1,5 @@
-import { spawn, ChildProcessWithoutNullStreams } from 'child_process';
+import { ChildProcessByStdio, ChildProcessWithoutNullStreams, spawn } from 'child_process';
+import { Readable } from 'stream';
 import WebSocket from 'ws';
 import { SystemLogger } from '../../loggers/SystemLogger.js';
 import {
@@ -7,9 +8,9 @@ import {
   ChatServerMessage,
 } from '../../types/ChatTypes.js';
 import { ClaudeTokenService } from '../auth/claude-token-service.js';
+import { SupabaseClientService } from '../SupabaseClientService.js';
 import { getToolDisplayName } from './message-handlers.js';
 import { ToolPermissionService } from './tool-permission-service.js';
-import { SupabaseClientService } from '../SupabaseClientService.js';
 
 interface CodeSessionState {
   sessionId: string | null;
@@ -21,7 +22,7 @@ interface CodeSessionState {
   modifiedFilesThisQuery: Set<string>;
   designSystemId: string | null;
   designSystemRules: string | null;
-  firstMessageStatus: { sessionId: string; isFirst: boolean } | null;
+  firstMessageStatus: { sessionId: string; isFirst: boolean; } | null;
 }
 
 interface QueryExecutionContext {
@@ -48,9 +49,9 @@ interface MessageHandlers {
   uploadChatImages: (
     prototypeId: string,
     chatSessionId: string,
-    images: Array<{ base64: string; mediaType: string }>,
+    images: Array<{ base64: string; mediaType: string; }>,
   ) => Promise<
-    Array<{ storage_path: string; media_type: string; file_size: number }>
+    Array<{ storage_path: string; media_type: string; file_size: number; }>
   >;
   updatePersistenceClient?: (client: unknown) => void;
   notifyOrchestrationStartChat: (prototypeId: string) => Promise<void>;
@@ -275,10 +276,11 @@ export class ClaudeCodeCliQueryHandler {
     query: string,
     env: NodeJS.ProcessEnv,
     sessionState: CodeSessionState,
-  ): ChildProcessWithoutNullStreams {
+  ): ChildProcessByStdio<null, Readable, Readable> {
     const args = [
       '-p', query,
       '--output-format', 'stream-json',
+      '--verbose',
     ];
 
     // Add resume flag if we have an active session
@@ -296,7 +298,7 @@ export class ClaudeCodeCliQueryHandler {
       cwd: this.workDir,
       env,
       stdio: ['ignore', 'pipe', 'pipe'],
-    }) as ChildProcessWithoutNullStreams;
+    });
 
     return cliProcess;
   }
@@ -305,7 +307,7 @@ export class ClaudeCodeCliQueryHandler {
    * Handle CLI output stream, parsing JSON and sending to WebSocket
    */
   private async handleCliOutput(
-    cliProcess: ChildProcessWithoutNullStreams,
+    cliProcess: ChildProcessByStdio<null, Readable, Readable>,
     socket: WebSocket,
     handlers: MessageHandlers,
     context: QueryExecutionContext,
@@ -421,7 +423,7 @@ export class ClaudeCodeCliQueryHandler {
 
     // Process text content
     const textParts = content
-      .filter((c): c is { type: 'text'; text: string } => c.type === 'text')
+      .filter((c): c is { type: 'text'; text: string; } => c.type === 'text')
       .map((c) => c.text);
 
     if (textParts.length > 0) {
@@ -547,9 +549,9 @@ export class ClaudeCodeCliQueryHandler {
     const fileModifyingTools = ['Write', 'Edit', 'NotebookEdit', 'SafeWrite'];
     if (fileModifyingTools.includes(toolName)) {
       const filePath =
-        (toolInput as { file_path?: string; notebook_path?: string })
+        (toolInput as { file_path?: string; notebook_path?: string; })
           .file_path ||
-        (toolInput as { notebook_path?: string }).notebook_path;
+        (toolInput as { notebook_path?: string; }).notebook_path;
 
       if (filePath) {
         const relativePath = this.getRelativePath(filePath);
