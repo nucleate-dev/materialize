@@ -6,12 +6,13 @@ import {
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 import { stripAnsiSequences } from "../../terminals/TerminalAnsiUtils.js";
+import { WORK_DIR } from "../../../worker.js";
 
 // Define the signature for the command runner callback
 export type CommandRunner = (
   command: string,
   args: string[],
-) => Promise<{ stdout: string; isError: boolean; }>;
+) => Promise<{ stdout: string; isError: boolean }>;
 
 // Define the signature for the dev server restart callback
 export type DevServerRestartCallback = () => Promise<void>;
@@ -20,20 +21,20 @@ export type DevServerRestartCallback = () => Promise<void>;
 export type FileWriter = (
   filePath: string,
   content: string,
-) => Promise<{ success: boolean; error?: string; bytesWritten?: number; }>;
+) => Promise<{ success: boolean; error?: string; bytesWritten?: number }>;
 
 // Import TerminalService type
 export type TerminalServiceInstance = {
   getSession: (sessionId: string) =>
     | {
-      id: string;
-      state: string;
-      buffer: Array<{
-        type: string;
-        payload: { [key: string]: unknown; };
-        timestamp: number;
-      }>;
-    }
+        id: string;
+        state: string;
+        buffer: Array<{
+          type: string;
+          payload: { [key: string]: unknown };
+          timestamp: number;
+        }>;
+      }
     | undefined;
 };
 
@@ -209,7 +210,7 @@ export function createDevelopmentToolsMcpServer(
       // --- SafeBash Tool ---
       tool(
         "SafeBash",
-        "Execute bash commands in a safe terminal environment. Only run bash commands that finish. Long-running or background processes will hang and time out. Safe commands: git, npm/npx, etc. For dev server related commands, use the RestartDevServer tool instead.",
+        `Execute bash commands in a safe terminal environment in the ${WORK_DIR} directory. Only run bash commands that finish. Long-running or background processes will hang and time out. Safe commands: git, npm/npx, etc. For dev server related commands, use the RestartDevServer tool instead.`,
         {
           command: z.string().min(1).describe("The bash command to execute"),
           args: z
