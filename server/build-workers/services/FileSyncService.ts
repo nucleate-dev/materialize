@@ -117,6 +117,7 @@ export class FileSyncService {
     ".yarn",
     ".pnpm-store",
   ]);
+
   private readonly skipFileNames = new Set([
     ".DS_Store",
     ".npmrc",

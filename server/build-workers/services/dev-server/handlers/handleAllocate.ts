@@ -140,7 +140,7 @@ export async function handleAllocateImpl(
     }
 
     // 5. CREDENTIALS:
-    if (process.env.FARGATE_DEV_MODE === "true") {
+    if (process.env.FARGATE_DEV_MODE !== "true") {
       materializeDevelopmentServerService.chatService.setOrchestrationToken(
         keys.orchestration_token,
       );
