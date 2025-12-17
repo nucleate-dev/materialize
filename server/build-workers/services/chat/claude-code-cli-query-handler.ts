@@ -1,4 +1,4 @@
-import { ChildProcessByStdio, ChildProcessWithoutNullStreams, spawn } from 'child_process';
+import { ChildProcessByStdio, spawn } from 'child_process';
 import { Readable } from 'stream';
 import WebSocket from 'ws';
 import { SystemLogger } from '../../loggers/SystemLogger.js';
@@ -167,6 +167,11 @@ export class ClaudeCodeCliQueryHandler {
 
       // Create authenticated Supabase client with user's JWT to pass RLS policies
       const authenticatedSupabase = this.supabaseClientService.createAuthenticatedClient(token);
+
+      // Update message persistence service with authenticated client
+      if (handlers.updatePersistenceClient) {
+        handlers.updatePersistenceClient(authenticatedSupabase);
+      }
 
       // Create token service with authenticated client to fetch user's Claude token
       const authenticatedTokenService = new ClaudeTokenService(
