@@ -1341,10 +1341,11 @@ export class ChatQueryHandler {
 
     const mcpServers: Record<string, McpSdkServerConfigWithInstance> = {
       devtools: createDevelopmentToolsMcpServer(
-        async (command: string, args: string[]) => {
+        async (command: string, args: string[], cwd?: string) => {
           const executeSandboxCommandResult = await this.executeSandboxCommand(
             command,
             args,
+            cwd,
           );
           return executeSandboxCommandResult;
         },
@@ -1453,13 +1454,37 @@ export class ChatQueryHandler {
   private async executeSandboxCommand(
     command: string,
     args: string[],
+    cwd?: string,
   ): Promise<{ stdout: string; isError: boolean }> {
     try {
+      // Normalize cwd - if it doesn't start with WORK_DIR, treat it as relative
+      let normalizedCwd = WORK_DIR;
+      if (cwd) {
+        if (cwd.startsWith(WORK_DIR)) {
+          // Already absolute path starting with WORK_DIR
+          normalizedCwd = cwd;
+        } else {
+          // Relative path - prepend WORK_DIR
+          normalizedCwd = path.join(WORK_DIR, cwd);
+        }
+      }
+
+      this.logger.consoleLogDevOnly(
+        "info",
+        "Executing sandbox command with cwd",
+        {
+          command,
+          args,
+          requestedCwd: cwd,
+          normalizedCwd,
+        },
+      );
+
       const { response: responseRaw } =
         await this.sandboxService.runCommandInternal({
           command,
           args,
-          cwd: WORK_DIR,
+          cwd: normalizedCwd,
           session_id: "test",
           timeout_ms: 30000,
           strip_ansi: true,
@@ -1480,6 +1505,7 @@ export class ChatQueryHandler {
           {
             command,
             args,
+            cwd: normalizedCwd,
           },
         );
         return {

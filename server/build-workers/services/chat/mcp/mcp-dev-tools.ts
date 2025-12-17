@@ -12,6 +12,7 @@ import { WORK_DIR } from "../../../worker.js";
 export type CommandRunner = (
   command: string,
   args: string[],
+  cwd?: string,
 ) => Promise<{ stdout: string; isError: boolean }>;
 
 // Define the signature for the dev server restart callback
@@ -210,7 +211,7 @@ export function createDevelopmentToolsMcpServer(
       // --- SafeBash Tool ---
       tool(
         "SafeBash",
-        `Execute bash commands in a safe terminal environment in the ${WORK_DIR} directory. Only run bash commands that finish. Long-running or background processes will hang and time out. Safe commands: git, npm/npx, etc. For dev server related commands, use the RestartDevServer tool instead.`,
+        `Execute bash commands in a safe terminal environment. Only run bash commands that finish. Long-running or background processes will hang and time out. Safe commands: git, npm/npx, etc. For dev server related commands, use the RestartDevServer tool instead.`,
         {
           command: z.string().min(1).describe("The bash command to execute"),
           args: z
@@ -219,10 +220,16 @@ export function createDevelopmentToolsMcpServer(
             .describe(
               "Optional arguments to pass to the command (e.g., ['install'] for npm install)",
             ),
+          cwd: z
+            .string()
+            .optional()
+            .describe(
+              `Working directory for the command. Can be absolute (starting with ${WORK_DIR}) or relative to ${WORK_DIR}. Defaults to ${WORK_DIR}. For monorepo subdirectories, use paths like 'client' or 'backend'.`,
+            ),
         },
-        async ({ command, args }): Promise<CallToolResult> => {
+        async ({ command, args, cwd }): Promise<CallToolResult> => {
           try {
-            const result = await runCommand(command, args ?? []);
+            const result = await runCommand(command, args ?? [], cwd);
 
             if (result.isError) {
               return {
