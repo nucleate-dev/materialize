@@ -106,13 +106,29 @@ export class FileSyncService {
     "tmp",
     ".npm-cache",
     ".expo",
+    ".expo-shared",
+    "coverage",
+    ".turbo",
+    "out",
+    ".vercel",
+    "__pycache__",
+    ".swc",
+    ".webpack",
+    ".yarn",
+    ".pnpm-store",
   ]);
   private readonly skipFileNames = new Set([
     ".DS_Store",
     ".npmrc",
     ".yarnrc",
     ".env",
+    ".eslintcache",
+    ".stylelintcache",
   ]);
+  // File patterns/suffixes to skip (for pattern matching)
+  private readonly skipFileSuffixes = [
+    ".tsbuildinfo", // TypeScript incremental build info files
+  ];
 
   constructor(
     supabaseClientService: SupabaseClientService,
@@ -263,10 +279,16 @@ export class FileSyncService {
       return true;
     }
 
+    // Check exact filename matches
     if (
       relativeSegments.some((segment) => this.skipFileNames.has(segment)) ||
       this.skipFileNames.has(entryName)
     ) {
+      return true;
+    }
+
+    // Check file suffix patterns (e.g., *.tsbuildinfo)
+    if (this.skipFileSuffixes.some((suffix) => entryName.endsWith(suffix))) {
       return true;
     }
 
