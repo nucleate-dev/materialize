@@ -8,6 +8,7 @@ import {
 } from "../../../types/BuildWorkerTypes.js";
 import { NucleateDevelopmentServerService } from "../NucleateDevelopmentServerService.js";
 import { syncPrototypeEnvVarsToDisk } from "../utils/envVarUtils.js";
+import { WORK_DIR } from "../../../worker.js";
 
 export async function handleRefetchEnvImpl(
   request: FastifyRequest<{ Body: PublicDevServerRefetchEnvRequest }>,
@@ -33,7 +34,7 @@ export async function handleRefetchEnvImpl(
 
   const envResult = await syncPrototypeEnvVarsToDisk({
     prototypeId: prototype_id,
-    workDir: developmentServerService.workDir,
+    workDir: WORK_DIR,
     supabaseClientService: developmentServerService.supabaseClientService,
     logger: request.log2,
   });
