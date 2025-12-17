@@ -94,7 +94,9 @@ export class FileSyncService {
     ".db",
     ".sqlite",
   ];
-  private readonly skipRootDirectories = new Set([
+  // Directories to skip at ANY nesting level (not just root)
+  // This prevents syncing node_modules, build artifacts, etc. wherever they appear
+  private readonly skipDirectories = new Set([
     "node_modules",
     ".git",
     ".next",
@@ -255,9 +257,9 @@ export class FileSyncService {
     entryName: string,
   ): boolean {
     const relativeSegments = relativePath.split(path.sep);
-    const topLevelSegment = relativeSegments[0];
 
-    if (topLevelSegment && this.skipRootDirectories.has(topLevelSegment)) {
+    // Check if any segment in the path matches blocked directories (not just root)
+    if (relativeSegments.some((segment) => this.skipDirectories.has(segment))) {
       return true;
     }
 
@@ -408,7 +410,7 @@ export class FileSyncService {
           ? path.join(relativePath, entry.name)
           : entry.name;
 
-        // Skip common top-level directories and special files only at root
+        // Skip blocked directories and files at any nesting level
         if (this.shouldSkipRelativePath(entryRelativePath, entry.name)) {
           continue;
         }
