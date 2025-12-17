@@ -177,6 +177,18 @@ export class ClaudeCodeCliQueryHandler {
       // Build authentication environment using the authenticated user ID
       const authEnv = await this.buildAuthEnvironment(userId, authenticatedTokenService);
 
+      // Initialize session state with chat session ID from client
+      const { prototype_chat_session_id } = data;
+      if (prototype_chat_session_id) {
+        sessionState.prototypeChatSessionId = prototype_chat_session_id;
+        this.logger.debug('Using chat session ID from client', {
+          chatSessionId: prototype_chat_session_id,
+        });
+      } else {
+        this.logger.warn('No chat_session_id provided by client');
+        sessionState.prototypeChatSessionId = null;
+      }
+
       // Reset session state for new query
       this.sessionState.modifiedFilesThisQuery.clear();
       this.sessionState.pendingToolCalls.clear();
@@ -327,6 +339,11 @@ export class ClaudeCodeCliQueryHandler {
           if (line.trim()) {
             try {
               const message = JSON.parse(line) as ClaudeCodeMessage;
+              this.logger.debug('CLI message received', {
+                type: message.type,
+                subtype: message.subtype,
+                messagePreview: JSON.stringify(message).substring(0, 200),
+              });
               void this.handleCliMessage(message, socket, handlers, context);
             } catch (error) {
               this.logger.warn('Failed to parse CLI JSON output', {
