@@ -277,7 +277,7 @@ export class VercelChatQueryHandler {
 
           classifierCost = classificationResult.costUsd;
           const shouldRunDesignAgent =
-            classificationResult.intent === "full_app";
+            classificationResult.intent === "design_mode";
 
           this.logger.consoleLogDevOnly(
             "info",
@@ -299,7 +299,7 @@ export class VercelChatQueryHandler {
             },
           );
 
-          // Only run design agent if user wants a full app
+          // Only run design agent if user wants a design mode
           if (shouldRunDesignAgent) {
             handlers.sendMessage(socket, {
               type: ChatEvent.DESIGN_GENERATION,
@@ -366,10 +366,10 @@ export class VercelChatQueryHandler {
               }
             }
           } else {
-            // User wants specific component - skip design agent
+            // User wants standard mode - skip design agent
             this.logger.consoleLogDevOnly(
               "info",
-              "Skipping design agent - user wants specific component (Vercel handler)",
+              "Skipping design agent - user wants standard mode (Vercel handler)",
               {
                 prototypeId,
                 intent: classificationResult.intent,

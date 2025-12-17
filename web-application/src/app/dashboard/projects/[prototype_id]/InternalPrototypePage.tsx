@@ -9,6 +9,8 @@ import MaterializeRenderSection, {
   MaterializeRenderSectionRef,
 } from "@/components/prototype-editor/MaterializeRenderSection";
 import ProPlanUpsellModal from "@/components/prototype-editor/ProPlanUpsellModal";
+import PrototypeDeployModal from "@/components/prototype-editor/PrototypeDeployModal";
+import { SurveyOverlay } from "@/components/survey/SurveyOverlay";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -23,7 +25,6 @@ import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -60,8 +61,6 @@ import {
 } from "@/lib/types/serverAPITypes";
 import { Database } from "@/lib/types/supabase";
 import { IsUserPlanSubscribed } from "@/lib/utils/payments/SubscriptionManagementUtils";
-import { SLUG_RULES, isValidSlug, normalizeSlug } from "@/lib/utils/slugUtils";
-import { toast } from "sonner";
 import { useSetAtom } from "jotai";
 import {
   AlertTriangle,
@@ -73,12 +72,12 @@ import {
   Loader2,
   Lock,
   MessageSquare,
-  Rocket,
   Share2,
   Smartphone,
 } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 
 type Prototype = Database["public"]["Tables"]["prototypes"]["Row"];
 type DesignStyle = Database["public"]["Enums"]["design_style"];
@@ -124,6 +123,7 @@ export default function InternalPrototypePage() {
   const [showShareModal, setShowShareModal] = useState(false);
   const [isPublic, setIsPublic] = useState(false);
   const [isCopying, setIsCopying] = useState(false);
+  const [hasCopied, setHasCopied] = useState(false);
   const [isCloningPrototype, setIsCloningPrototype] = useState(false);
   const [showCloneUpsellModal, setShowCloneUpsellModal] = useState(false);
   const [viewingUrl, setViewingUrl] = useState<string | null>(null);
@@ -141,12 +141,6 @@ export default function InternalPrototypePage() {
   >(null);
   const [isUpdatingDesignSystem, setIsUpdatingDesignSystem] = useState(false);
   const [isDeployModalOpen, setIsDeployModalOpen] = useState(false);
-  const [deploySlug, setDeploySlug] = useState("");
-  const [deployVisibility, setDeployVisibility] =
-    useState<PrototypeVisibility>("PUBLIC");
-  const [isCheckingSlug, setIsCheckingSlug] = useState(false);
-  const [slugAvailable, setSlugAvailable] = useState<boolean | null>(null);
-  const [slugError, setSlugError] = useState<string | null>(null);
   const [isDeploying, setIsDeploying] = useState(false);
   const [deployedUrl, setDeployedUrl] = useState<string | null>(null);
 
@@ -414,10 +408,6 @@ export default function InternalPrototypePage() {
       );
       setPrototype(data);
       setIsPublic(normalizedVisibility !== "SELF");
-      setDeployVisibility(normalizedVisibility);
-      const generatedSlug =
-        data.slug || normalizeSlug(data.name ?? "") || data.id;
-      setDeploySlug(generatedSlug);
       setDeployedUrl(
         data.is_deployed && data.slug ? `${APPS_BASE_URL}/${data.slug}` : null,
       );
@@ -665,79 +655,6 @@ export default function InternalPrototypePage() {
     };
   }, [currentRenderStatus, prototypeId, logger, viewingUrl, baseTunnelUrl]);
 
-  useEffect(() => {
-    if (!isDeployModalOpen) {
-      return;
-    }
-
-    if (!deploySlug) {
-      setSlugAvailable(null);
-      setSlugError(null);
-      setIsCheckingSlug(false);
-      return;
-    }
-
-    const normalized = normalizeSlug(deploySlug);
-    if (deploySlug !== normalized) {
-      setDeploySlug(normalized);
-      return;
-    }
-
-    if (!isValidSlug(deploySlug)) {
-      setSlugError(
-        `Slug must be ${SLUG_RULES.min}-${SLUG_RULES.max} characters using lowercase letters, numbers, or hyphens.`,
-      );
-      setSlugAvailable(null);
-      setIsCheckingSlug(false);
-      return;
-    }
-
-    let isCurrent = true;
-    const controller = new AbortController();
-    setIsCheckingSlug(true);
-    setSlugError(null);
-
-    const checkSlug = async () => {
-      try {
-        const response = await fetch(
-          `/api/check-slug?slug=${encodeURIComponent(deploySlug)}`,
-          { signal: controller.signal },
-        );
-        const result = (await response.json()) as {
-          available?: boolean;
-          message?: string;
-        };
-
-        if (!isCurrent) return;
-
-        if (!response.ok) {
-          setSlugError(result.message ?? "Unable to check slug availability");
-          setSlugAvailable(null);
-          return;
-        }
-
-        setSlugAvailable(result.available ?? null);
-      } catch (error) {
-        if (!controller.signal.aborted) {
-          setSlugError("Unable to check slug availability");
-          setSlugAvailable(null);
-        }
-      } finally {
-        if (isCurrent) {
-          setIsCheckingSlug(false);
-        }
-      }
-    };
-
-    const timeoutId = setTimeout(checkSlug, 300);
-
-    return () => {
-      isCurrent = false;
-      controller.abort();
-      clearTimeout(timeoutId);
-    };
-  }, [deploySlug, isDeployModalOpen]);
-
   const handleDesignSystemDialogOpenChange = (open: boolean) => {
     setIsDesignSystemDialogOpen(open);
     if (!open) {
@@ -866,100 +783,26 @@ export default function InternalPrototypePage() {
   }, [logger, prototype]);
 
   const handleOpenDeployModal = () => {
-    if (!prototype) return;
-    const normalizedVisibility = normalizePrototypeVisibility(
-      prototype.visibility,
-    );
-    setDeployVisibility(normalizedVisibility);
-    const suggestedSlug =
-      prototype.slug || normalizeSlug(prototype.name ?? "") || prototype.id;
-    setDeploySlug(suggestedSlug);
-    setSlugAvailable(null);
-    setSlugError(null);
     setIsDeployModalOpen(true);
   };
 
-  const handleDeploy = async () => {
-    if (!prototype) return;
-
-    const normalizedSlug = normalizeSlug(deploySlug);
-    if (!normalizedSlug || !isValidSlug(normalizedSlug)) {
-      setSlugError(
-        `Slug must be ${SLUG_RULES.min}-${SLUG_RULES.max} characters using lowercase letters, numbers, or hyphens.`,
-      );
-      return;
-    }
-
-    try {
-      setIsDeploying(true);
-      const session = await supabase.auth.getSession();
-      const token = session.data.session?.access_token;
-
-      if (!token) {
-        throw new Error("You must be signed in to deploy");
-      }
-
-      const response = await fetch("/api/deploy", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          prototype_id: prototype.id,
-          slug: normalizedSlug,
-          visibility: deployVisibility,
-        }),
-      });
-
-      const result = (await response.json()) as {
-        prototype_id?: string;
-        slug?: string;
-        visibility?: PrototypeVisibility;
-        url?: string;
-        message?: string;
-      };
-
-      if (!response.ok) {
-        setSlugError(result.message ?? "Unable to deploy app");
-        return;
-      }
-
-      const nextSlug = result.slug ?? normalizedSlug;
+  const handleDeploySuccess = useCallback(
+    (result: { slug: string; url: string; visibility: PrototypeVisibility }) => {
       setPrototype((prev) =>
         prev
           ? {
-            ...prev,
-            slug: nextSlug,
-            is_deployed: true,
-            visibility: deployVisibility,
-          }
+              ...prev,
+              slug: result.slug,
+              is_deployed: true,
+              visibility: result.visibility,
+            }
           : prev,
       );
-      setDeploySlug(nextSlug);
-      setIsPublic(deployVisibility !== "SELF");
-      setDeployVisibility(deployVisibility);
-      setDeployedUrl(result.url ?? `${APPS_BASE_URL}/${nextSlug}`);
-      setIsDeployModalOpen(false);
-      setSlugError(null);
-      setSlugAvailable(true);
-    } catch (error) {
-      setSlugError(
-        error instanceof Error ? error.message : "Unable to deploy app",
-      );
-    } finally {
-      setIsDeploying(false);
-    }
-  };
-
-  const handleGenerateSlug = () => {
-    const base = normalizeSlug(prototype?.name ?? "app");
-    const suffix = prototype?.id ? prototype.id.slice(0, 4) : "";
-    const candidate = [base, suffix].filter(Boolean).join("-");
-    setDeploySlug(candidate || "my-app");
-    setSlugAvailable(null);
-    setSlugError(null);
-  };
+      setIsPublic(result.visibility !== "SELF");
+      setDeployedUrl(result.url);
+    },
+    [],
+  );
 
   const handleCopyLink = async () => {
     if (!prototype) return;
@@ -976,7 +819,6 @@ export default function InternalPrototypePage() {
         setPrototype((prev) =>
           prev ? { ...prev, visibility: "PUBLIC" } : null,
         );
-        setDeployVisibility("PUBLIC");
       }
 
       await navigator.clipboard.writeText(
@@ -985,8 +827,10 @@ export default function InternalPrototypePage() {
 
       toast.success("Copied!");
 
+      setHasCopied(true);
       setTimeout(() => {
         setShowShareModal(false);
+        setHasCopied(false);
       }, 1000);
     } catch (err) {
       logger.debug("error", "Failed to copy URL:", {
@@ -1015,7 +859,6 @@ export default function InternalPrototypePage() {
       setPrototype((prev) =>
         prev ? { ...prev, visibility: newVisibility } : null,
       );
-      setDeployVisibility(newVisibility);
     } catch (err) {
       logger.debug("error", "Failed to update visibility:", {
         error: err instanceof Error ? err.message : String(err),
@@ -1535,137 +1378,13 @@ export default function InternalPrototypePage() {
       </AlertDialog>
 
       {/* Deploy Modal */}
-      <Dialog open={isDeployModalOpen} onOpenChange={setIsDeployModalOpen}>
-        <DialogContent className="sm:max-w-lg bg-[#141517] border border-white/10 text-white">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Rocket className="w-4 h-4 text-indigo-400" />
-              Deploy App
-            </DialogTitle>
-            <DialogDescription className="text-sm text-[#8A8F98]">
-              Expose your prototype at apps.nucleate.dev
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <p className="text-xs uppercase tracking-wide text-[#8A8F98]">
-                Name
-              </p>
-              <Input
-                readOnly
-                value={prototype?.name ?? ""}
-                className="bg-[#0B0C0E] border-white/10 text-white/80"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex items-center justify-between gap-2">
-                <p className="text-xs uppercase tracking-wide text-[#8A8F98]">
-                  Slug
-                </p>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleGenerateSlug}
-                  className="h-8 px-2 border-white/10 text-white/80"
-                >
-                  Auto-generate
-                </Button>
-              </div>
-              <div className="flex items-center gap-2">
-                <Input
-                  value={deploySlug}
-                  onChange={(e) => {
-                    setDeploySlug(e.target.value);
-                    setSlugAvailable(null);
-                    setSlugError(null);
-                  }}
-                  className="bg-[#0B0C0E] border-white/10 text-white"
-                  placeholder="my-app"
-                />
-                <div className="w-24 text-xs text-right">
-                  {isCheckingSlug && (
-                    <span className="inline-flex items-center gap-1 text-[#8A8F98]">
-                      <Loader2 className="w-3 h-3 animate-spin" /> Checking
-                    </span>
-                  )}
-                  {!isCheckingSlug && slugAvailable === true && (
-                    <span className="inline-flex items-center gap-1 text-emerald-400">
-                      <Check className="w-3 h-3" /> Available
-                    </span>
-                  )}
-                  {!isCheckingSlug && slugAvailable === false && (
-                    <span className="inline-flex items-center gap-1 text-amber-400">
-                      <AlertTriangle className="w-3 h-3" /> Taken
-                    </span>
-                  )}
-                </div>
-              </div>
-              <p className="text-xs text-[#8A8F98]">
-                {APPS_BASE_URL}/{deploySlug || "<slug>"}
-              </p>
-              {slugError && (
-                <p className="text-xs text-amber-400">{slugError}</p>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <p className="text-xs uppercase tracking-wide text-[#8A8F98]">
-                Visibility
-              </p>
-              <Select
-                value={deployVisibility}
-                onValueChange={(value) =>
-                  setDeployVisibility(value as PrototypeVisibility)
-                }
-              >
-                <SelectTrigger className="bg-[#0B0C0E] border-white/10 text-white">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="bg-[#0B0C0E] border-white/10 text-white">
-                  <SelectItem value="PUBLIC">Public</SelectItem>
-                  <SelectItem value="TEAM_SUBSET">Unlisted</SelectItem>
-                  <SelectItem value="SELF">Private</SelectItem>
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-[#8A8F98]">
-                Public = searchable later, Unlisted = link only, Private = auth
-                required.
-              </p>
-            </div>
-
-            <div className="flex justify-end gap-2 pt-2">
-              <Button
-                variant="ghost"
-                onClick={() => setIsDeployModalOpen(false)}
-                className="text-white/80 hover:text-white"
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleDeploy}
-                disabled={
-                  isDeploying ||
-                  isCheckingSlug ||
-                  slugAvailable === false ||
-                  !!slugError
-                }
-                className="bg-indigo-600 hover:bg-indigo-700 text-white"
-              >
-                {isDeploying ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                    Deploying...
-                  </>
-                ) : (
-                  "Save & deploy"
-                )}
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <PrototypeDeployModal
+        open={isDeployModalOpen}
+        onOpenChange={setIsDeployModalOpen}
+        prototype={prototype}
+        normalizedSandboxUrl={normalizedSandboxUrl}
+        onDeploySuccess={handleDeploySuccess}
+      />
 
       {/* Share Modal */}
       <Dialog open={showShareModal} onOpenChange={setShowShareModal}>
@@ -1729,16 +1448,23 @@ export default function InternalPrototypePage() {
                 />
                 <Button
                   onClick={handleCopyLink}
-                  disabled={isCopying}
+                  disabled={isCopying || hasCopied}
                   size="sm"
-                  className="flex items-center gap-2 bg-white text-black hover:bg-white/90 h-9"
+                  className={cn(
+                    "flex items-center gap-2 h-9",
+                    hasCopied
+                      ? "bg-green-500 text-white hover:bg-green-600"
+                      : "bg-white text-black hover:bg-white/90",
+                  )}
                 >
                   {isCopying ? (
                     <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : hasCopied ? (
+                    <Check className="w-3.5 h-3.5" />
                   ) : (
                     <Copy className="w-3.5 h-3.5" />
                   )}
-                  {isCopying ? "Copying..." : "Copy"}
+                  {isCopying ? "Copying..." : hasCopied ? "Copied!" : "Copy"}
                 </Button>
               </div>
               {!isPublic && (
@@ -1821,6 +1547,18 @@ export default function InternalPrototypePage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Survey Overlay (Scenario 1: during build) */}
+      {user?.id && (
+        <SurveyOverlay
+          userId={user.id}
+          isBuildRunning={
+            currentRenderStatus === "Starting Dev Server.." ||
+            currentRenderStatus === "Updating.." ||
+            currentRenderStatus === "Connecting.."
+          }
+        />
+      )}
     </div>
   );
 }

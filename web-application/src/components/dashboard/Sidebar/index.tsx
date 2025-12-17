@@ -14,26 +14,34 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { SHOW_WHITEBOARDS } from "@/GlobalConstants";
+import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import { sidebarOpenAtom } from "@/lib/atoms/sidebar";
 import { logout } from "@/lib/utils/auth/SupabaseAuthUtils";
+import { handleCheckout } from "@/lib/utils/payments/CheckoutUtils";
+import { IsUserPlanSubscribed } from "@/lib/utils/payments/SubscriptionManagementUtils";
 import { useAtom } from "jotai";
 import {
-  Atom, Folder,
+  Atom,
+  Folder,
   LogOut,
   Palette,
   Rocket,
-  Settings,
   Sparkles,
-  SquareStack
+  SquareStack,
+  User,
+  Zap,
 } from "lucide-react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 
 const DashboardSidebarContent = () => {
   const pathname = usePathname();
+  const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useAtom(sidebarOpenAtom);
   const { state, isMobile, setOpenMobile } = useSidebar();
+  const { userPlan } = useSubscriptionAccess();
   const isCollapsed = state === "collapsed";
+  const isPaidUser = IsUserPlanSubscribed(userPlan);
 
   // Handler to close mobile sidebar when a link is clicked
   const handleMobileLinkClick = () => {
@@ -162,17 +170,30 @@ const DashboardSidebarContent = () => {
           <SidebarMenuItem>
             <HorizontalModeToggle sidebarExpanded={!isCollapsed} />
           </SidebarMenuItem>
+          {!isPaidUser && (
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                onClick={() => handleCheckout("plus", router)}
+                size="lg"
+                tooltip={isCollapsed ? "Upgrade" : undefined}
+                className={isCollapsed ? "justify-center" : ""}
+              >
+                <Zap className="w-5 h-5 text-amber-500" />
+                {!isCollapsed && <span>Upgrade</span>}
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          )}
           <SidebarMenuItem>
             <SidebarMenuButton
               asChild
               isActive={pathname?.includes("account")}
               size="lg"
-              tooltip={isCollapsed ? "Settings" : undefined}
+              tooltip={isCollapsed ? "Account" : undefined}
               className={isCollapsed ? "justify-center" : ""}
             >
               <Link href="/dashboard/account" onClick={handleMobileLinkClick}>
-                <Settings className="w-5 h-5" />
-                {!isCollapsed && <span>Settings</span>}
+                <User className="w-5 h-5" />
+                {!isCollapsed && <span>Account</span>}
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>

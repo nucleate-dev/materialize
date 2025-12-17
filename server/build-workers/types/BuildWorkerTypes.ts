@@ -113,6 +113,15 @@ export interface BuildAndDeployResponse {
   version?: string;
 }
 
+export interface BuildStatusResponse {
+  isBuilding: boolean;
+  devServerStatus: DevServerStatus;
+  builtVersion: string;
+  buildStartTime: string;
+  lastUpdatedTime: string;
+  buildError?: string;
+}
+
 export interface PublicDevServerStartRequest {
   prototype_id: string;
   framework: "expo_react_native" | "react";

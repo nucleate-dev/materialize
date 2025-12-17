@@ -1,7 +1,6 @@
 "use client";
 
 import { supabase } from "@/ClientConstants";
-import MaterializeRenderSection from "@/components/prototype-editor/MaterializeRenderSection";
 import { Button } from "@/components/ui/button";
 import { normalizePrototypeVisibility } from "@/lib/types/prototypes";
 import type {
@@ -16,15 +15,6 @@ import Link from "next/link";
 import { use, useEffect, useState } from "react";
 
 type Prototype = Database["public"]["Tables"]["prototypes"]["Row"];
-
-type RenderStatus =
-  | "Static build"
-  | "Connecting.."
-  | "Updating.."
-  | "Starting Dev Server.."
-  | "Disconnected"
-  | "Connected"
-  | "Error";
 
 const SITE_BASE_URL =
   (process.env.NEXT_PUBLIC_SITE_BASE_URL ??
@@ -82,9 +72,6 @@ export default function DeployedAppPage({
   const { slug } = use(params);
   const [prototype, setPrototype] = useState<Prototype | null>(null);
   const [viewingUrl, setViewingUrl] = useState<string>("");
-  const [renderStatus, setRenderStatus] =
-    useState<RenderStatus>("Static build");
-  const [isPreviewView, setIsPreviewView] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -117,8 +104,7 @@ export default function DeployedAppPage({
       }
 
       let resolvedViewingUrl =
-        (data as Prototype & { viewing_url?: string; }).viewing_url ?? "";
-      let resolvedStatus: RenderStatus = "Static build";
+        (data as Prototype & { viewing_url?: string }).viewing_url ?? "";
       const serverEndpoint = process.env.NEXT_PUBLIC_SERVER_ENDPOINT;
 
       if (serverEndpoint) {
@@ -149,7 +135,6 @@ export default function DeployedAppPage({
 
           if (response.ok && result.data) {
             resolvedViewingUrl = result.data.viewing_url;
-            resolvedStatus = (result.data.status === "error" ? "Error" : result.data.status) as RenderStatus ?? resolvedStatus;
           }
         } catch (err) {
           console.error("Failed to fetch viewing URL for deployed app", err);
@@ -158,7 +143,6 @@ export default function DeployedAppPage({
 
       setPrototype(data);
       setViewingUrl(resolvedViewingUrl);
-      setRenderStatus(resolvedStatus);
       setLoading(false);
     };
 
@@ -195,23 +179,22 @@ export default function DeployedAppPage({
   }
 
   return (
-    <div className="min-h-screen bg-black flex flex-col">
+    <div className="h-screen bg-black flex flex-col overflow-hidden">
       <MinimalHeader prototype={prototype} />
-      <div className="flex-1">
-        <MaterializeRenderSection
-          viewing_url={viewingUrl}
-          currentRenderStatus={renderStatus}
-          onRenderStatusChange={setRenderStatus}
-          isPreviewView={isPreviewView}
-          onPreviewViewChange={setIsPreviewView}
-          deployedView={true}
-          publicView={false}
-          codeView={
-            <div className="flex h-full items-center justify-center text-sm text-white/60 bg-black">
-              Code view is disabled for deployed apps.
-            </div>
-          }
-        />
+      <div className="flex-1 min-h-0">
+        {viewingUrl ? (
+          <iframe
+            src={viewingUrl}
+            className="w-full h-full border-0"
+            title={prototype.name}
+            allow="accelerometer; camera; encrypted-media; geolocation; gyroscope; microphone; midi; clipboard-write"
+          />
+        ) : (
+          <div className="flex h-full items-center justify-center text-sm text-white/60">
+            <Sparkles className="w-4 h-4 mr-2 animate-pulse" />
+            Loading app...
+          </div>
+        )}
       </div>
     </div>
   );

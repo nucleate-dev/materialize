@@ -15,6 +15,7 @@ import {
   HistoryResponseData,
 } from "../../types/ChatTypes.js";
 import { Database } from "../../types/supabase.js";
+import { ClaudeTokenService } from "../auth/claude-token-service.js";
 import { NucleateDevelopmentServerService } from "../dev-server/NucleateDevelopmentServerService.js";
 import { FileSyncService } from "../FileSyncService.js";
 import { FlagsService } from "../FlagsService.js";
@@ -23,11 +24,16 @@ import { SupabaseClientService } from "../SupabaseClientService.js";
 import { TerminalService } from "../terminals/TerminalService.js";
 import { VercelChatQueryHandler } from "./chat-query-handler-vercel.js";
 import { ChatQueryHandler } from "./chat-query-handler.js";
+import { ClaudeCodeCliQueryHandler } from "./claude-code-cli-query-handler.js";
 import { MessagePersistenceService } from "./message-handlers.js";
 import { ChatProvider, isAllowedModel } from "./model-providers.js";
 import { ToolPermissionService } from "./tool-permission-service.js";
 
 const CHAT_HEARTBEAT_INTERVAL_MS = 15000;
+
+// Feature flag: Enable Claude Code CLI mode
+// Set to true to use the CLI instead of the SDK
+const USE_CLAUDE_CODE_CLI = false;
 
 interface CodeSessionState {
   sessionId: string | null;
@@ -40,7 +46,7 @@ interface CodeSessionState {
   modifiedFilesThisQuery: Set<string>; // Track files modified by tools for the current query
   designSystemId: string | null; // ID of currently loaded design system
   designSystemRules: string | null; // Cached design system rules
-  firstMessageStatus: { sessionId: string; isFirst: boolean } | null; // Cache first-message detection
+  firstMessageStatus: { sessionId: string; isFirst: boolean; } | null; // Cache first-message detection
 }
 
 interface ChatConnection {
@@ -59,6 +65,8 @@ export class ChatService {
   private readonly messagePersistenceService: MessagePersistenceService;
   private readonly chatQueryHandler: ChatQueryHandler;
   private readonly vercelChatQueryHandler: VercelChatQueryHandler;
+  private readonly claudeCodeCliQueryHandler: ClaudeCodeCliQueryHandler | null;
+  private readonly claudeTokenService: ClaudeTokenService;
   private featureFlags: FeatureFlags = { ...DEFAULT_FLAGS };
   private sessionState: CodeSessionState = {
     sessionId: null,
@@ -140,9 +148,30 @@ export class ChatService {
       throw error;
     }
 
+    // Initialize ClaudeTokenService
+    this.claudeTokenService = new ClaudeTokenService(
+      supabaseClientService.getClient(),
+      logger,
+    );
+
+    // Initialize ClaudeCodeCliQueryHandler if CLI mode is enabled
+    if (USE_CLAUDE_CODE_CLI) {
+      this.claudeCodeCliQueryHandler = new ClaudeCodeCliQueryHandler(
+        workDir,
+        logger,
+        supabaseClientService,
+        this.toolPermissionService,
+      );
+      this.logger.info("Claude Code CLI mode enabled - REQUIRES user subscription token");
+    } else {
+      this.claudeCodeCliQueryHandler = null;
+      this.logger.info("Using Claude Agent SDK mode");
+    }
+
     this.logger.consoleLogDevOnly("info", "CodeService initialized", {
       workDir: this.workDir,
       allowedRoot: this.allowedRoot,
+      useCli: USE_CLAUDE_CODE_CLI,
     });
 
     void this.refreshFeatureFlags();
@@ -391,15 +420,25 @@ export class ChatService {
       return;
     }
 
-    // Delegate to ChatQueryHandler with proper context and handlers
-    const handler =
-      provider === "vercel"
-        ? this.vercelChatQueryHandler
-        : this.chatQueryHandler;
+    // Delegate to appropriate handler based on provider and CLI mode
+    let handler;
+    let handlerName: string;
+
+    if (provider === "vercel") {
+      handler = this.vercelChatQueryHandler;
+      handlerName = "vercel";
+    } else if (USE_CLAUDE_CODE_CLI && this.claudeCodeCliQueryHandler) {
+      handler = this.claudeCodeCliQueryHandler;
+      handlerName = "claude-cli";
+    } else {
+      handler = this.chatQueryHandler;
+      handlerName = "claude-sdk";
+    }
 
     this.logger.consoleLogDevOnly("info", "Dispatching chat query to handler", {
       prototypeId,
-      handler: provider === "vercel" ? "vercel" : "claude",
+      handler: handlerName,
+      useCli: USE_CLAUDE_CODE_CLI,
       hasPrototypeChatSessionId: !!this.sessionState.prototypeChatSessionId,
       enableDesignAgentOnFirstMessage:
         this.featureFlags.ENABLE_DESIGN_AGENT_ON_FIRST_MESSAGE,
@@ -845,6 +884,9 @@ export class ChatService {
       modifiedFilesThisQuery: new Set<string>(),
       firstMessageStatus: null,
     };
+
+    // Cleanup ClaudeTokenService
+    this.claudeTokenService.destroy();
 
     this.logger.info("CodeService shutdown complete");
   }

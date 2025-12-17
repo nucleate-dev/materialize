@@ -23,6 +23,7 @@ import { redirectAfterLoginAtom } from "@/lib/atoms/sidebar";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import { Database } from "@/lib/types/supabase";
 import { setChatIntent } from "@/lib/utils/chatIntentUtils";
+import { checkSurveyCompleted } from "@/lib/utils/survey/SurveyUtils";
 import { SwatchIcon } from "@heroicons/react/24/outline"; // Kept Heroicons
 import { PaintBrushIcon } from "@heroicons/react/24/solid";
 import { useAtom } from "jotai";
@@ -70,6 +71,63 @@ export default function DashboardPage() {
   const [, setIsLoadingDesignSystems] = useState(false);
   const [designStyle, setDesignStyle] = useState<DesignStyle>("stylesheets");
   const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
+  const [isSurveyChecking, setIsSurveyChecking] = useState(true);
+  const [hasCheckedIntent, setHasCheckedIntent] = useState(false);
+
+  // Check if user has completed survey (Scenario 2)
+  useEffect(() => {
+    async function checkSurvey() {
+      if (!user?.id) {
+        setIsSurveyChecking(false);
+        return;
+      }
+
+      try {
+        const completed = await checkSurveyCompleted(user.id);
+        if (!completed) {
+          router.push("/welcome-survey");
+          return;
+        }
+        setIsSurveyChecking(false);
+      } catch (error) {
+        logger.debug("error", "Error checking survey status", {
+          error: error instanceof Error ? error.message : String(error),
+        });
+        setIsSurveyChecking(false);
+      }
+    }
+
+    checkSurvey();
+  }, [user, router, logger]);
+
+  // Pre-fill prompt from chat_intent if user came from landing page
+  useEffect(() => {
+    if (hasCheckedIntent || isSurveyChecking) return;
+
+    if (typeof window !== "undefined") {
+      const chatIntent = localStorage.getItem("chat_intent");
+      if (chatIntent) {
+        try {
+          const parsed = JSON.parse(chatIntent) as {
+            prototype_id?: string;
+            message: string;
+          };
+          // Only pre-fill if there's a message but no prototype_id
+          // (meaning user typed a prompt before registering)
+          if (parsed.message && !parsed.prototype_id) {
+            setPrompt(parsed.message);
+            // Clear the intent after using it
+            localStorage.removeItem("chat_intent");
+          }
+        } catch (e) {
+          logger.debug("error", "Failed to parse chat_intent for pre-fill", {
+            error: e instanceof Error ? e.message : String(e),
+          });
+        }
+      }
+    }
+    setHasCheckedIntent(true);
+  }, [isSurveyChecking, hasCheckedIntent, logger]);
 
   // Handle redirect after login
   useEffect(() => {
@@ -163,6 +221,19 @@ export default function DashboardPage() {
       handleSubmit();
     }
   };
+
+  // Show loading state while checking survey
+  if (isSurveyChecking) {
+    return (
+      <div className="relative min-h-screen text-black dark:text-white selection:bg-purple-500/30 font-sans flex items-center justify-center">
+        <GridBackground />
+        <div className="relative z-10 flex flex-col items-center gap-4">
+          <Loader2 className="w-8 h-8 animate-spin text-gray-400" />
+          <p className="text-sm text-gray-500">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="relative min-h-screen text-black dark:text-white selection:bg-purple-500/30 font-sans">

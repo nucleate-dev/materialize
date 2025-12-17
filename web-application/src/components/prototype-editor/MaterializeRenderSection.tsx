@@ -58,6 +58,7 @@ import {
   Copy,
   Download,
   Eye,
+  Hammer,
   KeyRound,
   Loader2,
   Monitor,
@@ -67,6 +68,7 @@ import {
   Plus,
   QrCode,
   RefreshCw,
+  Rocket,
   RotateCcw,
   Share2,
   Smartphone,
@@ -267,6 +269,9 @@ const MaterializeRenderSection = forwardRef<
     const [iframeError, setIframeError] = useState(false);
     const [isExporting, setIsExporting] = useState(false);
     const [isRestartingDevServer, setIsRestartingDevServer] = useState(false);
+    const [isBuilding, setIsBuilding] = useState(false);
+    const [buildError, setBuildError] = useState<string | null>(null);
+    const buildPollIntervalRef = useRef<NodeJS.Timeout | null>(null);
     const [mobileScreens, setMobileScreens] = useState<MobileScreenConfig[]>(
       () =>
         viewing_url ? [{ id: 0, path: extractInitialPath(viewing_url) }] : [],
@@ -274,7 +279,7 @@ const MaterializeRenderSection = forwardRef<
     const [editingScreenId, setEditingScreenId] = useState<number | null>(null);
     const [tempPath, setTempPath] = useState<string>("");
     const [routeSuggestions, setRouteSuggestions] = useState<
-      Array<{ route: string; group?: string }>
+      Array<{ route: string; group?: string; }>
     >([]);
     const isReadOnlyView = publicView || deployedView;
 
@@ -460,7 +465,7 @@ const MaterializeRenderSection = forwardRef<
     const availableRoutes = React.useMemo(() => {
       if (!files) return [];
 
-      const routes: Array<{ route: string; group?: string }> = [];
+      const routes: Array<{ route: string; group?: string; }> = [];
       Object.keys(files).forEach((filePath) => {
         // Look for files in app/ directory that could be routes
         if (filePath.startsWith("app/")) {
@@ -721,7 +726,7 @@ const MaterializeRenderSection = forwardRef<
           );
 
           const result: APIResponse<
-            { env_var_count: number; message: string },
+            { env_var_count: number; message: string; },
             StandardErrorResponse
           > = await response.json().catch(() => ({ data: null, error: null }));
 
@@ -1163,6 +1168,78 @@ const MaterializeRenderSection = forwardRef<
       }
     };
 
+    const stopBuildPolling = useCallback(() => {
+      if (buildPollIntervalRef.current) {
+        clearInterval(buildPollIntervalRef.current);
+        buildPollIntervalRef.current = null;
+      }
+    }, []);
+
+    const pollBuildStatus = useCallback(async () => {
+      if (!sandbox_url) return;
+
+      try {
+        const response = await fetch(`${sandbox_url}/build-status`);
+        const status = await response.json();
+
+        if (!status.isBuilding) {
+          // Build completed or failed
+          stopBuildPolling();
+          setIsBuilding(false);
+
+          if (status.buildError) {
+            setBuildError(status.buildError);
+            toast.error(`Build failed: ${status.buildError}`);
+          } else if (status.builtVersion) {
+            setBuildError(null);
+            toast.success(
+              `Build completed! Version: ${status.builtVersion}`,
+            );
+          }
+        }
+      } catch (error) {
+        logger.debug("error", "Error polling build status:", {
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }, [sandbox_url, stopBuildPolling, logger]);
+
+    const handleBuildAndDeploy = async () => {
+      if (!sandbox_url || !prototypeId) {
+        logger.debug(
+          "error",
+          "Cannot build: missing sandbox URL or prototype ID",
+        );
+        return;
+      }
+
+      // Clear any previous error
+      setBuildError(null);
+      setIsBuilding(true);
+
+      // Fire-and-forget the build request
+      fetch(`${sandbox_url}/build-and-deploy`, {
+        method: "POST",
+      }).catch((error) => {
+        logger.debug("error", "Error triggering build:", {
+          error: error instanceof Error ? error.message : String(error),
+        });
+      });
+
+      toast.info("Build started! This may take 3-5 minutes...");
+
+      // Start polling for build status
+      stopBuildPolling();
+      buildPollIntervalRef.current = setInterval(pollBuildStatus, 3000);
+    };
+
+    // Cleanup polling on unmount
+    useEffect(() => {
+      return () => {
+        stopBuildPolling();
+      };
+    }, [stopBuildPolling]);
+
     const handleRefresh = () => {
       if (webPreviewRef.current && viewing_url) {
         setIsIframeLoading(true);
@@ -1472,7 +1549,7 @@ const MaterializeRenderSection = forwardRef<
     };
 
     // Connection loading overlay for iframe
-    const ConnectionLoadingOverlay = ({ mode }: { mode: PreviewMode }) => (
+    const ConnectionLoadingOverlay = ({ mode }: { mode: PreviewMode; }) => (
       <div className="absolute inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm z-10">
         <div className="text-center bg-accent p-6 rounded-xl border border-border shadow-2xl">
           <Loader2 className="w-6 h-6 animate-spin mx-auto mb-3 text-muted-foreground" />
@@ -1489,7 +1566,7 @@ const MaterializeRenderSection = forwardRef<
     );
 
     // Error overlay for iframe
-    const ConnectionErrorOverlay = ({ mode }: { mode: PreviewMode }) => (
+    const ConnectionErrorOverlay = ({ mode }: { mode: PreviewMode; }) => (
       <div className="absolute inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm z-10">
         <div className="text-center bg-accent p-6 rounded-xl border border-red-500/20 shadow-2xl">
           <div className="w-8 h-8 mx-auto mb-3 text-red-400 bg-red-400/10 rounded-full flex items-center justify-center">
@@ -1932,7 +2009,7 @@ const MaterializeRenderSection = forwardRef<
                   </span>
                 </Button>
               )}
-              {/* {onDeploy && !isReadOnlyView && (
+              {onDeploy && !isReadOnlyView && (
                 <Button
                   size="sm"
                   onClick={onDeploy}
@@ -1951,7 +2028,7 @@ const MaterializeRenderSection = forwardRef<
                   )}
                   {deploymentUrl ? "Manage deploy" : "Deploy app"}
                 </Button>
-              )} */}
+              )}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
@@ -2024,6 +2101,18 @@ const MaterializeRenderSection = forwardRef<
                         {isRestartingDevServer
                           ? "Restarting..."
                           : "Restart Dev Server"}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={handleBuildAndDeploy}
+                        disabled={!sandbox_url || !prototypeId || isBuilding}
+                        className="focus:bg-accent/80 focus:text-foreground text-muted-foreground text-sm cursor-pointer"
+                      >
+                        {isBuilding ? (
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        ) : (
+                          <Hammer className="w-4 h-4 mr-2 opacity-70" />
+                        )}
+                        {isBuilding ? "Building..." : "Build & Deploy"}
                       </DropdownMenuItem>
                     </>
                   )}
