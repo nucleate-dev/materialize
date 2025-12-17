@@ -3,25 +3,25 @@
  * CLI runner for executing backfill scripts
  *
  * Usage:
- *   npm run backfill backfills/my-backfill.ts [options]
+ *   npm run backfill -- backfills/my-backfill.ts [options]
  *
  * Options:
  *   --no-dry-run              Run in LIVE mode (applies fixes to database)
- *   --where-column <column>   Column name to filter by (for single row)
- *   --where-value <value>     Value to match (for single row)
+ *   --where-column <column>   Column name to filter by (processes ALL matching rows)
+ *   --where-value <value>     Value to match (processes ALL matching rows)
  *
  * Examples:
  *   # Dry run on full table (default)
- *   npm run backfill backfills/my-backfill.ts
+ *   npm run backfill -- backfills/my-backfill.ts
  *
  *   # Live run on full table
- *   npm run backfill backfills/my-backfill.ts --no-dry-run
+ *   npm run backfill -- backfills/my-backfill.ts --no-dry-run
  *
- *   # Dry run on single row
- *   npm run backfill backfills/my-backfill.ts --where-column id --where-value 123
+ *   # Dry run on all rows matching a condition
+ *   npm run backfill -- backfills/my-backfill.ts --where-column prototype_id --where-value "abc-123"
  *
- *   # Live run on single row
- *   npm run backfill backfills/my-backfill.ts --no-dry-run --where-column slug --where-value "my-project"
+ *   # Live run on all rows matching a condition
+ *   npm run backfill -- backfills/my-backfill.ts --no-dry-run --where-column prototype_id --where-value "abc-123"
  */
 
 import * as path from "path"
@@ -41,17 +41,17 @@ function parseArgs(): CliArgs {
   if (args.length === 0) {
     console.error("Error: Missing backfill script path")
     console.error("")
-    console.error("Usage: npm run backfill <script-path> [options]")
+    console.error("Usage: npm run backfill -- <script-path> [options]")
     console.error("")
     console.error("Options:")
     console.error("  --no-dry-run              Run in LIVE mode (applies fixes)")
-    console.error("  --where-column <column>   Column name to filter by")
-    console.error("  --where-value <value>     Value to match")
+    console.error("  --where-column <column>   Column name to filter by (processes ALL matching rows)")
+    console.error("  --where-value <value>     Value to match (processes ALL matching rows)")
     console.error("")
     console.error("Examples:")
-    console.error("  npm run backfill backfills/my-backfill.ts")
-    console.error("  npm run backfill backfills/my-backfill.ts --no-dry-run")
-    console.error("  npm run backfill backfills/my-backfill.ts --where-column id --where-value 123")
+    console.error("  npm run backfill -- backfills/my-backfill.ts")
+    console.error("  npm run backfill -- backfills/my-backfill.ts --no-dry-run")
+    console.error("  npm run backfill -- backfills/my-backfill.ts --where-column prototype_id --where-value abc-123")
     process.exit(1)
   }
 

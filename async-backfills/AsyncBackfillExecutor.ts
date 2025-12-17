@@ -50,23 +50,23 @@ export class AsyncBackfillExecutor<TName extends TableName> {
 
   async run(): Promise<BackfillStats> {
     const isDryRun = this.options.dryRun !== false // default to true
-    const isSingleRow = !!(this.options.whereColumn && this.options.whereValue)
+    const isFilteredRun = !!(this.options.whereColumn && this.options.whereValue)
 
     console.log(
       `\n🚀 Starting backfill on table: ${this.backfill.table}`,
     )
     console.log(`   Mode: ${isDryRun ? "DRY RUN (no changes will be made)" : "LIVE (will fix rows)"}`)
-    if (isSingleRow) {
+    if (isFilteredRun) {
       console.log(
-        `   Target: Single row where ${this.options.whereColumn} = ${this.options.whereValue}`,
+        `   Target: All rows where ${this.options.whereColumn} = ${this.options.whereValue}`,
       )
     } else {
       console.log(`   Target: All rows in table`)
     }
     console.log("")
 
-    if (isSingleRow) {
-      await this.runSingleRow()
+    if (isFilteredRun) {
+      await this.runFilteredRows(isDryRun)
     } else {
       await this.runFullTable(isDryRun)
     }
@@ -75,40 +75,47 @@ export class AsyncBackfillExecutor<TName extends TableName> {
     return this.stats
   }
 
-  private async runSingleRow(): Promise<void> {
-    const row = await this.fetchSingleRow()
-    if (!row) {
+  private async runFilteredRows(isDryRun: boolean): Promise<void> {
+    const rows = await this.fetchFilteredRows()
+    if (rows.length === 0) {
       console.log(
-        `❌ No row found where ${this.options.whereColumn} = ${this.options.whereValue}`,
+        `❌ No rows found where ${this.options.whereColumn} = ${this.options.whereValue}`,
       )
       return
     }
 
-    console.log(`✅ Found row:`)
-    console.log(JSON.stringify(row, null, 2))
+    console.log(`✅ Found ${rows.length} row(s) matching the filter`)
     console.log("")
 
-    this.stats.totalRowsProcessed = 1
+    this.stats.totalRowsProcessed = rows.length
 
-    const isInconsistent = await this.backfill.genIsInconsistent(row)
+    // Check which rows are inconsistent
+    const inconsistentRows = await this.filterInconsistentRows(rows)
+    this.stats.inconsistentRowsFound = inconsistentRows.length
+
     console.log(
-      `   ${isInconsistent ? "❌" : "✅"} Row is ${isInconsistent ? "INCONSISTENT" : "consistent"}`,
+      `   👉 Found ${inconsistentRows.length} inconsistent row(s) out of ${rows.length} total`,
     )
 
-    if (isInconsistent) {
-      this.stats.inconsistentRowsFound = 1
+    if (inconsistentRows.length > 0) {
+      // Show details for each inconsistent row
+      inconsistentRows.forEach((row, index) => {
+        console.log(`\n   ❌ Inconsistent row ${index + 1}:`)
+        console.log(JSON.stringify(row, null, 2))
+      })
 
-      if (this.options.dryRun === false) {
-        console.log("   🔧 Fixing row...")
-        const fixedRow = await this.backfill.genFixRow(row)
-        await this.upsertRows([fixedRow])
-        this.stats.rowsFixed = 1
+      if (!isDryRun) {
+        console.log(`\n   🔧 Fixing ${inconsistentRows.length} row(s)...`)
+        const fixedRows = await this.fixRows(inconsistentRows)
+        await this.upsertRows(fixedRows)
+        this.stats.rowsFixed = fixedRows.length
 
-        console.log("\n   Fixed row:")
-        console.log(JSON.stringify(fixedRow, null, 2))
+        console.log(`\n   ✅ Fixed ${fixedRows.length} row(s)`)
       } else {
-        console.log("   ⏭️  Skipping fix (dry run mode)")
+        console.log(`\n   ⏭️  Skipping fix for ${inconsistentRows.length} row(s) (dry run mode)`)
       }
+    } else {
+      console.log(`\n   ✅ All ${rows.length} row(s) are consistent - no fixes needed`)
     }
   }
 
@@ -193,28 +200,23 @@ export class AsyncBackfillExecutor<TName extends TableName> {
     return (data ?? []) as unknown as SupabaseTableRow<TName>[]
   }
 
-  private async fetchSingleRow(): Promise<SupabaseTableRow<TName> | null> {
+  private async fetchFilteredRows(): Promise<SupabaseTableRow<TName>[]> {
     if (!this.options.whereColumn || this.options.whereValue === undefined) {
-      return null
+      return []
     }
 
     const { data, error } = await this.supabase
       .from(this.backfill.table)
       .select("*")
       .eq(this.options.whereColumn as any, this.options.whereValue as any)
-      .single()
 
     if (error) {
-      if (error.code === "PGRST116") {
-        // No rows found
-        return null
-      }
       throw new Error(
-        `Failed to fetch row from table "${this.backfill.table}" where ${this.options.whereColumn} = ${this.options.whereValue}: ${error.message}`,
+        `Failed to fetch rows from table "${this.backfill.table}" where ${this.options.whereColumn} = ${this.options.whereValue}: ${error.message}`,
       )
     }
 
-    return data as unknown as SupabaseTableRow<TName>
+    return (data ?? []) as unknown as SupabaseTableRow<TName>[]
   }
 
   private async filterInconsistentRows(
