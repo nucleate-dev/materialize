@@ -7,19 +7,6 @@ interface TokenCacheEntry {
   expiresAt: number;
 }
 
-interface UserClaudeToken {
-  id: string;
-  user_id: string;
-  oauth_token: string;
-  token_type: string;
-  is_valid: boolean;
-  last_used_at: string | null;
-  last_validated_at: string | null;
-  validation_error: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
 /**
  * Service for managing Claude Code OAuth tokens for users.
  * Handles storing, retrieving, and validating tokens from the database.
@@ -56,6 +43,11 @@ export class ClaudeTokenService {
 
     // Fetch from database
     try {
+      this.logger.debug('Querying user_claude_tokens table', {
+        userId,
+        query: 'SELECT oauth_token, is_valid WHERE user_id = ? AND is_valid = true',
+      });
+
       const { data, error } = await this.supabase
         .from('user_claude_tokens')
         .select('oauth_token, is_valid')
@@ -64,9 +56,38 @@ export class ClaudeTokenService {
         .single();
 
       if (error) {
+        this.logger.debug('Query error details', {
+          userId,
+          errorCode: error.code,
+          errorMessage: error.message,
+          errorDetails: error.details,
+          errorHint: error.hint,
+        });
+
         if (error.code === 'PGRST116') {
-          // No rows returned - user doesn't have a token
-          this.logger.debug('No token found for user', { userId });
+          // No rows returned - check if user has ANY token record (regardless of is_valid)
+          const { data: anyToken, error: checkError } = await this.supabase
+            .from('user_claude_tokens')
+            .select('id, is_valid, user_id')
+            .eq('user_id', userId)
+            .maybeSingle();
+
+          if (checkError) {
+            this.logger.error(
+              checkError instanceof Error ? checkError : new Error(String(checkError)),
+              'Error checking for any user token',
+              { userId },
+            );
+          } else if (anyToken) {
+            this.logger.warn('User has token but is_valid = false', {
+              userId,
+              tokenId: anyToken.id,
+              isValid: anyToken.is_valid,
+            });
+          } else {
+            this.logger.debug('No token record exists for user at all', { userId });
+          }
+
           return null;
         }
         throw error;
@@ -255,7 +276,7 @@ export class ClaudeTokenService {
           last_used_at: new Date().toISOString(),
         })
         .eq('user_id', userId);
-    } catch (error) {
+    } catch {
       // Don't log errors for this non-critical operation
       // Just fail silently
     }
@@ -268,9 +289,9 @@ export class ClaudeTokenService {
     const now = Date.now();
     let removed = 0;
 
-    for (const [userId, entry] of this.tokenCache.entries()) {
+    for (const [_userId, entry] of this.tokenCache.entries()) {
       if (entry.expiresAt < now) {
-        this.tokenCache.delete(userId);
+        this.tokenCache.delete(_userId);
         removed++;
       }
     }

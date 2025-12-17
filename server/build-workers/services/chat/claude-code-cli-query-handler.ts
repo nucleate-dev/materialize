@@ -1,5 +1,4 @@
 import { spawn, ChildProcessWithoutNullStreams } from 'child_process';
-import path from 'path';
 import WebSocket from 'ws';
 import { SystemLogger } from '../../loggers/SystemLogger.js';
 import {
@@ -10,6 +9,7 @@ import {
 import { ClaudeTokenService } from '../auth/claude-token-service.js';
 import { getToolDisplayName } from './message-handlers.js';
 import { ToolPermissionService } from './tool-permission-service.js';
+import { SupabaseClientService } from '../SupabaseClientService.js';
 
 interface CodeSessionState {
   sessionId: string | null;
@@ -111,19 +111,19 @@ type ToolInput = Record<string, unknown>;
 export class ClaudeCodeCliQueryHandler {
   private readonly workDir: string;
   private readonly logger: SystemLogger;
-  private readonly tokenService: ClaudeTokenService;
+  private readonly supabaseClientService: SupabaseClientService;
   private readonly toolPermissionService: ToolPermissionService;
   private sessionState: SessionState;
 
   constructor(
     workDir: string,
     logger: SystemLogger,
-    tokenService: ClaudeTokenService,
+    supabaseClientService: SupabaseClientService,
     toolPermissionService: ToolPermissionService,
   ) {
     this.workDir = workDir;
     this.logger = logger.child({ service: 'ClaudeCodeCliQueryHandler' });
-    this.tokenService = tokenService;
+    this.supabaseClientService = supabaseClientService;
     this.toolPermissionService = toolPermissionService;
     this.sessionState = {
       modifiedFilesThisQuery: new Set(),
@@ -145,15 +145,53 @@ export class ClaudeCodeCliQueryHandler {
       // Notify orchestration that chat has started
       await notifyOrchestrationStartChat(context.prototypeId);
 
-      // Build authentication environment
-      const authEnv = await this.buildAuthEnvironment(context.prototypeId);
+      // Extract user ID from JWT token
+      const token = data.token;
+      if (!token) {
+        throw new Error('No authentication token provided');
+      }
+
+      // Decode JWT to extract user ID from the 'sub' claim
+      // JWT format: header.payload.signature
+      const payload = JSON.parse(
+        Buffer.from(token.split('.')[1], 'base64').toString()
+      );
+      const userId = payload.sub;
+
+      if (!userId) {
+        throw new Error('Invalid authentication token - no user ID');
+      }
+
+      this.logger.debug('Extracted user ID from JWT', { userId });
+
+      // Create authenticated Supabase client with user's JWT to pass RLS policies
+      const authenticatedSupabase = this.supabaseClientService.createAuthenticatedClient(token);
+
+      // Create token service with authenticated client to fetch user's Claude token
+      const authenticatedTokenService = new ClaudeTokenService(
+        authenticatedSupabase,
+        this.logger
+      );
+
+      // Build authentication environment using the authenticated user ID
+      const authEnv = await this.buildAuthEnvironment(userId, authenticatedTokenService);
 
       // Reset session state for new query
       this.sessionState.modifiedFilesThisQuery.clear();
       this.sessionState.pendingToolCalls.clear();
 
-      // Get the query text (prompt)
-      const queryText = data.prompt || '';
+      // Get the query text - support both old format (prompt) and new format (content)
+      let queryText = '';
+      if (data.prompt) {
+        queryText = data.prompt;
+      } else if (data.content && Array.isArray(data.content)) {
+        // Extract text from content blocks
+        queryText = data.content
+          .filter((block) => block.type === 'text')
+          .map((block) => block.text || '')
+          .join('\n');
+      }
+
       if (!queryText) {
         throw new Error('No query provided');
       }
@@ -207,14 +245,17 @@ export class ClaudeCodeCliQueryHandler {
    * Build authentication environment for CLI process
    * IMPORTANT: Only uses user OAuth tokens, never API keys
    */
-  private async buildAuthEnvironment(userId: string): Promise<{
+  private async buildAuthEnvironment(
+    userId: string,
+    tokenService: ClaudeTokenService
+  ): Promise<{
     env: NodeJS.ProcessEnv;
     authMethod: 'user_token';
   }> {
     const env = { ...process.env };
 
     // Get user's OAuth token (REQUIRED - no fallback to API key)
-    const userToken = await this.tokenService.getUserToken(userId);
+    const userToken = await tokenService.getUserToken(userId);
     if (!userToken) {
       throw new Error(
         'No Claude subscription connected. Please connect your Claude Pro or Max subscription in Settings to use AI chat.',
@@ -374,7 +415,7 @@ export class ClaudeCodeCliQueryHandler {
     message: ClaudeCodeMessage,
     socket: WebSocket,
     handlers: MessageHandlers,
-    context: QueryExecutionContext,
+    _context: QueryExecutionContext,
   ): Promise<void> {
     const { sendMessage, persistMessage } = handlers;
     const content = message.message?.content || [];
@@ -480,7 +521,7 @@ export class ClaudeCodeCliQueryHandler {
     result: ClaudeCodeMessage,
     socket: WebSocket,
     handlers: MessageHandlers,
-    context: QueryExecutionContext,
+    _context: QueryExecutionContext,
   ): Promise<void> {
     const { sendMessage, persistMessage } = handlers;
     const toolUseId = result.tool_use_id;

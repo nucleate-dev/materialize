@@ -159,7 +159,7 @@ export class ChatService {
       this.claudeCodeCliQueryHandler = new ClaudeCodeCliQueryHandler(
         workDir,
         logger,
-        this.claudeTokenService,
+        supabaseClientService,
         this.toolPermissionService,
       );
       this.logger.info("Claude Code CLI mode enabled - REQUIRES user subscription token");
