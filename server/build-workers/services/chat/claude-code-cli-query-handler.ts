@@ -277,9 +277,8 @@ export class ClaudeCodeCliQueryHandler {
     sessionState: CodeSessionState,
   ): ChildProcessWithoutNullStreams {
     const args = [
-      'chat',
+      '-p', query,
       '--output-format', 'stream-json',
-      '--message', query,
     ];
 
     // Add resume flag if we have an active session
