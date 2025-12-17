@@ -816,8 +816,8 @@ export class VercelChatQueryHandler {
     }
 
     const tools = createVercelDevTools(
-      async (command: string, args: string[]) => {
-        return this.executeSandboxCommand(command, args);
+      async (command: string, args: string[], cwd?: string) => {
+        return this.executeSandboxCommand(command, args, cwd);
       },
       async (filePath: string, content: string) => {
         const result = await this.handleMcpWriteFile(
@@ -1018,6 +1018,7 @@ export class VercelChatQueryHandler {
   private async executeSandboxCommand(
     command: string,
     args: string[],
+    cwd?: string,
   ): Promise<{ stdout: string; isError: boolean }> {
     const permission = this.toolPermissionService.evaluateToolPermission(
       "Bash",
@@ -1031,11 +1032,34 @@ export class VercelChatQueryHandler {
     }
 
     try {
+      // Normalize cwd - if it doesn't start with WORK_DIR, treat it as relative
+      let normalizedCwd = WORK_DIR;
+      if (cwd) {
+        if (cwd.startsWith(WORK_DIR)) {
+          // Already absolute path starting with WORK_DIR
+          normalizedCwd = cwd;
+        } else {
+          // Relative path - prepend WORK_DIR
+          normalizedCwd = path.join(WORK_DIR, cwd);
+        }
+      }
+
+      this.logger.consoleLogDevOnly(
+        "info",
+        "Executing sandbox command with cwd (Vercel handler)",
+        {
+          command,
+          args,
+          requestedCwd: cwd,
+          normalizedCwd,
+        },
+      );
+
       const { response: responseRaw } =
         await this.sandboxService.runCommandInternal({
           command,
           args,
-          cwd: WORK_DIR,
+          cwd: normalizedCwd,
           session_id: "test",
           timeout_ms: 30000,
           strip_ansi: true,
