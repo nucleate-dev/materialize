@@ -98,21 +98,23 @@ export class AsyncBackfillExecutor<TName extends TableName> {
     )
 
     if (inconsistentRows.length > 0) {
-      // Show details for each inconsistent row
-      inconsistentRows.forEach((row, index) => {
-        console.log(`\n   ❌ Inconsistent row ${index + 1}:`)
-        console.log(JSON.stringify(row, null, 2))
-      })
-
-      if (!isDryRun) {
+      if (isDryRun) {
+        // Show details for each inconsistent row in dry-run mode
+        console.log(`\n   📋 Details of inconsistent rows:\n`)
+        inconsistentRows.forEach((row, index) => {
+          console.log(`   ❌ Row ${index + 1}:`)
+          console.log(JSON.stringify(row, null, 2))
+          console.log("")
+        })
+        console.log(`   ⏭️  Skipping fix for ${inconsistentRows.length} row(s) (dry run mode)`)
+      } else {
+        // Live mode: just show stats, no detailed output
         console.log(`\n   🔧 Fixing ${inconsistentRows.length} row(s)...`)
         const fixedRows = await this.fixRows(inconsistentRows)
         await this.upsertRows(fixedRows)
         this.stats.rowsFixed = fixedRows.length
 
-        console.log(`\n   ✅ Fixed ${fixedRows.length} row(s)`)
-      } else {
-        console.log(`\n   ⏭️  Skipping fix for ${inconsistentRows.length} row(s) (dry run mode)`)
+        console.log(`   ✅ Fixed ${fixedRows.length} row(s)`)
       }
     } else {
       console.log(`\n   ✅ All ${rows.length} row(s) are consistent - no fixes needed`)
