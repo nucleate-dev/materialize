@@ -1,15 +1,16 @@
-import { spawn, ChildProcessWithoutNullStreams } from 'child_process';
-import WebSocket from 'ws';
-import { SystemLogger } from '../../loggers/SystemLogger.js';
+import { spawn, ChildProcessWithoutNullStreams } from "child_process";
+import WebSocket from "ws";
+import { SystemLogger } from "../../loggers/SystemLogger.js";
 import {
   ChatEvent,
   ChatQueryData,
   ChatServerMessage,
-} from '../../types/ChatTypes.js';
-import { ClaudeTokenService } from '../auth/claude-token-service.js';
-import { getToolDisplayName } from './message-handlers.js';
-import { ToolPermissionService } from './tool-permission-service.js';
-import { SupabaseClientService } from '../SupabaseClientService.js';
+} from "../../types/ChatTypes.js";
+import { ClaudeTokenService } from "../auth/claude-token-service.js";
+import { getToolDisplayName } from "./message-handlers.js";
+import { ToolPermissionService } from "./tool-permission-service.js";
+import { SupabaseClientService } from "../SupabaseClientService.js";
+import { WORK_DIR } from "../../worker.js";
 
 interface CodeSessionState {
   sessionId: string | null;
@@ -35,9 +36,9 @@ interface QueryExecutionContext {
 interface MessageHandlers {
   sendMessage: (socket: WebSocket, message: ChatServerMessage) => void;
   persistMessage: (
-    role: 'user' | 'assistant' | 'system',
+    role: "user" | "assistant" | "system",
     content: string,
-    messageType: 'text' | 'tool_use' | 'tool_result' | 'error' | 'system',
+    messageType: "text" | "tool_use" | "tool_result" | "error" | "system",
     eventType?: string | null,
     eventData?: unknown,
     creditsUsed?: number | null,
@@ -59,7 +60,7 @@ interface MessageHandlers {
 
 // CLI message types from --output-format stream-json
 interface ClaudeCodeMessage {
-  type: 'assistant' | 'tool_result' | 'result' | 'system' | 'error';
+  type: "assistant" | "tool_result" | "result" | "system" | "error";
   message?: {
     content?: Array<{
       type: string;
@@ -79,7 +80,7 @@ interface ClaudeCodeMessage {
 }
 
 interface ToolUseBlock {
-  type: 'tool_use';
+  type: "tool_use";
   id: string;
   name: string;
   input: Record<string, unknown>;
@@ -91,14 +92,14 @@ interface SessionState {
 }
 
 type ToolName =
-  | 'Bash'
-  | 'BashOutput'
-  | 'Read'
-  | 'Write'
-  | 'Edit'
-  | 'NotebookEdit'
-  | 'Glob'
-  | 'Grep'
+  | "Bash"
+  | "BashOutput"
+  | "Read"
+  | "Write"
+  | "Edit"
+  | "NotebookEdit"
+  | "Glob"
+  | "Grep"
   | string;
 
 type ToolInput = Record<string, unknown>;
@@ -109,20 +110,17 @@ type ToolInput = Record<string, unknown>;
  * it into WebSocket messages that match the existing frontend expectations.
  */
 export class ClaudeCodeCliQueryHandler {
-  private readonly workDir: string;
   private readonly logger: SystemLogger;
   private readonly supabaseClientService: SupabaseClientService;
   private readonly toolPermissionService: ToolPermissionService;
   private sessionState: SessionState;
 
   constructor(
-    workDir: string,
     logger: SystemLogger,
     supabaseClientService: SupabaseClientService,
     toolPermissionService: ToolPermissionService,
   ) {
-    this.workDir = workDir;
-    this.logger = logger.child({ service: 'ClaudeCodeCliQueryHandler' });
+    this.logger = logger.child({ service: "ClaudeCodeCliQueryHandler" });
     this.supabaseClientService = supabaseClientService;
     this.toolPermissionService = toolPermissionService;
     this.sessionState = {
@@ -139,7 +137,11 @@ export class ClaudeCodeCliQueryHandler {
     handlers: MessageHandlers,
   ): Promise<void> {
     const { socket, data, sessionState } = context;
-    const { sendMessage, notifyOrchestrationStartChat, notifyOrchestrationEndChat } = handlers;
+    const {
+      sendMessage,
+      notifyOrchestrationStartChat,
+      notifyOrchestrationEndChat,
+    } = handlers;
 
     try {
       // Notify orchestration that chat has started
@@ -148,52 +150,56 @@ export class ClaudeCodeCliQueryHandler {
       // Extract user ID from JWT token
       const token = data.token;
       if (!token) {
-        throw new Error('No authentication token provided');
+        throw new Error("No authentication token provided");
       }
 
       // Decode JWT to extract user ID from the 'sub' claim
       // JWT format: header.payload.signature
       const payload = JSON.parse(
-        Buffer.from(token.split('.')[1], 'base64').toString()
+        Buffer.from(token.split(".")[1], "base64").toString(),
       );
       const userId = payload.sub;
 
       if (!userId) {
-        throw new Error('Invalid authentication token - no user ID');
+        throw new Error("Invalid authentication token - no user ID");
       }
 
-      this.logger.debug('Extracted user ID from JWT', { userId });
+      this.logger.debug("Extracted user ID from JWT", { userId });
 
       // Create authenticated Supabase client with user's JWT to pass RLS policies
-      const authenticatedSupabase = this.supabaseClientService.createAuthenticatedClient(token);
+      const authenticatedSupabase =
+        this.supabaseClientService.createAuthenticatedClient(token);
 
       // Create token service with authenticated client to fetch user's Claude token
       const authenticatedTokenService = new ClaudeTokenService(
         authenticatedSupabase,
-        this.logger
+        this.logger,
       );
 
       // Build authentication environment using the authenticated user ID
-      const authEnv = await this.buildAuthEnvironment(userId, authenticatedTokenService);
+      const authEnv = await this.buildAuthEnvironment(
+        userId,
+        authenticatedTokenService,
+      );
 
       // Reset session state for new query
       this.sessionState.modifiedFilesThisQuery.clear();
       this.sessionState.pendingToolCalls.clear();
 
       // Get the query text - support both old format (prompt) and new format (content)
-      let queryText = '';
+      let queryText = "";
       if (data.prompt) {
         queryText = data.prompt;
       } else if (data.content && Array.isArray(data.content)) {
         // Extract text from content blocks
         queryText = data.content
-          .filter((block) => block.type === 'text')
-          .map((block) => block.text || '')
-          .join('\n');
+          .filter((block) => block.type === "text")
+          .map((block) => block.text || "")
+          .join("\n");
       }
 
       if (!queryText) {
-        throw new Error('No query provided');
+        throw new Error("No query provided");
       }
 
       // Spawn CLI process
@@ -207,28 +213,28 @@ export class ClaudeCodeCliQueryHandler {
       const abortController = new AbortController();
       sessionState.abortController = abortController;
 
-      abortController.signal.addEventListener('abort', () => {
-        this.logger.info('Query aborted, killing CLI process');
-        cliProcess.kill('SIGTERM');
+      abortController.signal.addEventListener("abort", () => {
+        this.logger.info("Query aborted, killing CLI process");
+        cliProcess.kill("SIGTERM");
       });
 
       // Parse and handle CLI output
       await this.handleCliOutput(cliProcess, socket, handlers, context);
 
       // Query completed successfully
-      this.logger.info('CLI query completed successfully', {
+      this.logger.info("CLI query completed successfully", {
         authMethod: authEnv.authMethod,
       });
     } catch (error) {
       this.logger.error(
         error instanceof Error ? error : new Error(String(error)),
-        'Failed to execute CLI query',
+        "Failed to execute CLI query",
       );
 
       sendMessage(socket, {
         type: ChatEvent.ERROR,
         error: {
-          message: 'Failed to execute query',
+          message: "Failed to execute query",
           details: error instanceof Error ? error.message : String(error),
         },
       });
@@ -247,10 +253,10 @@ export class ClaudeCodeCliQueryHandler {
    */
   private async buildAuthEnvironment(
     userId: string,
-    tokenService: ClaudeTokenService
+    tokenService: ClaudeTokenService,
   ): Promise<{
     env: NodeJS.ProcessEnv;
-    authMethod: 'user_token';
+    authMethod: "user_token";
   }> {
     const env = { ...process.env };
 
@@ -258,14 +264,14 @@ export class ClaudeCodeCliQueryHandler {
     const userToken = await tokenService.getUserToken(userId);
     if (!userToken) {
       throw new Error(
-        'No Claude subscription connected. Please connect your Claude Pro or Max subscription in Settings to use AI chat.',
+        "No Claude subscription connected. Please connect your Claude Pro or Max subscription in Settings to use AI chat.",
       );
     }
 
     env.CLAUDE_CODE_OAUTH_TOKEN = userToken;
     delete env.ANTHROPIC_API_KEY;
-    this.logger.debug('Using user OAuth token for auth');
-    return { env, authMethod: 'user_token' };
+    this.logger.debug("Using user OAuth token for auth");
+    return { env, authMethod: "user_token" };
   }
 
   /**
@@ -276,26 +282,23 @@ export class ClaudeCodeCliQueryHandler {
     env: NodeJS.ProcessEnv,
     sessionState: CodeSessionState,
   ): ChildProcessWithoutNullStreams {
-    const args = [
-      '-p', query,
-      '--output-format', 'stream-json',
-    ];
+    const args = ["-p", query, "--output-format", "stream-json"];
 
     // Add resume flag if we have an active session
     if (sessionState.sessionId) {
-      args.push('--resume', sessionState.sessionId);
+      args.push("--resume", sessionState.sessionId);
     }
 
-    this.logger.debug('Spawning Claude CLI process', {
+    this.logger.debug("Spawning Claude CLI process", {
       args,
-      cwd: this.workDir,
+      cwd: WORK_DIR,
       hasSessionId: !!sessionState.sessionId,
     });
 
-    const cliProcess = spawn('claude', args, {
-      cwd: this.workDir,
+    const cliProcess = spawn("claude", args, {
+      cwd: WORK_DIR,
       env,
-      stdio: ['pipe', 'pipe', 'pipe'],
+      stdio: ["pipe", "pipe", "pipe"],
     }) as ChildProcessWithoutNullStreams;
 
     return cliProcess;
@@ -311,15 +314,15 @@ export class ClaudeCodeCliQueryHandler {
     context: QueryExecutionContext,
   ): Promise<void> {
     return new Promise((resolve, reject) => {
-      let stdoutBuffer = '';
-      let stderrBuffer = '';
+      let stdoutBuffer = "";
+      let stderrBuffer = "";
 
-      cliProcess.stdout.on('data', (chunk: Buffer) => {
+      cliProcess.stdout.on("data", (chunk: Buffer) => {
         stdoutBuffer += chunk.toString();
 
         // Process complete JSON lines
-        const lines = stdoutBuffer.split('\n');
-        stdoutBuffer = lines.pop() || ''; // Keep incomplete line in buffer
+        const lines = stdoutBuffer.split("\n");
+        stdoutBuffer = lines.pop() || ""; // Keep incomplete line in buffer
 
         for (const line of lines) {
           if (line.trim()) {
@@ -327,7 +330,7 @@ export class ClaudeCodeCliQueryHandler {
               const message = JSON.parse(line) as ClaudeCodeMessage;
               void this.handleCliMessage(message, socket, handlers, context);
             } catch (error) {
-              this.logger.warn('Failed to parse CLI JSON output', {
+              this.logger.warn("Failed to parse CLI JSON output", {
                 line,
                 error: error instanceof Error ? error.message : String(error),
               });
@@ -336,26 +339,26 @@ export class ClaudeCodeCliQueryHandler {
         }
       });
 
-      cliProcess.stderr.on('data', (chunk: Buffer) => {
+      cliProcess.stderr.on("data", (chunk: Buffer) => {
         stderrBuffer += chunk.toString();
-        this.logger.warn('CLI stderr output', { stderr: chunk.toString() });
+        this.logger.warn("CLI stderr output", { stderr: chunk.toString() });
       });
 
-      cliProcess.on('close', (code: number | null) => {
+      cliProcess.on("close", (code: number | null) => {
         if (code === 0) {
-          this.logger.info('CLI process exited successfully');
+          this.logger.info("CLI process exited successfully");
           resolve();
         } else {
           const error = new Error(
             `CLI process exited with code ${code}: ${stderrBuffer}`,
           );
-          this.logger.error(error, 'CLI process failed');
+          this.logger.error(error, "CLI process failed");
           reject(error);
         }
       });
 
-      cliProcess.on('error', (error: Error) => {
-        this.logger.error(error, 'CLI process error');
+      cliProcess.on("error", (error: Error) => {
+        this.logger.error(error, "CLI process error");
         reject(error);
       });
     });
@@ -373,37 +376,41 @@ export class ClaudeCodeCliQueryHandler {
     const { sendMessage } = handlers;
 
     switch (cliMessage.type) {
-      case 'assistant':
-        await this.handleAssistantMessage(cliMessage, socket, handlers, context);
+      case "assistant":
+        await this.handleAssistantMessage(
+          cliMessage,
+          socket,
+          handlers,
+          context,
+        );
         break;
 
-      case 'tool_result':
+      case "tool_result":
         await this.handleToolResult(cliMessage, socket, handlers, context);
         break;
 
-      case 'result':
+      case "result":
         this.handleQueryComplete(cliMessage, socket, handlers, context);
         break;
 
-      case 'system':
+      case "system":
         sendMessage(socket, {
           type: ChatEvent.INFO,
-          message: String(cliMessage.message || 'System message'),
+          message: String(cliMessage.message || "System message"),
         });
         break;
 
-      case 'error':
+      case "error":
         sendMessage(socket, {
           type: ChatEvent.ERROR,
           error: {
-            message:
-              cliMessage.message?.content?.[0]?.text || 'Unknown error',
+            message: cliMessage.message?.content?.[0]?.text || "Unknown error",
           },
         });
         break;
 
       default:
-        this.logger.debug('Unknown CLI message type', { cliMessage });
+        this.logger.debug("Unknown CLI message type", { cliMessage });
     }
   }
 
@@ -421,24 +428,24 @@ export class ClaudeCodeCliQueryHandler {
 
     // Process text content
     const textParts = content
-      .filter((c): c is { type: 'text'; text: string } => c.type === 'text')
+      .filter((c): c is { type: "text"; text: string } => c.type === "text")
       .map((c) => c.text);
 
     if (textParts.length > 0) {
-      const text = textParts.join('');
+      const text = textParts.join("");
       sendMessage(socket, {
         type: ChatEvent.AGENT_MESSAGE,
-        data: { role: 'assistant', content: text },
+        data: { role: "assistant", content: text },
       });
 
       // Persist text to database
-      await persistMessage('assistant', text, 'text');
+      await persistMessage("assistant", text, "text");
     }
 
     // Process tool calls - apply PreToolUse hook logic
     const toolUses = content.filter(
       (c): c is ToolUseBlock =>
-        c.type === 'tool_use' && !!c.id && !!c.name && !!c.input,
+        c.type === "tool_use" && !!c.id && !!c.name && !!c.input,
     );
 
     for (const toolUse of toolUses) {
@@ -466,8 +473,8 @@ export class ClaudeCodeCliQueryHandler {
       toolInput as ToolInput,
     );
 
-    if (permission.behavior === 'deny') {
-      const message = permission.message ?? 'Tool denied by policy';
+    if (permission.behavior === "deny") {
+      const message = permission.message ?? "Tool denied by policy";
       this.logger.warn(`Tool denied: ${toolName}`, { message });
 
       // Send denial notification (can't actually block in CLI mode)
@@ -499,18 +506,15 @@ export class ClaudeCodeCliQueryHandler {
     });
 
     // 5. Persist tool start to database
-    const displayName = getToolDisplayName(toolName, normalizedInput as ToolInput);
-    await persistMessage(
-      'assistant',
-      displayName,
-      'tool_use',
-      'tool_start',
-      {
-        tool_name: toolName,
-        tool_input: normalizedInput,
-        tool_call_id: toolUseId,
-      },
+    const displayName = getToolDisplayName(
+      toolName,
+      normalizedInput as ToolInput,
     );
+    await persistMessage("assistant", displayName, "tool_use", "tool_start", {
+      tool_name: toolName,
+      tool_input: normalizedInput,
+      tool_call_id: toolUseId,
+    });
   }
 
   /**
@@ -524,18 +528,18 @@ export class ClaudeCodeCliQueryHandler {
   ): Promise<void> {
     const { sendMessage, persistMessage } = handlers;
     const toolUseId = result.tool_use_id;
-    const content = result.content || '';
+    const content = result.content || "";
     const isError = result.is_error || false;
 
     if (!toolUseId) {
-      this.logger.warn('Tool result missing tool_use_id', { result });
+      this.logger.warn("Tool result missing tool_use_id", { result });
       return;
     }
 
     // Get the original tool call
     const toolUse = this.sessionState.pendingToolCalls.get(toolUseId);
     if (!toolUse) {
-      this.logger.warn('Tool result for unknown tool call', { toolUseId });
+      this.logger.warn("Tool result for unknown tool call", { toolUseId });
       return;
     }
 
@@ -544,17 +548,16 @@ export class ClaudeCodeCliQueryHandler {
     this.logger.debug(`PostToolUse: ${toolName}`, { toolUseId, isError });
 
     // 1. Track file modifications
-    const fileModifyingTools = ['Write', 'Edit', 'NotebookEdit', 'SafeWrite'];
+    const fileModifyingTools = ["Write", "Edit", "NotebookEdit", "SafeWrite"];
     if (fileModifyingTools.includes(toolName)) {
       const filePath =
         (toolInput as { file_path?: string; notebook_path?: string })
-          .file_path ||
-        (toolInput as { notebook_path?: string }).notebook_path;
+          .file_path || (toolInput as { notebook_path?: string }).notebook_path;
 
       if (filePath) {
         const relativePath = this.getRelativePath(filePath);
         this.sessionState.modifiedFilesThisQuery.add(relativePath);
-        this.logger.debug('File modified', { relativePath });
+        this.logger.debug("File modified", { relativePath });
       }
     }
 
@@ -571,10 +574,10 @@ export class ClaudeCodeCliQueryHandler {
 
     // 3. Persist tool completion to database
     await persistMessage(
-      'assistant',
+      "assistant",
       `Tool completed: ${toolName}`,
-      'tool_result',
-      'tool_complete',
+      "tool_result",
+      "tool_complete",
       {
         tool_name: toolName,
         tool_input: toolInput,
@@ -634,8 +637,8 @@ export class ClaudeCodeCliQueryHandler {
    * Get relative path from absolute path
    */
   private getRelativePath(absolutePath: string): string {
-    if (absolutePath.startsWith(this.workDir)) {
-      return absolutePath.slice(this.workDir.length).replace(/^\//, '');
+    if (absolutePath.startsWith(WORK_DIR)) {
+      return absolutePath.slice(WORK_DIR.length).replace(/^\//, "");
     }
     return absolutePath;
   }

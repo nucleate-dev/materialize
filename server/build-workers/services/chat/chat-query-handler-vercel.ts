@@ -35,6 +35,7 @@ import { createVercelDevTools } from "./mcp/mcp-dev-tools-vercel.js";
 import { ALLOWED_MODELS, ChatProvider } from "./model-providers.js";
 import { ToolPermissionService } from "./tool-permission-service.js";
 import { trackApiUsageBuildWorker } from "./usage-tracking.js";
+import { WORK_DIR } from "../../worker.js";
 
 interface CodeSessionState {
   sessionId: string | null;
@@ -46,7 +47,7 @@ interface CodeSessionState {
   modifiedFilesThisQuery: Set<string>;
   designSystemId: string | null;
   designSystemRules: string | null;
-  firstMessageStatus: { sessionId: string; isFirst: boolean; } | null;
+  firstMessageStatus: { sessionId: string; isFirst: boolean } | null;
 }
 
 interface QueryValidationResult {
@@ -89,9 +90,9 @@ interface MessageHandlers {
   uploadChatImages: (
     prototypeId: string,
     chatSessionId: string,
-    images: Array<{ base64: string; mediaType: string; }>,
+    images: Array<{ base64: string; mediaType: string }>,
   ) => Promise<
-    Array<{ storage_path: string; media_type: string; file_size: number; }>
+    Array<{ storage_path: string; media_type: string; file_size: number }>
   >;
   updatePersistenceClient?: (client: unknown) => void;
   notifyOrchestrationStartChat: (prototypeId: string) => Promise<void>;
@@ -99,7 +100,6 @@ interface MessageHandlers {
 }
 
 export class VercelChatQueryHandler {
-  private readonly workDir: string;
   private readonly logger: SystemLogger;
   private readonly supabaseClientService: SupabaseClientService;
   private readonly fileSyncService: FileSyncService;
@@ -110,7 +110,6 @@ export class VercelChatQueryHandler {
   private enableDesignAgentOnFirstMessage: boolean;
 
   constructor(
-    workDir: string,
     logger: SystemLogger,
     supabaseClientService: SupabaseClientService,
     fileSyncService: FileSyncService,
@@ -120,7 +119,6 @@ export class VercelChatQueryHandler {
     terminalService: TerminalService,
     enableDesignAgentOnFirstMessage: boolean,
   ) {
-    this.workDir = workDir;
     this.logger = logger.child({ service: "VercelChatQueryHandler" });
     this.supabaseClientService = supabaseClientService;
     this.fileSyncService = fileSyncService;
@@ -252,9 +250,9 @@ export class VercelChatQueryHandler {
             ? content
             : Array.isArray(content)
               ? content
-                .filter((block) => block.type === "text")
-                .map((block) => block.text || "")
-                .join("\n")
+                  .filter((block) => block.type === "text")
+                  .map((block) => block.text || "")
+                  .join("\n")
               : prompt || "";
 
         if (userMessageText) {
@@ -338,7 +336,7 @@ export class VercelChatQueryHandler {
               // Write design spec to CLAUDE.md in the project directory
               // This allows the AI SDK to read it as project context
               await persistDesignSpecToFiles(
-                this.workDir,
+                WORK_DIR,
                 designSpec,
                 this.logger,
                 prototypeId,
@@ -678,7 +676,7 @@ export class VercelChatQueryHandler {
     userMessage: string,
     abortController: AbortController,
     _systemPrompt: string,
-  ): Promise<{ designSpec: string | null; costUsd: number | undefined; }> {
+  ): Promise<{ designSpec: string | null; costUsd: number | undefined }> {
     // Use Gemini by default for design agent (fast and free)
     const provider: DesignAgentProvider = "google";
     const model = DEFAULT_DESIGN_AGENT_MODELS[provider];
@@ -693,7 +691,7 @@ export class VercelChatQueryHandler {
       provider,
       model,
       userMessage,
-      workDir: this.workDir,
+      workDir: WORK_DIR,
       abortController,
       logger: this.logger,
       prototypeId,
@@ -914,7 +912,7 @@ export class VercelChatQueryHandler {
 
   private extractImagesFromContent(
     messageContent: string | ChatContentBlock[],
-  ): Array<{ base64: string; mediaType: string; }> {
+  ): Array<{ base64: string; mediaType: string }> {
     if (typeof messageContent === "string" || !Array.isArray(messageContent)) {
       return [];
     }
@@ -937,8 +935,8 @@ export class VercelChatQueryHandler {
   private async persistUserMessage(
     messageContent:
       | string
-      | Array<{ type: string; text?: string; source?: unknown; }>,
-    imagesFromContent: Array<{ base64: string; mediaType: string; }>,
+      | Array<{ type: string; text?: string; source?: unknown }>,
+    imagesFromContent: Array<{ base64: string; mediaType: string }>,
     imageMetadata: Array<{
       storage_path: string;
       media_type: string;
@@ -951,9 +949,9 @@ export class VercelChatQueryHandler {
       typeof messageContent === "string"
         ? messageContent
         : messageContent
-          .filter((block) => block.type === "text")
-          .map((block) => block.text || "")
-          .join("\n");
+            .filter((block) => block.type === "text")
+            .map((block) => block.text || "")
+            .join("\n");
 
     await persistMessage(
       "user",
@@ -970,7 +968,7 @@ export class VercelChatQueryHandler {
 
   private toAiContentParts(
     messageContent: string | ChatContentBlock[],
-  ): Array<{ type: "text"; text: string; }> {
+  ): Array<{ type: "text"; text: string }> {
     if (typeof messageContent === "string") {
       return [{ type: "text", text: messageContent }];
     }
@@ -993,10 +991,10 @@ export class VercelChatQueryHandler {
     model: string,
     usage:
       | {
-        promptTokens?: number;
-        completionTokens?: number;
-        totalTokens?: number;
-      }
+          promptTokens?: number;
+          completionTokens?: number;
+          totalTokens?: number;
+        }
       | undefined,
   ): number | undefined {
     if (!usage) return undefined;
@@ -1020,7 +1018,7 @@ export class VercelChatQueryHandler {
   private async executeSandboxCommand(
     command: string,
     args: string[],
-  ): Promise<{ stdout: string; isError: boolean; }> {
+  ): Promise<{ stdout: string; isError: boolean }> {
     const permission = this.toolPermissionService.evaluateToolPermission(
       "Bash",
       {
@@ -1037,7 +1035,7 @@ export class VercelChatQueryHandler {
         await this.sandboxService.runCommandInternal({
           command,
           args,
-          cwd: this.workDir,
+          cwd: WORK_DIR,
           session_id: "test",
           timeout_ms: 30000,
           strip_ansi: true,
@@ -1072,7 +1070,7 @@ export class VercelChatQueryHandler {
     filePath: string,
     content: string,
     sessionState: CodeSessionState,
-  ): Promise<{ success: boolean; bytesWritten?: number; error?: string; }> {
+  ): Promise<{ success: boolean; bytesWritten?: number; error?: string }> {
     const permission = this.toolPermissionService.evaluateToolPermission(
       "Write",
       {
@@ -1084,11 +1082,8 @@ export class VercelChatQueryHandler {
     }
 
     try {
-      const resolvedPath = path.resolve(this.workDir, filePath);
-      const relativePath = path.relative(
-        this.workDir,
-        path.dirname(resolvedPath),
-      );
+      const resolvedPath = path.resolve(WORK_DIR, filePath);
+      const relativePath = path.relative(WORK_DIR, path.dirname(resolvedPath));
       const filename = path.basename(resolvedPath);
 
       const result = await this.sandboxService.writeFile(

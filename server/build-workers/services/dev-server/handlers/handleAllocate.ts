@@ -10,7 +10,7 @@ import {
 import { NucleateDevelopmentServerService } from "../NucleateDevelopmentServerService.js";
 
 export async function handleAllocateImpl(
-  request: FastifyRequest<{ Body: PublicAllocateRequest; }>,
+  request: FastifyRequest<{ Body: PublicAllocateRequest }>,
   reply: FastifyReply,
   materializeDevelopmentServerService: NucleateDevelopmentServerService,
 ): Promise<
@@ -107,7 +107,10 @@ export async function handleAllocateImpl(
     let tunnelMessage: string | undefined;
     // 4. CLOUDFLARE TUNNEL:
     if (process.env.FARGATE_DEV_MODE !== "true") {
-      request.log2.consoleLogDevOnly("info", "Starting Cloudflare tunnel setup");
+      request.log2.consoleLogDevOnly(
+        "info",
+        "Starting Cloudflare tunnel setup",
+      );
       try {
         const result =
           await materializeDevelopmentServerService.cloudflareTunnelManagementService.createTunnel(

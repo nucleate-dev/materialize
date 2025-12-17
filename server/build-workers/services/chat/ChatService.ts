@@ -28,6 +28,7 @@ import { ClaudeCodeCliQueryHandler } from "./claude-code-cli-query-handler.js";
 import { MessagePersistenceService } from "./message-handlers.js";
 import { ChatProvider, isAllowedModel } from "./model-providers.js";
 import { ToolPermissionService } from "./tool-permission-service.js";
+import { WORK_DIR } from "../../worker.js";
 
 const CHAT_HEARTBEAT_INTERVAL_MS = 15000;
 
@@ -46,7 +47,7 @@ interface CodeSessionState {
   modifiedFilesThisQuery: Set<string>; // Track files modified by tools for the current query
   designSystemId: string | null; // ID of currently loaded design system
   designSystemRules: string | null; // Cached design system rules
-  firstMessageStatus: { sessionId: string; isFirst: boolean; } | null; // Cache first-message detection
+  firstMessageStatus: { sessionId: string; isFirst: boolean } | null; // Cache first-message detection
 }
 
 interface ChatConnection {
@@ -55,7 +56,6 @@ interface ChatConnection {
 }
 
 export class ChatService {
-  private readonly workDir: string;
   private readonly allowedRoot: string;
   private readonly logger: SystemLogger;
   private readonly supabaseClientService: SupabaseClientService;
@@ -88,7 +88,6 @@ export class ChatService {
 
   constructor(
     fastifyApp: FastifyInstance,
-    workDir: string,
     logger: SystemLogger,
     supabaseClientService: SupabaseClientService,
     sandboxService: SandboxService,
@@ -96,7 +95,6 @@ export class ChatService {
     terminalService: TerminalService,
     fileSyncService: FileSyncService,
   ) {
-    this.workDir = workDir;
     this.allowedRoot = path.resolve("/tmp/materialize-dev-server");
     this.fastifyApp = fastifyApp;
     this.logger = logger.child({ service: "CodeService" });
@@ -115,7 +113,6 @@ export class ChatService {
 
     // Initialize ChatQueryHandler
     this.chatQueryHandler = new ChatQueryHandler(
-      workDir,
       logger,
       supabaseClientService,
       this.fileSyncService,
@@ -129,7 +126,6 @@ export class ChatService {
     );
     try {
       this.vercelChatQueryHandler = new VercelChatQueryHandler(
-        workDir,
         logger,
         supabaseClientService,
         this.fileSyncService,
@@ -157,26 +153,27 @@ export class ChatService {
     // Initialize ClaudeCodeCliQueryHandler if CLI mode is enabled
     if (USE_CLAUDE_CODE_CLI) {
       this.claudeCodeCliQueryHandler = new ClaudeCodeCliQueryHandler(
-        workDir,
         logger,
         supabaseClientService,
         this.toolPermissionService,
       );
-      this.logger.info("Claude Code CLI mode enabled - REQUIRES user subscription token");
+      this.logger.info(
+        "Claude Code CLI mode enabled - REQUIRES user subscription token",
+      );
     } else {
       this.claudeCodeCliQueryHandler = null;
       this.logger.info("Using Claude Agent SDK mode");
     }
 
     this.logger.consoleLogDevOnly("info", "CodeService initialized", {
-      workDir: this.workDir,
+      workDir: WORK_DIR,
       allowedRoot: this.allowedRoot,
       useCli: USE_CLAUDE_CODE_CLI,
     });
 
     void this.refreshFeatureFlags();
 
-    const normalizedWorkDir = path.resolve(this.workDir);
+    const normalizedWorkDir = path.resolve(WORK_DIR);
     if (!this.isPathInsideAllowedRoot(normalizedWorkDir)) {
       this.logger.warn("WorkDir is outside the allowed root for Claude Code", {
         workDir: normalizedWorkDir,
@@ -254,7 +251,7 @@ export class ChatService {
 
   private handleWebSocketConnection(
     socket: WebSocket,
-    req: FastifyRequest<{ Params: { prototypeId: string; }; }>,
+    req: FastifyRequest<{ Params: { prototypeId: string } }>,
   ): void {
     void this.refreshFeatureFlags();
 
@@ -490,7 +487,7 @@ export class ChatService {
         uploadChatImages: async (
           prototypeId: string,
           chatSessionId: string,
-          images: Array<{ base64: string; mediaType: string; }>,
+          images: Array<{ base64: string; mediaType: string }>,
         ) => {
           return await this.messagePersistenceService.uploadChatImages(
             prototypeId,
@@ -530,7 +527,7 @@ export class ChatService {
     let historyContext = "";
     if (historical_messages.length > 0) {
       const formattedMessages = historical_messages
-        .map((msg: { role: string; content: string; }) => {
+        .map((msg: { role: string; content: string }) => {
           const role = msg.role === "user" ? "User" : "Assistant";
           return `${role}: ${msg.content}`;
         })

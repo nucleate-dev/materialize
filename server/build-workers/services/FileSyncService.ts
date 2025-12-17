@@ -11,6 +11,7 @@ import {
 import { Database } from "../types/supabase.js";
 import { writeProjectFiles } from "../utils/shared-utils.js";
 import { SupabaseClientService } from "./SupabaseClientService.js";
+import { WORK_DIR } from "../worker.js";
 
 interface SyncResult {
   success: boolean;
@@ -44,7 +45,6 @@ const BATCH_CONFIG = {
 } as const;
 
 export class FileSyncService {
-  private readonly workDir: string;
   private readonly logger: SystemLogger;
   private readonly supabaseClientService: SupabaseClientService;
   private fileWatcher?: chokidar.FSWatcher;
@@ -113,11 +113,9 @@ export class FileSyncService {
   ]);
 
   constructor(
-    workDir: string,
     supabaseClientService: SupabaseClientService,
     logger: SystemLogger,
   ) {
-    this.workDir = workDir;
     this.supabaseClientService = supabaseClientService;
     this.logger = logger.child({ service: "FileSyncService" });
     this.initializeFileWatcher();
@@ -130,7 +128,7 @@ export class FileSyncService {
 
     try {
       this.fileWatcher = chokidar
-        .watch(this.workDir, {
+        .watch(WORK_DIR, {
           persistent: true,
           ignoreInitial: true,
           awaitWriteFinish: {
@@ -149,18 +147,18 @@ export class FileSyncService {
         });
 
       this.logger.consoleLogDevOnly("info", "Initialized file watcher", {
-        workDir: this.workDir,
+        workDir: WORK_DIR,
       });
     } catch (error) {
       this.logger.warn("Failed to initialize file watcher", {
-        workDir: this.workDir,
+        workDir: WORK_DIR,
         error: error instanceof Error ? error.message : String(error),
       });
     }
   }
 
   private shouldIgnoreWatcherTarget(targetPath: string): boolean {
-    const relativePath = path.relative(this.workDir, targetPath);
+    const relativePath = path.relative(WORK_DIR, targetPath);
 
     if (relativePath === "") {
       // Root directory itself
@@ -215,7 +213,7 @@ export class FileSyncService {
   }
 
   private getTrackedRelativePath(fullPath: string): string | null {
-    const relativePath = path.relative(this.workDir, fullPath);
+    const relativePath = path.relative(WORK_DIR, fullPath);
 
     if (!relativePath || relativePath.startsWith("..")) {
       return null;
@@ -353,11 +351,11 @@ export class FileSyncService {
       "info",
       "Scanning directory for full sync targets",
       {
-        workDir: this.workDir,
+        workDir: WORK_DIR,
       },
     );
 
-    const allFiles = await this.scanDirectory(this.workDir);
+    const allFiles = await this.scanDirectory(WORK_DIR);
 
     this.logger.consoleLogDevOnly("info", "Scanned directory for files", {
       fileCount: allFiles.length,
@@ -380,7 +378,7 @@ export class FileSyncService {
   private async loadAllFilesOnlySyncTargets(): Promise<SyncTargets> {
     this.resetFileChangesOnly();
 
-    const allFiles = await this.scanDirectory(this.workDir);
+    const allFiles = await this.scanDirectory(WORK_DIR);
     const { textFiles } = this.partitionFilesByType(allFiles);
 
     return {
@@ -624,7 +622,7 @@ export class FileSyncService {
             Database["public"]["Tables"]["prototype_files"]["Insert"] | null
           > => {
             try {
-              const fullPath = path.join(this.workDir, filePath);
+              const fullPath = path.join(WORK_DIR, filePath);
               const contents = await fs.readFile(fullPath, "utf8");
               return {
                 prototype_id: prototypeId,
@@ -769,7 +767,7 @@ export class FileSyncService {
         await Promise.all(
           uploadChunk.map(async (filePath) => {
             try {
-              const fullPath = path.join(this.workDir, filePath);
+              const fullPath = path.join(WORK_DIR, filePath);
               const stats = await fs.stat(fullPath);
 
               // Skip very large files (>10MB)
@@ -938,16 +936,16 @@ export class FileSyncService {
     files: PrototypeFileInput[],
     assets: PrototypeAssetInputWithContent[],
   ): Promise<void> {
-    await fs.mkdir(this.workDir, { recursive: true });
+    await fs.mkdir(WORK_DIR, { recursive: true });
     await this.cleanWorkspaceDirectory();
-    await writeProjectFiles(files, assets, this.workDir);
+    await writeProjectFiles(files, assets, WORK_DIR);
     this.resetTrackedChanges();
   }
 
   private async cleanWorkspaceDirectory(): Promise<void> {
     let entries: Dirent[];
     try {
-      entries = await fs.readdir(this.workDir, { withFileTypes: true });
+      entries = await fs.readdir(WORK_DIR, { withFileTypes: true });
     } catch (error) {
       if (
         error instanceof Error &&
@@ -965,7 +963,7 @@ export class FileSyncService {
         continue;
       }
 
-      const entryPath = path.join(this.workDir, entry.name);
+      const entryPath = path.join(WORK_DIR, entry.name);
       try {
         await fs.rm(entryPath, { recursive: true, force: true });
       } catch (error) {
@@ -1066,7 +1064,7 @@ export class FileSyncService {
       if (deletedFileNames.length > 0) {
         for (const fileName of deletedFileNames) {
           try {
-            const fullPath = path.join(this.workDir, fileName);
+            const fullPath = path.join(WORK_DIR, fileName);
             await fs.unlink(fullPath);
             result.filesDeleted++;
             this.updatedFiles.delete(fileName);
@@ -1102,7 +1100,7 @@ export class FileSyncService {
       if (deletedAssetNames.length > 0) {
         for (const assetName of deletedAssetNames) {
           try {
-            const fullPath = path.join(this.workDir, assetName);
+            const fullPath = path.join(WORK_DIR, assetName);
             await fs.unlink(fullPath);
             result.assetsDeleted++;
             this.updatedAssets.delete(assetName);
@@ -1154,7 +1152,7 @@ export class FileSyncService {
             // Write files to disk
             for (const file of files) {
               try {
-                const fullPath = path.join(this.workDir, file.name);
+                const fullPath = path.join(WORK_DIR, file.name);
                 const parentDir = path.dirname(fullPath);
                 await fs.mkdir(parentDir, { recursive: true });
                 await fs.writeFile(fullPath, file.contents, "utf-8");
@@ -1234,7 +1232,7 @@ export class FileSyncService {
                     }
 
                     // Write to disk
-                    const fullPath = path.join(this.workDir, asset.name);
+                    const fullPath = path.join(WORK_DIR, asset.name);
                     const parentDir = path.dirname(fullPath);
                     await fs.mkdir(parentDir, { recursive: true });
 

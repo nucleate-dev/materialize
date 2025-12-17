@@ -84,20 +84,13 @@ export const terminalService = new TerminalService(
 
 // Initialize FileSyncService (single instance for all services)
 export const fileSyncService = new FileSyncService(
-  WORK_DIR,
   supabaseClientService,
   baseLogger,
 );
 
-const sandboxService = new SandboxService(
-  app,
-  WORK_DIR,
-  baseLogger,
-  terminalService,
-);
+const sandboxService = new SandboxService(app, baseLogger, terminalService);
 
 const cloudflareTunnelManagementService = new CloudflareTunnelManagementService(
-  WORK_DIR,
   baseLogger,
 );
 // Create NucleateDevelopmentServerService with undefined chatService (will be set after ChatService is created)
@@ -105,7 +98,6 @@ const cloudflareTunnelManagementService = new CloudflareTunnelManagementService(
 const nucleateDevelopmentServerService = new NucleateDevelopmentServerService(
   sandboxService,
   cloudflareTunnelManagementService,
-  WORK_DIR,
   supabaseClientService,
   fileSyncService,
   terminalService,
@@ -114,7 +106,6 @@ const nucleateDevelopmentServerService = new NucleateDevelopmentServerService(
 
 const chatService = new ChatService(
   app,
-  WORK_DIR,
   baseLogger,
   supabaseClientService,
   sandboxService,

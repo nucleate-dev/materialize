@@ -24,6 +24,7 @@ import {
 } from "../types/BuildWorkerTypes.js";
 import { resolvePathWithinProject } from "../utils/shared-utils.js";
 import { TerminalService } from "./terminals/TerminalService.js";
+import { WORK_DIR } from "../worker.js";
 
 // TODO: Add rate limiting to prevent abuse of sandbox operations
 // Ideas:
@@ -59,19 +60,16 @@ interface GitCheckoutResult {
 }
 
 export class SandboxService {
-  private readonly workDir: string;
   private readonly log2: SystemLogger;
   private readonly fastifyApp: FastifyInstance;
   private readonly terminalService: TerminalService;
 
   constructor(
     fastifyApp: FastifyInstance,
-    workDir: string,
     logger: SystemLogger,
     terminalService: TerminalService,
   ) {
     this.fastifyApp = fastifyApp;
-    this.workDir = workDir;
     this.log2 = logger.child({ service: "SandboxService" });
     this.terminalService = terminalService;
   }
@@ -136,7 +134,7 @@ export class SandboxService {
   ): Promise<MakeDirResult> {
     try {
       // Security: Validate path is within workDir
-      const resolvedPath = resolvePathWithinProject(this.workDir, relativePath);
+      const resolvedPath = resolvePathWithinProject(WORK_DIR, relativePath);
 
       this.log2.consoleLogDevOnly("info", "Creating directory", {
         path: relativePath,
@@ -196,7 +194,7 @@ export class SandboxService {
       sessionId = `temp-${Date.now()}`;
       try {
         this.terminalService.getOrCreateTerminalSession(sessionId, "generic", {
-          cwd: cwd || this.workDir,
+          cwd: cwd || WORK_DIR,
         });
         shouldCleanupSession = true;
         this.log2.consoleLogDevOnly(
@@ -385,7 +383,7 @@ export class SandboxService {
   public async readFile(relativePath: string): Promise<ReadFileResult> {
     try {
       // Security: Validate path is within workDir
-      const resolvedPath = resolvePathWithinProject(this.workDir, relativePath);
+      const resolvedPath = resolvePathWithinProject(WORK_DIR, relativePath);
 
       this.log2.consoleLogDevOnly("info", "Reading file", {
         path: relativePath,
@@ -454,10 +452,7 @@ export class SandboxService {
       const fullRelativePath = path.join(relativePath, filename);
 
       // Security: Validate path is within workDir
-      const resolvedPath = resolvePathWithinProject(
-        this.workDir,
-        fullRelativePath,
-      );
+      const resolvedPath = resolvePathWithinProject(WORK_DIR, fullRelativePath);
 
       this.log2.consoleLogDevOnly("info", "Writing file", {
         path: fullRelativePath,
@@ -519,11 +514,11 @@ export class SandboxService {
       // Determine target directory
       let resolvedPath: string;
       if (targetPath) {
-        resolvedPath = resolvePathWithinProject(this.workDir, targetPath);
+        resolvedPath = resolvePathWithinProject(WORK_DIR, targetPath);
       } else {
         // Extract repo name from URL and use as target path
         const repoName = this.extractRepoName(gitUrl);
-        resolvedPath = resolvePathWithinProject(this.workDir, repoName);
+        resolvedPath = resolvePathWithinProject(WORK_DIR, repoName);
       }
 
       this.log2.consoleLogDevOnly("info", "Cloning git repository", {
@@ -669,7 +664,7 @@ export class SandboxService {
         "git",
         ["clone", "--depth", "1", gitUrl, targetPath],
         {
-          cwd: this.workDir,
+          cwd: WORK_DIR,
           stdio: ["pipe", "pipe", "pipe"],
         },
       );

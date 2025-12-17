@@ -45,6 +45,7 @@ import { createDevelopmentToolsMcpServer } from "./mcp/mcp-dev-tools.js";
 import { getToolDisplayName } from "./message-handlers.js";
 import { ToolPermissionService } from "./tool-permission-service.js";
 import { trackApiUsageBuildWorker } from "./usage-tracking.js";
+import { WORK_DIR } from "../../worker.js";
 
 const HISTORY_MESSAGE_REQUEST_COUNT = 6;
 
@@ -58,7 +59,7 @@ interface CodeSessionState {
   modifiedFilesThisQuery: Set<string>;
   designSystemId: string | null;
   designSystemRules: string | null;
-  firstMessageStatus: { sessionId: string; isFirst: boolean; } | null;
+  firstMessageStatus: { sessionId: string; isFirst: boolean } | null;
 }
 
 interface ToolInputWithFilePath {
@@ -125,9 +126,9 @@ interface MessageHandlers {
   uploadChatImages: (
     prototypeId: string,
     chatSessionId: string,
-    images: Array<{ base64: string; mediaType: string; }>,
+    images: Array<{ base64: string; mediaType: string }>,
   ) => Promise<
-    Array<{ storage_path: string; media_type: string; file_size: number; }>
+    Array<{ storage_path: string; media_type: string; file_size: number }>
   >;
   updatePersistenceClient?: (client: unknown) => void;
   notifyOrchestrationStartChat: (prototypeId: string) => Promise<void>;
@@ -136,9 +137,9 @@ interface MessageHandlers {
 
 interface StreamContext {
   messageContent:
-  | string
-  | Array<{ type: string; text?: string; source?: unknown; }>;
-  queryOptions: Options & { resume?: string; };
+    | string
+    | Array<{ type: string; text?: string; source?: unknown }>;
+  queryOptions: Options & { resume?: string };
   sessionState: CodeSessionState;
   validAiChatSessionIds: Set<string>;
   socket: WebSocket;
@@ -174,7 +175,6 @@ export class ChatQueryHandler {
   private static readonly MCP_STREAM_MAX_WAIT_MS = 120000; // 2 minutes (accounting for maxTurns: 50)
   private static readonly MCP_STREAM_POLL_INTERVAL_MS = 100; // Check every 100ms
 
-  private readonly workDir: string;
   private readonly logger: SystemLogger;
   private readonly supabaseClientService: SupabaseClientService;
   private readonly fileSyncService: FileSyncService;
@@ -187,7 +187,6 @@ export class ChatQueryHandler {
   private enableDesignMcpTools: boolean;
 
   constructor(
-    workDir: string,
     logger: SystemLogger,
     supabaseClientService: SupabaseClientService,
     fileSyncService: FileSyncService,
@@ -199,7 +198,6 @@ export class ChatQueryHandler {
     enableDesignMcpTools: boolean,
     getAak: () => string | null,
   ) {
-    this.workDir = workDir;
     this.logger = logger.child({ service: "ChatQueryHandler" });
     this.supabaseClientService = supabaseClientService;
     this.fileSyncService = fileSyncService;
@@ -346,9 +344,9 @@ export class ChatQueryHandler {
             ? content
             : Array.isArray(content)
               ? content
-                .filter((block) => block.type === "text")
-                .map((block) => block.text || "")
-                .join("\n")
+                  .filter((block) => block.type === "text")
+                  .map((block) => block.text || "")
+                  .join("\n")
               : prompt || "";
 
         if (userMessageText) {
@@ -430,7 +428,7 @@ export class ChatQueryHandler {
 
               // Always persist design spec to CLAUDE.md and project_context for now
               await persistDesignSpecToFiles(
-                this.workDir,
+                WORK_DIR,
                 designSpec,
                 this.logger,
                 prototypeId,
@@ -903,7 +901,7 @@ export class ChatQueryHandler {
     userMessage: string,
     abortController: AbortController,
     _systemPrompt: string,
-  ): Promise<{ designSpec: string | null; costUsd: number | undefined; }> {
+  ): Promise<{ designSpec: string | null; costUsd: number | undefined }> {
     // Use Gemini by default for design agent (fast and free)
     const provider: DesignAgentProvider = "google";
     const model = DEFAULT_DESIGN_AGENT_MODELS[provider];
@@ -919,7 +917,7 @@ export class ChatQueryHandler {
       provider,
       model,
       userMessage,
-      workDir: this.workDir,
+      workDir: WORK_DIR,
       abortController,
       logger: this.logger,
       prototypeId,
@@ -1135,7 +1133,7 @@ export class ChatQueryHandler {
         isValidSessionId,
         internalSessionId: sessionState.sessionId,
         model: queryOptions.model,
-        cwd: this.workDir,
+        cwd: WORK_DIR,
       });
 
       // Execute query and stream responses
@@ -1210,7 +1208,7 @@ export class ChatQueryHandler {
   private prepareMessageContent(
     prompt: string | undefined,
     content: ChatContentBlock[] | undefined,
-  ): string | Array<{ type: string; text?: string; source?: unknown; }> {
+  ): string | Array<{ type: string; text?: string; source?: unknown }> {
     if (content) {
       return content.map((block) => {
         if (block.type === "text") {
@@ -1236,8 +1234,8 @@ export class ChatQueryHandler {
   private extractImagesFromContent(
     messageContent:
       | string
-      | Array<{ type: string; text?: string; source?: unknown; }>,
-  ): Array<{ base64: string; mediaType: string; }> {
+      | Array<{ type: string; text?: string; source?: unknown }>,
+  ): Array<{ base64: string; mediaType: string }> {
     if (!Array.isArray(messageContent)) {
       return [];
     }
@@ -1245,8 +1243,8 @@ export class ChatQueryHandler {
     return messageContent
       .filter((block) => block.type === "image")
       .map((block) => ({
-        base64: (block.source as { data: string; }).data,
-        mediaType: (block.source as { media_type: string; }).media_type,
+        base64: (block.source as { data: string }).data,
+        mediaType: (block.source as { media_type: string }).media_type,
       }));
   }
 
@@ -1256,8 +1254,8 @@ export class ChatQueryHandler {
   private async persistUserMessage(
     messageContent:
       | string
-      | Array<{ type: string; text?: string; source?: unknown; }>,
-    imagesFromContent: Array<{ base64: string; mediaType: string; }>,
+      | Array<{ type: string; text?: string; source?: unknown }>,
+    imagesFromContent: Array<{ base64: string; mediaType: string }>,
     imageMetadata: Array<{
       storage_path: string;
       media_type: string;
@@ -1275,9 +1273,9 @@ export class ChatQueryHandler {
       typeof messageContent === "string"
         ? messageContent
         : messageContent
-          .filter((block) => block.type === "text")
-          .map((block) => block.text || "")
-          .join("\n");
+            .filter((block) => block.type === "text")
+            .map((block) => block.text || "")
+            .join("\n");
 
     const hasImages = imagesFromContent.length > 0;
     const userMessageDisplay = hasImages
@@ -1302,7 +1300,7 @@ export class ChatQueryHandler {
     sessionState: CodeSessionState,
     handlers: MessageHandlers,
     flushAssistantBuffer: () => Promise<void>,
-  ): Promise<Options & { resume?: string; }> {
+  ): Promise<Options & { resume?: string }> {
     const canUseTool: CanUseTool = async (
       toolName: ToolName,
       input: ToolInput,
@@ -1344,8 +1342,10 @@ export class ChatQueryHandler {
     const mcpServers: Record<string, McpSdkServerConfigWithInstance> = {
       devtools: createDevelopmentToolsMcpServer(
         async (command: string, args: string[]) => {
-          const executeSandboxCommandResult =
-            await this.executeSandboxCommand(command, args);
+          const executeSandboxCommandResult = await this.executeSandboxCommand(
+            command,
+            args,
+          );
           return executeSandboxCommandResult;
         },
         async (filePath: string, content: string) => {
@@ -1387,7 +1387,7 @@ export class ChatQueryHandler {
     return {
       ...options,
       includePartialMessages: false,
-      cwd: this.workDir,
+      cwd: WORK_DIR,
       maxTurns: options?.maxTurns ?? 50,
       disallowedTools: ["Write", "Bash"],
       allowedTools: options?.allowedTools ?? allowedToolsDefault,
@@ -1411,7 +1411,7 @@ export class ChatQueryHandler {
               async (
                 input: HookInput,
                 toolUseID: string | undefined,
-                _options: { signal: AbortSignal; },
+                _options: { signal: AbortSignal },
               ): Promise<HookJSONOutput> => {
                 const hookContext: HookContext = {
                   input,
@@ -1430,7 +1430,7 @@ export class ChatQueryHandler {
               async (
                 input: HookInput,
                 toolUseID: string | undefined,
-                _options: { signal: AbortSignal; },
+                _options: { signal: AbortSignal },
               ): Promise<HookJSONOutput> => {
                 const hookContext: HookContext = {
                   input,
@@ -1453,13 +1453,13 @@ export class ChatQueryHandler {
   private async executeSandboxCommand(
     command: string,
     args: string[],
-  ): Promise<{ stdout: string; isError: boolean; }> {
+  ): Promise<{ stdout: string; isError: boolean }> {
     try {
       const { response: responseRaw } =
         await this.sandboxService.runCommandInternal({
           command,
           args,
-          cwd: this.workDir,
+          cwd: WORK_DIR,
           session_id: "test",
           timeout_ms: 30000,
           strip_ansi: true,
@@ -1514,11 +1514,8 @@ export class ChatQueryHandler {
   }> {
     try {
       // Parse the file path to get directory and filename
-      const resolvedPath = path.resolve(this.workDir, filePath);
-      const relativePath = path.relative(
-        this.workDir,
-        path.dirname(resolvedPath),
-      );
+      const resolvedPath = path.resolve(WORK_DIR, filePath);
+      const relativePath = path.relative(WORK_DIR, path.dirname(resolvedPath));
       const filename = path.basename(resolvedPath);
 
       this.logger.consoleLogDevOnly("info", "MCP Write tool: writing file", {
@@ -1781,7 +1778,7 @@ export class ChatQueryHandler {
     } = streamContext;
 
     // Shared state for MCP stream fix - allows generator to monitor for result message
-    const messages: Array<{ type: string;[key: string]: unknown; }> = [];
+    const messages: Array<{ type: string; [key: string]: unknown }> = [];
 
     // Create async generator for streaming input
     const generateMessages = async function* (): AsyncGenerator<{
@@ -1789,8 +1786,8 @@ export class ChatQueryHandler {
       message: {
         role: "user";
         content:
-        | string
-        | Array<{ type: string; text?: string; source?: unknown; }>;
+          | string
+          | Array<{ type: string; text?: string; source?: unknown }>;
       };
     }> {
       // Design spec is now written to CLAUDE.md and automatically read by Claude Code SDK
@@ -2129,8 +2126,8 @@ export class ChatQueryHandler {
    * Converts absolute file path to relative path from workDir
    */
   private getRelativePath(absolutePath: string): string {
-    if (absolutePath.startsWith(this.workDir)) {
-      return absolutePath.slice(this.workDir.length + 1);
+    if (absolutePath.startsWith(WORK_DIR)) {
+      return absolutePath.slice(WORK_DIR.length + 1);
     }
     return absolutePath;
   }

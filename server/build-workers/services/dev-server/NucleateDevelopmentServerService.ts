@@ -42,7 +42,6 @@ export class NucleateDevelopmentServerService {
   public readonly sandboxService: SandboxService;
   public readonly cloudflareTunnelManagementService: CloudflareTunnelManagementService;
   public chatService: ChatService;
-  public readonly workDir: string;
   public readonly supabaseClientService: SupabaseClientService;
   public readonly fileSyncService: FileSyncService;
   public readonly terminalService: TerminalService;
@@ -61,7 +60,6 @@ export class NucleateDevelopmentServerService {
   constructor(
     sandboxService: SandboxService,
     cloudflareTunnelManagementService: CloudflareTunnelManagementService,
-    workDir: string,
     supabaseClientService: SupabaseClientService,
     fileSyncService: FileSyncService,
     terminalService: TerminalService,
@@ -70,7 +68,6 @@ export class NucleateDevelopmentServerService {
     this.sandboxService = sandboxService;
     this.cloudflareTunnelManagementService = cloudflareTunnelManagementService;
     this.chatService = codeService;
-    this.workDir = workDir;
     this.supabaseClientService = supabaseClientService;
     this.fileSyncService = fileSyncService;
     this.terminalService = terminalService;
@@ -197,7 +194,8 @@ export class NucleateDevelopmentServerService {
       devServerStatus: this.developmentServerState.devServerStatus,
       builtVersion: this.developmentServerState.builtVersion,
       buildStartTime: this.developmentServerState.buildStartTime.toISOString(),
-      lastUpdatedTime: this.developmentServerState.lastUpdatedTime.toISOString(),
+      lastUpdatedTime:
+        this.developmentServerState.lastUpdatedTime.toISOString(),
       buildError: this.developmentServerState.buildError,
     });
   }
@@ -284,7 +282,8 @@ export class NucleateDevelopmentServerService {
         version: uploadResult.version,
       });
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
       log2.error(
         error instanceof Error ? error : new Error(errorMessage),
         "Failed to upload to S3",
