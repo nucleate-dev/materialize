@@ -295,7 +295,7 @@ export class ClaudeCodeCliQueryHandler {
     const cliProcess = spawn('claude', args, {
       cwd: this.workDir,
       env,
-      stdio: ['pipe', 'pipe', 'pipe'],
+      stdio: ['ignore', 'pipe', 'pipe'],
     }) as ChildProcessWithoutNullStreams;
 
     return cliProcess;
