@@ -432,7 +432,7 @@ export class ClaudeCodeCliQueryHandler {
   }
 
   /**
-   * Handle assistant message - extract text and tool calls
+   * Handle assistant message - forward to frontend and process tool calls
    */
   private async handleAssistantMessage(
     message: ClaudeCodeMessage,
@@ -443,19 +443,19 @@ export class ClaudeCodeCliQueryHandler {
     const { sendMessage, persistMessage } = handlers;
     const content = message.message?.content || [];
 
-    // Process text content
+    // Forward the entire CLI message to frontend (it expects this exact structure)
+    sendMessage(socket, {
+      type: ChatEvent.AGENT_MESSAGE,
+      data: message,  // Send the whole message - frontend expects type:"assistant" and message.content
+    });
+
+    // Extract and persist text content to database
     const textParts = content
       .filter((c): c is { type: 'text'; text: string; } => c.type === 'text')
       .map((c) => c.text);
 
     if (textParts.length > 0) {
       const text = textParts.join('');
-      sendMessage(socket, {
-        type: ChatEvent.AGENT_MESSAGE,
-        data: { role: 'assistant', content: text },
-      });
-
-      // Persist text to database
       await persistMessage('assistant', text, 'text');
     }
 
