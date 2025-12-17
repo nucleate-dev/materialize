@@ -18,7 +18,7 @@ const ROOT_FILES = new Set([".gitignore"]);
  * Check if a file path is already in the mobile/ directory
  */
 function isInMobileDir(path: string): boolean {
-  return path.startsWith("mobile");
+  return path.startsWith("client");
 }
 
 /**
@@ -49,7 +49,7 @@ export const backfill: NucleateBackfill<"prototype_files"> = {
 
   async genFixRow(row) {
     // Move the file to mobile/
-    const newPath = `mobile/${row.name}`;
+    const newPath = `client/${row.name}`;
 
     return {
       ...row,
