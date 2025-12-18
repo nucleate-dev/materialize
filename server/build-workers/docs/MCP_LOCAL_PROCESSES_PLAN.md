@@ -94,10 +94,10 @@ In-process callbacks cannot be passed to separate MCP server processes. We need:
 │  │                              │                                              ││
 │  │                              ▼                                              ││
 │  │  ┌─────────────────────────────────────────────────────────────────────────┐││
-│  │  │                    Internal MCP API Routes                              │││
-│  │  │  POST /internal/mcp/write        POST /internal/mcp/bash                │││
-│  │  │  GET  /internal/mcp/terminal     POST /internal/mcp/restart-dev-server  │││
-│  │  │  POST /internal/mcp/gemini-design                                       │││
+│  │  │                       MCP API Routes                                    │││
+│  │  │  POST /mcp/write                 POST /mcp/bash                         │││
+│  │  │  GET  /mcp/terminal              POST /mcp/restart-dev-server           │││
+│  │  │  POST /mcp/gemini-design                                                │││
 │  │  └─────────────────────────────────────────────────────────────────────────┘││
 │  └─────────────────────────────────────────────────────────────────────────────┘│
 │                                        ▲                                         │
@@ -157,11 +157,11 @@ The Fastify server will generate this configuration file at startup and place it
 
 ## Implementation Plan
 
-### Phase 1: Internal MCP API Routes
+### Phase 1: MCP API Routes
 
 Create HTTP endpoints that expose the service layer functionality to MCP servers.
 
-#### File: `server/build-workers/routes/internal-mcp-api.ts`
+#### File: `server/build-workers/routes/mcp-api.ts`
 
 ```typescript
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
@@ -219,16 +219,16 @@ interface GeminiDesignResponse {
   error?: string;
 }
 
-export function registerInternalMcpRoutes(
+export function registerMcpRoutes(
   app: FastifyInstance,
   sandboxService: SandboxService,
   terminalService: TerminalService,
   devServerService: NucleateDevelopmentServerService,
 ): void {
 
-  // POST /internal/mcp/write
+  // POST /mcp/write
   app.post<{ Body: WriteFileRequest; Reply: WriteFileResponse }>(
-    '/internal/mcp/write',
+    '/mcp/write',
     async (request, reply) => {
       const { filePath, content } = request.body;
       try {
@@ -244,9 +244,9 @@ export function registerInternalMcpRoutes(
     }
   );
 
-  // POST /internal/mcp/bash
+  // POST /mcp/bash
   app.post<{ Body: BashRequest; Reply: BashResponse }>(
-    '/internal/mcp/bash',
+    '/mcp/bash',
     async (request, reply) => {
       const { command, args = [] } = request.body;
       try {
@@ -270,9 +270,9 @@ export function registerInternalMcpRoutes(
     }
   );
 
-  // GET /internal/mcp/terminal
+  // GET /mcp/terminal
   app.get<{ Querystring: TerminalRequest; Reply: TerminalResponse }>(
-    '/internal/mcp/terminal',
+    '/mcp/terminal',
     async (request, reply) => {
       const lines = Math.min(Math.max(request.query.lines || 20, 1), 1000);
       const output = terminalService.getRecentOutput(lines);
@@ -280,9 +280,9 @@ export function registerInternalMcpRoutes(
     }
   );
 
-  // POST /internal/mcp/restart-dev-server
+  // POST /mcp/restart-dev-server
   app.post<{ Reply: RestartDevServerResponse }>(
-    '/internal/mcp/restart-dev-server',
+    '/mcp/restart-dev-server',
     async (request, reply) => {
       try {
         await devServerService.developmentServerAdapter.restartDevServer(
@@ -298,9 +298,9 @@ export function registerInternalMcpRoutes(
     }
   );
 
-  // POST /internal/mcp/gemini-design (for design tools MCP server)
+  // POST /mcp/gemini-design (for design tools MCP server)
   app.post<{ Body: GeminiDesignRequest; Reply: GeminiDesignResponse }>(
-    '/internal/mcp/gemini-design',
+    '/mcp/gemini-design',
     async (request, reply) => {
       const { request: designRequest, context } = request.body;
       try {
@@ -606,7 +606,7 @@ export class InternalApiClient {
   }
 
   async writeFile(filePath: string, content: string): Promise<WriteFileResponse> {
-    const response = await fetch(`${this.baseUrl}/internal/mcp/write`, {
+    const response = await fetch(`${this.baseUrl}/mcp/write`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ filePath, content }),
@@ -615,7 +615,7 @@ export class InternalApiClient {
   }
 
   async runBash(command: string, args?: string[]): Promise<BashResponse> {
-    const response = await fetch(`${this.baseUrl}/internal/mcp/bash`, {
+    const response = await fetch(`${this.baseUrl}/mcp/bash`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ command, args }),
@@ -624,14 +624,14 @@ export class InternalApiClient {
   }
 
   async getTerminalOutput(lines?: number): Promise<TerminalResponse> {
-    const url = new URL(`${this.baseUrl}/internal/mcp/terminal`);
+    const url = new URL(`${this.baseUrl}/mcp/terminal`);
     if (lines) url.searchParams.set("lines", String(lines));
     const response = await fetch(url.toString());
     return response.json() as Promise<TerminalResponse>;
   }
 
   async restartDevServer(): Promise<RestartResponse> {
-    const response = await fetch(`${this.baseUrl}/internal/mcp/restart-dev-server`, {
+    const response = await fetch(`${this.baseUrl}/mcp/restart-dev-server`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
     });
@@ -643,7 +643,7 @@ export class InternalApiClient {
 ### Phase 3: Worker.ts Integration
 
 Update worker.ts to:
-1. Register internal MCP API routes
+1. Register MCP API routes
 2. Spawn MCP server processes on startup
 3. Generate `.mcp.json` configuration file
 4. Handle graceful shutdown of MCP processes
@@ -652,7 +652,7 @@ Update worker.ts to:
 
 ```typescript
 import { spawn, ChildProcess } from 'child_process';
-import { registerInternalMcpRoutes } from './routes/internal-mcp-api.js';
+import { registerMcpRoutes } from './routes/mcp-api.js';
 
 // ... existing imports and setup ...
 
@@ -660,8 +660,8 @@ import { registerInternalMcpRoutes } from './routes/internal-mcp-api.js';
 let mcpDevToolsProcess: ChildProcess | null = null;
 let mcpDesignToolsProcess: ChildProcess | null = null;
 
-// Register internal MCP API routes
-registerInternalMcpRoutes(
+// Register MCP API routes
+registerMcpRoutes(
   app,
   sandboxService,
   terminalService,
@@ -834,7 +834,7 @@ COPY --from=mcp-builder /build/mcp-servers/design-tools/node_modules /app/mcp-se
 
 ### Phase 5: Testing
 
-1. **Unit Tests**: Test internal API endpoints
+1. **Unit Tests**: Test MCP API endpoints
 2. **Integration Tests**: Test MCP server tool calls
 3. **E2E Tests**: Test with Claude Code CLI
 
@@ -846,7 +846,7 @@ COPY --from=mcp-builder /build/mcp-servers/design-tools/node_modules /app/mcp-se
 
 | File | Purpose |
 |------|---------|
-| `routes/internal-mcp-api.ts` | Internal HTTP API endpoints for MCP servers |
+| `routes/mcp-api.ts` | HTTP API endpoints for MCP servers |
 | `mcp-servers/dev-tools/package.json` | Dev tools MCP server package config |
 | `mcp-servers/dev-tools/tsconfig.json` | TypeScript config |
 | `mcp-servers/dev-tools/src/index.ts` | Entry point |
@@ -860,7 +860,7 @@ COPY --from=mcp-builder /build/mcp-servers/design-tools/node_modules /app/mcp-se
 
 | File | Changes |
 |------|---------|
-| `worker.ts` | Register internal routes, generate .mcp.json |
+| `worker.ts` | Register MCP routes, generate .mcp.json |
 | `Dockerfile` | Build and copy MCP server packages |
 | `package.json` | Add workspace reference to mcp-servers |
 
@@ -884,12 +884,12 @@ COPY --from=mcp-builder /build/mcp-servers/design-tools/node_modules /app/mcp-se
 
 ## Implementation Order
 
-1. [ ] Create `routes/internal-mcp-api.ts` with all endpoints
+1. [ ] Create `routes/mcp-api.ts` with all endpoints
 2. [ ] Create `mcp-servers/shared/` with base client and types
 3. [ ] Create `mcp-servers/dev-tools/` package
 4. [ ] Create `mcp-servers/design-tools/` package
 5. [ ] Update `worker.ts` to register routes and generate config
 6. [ ] Update `Dockerfile` to build MCP servers
-7. [ ] Write tests for internal API
+7. [ ] Write tests for MCP API
 8. [ ] Write tests for MCP servers
 9. [ ] E2E test with Claude Code CLI
