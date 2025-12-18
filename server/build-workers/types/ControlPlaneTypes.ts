@@ -5,7 +5,7 @@
 // To update these types, modify the source file and run:
 // npm run build (in the control-plane directory)
 //
-// Last synced: 2025-12-18T09:51:38.794Z
+// Last synced: 2025-12-18T19:07:53.386Z
 
 // Public API types for the Control Plane Server
 // These types define the request and response schemas for all public endpoints
@@ -113,6 +113,18 @@ export interface DispatchPrecheckSuccessResponse {
   status: BuildStatus | null;
   viewing_url: string;
   terminal_tunnel_hostname: string | null;
+}
+
+// ============================================================================
+// /dev-server/restart ENDPOINT
+// ============================================================================
+
+export interface RestartDevServerRequestBody {
+  prototype_id: string;
+}
+
+export interface RestartDevServerSuccessResponse {
+  message: string;
 }
 
 // ============================================================================
@@ -244,29 +256,6 @@ export interface DeletePrototypeErrorResponse {
 }
 
 // ============================================================================
-// /files/update-files ENDPOINT
-// ============================================================================
-
-export interface UpdateFilesRequestBody {
-  files: PrototypeFileInput[];
-  assets: PrototypeAssetInputWithContent[]; // There's support here, but we probably will not have assets to update.
-  prototype_id: string;
-  deleted_files?: string[];
-}
-
-export interface UpdateFilesSuccessResponse {
-  success: true;
-  status: 'success' | 'error';
-  viewing_url: string;
-  message: string;
-}
-
-export interface UpdateFilesErrorResponse {
-  error: string;
-  message: string;
-}
-
-// ============================================================================
 // /files/start-dev-server ENDPOINT
 // ============================================================================
 
@@ -281,18 +270,6 @@ export interface StartDevServerSuccessResponse {
   viewing_url: string;
   message: string;
   terminal_url: string | null;
-}
-
-// ============================================================================
-// /dev-server/restart ENDPOINT
-// ============================================================================
-
-export interface RestartDevServerRequestBody {
-  prototype_id: string;
-}
-
-export interface RestartDevServerSuccessResponse {
-  message: string;
 }
 
 // ============================================================================

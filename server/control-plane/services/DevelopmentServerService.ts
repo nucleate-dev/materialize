@@ -176,6 +176,8 @@ export class DevelopmentServerService {
         },
         token,
         request.log2,
+        request.posthogLogger,
+        authResponse.user.id,
       );
       if (dispatchResult.error) {
         request.log2.error(

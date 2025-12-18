@@ -21,6 +21,8 @@ import {
   PublicRunCommandRequest,
   PublicRunCommandSuccessResponse,
 } from '../../types/BuildWorkerTypes.js';
+import { PostHogLogger } from '../../loggers/PostHogLogger.js';
+import { PostHogEvents } from '../../loggers/PostHogEvents.js';
 
 dotenv.config();
 
@@ -46,16 +48,28 @@ export class DispatcherService {
     body: DispatchRequestBody,
     jwt: string,
     log2: SystemLogger,
+    posthogLogger: PostHogLogger,
+    userId: string,
   ): Promise<APIResponse<DispatchSuccessResponse, StandardErrorResponse>> {
     const localLog = log2.child({
       function: 'dispatch',
     });
-    return handleDispatchImpl(
-      body,
-      jwt,
-      this.cache,
-      this.idleContainerAllocationSystem,
-      localLog,
+    posthogLogger = posthogLogger.child({
+      function: 'dispatch',
+      service: 'DispatcherService',
+      prototype_id: body.prototype_id,
+    });
+    return await posthogLogger.timeAndRecord(
+      userId,
+      PostHogEvents.dispatch,
+      () =>
+        handleDispatchImpl(
+          body,
+          jwt,
+          this.cache,
+          this.idleContainerAllocationSystem,
+          localLog,
+        ),
     );
   }
 
@@ -109,15 +123,5 @@ export class DispatcherService {
       function: 'runCommand',
     });
     return handleRunCommandImpl(body, jwt, this.cache, localLog);
-  }
-
-  public async dispatchRunCommand(
-    body: PublicRunCommandRequest & { prototype_id: string },
-    jwt: string,
-    log2: SystemLogger,
-  ): Promise<
-    APIResponse<PublicRunCommandSuccessResponse, StandardErrorResponse>
-  > {
-    return this.runCommand(body, jwt, log2);
   }
 }

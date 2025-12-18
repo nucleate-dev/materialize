@@ -11,6 +11,8 @@ import {
 } from '../types/PublicAPITypes.js';
 import { validateJWTToken } from '../utils/prototypeAuth.js';
 import { getSubscriptionInfo } from '../utils/subscriptionChecks.js';
+import { PostHogLogger } from '../loggers/PostHogLogger.js';
+import { PostHogEvents } from '../loggers/PostHogEvents.js';
 
 // Initialize Stripe
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
@@ -103,6 +105,13 @@ export class StripeManagementService {
 
     const { productID } = request.body;
 
+    // Setup PostHog logger with context
+    let posthogLogger = request.posthogLogger.child({
+      function: 'handleCheckout',
+      service: 'StripeManagementService',
+      productID,
+    });
+
     // Handle free tier - no Stripe checkout needed
     if (productID === 'free') {
       request.log2.warn('Free tier selected - no Stripe checkout needed');
@@ -140,38 +149,45 @@ export class StripeManagementService {
     }
 
     try {
-      const sessionConfig: Stripe.Checkout.SessionCreateParams = {
-        payment_method_types: ['card', 'us_bank_account'],
-        line_items: [
-          {
-            price: priceID,
-            quantity: 1,
-          },
-        ],
-        mode,
-        success_url: `${process.env.SITE_BASE_URL}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${process.env.SITE_BASE_URL}/dashboard/account`,
-        allow_promotion_codes: true,
-      };
+      const result = await posthogLogger.timeAndRecord(
+        user.id,
+        PostHogEvents.stripe_checkout_session_created,
+        async () => {
+          const sessionConfig: Stripe.Checkout.SessionCreateParams = {
+            payment_method_types: ['card', 'us_bank_account'],
+            line_items: [
+              {
+                price: priceID,
+                quantity: 1,
+              },
+            ],
+            mode,
+            success_url: `${process.env.SITE_BASE_URL}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
+            cancel_url: `${process.env.SITE_BASE_URL}/dashboard/account`,
+            allow_promotion_codes: true,
+          };
 
-      if (mode === 'subscription') {
-        sessionConfig.subscription_data = {
-          metadata: {
-            user_id: user.id,
-          },
-        };
-      } else {
-        // For one-time payments (credit packs)
-        sessionConfig.metadata = {
-          user_id: user.id,
-        };
-      }
+          if (mode === 'subscription') {
+            sessionConfig.subscription_data = {
+              metadata: {
+                user_id: user.id,
+              },
+            };
+          } else {
+            // For one-time payments (credit packs)
+            sessionConfig.metadata = {
+              user_id: user.id,
+            };
+          }
 
-      const session = await stripe.checkout.sessions.create(sessionConfig);
+          const session = await stripe.checkout.sessions.create(sessionConfig);
+          return session;
+        },
+      );
 
       return reply.status(HTTP_STATUS.OK).send({
         data: {
-          id: session.id,
+          id: result.id,
         },
         error: null,
       });
@@ -251,6 +267,12 @@ export class StripeManagementService {
       userId: user.id,
     });
 
+    // Setup PostHog logger with context
+    let posthogLogger = request.posthogLogger.child({
+      function: 'handleManageBilling',
+      service: 'StripeManagementService',
+    });
+
     const subscriptionInfo = await getSubscriptionInfo(
       token,
       user.id,
@@ -258,15 +280,22 @@ export class StripeManagementService {
     );
 
     try {
-      // Create Stripe billing portal session
-      const session = await stripe.billingPortal.sessions.create({
-        customer: subscriptionInfo.stripeCustomerId,
-        return_url: `${process.env.SITE_BASE_URL}/dashboard/account`,
-      });
+      const result = await posthogLogger.timeAndRecord(
+        user.id,
+        PostHogEvents.stripe_billing_portal_session_created,
+        async () => {
+          // Create Stripe billing portal session
+          const session = await stripe.billingPortal.sessions.create({
+            customer: subscriptionInfo.stripeCustomerId,
+            return_url: `${process.env.SITE_BASE_URL}/dashboard/account`,
+          });
+          return session;
+        },
+      );
 
       return reply.status(HTTP_STATUS.OK).send({
         data: {
-          redirect_url: session.url,
+          redirect_url: result.url,
         },
         error: null,
       });
