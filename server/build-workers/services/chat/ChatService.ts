@@ -32,10 +32,6 @@ import { WORK_DIR } from "../../worker.js";
 
 const CHAT_HEARTBEAT_INTERVAL_MS = 15000;
 
-// Feature flag: Enable Claude Code CLI mode
-// Set to true to use the CLI instead of the SDK
-const USE_CLAUDE_CODE_CLI = false;
-
 interface CodeSessionState {
   sessionId: string | null;
   prototypeChatSessionId: string | null; // ID from prototype_chat_sessions table
@@ -65,7 +61,7 @@ export class ChatService {
   private readonly messagePersistenceService: MessagePersistenceService;
   private readonly chatQueryHandler: ChatQueryHandler;
   private readonly vercelChatQueryHandler: VercelChatQueryHandler;
-  private readonly claudeCodeCliQueryHandler: ClaudeCodeCliQueryHandler | null;
+  private readonly claudeCodeCliQueryHandler: ClaudeCodeCliQueryHandler;
   private readonly claudeTokenService: ClaudeTokenService;
   private featureFlags: FeatureFlags = { ...DEFAULT_FLAGS };
   private sessionState: CodeSessionState = {
@@ -150,25 +146,19 @@ export class ChatService {
       logger,
     );
 
-    // Initialize ClaudeCodeCliQueryHandler if CLI mode is enabled
-    if (USE_CLAUDE_CODE_CLI) {
-      this.claudeCodeCliQueryHandler = new ClaudeCodeCliQueryHandler(
-        logger,
-        supabaseClientService,
-        this.toolPermissionService,
-      );
-      this.logger.info(
-        "Claude Code CLI mode enabled - REQUIRES user subscription token",
-      );
-    } else {
-      this.claudeCodeCliQueryHandler = null;
-      this.logger.info("Using Claude Agent SDK mode");
-    }
+    // Always initialize ClaudeCodeCliQueryHandler - will be used if user has a token
+    this.claudeCodeCliQueryHandler = new ClaudeCodeCliQueryHandler(
+      logger,
+      supabaseClientService,
+      this.toolPermissionService,
+    );
+    this.logger.info(
+      "Claude Code CLI handler initialized - will be used for users with subscription tokens",
+    );
 
     this.logger.consoleLogDevOnly("info", "CodeService initialized", {
       workDir: WORK_DIR,
       allowedRoot: this.allowedRoot,
-      useCli: USE_CLAUDE_CODE_CLI,
     });
 
     void this.refreshFeatureFlags();
@@ -417,14 +407,48 @@ export class ChatService {
       return;
     }
 
-    // Delegate to appropriate handler based on provider and CLI mode
+    // Check if user has a Claude Code subscription token
+    let useCliMode = false;
+    const token = data.token;
+
+    if (token && provider === "claude") {
+      try {
+        // Decode JWT to extract user ID
+        const payload = JSON.parse(
+          Buffer.from(token.split(".")[1], "base64").toString(),
+        );
+        const userId = payload.sub;
+
+        if (userId) {
+          // Check if user has a Claude subscription token in the database
+          const userToken =
+            await this.claudeTokenService.getUserToken(userId);
+          useCliMode = !!userToken;
+
+          this.logger.consoleLogDevOnly(
+            "info",
+            "Checked user Claude subscription token",
+            {
+              userId,
+              hasToken: useCliMode,
+            },
+          );
+        }
+      } catch (error) {
+        this.logger.warn("Failed to check user Claude subscription token", {
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+
+    // Delegate to appropriate handler based on provider and user subscription
     let handler;
     let handlerName: string;
 
     if (provider === "vercel") {
       handler = this.vercelChatQueryHandler;
       handlerName = "vercel";
-    } else if (USE_CLAUDE_CODE_CLI && this.claudeCodeCliQueryHandler) {
+    } else if (useCliMode && this.claudeCodeCliQueryHandler) {
       handler = this.claudeCodeCliQueryHandler;
       handlerName = "claude-cli";
     } else {
@@ -435,7 +459,7 @@ export class ChatService {
     this.logger.consoleLogDevOnly("info", "Dispatching chat query to handler", {
       prototypeId,
       handler: handlerName,
-      useCli: USE_CLAUDE_CODE_CLI,
+      useCliMode,
       hasPrototypeChatSessionId: !!this.sessionState.prototypeChatSessionId,
       enableDesignAgentOnFirstMessage:
         this.featureFlags.ENABLE_DESIGN_AGENT_ON_FIRST_MESSAGE,
