@@ -2,6 +2,7 @@
 // A structured logger that writes JSON to stdout, optimized for CloudWatch Logs + EMF metrics.
 // Works in EC2, ECS/Fargate, Lambda (stdout). No runtime deps.
 import { LatencyEvent } from './LatencyEvents.js';
+import { PostHog } from 'posthog-node';
 
 type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 
@@ -62,6 +63,7 @@ export type SystemLoggerOptions = {
   redactKeys?: string[]; // keys to redact in fields (e.g., ["authorization","password","token"])
   defaultDimensions?: Record<string, string>; // EMF dimensions
   metricNamespace?: string; // EMF namespace, e.g. "Materialize/Service"
+  posthog?: PostHog; // Optional PostHog client for user event tracking
 };
 
 const DEFAULT_REDACTIONS = new Set([
@@ -85,6 +87,7 @@ export class SystemLogger {
   private redact: Set<string>;
   private dims: Record<string, string>;
   private metricNs: string;
+  private posthog?: PostHog;
 
   constructor(opts: SystemLoggerOptions, initial: LoggerContext = {}) {
     this.base = {
@@ -101,6 +104,7 @@ export class SystemLogger {
       env: opts.env,
     };
     this.metricNs = opts.metricNamespace ?? 'App/Service';
+    this.posthog = opts.posthog;
   }
 
   /** Create a child logger with more context (e.g., per request). */
@@ -112,6 +116,7 @@ export class SystemLogger {
         redactKeys: Array.from(this.redact),
         defaultDimensions: { ...this.dims },
         metricNamespace: this.metricNs,
+        posthog: this.posthog,
       },
       { ...this.base, ...extra },
     );
@@ -188,6 +193,20 @@ export class SystemLogger {
     extraDims: Record<string, string> = {},
   ): void {
     this.emitEMF([{ Name: name, Unit: 'Count' }], { [name]: count }, extraDims);
+
+    // Also send to PostHog if we have a userId
+    if (this.posthog && this.base.userId) {
+      this.posthog.capture({
+        distinctId: this.base.userId,
+        event: name,
+        properties: {
+          count,
+          ...extraDims,
+          service: this.base.service,
+          env: this.base.env,
+        },
+      });
+    }
   }
 
   /** Emit a timing/latency metric in milliseconds via EMF. */
@@ -201,6 +220,20 @@ export class SystemLogger {
       { [name]: ms },
       extraDims,
     );
+
+    // Also send to PostHog if we have a userId
+    if (this.posthog && this.base.userId) {
+      this.posthog.capture({
+        distinctId: this.base.userId,
+        event: name,
+        properties: {
+          duration_ms: ms,
+          ...extraDims,
+          service: this.base.service,
+          env: this.base.env,
+        },
+      });
+    }
   }
 
   /** Time a function and report duration under metric `name`.
@@ -261,6 +294,23 @@ export class SystemLogger {
         ...extraDims,
       },
     );
+
+    // Also send to PostHog if we have a userId
+    if (this.posthog && this.base.userId) {
+      this.posthog.capture({
+        distinctId: this.base.userId,
+        event: 'LLM_TokenUsage',
+        properties: {
+          model: modelName,
+          inputTokens,
+          outputTokens,
+          totalTokens: inputTokens + outputTokens,
+          ...extraDims,
+          service: this.base.service,
+          env: this.base.env,
+        },
+      });
+    }
   }
 
   /** Create a manual timer; call the returned done() when finished. */

@@ -48,6 +48,7 @@
     "jsonwebtoken": "^9.0.2",
     "jszip": "^3.10.1",
     "pm2": "^6.0.8",
+    "posthog-node": "^5.17.4",
     "puppeteer": "^24.33.0",
     "stripe": "^17.4.0",
     "zod": "^3.25.76"
