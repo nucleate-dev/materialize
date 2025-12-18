@@ -12,6 +12,7 @@ import { SandboxService } from "./services/SandboxService.js";
 import { SupabaseClientService } from "./services/SupabaseClientService.js";
 import { TerminalService } from "./services/terminals/TerminalService.js";
 import { PostHog } from "posthog-node";
+import { PostHogLogger } from "./loggers/PostHogLogger.js";
 
 // Load environment variables
 dotenv.config();
@@ -20,6 +21,7 @@ dotenv.config();
 declare module "fastify" {
   interface FastifyRequest {
     log2: SystemLogger;
+    posthogLogger: PostHogLogger;
   }
 }
 
@@ -33,6 +35,14 @@ export const baseLogger = new SystemLogger({
   metricNamespace: "Materialize/BuildWorker",
   redactKeys: ["authorization", "cookie", "x-api-key"],
   posthog,
+});
+
+export const posthogLogger = new PostHogLogger({
+  posthog,
+  context: {
+    server: "control-plane",
+    env: process.env.NODE_ENV || "development",
+  },
 });
 
 // --- Configuration ---
@@ -132,6 +142,15 @@ app.addHook("onRequest", async (req) => {
   const context = getWorkerContext();
 
   req.log2 = baseLogger.child({
+    requestId,
+    traceId,
+    route: req.routeOptions?.url,
+    method: req.method,
+    ...(context.userId && { userId: context.userId }),
+    ...(context.prototypeId && { prototypeId: context.prototypeId }),
+  });
+
+  req.posthogLogger = posthogLogger.child({
     requestId,
     traceId,
     route: req.routeOptions?.url,
