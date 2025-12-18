@@ -12,7 +12,7 @@ When creating a new prototype (non-fork), the system:
 
 1. Reads default app files from S3 `default-app-raw-files/` directory
 2. Inserts these files into Supabase `prototype_files` table
-3. Copies compiled files from S3 `default-app/` to the prototype's S3 bucket for hosting.
+3. Copies compiled files from S3 `default-app/` to the prototype's S3 bucket for hosting
 
 ### 2. Local Development
 
