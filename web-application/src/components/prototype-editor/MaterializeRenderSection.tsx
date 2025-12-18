@@ -1194,12 +1194,15 @@ const MaterializeRenderSection = forwardRef<
         toast.info("Build started! This may take 3-5 minutes...");
 
         // Await the build request
-        const response = await fetch(`${sandbox_url}/build-and-deploy`, {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
+        const response = await fetch(
+          `${sandbox_url}/dev-server/build-and-deploy`,
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
           },
-        });
+        );
 
         const result: APIResponse<{ message: string }, StandardErrorResponse> =
           await response.json().catch(() => ({ data: null, error: null }));
