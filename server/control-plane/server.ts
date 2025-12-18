@@ -32,15 +32,16 @@ declare module 'fastify' {
   }
 }
 
+export const posthog = new PostHog(process.env.POSTHOG_KEY!, {
+  host: process.env.POSTHOG_HOST!,
+});
+
 export const baseLogger = new SystemLogger({
   service: 'control-plane',
   env: process.env.NODE_ENV || 'development',
   metricNamespace: 'Materialize/Service',
   redactKeys: ['authorization', 'cookie', 'x-api-key'],
-});
-
-export const posthog = new PostHog(process.env.POSTHOG_KEY!, {
-  host: process.env.POSTHOG_HOST!,
+  posthog,
 });
 
 export const posthogLogger = new PostHogLogger({
