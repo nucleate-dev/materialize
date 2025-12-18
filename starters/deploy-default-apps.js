@@ -145,6 +145,8 @@ function getContentType(fileName) {
  */
 function shouldExcludeFile(filePath, basePath) {
   const relativePath = path.relative(basePath, filePath);
+  const pathSegments = relativePath.split(path.sep);
+  const basename = path.basename(filePath);
 
   return EXCLUDED_PATTERNS.some((pattern) => {
     if (pattern.includes("*")) {
@@ -153,12 +155,10 @@ function shouldExcludeFile(filePath, basePath) {
       const escapedPattern = pattern.replace(/[.+?^${}()|[\]\\]/g, "\\$&");
       const regexPattern = "^" + escapedPattern.replace(/\*/g, "[^/]*") + "$";
       const regex = new RegExp(regexPattern);
-      return regex.test(relativePath) || regex.test(path.basename(filePath));
+      return regex.test(relativePath) || regex.test(basename);
     } else {
-      // Handle exact matches and directory names
-      return (
-        relativePath.includes(pattern) || path.basename(filePath) === pattern
-      );
+      // Handle exact matches: check if pattern matches any path segment or the basename exactly
+      return pathSegments.includes(pattern) || basename === pattern;
     }
   });
 }
