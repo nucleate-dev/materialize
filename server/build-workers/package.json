@@ -24,7 +24,7 @@
   "dependencies": {
     "@ai-sdk/google": "^2.0.44",
     "@ai-sdk/openai": "^2.0.79",
-    "@anthropic-ai/claude-agent-sdk": "^0.1.61",
+    "@anthropic-ai/claude-agent-sdk": "^0.1.72",
     "@aws-sdk/client-s3": "^3.937.0",
     "@fastify/cors": "^11.1.0",
     "@fastify/websocket": "^11.2.0",
