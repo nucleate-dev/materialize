@@ -107,7 +107,7 @@ export class NucleateDevelopmentServerService {
       this.cleanup.bind(this),
     );
 
-    app.post("/build-and-deploy", this.buildAndDeploy.bind(this));
+    app.post("/dev-server/build-and-deploy", this.buildAndDeploy.bind(this));
   }
 
   public setS3Client(s3Client: S3Client): void {
