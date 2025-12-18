@@ -7,8 +7,10 @@ import {
   ChatQueryData,
   ChatServerMessage,
 } from '../../types/ChatTypes.js';
+import { Database } from '../../types/supabase.js';
 import { ClaudeTokenService } from '../auth/claude-token-service.js';
 import { SupabaseClientService } from '../SupabaseClientService.js';
+import { getSystemPromptForDesignStyle } from './ClaudeCodePrompts.js';
 import { getToolDisplayName } from './message-handlers.js';
 import { ToolPermissionService } from './tool-permission-service.js';
 
@@ -182,6 +184,13 @@ export class ClaudeCodeCliQueryHandler {
       // Build authentication environment using the authenticated user ID
       const authEnv = await this.buildAuthEnvironment(userId, authenticatedTokenService);
 
+      // Load design system if needed
+      const systemPromptAppend = await this.loadDesignSystem(
+        data.custom_design_system_id ?? null,
+        sessionState,
+        data.design_style,
+      );
+
       // Initialize session state with chat session ID from client
       const { prototype_chat_session_id } = data;
       if (prototype_chat_session_id) {
@@ -219,6 +228,7 @@ export class ClaudeCodeCliQueryHandler {
         queryText,
         authEnv.env,
         sessionState,
+        systemPromptAppend,
       );
 
       // Set up abort controller
@@ -287,17 +297,98 @@ export class ClaudeCodeCliQueryHandler {
   }
 
   /**
+   * Loads design system and builds system prompt
+   */
+  private async loadDesignSystem(
+    custom_design_system_id: string | null,
+    sessionState: CodeSessionState,
+    design_style: string | undefined,
+  ): Promise<string> {
+    // Check if design system changed or needs to be loaded
+    if (custom_design_system_id !== sessionState.designSystemId) {
+      if (
+        custom_design_system_id === null ||
+        custom_design_system_id === undefined
+      ) {
+        // Clear design system
+        sessionState.designSystemId = null;
+        sessionState.designSystemRules = null;
+        this.logger.consoleLogDevOnly('info', 'Design system cleared');
+      } else {
+        // Fetch new design system
+        try {
+          const { data: designSystem, error } = await this.supabaseClientService
+            .getClient()
+            .from('design_systems')
+            .select('*')
+            .eq('id', custom_design_system_id)
+            .single();
+
+          if (error) {
+            this.logger.error(error, 'Failed to fetch design system', {
+              designSystemId: custom_design_system_id,
+            });
+            sessionState.designSystemId = null;
+            sessionState.designSystemRules = null;
+          } else if (designSystem) {
+            sessionState.designSystemId = custom_design_system_id;
+            sessionState.designSystemRules = (
+              designSystem as Database['public']['Tables']['design_systems']['Row']
+            ).design_rules;
+          } else {
+            this.logger.warn('Design system not found', {
+              designSystemId: custom_design_system_id,
+            });
+            sessionState.designSystemId = null;
+            sessionState.designSystemRules = null;
+          }
+        } catch (error) {
+          this.logger.error(
+            error instanceof Error ? error : new Error(String(error)),
+            'Error fetching design system',
+            { designSystemId: custom_design_system_id },
+          );
+          sessionState.designSystemId = null;
+          sessionState.designSystemRules = null;
+        }
+      }
+    }
+
+    // Build system prompt with optional design system rules
+    let systemPromptAppend = getSystemPromptForDesignStyle(design_style);
+
+    this.logger.consoleLogDevOnly(
+      'info',
+      'Using design-style-specific system prompt',
+      {
+        design_style,
+        hasCustomDesignSystem: !!sessionState.designSystemRules,
+      },
+    );
+
+    // Append custom design system rules if available
+    if (sessionState.designSystemRules) {
+      systemPromptAppend +=
+        '\n\n## Custom Design System Rules:\n' + sessionState.designSystemRules;
+    }
+
+    return systemPromptAppend;
+  }
+
+  /**
    * Spawn the Claude CLI process with streaming JSON output
    */
   private spawnCliProcess(
     query: string,
     env: NodeJS.ProcessEnv,
     sessionState: CodeSessionState,
+    systemPromptAppend?: string,
   ): ChildProcessByStdio<null, Readable, Readable> {
     const args = [
       '-p', query,
       '--output-format', 'stream-json',
       '--verbose',
+      '--permission-mode', 'acceptEdits',
     ];
 
     // Add resume flag if we have an active session
@@ -305,10 +396,16 @@ export class ClaudeCodeCliQueryHandler {
       args.push('--resume', sessionState.sessionId);
     }
 
+    // Add system prompt append if provided
+    if (systemPromptAppend && systemPromptAppend.trim()) {
+      args.push('--append-system-prompt', systemPromptAppend);
+    }
+
     this.logger.debug('Spawning Claude CLI process', {
       args,
       cwd: this.workDir,
       hasSessionId: !!sessionState.sessionId,
+      hasSystemPrompt: !!systemPromptAppend,
     });
 
     const cliProcess = spawn('claude', args, {
