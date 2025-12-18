@@ -34,7 +34,6 @@ export async function handleRefetchEnvImpl(
 
   const envResult = await syncPrototypeEnvVarsToDisk({
     prototypeId: prototype_id,
-    workDir: WORK_DIR,
     supabaseClientService: developmentServerService.supabaseClientService,
     logger: request.log2,
   });

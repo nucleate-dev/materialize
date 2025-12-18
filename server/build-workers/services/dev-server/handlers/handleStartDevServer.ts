@@ -69,7 +69,6 @@ export async function handleStartDevServerImpl(
 
   const envSyncResult = await syncPrototypeEnvVarsToDisk({
     prototypeId: prototype_id,
-    workDir: `${WORK_DIR}/client`,
     supabaseClientService: developmentServerService.supabaseClientService,
     logger: request.log2,
   });
