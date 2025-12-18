@@ -288,7 +288,8 @@ export function getDefaultAppFilesSourcePrefixes(
   designStyle: DesignStyle,
 ): Record<string, string> {
   // Use development prefixes when NODE_ENV is development
-  const envPrefix = process.env.NODE_ENV === 'development' ? 'development-' : '';
+  const envPrefix =
+    process.env.NODE_ENV === 'development' ? 'development-' : '';
 
   let rawFilesPrefix = '';
   let distFilesPrefix = '';
