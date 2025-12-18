@@ -9,7 +9,7 @@
  *   npm run backfill backfills/nest-mobile-files.ts --no-dry-run       # Apply changes
  */
 
-import type { NucleateBackfill } from "../nucleate-backfill";
+import type { NucleateBackfill } from "../nucleate-db-fixer";
 
 // Files/directories that should stay in root (not be moved to mobile/)
 const ROOT_FILES = new Set([".gitignore"]);

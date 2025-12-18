@@ -10,7 +10,7 @@
  */
 
 import { createClient } from "@supabase/supabase-js";
-import type { NucleateBackfill } from "../nucleate-backfill";
+import type { NucleateDBFixer } from "../nucleate-db-fixer";
 import type { Database } from "../types/supabase";
 
 // Initialize Supabase client for storage operations
@@ -76,7 +76,7 @@ async function moveFileInStorage(
   console.log(`   📦 Moved storage file: ${oldPath} → ${newPath}`);
 }
 
-export const backfill: NucleateBackfill<"prototype_assets"> = {
+export const backfill: NucleateDBFixer<"prototype_assets"> = {
   table: "prototype_assets",
 
   async genIsInconsistent(row) {
@@ -97,7 +97,9 @@ export const backfill: NucleateBackfill<"prototype_assets"> = {
 
   async genFixRow(row) {
     if (!row.prototype_id) {
-      throw new Error(`Asset ${row.id} has no prototype_id - cannot move in storage`);
+      throw new Error(
+        `Asset ${row.id} has no prototype_id - cannot move in storage`,
+      );
     }
 
     // Move the file to client/
