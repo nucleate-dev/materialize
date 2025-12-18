@@ -46,9 +46,7 @@ export class AsyncFixerExecutor<TName extends TableName> {
 
   async run(): Promise<FixerStats> {
     const isDryRun = this.options.dryRun !== false; // default to true
-    const isFilteredRun = !!(
-      this.options.whereColumn && this.options.whereValue
-    );
+    const isFilteredRun = this.hasFilter();
 
     console.log(`\n🚀 Starting backfill on table: ${this.backfill.table}`);
     console.log(
@@ -215,7 +213,7 @@ export class AsyncFixerExecutor<TName extends TableName> {
   }
 
   private async fetchFilteredRows(): Promise<SupabaseTableRow<TName>[]> {
-    if (!this.options.whereColumn || this.options.whereValue === undefined) {
+    if (!this.hasFilter()) {
       return [];
     }
 
@@ -313,6 +311,14 @@ export class AsyncFixerExecutor<TName extends TableName> {
         `Missing required environment variables: ${missing.join(", ")}`,
       );
     }
+  }
+
+  private hasFilter(): boolean {
+    return (
+      typeof this.options.whereColumn === "string" &&
+      this.options.whereColumn.length > 0 &&
+      this.options.whereValue !== undefined
+    );
   }
 
   private getOrderColumn(): string {
