@@ -101,7 +101,7 @@ export async function createCloudflareTunnelForContainer(
               },
               {
                 hostname,
-                path: '/dev-server/build-and-deploy-v2',
+                path: '/dev-server/build-and-deploy',
                 service: 'http://localhost:3002',
                 originRequest: {},
               },

@@ -23,6 +23,7 @@ export class ExpoReactNativeAdapter implements IDevelopmentServerAdapter {
   readonly serverType: DevelopmentServerType = "expo-react-native";
   public readonly tunnelSubdomain: string;
   private readonly terminalService: TerminalService;
+  private readonly clientDir = path.join(WORK_DIR, "client");
 
   constructor(terminalService: TerminalService) {
     this.terminalService = terminalService;
@@ -182,11 +183,11 @@ export class ExpoReactNativeAdapter implements IDevelopmentServerAdapter {
       cleanup = listenerDisposer;
 
       // Build the command to run in the terminal
-      const command = `cd ${WORK_DIR} && EXPO_NO_TELEMETRY=1 EXPO_TUNNEL_SUBDOMAIN=${tunnelSubdomain} npx expo start --web --tunnel --port ${DEV_SERVER_PORT} --clear\n`;
+      const command = `cd ${this.clientDir} && EXPO_NO_TELEMETRY=1 EXPO_TUNNEL_SUBDOMAIN=${tunnelSubdomain} npx expo start --web --tunnel --port ${DEV_SERVER_PORT} --clear\n`;
 
       log2.consoleLogDevOnly("info", "Sending Expo start command to terminal", {
         command: command.trim(),
-        projectDir: WORK_DIR,
+        projectDir: this.clientDir,
         tunnelSubdomain,
       });
 
@@ -219,7 +220,7 @@ export class ExpoReactNativeAdapter implements IDevelopmentServerAdapter {
    */
   async restartDevServer(log2: SystemLogger): Promise<void> {
     await this.stopDevServer(log2);
-    const command = `cd ${WORK_DIR} && EXPO_NO_TELEMETRY=1 EXPO_TUNNEL_SUBDOMAIN=${this.tunnelSubdomain} npx expo start --web --tunnel --port ${DEV_SERVER_PORT} --clear\n`;
+    const command = `cd ${this.clientDir} && EXPO_NO_TELEMETRY=1 EXPO_TUNNEL_SUBDOMAIN=${this.tunnelSubdomain} npx expo start --web --tunnel --port ${DEV_SERVER_PORT} --clear\n`;
     this.terminalService.sendInput("dev-server", command, {
       bypassValidation: true,
     });
@@ -288,7 +289,7 @@ export class ExpoReactNativeAdapter implements IDevelopmentServerAdapter {
       };
 
       const envString = `EXPO_NO_TELEMETRY="1" NODE_OPTIONS="--max-old-space-size=2048" `;
-      const commandString = `${envString}cd ${WORK_DIR} && npx expo export --platform web; echo "EXIT_CODE=$?"\n`;
+      const commandString = `${envString} cd ${this.clientDir} && npx expo export --platform web; echo "EXIT_CODE=$?"\n`;
 
       try {
         // Bypass validation for trusted internal command
@@ -304,7 +305,7 @@ export class ExpoReactNativeAdapter implements IDevelopmentServerAdapter {
         log2.error(
           new Error(message),
           "Failed to send Expo export command to terminal session",
-          { projectDir: WORK_DIR },
+          { projectDir: this.clientDir },
         );
         reject(
           new Error(
@@ -353,7 +354,7 @@ export class ExpoReactNativeAdapter implements IDevelopmentServerAdapter {
       log2.error(
         new Error(`Expo build failed with exit code ${result.code}`),
         "Build Expo project",
-        { projectDir: WORK_DIR },
+        { projectDir: this.clientDir },
       );
       return {
         data: null,
@@ -364,7 +365,7 @@ export class ExpoReactNativeAdapter implements IDevelopmentServerAdapter {
       };
     }
 
-    const distPath = path.join(WORK_DIR, "dist");
+    const distPath = path.join(this.clientDir, "dist");
 
     try {
       const distStats = await fs.stat(distPath);

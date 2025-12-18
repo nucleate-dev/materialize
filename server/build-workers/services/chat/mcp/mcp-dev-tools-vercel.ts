@@ -9,6 +9,7 @@ import {
   FileWriter,
   TerminalServiceInstance,
 } from "./mcp-dev-tools.js";
+import { WORK_DIR } from "../../../worker.js";
 
 // Vercel AI SDK tool definitions mirroring the Claude MCP dev tools.
 // These are intentionally kept in a separate module so provider-specific
@@ -102,10 +103,16 @@ export function createVercelDevTools(
             .array(z.string())
             .optional()
             .describe("Optional arguments to pass to the command"),
+          cwd: z
+            .string()
+            .optional()
+            .describe(
+              `Working directory for the command. Can be absolute (starting with ${WORK_DIR}) or relative to ${WORK_DIR}. Defaults to ${WORK_DIR}. For monorepo subdirectories, use paths like 'client' or 'backend'.`,
+            ),
         })
         .strict(),
-      execute: async ({ command, args }) => {
-        const result = await runCommand(command, args ?? []);
+      execute: async ({ command, args, cwd }) => {
+        const result = await runCommand(command, args ?? [], cwd);
         if (result.isError) {
           throw new Error(result.stdout || "Command failed");
         }

@@ -13,6 +13,7 @@ import { restoreClaudeSessionsFromSupabase } from "../../../utils/shared-utils.j
 import { SupabaseClientService } from "../../SupabaseClientService.js";
 import { ChatService } from "../../chat/ChatService.js";
 import { syncPrototypeEnvVarsToDisk } from "../utils/envVarUtils.js";
+import { WORK_DIR } from "../../../worker.js";
 
 export async function handleStartDevServerImpl(
   request: FastifyRequest<{ Body: PublicStartDevServerRequest }>,
@@ -68,7 +69,6 @@ export async function handleStartDevServerImpl(
 
   const envSyncResult = await syncPrototypeEnvVarsToDisk({
     prototypeId: prototype_id,
-    workDir: developmentServerService.workDir,
     supabaseClientService: developmentServerService.supabaseClientService,
     logger: request.log2,
   });
@@ -99,7 +99,7 @@ export async function handleStartDevServerImpl(
     await developmentServerService.sandboxService.runCommandInternal({
       command: "npm",
       args: ["install"],
-      cwd: developmentServerService.workDir,
+      cwd: `${WORK_DIR}/client`,
       session_id: "dev-server",
       timeout_ms: 180000, // 3 minutes
       strip_ansi: true,

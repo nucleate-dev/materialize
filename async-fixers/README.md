@@ -28,16 +28,17 @@ npm run backfill backfills/your-backfill.ts --where-column id --where-value "abc
 ### Creating a New Backfill
 
 1. **Create the file:**
+
 ```typescript
 // backfills/fix-missing-slugs.ts
-import type { NucleateBackfill } from "../nucleate-backfill"
+import type { NucleateBackfill } from "../nucleate-backfill";
 
 export const backfill: NucleateBackfill<"prototypes"> = {
   table: "prototypes",
 
   async genIsInconsistent(row) {
     // Return true if row needs fixing
-    return !row.slug
+    return !row.slug;
   },
 
   async genFixRow(row) {
@@ -45,14 +46,15 @@ export const backfill: NucleateBackfill<"prototypes"> = {
     return {
       ...row,
       slug: `project-${row.id}`,
-    }
+    };
   },
-}
+};
 
-export default backfill
+export default backfill;
 ```
 
 2. **Test it:**
+
 ```bash
 # Test on single row first
 npm run backfill backfills/fix-missing-slugs.ts --where-column id --where-value "abc-123"
@@ -66,24 +68,26 @@ npm run backfill backfills/fix-missing-slugs.ts --no-dry-run
 
 ## CLI Options
 
-| Option | Description | Default |
-|--------|-------------|---------|
-| `--no-dry-run` | Apply fixes to database | DRY RUN mode |
-| `--where-column <column>` | Filter by column | Process all rows |
-| `--where-value <value>` | Value to match | Process all rows |
+| Option                    | Description             | Default          |
+| ------------------------- | ----------------------- | ---------------- |
+| `--no-dry-run`            | Apply fixes to database | DRY RUN mode     |
+| `--where-column <column>` | Filter by column        | Process all rows |
+| `--where-value <value>`   | Value to match          | Process all rows |
 
 ## NucleateBackfill Interface
 
 ```typescript
 interface NucleateBackfill<TName extends TableName> {
   // The table to process
-  table: TName
+  table: TName;
 
   // Check if a row needs fixing
-  genIsInconsistent: (row: TableRow<TName>) => Promise<boolean> | boolean
+  genIsInconsistent: (row: TableRow<TName>) => Promise<boolean> | boolean;
 
   // Return the fixed row
-  genFixRow: (row: TableRow<TName>) => Promise<TableRow<TName>> | TableRow<TName>
+  genFixRow: (
+    row: TableRow<TName>,
+  ) => Promise<TableRow<TName>> | TableRow<TName>;
 }
 ```
 
@@ -92,6 +96,7 @@ interface NucleateBackfill<TName extends TableName> {
 ## How It Works
 
 The backfill executor automatically:
+
 - Streams rows in batches of 250
 - Checks inconsistencies with 10 concurrent workers
 - Fixes rows with 10 concurrent workers

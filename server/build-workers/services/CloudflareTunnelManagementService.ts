@@ -2,6 +2,7 @@ import { spawn as spawnPty, IPty } from "node-pty";
 import { spawn } from "child_process";
 import process from "process";
 import { SystemLogger } from "../loggers/SystemLogger.js";
+import { WORK_DIR } from "../worker.js";
 
 export type CloudflareTunnelStatus =
   | "connected"
@@ -24,15 +25,13 @@ const CHECK_INTERVAL_MS = 500;
 const MAX_OUTPUT_CHARS = 16_384;
 
 export class CloudflareTunnelManagementService {
-  private readonly workDir: string;
   private readonly logger: SystemLogger;
   private pty: IPty | null = null;
   private readonly dataListeners = new Set<(chunk: string) => void>();
   private createInProgress = false;
   private tunnelRunning = false;
 
-  constructor(workDir: string, logger: SystemLogger) {
-    this.workDir = workDir;
+  constructor(logger: SystemLogger) {
     this.logger = logger;
     // Initialize PTY asynchronously - it will be ready before first use due to ensurePty()
     this.initializePty().catch((error) => {
@@ -263,7 +262,7 @@ export class CloudflareTunnelManagementService {
         name: "xterm-color",
         cols: 80,
         rows: 24,
-        cwd: this.workDir,
+        cwd: WORK_DIR,
         env: process.env,
       });
 

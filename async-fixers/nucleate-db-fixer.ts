@@ -5,7 +5,7 @@ export type TableName = keyof Tables;
 
 export type TableRow<TName extends TableName> = Tables[TName]["Row"];
 
-export interface NucleateBackfill<TName extends TableName> {
+export interface NucleateDBFixer<TName extends TableName> {
   table: TName;
   genIsInconsistent: (row: TableRow<TName>) => Promise<boolean> | boolean;
   genFixRow: (

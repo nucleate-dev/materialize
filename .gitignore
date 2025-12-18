@@ -1,6 +1,197 @@
-.next
-.vscode
-node_modules
-.DS_Store
+# ============================================
+# Environment Variables
+# ============================================
 .env
+.env.*
+.env.local
+.env.development
+.env.development.local
+.env.test
+.env.test.local
+.env.production
+.env.production.local
+**/.env
+**/.env.*
+
+# ============================================
+# Dependencies
+# ============================================
+node_modules/
+**/node_modules/
+bower_components/
+jspm_packages/
+
+# ============================================
+# Build Outputs
+# ============================================
+dist/
+**/dist/
+build/
+**/build/
+out/
+**/out/
+.next/
+**/.next/
+.nuxt/
+.cache/
+**/.cache/
+
+# ============================================
+# Archives & Compressed Files
+# ============================================
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+*.rar
+*.7z
+**/*.zip
+
+# ============================================
+# Logs
+# ============================================
+*.log
+logs/
+**/logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# ============================================
+# OS Files
+# ============================================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+
+# ============================================
+# IDE / Editor
+# ============================================
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.c9/
+*.launch
+.settings/
+*.sublime-workspace
+*.sublime-project
+
+# ============================================
+# React Native / Expo
+# ============================================
+.expo/
+**/.expo/
+.expo-shared/
+**/.expo-shared/
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.orig.*
+web-build/
+
+# ============================================
+# TypeScript
+# ============================================
+*.tsbuildinfo
+**/*.tsbuildinfo
+.tscache/
+
+# ============================================
+# Testing
+# ============================================
+coverage/
+**/coverage/
+.nyc_output/
+*.lcov
+.jest/
+
+# ============================================
+# Temporary Files
+# ============================================
+tmp/
+**/tmp/
+temp/
+**/temp/
+*.tmp
+*.temp
+*.swp
+*.swo
+
+# ============================================
+# SSH Keys & Secrets
+# ============================================
+*.pem
+*.key
+*.p12
+*.pfx
+mat-ec2-key-1.pem
+secrets/
+credentials/
+
+# ============================================
+# Package Manager
+# ============================================
+.pnp
+.pnp.js
+.yarn/cache
+.yarn/unplugged
+.yarn/build-state.yml
+.yarn/install-state.gz
+.pnpm-store/
+
+# ============================================
+# Misc Development
+# ============================================
 .claude
+.turbo/
+**/.turbo/
+.webpack/
+.swc/
+*.pid
+*.seed
+*.pid.lock
+.eslintcache
+.stylelintcache
+
+# ============================================
+# Vercel
+# ============================================
+.vercel
+**/.vercel
+
+# ============================================
+# Database
+# ============================================
+*.sqlite
+*.sqlite3
+*.db
+
+# ============================================
+# Python (if used in scripts)
+# ============================================
+__pycache__/
+**/__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+venv/
+ENV/
+
+# ============================================
+# Custom Project-Specific
+# ============================================
+# Add any project-specific files below

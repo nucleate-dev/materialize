@@ -66,60 +66,8 @@ export enum DevServerStatus {
   RESTARTING = "restarting",
 }
 
-export interface BuildLogEntry {
-  step: string;
-  success: boolean;
-  timestamp: string;
-  output: string;
-  error: string;
-}
-
-export interface BuildRequest {
-  prototype_id: string;
-  files: PrototypeFileInput[];
-  assets: PrototypeAssetInputWithContent[];
-}
-
-export interface BuildResponse {
-  success: boolean;
-  buildLog: BuildLogEntry[];
-  outputPath?: string;
-  error?: string;
-}
-
-export interface DeployRequest {
-  prototype_id: string;
-  buildPath: string;
-}
-
-export interface DeployResponse {
-  success: boolean;
-  buildUrl?: string;
-  uploadedFiles?: Array<{ key: string; location: string }>;
-  version?: string;
-  error?: string;
-}
-
-export interface BuildAndDeployRequest {
-  prototype_id: string;
-}
-
 export interface BuildAndDeployResponse {
-  success: boolean;
-  buildUrl?: string;
-  buildLog: BuildLogEntry[];
-  uploadedFiles?: Array<{ key: string; location: string }>;
-  error?: string;
-  version?: string;
-}
-
-export interface BuildStatusResponse {
-  isBuilding: boolean;
-  devServerStatus: DevServerStatus;
-  builtVersion: string;
-  buildStartTime: string;
-  lastUpdatedTime: string;
-  buildError?: string;
+  message?: string;
 }
 
 export interface PublicDevServerStartRequest {
