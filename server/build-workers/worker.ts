@@ -40,7 +40,7 @@ export const baseLogger = new SystemLogger({
 export const posthogLogger = new PostHogLogger({
   posthog,
   context: {
-    server: "control-plane",
+    server: "sandbox-fargate",
     env: process.env.NODE_ENV || "development",
   },
 });
