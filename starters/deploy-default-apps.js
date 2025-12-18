@@ -9,8 +9,10 @@
  * 2. Node.js and npm/expo installed
  *
  * Usage:
- *   node deploy-default-apps.js                  # Deploy to development (prefix: development-)
- *   node deploy-default-apps.js --production     # Deploy to production (no prefix)
+ *   node deploy-default-apps.js                                    # Deploy all apps to development
+ *   node deploy-default-apps.js --production                       # Deploy all apps to production
+ *   node deploy-default-apps.js starter-app-nativewind             # Deploy single app to development
+ *   node deploy-default-apps.js starter-app-nativewind --production # Deploy single app to production
  *
  * What this script does:
  * For each starter app in starters/:
@@ -45,12 +47,32 @@ const STARTERS_DIR = __dirname;
 const isProduction = process.argv.includes("--production");
 const ENV_PREFIX = isProduction ? "" : "development-";
 
-// List of starter apps to deploy
-const STARTER_APPS = [
+// All available starter apps
+const ALL_STARTER_APPS = [
   "starter-app-nativewind",
   "starter-app-stylesheets",
   "starter-app-tamagui",
 ];
+
+// Check for specific app argument (non-flag arguments)
+const appArgs = process.argv.slice(2).filter((arg) => !arg.startsWith("--"));
+let STARTER_APPS;
+
+if (appArgs.length > 0) {
+  // Deploy only the specified app
+  const requestedApp = appArgs[0];
+  if (!ALL_STARTER_APPS.includes(requestedApp)) {
+    console.error(`❌ Error: Unknown starter app "${requestedApp}"`);
+    console.error(`Available apps: ${ALL_STARTER_APPS.join(", ")}`);
+    process.exit(1);
+  }
+  STARTER_APPS = [requestedApp];
+  console.log(`📱 Deploying single app: ${requestedApp}`);
+} else {
+  // Deploy all apps
+  STARTER_APPS = ALL_STARTER_APPS;
+  console.log(`📱 Deploying all apps`);
+}
 
 // Initialize S3 client
 const s3Client = new S3Client({

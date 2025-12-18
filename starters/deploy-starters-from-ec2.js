@@ -11,8 +11,10 @@
  * 3. AWS credentials configured on EC2 instance
  *
  * Usage:
- *   node deploy-starters-from-ec2.js                  # Deploy to development
- *   node deploy-starters-from-ec2.js --production     # Deploy to production
+ *   node deploy-starters-from-ec2.js                                    # Deploy all apps to development
+ *   node deploy-starters-from-ec2.js --production                       # Deploy all apps to production
+ *   node deploy-starters-from-ec2.js starter-app-nativewind             # Deploy single app to development
+ *   node deploy-starters-from-ec2.js starter-app-nativewind --production # Deploy single app to production
  */
 
 import { execSync } from "child_process";
@@ -49,9 +51,19 @@ if (!HOST) {
   process.exit(1);
 }
 
-// Check for --production flag
+// Parse command line arguments
 const isProduction = process.argv.includes("--production");
-const deployFlag = isProduction ? "--production" : "";
+const appArgs = process.argv.slice(2).filter((arg) => !arg.startsWith("--"));
+const appName = appArgs.length > 0 ? appArgs[0] : null;
+
+// Build deploy flags
+let deployArgs = "";
+if (appName) {
+  deployArgs += appName;
+}
+if (isProduction) {
+  deployArgs += " --production";
+}
 
 const localBase = path.resolve(__dirname);
 const localZip = "starters.zip";
@@ -147,15 +159,17 @@ function deployStarters() {
   runRemoteBash(script);
 
   console.log("==> Running deployment script on EC2...");
+  const appInfo = appName ? ` (${appName} only)` : " (all apps)";
   const deployScript = `
     set -euxo pipefail
     cd ${remoteBase}
 
     echo "🚀 Starting deployment of starter apps to S3..."
     echo "   Environment: ${isProduction ? "PRODUCTION" : "DEVELOPMENT"}"
+    echo "   Target: ${appName || "all apps"}"
 
     # Run the deployment script
-    node deploy-default-apps.js ${deployFlag}
+    node deploy-default-apps.js ${deployArgs}
 
     echo "✅ Deployment complete!"
   `;
@@ -180,6 +194,7 @@ function deployStarters() {
     console.log("🚀 Starting starter apps deployment from EC2...");
     console.log(`   Target: ${HOST}`);
     console.log(`   Environment: ${isProduction ? "PRODUCTION" : "DEVELOPMENT"}`);
+    console.log(`   Apps: ${appName || "all apps"}`);
     console.log("");
 
     ensureRemoteReady();

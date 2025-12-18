@@ -6,6 +6,9 @@
   "scripts": {
     "deploy": "node deploy-default-apps.js",
     "deploy:production": "node deploy-default-apps.js --production",
+    "deploy:nativewind": "node deploy-default-apps.js starter-app-nativewind",
+    "deploy:stylesheets": "node deploy-default-apps.js starter-app-stylesheets",
+    "deploy:tamagui": "node deploy-default-apps.js starter-app-tamagui",
     "deploy:from-ec2": "node deploy-starters-from-ec2.js",
     "deploy:from-ec2:production": "node deploy-starters-from-ec2.js --production"
   },
