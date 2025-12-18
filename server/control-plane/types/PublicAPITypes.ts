@@ -235,29 +235,6 @@ export interface DeletePrototypeErrorResponse {
 }
 
 // ============================================================================
-// /files/update-files ENDPOINT
-// ============================================================================
-
-export interface UpdateFilesRequestBody {
-  files: PrototypeFileInput[];
-  assets: PrototypeAssetInputWithContent[]; // There's support here, but we probably will not have assets to update.
-  prototype_id: string;
-  deleted_files?: string[];
-}
-
-export interface UpdateFilesSuccessResponse {
-  success: true;
-  status: 'success' | 'error';
-  viewing_url: string;
-  message: string;
-}
-
-export interface UpdateFilesErrorResponse {
-  error: string;
-  message: string;
-}
-
-// ============================================================================
 // /files/start-dev-server ENDPOINT
 // ============================================================================
 
@@ -272,18 +249,6 @@ export interface StartDevServerSuccessResponse {
   viewing_url: string;
   message: string;
   terminal_url: string | null;
-}
-
-// ============================================================================
-// /dev-server/restart ENDPOINT
-// ============================================================================
-
-export interface RestartDevServerRequestBody {
-  prototype_id: string;
-}
-
-export interface RestartDevServerSuccessResponse {
-  message: string;
 }
 
 // ============================================================================
