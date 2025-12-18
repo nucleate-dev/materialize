@@ -9,14 +9,19 @@
  * 2. Node.js and npm/expo installed
  *
  * Usage:
- *   node deploy-default-apps.js
+ *   node deploy-default-apps.js                  # Deploy to development (prefix: development-)
+ *   node deploy-default-apps.js --production     # Deploy to production (no prefix)
  *
  * What this script does:
  * For each starter app in starters/:
  * 1. Builds the React Native web app using "expo export --platform web"
- * 2. Uploads build files (dist/) to S3 under "starter-app-{name}/" prefix
- * 3. Uploads raw source files to S3 under "starter-app-{name}-raw-files/" prefix
+ * 2. Uploads build files (dist/) to S3 under "[ENV_PREFIX]starter-app-{name}/" prefix
+ * 3. Uploads raw source files to S3 under "[ENV_PREFIX]starter-app-{name}-raw-files/" prefix
  * 4. Excludes common files like node_modules, .git, etc.
+ *
+ * Environment:
+ * - Without --production flag: Uploads to development-starter-app-{name}/
+ * - With --production flag: Uploads to starter-app-{name}/
  */
 
 import {
@@ -35,6 +40,10 @@ const __dirname = path.dirname(__filename);
 
 const BUCKET = "materialize-sites";
 const STARTERS_DIR = __dirname;
+
+// Check for --production flag
+const isProduction = process.argv.includes("--production");
+const ENV_PREFIX = isProduction ? "" : "development-";
 
 // List of starter apps to deploy
 const STARTER_APPS = [
@@ -303,15 +312,18 @@ async function deployApp(appName) {
     const distDir = buildApp(appDir, appName);
     console.log("");
 
+    // Apply environment prefix to S3 paths
+    const s3AppName = `${ENV_PREFIX}${appName}`;
+
     // Step 2: Clear existing S3 prefixes
-    await clearS3Prefix(`${appName}/`);
-    await clearS3Prefix(`${appName}-raw-files/`);
+    await clearS3Prefix(`${s3AppName}/`);
+    await clearS3Prefix(`${s3AppName}-raw-files/`);
     console.log("");
 
     // Step 3: Upload build files
     console.log("📦 Uploading build files...");
     const buildFiles = getAllFiles(distDir, distDir, false);
-    await uploadFilesToS3(buildFiles, distDir, `${appName}/`);
+    await uploadFilesToS3(buildFiles, distDir, `${s3AppName}/`);
     console.log("");
 
     // Step 4: Upload raw source files
@@ -320,14 +332,14 @@ async function deployApp(appName) {
     console.log(
       `   Found ${sourceFiles.length} source files (after exclusions)`,
     );
-    await uploadFilesToS3(sourceFiles, appDir, `${appName}-raw-files/`);
+    await uploadFilesToS3(sourceFiles, appDir, `${s3AppName}-raw-files/`);
     console.log("");
 
     console.log(`🎉 ${appName} deployed successfully!`);
     console.log("");
     console.log("Deployed:");
-    console.log(`   • Build files: s3://${BUCKET}/${appName}/`);
-    console.log(`   • Source files: s3://${BUCKET}/${appName}-raw-files/`);
+    console.log(`   • Build files: s3://${BUCKET}/${s3AppName}/`);
+    console.log(`   • Source files: s3://${BUCKET}/${s3AppName}-raw-files/`);
   } catch (error) {
     console.error(`💥 Deployment failed for ${appName}:`, error.message);
     throw error;
@@ -339,7 +351,9 @@ async function deployApp(appName) {
  */
 async function main() {
   console.log("🚀 Starting deployment of all starter apps to S3...");
+  console.log(`   Environment: ${isProduction ? "PRODUCTION" : "DEVELOPMENT"}`);
   console.log(`   S3 Bucket: ${BUCKET}`);
+  console.log(`   S3 Prefix: ${ENV_PREFIX || "(none)"}`);
   console.log(`   Starters Directory: ${STARTERS_DIR}`);
   console.log(`   Apps to deploy: ${STARTER_APPS.join(", ")}`);
   console.log("");
