@@ -25,7 +25,7 @@
  */
 
 import * as path from "path";
-import { runAsyncBackfill, BackfillOptions } from "./AsyncBackfillExecutor";
+import { runAsyncBackfill, FixerOptions } from "./AsyncDBFixerExecutor";
 import type { NucleateDBFixer, TableName } from "./nucleate-db-fixer";
 
 interface CliArgs {
@@ -185,7 +185,7 @@ async function main() {
   console.log(`✅ Loaded backfill for table: ${backfill.table}`);
 
   // Prepare options
-  const options: BackfillOptions = {
+  const options: FixerOptions = {
     dryRun: args.dryRun,
     whereColumn: args.whereColumn,
     whereValue: args.whereValue,

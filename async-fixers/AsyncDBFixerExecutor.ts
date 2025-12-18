@@ -13,21 +13,21 @@ const UPSERT_BATCH_SIZE = 100;
 
 type SupabaseTableRow<TName extends TableName> = TableRow<TName>;
 
-export interface BackfillOptions {
+export interface FixerOptions {
   dryRun?: boolean;
   whereColumn?: string;
   whereValue?: string | number;
 }
 
-export interface BackfillStats {
+export interface FixerStats {
   totalRowsProcessed: number;
   inconsistentRowsFound: number;
   rowsFixed: number;
 }
 
-export class AsyncBackfillExecutor<TName extends TableName> {
+export class AsyncFixerExecutor<TName extends TableName> {
   private readonly supabase: SupabaseClient<Database>;
-  private stats: BackfillStats = {
+  private stats: FixerStats = {
     totalRowsProcessed: 0,
     inconsistentRowsFound: 0,
     rowsFixed: 0,
@@ -35,7 +35,7 @@ export class AsyncBackfillExecutor<TName extends TableName> {
 
   constructor(
     private readonly backfill: NucleateDBFixer<TName>,
-    private readonly options: BackfillOptions = {},
+    private readonly options: FixerOptions = {},
   ) {
     this.validateEnv();
     this.supabase = createClient<Database>(
@@ -44,7 +44,7 @@ export class AsyncBackfillExecutor<TName extends TableName> {
     );
   }
 
-  async run(): Promise<BackfillStats> {
+  async run(): Promise<FixerStats> {
     const isDryRun = this.options.dryRun !== false; // default to true
     const isFilteredRun = !!(
       this.options.whereColumn && this.options.whereValue
@@ -316,8 +316,8 @@ export class AsyncBackfillExecutor<TName extends TableName> {
 
 export async function runAsyncBackfill<TName extends TableName>(
   backfill: NucleateDBFixer<TName>,
-  options?: BackfillOptions,
-): Promise<BackfillStats> {
-  const executor = new AsyncBackfillExecutor(backfill, options);
+  options?: FixerOptions,
+): Promise<FixerStats> {
+  const executor = new AsyncFixerExecutor(backfill, options);
   return await executor.run();
 }
