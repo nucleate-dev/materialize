@@ -287,20 +287,23 @@ export function getPrototypeViewingUrl(prototypeId: string): string {
 export function getDefaultAppFilesSourcePrefixes(
   designStyle: DesignStyle,
 ): Record<string, string> {
+  // Use development prefixes when NODE_ENV is development
+  const envPrefix = process.env.NODE_ENV === 'development' ? 'development-' : '';
+
   let rawFilesPrefix = '';
   let distFilesPrefix = '';
   switch (designStyle) {
     case 'tamagui':
-      rawFilesPrefix = 'starter-app-tamagui-raw-files/';
-      distFilesPrefix = 'starter-app-tamagui/';
+      rawFilesPrefix = `${envPrefix}starter-app-tamagui-raw-files/`;
+      distFilesPrefix = `${envPrefix}starter-app-tamagui/`;
       break;
     case 'stylesheets':
-      rawFilesPrefix = 'starter-app-stylesheets-raw-files/';
-      distFilesPrefix = 'starter-app-stylesheets/';
+      rawFilesPrefix = `${envPrefix}starter-app-stylesheets-raw-files/`;
+      distFilesPrefix = `${envPrefix}starter-app-stylesheets/`;
       break;
     case 'nativewind':
-      rawFilesPrefix = 'starter-app-nativewind-raw-files/';
-      distFilesPrefix = 'starter-app-nativewind/';
+      rawFilesPrefix = `${envPrefix}starter-app-nativewind-raw-files/`;
+      distFilesPrefix = `${envPrefix}starter-app-nativewind/`;
       break;
   }
   return { rawFilesPrefix, distFilesPrefix };
