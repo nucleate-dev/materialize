@@ -410,10 +410,14 @@ export class ClaudeCodeCliQueryHandler {
         break;
 
       case 'system':
-        sendMessage(socket, {
-          type: ChatEvent.INFO,
-          message: String(cliMessage.message || 'System message'),
-        });
+        if (cliMessage.subtype === 'init') {
+          await this.handleSystemInitMessage(cliMessage, context);
+        } else {
+          sendMessage(socket, {
+            type: ChatEvent.INFO,
+            message: String(cliMessage.message || 'System message'),
+          });
+        }
         break;
 
       case 'error':
@@ -652,6 +656,104 @@ export class ClaudeCodeCliQueryHandler {
     // Reset session state for next query
     this.sessionState.modifiedFilesThisQuery.clear();
     this.sessionState.pendingToolCalls.clear();
+  }
+
+  /**
+   * Handle system init message - update session state and persist to database
+   */
+  private async handleSystemInitMessage(
+    message: ClaudeCodeMessage,
+    context: QueryExecutionContext,
+  ): Promise<void> {
+    const { sessionState } = context;
+
+    if (!message.session_id) {
+      this.logger.warn('System init message missing session_id');
+      return;
+    }
+
+    const previousSessionId = sessionState.sessionId;
+    const isNewSession = previousSessionId !== message.session_id;
+
+    // Update in-memory state
+    sessionState.sessionId = message.session_id;
+    sessionState.isActive = true;
+    if (isNewSession) {
+      sessionState.createdAt = Date.now();
+    }
+    sessionState.lastActiveAt = Date.now();
+
+    this.logger.consoleLogDevOnly(
+      'info',
+      'Claude Code CLI session initialized',
+      {
+        sessionId: message.session_id,
+        isNewSession,
+        previousSessionId,
+      },
+    );
+
+    // Persist to database
+    await this.persistSessionToDatabase(
+      message.session_id,
+      sessionState.prototypeChatSessionId,
+    );
+  }
+
+  /**
+   * Persist Claude session ID and session type to database
+   */
+  private async persistSessionToDatabase(
+    claudeSessionId: string,
+    prototypeChatSessionId: string | null,
+  ): Promise<void> {
+    if (!prototypeChatSessionId) {
+      this.logger.warn(
+        'Cannot persist Claude session_id because prototypeChatSessionId is missing',
+        { claudeSessionId },
+      );
+      return;
+    }
+
+    try {
+      const { error } = await this.supabaseClientService
+        .getClient()
+        .from('prototype_chat_sessions')
+        .update({
+          session_id: claudeSessionId,
+          session_type: 'claude_code_cli',
+        })
+        .eq('id', prototypeChatSessionId);
+
+      if (error) {
+        this.logger.error(
+          error,
+          'Failed to update session_id in prototype_chat_sessions',
+          {
+            chatSessionId: prototypeChatSessionId,
+            claudeSessionId: claudeSessionId,
+          },
+        );
+      } else {
+        this.logger.consoleLogDevOnly(
+          'info',
+          'Updated prototype_chat_sessions with Claude Code CLI session_id',
+          {
+            chatSessionId: prototypeChatSessionId,
+            claudeSessionId: claudeSessionId,
+          },
+        );
+      }
+    } catch (error) {
+      this.logger.error(
+        error instanceof Error ? error : new Error(String(error)),
+        'Exception while updating session_id in prototype_chat_sessions',
+        {
+          chatSessionId: prototypeChatSessionId,
+          claudeSessionId: claudeSessionId,
+        },
+      );
+    }
   }
 
   /**
