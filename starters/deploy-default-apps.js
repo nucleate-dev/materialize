@@ -236,7 +236,7 @@ async function uploadFilesToS3(files, basePath, s3Prefix) {
   let successCount = 0;
   let errorCount = 0;
 
-  const BATCH_SIZE = 2;
+  const BATCH_SIZE = 10;
 
   // Process files in batches
   for (let i = 0; i < files.length; i += BATCH_SIZE) {
