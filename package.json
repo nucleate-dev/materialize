@@ -5,7 +5,7 @@
     "web-application",
     "web-application-apps",
     "internal-tools",
-    "async-backfills",
+    "async-fixers",
     "server/control-plane",
     "server/build-workers"
   ],

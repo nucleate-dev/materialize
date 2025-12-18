@@ -1,12 +1,12 @@
 {
-  "name": "async-backfills",
+  "name": "async-fixers",
   "version": "1.0.0",
-  "description": "Database backfill scripts for Nucleate",
+  "description": "Database fixer scripts for Nucleate",
   "private": true,
   "scripts": {
     "gen:supabase:types": "supabase gen types typescript --project-id hfgjmwidcoszkmvejxhw --schema public > types/supabase.ts",
     "exec": "ts-node --project tsconfig.json",
-    "backfill": "ts-node --project tsconfig.json run-fixer.ts",
+    "fixer": "ts-node --project tsconfig.json run-fixer.ts",
     "build": "tsc --noEmit",
     "check": "tsc --noEmit"
   },

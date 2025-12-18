@@ -16,13 +16,13 @@ cp .env.example .env
 
 ```bash
 # Dry run (safe - no changes made)
-npm run backfill backfills/your-backfill.ts
+npm run fixer -- db-fixers/your-fixer.ts
 
 # Live run (applies fixes)
-npm run backfill backfills/your-backfill.ts --no-dry-run
+npm run fixer -- db-fixers/your-fixer.ts --no-dry-run
 
 # Test on single row
-npm run backfill backfills/your-backfill.ts --where-column id --where-value "abc-123"
+npm run fixer -- db-fixers/your-fixer.ts --where-column id --where-value "abc-123"
 ```
 
 ### Creating a New Backfill
@@ -57,13 +57,13 @@ export default backfill;
 
 ```bash
 # Test on single row first
-npm run backfill backfills/fix-missing-slugs.ts --where-column id --where-value "abc-123"
+npm run fixer -- db-fixers/fix-missing-slugs.ts --where-column id --where-value "abc-123"
 
 # Dry run on full table
-npm run backfill backfills/fix-missing-slugs.ts
+npm run fixer -- db-fixers/fix-missing-slugs.ts
 
 # Apply fixes
-npm run backfill backfills/fix-missing-slugs.ts --no-dry-run
+npm run fixer -- db-fixers/fix-missing-slugs.ts --no-dry-run
 ```
 
 ## CLI Options
