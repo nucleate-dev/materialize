@@ -1,6 +1,5 @@
 import { FastifyReply, FastifyRequest } from "fastify";
 import { NucleateDevelopmentServerService } from "../NucleateDevelopmentServerService.js";
-import { uploadDirectoryToS3 } from "../s3-upload-utils.js";
 import {
   BuildAndDeployResponse,
   HTTP_STATUS,
@@ -9,6 +8,7 @@ import {
 } from "../../../types/BuildWorkerTypes.js";
 import { getWorkerContext } from "../../../worker.js";
 import { checkUserHasPrototypeEditAccess } from "../../../utils/prototypeAuth.js";
+import { triggerDevServerBuildAndUploadToS3 } from "./handleCleanup.js";
 
 export async function handleBuildAndDeployImpl(
   request: FastifyRequest,
@@ -94,69 +94,21 @@ export async function handleBuildAndDeployImpl(
       },
     };
   } else {
-    // Set building state
-    developmentServerService.developmentServerState.isBuilding = true;
-    developmentServerService.developmentServerState.buildError = undefined;
-    developmentServerService.developmentServerState.buildStartTime = new Date();
-
+    // Build is not valid and not building - trigger build and upload
     try {
-      log2.consoleLogDevOnly("info", "Starting build process");
-      const buildResult =
-        await developmentServerService.developmentServerAdapter.build(log2);
+      log2.consoleLogDevOnly("info", "Starting build and deploy process");
 
-      if (buildResult.error || !buildResult.data) {
-        const errorMsg = buildResult.error?.message || "Build failed";
-        log2.error(new Error(errorMsg), "Build failed");
-        developmentServerService.developmentServerState.isBuilding = false;
-        developmentServerService.developmentServerState.buildError = errorMsg;
-        reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR);
-        return {
-          data: null,
-          error: {
-            error: "Internal server error",
-            message: errorMsg,
-          },
-        };
-      }
-
-      log2.consoleLogDevOnly("info", "Build completed successfully", {
-        outputPath: buildResult.data.output_path,
-      });
-      developmentServerService.developmentServerState.isBuilding = false;
-
-      // Step 2: Upload to S3
-      if (!developmentServerService.s3Client) {
-        const errorMsg = "S3 client not configured";
-        log2.error(new Error(errorMsg), "S3 client not available");
-        reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR);
-        return {
-          data: null,
-          error: {
-            error: "Internal server error",
-            message: errorMsg,
-          },
-        };
-      }
-
-      // 3. Upload the build to S3
-      const uploadResult = await uploadDirectoryToS3(
+      // Use the shared function that handles build, upload, and all persistence steps
+      await triggerDevServerBuildAndUploadToS3(
+        developmentServerService,
+        prototypeId,
         log2,
-        buildResult.data.output_path,
-        `${prototypeId}`,
-        developmentServerService.s3Client,
       );
-      developmentServerService.developmentServerState.builtVersion =
-        uploadResult.version;
 
-      log2.consoleLogDevOnly(
-        "info",
-        "Build and deploy completed successfully",
-        {
-          prototypeId,
-          version: uploadResult.version,
-          uploadedFileCount: uploadResult.uploadResults.length,
-        },
-      );
+      log2.consoleLogDevOnly("info", "Build and deploy completed successfully", {
+        prototypeId,
+        version: developmentServerService.developmentServerState.builtVersion,
+      });
 
       reply.status(HTTP_STATUS.OK);
       return {
@@ -172,9 +124,6 @@ export async function handleBuildAndDeployImpl(
         error instanceof Error ? error : new Error(errorMessage),
         "Failed to build and deploy",
       );
-
-      developmentServerService.developmentServerState.isBuilding = false;
-      developmentServerService.developmentServerState.buildError = `S3 upload failed: ${errorMessage}`;
 
       reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR);
       return {

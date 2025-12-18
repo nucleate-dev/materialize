@@ -89,7 +89,7 @@ export async function handleCleanup(
     // 3.2. Call triggerDevServerBuildAndThenUploadToS3() and DO NOT await the response
     const { prototypeId } = getWorkerContext();
     if (prototypeId) {
-      triggerBackgroundDevServerBuildAndUploadToS3(
+      triggerDevServerBuildAndUploadToS3(
         developmentServerService,
         prototypeId,
         request.log2,
@@ -121,7 +121,7 @@ export async function handleCleanup(
   }
 }
 
-async function triggerBackgroundDevServerBuildAndUploadToS3(
+export async function triggerDevServerBuildAndUploadToS3(
   developmentServerService: NucleateDevelopmentServerService,
   prototypeId: string,
   log2: SystemLogger,
@@ -138,6 +138,8 @@ async function triggerBackgroundDevServerBuildAndUploadToS3(
   developmentServerService.developmentServerState.isBuilding = false;
   if (buildResult.error) {
     log2.error(buildResult.error, "Build failed");
+    developmentServerService.developmentServerState.buildError =
+      buildResult.error.message;
     throw new Error(buildResult.error.message);
   }
   log2.consoleLogDevOnly(
