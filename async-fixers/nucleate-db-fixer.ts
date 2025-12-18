@@ -7,6 +7,7 @@ export type TableRow<TName extends TableName> = Tables[TName]["Row"];
 
 export interface NucleateDBFixer<TName extends TableName> {
   table: TName;
+  orderByColumn?: keyof TableRow<TName>;
   genIsInconsistent: (row: TableRow<TName>) => Promise<boolean> | boolean;
   genFixRow: (
     row: TableRow<TName>,

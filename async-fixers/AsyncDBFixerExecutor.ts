@@ -198,9 +198,11 @@ export class AsyncFixerExecutor<TName extends TableName> {
   }
 
   private async fetchBatch(offset: number): Promise<SupabaseTableRow<TName>[]> {
+    const orderColumn = this.getOrderColumn();
     const { data, error } = await this.supabase
       .from(this.backfill.table)
       .select("*")
+      .order(orderColumn, { ascending: true })
       .range(offset, offset + ROW_FETCH_BATCH_SIZE - 1);
 
     if (error) {
@@ -311,6 +313,13 @@ export class AsyncFixerExecutor<TName extends TableName> {
         `Missing required environment variables: ${missing.join(", ")}`,
       );
     }
+  }
+
+  private getOrderColumn(): string {
+    return (
+      (this.backfill.orderByColumn as string | undefined) ??
+      "id"
+    );
   }
 }
 
