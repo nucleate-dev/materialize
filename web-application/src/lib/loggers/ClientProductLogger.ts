@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import { usePostHog } from "posthog-js/react";
 import type { PostHog } from "posthog-js/react";
+import type { PostHogEvent } from "./PostHogEvents";
 
 export type LogLevel = "log" | "warn" | "error";
 
@@ -22,7 +23,7 @@ export interface ProductLogProperties {
 }
 
 export interface ProductLogEvent {
-  event: string;
+  event: PostHogEvent;
   properties?: ProductLogProperties;
 }
 
