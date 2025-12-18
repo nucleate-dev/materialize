@@ -415,7 +415,35 @@ function AccountSettings() {
                 icon={Key}
               />
               <div className="p-6 space-y-6">
-                {hasClaudeToken ? (
+                {currentSubscription === "free" ? (
+                  /* Free Plan - Upgrade Required */
+                  <div className="space-y-4">
+                    <div className="flex items-start gap-3 p-4 rounded-lg bg-purple-500/10 border border-purple-500/20">
+                      <Crown className="w-5 h-5 text-purple-600 dark:text-purple-400 mt-0.5 shrink-0" />
+                      <div className="flex-1">
+                        <p className="font-medium text-purple-700 dark:text-purple-300 mb-1">
+                          Upgrade Required
+                        </p>
+                        <p className="text-sm text-purple-600 dark:text-purple-400">
+                          Connect your Claude Pro or Max subscription to use unlimited AI
+                          chat. This feature is available for Plus subscribers and above.
+                        </p>
+                      </div>
+                    </div>
+                    <Button
+                      onClick={() => handleUpgradeClick("plus")}
+                      className="w-full bg-black dark:bg-white text-white dark:text-black hover:bg-black/90 dark:hover:bg-white/90"
+                      disabled={isProcessingUpgrade}
+                    >
+                      {isProcessingUpgrade ? (
+                        <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                      ) : (
+                        <Crown className="w-4 h-4 mr-2" />
+                      )}
+                      Upgrade to Plus
+                    </Button>
+                  </div>
+                ) : hasClaudeToken ? (
                   /* Token Connected State */
                   <div className="space-y-4">
                     <div className="flex items-start gap-3 p-4 rounded-lg bg-green-500/10 border border-green-500/20">
@@ -448,7 +476,7 @@ function AccountSettings() {
                     </div>
                   </div>
                 ) : (
-                  /* No Token State */
+                  /* No Token State - Paid User */
                   <div className="space-y-4">
                     <div className="flex items-start gap-3 p-4 rounded-lg bg-blue-500/10 border border-blue-500/20">
                       <AlertCircle className="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5 shrink-0" />
