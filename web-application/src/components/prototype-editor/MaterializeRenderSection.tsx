@@ -1197,7 +1197,6 @@ const MaterializeRenderSection = forwardRef<
         const response = await fetch(`${sandbox_url}/build-and-deploy`, {
           method: "POST",
           headers: {
-            "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
         });
