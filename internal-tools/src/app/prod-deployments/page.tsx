@@ -31,6 +31,7 @@ import {
   CheckCircle,
   Loader2,
   AlertTriangle,
+  RefreshCw,
 } from "lucide-react";
 
 interface ValidationResult {
@@ -46,15 +47,26 @@ interface DeploymentResult {
   message: string;
 }
 
+interface RefreshIdleContainersResult {
+  success: boolean;
+  terminated: number;
+  launched: number;
+  errors: string[];
+  message: string;
+}
+
 export default function ProdDeploymentsPage() {
   const [minHealthyPercentage, setMinHealthyPercentage] = useState("100");
   const [instanceWarmup, setInstanceWarmup] = useState("180");
   const [validating, setValidating] = useState(false);
   const [deploying, setDeploying] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [validationResult, setValidationResult] =
     useState<ValidationResult | null>(null);
   const [deploymentResult, setDeploymentResult] =
     useState<DeploymentResult | null>(null);
+  const [refreshResult, setRefreshResult] =
+    useState<RefreshIdleContainersResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const handleValidateDeployment = async () => {
@@ -226,6 +238,59 @@ export default function ProdDeploymentsPage() {
     }
   };
 
+  const handleRefreshIdleContainers = async () => {
+    try {
+      setRefreshing(true);
+      setError(null);
+      setRefreshResult(null);
+
+      const serverEndpoint =
+        process.env.NEXT_PUBLIC_INTERNAL_TOOLS_PROD_SERVER_ENDPOINT;
+      if (!serverEndpoint) {
+        throw new Error(
+          "Production server endpoint not configured. Please set NEXT_PUBLIC_INTERNAL_TOOLS_PROD_SERVER_ENDPOINT environment variable."
+        );
+      }
+
+      const { secretKey } = getInternalToolsConfig();
+      const requestBody = JSON.stringify({});
+      const headers = generateAuthHeaders(
+        "POST",
+        "/internal/prod-deployment/refresh-idle-containers",
+        requestBody,
+        secretKey
+      );
+
+      const response = await fetch(
+        `${serverEndpoint}/internal/prod-deployment/refresh-idle-containers`,
+        {
+          method: "POST",
+          headers,
+          body: requestBody,
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(
+          errorData.message ||
+            `Failed to refresh idle containers: ${response.status}`
+        );
+      }
+
+      const result = await response.json();
+      setRefreshResult(result);
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Failed to refresh idle containers"
+      );
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
   return (
     <TooltipProvider>
       <PageHeader
@@ -296,6 +361,47 @@ export default function ProdDeploymentsPage() {
                     <strong>Instance Refresh ID:</strong>{" "}
                     {deploymentResult.instanceRefreshId}
                   </p>
+                )}
+              </div>
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {/* Refresh Idle Containers Result Alert */}
+        {refreshResult && (
+          <Alert
+            variant={refreshResult.success ? "default" : "destructive"}
+            className={
+              refreshResult.success
+                ? "border-purple-200 bg-purple-50 text-purple-800 dark:border-purple-800 dark:bg-purple-900/50 dark:text-purple-400"
+                : ""
+            }
+          >
+            {refreshResult.success ? (
+              <CheckCircle className="h-4 w-4" />
+            ) : (
+              <AlertTriangle className="h-4 w-4" />
+            )}
+            <AlertDescription>
+              <div className="space-y-1">
+                <p>
+                  <strong>Idle Container Refresh:</strong>{" "}
+                  {refreshResult.success ? "COMPLETED" : "COMPLETED WITH ERRORS"}
+                </p>
+                <p>{refreshResult.message}</p>
+                <p>
+                  <strong>Terminated:</strong> {refreshResult.terminated} |{" "}
+                  <strong>Launched:</strong> {refreshResult.launched}
+                </p>
+                {refreshResult.errors && refreshResult.errors.length > 0 && (
+                  <div className="mt-2">
+                    <p className="font-semibold">Errors:</p>
+                    <ul className="list-disc list-inside text-xs space-y-1">
+                      {refreshResult.errors.map((error, idx) => (
+                        <li key={idx}>{error}</li>
+                      ))}
+                    </ul>
+                  </div>
                 )}
               </div>
             </AlertDescription>
@@ -400,6 +506,53 @@ export default function ProdDeploymentsPage() {
               </p>
               <p>• Instance automatically shuts down after 10 minutes</p>
               <p>• Must pass validation before production deployment</p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Separator />
+
+        {/* Refresh Idle Containers Card */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <RefreshCw className="h-5 w-5 text-purple-600" />
+              <CardTitle>Refresh Idle Container Pool</CardTitle>
+            </div>
+            <CardDescription>
+              Refresh all idle containers by terminating existing ones and
+              launching new ones. This is useful after deployments to ensure idle
+              containers are running the latest container image.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <Button
+              onClick={handleRefreshIdleContainers}
+              disabled={refreshing}
+              className="w-full sm:w-auto"
+              variant="outline"
+            >
+              {refreshing ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Refreshing...
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Refresh Idle Containers
+                </>
+              )}
+            </Button>
+
+            <div className="text-xs text-muted-foreground space-y-1">
+              <p>• Terminates all existing idle containers</p>
+              <p>• Launches new idle containers to replace them</p>
+              <p>• New containers will run the latest deployed image</p>
+              <p>
+                • Recommended after successful production deployment to refresh
+                the pool
+              </p>
             </div>
           </CardContent>
         </Card>
