@@ -1,6 +1,6 @@
 "use client";
 
-import { posthogClient, supabase } from "@/ClientConstants";
+import { supabase } from "@/ClientConstants";
 import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import type {
@@ -13,6 +13,7 @@ import { handleRedirectToPaymentsPage } from "@/lib/utils/payments/CheckoutUtils
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useMetaPixel } from "@/hooks/useMetaPixel";
+import { usePostHog } from "posthog-js/react";
 import RegistrationAccountCreatedEmailVerificationPending from "../../../(auth)/register/RegistrationAccountCreatedEmailVerificationPending";
 
 export default function AuthCallback() {
@@ -22,6 +23,7 @@ export default function AuthCallback() {
   const { userPlan } = useSubscriptionAccess();
   const logger = useProductLogger();
   const { trackEvent } = useMetaPixel();
+  const posthog = usePostHog();
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -51,18 +53,12 @@ export default function AuthCallback() {
         }
       }
       if (data.session?.user) {
-        // associate logging events with this authenticated user
-        if (
-          posthogClient &&
-          typeof posthogClient === "object" &&
-          "identify" in posthogClient
-        ) {
-          (
-            posthogClient as { identify: (id: string, props: object) => void }
-          ).identify(data.session?.user.id, {
-            email: data.session.user.email ?? "",
-          });
-        }
+        // Associate logging events with this authenticated user
+        // Reset PostHog to prevent cross-contamination between different user sessions
+        posthog.reset();
+        posthog.identify(data.session.user.id, {
+          email: data.session.user.email ?? "",
+        });
 
         // Fire Meta Pixel registration event for OAuth sign-ups if pending
         if (typeof window !== "undefined") {
@@ -84,7 +80,8 @@ export default function AuthCallback() {
               if (!localStorage.getItem(sentKey)) {
                 // Use stored eventId or generate a new one
                 const eventId =
-                  parsed.eventId ?? `reg_oauth_${data.session.user.id}_${Date.now()}`;
+                  parsed.eventId ??
+                  `reg_oauth_${data.session.user.id}_${Date.now()}`;
 
                 trackEvent(
                   "CompleteRegistration",
@@ -192,7 +189,7 @@ export default function AuthCallback() {
     };
 
     checkAuth();
-  }, [router, userPlan, logger, trackEvent]);
+  }, [router, userPlan, logger, trackEvent, posthog]);
 
   if (showEmailVerificationRequired) {
     return <RegistrationAccountCreatedEmailVerificationPending />;

@@ -2,7 +2,6 @@
 
 import { QuestionCard } from "@/app/(callbacks)/welcome-survey/components/QuestionCard";
 import { SurveyHeader } from "@/app/(callbacks)/welcome-survey/components/SurveyHeader";
-import { posthogClient } from "@/ClientConstants";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import type { SurveyResponses } from "@/lib/types/surveyTypes";
@@ -12,6 +11,7 @@ import {
   submitSurvey,
 } from "@/lib/utils/survey/SurveyUtils";
 import { useEffect, useState } from "react";
+import { usePostHog } from "posthog-js/react";
 
 interface SurveyOverlayProps {
   userId: string;
@@ -20,6 +20,7 @@ interface SurveyOverlayProps {
 
 export function SurveyOverlay({ userId, isBuildRunning }: SurveyOverlayProps) {
   const logger = useProductLogger();
+  const posthog = usePostHog();
   const [showSurvey, setShowSurvey] = useState(false);
   const [hasChecked, setHasChecked] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
@@ -99,19 +100,11 @@ export function SurveyOverlay({ userId, isBuildRunning }: SurveyOverlayProps) {
       const result = await submitSurvey(userId, finalResponses);
 
       if (result.success) {
-        if (
-          posthogClient &&
-          typeof posthogClient === "object" &&
-          "capture" in posthogClient
-        ) {
-          (
-            posthogClient as { capture: (event: string, props: object) => void; }
-          ).capture("survey_completed", {
-            user_id: userId,
-            context: "build_overlay",
-            answers: finalResponses,
-          });
-        }
+        posthog?.capture("survey_completed", {
+          user_id: userId,
+          context: "build_overlay",
+          answers: finalResponses,
+        });
 
         setShowSurvey(false);
       } else {

@@ -14,12 +14,13 @@ import {
 import { SurveyHeader } from "./components/SurveyHeader";
 import { QuestionCard } from "./components/QuestionCard";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
-import { posthogClient } from "@/ClientConstants";
+import { usePostHog } from "posthog-js/react";
 import { GridBackground } from "@/components/shared/GridComponent";
 
 export function WelcomeSurveyFlow() {
   const router = useRouter();
   const logger = useProductLogger();
+  const posthog = usePostHog();
   const [currentStep, setCurrentStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [responses, setResponses] = useState<Partial<SurveyResponses>>({
@@ -128,15 +129,10 @@ export function WelcomeSurveyFlow() {
         clearSurveyProgress();
 
         // Track analytics
-        if (posthogClient && typeof posthogClient === "object" && "capture" in posthogClient) {
-          (posthogClient as { capture: (event: string, props: object) => void }).capture(
-            "survey_completed",
-            {
-              user_id: session.user.id,
-              answers: finalResponses,
-            }
-          );
-        }
+        posthog?.capture("survey_completed", {
+          user_id: session.user.id,
+          answers: finalResponses,
+        });
 
         // Check for stored intents - always redirect to dashboard
         // The dashboard will handle the chat intent and pre-fill the prompt
