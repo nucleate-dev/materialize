@@ -5,6 +5,8 @@
  * This script packages the starters directory, transfers it to EC2, and runs
  * the deployment script there to upload starter apps to S3.
  *
+ * useful when your internet connection is poor, like on an airplane
+ *
  * Prerequisites:
  * 1. .env file in /server/scripts/ directory with HOST=<your-ec2-host>
  * 2. mat-ec2-key-1.pem SSH key in repository root
@@ -97,9 +99,7 @@ function ensureRemoteReady() {
 
 function deployStarters() {
   console.log("==> Full deploy: zipping starters directory...");
-  console.log(
-    `   Environment: ${isProduction ? "PRODUCTION" : "DEVELOPMENT"}`,
-  );
+  console.log(`   Environment: ${isProduction ? "PRODUCTION" : "DEVELOPMENT"}`);
 
   if (!fs.existsSync(localBase)) {
     console.error(`❌ Not found: ${localBase}`);
@@ -193,7 +193,9 @@ function deployStarters() {
   try {
     console.log("🚀 Starting starter apps deployment from EC2...");
     console.log(`   Target: ${HOST}`);
-    console.log(`   Environment: ${isProduction ? "PRODUCTION" : "DEVELOPMENT"}`);
+    console.log(
+      `   Environment: ${isProduction ? "PRODUCTION" : "DEVELOPMENT"}`,
+    );
     console.log(`   Apps: ${appName || "all apps"}`);
     console.log("");
 
