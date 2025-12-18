@@ -547,6 +547,14 @@ export class IdleContainerAllocationSystemService {
                 name: 'ANTHROPIC_API_KEY',
                 value: process.env.ANTHROPIC_API_KEY!,
               },
+              {
+                name: 'POSTHOG_KEY',
+                value: process.env.POSTHOG_KEY!,
+              },
+              {
+                name: 'POSTHOG_HOST',
+                value: process.env.POSTHOG_HOST!,
+              },
             ],
           },
         ],

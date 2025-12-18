@@ -11,6 +11,7 @@ import { FileSyncService } from "./services/FileSyncService.js";
 import { SandboxService } from "./services/SandboxService.js";
 import { SupabaseClientService } from "./services/SupabaseClientService.js";
 import { TerminalService } from "./services/terminals/TerminalService.js";
+import { PostHog } from "posthog-node";
 
 // Load environment variables
 dotenv.config();
@@ -22,11 +23,16 @@ declare module "fastify" {
   }
 }
 
+export const posthog = new PostHog(process.env.POSTHOG_KEY!, {
+  host: process.env.POSTHOG_HOST!,
+});
+
 export const baseLogger = new SystemLogger({
   service: "build-worker",
   env: process.env.NODE_ENV || "development",
   metricNamespace: "Materialize/BuildWorker",
   redactKeys: ["authorization", "cookie", "x-api-key"],
+  posthog,
 });
 
 // --- Configuration ---
