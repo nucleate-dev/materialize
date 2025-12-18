@@ -39,11 +39,13 @@ import {
   Info,
   Loader2,
   Paperclip,
-  Plus, RefreshCw, Send,
+  Plus,
+  RefreshCw,
+  Send,
   Sparkles,
   StopCircle,
   Terminal,
-  X
+  X,
 } from "lucide-react";
 import type {
   ChangeEvent,
@@ -80,7 +82,7 @@ interface ClaudeCodePanelUIProps {
   currentRenderStatus?: RenderStatus;
   modelProvider: "claude" | "vercel";
   model: string;
-  vercelModels: Array<{ value: string; label: string; }>;
+  vercelModels: Array<{ value: string; label: string }>;
   onModelProviderChange: (value: "claude" | "vercel") => void;
   onModelChange: (value: string) => void;
   messages: Message[];
@@ -93,16 +95,16 @@ interface ClaudeCodePanelUIProps {
   isCurrentSessionMostRecent: boolean;
   isDragOver: boolean;
   uploadingImages: boolean;
-  uploadProgress: { [key: string]: number; };
+  uploadProgress: { [key: string]: number };
   scrollAreaRef:
-  | RefObject<HTMLDivElement | null>
-  | MutableRefObject<HTMLDivElement | null>;
+    | RefObject<HTMLDivElement | null>
+    | MutableRefObject<HTMLDivElement | null>;
   fileInputRef:
-  | RefObject<HTMLInputElement | null>
-  | MutableRefObject<HTMLInputElement | null>;
+    | RefObject<HTMLInputElement | null>
+    | MutableRefObject<HTMLInputElement | null>;
   textareaRef:
-  | RefObject<HTMLTextAreaElement | null>
-  | MutableRefObject<HTMLTextAreaElement | null>;
+    | RefObject<HTMLTextAreaElement | null>
+    | MutableRefObject<HTMLTextAreaElement | null>;
   handleStartTitleEdit: () => void;
   handleCancelTitleEdit: () => void;
   handleSaveTitle: () => void;
@@ -291,9 +293,9 @@ export default function ClaudeCodePanelUI({
                     const dateStr = isToday
                       ? "Today"
                       : date.toLocaleDateString(undefined, {
-                        month: "short",
-                        day: "numeric",
-                      });
+                          month: "short",
+                          day: "numeric",
+                        });
                     const timeStr = date.toLocaleTimeString(undefined, {
                       hour: "numeric",
                       minute: "2-digit",
@@ -374,7 +376,7 @@ export default function ClaudeCodePanelUI({
             </Button>
           )}
 
-          <TooltipProvider>
+          {/* <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
@@ -389,7 +391,7 @@ export default function ClaudeCodePanelUI({
               </TooltipTrigger>
               <TooltipContent>Reset Session</TooltipContent>
             </Tooltip>
-          </TooltipProvider>
+          </TooltipProvider> */}
         </div>
       </div>
 
@@ -482,7 +484,9 @@ export default function ClaudeCodePanelUI({
                         prose-code:bg-indigo-50 dark:prose-code:bg-indigo-950/50 prose-code:px-1 prose-code:rounded
                         prose-code:before:content-none prose-code:after:content-none"
                       >
-                        <ReactMarkdown>{sanitizeText(message.content)}</ReactMarkdown>
+                        <ReactMarkdown>
+                          {sanitizeText(message.content)}
+                        </ReactMarkdown>
                       </div>
                     </div>
                   )}
@@ -527,7 +531,7 @@ export default function ClaudeCodePanelUI({
                       >
                         <div className="text-muted-foreground">
                           {message.toolCallId &&
-                            expandedThinking.has(message.toolCallId) ? (
+                          expandedThinking.has(message.toolCallId) ? (
                             <ChevronDown className="w-3.5 h-3.5" />
                           ) : (
                             <ChevronRight className="w-3.5 h-3.5" />
