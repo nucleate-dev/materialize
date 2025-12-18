@@ -1201,10 +1201,8 @@ const MaterializeRenderSection = forwardRef<
           },
         });
 
-        const result: APIResponse<
-          { message: string },
-          StandardErrorResponse
-        > = await response.json().catch(() => ({ data: null, error: null }));
+        const result: APIResponse<{ message: string }, StandardErrorResponse> =
+          await response.json().catch(() => ({ data: null, error: null }));
 
         setIsBuilding(false);
 
@@ -1219,7 +1217,7 @@ const MaterializeRenderSection = forwardRef<
         } else {
           setBuildError(null);
           toast.success("Build and deploy completed successfully!");
-          logger.debug("info", "Build and deploy completed", {
+          logger.debug(undefined, "Build and deploy completed", {
             message: result.data?.message,
           });
         }

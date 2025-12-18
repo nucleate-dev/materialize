@@ -18,7 +18,6 @@ import {
   AlertCircle,
   Calendar,
   Check,
-  Copy,
   CreditCard,
   Crown,
   ExternalLink,
@@ -185,7 +184,9 @@ function AccountSettings() {
         setClaudeToken("");
       }
     } catch (error) {
-      console.error("Error checking Claude token:", error);
+      logger.debug("error", "Error checking Claude token:", {
+        error: error instanceof Error ? error.message : String(error),
+      });
       setHasClaudeToken(false);
     }
   };
@@ -211,7 +212,7 @@ function AccountSettings() {
           last_validated_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         },
-        { onConflict: "user_id" }
+        { onConflict: "user_id" },
       );
 
       if (error) throw error;
@@ -222,9 +223,11 @@ function AccountSettings() {
 
       setTimeout(() => setTokenSaveSuccess(false), 3000);
     } catch (error) {
-      console.error("Error saving Claude token:", error);
+      logger.debug("error", "Error saving claude token", {
+        error,
+      });
       setTokenError(
-        error instanceof Error ? error.message : "Failed to save token"
+        error instanceof Error ? error.message : "Failed to save token",
       );
     } finally {
       setIsSavingToken(false);
@@ -249,9 +252,11 @@ function AccountSettings() {
       setHasClaudeToken(false);
       setClaudeToken("");
     } catch (error) {
-      console.error("Error deleting Claude token:", error);
+      logger.debug("error", "Error deleting claude token: ", {
+        error,
+      });
       setTokenError(
-        error instanceof Error ? error.message : "Failed to delete token"
+        error instanceof Error ? error.message : "Failed to delete token",
       );
     } finally {
       setIsDeletingToken(false);
@@ -457,8 +462,8 @@ function AccountSettings() {
                           Connect Your Claude Subscription
                         </p>
                         <p className="text-sm text-blue-600 dark:text-blue-400 mb-2">
-                          Use your Claude Pro or Max subscription for unlimited AI
-                          chat (~10x cheaper than API credits).
+                          Use your Claude Pro or Max subscription for unlimited
+                          AI chat (~10x cheaper than API credits).
                         </p>
                         <ol className="text-sm text-blue-600 dark:text-blue-400 space-y-1 ml-4 list-decimal">
                           <li>
@@ -483,7 +488,9 @@ function AccountSettings() {
                           <input
                             type="password"
                             value={claudeTokenInput}
-                            onChange={(e) => setClaudeTokenInput(e.target.value)}
+                            onChange={(e) =>
+                              setClaudeTokenInput(e.target.value)
+                            }
                             placeholder="Paste your token here"
                             className="flex-1 px-3 py-2 bg-white dark:bg-[#1A1B1E] border border-black/10 dark:border-white/10 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 dark:focus:ring-purple-400"
                           />
