@@ -206,7 +206,7 @@ async function clearS3Prefix(prefix) {
 }
 
 /**
- * Upload files to S3 with a given prefix
+ * Upload files to S3 with a given prefix, batched for better performance
  */
 async function uploadFilesToS3(files, basePath, s3Prefix) {
   console.log(`📤 Uploading ${files.length} files to S3 prefix: ${s3Prefix}`);
@@ -214,32 +214,45 @@ async function uploadFilesToS3(files, basePath, s3Prefix) {
   let successCount = 0;
   let errorCount = 0;
 
-  const uploadPromises = files.map(async (filePath) => {
-    try {
-      const relativePath = path.relative(basePath, filePath);
-      const s3Key = `${s3Prefix}${relativePath.replace(/\\/g, "/")}`;
+  const BATCH_SIZE = 10;
 
-      const fileContent = fs.readFileSync(filePath);
-      const contentType = getContentType(filePath);
+  // Process files in batches
+  for (let i = 0; i < files.length; i += BATCH_SIZE) {
+    const batch = files.slice(i, i + BATCH_SIZE);
+    const batchNumber = Math.floor(i / BATCH_SIZE) + 1;
+    const totalBatches = Math.ceil(files.length / BATCH_SIZE);
 
-      await s3Client.send(
-        new PutObjectCommand({
-          Bucket: BUCKET,
-          Key: s3Key,
-          Body: fileContent,
-          ContentType: contentType,
-        }),
-      );
+    console.log(
+      `   📦 Processing batch ${batchNumber}/${totalBatches} (${batch.length} files)`,
+    );
 
-      console.log(`   ✅ Uploaded: ${s3Key}`);
-      successCount++;
-    } catch (error) {
-      console.error(`   ❌ Failed to upload ${filePath}:`, error.message);
-      errorCount++;
-    }
-  });
+    const uploadPromises = batch.map(async (filePath) => {
+      try {
+        const relativePath = path.relative(basePath, filePath);
+        const s3Key = `${s3Prefix}${relativePath.replace(/\\/g, "/")}`;
 
-  await Promise.all(uploadPromises);
+        const fileContent = fs.readFileSync(filePath);
+        const contentType = getContentType(filePath);
+
+        await s3Client.send(
+          new PutObjectCommand({
+            Bucket: BUCKET,
+            Key: s3Key,
+            Body: fileContent,
+            ContentType: contentType,
+          }),
+        );
+
+        console.log(`   ✅ Uploaded: ${s3Key}`);
+        successCount++;
+      } catch (error) {
+        console.error(`   ❌ Failed to upload ${filePath}:`, error.message);
+        errorCount++;
+      }
+    });
+
+    await Promise.all(uploadPromises);
+  }
 
   console.log(
     `📊 Upload summary: ${successCount} successful, ${errorCount} failed`,
