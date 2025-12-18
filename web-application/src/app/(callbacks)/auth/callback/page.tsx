@@ -54,9 +54,7 @@ export default function AuthCallback() {
       }
       if (data.session?.user) {
         // Associate logging events with this authenticated user
-        // Reset PostHog to prevent cross-contamination between different user sessions
-        posthog.reset();
-        posthog.identify(data.session.user.id, {
+        posthog?.identify(data.session.user.id, {
           email: data.session.user.email ?? "",
         });
 

@@ -14,10 +14,10 @@ import { useEffect, useState } from "react";
  * Once the loading completes, if no user is found, the hook triggers a client-side redirect to the
  * login page using Next.js `useRouter`. If a user is authenticated, it returns the current user object.
  *
- * @returns {User | null} - The currently authenticated user with a fresh JWT token, or `null` if no user is logged in.
+ * @returns {{ user: User | null | undefined, userIsLoading: boolean }} - The currently authenticated user and loading state
  *
  * @example
- * const user = useRequireAuth(); // if the user doesn't load, it will automatically redirect you to the login page
+ * const { user, userIsLoading } = useRequireAuth(); // if the user doesn't load, it will automatically redirect you to the login page
  */
 export const useRequireAuth = () => {
   const router = useRouter();
@@ -54,5 +54,5 @@ export const useRequireAuth = () => {
     }
   }, [user, router, userIsLoading]);
 
-  return user;
+  return { user, userIsLoading };
 };
