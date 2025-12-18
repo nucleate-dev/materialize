@@ -726,8 +726,7 @@ export class InternalProductionDeploymentService {
     request.log2.info('Starting idle container refresh');
 
     try {
-      const result =
-        await this.idleContainerService.refreshAllIdleContainers();
+      const result = await this.idleContainerService.refreshAllIdleContainers();
 
       request.log2.info('Idle container refresh completed', {
         terminated: result.terminated,

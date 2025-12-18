@@ -83,10 +83,14 @@ export class IdleContainerAllocationSystemService {
     if (this.maintenanceTimer) clearInterval(this.maintenanceTimer);
   }
 
-  /** Refresh all idle containers by terminating existing ones and launching new ones */
+  /**
+   * Refresh all idle containers by terminating existing ones and launching new ones.
+   * Note: New container launches are initiated but not awaited.
+   * @returns Object containing count of terminated containers, initiated launches, and any errors
+   */
   public async refreshAllIdleContainers(): Promise<{
     terminated: number;
-    launched: number;
+    launched: number; // Number of launches initiated (not necessarily completed)
     errors: string[];
   }> {
     const errors: string[] = [];
@@ -136,31 +140,28 @@ export class IdleContainerAllocationSystemService {
         }
       }
 
-      // Launch new idle containers to replace the terminated ones
+      // Launch new idle containers to replace the terminated ones (without waiting)
       this.log2.consoleLogDevOnly(
         'info',
         `Launching ${terminatedCount} new idle containers`,
       );
 
-      const launchPromises = Array.from({ length: terminatedCount }, () =>
-        this.launchIdleContainer()
-          .then(() => {
-            launchedCount++;
-          })
-          .catch((error) => {
-            const errorMsg = `Failed to launch replacement idle container: ${
+      for (let i = 0; i < terminatedCount; i++) {
+        this.launchIdleContainer().catch((error) => {
+          this.log2.error(
+            error,
+            `Failed to launch replacement idle container: ${
               error instanceof Error ? error.message : 'Unknown error'
-            }`;
-            this.log2.error(error, errorMsg);
-            errors.push(errorMsg);
-          }),
-      );
+            }`,
+          );
+        });
+      }
 
-      await Promise.all(launchPromises);
+      launchedCount = terminatedCount; // Initiated (not necessarily completed)
 
       this.log2.consoleLogDevOnly(
         'info',
-        `Idle container refresh complete: terminated ${terminatedCount}, launched ${launchedCount}`,
+        `Idle container refresh complete: terminated ${terminatedCount}, initiated launch of ${launchedCount}`,
         { errors: errors.length > 0 ? errors : undefined },
       );
 
