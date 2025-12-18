@@ -21,11 +21,14 @@ import { DispatcherService } from './services/dispatcher/DispatcherService.js';
 import { IdleContainerAllocationSystemService } from './services/idle-container-allocation-system/IdleContainerAllocationSystemService.js';
 import { OrchestrationService } from './services/orchestration/OrchestrationService.js';
 import { PrototypeManagementService } from './services/prototype-management/PrototypeManagementService.js';
+import { PostHogLogger } from './loggers/PostHogLogger.js';
+import { PostHog } from 'posthog-node';
 
-// Extend FastifyRequest to include our custom logger
+// Extend FastifyRequest to include our custom loggers
 declare module 'fastify' {
   interface FastifyRequest {
     log2: SystemLogger;
+    posthogLogger: PostHogLogger;
   }
 }
 
@@ -34,6 +37,18 @@ export const baseLogger = new SystemLogger({
   env: process.env.NODE_ENV || 'development',
   metricNamespace: 'Materialize/Service',
   redactKeys: ['authorization', 'cookie', 'x-api-key'],
+});
+
+export const posthog = new PostHog(process.env.POSTHOG_KEY!, {
+  host: process.env.POSTHOG_HOST!,
+});
+
+export const posthogLogger = new PostHogLogger({
+  posthog,
+  context: {
+    server: 'control-plane',
+    env: process.env.NODE_ENV || 'development',
+  },
 });
 
 // Initialize clients
@@ -110,6 +125,12 @@ fastify.addHook('onRequest', async (req) => {
     req.headers as Record<string, string | string[] | undefined>,
   );
   req.log2 = baseLogger.child({
+    requestId,
+    traceId,
+    route: req.routeOptions?.url,
+    method: req.method,
+  });
+  req.posthogLogger = posthogLogger.child({
     requestId,
     traceId,
     route: req.routeOptions?.url,
