@@ -472,59 +472,8 @@ export class CleanupService {
       // Parse the actual response body to understand what happened
       const responseData = response.data;
       if (responseData.data) {
-        if (responseData.data?.version) {
-          const { error: updateBuildVersionError } = await this.supabase
-            .from('prototypes')
-            .update({
-              latest_build_key: responseData.data.version,
-            } satisfies TablesUpdate<'prototypes'>)
-            .eq('id', prototypeId);
-          if (updateBuildVersionError) {
-            this.log2.error(
-              updateBuildVersionError,
-              'Failed to update prototype latest_build_key',
-              {
-                prototypeId,
-              },
-            );
-          } else {
-            this.log2.consoleLogDevOnly(
-              'info',
-              'Successfully updated prototype latest_build_key',
-              {
-                prototypeId,
-                version: responseData.data.version,
-              },
-            );
-          }
-        } else {
-          // Clear latest_build_key when version doesn't exist
-          const { error: clearBuildVersionError } = await this.supabase
-            .from('prototypes')
-            .update({
-              latest_build_key: null,
-            } satisfies TablesUpdate<'prototypes'>)
-            .eq('id', prototypeId);
-          if (clearBuildVersionError) {
-            this.log2.error(
-              clearBuildVersionError,
-              'Failed to clear prototype latest_build_key',
-              {
-                prototypeId,
-              },
-            );
-          } else {
-            this.log2.consoleLogDevOnly(
-              'info',
-              'Successfully cleared prototype latest_build_key',
-              {
-                prototypeId,
-              },
-            );
-          }
-        }
+        // Note: latest_build_key is now updated directly in the build-worker's handleCleanup
         // We should still return success because the fargate task should be cleaned up.
-        // Maybe we need to figure out something better here.
         return {
           success: true,
           buildInProgress: false,

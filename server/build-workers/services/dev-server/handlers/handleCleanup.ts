@@ -155,6 +155,35 @@ async function triggerBackgroundDevServerBuildAndUploadToS3(
   developmentServerService.developmentServerState.builtVersion =
     uploadResult.version;
 
+  // 3.5. Update the prototypes table with the latest build version
+  const supabase = developmentServerService.supabaseClientService.getClient();
+  const { error: updateBuildVersionError } = await supabase
+    .from("prototypes")
+    .update({
+      latest_build_key: uploadResult.version,
+    })
+    .eq("id", prototypeId);
+
+  if (updateBuildVersionError) {
+    log2.error(
+      updateBuildVersionError,
+      "Failed to update prototype latest_build_key",
+      {
+        prototypeId,
+        version: uploadResult.version,
+      },
+    );
+  } else {
+    log2.consoleLogDevOnly(
+      "info",
+      "Successfully updated prototype latest_build_key",
+      {
+        prototypeId,
+        version: uploadResult.version,
+      },
+    );
+  }
+
   // 4. Sync files to Supabase
   try {
     const syncResult =
