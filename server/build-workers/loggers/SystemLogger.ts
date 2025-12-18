@@ -2,6 +2,8 @@
 // A structured logger that writes JSON to stdout, optimized for CloudWatch Logs + EMF metrics.
 // Works in EC2, ECS/Fargate, Lambda (stdout). No runtime deps.
 import { LatencyEvent } from "./LatencyEvents.js";
+import { PostHog } from "posthog-node";
+import { PostHogEvents } from "./PostHogEvents.js";
 
 type LogLevel = "debug" | "info" | "warn" | "error";
 
@@ -34,14 +36,14 @@ type NormalizedError = {
 type EMFMetric = {
   Name: string;
   Unit?:
-  | "Count"
-  | "Milliseconds"
-  | "Seconds"
-  | "Percent"
-  | "Bytes"
-  | "Kilobytes"
-  | "Megabytes"
-  | "Gigabytes";
+    | "Count"
+    | "Milliseconds"
+    | "Seconds"
+    | "Percent"
+    | "Bytes"
+    | "Kilobytes"
+    | "Megabytes"
+    | "Gigabytes";
 };
 
 type EMFStructure = {
@@ -62,6 +64,7 @@ export type SystemLoggerOptions = {
   redactKeys?: string[]; // keys to redact in fields (e.g., ["authorization","password","token"])
   defaultDimensions?: Record<string, string>; // EMF dimensions
   metricNamespace?: string; // EMF namespace, e.g. "Materialize/Service"
+  posthog?: PostHog; // Optional PostHog client for user event tracking
 };
 
 const DEFAULT_REDACTIONS = new Set([
@@ -85,6 +88,7 @@ export class SystemLogger {
   private redact: Set<string>;
   private dims: Record<string, string>;
   private metricNs: string;
+  private posthog?: PostHog;
 
   constructor(opts: SystemLoggerOptions, initial: LoggerContext = {}) {
     this.base = {
@@ -101,6 +105,7 @@ export class SystemLogger {
       env: opts.env,
     };
     this.metricNs = opts.metricNamespace ?? "App/Service";
+    this.posthog = opts.posthog;
   }
 
   /** Create a child logger with more context (e.g., per request). */
@@ -112,6 +117,7 @@ export class SystemLogger {
         redactKeys: Array.from(this.redact),
         defaultDimensions: { ...this.dims },
         metricNamespace: this.metricNs,
+        posthog: this.posthog,
       },
       { ...this.base, ...extra },
     );
@@ -244,6 +250,41 @@ export class SystemLogger {
       model: modelName,
       ...extraDims,
     });
+
+    // Also send to PostHog if we have a userId
+    if (this.posthog && this.base.userId) {
+      const posthogProperties: Record<string, unknown> = {
+        model: modelName,
+        inputTokens,
+        outputTokens,
+        totalTokens: inputTokens + outputTokens,
+        ...extraDims,
+        service: this.base.service,
+        env: this.base.env,
+      };
+
+      if (cacheReadInputTokens !== undefined) {
+        posthogProperties.cacheReadInputTokens = cacheReadInputTokens;
+      }
+      if (cacheCreationOutputTokens !== undefined) {
+        posthogProperties.cacheCreationOutputTokens = cacheCreationOutputTokens;
+      }
+      if (costInUsd !== undefined) {
+        posthogProperties.costInUsd = costInUsd;
+      }
+      if (durationMs !== undefined) {
+        posthogProperties.durationMs = durationMs;
+      }
+      if (durationApiMs !== undefined) {
+        posthogProperties.durationApiMs = durationApiMs;
+      }
+
+      this.posthog.capture({
+        distinctId: this.base.userId,
+        event: PostHogEvents.chat_usage_generic,
+        properties: posthogProperties,
+      });
+    }
   }
 
   consoleLogDevOnly(
@@ -281,6 +322,20 @@ export class SystemLogger {
     extraDims: Record<string, string> = {},
   ): void {
     this.emitEMF([{ Name: name, Unit: "Count" }], { [name]: count }, extraDims);
+
+    // Also send to PostHog if we have a userId
+    if (this.posthog && this.base.userId) {
+      this.posthog.capture({
+        distinctId: this.base.userId,
+        event: name,
+        properties: {
+          count,
+          ...extraDims,
+          service: this.base.service,
+          env: this.base.env,
+        },
+      });
+    }
   }
 
   /** Emit a timing/latency metric in milliseconds via EMF. */
@@ -294,6 +349,20 @@ export class SystemLogger {
       { [name]: ms },
       extraDims,
     );
+
+    // Also send to PostHog if we have a userId
+    if (this.posthog && this.base.userId) {
+      this.posthog.capture({
+        distinctId: this.base.userId,
+        event: name,
+        properties: {
+          duration_ms: ms,
+          ...extraDims,
+          service: this.base.service,
+          env: this.base.env,
+        },
+      });
+    }
   }
 
   /** Time a function and report duration under metric `name`.
@@ -460,7 +529,7 @@ export class SystemLogger {
 
 export function genRequestIds(
   headers: Record<string, string | string[] | undefined>,
-): { requestId: string; traceId: string; } {
+): { requestId: string; traceId: string } {
   const fromHeader = (name: string): string => {
     const value = headers[name] ?? headers[name.toLowerCase()];
     if (Array.isArray(value)) {

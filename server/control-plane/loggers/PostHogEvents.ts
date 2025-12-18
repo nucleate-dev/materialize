@@ -1,4 +1,5 @@
 export type PostHogEvent =
+  | 'chat_usage_generic'
   | 'dispatch'
   | 'dispatch_precheck'
   | 'oauth_registration_initiated'
@@ -9,6 +10,7 @@ export type PostHogEvent =
   | 'user_registration_completed';
 
 export const PostHogEvents: Record<PostHogEvent, PostHogEvent> = Object.freeze({
+  chat_usage_generic: 'chat_usage_generic',
   dispatch: 'dispatch',
   dispatch_precheck: 'dispatch_precheck',
   oauth_registration_initiated: 'oauth_registration_initiated',

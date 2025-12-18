@@ -5,9 +5,10 @@
 // To update these shared files, modify the source file and run:
 // npm run sync-types (in the control-plane directory)
 //
-// Last synced: 2025-12-18T19:33:56.597Z
+// Last synced: 2025-12-18T19:44:52.664Z
 
 export type PostHogEvent =
+  | 'chat_usage_generic'
   | 'dispatch'
   | 'dispatch_precheck'
   | 'oauth_registration_initiated'
@@ -18,6 +19,7 @@ export type PostHogEvent =
   | 'user_registration_completed';
 
 export const PostHogEvents: Record<PostHogEvent, PostHogEvent> = Object.freeze({
+  chat_usage_generic: 'chat_usage_generic',
   dispatch: 'dispatch',
   dispatch_precheck: 'dispatch_precheck',
   oauth_registration_initiated: 'oauth_registration_initiated',
