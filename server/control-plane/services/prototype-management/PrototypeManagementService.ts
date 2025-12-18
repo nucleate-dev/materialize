@@ -12,11 +12,14 @@ import type {
   FetchViewingUrlSuccessResponse,
   StandardErrorResponse,
 } from '../../types/PublicAPITypes.js';
+import { HTTP_STATUS } from '../../types/PublicAPITypes.js';
 import { CleanupService } from '../cleanup/CleanupService.js';
 import { DispatcherService } from '../dispatcher/DispatcherService.js';
 import { handleCreatePrototypeImpl } from './handlers/handleCreatePrototype.js';
 import handleDeletePrototypeImpl from './handlers/handleDeletePrototype.js';
 import handleFetchViewingUrlImpl from './handlers/handleFetchViewingUrl.js';
+import { PostHogEvents } from '../../loggers/PostHogEvents.js';
+import { validateJWTToken } from '../../utils/prototypeAuth.js';
 
 export class PrototypeManagementService {
   private fastifyApp: FastifyInstance;
@@ -138,7 +141,40 @@ export class PrototypeManagementService {
   ): Promise<
     APIResponse<CreatePrototypeSuccessResponse, CreatePrototypeErrorResponse>
   > {
-    return await handleCreatePrototypeImpl(request, reply, this.s3Client);
+    // Extract JWT token from Authorization header and validate it
+    const token = request.headers.authorization?.split(' ')[1] ?? '';
+    const { user } = await validateJWTToken(token, request.log2);
+    if (!user) {
+      request.log2.warn('Unauthorized user');
+      return reply.status(HTTP_STATUS.UNAUTHORIZED).send({
+        data: null,
+        error: {
+          error: 'Unauthorized',
+          message: 'Invalid token',
+        },
+      });
+    }
+
+    // Update logger context
+    request.log2 = request.log2.child({
+      userId: user.id,
+    });
+
+    // Setup PostHog logger with context
+    const posthogLogger = request.posthogLogger.child({
+      function: 'handleCreatePrototype',
+      service: 'PrototypeManagementService',
+      is_forking: !!request.body.prototype_id,
+      has_custom_design_system: !!request.body.custom_design_system,
+    });
+
+    return await posthogLogger.timeAndRecord(
+      user.id,
+      PostHogEvents.prototype_creation,
+      async () => {
+        return await handleCreatePrototypeImpl(request, reply, this.s3Client);
+      },
+    );
   }
 
   private async handleDeletePrototype(
@@ -147,12 +183,44 @@ export class PrototypeManagementService {
   ): Promise<
     APIResponse<DeletePrototypeSuccessResponse, DeletePrototypeErrorResponse>
   > {
-    return await handleDeletePrototypeImpl(
-      request,
-      reply,
-      this.s3Client,
-      this.cache,
-      this.cleanupService,
+    // Extract JWT token from Authorization header and validate it
+    const token = request.headers.authorization?.split(' ')[1] ?? '';
+    const { user } = await validateJWTToken(token, request.log2);
+    if (!user) {
+      request.log2.warn('Unauthorized user');
+      return reply.status(HTTP_STATUS.UNAUTHORIZED).send({
+        data: null,
+        error: {
+          error: 'Unauthorized',
+          message: 'Invalid token',
+        },
+      });
+    }
+
+    // Update logger context
+    request.log2 = request.log2.child({
+      userId: user.id,
+    });
+
+    // Setup PostHog logger with context
+    const posthogLogger = request.posthogLogger.child({
+      function: 'handleDeletePrototype',
+      service: 'PrototypeManagementService',
+      prototype_id: request.params.prototype_id,
+    });
+
+    return await posthogLogger.timeAndRecord(
+      user.id,
+      PostHogEvents.prototype_deletion,
+      async () => {
+        return await handleDeletePrototypeImpl(
+          request,
+          reply,
+          this.s3Client,
+          this.cache,
+          this.cleanupService,
+        );
+      },
     );
   }
 }
