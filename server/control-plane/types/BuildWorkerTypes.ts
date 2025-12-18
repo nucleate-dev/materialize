@@ -5,7 +5,7 @@
 // To update these types, modify the source file and run:
 // npm run sync-build-worker-types
 //
-// Last synced: 2025-12-10T06:45:56.050Z
+// Last synced: 2025-12-18T07:30:40.101Z
 
 import { Database } from "./supabase.js";
 
@@ -75,51 +75,8 @@ export enum DevServerStatus {
   RESTARTING = "restarting",
 }
 
-export interface BuildLogEntry {
-  step: string;
-  success: boolean;
-  timestamp: string;
-  output: string;
-  error: string;
-}
-
-export interface BuildRequest {
-  prototype_id: string;
-  files: PrototypeFileInput[];
-  assets: PrototypeAssetInputWithContent[];
-}
-
-export interface BuildResponse {
-  success: boolean;
-  buildLog: BuildLogEntry[];
-  outputPath?: string;
-  error?: string;
-}
-
-export interface DeployRequest {
-  prototype_id: string;
-  buildPath: string;
-}
-
-export interface DeployResponse {
-  success: boolean;
-  buildUrl?: string;
-  uploadedFiles?: Array<{ key: string; location: string }>;
-  version?: string;
-  error?: string;
-}
-
-export interface BuildAndDeployRequest {
-  prototype_id: string;
-}
-
 export interface BuildAndDeployResponse {
-  success: boolean;
-  buildUrl?: string;
-  buildLog: BuildLogEntry[];
-  uploadedFiles?: Array<{ key: string; location: string }>;
-  error?: string;
-  version?: string;
+  message?: string;
 }
 
 export interface PublicDevServerStartRequest {

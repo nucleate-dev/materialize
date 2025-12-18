@@ -5,7 +5,7 @@
 // To update these types, modify the source file and run:
 // npm run build (in the control-plane directory)
 //
-// Last synced: 2025-12-10T06:45:56.015Z
+// Last synced: 2025-12-18T07:30:40.066Z
 
 // Public API types for the Control Plane Server
 // These types define the request and response schemas for all public endpoints
