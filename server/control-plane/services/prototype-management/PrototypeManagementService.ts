@@ -17,7 +17,6 @@ import { DispatcherService } from '../dispatcher/DispatcherService.js';
 import { handleCreatePrototypeImpl } from './handlers/handleCreatePrototype.js';
 import handleDeletePrototypeImpl from './handlers/handleDeletePrototype.js';
 import handleFetchViewingUrlImpl from './handlers/handleFetchViewingUrl.js';
-import handleResetPrototypeImpl from './handlers/handleResetPrototype.js';
 
 export class PrototypeManagementService {
   private fastifyApp: FastifyInstance;
@@ -118,22 +117,6 @@ export class PrototypeManagementService {
       },
       this.handleDeletePrototype.bind(this),
     );
-
-    app.post<{ Params: { prototype_id: string } }>(
-      '/prototype/:prototype_id/reset',
-      {
-        schema: {
-          params: {
-            type: 'object',
-            required: ['prototype_id'],
-            properties: {
-              prototype_id: { type: 'string' },
-            },
-          },
-        },
-      },
-      this.handleResetPrototype.bind(this),
-    );
   }
 
   private async handleFetchViewingUrl(
@@ -156,18 +139,6 @@ export class PrototypeManagementService {
     APIResponse<CreatePrototypeSuccessResponse, CreatePrototypeErrorResponse>
   > {
     return await handleCreatePrototypeImpl(request, reply, this.s3Client);
-  }
-
-  private async handleResetPrototype(
-    request: FastifyRequest<{ Params: { prototype_id: string } }>,
-    reply: FastifyReply,
-  ): Promise<void> {
-    return await handleResetPrototypeImpl(
-      request,
-      reply,
-      this.s3Client,
-      this.dispatcherService,
-    );
   }
 
   private async handleDeletePrototype(
