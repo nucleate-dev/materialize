@@ -2,6 +2,7 @@ import tseslint from '@typescript-eslint/eslint-plugin';
 import tsparser from '@typescript-eslint/parser';
 import prettierConfig from 'eslint-config-prettier';
 import requireInternalAuth from './eslint-rules/require-internal-auth.js';
+import sortPosthogEvents from './eslint-rules/sort-posthog-events.js';
 
 export default [
   {
@@ -18,6 +19,7 @@ export default [
       custom: {
         rules: {
           'require-internal-auth': requireInternalAuth,
+          'sort-posthog-events': sortPosthogEvents,
         },
       },
     },
@@ -50,6 +52,7 @@ export default [
       'no-eval': 'error',
       'no-implied-eval': 'error',
       'no-new-func': 'error',
+      'custom/sort-posthog-events': 'error',
 
       // Disable style rules that conflict with Prettier
       ...prettierConfig.rules,
