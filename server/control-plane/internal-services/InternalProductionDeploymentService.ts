@@ -16,20 +16,24 @@ import { authenticateInternalToolsRequest } from '../utils/internalToolsAuth.js'
 import fs from 'fs';
 import path from 'path';
 import { SystemLogger } from '../loggers/SystemLogger.js';
+import { IdleContainerAllocationSystemService } from '../services/idle-container-allocation-system/IdleContainerAllocationSystemService.js';
 
 export class InternalProductionDeploymentService {
   private ec2Client: EC2Client;
   private autoScalingClient: AutoScalingClient;
   private fastifyApp: FastifyInstance;
+  private idleContainerService: IdleContainerAllocationSystemService;
 
   constructor(
     ec2Client: EC2Client,
     autoScalingClient: AutoScalingClient,
     fastifyApp: FastifyInstance,
+    idleContainerService: IdleContainerAllocationSystemService,
   ) {
     this.ec2Client = ec2Client;
     this.autoScalingClient = autoScalingClient;
     this.fastifyApp = fastifyApp;
+    this.idleContainerService = idleContainerService;
   }
 
   public registerRoutes(app: FastifyInstance): void {
@@ -281,6 +285,72 @@ export class InternalProductionDeploymentService {
         },
       },
       this.handleValidateAndDeploy.bind(this),
+    );
+
+    // POST /internal/prod-deployment/refresh-idle-containers
+    app.post(
+      '/internal/prod-deployment/refresh-idle-containers',
+      {
+        preHandler: authenticateInternalToolsRequest,
+        schema: {
+          description:
+            'Refresh all idle containers by terminating existing ones and launching new ones (requires internal tools authentication)',
+          tags: ['internal-tools', 'prod-deployment'],
+          headers: {
+            type: 'object',
+            required: ['x-internal-signature', 'x-internal-timestamp'],
+            properties: {
+              'x-internal-signature': {
+                type: 'string',
+                description: 'HMAC-SHA256 signature',
+              },
+              'x-internal-timestamp': {
+                type: 'string',
+                description: 'Unix timestamp',
+              },
+            },
+          },
+          body: {
+            type: 'object',
+            properties: {},
+          },
+          response: {
+            200: {
+              type: 'object',
+              properties: {
+                success: { type: 'boolean' },
+                terminated: { type: 'number' },
+                launched: { type: 'number' },
+                errors: {
+                  type: 'array',
+                  items: { type: 'string' },
+                },
+                message: { type: 'string' },
+                timestamp: { type: 'string' },
+              },
+            },
+            401: {
+              type: 'object',
+              properties: {
+                error: { type: 'string' },
+                message: { type: 'string' },
+                requiredHeaders: {
+                  type: 'array',
+                  items: { type: 'string' },
+                },
+              },
+            },
+            500: {
+              type: 'object',
+              properties: {
+                error: { type: 'string' },
+                message: { type: 'string' },
+              },
+            },
+          },
+        },
+      },
+      this.handleRefreshIdleContainers.bind(this),
     );
   }
 
@@ -642,6 +712,49 @@ export class InternalProductionDeploymentService {
       return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
         error: 'Internal Server Error',
         message: `Failed to validate and deploy: ${e.message}`,
+      });
+    }
+  }
+
+  private async handleRefreshIdleContainers(
+    request: FastifyRequest,
+    reply: FastifyReply,
+  ): Promise<void> {
+    request.log2 = request.log2.child({
+      service: 'internal-prod-deployment',
+    });
+    request.log2.info('Starting idle container refresh');
+
+    try {
+      const result =
+        await this.idleContainerService.refreshAllIdleContainers();
+
+      request.log2.info('Idle container refresh completed', {
+        terminated: result.terminated,
+        launched: result.launched,
+        errorCount: result.errors.length,
+      });
+
+      const success = result.errors.length === 0;
+      const message = success
+        ? `Successfully refreshed ${result.terminated} idle containers. Terminated: ${result.terminated}, Launched: ${result.launched}`
+        : `Refreshed idle containers with some errors. Terminated: ${result.terminated}, Launched: ${result.launched}, Errors: ${result.errors.length}`;
+
+      return reply.status(HTTP_STATUS.OK).send({
+        success,
+        terminated: result.terminated,
+        launched: result.launched,
+        errors: result.errors,
+        message,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      const e = error instanceof Error ? error : new Error(String(error));
+      request.log2.error(error, 'Failed to refresh idle containers');
+
+      return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
+        error: 'Internal Server Error',
+        message: `Failed to refresh idle containers: ${e.message}`,
       });
     }
   }

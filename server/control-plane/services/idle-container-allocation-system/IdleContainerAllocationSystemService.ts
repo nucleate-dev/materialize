@@ -83,6 +83,106 @@ export class IdleContainerAllocationSystemService {
     if (this.maintenanceTimer) clearInterval(this.maintenanceTimer);
   }
 
+  /** Refresh all idle containers by terminating existing ones and launching new ones */
+  public async refreshAllIdleContainers(): Promise<{
+    terminated: number;
+    launched: number;
+    errors: string[];
+  }> {
+    const errors: string[] = [];
+    let terminatedCount = 0;
+    let launchedCount = 0;
+
+    try {
+      // Get all idle container task ARNs from the list
+      const idleCount = await this.cache.llen(CACHE_KEYS.idleBuildsListKey);
+
+      if (idleCount === 0) {
+        this.log2.consoleLogDevOnly('info', 'No idle containers to refresh');
+        return { terminated: 0, launched: 0, errors: [] };
+      }
+
+      this.log2.consoleLogDevOnly(
+        'info',
+        `Refreshing ${idleCount} idle containers`,
+      );
+
+      // Collect all task ARNs from the idle list
+      const taskArns: string[] = [];
+      for (let i = 0; i < idleCount; i++) {
+        const taskArn = await this.cache.lpop(CACHE_KEYS.idleBuildsListKey);
+        if (taskArn) {
+          taskArns.push(taskArn as string);
+        }
+      }
+
+      // Terminate all idle containers
+      for (const taskArn of taskArns) {
+        const idleKey = CACHE_KEYS.idleBuild(taskArn);
+        try {
+          await this.terminateFargateTask(taskArn);
+          await this.cache.del([idleKey]);
+          terminatedCount++;
+          this.log2.consoleLogDevOnly(
+            'info',
+            `Terminated idle container ${taskArn}`,
+          );
+        } catch (error) {
+          const errorMsg = `Failed to terminate idle container ${taskArn}: ${
+            error instanceof Error ? error.message : 'Unknown error'
+          }`;
+          this.log2.error(error, errorMsg);
+          errors.push(errorMsg);
+        }
+      }
+
+      // Launch new idle containers to replace the terminated ones
+      this.log2.consoleLogDevOnly(
+        'info',
+        `Launching ${terminatedCount} new idle containers`,
+      );
+
+      const launchPromises = Array.from({ length: terminatedCount }, () =>
+        this.launchIdleContainer()
+          .then(() => {
+            launchedCount++;
+          })
+          .catch((error) => {
+            const errorMsg = `Failed to launch replacement idle container: ${
+              error instanceof Error ? error.message : 'Unknown error'
+            }`;
+            this.log2.error(error, errorMsg);
+            errors.push(errorMsg);
+          }),
+      );
+
+      await Promise.all(launchPromises);
+
+      this.log2.consoleLogDevOnly(
+        'info',
+        `Idle container refresh complete: terminated ${terminatedCount}, launched ${launchedCount}`,
+        { errors: errors.length > 0 ? errors : undefined },
+      );
+
+      return {
+        terminated: terminatedCount,
+        launched: launchedCount,
+        errors,
+      };
+    } catch (error) {
+      const errorMsg = `Failed to refresh idle containers: ${
+        error instanceof Error ? error.message : 'Unknown error'
+      }`;
+      this.log2.error(error, errorMsg);
+      errors.push(errorMsg);
+      return {
+        terminated: terminatedCount,
+        launched: launchedCount,
+        errors,
+      };
+    }
+  }
+
   private async ensureIdleCapacity(): Promise<void> {
     if (process.env.NODE_ENV === 'development') return; // no idle containers in development mode
     const currentIdle = await this.cache.llen(CACHE_KEYS.idleBuildsListKey);

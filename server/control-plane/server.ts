@@ -235,6 +235,7 @@ const start = async (): Promise<void> => {
         ec2Client,
         autoScalingClient,
         fastify,
+        idleContainerAllocationSystemService,
       );
     internalProductionDeploymentService.registerRoutes(fastify);
 
