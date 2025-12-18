@@ -1,0 +1,17 @@
+{
+  "name": "materialize-starters",
+  "version": "1.0.0",
+  "description": "Starter apps deployment scripts",
+  "type": "module",
+  "scripts": {
+    "deploy": "node deploy-default-apps.js",
+    "deploy:production": "node deploy-default-apps.js --production",
+    "deploy:from-ec2": "node deploy-starters-from-ec2.js",
+    "deploy:from-ec2:production": "node deploy-starters-from-ec2.js --production"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.705.0",
+    "dotenv": "^16.4.7"
+  },
+  "private": true
+}
