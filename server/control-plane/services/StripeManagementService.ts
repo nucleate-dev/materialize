@@ -11,7 +11,6 @@ import {
 } from '../types/PublicAPITypes.js';
 import { validateJWTToken } from '../utils/prototypeAuth.js';
 import { getSubscriptionInfo } from '../utils/subscriptionChecks.js';
-import { PostHogLogger } from '../loggers/PostHogLogger.js';
 import { PostHogEvents } from '../loggers/PostHogEvents.js';
 
 // Initialize Stripe
@@ -106,7 +105,7 @@ export class StripeManagementService {
     const { productID } = request.body;
 
     // Setup PostHog logger with context
-    let posthogLogger = request.posthogLogger.child({
+    const posthogLogger = request.posthogLogger.child({
       function: 'handleCheckout',
       service: 'StripeManagementService',
       productID,
@@ -268,7 +267,7 @@ export class StripeManagementService {
     });
 
     // Setup PostHog logger with context
-    let posthogLogger = request.posthogLogger.child({
+    const posthogLogger = request.posthogLogger.child({
       function: 'handleManageBilling',
       service: 'StripeManagementService',
     });
