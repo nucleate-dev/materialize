@@ -22,30 +22,30 @@ import {
   ChatServerMessage,
 } from "../../../types/ChatTypes.js";
 import { Database } from "../../../types/supabase.js";
+import { hasRemainingCredits } from "../../../utils/credit-checks.js";
+import { WORK_DIR } from "../../../worker.js";
 import { NucleateDevelopmentServerService } from "../../dev-server/NucleateDevelopmentServerService.js";
 import { FileSyncService } from "../../FileSyncService.js";
 import { SandboxService } from "../../SandboxService.js";
 import { SupabaseClientService } from "../../SupabaseClientService.js";
 import { TerminalService } from "../../terminals/TerminalService.js";
-import { getSystemPromptForDesignStyle } from "../prompts/ClaudeCodePrompts.js";
-import {
-  costFunctionV3,
-  CURRENT_COST_FUNCTION_NAME,
-} from "../cost/cost-calculation.js";
-import { hasRemainingCredits } from "../../../utils/credit-checks.js";
 import {
   DEFAULT_DESIGN_AGENT_MODELS,
   executeDesignAgent,
   persistDesignSpecToFiles,
   type DesignAgentProvider,
-} from "../classifiers-and-subagents.ts/design-agent-service.js";
-import { classifyDesignIntent } from "../classifiers-and-subagents.ts/design-intent-classifier.js";
-import { createDesignToolsMcpServer } from "../mcp/mcp-design-tools.js";
-import { createDevelopmentToolsMcpServer } from "../mcp/mcp-dev-tools.js";
+} from "../classifiers-and-subagents/design-agent-service.js";
+import { classifyDesignIntent } from "../classifiers-and-subagents/design-intent-classifier.js";
+import {
+  costFunctionV3,
+  CURRENT_COST_FUNCTION_NAME,
+} from "../cost/cost-calculation.js";
+import { trackApiUsageBuildWorker } from "../cost/usage-tracking.js";
 import { getToolDisplayName } from "../helpers/message-handlers.js";
 import { ToolPermissionService } from "../helpers/tool-permission-service.js";
-import { trackApiUsageBuildWorker } from "../cost/usage-tracking.js";
-import { WORK_DIR } from "../../../worker.js";
+import { createDesignToolsMcpServer } from "../mcp/mcp-design-tools.js";
+import { createDevelopmentToolsMcpServer } from "../mcp/mcp-dev-tools.js";
+import { getSystemPromptForDesignStyle } from "../prompts/ClaudeCodePrompts.js";
 
 const HISTORY_MESSAGE_REQUEST_COUNT = 6;
 
@@ -59,7 +59,7 @@ interface CodeSessionState {
   modifiedFilesThisQuery: Set<string>;
   designSystemId: string | null;
   designSystemRules: string | null;
-  firstMessageStatus: { sessionId: string; isFirst: boolean } | null;
+  firstMessageStatus: { sessionId: string; isFirst: boolean; } | null;
 }
 
 interface ToolInputWithFilePath {
@@ -127,9 +127,9 @@ interface MessageHandlers {
   uploadChatImages: (
     prototypeId: string,
     chatSessionId: string,
-    images: Array<{ base64: string; mediaType: string }>,
+    images: Array<{ base64: string; mediaType: string; }>,
   ) => Promise<
-    Array<{ storage_path: string; media_type: string; file_size: number }>
+    Array<{ storage_path: string; media_type: string; file_size: number; }>
   >;
   updatePersistenceClient?: (client: unknown) => void;
   notifyOrchestrationStartChat: (prototypeId: string) => Promise<void>;
@@ -138,9 +138,9 @@ interface MessageHandlers {
 
 interface StreamContext {
   messageContent:
-    | string
-    | Array<{ type: string; text?: string; source?: unknown }>;
-  queryOptions: Options & { resume?: string };
+  | string
+  | Array<{ type: string; text?: string; source?: unknown; }>;
+  queryOptions: Options & { resume?: string; };
   sessionState: CodeSessionState;
   validAiChatSessionIds: Set<string>;
   socket: WebSocket;
@@ -345,9 +345,9 @@ export class ChatQueryHandler {
             ? content
             : Array.isArray(content)
               ? content
-                  .filter((block) => block.type === "text")
-                  .map((block) => block.text || "")
-                  .join("\n")
+                .filter((block) => block.type === "text")
+                .map((block) => block.text || "")
+                .join("\n")
               : prompt || "";
 
         if (userMessageText) {
@@ -909,7 +909,7 @@ export class ChatQueryHandler {
     abortController: AbortController,
     logger: SystemLogger,
     _systemPrompt: string,
-  ): Promise<{ designSpec: string | null; costUsd: number | undefined }> {
+  ): Promise<{ designSpec: string | null; costUsd: number | undefined; }> {
     // Use Gemini by default for design agent (fast and free)
     const provider: DesignAgentProvider = "google";
     const model = DEFAULT_DESIGN_AGENT_MODELS[provider];
@@ -1219,7 +1219,7 @@ export class ChatQueryHandler {
   private prepareMessageContent(
     prompt: string | undefined,
     content: ChatContentBlock[] | undefined,
-  ): string | Array<{ type: string; text?: string; source?: unknown }> {
+  ): string | Array<{ type: string; text?: string; source?: unknown; }> {
     if (content) {
       return content.map((block) => {
         if (block.type === "text") {
@@ -1245,8 +1245,8 @@ export class ChatQueryHandler {
   private extractImagesFromContent(
     messageContent:
       | string
-      | Array<{ type: string; text?: string; source?: unknown }>,
-  ): Array<{ base64: string; mediaType: string }> {
+      | Array<{ type: string; text?: string; source?: unknown; }>,
+  ): Array<{ base64: string; mediaType: string; }> {
     if (!Array.isArray(messageContent)) {
       return [];
     }
@@ -1254,8 +1254,8 @@ export class ChatQueryHandler {
     return messageContent
       .filter((block) => block.type === "image")
       .map((block) => ({
-        base64: (block.source as { data: string }).data,
-        mediaType: (block.source as { media_type: string }).media_type,
+        base64: (block.source as { data: string; }).data,
+        mediaType: (block.source as { media_type: string; }).media_type,
       }));
   }
 
@@ -1265,8 +1265,8 @@ export class ChatQueryHandler {
   private async persistUserMessage(
     messageContent:
       | string
-      | Array<{ type: string; text?: string; source?: unknown }>,
-    imagesFromContent: Array<{ base64: string; mediaType: string }>,
+      | Array<{ type: string; text?: string; source?: unknown; }>,
+    imagesFromContent: Array<{ base64: string; mediaType: string; }>,
     imageMetadata: Array<{
       storage_path: string;
       media_type: string;
@@ -1284,9 +1284,9 @@ export class ChatQueryHandler {
       typeof messageContent === "string"
         ? messageContent
         : messageContent
-            .filter((block) => block.type === "text")
-            .map((block) => block.text || "")
-            .join("\n");
+          .filter((block) => block.type === "text")
+          .map((block) => block.text || "")
+          .join("\n");
 
     const hasImages = imagesFromContent.length > 0;
     const userMessageDisplay = hasImages
@@ -1312,7 +1312,7 @@ export class ChatQueryHandler {
     handlers: MessageHandlers,
     flushAssistantBuffer: () => Promise<void>,
     logger: SystemLogger,
-  ): Promise<Options & { resume?: string }> {
+  ): Promise<Options & { resume?: string; }> {
     const canUseTool: CanUseTool = async (
       toolName: ToolName,
       input: ToolInput,
@@ -1426,7 +1426,7 @@ export class ChatQueryHandler {
               async (
                 input: HookInput,
                 toolUseID: string | undefined,
-                _options: { signal: AbortSignal },
+                _options: { signal: AbortSignal; },
               ): Promise<HookJSONOutput> => {
                 const hookContext: HookContext = {
                   input,
@@ -1445,7 +1445,7 @@ export class ChatQueryHandler {
               async (
                 input: HookInput,
                 toolUseID: string | undefined,
-                _options: { signal: AbortSignal },
+                _options: { signal: AbortSignal; },
               ): Promise<HookJSONOutput> => {
                 const hookContext: HookContext = {
                   input,
@@ -1474,7 +1474,7 @@ export class ChatQueryHandler {
     command: string,
     args: string[],
     cwd?: string,
-  ): Promise<{ stdout: string; isError: boolean }> {
+  ): Promise<{ stdout: string; isError: boolean; }> {
     try {
       // Normalize cwd - if it doesn't start with WORK_DIR, treat it as relative
       let normalizedCwd = WORK_DIR;
@@ -1808,7 +1808,7 @@ export class ChatQueryHandler {
     } = streamContext;
 
     // Shared state for MCP stream fix - allows generator to monitor for result message
-    const messages: Array<{ type: string; [key: string]: unknown }> = [];
+    const messages: Array<{ type: string;[key: string]: unknown; }> = [];
 
     // Create async generator for streaming input
     const generateMessages = async function* (): AsyncGenerator<{
@@ -1816,8 +1816,8 @@ export class ChatQueryHandler {
       message: {
         role: "user";
         content:
-          | string
-          | Array<{ type: string; text?: string; source?: unknown }>;
+        | string
+        | Array<{ type: string; text?: string; source?: unknown; }>;
       };
     }> {
       // Design spec is now written to CLAUDE.md and automatically read by Claude Code SDK
