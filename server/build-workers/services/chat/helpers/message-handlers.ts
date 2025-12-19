@@ -3,9 +3,9 @@
  */
 
 import { SupabaseClient } from "@supabase/supabase-js";
-import { Database } from "../../types/supabase.js";
+import { Database } from "../../../types/supabase.js";
 import { processImage } from "./image-processing.js";
-import { baseLogger } from "../../worker.js";
+import { baseLogger } from "../../../worker.js";
 
 type ToolInput = Record<string, unknown>;
 

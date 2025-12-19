@@ -8,7 +8,7 @@ import {
   SandboxAPIResponse,
   StandardErrorResponse,
 } from "../../../types/BuildWorkerTypes.js";
-import { fetchUserPlan } from "../../chat/credit-checks.js";
+import { fetchUserPlan } from "../../../utils/credit-checks.js";
 import { checkUserHasPrototypeEditAccess } from "../../../utils/prototypeAuth.js";
 import { NucleateDevelopmentServerService } from "../NucleateDevelopmentServerService.js";
 import { WORK_DIR } from "../../../worker.js";

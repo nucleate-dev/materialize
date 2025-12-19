@@ -1,6 +1,6 @@
 import { SupabaseClient } from "@supabase/supabase-js";
-import { SystemLogger } from "../../loggers/SystemLogger.js";
-import type { Database } from "../../types/supabase.js";
+import { SystemLogger } from "../../../loggers/SystemLogger.js";
+import type { Database } from "../../../types/supabase.js";
 
 export interface UsageTrackingResult {
   totalRemainingCredits: number;

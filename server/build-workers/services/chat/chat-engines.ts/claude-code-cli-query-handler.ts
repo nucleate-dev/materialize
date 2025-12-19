@@ -1,19 +1,19 @@
 import { ChildProcessByStdio, spawn } from "child_process";
 import { Readable } from "stream";
 import WebSocket from "ws";
-import { SystemLogger } from "../../loggers/SystemLogger.js";
+import { SystemLogger } from "../../../loggers/SystemLogger.js";
 import {
   ChatEvent,
   ChatQueryData,
   ChatServerMessage,
-} from "../../types/ChatTypes.js";
-import { Database } from "../../types/supabase.js";
-import { ClaudeTokenService } from "../auth/claude-token-service.js";
-import { SupabaseClientService } from "../SupabaseClientService.js";
-import { getSystemPromptForDesignStyle } from "./ClaudeCodePrompts.js";
-import { getToolDisplayName } from "./message-handlers.js";
-import { ToolPermissionService } from "./tool-permission-service.js";
-import { baseLogger, WORK_DIR } from "../../worker.js";
+} from "../../../types/ChatTypes.js";
+import { Database } from "../../../types/supabase.js";
+import { ClaudeTokenService } from "../../auth/claude-token-service.js";
+import { SupabaseClientService } from "../../SupabaseClientService.js";
+import { getSystemPromptForDesignStyle } from "../prompts/ClaudeCodePrompts.js";
+import { getToolDisplayName } from "../helpers/message-handlers.js";
+import { ToolPermissionService } from "../helpers/tool-permission-service.js";
+import { baseLogger, WORK_DIR } from "../../../worker.js";
 
 interface CodeSessionState {
   sessionId: string | null;

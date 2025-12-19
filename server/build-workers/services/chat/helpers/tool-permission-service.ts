@@ -1,6 +1,6 @@
 import { PermissionResult } from "@anthropic-ai/claude-agent-sdk";
 import path from "path";
-import { baseLogger } from "../../worker.js";
+import { baseLogger } from "../../../worker.js";
 
 type ToolName =
   | "Bash"

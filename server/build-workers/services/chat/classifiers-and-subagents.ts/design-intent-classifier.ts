@@ -1,7 +1,7 @@
 import { google } from "@ai-sdk/google";
 import { generateText } from "ai";
-import { SystemLogger } from "../../loggers/SystemLogger.js";
-import { VERCEL_MODEL_COSTS_USD } from "./cost-calculation.js";
+import { SystemLogger } from "../../../loggers/SystemLogger.js";
+import { VERCEL_MODEL_COSTS_USD } from "../cost/cost-calculation.js";
 
 /**
  * Classification result indicating whether user wants to design/create UI vs standard chat

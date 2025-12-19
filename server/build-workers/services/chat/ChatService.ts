@@ -23,12 +23,12 @@ import { FlagsService } from "../FlagsService.js";
 import { SandboxService } from "../SandboxService.js";
 import { SupabaseClientService } from "../SupabaseClientService.js";
 import { TerminalService } from "../terminals/TerminalService.js";
-import { VercelChatQueryHandler } from "./chat-query-handler-vercel.js";
-import { ChatQueryHandler } from "./chat-query-handler.js";
-import { ClaudeCodeCliQueryHandler } from "./claude-code-cli-query-handler.js";
-import { MessagePersistenceService } from "./message-handlers.js";
-import { ChatProvider, isAllowedModel } from "./model-providers.js";
-import { ToolPermissionService } from "./tool-permission-service.js";
+import { VercelChatQueryHandler } from "./chat-engines.ts/chat-query-handler-vercel.js";
+import { ChatQueryHandler } from "./chat-engines.ts/chat-query-handler.js";
+import { ClaudeCodeCliQueryHandler } from "./chat-engines.ts/claude-code-cli-query-handler.js";
+import { MessagePersistenceService } from "./helpers/message-handlers.js";
+import { ChatProvider, isAllowedModel } from "./helpers/model-providers.js";
+import { ToolPermissionService } from "./helpers/tool-permission-service.js";
 import { WORK_DIR } from "../../worker.js";
 
 const CHAT_HEARTBEAT_INTERVAL_MS = 15000;

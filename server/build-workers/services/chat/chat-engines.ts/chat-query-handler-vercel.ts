@@ -4,38 +4,38 @@ import type { Options } from "@anthropic-ai/claude-agent-sdk";
 import { streamText, type LanguageModel } from "ai";
 import path from "path";
 import WebSocket from "ws";
-import { SystemLogger } from "../../loggers/SystemLogger.js";
-import { DevServerStatus } from "../../types/BuildWorkerTypes.js";
+import { SystemLogger } from "../../../loggers/SystemLogger.js";
+import { DevServerStatus } from "../../../types/BuildWorkerTypes.js";
 import {
   ChatContentBlock,
   ChatEvent,
   ChatQueryData,
   ChatServerMessage,
-} from "../../types/ChatTypes.js";
-import { Database } from "../../types/supabase.js";
-import { NucleateDevelopmentServerService } from "../dev-server/NucleateDevelopmentServerService.js";
-import { FileSyncService } from "../FileSyncService.js";
-import { SandboxService } from "../SandboxService.js";
-import { SupabaseClientService } from "../SupabaseClientService.js";
-import { TerminalService } from "../terminals/TerminalService.js";
+} from "../../../types/ChatTypes.js";
+import { Database } from "../../../types/supabase.js";
+import { NucleateDevelopmentServerService } from "../../dev-server/NucleateDevelopmentServerService.js";
+import { FileSyncService } from "../../FileSyncService.js";
+import { SandboxService } from "../../SandboxService.js";
+import { SupabaseClientService } from "../../SupabaseClientService.js";
+import { TerminalService } from "../../terminals/TerminalService.js";
 import {
   costFunctionV3,
   CURRENT_COST_FUNCTION_NAME,
   VERCEL_MODEL_COSTS_USD,
-} from "./cost-calculation.js";
-import { hasRemainingCredits } from "./credit-checks.js";
+} from "../cost/cost-calculation.js";
+import { hasRemainingCredits } from "../../../utils/credit-checks.js";
 import {
   DEFAULT_DESIGN_AGENT_MODELS,
   executeDesignAgent,
   persistDesignSpecToFiles,
   type DesignAgentProvider,
-} from "./design-agent-service.js";
-import { classifyDesignIntent } from "./design-intent-classifier.js";
-import { createVercelDevTools } from "./mcp/mcp-dev-tools-vercel.js";
-import { ALLOWED_MODELS, ChatProvider } from "./model-providers.js";
-import { ToolPermissionService } from "./tool-permission-service.js";
-import { trackApiUsageBuildWorker } from "./usage-tracking.js";
-import { baseLogger, WORK_DIR } from "../../worker.js";
+} from "../classifiers-and-subagents.ts/design-agent-service.js";
+import { classifyDesignIntent } from "../classifiers-and-subagents.ts/design-intent-classifier.js";
+import { createVercelDevTools } from "../mcp/mcp-dev-tools-vercel.js";
+import { ALLOWED_MODELS, ChatProvider } from "../helpers/model-providers.js";
+import { ToolPermissionService } from "../helpers/tool-permission-service.js";
+import { trackApiUsageBuildWorker } from "../cost/usage-tracking.js";
+import { baseLogger, WORK_DIR } from "../../../worker.js";
 
 interface CodeSessionState {
   sessionId: string | null;

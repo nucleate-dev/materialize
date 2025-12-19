@@ -52,7 +52,7 @@ export const CURRENT_COST_FUNCTION_NAME = "costFunctionV3";
  */
 export const VERCEL_MODEL_COSTS_USD: Record<
   string,
-  { inputUsdPer1M?: number; outputUsdPer1M?: number; }
+  { inputUsdPer1M?: number; outputUsdPer1M?: number }
 > = {
   "gpt-5.1-codex-mini": {
     inputUsdPer1M: 0.25,

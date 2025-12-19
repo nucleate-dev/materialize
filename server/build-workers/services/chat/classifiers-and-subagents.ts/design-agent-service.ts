@@ -3,9 +3,9 @@ import { openai } from "@ai-sdk/openai";
 import { generateText, type LanguageModel } from "ai";
 import fs from "fs/promises";
 import path from "path";
-import { SystemLogger } from "../../loggers/SystemLogger.js";
-import { DESIGN_AGENT_PROMPT } from "./ClaudeCodePrompts.js";
-import { VERCEL_MODEL_COSTS_USD } from "./cost-calculation.js";
+import { SystemLogger } from "../../../loggers/SystemLogger.js";
+import { DESIGN_AGENT_PROMPT } from "../prompts/ClaudeCodePrompts.js";
+import { VERCEL_MODEL_COSTS_USD } from "../cost/cost-calculation.js";
 
 /**
  * Supported model providers for the design agent
