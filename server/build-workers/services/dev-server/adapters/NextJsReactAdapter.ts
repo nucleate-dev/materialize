@@ -91,7 +91,10 @@ export class NextJsReactAdapter implements IDevelopmentServerAdapter {
           });
           resolve({
             data: {
-              tunnel_url: `${this.configuredTunnelUrl}:${DEV_SERVER_PORT}`,
+              tunnel_url:
+                process.env.FARGATE_DEV_MODE === "true"
+                  ? `${this.configuredTunnelUrl}:${DEV_SERVER_PORT}`
+                  : `${this.configuredTunnelUrl}`,
             },
             error: null,
           });
