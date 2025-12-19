@@ -9,6 +9,7 @@ import { useUser } from "@/hooks/useUser";
 import { cn } from "@/lib/classNames";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import { formatGrantType } from "@/lib/utils/credits/CreditUtils";
+import { usePostHog } from "posthog-js/react";
 import { handleCheckout } from "@/lib/utils/payments/CheckoutUtils";
 import {
   handleRedirectToStripeCustomerPortal,
@@ -79,6 +80,7 @@ function AccountSettings() {
   const logger = useProductLogger();
   const user = useUser();
   const router = useRouter();
+  const posthog = usePostHog();
   const { userPlan, currentPeriodEnd } = useSubscriptionAccess();
 
   // Use the new credit usage hook
@@ -413,12 +415,13 @@ function AccountSettings() {
             </SectionCard>
 
             {/* Claude Subscription Connection */}
-            <SectionCard>
-              <SectionHeader
-                title="Claude Subscription"
-                description="Connect your Claude Pro or Max subscription for AI chat"
-                icon={Key}
-              />
+            {posthog?.isFeatureEnabled("claude-code-cli-with-personal-token") && (
+              <SectionCard>
+                <SectionHeader
+                  title="Claude Subscription"
+                  description="Connect your Claude Pro or Max subscription for AI chat"
+                  icon={Key}
+                />
               <div className="p-6 space-y-6">
                 {currentSubscription === "free" ? (
                   /* Free Plan - Upgrade Required */
@@ -563,7 +566,8 @@ function AccountSettings() {
                   </div>
                 )}
               </div>
-            </SectionCard>
+              </SectionCard>
+            )}
 
             {/* Usage Stats */}
             <SectionCard>
