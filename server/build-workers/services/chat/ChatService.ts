@@ -398,7 +398,7 @@ export class ChatService {
     let useCliMode = false;
     const token = data.token;
 
-    if (token && provider === "claude") {
+    if (token) {
       try {
         // Decode JWT to extract user ID
         const payload = JSON.parse(
