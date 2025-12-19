@@ -57,6 +57,7 @@ import {
   Code2,
   Copy,
   Download,
+  ExternalLink,
   Eye,
   Hammer,
   KeyRound,
@@ -1945,21 +1946,40 @@ const MaterializeRenderSection = forwardRef<
                   </span>
                 </Button>
               )}
-              {!isReadOnlyView && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setIsQRModalOpen(true)}
-                  className="h-8 bg-accent border border-border text-muted-foreground hover:text-foreground hover:border-border/80 hover:bg-accent/80 transition-all"
-                  title="View on Device"
-                  disabled={!viewing_url}
-                >
-                  <QrCode className="w-3.5 h-3.5" />
-                  <span className="ml-2 hidden md:inline text-xs font-medium">
-                    Device
-                  </span>
-                </Button>
-              )}
+              {!isReadOnlyView &&
+                (isWebFramework ? (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      if (viewing_url) {
+                        window.open(viewing_url, "_blank", "noopener,noreferrer");
+                      }
+                    }}
+                    className="h-8 bg-accent border border-border text-muted-foreground hover:text-foreground hover:border-border/80 hover:bg-accent/80 transition-all"
+                    title="Open in new tab"
+                    disabled={!viewing_url}
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" />
+                    <span className="ml-2 hidden md:inline text-xs font-medium">
+                      Browser
+                    </span>
+                  </Button>
+                ) : (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setIsQRModalOpen(true)}
+                    className="h-8 bg-accent border border-border text-muted-foreground hover:text-foreground hover:border-border/80 hover:bg-accent/80 transition-all"
+                    title="View on Device"
+                    disabled={!viewing_url}
+                  >
+                    <QrCode className="w-3.5 h-3.5" />
+                    <span className="ml-2 hidden md:inline text-xs font-medium">
+                      Device
+                    </span>
+                  </Button>
+                ))}
               {!isReadOnlyView && (
                 <Button
                   variant="ghost"
