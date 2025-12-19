@@ -86,6 +86,7 @@ const EXCLUDED_PATTERNS = [
   "dist",
   ".git",
   ".expo",
+  ".next",
   ".env",
   ".env.local",
   ".env.production",
