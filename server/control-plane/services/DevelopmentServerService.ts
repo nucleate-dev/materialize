@@ -167,10 +167,7 @@ export class DevelopmentServerService {
         '[handleStartDevServer] Dispatching dev server start request to server',
       );
       const dispatchResult = await this.dispatcherService.dispatch(
-        {
-          prototype_id: prototype_id,
-          file_scope: 'complete', // all start-dev-server requests must have complete file scope
-        },
+        prototype_id,
         token,
         request.log2,
         request.posthogLogger,

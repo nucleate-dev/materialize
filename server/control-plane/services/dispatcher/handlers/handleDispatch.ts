@@ -38,15 +38,12 @@ import {
 import { IdleContainerAllocationSystemService } from '../../idle-container-allocation-system/IdleContainerAllocationSystemService.js';
 
 export async function handleDispatchImpl(
-  body: DispatchRequestBody,
+  prototype_id: string,
   jwt: string,
   cache: GlideClient,
   idleContainerAllocationSystem: IdleContainerAllocationSystemService,
   log2: SystemLogger,
 ): Promise<APIResponse<DispatchSuccessResponse, StandardErrorResponse>> {
-  // 1. Extract validated body
-  const { prototype_id, file_scope } = body;
-
   // ------------------------------------------------------------------------------------------------
   // FOR DEVELOPMENT PURPOSES: if env is dev, fargate dev mode is enabled, and an ip is provided, skip
   // all auth & cache management logic and just dispatch to the provided ip directly
@@ -80,68 +77,47 @@ export async function handleDispatchImpl(
       terminal_tunnel_hostname: devTerminalUrl,
     });
 
-    // Call /allocate endpoint to initialize the worker only when starting dev server (file_scope === 'complete')
-    // For file updates, the worker is already allocated so we skip this step
-    if (file_scope === 'complete') {
-      try {
-        const allocateResponse = await axios.post<
-          SandboxAPIResponse<
-            PublicAllocateSuccessResponse,
-            BuildWorkerStandardErrorResponse
-          >
-        >(
-          `http://${process.env.FARGATE_DEV_IP}:3002/allocate`,
-          {
-            s3_credentials: {
-              accessKeyId: '',
-              secretAccessKey: '',
-              sessionToken: '',
-              expiration: '',
-            },
-            user_details: {
-              prototypeId: prototype_id,
-              userId: 'dev-user', // Placeholder for dev mode since auth is skipped
-            },
-            cloudflare_credentials: {
-              cloudflare_tunnel_token: '',
-            },
-            keys: {
-              orchestration_token: '',
-              aak: '',
-            },
+    try {
+      const allocateResponse = await axios.post<
+        SandboxAPIResponse<
+          PublicAllocateSuccessResponse,
+          BuildWorkerStandardErrorResponse
+        >
+      >(
+        `http://${process.env.FARGATE_DEV_IP}:3002/allocate`,
+        {
+          s3_credentials: {
+            accessKeyId: '',
+            secretAccessKey: '',
+            sessionToken: '',
+            expiration: '',
           },
-          {
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${jwt}`,
-            },
+          user_details: {
+            prototypeId: prototype_id,
+            userId: 'dev-user', // Placeholder for dev mode since auth is skipped
           },
-        );
+          cloudflare_credentials: {
+            cloudflare_tunnel_token: '',
+          },
+          keys: {
+            orchestration_token: '',
+            aak: '',
+          },
+        },
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${jwt}`,
+          },
+        },
+      );
 
-        if (allocateResponse.data.error) {
-          log2.error(
-            new Error(allocateResponse.data.error.error || 'Allocation failed'),
-            'Failed to allocate worker in dev mode',
-            { details: allocateResponse.data.error.details },
-          );
-          await cache.hset(devKey, {
-            status: 'error' as BuildStatus,
-            url: existingDevData?.url || normalizeUrl(getS3Url(prototype_id)),
-          });
-          return {
-            data: null,
-            error: {
-              error: 'Allocation Failed',
-              message: `Failed to allocate worker: ${allocateResponse.data.error.message || 'Unknown error'}`,
-            },
-          };
-        }
-        log2.consoleLogDevOnly(
-          'info',
-          'Worker allocated successfully in dev mode',
+      if (allocateResponse.data.error) {
+        log2.error(
+          new Error(allocateResponse.data.error.error || 'Allocation failed'),
+          'Failed to allocate worker in dev mode',
+          { details: allocateResponse.data.error.details },
         );
-      } catch (allocateError) {
-        log2.error(allocateError, 'Failed to call /allocate in dev mode');
         await cache.hset(devKey, {
           status: 'error' as BuildStatus,
           url: existingDevData?.url || normalizeUrl(getS3Url(prototype_id)),
@@ -150,14 +126,31 @@ export async function handleDispatchImpl(
           data: null,
           error: {
             error: 'Allocation Failed',
-            message:
-              'Failed to allocate dev EC2 for build workers: ' +
-              (allocateError instanceof Error
-                ? allocateError.message
-                : 'Unknown error'),
+            message: `Failed to allocate worker: ${allocateResponse.data.error.message || 'Unknown error'}`,
           },
         };
       }
+      log2.consoleLogDevOnly(
+        'info',
+        'Worker allocated successfully in dev mode',
+      );
+    } catch (allocateError) {
+      log2.error(allocateError, 'Failed to call /allocate in dev mode');
+      await cache.hset(devKey, {
+        status: 'error' as BuildStatus,
+        url: existingDevData?.url || normalizeUrl(getS3Url(prototype_id)),
+      });
+      return {
+        data: null,
+        error: {
+          error: 'Allocation Failed',
+          message:
+            'Failed to allocate dev EC2 for build workers: ' +
+            (allocateError instanceof Error
+              ? allocateError.message
+              : 'Unknown error'),
+        },
+      };
     }
 
     const fargateResponse = await dispatchRequestToFargateInstanceServer({
