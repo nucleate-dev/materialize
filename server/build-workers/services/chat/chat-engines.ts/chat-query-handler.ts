@@ -22,10 +22,7 @@ import {
   ChatServerMessage,
 } from "../../../types/ChatTypes.js";
 import { Database } from "../../../types/supabase.js";
-import {
-  DEFAULT_PROTOTYPE_FRAMEWORK,
-  NucleateDevelopmentServerService,
-} from "../../dev-server/NucleateDevelopmentServerService.js";
+import { NucleateDevelopmentServerService } from "../../dev-server/NucleateDevelopmentServerService.js";
 import { FileSyncService } from "../../FileSyncService.js";
 import { SandboxService } from "../../SandboxService.js";
 import { SupabaseClientService } from "../../SupabaseClientService.js";

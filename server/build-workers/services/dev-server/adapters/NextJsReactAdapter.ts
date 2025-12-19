@@ -47,7 +47,6 @@ export class NextJsReactAdapter implements IDevelopmentServerAdapter {
     return new Promise((resolve, reject) => {
       let resolved = false;
       let cleanup: (() => void) | null = null;
-      let detectedUrl: string | null = null;
 
       const timeout = setTimeout(() => {
         if (resolved) return;
