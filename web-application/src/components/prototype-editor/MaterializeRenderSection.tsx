@@ -323,6 +323,8 @@ const MaterializeRenderSection = forwardRef<
       { id: crypto.randomUUID(), name: "", value: "", visibility: "client" },
     ]);
     const [isSyncingEnvFile, setIsSyncingEnvFile] = useState(false);
+    const [envSyncWarning, setEnvSyncWarning] = useState<string | null>(null);
+    const [envSyncError, setEnvSyncError] = useState<string | null>(null);
 
     const nextMobileScreenId = useRef(1);
 
@@ -702,6 +704,8 @@ const MaterializeRenderSection = forwardRef<
       setIsEnvVarDialogOpen(open);
       if (!open) {
         setEnvVarFormError(null);
+        setEnvSyncWarning(null);
+        setEnvSyncError(null);
         setNewEnvVarInputs([
           {
             id: crypto.randomUUID(),
@@ -715,7 +719,14 @@ const MaterializeRenderSection = forwardRef<
 
     const refetchEnvVarsOnDevServer =
       useCallback(async (): Promise<boolean> => {
+        // Clear previous sync messages
+        setEnvSyncWarning(null);
+        setEnvSyncError(null);
+
         if (!sandbox_url || !prototypeId) {
+          setEnvSyncWarning(
+            "Dev server not started yet, try syncing again soon.",
+          );
           return false;
         }
 
@@ -725,6 +736,9 @@ const MaterializeRenderSection = forwardRef<
           const token = session.data.session?.access_token;
           if (!token) {
             toast.error("Sign in again to sync environment variables.");
+            setEnvSyncError(
+              "Error syncing to development server. Try again later.",
+            );
             return false;
           }
 
@@ -759,6 +773,9 @@ const MaterializeRenderSection = forwardRef<
             sandbox_url,
           });
           toast.error("Unable to refresh dev server env vars");
+          setEnvSyncError(
+            "Error syncing to development server. Try again later.",
+          );
           return false;
         } finally {
           setIsSyncingEnvFile(false);
@@ -2467,6 +2484,20 @@ const MaterializeRenderSection = forwardRef<
                   </p>
                 )}
               </div>
+
+              {/* Sync Warning/Error Messages */}
+              {envSyncWarning && (
+                <div className="flex items-start gap-2 bg-amber-500/10 border border-amber-500/20 rounded-lg p-3">
+                  <AlertTriangle className="w-4 h-4 text-amber-500 mt-0.5 flex-shrink-0" />
+                  <p className="text-xs text-amber-500">{envSyncWarning}</p>
+                </div>
+              )}
+              {envSyncError && (
+                <div className="flex items-start gap-2 bg-red-500/10 border border-red-500/20 rounded-lg p-3">
+                  <AlertTriangle className="w-4 h-4 text-red-500 mt-0.5 flex-shrink-0" />
+                  <p className="text-xs text-red-500">{envSyncError}</p>
+                </div>
+              )}
 
               <div className="border-t border-border/70 pt-4 space-y-3">
                 <p className="text-sm font-medium text-foreground">
