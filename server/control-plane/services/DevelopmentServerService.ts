@@ -169,7 +169,6 @@ export class DevelopmentServerService {
       const dispatchResult = await this.dispatcherService.dispatch(
         {
           prototype_id: prototype_id,
-          framework: 'expo_react_native',
           files: [],
           assets: [],
           file_scope: 'complete', // all start-dev-server requests must have complete file scope

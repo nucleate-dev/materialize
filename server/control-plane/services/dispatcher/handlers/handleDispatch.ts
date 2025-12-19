@@ -17,7 +17,6 @@ import {
   CACHE_KEYS,
   FargateInstanceInfo,
   FileScope,
-  Framework,
   isActiveBuildType,
   S3_URL_TEMPLATE,
 } from '../../../types/InternalTypes.js';
@@ -53,9 +52,7 @@ export async function handleDispatchImpl(
   log2: SystemLogger,
 ): Promise<APIResponse<DispatchSuccessResponse, StandardErrorResponse>> {
   // 1. Extract validated body
-  const { prototype_id, framework, files, assets, file_scope, deleted_files } =
-    body;
-  const selectedFramework = framework || 'expo_react_native'; // Default framework to expo_react_native if not provided
+  const { prototype_id, files, assets, file_scope, deleted_files } = body;
 
   // ------------------------------------------------------------------------------------------------
   // FOR DEVELOPMENT PURPOSES: if env is dev, fargate dev mode is enabled, and an ip is provided, skip
@@ -173,7 +170,6 @@ export async function handleDispatchImpl(
     const fargateResponse = await dispatchRequestToFargateInstanceServer({
       jwt,
       prototype_id,
-      framework: selectedFramework,
       files,
       deleted_files,
       assets,
@@ -374,7 +370,6 @@ export async function handleDispatchImpl(
       const fargateResponse = await dispatchRequestToFargateInstanceServer({
         jwt,
         prototype_id,
-        framework: selectedFramework,
         files,
         deleted_files,
         assets,
@@ -465,7 +460,6 @@ export async function handleDispatchImpl(
 async function dispatchRequestToFargateInstanceServer({
   jwt,
   prototype_id,
-  framework,
   files,
   deleted_files,
   assets,
@@ -475,7 +469,6 @@ async function dispatchRequestToFargateInstanceServer({
 }: {
   jwt: string;
   prototype_id: string;
-  framework: Framework;
   files: PrototypeFileInput[];
   deleted_files?: string[];
   assets: PrototypeAssetInput[];
@@ -491,7 +484,6 @@ async function dispatchRequestToFargateInstanceServer({
   const requestBody = await constructRequestBody({
     token: jwt,
     prototype_id,
-    framework,
     files,
     deleted_files,
     assets,
@@ -523,6 +515,7 @@ async function dispatchRequestToFargateInstanceServer({
       return await dispatchFormedRequestToFargateInstanceServer(
         fargate_private_ip,
         requestBody,
+        file_scope,
         log2,
       );
     },
@@ -535,7 +528,6 @@ async function dispatchRequestToFargateInstanceServer({
 async function constructRequestBody({
   token,
   prototype_id,
-  framework,
   files,
   assets,
   deleted_files,
@@ -544,7 +536,6 @@ async function constructRequestBody({
 }: {
   token: string;
   prototype_id: string;
-  framework: Framework;
   files: PrototypeFileInput[];
   assets: PrototypeAssetInput[];
   file_scope: FileScope;
@@ -555,7 +546,6 @@ async function constructRequestBody({
     // starting dev server. All files will be fetched from supabase directly in the Fargate instance
     return {
       prototype_id,
-      framework,
     };
   }
   const supabase = createClient<Database>(
@@ -616,6 +606,7 @@ async function constructRequestBody({
 async function dispatchFormedRequestToFargateInstanceServer(
   fargatePrivateIp: string,
   requestBody: PublicStartDevServerRequest | PublicUpdateFilesRequest,
+  file_scope: FileScope,
   log2: SystemLogger,
 ): Promise<
   SandboxAPIResponse<
@@ -625,23 +616,25 @@ async function dispatchFormedRequestToFargateInstanceServer(
 > {
   try {
     // Determine the endpoint based on the request body type
-    const isStartDevServer = 'framework' in requestBody;
-    const endpoint = isStartDevServer
-      ? '/dev-server/start-v2'
-      : '/update-files';
+    const endpoint =
+      file_scope === 'complete' ? '/dev-server/start-v2' : '/update-files';
 
     const response = await axios.post<
       SandboxAPIResponse<
         PublicDevServerStartSuccessResponse,
         BuildWorkerStandardErrorResponse
       >
-    >(`http://${fargatePrivateIp}:3002${endpoint}`, requestBody, {
-      timeout: BUILD_TIMEOUTS.REQUEST_TIMEOUT,
-      headers: {
-        'Content-Type': 'application/json',
-        'x-trace-id': log2.getTraceId(),
+    >(
+      `http://${fargatePrivateIp}:3002${endpoint}`,
+      requestBody,
+      {
+        timeout: BUILD_TIMEOUTS.REQUEST_TIMEOUT,
+        headers: {
+          'Content-Type': 'application/json',
+          'x-trace-id': log2.getTraceId(),
+        },
       },
-    });
+    );
     return response.data;
   } catch (error) {
     log2.error(error, 'Error dispatching request to fargate instance: ');

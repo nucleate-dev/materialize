@@ -252,7 +252,6 @@ export interface DeletePrototypeErrorResponse {
 // ============================================================================
 
 export interface StartDevServerRequestBody {
-  framework: 'expo_react_native' | 'react';
   prototype_id: string;
 }
 
