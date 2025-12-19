@@ -472,6 +472,16 @@ export async function restoreClaudeSessionsFromSupabase(
         .filter((r) => r.success && r.sessionId)
         .map((r) => r.sessionId!),
     );
+
+    if (restoredSessionIds.length > 0) {
+      logger.debug("Successfully restored Claude sessions from Supabase", {
+        prototypeId,
+        restoredCount: restoredSessionIds.length,
+        restoredSessionIds,
+        targetDirectory: CLAUDE_PROJECTS_DIR,
+      });
+    }
+
     return {
       success: errors.length === 0,
       restoredSessionIds,

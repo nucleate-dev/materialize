@@ -1120,6 +1120,12 @@ export class ChatQueryHandler {
           },
         );
 
+        logger.debug("Sending HISTORY_REQUEST to client", {
+          providedSessionId: ai_chat_session_id,
+          validSessionIds: Array.from(validAiChatSessionIds),
+          requestedMessageCount: HISTORY_MESSAGE_REQUEST_COUNT,
+        });
+
         handlers.sendMessage(socket, {
           type: ChatEvent.HISTORY_REQUEST,
           data: {
