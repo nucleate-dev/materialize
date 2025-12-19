@@ -74,13 +74,6 @@ export interface PublicStartDevServerRequest {
   prototype_id: string;
 }
 
-export interface PublicUpdateFilesRequest {
-  prototype_id: string;
-  files: PrototypeFileInput[];
-  assets: PrototypeAssetInputWithContent[];
-  deleted_files?: string[];
-}
-
 export interface PublicUpdateFilesV2Request {
   prototype_id: string;
   file_names: string[];

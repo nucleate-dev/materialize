@@ -5,7 +5,7 @@
 // To update these shared files, modify the source file and run:
 // npm run sync-types (in the control-plane directory)
 //
-// Last synced: 2025-12-19T06:07:54.909Z
+// Last synced: 2025-12-19T06:33:07.403Z
 
 // Public API types for the Control Plane Server
 // These types define the request and response schemas for all public endpoints
@@ -88,12 +88,7 @@ export type HealthResponse = HealthSuccessResponse | StandardErrorResponse;
 
 export interface DispatchRequestBody {
   prototype_id: string;
-  framework?: 'expo_react_native' | 'react';
-  files: PrototypeFileInput[];
-  assets: PrototypeAssetInputWithContent[];
-  deleted_files?: string[];
   file_scope: 'updates' | 'complete';
-  hot_reload?: boolean;
 }
 
 export interface DispatchSuccessResponse {

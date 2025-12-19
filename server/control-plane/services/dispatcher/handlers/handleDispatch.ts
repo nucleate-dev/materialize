@@ -1,4 +1,3 @@
-import { createClient } from '@supabase/supabase-js';
 import { GlideClient } from '@valkey/valkey-glide';
 import axios from 'axios';
 import { LatencyEvents } from '../../../loggers/LatencyEvents.js';
@@ -8,7 +7,6 @@ import {
   PublicAllocateSuccessResponse,
   PublicDevServerStartSuccessResponse,
   PublicStartDevServerRequest,
-  PublicUpdateFilesRequest,
   SandboxAPIResponse,
 } from '../../../types/BuildWorkerTypes.js';
 import {
@@ -16,7 +14,6 @@ import {
   BUILD_TIMEOUTS,
   CACHE_KEYS,
   FargateInstanceInfo,
-  FileScope,
   isActiveBuildType,
   S3_URL_TEMPLATE,
 } from '../../../types/InternalTypes.js';
@@ -25,12 +22,8 @@ import {
   BuildStatus,
   DispatchRequestBody,
   DispatchSuccessResponse,
-  PrototypeAssetInput,
-  PrototypeAssetInputWithContent,
-  PrototypeFileInput,
   StandardErrorResponse,
 } from '../../../types/PublicAPITypes.js';
-import { Database } from '../../../types/supabase.js';
 import {
   activeBuildToStringRecord,
   hgetallAsActiveBuild,
@@ -52,7 +45,7 @@ export async function handleDispatchImpl(
   log2: SystemLogger,
 ): Promise<APIResponse<DispatchSuccessResponse, StandardErrorResponse>> {
   // 1. Extract validated body
-  const { prototype_id, files, assets, file_scope, deleted_files } = body;
+  const { prototype_id, file_scope } = body;
 
   // ------------------------------------------------------------------------------------------------
   // FOR DEVELOPMENT PURPOSES: if env is dev, fargate dev mode is enabled, and an ip is provided, skip
@@ -100,10 +93,10 @@ export async function handleDispatchImpl(
           `http://${process.env.FARGATE_DEV_IP}:3002/allocate`,
           {
             s3_credentials: {
-              accessKeyId: "",
-              secretAccessKey: "",
-              sessionToken: "",
-              expiration: "",
+              accessKeyId: '',
+              secretAccessKey: '',
+              sessionToken: '',
+              expiration: '',
             },
             user_details: {
               prototypeId: prototype_id,
@@ -168,12 +161,7 @@ export async function handleDispatchImpl(
     }
 
     const fargateResponse = await dispatchRequestToFargateInstanceServer({
-      jwt,
       prototype_id,
-      files,
-      deleted_files,
-      assets,
-      file_scope,
       log2,
       fargate_private_ip: process.env.FARGATE_DEV_IP,
     });
@@ -368,12 +356,7 @@ export async function handleDispatchImpl(
     // Dispatch request to fargate instance
     try {
       const fargateResponse = await dispatchRequestToFargateInstanceServer({
-        jwt,
         prototype_id,
-        files,
-        deleted_files,
-        assets,
-        file_scope,
         log2,
         fargate_private_ip: updatedBuildCacheData.fargate_private_ip,
       });
@@ -458,21 +441,11 @@ export async function handleDispatchImpl(
 }
 
 async function dispatchRequestToFargateInstanceServer({
-  jwt,
   prototype_id,
-  files,
-  deleted_files,
-  assets,
-  file_scope,
   log2,
   fargate_private_ip,
 }: {
-  jwt: string;
   prototype_id: string;
-  files: PrototypeFileInput[];
-  deleted_files?: string[];
-  assets: PrototypeAssetInput[];
-  file_scope: FileScope;
   log2: SystemLogger;
   fargate_private_ip: string;
 }): Promise<
@@ -481,28 +454,9 @@ async function dispatchRequestToFargateInstanceServer({
     BuildWorkerStandardErrorResponse
   >
 > {
-  const requestBody = await constructRequestBody({
-    token: jwt,
-    prototype_id,
-    files,
-    deleted_files,
-    assets,
-    file_scope,
-    log2,
-  });
-  const endpoint =
-    file_scope === 'complete' ? '/dev-server/start-v2' : '/update-files';
   log2.consoleLogDevOnly(
     'info',
-    `Dispatching request to fargate instance at ${fargate_private_ip}:3002${endpoint}: `,
-    {
-      requestBodyDetails: {
-        prototypeId: prototype_id,
-        fileCount: files.length,
-        assetCount: assets.length,
-        fileScope: file_scope,
-      },
-    },
+    `Dispatching request to fargate instance at ${fargate_private_ip}:3002/dev-server/start-v2: `,
   );
   const fargateResponse = await log2.time(
     LatencyEvents.dispatch_request_to_fargate_server_latency,
@@ -514,99 +468,18 @@ async function dispatchRequestToFargateInstanceServer({
     > => {
       return await dispatchFormedRequestToFargateInstanceServer(
         fargate_private_ip,
-        requestBody,
-        file_scope,
+        { prototype_id },
         log2,
       );
     },
-    { fileScope: file_scope },
   );
   log2.consoleLogDevOnly('info', 'Fargate responded: ', { fargateResponse });
   return fargateResponse;
 }
 
-async function constructRequestBody({
-  token,
-  prototype_id,
-  files,
-  assets,
-  deleted_files,
-  file_scope,
-  log2,
-}: {
-  token: string;
-  prototype_id: string;
-  files: PrototypeFileInput[];
-  assets: PrototypeAssetInput[];
-  file_scope: FileScope;
-  deleted_files?: string[];
-  log2: SystemLogger;
-}): Promise<PublicStartDevServerRequest | PublicUpdateFilesRequest> {
-  if (file_scope === 'complete') {
-    // starting dev server. All files will be fetched from supabase directly in the Fargate instance
-    return {
-      prototype_id,
-    };
-  }
-  const supabase = createClient<Database>(
-    process.env.SUPABASE_URL!,
-    process.env.SUPABASE_ANON_KEY!,
-    {
-      global: {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      },
-    },
-  );
-  // Run all downloads concurrently
-  const assetInputs: PrototypeAssetInputWithContent[] = await Promise.all(
-    assets.map(async (asset) => {
-      try {
-        const { data, error } = await supabase.storage
-          .from('prototype-assets')
-          .download(`${asset.prototype_id}/${asset.name}`);
-
-        if (error || !data) {
-          log2.error(
-            error,
-            `[constructRequestBody] Failed to download asset ${asset.name}: ${error?.message ?? 'unknown error'
-            }`,
-          );
-          return null;
-        }
-
-        const arrayBuffer = await data.arrayBuffer();
-        const base64Content = Buffer.from(arrayBuffer).toString('base64');
-
-        return {
-          ...asset,
-          contents: base64Content,
-        };
-      } catch (err) {
-        log2.error(
-          err,
-          `[constructRequestBody] Error converting asset ${asset.name}`,
-        );
-        return null;
-      }
-    }),
-  ).then((results) =>
-    results.filter((r): r is PrototypeAssetInputWithContent => r !== null),
-  );
-
-  return {
-    prototype_id,
-    files,
-    assets: assetInputs,
-    deleted_files: deleted_files || [],
-  };
-}
-
 async function dispatchFormedRequestToFargateInstanceServer(
   fargatePrivateIp: string,
-  requestBody: PublicStartDevServerRequest | PublicUpdateFilesRequest,
-  file_scope: FileScope,
+  requestBody: PublicStartDevServerRequest,
   log2: SystemLogger,
 ): Promise<
   SandboxAPIResponse<
@@ -615,26 +488,18 @@ async function dispatchFormedRequestToFargateInstanceServer(
   >
 > {
   try {
-    // Determine the endpoint based on the request body type
-    const endpoint =
-      file_scope === 'complete' ? '/dev-server/start-v2' : '/update-files';
-
     const response = await axios.post<
       SandboxAPIResponse<
         PublicDevServerStartSuccessResponse,
         BuildWorkerStandardErrorResponse
       >
-    >(
-      `http://${fargatePrivateIp}:3002${endpoint}`,
-      requestBody,
-      {
-        timeout: BUILD_TIMEOUTS.REQUEST_TIMEOUT,
-        headers: {
-          'Content-Type': 'application/json',
-          'x-trace-id': log2.getTraceId(),
-        },
+    >(`http://${fargatePrivateIp}:3002/dev-server/start-v2`, requestBody, {
+      timeout: BUILD_TIMEOUTS.REQUEST_TIMEOUT,
+      headers: {
+        'Content-Type': 'application/json',
+        'x-trace-id': log2.getTraceId(),
       },
-    );
+    });
     return response.data;
   } catch (error) {
     log2.error(error, 'Error dispatching request to fargate instance: ');
