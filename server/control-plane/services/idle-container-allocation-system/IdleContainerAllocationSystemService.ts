@@ -424,8 +424,7 @@ export class IdleContainerAllocationSystemService {
     } catch (error) {
       log2.error(error, 'Failed to launch Fargate task:');
       throw new Error(
-        `Failed to launch Fargate instance: ${
-          error instanceof Error ? error.message : 'Unknown error'
+        `Failed to launch Fargate instance: ${error instanceof Error ? error.message : 'Unknown error'
         }`,
       );
     }
@@ -454,8 +453,7 @@ export class IdleContainerAllocationSystemService {
     } catch (error) {
       log2.error(error, 'Failed to launch Fargate task:');
       throw new Error(
-        `Failed to launch Fargate instance: ${
-          error instanceof Error ? error.message : 'Unknown error'
+        `Failed to launch Fargate instance: ${error instanceof Error ? error.message : 'Unknown error'
         }`,
       );
     }
@@ -555,6 +553,10 @@ export class IdleContainerAllocationSystemService {
                 name: 'POSTHOG_HOST',
                 value: process.env.POSTHOG_HOST!,
               },
+              {
+                name: 'GOOGLE_GENERATIVE_AI_API_KEY',
+                value: process.env.GOOGLE_GENERATIVE_AI_API_KEY!,
+              }
             ],
           },
         ],
@@ -576,8 +578,8 @@ export class IdleContainerAllocationSystemService {
     const obj = Object.fromEntries(
       raw.map(
         (e: {
-          field: { toString(): string };
-          value: { toString(): string };
+          field: { toString(): string; };
+          value: { toString(): string; };
         }) => [e.field.toString(), e.value.toString()],
       ),
     ) as Record<string, string>;
@@ -846,9 +848,8 @@ export class IdleContainerAllocationSystemService {
             `Terminated idle container ${taskArn}`,
           );
         } catch (error) {
-          const errorMsg = `Failed to terminate idle container ${taskArn}: ${
-            error instanceof Error ? error.message : 'Unknown error'
-          }`;
+          const errorMsg = `Failed to terminate idle container ${taskArn}: ${error instanceof Error ? error.message : 'Unknown error'
+            }`;
           this.log2.error(error, errorMsg);
           errors.push(errorMsg);
         }
@@ -864,8 +865,7 @@ export class IdleContainerAllocationSystemService {
         this.launchIdleContainer().catch((error) => {
           this.log2.error(
             error,
-            `Failed to launch replacement idle container: ${
-              error instanceof Error ? error.message : 'Unknown error'
+            `Failed to launch replacement idle container: ${error instanceof Error ? error.message : 'Unknown error'
             }`,
           );
         });
@@ -885,9 +885,8 @@ export class IdleContainerAllocationSystemService {
         errors,
       };
     } catch (error) {
-      const errorMsg = `Failed to refresh idle containers: ${
-        error instanceof Error ? error.message : 'Unknown error'
-      }`;
+      const errorMsg = `Failed to refresh idle containers: ${error instanceof Error ? error.message : 'Unknown error'
+        }`;
       this.log2.error(error, errorMsg);
       errors.push(errorMsg);
       return {
