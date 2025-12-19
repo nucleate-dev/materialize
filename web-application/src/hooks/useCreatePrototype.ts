@@ -15,6 +15,7 @@ interface CreatePrototypeOptions {
   folder_id?: string | null;
   prototype_id?: string;
   visibility?: CreatePrototypeRequestBody["visibility"];
+  framework?: CreatePrototypeRequestBody["framework"];
 }
 
 export function useCreatePrototype() {

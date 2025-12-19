@@ -34,27 +34,46 @@ import {
   Layers,
   LayoutTemplate,
   Loader2,
+  Rocket,
   Sparkles,
   Wand2,
 } from "lucide-react"; // Kept Lucide
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { usePostHog } from "posthog-js/react";
 
 // --- Types ---
 type DesignSystemRow = Database["public"]["Tables"]["design_systems"]["Row"];
 type DesignStyle = Database["public"]["Enums"]["design_style"];
+type PrototypeFramework =
+  Database["public"]["Enums"]["prototype_framework"];
 
 const DESIGN_STYLE_OPTIONS: DesignStyle[] = ["stylesheets", "nativewind"];
+const WEB_DESIGN_STYLE_OPTIONS: DesignStyle[] = ["stylesheets"];
 
 const DESIGN_STYLE_LABELS: Partial<Record<DesignStyle, string>> = {
   nativewind: "NativeWind",
-  stylesheets: "StyleSheet",
+  stylesheets: "React Native StyleSheet",
   custom: "Custom",
 };
+
+const WEB_DESIGN_STYLE_LABELS: Partial<Record<DesignStyle, string>> = {
+  stylesheets: "Tailwind + Shadcn",
+};
+
+const DEFAULT_FRAMEWORK: PrototypeFramework = "mobile_expo_react_native";
+const PLATFORM_OPTIONS: Array<{
+  value: PrototypeFramework;
+  label: string;
+}> = [
+  { value: "web_nextjs_react", label: "Web" },
+  { value: "mobile_expo_react_native", label: "Mobile" },
+];
 
 export default function DashboardPage() {
   // --- Logic / Hooks (Preserved) ---
   const logger = useProductLogger();
+  const posthog = usePostHog();
   const { createPrototype } = useCreatePrototype();
   const [prompt, setPrompt] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -70,9 +89,28 @@ export default function DashboardPage() {
   >(null);
   const [, setIsLoadingDesignSystems] = useState(false);
   const [designStyle, setDesignStyle] = useState<DesignStyle>("stylesheets");
+  const [framework, setFramework] =
+    useState<PrototypeFramework>(DEFAULT_FRAMEWORK);
   const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
   const [isSurveyChecking, setIsSurveyChecking] = useState(true);
   const [hasCheckedIntent, setHasCheckedIntent] = useState(false);
+
+  const isWebPrototypeEnabled =
+    posthog?.isFeatureEnabled("web-prototype-support") ?? false;
+  const isWebFrameworkSelected = framework === "web_nextjs_react";
+  const availableDesignStyles = isWebFrameworkSelected
+    ? WEB_DESIGN_STYLE_OPTIONS
+    : DESIGN_STYLE_OPTIONS;
+  const getDesignStyleLabel = (style: DesignStyle): string => {
+    if (isWebFrameworkSelected) {
+      return (
+        WEB_DESIGN_STYLE_LABELS[style] ??
+        DESIGN_STYLE_LABELS[style] ??
+        style
+      );
+    }
+    return DESIGN_STYLE_LABELS[style] ?? style;
+  };
 
   // Check if user has completed survey (Scenario 2)
   useEffect(() => {
@@ -170,6 +208,12 @@ export default function DashboardPage() {
     }
   }, [user, logger]);
 
+  useEffect(() => {
+    if (framework === "web_nextjs_react" && designStyle !== "stylesheets") {
+      setDesignStyle("stylesheets");
+    }
+  }, [framework, designStyle]);
+
   const submitPrompt = async (message: string) => {
     const content = message.trim();
     if (!content || isLoading) return;
@@ -186,7 +230,8 @@ export default function DashboardPage() {
       const result = await createPrototype({
         design_style: designStyle,
         custom_design_system: customDesignSystemId ?? undefined,
-        visibility: 'PUBLIC',
+        visibility: "PUBLIC",
+        framework,
       });
 
       if (result.data) {
@@ -281,6 +326,31 @@ export default function DashboardPage() {
             <div className="px-4 py-3 mt-2 bg-black/[0.02] dark:bg-white/[0.02] border-t border-black/5 dark:border-white/5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
               {/* Left: Configuration Tools (Desktop) */}
               <div className="hidden md:flex items-center gap-2">
+                {isWebPrototypeEnabled && (
+                  <Select
+                    value={framework}
+                    onValueChange={(value) =>
+                      setFramework(value as PrototypeFramework)
+                    }
+                    disabled={isLoading}
+                  >
+                    <SelectTrigger className="h-8 border-0 bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 text-black/70 dark:text-white/70 hover:text-black dark:hover:text-white text-xs font-medium rounded-md transition-colors gap-2 w-auto min-w-[120px] focus:ring-0">
+                      <Rocket className="w-3.5 h-3.5" />
+                      <SelectValue placeholder="Platform" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-white dark:bg-[#1A1B1E] border-black/10 dark:border-white/10 text-black dark:text-white">
+                      {PLATFORM_OPTIONS.map((option) => (
+                        <SelectItem
+                          key={option.value}
+                          value={option.value}
+                          className="focus:bg-black/10 dark:focus:bg-white/10 focus:text-black dark:focus:text-white text-black/70 dark:text-white/70 cursor-pointer text-xs py-2"
+                        >
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
                 {/* Design Style Selector */}
                 <Select
                   value={designStyle}
@@ -294,13 +364,13 @@ export default function DashboardPage() {
                     <SelectValue placeholder="Style" />
                   </SelectTrigger>
                   <SelectContent className="bg-white dark:bg-[#1A1B1E] border-black/10 dark:border-white/10 text-black dark:text-white">
-                    {DESIGN_STYLE_OPTIONS.map((style) => (
+                    {availableDesignStyles.map((style) => (
                       <SelectItem
                         key={style}
                         value={style}
                         className="focus:bg-black/10 dark:focus:bg-white/10 focus:text-black dark:focus:text-white text-black/70 dark:text-white/70 cursor-pointer text-xs py-2"
                       >
-                        {DESIGN_STYLE_LABELS[style]}
+                        {getDesignStyleLabel(style)}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -364,24 +434,52 @@ export default function DashboardPage() {
                   <CollapsibleContent className="space-y-2 pt-2 pb-1 animate-in slide-in-from-top-2">
                     {/* Mobile Selects */}
                     <div className="grid grid-cols-1 gap-2">
+                      {isWebPrototypeEnabled && (
+                        <Select
+                          value={framework}
+                          onValueChange={(value) =>
+                            setFramework(value as PrototypeFramework)
+                          }
+                          disabled={isLoading}
+                        >
+                          <SelectTrigger className="h-9 border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/5 text-black dark:text-white text-xs w-full">
+                            <div className="flex items-center gap-2">
+                              <Rocket className="w-3.5 h-3.5" />
+                              <SelectValue placeholder="Platform" />
+                            </div>
+                          </SelectTrigger>
+                          <SelectContent className="bg-white dark:bg-[#1A1B1E] border-black/10 dark:border-white/10 text-black dark:text-white">
+                            {PLATFORM_OPTIONS.map((option) => (
+                              <SelectItem
+                                key={option.value}
+                                value={option.value}
+                                className="focus:bg-black/10 dark:focus:bg-white/10 text-black/80 dark:text-white/80 text-xs"
+                              >
+                                {option.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
                       <Select
                         value={designStyle}
                         onValueChange={(v) => setDesignStyle(v as DesignStyle)}
+                        disabled={isLoading}
                       >
                         <SelectTrigger className="h-9 border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/5 text-black dark:text-white text-xs w-full">
                           <div className="flex items-center gap-2">
                             <SwatchIcon className="w-3.5 h-3.5" />
-                            <SelectValue />
+                            <SelectValue placeholder="Style" />
                           </div>
                         </SelectTrigger>
                         <SelectContent className="bg-white dark:bg-[#1A1B1E] border-black/10 dark:border-white/10 text-black dark:text-white">
-                          {DESIGN_STYLE_OPTIONS.map((s) => (
+                          {availableDesignStyles.map((s) => (
                             <SelectItem
                               key={s}
                               value={s}
                               className="focus:bg-black/10 dark:focus:bg-white/10 text-black/80 dark:text-white/80 text-xs"
                             >
-                              {DESIGN_STYLE_LABELS[s]}
+                              {getDesignStyleLabel(s)}
                             </SelectItem>
                           ))}
                         </SelectContent>
