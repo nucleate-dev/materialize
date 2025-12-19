@@ -545,5 +545,7 @@ function normalizeUrl(url: string): string {
     return url.replace('exp://', 'https://');
   }
   // Otherwise, if URL doesn't start with http, prepend https://
-  return url && !url.startsWith('http') ? `https://${url}` : url;
+  return url && !url.startsWith('http') && !url.startsWith('wss')
+    ? `https://${url}`
+    : url;
 }
