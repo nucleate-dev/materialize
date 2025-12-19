@@ -80,7 +80,6 @@ export async function handleCreatePrototypeImpl(
       '[handleCreatePrototype] Authenticated user for prototype creation',
       {
         userId: user.id,
-        requestedName: name,
       },
     );
 

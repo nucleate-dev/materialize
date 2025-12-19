@@ -76,6 +76,7 @@ export class NextJsReactAdapter implements IDevelopmentServerAdapter {
           "started server on",
           "Compiled successfully",
           "event - compiled client",
+          "Ready in",
         ];
 
         const isReady = readyPatterns.some((pattern) =>
@@ -91,7 +92,7 @@ export class NextJsReactAdapter implements IDevelopmentServerAdapter {
           });
           resolve({
             data: {
-              tunnel_url: this.configuredTunnelUrl,
+              tunnel_url: `${this.configuredTunnelUrl}:${DEV_SERVER_PORT}`,
             },
             error: null,
           });

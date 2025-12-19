@@ -14,9 +14,7 @@ import { SupabaseClientService } from "../../SupabaseClientService.js";
 import { ChatService } from "../../chat/ChatService.js";
 import { syncPrototypeEnvVarsToDisk } from "../utils/envVarUtils.js";
 import { WORK_DIR } from "../../../worker.js";
-import {
-  DEFAULT_PROTOTYPE_FRAMEWORK,
-} from "../NucleateDevelopmentServerService.js";
+import { DEFAULT_PROTOTYPE_FRAMEWORK } from "../NucleateDevelopmentServerService.js";
 import { ExpoReactNativeAdapter } from "../adapters/ExpoReactNativeAdapter.js";
 import { NextJsReactAdapter } from "../adapters/NextJsReactAdapter.js";
 
@@ -62,9 +60,8 @@ export async function handleStartDevServerImpl(
       tunnelHostname,
     );
   } else {
-    developmentServerService.developmentServerAdapter = new ExpoReactNativeAdapter(
-      developmentServerService.terminalService,
-    );
+    developmentServerService.developmentServerAdapter =
+      new ExpoReactNativeAdapter(developmentServerService.terminalService);
   }
 
   if (

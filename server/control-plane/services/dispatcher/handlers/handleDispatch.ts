@@ -98,6 +98,7 @@ export async function handleDispatchImpl(
           },
           cloudflare_credentials: {
             cloudflare_tunnel_token: '',
+            cloudflare_tunnel_hostname: `http://${process.env.FARGATE_TUNNEL_IP}`,
           },
           keys: {
             orchestration_token: '',
