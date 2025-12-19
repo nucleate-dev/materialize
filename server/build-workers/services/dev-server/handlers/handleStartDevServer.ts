@@ -15,7 +15,6 @@ import { ChatService } from "../../chat/ChatService.js";
 import { syncPrototypeEnvVarsToDisk } from "../utils/envVarUtils.js";
 import { WORK_DIR } from "../../../worker.js";
 import { DEFAULT_PROTOTYPE_FRAMEWORK } from "../NucleateDevelopmentServerService.js";
-import { ExpoReactNativeAdapter } from "../adapters/ExpoReactNativeAdapter.js";
 import { NextJsReactAdapter } from "../adapters/NextJsReactAdapter.js";
 
 export async function handleStartDevServerImpl(
@@ -59,9 +58,6 @@ export async function handleStartDevServerImpl(
       developmentServerService.terminalService,
       tunnelHostname,
     );
-  } else {
-    developmentServerService.developmentServerAdapter =
-      new ExpoReactNativeAdapter(developmentServerService.terminalService);
   }
 
   if (
