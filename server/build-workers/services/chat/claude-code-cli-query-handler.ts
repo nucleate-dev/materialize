@@ -114,7 +114,6 @@ type ToolInput = Record<string, unknown>;
  * it into WebSocket messages that match the existing frontend expectations.
  */
 export class ClaudeCodeCliQueryHandler {
-  private readonly logger: SystemLogger;
   private readonly supabaseClientService: SupabaseClientService;
   private readonly toolPermissionService: ToolPermissionService;
   private sessionState: SessionState;
@@ -123,7 +122,6 @@ export class ClaudeCodeCliQueryHandler {
     supabaseClientService: SupabaseClientService,
     toolPermissionService: ToolPermissionService,
   ) {
-    this.logger = baseLogger;
     this.supabaseClientService = supabaseClientService;
     this.toolPermissionService = toolPermissionService;
     this.sessionState = {
@@ -298,7 +296,7 @@ export class ClaudeCodeCliQueryHandler {
 
     env.CLAUDE_CODE_OAUTH_TOKEN = userToken;
     delete env.ANTHROPIC_API_KEY;
-    this.logger.debug("Using user OAuth token for auth");
+    baseLogger.debug("Using user OAuth token for auth");
     return { env, authMethod: "user_token" };
   }
 
@@ -319,7 +317,7 @@ export class ClaudeCodeCliQueryHandler {
         // Clear design system
         sessionState.designSystemId = null;
         sessionState.designSystemRules = null;
-        this.logger.consoleLogDevOnly("info", "Design system cleared");
+        baseLogger.consoleLogDevOnly("info", "Design system cleared");
       } else {
         // Fetch new design system
         try {
@@ -331,7 +329,7 @@ export class ClaudeCodeCliQueryHandler {
             .single();
 
           if (error) {
-            this.logger.error(error, "Failed to fetch design system", {
+            baseLogger.error(error, "Failed to fetch design system", {
               designSystemId: custom_design_system_id,
             });
             sessionState.designSystemId = null;
@@ -342,14 +340,14 @@ export class ClaudeCodeCliQueryHandler {
               designSystem as Database["public"]["Tables"]["design_systems"]["Row"]
             ).design_rules;
           } else {
-            this.logger.warn("Design system not found", {
+            baseLogger.warn("Design system not found", {
               designSystemId: custom_design_system_id,
             });
             sessionState.designSystemId = null;
             sessionState.designSystemRules = null;
           }
         } catch (error) {
-          this.logger.error(
+          baseLogger.error(
             error instanceof Error ? error : new Error(String(error)),
             "Error fetching design system",
             { designSystemId: custom_design_system_id },
@@ -363,7 +361,7 @@ export class ClaudeCodeCliQueryHandler {
     // Build system prompt with optional design system rules
     let systemPromptAppend = getSystemPromptForDesignStyle(design_style);
 
-    this.logger.consoleLogDevOnly(
+    baseLogger.consoleLogDevOnly(
       "info",
       "Using design-style-specific system prompt",
       {
@@ -410,7 +408,7 @@ export class ClaudeCodeCliQueryHandler {
       args.push("--append-system-prompt", systemPromptAppend);
     }
 
-    this.logger.debug("Spawning Claude CLI process", {
+    baseLogger.debug("Spawning Claude CLI process", {
       args,
       cwd: WORK_DIR,
       hasSessionId: !!sessionState.sessionId,
@@ -450,14 +448,14 @@ export class ClaudeCodeCliQueryHandler {
           if (line.trim()) {
             try {
               const message = JSON.parse(line) as ClaudeCodeMessage;
-              this.logger.debug("CLI message received", {
+              baseLogger.debug("CLI message received", {
                 type: message.type,
                 subtype: message.subtype,
                 messagePreview: JSON.stringify(message).substring(0, 200),
               });
               void this.handleCliMessage(message, socket, handlers, context);
             } catch (error) {
-              this.logger.warn("Failed to parse CLI JSON output", {
+              baseLogger.warn("Failed to parse CLI JSON output", {
                 line,
                 error: error instanceof Error ? error.message : String(error),
               });
@@ -468,24 +466,24 @@ export class ClaudeCodeCliQueryHandler {
 
       cliProcess.stderr.on("data", (chunk: Buffer) => {
         stderrBuffer += chunk.toString();
-        this.logger.warn("CLI stderr output", { stderr: chunk.toString() });
+        baseLogger.warn("CLI stderr output", { stderr: chunk.toString() });
       });
 
       cliProcess.on("close", (code: number | null) => {
         if (code === 0) {
-          this.logger.info("CLI process exited successfully");
+          baseLogger.info("CLI process exited successfully");
           resolve();
         } else {
           const error = new Error(
             `CLI process exited with code ${code}: ${stderrBuffer}`,
           );
-          this.logger.error(error, "CLI process failed");
+          baseLogger.error(error, "CLI process failed");
           reject(error);
         }
       });
 
       cliProcess.on("error", (error: Error) => {
-        this.logger.error(error, "CLI process error");
+        baseLogger.error(error, "CLI process error");
         reject(error);
       });
     });
@@ -541,7 +539,7 @@ export class ClaudeCodeCliQueryHandler {
         break;
 
       default:
-        this.logger.debug("Unknown CLI message type", { cliMessage });
+        baseLogger.debug("Unknown CLI message type", { cliMessage });
     }
   }
 
@@ -596,7 +594,7 @@ export class ClaudeCodeCliQueryHandler {
     const { sendMessage, persistMessage } = handlers;
     const { id: toolUseId, name: toolName, input: toolInput } = toolUse;
 
-    this.logger.debug(`PreToolUse: ${toolName}`, { toolUseId, toolInput });
+    baseLogger.debug(`PreToolUse: ${toolName}`, { toolUseId, toolInput });
 
     // 1. Evaluate tool permission (monitoring only in CLI mode)
     const permission = this.toolPermissionService.evaluateToolPermission(
@@ -606,7 +604,7 @@ export class ClaudeCodeCliQueryHandler {
 
     if (permission.behavior === "deny") {
       const message = permission.message ?? "Tool denied by policy";
-      this.logger.warn(`Tool denied: ${toolName}`, { message });
+      baseLogger.warn(`Tool denied: ${toolName}`, { message });
 
       // Send denial notification (can't actually block in CLI mode)
       // Use INFO event since TOOL_DENIED doesn't exist in ChatEvent enum
@@ -663,20 +661,20 @@ export class ClaudeCodeCliQueryHandler {
     const isError = result.is_error || false;
 
     if (!toolUseId) {
-      this.logger.warn("Tool result missing tool_use_id", { result });
+      baseLogger.warn("Tool result missing tool_use_id", { result });
       return;
     }
 
     // Get the original tool call
     const toolUse = this.sessionState.pendingToolCalls.get(toolUseId);
     if (!toolUse) {
-      this.logger.warn("Tool result for unknown tool call", { toolUseId });
+      baseLogger.warn("Tool result for unknown tool call", { toolUseId });
       return;
     }
 
     const { name: toolName, input: toolInput } = toolUse;
 
-    this.logger.debug(`PostToolUse: ${toolName}`, { toolUseId, isError });
+    baseLogger.debug(`PostToolUse: ${toolName}`, { toolUseId, isError });
 
     // 1. Track file modifications
     const fileModifyingTools = ["Write", "Edit", "NotebookEdit", "SafeWrite"];
@@ -688,7 +686,7 @@ export class ClaudeCodeCliQueryHandler {
       if (filePath) {
         const relativePath = this.getRelativePath(filePath);
         this.sessionState.modifiedFilesThisQuery.add(relativePath);
-        this.logger.debug("File modified", { relativePath });
+        baseLogger.debug("File modified", { relativePath });
       }
     }
 
@@ -774,7 +772,7 @@ export class ClaudeCodeCliQueryHandler {
     const { sessionState } = context;
 
     if (!message.session_id) {
-      this.logger.warn("System init message missing session_id");
+      baseLogger.warn("System init message missing session_id");
       return;
     }
 
@@ -789,7 +787,7 @@ export class ClaudeCodeCliQueryHandler {
     }
     sessionState.lastActiveAt = Date.now();
 
-    this.logger.consoleLogDevOnly(
+    baseLogger.consoleLogDevOnly(
       "info",
       "Claude Code CLI session initialized",
       {
@@ -814,7 +812,7 @@ export class ClaudeCodeCliQueryHandler {
     prototypeChatSessionId: string | null,
   ): Promise<void> {
     if (!prototypeChatSessionId) {
-      this.logger.warn(
+      baseLogger.warn(
         "Cannot persist Claude session_id because prototypeChatSessionId is missing",
         { claudeSessionId },
       );
@@ -832,7 +830,7 @@ export class ClaudeCodeCliQueryHandler {
         .eq("id", prototypeChatSessionId);
 
       if (error) {
-        this.logger.error(
+        baseLogger.error(
           error,
           "Failed to update session_id in prototype_chat_sessions",
           {
@@ -841,7 +839,7 @@ export class ClaudeCodeCliQueryHandler {
           },
         );
       } else {
-        this.logger.consoleLogDevOnly(
+        baseLogger.consoleLogDevOnly(
           "info",
           "Updated prototype_chat_sessions with Claude Code CLI session_id",
           {
@@ -851,7 +849,7 @@ export class ClaudeCodeCliQueryHandler {
         );
       }
     } catch (error) {
-      this.logger.error(
+      baseLogger.error(
         error instanceof Error ? error : new Error(String(error)),
         "Exception while updating session_id in prototype_chat_sessions",
         {

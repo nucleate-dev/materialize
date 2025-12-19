@@ -68,11 +68,13 @@ const CLASSIFIER_MODEL = "gemini-2.5-flash";
  * Uses the centralized VERCEL_MODEL_COSTS_USD from cost-calculation.ts.
  */
 function estimateCostUsd(
-  usage: {
-    promptTokens?: number;
-    completionTokens?: number;
-    totalTokens?: number;
-  } | undefined,
+  usage:
+    | {
+        promptTokens?: number;
+        completionTokens?: number;
+        totalTokens?: number;
+      }
+    | undefined,
 ): number | undefined {
   if (!usage) return undefined;
 
@@ -147,27 +149,25 @@ export async function classifyDesignIntent(
     }
 
     // Extract usage information
-    const usageRaw = result.usage as unknown as {
-      promptTokens?: number;
-      completionTokens?: number;
-      totalTokens?: number;
-    } | undefined;
+    const usageRaw = result.usage as unknown as
+      | {
+          promptTokens?: number;
+          completionTokens?: number;
+          totalTokens?: number;
+        }
+      | undefined;
 
     // Calculate cost based on usage
     const costUsd = estimateCostUsd(usageRaw);
 
-    logger.consoleLogDevOnly(
-      "info",
-      "Design intent classification completed",
-      {
-        model: CLASSIFIER_MODEL,
-        intent,
-        costUsd,
-        promptTokens: usageRaw?.promptTokens,
-        completionTokens: usageRaw?.completionTokens,
-        prototypeId,
-      },
-    );
+    logger.consoleLogDevOnly("info", "Design intent classification completed", {
+      model: CLASSIFIER_MODEL,
+      intent,
+      costUsd,
+      promptTokens: usageRaw?.promptTokens,
+      completionTokens: usageRaw?.completionTokens,
+      prototypeId,
+    });
 
     return { intent, costUsd };
   } catch (error) {

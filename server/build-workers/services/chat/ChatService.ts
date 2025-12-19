@@ -55,7 +55,6 @@ interface ChatConnection {
 
 export class ChatService {
   private readonly allowedRoot: string;
-  private readonly logger: SystemLogger;
   private readonly supabaseClientService: SupabaseClientService;
   private readonly fastifyApp: FastifyInstance;
   private readonly fileSyncService: FileSyncService;
@@ -94,18 +93,13 @@ export class ChatService {
   ) {
     this.allowedRoot = path.resolve("/tmp/materialize-dev-server");
     this.fastifyApp = fastifyApp;
-    this.logger = baseLogger;
     this.supabaseClientService = supabaseClientService;
     this.fileSyncService = fileSyncService;
-    this.toolPermissionService = new ToolPermissionService(
-      this.allowedRoot,
-      this.logger,
-    );
+    this.toolPermissionService = new ToolPermissionService(this.allowedRoot);
 
     // Initialize MessagePersistenceService
     this.messagePersistenceService = new MessagePersistenceService(
       supabaseClientService.getClient(),
-      this.logger,
     );
 
     // Initialize ChatQueryHandler
@@ -131,7 +125,7 @@ export class ChatService {
         this.featureFlags.ENABLE_DESIGN_AGENT_ON_FIRST_MESSAGE,
       );
     } catch (error) {
-      this.logger.error(
+      baseLogger.error(
         { error },
         "Failed to initialize VercelChatQueryHandler",
       );
@@ -142,7 +136,7 @@ export class ChatService {
     // Initialize ClaudeTokenService
     this.claudeTokenService = new ClaudeTokenService(
       supabaseClientService.getClient(),
-      this.logger,
+      baseLogger,
     );
 
     // Always initialize ClaudeCodeCliQueryHandler - will be used if user has a token
@@ -150,11 +144,11 @@ export class ChatService {
       supabaseClientService,
       this.toolPermissionService,
     );
-    this.logger.info(
+    baseLogger.info(
       "Claude Code CLI handler initialized - will be used for users with subscription tokens",
     );
 
-    this.logger.consoleLogDevOnly("info", "ChatService initialized", {
+    baseLogger.consoleLogDevOnly("info", "ChatService initialized", {
       workDir: WORK_DIR,
       allowedRoot: this.allowedRoot,
     });
@@ -163,7 +157,7 @@ export class ChatService {
 
     const normalizedWorkDir = path.resolve(WORK_DIR);
     if (!this.isPathInsideAllowedRoot(normalizedWorkDir)) {
-      this.logger.warn("WorkDir is outside the allowed root for Claude Code", {
+      baseLogger.warn("WorkDir is outside the allowed root for Claude Code", {
         workDir: normalizedWorkDir,
         allowedRoot: this.allowedRoot,
       });
@@ -173,7 +167,7 @@ export class ChatService {
   private async refreshFeatureFlags(): Promise<void> {
     const updatedFlags = await FlagsService.loadFlags(
       this.supabaseClientService.getClient(),
-      this.logger,
+      baseLogger,
       this.featureFlags,
     );
 
@@ -191,7 +185,7 @@ export class ChatService {
 
   public setOrchestrationToken(token: string): void {
     this.orchestrationToken = token;
-    this.logger.consoleLogDevOnly("info", "Orchestration token set");
+    baseLogger.consoleLogDevOnly("info", "Orchestration token set");
   }
 
   public getOrchestrationToken(): string | null {
@@ -200,7 +194,7 @@ export class ChatService {
 
   public setAak(key: string): void {
     this.aak = key;
-    this.logger.consoleLogDevOnly("info", "Anthropic API key set");
+    baseLogger.consoleLogDevOnly("info", "Anthropic API key set");
   }
 
   public getAak(): string | null {
@@ -246,7 +240,7 @@ export class ChatService {
     const { prototypeId } = req.params;
     const connectionId = `${prototypeId}-${Date.now()}`;
 
-    this.logger.consoleLogDevOnly(
+    baseLogger.consoleLogDevOnly(
       "info",
       "Claude Code WebSocket connection established",
       {
@@ -260,7 +254,7 @@ export class ChatService {
         try {
           socket.ping();
         } catch (error) {
-          this.logger.warn(
+          baseLogger.warn(
             "Failed to send ping on Claude Code WebSocket connection",
             {
               connectionId,
@@ -317,7 +311,7 @@ export class ChatService {
           connectionId,
         );
       } catch (error) {
-        this.logger.error(
+        baseLogger.error(
           error instanceof Error ? error : new Error(String(error)),
           "Failed to process WebSocket message",
           { connectionId },
@@ -333,7 +327,7 @@ export class ChatService {
     });
 
     socket.on("close", (code: number, reason: Buffer) => {
-      this.logger.consoleLogDevOnly(
+      baseLogger.consoleLogDevOnly(
         "info",
         "Claude Code WebSocket connection closed",
         {
@@ -347,7 +341,7 @@ export class ChatService {
     });
 
     socket.on("error", (error: Error) => {
-      this.logger.error(error, "Claude Code WebSocket error", {
+      baseLogger.error(error, "Claude Code WebSocket error", {
         prototypeId,
         connectionId,
       });
@@ -371,7 +365,7 @@ export class ChatService {
   ): Promise<void> {
     // Get the connection logger (which has userId and prototypeId from the request)
     const connection = this.activeConnections.get(connectionId);
-    const logger = connection?.logger || this.logger;
+    const logger = connection?.logger || baseLogger;
 
     switch (message.type) {
       case ChatClientEvent.QUERY:
@@ -505,7 +499,7 @@ export class ChatService {
           model?: string | null,
         ) => {
           if (!this.sessionState.prototypeChatSessionId) {
-            this.logger.warn("Cannot persist message - no chat session ID");
+            baseLogger.warn("Cannot persist message - no chat session ID");
             return;
           }
           await this.messagePersistenceService.persistMessage(
@@ -640,7 +634,7 @@ export class ChatService {
   }
 
   private async handleInterrupt(socket: WebSocket): Promise<void> {
-    this.logger.consoleLogDevOnly("info", "Interrupt requested", {
+    baseLogger.consoleLogDevOnly("info", "Interrupt requested", {
       sessionId: this.sessionState.sessionId,
       hasAbortController: !!this.sessionState.abortController,
     });
@@ -651,7 +645,7 @@ export class ChatService {
         this.sessionState.abortController.abort();
         this.sessionState.abortController = null;
 
-        this.logger.consoleLogDevOnly(
+        baseLogger.consoleLogDevOnly(
           "info",
           "Claude Code query interrupted successfully",
         );
@@ -678,7 +672,7 @@ export class ChatService {
           },
         });
       } catch (error) {
-        this.logger.error(
+        baseLogger.error(
           error instanceof Error ? error : new Error(String(error)),
           "Failed to interrupt query",
         );
@@ -704,7 +698,7 @@ export class ChatService {
       try {
         socket.send(JSON.stringify(message));
       } catch (error) {
-        this.logger.error(
+        baseLogger.error(
           error instanceof Error ? error : new Error(String(error)),
           "Failed to send WebSocket message",
         );
@@ -720,14 +714,14 @@ export class ChatService {
   ): Promise<void> {
     const serverEndpoint = process.env.MATERIALIZE_SERVER_ENDPOINT;
     if (!serverEndpoint) {
-      this.logger.warn(
+      baseLogger.warn(
         "MATERIALIZE_SERVER_ENDPOINT not set, skipping start-chat notification",
       );
       return;
     }
 
     if (!this.orchestrationToken) {
-      this.logger.error(
+      baseLogger.error(
         new Error("Orchestration token not set"),
         "Cannot notify start-chat without orchestration token",
         { prototypeId },
@@ -747,14 +741,14 @@ export class ChatService {
           timeout: 5000,
         },
       );
-      this.logger.consoleLogDevOnly(
+      baseLogger.consoleLogDevOnly(
         "info",
         "Notified control plane of chat start",
         { prototypeId },
       );
     } catch (error) {
       const axiosError = axios.isAxiosError(error) ? error : null;
-      this.logger.error(
+      baseLogger.error(
         error instanceof Error ? error : new Error(String(error)),
         "Failed to notify control plane of chat start",
         {
@@ -777,14 +771,14 @@ export class ChatService {
   private async notifyOrchestrationEndChat(prototypeId: string): Promise<void> {
     const serverEndpoint = process.env.MATERIALIZE_SERVER_ENDPOINT;
     if (!serverEndpoint) {
-      this.logger.warn(
+      baseLogger.warn(
         "MATERIALIZE_SERVER_ENDPOINT not set, skipping end-chat notification",
       );
       return;
     }
 
     if (!this.orchestrationToken) {
-      this.logger.error(
+      baseLogger.error(
         new Error("Orchestration token not set"),
         "Cannot notify end-chat without orchestration token",
         { prototypeId },
@@ -809,7 +803,7 @@ export class ChatService {
             timeout: 5000,
           },
         );
-        this.logger.consoleLogDevOnly(
+        baseLogger.consoleLogDevOnly(
           "info",
           "Notified control plane of chat end",
           {
@@ -821,7 +815,7 @@ export class ChatService {
       } catch (error) {
         const axiosError = axios.isAxiosError(error) ? error : null;
         lastError = error instanceof Error ? error : new Error(String(error));
-        this.logger.error(
+        baseLogger.error(
           lastError,
           `Failed to notify control plane of chat end (attempt ${attempt}/${maxRetries})`,
           {
@@ -841,7 +835,7 @@ export class ChatService {
     }
 
     // If we get here, all retries failed
-    this.logger.error(
+    baseLogger.error(
       lastError || new Error("Unknown error"),
       "CRITICAL: Failed to notify control plane of chat end after all retries",
       { prototypeId, maxRetries },
@@ -860,7 +854,7 @@ export class ChatService {
     for (const sessionId of sessionIds) {
       this.validAiChatSessionIds.add(sessionId);
     }
-    this.logger.consoleLogDevOnly(
+    baseLogger.consoleLogDevOnly(
       "info",
       "Registered valid session IDs from restored sessions",
       {
@@ -882,7 +876,7 @@ export class ChatService {
   }
 
   public async shutdown(): Promise<void> {
-    this.logger.info("Shutting down CodeService");
+    baseLogger.info("Shutting down CodeService");
 
     // Abort any active query
     if (this.sessionState.abortController) {
@@ -897,7 +891,7 @@ export class ChatService {
         }
         connection.socket.close(1000, "Server shutting down");
       } catch {
-        this.logger.warn("Failed to close WebSocket connection", {
+        baseLogger.warn("Failed to close WebSocket connection", {
           connectionId,
         });
       }
@@ -922,6 +916,6 @@ export class ChatService {
     // Cleanup ClaudeTokenService
     this.claudeTokenService.destroy();
 
-    this.logger.info("CodeService shutdown complete");
+    baseLogger.info("CodeService shutdown complete");
   }
 }

@@ -1,6 +1,6 @@
-import { SupabaseClient } from '@supabase/supabase-js';
-import { SystemLogger } from '../../loggers/SystemLogger.js';
-import { Database } from '../../types/supabase.js';
+import { SupabaseClient } from "@supabase/supabase-js";
+import { Database } from "../../types/supabase.js";
+import { baseLogger } from "../../worker.js";
 
 interface TokenCacheEntry {
   token: string;
@@ -13,16 +13,14 @@ interface TokenCacheEntry {
  */
 export class ClaudeTokenService {
   private readonly supabase: SupabaseClient<Database>;
-  private readonly logger: SystemLogger;
   private tokenCache = new Map<string, TokenCacheEntry>();
   private cleanupInterval: NodeJS.Timeout;
 
   // Cache tokens for 5 minutes to reduce DB calls
   private static readonly CACHE_TTL_MS = 5 * 60 * 1000;
 
-  constructor(supabase: SupabaseClient<Database>, logger: SystemLogger) {
+  constructor(supabase: SupabaseClient<Database>) {
     this.supabase = supabase;
-    this.logger = logger.child({ service: 'ClaudeTokenService' });
 
     // Cleanup expired cache entries every minute
     this.cleanupInterval = setInterval(() => {
@@ -37,26 +35,33 @@ export class ClaudeTokenService {
     // Check cache first
     const cached = this.tokenCache.get(userId);
     if (cached && cached.expiresAt > Date.now()) {
-      this.logger.debug('Token retrieved from cache', { userId });
+      baseLogger.consoleLogDevOnly("info", "Token retrieved from cache", {
+        userId,
+      });
       return cached.token;
     }
 
     // Fetch from database
     try {
-      this.logger.debug('Querying user_claude_tokens table', {
-        userId,
-        query: 'SELECT oauth_token, is_valid WHERE user_id = ? AND is_valid = true',
-      });
+      baseLogger.consoleLogDevOnly(
+        "info",
+        "Querying user_claude_tokens table",
+        {
+          userId,
+          query:
+            "SELECT oauth_token, is_valid WHERE user_id = ? AND is_valid = true",
+        },
+      );
 
       const { data, error } = await this.supabase
-        .from('user_claude_tokens')
-        .select('oauth_token, is_valid')
-        .eq('user_id', userId)
-        .eq('is_valid', true)
+        .from("user_claude_tokens")
+        .select("oauth_token, is_valid")
+        .eq("user_id", userId)
+        .eq("is_valid", true)
         .single();
 
       if (error) {
-        this.logger.debug('Query error details', {
+        baseLogger.consoleLogDevOnly("info", "Query error details", {
           userId,
           errorCode: error.code,
           errorMessage: error.message,
@@ -64,28 +69,36 @@ export class ClaudeTokenService {
           errorHint: error.hint,
         });
 
-        if (error.code === 'PGRST116') {
+        if (error.code === "PGRST116") {
           // No rows returned - check if user has ANY token record (regardless of is_valid)
           const { data: anyToken, error: checkError } = await this.supabase
-            .from('user_claude_tokens')
-            .select('id, is_valid, user_id')
-            .eq('user_id', userId)
+            .from("user_claude_tokens")
+            .select("id, is_valid, user_id")
+            .eq("user_id", userId)
             .maybeSingle();
 
           if (checkError) {
-            this.logger.error(
-              checkError instanceof Error ? checkError : new Error(String(checkError)),
-              'Error checking for any user token',
+            baseLogger.error(
+              checkError instanceof Error
+                ? checkError
+                : new Error(String(checkError)),
+              "Error checking for any user token",
               { userId },
             );
           } else if (anyToken) {
-            this.logger.warn('User has token but is_valid = false', {
+            baseLogger.warn("User has token but is_valid = false", {
               userId,
               tokenId: anyToken.id,
               isValid: anyToken.is_valid,
             });
           } else {
-            this.logger.debug('No token record exists for user at all', { userId });
+            baseLogger.consoleLogDevOnly(
+              "info",
+              "No token record exists for user at all",
+              {
+                userId,
+              },
+            );
           }
 
           return null;
@@ -94,7 +107,9 @@ export class ClaudeTokenService {
       }
 
       if (!data || !data.oauth_token) {
-        this.logger.debug('No valid token found for user', { userId });
+        baseLogger.consoleLogDevOnly("info", "No valid token found for user", {
+          userId,
+        });
         return null;
       }
 
@@ -107,12 +122,14 @@ export class ClaudeTokenService {
       // Update last_used_at timestamp (fire and forget)
       void this.updateLastUsed(userId);
 
-      this.logger.debug('Token retrieved from database', { userId });
+      baseLogger.consoleLogDevOnly("info", "Token retrieved from database", {
+        userId,
+      });
       return data.oauth_token;
     } catch (error) {
-      this.logger.error(
+      baseLogger.error(
         error instanceof Error ? error : new Error(String(error)),
-        'Failed to retrieve user token',
+        "Failed to retrieve user token",
         { userId },
       );
       return null;
@@ -126,25 +143,26 @@ export class ClaudeTokenService {
     try {
       // Validate token format
       if (!this.validateTokenFormat(token)) {
-        throw new Error('Invalid token format');
+        throw new Error("Invalid token format");
       }
 
       const now = new Date().toISOString();
 
       // Upsert the token
-      const { error } = await this.supabase
-        .from('user_claude_tokens')
-        .upsert({
+      const { error } = await this.supabase.from("user_claude_tokens").upsert(
+        {
           user_id: userId,
           oauth_token: token,
-          token_type: 'setup-token',
+          token_type: "setup-token",
           is_valid: true,
           last_validated_at: now,
           validation_error: null,
           updated_at: now,
-        }, {
-          onConflict: 'user_id',
-        });
+        },
+        {
+          onConflict: "user_id",
+        },
+      );
 
       if (error) {
         throw error;
@@ -156,12 +174,12 @@ export class ClaudeTokenService {
         expiresAt: Date.now() + ClaudeTokenService.CACHE_TTL_MS,
       });
 
-      this.logger.info('Token saved successfully', { userId });
+      baseLogger.info("Token saved successfully", { userId });
       return true;
     } catch (error) {
-      this.logger.error(
+      baseLogger.error(
         error instanceof Error ? error : new Error(String(error)),
-        'Failed to save user token',
+        "Failed to save user token",
         { userId },
       );
       return false;
@@ -177,13 +195,13 @@ export class ClaudeTokenService {
   ): Promise<void> {
     try {
       const { error } = await this.supabase
-        .from('user_claude_tokens')
+        .from("user_claude_tokens")
         .update({
           is_valid: false,
-          validation_error: validationError || 'Token validation failed',
+          validation_error: validationError || "Token validation failed",
           updated_at: new Date().toISOString(),
         })
-        .eq('user_id', userId);
+        .eq("user_id", userId);
 
       if (error) {
         throw error;
@@ -192,14 +210,14 @@ export class ClaudeTokenService {
       // Remove from cache
       this.tokenCache.delete(userId);
 
-      this.logger.warn('Token marked as invalid', {
+      baseLogger.warn("Token marked as invalid", {
         userId,
         validationError,
       });
     } catch (error) {
-      this.logger.error(
+      baseLogger.error(
         error instanceof Error ? error : new Error(String(error)),
-        'Failed to mark token as invalid',
+        "Failed to mark token as invalid",
         { userId },
       );
     }
@@ -211,9 +229,9 @@ export class ClaudeTokenService {
   async deleteToken(userId: string): Promise<boolean> {
     try {
       const { error } = await this.supabase
-        .from('user_claude_tokens')
+        .from("user_claude_tokens")
         .delete()
-        .eq('user_id', userId);
+        .eq("user_id", userId);
 
       if (error) {
         throw error;
@@ -222,12 +240,12 @@ export class ClaudeTokenService {
       // Remove from cache
       this.tokenCache.delete(userId);
 
-      this.logger.info('Token deleted successfully', { userId });
+      baseLogger.info("Token deleted successfully", { userId });
       return true;
     } catch (error) {
-      this.logger.error(
+      baseLogger.error(
         error instanceof Error ? error : new Error(String(error)),
-        'Failed to delete user token',
+        "Failed to delete user token",
         { userId },
       );
       return false;
@@ -271,11 +289,11 @@ export class ClaudeTokenService {
   private async updateLastUsed(userId: string): Promise<void> {
     try {
       await this.supabase
-        .from('user_claude_tokens')
+        .from("user_claude_tokens")
         .update({
           last_used_at: new Date().toISOString(),
         })
-        .eq('user_id', userId);
+        .eq("user_id", userId);
     } catch {
       // Don't log errors for this non-critical operation
       // Just fail silently
@@ -297,7 +315,11 @@ export class ClaudeTokenService {
     }
 
     if (removed > 0) {
-      this.logger.debug('Cleaned up expired token cache entries', { removed });
+      baseLogger.consoleLogDevOnly(
+        "info",
+        "Cleaned up expired token cache entries",
+        { removed },
+      );
     }
   }
 
@@ -306,7 +328,7 @@ export class ClaudeTokenService {
    */
   clearCache(): void {
     this.tokenCache.clear();
-    this.logger.debug('Token cache cleared');
+    baseLogger.consoleLogDevOnly("info", "Token cache cleared");
   }
 
   /**
@@ -315,6 +337,6 @@ export class ClaudeTokenService {
   destroy(): void {
     clearInterval(this.cleanupInterval);
     this.tokenCache.clear();
-    this.logger.debug('ClaudeTokenService destroyed');
+    baseLogger.consoleLogDevOnly("info", "ClaudeTokenService destroyed");
   }
 }

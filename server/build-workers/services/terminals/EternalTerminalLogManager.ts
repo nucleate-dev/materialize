@@ -14,6 +14,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { SystemLogger } from "../../loggers/SystemLogger.js";
 import type { TerminalEvent, TerminalSession } from "./TerminalService.js";
 import { stripAnsiSequences } from "./TerminalAnsiUtils.js";
+import { baseLogger } from "../../worker.js";
 
 type EternalTerminalLogTracker = {
   sessionId: string;
@@ -46,7 +47,6 @@ export class EternalTerminalLogManager {
     "/tmp/materialize-eternal-terminal-logs";
   private readonly logRoot: string;
   private readonly trackedSessionIds: Set<string>;
-  private readonly logger: SystemLogger;
   private readonly sessionLogs = new Map<string, EternalTerminalLogTracker>();
   private readonly completedTrackers: EternalTerminalLogTracker[] = [];
   private readonly pendingSnapshots = new Map<
@@ -55,13 +55,8 @@ export class EternalTerminalLogManager {
   >();
   private static readonly UPLOAD_CONCURRENCY = 3;
 
-  constructor(
-    logRoot: string,
-    logger: SystemLogger,
-    trackedSessionIds: Set<string>,
-  ) {
+  constructor(logRoot: string, trackedSessionIds: Set<string>) {
     this.logRoot = logRoot;
-    this.logger = logger;
     this.trackedSessionIds = trackedSessionIds;
     this.ensureLogDir();
   }
@@ -101,7 +96,7 @@ export class EternalTerminalLogManager {
       stream.write(
         `[${new Date(session.createdAt).toISOString()}] SESSION_START ${session.command} (cwd=${session.cwd})\n`,
       );
-      this.logger.consoleLogDevOnly(
+      baseLogger.consoleLogDevOnly(
         "info",
         "[EternalTerminalLogManager] Tracking session output",
         {
@@ -110,7 +105,7 @@ export class EternalTerminalLogManager {
         },
       );
     } catch (error) {
-      this.logger.error(
+      baseLogger.error(
         error instanceof Error ? error : new Error(String(error)),
         "Failed to initialize eternal terminal log",
         { sessionId: session.id },
@@ -135,7 +130,7 @@ export class EternalTerminalLogManager {
     }
 
     if (!tracker) {
-      this.logger.warn("Eternal log tracker missing after registration", {
+      baseLogger.warn("Eternal log tracker missing after registration", {
         sessionId: session.id,
       });
       return;
@@ -190,7 +185,7 @@ export class EternalTerminalLogManager {
       await fsPromises.rename(tracker.filePath, completedPath);
       tracker.filePath = completedPath;
     } catch (error) {
-      this.logger.warn("Failed to rotate completed terminal log", {
+      baseLogger.warn("Failed to rotate completed terminal log", {
         sessionId,
         filePath: tracker.filePath,
         error: error instanceof Error ? error.message : String(error),
@@ -227,7 +222,7 @@ export class EternalTerminalLogManager {
     bucket: string;
     logger?: SystemLogger;
   }): Promise<TerminalLogPersistenceResult> {
-    const activeLogger = options.logger ?? this.logger;
+    const activeLogger = options.logger ?? baseLogger;
     const result: TerminalLogPersistenceResult = {
       uploaded: [],
       failed: [],
@@ -328,7 +323,7 @@ export class EternalTerminalLogManager {
         mkdirSync(this.logRoot, { recursive: true });
       }
     } catch (error) {
-      this.logger.error(
+      baseLogger.error(
         error instanceof Error ? error : new Error(String(error)),
         "Failed to ensure eternal terminal log directory",
         { logRoot: this.logRoot },
@@ -416,7 +411,7 @@ export class EternalTerminalLogManager {
         encoding: "utf8",
       });
       newStream.on("error", (error) => {
-        this.logger.error(
+        baseLogger.error(
           error instanceof Error ? error : new Error(String(error)),
           "Failed to create new eternal terminal log stream",
           { sessionId: tracker.sessionId, filePath: tracker.filePath },
@@ -475,7 +470,7 @@ export class EternalTerminalLogManager {
       try {
         await fsyncAsync(streamFd);
       } catch (error) {
-        this.logger.warn("Failed to fsync eternal terminal log stream", {
+        baseLogger.warn("Failed to fsync eternal terminal log stream", {
           sessionId: tracker.sessionId,
           error: error instanceof Error ? error.message : String(error),
         });

@@ -1,6 +1,7 @@
 import { PermissionResult } from "@anthropic-ai/claude-agent-sdk";
 import path from "path";
 import { SystemLogger } from "../../loggers/SystemLogger.js";
+import { baseLogger } from "../../worker.js";
 
 type ToolName =
   | "Bash"
@@ -89,11 +90,9 @@ interface ToolInputWithFilePath {
  */
 export class ToolPermissionService {
   private readonly allowedRoot: string;
-  private readonly logger: SystemLogger;
 
-  constructor(allowedRoot: string, logger: SystemLogger) {
+  constructor(allowedRoot: string) {
     this.allowedRoot = allowedRoot;
-    this.logger = logger.child({ service: "ToolPermissionService" });
   }
 
   /**
@@ -106,7 +105,7 @@ export class ToolPermissionService {
   ): PermissionResult {
     const inputPreview = this.sanitizeInputPreview(input);
     const deny = (reason: string, message?: string): PermissionResult => {
-      this.logger.warn("Tool denied by policy", {
+      baseLogger.warn("Tool denied by policy", {
         tool: toolName,
         reason,
         inputPreview,

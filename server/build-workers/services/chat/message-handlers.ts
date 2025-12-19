@@ -3,9 +3,9 @@
  */
 
 import { SupabaseClient } from "@supabase/supabase-js";
-import { SystemLogger } from "../../loggers/SystemLogger.js";
 import { Database } from "../../types/supabase.js";
 import { processImage } from "./image-processing.js";
+import { baseLogger } from "../../worker.js";
 
 type ToolInput = Record<string, unknown>;
 
@@ -113,11 +113,9 @@ export function getToolDisplayName(
  */
 export class MessagePersistenceService {
   private supabaseClient: SupabaseClient<Database>;
-  private readonly logger: SystemLogger;
 
-  constructor(supabaseClient: SupabaseClient<Database>, logger: SystemLogger) {
+  constructor(supabaseClient: SupabaseClient<Database>) {
     this.supabaseClient = supabaseClient;
-    this.logger = logger.child({ service: "MessagePersistenceService" });
   }
 
   /**
@@ -144,7 +142,7 @@ export class MessagePersistenceService {
     model?: string | null,
   ): Promise<void> {
     if (!chatSessionId) {
-      this.logger.warn("Cannot persist message - no chat session ID", {
+      baseLogger.warn("Cannot persist message - no chat session ID", {
         role,
         messageType,
         eventType,
@@ -159,7 +157,7 @@ export class MessagePersistenceService {
         error: authError,
       } = await this.supabaseClient.auth.getUser();
 
-      this.logger.consoleLogDevOnly("debug", "Attempting to persist message", {
+      baseLogger.consoleLogDevOnly("debug", "Attempting to persist message", {
         chatSessionId,
         role,
         messageType,
@@ -195,7 +193,7 @@ export class MessagePersistenceService {
         });
 
       if (error) {
-        this.logger.error(error, "Failed to persist message", {
+        baseLogger.error(error, "Failed to persist message", {
           chatSessionId,
           role,
           messageType,
@@ -208,7 +206,7 @@ export class MessagePersistenceService {
           userId: user?.id,
         });
       } else {
-        this.logger.consoleLogDevOnly("debug", "Persisted message", {
+        baseLogger.consoleLogDevOnly("debug", "Persisted message", {
           chatSessionId,
           role,
           messageType,
@@ -219,7 +217,7 @@ export class MessagePersistenceService {
         });
       }
     } catch (error) {
-      this.logger.error(
+      baseLogger.error(
         error instanceof Error ? error : new Error(String(error)),
         "Error in persistMessage",
         {
@@ -246,15 +244,11 @@ export class MessagePersistenceService {
     Array<{ storage_path: string; media_type: string; file_size: number }>
   > {
     try {
-      this.logger.consoleLogDevOnly(
-        "info",
-        "Uploading chat images to storage",
-        {
-          prototypeId,
-          chatSessionId,
-          imageCount: images.length,
-        },
-      );
+      baseLogger.consoleLogDevOnly("info", "Uploading chat images to storage", {
+        prototypeId,
+        chatSessionId,
+        imageCount: images.length,
+      });
 
       const uploadedImageMetadata: Array<{
         storage_path: string;
@@ -293,13 +287,13 @@ export class MessagePersistenceService {
             file_size: processed.buffer.length,
           });
 
-          this.logger.consoleLogDevOnly("debug", "Uploaded chat image", {
+          baseLogger.consoleLogDevOnly("debug", "Uploaded chat image", {
             storagePath,
             mediaType: processed.mediaType,
             fileSize: processed.buffer.length,
           });
         } catch (error) {
-          this.logger.error(
+          baseLogger.error(
             error instanceof Error ? error : new Error(String(error)),
             `Failed to upload image ${i + 1}/${images.length}`,
             { prototypeId, chatSessionId },
@@ -308,7 +302,7 @@ export class MessagePersistenceService {
         }
       }
 
-      this.logger.consoleLogDevOnly("info", "Chat images upload completed", {
+      baseLogger.consoleLogDevOnly("info", "Chat images upload completed", {
         prototypeId,
         chatSessionId,
         successCount: uploadedImageMetadata.length,
@@ -317,7 +311,7 @@ export class MessagePersistenceService {
 
       return uploadedImageMetadata;
     } catch (error) {
-      this.logger.error(
+      baseLogger.error(
         error instanceof Error ? error : new Error(String(error)),
         "Failed to upload chat images",
         { prototypeId, chatSessionId },

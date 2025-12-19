@@ -67,11 +67,13 @@ function resolveModel(
 function estimateCostUsd(
   provider: DesignAgentProvider,
   modelName: string,
-  usage: {
-    promptTokens?: number;
-    completionTokens?: number;
-    totalTokens?: number;
-  } | undefined,
+  usage:
+    | {
+        promptTokens?: number;
+        completionTokens?: number;
+        totalTokens?: number;
+      }
+    | undefined,
 ): number | undefined {
   if (!usage) return undefined;
 
@@ -113,17 +115,13 @@ export async function executeDesignAgent(
   } = config;
 
   try {
-    logger.consoleLogDevOnly(
-      "info",
-      "Executing design agent with AI SDK",
-      {
-        provider,
-        model,
-        userMessageLength: userMessage.length,
-        prototypeId,
-        workDir,
-      },
-    );
+    logger.consoleLogDevOnly("info", "Executing design agent with AI SDK", {
+      provider,
+      model,
+      userMessageLength: userMessage.length,
+      prototypeId,
+      workDir,
+    });
 
     const modelInstance = resolveModel(provider, model);
 
@@ -136,49 +134,43 @@ export async function executeDesignAgent(
         google: {
           thinkingConfig: {
             includeThoughts: true,
-            thinkingLevel: 'low',
+            thinkingLevel: "low",
           },
         },
-      }
+      },
     });
 
     const designSpec = result.text;
-    logger.consoleLogDevOnly(
-      "info",
-      "Design agent execution completed",
-      {
-        provider,
-        model,
-        designSpecLength: designSpec.length,
-        designSpec,
-        prototypeId,
-      },
-    );
+    logger.consoleLogDevOnly("info", "Design agent execution completed", {
+      provider,
+      model,
+      designSpecLength: designSpec.length,
+      designSpec,
+      prototypeId,
+    });
 
     // Extract usage information
     // AI SDK v5 has usage property - we cast to unknown then to our type for compatibility
-    const usageRaw = result.usage as unknown as {
-      promptTokens?: number;
-      completionTokens?: number;
-      totalTokens?: number;
-    } | undefined;
+    const usageRaw = result.usage as unknown as
+      | {
+          promptTokens?: number;
+          completionTokens?: number;
+          totalTokens?: number;
+        }
+      | undefined;
 
     // Calculate cost based on usage
     const costUsd = estimateCostUsd(provider, model, usageRaw);
 
-    logger.consoleLogDevOnly(
-      "info",
-      "Design agent execution completed",
-      {
-        provider,
-        model,
-        designSpecLength: designSpec.length,
-        costUsd,
-        promptTokens: usageRaw?.promptTokens,
-        completionTokens: usageRaw?.completionTokens,
-        prototypeId,
-      },
-    );
+    logger.consoleLogDevOnly("info", "Design agent execution completed", {
+      provider,
+      model,
+      designSpecLength: designSpec.length,
+      costUsd,
+      promptTokens: usageRaw?.promptTokens,
+      completionTokens: usageRaw?.completionTokens,
+      prototypeId,
+    });
 
     if (!designSpec || designSpec.trim().length === 0) {
       logger.warn("Design agent returned empty specification", {
@@ -241,9 +233,7 @@ export async function persistDesignSpecToFiles(
     );
   } catch (writeError) {
     logger.error(
-      writeError instanceof Error
-        ? writeError
-        : new Error(String(writeError)),
+      writeError instanceof Error ? writeError : new Error(String(writeError)),
       "Failed to write design specification to CLAUDE.md and AGENTS.md",
       { prototypeId },
     );

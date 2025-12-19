@@ -1,9 +1,16 @@
+# NOTE DO NOT USE this.logger. USE THE baseLogger from worker.ts OR YOU WILL NOT HAVE ALL THE RIGHT INFO IN THE LOGGER.
+
+## NEVER EVER EVER USE this.logger AND NEVER CREATE YOUR OWN LOGGER. You can only ADD context to an existing logger inside a function, but never create a class variable with a new logger during class initialization. YOU WILL FUCK EVERYTHING UP.
+
+Even though this document uses "this.logger" you MUST NOT USE IT.
+
 # MCP Server Integration for Claude Code CLI Handler
 
 **Status**: Planning
 **Author**: Build Worker Team
 **Date**: 2024-12-18
 **Related Files**:
+
 - `services/chat/claude-code-cli-query-handler.ts`
 - `services/chat/chat-query-handler.ts`
 - `services/chat/mcp/mcp-dev-tools.ts`
@@ -49,6 +56,7 @@ This document outlines the implementation plan for adding Model Context Protocol
 ### Current State
 
 **SDK Handler** (`chat-query-handler.ts`):
+
 - Uses in-process MCP servers via `createSdkMcpServer()`
 - Creates `McpSdkServerConfigWithInstance` objects
 - Passes directly to SDK's `query()` function
@@ -57,6 +65,7 @@ This document outlines the implementation plan for adding Model Context Protocol
   - `design` server: GeminiDesignExpert (optional)
 
 **CLI Handler** (`claude-code-cli-query-handler.ts`):
+
 - Spawns external `claude` CLI process
 - Cannot use in-process MCP servers
 - Needs external MCP server configured via `--mcp-config`
@@ -65,17 +74,18 @@ This document outlines the implementation plan for adding Model Context Protocol
 ### The Problem
 
 The CLI's `--mcp-config` flag expects:
+
 ```json
 {
   "mcpServers": {
     "server-name": {
-      "command": "node",          // stdio transport
+      "command": "node", // stdio transport
       "args": ["/path/to/server.js"],
       "env": { "VAR": "value" }
     },
     // OR
     "server-name": {
-      "url": "http://localhost:3000/mcp",  // SSE transport
+      "url": "http://localhost:3000/mcp", // SSE transport
       "transport": "sse"
     }
   }
@@ -83,6 +93,7 @@ The CLI's `--mcp-config` flag expects:
 ```
 
 We need to bridge the gap between:
+
 - **What we have**: In-process MCP tools with direct function callbacks
 - **What CLI needs**: External MCP server accessible via stdio or HTTP/SSE
 
@@ -96,18 +107,19 @@ We will implement MCP servers using **HTTP Server-Sent Events (SSE) transport** 
 
 ### Rationale
 
-| Criterion | stdio | HTTP/SSE | Winner |
-|-----------|-------|----------|--------|
-| **Infrastructure** | Need separate process | Reuse existing Fastify server | ✅ SSE |
-| **Service Access** | Need IPC for callbacks | Direct access to services | ✅ SSE |
-| **Debugging** | Stdio stream debugging | Standard HTTP tools | ✅ SSE |
-| **Process Management** | Need spawn/lifecycle logic | No process management | ✅ SSE |
-| **Performance** | Minimal overhead | Localhost HTTP (minimal) | 🤝 Tie |
-| **Security** | Process isolation | Localhost-only endpoints | 🤝 Tie |
-| **MCP Standard** | More common | Fully supported by spec | 🤝 Tie |
-| **Reusability** | One-to-one process | Shared across CLI invocations | ✅ SSE |
+| Criterion              | stdio                      | HTTP/SSE                      | Winner |
+| ---------------------- | -------------------------- | ----------------------------- | ------ |
+| **Infrastructure**     | Need separate process      | Reuse existing Fastify server | ✅ SSE |
+| **Service Access**     | Need IPC for callbacks     | Direct access to services     | ✅ SSE |
+| **Debugging**          | Stdio stream debugging     | Standard HTTP tools           | ✅ SSE |
+| **Process Management** | Need spawn/lifecycle logic | No process management         | ✅ SSE |
+| **Performance**        | Minimal overhead           | Localhost HTTP (minimal)      | 🤝 Tie |
+| **Security**           | Process isolation          | Localhost-only endpoints      | 🤝 Tie |
+| **MCP Standard**       | More common                | Fully supported by spec       | 🤝 Tie |
+| **Reusability**        | One-to-one process         | Shared across CLI invocations | ✅ SSE |
 
 **Conclusion**: HTTP/SSE is the clear winner for our architecture because:
+
 1. We already run a Fastify server in the build-worker
 2. MCP tools need access to SandboxService, TerminalService, etc. (already available in Fastify context)
 3. Simpler implementation with better debugging
@@ -116,6 +128,7 @@ We will implement MCP servers using **HTTP Server-Sent Events (SSE) transport** 
 ### Alternative Considered: stdio Transport
 
 **Why we rejected it:**
+
 - Requires spawning a separate Node.js process per MCP server
 - Need complex IPC mechanism for tool callbacks (SandboxService, TerminalService, etc.)
 - More failure modes (process crashes, IPC failures, cleanup issues)
@@ -203,17 +216,17 @@ We will implement MCP servers using **HTTP Server-Sent Events (SSE) transport** 
 **File**: `services/chat/mcp/mcp-http-server.ts`
 
 ```typescript
-import { Server } from '@modelcontextprotocol/sdk/server/index.js';
-import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
+import { Server } from "@modelcontextprotocol/sdk/server/index.js";
+import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
 import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
-} from '@modelcontextprotocol/sdk/types.js';
-import { FastifyReply, FastifyRequest } from 'fastify';
-import { SystemLogger } from '../../../loggers/SystemLogger.js';
-import { NucleateDevelopmentServerService } from '../../dev-server/NucleateDevelopmentServerService.js';
-import { SandboxService } from '../../SandboxService.js';
-import { TerminalService } from '../../terminals/TerminalService.js';
+} from "@modelcontextprotocol/sdk/types.js";
+import { FastifyReply, FastifyRequest } from "fastify";
+import { SystemLogger } from "../../../loggers/SystemLogger.js";
+import { NucleateDevelopmentServerService } from "../../dev-server/NucleateDevelopmentServerService.js";
+import { SandboxService } from "../../SandboxService.js";
+import { TerminalService } from "../../terminals/TerminalService.js";
 
 /**
  * Creates an MCP server endpoint handler for the devtools server
@@ -230,16 +243,17 @@ export async function handleDevtoolsMcpEndpoint(
     workDir: string;
   },
 ): Promise<void> {
-  const { sandboxService, terminalService, devServerService, logger, workDir } = services;
+  const { sandboxService, terminalService, devServerService, logger, workDir } =
+    services;
 
   // Create SSE transport
-  const transport = new SSEServerTransport('/mcp/devtools', reply.raw);
+  const transport = new SSEServerTransport("/mcp/devtools", reply.raw);
 
   // Create MCP server
   const server = new Server(
     {
-      name: 'devtools',
-      version: '1.0.0',
+      name: "devtools",
+      version: "1.0.0",
     },
     {
       capabilities: {
@@ -252,51 +266,54 @@ export async function handleDevtoolsMcpEndpoint(
   server.setRequestHandler(ListToolsRequestSchema, async () => ({
     tools: [
       {
-        name: 'SafeWrite',
-        description: 'Write a file to the local filesystem with proper permissions and tracking',
+        name: "SafeWrite",
+        description:
+          "Write a file to the local filesystem with proper permissions and tracking",
         inputSchema: {
-          type: 'object',
+          type: "object",
           properties: {
             file_path: {
-              type: 'string',
-              description: 'The absolute path to the file to write',
+              type: "string",
+              description: "The absolute path to the file to write",
             },
             content: {
-              type: 'string',
-              description: 'The content to write to the file',
+              type: "string",
+              description: "The content to write to the file",
             },
           },
-          required: ['file_path', 'content'],
+          required: ["file_path", "content"],
         },
       },
       {
-        name: 'SafeBash',
-        description: 'Execute bash commands in a safe terminal environment',
+        name: "SafeBash",
+        description: "Execute bash commands in a safe terminal environment",
         inputSchema: {
-          type: 'object',
+          type: "object",
           properties: {
             command: {
-              type: 'string',
-              description: 'The bash command to execute',
+              type: "string",
+              description: "The bash command to execute",
             },
             args: {
-              type: 'array',
-              items: { type: 'string' },
-              description: 'Optional arguments to pass to the command',
+              type: "array",
+              items: { type: "string" },
+              description: "Optional arguments to pass to the command",
             },
           },
-          required: ['command'],
+          required: ["command"],
         },
       },
       {
-        name: 'checkTerminal',
-        description: 'Check the dev-server terminal output to help debug errors',
+        name: "checkTerminal",
+        description:
+          "Check the dev-server terminal output to help debug errors",
         inputSchema: {
-          type: 'object',
+          type: "object",
           properties: {
             lines: {
-              type: 'number',
-              description: 'Number of recent output lines to retrieve (default: 20, max: 1000)',
+              type: "number",
+              description:
+                "Number of recent output lines to retrieve (default: 20, max: 1000)",
               minimum: 1,
               maximum: 1000,
             },
@@ -304,10 +321,10 @@ export async function handleDevtoolsMcpEndpoint(
         },
       },
       {
-        name: 'RestartDevServer',
-        description: 'Restart the Expo dev server',
+        name: "RestartDevServer",
+        description: "Restart the Expo dev server",
         inputSchema: {
-          type: 'object',
+          type: "object",
           properties: {},
         },
       },
@@ -320,25 +337,46 @@ export async function handleDevtoolsMcpEndpoint(
 
     try {
       switch (name) {
-        case 'SafeWrite': {
-          const { file_path, content } = args as { file_path: string; content: string };
-          const result = await handleSafeWrite(file_path, content, sandboxService, workDir, logger);
+        case "SafeWrite": {
+          const { file_path, content } = args as {
+            file_path: string;
+            content: string;
+          };
+          const result = await handleSafeWrite(
+            file_path,
+            content,
+            sandboxService,
+            workDir,
+            logger,
+          );
           return result;
         }
 
-        case 'SafeBash': {
-          const { command, args: cmdArgs } = args as { command: string; args?: string[] };
-          const result = await handleSafeBash(command, cmdArgs ?? [], sandboxService, logger);
+        case "SafeBash": {
+          const { command, args: cmdArgs } = args as {
+            command: string;
+            args?: string[];
+          };
+          const result = await handleSafeBash(
+            command,
+            cmdArgs ?? [],
+            sandboxService,
+            logger,
+          );
           return result;
         }
 
-        case 'checkTerminal': {
+        case "checkTerminal": {
           const { lines } = args as { lines?: number };
-          const result = await handleCheckTerminal(lines, terminalService, logger);
+          const result = await handleCheckTerminal(
+            lines,
+            terminalService,
+            logger,
+          );
           return result;
         }
 
-        case 'RestartDevServer': {
+        case "RestartDevServer": {
           const result = await handleRestartDevServer(devServerService, logger);
           return result;
         }
@@ -348,7 +386,7 @@ export async function handleDevtoolsMcpEndpoint(
             isError: true,
             content: [
               {
-                type: 'text',
+                type: "text",
                 text: `Unknown tool: ${name}`,
               },
             ],
@@ -363,7 +401,7 @@ export async function handleDevtoolsMcpEndpoint(
         isError: true,
         content: [
           {
-            type: 'text',
+            type: "text",
             text: `Tool execution failed: ${error instanceof Error ? error.message : String(error)}`,
           },
         ],
@@ -375,8 +413,8 @@ export async function handleDevtoolsMcpEndpoint(
   await server.connect(transport);
 
   // Keep connection alive until client disconnects
-  request.raw.on('close', () => {
-    logger.debug('MCP devtools client disconnected');
+  request.raw.on("close", () => {
+    logger.debug("MCP devtools client disconnected");
   });
 }
 
@@ -394,13 +432,13 @@ export async function handleDesignMcpEndpoint(
   const { logger } = services;
 
   // Create SSE transport
-  const transport = new SSEServerTransport('/mcp/design', reply.raw);
+  const transport = new SSEServerTransport("/mcp/design", reply.raw);
 
   // Create MCP server
   const server = new Server(
     {
-      name: 'design',
-      version: '1.0.0',
+      name: "design",
+      version: "1.0.0",
     },
     {
       capabilities: {
@@ -413,17 +451,17 @@ export async function handleDesignMcpEndpoint(
   server.setRequestHandler(ListToolsRequestSchema, async () => ({
     tools: [
       {
-        name: 'GeminiDesignExpert',
-        description: 'Get design advice and UI/UX recommendations from Gemini',
+        name: "GeminiDesignExpert",
+        description: "Get design advice and UI/UX recommendations from Gemini",
         inputSchema: {
-          type: 'object',
+          type: "object",
           properties: {
             query: {
-              type: 'string',
-              description: 'The design question or request',
+              type: "string",
+              description: "The design question or request",
             },
           },
-          required: ['query'],
+          required: ["query"],
         },
       },
     ],
@@ -433,7 +471,7 @@ export async function handleDesignMcpEndpoint(
   server.setRequestHandler(CallToolRequestSchema, async (request) => {
     const { name, arguments: args } = request.params;
 
-    if (name === 'GeminiDesignExpert') {
+    if (name === "GeminiDesignExpert") {
       const { query } = args as { query: string };
       const result = await handleGeminiDesignExpert(query, logger);
       return result;
@@ -443,7 +481,7 @@ export async function handleDesignMcpEndpoint(
       isError: true,
       content: [
         {
-          type: 'text',
+          type: "text",
           text: `Unknown tool: ${name}`,
         },
       ],
@@ -454,8 +492,8 @@ export async function handleDesignMcpEndpoint(
   await server.connect(transport);
 
   // Keep connection alive until client disconnects
-  request.raw.on('close', () => {
-    logger.debug('MCP design client disconnected');
+  request.raw.on("close", () => {
+    logger.debug("MCP design client disconnected");
   });
 }
 
@@ -499,10 +537,7 @@ async function handleRestartDevServer(
   // ... (same logic)
 }
 
-async function handleGeminiDesignExpert(
-  query: string,
-  logger: SystemLogger,
-) {
+async function handleGeminiDesignExpert(query: string, logger: SystemLogger) {
   // Implementation from mcp-design-tools.ts
   // ... (same logic)
 }
@@ -513,11 +548,14 @@ async function handleGeminiDesignExpert(
 **File**: `index.ts` (or wherever Fastify routes are registered)
 
 ```typescript
-import { handleDevtoolsMcpEndpoint, handleDesignMcpEndpoint } from './services/chat/mcp/mcp-http-server.js';
+import {
+  handleDevtoolsMcpEndpoint,
+  handleDesignMcpEndpoint,
+} from "./services/chat/mcp/mcp-http-server.js";
 
 // During server initialization, after service setup:
 
-fastify.get('/mcp/devtools', async (request, reply) => {
+fastify.get("/mcp/devtools", async (request, reply) => {
   await handleDevtoolsMcpEndpoint(request, reply, {
     sandboxService,
     terminalService,
@@ -527,14 +565,14 @@ fastify.get('/mcp/devtools', async (request, reply) => {
   });
 });
 
-fastify.get('/mcp/design', async (request, reply) => {
+fastify.get("/mcp/design", async (request, reply) => {
   // Only register if design tools are enabled
   if (enableDesignMcpTools) {
     await handleDesignMcpEndpoint(request, reply, {
       logger,
     });
   } else {
-    reply.code(404).send({ error: 'Design MCP server not enabled' });
+    reply.code(404).send({ error: "Design MCP server not enabled" });
   }
 });
 ```
@@ -544,10 +582,10 @@ fastify.get('/mcp/design', async (request, reply) => {
 **File**: `services/chat/claude-code-cli-query-handler.ts`
 
 ```typescript
-import { writeFile, unlink } from 'fs/promises';
-import { join } from 'path';
-import { tmpdir } from 'os';
-import { randomUUID } from 'crypto';
+import { writeFile, unlink } from "fs/promises";
+import { join } from "path";
+import { tmpdir } from "os";
+import { randomUUID } from "crypto";
 
 export class ClaudeCodeCliQueryHandler {
   // ... existing code ...
@@ -562,25 +600,25 @@ export class ClaudeCodeCliQueryHandler {
     const mcpConfig = {
       mcpServers: {
         devtools: {
-          url: 'http://localhost:3000/mcp/devtools',
-          transport: 'sse',
+          url: "http://localhost:3000/mcp/devtools",
+          transport: "sse",
         },
       },
     };
 
     // Add design server if enabled
     if (enableDesignTools) {
-      mcpConfig.mcpServers['design'] = {
-        url: 'http://localhost:3000/mcp/design',
-        transport: 'sse',
+      mcpConfig.mcpServers["design"] = {
+        url: "http://localhost:3000/mcp/design",
+        transport: "sse",
       };
     }
 
     // Write to temporary file
     const configPath = join(tmpdir(), `mcp-config-${randomUUID()}.json`);
-    await writeFile(configPath, JSON.stringify(mcpConfig, null, 2), 'utf-8');
+    await writeFile(configPath, JSON.stringify(mcpConfig, null, 2), "utf-8");
 
-    this.logger.debug('Generated MCP config file', {
+    this.logger.consoleLogDevOnly("info", "Generated MCP config file", {
       configPath,
       servers: Object.keys(mcpConfig.mcpServers),
     });
@@ -594,9 +632,11 @@ export class ClaudeCodeCliQueryHandler {
   private async cleanupMcpConfigFile(configPath: string): Promise<void> {
     try {
       await unlink(configPath);
-      this.logger.debug('Cleaned up MCP config file', { configPath });
+      this.logger.consoleLogDevOnly("info", "Cleaned up MCP config file", {
+        configPath,
+      });
     } catch (error) {
-      this.logger.warn('Failed to cleanup MCP config file', {
+      this.logger.warn("Failed to cleanup MCP config file", {
         configPath,
         error: error instanceof Error ? error.message : String(error),
       });
@@ -687,7 +727,7 @@ private spawnCliProcess(
     args.push('--mcp-config', mcpConfigPath);
   }
 
-  this.logger.debug('Spawning Claude CLI process', {
+  this.logger.consoleLogDevOnly("info", 'Spawning Claude CLI process', {
     args,
     cwd: this.workDir,
     hasSessionId: !!sessionState.sessionId,
@@ -728,7 +768,7 @@ export class ClaudeCodeCliQueryHandler {
     enableDesignMcpTools: boolean, // NEW parameter
   ) {
     this.workDir = workDir;
-    this.logger = logger.child({ service: 'ClaudeCodeCliQueryHandler' });
+    this.logger = logger.child({ service: "ClaudeCodeCliQueryHandler" });
     this.supabaseClientService = supabaseClientService;
     this.toolPermissionService = toolPermissionService;
     this.enableDesignMcpTools = enableDesignMcpTools; // NEW
@@ -764,39 +804,39 @@ const cliHandler = new ClaudeCodeCliQueryHandler(
 **File**: `services/chat/mcp/mcp-http-server.test.ts`
 
 ```typescript
-describe('MCP HTTP Server', () => {
-  describe('handleDevtoolsMcpEndpoint', () => {
-    it('should list all devtools tools', async () => {
+describe("MCP HTTP Server", () => {
+  describe("handleDevtoolsMcpEndpoint", () => {
+    it("should list all devtools tools", async () => {
       // Test ListTools request
     });
 
-    it('should execute SafeWrite tool', async () => {
+    it("should execute SafeWrite tool", async () => {
       // Test SafeWrite tool execution
     });
 
-    it('should execute SafeBash tool', async () => {
+    it("should execute SafeBash tool", async () => {
       // Test SafeBash tool execution
     });
 
-    it('should handle checkTerminal tool', async () => {
+    it("should handle checkTerminal tool", async () => {
       // Test checkTerminal tool execution
     });
 
-    it('should handle RestartDevServer tool', async () => {
+    it("should handle RestartDevServer tool", async () => {
       // Test RestartDevServer tool execution
     });
 
-    it('should handle errors gracefully', async () => {
+    it("should handle errors gracefully", async () => {
       // Test error scenarios
     });
   });
 
-  describe('handleDesignMcpEndpoint', () => {
-    it('should list GeminiDesignExpert tool', async () => {
+  describe("handleDesignMcpEndpoint", () => {
+    it("should list GeminiDesignExpert tool", async () => {
       // Test ListTools request
     });
 
-    it('should execute GeminiDesignExpert tool', async () => {
+    it("should execute GeminiDesignExpert tool", async () => {
       // Test tool execution
     });
   });
@@ -836,12 +876,15 @@ describe('ClaudeCodeCliQueryHandler with MCP', () => {
 ### Manual Testing
 
 1. **Test MCP endpoint directly**:
+
    ```bash
    curl -N http://localhost:3000/mcp/devtools
    ```
+
    Should establish SSE connection and respond to MCP protocol messages.
 
 2. **Test CLI with MCP config**:
+
    ```bash
    # Create test config
    cat > /tmp/test-mcp.json <<EOF
@@ -873,6 +916,7 @@ describe('ClaudeCodeCliQueryHandler with MCP', () => {
 ### Phase 1: MCP HTTP Server Implementation (Week 1)
 
 **Tasks**:
+
 1. ✅ Create `mcp-http-server.ts` with devtools endpoint
 2. ✅ Implement tool handlers (SafeWrite, SafeBash, checkTerminal, RestartDevServer)
 3. ✅ Add unit tests for MCP server
@@ -880,6 +924,7 @@ describe('ClaudeCodeCliQueryHandler with MCP', () => {
 5. ✅ Manual testing with curl/SSE client
 
 **Success Criteria**:
+
 - MCP devtools endpoint responds to requests
 - All tools execute successfully
 - Error handling works correctly
@@ -887,6 +932,7 @@ describe('ClaudeCodeCliQueryHandler with MCP', () => {
 ### Phase 2: CLI Handler Integration (Week 2)
 
 **Tasks**:
+
 1. ✅ Add MCP config generation to CLI handler
 2. ✅ Update `spawnCliProcess` to include `--mcp-config`
 3. ✅ Add cleanup logic for temporary files
@@ -894,6 +940,7 @@ describe('ClaudeCodeCliQueryHandler with MCP', () => {
 5. ✅ Test CLI spawning with MCP config
 
 **Success Criteria**:
+
 - CLI spawns with valid MCP config
 - MCP tools are available in CLI mode
 - Cleanup works correctly
@@ -902,29 +949,34 @@ describe('ClaudeCodeCliQueryHandler with MCP', () => {
 ### Phase 3: Design MCP Server (Week 3, Optional)
 
 **Tasks**:
+
 1. ✅ Create design endpoint handler
 2. ✅ Implement GeminiDesignExpert tool
 3. ✅ Add to MCP config generation
 4. ✅ Test design tools in CLI mode
 
 **Success Criteria**:
+
 - Design tools work in CLI mode
 - Feature parity with SDK mode
 
 ### Phase 4: Production Rollout (Week 4)
 
 **Tasks**:
+
 1. ✅ Deploy to staging environment
 2. ✅ Run end-to-end tests
 3. ✅ Monitor error rates and performance
 4. ✅ Gradual rollout to production (10% → 50% → 100%)
 
 **Success Criteria**:
+
 - No increase in error rates
 - CLI and SDK modes have feature parity
 - No performance degradation
 
 **Rollback Plan**:
+
 - If issues detected, remove `--mcp-config` flag from CLI spawning
 - Falls back to built-in tools only
 - No data loss or corruption
@@ -953,16 +1005,18 @@ describe('ClaudeCodeCliQueryHandler with MCP', () => {
 ### Logging
 
 Add structured logging for:
+
 - MCP connection establishment/teardown
 - Tool invocations with parameters
 - Tool execution results
 - Error conditions with stack traces
 
 Example:
+
 ```typescript
-logger.info('MCP tool invoked', {
-  tool: 'SafeWrite',
-  file_path: '/path/to/file',
+logger.info("MCP tool invoked", {
+  tool: "SafeWrite",
+  file_path: "/path/to/file",
   content_length: content.length,
   duration_ms: executionTime,
 });
@@ -971,6 +1025,7 @@ logger.info('MCP tool invoked', {
 ### Alerts
 
 Set up alerts for:
+
 - MCP endpoint error rate > 5%
 - MCP connection failures > 10/min
 - Average tool execution time > 5s
@@ -1046,6 +1101,7 @@ Set up alerts for:
 ### C. Tool Definitions
 
 #### SafeWrite
+
 ```json
 {
   "name": "SafeWrite",
@@ -1062,6 +1118,7 @@ Set up alerts for:
 ```
 
 #### SafeBash
+
 ```json
 {
   "name": "SafeBash",
@@ -1081,6 +1138,7 @@ Set up alerts for:
 ```
 
 #### checkTerminal
+
 ```json
 {
   "name": "checkTerminal",
@@ -1099,6 +1157,7 @@ Set up alerts for:
 ```
 
 #### RestartDevServer
+
 ```json
 {
   "name": "RestartDevServer",
@@ -1113,19 +1172,20 @@ Set up alerts for:
 ### D. Error Handling Patterns
 
 **Pattern 1: Tool Execution Error**
+
 ```typescript
 try {
   const result = await executeTool(params);
   return {
-    content: [{ type: 'text', text: JSON.stringify(result) }],
+    content: [{ type: "text", text: JSON.stringify(result) }],
   };
 } catch (error) {
-  logger.error(error, 'Tool execution failed');
+  logger.error(error, "Tool execution failed");
   return {
     isError: true,
     content: [
       {
-        type: 'text',
+        type: "text",
         text: `Error: ${error instanceof Error ? error.message : String(error)}`,
       },
     ],
@@ -1134,14 +1194,15 @@ try {
 ```
 
 **Pattern 2: Connection Error**
+
 ```typescript
-request.raw.on('error', (error) => {
-  logger.error(error, 'SSE connection error');
+request.raw.on("error", (error) => {
+  logger.error(error, "SSE connection error");
   // Connection will auto-close
 });
 
-request.raw.on('close', () => {
-  logger.debug('MCP client disconnected');
+request.raw.on("close", () => {
+  logger.debug("MCP client disconnected");
   // Cleanup any resources
 });
 ```
@@ -1150,19 +1211,20 @@ request.raw.on('close', () => {
 
 Expected performance targets:
 
-| Metric | Target | Measurement |
-|--------|--------|-------------|
-| MCP connection establishment | < 100ms | Time to first response |
-| SafeWrite execution | < 500ms | File write completion |
-| SafeBash execution | < 2s | Command completion (avg) |
-| checkTerminal execution | < 50ms | Terminal buffer read |
-| RestartDevServer execution | < 5s | Server restart completion |
+| Metric                       | Target  | Measurement               |
+| ---------------------------- | ------- | ------------------------- |
+| MCP connection establishment | < 100ms | Time to first response    |
+| SafeWrite execution          | < 500ms | File write completion     |
+| SafeBash execution           | < 2s    | Command completion (avg)  |
+| checkTerminal execution      | < 50ms  | Terminal buffer read      |
+| RestartDevServer execution   | < 5s    | Server restart completion |
 
 ### F. Security Considerations
 
 1. **Localhost-only binding**:
+
    ```typescript
-   fastify.listen({ host: '127.0.0.1', port: 3000 });
+   fastify.listen({ host: "127.0.0.1", port: 3000 });
    ```
 
 2. **Input validation**:
@@ -1171,33 +1233,34 @@ Expected performance targets:
    - Command injection prevention for bash commands
 
 3. **Rate limiting** (optional):
+
    ```typescript
-   import rateLimit from '@fastify/rate-limit';
+   import rateLimit from "@fastify/rate-limit";
 
    fastify.register(rateLimit, {
      max: 100,
-     timeWindow: '1 minute',
+     timeWindow: "1 minute",
    });
    ```
 
 4. **CORS** (not needed for localhost, but good practice):
    ```typescript
    // Only allow same-origin requests
-   reply.header('Access-Control-Allow-Origin', 'http://localhost:3000');
+   reply.header("Access-Control-Allow-Origin", "http://localhost:3000");
    ```
 
 ---
 
 ## Document Changelog
 
-| Date | Version | Changes | Author |
-|------|---------|---------|--------|
-| 2024-12-18 | 1.0 | Initial document | Build Worker Team |
+| Date       | Version | Changes          | Author            |
+| ---------- | ------- | ---------------- | ----------------- |
+| 2024-12-18 | 1.0     | Initial document | Build Worker Team |
 
 ---
 
 ## Approval
 
-- [ ] Technical Review: _______________ Date: ___________
-- [ ] Security Review: _______________ Date: ___________
-- [ ] Product Approval: _______________ Date: ___________
+- [ ] Technical Review: **\*\***\_\_\_**\*\*** Date: \***\*\_\_\_\*\***
+- [ ] Security Review: **\*\***\_\_\_**\*\*** Date: \***\*\_\_\_\*\***
+- [ ] Product Approval: **\*\***\_\_\_**\*\*** Date: \***\*\_\_\_\*\***

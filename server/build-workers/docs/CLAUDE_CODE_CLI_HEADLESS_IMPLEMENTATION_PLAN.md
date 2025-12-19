@@ -1,3 +1,9 @@
+# NOTE DO NOT USE this.logger. USE THE baseLogger from worker.ts OR YOU WILL NOT HAVE ALL THE RIGHT INFO IN THE LOGGER.
+
+## NEVER EVER EVER USE this.logger AND NEVER CREATE YOUR OWN LOGGER. You can only ADD context to an existing logger inside a function, but never create a class variable with a new logger during class initialization. YOU WILL FUCK EVERYTHING UP.
+
+Even though this document uses "this.logger" you MUST NOT USE IT.
+
 # Claude Code CLI Headless Mode Implementation Plan
 
 ## Overview
@@ -7,11 +13,13 @@ This document outlines the plan for implementing a new `claude-code-cli-query-ha
 ## Strategy: User Tokens First, API Key Fallback
 
 **Why this approach:**
+
 - **Cost:** API keys are ~10x more expensive than subscription usage
 - **Safety:** Reduces risk of being flagged for high-volume API usage
 - **User Value:** Users with Max subscriptions ($100-200/mo) get unlimited usage
 
 **Authentication Priority:**
+
 1. **Primary:** User's `CLAUDE_CODE_OAUTH_TOKEN` (from their Pro/Max subscription)
 2. **Fallback:** Our `ANTHROPIC_API_KEY` (only when user hasn't connected their subscription)
 
@@ -190,6 +198,7 @@ Instead of requiring users to have Claude Code installed locally, we can let the
 The `claude setup-token` command outputs specific patterns we need to detect:
 
 **Pattern 1: OAuth URL Detection**
+
 ```
 Browser didn't open? Use the url below to sign in:
 
@@ -197,16 +206,20 @@ https://claude.ai/oauth/authorize?code=true&client_id=9d1c250a-e61b-44d9-88ed-59
 ```
 
 **Pattern 2: Code Prompt Detection**
+
 ```
 Paste code here if prompted >
 ```
 
 **Pattern 3: Success Token Output**
+
 ```
 Authentication successful!
 Your token: eyJhbGciOiJIUzI1NiIs...
 ```
+
 OR
+
 ```
 Token saved successfully.
 CLAUDE_CODE_OAUTH_TOKEN=eyJhbGciOiJIUzI1NiIs...
@@ -223,7 +236,7 @@ CLAUDE_CODE_OAUTH_TOKEN=eyJhbGciOiJIUzI1NiIs...
  */
 
 export interface SetupTokenParseResult {
-  type: 'oauth_url' | 'code_prompt' | 'token' | 'error' | 'unknown';
+  type: "oauth_url" | "code_prompt" | "token" | "error" | "unknown";
   data?: {
     url?: string;
     token?: string;
@@ -257,7 +270,7 @@ export function parseSetupTokenOutput(output: string): SetupTokenParseResult {
   const urlMatch = output.match(OAUTH_URL_PATTERN);
   if (urlMatch) {
     return {
-      type: 'oauth_url',
+      type: "oauth_url",
       data: { url: urlMatch[0] },
     };
   }
@@ -265,7 +278,7 @@ export function parseSetupTokenOutput(output: string): SetupTokenParseResult {
   // Check for code prompt
   if (CODE_PROMPT_PATTERN.test(output)) {
     return {
-      type: 'code_prompt',
+      type: "code_prompt",
     };
   }
 
@@ -275,9 +288,9 @@ export function parseSetupTokenOutput(output: string): SetupTokenParseResult {
     if (tokenMatch && tokenMatch[1]) {
       // Validate token looks reasonable (not a command or error)
       const token = tokenMatch[1].trim();
-      if (token.length >= 20 && !token.includes(' ')) {
+      if (token.length >= 20 && !token.includes(" ")) {
         return {
-          type: 'token',
+          type: "token",
           data: { token },
         };
       }
@@ -289,20 +302,20 @@ export function parseSetupTokenOutput(output: string): SetupTokenParseResult {
     const errorMatch = output.match(pattern);
     if (errorMatch) {
       return {
-        type: 'error',
+        type: "error",
         data: { error: errorMatch[1] || errorMatch[0] },
       };
     }
   }
 
-  return { type: 'unknown' };
+  return { type: "unknown" };
 }
 
 /**
  * Incrementally parse streaming output, maintaining state
  */
 export class SetupTokenStreamParser {
-  private buffer = '';
+  private buffer = "";
   private detectedUrl: string | null = null;
   private detectedToken: string | null = null;
   private isWaitingForCode = false;
@@ -322,7 +335,7 @@ export class SetupTokenStreamParser {
       if (urlMatch) {
         this.detectedUrl = urlMatch[0];
         results.push({
-          type: 'oauth_url',
+          type: "oauth_url",
           data: { url: this.detectedUrl },
         });
       }
@@ -331,7 +344,7 @@ export class SetupTokenStreamParser {
     // Check for code prompt
     if (!this.isWaitingForCode && CODE_PROMPT_PATTERN.test(this.buffer)) {
       this.isWaitingForCode = true;
-      results.push({ type: 'code_prompt' });
+      results.push({ type: "code_prompt" });
     }
 
     // Check for token (only after URL was detected, suggesting flow completion)
@@ -340,10 +353,10 @@ export class SetupTokenStreamParser {
         const tokenMatch = this.buffer.match(pattern);
         if (tokenMatch && tokenMatch[1]) {
           const token = tokenMatch[1].trim();
-          if (token.length >= 20 && !token.includes(' ')) {
+          if (token.length >= 20 && !token.includes(" ")) {
             this.detectedToken = token;
             results.push({
-              type: 'token',
+              type: "token",
               data: { token },
             });
             break;
@@ -360,7 +373,7 @@ export class SetupTokenStreamParser {
           this.hasError = true;
           this.errorMessage = errorMatch[1] || errorMatch[0];
           results.push({
-            type: 'error',
+            type: "error",
             data: { error: this.errorMessage },
           });
           break;
@@ -387,7 +400,7 @@ export class SetupTokenStreamParser {
   }
 
   reset() {
-    this.buffer = '';
+    this.buffer = "";
     this.detectedUrl = null;
     this.detectedToken = null;
     this.isWaitingForCode = false;
@@ -407,11 +420,11 @@ export enum ChatEvent {
   // ... existing events ...
 
   // Claude token setup events
-  CLAUDE_SETUP_OAUTH_URL = 'claude_setup_oauth_url',
-  CLAUDE_SETUP_CODE_PROMPT = 'claude_setup_code_prompt',
-  CLAUDE_SETUP_TOKEN_CAPTURED = 'claude_setup_token_captured',
-  CLAUDE_SETUP_ERROR = 'claude_setup_error',
-  CLAUDE_SETUP_COMPLETE = 'claude_setup_complete',
+  CLAUDE_SETUP_OAUTH_URL = "claude_setup_oauth_url",
+  CLAUDE_SETUP_CODE_PROMPT = "claude_setup_code_prompt",
+  CLAUDE_SETUP_TOKEN_CAPTURED = "claude_setup_token_captured",
+  CLAUDE_SETUP_ERROR = "claude_setup_error",
+  CLAUDE_SETUP_COMPLETE = "claude_setup_complete",
 }
 
 // Event payloads
@@ -455,7 +468,7 @@ export interface ClaudeSetupErrorEvent {
 import {
   SetupTokenStreamParser,
   SetupTokenParseResult,
-} from '../auth/claude-setup-token-parser.js';
+} from "../auth/claude-setup-token-parser.js";
 
 export class TerminalService {
   // ... existing code ...
@@ -477,9 +490,9 @@ export class TerminalService {
 
     // Spawn terminal with setup-token command
     const pty = this.createPty(sessionId, {
-      command: 'claude',
-      args: ['setup-token'],
-      cwd: '/tmp',
+      command: "claude",
+      args: ["setup-token"],
+      cwd: "/tmp",
       env: {
         ...process.env,
         // Ensure no existing auth interferes
@@ -507,16 +520,16 @@ export class TerminalService {
   async submitSetupTokenCode(sessionId: string, code: string): Promise<void> {
     const pty = this.getPty(sessionId);
     if (!pty) {
-      throw new Error('Setup session not found');
+      throw new Error("Setup session not found");
     }
 
     // Validate code format (UUID-like)
     if (!/^[A-Za-z0-9\-]{20,50}$/.test(code)) {
-      throw new Error('Invalid code format');
+      throw new Error("Invalid code format");
     }
 
     // Send code to terminal (with newline to submit)
-    pty.write(code + '\n');
+    pty.write(code + "\n");
   }
 
   /**
@@ -538,11 +551,11 @@ export class TerminalService {
 **File: `server/build-workers/routes/claude-setup-routes.ts`**
 
 ```typescript
-import { FastifyInstance, FastifyRequest } from 'fastify';
-import WebSocket from 'ws';
-import { TerminalService } from '../services/terminals/TerminalService.js';
-import { ClaudeTokenService } from '../services/auth/claude-token-service.js';
-import { ChatEvent } from '../types/ChatTypes.js';
+import { FastifyInstance, FastifyRequest } from "fastify";
+import WebSocket from "ws";
+import { TerminalService } from "../services/terminals/TerminalService.js";
+import { ClaudeTokenService } from "../services/auth/claude-token-service.js";
+import { ChatEvent } from "../types/ChatTypes.js";
 
 interface SetupTokenSubmitBody {
   sessionId: string;
@@ -556,9 +569,12 @@ export function registerClaudeSetupRoutes(
 ) {
   // WebSocket endpoint for setup-token flow
   app.get(
-    '/claude-setup/ws/:userId',
+    "/claude-setup/ws/:userId",
     { websocket: true },
-    async (socket: WebSocket, req: FastifyRequest<{ Params: { userId: string } }>) => {
+    async (
+      socket: WebSocket,
+      req: FastifyRequest<{ Params: { userId: string } }>,
+    ) => {
       const { userId } = req.params;
 
       let sessionId: string | null = null;
@@ -570,45 +586,57 @@ export function registerClaudeSetupRoutes(
           userId,
           (event) => {
             switch (event.type) {
-              case 'oauth_url':
-                socket.send(JSON.stringify({
-                  type: ChatEvent.CLAUDE_SETUP_OAUTH_URL,
-                  data: { url: event.data?.url },
-                }));
+              case "oauth_url":
+                socket.send(
+                  JSON.stringify({
+                    type: ChatEvent.CLAUDE_SETUP_OAUTH_URL,
+                    data: { url: event.data?.url },
+                  }),
+                );
                 break;
 
-              case 'code_prompt':
-                socket.send(JSON.stringify({
-                  type: ChatEvent.CLAUDE_SETUP_CODE_PROMPT,
-                  data: { message: 'Please paste your authorization code' },
-                }));
+              case "code_prompt":
+                socket.send(
+                  JSON.stringify({
+                    type: ChatEvent.CLAUDE_SETUP_CODE_PROMPT,
+                    data: { message: "Please paste your authorization code" },
+                  }),
+                );
                 break;
 
-              case 'token':
+              case "token":
                 capturedToken = event.data?.token || null;
                 // Auto-save token to database
                 if (capturedToken) {
-                  void tokenService.saveToken(userId, capturedToken).then((saved) => {
-                    socket.send(JSON.stringify({
-                      type: ChatEvent.CLAUDE_SETUP_TOKEN_CAPTURED,
-                      data: { saved },
-                    }));
-                    socket.send(JSON.stringify({
-                      type: ChatEvent.CLAUDE_SETUP_COMPLETE,
-                      data: { success: true },
-                    }));
-                  });
+                  void tokenService
+                    .saveToken(userId, capturedToken)
+                    .then((saved) => {
+                      socket.send(
+                        JSON.stringify({
+                          type: ChatEvent.CLAUDE_SETUP_TOKEN_CAPTURED,
+                          data: { saved },
+                        }),
+                      );
+                      socket.send(
+                        JSON.stringify({
+                          type: ChatEvent.CLAUDE_SETUP_COMPLETE,
+                          data: { success: true },
+                        }),
+                      );
+                    });
                 }
                 break;
 
-              case 'error':
-                socket.send(JSON.stringify({
-                  type: ChatEvent.CLAUDE_SETUP_ERROR,
-                  data: {
-                    error: event.data?.error || 'Unknown error',
-                    canRetry: true,
-                  },
-                }));
+              case "error":
+                socket.send(
+                  JSON.stringify({
+                    type: ChatEvent.CLAUDE_SETUP_ERROR,
+                    data: {
+                      error: event.data?.error || "Unknown error",
+                      canRetry: true,
+                    },
+                  }),
+                );
                 break;
             }
           },
@@ -617,49 +645,59 @@ export function registerClaudeSetupRoutes(
         sessionId = result.sessionId;
 
         // Send session started confirmation
-        socket.send(JSON.stringify({
-          type: 'setup_started',
-          data: { sessionId },
-        }));
-
+        socket.send(
+          JSON.stringify({
+            type: "setup_started",
+            data: { sessionId },
+          }),
+        );
       } catch (error) {
-        socket.send(JSON.stringify({
-          type: ChatEvent.CLAUDE_SETUP_ERROR,
-          data: {
-            error: error instanceof Error ? error.message : 'Failed to start setup',
-            canRetry: true,
-          },
-        }));
+        socket.send(
+          JSON.stringify({
+            type: ChatEvent.CLAUDE_SETUP_ERROR,
+            data: {
+              error:
+                error instanceof Error
+                  ? error.message
+                  : "Failed to start setup",
+              canRetry: true,
+            },
+          }),
+        );
         return;
       }
 
       // Handle messages from client
-      socket.on('message', async (data: Buffer) => {
+      socket.on("message", async (data: Buffer) => {
         try {
           const message = JSON.parse(data.toString());
 
-          if (message.type === 'submit_code' && sessionId) {
+          if (message.type === "submit_code" && sessionId) {
             await terminalService.submitSetupTokenCode(sessionId, message.code);
           }
 
-          if (message.type === 'cancel' && sessionId) {
+          if (message.type === "cancel" && sessionId) {
             terminalService.cleanupSetupTokenSession(sessionId);
             socket.close();
           }
-
         } catch (error) {
-          socket.send(JSON.stringify({
-            type: ChatEvent.CLAUDE_SETUP_ERROR,
-            data: {
-              error: error instanceof Error ? error.message : 'Failed to process message',
-              canRetry: false,
-            },
-          }));
+          socket.send(
+            JSON.stringify({
+              type: ChatEvent.CLAUDE_SETUP_ERROR,
+              data: {
+                error:
+                  error instanceof Error
+                    ? error.message
+                    : "Failed to process message",
+                canRetry: false,
+              },
+            }),
+          );
         }
       });
 
       // Cleanup on close
-      socket.on('close', () => {
+      socket.on("close", () => {
         if (sessionId) {
           terminalService.cleanupSetupTokenSession(sessionId);
         }
@@ -674,9 +712,16 @@ export function registerClaudeSetupRoutes(
 **File: `web-application/src/components/settings/ClaudeSetupWizard.tsx`**
 
 ```tsx
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from "react";
 
-type SetupStep = 'idle' | 'starting' | 'waiting_for_url' | 'waiting_for_code' | 'processing' | 'success' | 'error';
+type SetupStep =
+  | "idle"
+  | "starting"
+  | "waiting_for_url"
+  | "waiting_for_code"
+  | "processing"
+  | "success"
+  | "error";
 
 interface SetupState {
   step: SetupStep;
@@ -686,49 +731,51 @@ interface SetupState {
 
 export function ClaudeSetupWizard({ onComplete }: { onComplete: () => void }) {
   const [state, setState] = useState<SetupState>({
-    step: 'idle',
+    step: "idle",
     oauthUrl: null,
     error: null,
   });
-  const [code, setCode] = useState('');
+  const [code, setCode] = useState("");
   const wsRef = useRef<WebSocket | null>(null);
 
   const startSetup = () => {
-    setState({ step: 'starting', oauthUrl: null, error: null });
+    setState({ step: "starting", oauthUrl: null, error: null });
 
     // Connect to setup WebSocket
-    const ws = new WebSocket(`wss://${window.location.host}/claude-setup/ws/${userId}`);
+    const ws = new WebSocket(
+      `wss://${window.location.host}/claude-setup/ws/${userId}`,
+    );
     wsRef.current = ws;
 
     ws.onmessage = (event) => {
       const message = JSON.parse(event.data);
 
       switch (message.type) {
-        case 'claude_setup_oauth_url':
-          setState(s => ({
+        case "claude_setup_oauth_url":
+          setState((s) => ({
             ...s,
-            step: 'waiting_for_code',
+            step: "waiting_for_code",
             oauthUrl: message.data.url,
           }));
           break;
 
-        case 'claude_setup_code_prompt':
+        case "claude_setup_code_prompt":
           // Already waiting for code, just confirm
           break;
 
-        case 'claude_setup_token_captured':
-          setState(s => ({ ...s, step: 'processing' }));
+        case "claude_setup_token_captured":
+          setState((s) => ({ ...s, step: "processing" }));
           break;
 
-        case 'claude_setup_complete':
-          setState(s => ({ ...s, step: 'success' }));
+        case "claude_setup_complete":
+          setState((s) => ({ ...s, step: "success" }));
           setTimeout(onComplete, 1500);
           break;
 
-        case 'claude_setup_error':
-          setState(s => ({
+        case "claude_setup_error":
+          setState((s) => ({
             ...s,
-            step: 'error',
+            step: "error",
             error: message.data.error,
           }));
           break;
@@ -736,27 +783,29 @@ export function ClaudeSetupWizard({ onComplete }: { onComplete: () => void }) {
     };
 
     ws.onerror = () => {
-      setState(s => ({
+      setState((s) => ({
         ...s,
-        step: 'error',
-        error: 'Connection failed. Please try again.',
+        step: "error",
+        error: "Connection failed. Please try again.",
       }));
     };
   };
 
   const submitCode = () => {
     if (wsRef.current && code.trim()) {
-      wsRef.current.send(JSON.stringify({
-        type: 'submit_code',
-        code: code.trim(),
-      }));
-      setState(s => ({ ...s, step: 'processing' }));
+      wsRef.current.send(
+        JSON.stringify({
+          type: "submit_code",
+          code: code.trim(),
+        }),
+      );
+      setState((s) => ({ ...s, step: "processing" }));
     }
   };
 
   const openOAuthUrl = () => {
     if (state.oauthUrl) {
-      window.open(state.oauthUrl, '_blank', 'noopener,noreferrer');
+      window.open(state.oauthUrl, "_blank", "noopener,noreferrer");
     }
   };
 
@@ -764,7 +813,7 @@ export function ClaudeSetupWizard({ onComplete }: { onComplete: () => void }) {
   useEffect(() => {
     return () => {
       if (wsRef.current) {
-        wsRef.current.send(JSON.stringify({ type: 'cancel' }));
+        wsRef.current.send(JSON.stringify({ type: "cancel" }));
         wsRef.current.close();
       }
     };
@@ -772,13 +821,16 @@ export function ClaudeSetupWizard({ onComplete }: { onComplete: () => void }) {
 
   return (
     <div className="p-6 max-w-lg mx-auto">
-      <h2 className="text-xl font-bold mb-4">Connect Your Claude Subscription</h2>
+      <h2 className="text-xl font-bold mb-4">
+        Connect Your Claude Subscription
+      </h2>
 
-      {state.step === 'idle' && (
+      {state.step === "idle" && (
         <div className="space-y-4">
           <p className="text-gray-600">
             Connect your Claude Pro or Max subscription to use your own account
-            for AI interactions. This gives you unlimited usage based on your plan.
+            for AI interactions. This gives you unlimited usage based on your
+            plan.
           </p>
           <button
             onClick={startSetup}
@@ -789,34 +841,48 @@ export function ClaudeSetupWizard({ onComplete }: { onComplete: () => void }) {
         </div>
       )}
 
-      {state.step === 'starting' && (
+      {state.step === "starting" && (
         <div className="flex items-center justify-center py-8">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
           <span className="ml-3">Starting setup...</span>
         </div>
       )}
 
-      {state.step === 'waiting_for_code' && (
+      {state.step === "waiting_for_code" && (
         <div className="space-y-4">
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <p className="font-medium text-blue-800 mb-2">Step 1: Authorize with Claude</p>
+            <p className="font-medium text-blue-800 mb-2">
+              Step 1: Authorize with Claude
+            </p>
             <p className="text-sm text-blue-700 mb-3">
-              Click the button below to open Claude's authorization page in a new tab.
-              After logging in, you'll receive a code to paste here.
+              Click the button below to open Claude's authorization page in a
+              new tab. After logging in, you'll receive a code to paste here.
             </p>
             <button
               onClick={openOAuthUrl}
               className="w-full px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 flex items-center justify-center"
             >
-              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+              <svg
+                className="w-4 h-4 mr-2"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                />
               </svg>
               Open Claude Authorization
             </button>
           </div>
 
           <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-            <p className="font-medium text-gray-800 mb-2">Step 2: Paste the code</p>
+            <p className="font-medium text-gray-800 mb-2">
+              Step 2: Paste the code
+            </p>
             <p className="text-sm text-gray-600 mb-3">
               After authorizing, copy the code from Claude and paste it here:
             </p>
@@ -840,14 +906,14 @@ export function ClaudeSetupWizard({ onComplete }: { onComplete: () => void }) {
         </div>
       )}
 
-      {state.step === 'processing' && (
+      {state.step === "processing" && (
         <div className="flex items-center justify-center py-8">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
           <span className="ml-3">Verifying and saving token...</span>
         </div>
       )}
 
-      {state.step === 'success' && (
+      {state.step === "success" && (
         <div className="bg-green-50 border border-green-200 rounded-lg p-6 text-center">
           <div className="text-green-600 text-4xl mb-2">✓</div>
           <p className="font-medium text-green-800">Successfully connected!</p>
@@ -857,12 +923,14 @@ export function ClaudeSetupWizard({ onComplete }: { onComplete: () => void }) {
         </div>
       )}
 
-      {state.step === 'error' && (
+      {state.step === "error" && (
         <div className="bg-red-50 border border-red-200 rounded-lg p-4">
           <p className="font-medium text-red-800">Setup failed</p>
           <p className="text-sm text-red-700 mt-1">{state.error}</p>
           <button
-            onClick={() => setState({ step: 'idle', oauthUrl: null, error: null })}
+            onClick={() =>
+              setState({ step: "idle", oauthUrl: null, error: null })
+            }
             className="mt-3 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
           >
             Try Again
@@ -913,14 +981,14 @@ function canStartSetup(userId: string): boolean {
 
 ### Error Scenarios and Handling
 
-| Scenario | Detection | User Message | Recovery |
-|----------|-----------|--------------|----------|
-| OAuth URL not detected after 30s | Timeout | "Setup is taking too long. Please try again." | Restart |
-| Invalid authorization code | CLI error output | "Invalid code. Please copy the code again." | Re-enter code |
-| Token not captured after code | Timeout | "Failed to receive token. Please try again." | Restart |
-| Network disconnect | WebSocket close | "Connection lost. Please try again." | Restart |
-| User already has valid token | Check before start | "You already have a connected subscription." | Show status |
-| Claude CLI not installed | spawn error | "Claude CLI not available." | Show manual instructions |
+| Scenario                         | Detection          | User Message                                  | Recovery                 |
+| -------------------------------- | ------------------ | --------------------------------------------- | ------------------------ |
+| OAuth URL not detected after 30s | Timeout            | "Setup is taking too long. Please try again." | Restart                  |
+| Invalid authorization code       | CLI error output   | "Invalid code. Please copy the code again."   | Re-enter code            |
+| Token not captured after code    | Timeout            | "Failed to receive token. Please try again."  | Restart                  |
+| Network disconnect               | WebSocket close    | "Connection lost. Please try again."          | Restart                  |
+| User already has valid token     | Check before start | "You already have a connected subscription."  | Show status              |
+| Claude CLI not installed         | spawn error        | "Claude CLI not available."                   | Show manual instructions |
 
 ---
 
@@ -933,6 +1001,7 @@ The following issues were identified during technical review and **MUST be addre
 **Problem:** Setting env vars to `undefined` doesn't remove them in Node.js - it sets them to string `"undefined"`.
 
 **Wrong:**
+
 ```typescript
 env: {
   ...baseEnv,
@@ -942,6 +1011,7 @@ env: {
 ```
 
 **Correct:**
+
 ```typescript
 private async buildAuthEnvironment(userId: string): Promise<{
   env: NodeJS.ProcessEnv;
@@ -974,25 +1044,29 @@ private async buildAuthEnvironment(userId: string): Promise<{
 **Problem:** The WebSocket route must verify the user is authenticated and authorized.
 
 **Fix:**
+
 ```typescript
 app.get(
-  '/claude-setup/ws/:userId',
+  "/claude-setup/ws/:userId",
   {
     websocket: true,
-    preValidation: [app.authenticate]  // Add auth middleware
+    preValidation: [app.authenticate], // Add auth middleware
   },
-  async (socket: WebSocket, req: FastifyRequest<{ Params: { userId: string } }>) => {
+  async (
+    socket: WebSocket,
+    req: FastifyRequest<{ Params: { userId: string } }>,
+  ) => {
     const authenticatedUserId = req.user?.id;
     const { userId } = req.params;
 
     // Verify user can only access their own setup
     if (!authenticatedUserId || authenticatedUserId !== userId) {
-      socket.close(1008, 'Unauthorized');
+      socket.close(1008, "Unauthorized");
       return;
     }
 
     // ... rest of implementation
-  }
+  },
 );
 ```
 
@@ -1001,16 +1075,20 @@ app.get(
 **Problem:** Global `setupTokenParser` causes race conditions with multiple users.
 
 **Fix:** Use Map for per-user sessions:
+
 ```typescript
 export class TerminalService {
   // ✅ Per-user session tracking
-  private setupSessions = new Map<string, {
-    parser: SetupTokenStreamParser;
-    sessionId: string;
-    ptyProcess: IPty;
-    createdAt: number;
-    timeoutId: NodeJS.Timeout;
-  }>();
+  private setupSessions = new Map<
+    string,
+    {
+      parser: SetupTokenStreamParser;
+      sessionId: string;
+      ptyProcess: IPty;
+      createdAt: number;
+      timeoutId: NodeJS.Timeout;
+    }
+  >();
 
   async startClaudeSetupToken(
     userId: string,
@@ -1025,20 +1103,23 @@ export class TerminalService {
     const parser = new SetupTokenStreamParser();
 
     const pty = this.createPty(sessionId, {
-      command: 'claude',
-      args: ['setup-token'],
-      cwd: '/tmp',
+      command: "claude",
+      args: ["setup-token"],
+      cwd: "/tmp",
       env: { ...process.env },
     });
 
     // Set 5-minute timeout
-    const timeoutId = setTimeout(() => {
-      this.cleanupSetupTokenSession(userId);
-      onEvent({
-        type: 'error',
-        data: { error: 'Setup timed out. Please try again.' },
-      });
-    }, 5 * 60 * 1000);
+    const timeoutId = setTimeout(
+      () => {
+        this.cleanupSetupTokenSession(userId);
+        onEvent({
+          type: "error",
+          data: { error: "Setup timed out. Please try again." },
+        });
+      },
+      5 * 60 * 1000,
+    );
 
     this.setupSessions.set(userId, {
       parser,
@@ -1075,6 +1156,7 @@ export class TerminalService {
 **Problem:** Regex validation alone isn't sufficient for terminal input.
 
 **Fix:**
+
 ```typescript
 function sanitizeAuthCode(code: string): string {
   // Strip everything except alphanumeric and hyphens
@@ -1108,6 +1190,7 @@ async submitSetupTokenCode(userId: string, code: string): Promise<void> {
 **Problem:** Race condition if WebSocket disconnects during async save.
 
 **Fix:**
+
 ```typescript
 case 'token':
   capturedToken = event.data?.token || null;
@@ -1141,50 +1224,57 @@ case 'token':
 **Problem:** `userId` is used but not defined in the component.
 
 **Fix:**
+
 ```tsx
 interface ClaudeSetupWizardProps {
-  userId: string;  // ✅ Add required prop
+  userId: string; // ✅ Add required prop
   onComplete: () => void;
 }
 
-export function ClaudeSetupWizard({ userId, onComplete }: ClaudeSetupWizardProps) {
+export function ClaudeSetupWizard({
+  userId,
+  onComplete,
+}: ClaudeSetupWizardProps) {
   // ... rest of implementation
 
   const startSetup = () => {
     // Now userId is defined
     const ws = new WebSocket(
-      `wss://${window.location.host}/claude-setup/ws/${userId}`
+      `wss://${window.location.host}/claude-setup/ws/${userId}`,
     );
     // ...
   };
 }
 
 // Usage:
-<ClaudeSetupWizard userId={currentUser.id} onComplete={handleComplete} />
+<ClaudeSetupWizard userId={currentUser.id} onComplete={handleComplete} />;
 ```
 
 ### 7. Claude CLI Availability Check
 
 **Add pre-flight check:**
+
 ```typescript
 async function checkClaudeCLIAvailable(): Promise<boolean> {
   return new Promise((resolve) => {
-    const proc = spawn('which', ['claude']);
-    proc.on('close', (code) => resolve(code === 0));
-    proc.on('error', () => resolve(false));
+    const proc = spawn("which", ["claude"]);
+    proc.on("close", (code) => resolve(code === 0));
+    proc.on("error", () => resolve(false));
   });
 }
 
 // Before starting setup:
 const cliAvailable = await checkClaudeCLIAvailable();
 if (!cliAvailable) {
-  socket.send(JSON.stringify({
-    type: ChatEvent.CLAUDE_SETUP_ERROR,
-    data: {
-      error: 'Claude CLI is not available. Please use manual token entry.',
-      canRetry: false,
-    },
-  }));
+  socket.send(
+    JSON.stringify({
+      type: ChatEvent.CLAUDE_SETUP_ERROR,
+      data: {
+        error: "Claude CLI is not available. Please use manual token entry.",
+        canRetry: false,
+      },
+    }),
+  );
   return;
 }
 ```
@@ -1194,13 +1284,22 @@ if (!cliAvailable) {
 ```tsx
 const openOAuthUrl = () => {
   if (state.oauthUrl) {
-    const newWindow = window.open(state.oauthUrl, '_blank', 'noopener,noreferrer');
+    const newWindow = window.open(
+      state.oauthUrl,
+      "_blank",
+      "noopener,noreferrer",
+    );
 
     // Check if blocked
-    if (!newWindow || newWindow.closed || typeof newWindow.closed === 'undefined') {
-      setState(s => ({
+    if (
+      !newWindow ||
+      newWindow.closed ||
+      typeof newWindow.closed === "undefined"
+    ) {
+      setState((s) => ({
         ...s,
-        error: 'Pop-up was blocked. Please allow pop-ups for this site and try again.',
+        error:
+          "Pop-up was blocked. Please allow pop-ups for this site and try again.",
       }));
     }
   }
@@ -1210,6 +1309,7 @@ const openOAuthUrl = () => {
 ### 9. Token Cache Cleanup
 
 **Add periodic cleanup to prevent memory leaks:**
+
 ```typescript
 export class ClaudeTokenService {
   private tokenCache = new Map<string, { token: string; expiresAt: number }>();
@@ -1217,7 +1317,7 @@ export class ClaudeTokenService {
 
   constructor(supabase: SupabaseClient<Database>, logger: SystemLogger) {
     this.supabase = supabase;
-    this.logger = logger.child({ service: 'ClaudeTokenService' });
+    this.logger = logger.child({ service: "ClaudeTokenService" });
 
     // Cleanup expired entries every minute
     this.cleanupInterval = setInterval(() => {
@@ -1245,25 +1345,25 @@ export class ClaudeTokenService {
 
 ### Key Components Analyzed
 
-| Component | Purpose | Lines |
-|-----------|---------|-------|
+| Component                   | Purpose                                    | Lines  |
+| --------------------------- | ------------------------------------------ | ------ |
 | `InternalPrototypePage.tsx` | Central orchestrator, WebSocket management | ~1,200 |
-| `ClaudeCodePanel.tsx` | Message processing, handler registry | ~2,270 |
-| `ClaudeCodePanelUI.tsx` | Message rendering | ~1,043 |
-| `Terminal.tsx` | xterm.js terminal (for setup-token only) | ~352 |
+| `ClaudeCodePanel.tsx`       | Message processing, handler registry       | ~2,270 |
+| `ClaudeCodePanelUI.tsx`     | Message rendering                          | ~1,043 |
+| `Terminal.tsx`              | xterm.js terminal (for setup-token only)   | ~352   |
 
 ### CLI JSON → Existing Message Type Mapping
 
 The CLI's `--output-format stream-json` produces JSON lines that map directly to existing message handlers:
 
-| CLI JSON Event Type | Maps To | Rendered By |
-|---------------------|---------|-------------|
+| CLI JSON Event Type        | Maps To         | Rendered By                  |
+| -------------------------- | --------------- | ---------------------------- |
 | `assistant` (text content) | `AGENT_MESSAGE` | `AssistantMessage` component |
-| `tool_use` | `TOOL_START` | `ToolCallMessage` component |
-| `tool_result` | `TOOL_COMPLETE` | `ToolCallMessage` component |
-| `result` (final) | `RESULT` | `ResultMessage` component |
-| `system` | `STATUS` | Status indicator |
-| `error` | `ERROR` | Error alert component |
+| `tool_use`                 | `TOOL_START`    | `ToolCallMessage` component  |
+| `tool_result`              | `TOOL_COMPLETE` | `ToolCallMessage` component  |
+| `result` (final)           | `RESULT`        | `ResultMessage` component    |
+| `system`                   | `STATUS`        | Status indicator             |
+| `error`                    | `ERROR`         | Error alert component        |
 
 ### Message Handler Registry (Already Extensible)
 
@@ -1362,6 +1462,7 @@ private handleCliMessage(
 ### CLI Tool Call Format → Existing ToolCallMessage
 
 The CLI outputs tool calls in this format:
+
 ```json
 {
   "type": "assistant",
@@ -1375,6 +1476,7 @@ The CLI outputs tool calls in this format:
 ```
 
 This maps to the existing `ToolCallMessage` component which already handles:
+
 - Tool name display
 - Expandable input parameters
 - Status indicators (pending, running, complete)
@@ -1387,12 +1489,14 @@ This maps to the existing `ToolCallMessage` component which already handles:
 3. **No changes to ToolCallMessage component** - Already displays tool calls
 
 **Optional enhancements:**
+
 - Add subscription status indicator (show "Using your Claude Pro subscription" vs "Using API")
 - Add cost tracking display if user wants to see usage
 
 ### Terminal.tsx Usage
 
 `Terminal.tsx` (xterm.js-based) is a **separate component** only needed for:
+
 - The `claude setup-token` flow (displays raw terminal output for OAuth URL)
 - NOT needed for regular chat - messages go through ClaudeCodePanel
 
@@ -1454,19 +1558,21 @@ The existing `chat-query-handler.ts` uses SDK hooks for important functionality.
 
 ### Current SDK Hooks in chat-query-handler.ts
 
-| Hook | Purpose |
-|------|---------|
-| **PreToolUse** | Evaluate permissions, deny tools, update inputs, send `TOOL_START` event, persist to DB |
-| **PostToolUse** | Track file modifications, send `TOOL_COMPLETE` event, persist to DB |
+| Hook            | Purpose                                                                                 |
+| --------------- | --------------------------------------------------------------------------------------- |
+| **PreToolUse**  | Evaluate permissions, deny tools, update inputs, send `TOOL_START` event, persist to DB |
+| **PostToolUse** | Track file modifications, send `TOOL_COMPLETE` event, persist to DB                     |
 
 ### Two Approaches for CLI Hooks
 
 **Option A: Parse CLI Stream (Recommended)**
+
 - CLI's `--output-format stream-json` includes tool events in output
 - Parse these events and call our hook logic directly
 - No external dependencies, all in-process
 
 **Option B: File-Based Hooks**
+
 - Configure hooks in `.claude/settings.json`
 - CLI executes shell scripts that communicate back via IPC/HTTP
 - More complex, more moving parts
@@ -1500,17 +1606,21 @@ The CLI outputs these event types for tool operations:
 ### Hook Implementation in claude-code-cli-query-handler.ts
 
 ```typescript
-import { ToolPermissionService, ToolName, ToolInput } from '../permissions/tool-permission-service.js';
+import {
+  ToolPermissionService,
+  ToolName,
+  ToolInput,
+} from "../permissions/tool-permission-service.js";
 
 interface ToolUseBlock {
-  type: 'tool_use';
+  type: "tool_use";
   id: string;
   name: string;
   input: Record<string, unknown>;
 }
 
 interface ToolResultEvent {
-  type: 'tool_result';
+  type: "tool_result";
   tool_use_id: string;
   content: string;
   is_error?: boolean;
@@ -1533,7 +1643,7 @@ export class ClaudeCodeCliQueryHandler {
     toolPermissionService: ToolPermissionService,
   ) {
     this.workDir = workDir;
-    this.logger = logger.child({ service: 'ClaudeCodeCliQueryHandler' });
+    this.logger = logger.child({ service: "ClaudeCodeCliQueryHandler" });
     this.tokenService = tokenService;
     this.getApiKey = getApiKey;
     this.toolPermissionService = toolPermissionService;
@@ -1553,15 +1663,20 @@ export class ClaudeCodeCliQueryHandler {
     handlers: MessageHandlers,
   ): void {
     switch (cliMessage.type) {
-      case 'assistant':
+      case "assistant":
         this.handleAssistantMessage(socket, cliMessage, sendMessage, handlers);
         break;
 
-      case 'tool_result':
-        this.handleToolResult(socket, cliMessage as ToolResultEvent, sendMessage, handlers);
+      case "tool_result":
+        this.handleToolResult(
+          socket,
+          cliMessage as ToolResultEvent,
+          sendMessage,
+          handlers,
+        );
         break;
 
-      case 'result':
+      case "result":
         this.handleQueryComplete(socket, cliMessage, sendMessage);
         break;
 
@@ -1587,23 +1702,23 @@ export class ClaudeCodeCliQueryHandler {
 
     // Process text content
     const textParts = content
-      .filter((c): c is { type: 'text'; text: string } => c.type === 'text')
-      .map(c => c.text);
+      .filter((c): c is { type: "text"; text: string } => c.type === "text")
+      .map((c) => c.text);
 
     if (textParts.length > 0) {
-      const text = textParts.join('');
+      const text = textParts.join("");
       sendMessage(socket, {
         type: ChatEvent.AGENT_MESSAGE,
-        data: { role: 'assistant', content: text },
+        data: { role: "assistant", content: text },
       });
 
       // Persist text to database
-      await handlers.persistMessage('assistant', text, 'text');
+      await handlers.persistMessage("assistant", text, "text");
     }
 
     // Process tool calls - apply PreToolUse hook logic
     const toolUses = content.filter(
-      (c): c is ToolUseBlock => c.type === 'tool_use'
+      (c): c is ToolUseBlock => c.type === "tool_use",
     );
 
     for (const toolUse of toolUses) {
@@ -1630,8 +1745,8 @@ export class ClaudeCodeCliQueryHandler {
       toolInput as ToolInput,
     );
 
-    if (permission.behavior === 'deny') {
-      const message = permission.message ?? 'Tool denied by policy';
+    if (permission.behavior === "deny") {
+      const message = permission.message ?? "Tool denied by policy";
       this.logger.warn(`Tool denied: ${toolName}`, { message });
 
       // Send denial to WebSocket
@@ -1669,12 +1784,15 @@ export class ClaudeCodeCliQueryHandler {
     });
 
     // 5. Persist tool start to database (same as SDK hook)
-    const displayName = getToolDisplayName(toolName, normalizedInput as ToolInput);
+    const displayName = getToolDisplayName(
+      toolName,
+      normalizedInput as ToolInput,
+    );
     await handlers.persistMessage(
-      'assistant',
+      "assistant",
       displayName,
-      'tool_use',
-      'tool_start',
+      "tool_use",
+      "tool_start",
       {
         tool_name: toolName,
         tool_input: normalizedInput,
@@ -1697,7 +1815,7 @@ export class ClaudeCodeCliQueryHandler {
     // Get the original tool call
     const toolUse = this.sessionState.pendingToolCalls.get(toolUseId);
     if (!toolUse) {
-      this.logger.warn('Tool result for unknown tool call', { toolUseId });
+      this.logger.warn("Tool result for unknown tool call", { toolUseId });
       return;
     }
 
@@ -1706,15 +1824,16 @@ export class ClaudeCodeCliQueryHandler {
     this.logger.debug(`PostToolUse: ${toolName}`, { toolUseId, isError });
 
     // 1. Track file modifications (same as SDK hook)
-    const fileModifyingTools = ['Write', 'Edit', 'NotebookEdit', 'SafeWrite'];
+    const fileModifyingTools = ["Write", "Edit", "NotebookEdit", "SafeWrite"];
     if (fileModifyingTools.includes(toolName)) {
-      const filePath = (toolInput as { file_path?: string; notebook_path?: string })
-        .file_path || (toolInput as { notebook_path?: string }).notebook_path;
+      const filePath =
+        (toolInput as { file_path?: string; notebook_path?: string })
+          .file_path || (toolInput as { notebook_path?: string }).notebook_path;
 
       if (filePath) {
         const relativePath = this.getRelativePath(filePath);
         this.sessionState.modifiedFilesThisQuery.add(relativePath);
-        this.logger.debug('File modified', { relativePath });
+        this.logger.debug("File modified", { relativePath });
       }
     }
 
@@ -1732,10 +1851,10 @@ export class ClaudeCodeCliQueryHandler {
 
     // 3. Persist tool completion to database (same as SDK hook)
     await handlers.persistMessage(
-      'assistant',
+      "assistant",
       `Tool completed: ${toolName}`,
-      'tool_result',
-      'tool_complete',
+      "tool_result",
+      "tool_complete",
       {
         tool_name: toolName,
         tool_input: toolInput,
@@ -1776,7 +1895,7 @@ export class ClaudeCodeCliQueryHandler {
 
   private getRelativePath(absolutePath: string): string {
     if (absolutePath.startsWith(this.workDir)) {
-      return absolutePath.slice(this.workDir.length).replace(/^\//, '');
+      return absolutePath.slice(this.workDir.length).replace(/^\//, "");
     }
     return absolutePath;
   }
@@ -1785,19 +1904,20 @@ export class ClaudeCodeCliQueryHandler {
 
 ### Hook Feature Comparison: SDK vs CLI
 
-| Feature | SDK (chat-query-handler) | CLI (claude-code-cli-query-handler) |
-|---------|--------------------------|-------------------------------------|
-| **PreToolUse: Evaluate Permissions** | ✅ Can deny/allow | ⚠️ Monitor only (CLI executes regardless) |
-| **PreToolUse: Update Inputs** | ✅ Can modify inputs | ❌ Not possible (CLI already has inputs) |
-| **PreToolUse: Send TOOL_START** | ✅ | ✅ Parse from stream |
-| **PreToolUse: Persist to DB** | ✅ | ✅ |
-| **PostToolUse: Track Files** | ✅ | ✅ Parse from stream |
-| **PostToolUse: Send TOOL_COMPLETE** | ✅ | ✅ Parse from stream |
-| **PostToolUse: Persist to DB** | ✅ | ✅ |
+| Feature                              | SDK (chat-query-handler) | CLI (claude-code-cli-query-handler)       |
+| ------------------------------------ | ------------------------ | ----------------------------------------- |
+| **PreToolUse: Evaluate Permissions** | ✅ Can deny/allow        | ⚠️ Monitor only (CLI executes regardless) |
+| **PreToolUse: Update Inputs**        | ✅ Can modify inputs     | ❌ Not possible (CLI already has inputs)  |
+| **PreToolUse: Send TOOL_START**      | ✅                       | ✅ Parse from stream                      |
+| **PreToolUse: Persist to DB**        | ✅                       | ✅                                        |
+| **PostToolUse: Track Files**         | ✅                       | ✅ Parse from stream                      |
+| **PostToolUse: Send TOOL_COMPLETE**  | ✅                       | ✅ Parse from stream                      |
+| **PostToolUse: Persist to DB**       | ✅                       | ✅                                        |
 
 ### Important Limitation: CLI Cannot Block Tools
 
 Unlike the SDK, **the CLI cannot be stopped mid-execution**. When we detect a tool call in the stream, the CLI has already executed it. Our PreToolUse hook equivalent can:
+
 - ✅ Log the tool call
 - ✅ Send events to WebSocket
 - ✅ Persist to database
@@ -1827,6 +1947,7 @@ If you need to actually block tools (e.g., prevent writes outside project dir), 
 ```
 
 **validate-file-write.sh:**
+
 ```bash
 #!/bin/bash
 input=$(cat)
@@ -1882,15 +2003,8 @@ exit 0
     ]
   },
   "permissions": {
-    "allow": [
-      "Read",
-      "Glob",
-      "Grep",
-      "LS"
-    ],
-    "deny": [
-      "mcp__*"
-    ]
+    "allow": ["Read", "Glob", "Grep", "LS"],
+    "deny": ["mcp__*"]
   }
 }
 ```
@@ -1906,6 +2020,7 @@ RUN chmod +x /app/hooks/*.sh
 ```
 
 **Hook script structure:**
+
 ```
 server/build-workers/
 ├── hooks/
@@ -1934,41 +2049,41 @@ server/build-workers/
 Before deployment, implement these test suites:
 
 ```typescript
-describe('Claude Token Service', () => {
-  describe('Token Validation', () => {
-    it('should reject tokens that are too short');
-    it('should reject tokens with whitespace');
-    it('should accept valid token formats');
+describe("Claude Token Service", () => {
+  describe("Token Validation", () => {
+    it("should reject tokens that are too short");
+    it("should reject tokens with whitespace");
+    it("should accept valid token formats");
   });
 
-  describe('Token Storage', () => {
-    it('should save token to database');
-    it('should retrieve token from database');
-    it('should cache tokens briefly');
-    it('should mark invalid tokens');
+  describe("Token Storage", () => {
+    it("should save token to database");
+    it("should retrieve token from database");
+    it("should cache tokens briefly");
+    it("should mark invalid tokens");
   });
 });
 
-describe('Setup Token Parser', () => {
-  it('should extract OAuth URL from CLI output');
+describe("Setup Token Parser", () => {
+  it("should extract OAuth URL from CLI output");
   it('should detect "Paste code here" prompt');
-  it('should capture token from success output');
-  it('should handle malformed output without crashing');
-  it('should not match partial URLs');
+  it("should capture token from success output");
+  it("should handle malformed output without crashing");
+  it("should not match partial URLs");
 });
 
-describe('WebSocket Setup Flow', () => {
-  it('should reject unauthenticated connections');
-  it('should reject connections for other users');
-  it('should handle concurrent setup sessions');
-  it('should timeout after 5 minutes');
-  it('should cleanup on disconnect');
+describe("WebSocket Setup Flow", () => {
+  it("should reject unauthenticated connections");
+  it("should reject connections for other users");
+  it("should handle concurrent setup sessions");
+  it("should timeout after 5 minutes");
+  it("should cleanup on disconnect");
 });
 
-describe('Security', () => {
-  it('should sanitize authorization codes');
-  it('should not log tokens');
-  it('should rate limit setup attempts');
+describe("Security", () => {
+  it("should sanitize authorization codes");
+  it("should not log tokens");
+  it("should rate limit setup attempts");
 });
 ```
 
@@ -2030,9 +2145,9 @@ CREATE INDEX idx_user_claude_tokens_user_id ON user_claude_tokens(user_id);
 **File: `server/build-workers/services/auth/claude-token-service.ts`**
 
 ```typescript
-import { SupabaseClient } from '@supabase/supabase-js';
-import { SystemLogger } from '../../loggers/SystemLogger.js';
-import { Database } from '../../types/supabase.js';
+import { SupabaseClient } from "@supabase/supabase-js";
+import { SystemLogger } from "../../loggers/SystemLogger.js";
+import { Database } from "../../types/supabase.js";
 
 interface UserClaudeToken {
   oauth_token: string;
@@ -2049,7 +2164,7 @@ export class ClaudeTokenService {
 
   constructor(supabase: SupabaseClient<Database>, logger: SystemLogger) {
     this.supabase = supabase;
-    this.logger = logger.child({ service: 'ClaudeTokenService' });
+    this.logger = logger.child({ service: "ClaudeTokenService" });
   }
 
   /**
@@ -2064,18 +2179,18 @@ export class ClaudeTokenService {
 
     try {
       const { data, error } = await this.supabase
-        .from('user_claude_tokens')
-        .select('oauth_token, is_valid')
-        .eq('user_id', userId)
+        .from("user_claude_tokens")
+        .select("oauth_token, is_valid")
+        .eq("user_id", userId)
         .single();
 
       if (error || !data) {
-        this.logger.debug('No Claude token found for user', { userId });
+        this.logger.debug("No Claude token found for user", { userId });
         return null;
       }
 
       if (!data.is_valid) {
-        this.logger.debug('User Claude token is marked invalid', { userId });
+        this.logger.debug("User Claude token is marked invalid", { userId });
         return null;
       }
 
@@ -2087,15 +2202,15 @@ export class ClaudeTokenService {
 
       // Update last_used_at (fire and forget)
       void this.supabase
-        .from('user_claude_tokens')
+        .from("user_claude_tokens")
         .update({ last_used_at: new Date().toISOString() })
-        .eq('user_id', userId);
+        .eq("user_id", userId);
 
       return data.oauth_token;
     } catch (error) {
       this.logger.error(
         error instanceof Error ? error : new Error(String(error)),
-        'Failed to fetch user Claude token',
+        "Failed to fetch user Claude token",
         { userId },
       );
       return null;
@@ -2111,19 +2226,22 @@ export class ClaudeTokenService {
 
     try {
       await this.supabase
-        .from('user_claude_tokens')
+        .from("user_claude_tokens")
         .update({
           is_valid: false,
           validation_error: error,
           updated_at: new Date().toISOString(),
         })
-        .eq('user_id', userId);
+        .eq("user_id", userId);
 
-      this.logger.info('Marked user Claude token as invalid', { userId, error });
+      this.logger.info("Marked user Claude token as invalid", {
+        userId,
+        error,
+      });
     } catch (err) {
       this.logger.error(
         err instanceof Error ? err : new Error(String(err)),
-        'Failed to mark token as invalid',
+        "Failed to mark token as invalid",
         { userId },
       );
     }
@@ -2145,18 +2263,18 @@ export class ClaudeTokenService {
 **File: `server/build-workers/services/chat/claude-code-cli-query-handler.ts`**
 
 ```typescript
-import { spawn, ChildProcess } from 'child_process';
-import WebSocket from 'ws';
-import { SystemLogger } from '../../loggers/SystemLogger.js';
+import { spawn, ChildProcess } from "child_process";
+import WebSocket from "ws";
+import { SystemLogger } from "../../loggers/SystemLogger.js";
 import {
   ChatEvent,
   ChatQueryData,
   ChatServerMessage,
-} from '../../types/ChatTypes.js';
-import { ClaudeTokenService } from '../auth/claude-token-service.js';
+} from "../../types/ChatTypes.js";
+import { ClaudeTokenService } from "../auth/claude-token-service.js";
 
 interface ClaudeCodeMessage {
-  type: 'system' | 'assistant' | 'user' | 'result' | 'error';
+  type: "system" | "assistant" | "user" | "result" | "error";
   subtype?: string;
   message?: {
     content?: Array<{ type: string; text?: string }>;
@@ -2191,7 +2309,7 @@ export class ClaudeCodeCliQueryHandler {
     getApiKey: () => string | null,
   ) {
     this.workDir = workDir;
-    this.logger = logger.child({ service: 'ClaudeCodeCliQueryHandler' });
+    this.logger = logger.child({ service: "ClaudeCodeCliQueryHandler" });
     this.tokenService = tokenService;
     this.getApiKey = getApiKey;
   }
@@ -2203,7 +2321,7 @@ export class ClaudeCodeCliQueryHandler {
     if (!prompt) {
       sendMessage(socket, {
         type: ChatEvent.ERROR,
-        error: { message: 'No prompt provided' },
+        error: { message: "No prompt provided" },
       });
       return;
     }
@@ -2212,7 +2330,7 @@ export class ClaudeCodeCliQueryHandler {
     const { env, authMethod } = await this.buildAuthEnvironment(userId);
     const args = this.buildCliArgs(prompt, data);
 
-    this.logger.info('Starting Claude Code CLI process', {
+    this.logger.info("Starting Claude Code CLI process", {
       prototypeId,
       userId,
       authMethod, // 'user_token' or 'api_key'
@@ -2222,10 +2340,10 @@ export class ClaudeCodeCliQueryHandler {
     // Notify client which auth method is being used
     sendMessage(socket, {
       type: ChatEvent.SYSTEM,
-      subtype: 'auth_info',
+      subtype: "auth_info",
       data: {
         authMethod,
-        usingSubscription: authMethod === 'user_token',
+        usingSubscription: authMethod === "user_token",
       },
     });
 
@@ -2233,7 +2351,7 @@ export class ClaudeCodeCliQueryHandler {
       await this.executeCliProcess(context, args, env, authMethod);
     } catch (error) {
       // If using user token and it fails with auth error, mark token invalid
-      if (authMethod === 'user_token' && this.isAuthError(error)) {
+      if (authMethod === "user_token" && this.isAuthError(error)) {
         await this.tokenService.markTokenInvalid(
           userId,
           error instanceof Error ? error.message : String(error),
@@ -2243,9 +2361,9 @@ export class ClaudeCodeCliQueryHandler {
         sendMessage(socket, {
           type: ChatEvent.ERROR,
           error: {
-            message: 'Your Claude subscription token has expired or is invalid',
-            details: 'Please reconnect your subscription in Settings',
-            code: 'TOKEN_INVALID',
+            message: "Your Claude subscription token has expired or is invalid",
+            details: "Please reconnect your subscription in Settings",
+            code: "TOKEN_INVALID",
           },
         });
         return;
@@ -2253,14 +2371,14 @@ export class ClaudeCodeCliQueryHandler {
 
       this.logger.error(
         error instanceof Error ? error : new Error(String(error)),
-        'Claude Code CLI execution failed',
+        "Claude Code CLI execution failed",
         { prototypeId, authMethod },
       );
 
       sendMessage(socket, {
         type: ChatEvent.ERROR,
         error: {
-          message: 'CLI execution failed',
+          message: "CLI execution failed",
           details: error instanceof Error ? error.message : String(error),
         },
       });
@@ -2273,14 +2391,16 @@ export class ClaudeCodeCliQueryHandler {
    */
   private async buildAuthEnvironment(userId: string): Promise<{
     env: NodeJS.ProcessEnv;
-    authMethod: 'user_token' | 'api_key';
+    authMethod: "user_token" | "api_key";
   }> {
     const baseEnv = { ...process.env };
 
     // 1. Try user's OAuth token first (from their subscription)
     const userToken = await this.tokenService.getUserToken(userId);
     if (userToken) {
-      this.logger.debug('Using user OAuth token for authentication', { userId });
+      this.logger.debug("Using user OAuth token for authentication", {
+        userId,
+      });
       return {
         env: {
           ...baseEnv,
@@ -2288,14 +2408,14 @@ export class ClaudeCodeCliQueryHandler {
           // Explicitly unset API key when using OAuth token
           ANTHROPIC_API_KEY: undefined,
         },
-        authMethod: 'user_token',
+        authMethod: "user_token",
       };
     }
 
     // 2. Fall back to API key
     const apiKey = this.getApiKey();
     if (apiKey) {
-      this.logger.debug('Falling back to API key (no user token)', { userId });
+      this.logger.debug("Falling back to API key (no user token)", { userId });
       return {
         env: {
           ...baseEnv,
@@ -2303,23 +2423,25 @@ export class ClaudeCodeCliQueryHandler {
           // Explicitly unset OAuth token when using API key
           CLAUDE_CODE_OAUTH_TOKEN: undefined,
         },
-        authMethod: 'api_key',
+        authMethod: "api_key",
       };
     }
 
     // 3. No authentication available
-    throw new Error('No authentication available - user has no token and no API key configured');
+    throw new Error(
+      "No authentication available - user has no token and no API key configured",
+    );
   }
 
   private buildCliArgs(prompt: string, data: ChatQueryData): string[] {
-    const args = ['-p', prompt, '--output-format', 'stream-json'];
+    const args = ["-p", prompt, "--output-format", "stream-json"];
 
     if (data.options?.model) {
-      args.push('--model', String(data.options.model));
+      args.push("--model", String(data.options.model));
     }
 
     if (data.options?.maxTurns) {
-      args.push('--max-turns', String(data.options.maxTurns));
+      args.push("--max-turns", String(data.options.maxTurns));
     }
 
     return args;
@@ -2329,9 +2451,9 @@ export class ClaudeCodeCliQueryHandler {
     if (data.prompt) return data.prompt;
     if (Array.isArray(data.content)) {
       return data.content
-        .filter((block) => block.type === 'text')
-        .map((block) => block.text || '')
-        .join('\n');
+        .filter((block) => block.type === "text")
+        .map((block) => block.text || "")
+        .join("\n");
     }
     return null;
   }
@@ -2340,24 +2462,24 @@ export class ClaudeCodeCliQueryHandler {
     context: QueryContext,
     args: string[],
     env: NodeJS.ProcessEnv,
-    authMethod: 'user_token' | 'api_key',
+    authMethod: "user_token" | "api_key",
   ): Promise<void> {
     const { socket, sendMessage } = context;
 
     return new Promise((resolve, reject) => {
-      this.activeProcess = spawn('claude', args, {
+      this.activeProcess = spawn("claude", args, {
         env,
         cwd: this.workDir,
         shell: false,
       });
 
-      let buffer = '';
+      let buffer = "";
       let hasAuthError = false;
 
-      this.activeProcess.stdout?.on('data', (chunk: Buffer) => {
+      this.activeProcess.stdout?.on("data", (chunk: Buffer) => {
         buffer += chunk.toString();
-        const lines = buffer.split('\n');
-        buffer = lines.pop() || '';
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
 
         for (const line of lines) {
           if (line.trim()) {
@@ -2365,33 +2487,33 @@ export class ClaudeCodeCliQueryHandler {
               const message = JSON.parse(line) as ClaudeCodeMessage;
               this.handleCliMessage(socket, message, sendMessage);
             } catch {
-              this.logger.warn('Failed to parse CLI output line', { line });
+              this.logger.warn("Failed to parse CLI output line", { line });
             }
           }
         }
       });
 
-      this.activeProcess.stderr?.on('data', (chunk: Buffer) => {
+      this.activeProcess.stderr?.on("data", (chunk: Buffer) => {
         const output = chunk.toString();
-        this.logger.warn('Claude CLI stderr', { output });
+        this.logger.warn("Claude CLI stderr", { output });
 
         // Detect auth errors
         if (
-          output.includes('Invalid API key') ||
-          output.includes('OAuth') ||
-          output.includes('authentication') ||
-          output.includes('unauthorized')
+          output.includes("Invalid API key") ||
+          output.includes("OAuth") ||
+          output.includes("authentication") ||
+          output.includes("unauthorized")
         ) {
           hasAuthError = true;
         }
       });
 
-      this.activeProcess.on('error', (error) => {
+      this.activeProcess.on("error", (error) => {
         this.activeProcess = null;
         reject(error);
       });
 
-      this.activeProcess.on('close', (code) => {
+      this.activeProcess.on("close", (code) => {
         this.activeProcess = null;
 
         if (buffer.trim()) {
@@ -2432,21 +2554,21 @@ export class ClaudeCodeCliQueryHandler {
   }
 
   private isAuthError(error: unknown): boolean {
-    if (error && typeof error === 'object' && 'isAuthError' in error) {
+    if (error && typeof error === "object" && "isAuthError" in error) {
       return (error as { isAuthError: boolean }).isAuthError;
     }
     const message = error instanceof Error ? error.message : String(error);
     return (
-      message.includes('Invalid API key') ||
-      message.includes('OAuth') ||
-      message.includes('authentication') ||
-      message.includes('unauthorized')
+      message.includes("Invalid API key") ||
+      message.includes("OAuth") ||
+      message.includes("authentication") ||
+      message.includes("unauthorized")
     );
   }
 
   abort(): void {
     if (this.activeProcess) {
-      this.activeProcess.kill('SIGTERM');
+      this.activeProcess.kill("SIGTERM");
       this.activeProcess = null;
     }
   }
@@ -2462,40 +2584,42 @@ export class ClaudeCodeCliQueryHandler {
 ```tsx
 // web-application/src/components/settings/ClaudeSubscriptionConnect.tsx
 
-import { useState } from 'react';
-import { useSupabase } from '@/hooks/useSupabase';
+import { useState } from "react";
+import { useSupabase } from "@/hooks/useSupabase";
 
 export function ClaudeSubscriptionConnect() {
-  const [token, setToken] = useState('');
-  const [status, setStatus] = useState<'disconnected' | 'connected' | 'loading'>('disconnected');
+  const [token, setToken] = useState("");
+  const [status, setStatus] = useState<
+    "disconnected" | "connected" | "loading"
+  >("disconnected");
   const [error, setError] = useState<string | null>(null);
   const { supabase } = useSupabase();
 
   const handleConnect = async () => {
     if (!token.trim()) {
-      setError('Please enter your token');
+      setError("Please enter your token");
       return;
     }
 
-    setStatus('loading');
+    setStatus("loading");
     setError(null);
 
     try {
-      const response = await fetch('/api/user/claude-token', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const response = await fetch("/api/user/claude-token", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ oauth_token: token }),
       });
 
       if (!response.ok) {
-        throw new Error('Failed to save token');
+        throw new Error("Failed to save token");
       }
 
-      setStatus('connected');
-      setToken(''); // Clear for security
+      setStatus("connected");
+      setToken(""); // Clear for security
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to connect');
-      setStatus('disconnected');
+      setError(err instanceof Error ? err.message : "Failed to connect");
+      setStatus("disconnected");
     }
   };
 
@@ -2504,8 +2628,8 @@ export function ClaudeSubscriptionConnect() {
       <h3 className="font-semibold mb-2">Connect Claude Subscription</h3>
 
       <p className="text-sm text-gray-600 mb-4">
-        Use your own Claude Pro/Max subscription for unlimited usage.
-        This is optional - we'll use our API if you don't connect.
+        Use your own Claude Pro/Max subscription for unlimited usage. This is
+        optional - we'll use our API if you don't connect.
       </p>
 
       <div className="space-y-4">
@@ -2515,7 +2639,9 @@ export function ClaudeSubscriptionConnect() {
           </label>
           <ol className="text-sm text-gray-600 list-decimal list-inside space-y-1">
             <li>Open your terminal</li>
-            <li>Run: <code className="bg-gray-100 px-1">claude setup-token</code></li>
+            <li>
+              Run: <code className="bg-gray-100 px-1">claude setup-token</code>
+            </li>
             <li>Complete the login in your browser</li>
             <li>Copy the token that appears</li>
             <li>Paste it below</li>
@@ -2532,19 +2658,17 @@ export function ClaudeSubscriptionConnect() {
           />
         </div>
 
-        {error && (
-          <p className="text-red-500 text-sm">{error}</p>
-        )}
+        {error && <p className="text-red-500 text-sm">{error}</p>}
 
         <button
           onClick={handleConnect}
-          disabled={status === 'loading'}
+          disabled={status === "loading"}
           className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
         >
-          {status === 'loading' ? 'Connecting...' : 'Connect Subscription'}
+          {status === "loading" ? "Connecting..." : "Connect Subscription"}
         </button>
 
-        {status === 'connected' && (
+        {status === "connected" && (
           <p className="text-green-600 text-sm">
             ✓ Your Claude subscription is connected
           </p>
@@ -2635,8 +2759,8 @@ function validateToken(token: string): boolean {
   return (
     token.length >= 20 &&
     token.length <= 500 &&
-    !token.includes(' ') &&
-    !token.includes('\n')
+    !token.includes(" ") &&
+    !token.includes("\n")
   );
 }
 ```
@@ -2649,10 +2773,10 @@ function validateToken(token: string): boolean {
 
 ```typescript
 // Log authentication method usage
-this.logger.metric('claude_cli_auth', {
+this.logger.metric("claude_cli_auth", {
   userId,
   prototypeId,
-  authMethod: 'user_token' | 'api_key',
+  authMethod: "user_token" | "api_key",
   success: boolean,
   durationMs: number,
   tokensUsed: number,
@@ -2684,17 +2808,20 @@ ORDER BY 1 DESC;
 ## Rollout Plan
 
 ### Phase 1: Database & Core Services (Week 1)
+
 - [ ] Create database migration for `user_claude_tokens` table
 - [ ] Implement `ClaudeTokenService` in build-workers (direct Supabase access)
 - [ ] Implement basic `ClaudeCodeCliQueryHandler`
 
 ### Phase 2: Manual Token Entry (Week 2)
+
 - [ ] Build manual token connection UI in Settings
 - [ ] Add token status indicator in chat interface
 - [ ] Show which auth method is being used
 - [ ] Test end-to-end with manually provided tokens
 
 ### Phase 3: In-App Setup Flow (Week 3)
+
 - [ ] Implement `SetupTokenStreamParser` for terminal output parsing
 - [ ] Add setup-token methods to `TerminalService`
 - [ ] Create WebSocket endpoint for setup flow
@@ -2702,6 +2829,7 @@ ORDER BY 1 DESC;
 - [ ] Add rate limiting and session timeout handling
 
 ### Phase 4: Polish & Error Handling (Week 4)
+
 - [ ] Add error recovery with API key fallback
 - [ ] Implement token expiration detection and refresh notifications
 - [ ] Add analytics/monitoring for auth method usage
@@ -2713,15 +2841,18 @@ ORDER BY 1 DESC;
 ## References
 
 ### Official Documentation
+
 - [Claude Code Headless Mode](https://code.claude.com/docs/en/headless)
 - [Claude Code IAM](https://code.claude.com/docs/en/iam)
 - [Claude Help Center: Pro/Max Plans](https://support.claude.com/en/articles/11145838-using-claude-code-with-your-pro-or-max-plan)
 
 ### GitHub Issues
+
 - [Headless/Remote Authentication - Issue #7100](https://github.com/anthropics/claude-code/issues/7100)
 - [setup-token Bug - Issue #8938](https://github.com/anthropics/claude-code/issues/8938)
 
 ### Key Command
+
 ```bash
 # User runs this locally to get their token
 claude setup-token

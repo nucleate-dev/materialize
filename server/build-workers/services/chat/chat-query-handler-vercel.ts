@@ -101,7 +101,6 @@ interface MessageHandlers {
 }
 
 export class VercelChatQueryHandler {
-  private readonly logger: SystemLogger;
   private readonly supabaseClientService: SupabaseClientService;
   private readonly fileSyncService: FileSyncService;
   private readonly toolPermissionService: ToolPermissionService;
@@ -119,7 +118,6 @@ export class VercelChatQueryHandler {
     terminalService: TerminalService,
     enableDesignAgentOnFirstMessage: boolean,
   ) {
-    this.logger = baseLogger;
     this.supabaseClientService = supabaseClientService;
     this.fileSyncService = fileSyncService;
     this.toolPermissionService = toolPermissionService;
@@ -460,7 +458,7 @@ export class VercelChatQueryHandler {
       }
       return { success: true };
     } catch (error) {
-      this.logger.error(error, "Failed to refresh Supabase client", {
+      baseLogger.error(error, "Failed to refresh Supabase client", {
         prototypeId,
       });
       return {
@@ -517,7 +515,7 @@ export class VercelChatQueryHandler {
             .single();
 
           if (error) {
-            this.logger.error(error, "Failed to fetch design system", {
+            baseLogger.error(error, "Failed to fetch design system", {
               designSystemId: custom_design_system_id,
             });
             sessionState.designSystemId = null;
@@ -532,7 +530,7 @@ export class VercelChatQueryHandler {
             sessionState.designSystemRules = null;
           }
         } catch (error) {
-          this.logger.error(error, "Error fetching design system", {
+          baseLogger.error(error, "Error fetching design system", {
             designSystemId: custom_design_system_id,
           });
           sessionState.designSystemId = null;
@@ -587,7 +585,7 @@ export class VercelChatQueryHandler {
       const creditCheck = await hasRemainingCredits(
         this.supabaseClientService.getClient(),
         user.id,
-        this.logger,
+        baseLogger,
       );
 
       if (!creditCheck.hasCredits) {
@@ -600,7 +598,7 @@ export class VercelChatQueryHandler {
 
       return { success: true };
     } catch (error) {
-      this.logger.error(error, "Error during credit check", { prototypeId });
+      baseLogger.error(error, "Error during credit check", { prototypeId });
       return {
         success: false,
         errorMessage: "Unable to verify credits",
@@ -659,7 +657,7 @@ export class VercelChatQueryHandler {
 
       return isFirst;
     } catch (error) {
-      this.logger.error(error, "Error during first message detection", {
+      baseLogger.error(error, "Error during first message detection", {
         prototypeId,
         prototypeChatSessionId,
       });
@@ -681,7 +679,7 @@ export class VercelChatQueryHandler {
     const provider: DesignAgentProvider = "google";
     const model = DEFAULT_DESIGN_AGENT_MODELS[provider];
 
-    this.logger.consoleLogDevOnly(
+    baseLogger.consoleLogDevOnly(
       "info",
       "Executing design agent via AI SDK (Vercel handler)",
       { prototypeId, provider, model, userMessageLength: userMessage.length },
@@ -693,7 +691,7 @@ export class VercelChatQueryHandler {
       userMessage,
       workDir: WORK_DIR,
       abortController,
-      logger: this.logger,
+      logger: baseLogger,
       prototypeId,
     });
   }
@@ -829,14 +827,14 @@ export class VercelChatQueryHandler {
       },
       this.terminalService,
       async () => {
-        this.logger.consoleLogDevOnly(
+        baseLogger.consoleLogDevOnly(
           "info",
           "MCP restartDevServer tool: restarting dev server",
         );
         this.devServerService.developmentServerState.devServerStatus =
           DevServerStatus.RESTARTING;
         await this.devServerService.developmentServerAdapter.restartDevServer(
-          this.logger,
+          baseLogger,
         );
         this.devServerService.developmentServerState.devServerStatus =
           DevServerStatus.RUNNING;
@@ -1044,7 +1042,7 @@ export class VercelChatQueryHandler {
         }
       }
 
-      this.logger.consoleLogDevOnly(
+      baseLogger.consoleLogDevOnly(
         "info",
         "Executing sandbox command with cwd (Vercel handler)",
         {
@@ -1066,7 +1064,7 @@ export class VercelChatQueryHandler {
         });
       const response = responseRaw.data;
       if (!response) {
-        this.logger.error(JSON.stringify(responseRaw));
+        baseLogger.error(JSON.stringify(responseRaw));
         throw new Error("No response from sandbox service");
       }
 
@@ -1085,7 +1083,7 @@ export class VercelChatQueryHandler {
       return { stdout: response.stdout || "Unknown error", isError: true };
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
-      this.logger.error(error, "Sandbox command failed (Vercel tools)");
+      baseLogger.error(error, "Sandbox command failed (Vercel tools)");
       return { stdout: `System Error: ${errorMsg}`, isError: true };
     }
   }
@@ -1146,14 +1144,14 @@ export class VercelChatQueryHandler {
       );
 
       if (!syncResult.success) {
-        this.logger.error(
+        baseLogger.error(
           new Error("File sync completed with errors"),
           "File sync had errors",
           { prototypeId, errorCount: syncResult.errors.length },
         );
       }
     } catch (syncError) {
-      this.logger.error(syncError, "Failed to sync files to Supabase", {
+      baseLogger.error(syncError, "Failed to sync files to Supabase", {
         prototypeId,
       });
     }
@@ -1166,7 +1164,7 @@ export class VercelChatQueryHandler {
           data: { files: modifiedFiles },
         });
       } catch (modifiedFilesError) {
-        this.logger.error(modifiedFilesError, "Failed to send modified files", {
+        baseLogger.error(modifiedFilesError, "Failed to send modified files", {
           prototypeId,
         });
       }
@@ -1180,7 +1178,7 @@ export class VercelChatQueryHandler {
       } = await this.supabaseClientService.getClient().auth.getUser();
 
       if (userError || !user) {
-        this.logger.warn("Unable to track API usage - no authenticated user", {
+        baseLogger.warn("Unable to track API usage - no authenticated user", {
           prototypeId,
           error: userError,
         });
@@ -1191,7 +1189,7 @@ export class VercelChatQueryHandler {
           this.supabaseClientService.getClient(),
           user.id,
           prototypeId,
-          this.logger,
+          baseLogger,
           creditsUsed,
         );
 
@@ -1204,7 +1202,7 @@ export class VercelChatQueryHandler {
         });
       }
     } catch (error) {
-      this.logger.error(error, "Failed to track usage for Vercel provider", {
+      baseLogger.error(error, "Failed to track usage for Vercel provider", {
         prototypeId,
       });
     }

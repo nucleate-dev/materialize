@@ -25,7 +25,6 @@ const CHECK_INTERVAL_MS = 500;
 const MAX_OUTPUT_CHARS = 16_384;
 
 export class CloudflareTunnelManagementService {
-  private readonly logger = baseLogger;
   private pty: IPty | null = null;
   private readonly dataListeners = new Set<(chunk: string) => void>();
   private createInProgress = false;
@@ -34,7 +33,7 @@ export class CloudflareTunnelManagementService {
   constructor() {
     // Initialize PTY asynchronously - it will be ready before first use due to ensurePty()
     this.initializePty().catch((error) => {
-      this.logger.error(
+      baseLogger.error(
         error instanceof Error ? error : new Error(String(error)),
         "Failed to initialize PTY in constructor",
       );
@@ -97,7 +96,7 @@ export class CloudflareTunnelManagementService {
       // Process stays alive because PTY is persistent in this service
       const tunnelCommand = `cloudflared tunnel --no-autoupdate run --token ${tunnelToken} &`;
       this.writeToPty(`${tunnelCommand}\n`);
-      this.logger.consoleLogDevOnly(
+      baseLogger.consoleLogDevOnly(
         "info",
         "Cloudflare tunnel command dispatched",
       );
@@ -188,7 +187,7 @@ export class CloudflareTunnelManagementService {
         error instanceof Error
           ? error.message
           : "Failed to start Cloudflare tunnel";
-      this.logger.error(
+      baseLogger.error(
         error instanceof Error ? error : new Error(String(error)),
         "Failed to start Cloudflare tunnel",
       );
@@ -199,7 +198,7 @@ export class CloudflareTunnelManagementService {
 
     if (tunnelStatus !== "connected") {
       this.tunnelRunning = false;
-      this.logger.error(
+      baseLogger.error(
         new Error("Cloudflare tunnel failed to connect"),
         "Cloudflare tunnel failed to connect",
         {
@@ -235,7 +234,7 @@ export class CloudflareTunnelManagementService {
       await this.delay(250);
       this.writeToPty("sleep 0.1\n");
     } catch (error) {
-      this.logger.error(
+      baseLogger.error(
         error instanceof Error ? error : new Error(String(error)),
         "Failed to kill Cloudflare tunnel",
       );
@@ -270,7 +269,7 @@ export class CloudflareTunnelManagementService {
           try {
             listener(chunk);
           } catch (listenerError) {
-            this.logger.error(
+            baseLogger.error(
               listenerError instanceof Error
                 ? listenerError
                 : new Error(String(listenerError)),
@@ -281,7 +280,7 @@ export class CloudflareTunnelManagementService {
       });
 
       pty.onExit(({ exitCode, signal }) => {
-        this.logger.warn("Cloudflare tunnel PTY exited", {
+        baseLogger.warn("Cloudflare tunnel PTY exited", {
           exitCode,
           signal,
         });
@@ -302,9 +301,9 @@ export class CloudflareTunnelManagementService {
       // Wait a bit more for commands to execute
       await this.delay(200);
 
-      this.logger.consoleLogDevOnly("info", "Cloudflare tunnel PTY ready");
+      baseLogger.consoleLogDevOnly("info", "Cloudflare tunnel PTY ready");
     } catch (error) {
-      this.logger.error(
+      baseLogger.error(
         error instanceof Error ? error : new Error(String(error)),
         "Failed to initialize Cloudflare tunnel PTY",
       );
@@ -328,7 +327,7 @@ export class CloudflareTunnelManagementService {
       const killer = spawn("pkill", ["-x", "cloudflared"]);
 
       killer.on("error", (error) => {
-        this.logger.error(
+        baseLogger.error(
           error instanceof Error ? error : new Error(String(error)),
           "Failed to launch pkill for cloudflared",
         );
