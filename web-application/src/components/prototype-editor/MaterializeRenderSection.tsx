@@ -270,7 +270,7 @@ const MaterializeRenderSection = forwardRef<
     const isWebFramework = framework === "web_nextjs_react";
 
     const [previewMode, setPreviewMode] = useState<PreviewMode>(
-      isWebFramework ? "web" : "mobile"
+      isWebFramework ? "web" : "mobile",
     );
     const [refreshKey, setRefreshKey] = useState(0);
 
@@ -675,7 +675,7 @@ const MaterializeRenderSection = forwardRef<
                 ? originalName.substring(12)
                 : originalName,
               secret_value:
-                prototype_env_var_secrets?.[0]?.secret_value ?? null,
+                prototype_env_var_secrets?.secret_value ?? null,
             } as PrototypeEnvVar;
           },
         );
@@ -1043,10 +1043,7 @@ const MaterializeRenderSection = forwardRef<
     // Function to start dev server with all files
     const handleStartDevServer = async () => {
       if (!prototypeId) {
-        logger.debug(
-          "error",
-          "Cannot start dev server: missing prototype ID",
-        );
+        logger.debug("error", "Cannot start dev server: missing prototype ID");
         return;
       }
 
