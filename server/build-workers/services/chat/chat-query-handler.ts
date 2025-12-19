@@ -1304,7 +1304,7 @@ export class ChatQueryHandler {
     const canUseTool: CanUseTool = async (
       toolName: ToolName,
       input: ToolInput,
-      _options,
+      _options: unknown,
     ): Promise<PermissionResult> => {
       return this.toolPermissionService.evaluateToolPermission(toolName, input);
     };

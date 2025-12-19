@@ -3,7 +3,9 @@ import websocket from "@fastify/websocket";
 import dotenv from "dotenv";
 import fastify, { FastifyInstance } from "fastify";
 import fs from "fs/promises";
-import { SystemLogger, genRequestIds } from "./loggers/SystemLogger.js";
+import { baseLogger, posthogLogger } from "./loggers/index.js";
+import { genRequestIds, SystemLogger } from "./loggers/SystemLogger.js";
+import { PostHogLogger } from "./loggers/PostHogLogger.js";
 import { ChatService } from "./services/chat/ChatService.js";
 import { CloudflareTunnelManagementService } from "./services/CloudflareTunnelManagementService.js";
 import { NucleateDevelopmentServerService } from "./services/dev-server/NucleateDevelopmentServerService.js";
@@ -11,8 +13,6 @@ import { FileSyncService } from "./services/FileSyncService.js";
 import { SandboxService } from "./services/SandboxService.js";
 import { SupabaseClientService } from "./services/SupabaseClientService.js";
 import { TerminalService } from "./services/terminals/TerminalService.js";
-import { PostHog } from "posthog-node";
-import { PostHogLogger } from "./loggers/PostHogLogger.js";
 
 // Load environment variables
 dotenv.config();
@@ -25,25 +25,8 @@ declare module "fastify" {
   }
 }
 
-export const posthog = new PostHog(process.env.POSTHOG_KEY!, {
-  host: process.env.POSTHOG_HOST!,
-});
-
-export const baseLogger = new SystemLogger({
-  service: "build-worker",
-  env: process.env.NODE_ENV || "development",
-  metricNamespace: "Materialize/BuildWorker",
-  redactKeys: ["authorization", "cookie", "x-api-key"],
-  posthog,
-});
-
-export const posthogLogger = new PostHogLogger({
-  posthog,
-  context: {
-    server: "sandbox-fargate",
-    env: process.env.NODE_ENV || "development",
-  },
-});
+// Re-export loggers for backward compatibility
+export { baseLogger, posthogLogger };
 
 // --- Configuration ---
 const PORT = parseInt(process.env.PORT || "3002", 10);
@@ -54,6 +37,10 @@ let workerContext: { userId?: string; prototypeId?: string } = {};
 
 export function setWorkerContext(userId: string, prototypeId: string): void {
   workerContext = { userId, prototypeId };
+
+  // Update logger contexts so all future child loggers inherit this context
+  baseLogger.setContext({ userId, prototypeId });
+  posthogLogger.setContext({ userId, prototypeId });
 }
 
 export function getWorkerContext(): { userId?: string; prototypeId?: string } {
@@ -61,8 +48,7 @@ export function getWorkerContext(): { userId?: string; prototypeId?: string } {
 }
 
 // Initialize Supabase client service (single source of truth)
-export const supabaseClientService =
-  SupabaseClientService.getInstance(baseLogger);
+export const supabaseClientService = SupabaseClientService.getInstance();
 
 // --- Fastify Setup ---
 const app: FastifyInstance = fastify({
@@ -90,7 +76,6 @@ await app.register(websocket, {
 export const terminalService = new TerminalService(
   app,
   WORK_DIR,
-  baseLogger,
   supabaseClientService,
   {
     prototypeIdProvider: (): string | undefined =>
@@ -99,16 +84,12 @@ export const terminalService = new TerminalService(
 );
 
 // Initialize FileSyncService (single instance for all services)
-export const fileSyncService = new FileSyncService(
-  supabaseClientService,
-  baseLogger,
-);
+export const fileSyncService = new FileSyncService(supabaseClientService);
 
-const sandboxService = new SandboxService(app, baseLogger, terminalService);
+const sandboxService = new SandboxService(app, terminalService);
 
-const cloudflareTunnelManagementService = new CloudflareTunnelManagementService(
-  baseLogger,
-);
+const cloudflareTunnelManagementService =
+  new CloudflareTunnelManagementService();
 // Create NucleateDevelopmentServerService with undefined chatService (will be set after ChatService is created)
 // This is needed to break the circular dependency between ChatService and NucleateDevelopmentServerService
 const nucleateDevelopmentServerService = new NucleateDevelopmentServerService(
@@ -122,7 +103,6 @@ const nucleateDevelopmentServerService = new NucleateDevelopmentServerService(
 
 const chatService = new ChatService(
   app,
-  baseLogger,
   supabaseClientService,
   sandboxService,
   nucleateDevelopmentServerService,
@@ -184,10 +164,11 @@ chatService.registerRoutes();
 
 // --- Graceful Shutdown Handling ---
 const close = async (): Promise<void> => {
-  baseLogger.info("Shutting down build worker...");
+  const logger = baseLogger.child({ context: "shutdown" });
+  logger.info("Shutting down build worker...");
   try {
     await nucleateDevelopmentServerService.developmentServerAdapter.stopDevServer(
-      baseLogger,
+      logger,
     );
     terminalService.shutdownAllSessions();
     await chatService.shutdown();

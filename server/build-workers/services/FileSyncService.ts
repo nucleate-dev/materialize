@@ -2,7 +2,7 @@ import chokidar from "chokidar";
 import type { Dirent } from "fs";
 import fs from "fs/promises";
 import path from "path";
-import { SystemLogger } from "../loggers/SystemLogger.js";
+import { baseLogger } from "../loggers/index.js";
 import {
   PrototypeAssetInput,
   PrototypeAssetInputWithContent,
@@ -45,7 +45,7 @@ const BATCH_CONFIG = {
 } as const;
 
 export class FileSyncService {
-  private readonly logger: SystemLogger;
+  private readonly logger = baseLogger.child({ service: "FileSyncService" });
   private readonly supabaseClientService: SupabaseClientService;
   private fileWatcher?: chokidar.FSWatcher;
   private readonly updatedFiles = new Set<string>();
@@ -131,12 +131,8 @@ export class FileSyncService {
     ".tsbuildinfo", // TypeScript incremental build info files
   ];
 
-  constructor(
-    supabaseClientService: SupabaseClientService,
-    logger: SystemLogger,
-  ) {
+  constructor(supabaseClientService: SupabaseClientService) {
     this.supabaseClientService = supabaseClientService;
-    this.logger = logger.child({ service: "FileSyncService" });
     this.initializeFileWatcher();
   }
 

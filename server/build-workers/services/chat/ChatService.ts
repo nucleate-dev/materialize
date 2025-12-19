@@ -4,7 +4,7 @@ import { FastifyInstance, FastifyRequest } from "fastify";
 import path from "path";
 import WebSocket from "ws";
 import { DEFAULT_FLAGS, FeatureFlags } from "../../FLAGS.js";
-import { SystemLogger } from "../../loggers/SystemLogger.js";
+import { baseLogger } from "../../loggers/index.js";
 import {
   ChatClientEvent,
   ChatClientMessage,
@@ -53,7 +53,7 @@ interface ChatConnection {
 
 export class ChatService {
   private readonly allowedRoot: string;
-  private readonly logger: SystemLogger;
+  private readonly logger: ReturnType<typeof baseLogger.child>;
   private readonly supabaseClientService: SupabaseClientService;
   private readonly fastifyApp: FastifyInstance;
   private readonly fileSyncService: FileSyncService;
@@ -84,7 +84,6 @@ export class ChatService {
 
   constructor(
     fastifyApp: FastifyInstance,
-    logger: SystemLogger,
     supabaseClientService: SupabaseClientService,
     sandboxService: SandboxService,
     devServerService: NucleateDevelopmentServerService,
@@ -93,23 +92,23 @@ export class ChatService {
   ) {
     this.allowedRoot = path.resolve("/tmp/materialize-dev-server");
     this.fastifyApp = fastifyApp;
-    this.logger = logger.child({ service: "CodeService" });
+    this.logger = baseLogger.child({ service: "ChatService" });
     this.supabaseClientService = supabaseClientService;
     this.fileSyncService = fileSyncService;
     this.toolPermissionService = new ToolPermissionService(
       this.allowedRoot,
-      logger,
+      this.logger,
     );
 
     // Initialize MessagePersistenceService
     this.messagePersistenceService = new MessagePersistenceService(
       supabaseClientService.getClient(),
-      logger,
+      this.logger,
     );
 
     // Initialize ChatQueryHandler
     this.chatQueryHandler = new ChatQueryHandler(
-      logger,
+      this.logger,
       supabaseClientService,
       this.fileSyncService,
       this.toolPermissionService,
@@ -122,7 +121,7 @@ export class ChatService {
     );
     try {
       this.vercelChatQueryHandler = new VercelChatQueryHandler(
-        logger,
+        this.logger,
         supabaseClientService,
         this.fileSyncService,
         this.toolPermissionService,
@@ -143,12 +142,12 @@ export class ChatService {
     // Initialize ClaudeTokenService
     this.claudeTokenService = new ClaudeTokenService(
       supabaseClientService.getClient(),
-      logger,
+      this.logger,
     );
 
     // Always initialize ClaudeCodeCliQueryHandler - will be used if user has a token
     this.claudeCodeCliQueryHandler = new ClaudeCodeCliQueryHandler(
-      logger,
+      this.logger,
       supabaseClientService,
       this.toolPermissionService,
     );
@@ -156,7 +155,7 @@ export class ChatService {
       "Claude Code CLI handler initialized - will be used for users with subscription tokens",
     );
 
-    this.logger.consoleLogDevOnly("info", "CodeService initialized", {
+    this.logger.consoleLogDevOnly("info", "ChatService initialized", {
       workDir: WORK_DIR,
       allowedRoot: this.allowedRoot,
     });

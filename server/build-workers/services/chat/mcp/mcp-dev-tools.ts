@@ -60,7 +60,13 @@ export function createDevelopmentToolsMcpServer(
             .describe("The absolute path to the file to write"),
           content: z.string().describe("The content to write to the file"),
         },
-        async ({ file_path, content }): Promise<CallToolResult> => {
+        async ({
+          file_path,
+          content,
+        }: {
+          file_path: string;
+          content: string;
+        }): Promise<CallToolResult> => {
           try {
             const result = await writeFile(file_path, content);
 
@@ -116,7 +122,7 @@ export function createDevelopmentToolsMcpServer(
               "Number of recent output lines to retrieve (default: 20, max: 1000)",
             ),
         },
-        async ({ lines }): Promise<CallToolResult> => {
+        async ({ lines }: { lines?: number }): Promise<CallToolResult> => {
           const linesToRetrieve = lines ?? 20;
           const session = terminalService.getSession("dev-server");
 
@@ -227,7 +233,15 @@ export function createDevelopmentToolsMcpServer(
               `Working directory for the command. Can be absolute (starting with ${WORK_DIR}) or relative to ${WORK_DIR}. Defaults to ${WORK_DIR}. For monorepo subdirectories, use paths like 'client' or 'backend'.`,
             ),
         },
-        async ({ command, args, cwd }): Promise<CallToolResult> => {
+        async ({
+          command,
+          args,
+          cwd,
+        }: {
+          command: string;
+          args?: string[];
+          cwd?: string;
+        }): Promise<CallToolResult> => {
           try {
             const result = await runCommand(command, args ?? [], cwd);
 

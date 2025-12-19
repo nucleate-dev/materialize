@@ -1,7 +1,7 @@
 import { spawn as spawnPty, IPty } from "node-pty";
 import { spawn } from "child_process";
 import process from "process";
-import { SystemLogger } from "../loggers/SystemLogger.js";
+import { baseLogger } from "../loggers/index.js";
 import { WORK_DIR } from "../worker.js";
 
 export type CloudflareTunnelStatus =
@@ -25,14 +25,15 @@ const CHECK_INTERVAL_MS = 500;
 const MAX_OUTPUT_CHARS = 16_384;
 
 export class CloudflareTunnelManagementService {
-  private readonly logger: SystemLogger;
+  private readonly logger = baseLogger.child({
+    service: "CloudflareTunnelManagementService",
+  });
   private pty: IPty | null = null;
   private readonly dataListeners = new Set<(chunk: string) => void>();
   private createInProgress = false;
   private tunnelRunning = false;
 
-  constructor(logger: SystemLogger) {
-    this.logger = logger;
+  constructor() {
     // Initialize PTY asynchronously - it will be ready before first use due to ensurePty()
     this.initializePty().catch((error) => {
       this.logger.error(

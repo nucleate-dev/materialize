@@ -1,6 +1,6 @@
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import { Database } from "../types/supabase.js";
-import { SystemLogger } from "../loggers/SystemLogger.js";
+import { baseLogger } from "../loggers/index.js";
 
 /**
  * Singleton service for managing Supabase client instance.
@@ -9,10 +9,9 @@ import { SystemLogger } from "../loggers/SystemLogger.js";
 export class SupabaseClientService {
   private static instance: SupabaseClientService | null = null;
   private supabaseClient: SupabaseClient<Database>;
-  private logger: SystemLogger;
 
-  private constructor(logger: SystemLogger) {
-    this.logger = logger.child({ service: "SupabaseClientService" });
+  private constructor() {
+    const logger = baseLogger.child({ service: "SupabaseClientService" });
 
     const supabaseUrl = process.env.SUPABASE_URL;
     const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
@@ -25,19 +24,16 @@ export class SupabaseClientService {
 
     // Initialize with default anonymous client
     this.supabaseClient = createClient<Database>(supabaseUrl, supabaseAnonKey);
-    this.logger.consoleLogDevOnly(
-      "info",
-      "Initialized default Supabase client",
-    );
+    logger.consoleLogDevOnly("info", "Initialized default Supabase client");
   }
 
   /**
    * Gets the singleton instance of SupabaseClientService.
    * Creates a new instance if one doesn't exist.
    */
-  public static getInstance(logger: SystemLogger): SupabaseClientService {
+  public static getInstance(): SupabaseClientService {
     if (!SupabaseClientService.instance) {
-      SupabaseClientService.instance = new SupabaseClientService(logger);
+      SupabaseClientService.instance = new SupabaseClientService();
     }
     return SupabaseClientService.instance;
   }
@@ -55,7 +51,9 @@ export class SupabaseClientService {
    */
   public setClient(client: SupabaseClient<Database>): void {
     this.supabaseClient = client;
-    this.logger.consoleLogDevOnly("info", "Updated Supabase client");
+    baseLogger
+      .child({ service: "SupabaseClientService" })
+      .consoleLogDevOnly("info", "Updated Supabase client");
   }
 
   /**
@@ -85,10 +83,9 @@ export class SupabaseClientService {
       },
     );
 
-    this.logger.consoleLogDevOnly(
-      "info",
-      "Created authenticated Supabase client",
-    );
+    baseLogger
+      .child({ service: "SupabaseClientService" })
+      .consoleLogDevOnly("info", "Created authenticated Supabase client");
     return authenticatedClient;
   }
 
@@ -100,10 +97,12 @@ export class SupabaseClientService {
   public refreshClientWithToken(jwtToken: string): void {
     const authenticatedClient = this.createAuthenticatedClient(jwtToken);
     this.setClient(authenticatedClient);
-    this.logger.consoleLogDevOnly(
-      "info",
-      "Refreshed Supabase client with JWT token",
-    );
+    baseLogger
+      .child({ service: "SupabaseClientService" })
+      .consoleLogDevOnly(
+        "info",
+        "Refreshed Supabase client with JWT token",
+      );
   }
 
   /**
@@ -114,6 +113,8 @@ export class SupabaseClientService {
     const supabaseAnonKey = process.env.SUPABASE_ANON_KEY!;
 
     this.supabaseClient = createClient<Database>(supabaseUrl, supabaseAnonKey);
-    this.logger.consoleLogDevOnly("info", "Reset Supabase client to anonymous");
+    baseLogger
+      .child({ service: "SupabaseClientService" })
+      .consoleLogDevOnly("info", "Reset Supabase client to anonymous");
   }
 }

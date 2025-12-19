@@ -6,7 +6,7 @@ import { spawn } from "child_process";
 import { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import fs from "fs/promises";
 import path from "path";
-import { SystemLogger } from "../loggers/SystemLogger.js";
+import { baseLogger } from "../loggers/index.js";
 import { stripAnsiSequences } from "./terminals/TerminalAnsiUtils.js";
 import {
   PublicRunCommandRequest,
@@ -60,17 +60,16 @@ interface GitCheckoutResult {
 }
 
 export class SandboxService {
-  private readonly log2: SystemLogger;
+  private readonly log: ReturnType<typeof baseLogger.child>;
   private readonly fastifyApp: FastifyInstance;
   private readonly terminalService: TerminalService;
 
   constructor(
     fastifyApp: FastifyInstance,
-    logger: SystemLogger,
     terminalService: TerminalService,
   ) {
     this.fastifyApp = fastifyApp;
-    this.log2 = logger.child({ service: "SandboxService" });
+    this.log = baseLogger.child({ service: "SandboxService" });
     this.terminalService = terminalService;
   }
 
@@ -136,7 +135,7 @@ export class SandboxService {
       // Security: Validate path is within workDir
       const resolvedPath = resolvePathWithinProject(WORK_DIR, relativePath);
 
-      this.log2.consoleLogDevOnly("info", "Creating directory", {
+      this.log.consoleLogDevOnly("info", "Creating directory", {
         path: relativePath,
         resolvedPath,
         recursive,
@@ -144,14 +143,14 @@ export class SandboxService {
 
       await fs.mkdir(resolvedPath, { recursive });
 
-      this.log2.consoleLogDevOnly("info", "Directory created successfully", {
+      this.log.consoleLogDevOnly("info", "Directory created successfully", {
         path: relativePath,
       });
       return { success: true };
     } catch (error: unknown) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
-      this.log2.error(new Error(errorMessage), "Failed to create directory", {
+      this.log.error(new Error(errorMessage), "Failed to create directory", {
         path: relativePath,
         recursive,
       });
@@ -186,7 +185,7 @@ export class SandboxService {
     if (session_id) {
       // Use existing session
       sessionId = session_id;
-      this.log2.consoleLogDevOnly("info", "Using existing terminal session", {
+      this.log.consoleLogDevOnly("info", "Using existing terminal session", {
         sessionId,
       });
     } else {
@@ -197,7 +196,7 @@ export class SandboxService {
           cwd: cwd || WORK_DIR,
         });
         shouldCleanupSession = true;
-        this.log2.consoleLogDevOnly(
+        this.log.consoleLogDevOnly(
           "info",
           "Created temporary terminal session",
           { sessionId },
@@ -209,7 +208,7 @@ export class SandboxService {
       } catch (error) {
         const errorMessage =
           error instanceof Error ? error.message : String(error);
-        this.log2.error(
+        this.log.error(
           new Error(errorMessage),
           "Failed to create terminal session",
           { sessionId },
@@ -242,7 +241,7 @@ export class SandboxService {
       const cwdPrefix = cwd ? `cd ${cwd} && ` : "";
       const fullCommand = `${envString ? envString + " " : ""}${cwdPrefix}${command}${argsString}`;
 
-      this.log2.consoleLogDevOnly("info", "Executing command in terminal", {
+      this.log.consoleLogDevOnly("info", "Executing command in terminal", {
         command: fullCommand,
         sessionId,
         timeoutMs,
@@ -265,7 +264,7 @@ export class SandboxService {
         cleanOutput = stripAnsiSequences(cleanOutput);
       }
 
-      this.log2.consoleLogDevOnly("info", "Command completed successfully", {
+      this.log.consoleLogDevOnly("info", "Command completed successfully", {
         command,
         sessionId,
         exitCode: result.exitCode,
@@ -306,7 +305,7 @@ export class SandboxService {
         error instanceof Error ? error.message : String(error);
       const isTimeout = errorMessage.includes("timed out");
 
-      this.log2.error(
+      this.log.error(
         new Error(errorMessage),
         isTimeout ? "Command timed out" : "Failed to execute command",
         { sessionId, command, timeoutMs },
@@ -385,7 +384,7 @@ export class SandboxService {
       // Security: Validate path is within workDir
       const resolvedPath = resolvePathWithinProject(WORK_DIR, relativePath);
 
-      this.log2.consoleLogDevOnly("info", "Reading file", {
+      this.log.consoleLogDevOnly("info", "Reading file", {
         path: relativePath,
         resolvedPath,
       });
@@ -394,7 +393,7 @@ export class SandboxService {
       const stats = await fs.stat(resolvedPath);
       if (stats.size > MAX_FILE_SIZE_BYTES) {
         const errorMsg = `File too large: ${stats.size} bytes (max ${MAX_FILE_SIZE_BYTES} bytes)`;
-        this.log2.error(new Error(errorMsg), "File size limit exceeded", {
+        this.log.error(new Error(errorMsg), "File size limit exceeded", {
           path: relativePath,
           size: stats.size,
         });
@@ -411,14 +410,14 @@ export class SandboxService {
       if (isBinary) {
         // Base64 encode binary files
         contents = buffer.toString("base64");
-        this.log2.consoleLogDevOnly("info", "File read successfully (binary)", {
+        this.log.consoleLogDevOnly("info", "File read successfully (binary)", {
           path: relativePath,
           size: stats.size,
         });
       } else {
         // Return text files as UTF-8
         contents = buffer.toString("utf-8");
-        this.log2.consoleLogDevOnly("info", "File read successfully (text)", {
+        this.log.consoleLogDevOnly("info", "File read successfully (text)", {
           path: relativePath,
           size: stats.size,
         });
@@ -428,7 +427,7 @@ export class SandboxService {
     } catch (error: unknown) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
-      this.log2.error(new Error(errorMessage), "Failed to read file", {
+      this.log.error(new Error(errorMessage), "Failed to read file", {
         path: relativePath,
       });
       return { success: false, error: errorMessage };
@@ -454,7 +453,7 @@ export class SandboxService {
       // Security: Validate path is within workDir
       const resolvedPath = resolvePathWithinProject(WORK_DIR, fullRelativePath);
 
-      this.log2.consoleLogDevOnly("info", "Writing file", {
+      this.log.consoleLogDevOnly("info", "Writing file", {
         path: fullRelativePath,
         resolvedPath,
         contentLength: contents.length,
@@ -467,14 +466,14 @@ export class SandboxService {
       // Write file
       await fs.writeFile(resolvedPath, contents, "utf-8");
 
-      this.log2.consoleLogDevOnly("info", "File written successfully", {
+      this.log.consoleLogDevOnly("info", "File written successfully", {
         path: fullRelativePath,
       });
       return { success: true };
     } catch (error: unknown) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
-      this.log2.error(new Error(errorMessage), "Failed to write file", {
+      this.log.error(new Error(errorMessage), "Failed to write file", {
         path: relativePath,
         filename,
       });
@@ -497,7 +496,7 @@ export class SandboxService {
       if (!this.isValidGitUrl(gitUrl)) {
         const errorMsg =
           "Invalid git URL. Only HTTPS URLs are allowed (e.g., https://github.com/user/repo.git)";
-        this.log2.error(new Error(errorMsg), "Invalid git URL", { gitUrl });
+        this.log.error(new Error(errorMsg), "Invalid git URL", { gitUrl });
         return { success: false, error: errorMsg };
       }
 
@@ -505,7 +504,7 @@ export class SandboxService {
       if (this.containsPrivateIp(gitUrl)) {
         const errorMsg =
           "Git URL contains private IP address. Only public repositories are allowed.";
-        this.log2.error(new Error(errorMsg), "Private IP in git URL", {
+        this.log.error(new Error(errorMsg), "Private IP in git URL", {
           gitUrl,
         });
         return { success: false, error: errorMsg };
@@ -521,7 +520,7 @@ export class SandboxService {
         resolvedPath = resolvePathWithinProject(WORK_DIR, repoName);
       }
 
-      this.log2.consoleLogDevOnly("info", "Cloning git repository", {
+      this.log.consoleLogDevOnly("info", "Cloning git repository", {
         gitUrl,
         targetPath: resolvedPath,
       });
@@ -530,13 +529,13 @@ export class SandboxService {
       const result = await this.executeGitClone(gitUrl, resolvedPath);
 
       if (result.code === 0) {
-        this.log2.consoleLogDevOnly("info", "Git clone successful", {
+        this.log.consoleLogDevOnly("info", "Git clone successful", {
           gitUrl,
           targetPath: resolvedPath,
         });
         return { success: true, output: result.stdout };
       } else {
-        this.log2.error(new Error(result.stderr), "Git clone failed", {
+        this.log.error(new Error(result.stderr), "Git clone failed", {
           gitUrl,
           targetPath: resolvedPath,
         });
@@ -545,7 +544,7 @@ export class SandboxService {
     } catch (error: unknown) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
-      this.log2.error(new Error(errorMessage), "Git checkout failed", {
+      this.log.error(new Error(errorMessage), "Git checkout failed", {
         gitUrl,
         targetPath,
       });
@@ -678,13 +677,13 @@ export class SandboxService {
       gitProcess.stdout?.on("data", (data: Buffer) => {
         const output = data.toString();
         stdout += output;
-        this.log2.debug("Git clone stdout", { output: output.trim() });
+        this.log.debug("Git clone stdout", { output: output.trim() });
       });
 
       gitProcess.stderr?.on("data", (data: Buffer) => {
         const output = data.toString();
         stderr += output;
-        this.log2.debug("Git clone stderr", { output: output.trim() });
+        this.log.debug("Git clone stderr", { output: output.trim() });
       });
 
       gitProcess.on("close", (code: number | null) => {
@@ -714,7 +713,7 @@ export class SandboxService {
     const { path, recursive } = request.body;
 
     if (!path) {
-      this.log2.error(
+      this.log.error(
         new Error("Missing required parameter: path"),
         "Missing required parameter: path",
       );
@@ -738,7 +737,7 @@ export class SandboxService {
           error: null,
         };
       } else {
-        this.log2.error(new Error(result.error), "Failed to create directory", {
+        this.log.error(new Error(result.error), "Failed to create directory", {
           path,
           recursive,
         });
@@ -754,7 +753,7 @@ export class SandboxService {
     } catch (error: unknown) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
-      this.log2.error(
+      this.log.error(
         new Error(errorMessage),
         "Unexpected error in handleSandboxMakeDir",
         { path, recursive },
@@ -779,7 +778,7 @@ export class SandboxService {
     const { path } = request.body;
 
     if (!path) {
-      this.log2.error(
+      this.log.error(
         new Error("Missing required parameter: path"),
         "Missing required parameter: path",
       );
@@ -812,7 +811,7 @@ export class SandboxService {
           result.error?.includes("no such file");
 
         if (isNotFound) {
-          this.log2.warn("File not found", { path });
+          this.log.warn("File not found", { path });
           reply.code(404);
           return {
             data: null,
@@ -822,7 +821,7 @@ export class SandboxService {
             },
           };
         } else {
-          this.log2.error(new Error(result.error), "Failed to read file", {
+          this.log.error(new Error(result.error), "Failed to read file", {
             path,
           });
           reply.code(500);
@@ -838,7 +837,7 @@ export class SandboxService {
     } catch (error: unknown) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
-      this.log2.error(
+      this.log.error(
         new Error(errorMessage),
         "Unexpected error in handleSandboxReadFile",
         { path },
@@ -863,7 +862,7 @@ export class SandboxService {
     const { path, filename, contents } = request.body;
 
     if (!path || !filename || contents === undefined) {
-      this.log2.error(
+      this.log.error(
         new Error("Missing required parameters"),
         "Missing required parameters",
         {
@@ -892,7 +891,7 @@ export class SandboxService {
           error: null,
         };
       } else {
-        this.log2.error(new Error(result.error), "Failed to write file", {
+        this.log.error(new Error(result.error), "Failed to write file", {
           path,
           filename,
         });
@@ -908,7 +907,7 @@ export class SandboxService {
     } catch (error: unknown) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
-      this.log2.error(
+      this.log.error(
         new Error(errorMessage),
         "Unexpected error in handleSandboxWriteFile",
         { path, filename },
@@ -933,7 +932,7 @@ export class SandboxService {
     const { git_url, target_path } = request.body;
 
     if (!git_url) {
-      this.log2.error(
+      this.log.error(
         new Error("Missing required parameter: git_url"),
         "Missing required parameter: git_url",
       );
@@ -965,7 +964,7 @@ export class SandboxService {
           result.error?.includes("private IP");
 
         if (isValidationError) {
-          this.log2.warn("Git checkout validation failed", {
+          this.log.warn("Git checkout validation failed", {
             git_url,
             error: result.error,
           });
@@ -979,7 +978,7 @@ export class SandboxService {
             },
           };
         } else {
-          this.log2.error(new Error(result.error), "Git checkout failed", {
+          this.log.error(new Error(result.error), "Git checkout failed", {
             git_url,
             target_path,
           });
@@ -997,7 +996,7 @@ export class SandboxService {
     } catch (error: unknown) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
-      this.log2.error(
+      this.log.error(
         new Error(errorMessage),
         "Unexpected error in handleSandboxGitCheckout",
         { git_url, target_path },

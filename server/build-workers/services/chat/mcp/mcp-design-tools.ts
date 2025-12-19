@@ -52,7 +52,13 @@ export function createDesignToolsMcpServer(
               "Optional project context: code snippets, layout constraints, brand rules, or design system notes",
             ),
         },
-        async ({ request, context }): Promise<CallToolResult> => {
+        async ({
+          request,
+          context,
+        }: {
+          request: string;
+          context?: string;
+        }): Promise<CallToolResult> => {
           try {
             const prompt = [
               "Request:",
