@@ -16,6 +16,7 @@ import {
   HistoryResponseData,
 } from "../../types/ChatTypes.js";
 import { Database } from "../../types/supabase.js";
+import { WORK_DIR } from "../../worker.js";
 import { ClaudeTokenService } from "../auth/claude-token-service.js";
 import { NucleateDevelopmentServerService } from "../dev-server/NucleateDevelopmentServerService.js";
 import { FileSyncService } from "../FileSyncService.js";
@@ -23,12 +24,11 @@ import { FlagsService } from "../FlagsService.js";
 import { SandboxService } from "../SandboxService.js";
 import { SupabaseClientService } from "../SupabaseClientService.js";
 import { TerminalService } from "../terminals/TerminalService.js";
-import { ChatQueryHandler } from "./chat-engines.ts/chat-query-handler.js";
-import { ClaudeCodeCliQueryHandler } from "./chat-engines.ts/claude-code-cli-query-handler.js";
+import { ChatQueryHandler } from "./chat-engines/chat-query-handler.js";
+import { ClaudeCodeCliQueryHandler } from "./chat-engines/claude-code-cli-query-handler.js";
 import { MessagePersistenceService } from "./helpers/message-handlers.js";
 import { ChatProvider, isAllowedModel } from "./helpers/model-providers.js";
 import { ToolPermissionService } from "./helpers/tool-permission-service.js";
-import { WORK_DIR } from "../../worker.js";
 
 const CHAT_HEARTBEAT_INTERVAL_MS = 15000;
 
@@ -43,7 +43,7 @@ interface CodeSessionState {
   modifiedFilesThisQuery: Set<string>; // Track files modified by tools for the current query
   designSystemId: string | null; // ID of currently loaded design system
   designSystemRules: string | null; // Cached design system rules
-  firstMessageStatus: { sessionId: string; isFirst: boolean } | null; // Cache first-message detection
+  firstMessageStatus: { sessionId: string; isFirst: boolean; } | null; // Cache first-message detection
 }
 
 interface ChatConnection {
@@ -209,7 +209,7 @@ export class ChatService {
 
   private handleWebSocketConnection(
     socket: WebSocket,
-    req: FastifyRequest<{ Params: { prototypeId: string } }>,
+    req: FastifyRequest<{ Params: { prototypeId: string; }; }>,
   ): void {
     void this.refreshFeatureFlags();
 
@@ -507,7 +507,7 @@ export class ChatService {
         uploadChatImages: async (
           prototypeId: string,
           chatSessionId: string,
-          images: Array<{ base64: string; mediaType: string }>,
+          images: Array<{ base64: string; mediaType: string; }>,
         ) => {
           return await this.messagePersistenceService.uploadChatImages(
             prototypeId,
@@ -544,7 +544,7 @@ export class ChatService {
     let historyContext = "";
     if (historical_messages.length > 0) {
       const formattedMessages = historical_messages
-        .map((msg: { role: string; content: string }) => {
+        .map((msg: { role: string; content: string; }) => {
           const role = msg.role === "user" ? "User" : "Assistant";
           return `${role}: ${msg.content}`;
         })
