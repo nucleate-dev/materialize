@@ -273,6 +273,13 @@ const MaterializeRenderSection = forwardRef<
       isWebFramework ? "web" : "mobile"
     );
     const [refreshKey, setRefreshKey] = useState(0);
+
+    // Update preview mode when framework changes to web
+    useEffect(() => {
+      if (isWebFramework && previewMode === "mobile") {
+        setPreviewMode("web");
+      }
+    }, [isWebFramework, previewMode]);
     const [mobileSize, setMobileSize] = useState({ width: 320, height: 640 });
     const [isIframeLoading, setIsIframeLoading] = useState(false);
     const [iframeError, setIframeError] = useState(false);
@@ -2026,20 +2033,18 @@ const MaterializeRenderSection = forwardRef<
                   align="end"
                   className="w-48 bg-accent border-border text-foreground"
                 >
-                  {!isWebFramework && (
-                    <DropdownMenuItem
-                      onClick={() => handleModeChange("mobile")}
-                      className={cn(
-                        "focus:bg-accent/80 focus:text-foreground text-sm cursor-pointer",
-                        previewMode === "mobile"
-                          ? "bg-accent/50 text-foreground"
-                          : "text-muted-foreground",
-                      )}
-                    >
-                      <Smartphone className="w-4 h-4 mr-2 opacity-70" />
-                      Mobile View
-                    </DropdownMenuItem>
-                  )}
+                  <DropdownMenuItem
+                    onClick={() => handleModeChange("mobile")}
+                    className={cn(
+                      "focus:bg-accent/80 focus:text-foreground text-sm cursor-pointer",
+                      previewMode === "mobile"
+                        ? "bg-accent/50 text-foreground"
+                        : "text-muted-foreground",
+                    )}
+                  >
+                    <Smartphone className="w-4 h-4 mr-2 opacity-70" />
+                    Mobile View
+                  </DropdownMenuItem>
                   <DropdownMenuItem
                     onClick={() => handleModeChange("web")}
                     className={cn(
