@@ -191,6 +191,7 @@ export interface AllocationUserDetails {
 
 export interface AllocationCloudflareTunnelCredentials {
   cloudflare_tunnel_token: string;
+  cloudflare_tunnel_hostname?: string;
 }
 
 export interface AllocationKeys {

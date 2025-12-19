@@ -42,8 +42,24 @@ export async function handleStartDevServerImpl(
   const resolvedFramework =
     developmentServerService.prototypeFramework ?? DEFAULT_PROTOTYPE_FRAMEWORK;
   if (resolvedFramework === "web_nextjs_react") {
+    const tunnelHostname = developmentServerService.cloudflareTunnelHostname;
+    if (!tunnelHostname) {
+      request.log2.error(
+        new Error("Missing Cloudflare tunnel hostname"),
+        "Cannot start Next.js dev server without tunnel hostname",
+      );
+      reply.code(HTTP_STATUS.INTERNAL_SERVER_ERROR);
+      return {
+        data: null,
+        error: {
+          error: "Missing tunnel hostname",
+          message: "Unable to start dev server without Cloudflare hostname",
+        },
+      };
+    }
     developmentServerService.developmentServerAdapter = new NextJsReactAdapter(
       developmentServerService.terminalService,
+      tunnelHostname,
     );
   } else {
     developmentServerService.developmentServerAdapter = new ExpoReactNativeAdapter(

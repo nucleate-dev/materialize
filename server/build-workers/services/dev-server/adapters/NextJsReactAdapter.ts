@@ -23,16 +23,11 @@ export class NextJsReactAdapter implements IDevelopmentServerAdapter {
   public readonly serverType: DevelopmentServerType = "nextjs-web";
   private readonly terminalService: TerminalService;
   private readonly clientDir = path.join(WORK_DIR, "client");
-  private readonly configuredTunnelUrl: string | null;
+  private readonly configuredTunnelUrl: string;
 
-  constructor(terminalService: TerminalService) {
+  constructor(terminalService: TerminalService, tunnelHostname: string) {
     this.terminalService = terminalService;
-    this.configuredTunnelUrl = this.normalizeUrl(
-      process.env.NEXT_DEV_SERVER_TUNNEL_URL ||
-        process.env.DEV_SERVER_EXTERNAL_URL ||
-        process.env.CLOUDFLARE_TUNNEL_HOSTNAME ||
-        null,
-    );
+    this.configuredTunnelUrl = this.normalizeUrl(tunnelHostname);
   }
 
   /**
@@ -75,17 +70,6 @@ export class NextJsReactAdapter implements IDevelopmentServerAdapter {
         const output = chunk.toString();
         const cleanedOutput = output.replace(/\x1B\[[0-9;]*m/g, "");
 
-        const urlMatch = cleanedOutput.match(/https?:\/\/[^\s)]+/g);
-        if (urlMatch) {
-          const portSpecific = urlMatch.filter((url) =>
-            url.includes(`:${DEV_SERVER_PORT}`),
-          );
-
-          if (portSpecific.length > 0) {
-            detectedUrl = this.chooseBestUrl(portSpecific);
-          }
-        }
-
         const readyPatterns = [
           "ready - started server",
           "Ready on http://",
@@ -102,16 +86,12 @@ export class NextJsReactAdapter implements IDevelopmentServerAdapter {
           resolved = true;
           clearTimeout(timeout);
           cleanup?.();
-          const tunnelUrl =
-            detectedUrl || this.configuredTunnelUrl || this.defaultUrl();
           log2.consoleLogDevOnly("info", "Next.js dev server ready", {
-            tunnelUrl,
-            detectedUrl,
             configuredTunnelUrl: this.configuredTunnelUrl,
           });
           resolve({
             data: {
-              tunnel_url: tunnelUrl,
+              tunnel_url: this.configuredTunnelUrl,
             },
             error: null,
           });
@@ -401,33 +381,12 @@ echo "EXIT_CODE=$?"
     }
   }
 
-  private chooseBestUrl(candidates: string[]): string {
-    const sanitized = candidates.map((url) =>
-      url.replace(/\x1B\[[0-9;]*m/g, ""),
-    );
-    const nonLocal = sanitized.find(
-      (url) =>
-        !url.includes("localhost") &&
-        !url.includes("127.0.0.1") &&
-        !url.includes("0.0.0.0"),
-    );
-    return nonLocal || sanitized[0] || this.defaultUrl();
-  }
-
-  private normalizeUrl(url: string | null | undefined): string | null {
-    if (!url) return null;
+  private normalizeUrl(url: string): string {
     const trimmed = url.trim();
-    if (!trimmed) {
-      return null;
-    }
     if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
       return trimmed;
     }
     return `https://${trimmed}`;
-  }
-
-  private defaultUrl(): string {
-    return `http://localhost:${DEV_SERVER_PORT}`;
   }
 
   private buildStartCommand(): string {

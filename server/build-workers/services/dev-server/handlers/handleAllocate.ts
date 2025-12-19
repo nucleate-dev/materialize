@@ -77,9 +77,17 @@ export async function handleAllocateImpl(
       prototypeError,
       "Failed to fetch prototype framework; falling back to default",
     );
+    materializeDevelopmentServerService.setPrototypeFramework(
+      DEFAULT_PROTOTYPE_FRAMEWORK,
+    );
   } else {
     materializeDevelopmentServerService.setPrototypeFramework(
       prototypeRow?.framework ?? DEFAULT_PROTOTYPE_FRAMEWORK,
+    );
+  }
+  if (cloudflare_credentials.cloudflare_tunnel_hostname) {
+    materializeDevelopmentServerService.setCloudflareTunnelHostname(
+      cloudflare_credentials.cloudflare_tunnel_hostname,
     );
   }
 

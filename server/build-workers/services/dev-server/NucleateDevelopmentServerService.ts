@@ -50,6 +50,7 @@ export class NucleateDevelopmentServerService {
   public developmentServerAdapter: IDevelopmentServerAdapter;
   public s3Client: S3Client | undefined;
   public prototypeFramework: Database["public"]["Enums"]["prototype_framework"];
+  public cloudflareTunnelHostname: string | null;
   public developmentServerState: {
     tunnelUrl: string;
     devServerStatus: DevServerStatus;
@@ -76,6 +77,7 @@ export class NucleateDevelopmentServerService {
     this.terminalService = terminalService;
     this.developmentServerAdapter = new ExpoReactNativeAdapter(terminalService); // default adapter]
     this.prototypeFramework = DEFAULT_PROTOTYPE_FRAMEWORK;
+    this.cloudflareTunnelHostname = null;
     const now = new Date();
     this.developmentServerState = {
       tunnelUrl: "",
@@ -123,6 +125,10 @@ export class NucleateDevelopmentServerService {
     framework: Database["public"]["Enums"]["prototype_framework"],
   ): void {
     this.prototypeFramework = framework;
+  }
+
+  public setCloudflareTunnelHostname(hostname: string): void {
+    this.cloudflareTunnelHostname = hostname;
   }
 
   private async allocate(
