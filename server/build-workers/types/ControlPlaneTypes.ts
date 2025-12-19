@@ -5,7 +5,7 @@
 // To update these shared files, modify the source file and run:
 // npm run sync-types (in the control-plane directory)
 //
-// Last synced: 2025-12-19T04:36:37.661Z
+// Last synced: 2025-12-19T04:48:49.143Z
 
 // Public API types for the Control Plane Server
 // These types define the request and response schemas for all public endpoints
@@ -223,6 +223,7 @@ export interface CreatePrototypeRequestBody {
   visibility?: 'PUBLIC' | 'SELF';
   design_style?: Database['public']['Enums']['design_style'];
   custom_design_system?: string | null;
+  framework?: Database['public']['Enums']['prototype_framework'];
 }
 
 export interface CreatePrototypeSuccessResponse {

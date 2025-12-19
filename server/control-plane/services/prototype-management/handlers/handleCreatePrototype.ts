@@ -43,6 +43,12 @@ const VALID_DESIGN_STYLES: DesignStyle[] = [
   'stylesheets',
   'nativewind',
 ];
+type PrototypeFramework = Database['public']['Enums']['prototype_framework'];
+const VALID_FRAMEWORKS: PrototypeFramework[] = [
+  'mobile_expo_react_native',
+  'web_nextjs_react',
+];
+const DEFAULT_FRAMEWORK: PrototypeFramework = 'mobile_expo_react_native';
 
 export async function handleCreatePrototypeImpl(
   request: FastifyRequest<{ Body: CreatePrototypeRequestBody; }>,
@@ -95,6 +101,7 @@ export async function handleCreatePrototypeImpl(
       prototype_id: forkPrototypeId, // If provided, this is a fork
       design_style,
       custom_design_system,
+      framework,
     } = request.body;
     let { visibility } = request.body;
     if (!visibility) {
@@ -129,11 +136,14 @@ export async function handleCreatePrototypeImpl(
     let resolvedCustomDesignSystem: string | null =
       custom_design_system ?? null;
 
+    const requestedFramework = framework;
+    let resolvedFramework: PrototypeFramework = DEFAULT_FRAMEWORK;
+
     if (forkPrototypeId) {
       const { data: sourcePrototype, error: sourcePrototypeError } =
         await supabase
           .from('prototypes')
-          .select('design_style')
+          .select('design_style, framework')
           .eq('id', forkPrototypeId)
           .single();
 
@@ -146,7 +156,18 @@ export async function handleCreatePrototypeImpl(
         if (!resolvedDesignStyle) {
           resolvedDesignStyle = sourcePrototype.design_style;
         }
+        if (sourcePrototype.framework) {
+          resolvedFramework = sourcePrototype.framework;
+        }
       }
+    }
+
+    if (
+      !forkPrototypeId &&
+      requestedFramework &&
+      VALID_FRAMEWORKS.includes(requestedFramework)
+    ) {
+      resolvedFramework = requestedFramework;
     }
 
     if (!resolvedDesignStyle && folder_id) {
@@ -192,6 +213,7 @@ export async function handleCreatePrototypeImpl(
         custom_design_system: forkPrototypeId
           ? null
           : resolvedCustomDesignSystem,
+        framework: resolvedFramework,
       } satisfies TablesInsert<'prototypes'>)
       .select()
       .single();

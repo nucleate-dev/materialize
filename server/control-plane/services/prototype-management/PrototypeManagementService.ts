@@ -98,6 +98,10 @@ export class PrototypeManagementService {
               custom_design_system: {
                 type: ['string', 'null'],
               },
+              framework: {
+                type: 'string',
+                enum: ['mobile_expo_react_native', 'web_nextjs_react'],
+              },
             },
           },
         },

@@ -214,6 +214,7 @@ export interface CreatePrototypeRequestBody {
   visibility?: 'PUBLIC' | 'SELF';
   design_style?: Database['public']['Enums']['design_style'];
   custom_design_system?: string | null;
+  framework?: Database['public']['Enums']['prototype_framework'];
 }
 
 export interface CreatePrototypeSuccessResponse {

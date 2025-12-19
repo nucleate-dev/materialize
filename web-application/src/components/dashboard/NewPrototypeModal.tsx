@@ -48,6 +48,7 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { usePostHog } from "posthog-js/react";
 
 interface NewPrototypeModalProps {
   open: boolean;
@@ -58,6 +59,8 @@ interface NewPrototypeModalProps {
 }
 
 type DesignStyle = Database["public"]["Enums"]["design_style"];
+type PrototypeFramework =
+  Database["public"]["Enums"]["prototype_framework"];
 type DesignSystemRow = Database["public"]["Tables"]["design_systems"]["Row"];
 type FolderOption = {
   id: string;
@@ -66,6 +69,7 @@ type FolderOption = {
 };
 
 const DESIGN_STYLE_OPTIONS: DesignStyle[] = ["stylesheets", "nativewind"];
+const WEB_DESIGN_STYLE_OPTIONS: DesignStyle[] = ["stylesheets"];
 
 const DESIGN_STYLE_LABELS: Partial<Record<DesignStyle, string>> = {
   stylesheets: "React Native StyleSheet",
@@ -74,12 +78,25 @@ const DESIGN_STYLE_LABELS: Partial<Record<DesignStyle, string>> = {
   custom: "Custom",
 };
 
+const WEB_DESIGN_STYLE_LABELS: Partial<Record<DesignStyle, string>> = {
+  stylesheets: "Tailwind + Shadcn",
+};
+
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   value !== null && typeof value === "object" && !Array.isArray(value);
 
 const isDesignStyle = (value: unknown): value is DesignStyle =>
   typeof value === "string" &&
   DESIGN_STYLE_OPTIONS.includes(value as DesignStyle);
+
+const DEFAULT_FRAMEWORK: PrototypeFramework = "mobile_expo_react_native";
+const PLATFORM_OPTIONS: Array<{
+  value: PrototypeFramework;
+  label: string;
+}> = [
+  { value: "web_nextjs_react", label: "Web" },
+  { value: "mobile_expo_react_native", label: "Mobile" },
+];
 
 export default function NewPrototypeModal({
   open,
@@ -90,6 +107,7 @@ export default function NewPrototypeModal({
 }: NewPrototypeModalProps) {
   const router = useRouter();
   const logger = useProductLogger();
+  const posthog = usePostHog();
 
   const [name, setName] = useState("");
   const [touched, setTouched] = useState(false);
@@ -113,6 +131,25 @@ export default function NewPrototypeModal({
   const [hasManualDesignSelection, setHasManualDesignSelection] =
     useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [framework, setFramework] =
+    useState<PrototypeFramework>(DEFAULT_FRAMEWORK);
+
+  const isWebPrototypeEnabled =
+    posthog?.isFeatureEnabled("web-prototype-support") ?? false;
+  const isWebFrameworkSelected = framework === "web_nextjs_react";
+  const availableDesignStyles = isWebFrameworkSelected
+    ? WEB_DESIGN_STYLE_OPTIONS
+    : DESIGN_STYLE_OPTIONS;
+  const getDesignStyleLabel = (style: DesignStyle): string => {
+    if (isWebFrameworkSelected) {
+      return (
+        WEB_DESIGN_STYLE_LABELS[style] ??
+        DESIGN_STYLE_LABELS[style] ??
+        style
+      );
+    }
+    return DESIGN_STYLE_LABELS[style] ?? style;
+  };
 
   // Fetch user's projects and prototype count
   useEffect(() => {
@@ -231,6 +268,16 @@ export default function NewPrototypeModal({
 
   useEffect(() => {
     if (!open) {
+      setFramework(DEFAULT_FRAMEWORK);
+    }
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    if (framework === "web_nextjs_react") {
       return;
     }
 
@@ -268,7 +315,7 @@ export default function NewPrototypeModal({
 
     setDesignStyle("stylesheets");
     setCustomDesignSystemId(null);
-  }, [open, selectedFolder, folders, hasManualDesignSelection]);
+  }, [open, selectedFolder, folders, hasManualDesignSelection, framework]);
 
   useEffect(() => {
     if (!open) {
@@ -284,6 +331,20 @@ export default function NewPrototypeModal({
       }
     }
   }, [open, designSystems, customDesignSystemId]);
+
+  useEffect(() => {
+    if (framework !== "web_nextjs_react") {
+      return;
+    }
+
+    if (designStyle !== "stylesheets") {
+      setDesignStyle("stylesheets");
+    }
+
+    if (!hasManualDesignSelection) {
+      setHasManualDesignSelection(true);
+    }
+  }, [framework, designStyle, hasManualDesignSelection]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -317,6 +378,7 @@ export default function NewPrototypeModal({
           visibility,
           design_style: designStyle,
           custom_design_system: customDesignSystemId ?? undefined,
+          framework,
         } as CreatePrototypeRequestBody),
       });
 
@@ -331,6 +393,7 @@ export default function NewPrototypeModal({
         setVisibility(userPlan === "free" ? "PUBLIC" : "SELF");
         setDesignStyle("stylesheets");
         setCustomDesignSystemId(null);
+        setFramework(DEFAULT_FRAMEWORK);
         setHasManualDesignSelection(false);
         setTouched(false);
         onCreated(result.data.prototype_id);
@@ -578,6 +641,45 @@ export default function NewPrototypeModal({
                   </Select>
                 </div>
 
+                {isWebPrototypeEnabled && (
+                  <div className="space-y-2">
+                    <Label
+                      htmlFor="platform-select"
+                      className="text-xs font-medium text-zinc-500 dark:text-[#8A8F98]"
+                    >
+                      Platform
+                    </Label>
+                    <Select
+                      value={framework}
+                      onValueChange={(value) =>
+                        setFramework(value as PrototypeFramework)
+                      }
+                      disabled={isCreating}
+                    >
+                      <SelectTrigger
+                        id="platform-select"
+                        className="h-10 bg-white dark:bg-[#0B0C0E] border-zinc-200 dark:border-white/10 text-zinc-900 dark:text-white text-sm focus:ring-0"
+                      >
+                        <div className="flex items-center gap-2">
+                          <Rocket className="w-3.5 h-3.5 text-zinc-400 dark:text-white/50" />
+                          <SelectValue />
+                        </div>
+                      </SelectTrigger>
+                      <SelectContent className="bg-white dark:bg-[#141517] border-zinc-200 dark:border-white/10 text-zinc-900 dark:text-white">
+                        {PLATFORM_OPTIONS.map((option) => (
+                          <SelectItem
+                            key={option.value}
+                            value={option.value}
+                            className="focus:bg-zinc-100 dark:focus:bg-white/10 focus:text-zinc-900 dark:focus:text-white cursor-pointer text-sm"
+                          >
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
                 {/* Design Style */}
                 <div className="space-y-2">
                   <Label
@@ -603,13 +705,13 @@ export default function NewPrototypeModal({
                       </div>
                     </SelectTrigger>
                     <SelectContent className="bg-white dark:bg-[#141517] border-zinc-200 dark:border-white/10 text-zinc-900 dark:text-white">
-                      {DESIGN_STYLE_OPTIONS.map((style) => (
+                      {availableDesignStyles.map((style) => (
                         <SelectItem
                           key={style}
                           value={style}
                           className="focus:bg-zinc-100 dark:focus:bg-white/10 focus:text-zinc-900 dark:focus:text-white cursor-pointer text-sm"
                         >
-                          {DESIGN_STYLE_LABELS[style]}
+                          {getDesignStyleLabel(style)}
                         </SelectItem>
                       ))}
                     </SelectContent>
