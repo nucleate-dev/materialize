@@ -160,8 +160,7 @@ export class NextJsReactAdapter implements IDevelopmentServerAdapter {
           data: null,
           error: {
             error: "Failed to send Next.js start command",
-            message:
-              "Failed to send Next.js start command to terminal session",
+            message: "Failed to send Next.js start command to terminal session",
           },
         });
       }
@@ -197,8 +196,9 @@ export class NextJsReactAdapter implements IDevelopmentServerAdapter {
       let stdout = "";
       let commandComplete = false;
       let cleanup: (() => void) | null = null;
-      let exitCodeCheckInterval: NodeJS.Timeout | null = null;
-      let exitIntervalCleanupTimeout: NodeJS.Timeout | null = null;
+      let exitCodeCheckInterval: ReturnType<typeof setInterval> | null = null;
+      let exitIntervalCleanupTimeout: ReturnType<typeof setTimeout> | null =
+        null;
 
       const timeoutHandle = setTimeout(() => {
         if (!commandComplete) {
@@ -395,7 +395,9 @@ export class NextJsReactAdapter implements IDevelopmentServerAdapter {
   }
 
   private chooseBestUrl(candidates: string[]): string {
-    const sanitized = candidates.map((url) => url.replace(/\x1B\[[0-9;]*m/g, ""));
+    const sanitized = candidates.map((url) =>
+      url.replace(/\x1B\[[0-9;]*m/g, ""),
+    );
     const nonLocal = sanitized.find(
       (url) =>
         !url.includes("localhost") &&
