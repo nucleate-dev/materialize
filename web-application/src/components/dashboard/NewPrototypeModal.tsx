@@ -505,6 +505,46 @@ export default function NewPrototypeModal({
               )}
             </div>
 
+            {/* Platform Select */}
+            {isWebPrototypeEnabled && (
+              <div className="space-y-2">
+                <Label
+                  htmlFor="platform-select"
+                  className="text-xs font-medium text-zinc-500 dark:text-[#8A8F98]"
+                >
+                  Platform
+                </Label>
+                <Select
+                  value={framework}
+                  onValueChange={(value) =>
+                    setFramework(value as PrototypeFramework)
+                  }
+                  disabled={isCreating}
+                >
+                  <SelectTrigger
+                    id="platform-select"
+                    className="h-11 bg-white dark:bg-[#0B0C0E] border-zinc-200 dark:border-white/10 text-zinc-900 dark:text-white focus:ring-0"
+                  >
+                    <div className="flex items-center gap-2">
+                      <Rocket className="w-4 h-4 text-zinc-400 dark:text-white/50" />
+                      <SelectValue />
+                    </div>
+                  </SelectTrigger>
+                  <SelectContent className="bg-white dark:bg-[#141517] border-zinc-200 dark:border-white/10 text-zinc-900 dark:text-white">
+                    {PLATFORM_OPTIONS.map((option) => (
+                      <SelectItem
+                        key={option.value}
+                        value={option.value}
+                        className="focus:bg-zinc-100 dark:focus:bg-white/10 focus:text-zinc-900 dark:focus:text-white cursor-pointer"
+                      >
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
             {/* Visibility Select */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
@@ -640,45 +680,6 @@ export default function NewPrototypeModal({
                     </SelectContent>
                   </Select>
                 </div>
-
-                {isWebPrototypeEnabled && (
-                  <div className="space-y-2">
-                    <Label
-                      htmlFor="platform-select"
-                      className="text-xs font-medium text-zinc-500 dark:text-[#8A8F98]"
-                    >
-                      Platform
-                    </Label>
-                    <Select
-                      value={framework}
-                      onValueChange={(value) =>
-                        setFramework(value as PrototypeFramework)
-                      }
-                      disabled={isCreating}
-                    >
-                      <SelectTrigger
-                        id="platform-select"
-                        className="h-10 bg-white dark:bg-[#0B0C0E] border-zinc-200 dark:border-white/10 text-zinc-900 dark:text-white text-sm focus:ring-0"
-                      >
-                        <div className="flex items-center gap-2">
-                          <Rocket className="w-3.5 h-3.5 text-zinc-400 dark:text-white/50" />
-                          <SelectValue />
-                        </div>
-                      </SelectTrigger>
-                      <SelectContent className="bg-white dark:bg-[#141517] border-zinc-200 dark:border-white/10 text-zinc-900 dark:text-white">
-                        {PLATFORM_OPTIONS.map((option) => (
-                          <SelectItem
-                            key={option.value}
-                            value={option.value}
-                            className="focus:bg-zinc-100 dark:focus:bg-white/10 focus:text-zinc-900 dark:focus:text-white cursor-pointer text-sm"
-                          >
-                            {option.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
 
                 {/* Design Style */}
                 <div className="space-y-2">
