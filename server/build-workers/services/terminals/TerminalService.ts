@@ -939,6 +939,8 @@ export class TerminalService {
       "WATCHPACK_POLLING",
       "NPM_CONFIG_CACHE",
       "TZ",
+      "NEXT_TELEMETRY_DISABLED",
+      "NEXT_SHARP_PATH",
     ];
 
     const env: NodeJS.ProcessEnv = {};

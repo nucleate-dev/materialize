@@ -425,6 +425,7 @@ export default function PrototypePage() {
               isPreviewView={isPreviewView}
               onPreviewViewChange={setIsPreviewView}
               publicView={true}
+              framework={prototype?.framework ?? undefined}
               codeView={
                 <div className="flex h-full items-center justify-center text-sm text-gray-500 dark:text-[#8A8F98] bg-gray-50 dark:bg-[#0B0C0E]">
                   Code view is unavailable in the public prototype viewer.

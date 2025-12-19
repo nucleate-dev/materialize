@@ -14,6 +14,10 @@ import { getSystemPromptForDesignStyle } from "../prompts/ClaudeCodePrompts.js";
 import { getToolDisplayName } from "../helpers/message-handlers.js";
 import { ToolPermissionService } from "../helpers/tool-permission-service.js";
 import { baseLogger, WORK_DIR } from "../../../worker.js";
+import {
+  DEFAULT_PROTOTYPE_FRAMEWORK,
+  NucleateDevelopmentServerService,
+} from "../../dev-server/NucleateDevelopmentServerService.js";
 
 interface CodeSessionState {
   sessionId: string | null;
@@ -116,14 +120,17 @@ type ToolInput = Record<string, unknown>;
 export class ClaudeCodeCliQueryHandler {
   private readonly supabaseClientService: SupabaseClientService;
   private readonly toolPermissionService: ToolPermissionService;
+  private readonly devServerService: NucleateDevelopmentServerService;
   private sessionState: SessionState;
 
   constructor(
     supabaseClientService: SupabaseClientService,
     toolPermissionService: ToolPermissionService,
+    devServerService: NucleateDevelopmentServerService,
   ) {
     this.supabaseClientService = supabaseClientService;
     this.toolPermissionService = toolPermissionService;
+    this.devServerService = devServerService;
     this.sessionState = {
       modifiedFilesThisQuery: new Set(),
       pendingToolCalls: new Map(),
@@ -143,6 +150,8 @@ export class ClaudeCodeCliQueryHandler {
       notifyOrchestrationStartChat,
       notifyOrchestrationEndChat,
     } = handlers;
+    const framework =
+      this.devServerService.prototypeFramework ?? DEFAULT_PROTOTYPE_FRAMEWORK;
 
     try {
       // Notify orchestration that chat has started
@@ -192,6 +201,7 @@ export class ClaudeCodeCliQueryHandler {
         data.custom_design_system_id ?? null,
         sessionState,
         data.design_style,
+        framework,
       );
 
       // Initialize session state with chat session ID from client
@@ -306,6 +316,7 @@ export class ClaudeCodeCliQueryHandler {
     custom_design_system_id: string | null,
     sessionState: CodeSessionState,
     design_style: string | undefined,
+    framework: string | undefined,
   ): Promise<string> {
     // Check if design system changed or needs to be loaded
     if (custom_design_system_id !== sessionState.designSystemId) {
@@ -358,7 +369,10 @@ export class ClaudeCodeCliQueryHandler {
     }
 
     // Build system prompt with optional design system rules
-    let systemPromptAppend = getSystemPromptForDesignStyle(design_style);
+    let systemPromptAppend = getSystemPromptForDesignStyle(
+      design_style,
+      framework,
+    );
 
     baseLogger.consoleLogDevOnly(
       "info",

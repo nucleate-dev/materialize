@@ -14,6 +14,8 @@ import { SupabaseClientService } from "../../SupabaseClientService.js";
 import { ChatService } from "../../chat/ChatService.js";
 import { syncPrototypeEnvVarsToDisk } from "../utils/envVarUtils.js";
 import { WORK_DIR } from "../../../worker.js";
+import { DEFAULT_PROTOTYPE_FRAMEWORK } from "../NucleateDevelopmentServerService.js";
+import { NextJsReactAdapter } from "../adapters/NextJsReactAdapter.js";
 
 export async function handleStartDevServerImpl(
   request: FastifyRequest<{ Body: PublicStartDevServerRequest }>,
@@ -22,16 +24,40 @@ export async function handleStartDevServerImpl(
 ): Promise<
   SandboxAPIResponse<PublicDevServerStartSuccessResponse, StandardErrorResponse>
 > {
-  const { prototype_id, framework } = request.body;
-  if (!prototype_id || !framework) {
+  const { prototype_id } = request.body;
+  if (!prototype_id) {
     reply.code(HTTP_STATUS.BAD_REQUEST);
     return {
       data: null,
       error: {
         error: "Missing required parameters",
-        message: "prototype_id and framework are required",
+        message: "prototype_id is required",
       },
     };
+  }
+
+  const resolvedFramework =
+    developmentServerService.prototypeFramework ?? DEFAULT_PROTOTYPE_FRAMEWORK;
+  if (resolvedFramework === "web_nextjs_react") {
+    const tunnelHostname = developmentServerService.cloudflareTunnelHostname;
+    if (!tunnelHostname) {
+      request.log2.error(
+        new Error("Missing Cloudflare tunnel hostname"),
+        "Cannot start Next.js dev server without tunnel hostname",
+      );
+      reply.code(HTTP_STATUS.INTERNAL_SERVER_ERROR);
+      return {
+        data: null,
+        error: {
+          error: "Missing tunnel hostname",
+          message: "Unable to start dev server without Cloudflare hostname",
+        },
+      };
+    }
+    developmentServerService.developmentServerAdapter = new NextJsReactAdapter(
+      developmentServerService.terminalService,
+      tunnelHostname,
+    );
   }
 
   if (

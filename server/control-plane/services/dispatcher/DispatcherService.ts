@@ -45,7 +45,7 @@ export class DispatcherService {
 
   // Public methods for internal service calls
   public async dispatch(
-    body: DispatchRequestBody,
+    prototype_id: string,
     jwt: string,
     log2: SystemLogger,
     posthogLogger: PostHogLogger,
@@ -57,14 +57,14 @@ export class DispatcherService {
     posthogLogger = posthogLogger.child({
       function: 'dispatch',
       service: 'DispatcherService',
-      prototype_id: body.prototype_id,
+      prototype_id,
     });
     return await posthogLogger.timeAndRecord(
       userId,
       PostHogEvents.dispatch,
       () =>
         handleDispatchImpl(
-          body,
+          prototype_id,
           jwt,
           this.cache,
           this.idleContainerAllocationSystem,

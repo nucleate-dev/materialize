@@ -19,6 +19,8 @@ RUN apt-get clean && \
     git \
     procps \
     watchman \
+    libvips42 \
+    libvips-dev \
     && curl -L --fail https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -o /usr/local/bin/cloudflared \
     && chmod +x /usr/local/bin/cloudflared \
     && rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*
@@ -30,6 +32,9 @@ ENV EXPO_NO_TELEMETRY=1
 ENV CHOKIDAR_USEPOLLING=1
 ENV CHOKIDAR_INTERVAL=100
 ENV WATCHPACK_POLLING=true
+# Next.js optimization settings
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV NEXT_SHARP_PATH=/usr/lib/x86_64-linux-gnu/libvips.so.42
 
 # Copy package files first for caching
 COPY package*.json ./

@@ -7,7 +7,10 @@ import {
   SandboxAPIResponse,
   StandardErrorResponse,
 } from "../../../types/BuildWorkerTypes.js";
-import { NucleateDevelopmentServerService } from "../NucleateDevelopmentServerService.js";
+import {
+  DEFAULT_PROTOTYPE_FRAMEWORK,
+  NucleateDevelopmentServerService,
+} from "../NucleateDevelopmentServerService.js";
 
 export async function handleAllocateImpl(
   request: FastifyRequest<{ Body: PublicAllocateRequest }>,
@@ -30,7 +33,6 @@ export async function handleAllocateImpl(
     prototypeId: user_details.prototypeId,
   });
 
-  // 2. SUPABASE CLIENT INSTANTIATION:
   // Extract JWT token from Authorization header
   const authHeader = request.headers.authorization;
   let jwtToken: string | undefined;
@@ -54,34 +56,39 @@ export async function handleAllocateImpl(
       },
     };
   }
-  try {
-    materializeDevelopmentServerService.supabaseClientService.refreshClientWithToken(
-      jwtToken,
-    );
-    request.log2.consoleLogDevOnly(
-      "info",
-      "Initialized authenticated Supabase client for worker",
-    );
-  } catch (supabaseError) {
-    const errorMessage =
-      supabaseError instanceof Error
-        ? supabaseError.message
-        : String(supabaseError);
+  // 2. SUPABASE CLIENT INSTANTIATION:
+  materializeDevelopmentServerService.supabaseClientService.refreshClientWithToken(
+    jwtToken,
+  );
+  request.log2.consoleLogDevOnly(
+    "info",
+    "Initialized authenticated Supabase client for worker",
+  );
+  // 2.5 PROTOTYPE FRAMEWORK INITIALIZATION:
+  const supabaseClient =
+    materializeDevelopmentServerService.supabaseClientService.getClient();
+  const { data: prototypeRow, error: prototypeError } = await supabaseClient
+    .from("prototypes")
+    .select("framework")
+    .eq("id", user_details.prototypeId)
+    .single();
+  if (prototypeError) {
     request.log2.error(
-      supabaseError instanceof Error
-        ? supabaseError
-        : new Error(String(supabaseError)),
-      "Failed to initialize Supabase client - allocation failed",
+      prototypeError,
+      "Failed to fetch prototype framework; falling back to default",
     );
-    reply.code(500);
-    return {
-      data: null,
-      error: {
-        error: "Failed to initialize Supabase client",
-        message: "Failed to initialize Supabase client",
-        details: errorMessage,
-      },
-    };
+    materializeDevelopmentServerService.setPrototypeFramework(
+      DEFAULT_PROTOTYPE_FRAMEWORK,
+    );
+  } else {
+    materializeDevelopmentServerService.setPrototypeFramework(
+      prototypeRow?.framework ?? DEFAULT_PROTOTYPE_FRAMEWORK,
+    );
+  }
+  if (cloudflare_credentials.cloudflare_tunnel_hostname) {
+    materializeDevelopmentServerService.setCloudflareTunnelHostname(
+      cloudflare_credentials.cloudflare_tunnel_hostname,
+    );
   }
 
   try {

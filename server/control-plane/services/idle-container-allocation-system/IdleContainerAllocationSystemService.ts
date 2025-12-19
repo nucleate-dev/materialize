@@ -717,6 +717,7 @@ export class IdleContainerAllocationSystemService {
       },
       cloudflare_credentials: {
         cloudflare_tunnel_token: tunnelConfig.token || '',
+        cloudflare_tunnel_hostname: tunnelHostnameWithProtocol,
       },
       keys: {
         orchestration_token: orchestrationToken,

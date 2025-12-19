@@ -52,6 +52,7 @@ const ALL_STARTER_APPS = [
   "starter-app-nativewind",
   "starter-app-stylesheets",
   "starter-app-tamagui",
+  "web-starter-app-nextjs",
 ];
 
 // Check for specific app argument (non-flag arguments)
@@ -85,6 +86,7 @@ const EXCLUDED_PATTERNS = [
   "dist",
   ".git",
   ".expo",
+  ".next",
   ".env",
   ".env.local",
   ".env.production",
@@ -236,7 +238,7 @@ async function uploadFilesToS3(files, basePath, s3Prefix) {
   let successCount = 0;
   let errorCount = 0;
 
-  const BATCH_SIZE = 10;
+  const BATCH_SIZE = 30;
 
   // Process files in batches
   for (let i = 0; i < files.length; i += BATCH_SIZE) {
@@ -286,14 +288,18 @@ async function uploadFilesToS3(files, basePath, s3Prefix) {
 }
 
 /**
- * Build a React Native web app
+ * Build a web app (React Native or Next.js)
  */
 function buildApp(appDir, appName) {
   console.log(`🏗️  Building ${appName}...`);
 
-  // React Native app is now in the client/ subdirectory
   const clientDir = path.join(appDir, "client");
   console.log(`   Working directory: ${clientDir}`);
+
+  // Check if this is a Next.js app
+  const isNextJs =
+    appName.includes("nextjs") ||
+    fs.existsSync(path.join(clientDir, "next.config.ts"));
 
   try {
     // First, ensure dependencies are installed
@@ -303,22 +309,49 @@ function buildApp(appDir, appName) {
       stdio: "inherit",
     });
 
-    // Run expo export using npx
-    console.log("   🚀 Running expo export...");
-    execSync("npx expo export --platform web", {
-      cwd: clientDir,
-      stdio: "inherit",
-    });
+    if (isNextJs) {
+      // Next.js build
+      console.log("   🚀 Running Next.js build...");
+      execSync("npx next build", {
+        cwd: clientDir,
+        stdio: "inherit",
+        env: {
+          ...process.env,
+          NEXT_TELEMETRY_DISABLED: "1",
+          NODE_OPTIONS: "--max-old-space-size=2048",
+        },
+      });
 
-    console.log(`   ✅ Build completed successfully for ${appName}`);
+      // Move output from "out" to "dist"
+      const outDir = path.join(clientDir, "out");
+      const distDir = path.join(clientDir, "dist");
 
-    // Verify dist directory exists
-    const distDir = path.join(clientDir, "dist");
-    if (!fs.existsSync(distDir)) {
-      throw new Error(`Build output directory not found: ${distDir}`);
+      console.log("   📦 Moving build output from out/ to dist/...");
+      if (fs.existsSync(distDir)) {
+        fs.rmSync(distDir, { recursive: true, force: true });
+      }
+      fs.renameSync(outDir, distDir);
+
+      console.log(`   ✅ Build completed successfully for ${appName}`);
+      return distDir;
+    } else {
+      // React Native Expo build
+      console.log("   🚀 Running expo export...");
+      execSync("npx expo export --platform web", {
+        cwd: clientDir,
+        stdio: "inherit",
+      });
+
+      console.log(`   ✅ Build completed successfully for ${appName}`);
+
+      // Verify dist directory exists
+      const distDir = path.join(clientDir, "dist");
+      if (!fs.existsSync(distDir)) {
+        throw new Error(`Build output directory not found: ${distDir}`);
+      }
+
+      return distDir;
     }
-
-    return distDir;
   } catch (error) {
     console.error(`   ❌ Build failed for ${appName}:`, error.message);
     throw error;

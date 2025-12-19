@@ -106,7 +106,7 @@ function deployStarters() {
     process.exit(1);
   }
 
-  // Zip starters directory excluding node_modules, dist, .expo, etc.
+  // Zip starters directory excluding node_modules, dist, .expo, .next, etc.
   console.log("==> Creating zip file (excluding node_modules, dist, etc.)...");
   run(
     `bash -lc 'cd ${sq(localBase).slice(1, -1)} && zip -r ${sq(
@@ -123,6 +123,12 @@ function deployStarters() {
       `-x "*/client/.expo/*" ` +
       `-x ".expo-shared/*" ` +
       `-x "*/.expo-shared/*" ` +
+      `-x ".next/*" ` +
+      `-x "*/.next/*" ` +
+      `-x "*/client/.next/*" ` +
+      `-x "out/*" ` +
+      `-x "*/out/*" ` +
+      `-x "*/client/out/*" ` +
       `-x "*.log" ` +
       `-x ".DS_Store" ` +
       `-x "starters.zip"'`,

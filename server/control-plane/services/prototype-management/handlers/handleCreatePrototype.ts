@@ -43,9 +43,15 @@ const VALID_DESIGN_STYLES: DesignStyle[] = [
   'stylesheets',
   'nativewind',
 ];
+type PrototypeFramework = Database['public']['Enums']['prototype_framework'];
+const VALID_FRAMEWORKS: PrototypeFramework[] = [
+  'mobile_expo_react_native',
+  'web_nextjs_react',
+];
+const DEFAULT_FRAMEWORK: PrototypeFramework = 'mobile_expo_react_native';
 
 export async function handleCreatePrototypeImpl(
-  request: FastifyRequest<{ Body: CreatePrototypeRequestBody; }>,
+  request: FastifyRequest<{ Body: CreatePrototypeRequestBody }>,
   reply: FastifyReply,
   s3Client: S3Client,
 ): Promise<
@@ -69,6 +75,13 @@ export async function handleCreatePrototypeImpl(
     request.log2 = request.log2.child({
       userId: user.id,
     });
+    request.log2.consoleLogDevOnly(
+      'info',
+      '[handleCreatePrototype] Authenticated user for prototype creation',
+      {
+        userId: user.id,
+      },
+    );
 
     // 2. Check prototype limits for free users (5 max)
     const limitCheck = await hasExceededPrototypeCreationLimit(
@@ -86,6 +99,14 @@ export async function handleCreatePrototypeImpl(
         },
       });
     }
+    request.log2.consoleLogDevOnly(
+      'info',
+      '[handleCreatePrototype] Prototype limit verification complete',
+      {
+        plan: limitCheck.plan,
+        exceeded: limitCheck.exceeded,
+      },
+    );
 
     // 3. Extract validated body (validation handled by Fastify schema)
     const {
@@ -95,6 +116,7 @@ export async function handleCreatePrototypeImpl(
       prototype_id: forkPrototypeId, // If provided, this is a fork
       design_style,
       custom_design_system,
+      framework,
     } = request.body;
     let { visibility } = request.body;
     if (!visibility) {
@@ -129,11 +151,14 @@ export async function handleCreatePrototypeImpl(
     let resolvedCustomDesignSystem: string | null =
       custom_design_system ?? null;
 
+    const requestedFramework = framework;
+    let resolvedFramework: PrototypeFramework = DEFAULT_FRAMEWORK;
+
     if (forkPrototypeId) {
       const { data: sourcePrototype, error: sourcePrototypeError } =
         await supabase
           .from('prototypes')
-          .select('design_style')
+          .select('design_style, framework')
           .eq('id', forkPrototypeId)
           .single();
 
@@ -146,7 +171,18 @@ export async function handleCreatePrototypeImpl(
         if (!resolvedDesignStyle) {
           resolvedDesignStyle = sourcePrototype.design_style;
         }
+        if (sourcePrototype.framework) {
+          resolvedFramework = sourcePrototype.framework;
+        }
       }
+    }
+
+    if (
+      !forkPrototypeId &&
+      requestedFramework &&
+      VALID_FRAMEWORKS.includes(requestedFramework)
+    ) {
+      resolvedFramework = requestedFramework;
     }
 
     if (!resolvedDesignStyle && folder_id) {
@@ -178,6 +214,17 @@ export async function handleCreatePrototypeImpl(
     if (!resolvedDesignStyle) {
       resolvedDesignStyle = 'stylesheets';
     }
+    request.log2.consoleLogDevOnly(
+      'info',
+      '[handleCreatePrototype] Resolved design + framework configuration',
+      {
+        resolvedDesignStyle,
+        resolvedFramework,
+        resolvedCustomDesignSystem,
+        forkPrototypeId,
+        folderId: folder_id,
+      },
+    );
 
     const { data: newPrototype, error: prototypeInsertError } = await supabase
       .from('prototypes')
@@ -192,6 +239,7 @@ export async function handleCreatePrototypeImpl(
         custom_design_system: forkPrototypeId
           ? null
           : resolvedCustomDesignSystem,
+        framework: resolvedFramework,
       } satisfies TablesInsert<'prototypes'>)
       .select()
       .single();
@@ -200,7 +248,7 @@ export async function handleCreatePrototypeImpl(
       request.log2.error(
         new Error(prototypeInsertError.message),
         '[handleCreatePrototype] Error creating prototype:' +
-        prototypeInsertError.message,
+          prototypeInsertError.message,
       );
       const errorResponse: CreatePrototypeErrorResponse = {
         error: 'DATABASE_ERROR',
@@ -213,10 +261,27 @@ export async function handleCreatePrototypeImpl(
     }
 
     const newPrototypeId = newPrototype.id;
+    request.log2.consoleLogDevOnly(
+      'info',
+      '[handleCreatePrototype] Inserted prototype row',
+      {
+        prototypeId: newPrototypeId,
+        resolvedFramework,
+        resolvedDesignStyle,
+      },
+    );
     try {
       // 5. Handle prototype files and S3 operations
       let version: string | undefined;
       if (forkPrototypeId) {
+        request.log2.consoleLogDevOnly(
+          'info',
+          '[handleCreatePrototype] Forking prototype files/assets',
+          {
+            sourcePrototypeId: forkPrototypeId,
+            newPrototypeId,
+          },
+        );
         version = await forkPrototype(
           supabase,
           s3Client,
@@ -226,17 +291,43 @@ export async function handleCreatePrototypeImpl(
           request.log2,
         );
       } else {
+        request.log2.consoleLogDevOnly(
+          'info',
+          '[handleCreatePrototype] Copying default starter files/assets',
+          {
+            newPrototypeId,
+            designStyle: resolvedDesignStyle,
+            framework: resolvedFramework,
+          },
+        );
         version = await copyAllDefaultsForNewPrototype(
           supabase,
           s3Client,
           newPrototypeId,
           resolvedDesignStyle,
+          resolvedFramework,
           request.log2,
         );
       }
+      request.log2.consoleLogDevOnly(
+        'info',
+        '[handleCreatePrototype] Completed file+asset setup',
+        {
+          newPrototypeId,
+          version,
+        },
+      );
 
       // 5.5. Update prototype with latest_build_key if version was created
       if (version) {
+        request.log2.consoleLogDevOnly(
+          'info',
+          '[handleCreatePrototype] Updating prototype latest_build_key',
+          {
+            newPrototypeId,
+            version,
+          },
+        );
         try {
           const { error: updateError } = await supabase
             .from('prototypes')
@@ -261,6 +352,14 @@ export async function handleCreatePrototypeImpl(
 
       // 6. Get viewing URL and return success
       const viewingUrl = getPrototypeViewingUrl(newPrototypeId);
+      request.log2.consoleLogDevOnly(
+        'info',
+        '[handleCreatePrototype] Returning success response',
+        {
+          newPrototypeId,
+          viewingUrl,
+        },
+      );
       return reply.status(HTTP_STATUS.OK).send({
         data: {
           prototype_id: newPrototypeId,
@@ -348,32 +447,30 @@ async function forkPrototype(
     thumbnailCopyResult,
     envVarResult,
   ] = await Promise.all([
-      supabase
-        .from('prototype_files')
-        .select('*')
-        .eq('prototype_id', sourcePrototypeId),
-      supabase
-        .from('prototype_assets')
-        .select('*')
-        .eq('prototype_id', sourcePrototypeId),
-      copyS3BucketContentsVersioned(
-        s3Client,
-        sourcePrototypeId,
-        newPrototypeId,
-        log2,
-      ),
-      copyPrototypeThumbnailInSupabaseStorage(
-        supabase,
-        sourcePrototypeId,
-        newPrototypeId,
-      ),
-      supabase
-        .from('prototype_env_vars')
-        .select(
-          'name,is_public,prototype_env_var_secrets(secret_value)',
-        )
-        .eq('prototype_id', sourcePrototypeId),
-    ]);
+    supabase
+      .from('prototype_files')
+      .select('*')
+      .eq('prototype_id', sourcePrototypeId),
+    supabase
+      .from('prototype_assets')
+      .select('*')
+      .eq('prototype_id', sourcePrototypeId),
+    copyS3BucketContentsVersioned(
+      s3Client,
+      sourcePrototypeId,
+      newPrototypeId,
+      log2,
+    ),
+    copyPrototypeThumbnailInSupabaseStorage(
+      supabase,
+      sourcePrototypeId,
+      newPrototypeId,
+    ),
+    supabase
+      .from('prototype_env_vars')
+      .select('name,is_public,prototype_env_var_secrets(secret_value)')
+      .eq('prototype_id', sourcePrototypeId),
+  ]);
   if (
     filesResult.error ||
     assetsResult.error ||
@@ -387,11 +484,11 @@ async function forkPrototype(
     );
     throw new Error(
       filesResult.error?.message ||
-      assetsResult.error?.message ||
-      thumbnailCopyResult.error ||
-      s3CopyResult.error ||
-      envVarResult.error?.message ||
-      'Failed copy operations or fetching protototype files+assets',
+        assetsResult.error?.message ||
+        thumbnailCopyResult.error ||
+        s3CopyResult.error ||
+        envVarResult.error?.message ||
+        'Failed copy operations or fetching protototype files+assets',
     );
   }
 
@@ -430,20 +527,19 @@ async function forkPrototype(
   ) {
     log2.error(
       filesInsertResult.error ||
-      assetsInsertResult.error ||
-      assetsStorageCopyResult.error,
+        assetsInsertResult.error ||
+        assetsStorageCopyResult.error,
       '[forkPrototype] Failed to insert files or assets',
     );
     throw new Error(
-      `Failed to copy prototype files or assets: ${filesInsertResult.error?.message || assetsInsertResult.error?.message
+      `Failed to copy prototype files or assets: ${
+        filesInsertResult.error?.message || assetsInsertResult.error?.message
       }`,
     );
   }
 
   if (envVarResult.data && envVarResult.data.length > 0) {
-    const sourceEnvVars = envVarResult.data.filter(
-      (envVar) => envVar.name,
-    );
+    const sourceEnvVars = envVarResult.data.filter((envVar) => envVar.name);
     const envVarPayload = sourceEnvVars.map(
       (envVar) =>
         ({
@@ -454,11 +550,10 @@ async function forkPrototype(
     );
 
     if (envVarPayload.length > 0) {
-      const { data: insertedEnvVars, error: envInsertError } =
-        await supabase
-          .from('prototype_env_vars')
-          .insert(envVarPayload)
-          .select('id,name');
+      const { data: insertedEnvVars, error: envInsertError } = await supabase
+        .from('prototype_env_vars')
+        .insert(envVarPayload)
+        .select('id,name');
       if (envInsertError) {
         log2.error(
           envInsertError,
@@ -475,12 +570,9 @@ async function forkPrototype(
           sourceEnvVars
             .map((envVar) => ({
               name: envVar.name!,
-              secret:
-                envVar.prototype_env_var_secrets?.secret_value ?? null,
+              secret: envVar.prototype_env_var_secrets?.secret_value ?? null,
             }))
-            .filter(
-              (entry) => entry.secret && entry.secret.length > 0,
-            )
+            .filter((entry) => entry.secret && entry.secret.length > 0)
             .map((entry) => [entry.name, entry.secret as string]),
         );
 
@@ -525,8 +617,18 @@ export async function copyAllDefaultsForNewPrototype(
   s3Client: S3Client,
   newPrototypeId: string,
   newPrototypeDesignStyle: DesignStyle,
+  framework: PrototypeFramework,
   log2: SystemLogger,
 ): Promise<string | undefined> {
+  log2.consoleLogDevOnly(
+    'info',
+    '[copyAllDefaultsForNewPrototype] Starting default asset copy',
+    {
+      newPrototypeId,
+      designStyle: newPrototypeDesignStyle,
+      framework,
+    },
+  );
   // Get default app files from S3 raw files
   const [defaultFilesResult, s3CopyResult, thumbnailCopyResult] =
     await Promise.all([
@@ -534,16 +636,31 @@ export async function copyAllDefaultsForNewPrototype(
         s3Client,
         newPrototypeId,
         newPrototypeDesignStyle,
+        framework,
         log2,
       ),
       copyDefaultAppToVersionedPrototype(
         s3Client,
         newPrototypeId,
         newPrototypeDesignStyle,
+        framework,
         log2,
       ),
       copyDefaultPrototypeThumbnail(supabase, newPrototypeId),
     ]);
+  log2.consoleLogDevOnly(
+    'info',
+    '[copyAllDefaultsForNewPrototype] Default asset copy results',
+    {
+      newPrototypeId,
+      defaultFilesSuccess: defaultFilesResult.success,
+      s3CopySuccess: s3CopyResult.success,
+      thumbnailCopySuccess: thumbnailCopyResult.success,
+      defaultFileError: defaultFilesResult.error,
+      s3CopyError: s3CopyResult.error,
+      thumbnailError: thumbnailCopyResult.error,
+    },
+  );
   if (
     !defaultFilesResult.success ||
     !s3CopyResult.success ||
@@ -551,14 +668,15 @@ export async function copyAllDefaultsForNewPrototype(
   ) {
     log2.error(
       defaultFilesResult.error ||
-      s3CopyResult.error ||
-      thumbnailCopyResult.error,
+        s3CopyResult.error ||
+        thumbnailCopyResult.error,
       '[createNewPrototype] Failed to get default files from S3 or copy thumbnail',
     );
     throw new Error(
-      `Failed to get default files from S3 or copy thumbnail: ${defaultFilesResult.error ||
-      s3CopyResult.error ||
-      thumbnailCopyResult.error
+      `Failed to get default files from S3 or copy thumbnail: ${
+        defaultFilesResult.error ||
+        s3CopyResult.error ||
+        thumbnailCopyResult.error
       }`,
     );
   }
@@ -583,6 +701,16 @@ export async function copyAllDefaultsForNewPrototype(
       log2,
     ),
   ]);
+  log2.consoleLogDevOnly(
+    'info',
+    '[copyAllDefaultsForNewPrototype] Database insert results',
+    {
+      newPrototypeId,
+      filesError: filesInsertResult.error?.message,
+      assetsError: assetsInsertResult.error?.message,
+      supabaseStorageSuccess: supabaseStorageAssetUploadResult.success,
+    },
+  );
   if (
     filesInsertResult.error ||
     assetsInsertResult.error ||
@@ -590,16 +718,27 @@ export async function copyAllDefaultsForNewPrototype(
   ) {
     log2.error(
       filesInsertResult.error ||
-      assetsInsertResult.error ||
-      supabaseStorageAssetUploadResult.error,
+        assetsInsertResult.error ||
+        supabaseStorageAssetUploadResult.error,
       '[createNewPrototype] Failed to insert default files or assets',
     );
     throw new Error(
-      `Failed to insert default files or assets: ${filesInsertResult.error?.message ||
-      assetsInsertResult.error?.message ||
-      supabaseStorageAssetUploadResult.error
+      `Failed to insert default files or assets: ${
+        filesInsertResult.error?.message ||
+        assetsInsertResult.error?.message ||
+        supabaseStorageAssetUploadResult.error
       }`,
     );
   }
+  log2.consoleLogDevOnly(
+    'info',
+    '[copyAllDefaultsForNewPrototype] Completed default setup',
+    {
+      newPrototypeId,
+      version: s3CopyResult.version,
+      fileCount: defaultFilesResult.files?.length ?? 0,
+      assetCount: defaultFilesResult.assets?.length ?? 0,
+    },
+  );
   return s3CopyResult.version;
 }

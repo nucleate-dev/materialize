@@ -492,7 +492,6 @@ export default function InternalPrototypePage() {
               Authorization: `Bearer ${token}`,
             },
             body: JSON.stringify({
-              framework: "expo_react_native",
               prototype_id: prototypeId,
             } as StartDevServerRequestBody),
           },
@@ -1163,6 +1162,7 @@ export default function InternalPrototypePage() {
               onShare={handleShare}
               onClone={handleClone}
               isCloningPrototype={isCloningPrototype}
+              framework={prototype?.framework ?? undefined}
               codeView={
                 <div className={`flex h-full ${isMobile ? "flex-col" : ""}`}>
                   {isMobile ? (

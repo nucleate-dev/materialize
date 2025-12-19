@@ -699,6 +699,7 @@ export type Database = {
           description: string | null
           design_style: Database["public"]["Enums"]["design_style"]
           folder_id: string | null
+          framework: Database["public"]["Enums"]["prototype_framework"] | null
           id: string
           is_deployed: boolean
           latest_build_key: string | null
@@ -716,6 +717,7 @@ export type Database = {
           description?: string | null
           design_style?: Database["public"]["Enums"]["design_style"]
           folder_id?: string | null
+          framework?: Database["public"]["Enums"]["prototype_framework"] | null
           id?: string
           is_deployed?: boolean
           latest_build_key?: string | null
@@ -733,6 +735,7 @@ export type Database = {
           description?: string | null
           design_style?: Database["public"]["Enums"]["design_style"]
           folder_id?: string | null
+          framework?: Database["public"]["Enums"]["prototype_framework"] | null
           id?: string
           is_deployed?: boolean
           latest_build_key?: string | null
@@ -817,6 +820,45 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      user_claude_tokens: {
+        Row: {
+          created_at: string
+          id: string
+          is_valid: boolean
+          last_used_at: string | null
+          last_validated_at: string | null
+          oauth_token: string
+          token_type: string | null
+          updated_at: string
+          user_id: string
+          validation_error: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_valid?: boolean
+          last_used_at?: string | null
+          last_validated_at?: string | null
+          oauth_token: string
+          token_type?: string | null
+          updated_at?: string
+          user_id: string
+          validation_error?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_valid?: boolean
+          last_used_at?: string | null
+          last_validated_at?: string | null
+          oauth_token?: string
+          token_type?: string | null
+          updated_at?: string
+          user_id?: string
+          validation_error?: string | null
+        }
+        Relationships: []
       }
       user_internal_metadata: {
         Row: {
@@ -987,6 +1029,7 @@ export type Database = {
       chat_role: "user" | "assistant" | "system"
       design_style: "tamagui" | "stylesheets" | "nativewind" | "custom"
       file_type: "text" | "asset"
+      prototype_framework: "mobile_expo_react_native" | "web_nextjs_react"
       subscription_plan_type: "free" | "team" | "pro" | "plus" | "max"
       subscription_status: "active" | "past_due" | "canceled"
       tunnel_status: "creating" | "idle" | "allocated"
@@ -1121,6 +1164,7 @@ export const Constants = {
       chat_role: ["user", "assistant", "system"],
       design_style: ["tamagui", "stylesheets", "nativewind", "custom"],
       file_type: ["text", "asset"],
+      prototype_framework: ["mobile_expo_react_native", "web_nextjs_react"],
       subscription_plan_type: ["free", "team", "pro", "plus", "max"],
       subscription_status: ["active", "past_due", "canceled"],
       tunnel_status: ["creating", "idle", "allocated"],

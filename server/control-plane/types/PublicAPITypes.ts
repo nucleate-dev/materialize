@@ -79,12 +79,7 @@ export type HealthResponse = HealthSuccessResponse | StandardErrorResponse;
 
 export interface DispatchRequestBody {
   prototype_id: string;
-  framework?: 'expo_react_native' | 'react';
-  files: PrototypeFileInput[];
-  assets: PrototypeAssetInputWithContent[];
-  deleted_files?: string[];
   file_scope: 'updates' | 'complete';
-  hot_reload?: boolean;
 }
 
 export interface DispatchSuccessResponse {
@@ -214,6 +209,7 @@ export interface CreatePrototypeRequestBody {
   visibility?: 'PUBLIC' | 'SELF';
   design_style?: Database['public']['Enums']['design_style'];
   custom_design_system?: string | null;
+  framework?: Database['public']['Enums']['prototype_framework'];
 }
 
 export interface CreatePrototypeSuccessResponse {
@@ -251,7 +247,6 @@ export interface DeletePrototypeErrorResponse {
 // ============================================================================
 
 export interface StartDevServerRequestBody {
-  framework: 'expo_react_native' | 'react';
   prototype_id: string;
 }
 

@@ -5,7 +5,7 @@
 // To update these types, modify the source file and run:
 // npm run sync-build-worker-types
 //
-// Last synced: 2025-12-18T19:44:52.697Z
+// Last synced: 2025-12-19T06:54:52.515Z
 
 import { Database } from "./supabase.js";
 
@@ -79,25 +79,8 @@ export interface BuildAndDeployResponse {
   message?: string;
 }
 
-export interface PublicDevServerStartRequest {
-  prototype_id: string;
-  framework: "expo_react_native" | "react";
-  files: PrototypeFileInput[];
-  assets: PrototypeAssetInputWithContent[];
-  deleted_files?: string[];
-  file_scope: "updates" | "complete";
-}
-
 export interface PublicStartDevServerRequest {
   prototype_id: string;
-  framework: "expo_react_native" | "react";
-}
-
-export interface PublicUpdateFilesRequest {
-  prototype_id: string;
-  files: PrototypeFileInput[];
-  assets: PrototypeAssetInputWithContent[];
-  deleted_files?: string[];
 }
 
 export interface PublicUpdateFilesV2Request {
@@ -217,6 +200,7 @@ export interface AllocationUserDetails {
 
 export interface AllocationCloudflareTunnelCredentials {
   cloudflare_tunnel_token: string;
+  cloudflare_tunnel_hostname?: string;
 }
 
 export interface AllocationKeys {
