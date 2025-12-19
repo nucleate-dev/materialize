@@ -23,7 +23,6 @@ import { FlagsService } from "../FlagsService.js";
 import { SandboxService } from "../SandboxService.js";
 import { SupabaseClientService } from "../SupabaseClientService.js";
 import { TerminalService } from "../terminals/TerminalService.js";
-import { VercelChatQueryHandler } from "./chat-engines.ts/chat-query-handler-vercel.js";
 import { ChatQueryHandler } from "./chat-engines.ts/chat-query-handler.js";
 import { ClaudeCodeCliQueryHandler } from "./chat-engines.ts/claude-code-cli-query-handler.js";
 import { MessagePersistenceService } from "./helpers/message-handlers.js";
@@ -61,7 +60,6 @@ export class ChatService {
   private readonly toolPermissionService: ToolPermissionService;
   private readonly messagePersistenceService: MessagePersistenceService;
   private readonly chatQueryHandler: ChatQueryHandler;
-  private readonly vercelChatQueryHandler: VercelChatQueryHandler;
   private readonly claudeCodeCliQueryHandler: ClaudeCodeCliQueryHandler;
   private readonly claudeTokenService: ClaudeTokenService;
   private featureFlags: FeatureFlags = { ...DEFAULT_FLAGS };
@@ -114,24 +112,6 @@ export class ChatService {
       this.featureFlags.ENABLE_MCP_DESIGN_TOOLS,
       () => this.getAak(),
     );
-    try {
-      this.vercelChatQueryHandler = new VercelChatQueryHandler(
-        supabaseClientService,
-        this.fileSyncService,
-        this.toolPermissionService,
-        sandboxService,
-        devServerService,
-        terminalService,
-        this.featureFlags.ENABLE_DESIGN_AGENT_ON_FIRST_MESSAGE,
-      );
-    } catch (error) {
-      baseLogger.error(
-        { error },
-        "Failed to initialize VercelChatQueryHandler",
-      );
-      // Fallback or rethrow depending on severity, for now just log
-      throw error;
-    }
 
     // Initialize ClaudeTokenService
     this.claudeTokenService = new ClaudeTokenService(
@@ -176,9 +156,6 @@ export class ChatService {
     );
     this.chatQueryHandler.setEnableDesignMcpTools(
       updatedFlags.ENABLE_MCP_DESIGN_TOOLS,
-    );
-    this.vercelChatQueryHandler.setEnableDesignAgentOnFirstMessage(
-      updatedFlags.ENABLE_DESIGN_AGENT_ON_FIRST_MESSAGE,
     );
   }
 
@@ -455,8 +432,7 @@ export class ChatService {
     let handlerName: string;
 
     if (provider === "vercel") {
-      handler = this.vercelChatQueryHandler;
-      handlerName = "vercel";
+      throw Error("This provider is not supported.");
     } else if (useCliMode && this.claudeCodeCliQueryHandler) {
       handler = this.claudeCodeCliQueryHandler;
       handlerName = "claude-cli";
