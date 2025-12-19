@@ -37,15 +37,15 @@ async function mapWithConcurrency<T, R>(
   const results: R[] = new Array(items.length);
   let currentIndex = 0;
 
-  const workers = Array.from({ length: Math.min(concurrency, items.length) }).map(
-    async () => {
-      while (true) {
-        const index = currentIndex++;
-        if (index >= items.length) break;
-        results[index] = await handler(items[index], index);
-      }
-    },
-  );
+  const workers = Array.from({
+    length: Math.min(concurrency, items.length),
+  }).map(async () => {
+    while (true) {
+      const index = currentIndex++;
+      if (index >= items.length) break;
+      results[index] = await handler(items[index], index);
+    }
+  });
 
   await Promise.all(workers);
   return results;
@@ -153,6 +153,15 @@ export async function copyS3BucketContentsVersioned(
   log2: SystemLogger,
 ): Promise<S3CopyResult> {
   const version = getVersion();
+  log2.consoleLogDevOnly(
+    'info',
+    '[copyS3BucketContentsVersioned] Copying latest build for fork',
+    {
+      sourcePrototypeId,
+      targetPrototypeId,
+      version,
+    },
+  );
   const [versionedResult, latestResult] = await Promise.all([
     copyS3BucketContents(
       s3Client,
@@ -167,6 +176,17 @@ export async function copyS3BucketContentsVersioned(
       log2,
     ),
   ]);
+  log2.consoleLogDevOnly(
+    'info',
+    '[copyS3BucketContentsVersioned] Copy completed',
+    {
+      version,
+      versionedSuccess: versionedResult.success,
+      latestSuccess: latestResult.success,
+      copiedObjects:
+        versionedResult.copiedObjects + latestResult.copiedObjects,
+    },
+  );
   return {
     success: versionedResult.success && latestResult.success,
     error: versionedResult.error || latestResult.error || undefined,
@@ -187,6 +207,10 @@ async function copyS3BucketContents(
   let continuationToken: string | undefined = undefined;
   let successfulCopies = 0;
   let failedCopies = 0;
+  log2.consoleLogDevOnly('info', '[copyS3BucketContents] Starting copy', {
+    sourcePrefix,
+    destinationPrefix,
+  });
 
   do {
     const listResult: ListObjectsV2CommandOutput = await s3Client.send(
@@ -197,6 +221,13 @@ async function copyS3BucketContents(
       }),
     );
     continuationToken = listResult.NextContinuationToken;
+    log2.consoleLogDevOnly('debug', '[copyS3BucketContents] Listed objects', {
+      keyCount: listResult.KeyCount ?? 0,
+      isTruncated: listResult.IsTruncated,
+      continuationToken,
+      sourcePrefix,
+      destinationPrefix,
+    });
     if (!listResult.Contents) continue;
 
     const copyResults = await mapWithConcurrency(
@@ -236,6 +267,13 @@ async function copyS3BucketContents(
     );
   } while (continuationToken);
 
+  log2.consoleLogDevOnly('info', '[copyS3BucketContents] Copy summary', {
+    successfulCopies,
+    failedCopies,
+    sourcePrefix,
+    destinationPrefix,
+  });
+
   return {
     success: failedCopies === 0,
     copiedObjects: successfulCopies,
@@ -258,11 +296,31 @@ export async function copyDefaultAppToVersionedPrototype(
     framework,
   );
   const version = 'latest';
+  log2.consoleLogDevOnly(
+    'info',
+    '[copyDefaultAppToVersionedPrototype] Copying default dist files',
+    {
+      prototypeId,
+      designStyle,
+      framework,
+      sourcePrefix,
+    },
+  );
   const latestResult = await copyS3BucketContents(
     s3Client,
     sourcePrefix,
     `${prototypeId}/latest/`,
     log2,
+  );
+  log2.consoleLogDevOnly(
+    'info',
+    '[copyDefaultAppToVersionedPrototype] Copy finished',
+    {
+      prototypeId,
+      success: latestResult.success,
+      copiedObjects: latestResult.copiedObjects,
+      error: latestResult.error,
+    },
   );
   return {
     success: latestResult.success,
@@ -277,6 +335,14 @@ export async function uploadDefaultAssetsToSupabaseStorage(
   assets: { name: string; contents: Buffer; prototype_id: string }[],
   log2: SystemLogger,
 ): Promise<S3CopyResult> {
+  log2.consoleLogDevOnly(
+    'info',
+    '[uploadDefaultAssetsToSupabaseStorage] Uploading default assets',
+    {
+      prototypeId: assets[0]?.prototype_id,
+      assetCount: assets.length,
+    },
+  );
   const uploadResults = await mapWithConcurrency(
     assets,
     SUPABASE_STORAGE_CONCURRENCY,
@@ -298,6 +364,15 @@ export async function uploadDefaultAssetsToSupabaseStorage(
       return {
         success: true,
       };
+    },
+  );
+  log2.consoleLogDevOnly(
+    'info',
+    '[uploadDefaultAssetsToSupabaseStorage] Upload results',
+    {
+      prototypeId: assets[0]?.prototype_id,
+      successCount: uploadResults.filter((r) => r.success).length,
+      failureCount: uploadResults.filter((r) => !r.success).length,
     },
   );
   return {
@@ -361,6 +436,16 @@ export async function getDefaultAppFilesFromS3(
     designStyle,
     framework,
   );
+  log2.consoleLogDevOnly(
+    'info',
+    '[getDefaultAppFilesFromS3] Fetching starter files',
+    {
+      prototypeId,
+      designStyle,
+      framework,
+      sourcePrefix,
+    },
+  );
   try {
     const listResult = await s3Client.send(
       new ListObjectsV2Command({
@@ -372,6 +457,15 @@ export async function getDefaultAppFilesFromS3(
     const keys = (listResult.Contents ?? [])
       .map((obj) => obj.Key?.replace(sourcePrefix, ''))
       .filter((key): key is string => Boolean(key));
+    log2.consoleLogDevOnly(
+      'info',
+      '[getDefaultAppFilesFromS3] Listed starter files',
+      {
+        keyCount: keys.length,
+        prototypeId,
+        sourcePrefix,
+      },
+    );
     if (keys.length === 0) {
       log2.error(
         null,
@@ -422,6 +516,15 @@ export async function getDefaultAppFilesFromS3(
         });
       }
     });
+    log2.consoleLogDevOnly(
+      'info',
+      '[getDefaultAppFilesFromS3] Prepared default files',
+      {
+        prototypeId,
+        fileCount: files.length,
+        assetCount: assets.length,
+      },
+    );
 
     return { success: true, files, assets };
   } catch (error) {
