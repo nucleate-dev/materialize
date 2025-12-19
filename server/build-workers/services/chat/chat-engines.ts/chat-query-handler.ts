@@ -48,7 +48,7 @@ import { createDevelopmentToolsMcpServer } from "../mcp/mcp-dev-tools.js";
 import { getToolDisplayName } from "../helpers/message-handlers.js";
 import { ToolPermissionService } from "../helpers/tool-permission-service.js";
 import { trackApiUsageBuildWorker } from "../cost/usage-tracking.js";
-import { WORK_DIR } from "../../../worker.js";
+import { baseLogger, WORK_DIR } from "../../../worker.js";
 
 const HISTORY_MESSAGE_REQUEST_COUNT = 6;
 
@@ -228,8 +228,11 @@ export class ChatQueryHandler {
   ): Promise<void> {
     const { prototypeId, socket, data, sessionState, logger } = context;
     const { prompt, content, token, ai_chat_session_id, design_style } = data;
-    const framework =
-      this.devServerService.prototypeFramework ?? DEFAULT_PROTOTYPE_FRAMEWORK;
+    const framework = this.devServerService.prototypeFramework;
+    baseLogger.consoleLogDevOnly("info", "framework in handleQuery is: ", {
+      framework,
+    });
+
     const options = (data.options ?? {}) as Options;
 
     // Log incoming parameters
@@ -513,6 +516,7 @@ export class ChatQueryHandler {
         designSystemResult.systemPrompt,
         handlers,
         logger,
+        framework,
         designSpec,
         designMetadata ?? undefined,
       );
@@ -728,6 +732,7 @@ export class ChatQueryHandler {
       design_style,
       framework,
     );
+    logger.consoleLogDevOnly("info", "systemprompt: ", { systemPromptAppend });
 
     logger.consoleLogDevOnly(
       "info",
@@ -735,6 +740,7 @@ export class ChatQueryHandler {
       {
         design_style,
         hasCustomDesignSystem: !!sessionState.designSystemRules,
+        framework,
       },
     );
 
@@ -1001,6 +1007,7 @@ export class ChatQueryHandler {
     systemPromptAppend: string,
     handlers: MessageHandlers,
     logger: SystemLogger,
+    framework: Database["public"]["Enums"]["prototype_framework"],
     designSpec?: string | null,
     designMetadata?: DesignAgentMetadata,
   ): Promise<number | undefined> {
@@ -1110,6 +1117,7 @@ export class ChatQueryHandler {
         handlers,
         flushAssistantBuffer,
         logger,
+        framework,
       );
 
       // Check if session is valid for resumption
@@ -1322,6 +1330,7 @@ export class ChatQueryHandler {
     handlers: MessageHandlers,
     flushAssistantBuffer: () => Promise<void>,
     logger: SystemLogger,
+    framework: Database["public"]["Enums"]["prototype_framework"],
   ): Promise<Options & { resume?: string }> {
     const canUseTool: CanUseTool = async (
       toolName: ToolName,
@@ -1420,7 +1429,7 @@ export class ChatQueryHandler {
       systemPrompt: {
         type: "preset" as const,
         preset: "claude_code" as const,
-        append: getSystemPromptForDesignStyle(),
+        append: getSystemPromptForDesignStyle(undefined, framework),
       },
       settingSources: ["project"] as SettingSource[],
       permissionMode: "default" as PermissionMode,
