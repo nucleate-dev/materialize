@@ -217,6 +217,8 @@ interface MaterializeRenderSectionProps {
   deploymentUrl?: string | null;
   isDeploying?: boolean;
   deployedView?: boolean;
+  // Framework type to determine default preview mode
+  framework?: string;
 }
 
 export interface MaterializeRenderSectionRef {
@@ -257,12 +259,19 @@ const MaterializeRenderSection = forwardRef<
       isDeploying = false,
       deployedView = false,
       publicView = false,
+      framework,
     },
     ref,
   ) => {
     const logger = useProductLogger();
     const { userPlan, loadingSubscriptionData } = useSubscriptionAccess();
-    const [previewMode, setPreviewMode] = useState<PreviewMode>("mobile");
+
+    // Determine if this is a web-only framework
+    const isWebFramework = framework === "web_nextjs_react";
+
+    const [previewMode, setPreviewMode] = useState<PreviewMode>(
+      isWebFramework ? "web" : "mobile"
+    );
     const [refreshKey, setRefreshKey] = useState(0);
     const [mobileSize, setMobileSize] = useState({ width: 320, height: 640 });
     const [isIframeLoading, setIsIframeLoading] = useState(false);
@@ -2017,18 +2026,20 @@ const MaterializeRenderSection = forwardRef<
                   align="end"
                   className="w-48 bg-accent border-border text-foreground"
                 >
-                  <DropdownMenuItem
-                    onClick={() => handleModeChange("mobile")}
-                    className={cn(
-                      "focus:bg-accent/80 focus:text-foreground text-sm cursor-pointer",
-                      previewMode === "mobile"
-                        ? "bg-accent/50 text-foreground"
-                        : "text-muted-foreground",
-                    )}
-                  >
-                    <Smartphone className="w-4 h-4 mr-2 opacity-70" />
-                    Mobile View
-                  </DropdownMenuItem>
+                  {!isWebFramework && (
+                    <DropdownMenuItem
+                      onClick={() => handleModeChange("mobile")}
+                      className={cn(
+                        "focus:bg-accent/80 focus:text-foreground text-sm cursor-pointer",
+                        previewMode === "mobile"
+                          ? "bg-accent/50 text-foreground"
+                          : "text-muted-foreground",
+                      )}
+                    >
+                      <Smartphone className="w-4 h-4 mr-2 opacity-70" />
+                      Mobile View
+                    </DropdownMenuItem>
+                  )}
                   <DropdownMenuItem
                     onClick={() => handleModeChange("web")}
                     className={cn(

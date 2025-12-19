@@ -1162,6 +1162,7 @@ export default function InternalPrototypePage() {
               onShare={handleShare}
               onClone={handleClone}
               isCloningPrototype={isCloningPrototype}
+              framework={prototype?.framework ?? undefined}
               codeView={
                 <div className={`flex h-full ${isMobile ? "flex-col" : ""}`}>
                   {isMobile ? (
