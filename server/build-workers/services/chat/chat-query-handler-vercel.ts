@@ -35,7 +35,7 @@ import { createVercelDevTools } from "./mcp/mcp-dev-tools-vercel.js";
 import { ALLOWED_MODELS, ChatProvider } from "./model-providers.js";
 import { ToolPermissionService } from "./tool-permission-service.js";
 import { trackApiUsageBuildWorker } from "./usage-tracking.js";
-import { WORK_DIR } from "../../worker.js";
+import { baseLogger, WORK_DIR } from "../../worker.js";
 
 interface CodeSessionState {
   sessionId: string | null;
@@ -111,7 +111,6 @@ export class VercelChatQueryHandler {
   private enableDesignAgentOnFirstMessage: boolean;
 
   constructor(
-    logger: SystemLogger,
     supabaseClientService: SupabaseClientService,
     fileSyncService: FileSyncService,
     toolPermissionService: ToolPermissionService,
@@ -120,7 +119,7 @@ export class VercelChatQueryHandler {
     terminalService: TerminalService,
     enableDesignAgentOnFirstMessage: boolean,
   ) {
-    this.logger = logger.child({ service: "VercelChatQueryHandler" });
+    this.logger = baseLogger;
     this.supabaseClientService = supabaseClientService;
     this.fileSyncService = fileSyncService;
     this.toolPermissionService = toolPermissionService;

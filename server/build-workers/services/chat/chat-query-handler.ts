@@ -187,7 +187,6 @@ export class ChatQueryHandler {
   private enableDesignMcpTools: boolean;
 
   constructor(
-    logger: SystemLogger,
     supabaseClientService: SupabaseClientService,
     fileSyncService: FileSyncService,
     toolPermissionService: ToolPermissionService,

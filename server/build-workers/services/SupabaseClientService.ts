@@ -11,7 +11,7 @@ export class SupabaseClientService {
   private supabaseClient: SupabaseClient<Database>;
 
   private constructor() {
-    const logger = baseLogger.child({ service: "SupabaseClientService" });
+    const logger = baseLogger;
 
     const supabaseUrl = process.env.SUPABASE_URL;
     const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
@@ -99,10 +99,7 @@ export class SupabaseClientService {
     this.setClient(authenticatedClient);
     baseLogger
       .child({ service: "SupabaseClientService" })
-      .consoleLogDevOnly(
-        "info",
-        "Refreshed Supabase client with JWT token",
-      );
+      .consoleLogDevOnly("info", "Refreshed Supabase client with JWT token");
   }
 
   /**

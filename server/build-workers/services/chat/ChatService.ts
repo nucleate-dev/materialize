@@ -55,7 +55,7 @@ interface ChatConnection {
 
 export class ChatService {
   private readonly allowedRoot: string;
-  private readonly logger: ReturnType<typeof baseLogger.child>;
+  private readonly logger: SystemLogger;
   private readonly supabaseClientService: SupabaseClientService;
   private readonly fastifyApp: FastifyInstance;
   private readonly fileSyncService: FileSyncService;
@@ -94,7 +94,7 @@ export class ChatService {
   ) {
     this.allowedRoot = path.resolve("/tmp/materialize-dev-server");
     this.fastifyApp = fastifyApp;
-    this.logger = baseLogger.child({ service: "ChatService" });
+    this.logger = baseLogger;
     this.supabaseClientService = supabaseClientService;
     this.fileSyncService = fileSyncService;
     this.toolPermissionService = new ToolPermissionService(
@@ -110,7 +110,6 @@ export class ChatService {
 
     // Initialize ChatQueryHandler
     this.chatQueryHandler = new ChatQueryHandler(
-      this.logger,
       supabaseClientService,
       this.fileSyncService,
       this.toolPermissionService,
@@ -123,7 +122,6 @@ export class ChatService {
     );
     try {
       this.vercelChatQueryHandler = new VercelChatQueryHandler(
-        this.logger,
         supabaseClientService,
         this.fileSyncService,
         this.toolPermissionService,
@@ -149,7 +147,6 @@ export class ChatService {
 
     // Always initialize ClaudeCodeCliQueryHandler - will be used if user has a token
     this.claudeCodeCliQueryHandler = new ClaudeCodeCliQueryHandler(
-      this.logger,
       supabaseClientService,
       this.toolPermissionService,
     );

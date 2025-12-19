@@ -294,7 +294,13 @@ export class SystemLogger {
   ): void {
     if (process.env.NODE_ENV !== "development") return;
 
-    const logData = additionalData ? { message, ...additionalData } : message;
+    // Include logger context (userId, prototypeId, service, etc.) in the output
+    const logData = {
+      message,
+      level,
+      ...this.base, // Include all context from the logger (userId, prototypeId, service, env, etc.)
+      ...additionalData, // Additional data can override context if needed
+    };
 
     switch (level) {
       case "error":

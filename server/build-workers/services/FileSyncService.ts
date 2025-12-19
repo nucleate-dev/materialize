@@ -45,7 +45,7 @@ const BATCH_CONFIG = {
 } as const;
 
 export class FileSyncService {
-  private readonly logger = baseLogger.child({ service: "FileSyncService" });
+  private readonly logger = baseLogger;
   private readonly supabaseClientService: SupabaseClientService;
   private fileWatcher?: chokidar.FSWatcher;
   private readonly updatedFiles = new Set<string>();
@@ -1016,6 +1016,7 @@ export class FileSyncService {
   }> {
     const errors: string[] = [];
 
+    this.logger.info("Fetching files from supabase, testing logger context");
     try {
       // Fetch files in batches using pagination
       const files = await this.fetchFilesInBatches(prototypeId, errors);

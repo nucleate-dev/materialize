@@ -64,12 +64,9 @@ export class SandboxService {
   private readonly fastifyApp: FastifyInstance;
   private readonly terminalService: TerminalService;
 
-  constructor(
-    fastifyApp: FastifyInstance,
-    terminalService: TerminalService,
-  ) {
+  constructor(fastifyApp: FastifyInstance, terminalService: TerminalService) {
     this.fastifyApp = fastifyApp;
-    this.log = baseLogger.child({ service: "SandboxService" });
+    this.log = baseLogger;
     this.terminalService = terminalService;
   }
 

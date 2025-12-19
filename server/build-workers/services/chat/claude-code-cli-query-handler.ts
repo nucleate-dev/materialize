@@ -13,7 +13,7 @@ import { SupabaseClientService } from "../SupabaseClientService.js";
 import { getSystemPromptForDesignStyle } from "./ClaudeCodePrompts.js";
 import { getToolDisplayName } from "./message-handlers.js";
 import { ToolPermissionService } from "./tool-permission-service.js";
-import { WORK_DIR } from "../../worker.js";
+import { baseLogger, WORK_DIR } from "../../worker.js";
 
 interface CodeSessionState {
   sessionId: string | null;
@@ -120,11 +120,10 @@ export class ClaudeCodeCliQueryHandler {
   private sessionState: SessionState;
 
   constructor(
-    logger: SystemLogger,
     supabaseClientService: SupabaseClientService,
     toolPermissionService: ToolPermissionService,
   ) {
-    this.logger = logger.child({ service: "ClaudeCodeCliQueryHandler" });
+    this.logger = baseLogger;
     this.supabaseClientService = supabaseClientService;
     this.toolPermissionService = toolPermissionService;
     this.sessionState = {

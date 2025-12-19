@@ -1,5 +1,5 @@
 import axios from "axios";
-import { SystemLogger } from "../loggers/SystemLogger.js";
+import { SystemLogger } from "../../loggers/SystemLogger.js";
 
 /**
  * Utility functions for notifying the control plane (orchestration service)

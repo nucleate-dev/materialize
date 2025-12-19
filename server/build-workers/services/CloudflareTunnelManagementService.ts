@@ -25,9 +25,7 @@ const CHECK_INTERVAL_MS = 500;
 const MAX_OUTPUT_CHARS = 16_384;
 
 export class CloudflareTunnelManagementService {
-  private readonly logger = baseLogger.child({
-    service: "CloudflareTunnelManagementService",
-  });
+  private readonly logger = baseLogger;
   private pty: IPty | null = null;
   private readonly dataListeners = new Set<(chunk: string) => void>();
   private createInProgress = false;
