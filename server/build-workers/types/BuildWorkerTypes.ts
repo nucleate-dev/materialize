@@ -70,18 +70,8 @@ export interface BuildAndDeployResponse {
   message?: string;
 }
 
-export interface PublicDevServerStartRequest {
-  prototype_id: string;
-  framework: "expo_react_native" | "react";
-  files: PrototypeFileInput[];
-  assets: PrototypeAssetInputWithContent[];
-  deleted_files?: string[];
-  file_scope: "updates" | "complete";
-}
-
 export interface PublicStartDevServerRequest {
   prototype_id: string;
-  framework: "expo_react_native" | "react";
 }
 
 export interface PublicUpdateFilesRequest {

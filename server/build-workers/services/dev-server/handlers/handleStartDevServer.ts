@@ -14,6 +14,11 @@ import { SupabaseClientService } from "../../SupabaseClientService.js";
 import { ChatService } from "../../chat/ChatService.js";
 import { syncPrototypeEnvVarsToDisk } from "../utils/envVarUtils.js";
 import { WORK_DIR } from "../../../worker.js";
+import {
+  DEFAULT_PROTOTYPE_FRAMEWORK,
+} from "../NucleateDevelopmentServerService.js";
+import { ExpoReactNativeAdapter } from "../adapters/ExpoReactNativeAdapter.js";
+import { NextJsReactAdapter } from "../adapters/NextJsReactAdapter.js";
 
 export async function handleStartDevServerImpl(
   request: FastifyRequest<{ Body: PublicStartDevServerRequest }>,
@@ -22,16 +27,28 @@ export async function handleStartDevServerImpl(
 ): Promise<
   SandboxAPIResponse<PublicDevServerStartSuccessResponse, StandardErrorResponse>
 > {
-  const { prototype_id, framework } = request.body;
-  if (!prototype_id || !framework) {
+  const { prototype_id } = request.body;
+  if (!prototype_id) {
     reply.code(HTTP_STATUS.BAD_REQUEST);
     return {
       data: null,
       error: {
         error: "Missing required parameters",
-        message: "prototype_id and framework are required",
+        message: "prototype_id is required",
       },
     };
+  }
+
+  const resolvedFramework =
+    developmentServerService.prototypeFramework ?? DEFAULT_PROTOTYPE_FRAMEWORK;
+  if (resolvedFramework === "web_nextjs_react") {
+    developmentServerService.developmentServerAdapter = new NextJsReactAdapter(
+      developmentServerService.terminalService,
+    );
+  } else {
+    developmentServerService.developmentServerAdapter = new ExpoReactNativeAdapter(
+      developmentServerService.terminalService,
+    );
   }
 
   if (

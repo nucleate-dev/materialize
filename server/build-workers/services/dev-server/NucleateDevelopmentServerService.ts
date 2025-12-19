@@ -33,9 +33,12 @@ import { TerminalService } from "../terminals/TerminalService.js";
 import { ExpoReactNativeAdapter } from "./adapters/ExpoReactNativeAdapter.js";
 import { S3Client } from "@aws-sdk/client-s3";
 import { handleRefetchEnvImpl } from "./handlers/handleRefetchEnv.js";
+import type { Database } from "../../types/supabase.js";
 
 export const S3_BUCKET = process.env.S3_BUCKET || "materialize-sites";
 export const DEV_SERVER_PORT = 19006;
+export const DEFAULT_PROTOTYPE_FRAMEWORK: Database["public"]["Enums"]["prototype_framework"] =
+  "mobile_expo_react_native";
 
 export class NucleateDevelopmentServerService {
   public readonly sandboxService: SandboxService;
@@ -46,6 +49,7 @@ export class NucleateDevelopmentServerService {
   public readonly terminalService: TerminalService;
   public developmentServerAdapter: IDevelopmentServerAdapter;
   public s3Client: S3Client | undefined;
+  public prototypeFramework: Database["public"]["Enums"]["prototype_framework"];
   public developmentServerState: {
     tunnelUrl: string;
     devServerStatus: DevServerStatus;
@@ -71,6 +75,7 @@ export class NucleateDevelopmentServerService {
     this.fileSyncService = fileSyncService;
     this.terminalService = terminalService;
     this.developmentServerAdapter = new ExpoReactNativeAdapter(terminalService); // default adapter]
+    this.prototypeFramework = DEFAULT_PROTOTYPE_FRAMEWORK;
     const now = new Date();
     this.developmentServerState = {
       tunnelUrl: "",
@@ -112,6 +117,12 @@ export class NucleateDevelopmentServerService {
 
   public setS3Client(s3Client: S3Client): void {
     this.s3Client = s3Client;
+  }
+
+  public setPrototypeFramework(
+    framework: Database["public"]["Enums"]["prototype_framework"],
+  ): void {
+    this.prototypeFramework = framework;
   }
 
   private async allocate(
