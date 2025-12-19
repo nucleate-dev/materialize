@@ -22,6 +22,34 @@ type PrototypeFramework = Database['public']['Enums']['prototype_framework'];
 const S3_PROTOTYPE_BUCKET = 'materialize-sites';
 const SUPABASE_PROTOTYPE_ASSETS_BUCKET = 'prototype-assets';
 const SUPABASE_CHAT_IMAGES_BUCKET = 'chat_images';
+const S3_COPY_CONCURRENCY = 10;
+const SUPABASE_STORAGE_CONCURRENCY = 5;
+const S3_DOWNLOAD_CONCURRENCY = 20;
+
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  concurrency: number,
+  handler: (item: T, index: number) => Promise<R>,
+): Promise<R[]> {
+  if (items.length === 0) {
+    return [];
+  }
+  const results: R[] = new Array(items.length);
+  let currentIndex = 0;
+
+  const workers = Array.from({ length: Math.min(concurrency, items.length) }).map(
+    async () => {
+      while (true) {
+        const index = currentIndex++;
+        if (index >= items.length) break;
+        results[index] = await handler(items[index], index);
+      }
+    },
+  );
+
+  await Promise.all(workers);
+  return results;
+}
 
 /**
  * Get content type for file based on extension
@@ -61,15 +89,16 @@ export async function copyAllAssetsInSupabaseStorage(
   sourcePrototypeId: string,
   targetPrototypeId: string,
 ): Promise<S3CopyResult> {
-  const copyResults = await Promise.all(
-    assets.map((asset) =>
+  const copyResults = await mapWithConcurrency(
+    assets,
+    SUPABASE_STORAGE_CONCURRENCY,
+    async (asset) =>
       supabase.storage
         .from(SUPABASE_PROTOTYPE_ASSETS_BUCKET)
         .copy(
           `${sourcePrototypeId}/${asset.name}`,
           `${targetPrototypeId}/${asset.name}`,
         ),
-    ),
   );
   const firstError = copyResults.find((r) => r.error);
   return {
@@ -170,8 +199,10 @@ async function copyS3BucketContents(
     continuationToken = listResult.NextContinuationToken;
     if (!listResult.Contents) continue;
 
-    const copyResults = await Promise.all(
-      listResult.Contents.map(async (object) => {
+    const copyResults = await mapWithConcurrency(
+      listResult.Contents,
+      S3_COPY_CONCURRENCY,
+      async (object) => {
         if (!object.Key) return { success: false };
         const sourceKey = object.Key;
         const destinationKey = object.Key.replace(
@@ -197,7 +228,7 @@ async function copyS3BucketContents(
           );
           return { success: false };
         }
-      }),
+      },
     );
 
     copyResults.forEach((r) =>
@@ -226,25 +257,17 @@ export async function copyDefaultAppToVersionedPrototype(
     designStyle,
     framework,
   );
-  const version = getVersion();
-  const [versionedResult, latestResult] = await Promise.all([
-    copyS3BucketContents(
-      s3Client,
-      sourcePrefix,
-      `${prototypeId}/${version}/`,
-      log2,
-    ),
-    copyS3BucketContents(
-      s3Client,
-      sourcePrefix,
-      `${prototypeId}/latest/`,
-      log2,
-    ),
-  ]);
+  const version = 'latest';
+  const latestResult = await copyS3BucketContents(
+    s3Client,
+    sourcePrefix,
+    `${prototypeId}/latest/`,
+    log2,
+  );
   return {
-    success: versionedResult.success && latestResult.success,
-    error: versionedResult.error || latestResult.error || undefined,
-    copiedObjects: versionedResult.copiedObjects + latestResult.copiedObjects,
+    success: latestResult.success,
+    error: latestResult.error,
+    copiedObjects: latestResult.copiedObjects,
     version,
   };
 }
@@ -254,8 +277,10 @@ export async function uploadDefaultAssetsToSupabaseStorage(
   assets: { name: string; contents: Buffer; prototype_id: string }[],
   log2: SystemLogger,
 ): Promise<S3CopyResult> {
-  const uploadResults = await Promise.all(
-    assets.map(async (asset) => {
+  const uploadResults = await mapWithConcurrency(
+    assets,
+    SUPABASE_STORAGE_CONCURRENCY,
+    async (asset) => {
       const filePath = `${asset.prototype_id}/${asset.name}`;
       const { error } = await supabase.storage
         .from(SUPABASE_PROTOTYPE_ASSETS_BUCKET)
@@ -273,7 +298,7 @@ export async function uploadDefaultAssetsToSupabaseStorage(
       return {
         success: true,
       };
-    }),
+    },
   );
   return {
     success: uploadResults.every((r) => r.success),
@@ -355,9 +380,10 @@ export async function getDefaultAppFilesFromS3(
       return { success: false, error: 'No default app files found in S3' };
     }
 
-    // Process all files concurrently — fail fast if any error
-    const results = await Promise.all(
-      keys.map(async (fileName) => {
+    const results = await mapWithConcurrency(
+      keys,
+      S3_DOWNLOAD_CONCURRENCY,
+      async (fileName) => {
         const getCommand = new GetObjectCommand({
           Bucket: S3_PROTOTYPE_BUCKET,
           Key: `${sourcePrefix}${fileName}`,
@@ -375,22 +401,27 @@ export async function getDefaultAppFilesFromS3(
           const contents = await obj.Body.transformToString();
           return { type: 'file' as const, name: fileName, contents };
         }
-      }),
+      },
     );
-    const files: PrototypeFileInsert[] = results
-      .filter((r) => r.type === 'file')
-      .map(
-        (r) =>
-          ({
-            prototype_id: prototypeId,
-            name: r.name,
-            contents: r.contents,
-          }) as PrototypeFileInsert,
-      );
+    const files: PrototypeFileInsert[] = [];
     const assets: { name: string; contents: Buffer; prototype_id: string }[] =
-      results
-        .filter((r) => r.type === 'asset')
-        .map((r) => ({ prototype_id: prototypeId, ...r }));
+      [];
+
+    results.forEach((result) => {
+      if (result.type === 'file') {
+        files.push({
+          prototype_id: prototypeId,
+          name: result.name,
+          contents: result.contents,
+        });
+      } else {
+        assets.push({
+          prototype_id: prototypeId,
+          name: result.name,
+          contents: result.contents,
+        });
+      }
+    });
 
     return { success: true, files, assets };
   } catch (error) {
