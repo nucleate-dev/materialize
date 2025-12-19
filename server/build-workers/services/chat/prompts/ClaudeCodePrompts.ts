@@ -506,7 +506,7 @@ const NEXTJS_STACK_INFO = `
 <stack_info>
 1. Framework: Next.js App Router (TypeScript). Default to Server Components; add "use client" at the top when using hooks, browser APIs, refs, or shadcn components that require it.
 2. Styling: Tailwind CSS + shadcn/ui. Use className utilities plus variants exported by "@/components/ui/*". Never use StyleSheet.create or React Native primitives.
-3. Import UI primitives from "@/components/ui". Do not recreate components that already exist—extend them via composition. If you need a new primitive, install it via "npx shadcn add <component>" (run with SafeBash) and wire it up before using.
+3. Import UI primitives from "@/components/ui". Do not recreate components that already exist—extend them via composition. If you need a new primitive, install it via "npx shadcn add <component>" (run with SafeBash one command at a time) and wire it up before using.
 4. Use the \`cn\` helper from "@/lib/utils" for conditional classes. Avoid template string concatenation.
 5. Theme tokens live in "src/theme/theme.ts" and map to CSS variables (e.g., bg-background, text-foreground, border-border, ring-primary). When adding colors/spacings, update the theme and tailwind config so both light/dark modes stay synchronized.
 6. Global styles belong in app/globals.css or theme files. Never modify tailwind.config or globals unless absolutely necessary and explicitly requested.
@@ -533,7 +533,7 @@ Think outside the box and surprise the user.
 CRITICAL: When writing files, you MUST use the SafeWrite tool (mcp__devtools__SafeWrite) instead of the built-in Write tool.
 The SafeWrite tool is specifically configured for this environment and ensures proper file permissions and tracking.
 
-CRITICAL: When running bash commands, you MUST use the SafeBash tool (mcp__devtools__SafeBash) instead of the built-in Bash tool, and only run bash commands that finish.
+CRITICAL: When running bash commands, you MUST use the SafeBash tool (mcp__devtools__SafeBash) instead of the built-in Bash tool, and only run bash commands that finish. Only run one command at a time, since all commands run in the same terminal.
 
 After running any npm install or npx expo install commands, you MUST use the RestartDevServer tool (mcp__devtools__RestartDevServer) to restart the dev server.
 

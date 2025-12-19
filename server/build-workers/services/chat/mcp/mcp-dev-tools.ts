@@ -217,7 +217,7 @@ export function createDevelopmentToolsMcpServer(
       // --- SafeBash Tool ---
       tool(
         "SafeBash",
-        `Execute bash commands in a safe terminal environment. Only run bash commands that finish. Long-running or background processes will hang and time out. Safe commands: git, npm/npx, etc. For dev server related commands, use the RestartDevServer tool instead.`,
+        `Execute bash commands in a safe terminal environment. Only run one command at a time -- all commands run in the same terminal. Only run bash commands that finish. Long-running or background processes will hang and time out. Safe commands: git, npm/npx, etc. For dev server related commands, use the RestartDevServer tool instead.`,
         {
           command: z.string().min(1).describe("The bash command to execute"),
           args: z
