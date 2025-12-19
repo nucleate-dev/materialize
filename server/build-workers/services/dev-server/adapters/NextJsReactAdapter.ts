@@ -240,7 +240,14 @@ export class NextJsReactAdapter implements IDevelopmentServerAdapter {
         }
       };
 
-      const commandString = `cd ${this.clientDir} && export NEXT_TELEMETRY_DISABLED="1" NODE_ENV="production" NODE_OPTIONS="--max-old-space-size=2048" && rm -rf dist && npx next build && npx next export -o dist; echo "EXIT_CODE=$?"\n`;
+      const commandString = `
+NEXT_TELEMETRY_DISABLED=1 NODE_OPTIONS="--max-old-space-size=2048" \
+cd ${this.clientDir} && \
+npx next build && \
+rm -rf dist && \
+mv out dist && \
+echo "EXIT_CODE=$?"
+`;
 
       try {
         this.terminalService.sendInput("build", commandString, {
@@ -424,7 +431,19 @@ export class NextJsReactAdapter implements IDevelopmentServerAdapter {
   }
 
   private buildStartCommand(): string {
-    const envVars = `NEXT_TELEMETRY_DISABLED=1 NODE_ENV=development PORT=${DEV_SERVER_PORT}`;
-    return `cd ${this.clientDir} && ${envVars} npx next dev --hostname 0.0.0.0 --port ${DEV_SERVER_PORT}`;
+    const envVars = [
+      "NEXT_TELEMETRY_DISABLED=1",
+      "NODE_ENV=development",
+      'NODE_OPTIONS="--max-old-space-size=2048"',
+      "CHOKIDAR_USEPOLLING=1",
+      "WATCHPACK_POLLING=true",
+      `PORT=${DEV_SERVER_PORT}`,
+    ].join(" ");
+
+    return `
+cd ${this.clientDir} && \
+${envVars} \
+npx next dev --hostname 0.0.0.0 --port ${DEV_SERVER_PORT}
+`.trim();
   }
 }
