@@ -391,7 +391,12 @@ export class ChatService {
         break;
 
       case ChatClientEvent.HISTORY_RESPONSE:
-        await this.handleHistoryResponse(socket, message.data, prototypeId, logger);
+        await this.handleHistoryResponse(
+          socket,
+          message.data,
+          prototypeId,
+          logger,
+        );
         break;
     }
   }
@@ -436,8 +441,7 @@ export class ChatService {
 
         if (userId) {
           // Check if user has a Claude subscription token in the database
-          const userToken =
-            await this.claudeTokenService.getUserToken(userId);
+          const userToken = await this.claudeTokenService.getUserToken(userId);
           useCliMode = !!userToken;
 
           logger.consoleLogDevOnly(
@@ -555,14 +559,10 @@ export class ChatService {
   ): Promise<void> {
     const { historical_messages, original_query } = data;
 
-    logger.consoleLogDevOnly(
-      "info",
-      "Received history response from client",
-      {
-        messageCount: historical_messages.length,
-        prototypeId,
-      },
-    );
+    logger.consoleLogDevOnly("info", "Received history response from client", {
+      messageCount: historical_messages.length,
+      prototypeId,
+    });
 
     // Format historical messages for system prompt
     let historyContext = "";
@@ -611,15 +611,11 @@ export class ChatService {
   ): Promise<void> {
     const options = (data.options ?? {}) as Options;
 
-    logger.consoleLogDevOnly(
-      "info",
-      "Processing query with history context",
-      {
-        prototypeId,
-        hasHistoryContext: historyContext.length > 0,
-        historyContextLength: historyContext.length,
-      },
-    );
+    logger.consoleLogDevOnly("info", "Processing query with history context", {
+      prototypeId,
+      hasHistoryContext: historyContext.length > 0,
+      historyContextLength: historyContext.length,
+    });
 
     // For queries with history, we always start a fresh session (don't try to resume)
     // The history context provides continuity instead of session resumption

@@ -176,7 +176,6 @@ export class ChatQueryHandler {
   private static readonly MCP_STREAM_MAX_WAIT_MS = 120000; // 2 minutes (accounting for maxTurns: 50)
   private static readonly MCP_STREAM_POLL_INTERVAL_MS = 100; // Check every 100ms
 
-  private readonly logger: SystemLogger;
   private readonly supabaseClientService: SupabaseClientService;
   private readonly fileSyncService: FileSyncService;
   private readonly toolPermissionService: ToolPermissionService;
@@ -199,7 +198,6 @@ export class ChatQueryHandler {
     enableDesignMcpTools: boolean,
     getAak: () => string | null,
   ) {
-    this.logger = logger.child({ service: "ChatQueryHandler" });
     this.supabaseClientService = supabaseClientService;
     this.fileSyncService = fileSyncService;
     this.toolPermissionService = toolPermissionService;
@@ -265,6 +263,7 @@ export class ChatQueryHandler {
         token,
         prototypeId,
         handlers,
+        logger,
       );
       if (!authResult.success) {
         handlers.sendMessage(socket, {
@@ -279,10 +278,11 @@ export class ChatQueryHandler {
     }
 
     // Step 3: Setup session state
-    this.setupSessionState(data, sessionState);
+    this.setupSessionState(data, sessionState, logger);
 
     // Step 4: Load design system if needed
     const designSystemResult = await this.loadDesignSystem(
+      logger,
       data.custom_design_system_id ?? null,
       sessionState,
       design_style,
@@ -291,7 +291,7 @@ export class ChatQueryHandler {
     );
 
     // Step 5: Perform credit check
-    const creditCheck = await this.performCreditCheck(prototypeId);
+    const creditCheck = await this.performCreditCheck(prototypeId, logger);
     if (!creditCheck.success) {
       handlers.sendMessage(socket, {
         type: ChatEvent.ERROR,
@@ -329,6 +329,7 @@ export class ChatQueryHandler {
         prototypeId,
         sessionState.prototypeChatSessionId ?? "",
         sessionState,
+        logger,
       );
 
       if (isFirst) {
@@ -406,6 +407,7 @@ export class ChatQueryHandler {
               prototypeId,
               userMessageText,
               classifierAbortController,
+              logger,
               "", // system prompt not used anymore (handled by design-agent-service)
             );
 
@@ -505,6 +507,7 @@ export class ChatQueryHandler {
         context,
         designSystemResult.systemPrompt,
         handlers,
+        logger,
         designSpec,
         designMetadata ?? undefined,
       );
@@ -526,6 +529,7 @@ export class ChatQueryHandler {
         sessionState,
         totalCostUsd,
         handlers.sendMessage,
+        logger,
       );
 
       // Step 12: Invalidate build after chat ends
@@ -568,6 +572,7 @@ export class ChatQueryHandler {
     token: string,
     prototypeId: string,
     handlers: MessageHandlers,
+    logger: SystemLogger,
   ): Promise<{
     success: boolean;
     errorMessage?: string;
@@ -586,7 +591,7 @@ export class ChatQueryHandler {
         );
       }
 
-      this.logger.consoleLogDevOnly(
+      logger.consoleLogDevOnly(
         "info",
         "Refreshed Supabase client with JWT token",
         {
@@ -595,7 +600,7 @@ export class ChatQueryHandler {
       );
       return { success: true };
     } catch (error) {
-      this.logger.error(
+      logger.error(
         error instanceof Error ? error : new Error(String(error)),
         "Failed to refresh Supabase client with JWT token",
         { prototypeId },
@@ -614,6 +619,7 @@ export class ChatQueryHandler {
   private setupSessionState(
     data: ChatQueryData,
     sessionState: CodeSessionState,
+    logger: SystemLogger,
   ): void {
     const { prototype_chat_session_id, ai_chat_session_id } = data;
     const previousPrototypeChatSessionId = sessionState.prototypeChatSessionId;
@@ -621,19 +627,15 @@ export class ChatQueryHandler {
     // Use the chat_session_id provided by the client for message persistence
     if (prototype_chat_session_id) {
       sessionState.prototypeChatSessionId = prototype_chat_session_id;
-      this.logger.consoleLogDevOnly(
-        "info",
-        "Using chat session ID from client",
-        {
-          chatSessionId: prototype_chat_session_id,
-          claudeCodeSessionId: ai_chat_session_id,
-        },
-      );
+      logger.consoleLogDevOnly("info", "Using chat session ID from client", {
+        chatSessionId: prototype_chat_session_id,
+        claudeCodeSessionId: ai_chat_session_id,
+      });
       if (previousPrototypeChatSessionId !== prototype_chat_session_id) {
         sessionState.firstMessageStatus = null;
       }
     } else {
-      this.logger.warn("No chat_session_id provided by client", {
+      logger.warn("No chat_session_id provided by client", {
         session_id: ai_chat_session_id,
       });
       sessionState.prototypeChatSessionId = null;
@@ -642,7 +644,7 @@ export class ChatQueryHandler {
 
     // If client explicitly passes null session_id, it wants to start a NEW session
     if (ai_chat_session_id === null) {
-      this.logger.consoleLogDevOnly(
+      logger.consoleLogDevOnly(
         "info",
         "Client requested new session - clearing internal state",
         {
@@ -658,6 +660,7 @@ export class ChatQueryHandler {
    * Loads design system and builds system prompt
    */
   private async loadDesignSystem(
+    logger: SystemLogger,
     custom_design_system_id: string | null,
     sessionState: CodeSessionState,
     design_style: string | undefined,
@@ -673,7 +676,7 @@ export class ChatQueryHandler {
         // Clear design system
         sessionState.designSystemId = null;
         sessionState.designSystemRules = null;
-        this.logger.consoleLogDevOnly("info", "Design system cleared");
+        logger.consoleLogDevOnly("info", "Design system cleared");
       } else {
         // Fetch new design system
         try {
@@ -685,7 +688,7 @@ export class ChatQueryHandler {
             .single();
 
           if (error) {
-            this.logger.error(error, "Failed to fetch design system", {
+            logger.error(error, "Failed to fetch design system", {
               designSystemId: custom_design_system_id,
             });
             sessionState.designSystemId = null;
@@ -696,14 +699,14 @@ export class ChatQueryHandler {
               designSystem as Database["public"]["Tables"]["design_systems"]["Row"]
             ).design_rules;
           } else {
-            this.logger.warn("Design system not found", {
+            logger.warn("Design system not found", {
               designSystemId: custom_design_system_id,
             });
             sessionState.designSystemId = null;
             sessionState.designSystemRules = null;
           }
         } catch (error) {
-          this.logger.error(
+          logger.error(
             error instanceof Error ? error : new Error(String(error)),
             "Error fetching design system",
             { designSystemId: custom_design_system_id },
@@ -717,7 +720,7 @@ export class ChatQueryHandler {
     // Build system prompt with optional design system rules and viewing path context
     let systemPromptAppend = getSystemPromptForDesignStyle(design_style);
 
-    this.logger.consoleLogDevOnly(
+    logger.consoleLogDevOnly(
       "info",
       "Using design-style-specific system prompt",
       {
@@ -742,7 +745,10 @@ export class ChatQueryHandler {
   /**
    * Performs credit check to ensure user has remaining credits
    */
-  private async performCreditCheck(prototypeId: string): Promise<{
+  private async performCreditCheck(
+    prototypeId: string,
+    logger: SystemLogger,
+  ): Promise<{
     success: boolean;
     errorMessage?: string;
     errorDetails?: string;
@@ -754,7 +760,7 @@ export class ChatQueryHandler {
       } = await this.supabaseClientService.getClient().auth.getUser();
 
       if (userError || !user) {
-        this.logger.error(
+        logger.error(
           userError || new Error("No user found"),
           "Unable to verify user for credit check",
           { prototypeId },
@@ -769,11 +775,11 @@ export class ChatQueryHandler {
       const creditCheck = await hasRemainingCredits(
         this.supabaseClientService.getClient(),
         user.id,
-        this.logger,
+        logger,
       );
 
       if (!creditCheck.hasCredits) {
-        this.logger.warn("User has no remaining credits", {
+        logger.warn("User has no remaining credits", {
           userId: user.id,
           prototypeId,
           remaining: creditCheck.remaining,
@@ -791,7 +797,7 @@ export class ChatQueryHandler {
 
       return { success: true };
     } catch (error) {
-      this.logger.error(
+      logger.error(
         error instanceof Error ? error : new Error(String(error)),
         "Error during credit check",
         { prototypeId },
@@ -814,6 +820,7 @@ export class ChatQueryHandler {
     prototypeId: string,
     prototypeChatSessionId: string,
     sessionState: CodeSessionState,
+    logger: SystemLogger,
   ): Promise<boolean> {
     if (!prototypeChatSessionId) {
       return false;
@@ -834,7 +841,7 @@ export class ChatQueryHandler {
           .eq("chat_session_id", prototypeChatSessionId);
 
       if (messageError) {
-        this.logger.error(
+        logger.error(
           messageError,
           "Failed to check message count for first message detection",
           { prototypeChatSessionId },
@@ -856,7 +863,7 @@ export class ChatQueryHandler {
           .eq("prototype_id", prototypeId);
 
       if (sessionError) {
-        this.logger.error(
+        logger.error(
           sessionError,
           "Failed to check session count for first message detection",
           { prototypeId },
@@ -872,7 +879,7 @@ export class ChatQueryHandler {
         isFirst,
       };
 
-      this.logger.consoleLogDevOnly("info", "First message detection result", {
+      logger.consoleLogDevOnly("info", "First message detection result", {
         prototypeId,
         prototypeChatSessionId,
         messageCount,
@@ -882,7 +889,7 @@ export class ChatQueryHandler {
 
       return isFirst;
     } catch (error) {
-      this.logger.error(
+      logger.error(
         error instanceof Error ? error : new Error(String(error)),
         "Error during first message detection",
         { prototypeId, prototypeChatSessionId },
@@ -901,13 +908,14 @@ export class ChatQueryHandler {
     prototypeId: string,
     userMessage: string,
     abortController: AbortController,
+    logger: SystemLogger,
     _systemPrompt: string,
   ): Promise<{ designSpec: string | null; costUsd: number | undefined }> {
     // Use Gemini by default for design agent (fast and free)
     const provider: DesignAgentProvider = "google";
     const model = DEFAULT_DESIGN_AGENT_MODELS[provider];
 
-    this.logger.consoleLogDevOnly("info", "Executing design agent via AI SDK", {
+    logger.consoleLogDevOnly("info", "Executing design agent via AI SDK", {
       prototypeId,
       provider,
       model,
@@ -920,7 +928,7 @@ export class ChatQueryHandler {
       userMessage,
       workDir: WORK_DIR,
       abortController,
-      logger: this.logger,
+      logger: logger,
       prototypeId,
     });
   }
@@ -983,6 +991,7 @@ export class ChatQueryHandler {
     context: QueryExecutionContext,
     systemPromptAppend: string,
     handlers: MessageHandlers,
+    logger: SystemLogger,
     designSpec?: string | null,
     designMetadata?: DesignAgentMetadata,
   ): Promise<number | undefined> {
@@ -1053,7 +1062,7 @@ export class ChatQueryHandler {
           },
         });
 
-        this.logger.consoleLogDevOnly(
+        logger.consoleLogDevOnly(
           "info",
           "Persisted design spec after user message",
           { prototypeId, designSpecLength: designSpec.length },
@@ -1091,6 +1100,7 @@ export class ChatQueryHandler {
         sessionState,
         handlers,
         flushAssistantBuffer,
+        logger,
       );
 
       // Check if session is valid for resumption
@@ -1103,7 +1113,7 @@ export class ChatQueryHandler {
         ai_chat_session_id !== null &&
         ai_chat_session_id !== undefined
       ) {
-        this.logger.warn(
+        logger.warn(
           "Invalid session ID detected - requesting history from client",
           {
             providedSessionId: ai_chat_session_id,
@@ -1127,7 +1137,7 @@ export class ChatQueryHandler {
         queryOptions.resume = ai_chat_session_id;
       }
 
-      this.logger.consoleLogDevOnly("info", "Querying Claude Agent SDK", {
+      logger.consoleLogDevOnly("info", "Querying Claude Agent SDK", {
         hasResume: !!queryOptions.resume,
         resumeSessionId: queryOptions.resume,
         providedSessionId: ai_chat_session_id,
@@ -1149,6 +1159,7 @@ export class ChatQueryHandler {
       const totalCostUsd = await this.streamQueryResponse(
         streamContext,
         handlers,
+        logger,
       );
 
       // Images were already uploaded before persisting the user message
@@ -1173,7 +1184,7 @@ export class ChatQueryHandler {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
 
-      this.logger.error(
+      logger.error(
         error instanceof Error ? error : new Error(String(error)),
         "Claude Code query failed",
         { prototypeId },
@@ -1301,6 +1312,7 @@ export class ChatQueryHandler {
     sessionState: CodeSessionState,
     handlers: MessageHandlers,
     flushAssistantBuffer: () => Promise<void>,
+    logger: SystemLogger,
   ): Promise<Options & { resume?: string }> {
     const canUseTool: CanUseTool = async (
       toolName: ToolName,
@@ -1313,7 +1325,7 @@ export class ChatQueryHandler {
     // Prepare environment variables
     const env: Record<string, string | undefined> = {};
     const aak = this.getAak();
-    this.logger.consoleLogDevOnly("info", "AAK", {
+    logger.consoleLogDevOnly("info", "AAK", {
       exists: !!aak,
       lastFourCharacters: aak?.slice(-4),
     });
@@ -1344,6 +1356,7 @@ export class ChatQueryHandler {
       devtools: createDevelopmentToolsMcpServer(
         async (command: string, args: string[], cwd?: string) => {
           const executeSandboxCommandResult = await this.executeSandboxCommand(
+            logger,
             command,
             args,
             cwd,
@@ -1352,10 +1365,11 @@ export class ChatQueryHandler {
         },
         async (filePath: string, content: string) => {
           const writeFileResult = await this.handleMcpWriteFile(
+            logger,
             filePath,
             content,
           );
-          this.logger.consoleLogDevOnly(
+          logger.consoleLogDevOnly(
             "info",
             "MCP writeFile tool: write file result:",
             {
@@ -1367,14 +1381,14 @@ export class ChatQueryHandler {
         },
         this.terminalService,
         async () => {
-          this.logger.consoleLogDevOnly(
+          logger.consoleLogDevOnly(
             "info",
             "MCP restartDevServer tool: restarting dev server",
           );
           this.devServerService.developmentServerState.devServerStatus =
             DevServerStatus.RESTARTING;
           await this.devServerService.developmentServerAdapter.restartDevServer(
-            this.logger,
+            logger,
           );
           this.devServerService.developmentServerState.devServerStatus =
             DevServerStatus.RUNNING;
@@ -1383,7 +1397,7 @@ export class ChatQueryHandler {
     };
 
     if (this.enableDesignMcpTools) {
-      mcpServers.design = createDesignToolsMcpServer(this.logger);
+      mcpServers.design = createDesignToolsMcpServer(logger);
     }
 
     return {
@@ -1421,7 +1435,7 @@ export class ChatQueryHandler {
                   socket,
                   flushAssistantBuffer,
                 };
-                return this.handlePreToolUseHook(hookContext, handlers);
+                return this.handlePreToolUseHook(hookContext, handlers, logger);
               },
             ],
           },
@@ -1440,7 +1454,11 @@ export class ChatQueryHandler {
                   socket,
                   sessionState,
                 };
-                return this.handlePostToolUseHook(hookContext, handlers);
+                return this.handlePostToolUseHook(
+                  hookContext,
+                  handlers,
+                  logger,
+                );
               },
             ],
           },
@@ -1453,6 +1471,7 @@ export class ChatQueryHandler {
    * Executes sandbox command for MCP tools
    */
   private async executeSandboxCommand(
+    logger: SystemLogger,
     command: string,
     args: string[],
     cwd?: string,
@@ -1469,18 +1488,6 @@ export class ChatQueryHandler {
           normalizedCwd = path.join(WORK_DIR, cwd);
         }
       }
-
-      this.logger.consoleLogDevOnly(
-        "info",
-        "Executing sandbox command with cwd",
-        {
-          command,
-          args,
-          requestedCwd: cwd,
-          normalizedCwd,
-        },
-      );
-
       const { response: responseRaw } =
         await this.sandboxService.runCommandInternal({
           command,
@@ -1501,7 +1508,7 @@ export class ChatQueryHandler {
           isError: false,
         };
       } else if (response.status === "timeout") {
-        this.logger.warn(
+        logger.warn(
           "Terminal command timed out in MCP executeSandboxCommand tool",
           {
             command,
@@ -1520,7 +1527,7 @@ export class ChatQueryHandler {
       };
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
-      this.logger.error(
+      logger.error(
         error instanceof Error ? error : new Error(errorMsg),
         "MCP Tool execution failed",
       );
@@ -1532,6 +1539,7 @@ export class ChatQueryHandler {
    * Handles MCP write file requests
    */
   private async handleMcpWriteFile(
+    logger: SystemLogger,
     filePath: string,
     content: string,
   ): Promise<{
@@ -1544,13 +1552,6 @@ export class ChatQueryHandler {
       const resolvedPath = path.resolve(WORK_DIR, filePath);
       const relativePath = path.relative(WORK_DIR, path.dirname(resolvedPath));
       const filename = path.basename(resolvedPath);
-
-      this.logger.consoleLogDevOnly("info", "MCP Write tool: writing file", {
-        filePath,
-        resolvedPath,
-        relativePath,
-        filename,
-      });
 
       // Use SandboxService's writeFile method
       const result = await this.sandboxService.writeFile(
@@ -1575,7 +1576,7 @@ export class ChatQueryHandler {
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
-      this.logger.error(
+      logger.error(
         error instanceof Error ? error : new Error(errorMessage),
         "MCP Write tool: failed to write file",
         { filePath },
@@ -1593,12 +1594,13 @@ export class ChatQueryHandler {
   private async handlePreToolUseHook(
     hookContext: HookContext,
     handlers: MessageHandlers,
+    logger: SystemLogger,
   ): Promise<HookJSONOutput> {
     const { input, toolUseID, socket, flushAssistantBuffer } = hookContext;
 
     try {
       if (input.hook_event_name === "PreToolUse") {
-        this.logger.debug(
+        logger.debug(
           `PreToolUse Hook called for tool ${input.tool_name} with args: ${JSON.stringify(
             input.tool_input,
           )}`,
@@ -1664,7 +1666,7 @@ export class ChatQueryHandler {
       }
     } catch (error) {
       // Log but don't fail the hook
-      this.logger.error(
+      logger.error(
         error instanceof Error ? error : new Error(String(error)),
         "PreToolUse hook error",
       );
@@ -1678,11 +1680,12 @@ export class ChatQueryHandler {
   private async handlePostToolUseHook(
     hookContext: HookContext,
     handlers: MessageHandlers,
+    logger: SystemLogger,
   ): Promise<HookJSONOutput> {
     const { input, toolUseID, socket, sessionState } = hookContext;
 
     try {
-      this.logger.consoleLogDevOnly("debug", JSON.stringify(input));
+      logger.consoleLogDevOnly("debug", JSON.stringify(input));
 
       if (input.hook_event_name === "PostToolUse") {
         // Track file modifications
@@ -1745,7 +1748,7 @@ export class ChatQueryHandler {
       }
     } catch (error) {
       // Log but don't fail the hook
-      this.logger.error(
+      logger.error(
         error instanceof Error ? error : new Error(String(error)),
         "PostToolUse hook error",
       );
@@ -1794,6 +1797,7 @@ export class ChatQueryHandler {
   private async streamQueryResponse(
     streamContext: StreamContext,
     handlers: MessageHandlers,
+    logger: SystemLogger,
   ): Promise<number | undefined> {
     const {
       messageContent,
@@ -1883,15 +1887,11 @@ export class ChatQueryHandler {
         // Add this session ID to our set of valid session IDs
         validAiChatSessionIds.add(msg.session_id);
 
-        this.logger.consoleLogDevOnly(
-          "info",
-          "Claude Code session initialized",
-          {
-            sessionId: msg.session_id,
-            isNewSession,
-            previousSessionId,
-          },
-        );
+        logger.consoleLogDevOnly("info", "Claude Code session initialized", {
+          sessionId: msg.session_id,
+          isNewSession,
+          previousSessionId,
+        });
 
         // Persist the newly created Claude session ID to the prototype chat session row
         if (sessionState.prototypeChatSessionId) {
@@ -1903,7 +1903,7 @@ export class ChatQueryHandler {
               .eq("id", sessionState.prototypeChatSessionId);
 
             if (error) {
-              this.logger.error(
+              logger.error(
                 error,
                 "Failed to update session_id in prototype_chat_sessions",
                 {
@@ -1912,7 +1912,7 @@ export class ChatQueryHandler {
                 },
               );
             } else {
-              this.logger.consoleLogDevOnly(
+              logger.consoleLogDevOnly(
                 "info",
                 "Updated prototype_chat_sessions with new Claude session_id",
                 {
@@ -1922,7 +1922,7 @@ export class ChatQueryHandler {
               );
             }
           } catch (error) {
-            this.logger.error(
+            logger.error(
               error instanceof Error ? error : new Error(String(error)),
               "Exception while updating session_id in prototype_chat_sessions",
               {
@@ -1932,7 +1932,7 @@ export class ChatQueryHandler {
             );
           }
         } else {
-          this.logger.warn(
+          logger.warn(
             "Cannot persist Claude session_id because prototypeChatSessionId is missing",
             { claudeSessionId: msg.session_id },
           );
@@ -1968,7 +1968,7 @@ export class ChatQueryHandler {
           bufferState.creditsUsed = costFunctionV3(total_cost_usd);
           bufferState.costFunction = CURRENT_COST_FUNCTION_NAME;
 
-          this.logger.metricTokenUsage({
+          logger.metricTokenUsage({
             modelName: queryOptions.model ?? "unknown",
             inputTokens,
             outputTokens,
@@ -1980,7 +1980,7 @@ export class ChatQueryHandler {
           });
           tokenUsageLogged = true;
         } catch (logError) {
-          this.logger.error(
+          logger.error(
             logError instanceof Error ? logError : new Error(String(logError)),
             "Failed to log token usage",
           );
@@ -2020,10 +2020,11 @@ export class ChatQueryHandler {
     sessionState: CodeSessionState,
     totalCostUsd: number | undefined,
     sendMessage: (socket: WebSocket, message: ChatServerMessage) => void,
+    logger: SystemLogger,
   ): Promise<void> {
     // Sync file changes to Supabase
     try {
-      this.logger.consoleLogDevOnly(
+      logger.consoleLogDevOnly(
         "info",
         "Syncing file changes to Supabase (incremental sync)",
         {
@@ -2036,19 +2037,15 @@ export class ChatQueryHandler {
       );
 
       if (syncResult.success) {
-        this.logger.consoleLogDevOnly(
-          "info",
-          "File sync completed successfully",
-          {
-            prototypeId,
-            filesUpdated: syncResult.filesUpdated,
-            filesDeleted: syncResult.filesDeleted,
-            assetsUpdated: syncResult.assetsUpdated,
-            assetsDeleted: syncResult.assetsDeleted,
-          },
-        );
+        logger.consoleLogDevOnly("info", "File sync completed successfully", {
+          prototypeId,
+          filesUpdated: syncResult.filesUpdated,
+          filesDeleted: syncResult.filesDeleted,
+          assetsUpdated: syncResult.assetsUpdated,
+          assetsDeleted: syncResult.assetsDeleted,
+        });
       } else {
-        this.logger.error(
+        logger.error(
           new Error("File sync completed with errors"),
           "File sync had errors",
           {
@@ -2059,7 +2056,7 @@ export class ChatQueryHandler {
         );
       }
     } catch (syncError) {
-      this.logger.error(
+      logger.error(
         syncError instanceof Error ? syncError : new Error(String(syncError)),
         "Failed to sync files to Supabase",
         { prototypeId },
@@ -2075,7 +2072,7 @@ export class ChatQueryHandler {
           data: { files: modifiedFiles },
         });
       } catch (modifiedFilesError) {
-        this.logger.error(
+        logger.error(
           modifiedFilesError instanceof Error
             ? modifiedFilesError
             : new Error(String(modifiedFilesError)),
@@ -2094,7 +2091,7 @@ export class ChatQueryHandler {
       } = await this.supabaseClientService.getClient().auth.getUser();
 
       if (userError || !user) {
-        this.logger.warn("Unable to track API usage - no authenticated user", {
+        logger.warn("Unable to track API usage - no authenticated user", {
           prototypeId,
           error: userError,
         });
@@ -2102,7 +2099,7 @@ export class ChatQueryHandler {
         // Calculate credits used using the shared cost calculation function
         const creditsUsed = costFunctionV3(totalCostUsd) ?? 1.0;
 
-        this.logger.consoleLogDevOnly("info", "Tracking API usage", {
+        logger.consoleLogDevOnly("info", "Tracking API usage", {
           userId: user.id,
           prototypeId,
           totalCostUsd,
@@ -2113,7 +2110,7 @@ export class ChatQueryHandler {
           this.supabaseClientService.getClient(),
           user.id,
           prototypeId,
-          this.logger,
+          logger,
           creditsUsed,
         );
 
@@ -2126,20 +2123,16 @@ export class ChatQueryHandler {
           },
         });
 
-        this.logger.consoleLogDevOnly(
-          "info",
-          "API usage tracked successfully",
-          {
-            userId: user.id,
-            prototypeId,
-            totalCostUsd,
-            creditsUsed,
-            totalRemainingCredits,
-          },
-        );
+        logger.consoleLogDevOnly("info", "API usage tracked successfully", {
+          userId: user.id,
+          prototypeId,
+          totalCostUsd,
+          creditsUsed,
+          totalRemainingCredits,
+        });
       }
     } catch (usageError) {
-      this.logger.error(
+      logger.error(
         usageError instanceof Error
           ? usageError
           : new Error(String(usageError)),
