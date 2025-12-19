@@ -4,7 +4,7 @@ import { FastifyInstance, FastifyRequest } from "fastify";
 import path from "path";
 import WebSocket from "ws";
 import { DEFAULT_FLAGS, FeatureFlags } from "../../FLAGS.js";
-import { baseLogger } from "../../loggers/index.js";
+import { baseLogger, posthog } from "../../loggers/index.js";
 import { SystemLogger } from "../../loggers/SystemLogger.js";
 import {
   ChatClientEvent,
@@ -407,15 +407,25 @@ export class ChatService {
         const userId = payload.sub;
 
         if (userId) {
-          // Check if user has a Claude subscription token in the database
-          const userToken = await this.claudeTokenService.getUserToken(userId);
-          useCliMode = !!userToken;
+          // Check PostHog feature flag first
+          const isFeatureEnabled = await posthog.isFeatureEnabled(
+            "claude-code-cli-with-personal-token",
+            userId,
+          );
+
+          if (isFeatureEnabled) {
+            // Check if user has a Claude subscription token in the database
+            const userToken =
+              await this.claudeTokenService.getUserToken(userId);
+            useCliMode = !!userToken;
+          }
 
           logger.consoleLogDevOnly(
             "info",
             "Checked user Claude subscription token",
             {
               userId,
+              isFeatureEnabled,
               hasToken: useCliMode,
             },
           );
