@@ -60,13 +60,11 @@ interface GitCheckoutResult {
 }
 
 export class SandboxService {
-  private readonly log: ReturnType<typeof baseLogger.child>;
   private readonly fastifyApp: FastifyInstance;
   private readonly terminalService: TerminalService;
 
   constructor(fastifyApp: FastifyInstance, terminalService: TerminalService) {
     this.fastifyApp = fastifyApp;
-    this.log = baseLogger;
     this.terminalService = terminalService;
   }
 
@@ -132,7 +130,7 @@ export class SandboxService {
       // Security: Validate path is within workDir
       const resolvedPath = resolvePathWithinProject(WORK_DIR, relativePath);
 
-      this.log.consoleLogDevOnly("info", "Creating directory", {
+      baseLogger.consoleLogDevOnly("info", "Creating directory", {
         path: relativePath,
         resolvedPath,
         recursive,
@@ -140,14 +138,14 @@ export class SandboxService {
 
       await fs.mkdir(resolvedPath, { recursive });
 
-      this.log.consoleLogDevOnly("info", "Directory created successfully", {
+      baseLogger.consoleLogDevOnly("info", "Directory created successfully", {
         path: relativePath,
       });
       return { success: true };
     } catch (error: unknown) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
-      this.log.error(new Error(errorMessage), "Failed to create directory", {
+      baseLogger.error(new Error(errorMessage), "Failed to create directory", {
         path: relativePath,
         recursive,
       });
@@ -182,7 +180,7 @@ export class SandboxService {
     if (session_id) {
       // Use existing session
       sessionId = session_id;
-      this.log.consoleLogDevOnly("info", "Using existing terminal session", {
+      baseLogger.consoleLogDevOnly("info", "Using existing terminal session", {
         sessionId,
       });
     } else {
@@ -193,7 +191,7 @@ export class SandboxService {
           cwd: cwd || WORK_DIR,
         });
         shouldCleanupSession = true;
-        this.log.consoleLogDevOnly(
+        baseLogger.consoleLogDevOnly(
           "info",
           "Created temporary terminal session",
           { sessionId },
@@ -205,7 +203,7 @@ export class SandboxService {
       } catch (error) {
         const errorMessage =
           error instanceof Error ? error.message : String(error);
-        this.log.error(
+        baseLogger.error(
           new Error(errorMessage),
           "Failed to create terminal session",
           { sessionId },
@@ -238,7 +236,7 @@ export class SandboxService {
       const cwdPrefix = cwd ? `cd ${cwd} && ` : "";
       const fullCommand = `${envString ? envString + " " : ""}${cwdPrefix}${command}${argsString}`;
 
-      this.log.consoleLogDevOnly("info", "Executing command in terminal", {
+      baseLogger.consoleLogDevOnly("info", "Executing command in terminal", {
         command: fullCommand,
         sessionId,
         timeoutMs,
@@ -261,7 +259,7 @@ export class SandboxService {
         cleanOutput = stripAnsiSequences(cleanOutput);
       }
 
-      this.log.consoleLogDevOnly("info", "Command completed successfully", {
+      baseLogger.consoleLogDevOnly("info", "Command completed successfully", {
         command,
         sessionId,
         exitCode: result.exitCode,
@@ -302,7 +300,7 @@ export class SandboxService {
         error instanceof Error ? error.message : String(error);
       const isTimeout = errorMessage.includes("timed out");
 
-      this.log.error(
+      baseLogger.error(
         new Error(errorMessage),
         isTimeout ? "Command timed out" : "Failed to execute command",
         { sessionId, command, timeoutMs },
@@ -381,7 +379,7 @@ export class SandboxService {
       // Security: Validate path is within workDir
       const resolvedPath = resolvePathWithinProject(WORK_DIR, relativePath);
 
-      this.log.consoleLogDevOnly("info", "Reading file", {
+      baseLogger.consoleLogDevOnly("info", "Reading file", {
         path: relativePath,
         resolvedPath,
       });
@@ -390,7 +388,7 @@ export class SandboxService {
       const stats = await fs.stat(resolvedPath);
       if (stats.size > MAX_FILE_SIZE_BYTES) {
         const errorMsg = `File too large: ${stats.size} bytes (max ${MAX_FILE_SIZE_BYTES} bytes)`;
-        this.log.error(new Error(errorMsg), "File size limit exceeded", {
+        baseLogger.error(new Error(errorMsg), "File size limit exceeded", {
           path: relativePath,
           size: stats.size,
         });
@@ -407,14 +405,18 @@ export class SandboxService {
       if (isBinary) {
         // Base64 encode binary files
         contents = buffer.toString("base64");
-        this.log.consoleLogDevOnly("info", "File read successfully (binary)", {
-          path: relativePath,
-          size: stats.size,
-        });
+        baseLogger.consoleLogDevOnly(
+          "info",
+          "File read successfully (binary)",
+          {
+            path: relativePath,
+            size: stats.size,
+          },
+        );
       } else {
         // Return text files as UTF-8
         contents = buffer.toString("utf-8");
-        this.log.consoleLogDevOnly("info", "File read successfully (text)", {
+        baseLogger.consoleLogDevOnly("info", "File read successfully (text)", {
           path: relativePath,
           size: stats.size,
         });
@@ -424,7 +426,7 @@ export class SandboxService {
     } catch (error: unknown) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
-      this.log.error(new Error(errorMessage), "Failed to read file", {
+      baseLogger.error(new Error(errorMessage), "Failed to read file", {
         path: relativePath,
       });
       return { success: false, error: errorMessage };
@@ -450,7 +452,7 @@ export class SandboxService {
       // Security: Validate path is within workDir
       const resolvedPath = resolvePathWithinProject(WORK_DIR, fullRelativePath);
 
-      this.log.consoleLogDevOnly("info", "Writing file", {
+      baseLogger.consoleLogDevOnly("info", "Writing file", {
         path: fullRelativePath,
         resolvedPath,
         contentLength: contents.length,
@@ -463,14 +465,14 @@ export class SandboxService {
       // Write file
       await fs.writeFile(resolvedPath, contents, "utf-8");
 
-      this.log.consoleLogDevOnly("info", "File written successfully", {
+      baseLogger.consoleLogDevOnly("info", "File written successfully", {
         path: fullRelativePath,
       });
       return { success: true };
     } catch (error: unknown) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
-      this.log.error(new Error(errorMessage), "Failed to write file", {
+      baseLogger.error(new Error(errorMessage), "Failed to write file", {
         path: relativePath,
         filename,
       });
@@ -493,7 +495,7 @@ export class SandboxService {
       if (!this.isValidGitUrl(gitUrl)) {
         const errorMsg =
           "Invalid git URL. Only HTTPS URLs are allowed (e.g., https://github.com/user/repo.git)";
-        this.log.error(new Error(errorMsg), "Invalid git URL", { gitUrl });
+        baseLogger.error(new Error(errorMsg), "Invalid git URL", { gitUrl });
         return { success: false, error: errorMsg };
       }
 
@@ -501,7 +503,7 @@ export class SandboxService {
       if (this.containsPrivateIp(gitUrl)) {
         const errorMsg =
           "Git URL contains private IP address. Only public repositories are allowed.";
-        this.log.error(new Error(errorMsg), "Private IP in git URL", {
+        baseLogger.error(new Error(errorMsg), "Private IP in git URL", {
           gitUrl,
         });
         return { success: false, error: errorMsg };
@@ -517,7 +519,7 @@ export class SandboxService {
         resolvedPath = resolvePathWithinProject(WORK_DIR, repoName);
       }
 
-      this.log.consoleLogDevOnly("info", "Cloning git repository", {
+      baseLogger.consoleLogDevOnly("info", "Cloning git repository", {
         gitUrl,
         targetPath: resolvedPath,
       });
@@ -526,13 +528,13 @@ export class SandboxService {
       const result = await this.executeGitClone(gitUrl, resolvedPath);
 
       if (result.code === 0) {
-        this.log.consoleLogDevOnly("info", "Git clone successful", {
+        baseLogger.consoleLogDevOnly("info", "Git clone successful", {
           gitUrl,
           targetPath: resolvedPath,
         });
         return { success: true, output: result.stdout };
       } else {
-        this.log.error(new Error(result.stderr), "Git clone failed", {
+        baseLogger.error(new Error(result.stderr), "Git clone failed", {
           gitUrl,
           targetPath: resolvedPath,
         });
@@ -541,7 +543,7 @@ export class SandboxService {
     } catch (error: unknown) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
-      this.log.error(new Error(errorMessage), "Git checkout failed", {
+      baseLogger.error(new Error(errorMessage), "Git checkout failed", {
         gitUrl,
         targetPath,
       });
@@ -674,13 +676,13 @@ export class SandboxService {
       gitProcess.stdout?.on("data", (data: Buffer) => {
         const output = data.toString();
         stdout += output;
-        this.log.debug("Git clone stdout", { output: output.trim() });
+        baseLogger.debug("Git clone stdout", { output: output.trim() });
       });
 
       gitProcess.stderr?.on("data", (data: Buffer) => {
         const output = data.toString();
         stderr += output;
-        this.log.debug("Git clone stderr", { output: output.trim() });
+        baseLogger.debug("Git clone stderr", { output: output.trim() });
       });
 
       gitProcess.on("close", (code: number | null) => {
@@ -710,7 +712,7 @@ export class SandboxService {
     const { path, recursive } = request.body;
 
     if (!path) {
-      this.log.error(
+      baseLogger.error(
         new Error("Missing required parameter: path"),
         "Missing required parameter: path",
       );
@@ -734,10 +736,14 @@ export class SandboxService {
           error: null,
         };
       } else {
-        this.log.error(new Error(result.error), "Failed to create directory", {
-          path,
-          recursive,
-        });
+        baseLogger.error(
+          new Error(result.error),
+          "Failed to create directory",
+          {
+            path,
+            recursive,
+          },
+        );
         reply.code(500);
         return {
           data: null,
@@ -750,7 +756,7 @@ export class SandboxService {
     } catch (error: unknown) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
-      this.log.error(
+      baseLogger.error(
         new Error(errorMessage),
         "Unexpected error in handleSandboxMakeDir",
         { path, recursive },
@@ -775,7 +781,7 @@ export class SandboxService {
     const { path } = request.body;
 
     if (!path) {
-      this.log.error(
+      baseLogger.error(
         new Error("Missing required parameter: path"),
         "Missing required parameter: path",
       );
@@ -808,7 +814,7 @@ export class SandboxService {
           result.error?.includes("no such file");
 
         if (isNotFound) {
-          this.log.warn("File not found", { path });
+          baseLogger.warn("File not found", { path });
           reply.code(404);
           return {
             data: null,
@@ -818,7 +824,7 @@ export class SandboxService {
             },
           };
         } else {
-          this.log.error(new Error(result.error), "Failed to read file", {
+          baseLogger.error(new Error(result.error), "Failed to read file", {
             path,
           });
           reply.code(500);
@@ -834,7 +840,7 @@ export class SandboxService {
     } catch (error: unknown) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
-      this.log.error(
+      baseLogger.error(
         new Error(errorMessage),
         "Unexpected error in handleSandboxReadFile",
         { path },
@@ -859,7 +865,7 @@ export class SandboxService {
     const { path, filename, contents } = request.body;
 
     if (!path || !filename || contents === undefined) {
-      this.log.error(
+      baseLogger.error(
         new Error("Missing required parameters"),
         "Missing required parameters",
         {
@@ -888,7 +894,7 @@ export class SandboxService {
           error: null,
         };
       } else {
-        this.log.error(new Error(result.error), "Failed to write file", {
+        baseLogger.error(new Error(result.error), "Failed to write file", {
           path,
           filename,
         });
@@ -904,7 +910,7 @@ export class SandboxService {
     } catch (error: unknown) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
-      this.log.error(
+      baseLogger.error(
         new Error(errorMessage),
         "Unexpected error in handleSandboxWriteFile",
         { path, filename },
@@ -929,7 +935,7 @@ export class SandboxService {
     const { git_url, target_path } = request.body;
 
     if (!git_url) {
-      this.log.error(
+      baseLogger.error(
         new Error("Missing required parameter: git_url"),
         "Missing required parameter: git_url",
       );
@@ -961,7 +967,7 @@ export class SandboxService {
           result.error?.includes("private IP");
 
         if (isValidationError) {
-          this.log.warn("Git checkout validation failed", {
+          baseLogger.warn("Git checkout validation failed", {
             git_url,
             error: result.error,
           });
@@ -975,7 +981,7 @@ export class SandboxService {
             },
           };
         } else {
-          this.log.error(new Error(result.error), "Git checkout failed", {
+          baseLogger.error(new Error(result.error), "Git checkout failed", {
             git_url,
             target_path,
           });
@@ -993,7 +999,7 @@ export class SandboxService {
     } catch (error: unknown) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
-      this.log.error(
+      baseLogger.error(
         new Error(errorMessage),
         "Unexpected error in handleSandboxGitCheckout",
         { git_url, target_path },
