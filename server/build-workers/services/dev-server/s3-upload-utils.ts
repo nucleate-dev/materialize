@@ -9,6 +9,8 @@ import fs from "fs/promises";
 import path from "path";
 import { S3_BUCKET } from "./NucleateDevelopmentServerService.js";
 
+const MAX_CONCURRENT_UPLOADS = 5;
+
 export async function uploadDirectoryToS3(
   log2: SystemLogger,
   localPath: string,
@@ -45,75 +47,123 @@ async function uploadToVersionedAndLatest(
   uploadResults: Array<{ key: string; location: string }>;
   version: string;
 }> {
+  const versionedPrefix = `${prototypeId}/${version}`;
+  const latestPrefix = `${prototypeId}/latest`;
   const uploadResults: Array<{ key: string; location: string }> = [];
+  const filesToUpload: Array<{
+    fullPath: string;
+    fileName: string;
+    versionedKey: string;
+    latestKey: string;
+  }> = [];
 
-  const uploadDirectory = async (
+  const collectFiles = async (
     dirPath: string,
-    versionedPrefix: string,
-    latestPrefix: string,
+    currentVersionPrefix: string,
+    currentLatestPrefix: string,
   ): Promise<void> => {
-    const items = await fs.readdir(dirPath);
-
-    for (const item of items) {
-      const fullPath = path.join(dirPath, item);
-      const stats = await fs.stat(fullPath);
-
-      if (stats.isDirectory()) {
-        await uploadDirectory(
+    const entries = await fs.readdir(dirPath, { withFileTypes: true });
+    for (const entry of entries) {
+      const entryName = entry.name;
+      const fullPath = path.join(dirPath, entryName);
+      if (entry.isDirectory()) {
+        await collectFiles(
           fullPath,
-          `${versionedPrefix}/${item}`,
-          `${latestPrefix}/${item}`,
+          `${currentVersionPrefix}/${entryName}`,
+          `${currentLatestPrefix}/${entryName}`,
         );
-      } else if (stats.isFile()) {
-        const fileContent = await fs.readFile(fullPath);
-
-        if (!fileContent || fileContent.length === 0) {
-          log2.warn("Skipping empty file during upload", {
-            fileName: item,
+      } else if (entry.isFile()) {
+        filesToUpload.push({
+          fullPath,
+          fileName: entryName,
+          versionedKey: `${currentVersionPrefix}/${entryName}`,
+          latestKey: `${currentLatestPrefix}/${entryName}`,
+        });
+      } else if (entry.isSymbolicLink()) {
+        const stats = await fs.stat(fullPath);
+        if (stats.isDirectory()) {
+          await collectFiles(
+            fullPath,
+            `${currentVersionPrefix}/${entryName}`,
+            `${currentLatestPrefix}/${entryName}`,
+          );
+        } else if (stats.isFile()) {
+          filesToUpload.push({
+            fullPath,
+            fileName: entryName,
+            versionedKey: `${currentVersionPrefix}/${entryName}`,
+            latestKey: `${currentLatestPrefix}/${entryName}`,
           });
-          continue;
         }
-
-        const uploadParams = {
-          Body: fileContent,
-          ContentType: getContentType(item),
-          CacheControl: getCacheControlHeader(item),
-        };
-
-        // Upload to versioned location
-        const versionedKey = `${versionedPrefix}/${item}`;
-        const versionedCommand = new PutObjectCommand({
-          ...uploadParams,
-          Bucket: S3_BUCKET,
-          Key: versionedKey,
-        });
-        await s3.send(versionedCommand);
-
-        // Upload to latest location
-        const latestKey = `${latestPrefix}/${item}`;
-        const latestCommand = new PutObjectCommand({
-          ...uploadParams,
-          Bucket: S3_BUCKET,
-          Key: latestKey,
-          // Shorter cache for latest folder to pick up updates faster
-          CacheControl: item.endsWith(".html")
-            ? "public, max-age=300"
-            : uploadParams.CacheControl,
-        });
-        await s3.send(latestCommand);
-
-        uploadResults.push({
-          key: versionedKey,
-          location: `https://${S3_BUCKET}.s3.amazonaws.com/${versionedKey}`,
-        });
       }
     }
   };
 
-  const versionedPrefix = `${prototypeId}/${version}`;
-  const latestPrefix = `${prototypeId}/latest`;
+  await collectFiles(localPath, versionedPrefix, latestPrefix);
 
-  await uploadDirectory(localPath, versionedPrefix, latestPrefix);
+  if (filesToUpload.length === 0) {
+    return { uploadResults, version };
+  }
+
+  let fileIndex = 0;
+  const workerCount = Math.min(MAX_CONCURRENT_UPLOADS, filesToUpload.length);
+
+  const uploadFile = async (file: {
+    fullPath: string;
+    fileName: string;
+    versionedKey: string;
+    latestKey: string;
+  }): Promise<void> => {
+    const fileContent = await fs.readFile(file.fullPath);
+
+    if (!fileContent || fileContent.length === 0) {
+      log2.warn("Skipping empty file during upload", {
+        fileName: file.fileName,
+      });
+      return;
+    }
+
+    const uploadParams = {
+      Body: fileContent,
+      ContentType: getContentType(file.fileName),
+      CacheControl: getCacheControlHeader(file.fileName),
+    };
+
+    const versionedCommand = new PutObjectCommand({
+      ...uploadParams,
+      Bucket: S3_BUCKET,
+      Key: file.versionedKey,
+    });
+    await s3.send(versionedCommand);
+
+    const latestCommand = new PutObjectCommand({
+      ...uploadParams,
+      Bucket: S3_BUCKET,
+      Key: file.latestKey,
+      CacheControl: file.fileName.endsWith(".html")
+        ? "public, max-age=300"
+        : uploadParams.CacheControl,
+    });
+    await s3.send(latestCommand);
+
+    uploadResults.push({
+      key: file.versionedKey,
+      location: `https://${S3_BUCKET}.s3.amazonaws.com/${file.versionedKey}`,
+    });
+  };
+
+  const workers = Array.from({ length: workerCount }).map(async () => {
+    while (true) {
+      const currentIndex = fileIndex++;
+      if (currentIndex >= filesToUpload.length) {
+        break;
+      }
+      const file = filesToUpload[currentIndex];
+      await uploadFile(file);
+    }
+  });
+
+  await Promise.all(workers);
   return { uploadResults, version };
 }
 
@@ -124,26 +174,60 @@ async function deleteOldVersions(
   s3: S3Client,
 ): Promise<void> {
   try {
-    // List all objects under the prototype's versioned folders
-    const listCommand = new ListObjectsV2Command({
-      Bucket: S3_BUCKET,
-      Prefix: `${prototypeId}/v`,
-    });
+    const currentVersionPrefix = `${prototypeId}/${currentVersion}/`;
+    let continuationToken: string | undefined;
+    let foundAnyVersions = false;
+    let deletedCount = 0;
 
-    const listResponse = await s3.send(listCommand);
+    while (true) {
+      const listCommand = new ListObjectsV2Command({
+        Bucket: S3_BUCKET,
+        Prefix: `${prototypeId}/v`,
+        ContinuationToken: continuationToken,
+      });
 
-    if (!listResponse.Contents || listResponse.Contents.length === 0) {
+      const listResponse = await s3.send(listCommand);
+      const contents = listResponse.Contents ?? [];
+
+      if (contents.length > 0) {
+        foundAnyVersions = true;
+      }
+
+      const keysToDelete = contents
+        .map((obj) => obj.Key)
+        .filter(
+          (key): key is string =>
+            typeof key === "string" && !key.startsWith(currentVersionPrefix),
+        );
+
+      if (keysToDelete.length > 0) {
+        for (let i = 0; i < keysToDelete.length; i += 1000) {
+          const chunk = keysToDelete.slice(i, i + 1000);
+          const deleteCommand = new DeleteObjectsCommand({
+            Bucket: S3_BUCKET,
+            Delete: {
+              Objects: chunk.map((Key) => ({ Key })),
+              Quiet: true,
+            },
+          });
+          await s3.send(deleteCommand);
+          deletedCount += chunk.length;
+        }
+      }
+
+      if (!listResponse.IsTruncated) {
+        break;
+      }
+
+      continuationToken = listResponse.NextContinuationToken;
+    }
+
+    if (!foundAnyVersions) {
       log2.debug("No old versions found to delete", { prototypeId });
       return;
     }
 
-    // Filter out objects from the current version
-    const currentVersionPrefix = `${prototypeId}/${currentVersion}/`;
-    const objectsToDelete = listResponse.Contents.filter(
-      (obj) => obj.Key && !obj.Key.startsWith(currentVersionPrefix),
-    );
-
-    if (objectsToDelete.length === 0) {
+    if (deletedCount === 0) {
       log2.debug("No old versions to delete", {
         prototypeId,
         currentVersion,
@@ -151,21 +235,10 @@ async function deleteOldVersions(
       return;
     }
 
-    // Delete old version objects
-    const deleteCommand = new DeleteObjectsCommand({
-      Bucket: S3_BUCKET,
-      Delete: {
-        Objects: objectsToDelete.map((obj) => ({ Key: obj.Key! })),
-        Quiet: true,
-      },
-    });
-
-    await s3.send(deleteCommand);
-
     log2.consoleLogDevOnly("info", "Successfully deleted old versions in S3", {
       prototypeId,
       currentVersion,
-      deletedCount: objectsToDelete.length,
+      deletedCount,
     });
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
