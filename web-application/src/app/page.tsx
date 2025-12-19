@@ -5,16 +5,38 @@ import ProPlanUpsellModal from "@/components/prototype-editor/ProPlanUpsellModal
 import Footer from "@/components/shared/Footer";
 import { GridBackground } from "@/components/shared/GridComponent";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useCreatePrototype } from "@/hooks/useCreatePrototype";
 import { useUser } from "@/hooks/useUser";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
+import { Database } from "@/lib/types/supabase";
 import { captureUTMParams } from "@/lib/utils/analytics/utmTracking";
 import { setChatIntent } from "@/lib/utils/chatIntentUtils";
 import { handleCheckout } from "@/lib/utils/payments/CheckoutUtils";
 import { CheckIcon, SparklesIcon } from "@heroicons/react/24/solid";
+import { Rocket } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
+import { usePostHog } from "posthog-js/react";
+
+type PrototypeFramework =
+  Database["public"]["Enums"]["prototype_framework"];
+
+const DEFAULT_FRAMEWORK: PrototypeFramework = "mobile_expo_react_native";
+const PLATFORM_OPTIONS: Array<{
+  value: PrototypeFramework;
+  label: string;
+}> = [
+  { value: "web_nextjs_react", label: "Web" },
+  { value: "mobile_expo_react_native", label: "Mobile" },
+];
 
 function HomeContent() {
   const searchParams = useSearchParams();
@@ -67,6 +89,11 @@ function HeroSection() {
   const [showUpsellModal, setShowUpsellModal] = useState(false);
   const router = useRouter();
   const { user } = useUser();
+  const posthog = usePostHog();
+  const [framework, setFramework] =
+    useState<PrototypeFramework>(DEFAULT_FRAMEWORK);
+  const isWebPrototypeEnabled =
+    posthog?.isFeatureEnabled("web-prototype-support") ?? false;
 
   const presetPrompts = {
     onboarding:
@@ -94,7 +121,7 @@ function HeroSection() {
         return;
       }
 
-      const result = await createPrototype();
+      const result = await createPrototype({ framework });
 
       if (result.data) {
         setChatIntent(result.data.prototype_id, content, false);
@@ -200,14 +227,43 @@ function HeroSection() {
                 </button>
               </div>
 
-              <Button
-                onClick={handleSend}
-                disabled={!prompt.trim() || isLoading}
-                size="sm"
-                className="h-7 px-3 rounded-md bg-white text-black hover:bg-white/90 disabled:opacity-50 disabled:cursor-not-allowed text-xs font-semibold shrink-0 w-full sm:w-auto order-1 sm:order-2"
-              >
-                {isLoading ? "Generating..." : "Generate"}
-              </Button>
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto order-1 sm:order-2">
+                {isWebPrototypeEnabled && (
+                  <Select
+                    value={framework}
+                    onValueChange={(value) =>
+                      setFramework(value as PrototypeFramework)
+                    }
+                    disabled={isLoading}
+                  >
+                    <SelectTrigger className="h-9 border border-white/10 bg-white/5 text-white text-xs rounded-md focus:ring-0">
+                      <div className="flex items-center gap-2">
+                        <Rocket className="w-3.5 h-3.5" />
+                        <SelectValue placeholder="Platform" />
+                      </div>
+                    </SelectTrigger>
+                    <SelectContent className="bg-[#141517] text-white border border-white/10">
+                      {PLATFORM_OPTIONS.map((option) => (
+                        <SelectItem
+                          key={option.value}
+                          value={option.value}
+                          className="text-xs text-white/80 focus:bg-white/10"
+                        >
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+                <Button
+                  onClick={handleSend}
+                  disabled={!prompt.trim() || isLoading}
+                  size="sm"
+                  className="h-9 px-4 rounded-md bg-white text-black hover:bg-white/90 disabled:opacity-50 disabled:cursor-not-allowed text-xs font-semibold shrink-0 w-full sm:w-auto"
+                >
+                  {isLoading ? "Generating..." : "Generate"}
+                </Button>
+              </div>
             </div>
           </div>
         </div>
@@ -729,4 +785,3 @@ function FAQSection() {
     </section>
   );
 }
-
