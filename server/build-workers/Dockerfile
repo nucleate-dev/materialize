@@ -117,6 +117,9 @@ RUN mkdir -p /root/.claude && \
   }\n\
 }' > /root/.claude/settings.json
 
+RUN mkdir -p /root/.claude/skills/designing-react-native-uis && \
+    cp -R /app/skills/designing-react-native-uis/* /root/.claude/skills/designing-react-native-uis/
+
 ENV TERMINAL_USER=materialize-user
 
 COPY entrypoint.sh /usr/local/bin/worker-entrypoint.sh
