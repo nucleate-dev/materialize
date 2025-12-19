@@ -108,6 +108,7 @@ interface QueryExecutionContext {
   data: ChatQueryData;
   sessionState: CodeSessionState;
   validAiChatSessionIds: Set<string>;
+  logger: SystemLogger;
 }
 
 interface MessageHandlers {
@@ -225,12 +226,12 @@ export class ChatQueryHandler {
     context: QueryExecutionContext,
     handlers: MessageHandlers,
   ): Promise<void> {
-    const { prototypeId, socket, data, sessionState } = context;
+    const { prototypeId, socket, data, sessionState, logger } = context;
     const { prompt, content, token, ai_chat_session_id, design_style } = data;
     const options = (data.options ?? {}) as Options;
 
     // Log incoming parameters
-    this.logger.consoleLogDevOnly("info", "handleQuery received parameters", {
+    logger.consoleLogDevOnly("info", "handleQuery received parameters", {
       prototypeId,
       session_id: ai_chat_session_id,
       chat_session_id: data.prototype_chat_session_id,
@@ -312,7 +313,7 @@ export class ChatQueryHandler {
       !!sessionState.prototypeChatSessionId;
 
     if (!canAttemptClassification) {
-      this.logger.consoleLogDevOnly(
+      logger.consoleLogDevOnly(
         "info",
         "Skipping design intent classification gate",
         {
@@ -331,7 +332,7 @@ export class ChatQueryHandler {
       );
 
       if (isFirst) {
-        this.logger.debug("Preparing to classify user intent", {
+        logger.debug("Preparing to classify user intent", {
           prototypeId,
           enableDesignAgentOnFirstMessage: this.enableDesignAgentOnFirstMessage,
           hasSession: !!sessionState.prototypeChatSessionId,
@@ -355,7 +356,7 @@ export class ChatQueryHandler {
           sessionState.abortController = classifierAbortController;
 
           // Step 6a: Classify the user's intent
-          this.logger.debug("Classifying user intent on first message", {
+          logger.debug("Classifying user intent on first message", {
             prototypeId,
             userMessageLength: userMessageText.length,
           });
@@ -363,7 +364,7 @@ export class ChatQueryHandler {
           const classificationResult = await classifyDesignIntent({
             userMessage: userMessageText,
             abortController: classifierAbortController,
-            logger: this.logger,
+            logger: logger,
             prototypeId,
           });
 
@@ -371,13 +372,13 @@ export class ChatQueryHandler {
           const shouldRunDesignAgent =
             classificationResult.intent === "design_mode";
 
-          this.logger.debug("User intent classified", {
+          logger.debug("User intent classified", {
             prototypeId,
             intent: classificationResult.intent,
             classifierCost,
           });
 
-          this.logger.debug("Design agent routing decision", {
+          logger.debug("Design agent routing decision", {
             prototypeId,
             shouldRunDesignAgent,
             intent: classificationResult.intent,
@@ -395,7 +396,7 @@ export class ChatQueryHandler {
               },
             });
 
-            this.logger.debug("Calling design agent", {
+            logger.debug("Calling design agent", {
               prototypeId,
               userMessageLength: userMessageText.length,
               hasAbortController: !!classifierAbortController,
@@ -408,7 +409,7 @@ export class ChatQueryHandler {
               "", // system prompt not used anymore (handled by design-agent-service)
             );
 
-            this.logger.debug("Design agent returned", {
+            logger.debug("Design agent returned", {
               prototypeId,
               hasDesignSpec: !!designResult.designSpec,
               designSpecLength: designResult.designSpec?.length,
@@ -430,7 +431,7 @@ export class ChatQueryHandler {
               await persistDesignSpecToFiles(
                 WORK_DIR,
                 designSpec,
-                this.logger,
+                logger,
                 prototypeId,
               );
 
@@ -442,13 +443,13 @@ export class ChatQueryHandler {
                 .eq("id", prototypeId);
 
               if (updateError) {
-                this.logger.error(
+                logger.error(
                   updateError,
                   "Failed to store design specification in project_context",
                   { prototypeId },
                 );
               } else {
-                this.logger.consoleLogDevOnly(
+                logger.consoleLogDevOnly(
                   "info",
                   "Stored design specification in project_context database",
                   { prototypeId, specLength: designSpec.length },
@@ -456,7 +457,7 @@ export class ChatQueryHandler {
               }
             }
 
-            this.logger.consoleLogDevOnly(
+            logger.consoleLogDevOnly(
               "info",
               "Design agent execution completed",
               {
@@ -469,7 +470,7 @@ export class ChatQueryHandler {
           } else {
             // User wants standard mode - skip design agent, just track classifier cost
             designAgentCost = classifierCost;
-            this.logger.consoleLogDevOnly(
+            logger.consoleLogDevOnly(
               "info",
               "Skipping design agent - user wants standard mode",
               {
@@ -512,7 +513,7 @@ export class ChatQueryHandler {
       const totalCostUsd =
         (designAgentCost ?? 0) + (implementationCostUsd ?? 0);
 
-      this.logger.consoleLogDevOnly("info", "Combined cost calculation", {
+      logger.consoleLogDevOnly("info", "Combined cost calculation", {
         designAgentCost,
         implementationCostUsd,
         totalCostUsd,

@@ -34,6 +34,7 @@ interface QueryExecutionContext {
   data: ChatQueryData;
   sessionState: CodeSessionState;
   validAiChatSessionIds: Set<string>;
+  logger: SystemLogger;
 }
 
 interface MessageHandlers {
@@ -139,7 +140,7 @@ export class ClaudeCodeCliQueryHandler {
     context: QueryExecutionContext,
     handlers: MessageHandlers,
   ): Promise<void> {
-    const { socket, data, sessionState } = context;
+    const { socket, data, sessionState, logger } = context;
     const {
       sendMessage,
       notifyOrchestrationStartChat,
@@ -167,7 +168,7 @@ export class ClaudeCodeCliQueryHandler {
         throw new Error("Invalid authentication token - no user ID");
       }
 
-      this.logger.debug("Extracted user ID from JWT", { userId });
+      logger.debug("Extracted user ID from JWT", { userId });
 
       // Create authenticated Supabase client with user's JWT to pass RLS policies
       const authenticatedSupabase =
@@ -181,7 +182,7 @@ export class ClaudeCodeCliQueryHandler {
       // Create token service with authenticated client to fetch user's Claude token
       const authenticatedTokenService = new ClaudeTokenService(
         authenticatedSupabase,
-        this.logger,
+        logger,
       );
 
       // Build authentication environment using the authenticated user ID
@@ -201,11 +202,11 @@ export class ClaudeCodeCliQueryHandler {
       const { prototype_chat_session_id } = data;
       if (prototype_chat_session_id) {
         sessionState.prototypeChatSessionId = prototype_chat_session_id;
-        this.logger.debug("Using chat session ID from client", {
+        logger.debug("Using chat session ID from client", {
           chatSessionId: prototype_chat_session_id,
         });
       } else {
-        this.logger.warn("No chat_session_id provided by client");
+        logger.warn("No chat_session_id provided by client");
         sessionState.prototypeChatSessionId = null;
       }
 
@@ -242,7 +243,7 @@ export class ClaudeCodeCliQueryHandler {
       sessionState.abortController = abortController;
 
       abortController.signal.addEventListener("abort", () => {
-        this.logger.info("Query aborted, killing CLI process");
+        logger.info("Query aborted, killing CLI process");
         cliProcess.kill("SIGTERM");
       });
 
@@ -250,11 +251,11 @@ export class ClaudeCodeCliQueryHandler {
       await this.handleCliOutput(cliProcess, socket, handlers, context);
 
       // Query completed successfully
-      this.logger.info("CLI query completed successfully", {
+      logger.info("CLI query completed successfully", {
         authMethod: authEnv.authMethod,
       });
     } catch (error) {
-      this.logger.error(
+      logger.error(
         error instanceof Error ? error : new Error(String(error)),
         "Failed to execute CLI query",
       );

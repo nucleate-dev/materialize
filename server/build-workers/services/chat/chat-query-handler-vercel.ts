@@ -72,6 +72,7 @@ interface QueryExecutionContext {
   data: ChatQueryData;
   sessionState: CodeSessionState;
   validAiChatSessionIds: Set<string>;
+  logger: SystemLogger;
 }
 
 interface MessageHandlers {
@@ -137,7 +138,7 @@ export class VercelChatQueryHandler {
     context: QueryExecutionContext,
     handlers: MessageHandlers,
   ): Promise<void> {
-    const { prototypeId, socket, data, sessionState } = context;
+    const { prototypeId, socket, data, sessionState, logger } = context;
     const { prompt, content, token, ai_chat_session_id, design_style } = data;
     const options = (data.options ?? {}) as Options & {
       provider?: ChatProvider;
@@ -146,7 +147,7 @@ export class VercelChatQueryHandler {
 
     const model = options.model ?? ALLOWED_MODELS.vercel[0];
 
-    this.logger.consoleLogDevOnly("info", "handleQuery (Vercel) params", {
+    logger.consoleLogDevOnly("info", "handleQuery (Vercel) params", {
       prototypeId,
       model,
       session_id: ai_chat_session_id,
@@ -214,7 +215,7 @@ export class VercelChatQueryHandler {
       !!sessionState.prototypeChatSessionId;
 
     if (!canAttemptClassification) {
-      this.logger.consoleLogDevOnly(
+      logger.consoleLogDevOnly(
         "info",
         "Skipping design intent classification gate (Vercel handler)",
         {
@@ -233,7 +234,7 @@ export class VercelChatQueryHandler {
       );
 
       if (isFirst) {
-        this.logger.consoleLogDevOnly(
+        logger.consoleLogDevOnly(
           "info",
           "Preparing to classify user intent (Vercel handler)",
           {
@@ -260,7 +261,7 @@ export class VercelChatQueryHandler {
           sessionState.abortController = classifierAbortController;
 
           // Classify the user's intent
-          this.logger.consoleLogDevOnly(
+          logger.consoleLogDevOnly(
             "info",
             "Classifying user intent on first message (Vercel handler)",
             { prototypeId, userMessageLength: userMessageText.length },
@@ -269,7 +270,7 @@ export class VercelChatQueryHandler {
           const classificationResult = await classifyDesignIntent({
             userMessage: userMessageText,
             abortController: classifierAbortController,
-            logger: this.logger,
+            logger: logger,
             prototypeId,
           });
 
@@ -277,7 +278,7 @@ export class VercelChatQueryHandler {
           const shouldRunDesignAgent =
             classificationResult.intent === "design_mode";
 
-          this.logger.consoleLogDevOnly(
+          logger.consoleLogDevOnly(
             "info",
             "User intent classified (Vercel handler)",
             {
@@ -287,7 +288,7 @@ export class VercelChatQueryHandler {
             },
           );
 
-          this.logger.consoleLogDevOnly(
+          logger.consoleLogDevOnly(
             "info",
             "Design agent routing decision (Vercel handler)",
             {
@@ -308,7 +309,7 @@ export class VercelChatQueryHandler {
               },
             });
 
-            this.logger.debug("Calling design agent (Vercel handler)", {
+            logger.debug("Calling design agent (Vercel handler)", {
               prototypeId,
               userMessageLength: userMessageText.length,
               hasAbortController: !!classifierAbortController,
@@ -321,7 +322,7 @@ export class VercelChatQueryHandler {
               "", // system prompt not used anymore (handled by design-agent-service)
             );
 
-            this.logger.debug("Design agent returned (Vercel handler)", {
+            logger.debug("Design agent returned (Vercel handler)", {
               prototypeId,
               hasDesignSpec: !!designResult.designSpec,
               designSpecLength: designResult.designSpec?.length,
@@ -338,7 +339,7 @@ export class VercelChatQueryHandler {
               await persistDesignSpecToFiles(
                 WORK_DIR,
                 designSpec,
-                this.logger,
+                logger,
                 prototypeId,
               );
 
@@ -350,13 +351,13 @@ export class VercelChatQueryHandler {
                 .eq("id", prototypeId);
 
               if (updateError) {
-                this.logger.error(
+                logger.error(
                   updateError,
                   "Failed to store design specification in project_context",
                   { prototypeId },
                 );
               } else {
-                this.logger.consoleLogDevOnly(
+                logger.consoleLogDevOnly(
                   "info",
                   "Stored design specification in project_context database",
                   { prototypeId, specLength: designSpec.length },
@@ -365,7 +366,7 @@ export class VercelChatQueryHandler {
             }
           } else {
             // User wants standard mode - skip design agent
-            this.logger.consoleLogDevOnly(
+            logger.consoleLogDevOnly(
               "info",
               "Skipping design agent - user wants standard mode (Vercel handler)",
               {
@@ -412,7 +413,7 @@ export class VercelChatQueryHandler {
         handlers.sendMessage,
       );
     } catch (error) {
-      this.logger.error(error, "Vercel query failed");
+      logger.error(error, "Vercel query failed");
       handlers.sendMessage(socket, {
         type: ChatEvent.ERROR,
         error: {

@@ -5,6 +5,7 @@ import path from "path";
 import WebSocket from "ws";
 import { DEFAULT_FLAGS, FeatureFlags } from "../../FLAGS.js";
 import { baseLogger } from "../../loggers/index.js";
+import { SystemLogger } from "../../loggers/SystemLogger.js";
 import {
   ChatClientEvent,
   ChatClientMessage,
@@ -49,6 +50,7 @@ interface CodeSessionState {
 interface ChatConnection {
   socket: WebSocket;
   heartbeat?: NodeJS.Timeout;
+  logger: SystemLogger;
 }
 
 export class ChatService {
@@ -276,7 +278,14 @@ export class ChatService {
       }
     }, CHAT_HEARTBEAT_INTERVAL_MS);
 
-    this.activeConnections.set(connectionId, { socket, heartbeat });
+    // Create a connection-scoped logger from the request logger (which has userId and prototypeId)
+    const connectionLogger = req.log2.child({ connectionId });
+
+    this.activeConnections.set(connectionId, {
+      socket,
+      heartbeat,
+      logger: connectionLogger,
+    });
 
     // Send initial connection confirmation
     this.sendMessage(socket, {
@@ -308,6 +317,7 @@ export class ChatService {
           socket,
           { ...parsedMessage, type: messageType } as ChatClientMessage,
           prototypeId,
+          connectionId,
         );
       } catch (error) {
         this.logger.error(
@@ -360,10 +370,15 @@ export class ChatService {
     socket: WebSocket,
     message: ChatClientMessage,
     prototypeId: string,
+    connectionId: string,
   ): Promise<void> {
+    // Get the connection logger (which has userId and prototypeId from the request)
+    const connection = this.activeConnections.get(connectionId);
+    const logger = connection?.logger || this.logger;
+
     switch (message.type) {
       case ChatClientEvent.QUERY:
-        await this.handleQuery(socket, message.data, prototypeId);
+        await this.handleQuery(socket, message.data, prototypeId, logger);
         break;
 
       case ChatClientEvent.INTERRUPT:
@@ -376,7 +391,7 @@ export class ChatService {
         break;
 
       case ChatClientEvent.HISTORY_RESPONSE:
-        await this.handleHistoryResponse(socket, message.data, prototypeId);
+        await this.handleHistoryResponse(socket, message.data, prototypeId, logger);
         break;
     }
   }
@@ -385,6 +400,7 @@ export class ChatService {
     socket: WebSocket,
     data: ChatQueryData,
     prototypeId: string,
+    logger: SystemLogger,
   ): Promise<void> {
     const options = (data.options ?? {}) as Options & {
       provider?: ChatProvider;
@@ -424,7 +440,7 @@ export class ChatService {
             await this.claudeTokenService.getUserToken(userId);
           useCliMode = !!userToken;
 
-          this.logger.consoleLogDevOnly(
+          logger.consoleLogDevOnly(
             "info",
             "Checked user Claude subscription token",
             {
@@ -434,7 +450,7 @@ export class ChatService {
           );
         }
       } catch (error) {
-        this.logger.warn("Failed to check user Claude subscription token", {
+        logger.warn("Failed to check user Claude subscription token", {
           error: error instanceof Error ? error.message : String(error),
         });
       }
@@ -455,7 +471,7 @@ export class ChatService {
       handlerName = "claude-sdk";
     }
 
-    this.logger.consoleLogDevOnly("info", "Dispatching chat query to handler", {
+    logger.consoleLogDevOnly("info", "Dispatching chat query to handler", {
       prototypeId,
       handler: handlerName,
       useCliMode,
@@ -472,6 +488,7 @@ export class ChatService {
         data,
         sessionState: this.sessionState,
         validAiChatSessionIds: this.validAiChatSessionIds,
+        logger,
       },
       {
         sendMessage: this.sendMessage.bind(this),
@@ -534,10 +551,11 @@ export class ChatService {
     socket: WebSocket,
     data: HistoryResponseData,
     prototypeId: string,
+    logger: SystemLogger,
   ): Promise<void> {
     const { historical_messages, original_query } = data;
 
-    this.logger.consoleLogDevOnly(
+    logger.consoleLogDevOnly(
       "info",
       "Received history response from client",
       {
@@ -558,12 +576,12 @@ export class ChatService {
 
       historyContext = `\n\n## Previous Conversation Context:\n${formattedMessages}\n\n---\n\nThe above is context from a previous session. Continue the conversation naturally.`;
 
-      this.logger.consoleLogDevOnly("info", "Formatted history context", {
+      logger.consoleLogDevOnly("info", "Formatted history context", {
         contextLength: historyContext.length,
         messageCount: historical_messages.length,
       });
     } else {
-      this.logger.consoleLogDevOnly(
+      logger.consoleLogDevOnly(
         "info",
         "No historical messages provided - starting fresh session",
       );
@@ -580,6 +598,7 @@ export class ChatService {
       original_query,
       prototypeId,
       historyContext,
+      logger,
     );
   }
 
@@ -588,10 +607,11 @@ export class ChatService {
     data: ChatQueryData,
     prototypeId: string,
     historyContext: string,
+    logger: SystemLogger,
   ): Promise<void> {
     const options = (data.options ?? {}) as Options;
 
-    this.logger.consoleLogDevOnly(
+    logger.consoleLogDevOnly(
       "info",
       "Processing query with history context",
       {
@@ -622,6 +642,7 @@ export class ChatService {
       socket,
       { ...modifiedData, options: modifiedOptions },
       prototypeId,
+      logger,
     );
   }
 
