@@ -492,7 +492,6 @@ export default function InternalPrototypePage() {
               Authorization: `Bearer ${token}`,
             },
             body: JSON.stringify({
-              framework: "expo_react_native",
               prototype_id: prototypeId,
             } as StartDevServerRequestBody),
           },

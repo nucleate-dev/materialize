@@ -1026,10 +1026,10 @@ const MaterializeRenderSection = forwardRef<
 
     // Function to start dev server with all files
     const handleStartDevServer = async () => {
-      if (!prototypeId || !files || !assets) {
+      if (!prototypeId) {
         logger.debug(
           "error",
-          "Cannot start dev server: missing prototype ID, files, assets, or building state callback",
+          "Cannot start dev server: missing prototype ID",
         );
         return;
       }
@@ -1045,25 +1045,6 @@ const MaterializeRenderSection = forwardRef<
           return;
         }
 
-        // Convert files from Record<string, PrototypeFile> to array format expected by API
-        const filesArray: PrototypeFile[] = Object.entries(files).map(
-          ([path, file]) => ({
-            contents: file.contents,
-            name: path, // Use the path as the name
-            prototype_id: file.prototype_id || prototypeId,
-            id: file.id,
-            created_at: file.created_at,
-            updated_at: file.updated_at,
-          }),
-        );
-
-        const assetsArray: PrototypeAsset[] = Object.entries(assets).map(
-          ([path, asset]) => ({
-            ...asset,
-            name: path,
-          }),
-        );
-
         const response = await fetch(
           `${process.env.NEXT_PUBLIC_SERVER_ENDPOINT!}/files/start-dev-server`,
           {
@@ -1073,11 +1054,7 @@ const MaterializeRenderSection = forwardRef<
               Authorization: `Bearer ${token}`,
             },
             body: JSON.stringify({
-              framework: "expo_react_native",
-              files: filesArray,
-              assets: assetsArray,
               prototype_id: prototypeId,
-              file_scope: "complete", // Send all files to properly initialize dev server
             } as StartDevServerRequestBody),
           },
         );
