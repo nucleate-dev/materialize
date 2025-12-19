@@ -222,8 +222,8 @@ export class NextJsReactAdapter implements IDevelopmentServerAdapter {
       };
 
       const commandString = `
-NEXT_TELEMETRY_DISABLED=1 NODE_OPTIONS="--max-old-space-size=2048" \
 cd ${this.clientDir} && \
+NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 NODE_OPTIONS="--max-old-space-size=2048" \
 npx next build && \
 rm -rf dist && \
 mv out dist && \
