@@ -17,6 +17,8 @@ import type {
 } from '../../types/InternalTypes.js';
 import { Database } from '../../types/supabase.js';
 
+type PrototypeFramework = Database['public']['Enums']['prototype_framework'];
+
 const S3_PROTOTYPE_BUCKET = 'materialize-sites';
 const SUPABASE_PROTOTYPE_ASSETS_BUCKET = 'prototype-assets';
 const SUPABASE_CHAT_IMAGES_BUCKET = 'chat_images';
@@ -217,10 +219,13 @@ export async function copyDefaultAppToVersionedPrototype(
   s3Client: S3Client,
   prototypeId: string,
   designStyle: DesignStyle,
+  framework: PrototypeFramework,
   log2: SystemLogger,
 ): Promise<S3CopyResult> {
-  const { distFilesPrefix: sourcePrefix } =
-    getDefaultAppFilesSourcePrefixes(designStyle);
+  const { distFilesPrefix: sourcePrefix } = getDefaultAppFilesSourcePrefixes(
+    designStyle,
+    framework,
+  );
   const version = getVersion();
   const [versionedResult, latestResult] = await Promise.all([
     copyS3BucketContents(
@@ -286,6 +291,7 @@ export function getPrototypeViewingUrl(prototypeId: string): string {
 
 export function getDefaultAppFilesSourcePrefixes(
   designStyle: DesignStyle,
+  framework?: PrototypeFramework,
 ): Record<string, string> {
   // Use development prefixes when NODE_ENV is development
   const envPrefix =
@@ -293,6 +299,13 @@ export function getDefaultAppFilesSourcePrefixes(
 
   let rawFilesPrefix = '';
   let distFilesPrefix = '';
+
+  if (framework === 'web_nextjs_react') {
+    rawFilesPrefix = `${envPrefix}web-starter-app-nextjs-raw-files/`;
+    distFilesPrefix = `${envPrefix}web-starter-app-nextjs/`;
+    return { rawFilesPrefix, distFilesPrefix };
+  }
+
   switch (designStyle) {
     case 'tamagui':
       rawFilesPrefix = `${envPrefix}starter-app-tamagui-raw-files/`;
@@ -316,10 +329,13 @@ export async function getDefaultAppFilesFromS3(
   s3Client: S3Client,
   prototypeId: string,
   designStyle: DesignStyle,
+  framework: PrototypeFramework,
   log2: SystemLogger,
 ): Promise<DefaultFilesResult> {
-  const { rawFilesPrefix: sourcePrefix } =
-    getDefaultAppFilesSourcePrefixes(designStyle);
+  const { rawFilesPrefix: sourcePrefix } = getDefaultAppFilesSourcePrefixes(
+    designStyle,
+    framework,
+  );
   try {
     const listResult = await s3Client.send(
       new ListObjectsV2Command({
