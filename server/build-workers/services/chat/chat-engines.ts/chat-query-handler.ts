@@ -22,7 +22,10 @@ import {
   ChatServerMessage,
 } from "../../../types/ChatTypes.js";
 import { Database } from "../../../types/supabase.js";
-import { NucleateDevelopmentServerService } from "../../dev-server/NucleateDevelopmentServerService.js";
+import {
+  DEFAULT_PROTOTYPE_FRAMEWORK,
+  NucleateDevelopmentServerService,
+} from "../../dev-server/NucleateDevelopmentServerService.js";
 import { FileSyncService } from "../../FileSyncService.js";
 import { SandboxService } from "../../SandboxService.js";
 import { SupabaseClientService } from "../../SupabaseClientService.js";
@@ -225,6 +228,8 @@ export class ChatQueryHandler {
   ): Promise<void> {
     const { prototypeId, socket, data, sessionState, logger } = context;
     const { prompt, content, token, ai_chat_session_id, design_style } = data;
+    const framework =
+      this.devServerService.prototypeFramework ?? DEFAULT_PROTOTYPE_FRAMEWORK;
     const options = (data.options ?? {}) as Options;
 
     // Log incoming parameters
@@ -285,6 +290,7 @@ export class ChatQueryHandler {
       data.custom_design_system_id ?? null,
       sessionState,
       design_style,
+      framework,
       data.current_viewing_path,
       options,
     );
@@ -663,6 +669,7 @@ export class ChatQueryHandler {
     custom_design_system_id: string | null,
     sessionState: CodeSessionState,
     design_style: string | undefined,
+    framework: string | undefined,
     _current_viewing_path: string | undefined,
     _options: Options,
   ): Promise<DesignSystemResult> {
@@ -717,7 +724,10 @@ export class ChatQueryHandler {
     }
 
     // Build system prompt with optional design system rules and viewing path context
-    let systemPromptAppend = getSystemPromptForDesignStyle(design_style);
+    let systemPromptAppend = getSystemPromptForDesignStyle(
+      design_style,
+      framework,
+    );
 
     logger.consoleLogDevOnly(
       "info",

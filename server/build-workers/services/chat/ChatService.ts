@@ -122,6 +122,7 @@ export class ChatService {
     this.claudeCodeCliQueryHandler = new ClaudeCodeCliQueryHandler(
       supabaseClientService,
       this.toolPermissionService,
+      devServerService,
     );
     baseLogger.info(
       "Claude Code CLI handler initialized - will be used for users with subscription tokens",
