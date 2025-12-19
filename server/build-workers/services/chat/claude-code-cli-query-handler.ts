@@ -179,7 +179,6 @@ export class ClaudeCodeCliQueryHandler {
       // Create token service with authenticated client to fetch user's Claude token
       const authenticatedTokenService = new ClaudeTokenService(
         authenticatedSupabase,
-        logger,
       );
 
       // Build authentication environment using the authenticated user ID

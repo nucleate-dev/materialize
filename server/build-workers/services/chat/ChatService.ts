@@ -136,7 +136,6 @@ export class ChatService {
     // Initialize ClaudeTokenService
     this.claudeTokenService = new ClaudeTokenService(
       supabaseClientService.getClient(),
-      baseLogger,
     );
 
     // Always initialize ClaudeCodeCliQueryHandler - will be used if user has a token

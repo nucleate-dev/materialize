@@ -124,7 +124,6 @@ export class TerminalService {
     );
     this.eternalTerminalLogManager = new EternalTerminalLogManager(
       EternalTerminalLogManager.DEFAULT_LOG_ROOT,
-      this.log.child({ component: "EternalTerminalLogManager" }),
       trackedSessionIds,
     );
 
@@ -1336,14 +1335,11 @@ export class TerminalService {
         : undefined);
 
     if (!session) {
-      this.log.warn(
-        "Client connection rejected - terminal session not found",
-        {
-          sessionId,
-          allowCreate: options.allowCreate,
-          availableSessions: Array.from(this.sessions.keys()),
-        },
-      );
+      this.log.warn("Client connection rejected - terminal session not found", {
+        sessionId,
+        allowCreate: options.allowCreate,
+        availableSessions: Array.from(this.sessions.keys()),
+      });
       const message = JSON.stringify({
         event: "error",
         data: { error: "Terminal session not found", sessionId },
