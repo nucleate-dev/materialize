@@ -4,7 +4,6 @@ import {
   type APIResponse,
   type DispatchPrecheckRequestBody,
   type DispatchPrecheckSuccessResponse,
-  type DispatchRequestBody,
   type DispatchSuccessResponse,
   type RestartDevServerRequestBody,
   type RestartDevServerSuccessResponse,

@@ -20,7 +20,6 @@ import {
 import {
   APIResponse,
   BuildStatus,
-  DispatchRequestBody,
   DispatchSuccessResponse,
   StandardErrorResponse,
 } from '../../../types/PublicAPITypes.js';
