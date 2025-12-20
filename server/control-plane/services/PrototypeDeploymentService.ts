@@ -12,6 +12,7 @@ import { validateJWTToken } from '../utils/prototypeAuth.js';
 import { isValidSlug, normalizeSlug, SLUG_RULES } from '../utils/slugUtils.js';
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '../types/supabase.js';
+import { posthog } from '../server.js';
 
 type PrototypeVisibility = Database['public']['Enums']['visibility_level'];
 
@@ -215,6 +216,25 @@ export class PrototypeDeploymentService {
     request.log2 = request.log2.child({
       userId: user.id,
     });
+
+    // Check feature flag for deployment
+    const isDeployFeatureEnabled = await posthog.isFeatureEnabled(
+      'deploy-app-for-public-viewing',
+      user.id,
+    );
+
+    if (!isDeployFeatureEnabled) {
+      request.log2.warn('Deployment feature not enabled for user', {
+        user_id: user.id,
+      });
+      return reply.status(HTTP_STATUS.FORBIDDEN).send({
+        data: null,
+        error: {
+          error: 'Feature not available',
+          message: 'Deployment feature is not enabled for your account',
+        },
+      });
+    }
 
     const {
       prototype_id,
