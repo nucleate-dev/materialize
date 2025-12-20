@@ -141,8 +141,15 @@ export function EnvironmentVariablesModal({
 
       // Transform the data to strip env prefix for display
       const transformedData: PrototypeEnvVar[] = (data ?? []).map((envVar) => {
-        const { prototype_env_var_secrets, ...rest } = envVar as any;
-        let displayName = rest.name;
+        // Supabase join returns an array for related tables
+        const { prototype_env_var_secrets, ...rest } = envVar as {
+          prototype_env_var_secrets:
+            | { secret_value: string | null }[]
+            | { secret_value: string | null }
+            | null;
+          [key: string]: unknown;
+        };
+        let displayName = rest.name as string;
         const secretValue = Array.isArray(prototype_env_var_secrets)
           ? prototype_env_var_secrets[0]?.secret_value
           : prototype_env_var_secrets?.secret_value;
@@ -175,7 +182,7 @@ export function EnvironmentVariablesModal({
     } finally {
       setIsLoadingEnvVars(false);
     }
-  }, [prototypeId, logger]);
+  }, [prototypeId, logger, envPrefix]);
 
   useEffect(() => {
     if (isOpen) {
@@ -540,6 +547,7 @@ export function EnvironmentVariablesModal({
     sandbox_url,
     logger,
     refetchEnvVarsOnDevServer,
+    envPrefix,
   ]);
 
   const canSyncEnvToDevServer = Boolean(sandbox_url && prototypeId);
