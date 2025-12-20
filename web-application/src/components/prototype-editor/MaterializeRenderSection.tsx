@@ -1457,7 +1457,7 @@ const MaterializeRenderSection = forwardRef<
                   size="sm"
                   onClick={handleExport}
                   disabled={isExporting}
-                  className="h-8 bg-accent border border-border text-muted-foreground hover:text-foreground hover:border-border/80 hover:bg-accent/80 transition-all"
+                  className="hidden sm:flex h-8 bg-accent border border-border text-muted-foreground hover:text-foreground hover:border-border/80 hover:bg-accent/80 transition-all"
                   title="Export project files"
                 >
                   {isExporting ? (
@@ -1480,7 +1480,7 @@ const MaterializeRenderSection = forwardRef<
                         window.open(viewing_url, "_blank", "noopener,noreferrer");
                       }
                     }}
-                    className="h-8 bg-accent border border-border text-muted-foreground hover:text-foreground hover:border-border/80 hover:bg-accent/80 transition-all"
+                    className="hidden sm:flex h-8 bg-accent border border-border text-muted-foreground hover:text-foreground hover:border-border/80 hover:bg-accent/80 transition-all"
                     title="Open in new tab"
                     disabled={!viewing_url}
                   >
@@ -1489,28 +1489,14 @@ const MaterializeRenderSection = forwardRef<
                       Browser
                     </span>
                   </Button>
-                ) : (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setIsQRModalOpen(true)}
-                    className="h-8 bg-accent border border-border text-muted-foreground hover:text-foreground hover:border-border/80 hover:bg-accent/80 transition-all"
-                    title="View on Device"
-                    disabled={!viewing_url}
-                  >
-                    <QrCode className="w-3.5 h-3.5" />
-                    <span className="ml-2 hidden md:inline text-xs font-medium">
-                      Device
-                    </span>
-                  </Button>
-                ))}
+                ) : null)}
               {!isReadOnlyView && (
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={() => setIsTerminalOpen(!isTerminalOpen)}
                   className={cn(
-                    "h-8 border transition-all",
+                    "hidden sm:flex h-8 border transition-all",
                     isTerminalOpen
                       ? "bg-white text-black border-transparent hover:bg-white/90"
                       : "bg-accent border-border text-muted-foreground hover:text-foreground hover:border-border/80 hover:bg-accent/80",
@@ -1525,21 +1511,11 @@ const MaterializeRenderSection = forwardRef<
                   variant="ghost"
                   size="sm"
                   onClick={() => setIsEnvVarDialogOpen(true)}
-                  className="h-8 bg-accent border border-border text-muted-foreground hover:text-foreground hover:border-border/80 hover:bg-accent/80 transition-all"
+                  className="hidden sm:flex h-8 bg-accent border border-border text-muted-foreground hover:text-foreground hover:border-border/80 hover:bg-accent/80 transition-all"
                   title="Manage environment variables"
                   disabled={!prototypeId}
                 >
                   <KeyRound className="w-3.5 h-3.5" />
-                </Button>
-              )}
-              {designSystemLabel && onDesignSystemClick && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={onDesignSystemClick}
-                  className="h-8 bg-accent border border-border text-muted-foreground hover:text-foreground hover:border-border/80 hover:bg-accent/80 hidden sm:flex items-center gap-2 transition-all"
-                >
-                  <Palette className="w-3.5 h-3.5" />
                 </Button>
               )}
               {onShare && (
@@ -1547,13 +1523,10 @@ const MaterializeRenderSection = forwardRef<
                   variant="ghost"
                   size="sm"
                   onClick={onShare}
-                  className="h-8 bg-accent border border-border text-muted-foreground hover:text-foreground hover:border-border/80 hover:bg-accent/80 transition-all"
+                  className="hidden sm:flex h-8 bg-accent border border-border text-muted-foreground hover:text-foreground hover:border-border/80 hover:bg-accent/80 transition-all"
                   title="Share"
                 >
                   <Share2 className="w-3.5 h-3.5" />
-                  <span className="ml-2 hidden md:inline text-xs font-medium">
-                    Share
-                  </span>
                 </Button>
               )}
               {onDeploy && !isReadOnlyView && (
@@ -1615,26 +1588,71 @@ const MaterializeRenderSection = forwardRef<
                     <Monitor className="w-4 h-4 mr-2 opacity-70" />
                     Web View
                   </DropdownMenuItem>
-                  {onClone && (
+                  {!isReadOnlyView && !isPreviewView && (
+                    <>
+                      <DropdownMenuSeparator className="bg-border sm:hidden" />
+                      <DropdownMenuItem
+                        onClick={handleExport}
+                        disabled={isExporting}
+                        className="sm:hidden focus:bg-accent/80 focus:text-foreground text-muted-foreground text-sm cursor-pointer"
+                      >
+                        {isExporting ? (
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        ) : (
+                          <Download className="w-4 h-4 mr-2 opacity-70" />
+                        )}
+                        {isExporting ? "Exporting..." : "Export"}
+                      </DropdownMenuItem>
+                    </>
+                  )}
+                  {!isReadOnlyView && isWebFramework && (
+                    <DropdownMenuItem
+                      onClick={() => {
+                        if (viewing_url) {
+                          window.open(
+                            viewing_url,
+                            "_blank",
+                            "noopener,noreferrer",
+                          );
+                        }
+                      }}
+                      disabled={!viewing_url}
+                      className="sm:hidden focus:bg-accent/80 focus:text-foreground text-muted-foreground text-sm cursor-pointer"
+                    >
+                      <ExternalLink className="w-4 h-4 mr-2 opacity-70" />
+                      Browser
+                    </DropdownMenuItem>
+                  )}
+                  {designSystemLabel && onDesignSystemClick && (
                     <>
                       <DropdownMenuSeparator className="bg-border" />
                       <DropdownMenuItem
-                        onClick={onClone}
-                        disabled={isCloningPrototype}
+                        onClick={onDesignSystemClick}
                         className="focus:bg-accent/80 focus:text-foreground text-muted-foreground text-sm cursor-pointer"
                       >
-                        {isCloningPrototype ? (
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        ) : (
-                          <Copy className="w-4 h-4 mr-2 opacity-70" />
-                        )}
-                        {isCloningPrototype ? "Cloning..." : "Clone"}
+                        <Palette className="w-4 h-4 mr-2 opacity-70" />
+                        Change design system
                       </DropdownMenuItem>
                     </>
                   )}
                   {!isReadOnlyView && (
                     <>
                       <DropdownMenuSeparator className="bg-border" />
+                      <DropdownMenuItem
+                        onClick={() => setIsTerminalOpen(!isTerminalOpen)}
+                        className="sm:hidden focus:bg-accent/80 focus:text-foreground text-muted-foreground text-sm cursor-pointer"
+                      >
+                        <TerminalIcon className="w-4 h-4 mr-2 opacity-70" />
+                        {isTerminalOpen ? "Hide Terminal" : "Show Terminal"}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => setIsEnvVarDialogOpen(true)}
+                        disabled={!prototypeId}
+                        className="sm:hidden focus:bg-accent/80 focus:text-foreground text-muted-foreground text-sm cursor-pointer"
+                      >
+                        <KeyRound className="w-4 h-4 mr-2 opacity-70" />
+                        Environment variables
+                      </DropdownMenuItem>
                       <DropdownMenuItem
                         onClick={handleRestartDevServer}
                         disabled={!prototypeId || isRestartingDevServer}
@@ -1660,6 +1678,32 @@ const MaterializeRenderSection = forwardRef<
                           <Hammer className="w-4 h-4 mr-2 opacity-70" />
                         )}
                         {isBuilding ? "Building..." : "Build & Deploy"}
+                      </DropdownMenuItem>
+                    </>
+                  )}
+                  {onShare && (
+                    <DropdownMenuItem
+                      onClick={onShare}
+                      className="sm:hidden focus:bg-accent/80 focus:text-foreground text-muted-foreground text-sm cursor-pointer"
+                    >
+                      <Share2 className="w-4 h-4 mr-2 opacity-70" />
+                      Share
+                    </DropdownMenuItem>
+                  )}
+                  {onClone && (
+                    <>
+                      <DropdownMenuSeparator className="bg-border" />
+                      <DropdownMenuItem
+                        onClick={onClone}
+                        disabled={isCloningPrototype}
+                        className="focus:bg-accent/80 focus:text-foreground text-muted-foreground text-sm cursor-pointer"
+                      >
+                        {isCloningPrototype ? (
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        ) : (
+                          <Copy className="w-4 h-4 mr-2 opacity-70" />
+                        )}
+                        {isCloningPrototype ? "Cloning..." : "Clone"}
                       </DropdownMenuItem>
                     </>
                   )}
@@ -1693,6 +1737,23 @@ const MaterializeRenderSection = forwardRef<
             transition: isResizingTerminal ? "none" : "height 0.2s ease-in-out",
           }}
         >
+          {!isReadOnlyView && !isWebFramework && isPreviewView && (
+            <div className="absolute top-3 left-3 z-20">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setIsQRModalOpen(true)}
+                className="h-8 bg-accent border border-border text-muted-foreground hover:text-foreground hover:border-border/80 hover:bg-accent/80 transition-all"
+                title="View on Device"
+                disabled={!viewing_url}
+              >
+                <QrCode className="w-3.5 h-3.5" />
+                <span className="ml-2 hidden md:inline text-xs font-medium">
+                  Device
+                </span>
+              </Button>
+            </div>
+          )}
           {isPreviewView ? (
             renderPreviewContent()
           ) : (
