@@ -1811,6 +1811,7 @@ const MaterializeRenderSection = forwardRef<
           onOpenChange={setIsEnvVarDialogOpen}
           prototypeId={prototypeId}
           sandbox_url={sandbox_url}
+          framework={framework}
         />
 
         {/* QR Code Modal */}

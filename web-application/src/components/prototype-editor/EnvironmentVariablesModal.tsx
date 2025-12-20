@@ -80,6 +80,7 @@ interface EnvironmentVariablesModalProps {
   onOpenChange: (open: boolean) => void;
   prototypeId?: string;
   sandbox_url?: string | null;
+  framework?: string;
 }
 
 export function EnvironmentVariablesModal({
@@ -87,8 +88,12 @@ export function EnvironmentVariablesModal({
   onOpenChange,
   prototypeId,
   sandbox_url,
+  framework,
 }: EnvironmentVariablesModalProps) {
   const logger = useProductLogger();
+
+  // Determine the appropriate environment variable prefix based on framework
+  const envPrefix = framework === "web_nextjs_react" ? "NEXT_PUBLIC_" : "EXPO_PUBLIC_";
 
   const [envVars, setEnvVars] = useState<PrototypeEnvVar[]>([]);
   const [isLoadingEnvVars, setIsLoadingEnvVars] = useState(false);
@@ -134,19 +139,28 @@ export function EnvironmentVariablesModal({
         return;
       }
 
-      // Transform the data to strip EXPO_PUBLIC_ prefix for display
+      // Transform the data to strip env prefix for display
       const transformedData: PrototypeEnvVar[] = (data ?? []).map((envVar) => {
         const { prototype_env_var_secrets, ...rest } = envVar as any;
-        const originalName = rest.name;
+        let displayName = rest.name;
         const secretValue = Array.isArray(prototype_env_var_secrets)
           ? prototype_env_var_secrets[0]?.secret_value
           : prototype_env_var_secrets?.secret_value;
 
+        // Strip the prefix if it exists
+        if (displayName.startsWith(envPrefix)) {
+          displayName = displayName.substring(envPrefix.length);
+        }
+
+        // Handle case where prefix was doubled (e.g., NEXT_PUBLIC_NEXT_PUBLIC_)
+        // This can happen if user typed the prefix when creating the variable
+        if (displayName.startsWith(envPrefix)) {
+          displayName = displayName.substring(envPrefix.length);
+        }
+
         return {
           ...rest,
-          name: originalName.startsWith("EXPO_PUBLIC_")
-            ? originalName.substring(12)
-            : originalName,
+          name: displayName,
           secret_value: secretValue ?? null,
         } as PrototypeEnvVar;
       });
@@ -388,12 +402,17 @@ export function EnvironmentVariablesModal({
 
     // Validate each input
     for (const input of validInputs) {
-      const normalizedName = normalizeEnvVarNameInput(input.name);
+      let normalizedName = normalizeEnvVarNameInput(input.name);
       if (!normalizedName) {
         setEnvVarFormError(
           `Environment variable name is required for all entries`,
         );
         return;
+      }
+
+      // Strip any existing prefix if user included it
+      if (input.visibility === "client" && normalizedName.startsWith(envPrefix)) {
+        normalizedName = normalizedName.substring(envPrefix.length);
       }
 
       if (!input.value.trim()) {
@@ -404,23 +423,23 @@ export function EnvironmentVariablesModal({
       // Check for duplicates with existing environment variables
       const finalName =
         input.visibility === "client"
-          ? `EXPO_PUBLIC_${normalizedName}`
+          ? `${envPrefix}${normalizedName}`
           : normalizedName;
 
       // Get the original names from the database (before stripping the prefix for display)
-      // In fetchEnvVars, we strip EXPO_PUBLIC_ from all names for display
+      // In fetchEnvVars, we strip the env prefix from all names for display
       // So we need to reconstruct the original database name
       const existingNames = envVars.map((envVar) => {
-        // If it's a public variable, the original name in DB has EXPO_PUBLIC_ prefix
+        // If it's a public variable, the original name in DB has the env prefix
         if (envVar.is_public) {
-          return `EXPO_PUBLIC_${envVar.name}`;
+          return `${envPrefix}${envVar.name}`;
         }
         return envVar.name;
       });
 
       if (existingNames.includes(finalName)) {
         setEnvVarFormError(
-          `Environment variable "${input.visibility === "client" ? `EXPO_PUBLIC_${normalizedName}` : normalizedName}" already exists. Please edit the existing variable instead.`,
+          `Environment variable "${input.visibility === "client" ? `${envPrefix}${normalizedName}` : normalizedName}" already exists. Please edit the existing variable instead.`,
         );
         return;
       }
@@ -432,10 +451,16 @@ export function EnvironmentVariablesModal({
       // Prepare all environment variables for insertion
       const envVarSecrets = new Map<string, string>();
       const envVarsToInsert = validInputs.map((input) => {
-        const normalizedName = normalizeEnvVarNameInput(input.name);
+        let normalizedName = normalizeEnvVarNameInput(input.name);
+
+        // Strip any existing prefix if user included it
+        if (input.visibility === "client" && normalizedName.startsWith(envPrefix)) {
+          normalizedName = normalizedName.substring(envPrefix.length);
+        }
+
         const finalName =
           input.visibility === "client"
-            ? `EXPO_PUBLIC_${normalizedName}`
+            ? `${envPrefix}${normalizedName}`
             : normalizedName;
 
         envVarSecrets.set(finalName, input.value);
@@ -612,7 +637,7 @@ export function EnvironmentVariablesModal({
                           <p className="font-mono text-xs text-foreground break-all">
                             {envVar.is_public && (
                               <span className="text-muted-foreground">
-                                EXPO_PUBLIC_
+                                {envPrefix}
                               </span>
                             )}
                             {envVar.name}
@@ -759,7 +784,7 @@ export function EnvironmentVariablesModal({
                                     className="h-7 w-7 text-muted-foreground hover:text-red-400 hover:bg-red-500/10"
                                     onClick={() => {
                                       const displayName = envVar.is_public
-                                        ? `EXPO_PUBLIC_${envVar.name}`
+                                        ? `${envPrefix}${envVar.name}`
                                         : envVar.name;
                                       void handleDeleteEnvVar(
                                         envVar.id ?? "",
@@ -838,7 +863,7 @@ export function EnvironmentVariablesModal({
                   <div className="relative">
                     {input.visibility === "client" && (
                       <div className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground font-mono pointer-events-none">
-                        EXPO_PUBLIC_
+                        {envPrefix}
                       </div>
                     )}
                     <Input
@@ -851,7 +876,8 @@ export function EnvironmentVariablesModal({
                       placeholder="API_KEY"
                       className={cn(
                         "h-9 text-sm font-mono",
-                        input.visibility === "client" && "pl-[105px]",
+                        input.visibility === "client" &&
+                          (envPrefix === "NEXT_PUBLIC_" ? "pl-[110px]" : "pl-[105px]"),
                       )}
                       disabled={isSavingEnvVar}
                     />
@@ -914,7 +940,7 @@ export function EnvironmentVariablesModal({
               </Button>
 
               <p className="text-[11px] text-muted-foreground">
-                Client variables are prefixed with EXPO_PUBLIC_ and exposed in
+                Client variables are prefixed with {envPrefix} and exposed in
                 your build. Backend variables stay on the server.
               </p>
             </div>
