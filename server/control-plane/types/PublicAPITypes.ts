@@ -182,6 +182,42 @@ export interface ManageBillingErrorResponse {
 }
 
 // ============================================================================
+// /deployments/check-slug ENDPOINT (GET)
+// ============================================================================
+
+export interface CheckSlugSuccessResponse {
+  available: boolean;
+  slug: string;
+}
+
+export interface CheckSlugErrorResponse {
+  available: boolean;
+  message: string;
+}
+
+// ============================================================================
+// /deployments/deploy ENDPOINT (POST)
+// ============================================================================
+
+export interface DeployRequestBody {
+  prototype_id: string;
+  slug: string;
+  visibility?: 'PUBLIC' | 'SELF' | 'TEAM_SUBSET' | 'TEAM';
+}
+
+export interface DeploySuccessResponse {
+  prototype_id: string;
+  slug: string;
+  visibility: string;
+  url: string;
+}
+
+export interface DeployErrorResponse {
+  error: string;
+  message: string;
+}
+
+// ============================================================================
 // HTTP STATUS CODE MAPPINGS
 // ============================================================================
 
@@ -190,6 +226,7 @@ export const HTTP_STATUS = {
   BAD_REQUEST: 400,
   UNAUTHORIZED: 401,
   PAYMENT_REQUIRED: 402,
+  FORBIDDEN: 403,
   NOT_FOUND: 404,
   CONFLICT: 409,
   INTERNAL_SERVER_ERROR: 500,

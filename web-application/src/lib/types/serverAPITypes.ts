@@ -5,7 +5,7 @@
 // To update these shared files, modify the source file and run:
 // npm run sync-types (in the control-plane directory)
 //
-// Last synced: 2025-12-20T20:06:00.117Z
+// Last synced: 2025-12-20T20:20:58.636Z
 
 // Public API types for the Control Plane Server
 // These types define the request and response schemas for all public endpoints
@@ -191,6 +191,42 @@ export interface ManageBillingErrorResponse {
 }
 
 // ============================================================================
+// /deployments/check-slug ENDPOINT (GET)
+// ============================================================================
+
+export interface CheckSlugSuccessResponse {
+  available: boolean;
+  slug: string;
+}
+
+export interface CheckSlugErrorResponse {
+  available: boolean;
+  message: string;
+}
+
+// ============================================================================
+// /deployments/deploy ENDPOINT (POST)
+// ============================================================================
+
+export interface DeployRequestBody {
+  prototype_id: string;
+  slug: string;
+  visibility?: 'PUBLIC' | 'SELF' | 'TEAM_SUBSET' | 'TEAM';
+}
+
+export interface DeploySuccessResponse {
+  prototype_id: string;
+  slug: string;
+  visibility: string;
+  url: string;
+}
+
+export interface DeployErrorResponse {
+  error: string;
+  message: string;
+}
+
+// ============================================================================
 // HTTP STATUS CODE MAPPINGS
 // ============================================================================
 
@@ -199,6 +235,7 @@ export const HTTP_STATUS = {
   BAD_REQUEST: 400,
   UNAUTHORIZED: 401,
   PAYMENT_REQUIRED: 402,
+  FORBIDDEN: 403,
   NOT_FOUND: 404,
   CONFLICT: 409,
   INTERNAL_SERVER_ERROR: 500,

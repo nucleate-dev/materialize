@@ -105,23 +105,22 @@ export default function PrototypeDeployModal({
     const checkSlug = async () => {
       try {
         const response = await fetch(
-          `/api/check-slug?slug=${encodeURIComponent(deploySlug)}&exclude_prototype_id=${encodeURIComponent(prototype.id)}`,
+          `${process.env.NEXT_PUBLIC_SERVER_ENDPOINT}/deployments/check-slug?slug=${encodeURIComponent(deploySlug)}&exclude_prototype_id=${encodeURIComponent(prototype.id)}`,
           { signal: controller.signal },
         );
-        const result = (await response.json()) as {
-          available?: boolean;
-          message?: string;
-        };
+        const result = await response.json();
 
         if (!isCurrent) return;
 
-        if (!response.ok) {
-          setSlugError(result.message ?? "Unable to check slug availability");
+        if (!response.ok || result.error) {
+          setSlugError(
+            result.error?.message ?? "Unable to check slug availability",
+          );
           setSlugAvailable(null);
           return;
         }
 
-        setSlugAvailable(result.available ?? null);
+        setSlugAvailable(result.data?.available ?? null);
       } catch (error) {
         if (!controller.signal.aborted) {
           setSlugError("Unable to check slug availability");
@@ -163,34 +162,31 @@ export default function PrototypeDeployModal({
         throw new Error("You must be signed in to deploy");
       }
 
-      const response = await fetch("/api/deploy", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_SERVER_ENDPOINT}/deployments/deploy`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            prototype_id: prototype.id,
+            slug: normalizedSlug,
+            visibility: deployVisibility,
+          }),
         },
-        body: JSON.stringify({
-          prototype_id: prototype.id,
-          slug: normalizedSlug,
-          visibility: deployVisibility,
-        }),
-      });
+      );
 
-      const result = (await response.json()) as {
-        prototype_id?: string;
-        slug?: string;
-        visibility?: PrototypeVisibility;
-        url?: string;
-        message?: string;
-      };
+      const result = await response.json();
 
-      if (!response.ok) {
-        setSlugError(result.message ?? "Unable to deploy app");
+      if (!response.ok || result.error) {
+        setSlugError(result.error?.message ?? "Unable to deploy app");
         return;
       }
 
-      const nextSlug = result.slug ?? normalizedSlug;
-      const deployUrl = result.url ?? `${APPS_BASE_URL}/${nextSlug}`;
+      const nextSlug = result.data?.slug ?? normalizedSlug;
+      const deployUrl = result.data?.url ?? `${APPS_BASE_URL}/${nextSlug}`;
 
       onDeploySuccess({
         slug: nextSlug,
