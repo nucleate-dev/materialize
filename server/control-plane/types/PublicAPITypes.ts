@@ -153,6 +153,22 @@ export interface CheckoutErrorResponse {
 }
 
 // ============================================================================
+// /payments/checkout/session ENDPOINT (GET)
+// ============================================================================
+
+export interface GetCheckoutSessionSuccessResponse {
+  amount_total: number | null;
+  currency: string | null;
+  content_name: string;
+  session_id: string;
+}
+
+export interface GetCheckoutSessionErrorResponse {
+  error: string;
+  message: string;
+}
+
+// ============================================================================
 // /payments/manage-billing ENDPOINT
 // ============================================================================
 

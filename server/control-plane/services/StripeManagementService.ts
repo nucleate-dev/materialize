@@ -6,6 +6,8 @@ import {
   type CheckoutRequestBody,
   type CheckoutSuccessResponse,
   type CheckoutErrorResponse,
+  type GetCheckoutSessionSuccessResponse,
+  type GetCheckoutSessionErrorResponse,
   type APIResponse,
   HTTP_STATUS,
 } from '../types/PublicAPITypes.js';
@@ -49,6 +51,25 @@ export class StripeManagementService {
         },
       },
       this.handleCheckout.bind(this),
+    );
+
+    // GET /payments/checkout/session
+    app.get<{ Querystring: { session_id: string } }>(
+      '/payments/checkout/session',
+      {
+        schema: {
+          querystring: {
+            type: 'object',
+            required: ['session_id'],
+            properties: {
+              session_id: {
+                type: 'string',
+              },
+            },
+          },
+        },
+      },
+      this.handleGetCheckoutSession.bind(this),
     );
 
     // POST /payments/manage-billing
@@ -198,6 +219,82 @@ export class StripeManagementService {
           id: null,
           error: 'Checkout session creation failed',
           message: error instanceof Error ? error.message : 'Unknown error',
+        },
+      });
+    }
+  }
+
+  /**
+   * API Route Handler for fetching Stripe Checkout Session details.
+   *
+   * This function handles HTTP GET requests to retrieve Stripe Checkout session details
+   * based on the session ID. It's used by the success page to get purchase information
+   * for Meta Pixel tracking and other analytics purposes.
+   *
+   * @param {FastifyRequest} request - The incoming request object with session_id query parameter
+   * @param {FastifyReply} reply - The outgoing response object
+   *
+   * @returns APIResponse with session details including amount, currency, and product name
+   *
+   * Flow:
+   *  1. Extract session_id from query parameters
+   *  2. Retrieve the checkout session from Stripe with expanded line items
+   *  3. Extract product information from the session
+   *  4. Return formatted session details
+   */
+  private async handleGetCheckoutSession(
+    request: FastifyRequest<{ Querystring: { session_id: string } }>,
+    reply: FastifyReply,
+  ): Promise<
+    APIResponse<
+      GetCheckoutSessionSuccessResponse,
+      GetCheckoutSessionErrorResponse
+    >
+  > {
+    const { session_id } = request.query;
+
+    if (!session_id) {
+      request.log2.warn('Missing session_id parameter');
+      return reply.status(HTTP_STATUS.BAD_REQUEST).send({
+        data: null,
+        error: {
+          error: 'Missing parameter',
+          message: 'Missing session_id parameter',
+        },
+      });
+    }
+
+    try {
+      // Retrieve the checkout session from Stripe
+      const session = await stripe.checkout.sessions.retrieve(session_id, {
+        expand: ['line_items', 'line_items.data.price.product'],
+      });
+
+      // Extract relevant information for Meta Pixel tracking
+      const lineItem = session.line_items?.data[0];
+      const product = lineItem?.price?.product;
+      const productName =
+        typeof product === 'object' && 'name' in product
+          ? product.name
+          : 'Subscription';
+
+      return reply.status(HTTP_STATUS.OK).send({
+        data: {
+          amount_total: session.amount_total,
+          currency: session.currency,
+          content_name: productName,
+          session_id: session.id,
+        },
+        error: null,
+      });
+    } catch (error) {
+      request.log2.error(error, 'Failed to fetch checkout session');
+      return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
+        data: null,
+        error: {
+          error: 'Session fetch failed',
+          message:
+            error instanceof Error ? error.message : 'Failed to fetch session',
         },
       });
     }

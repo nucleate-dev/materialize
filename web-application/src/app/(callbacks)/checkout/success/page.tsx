@@ -33,16 +33,30 @@ function CheckoutSuccessContent() {
       try {
         // Fetch checkout session details to get purchase info
         const response = await fetch(
-          `/api/checkout/session?session_id=${sessionId}`,
+          `${process.env.NEXT_PUBLIC_SERVER_ENDPOINT}/payments/checkout/session?session_id=${sessionId}`,
         );
 
         if (!response.ok) {
-          logger.debug("warn", "Failed to fetch checkout session details");
+          logger.debug("warn", "Failed to fetch checkout session details", {
+            status: response.status,
+          });
           setIsTracking(false);
           return;
         }
 
-        const sessionData = await response.json();
+        const result = await response.json();
+
+        // Check for API error response (if error exists, data will be null)
+        if (result.error) {
+          logger.debug("warn", "API returned error for checkout session", {
+            error: result.error,
+          });
+          setIsTracking(false);
+          return;
+        }
+
+        // If no error, data is guaranteed to exist due to APIResponse type
+        const sessionData = result.data;
 
         // Track Meta Pixel Purchase event with session_id as eventID for deduplication
         // Meta will deduplicate this with the server-side event using the same eventID

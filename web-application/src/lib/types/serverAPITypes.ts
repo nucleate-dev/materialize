@@ -5,7 +5,7 @@
 // To update these shared files, modify the source file and run:
 // npm run sync-types (in the control-plane directory)
 //
-// Last synced: 2025-12-20T08:22:11.976Z
+// Last synced: 2025-12-20T20:06:00.117Z
 
 // Public API types for the Control Plane Server
 // These types define the request and response schemas for all public endpoints
@@ -157,6 +157,22 @@ export interface CheckoutSuccessResponse {
 
 export interface CheckoutErrorResponse {
   id: null;
+  error: string;
+  message: string;
+}
+
+// ============================================================================
+// /payments/checkout/session ENDPOINT (GET)
+// ============================================================================
+
+export interface GetCheckoutSessionSuccessResponse {
+  amount_total: number | null;
+  currency: string | null;
+  content_name: string;
+  session_id: string;
+}
+
+export interface GetCheckoutSessionErrorResponse {
   error: string;
   message: string;
 }
