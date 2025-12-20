@@ -585,7 +585,6 @@ const MaterializeRenderSection = forwardRef<
       [forceRefresh],
     );
 
-
     // Function to start dev server with all files
     const handleStartDevServer = async () => {
       if (!prototypeId) {
@@ -1477,7 +1476,11 @@ const MaterializeRenderSection = forwardRef<
                     size="sm"
                     onClick={() => {
                       if (viewing_url) {
-                        window.open(viewing_url, "_blank", "noopener,noreferrer");
+                        window.open(
+                          viewing_url,
+                          "_blank",
+                          "noopener,noreferrer",
+                        );
                       }
                     }}
                     className="hidden sm:flex h-8 bg-accent border border-border text-muted-foreground hover:text-foreground hover:border-border/80 hover:bg-accent/80 transition-all"
@@ -1489,7 +1492,21 @@ const MaterializeRenderSection = forwardRef<
                       Browser
                     </span>
                   </Button>
-                ) : null)}
+                ) : (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setIsQRModalOpen(true)}
+                    className="h-8 bg-accent border border-border text-muted-foreground hover:text-foreground hover:border-border/80 hover:bg-accent/80 transition-all"
+                    title="View on Device"
+                    disabled={!viewing_url}
+                  >
+                    <QrCode className="w-3.5 h-3.5" />
+                    <span className="ml-2 hidden md:inline text-xs font-medium">
+                      Device
+                    </span>
+                  </Button>
+                ))}
               {!isReadOnlyView && (
                 <Button
                   variant="ghost"
@@ -1737,9 +1754,10 @@ const MaterializeRenderSection = forwardRef<
             transition: isResizingTerminal ? "none" : "height 0.2s ease-in-out",
           }}
         >
-          {!isReadOnlyView && !isWebFramework && isPreviewView && (
+          {!isReadOnlyView && isPreviewView && (
             <div className="absolute top-3 left-3 z-20">
-              <Button
+              {/* Also need to include the browser button here, so for now I removed this */}
+              {/* <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => setIsQRModalOpen(true)}
@@ -1751,7 +1769,7 @@ const MaterializeRenderSection = forwardRef<
                 <span className="ml-2 hidden md:inline text-xs font-medium">
                   Device
                 </span>
-              </Button>
+              </Button> */}
             </div>
           )}
           {isPreviewView ? (
