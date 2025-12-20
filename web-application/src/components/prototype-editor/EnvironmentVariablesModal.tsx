@@ -136,14 +136,18 @@ export function EnvironmentVariablesModal({
 
       // Transform the data to strip EXPO_PUBLIC_ prefix for display
       const transformedData: PrototypeEnvVar[] = (data ?? []).map((envVar) => {
-        const { prototype_env_var_secrets, ...rest } = envVar;
+        const { prototype_env_var_secrets, ...rest } = envVar as any;
         const originalName = rest.name;
+        const secretValue = Array.isArray(prototype_env_var_secrets)
+          ? prototype_env_var_secrets[0]?.secret_value
+          : prototype_env_var_secrets?.secret_value;
+
         return {
           ...rest,
           name: originalName.startsWith("EXPO_PUBLIC_")
             ? originalName.substring(12)
             : originalName,
-          secret_value: prototype_env_var_secrets?.secret_value ?? null,
+          secret_value: secretValue ?? null,
         } as PrototypeEnvVar;
       });
 
