@@ -45,7 +45,7 @@ const supabase = createClient<Database>(
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
 );
 
-export class DeploymentService {
+export class PrototypeDeploymentService {
   private appsBaseUrl: string;
 
   constructor() {
@@ -216,7 +216,11 @@ export class DeploymentService {
       userId: user.id,
     });
 
-    const { prototype_id, slug: rawSlug, visibility: rawVisibility } = request.body;
+    const {
+      prototype_id,
+      slug: rawSlug,
+      visibility: rawVisibility,
+    } = request.body;
     const normalizedSlug = normalizeSlug(rawSlug);
 
     if (!prototype_id) {
@@ -299,7 +303,10 @@ export class DeploymentService {
         .limit(1);
 
       if (slugCheckError) {
-        request.log2.error(slugCheckError, 'Failed to validate slug uniqueness');
+        request.log2.error(
+          slugCheckError,
+          'Failed to validate slug uniqueness',
+        );
         return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
           data: null,
           error: {
@@ -358,7 +365,9 @@ export class DeploymentService {
         error: {
           error: 'Internal server error',
           message:
-            error instanceof Error ? error.message : 'Unable to deploy prototype',
+            error instanceof Error
+              ? error.message
+              : 'Unable to deploy prototype',
         },
       });
     }
