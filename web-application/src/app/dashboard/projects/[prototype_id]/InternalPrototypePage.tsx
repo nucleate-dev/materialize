@@ -40,6 +40,7 @@ import { useClaudeCodeWebSocket } from "@/hooks/useClaudeCodeWebSocket";
 import { useFileSystem } from "@/hooks/useFileSystem";
 import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import { useUser } from "@/hooks/useUser";
+import { usePostHog } from "posthog-js/react";
 import { sidebarOpenAtom } from "@/lib/atoms/sidebar";
 import { cn } from "@/lib/classNames";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
@@ -115,6 +116,11 @@ export default function InternalPrototypePage() {
   const prototypeId = params?.prototype_id;
   const logger = useProductLogger();
   const setSidebarOpen = useSetAtom(sidebarOpenAtom);
+  const posthog = usePostHog();
+
+  // Feature flags
+  const isDeployFeatureEnabled =
+    posthog?.isFeatureEnabled("deploy-app-for-public-viewing") ?? false;
 
   const [shouldTriggerInitialFetch, setShouldTriggerInitialFetch] =
     useState(true);
@@ -1156,7 +1162,7 @@ export default function InternalPrototypePage() {
               onCurrentPathChange={setCurrentViewingPath}
               isPreviewView={isPreviewView}
               onPreviewViewChange={setIsPreviewView}
-              onDeploy={handleOpenDeployModal}
+              onDeploy={isDeployFeatureEnabled ? handleOpenDeployModal : undefined}
               deploymentUrl={deployedUrl}
               isDeploying={isDeploying}
               onShare={handleShare}
@@ -1378,13 +1384,15 @@ export default function InternalPrototypePage() {
       </AlertDialog>
 
       {/* Deploy Modal */}
-      <PrototypeDeployModal
-        open={isDeployModalOpen}
-        onOpenChange={setIsDeployModalOpen}
-        prototype={prototype}
-        normalizedSandboxUrl={normalizedSandboxUrl}
-        onDeploySuccess={handleDeploySuccess}
-      />
+      {isDeployFeatureEnabled && (
+        <PrototypeDeployModal
+          open={isDeployModalOpen}
+          onOpenChange={setIsDeployModalOpen}
+          prototype={prototype}
+          normalizedSandboxUrl={normalizedSandboxUrl}
+          onDeploySuccess={handleDeploySuccess}
+        />
+      )}
 
       {/* Share Modal */}
       <Dialog open={showShareModal} onOpenChange={setShowShareModal}>
