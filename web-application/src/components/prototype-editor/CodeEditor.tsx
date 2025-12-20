@@ -1636,9 +1636,13 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
           }}
         >
           <DialogContent className="sm:max-w-2xl max-h-[90vh] bg-white dark:bg-[#141517] border border-zinc-200 dark:border-white/10 text-zinc-900 dark:text-white shadow-2xl p-0 overflow-hidden gap-0 flex flex-col">
-            <DialogHeader className="p-6 border-b border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-[#0B0C0E]">
-              <DialogTitle className="text-lg font-medium flex items-center gap-2">
-                <Upload className="w-5 h-5 text-indigo-500" />
+            <DialogHeader className="px-6 pt-6 pb-2 text-center space-y-3 bg-white dark:bg-[#141517]">
+              <div className="flex items-center justify-center">
+                <div className="p-2.5 bg-zinc-50 dark:bg-[#0B0C0E] border border-zinc-200 dark:border-white/10 rounded-xl shadow-inner">
+                  <Upload className="w-5 h-5 text-zinc-900 dark:text-white" />
+                </div>
+              </div>
+              <DialogTitle className="text-xl font-medium tracking-tight text-zinc-900 dark:text-white">
                 Upload Files
               </DialogTitle>
             </DialogHeader>
@@ -1661,16 +1665,16 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
                 >
                   <div
                     className={cn(
-                      "flex items-center gap-3 p-3 rounded-lg border transition-all cursor-pointer",
+                      "flex items-center gap-3 p-3 rounded-xl border transition-all cursor-pointer",
                       uploadType === "files"
-                        ? "bg-indigo-500/10 border-indigo-500/50"
-                        : "bg-white dark:bg-[#0B0C0E] border-zinc-200 dark:border-white/10 hover:bg-zinc-50 dark:hover:bg-white/5",
+                        ? "bg-zinc-50 dark:bg-white/5 border-zinc-900 dark:border-white shadow-sm"
+                        : "bg-white dark:bg-[#0B0C0E] border-zinc-200 dark:border-white/10 hover:border-zinc-300 dark:hover:border-white/20",
                     )}
                   >
                     <RadioGroupItem
                       value="files"
                       id="type-files"
-                      className="border-border text-indigo-500 shrink-0"
+                      className="border-zinc-200 dark:border-white/10 text-zinc-900 dark:text-white shrink-0"
                     />
                     <Label
                       htmlFor="type-files"
@@ -1681,16 +1685,16 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
                   </div>
                   <div
                     className={cn(
-                      "flex items-center gap-3 p-3 rounded-lg border transition-all cursor-pointer",
+                      "flex items-center gap-3 p-3 rounded-xl border transition-all cursor-pointer",
                       uploadType === "folder"
-                        ? "bg-indigo-500/10 border-indigo-500/50"
-                        : "bg-white dark:bg-[#0B0C0E] border-zinc-200 dark:border-white/10 hover:bg-zinc-50 dark:hover:bg-white/5",
+                        ? "bg-zinc-50 dark:bg-white/5 border-zinc-900 dark:border-white shadow-sm"
+                        : "bg-white dark:bg-[#0B0C0E] border-zinc-200 dark:border-white/10 hover:border-zinc-300 dark:hover:border-white/20",
                     )}
                   >
                     <RadioGroupItem
                       value="folder"
                       id="type-folder"
-                      className="border-border text-indigo-500 shrink-0"
+                      className="border-zinc-200 dark:border-white/10 text-zinc-900 dark:text-white shrink-0"
                     />
                     <Label
                       htmlFor="type-folder"
@@ -1707,10 +1711,10 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
                 <div className="space-y-3">
                   <div
                     className={cn(
-                      "flex items-start gap-3 p-3 rounded-lg border transition-all",
+                      "flex items-start gap-3 p-3 rounded-xl border transition-all",
                       uploadAsProjectRoot
-                        ? "bg-amber-500/10 border-amber-500/50"
-                        : "bg-accent/50 border-border",
+                        ? "bg-amber-50 dark:bg-amber-900/10 border-amber-500 dark:border-amber-500/50"
+                        : "bg-zinc-50 dark:bg-white/5 border-zinc-200 dark:border-white/10",
                     )}
                   >
                     <Checkbox
@@ -1763,7 +1767,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
                     value={uploadTargetFolder}
                     onValueChange={handleUploadFolderChange}
                   >
-                    <SelectTrigger className="bg-white dark:bg-[#0B0C0E] border-zinc-200 dark:border-white/10 text-zinc-900 dark:text-white focus:ring-indigo-500/50">
+                    <SelectTrigger className="h-11 bg-white dark:bg-[#0B0C0E] border-zinc-200 dark:border-white/10 text-zinc-900 dark:text-white focus:ring-0 focus:border-indigo-500 dark:focus:border-white/20">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent className="bg-white dark:bg-[#141517] border-zinc-200 dark:border-white/10 text-zinc-900 dark:text-white">
@@ -1794,7 +1798,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
                       ? { webkitdirectory: "", directory: "" }
                       : { multiple: true })}
                     onChange={handleUploadFileSelection}
-                    className="cursor-pointer bg-background border-border text-foreground py-2 pb-11 file:cursor-pointer file:bg-indigo-500/10 file:text-indigo-400 file:border-0 file:rounded-md file:mr-4 file:px-4 file:py-2 file:text-sm file:font-medium hover:file:bg-indigo-500/20 file:transition-colors"
+                    className="cursor-pointer h-11 bg-white dark:bg-[#0B0C0E] border-zinc-200 dark:border-white/10 text-zinc-900 dark:text-white py-2 file:cursor-pointer file:bg-zinc-100 dark:file:bg-white/10 file:text-zinc-900 dark:file:text-white file:border-0 file:rounded-md file:mr-4 file:px-4 file:py-1 file:text-sm file:font-medium hover:file:bg-zinc-200 dark:hover:file:bg-white/20 file:transition-colors"
                   />
                 </div>
                 {uploadError && (
@@ -1820,16 +1824,16 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
                       >
                         <div
                           className={cn(
-                            "flex items-center gap-2 p-2.5 rounded-lg border transition-all cursor-pointer",
+                            "flex items-center gap-2 p-2.5 rounded-xl border transition-all cursor-pointer",
                             uploadMode === "merge"
-                              ? "bg-indigo-500/10 border-indigo-500/50"
-                              : "bg-white dark:bg-[#0B0C0E] border-zinc-200 dark:border-white/10 hover:bg-zinc-50 dark:hover:bg-white/5",
+                              ? "bg-zinc-50 dark:bg-white/5 border-zinc-900 dark:border-white shadow-sm"
+                              : "bg-white dark:bg-[#0B0C0E] border-zinc-200 dark:border-white/10 hover:border-zinc-300 dark:hover:border-white/20",
                           )}
                         >
                           <RadioGroupItem
                             value="merge"
                             id="mode-merge"
-                            className="border-border text-indigo-500"
+                            className="border-zinc-200 dark:border-white/10 text-zinc-900 dark:text-white"
                           />
                           <Label
                             htmlFor="mode-merge"
@@ -1840,16 +1844,16 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
                         </div>
                         <div
                           className={cn(
-                            "flex items-center gap-2 p-2.5 rounded-lg border transition-all cursor-pointer",
+                            "flex items-center gap-2 p-2.5 rounded-xl border transition-all cursor-pointer",
                             uploadMode === "replace"
-                              ? "bg-indigo-500/10 border-indigo-500/50"
-                              : "bg-white dark:bg-[#0B0C0E] border-zinc-200 dark:border-white/10 hover:bg-zinc-50 dark:hover:bg-white/5",
+                              ? "bg-zinc-50 dark:bg-white/5 border-zinc-900 dark:border-white shadow-sm"
+                              : "bg-white dark:bg-[#0B0C0E] border-zinc-200 dark:border-white/10 hover:border-zinc-300 dark:hover:border-white/20",
                           )}
                         >
                           <RadioGroupItem
                             value="replace"
                             id="mode-replace"
-                            className="border-border text-indigo-500"
+                            className="border-zinc-200 dark:border-white/10 text-zinc-900 dark:text-white"
                           />
                           <Label
                             htmlFor="mode-replace"
@@ -1921,7 +1925,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
                       </div>
                     </div>
 
-                    <div className="max-h-96 overflow-y-auto border border-zinc-200 dark:border-white/10 rounded-lg bg-white/50 dark:bg-[#0B0C0E]/50">
+                    <div className="max-h-96 overflow-y-auto border border-zinc-200 dark:border-white/10 rounded-xl bg-white/50 dark:bg-[#0B0C0E]/50">
                       <div>
                         {fileTree.map((node) => renderFileNode(node, 0))}
                       </div>
@@ -1929,7 +1933,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
                   </div>
 
                   {/* Summary */}
-                  <div className="p-3 rounded-lg bg-zinc-50 dark:bg-[#0B0C0E] border border-zinc-200 dark:border-white/10">
+                  <div className="p-4 rounded-xl bg-zinc-50 dark:bg-[#0B0C0E] border border-zinc-200 dark:border-white/10">
                     <div className="grid grid-cols-2 gap-2 text-xs">
                       <div className="flex items-center gap-2">
                         <Check className="w-3 h-3 text-green-400" />
@@ -1973,18 +1977,19 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
               )}
             </div>
 
-            <DialogFooter className="p-6 bg-zinc-50 dark:bg-[#0B0C0E] border-t border-zinc-200 dark:border-white/10">
+            <DialogFooter className="p-6 bg-white dark:bg-[#141517] border-t border-zinc-200 dark:border-white/10">
               <Button
+                type="button"
                 variant="ghost"
                 onClick={() => setShowUploadModal(false)}
-                className="text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-white/5"
+                className="h-11 text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-white/5 font-medium rounded-lg"
               >
                 Cancel
               </Button>
               <Button
                 onClick={handleUploadFiles}
                 disabled={isUploading || selectedFiles.size === 0}
-                className="bg-zinc-900 text-white hover:bg-zinc-800 dark:bg-white dark:text-black dark:hover:bg-white/90 rounded-full px-6 font-semibold"
+                className="h-11 bg-zinc-900 text-white hover:bg-zinc-800 dark:bg-white dark:text-black dark:hover:bg-white/90 font-medium rounded-lg px-6"
               >
                 {isUploading
                   ? `Uploading ${uploadProgress.current}/${uploadProgress.total}...`
