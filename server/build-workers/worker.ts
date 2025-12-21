@@ -3,7 +3,7 @@ import websocket from "@fastify/websocket";
 import dotenv from "dotenv";
 import fastify, { FastifyInstance } from "fastify";
 import fs from "fs/promises";
-import { baseLogger, posthogLogger } from "./loggers/index.js";
+import { baseLogger, posthog, posthogLogger } from "./loggers/index.js";
 import { genRequestIds, SystemLogger } from "./loggers/SystemLogger.js";
 import { PostHogLogger } from "./loggers/PostHogLogger.js";
 import { ChatService } from "./services/chat/ChatService.js";
@@ -146,6 +146,20 @@ app.addHook("onRequest", async (req) => {
   });
 });
 
+app.addHook("onClose", async () => {
+  const logger = baseLogger.child({ context: "shutdown" });
+  try {
+    logger.consoleLogDevOnly(
+      "info",
+      "Flushing PostHog events before shutdown...",
+    );
+    await posthog.shutdown();
+    logger.consoleLogDevOnly("info", "PostHog events flushed successfully");
+  } catch (error) {
+    logger.error(error, "Failed to flush PostHog events during shutdown");
+  }
+});
+
 // --- Health Check ---
 app.get("/health", async () => {
   return {
@@ -179,6 +193,8 @@ const close = async (): Promise<void> => {
     terminalService.shutdownAllSessions();
     await chatService.shutdown();
     await app.close();
+  } catch (error) {
+    logger.error(error, "Error encountered during shutdown");
   } finally {
     process.exit(0);
   }

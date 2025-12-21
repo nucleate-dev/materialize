@@ -139,6 +139,19 @@ fastify.addHook('onRequest', async (req) => {
   });
 });
 
+fastify.addHook('onClose', async () => {
+  try {
+    baseLogger.consoleLogDevOnly(
+      'info',
+      'Flushing PostHog events before shutdown...',
+    );
+    await posthog.shutdown();
+    baseLogger.consoleLogDevOnly('info', 'PostHog events flushed successfully');
+  } catch (error) {
+    fastify.log.error(error, 'Failed to flush PostHog events during shutdown');
+  }
+});
+
 let dispatcherService: DispatcherService;
 let cleanupService: CleanupService;
 let idleContainerAllocationSystemService: IdleContainerAllocationSystemService;
@@ -220,7 +233,6 @@ const start = async (): Promise<void> => {
 
     // Create prototype management service and register routes
     prototypeManagementService = new PrototypeManagementService(
-      fastify,
       s3Client,
       cacheClient,
       dispatcherService,
@@ -233,18 +245,11 @@ const start = async (): Promise<void> => {
     developmentServerService.registerRoutes(fastify);
 
     // Create orchestration service and register routes
-    orchestrationService = new OrchestrationService(
-      fastify,
-      cacheClient,
-      baseLogger,
-    );
+    orchestrationService = new OrchestrationService(cacheClient, baseLogger);
     orchestrationService.registerRoutes(fastify);
 
     // Create internal tools service and register routes
-    internalToolsService = new InternalCacheManagementService(
-      cacheClient,
-      fastify,
-    );
+    internalToolsService = new InternalCacheManagementService(cacheClient);
     internalToolsService.registerRoutes(fastify);
 
     // Create internal dev server management service and register routes
@@ -257,14 +262,12 @@ const start = async (): Promise<void> => {
       new InternalProductionDeploymentService(
         ec2Client,
         autoScalingClient,
-        fastify,
         idleContainerAllocationSystemService,
       );
     internalProductionDeploymentService.registerRoutes(fastify);
 
     // Create internal cleanup service management and register routes
     internalCleanupServiceManagement = new InternalCleanupServiceManagement(
-      fastify,
       cacheClient,
       cleanupService,
     );
@@ -293,6 +296,8 @@ const close = async (): Promise<void> => {
       idleContainerAllocationSystemService.shutdown();
     }
     await fastify.close();
+  } catch (error) {
+    fastify.log.error(error, 'Error during shutdown');
   } finally {
     process.exit(0);
   }
