@@ -32,29 +32,9 @@ import { cn } from "@/lib/utils";
 // Menu items.
 const items = [
   {
-    title: "Control Plane Development",
+    title: "Development",
     url: "/cp-dev",
     icon: Server,
-  },
-  {
-    title: "Build Workers Development",
-    url: "/bw-dev",
-    icon: Container,
-  },
-  {
-    title: "Terminal",
-    url: "/terminal",
-    icon: Terminal,
-  },
-  {
-    title: "Cache Management",
-    url: "/cache",
-    icon: Database,
-  },
-  {
-    title: "Users",
-    url: "/users",
-    icon: Users,
   },
   {
     title: "Prod Deployments",
@@ -62,9 +42,24 @@ const items = [
     icon: Rocket,
   },
   {
+    title: "Cache Management",
+    url: "/cache",
+    icon: Database,
+  },
+  {
     title: "Cleanup Service",
     url: "/cleanup-service",
     icon: Trash2,
+  },
+  {
+    title: "Terminal",
+    url: "/terminal",
+    icon: Terminal,
+  },
+  {
+    title: "Users",
+    url: "/users",
+    icon: Users,
   },
   {
     title: "Live Viewer",
