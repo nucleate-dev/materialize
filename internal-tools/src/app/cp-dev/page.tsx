@@ -697,6 +697,8 @@ export default function DevServerPage() {
     "Server",
   );
   const [deployingSandbox, setDeployingSandbox] = useState(false);
+  const [resettingSandbox, setResettingSandbox] = useState(false);
+  const [resetSandboxOutput, setResetSandboxOutput] = useState<string>("");
 
   // Load instance from localStorage on mount
   useEffect(() => {
@@ -1015,6 +1017,55 @@ export default function DevServerPage() {
       setDeployingSandbox(false);
     }
   }, []);
+
+  const handleResetSandbox = useCallback(async () => {
+    if (!ec2Details?.publicIpv4) {
+      setError("No EC2 instance available. Please acquire an instance first.");
+      return;
+    }
+
+    setResettingSandbox(true);
+    setError(null);
+    setResetSandboxOutput("");
+
+    try {
+      const sandboxUrl = `http://${ec2Details.publicIpv4}:3002/reset-sandbox`;
+      setResetSandboxOutput(`Connecting to sandbox at ${sandboxUrl}...\n`);
+
+      const response = await fetch(sandboxUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error?.message || "Failed to reset sandbox");
+      }
+
+      if (result.data) {
+        setResetSandboxOutput((prev) =>
+          prev +
+          `\n✓ Sandbox reset successfully!\n` +
+          `  - Prototype ID: ${result.data.prototype_id || "None"}\n` +
+          `  - Files cleared: ${result.data.files_cleared ? "Yes" : "No"}\n` +
+          `  - Claude sessions cleared: ${result.data.claude_sessions_cleared ? "Yes" : "No"}\n` +
+          `  - Claude sessions deleted: ${result.data.claude_sessions_deleted_count}\n` +
+          `  - Message: ${result.data.message}\n`
+        );
+      } else {
+        setResetSandboxOutput((prev) => prev + "\n✓ Sandbox reset completed!\n");
+      }
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : "Failed to reset sandbox";
+      setError(errorMsg);
+      setResetSandboxOutput((prev) => prev + `\n✗ Error: ${errorMsg}\n`);
+    } finally {
+      setResettingSandbox(false);
+    }
+  }, [ec2Details]);
 
   // Countdown timer effect
   useEffect(() => {
@@ -1744,6 +1795,84 @@ export default function DevServerPage() {
                         backgroundColor: "#09090b",
                       }}
                     />
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Reset Sandbox Card */}
+          <Card className="w-full mb-6">
+            <CardContent className="p-6">
+              <div className="grid grid-cols-1 lg:grid-cols-[20%_80%] gap-6">
+                {/* Left side: Controls */}
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <AlertCircle className="h-5 w-5 text-red-600" />
+                      <h3 className="text-lg font-semibold">Reset Sandbox</h3>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      Reset the sandbox to a clean state by clearing all files,
+                      Claude sessions, and worker context.
+                    </p>
+                  </div>
+
+                  <Separator />
+
+                  <div className="flex items-center gap-3">
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          onClick={handleResetSandbox}
+                          disabled={resettingSandbox || !ec2Details?.publicIpv4}
+                          variant="destructive"
+                          className="flex items-center gap-2"
+                        >
+                          {resettingSandbox ? (
+                            <>
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                              Resetting...
+                            </>
+                          ) : (
+                            <>
+                              <AlertCircle className="h-4 w-4" />
+                              Reset Sandbox
+                            </>
+                          )}
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p className="text-xs">
+                          Resets the sandbox running on your EC2 instance.
+                          <br />
+                          Clears all project files, Claude sessions, and resets
+                          worker context.
+                          <br />
+                          {!ec2Details?.publicIpv4 &&
+                            "Acquire an EC2 instance first to enable this."}
+                        </p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
+                </div>
+
+                {/* Right side: Output */}
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-sm font-medium">
+                    <AlertCircle className="h-4 w-4 text-muted-foreground" />
+                    Reset output
+                  </div>
+                  <div className="rounded border bg-muted/40 p-4">
+                    {resetSandboxOutput ? (
+                      <pre className="text-xs font-mono whitespace-pre-wrap">
+                        {resetSandboxOutput}
+                      </pre>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">
+                        Click the reset button to clear the sandbox state.
+                      </p>
+                    )}
                   </div>
                 </div>
               </div>
