@@ -80,7 +80,8 @@ if command -v dnf >/dev/null 2>&1; then
     pcre2-devel \
     libevent-devel \
     rust \
-    cargo
+    cargo \
+    acl
 else
   # Amazon Linux 2 / RHEL 8 (uses yum)
   if ! command -v node >/dev/null 2>&1; then
@@ -144,7 +145,8 @@ else
     pcre2-devel \
     libevent-devel \
     rust \
-    cargo
+    cargo \
+    acl
 fi
 
 # 2. Install watchman for build-workers
@@ -175,6 +177,24 @@ mkdir -p /tmp/logs
 chown ${USER}:${USER} ${REMOTE_BASE}
 chown ${USER}:${USER} ${BUILD_WORKERS_BASE}
 chown ${USER}:${USER} /tmp/logs
+
+# 4a. Create materialize-user to mirror Fargate containers
+echo "==> Creating materialize-user for sandbox parity..."
+MATERIALIZE_USER="materialize-user"
+MATERIALIZE_GROUP="materialize-user"
+MATERIALIZE_HOME="/tmp/materialize-dev-server"
+if ! getent group ${MATERIALIZE_GROUP} >/dev/null; then
+  groupadd --system ${MATERIALIZE_GROUP}
+fi
+if ! id -u ${MATERIALIZE_USER} >/dev/null 2>&1; then
+  useradd --system --gid ${MATERIALIZE_GROUP} --shell /bin/bash --home-dir ${MATERIALIZE_HOME} ${MATERIALIZE_USER}
+fi
+mkdir -p ${MATERIALIZE_HOME}
+chown -R ${MATERIALIZE_USER}:${MATERIALIZE_GROUP} ${MATERIALIZE_HOME}
+setfacl -R -m u:${MATERIALIZE_USER}:rwX ${MATERIALIZE_HOME}
+setfacl -R -m g:${MATERIALIZE_GROUP}:rwX ${MATERIALIZE_HOME}
+setfacl -R -d -m u:${MATERIALIZE_USER}:rwX ${MATERIALIZE_HOME}
+setfacl -R -d -m g:${MATERIALIZE_GROUP}:rwX ${MATERIALIZE_HOME}
 
 # 5. Set environment variables for build-workers
 echo "==> Setting environment variables in ec2-user's profile..."
