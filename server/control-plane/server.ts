@@ -8,7 +8,6 @@ import { GlideClient } from '@valkey/valkey-glide';
 import 'dotenv/config';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import Fastify from 'fastify';
-import { InternalBuildWorkerDevProxyService } from './internal-services/InternalBuildWorkerDevProxyService.js';
 import { InternalCacheManagementService } from './internal-services/InternalCacheManagementService.js';
 import { InternalCleanupServiceManagement } from './internal-services/InternalCleanupServiceManagement.js';
 import { InternalControlPlaneDevelopmentService } from './internal-services/InternalControlPlaneDevelopmentService.js';
@@ -152,7 +151,6 @@ let internalToolsService: InternalCacheManagementService;
 let internalDevServerManagementService: InternalControlPlaneDevelopmentService;
 let internalProductionDeploymentService: InternalProductionDeploymentService;
 let internalCleanupServiceManagement: InternalCleanupServiceManagement;
-let internalBuildWorkerDevProxyService: InternalBuildWorkerDevProxyService;
 let cache: GlideClient;
 
 // Health check
@@ -274,10 +272,6 @@ const start = async (): Promise<void> => {
       cleanupService,
     );
     internalCleanupServiceManagement.registerRoutes(fastify);
-
-    internalBuildWorkerDevProxyService =
-      new InternalBuildWorkerDevProxyService();
-    internalBuildWorkerDevProxyService.registerRoutes(fastify);
 
     await fastify.listen({
       port: 3000,
