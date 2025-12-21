@@ -153,6 +153,8 @@ export class ClaudeCodeCliQueryHandler {
     const framework =
       this.devServerService.prototypeFramework ?? DEFAULT_PROTOTYPE_FRAMEWORK;
 
+    let queryTextForCommit = "";
+
     try {
       // Notify orchestration that chat has started
       try {
@@ -250,6 +252,8 @@ export class ClaudeCodeCliQueryHandler {
         throw new Error("No query provided");
       }
 
+      queryTextForCommit = queryText;
+
       // Spawn CLI process
       const cliProcess = this.spawnCliProcess(
         queryText,
@@ -288,6 +292,7 @@ export class ClaudeCodeCliQueryHandler {
         },
       });
     } finally {
+      await this.commitChatChangesToGit(queryTextForCommit, logger);
       // Always notify orchestration that chat has ended
       await notifyOrchestrationEndChat(context.prototypeId);
 
@@ -895,5 +900,84 @@ export class ClaudeCodeCliQueryHandler {
       return absolutePath.slice(WORK_DIR.length).replace(/^\//, "");
     }
     return absolutePath;
+  }
+
+  /**
+   * Runs git add/commit after chat execution completes
+   */
+  private async commitChatChangesToGit(
+    userMessage: string,
+    logger: SystemLogger,
+  ): Promise<void> {
+    const commitMessageArg = this.buildCommitMessageArg(userMessage || "");
+    if (!commitMessageArg) {
+      return;
+    }
+
+    try {
+      const { response } =
+        await this.devServerService.sandboxService.runCommandInternal({
+          command: "git",
+          args: ["add", ".", "&&", "git", "commit", "-m", commitMessageArg],
+          cwd: WORK_DIR,
+          session_id: "test",
+          timeout_ms: 60000,
+          strip_ansi: true,
+        });
+
+      if (response.error) {
+        logger.warn("CLI git commit after chat failed", {
+          error: response.error,
+        });
+        return;
+      }
+
+      const stdout = response.data?.stdout ?? "";
+      if (
+        response.data?.status === "timeout" &&
+        stdout.toLowerCase().includes("nothing to commit")
+      ) {
+        logger.consoleLogDevOnly(
+          "info",
+          "CLI git commit skipped - nothing to commit",
+        );
+        return;
+      }
+
+      logger.consoleLogDevOnly(
+        "info",
+        "CLI chat changes committed to git successfully",
+      );
+    } catch (error) {
+      logger.error(
+        error instanceof Error ? error : new Error(String(error)),
+        "Failed to commit CLI chat changes",
+      );
+    }
+  }
+
+  /**
+   * Sanitizes user message for use in git commit -m arguments
+   */
+  private buildCommitMessageArg(userMessage: string): string | null {
+    const normalized = userMessage.replace(/\s+/g, " ").trim();
+    const baseMessage =
+      normalized.length > 0 ? normalized : "Automated chat commit";
+    const truncated =
+      baseMessage.length > 180
+        ? `${baseMessage.slice(0, 177)}...`
+        : baseMessage;
+
+    const escaped = truncated
+      .replace(/\\/g, "\\\\")
+      .replace(/"/g, '\\"')
+      .replace(/\$/g, "\\$")
+      .replace(/`/g, "\\`");
+
+    if (!escaped.trim()) {
+      return null;
+    }
+
+    return `"${escaped}"`;
   }
 }

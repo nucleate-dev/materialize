@@ -546,6 +546,9 @@ export class ChatQueryHandler {
         totalCostUsd,
       });
 
+      // Run git add/commit before syncing usage data
+      await this.commitChatChangesToGit(data, logger);
+
       // Step 11: Sync files and track usage
       await this.syncAndTrackUsage(
         prototypeId,
@@ -2074,6 +2077,113 @@ export class ChatQueryHandler {
     }
 
     return totalCostUsd;
+  }
+
+  /**
+   * Runs git add/commit with the latest user message so we can diff work between queries
+   */
+  private async commitChatChangesToGit(
+    data: ChatQueryData,
+    logger: SystemLogger,
+  ): Promise<void> {
+    const commitMessageArg = this.buildCommitMessageArg(data);
+    if (!commitMessageArg) {
+      logger.consoleLogDevOnly(
+        "info",
+        "Skipping git commit after chat - no commit message available",
+      );
+      return;
+    }
+
+    try {
+      const { response } = await this.sandboxService.runCommandInternal({
+        command: "git",
+        args: ["add", ".", "&&", "git", "commit", "-m", commitMessageArg],
+        cwd: WORK_DIR,
+        session_id: "test",
+        timeout_ms: 60000,
+        strip_ansi: true,
+      });
+
+      if (response.error) {
+        logger.warn("Git commit after chat failed", {
+          error: response.error,
+        });
+        return;
+      }
+
+      const stdout = response.data?.stdout ?? "";
+      const status = response.data?.status;
+
+      if (
+        status === "timeout" &&
+        stdout.toLowerCase().includes("nothing to commit")
+      ) {
+        logger.consoleLogDevOnly(
+          "info",
+          "No git changes to commit after chat execution",
+        );
+        return;
+      }
+
+      logger.consoleLogDevOnly("info", "Committed chat changes to git", {
+        status,
+      });
+    } catch (error) {
+      logger.error(
+        error instanceof Error ? error : new Error(String(error)),
+        "Failed to commit chat changes after execution",
+      );
+    }
+  }
+
+  /**
+   * Builds a sanitized commit message argument from the user message
+   */
+  private buildCommitMessageArg(data: ChatQueryData): string | null {
+    const userMessage = this.extractCommitMessageText(data);
+    const normalized = userMessage.replace(/\s+/g, " ").trim();
+    const baseMessage =
+      normalized.length > 0 ? normalized : "Automated chat commit";
+    const truncated =
+      baseMessage.length > 180
+        ? `${baseMessage.slice(0, 177)}...`
+        : baseMessage;
+
+    // Escape characters that would be interpreted by the shell
+    const escaped = truncated
+      .replace(/\\/g, "\\\\")
+      .replace(/"/g, '\\"')
+      .replace(/\$/g, "\\$")
+      .replace(/`/g, "\\`");
+
+    if (!escaped.trim()) {
+      return null;
+    }
+
+    return `"${escaped}"`;
+  }
+
+  /**
+   * Extracts the user message text used for commit messages
+   */
+  private extractCommitMessageText(data: ChatQueryData): string {
+    if (typeof data.prompt === "string" && data.prompt.length > 0) {
+      return data.prompt;
+    }
+
+    if (Array.isArray(data.content)) {
+      const text = data.content
+        .filter((block) => block.type === "text")
+        .map((block) => block.text || "")
+        .join(" ")
+        .trim();
+      if (text) {
+        return text;
+      }
+    }
+
+    return "";
   }
 
   /**
