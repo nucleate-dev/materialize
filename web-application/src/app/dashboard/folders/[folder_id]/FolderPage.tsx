@@ -3,8 +3,11 @@
 import { supabase } from "@/ClientConstants";
 import CanvasThumbnail from "@/components/dashboard/CanvasThumbnail";
 import EmptyState from "@/components/dashboard/EmptyState";
+import NewPrototypeModal from "@/components/dashboard/NewPrototypeModal";
 import PrototypeSettingsModal from "@/components/dashboard/PrototypeSettingsModal";
 import PrototypeThumbnail from "@/components/dashboard/PrototypeThumbnail";
+import { Button } from "@/components/ui/button";
+import { useUser } from "@/hooks/useUser";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import { Database } from "@/lib/types/supabase";
 import { useParams, useRouter } from "next/navigation";
@@ -36,11 +39,14 @@ function formatRelativeTime(dateString: string | null | undefined): string {
 export default function ProjectPage() {
   const params = useParams();
   const router = useRouter();
+  const { user } = useUser();
   const logger = useProductLogger();
   const folderId = params?.folder_id as string;
   const [recentItems, setRecentItems] = useState<RecentItem[]>([]);
+  const [folderName, setFolderName] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [isNewPrototypeModalOpen, setIsNewPrototypeModalOpen] = useState(false);
   const [activePrototype, setActivePrototype] = useState<
     Database["public"]["Tables"]["prototypes"]["Row"] | null
   >(null);
@@ -54,18 +60,21 @@ export default function ProjectPage() {
     setIsLoading(true);
     try {
       // Fetch prototypes and canvases in parallel
-      const [prototypesResult, canvasesResult] = await Promise.all([
-        supabase
-          .from("prototypes")
-          .select("*")
-          .eq("folder_id", folderId)
-          .order("updated_at", { ascending: false }),
-        supabase
-          .from("canvases")
-          .select("*")
-          .eq("folder_id", folderId)
-          .order("updated_at", { ascending: false }),
-      ]);
+      // Fetch prototypes, canvases, and folder details in parallel
+      const [prototypesResult, canvasesResult, folderResult] =
+        await Promise.all([
+          supabase
+            .from("prototypes")
+            .select("*")
+            .eq("folder_id", folderId)
+            .order("updated_at", { ascending: false }),
+          supabase
+            .from("canvases")
+            .select("*")
+            .eq("folder_id", folderId)
+            .order("updated_at", { ascending: false }),
+          supabase.from("folders").select("name").eq("id", folderId).single(),
+        ]);
 
       if (prototypesResult.error) {
         logger.debug("error", "Error fetching prototypes:", {
@@ -77,6 +86,10 @@ export default function ProjectPage() {
         logger.debug("error", "Error fetching canvases:", {
           ...canvasesResult.error,
         });
+      }
+
+      if (folderResult.data) {
+        setFolderName(folderResult.data.name);
       }
 
       // Transform data to unified format
@@ -174,13 +187,16 @@ export default function ProjectPage() {
   return (
     <div className="mx-auto max-w-screen-2xl p-4 md:p-6 2xl:p-10">
       {/* Page Header */}
-      <div className="mb-8">
-        <h1 className="text-title-xl2 font-bold text-black dark:text-white mb-2">
-          Recent Activity
+      {/* Page Header */}
+      <div className="flex flex-col gap-4 mb-6 sm:flex-row sm:items-center sm:justify-between">
+        <h1 className="text-2xl font-bold text-black dark:text-white">
+          {folderName || "Folder"}
         </h1>
-        <p className="text-body dark:text-bodydark">
-          Your most recently updated prototypes and whiteboards
-        </p>
+        <div className="flex gap-2">
+          <Button onClick={() => setIsNewPrototypeModalOpen(true)}>
+            Create Project
+          </Button>
+        </div>
       </div>
 
       {/* Recent Items Grid */}
@@ -243,6 +259,16 @@ export default function ProjectPage() {
         onUpdated={() => {
           fetchRecentItems();
           handleCloseSettings();
+        }}
+      />
+
+      <NewPrototypeModal
+        open={isNewPrototypeModalOpen}
+        onClose={() => setIsNewPrototypeModalOpen(false)}
+        user={user}
+        projectId={folderId}
+        onCreated={(id) => {
+          router.push(`/dashboard/folders/${folderId}/prototypes/${id}`);
         }}
       />
     </div>

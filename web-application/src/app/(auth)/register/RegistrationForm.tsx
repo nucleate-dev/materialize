@@ -232,16 +232,16 @@ export default function RegistrationForm() {
       />
 
       {/* Premium Container */}
-      <div className="bg-[#141517] border border-white/10 rounded-2xl shadow-2xl overflow-hidden">
+      <div className="bg-card border border-border rounded-2xl shadow-2xl overflow-hidden">
         {/* Header */}
-        <div className="px-8 pt-8 pb-6 text-center space-y-2 border-b border-white/5 bg-white/[0.01]">
-          <div className="mx-auto w-10 h-10 bg-white/5 rounded-xl flex items-center justify-center border border-white/10 mb-4 shadow-inner">
-            <Sparkles className="w-5 h-5 text-white" />
+        <div className="px-8 pt-8 pb-6 text-center space-y-2 border-b border-border bg-accent/30">
+          <div className="mx-auto w-10 h-10 bg-background/70 rounded-xl flex items-center justify-center border border-border mb-4 shadow-inner">
+            <Sparkles className="w-5 h-5 text-foreground" />
           </div>
-          <h2 className="text-2xl font-medium tracking-tight text-white">
+          <h2 className="text-2xl font-medium tracking-tight text-foreground">
             Create an account
           </h2>
-          <p className="text-[#8A8F98] text-sm">
+          <p className="text-muted-foreground text-sm">
             Enter your details to get started with Nucleate
           </p>
         </div>
@@ -254,7 +254,7 @@ export default function RegistrationForm() {
               <div className="space-y-1.5">
                 <Label
                   htmlFor="firstName"
-                  className="text-xs font-medium text-[#8A8F98]"
+                  className="text-xs font-medium text-muted-foreground"
                 >
                   First Name
                 </Label>
@@ -267,13 +267,13 @@ export default function RegistrationForm() {
                   value={firstName}
                   onChange={handleChange}
                   disabled={isLoading}
-                  className="bg-[#0B0C0E] border-white/10 text-white focus:border-white/20 focus:ring-0 placeholder:text-white/20 h-10"
+                  className="h-10 bg-background"
                 />
               </div>
               <div className="space-y-1.5">
                 <Label
                   htmlFor="lastName"
-                  className="text-xs font-medium text-[#8A8F98]"
+                  className="text-xs font-medium text-muted-foreground"
                 >
                   Last Name
                 </Label>
@@ -286,7 +286,7 @@ export default function RegistrationForm() {
                   value={lastName}
                   onChange={handleChange}
                   disabled={isLoading}
-                  className="bg-[#0B0C0E] border-white/10 text-white focus:border-white/20 focus:ring-0 placeholder:text-white/20 h-10"
+                  className="h-10 bg-background"
                 />
               </div>
             </div>
@@ -295,7 +295,7 @@ export default function RegistrationForm() {
             <div className="space-y-1.5">
               <Label
                 htmlFor="email"
-                className="text-xs font-medium text-[#8A8F98]"
+                className="text-xs font-medium text-muted-foreground"
               >
                 Email address
               </Label>
@@ -309,12 +309,13 @@ export default function RegistrationForm() {
                 onChange={handleChange}
                 disabled={isLoading}
                 className={cn(
-                  "bg-[#0B0C0E] border-white/10 text-white focus:border-white/20 focus:ring-0 placeholder:text-white/20 h-10",
-                  emailError && "border-red-500/50 focus:border-red-500/50",
+                  "h-10 bg-background",
+                  emailError &&
+                    "border-destructive/50 focus-visible:border-destructive focus-visible:ring-destructive",
                 )}
               />
               {emailError && (
-                <p className="text-xs text-red-400 mt-1">{emailError}</p>
+                <p className="text-xs text-destructive mt-1">{emailError}</p>
               )}
             </div>
 
@@ -322,7 +323,7 @@ export default function RegistrationForm() {
             <div className="space-y-1.5">
               <Label
                 htmlFor="password"
-                className="text-xs font-medium text-[#8A8F98]"
+                className="text-xs font-medium text-muted-foreground"
               >
                 Password
               </Label>
@@ -336,12 +337,13 @@ export default function RegistrationForm() {
                 onChange={handleChange}
                 disabled={isLoading}
                 className={cn(
-                  "bg-[#0B0C0E] border-white/10 text-white focus:border-white/20 focus:ring-0 placeholder:text-white/20 h-10",
-                  passwordError && "border-red-500/50 focus:border-red-500/50",
+                  "h-10 bg-background",
+                  passwordError &&
+                    "border-destructive/50 focus-visible:border-destructive focus-visible:ring-destructive",
                 )}
               />
               {passwordError && (
-                <p className="text-xs text-red-400 mt-1">{passwordError}</p>
+                <p className="text-xs text-destructive mt-1">{passwordError}</p>
               )}
             </div>
 
@@ -349,7 +351,7 @@ export default function RegistrationForm() {
             <div className="space-y-1.5">
               <Label
                 htmlFor="confirmPassword"
-                className="text-xs font-medium text-[#8A8F98]"
+                className="text-xs font-medium text-muted-foreground"
               >
                 Confirm Password
               </Label>
@@ -363,13 +365,13 @@ export default function RegistrationForm() {
                 onChange={handleChange}
                 disabled={isLoading}
                 className={cn(
-                  "bg-[#0B0C0E] border-white/10 text-white focus:border-white/20 focus:ring-0 placeholder:text-white/20 h-10",
+                  "h-10 bg-background",
                   confirmPasswordError &&
-                  "border-red-500/50 focus:border-red-500/50",
+                    "border-destructive/50 focus-visible:border-destructive focus-visible:ring-destructive",
                 )}
               />
               {confirmPasswordError && (
-                <p className="text-xs text-red-400 mt-1">
+                <p className="text-xs text-destructive mt-1">
                   {confirmPasswordError}
                 </p>
               )}
@@ -377,7 +379,8 @@ export default function RegistrationForm() {
 
             <Button
               type="submit"
-              className="w-full h-10 bg-white text-black hover:bg-white/90 font-medium mt-2"
+              size="lg"
+              className="w-full mt-2"
               disabled={isLoading || !isFormValid}
             >
               {isLoading ? (
@@ -393,10 +396,10 @@ export default function RegistrationForm() {
 
           <div className="relative py-2">
             <div className="absolute inset-0 flex items-center">
-              <Separator className="w-full bg-white/5" />
+              <Separator className="w-full" />
             </div>
             <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-[#141517] px-2 text-[#8A8F98]">
+              <span className="bg-card px-2 text-muted-foreground">
                 Or continue with
               </span>
             </div>

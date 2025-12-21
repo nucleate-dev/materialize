@@ -130,8 +130,8 @@ export default function LoginForm() {
   if (userIsLoading) {
     return (
       <div className="w-full max-w-md mx-auto flex items-center justify-center py-12">
-        <div className="flex flex-col items-center gap-4 text-[#8A8F98]">
-          <Loader2 className="w-8 h-8 animate-spin text-white/20" />
+        <div className="flex flex-col items-center gap-4 text-muted-foreground">
+          <Loader2 className="w-8 h-8 animate-spin text-muted-foreground/40" />
           <p className="text-sm">Checking authentication...</p>
         </div>
       </div>
@@ -157,16 +157,16 @@ export default function LoginForm() {
       />
 
       {/* Premium Card Container */}
-      <div className="bg-[#141517] border border-white/10 rounded-2xl shadow-2xl overflow-hidden">
+      <div className="bg-card border border-border rounded-2xl shadow-2xl overflow-hidden">
         {/* Header */}
-        <div className="px-8 pt-8 pb-6 text-center space-y-2 border-b border-white/5 bg-white/[0.01]">
-          <div className="mx-auto w-10 h-10 bg-white/5 rounded-xl flex items-center justify-center border border-white/10 mb-4 shadow-inner">
-            <Lock className="w-5 h-5 text-white" />
+        <div className="px-8 pt-8 pb-6 text-center space-y-2 border-b border-border bg-accent/30">
+          <div className="mx-auto w-10 h-10 bg-background/70 rounded-xl flex items-center justify-center border border-border mb-4 shadow-inner">
+            <Lock className="w-5 h-5 text-foreground" />
           </div>
-          <h2 className="text-2xl font-medium tracking-tight text-white">
+          <h2 className="text-2xl font-medium tracking-tight text-foreground">
             Welcome back
           </h2>
-          <p className="text-[#8A8F98] text-sm">
+          <p className="text-muted-foreground text-sm">
             Enter your credentials to access your account
           </p>
         </div>
@@ -179,7 +179,7 @@ export default function LoginForm() {
               <div className="flex items-center justify-between">
                 <Label
                   htmlFor="email"
-                  className="text-xs font-medium text-[#8A8F98]"
+                  className="text-xs font-medium text-muted-foreground"
                 >
                   Email
                 </Label>
@@ -199,7 +199,7 @@ export default function LoginForm() {
                 value={email}
                 onChange={handleChange}
                 disabled={isLoading}
-                className="bg-[#0B0C0E] border-white/10 text-white focus:border-white/20 focus:ring-0 placeholder:text-white/20 h-10"
+                className="h-10 bg-background"
               />
             </div>
 
@@ -207,7 +207,7 @@ export default function LoginForm() {
             <div className="space-y-1.5">
               <Label
                 htmlFor="password"
-                className="text-xs font-medium text-[#8A8F98]"
+                className="text-xs font-medium text-muted-foreground"
               >
                 Password
               </Label>
@@ -221,13 +221,14 @@ export default function LoginForm() {
                 value={password}
                 onChange={handleChange}
                 disabled={isLoading}
-                className="bg-[#0B0C0E] border-white/10 text-white focus:border-white/20 focus:ring-0 placeholder:text-white/20 h-10"
+                className="h-10 bg-background"
               />
             </div>
 
             <Button
               type="submit"
-              className="w-full h-10 bg-white text-black hover:bg-white/90 font-medium mt-2"
+              size="lg"
+              className="w-full mt-2"
               disabled={isLoading}
             >
               {isLoading ? (
@@ -240,10 +241,10 @@ export default function LoginForm() {
 
           <div className="relative py-2">
             <div className="absolute inset-0 flex items-center">
-              <Separator className="w-full bg-white/5" />
+              <Separator className="w-full" />
             </div>
             <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-[#141517] px-2 text-[#8A8F98]">Or</span>
+              <span className="bg-card px-2 text-muted-foreground">Or</span>
             </div>
           </div>
 
@@ -267,7 +268,7 @@ export default function LoginForm() {
           <div className="text-center text-sm">
             <Link
               href="/forgot_password"
-              className="text-white/60 hover:text-white transition-colors text-xs"
+              className="text-muted-foreground hover:text-foreground transition-colors text-xs"
             >
               Forgot your password?
             </Link>

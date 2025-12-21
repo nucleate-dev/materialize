@@ -15,8 +15,8 @@ function RegisterContent() {
     : "/login";
 
   return (
-    <main className="relative min-h-screen bg-[#0B0C0E] text-white overflow-hidden font-sans">
-      <GridBackground forceDarkMode />
+    <main className="relative min-h-screen bg-background text-foreground overflow-hidden font-sans">
+      <GridBackground />
 
       <div className="relative z-10">
         <PremiumHeader />
@@ -24,14 +24,14 @@ function RegisterContent() {
         <div className="flex items-center justify-center px-6 py-24 min-h-[calc(100vh-80px)]">
           <div className="w-full max-w-md space-y-8">
             <div className="text-center space-y-4">
-              <h1 className="text-4xl md:text-5xl font-medium tracking-tight text-transparent bg-clip-text bg-gradient-to-b from-white via-white to-white/60">
+              <h1 className="text-4xl md:text-5xl font-medium tracking-tight text-transparent bg-clip-text bg-gradient-to-b from-foreground via-foreground/80 to-foreground/60">
                 Create an account
               </h1>
-              <p className="text-[#8A8F98] text-lg">
+              <p className="text-muted-foreground text-lg">
                 Already have an account?{" "}
                 <Link
                   href={loginHref}
-                  className="text-white hover:text-indigo-400 transition-colors font-medium"
+                  className="text-foreground hover:text-primary transition-colors font-medium"
                 >
                   Sign in
                 </Link>
@@ -50,9 +50,9 @@ export default function Register() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen bg-[#0B0C0E] flex items-center justify-center text-[#8A8F98]">
-          Loading...
-        </div>
+      <div className="min-h-screen bg-background flex items-center justify-center text-muted-foreground">
+        Loading...
+      </div>
       }
     >
       <RegisterContent />
