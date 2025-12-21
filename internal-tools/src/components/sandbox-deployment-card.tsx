@@ -13,7 +13,7 @@ import {
 import { Loader2, Rocket } from "lucide-react";
 
 interface SandboxDeploymentCardProps {
-  deploymentType: "development" | "production";
+  deploymentType: "development" | "production" | "control-plane";
 }
 
 export function SandboxDeploymentCard({
@@ -24,25 +24,40 @@ export function SandboxDeploymentCard({
   const xtermRef = useRef<any>(null);
   const fitAddonRef = useRef<any>(null);
 
-  const title =
-    deploymentType === "development"
-      ? "Sandbox Deployment (Dev)"
-      : "Sandbox Deployment to Production";
+  const config = {
+    development: {
+      title: "Sandbox Deployment (Dev)",
+      description:
+        "Deploy the sandbox Docker image to ECR for development testing.",
+      apiEndpoint: "/api/development/deploy-sandbox-for-development",
+      tooltipText:
+        "Build and push the sandbox Docker image to ECR. This runs the push-to-ecr.sh script from the server directory.",
+      buttonText: "Deploy Sandbox to ECR",
+      headerText: "=== Deploying Sandbox to ECR (Dev) ===",
+    },
+    production: {
+      title: "Sandbox Deployment to Production",
+      description: "Deploy the sandbox Docker image to production ECR.",
+      apiEndpoint: "/api/production/deploy-sandbox-to-prod",
+      tooltipText:
+        "Build and push the sandbox Docker image to production ECR. This runs the push-to-prod-ecr.sh script from the server directory.",
+      buttonText: "Deploy Sandbox to Prod ECR",
+      headerText: "=== Deploying Sandbox to Production ECR ===",
+    },
+    "control-plane": {
+      title: "Control Plane Deployment to Production",
+      description:
+        "Build and deploy the control plane to S3 for production use.",
+      apiEndpoint: "/api/production/deploy-control-plane-to-prod",
+      tooltipText:
+        "Build TypeScript and upload artifacts to S3. This runs npm run deploy:prod in the control-plane directory.",
+      buttonText: "Deploy Control Plane to S3",
+      headerText: "=== Deploying Control Plane to Production ===",
+    },
+  };
 
-  const description =
-    deploymentType === "development"
-      ? "Deploy the sandbox Docker image to ECR for development testing."
-      : "Deploy the sandbox Docker image to production ECR.";
-
-  const apiEndpoint =
-    deploymentType === "development"
-      ? "/api/development/deploy-sandbox-for-development"
-      : "/api/production/deploy-sandbox-to-prod";
-
-  const tooltipText =
-    deploymentType === "development"
-      ? "Build and push the sandbox Docker image to ECR. This runs the push-to-ecr.sh script from the server directory."
-      : "Build and push the sandbox Docker image to production ECR. This runs the push-to-prod-ecr.sh script from the server directory.";
+  const { title, description, apiEndpoint, tooltipText, buttonText, headerText } =
+    config[deploymentType];
 
   // Initialize xterm.js terminal
   useEffect(() => {
@@ -110,9 +125,7 @@ export function SandboxDeploymentCard({
     if (xtermRef.current) {
       xtermRef.current.clear();
       xtermRef.current.writeln(
-        deploymentType === "development"
-          ? "\x1b[1;36m=== Deploying Sandbox to ECR (Dev) ===\x1b[0m\n"
-          : "\x1b[1;36m=== Deploying Sandbox to Production ECR ===\x1b[0m\n"
+        `\x1b[1;36m${headerText}\x1b[0m\n`
       );
     } else {
       console.warn("[SandboxDeployment] Terminal not initialized yet!");
@@ -232,7 +245,7 @@ export function SandboxDeploymentCard({
       console.log("[SandboxDeployment] Deployment finished");
       setDeploying(false);
     }
-  }, [apiEndpoint, deploymentType]);
+  }, [apiEndpoint, headerText]);
 
   return (
     <Card className="w-full">
@@ -264,8 +277,7 @@ export function SandboxDeploymentCard({
                     ) : (
                       <>
                         <Rocket className="h-4 w-4" />
-                        Deploy Sandbox to{" "}
-                        {deploymentType === "development" ? "ECR" : "Prod ECR"}
+                        {buttonText}
                       </>
                     )}
                   </Button>

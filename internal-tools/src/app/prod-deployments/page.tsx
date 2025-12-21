@@ -435,59 +435,55 @@ export default function ProdDeploymentsPage() {
 
         {/* Server Tab Content */}
         <div className={selectedTab === "Server" ? "block space-y-6" : "hidden"}>
-          {/* Prerequisites Information Card */}
-          <Card className="border-orange-200 bg-orange-50 dark:border-orange-800 dark:bg-orange-900/50">
+          {/* Deployment Instructions Card */}
+          <Card className="border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-900/50">
             <CardHeader>
               <div className="flex items-center gap-2">
-                <AlertTriangle className="h-5 w-5 text-orange-600" />
-                <CardTitle className="text-orange-800 dark:text-orange-200">
-                  Prerequisites
+                <AlertTriangle className="h-5 w-5 text-blue-600" />
+                <CardTitle className="text-blue-800 dark:text-blue-200">
+                  Deployment Workflow
                 </CardTitle>
               </div>
-              <CardDescription className="text-orange-700 dark:text-orange-300">
-                Before deploying to production, ensure your latest changes are
-                available in the deployment artifacts.
+              <CardDescription className="text-blue-700 dark:text-blue-300">
+                Follow these three steps in order to deploy to production safely.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
-              <div className="text-sm text-orange-800 dark:text-orange-200">
+              <div className="text-sm text-blue-800 dark:text-blue-200">
                 <p className="font-medium mb-2">
-                  To deploy your latest changes to production:
+                  Complete deployment workflow:
                 </p>
-                <ol className="list-decimal list-inside space-y-1 ml-2">
+                <ol className="list-decimal list-inside space-y-2 ml-2">
                   <li>
-                    Navigate to{" "}
-                    <code className="bg-orange-100 dark:bg-orange-800 px-1 rounded">
-                      server/control-plane
-                    </code>{" "}
-                    directory
-                  </li>
-                  <li>
-                    Run{" "}
-                    <code className="bg-orange-100 dark:bg-orange-800 px-1 rounded">
-                      npm run build
-                    </code>{" "}
-                    to compile TypeScript
-                  </li>
-                  <li>
-                    Run{" "}
-                    <code className="bg-orange-100 dark:bg-orange-800 px-1 rounded">
+                    <strong>Deploy Control Plane Artifacts:</strong> Use the tool
+                    below to run{" "}
+                    <code className="bg-blue-100 dark:bg-blue-800 px-1 rounded">
                       npm run deploy:prod
                     </code>{" "}
-                    to upload build artifacts
+                    to build TypeScript and upload artifacts to S3
                   </li>
-                  <li>Then use the validation and deployment tools below</li>
+                  <li>
+                    <strong>Validate Deployment:</strong> Test the deployment by
+                    spinning up a test EC2 instance with production user data to
+                    verify everything works
+                  </li>
+                  <li>
+                    <strong>Deploy to Production:</strong> Initiate the Auto
+                    Scaling Group instance refresh to roll out your changes across
+                    all production instances
+                  </li>
                 </ol>
               </div>
-              <div className="text-xs text-orange-600 dark:text-orange-400 mt-3 p-2 bg-orange-100 dark:bg-orange-900 rounded">
-                <strong>Note:</strong> The deployment validation and production
-                deployment tools below will use the artifacts uploaded by{" "}
-                <code>npm run deploy:prod</code>. Make sure to run this command
-                after any code changes to ensure your latest updates are included
-                in the deployment.
+              <div className="text-xs text-blue-600 dark:text-blue-400 mt-3 p-2 bg-blue-100 dark:bg-blue-900 rounded">
+                <strong>Important:</strong> Always complete steps 1 and 2 before
+                proceeding to step 3. The validation step ensures your deployment
+                artifacts work correctly before affecting production traffic.
               </div>
             </CardContent>
           </Card>
+
+          {/* Control Plane Deployment */}
+          <SandboxDeploymentCard deploymentType="control-plane" />
 
           {/* Deployment Validation Card */}
           <Card>
@@ -594,7 +590,7 @@ export default function ProdDeploymentsPage() {
               <div className="flex gap-2">
                 <Button
                   onClick={handleDeployToProd}
-                  disabled={deploying || !validationResult?.success}
+                  disabled={deploying}
                   variant="default"
                 >
                   {deploying ? (
@@ -640,8 +636,8 @@ export default function ProdDeploymentsPage() {
               </div>
 
               <div className="text-xs text-muted-foreground space-y-1">
-                <p>• Deployment requires successful validation first</p>
                 <p>• Monitor AWS console for deployment progress</p>
+                <p>• Validation is recommended but not required before deployment</p>
               </div>
             </CardContent>
           </Card>
