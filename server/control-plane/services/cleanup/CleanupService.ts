@@ -451,10 +451,9 @@ export class CleanupService {
           BuildWorkerStandardErrorResponse
         >
       >(`http://${fargatePrivateIp}:3002/cleanup`, {
-        data: { prototype_id: prototypeId },
+        data: {},
         timeout: 3000, // 3 second timeout -- we require an immediate response from the worker
         headers: {
-          'Content-Type': 'application/json',
           'x-trace-id': this.log2.getTraceId(),
         },
       });

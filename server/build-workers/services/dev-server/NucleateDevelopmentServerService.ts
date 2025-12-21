@@ -9,7 +9,6 @@ import {
   PublicDevServerRefetchEnvRequest,
   PublicDevServerRefetchEnvSuccessResponse,
   PublicDevServerStartSuccessResponse,
-  PublicDevServerStopRequest,
   PublicDevServerStopSuccessResponse,
   PublicStartDevServerRequest,
   PublicUpdateFilesV2Request,
@@ -111,10 +110,7 @@ export class NucleateDevelopmentServerService {
       this.refetchEnvVars.bind(this),
     );
 
-    app.delete<{ Body: PublicDevServerStopRequest }>(
-      "/cleanup",
-      this.cleanup.bind(this),
-    );
+    app.delete("/cleanup", this.cleanup.bind(this));
 
     app.post("/dev-server/build-and-deploy", this.buildAndDeploy.bind(this));
 
@@ -171,7 +167,7 @@ export class NucleateDevelopmentServerService {
   }
 
   private async cleanup(
-    request: FastifyRequest<{ Body: PublicDevServerStopRequest }>,
+    request: FastifyRequest,
     reply: FastifyReply,
   ): Promise<
     SandboxAPIResponse<

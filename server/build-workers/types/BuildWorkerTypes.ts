@@ -67,7 +67,7 @@ export enum DevServerStatus {
 }
 
 export interface BuildAndDeployResponse {
-  message?: string;
+  message: string;
 }
 
 export interface ResetSandboxSuccessResponse {
@@ -95,13 +95,7 @@ export interface PublicUpdateFilesV2SuccessResponse {
 }
 
 export interface PublicDevServerStartSuccessResponse {
-  tunnel_url?: string;
-  version?: string;
-}
-
-export interface PublicDevServerStopRequest {
-  prototype_id?: string;
-  s3_scoped_token?: string;
+  tunnel_url: string;
 }
 
 export interface PublicDevServerStopSuccessResponse {
