@@ -27,6 +27,7 @@ if command -v dnf >/dev/null 2>&1; then
   fi
   command -v unzip >/dev/null 2>&1 || sudo dnf install -y unzip
   command -v git >/dev/null 2>&1 || sudo dnf install -y git
+  command -v lsof >/dev/null 2>&1 || sudo dnf install -y lsof
   sudo dnf install -y amazon-cloudwatch-agent
 
   # Install Chrome dependencies for Puppeteer
@@ -91,6 +92,7 @@ else
   fi
   command -v unzip >/dev/null 2>&1 || sudo yum install -y unzip
   command -v git >/dev/null 2>&1 || sudo yum install -y git
+  command -v lsof >/dev/null 2>&1 || sudo yum install -y lsof
   sudo yum install -y amazon-cloudwatch-agent
 
   # Install Chrome dependencies for Puppeteer

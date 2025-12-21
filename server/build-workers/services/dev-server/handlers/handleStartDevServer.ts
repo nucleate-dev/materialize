@@ -317,15 +317,6 @@ async function initializeGit(
     userRow = data;
   }
 
-  const gitInitializationResult =
-    await developmentServerService.sandboxService.runCommandInternal({
-      command: "git",
-      args: ["init"],
-      cwd: `${WORK_DIR}`,
-      session_id: "dev-server",
-      timeout_ms: 180000, // 3 minutes
-      strip_ansi: true,
-    });
   const commandString = `cd ${WORK_DIR} && git init && git config --global user.email "${userRow?.email}" && git config --global user.name "${userRow?.name}"`;
   developmentServerService.terminalService.sendInput(
     "dev-server",
