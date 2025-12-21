@@ -11,6 +11,7 @@ import {
   Container,
   Smartphone,
   Terminal,
+  MessagesSquare,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -55,6 +56,11 @@ const items = [
     title: "Live Viewer",
     url: "/live-viewer",
     icon: Smartphone,
+  },
+  {
+    title: "Chat Recreation",
+    url: "/chat-recreation",
+    icon: MessagesSquare,
   },
 ];
 
