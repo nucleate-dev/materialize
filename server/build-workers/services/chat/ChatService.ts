@@ -7,6 +7,12 @@ import { DEFAULT_FLAGS, FeatureFlags } from "../../FLAGS.js";
 import { baseLogger, posthog } from "../../loggers/index.js";
 import { SystemLogger } from "../../loggers/SystemLogger.js";
 import {
+  APIResponse,
+  EndChatResponse,
+  StandardErrorResponse,
+  StartChatResponse,
+} from "../../types/ControlPlaneTypes.js";
+import {
   ChatClientEvent,
   ChatClientMessage,
   ChatEvent,
@@ -31,6 +37,19 @@ import { ChatProvider, isAllowedModel } from "./helpers/model-providers.js";
 import { ToolPermissionService } from "./helpers/tool-permission-service.js";
 
 const CHAT_HEARTBEAT_INTERVAL_MS = 15000;
+
+class OrchestrationAPIError<TData = unknown> extends Error {
+  public readonly responseBody: APIResponse<TData, StandardErrorResponse>;
+
+  constructor(
+    message: string,
+    responseBody: APIResponse<TData, StandardErrorResponse>,
+  ) {
+    super(message);
+    this.name = "OrchestrationAPIError";
+    this.responseBody = responseBody;
+  }
+}
 
 interface CodeSessionState {
   sessionId: string | null;
@@ -716,31 +735,51 @@ export class ChatService {
     }
 
     try {
-      await axios.post(
-        `${serverEndpoint}/orchestration/start-chat`,
-        { prototype_id: prototypeId },
-        {
-          headers: {
-            "x-orchestration-token": this.orchestrationToken,
-            "Content-Type": "application/json",
+      const response =
+        await axios.post<
+          APIResponse<StartChatResponse, StandardErrorResponse>
+        >(
+          `${serverEndpoint}/orchestration/start-chat`,
+          { prototype_id: prototypeId },
+          {
+            headers: {
+              "x-orchestration-token": this.orchestrationToken,
+              "Content-Type": "application/json",
+            },
+            timeout: 5000,
           },
-          timeout: 5000,
-        },
-      );
+        );
+      const payload = response.data;
+
+      if (payload.error || !payload.data?.success) {
+        throw new OrchestrationAPIError<StartChatResponse>(
+          payload.error
+            ? `Control plane rejected start-chat: ${payload.error.message}`
+            : "Control plane returned an invalid start-chat response",
+          payload,
+        );
+      }
+
       baseLogger.consoleLogDevOnly(
         "info",
         "Notified control plane of chat start",
-        { prototypeId },
+        {
+          prototypeId,
+          responseMessage: payload.data.message,
+        },
       );
     } catch (error) {
       const axiosError = axios.isAxiosError(error) ? error : null;
+      const orchestrationError =
+        error instanceof OrchestrationAPIError ? error : null;
       baseLogger.error(
         error instanceof Error ? error : new Error(String(error)),
         "Failed to notify control plane of chat start",
         {
           prototypeId,
           statusCode: axiosError?.response?.status,
-          responseBody: axiosError?.response?.data,
+          responseBody:
+            orchestrationError?.responseBody ?? axiosError?.response?.data,
         },
       );
       // Don't throw - we want the chat to proceed even if notification fails
@@ -778,28 +817,45 @@ export class ChatService {
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
-        await axios.post(
-          `${serverEndpoint}/orchestration/end-chat`,
-          { prototype_id: prototypeId },
-          {
-            headers: {
-              "x-orchestration-token": this.orchestrationToken,
-              "Content-Type": "application/json",
+        const response =
+          await axios.post<
+            APIResponse<EndChatResponse, StandardErrorResponse>
+          >(
+            `${serverEndpoint}/orchestration/end-chat`,
+            { prototype_id: prototypeId },
+            {
+              headers: {
+                "x-orchestration-token": this.orchestrationToken,
+                "Content-Type": "application/json",
+              },
+              timeout: 5000,
             },
-            timeout: 5000,
-          },
-        );
+          );
+        const payload = response.data;
+
+        if (payload.error || !payload.data?.success) {
+          throw new OrchestrationAPIError<EndChatResponse>(
+            payload.error
+              ? `Control plane rejected end-chat: ${payload.error.message}`
+              : "Control plane returned an invalid end-chat response",
+            payload,
+          );
+        }
+
         baseLogger.consoleLogDevOnly(
           "info",
           "Notified control plane of chat end",
           {
             prototypeId,
             attempt,
+            responseMessage: payload.data.message,
           },
         );
         return; // Success - exit the function
       } catch (error) {
         const axiosError = axios.isAxiosError(error) ? error : null;
+        const orchestrationError =
+          error instanceof OrchestrationAPIError ? error : null;
         lastError = error instanceof Error ? error : new Error(String(error));
         baseLogger.error(
           lastError,
@@ -807,7 +863,8 @@ export class ChatService {
           {
             prototypeId,
             statusCode: axiosError?.response?.status,
-            responseBody: axiosError?.response?.data,
+            responseBody:
+              orchestrationError?.responseBody ?? axiosError?.response?.data,
           },
         );
 

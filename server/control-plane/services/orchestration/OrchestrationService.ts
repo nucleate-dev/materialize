@@ -1,11 +1,13 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { GlideClient } from '@valkey/valkey-glide';
 import {
-  HTTP_STATUS,
-  StartChatRequestBody,
-  StartChatResponse,
+  APIResponse,
   EndChatRequestBody,
   EndChatResponse,
+  HTTP_STATUS,
+  StandardErrorResponse,
+  StartChatRequestBody,
+  StartChatResponse,
 } from '../../types/PublicAPITypes.js';
 import { CACHE_KEYS } from '../../types/InternalTypes.js';
 import { hgetallAsActiveBuild } from '../../utils/cacheInteractionUtils.js';
@@ -158,7 +160,9 @@ export class OrchestrationService {
   private async handleStartChat(
     request: FastifyRequest<{ Body: StartChatRequestBody }>,
     reply: FastifyReply,
-  ): Promise<StartChatResponse> {
+  ): Promise<
+    APIResponse<StartChatResponse, StandardErrorResponse>
+  > {
     const { prototype_id } = request.body;
 
     // Validate orchestration token
@@ -173,9 +177,14 @@ export class OrchestrationService {
           ? HTTP_STATUS.NOT_FOUND
           : HTTP_STATUS.UNAUTHORIZED;
 
+      const errorResponse: StandardErrorResponse = {
+        error:
+          statusCode === HTTP_STATUS.NOT_FOUND ? 'NOT_FOUND' : 'UNAUTHORIZED',
+        message: validation.errorMessage!,
+      };
       return reply.status(statusCode).send({
-        success: false,
-        message: validation.errorMessage,
+        data: null,
+        error: errorResponse,
       });
     }
 
@@ -189,9 +198,13 @@ export class OrchestrationService {
         'Build metadata missing during start chat',
         { prototypeId: prototype_id, buildId: validation.buildId },
       );
-      return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
-        success: false,
+      const errorResponse: StandardErrorResponse = {
+        error: 'INTERNAL_SERVER_ERROR',
         message: 'Build metadata not found',
+      };
+      return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
+        data: null,
+        error: errorResponse,
       });
     }
 
@@ -201,9 +214,13 @@ export class OrchestrationService {
         buildId: validation.buildId,
         currentStatus: activeBuild.status,
       });
-      return reply.status(HTTP_STATUS.CONFLICT).send({
-        success: false,
+      const errorResponse: StandardErrorResponse = {
+        error: 'CONFLICT',
         message: `Cannot start chat while sandbox is in cleanup stages ${activeBuild.status}. Please get a new dev-server.`,
+      };
+      return reply.status(HTTP_STATUS.CONFLICT).send({
+        data: null,
+        error: errorResponse,
       });
     }
 
@@ -222,9 +239,13 @@ export class OrchestrationService {
         timestamp: currentTime,
       });
 
-      return reply.status(HTTP_STATUS.OK).send({
+      const successResponse: StartChatResponse = {
         success: true,
         message: 'Chat session started, build state updated to chatting',
+      };
+      return reply.status(HTTP_STATUS.OK).send({
+        data: successResponse,
+        error: null,
       });
     } catch (error) {
       this.logger.error(
@@ -233,9 +254,13 @@ export class OrchestrationService {
         { prototypeId: prototype_id, buildId: validation.buildId },
       );
 
-      return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
-        success: false,
+      const errorResponse: StandardErrorResponse = {
+        error: 'INTERNAL_SERVER_ERROR',
         message: 'Failed to update build state',
+      };
+      return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
+        data: null,
+        error: errorResponse,
       });
     }
   }
@@ -243,7 +268,7 @@ export class OrchestrationService {
   private async handleEndChat(
     request: FastifyRequest<{ Body: EndChatRequestBody }>,
     reply: FastifyReply,
-  ): Promise<EndChatResponse> {
+  ): Promise<APIResponse<EndChatResponse, StandardErrorResponse>> {
     const { prototype_id } = request.body;
 
     // Validate orchestration token
@@ -258,9 +283,14 @@ export class OrchestrationService {
           ? HTTP_STATUS.NOT_FOUND
           : HTTP_STATUS.UNAUTHORIZED;
 
+      const errorResponse: StandardErrorResponse = {
+        error:
+          statusCode === HTTP_STATUS.NOT_FOUND ? 'NOT_FOUND' : 'UNAUTHORIZED',
+        message: validation.errorMessage!,
+      };
       return reply.status(statusCode).send({
-        success: false,
-        message: validation.errorMessage,
+        data: null,
+        error: errorResponse,
       });
     }
 
@@ -280,9 +310,13 @@ export class OrchestrationService {
         timestamp: currentTime,
       });
 
-      return reply.status(HTTP_STATUS.OK).send({
+      const successResponse: EndChatResponse = {
         success: true,
         message: 'Chat session ended, build state updated to stable',
+      };
+      return reply.status(HTTP_STATUS.OK).send({
+        data: successResponse,
+        error: null,
       });
     } catch (error) {
       this.logger.error(
@@ -291,9 +325,13 @@ export class OrchestrationService {
         { prototypeId: prototype_id, buildId: validation.buildId },
       );
 
-      return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
-        success: false,
+      const errorResponse: StandardErrorResponse = {
+        error: 'INTERNAL_SERVER_ERROR',
         message: 'Failed to update build state',
+      };
+      return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
+        data: null,
+        error: errorResponse,
       });
     }
   }
