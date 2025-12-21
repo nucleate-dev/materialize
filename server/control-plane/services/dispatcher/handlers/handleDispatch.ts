@@ -51,144 +51,12 @@ export async function handleDispatchImpl(
     process.env.FARGATE_DEV_MODE === 'true' &&
     process.env.FARGATE_DEV_IP
   ) {
-    const devKey = CACHE_KEYS.protoDev(prototype_id);
-    const existingDevData = await hgetallAsDevBuild(cache, devKey);
-
-    if (
-      existingDevData?.status &&
-      isDispatchInProgress(existingDevData.status as BuildStatus)
-    ) {
-      return {
-        data: null,
-        error: {
-          error: 'Conflict',
-          message:
-            'There is already an active dispatch request for this prototype',
-        },
-      };
-    }
-
-    // Set initial status, url, and tunnel hostname
-    const devTerminalUrl = `http://${process.env.DEVELOPMENT_EC2_IP}:3002`;
-    await cache.hset(devKey, {
-      status: 'updating' as BuildStatus,
-      url: existingDevData?.url || normalizeUrl(getS3Url(prototype_id)),
-      terminal_tunnel_hostname: devTerminalUrl,
-    });
-
-    try {
-      const allocateResponse = await axios.post<
-        SandboxAPIResponse<
-          PublicAllocateSuccessResponse,
-          BuildWorkerStandardErrorResponse
-        >
-      >(
-        `http://${process.env.FARGATE_DEV_IP}:3002/allocate`,
-        {
-          s3_credentials: {
-            accessKeyId: '',
-            secretAccessKey: '',
-            sessionToken: '',
-            expiration: '',
-          },
-          user_details: {
-            prototypeId: prototype_id,
-            userId: 'dev-user', // Placeholder for dev mode since auth is skipped
-          },
-          cloudflare_credentials: {
-            cloudflare_tunnel_token: '',
-            cloudflare_tunnel_hostname: `http://${process.env.DEVELOPMENT_EC2_IP}`,
-          },
-          keys: {
-            orchestration_token: '',
-            aak: '',
-          },
-        },
-        {
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${jwt}`,
-          },
-        },
-      );
-
-      if (allocateResponse.data.error) {
-        log2.error(
-          new Error(allocateResponse.data.error.error || 'Allocation failed'),
-          'Failed to allocate worker in dev mode',
-          { details: allocateResponse.data.error.details },
-        );
-        await cache.hset(devKey, {
-          status: 'error' as BuildStatus,
-          url: existingDevData?.url || normalizeUrl(getS3Url(prototype_id)),
-        });
-        return {
-          data: null,
-          error: {
-            error: 'Allocation Failed',
-            message: `Failed to allocate worker: ${allocateResponse.data.error.message || 'Unknown error'}`,
-          },
-        };
-      }
-      log2.consoleLogDevOnly(
-        'info',
-        'Worker allocated successfully in dev mode',
-      );
-    } catch (allocateError) {
-      log2.error(allocateError, 'Failed to call /allocate in dev mode');
-      await cache.hset(devKey, {
-        status: 'error' as BuildStatus,
-        url: existingDevData?.url || normalizeUrl(getS3Url(prototype_id)),
-      });
-      return {
-        data: null,
-        error: {
-          error: 'Allocation Failed',
-          message:
-            'Failed to allocate dev EC2 for build workers: ' +
-            (allocateError instanceof Error
-              ? allocateError.message
-              : 'Unknown error'),
-        },
-      };
-    }
-
-    const fargateResponse = await dispatchRequestToFargateInstanceServer({
+    return await handleDispatchForSandboxSimulatorFlow(
       prototype_id,
+      cache,
+      jwt,
       log2,
-      fargate_private_ip: process.env.FARGATE_DEV_IP,
-    });
-
-    if (fargateResponse.data) {
-      const newUrl = normalizeUrl(
-        fargateResponse.data.tunnel_url || getS3Url(prototype_id),
-      );
-      await cache.hset(devKey, {
-        status: 'stable' as BuildStatus,
-        url: newUrl,
-      });
-      return {
-        data: {
-          viewing_url: newUrl,
-          terminal_url: devTerminalUrl,
-        },
-        error: null,
-      };
-    } else {
-      await cache.hset(devKey, {
-        status: 'error' as BuildStatus,
-        url: existingDevData?.url || normalizeUrl(getS3Url(prototype_id)),
-      });
-      return {
-        data: null,
-        error: {
-          error: fargateResponse.error?.error || 'Build Failed',
-          message:
-            fargateResponse.error?.message ||
-            'Build failed on development fargate instance',
-        },
-      };
-    }
+    );
   }
   // ------------------------------------------------------------------------------------------------
 
@@ -548,4 +416,147 @@ function normalizeUrl(url: string): string {
   return url && !url.startsWith('http') && !url.startsWith('wss')
     ? `https://${url}`
     : url;
+}
+
+async function handleDispatchForSandboxSimulatorFlow(
+  prototype_id: string,
+  cache: GlideClient,
+  jwt: string,
+  log2: SystemLogger,
+) {
+  const devKey = CACHE_KEYS.protoDev(prototype_id);
+  const existingDevData = await hgetallAsDevBuild(cache, devKey);
+
+  if (
+    existingDevData?.status &&
+    isDispatchInProgress(existingDevData.status as BuildStatus)
+  ) {
+    return {
+      data: null,
+      error: {
+        error: 'Conflict',
+        message:
+          'There is already an active dispatch request for this prototype',
+      },
+    };
+  }
+
+  // Set initial status, url, and tunnel hostname
+  const devTerminalUrl = `http://${process.env.DEVELOPMENT_EC2_IP}:3002`;
+  await cache.hset(devKey, {
+    status: 'updating' as BuildStatus,
+    url: existingDevData?.url || normalizeUrl(getS3Url(prototype_id)),
+    terminal_tunnel_hostname: devTerminalUrl,
+  });
+
+  try {
+    const allocateResponse = await axios.post<
+      SandboxAPIResponse<
+        PublicAllocateSuccessResponse,
+        BuildWorkerStandardErrorResponse
+      >
+    >(
+      `http://${process.env.FARGATE_DEV_IP}:3002/allocate`,
+      {
+        s3_credentials: {
+          accessKeyId: '',
+          secretAccessKey: '',
+          sessionToken: '',
+          expiration: '',
+        },
+        user_details: {
+          prototypeId: prototype_id,
+          userId: 'dev-user', // Placeholder for dev mode since auth is skipped
+        },
+        cloudflare_credentials: {
+          cloudflare_tunnel_token: '',
+          cloudflare_tunnel_hostname: `http://${process.env.DEVELOPMENT_EC2_IP}`,
+        },
+        keys: {
+          orchestration_token: '',
+          aak: '',
+        },
+      },
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${jwt}`,
+        },
+      },
+    );
+
+    if (allocateResponse.data.error) {
+      log2.error(
+        new Error(allocateResponse.data.error.error || 'Allocation failed'),
+        'Failed to allocate worker in dev mode',
+        { details: allocateResponse.data.error.details },
+      );
+      await cache.hset(devKey, {
+        status: 'error' as BuildStatus,
+        url: existingDevData?.url || normalizeUrl(getS3Url(prototype_id)),
+      });
+      return {
+        data: null,
+        error: {
+          error: 'Allocation Failed',
+          message: `Failed to allocate worker: ${allocateResponse.data.error.message || 'Unknown error'}`,
+        },
+      };
+    }
+    log2.consoleLogDevOnly('info', 'Worker allocated successfully in dev mode');
+  } catch (allocateError) {
+    log2.error(allocateError, 'Failed to call /allocate in dev mode');
+    await cache.hset(devKey, {
+      status: 'error' as BuildStatus,
+      url: existingDevData?.url || normalizeUrl(getS3Url(prototype_id)),
+    });
+    return {
+      data: null,
+      error: {
+        error: 'Allocation Failed',
+        message:
+          'Failed to allocate dev EC2 for build workers: ' +
+          (allocateError instanceof Error
+            ? allocateError.message
+            : 'Unknown error'),
+      },
+    };
+  }
+
+  const fargateResponse = await dispatchRequestToFargateInstanceServer({
+    prototype_id,
+    log2,
+    fargate_private_ip: process.env.FARGATE_DEV_IP!,
+  });
+
+  if (fargateResponse.data) {
+    const newUrl = normalizeUrl(
+      fargateResponse.data.tunnel_url || getS3Url(prototype_id),
+    );
+    await cache.hset(devKey, {
+      status: 'stable' as BuildStatus,
+      url: newUrl,
+    });
+    return {
+      data: {
+        viewing_url: newUrl,
+        terminal_url: devTerminalUrl,
+      },
+      error: null,
+    };
+  } else {
+    await cache.hset(devKey, {
+      status: 'error' as BuildStatus,
+      url: existingDevData?.url || normalizeUrl(getS3Url(prototype_id)),
+    });
+    return {
+      data: null,
+      error: {
+        error: fargateResponse.error?.error || 'Build Failed',
+        message:
+          fargateResponse.error?.message ||
+          'Build failed on development fargate instance',
+      },
+    };
+  }
 }
