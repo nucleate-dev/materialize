@@ -26,6 +26,7 @@ if command -v dnf >/dev/null 2>&1; then
     sudo dnf install -y nodejs gcc-c++ make
   fi
   command -v unzip >/dev/null 2>&1 || sudo dnf install -y unzip
+  command -v git >/dev/null 2>&1 || sudo dnf install -y git
   sudo dnf install -y amazon-cloudwatch-agent
 
   # Install Chrome dependencies for Puppeteer
@@ -89,6 +90,7 @@ else
     sudo yum install -y nodejs gcc-c++ make
   fi
   command -v unzip >/dev/null 2>&1 || sudo yum install -y unzip
+  command -v git >/dev/null 2>&1 || sudo yum install -y git
   sudo yum install -y amazon-cloudwatch-agent
 
   # Install Chrome dependencies for Puppeteer
