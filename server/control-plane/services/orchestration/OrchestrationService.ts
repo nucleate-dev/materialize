@@ -10,7 +10,10 @@ import {
   StartChatResponse,
 } from '../../types/PublicAPITypes.js';
 import { CACHE_KEYS } from '../../types/InternalTypes.js';
-import { hgetallAsActiveBuild } from '../../utils/cacheInteractionUtils.js';
+import {
+  hgetallAsActiveBuild,
+  hgetallAsDevBuild,
+} from '../../utils/cacheInteractionUtils.js';
 import { SystemLogger } from '../../loggers/SystemLogger.js';
 import { isDevServerInShutdownStages } from '../../utils/prototypeDevServerStatusUtils.js';
 
@@ -92,6 +95,41 @@ export class OrchestrationService {
       };
     }
 
+    if (
+      process.env.NODE_ENV === 'development' &&
+      process.env.FARGATE_DEV_MODE === 'true'
+    ) {
+      const devKey = CACHE_KEYS.protoDev(prototypeId);
+      const existingDevData = await hgetallAsDevBuild(this.cache, devKey);
+      if (existingDevData === null) {
+        this.logger.warn(
+          '[Development mode] No active build found for prototype',
+          {
+            prototypeId,
+          },
+        );
+        return {
+          isValid: false,
+          errorMessage:
+            '[development mode] No active build found for this prototype',
+        };
+      }
+      if (existingDevData.orchestration_token !== providedToken) {
+        this.logger.warn('Invalid orchestration token provided', {
+          prototypeId,
+          devKey,
+        });
+        return {
+          isValid: false,
+          errorMessage:
+            '[development mode] orchestration token is not valid for this prototype',
+        };
+      }
+      return {
+        isValid: true,
+      };
+    }
+
     // Get current build ID for this prototype from cache
     const currentBuildIdRaw = await this.cache.get(
       CACHE_KEYS.protoCurrentBuild(prototypeId),
@@ -160,9 +198,7 @@ export class OrchestrationService {
   private async handleStartChat(
     request: FastifyRequest<{ Body: StartChatRequestBody }>,
     reply: FastifyReply,
-  ): Promise<
-    APIResponse<StartChatResponse, StandardErrorResponse>
-  > {
+  ): Promise<APIResponse<StartChatResponse, StandardErrorResponse>> {
     const { prototype_id } = request.body;
 
     // Validate orchestration token
@@ -182,15 +218,26 @@ export class OrchestrationService {
           statusCode === HTTP_STATUS.NOT_FOUND ? 'NOT_FOUND' : 'UNAUTHORIZED',
         message: validation.errorMessage!,
       };
-      return reply.status(statusCode).send({
+      reply.status(statusCode);
+      return {
         data: null,
         error: errorResponse,
-      });
+      };
     }
 
     // Check if build is in shutdown stages (cleaning or building)
-    const activeBuildKey = CACHE_KEYS.activeBuild(validation.buildId!);
-    const activeBuild = await hgetallAsActiveBuild(this.cache, activeBuildKey);
+    let activeBuild;
+    let activeBuildKey;
+    if (
+      process.env.NODE_ENV === 'development' &&
+      process.env.FARGATE_DEV_MODE === 'true'
+    ) {
+      activeBuildKey = CACHE_KEYS.protoDev(prototype_id);
+      activeBuild = await hgetallAsDevBuild(this.cache, activeBuildKey);
+    } else {
+      activeBuildKey = CACHE_KEYS.activeBuild(validation.buildId!);
+      activeBuild = await hgetallAsActiveBuild(this.cache, activeBuildKey);
+    }
 
     if (!activeBuild) {
       this.logger.error(
@@ -202,10 +249,11 @@ export class OrchestrationService {
         error: 'INTERNAL_SERVER_ERROR',
         message: 'Build metadata not found',
       };
-      return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
+      reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR);
+      return {
         data: null,
         error: errorResponse,
-      });
+      };
     }
 
     if (isDevServerInShutdownStages(activeBuild.status)) {
@@ -218,10 +266,11 @@ export class OrchestrationService {
         error: 'CONFLICT',
         message: `Cannot start chat while sandbox is in cleanup stages ${activeBuild.status}. Please get a new dev-server.`,
       };
-      return reply.status(HTTP_STATUS.CONFLICT).send({
+      reply.status(HTTP_STATUS.CONFLICT);
+      return {
         data: null,
         error: errorResponse,
-      });
+      };
     }
 
     // Update active build state in cache
@@ -295,7 +344,15 @@ export class OrchestrationService {
     }
 
     // Update active build state in cache
-    const activeBuildKey = CACHE_KEYS.activeBuild(validation.buildId!);
+    let activeBuildKey;
+    if (
+      process.env.NODE_ENV === 'development' &&
+      process.env.FARGATE_DEV_MODE === 'true'
+    ) {
+      activeBuildKey = CACHE_KEYS.protoDev(prototype_id);
+    } else {
+      activeBuildKey = CACHE_KEYS.activeBuild(validation.buildId!);
+    }
     const currentTime = Math.floor(Date.now() / 1000);
 
     try {
