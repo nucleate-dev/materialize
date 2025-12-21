@@ -111,6 +111,11 @@ export interface PublicDevServerRestartSuccessResponse {
   message: string;
 }
 
+export interface UndoLastChangeSuccessResponse {
+  message: string;
+  stdout: string;
+}
+
 export interface PublicDevServerRefetchEnvRequest {
   prototype_id: string;
 }
