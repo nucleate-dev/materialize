@@ -52,16 +52,6 @@ const items = [
     icon: Trash2,
   },
   {
-    title: "Terminal",
-    url: "/terminal",
-    icon: Terminal,
-  },
-  {
-    title: "Users",
-    url: "/users",
-    icon: Users,
-  },
-  {
     title: "Live Viewer",
     url: "/live-viewer",
     icon: Smartphone,
