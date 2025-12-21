@@ -18,11 +18,11 @@ export async function notifyOrchestrationStartChat(
   orchestrationToken: string | null,
   logger: SystemLogger,
 ): Promise<void> {
-  const serverEndpoint = process.env.MATERIALIZE_SERVER_ENDPOINT;
+  const serverEndpoint = process.env.NUCLEATE_SERVER_ENDPOINT;
 
   if (!serverEndpoint) {
     logger.warn(
-      "MATERIALIZE_SERVER_ENDPOINT not set, skipping start-chat notification",
+      "NUCLEATE_SERVER_ENDPOINT not set, skipping start-chat notification",
     );
     return;
   }
@@ -87,11 +87,11 @@ export async function notifyOrchestrationEndChat(
   logger: SystemLogger,
   maxRetries: number = 3,
 ): Promise<void> {
-  const serverEndpoint = process.env.MATERIALIZE_SERVER_ENDPOINT;
+  const serverEndpoint = process.env.NUCLEATE_SERVER_ENDPOINT;
 
   if (!serverEndpoint) {
     logger.warn(
-      "MATERIALIZE_SERVER_ENDPOINT not set, skipping end-chat notification",
+      "NUCLEATE_SERVER_ENDPOINT not set, skipping end-chat notification",
     );
     return;
   }
