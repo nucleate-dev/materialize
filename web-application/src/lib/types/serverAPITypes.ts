@@ -5,7 +5,7 @@
 // To update these shared files, modify the source file and run:
 // npm run sync-types (in the control-plane directory)
 //
-// Last synced: 2025-12-20T20:20:58.636Z
+// Last synced: 2025-12-21T06:06:23.260Z
 
 // Public API types for the Control Plane Server
 // These types define the request and response schemas for all public endpoints
@@ -108,18 +108,6 @@ export interface DispatchPrecheckSuccessResponse {
   status: BuildStatus | null;
   viewing_url: string;
   terminal_tunnel_hostname: string | null;
-}
-
-// ============================================================================
-// /dev-server/restart ENDPOINT
-// ============================================================================
-
-export interface RestartDevServerRequestBody {
-  prototype_id: string;
-}
-
-export interface RestartDevServerSuccessResponse {
-  message: string;
 }
 
 // ============================================================================

@@ -167,7 +167,7 @@ ldconfig /usr/local/lib
 
 # 3. Install global npm packages for build-workers
 echo "==> Installing @expo/ngrok globally..."
-npm install -g @expo/ngrok@^4.1.0
+npm install -g @expo/ngrok@^4.1.0 typescript shadcn@latest
 
 # 4. Create application directories
 echo "==> Creating application directories..."

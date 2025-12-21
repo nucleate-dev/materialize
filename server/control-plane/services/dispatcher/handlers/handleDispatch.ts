@@ -424,7 +424,7 @@ async function handleDispatchForSandboxSimulatorFlow(
   cache: GlideClient,
   jwt: string,
   log2: SystemLogger,
-) {
+): Promise<APIResponse<DispatchSuccessResponse, StandardErrorResponse>> {
   const devKey = CACHE_KEYS.protoDev(prototype_id);
   const existingDevData = await hgetallAsDevBuild(cache, devKey);
 

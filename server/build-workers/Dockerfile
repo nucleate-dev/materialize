@@ -45,7 +45,7 @@ RUN mkdir -p /tmp/npm-cache && chmod 777 /tmp/npm-cache
 ENV NPM_CONFIG_CACHE=/tmp/npm-cache
 
 # Global + project dependencies
-RUN npm install -g @expo/ngrok@^4.1.0 typescript @anthropic-ai/claude-code shadcn@latest
+RUN npm install -g @expo/ngrok@^4.1.0 typescript shadcn@latest
 RUN npm install
 
 # Copy source
