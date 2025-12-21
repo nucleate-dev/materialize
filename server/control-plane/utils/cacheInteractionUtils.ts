@@ -1,6 +1,7 @@
 import { GlideClient } from '@valkey/valkey-glide';
 import { ActiveBuild, CACHE_KEYS } from '../types/InternalTypes.js';
 import { SystemLogger } from '../loggers/SystemLogger.js';
+import { BuildStatus } from '../types/PublicAPITypes.js';
 
 // returns true if successful, false if not
 export async function removeBuildDataFromCache(
@@ -112,9 +113,10 @@ export async function hgetallAsDevBuild(
   cache: GlideClient,
   key: string,
 ): Promise<{
-  status: string | null;
+  status: BuildStatus | null;
   url: string;
   terminal_tunnel_hostname: string;
+  orchestration_token: string;
 } | null> {
   const raw = await cache.hgetall(key);
 
@@ -130,8 +132,9 @@ export async function hgetallAsDevBuild(
   ) as Record<string, string>;
 
   return {
-    status: obj.status || null,
+    status: obj.status as ActiveBuild['status'],
     url: obj.url || '',
     terminal_tunnel_hostname: obj.terminal_tunnel_hostname || '',
+    orchestration_token: obj.orchestration_token || '',
   };
 }

@@ -23,6 +23,7 @@ import {
   DispatchSuccessResponse,
   StandardErrorResponse,
 } from '../../../types/PublicAPITypes.js';
+import { randomBytes } from 'crypto';
 import {
   activeBuildToStringRecord,
   hgetallAsActiveBuild,
@@ -443,10 +444,12 @@ async function handleDispatchForSandboxSimulatorFlow(
 
   // Set initial status, url, and tunnel hostname
   const devTerminalUrl = `http://${process.env.DEVELOPMENT_EC2_IP}:3002`;
+  const orchestration_token = randomBytes(32).toString('hex');
   await cache.hset(devKey, {
     status: 'updating' as BuildStatus,
     url: existingDevData?.url || normalizeUrl(getS3Url(prototype_id)),
     terminal_tunnel_hostname: devTerminalUrl,
+    orchestration_token,
   });
 
   try {
@@ -473,8 +476,8 @@ async function handleDispatchForSandboxSimulatorFlow(
           cloudflare_tunnel_hostname: `http://${process.env.DEVELOPMENT_EC2_IP}`,
         },
         keys: {
-          orchestration_token: '',
-          aak: '',
+          orchestration_token,
+          aak: process.env.ANTHROPIC_API_KEY,
         },
       },
       {

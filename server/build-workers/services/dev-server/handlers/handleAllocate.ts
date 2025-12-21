@@ -147,15 +147,13 @@ export async function handleAllocateImpl(
     }
 
     // 5. CREDENTIALS:
-    if (process.env.FARGATE_DEV_MODE !== "true") {
-      materializeDevelopmentServerService.chatService.setOrchestrationToken(
-        keys.orchestration_token,
-      );
-      if (keys.aak) {
-        materializeDevelopmentServerService.chatService.setAak(keys.aak);
-      } else {
-        request.log2.warn("No aak provided during allocation");
-      }
+    materializeDevelopmentServerService.chatService.setOrchestrationToken(
+      keys.orchestration_token,
+    );
+    if (keys.aak) {
+      materializeDevelopmentServerService.chatService.setAak(keys.aak);
+    } else {
+      request.log2.warn("No aak provided during allocation");
     }
 
     reply.status(200);
