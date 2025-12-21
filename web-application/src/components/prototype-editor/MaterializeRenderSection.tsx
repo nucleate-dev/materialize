@@ -74,11 +74,11 @@ const Terminal = dynamic(() => import("./Terminal"), { ssr: false });
 // Import the Environment Variables Modal
 import { EnvironmentVariablesModal } from "./EnvironmentVariablesModal";
 // Import the View on Device Modal
-import { ViewOnDeviceModal } from "./ViewOnDeviceModal";
 import {
   BuildAndDeployResponse,
   PublicDevServerRestartSuccessResponse,
 } from "@/lib/types/SandboxAPITypes";
+import { ViewOnDeviceModal } from "./ViewOnDeviceModal";
 
 interface MobileScreenConfig {
   id: number;
@@ -242,6 +242,40 @@ const MaterializeRenderSection = forwardRef<
       }
     }, [isWebFramework, previewMode]);
     const [mobileSize, setMobileSize] = useState({ width: 320, height: 640 });
+    const [hasManuallyResized, setHasManuallyResized] = useState(false);
+
+    // Calculate responsive mobile size based on viewport height
+    useEffect(() => {
+      const calculateSize = () => {
+        if (hasManuallyResized) return;
+
+        const vh = window.innerHeight;
+        // The render section has some UI overhead (header, padding, etc)
+        // Adjust this value based on your layout needs
+        const uiOverhead = 120;
+        const availableHeight = Math.max(0, vh - uiOverhead);
+
+        // Standard phone ratio is roughly 1:2 (320/640)
+        const aspectRatio = 320 / 640;
+
+        // Target height: reasonable portion of available height
+        // e.g. 85-90% of available space
+        let newHeight = availableHeight * 0.9;
+
+        // Clamp values to keep it usable
+        newHeight = Math.max(640, newHeight); // Minimum reasonable height
+        newHeight = Math.min(1000, newHeight); // Maximum reasonable height
+
+        const newWidth = newHeight * aspectRatio;
+
+        setMobileSize({ width: newWidth, height: newHeight });
+      };
+
+      // Calculate on mount and resize
+      calculateSize();
+      window.addEventListener("resize", calculateSize);
+      return () => window.removeEventListener("resize", calculateSize);
+    }, [hasManuallyResized]);
     const [isIframeLoading, setIsIframeLoading] = useState(false);
     const [iframeError, setIframeError] = useState(false);
     const [isExporting, setIsExporting] = useState(false);
@@ -255,7 +289,7 @@ const MaterializeRenderSection = forwardRef<
     const [editingScreenId, setEditingScreenId] = useState<number | null>(null);
     const [tempPath, setTempPath] = useState<string>("");
     const [routeSuggestions, setRouteSuggestions] = useState<
-      Array<{ route: string; group?: string }>
+      Array<{ route: string; group?: string; }>
     >([]);
     const isReadOnlyView = publicView || deployedView;
 
@@ -407,7 +441,7 @@ const MaterializeRenderSection = forwardRef<
     const availableRoutes = React.useMemo(() => {
       if (!files) return [];
 
-      const routes: Array<{ route: string; group?: string }> = [];
+      const routes: Array<{ route: string; group?: string; }> = [];
       Object.keys(files).forEach((filePath) => {
         // Look for files in app/ directory that could be routes
         if (filePath.startsWith("app/")) {
@@ -860,6 +894,7 @@ const MaterializeRenderSection = forwardRef<
     const handleMouseDown = (e: React.MouseEvent) => {
       e.preventDefault();
       e.stopPropagation();
+      setHasManuallyResized(true);
 
       const startX = e.clientX;
       const startY = e.clientY;
@@ -1059,7 +1094,7 @@ const MaterializeRenderSection = forwardRef<
     };
 
     // Connection loading overlay for iframe
-    const ConnectionLoadingOverlay = ({ mode }: { mode: PreviewMode }) => (
+    const ConnectionLoadingOverlay = ({ mode }: { mode: PreviewMode; }) => (
       <div className="absolute inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm z-10">
         <div className="text-center bg-accent p-6 rounded-xl border border-border shadow-2xl">
           <Loader2 className="w-6 h-6 animate-spin mx-auto mb-3 text-muted-foreground" />
@@ -1076,7 +1111,7 @@ const MaterializeRenderSection = forwardRef<
     );
 
     // Error overlay for iframe
-    const ConnectionErrorOverlay = ({ mode }: { mode: PreviewMode }) => (
+    const ConnectionErrorOverlay = ({ mode }: { mode: PreviewMode; }) => (
       <div className="absolute inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm z-10">
         <div className="text-center bg-accent p-6 rounded-xl border border-red-500/20 shadow-2xl">
           <div className="w-8 h-8 mx-auto mb-3 text-red-400 bg-red-400/10 rounded-full flex items-center justify-center">
