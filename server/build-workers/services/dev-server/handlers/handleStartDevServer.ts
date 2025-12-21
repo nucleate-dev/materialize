@@ -3,7 +3,6 @@ import {
   DevServerStatus,
   HTTP_STATUS,
   PublicDevServerStartSuccessResponse,
-  PublicRunCommandSuccessResponse,
   PublicStartDevServerRequest,
   SandboxAPIResponse,
   StandardErrorResponse,
@@ -11,12 +10,12 @@ import {
 import { NucleateDevelopmentServerService } from "../NucleateDevelopmentServerService.js";
 import { SystemLogger } from "../../../loggers/SystemLogger.js";
 import { restoreClaudeSessionsFromSupabase } from "../../../utils/shared-utils.js";
-import { SupabaseClientService } from "../../SupabaseClientService.js";
 import { ChatService } from "../../chat/ChatService.js";
 import { syncPrototypeEnvVarsToDisk } from "../utils/envVarUtils.js";
-import { WORK_DIR } from "../../../worker.js";
+import { getWorkerContext, WORK_DIR } from "../../../worker.js";
 import { DEFAULT_PROTOTYPE_FRAMEWORK } from "../NucleateDevelopmentServerService.js";
 import { NextJsReactAdapter } from "../adapters/NextJsReactAdapter.js";
+import { SupabaseClientService } from "../../SupabaseClientService.js";
 
 export async function handleStartDevServerImpl(
   request: FastifyRequest<{ Body: PublicStartDevServerRequest }>,
@@ -36,6 +35,8 @@ export async function handleStartDevServerImpl(
       },
     };
   }
+  // Note: auth already happens by control-plane before calling this route
+  const { userId } = getWorkerContext();
 
   // if web, set the adapter to the NextJsReactAdapter with the correct tunnel hostname
   const resolvedFramework =
@@ -79,15 +80,7 @@ export async function handleStartDevServerImpl(
   }
 
   // 0. Initialize git
-  const gitInitializationResponse = await initializeGit(
-    developmentServerService,
-  );
-  if (gitInitializationResponse.error) {
-    request.log2.consoleLogDevOnly(
-      "info",
-      "Git initialization failed. Continuing anyways.",
-    );
-  }
+  await initializeGit(developmentServerService, userId, request.log2);
 
   // 1. Fetch necessary files (project files + assets, past claude sessions)
   const { errors: fetchErrors } =
@@ -303,9 +296,27 @@ async function restoreClaudeSessions(
 // TODO: Initialize with user's OAuth, clone existing repo, etc
 async function initializeGit(
   developmentServerService: NucleateDevelopmentServerService,
-): Promise<
-  SandboxAPIResponse<PublicRunCommandSuccessResponse, StandardErrorResponse>
-> {
+  userId: string | undefined,
+  log2: SystemLogger,
+): Promise<void> {
+  let userRow;
+  if (userId) {
+    const { data, error: userFetchError } =
+      await developmentServerService.supabaseClientService
+        .getClient()
+        .from("users")
+        .select("*")
+        .eq("id", userId)
+        .single();
+    if (userFetchError) {
+      log2.error(userFetchError, "Failed to fetch user from supabase", {
+        userId,
+      });
+      return;
+    }
+    userRow = data;
+  }
+
   const gitInitializationResult =
     await developmentServerService.sandboxService.runCommandInternal({
       command: "git",
@@ -315,5 +326,13 @@ async function initializeGit(
       timeout_ms: 180000, // 3 minutes
       strip_ansi: true,
     });
-  return gitInitializationResult.response;
+  const commandString = `cd ${WORK_DIR} && git init && git config --global user.email "${userRow?.email}" && git config --global user.name "${userRow?.name}"`;
+  developmentServerService.terminalService.sendInput(
+    "dev-server",
+    commandString,
+    {
+      bypassValidation: true,
+    },
+  );
+  return;
 }
