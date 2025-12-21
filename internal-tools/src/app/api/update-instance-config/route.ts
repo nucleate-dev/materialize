@@ -162,33 +162,6 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // 6. Update build-workers env
-    try {
-      const sandboxEnvPath = path.join(
-        projectRoot,
-        "server/control-plane/.env",
-      );
-      let sandboxEnvContent = fs.readFileSync(sandboxEnvPath, "utf-8");
-
-      // Replace FARGATE_TUNNEL_IP
-      sandboxEnvContent = sandboxEnvContent.replace(
-        /NUCLEATE_SERVER_ENDPOINT=.*/,
-        `NUCLEATE_SERVER_ENDPOINT=http://${publicIpv4}:3000`,
-      );
-
-      fs.writeFileSync(sandboxEnvPath, sandboxEnvContent, "utf-8");
-      results.push({
-        file: "server/build-workers/.env",
-        success: true,
-      });
-    } catch (error) {
-      results.push({
-        file: "server/build-workers/.env",
-        success: false,
-        error: error instanceof Error ? error.message : "Unknown error",
-      });
-    }
-
     const allSuccess = results.every((r) => r.success);
 
     return NextResponse.json(
