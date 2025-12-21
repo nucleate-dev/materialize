@@ -155,7 +155,22 @@ export class ClaudeCodeCliQueryHandler {
 
     try {
       // Notify orchestration that chat has started
-      await notifyOrchestrationStartChat(context.prototypeId);
+      try {
+        await notifyOrchestrationStartChat(context.prototypeId);
+      } catch (error) {
+        const err = error instanceof Error ? error : new Error(String(error));
+        logger.error(err, "Failed to notify orchestration start chat (CLI)", {
+          prototypeId: context.prototypeId,
+        });
+        sendMessage(socket, {
+          type: ChatEvent.ERROR,
+          error: {
+            message: "Failed to start chat session",
+            details: err.message,
+          },
+        });
+        return;
+      }
 
       // Extract user ID from JWT token
       const token = data.token;

@@ -502,7 +502,22 @@ export class ChatQueryHandler {
     this.devServerService.developmentServerState.lastUpdatedTime = new Date();
 
     // Step 8: Notify orchestration that chat is starting
-    await handlers.notifyOrchestrationStartChat(prototypeId);
+    try {
+      await handlers.notifyOrchestrationStartChat(prototypeId);
+    } catch (error) {
+      const err = error instanceof Error ? error : new Error(String(error));
+      logger.error(err, "Failed to notify orchestration start chat", {
+        prototypeId,
+      });
+      handlers.sendMessage(socket, {
+        type: ChatEvent.ERROR,
+        error: {
+          message: "Failed to start chat session",
+          details: err.message,
+        },
+      });
+      return;
+    }
 
     // Step 9: Execute query with proper cleanup
     let implementationCostUsd: number | undefined = undefined;

@@ -735,20 +735,19 @@ export class ChatService {
     }
 
     try {
-      const response =
-        await axios.post<
-          APIResponse<StartChatResponse, StandardErrorResponse>
-        >(
-          `${serverEndpoint}/orchestration/start-chat`,
-          { prototype_id: prototypeId },
-          {
-            headers: {
-              "x-orchestration-token": this.orchestrationToken,
-              "Content-Type": "application/json",
-            },
-            timeout: 5000,
+      const response = await axios.post<
+        APIResponse<StartChatResponse, StandardErrorResponse>
+      >(
+        `${serverEndpoint}/orchestration/start-chat`,
+        { prototype_id: prototypeId },
+        {
+          headers: {
+            "x-orchestration-token": this.orchestrationToken,
+            "Content-Type": "application/json",
           },
-        );
+          timeout: 5000,
+        },
+      );
       const payload = response.data;
 
       if (payload.error || !payload.data?.success) {
@@ -772,8 +771,18 @@ export class ChatService {
       const axiosError = axios.isAxiosError(error) ? error : null;
       const orchestrationError =
         error instanceof OrchestrationAPIError ? error : null;
+      const derivedError =
+        orchestrationError ??
+        (axiosError
+          ? new Error(
+              `Failed to notify control plane of chat start (status ${axiosError.response?.status ?? "unknown"})`,
+            )
+          : error instanceof Error
+            ? error
+            : new Error(String(error)));
+
       baseLogger.error(
-        error instanceof Error ? error : new Error(String(error)),
+        derivedError,
         "Failed to notify control plane of chat start",
         {
           prototypeId,
@@ -782,7 +791,7 @@ export class ChatService {
             orchestrationError?.responseBody ?? axiosError?.response?.data,
         },
       );
-      // Don't throw - we want the chat to proceed even if notification fails
+      throw derivedError;
     }
   }
 
@@ -817,20 +826,19 @@ export class ChatService {
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
-        const response =
-          await axios.post<
-            APIResponse<EndChatResponse, StandardErrorResponse>
-          >(
-            `${serverEndpoint}/orchestration/end-chat`,
-            { prototype_id: prototypeId },
-            {
-              headers: {
-                "x-orchestration-token": this.orchestrationToken,
-                "Content-Type": "application/json",
-              },
-              timeout: 5000,
+        const response = await axios.post<
+          APIResponse<EndChatResponse, StandardErrorResponse>
+        >(
+          `${serverEndpoint}/orchestration/end-chat`,
+          { prototype_id: prototypeId },
+          {
+            headers: {
+              "x-orchestration-token": this.orchestrationToken,
+              "Content-Type": "application/json",
             },
-          );
+            timeout: 5000,
+          },
+        );
         const payload = response.data;
 
         if (payload.error || !payload.data?.success) {
