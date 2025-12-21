@@ -178,6 +178,8 @@ export async function handleStartDevServerImpl(
     }
   }
 
+  await addAllFilesToFirstCommit(developmentServerService);
+
   // 3. Start the development server
   developmentServerService.developmentServerState.devServerStatus =
     DevServerStatus.STARTING;
@@ -325,5 +327,27 @@ async function initializeGit(
       bypassValidation: true,
     },
   );
+  return;
+}
+
+async function addAllFilesToFirstCommit(
+  developmentServerService: NucleateDevelopmentServerService,
+): Promise<void> {
+  await developmentServerService.sandboxService.runCommandInternal({
+    command: "git",
+    args: [
+      "add",
+      ".",
+      "&&",
+      "git",
+      "commit",
+      "-m",
+      `"Initialize development server"`,
+    ],
+    cwd: `${WORK_DIR}/client`,
+    session_id: "dev-server",
+    timeout_ms: 180000, // 3 minutes
+    strip_ansi: true,
+  });
   return;
 }
