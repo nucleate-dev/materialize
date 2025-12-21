@@ -53,7 +53,44 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // 2. Update web-application/.env
+    // 2. Update starters/.env
+    try {
+      const startersEnvPath = path.join(projectRoot, "starters/.env");
+      let startersEnvContent = "";
+
+      // Read existing content if file exists
+      if (fs.existsSync(startersEnvPath)) {
+        startersEnvContent = fs.readFileSync(startersEnvPath, "utf-8");
+      }
+
+      // Replace or add HOST line
+      if (startersEnvContent.includes("HOST=")) {
+        startersEnvContent = startersEnvContent.replace(
+          /HOST=.*/,
+          `HOST=${publicDns}`,
+        );
+      } else {
+        // Add HOST if it doesn't exist
+        if (startersEnvContent && !startersEnvContent.endsWith("\n")) {
+          startersEnvContent += "\n";
+        }
+        startersEnvContent += `# EC2 instance configuration for deployment scripts\nHOST=${publicDns}\n`;
+      }
+
+      fs.writeFileSync(startersEnvPath, startersEnvContent, "utf-8");
+      results.push({
+        file: "server/scripts/.env",
+        success: true,
+      });
+    } catch (error) {
+      results.push({
+        file: "server/scripts/.env",
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+
+    // 3. Update web-application/.env
     try {
       const webEnvPath = path.join(projectRoot, "web-application/.env");
       let webEnvContent = fs.readFileSync(webEnvPath, "utf-8");
@@ -81,7 +118,7 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // 3. Update internal-tools/.env
+    // 4. Update internal-tools/.env
     try {
       const internalEnvPath = path.join(projectRoot, "internal-tools/.env");
       let internalEnvContent = fs.readFileSync(internalEnvPath, "utf-8");
@@ -106,6 +143,57 @@ export async function POST(request: NextRequest) {
     } catch (error) {
       results.push({
         file: "internal-tools/.env",
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+
+    // 5. Update control-plane env
+    try {
+      const serverEnvPath = path.join(projectRoot, "server/control-plane/.env");
+      let cpEnvContent = fs.readFileSync(serverEnvPath, "utf-8");
+
+      // Replace FARGATE_TUNNEL_IP
+      cpEnvContent = cpEnvContent.replace(
+        /FARGATE_PRIVATE_IP=.*/,
+        `FARGATE_PRIVATE_IP=${publicIpv4}`,
+      );
+
+      fs.writeFileSync(serverEnvPath, cpEnvContent, "utf-8");
+      results.push({
+        file: "server/control-plane/.env",
+        success: true,
+      });
+    } catch (error) {
+      results.push({
+        file: "server/control-plane/.env",
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+
+    // 6. Update build-workers env
+    try {
+      const sandboxEnvPath = path.join(
+        projectRoot,
+        "server/control-plane/.env",
+      );
+      let sandboxEnvContent = fs.readFileSync(sandboxEnvPath, "utf-8");
+
+      // Replace FARGATE_TUNNEL_IP
+      sandboxEnvContent = sandboxEnvContent.replace(
+        /NUCLEATE_SERVER_ENDPOINT=.*/,
+        `NUCLEATE_SERVER_ENDPOINT=http://${publicIpv4}:3000`,
+      );
+
+      fs.writeFileSync(sandboxEnvPath, sandboxEnvContent, "utf-8");
+      results.push({
+        file: "server/build-workers/.env",
+        success: true,
+      });
+    } catch (error) {
+      results.push({
+        file: "server/build-workers/.env",
         success: false,
         error: error instanceof Error ? error.message : "Unknown error",
       });
