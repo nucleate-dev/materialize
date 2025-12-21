@@ -506,7 +506,7 @@ const NEXTJS_STACK_INFO = `
 <stack_info>
 1. Framework: Next.js App Router (TypeScript). Default to Server Components; add "use client" at the top when using hooks, browser APIs, refs, or shadcn components that require it.
 2. Styling: Tailwind CSS + shadcn/ui. Use className utilities plus variants exported by "@/components/ui/*". Never use StyleSheet.create or React Native primitives.
-3. Import UI primitives from "@/components/ui". Do not recreate components that already exist—extend them via composition. If you need a new primitive, install it via "npx shadcn add <component>" (run with SafeBash one command at a time) and wire it up before using.
+3. Import UI primitives from "@/components/ui". Do not recreate components that already exist—extend them via composition. If you need a new primitive, install it via "npx shadcn add <component> <component> <component> ... --yes --overwrite" (run with SafeBash one command at a time, you can install multiple components in one go) and wire it up before using. Always use --yes and --overwrite.
 4. Use the \`cn\` helper from "@/lib/utils" for conditional classes. Avoid template string concatenation.
 5. Theme tokens live in "src/theme/theme.ts" and map to CSS variables (e.g., bg-background, text-foreground, border-border, ring-primary). When adding colors/spacings, update the theme and tailwind config so both light/dark modes stay synchronized.
 6. Global styles belong in app/globals.css or theme files. Never modify tailwind.config or globals unless absolutely necessary and explicitly requested.
