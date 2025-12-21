@@ -19,7 +19,6 @@ import {
 import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import type {
   APIResponse,
-  RestartDevServerSuccessResponse,
   StandardErrorResponse,
   StartDevServerRequestBody,
   StartDevServerSuccessResponse,
@@ -76,6 +75,10 @@ const Terminal = dynamic(() => import("./Terminal"), { ssr: false });
 import { EnvironmentVariablesModal } from "./EnvironmentVariablesModal";
 // Import the View on Device Modal
 import { ViewOnDeviceModal } from "./ViewOnDeviceModal";
+import {
+  PublicBuildAndDeploySuccessResponse,
+  PublicDevServerRestartSuccessResponse,
+} from "@/lib/types/SandboxAPITypes";
 
 interface MobileScreenConfig {
   id: number;
@@ -656,7 +659,7 @@ const MaterializeRenderSection = forwardRef<
         });
 
         const result: APIResponse<
-          RestartDevServerSuccessResponse,
+          PublicDevServerRestartSuccessResponse,
           StandardErrorResponse
         > = await response.json();
         if (response.ok && result.data) {
@@ -716,8 +719,10 @@ const MaterializeRenderSection = forwardRef<
           },
         );
 
-        const result: APIResponse<{ message: string }, StandardErrorResponse> =
-          await response.json().catch(() => ({ data: null, error: null }));
+        const result: APIResponse<
+          PublicBuildAndDeploySuccessResponse,
+          StandardErrorResponse
+        > = await response.json().catch(() => ({ data: null, error: null }));
 
         setIsBuilding(false);
 
@@ -732,9 +737,6 @@ const MaterializeRenderSection = forwardRef<
         } else {
           setBuildError(null);
           toast.success("Build and deploy completed successfully!");
-          logger.debug(undefined, "Build and deploy completed", {
-            message: result.data?.message,
-          });
         }
       } catch (error) {
         setIsBuilding(false);
