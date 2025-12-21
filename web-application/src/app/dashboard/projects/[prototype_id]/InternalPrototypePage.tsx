@@ -505,12 +505,21 @@ export default function InternalPrototypePage() {
           },
         );
 
-        if (!response.ok) return;
+        if (response.status === 409) {
+          // dev server is already starting from another request
+          return;
+        } else if (!response.ok) {
+          setCurrentRenderStatus("Error");
+          return;
+        }
         const result: APIResponse<
           StartDevServerSuccessResponse,
           StandardErrorResponse
         > = await response.json();
-        if (!result.data || !result.data.viewing_url) return;
+        if (!result.data || !result.data.viewing_url) {
+          setCurrentRenderStatus("Error");
+          return;
+        }
 
         setViewingUrl(result.data.viewing_url);
         if (result.data.terminal_url) {
