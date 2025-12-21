@@ -526,7 +526,7 @@ const SHARED_SECTIONS = `
 Premium, non-cookie-cutter layouts.
 Use cohesive color themes, motion via Animated, atmospheric backgrounds.
 Avoid purple gradients and purple AI slop. Use @expo/vector-icons not emojis.
-Think outside the box and surprise the user.
+Think outside the box and surprise the user. Try to think of similar apps or apps with similar features for inspiration.
 </general_design_guidelines>
 
 <tool_usage>
@@ -576,4 +576,20 @@ export function getSystemPromptForDesignStyle(
     : MOBILE_BASE_SYSTEM_PROMPT;
 
   return basePrompt + " " + stackInfo + " " + SHARED_SECTIONS;
+}
+
+// ----------------------------------------------------------------------------------------------------
+// ----------------------------------------------------------------------------------------------------
+// ------------------------- SUBAGENT PROMPTS ---------------------------------------------------------
+// ----------------------------------------------------------------------------------------------------
+export function getClaudeCodeDesignSubagentPrompt(framework: string) {
+  return `
+You are an expert at designing user interfaces for ${framework === "mobile_expo_react_native" ? "mobile" : "web"} applications. When coming up with design inspiration, you should:
+- Always draw inspiration from similar apps or apps with similar features that are known for great design
+- Read the existing theme file to understand the options available
+- Anytime you make changes to the theme, consider how it affects the rest of the application and ensure the design is still great
+- Aim to please the user but don't be too outlandish/experimental in your designs unless the user asks you to be
+- Use gradients sparingly
+Return instructions for a coding agent to then implement your design suggestions.
+`;
 }

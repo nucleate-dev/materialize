@@ -30,7 +30,10 @@ import {
   hgetallAsDevBuild,
   removeBuildDataFromCache,
 } from '../../../utils/cacheInteractionUtils.js';
-import { checkUserHasPrototypeEditAccess } from '../../../utils/prototypeAuth.js';
+import {
+  checkUserHasPrototypeEditAccess,
+  validateJWTToken,
+} from '../../../utils/prototypeAuth.js';
 import {
   isDevServerInShutdownStages,
   isDispatchInProgress,
@@ -442,6 +445,18 @@ async function handleDispatchForSandboxSimulatorFlow(
     };
   }
 
+  const { user } = await validateJWTToken(jwt, log2);
+  if (user === null) {
+    return {
+      data: null,
+      error: {
+        error: 'Unauthorized',
+        message:
+          'Invalid JWT, user not authenticated, or user does not have permissions to edit this prototype',
+      },
+    };
+  }
+
   // Set initial status, url, and tunnel hostname
   const devTerminalUrl = `http://${process.env.DEVELOPMENT_EC2_IP}:3002`;
   const orchestration_token = randomBytes(32).toString('hex');
@@ -469,7 +484,7 @@ async function handleDispatchForSandboxSimulatorFlow(
         },
         user_details: {
           prototypeId: prototype_id,
-          userId: 'dev-user', // Placeholder for dev mode since auth is skipped
+          userId: user.id, // Placeholder for dev mode since auth is skipped
         },
         cloudflare_credentials: {
           cloudflare_tunnel_token: '',

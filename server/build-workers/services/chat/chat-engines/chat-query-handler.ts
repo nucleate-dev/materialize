@@ -1,4 +1,5 @@
 import {
+  AgentDefinition,
   CanUseTool,
   HookInput,
   HookJSONOutput,
@@ -23,7 +24,7 @@ import {
 } from "../../../types/ChatTypes.js";
 import { Database } from "../../../types/supabase.js";
 import { hasRemainingCredits } from "../../../utils/credit-checks.js";
-import { baseLogger, WORK_DIR } from "../../../worker.js";
+import { baseLogger, getWorkerContext, WORK_DIR } from "../../../worker.js";
 import { NucleateDevelopmentServerService } from "../../dev-server/NucleateDevelopmentServerService.js";
 import { FileSyncService } from "../../FileSyncService.js";
 import { SandboxService } from "../../SandboxService.js";
@@ -45,7 +46,11 @@ import { getToolDisplayName } from "../helpers/message-handlers.js";
 import { ToolPermissionService } from "../helpers/tool-permission-service.js";
 import { createDesignToolsMcpServer } from "../mcp/mcp-design-tools.js";
 import { createDevelopmentToolsMcpServer } from "../mcp/mcp-dev-tools.js";
-import { getSystemPromptForDesignStyle } from "../prompts/ClaudeCodePrompts.js";
+import {
+  getClaudeCodeDesignSubagentPrompt,
+  getSystemPromptForDesignStyle,
+} from "../prompts/ClaudeCodePrompts.js";
+import { posthog } from "../../../loggers/index.js";
 
 const HISTORY_MESSAGE_REQUEST_COUNT = 6;
 
@@ -1436,8 +1441,30 @@ export class ChatQueryHandler {
       mcpServers.design = createDesignToolsMcpServer(logger);
     }
 
+    const { userId } = getWorkerContext();
+    let designSubagentEnabled = false;
+    if (userId) {
+      designSubagentEnabled =
+        (await posthog.isFeatureEnabled(
+          "claude-code-sdk-design-subagent",
+          userId,
+        )) ?? false;
+    }
+    logger.info("design subagent flag checked: ", {
+      designSubagentEnabled,
+      userIdLocal: userId,
+    });
     return {
       ...options,
+      agents: designSubagentEnabled
+        ? {
+            "ui-ux-designer": {
+              description: `Expert UI/UX designer for ${framework === "mobile_expo_react_native" ? "mobile react native" : "tailwindcss web Next.js"} applications. Use for design inspiration and planning great design implementation, any time the user requests a feature that has significant user interface changes.`,
+              prompt: getClaudeCodeDesignSubagentPrompt(framework),
+              tools: ["Read", "Glob", "Grep", "WebSearch", "WebFetch"],
+            },
+          }
+        : undefined,
       includePartialMessages: false,
       cwd: WORK_DIR,
       maxTurns: options?.maxTurns ?? 50,
