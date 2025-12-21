@@ -224,6 +224,7 @@ export async function handleDispatchImpl(
         prototype_id,
         log2,
         fargate_private_ip: updatedBuildCacheData.fargate_private_ip,
+        jwt,
       });
       if (fargateResponse.data) {
         updatedBuildCacheData.status = 'stable';
@@ -309,10 +310,12 @@ async function dispatchRequestToFargateInstanceServer({
   prototype_id,
   log2,
   fargate_private_ip,
+  jwt,
 }: {
   prototype_id: string;
   log2: SystemLogger;
   fargate_private_ip: string;
+  jwt: string;
 }): Promise<
   SandboxAPIResponse<
     PublicDevServerStartSuccessResponse,
@@ -335,6 +338,7 @@ async function dispatchRequestToFargateInstanceServer({
         fargate_private_ip,
         { prototype_id },
         log2,
+        jwt,
       );
     },
   );
@@ -346,6 +350,7 @@ async function dispatchFormedRequestToFargateInstanceServer(
   fargatePrivateIp: string,
   requestBody: PublicStartDevServerRequest,
   log2: SystemLogger,
+  jwt: string,
 ): Promise<
   SandboxAPIResponse<
     PublicDevServerStartSuccessResponse,
@@ -363,6 +368,7 @@ async function dispatchFormedRequestToFargateInstanceServer(
       headers: {
         'Content-Type': 'application/json',
         'x-trace-id': log2.getTraceId(),
+        Authorization: `Bearer ${jwt}`,
       },
     });
     return response.data;
@@ -545,6 +551,7 @@ async function handleDispatchForSandboxSimulatorFlow(
     prototype_id,
     log2,
     fargate_private_ip: process.env.FARGATE_DEV_IP!,
+    jwt,
   });
 
   if (fargateResponse.data) {
