@@ -1,0 +1,137 @@
+---
+title: App Crashes & Blank Screens
+description: Debug runtime crashes, blank screens, and unresponsive apps.
+section: troubleshooting
+order: 2
+---
+
+## What you'll accomplish
+
+This guide helps you fix:
+- Runtime crashes (red screens)
+- Blank/white screens
+- Frozen/unresponsive apps
+
+## Runtime debugging
+
+### Read the error message
+
+Red screens show:
+1. **Error type** (e.g., TypeError, ReferenceError)
+2. **Message** (what went wrong)
+3. **Stack trace** (where it happened)
+
+### Example
+```
+TypeError: Cannot read property 'name' of undefined
+    at UserProfile (app/profile.tsx:15)
+    at renderWithHooks
+    ...
+```
+
+This means: On line 15 of profile.tsx, you tried to access `.name` on something that's undefined.
+
+## Common causes
+
+### 1. Undefined data
+```tsx
+// Crashes if user is undefined
+<Text>{user.name}</Text>
+
+// Fix with optional chaining
+<Text>{user?.name}</Text>
+
+// Or conditional rendering
+{user && <Text>{user.name}</Text>}
+```
+
+### 2. Navigation issues
+```tsx
+// Crashes if params missing
+const { id } = useLocalSearchParams();
+fetchUser(id); // id might be undefined
+
+// Fix with default value
+const { id = '' } = useLocalSearchParams();
+```
+
+### 3. Async timing
+```tsx
+// Crashes if data not loaded yet
+const [data, setData] = useState();
+return <Text>{data.title}</Text>; // data is undefined!
+
+// Fix with loading state
+if (!data) return <Loading />;
+return <Text>{data.title}</Text>;
+```
+
+## Blank screen debugging
+
+### 1. Check for silent errors
+
+Open browser devtools (Web) or shake device (native) to see console.
+
+### 2. Add error boundaries
+
+```tsx
+class ErrorBoundary extends React.Component {
+  state = { hasError: false };
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return <Text>Something went wrong</Text>;
+    }
+    return this.props.children;
+  }
+}
+```
+
+### 3. Check layout issues
+
+- Is content rendering off-screen?
+- Is there a full-screen loading state stuck?
+- Did a navigation guard redirect unexpectedly?
+
+## Isolation techniques
+
+### Binary search debugging
+
+1. Comment out half your component
+2. Does it still crash?
+3. Yes → Problem in remaining code
+4. No → Problem in commented code
+5. Repeat until you find the line
+
+### Minimal reproduction
+
+> "Claude, I have a crash. Create the simplest version of this component that still demonstrates the issue."
+
+## Step-by-step
+
+1. **Read the error** - What type? What line?
+2. **Check the line** - What's happening there?
+3. **Trace the data** - Where does that value come from?
+4. **Add guards** - Handle the undefined case
+5. **Test** - Verify the fix works
+
+## Checklist
+
+- [ ] Read the full error message
+- [ ] Identified the crashing line
+- [ ] Added null checks
+- [ ] Tested the fix
+
+## Common issues
+
+**Error disappears on refresh?** Might be a timing/race condition.
+
+**Can't reproduce?** Add logging to catch it next time.
+
+## What's next
+
+AI not behaving? Check [AI didn't do what I wanted](/docs/troubleshooting/ai-issues).

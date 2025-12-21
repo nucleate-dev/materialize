@@ -1,0 +1,128 @@
+---
+title: Fixing Errors While the App Is Running
+description: Learn to diagnose and fix TypeScript errors, runtime crashes, and bundler issues with AI help.
+section: build-with-ai
+order: 2
+---
+
+## What you'll accomplish
+
+By the end of this guide, you'll be able to:
+- Identify different types of errors
+- Use the 60-second triage checklist
+- Paste errors correctly into prompts
+- Know when to rollback vs. fix forward
+
+## Error taxonomy
+
+### TypeScript errors
+- Red squiggles in the editor
+- Type mismatches
+- Missing properties
+- Import errors
+
+### Runtime red screens
+- App crashes with a red error screen
+- Stack traces pointing to your code
+- Usually logic errors or null references
+
+### Metro / bundler issues
+- "Unable to resolve module"
+- "Invariant Violation"
+- Bundle failed to build
+
+## Step-by-step: 60-second triage
+
+1. **Read the error message** (10 sec)
+   - What file is mentioned?
+   - What line number?
+
+2. **Identify the type** (10 sec)
+   - TypeScript? Runtime? Bundler?
+
+3. **Check recent changes** (20 sec)
+   - What did you just change?
+   - Can you undo it?
+
+4. **Decide: fix or rollback** (20 sec)
+   - Simple fix? Go forward.
+   - Complex issue? Rollback and retry.
+
+## How to paste errors correctly
+
+### Bad way ❌
+> "It's not working"
+
+### Good way ✅
+```
+I'm getting this error:
+
+TypeError: Cannot read property 'map' of undefined
+    at HomeScreen (app/(tabs)/index.tsx:24:18)
+
+The relevant code is:
+[paste the code around line 24]
+```
+
+## The ask-for-root-cause pattern
+
+Before asking for a fix:
+
+> "I'm seeing this error: [ERROR]. Before fixing it, explain what's causing it and why."
+
+This prevents the AI from applying a quick fix that breaks something else.
+
+## Rollback & isolation strategies
+
+### Quick rollback
+> "Undo the last change to `app/(tabs)/index.tsx`"
+
+### Isolation
+> "Comment out the new code so I can verify the app worked before"
+
+### Fresh start
+> "Let's start this feature over. Delete what we added and try a different approach."
+
+## Copy-paste error fix prompt
+
+```
+I'm getting this error:
+
+[PASTE FULL ERROR HERE]
+
+The code that's causing it:
+
+[PASTE RELEVANT CODE]
+
+Before fixing, explain:
+1. What's causing this error?
+2. What's the safest fix?
+
+Then apply the fix.
+```
+
+## Common Expo / React Native error buckets
+
+| Error | Likely cause |
+|-------|-------------|
+| "Cannot read property of undefined" | Missing null check |
+| "Unable to resolve module" | Missing import or package |
+| "Invalid hook call" | Hook called conditionally |
+| "Text strings must be rendered in Text" | JSX outside Text component |
+
+## Checklist
+
+- [ ] Identified the error type
+- [ ] Used the 60-second triage
+- [ ] Pasted error correctly
+- [ ] Asked for root cause first
+
+## Common issues
+
+**Same error keeps coming back?** Ask the AI to explain *why* it keeps happening.
+
+**App won't start at all?** Try refreshing the preview or restarting the dev server.
+
+## What's next
+
+Learn about the [theme system](/docs/build-with-ai/theme-system) to make beautiful, consistent UIs.

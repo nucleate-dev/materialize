@@ -1,0 +1,109 @@
+---
+title: Authentication Patterns
+description: Implement email/password, magic links, and OAuth in your Nucleate app.
+section: guides
+order: 3
+---
+
+## What you'll accomplish
+
+This guide covers:
+- Email/password authentication
+- Magic link (passwordless) login
+- OAuth with social providers
+- Session handling
+
+## Email/password
+
+The most common auth pattern:
+
+```tsx
+// Sign up
+const { data, error } = await supabase.auth.signUp({
+  email,
+  password,
+});
+
+// Sign in
+const { data, error } = await supabase.auth.signInWithPassword({
+  email,
+  password,
+});
+```
+
+### Prompt for Claude
+> "Create a login screen with email and password fields. Use Supabase auth. Show errors below the form. On success, redirect to home."
+
+## Magic links
+
+Passwordless email login:
+
+```tsx
+const { error } = await supabase.auth.signInWithOtp({
+  email,
+});
+```
+
+User receives an email with a login link.
+
+### Prompt for Claude
+> "Add magic link login option. Show a success message after sending the link."
+
+## OAuth
+
+Social login (Google, Apple, GitHub):
+
+```tsx
+const { error } = await supabase.auth.signInWithOAuth({
+  provider: 'google',
+});
+```
+
+### Setup required
+1. Enable provider in Supabase dashboard
+2. Configure OAuth credentials
+3. Set redirect URLs
+
+## Session handling
+
+### Check if logged in
+```tsx
+const { data: { session } } = await supabase.auth.getSession();
+
+if (session) {
+  // User is logged in
+}
+```
+
+### Listen for auth changes
+```tsx
+supabase.auth.onAuthStateChange((event, session) => {
+  if (event === 'SIGNED_IN') {
+    // Handle sign in
+  }
+});
+```
+
+### Auth context pattern
+```tsx
+// Create an AuthProvider that wraps your app
+// Expose user, signIn, signOut via context
+```
+
+## Checklist
+
+- [ ] Chose auth method
+- [ ] Created login UI
+- [ ] Handled errors
+- [ ] Set up session persistence
+- [ ] Added logout
+
+## Common issues
+
+**Session lost on reload?** Set up async storage for session persistence.
+
+**OAuth redirect not working?** Check your redirect URL configuration.
+
+## What's next
+
+Learn about [Expo Router](/docs/guides/expo-router) for navigation.

@@ -1,0 +1,108 @@
+---
+title: Payments & Subscriptions
+description: Add in-app purchases and subscriptions using RevenueCat or Stripe.
+section: guides
+order: 7
+---
+
+## What you'll accomplish
+
+This guide covers:
+- RevenueCat for in-app purchases
+- Stripe for web payments
+- Test users and sandbox
+- Common App Store review issues
+
+## RevenueCat (recommended for mobile)
+
+### Why RevenueCat?
+- Handles both iOS and Android
+- Manages subscriptions
+- Provides analytics
+- Abstracts store APIs
+
+### Setup
+
+1. Create a RevenueCat account
+2. Add your App Store / Play Store apps
+3. Configure products in store dashboards
+4. Install the SDK:
+
+```tsx
+import Purchases from 'react-native-purchases';
+
+Purchases.configure({ apiKey: 'your_api_key' });
+```
+
+### Get offerings
+```tsx
+const offerings = await Purchases.getOfferings();
+
+if (offerings.current) {
+  const packages = offerings.current.availablePackages;
+  // Display packages to user
+}
+```
+
+### Make a purchase
+```tsx
+const { customerInfo } = await Purchases.purchasePackage(package);
+
+if (customerInfo.entitlements.active['premium']) {
+  // User now has premium access
+}
+```
+
+## Stripe (for web payments)
+
+For web-based payments or one-time purchases:
+
+```tsx
+// Create a checkout session on your server
+const session = await stripe.checkout.sessions.create({
+  payment_method_types: ['card'],
+  line_items: [...],
+  mode: 'subscription',
+  success_url: 'https://...',
+  cancel_url: 'https://...',
+});
+```
+
+## Store test users
+
+### iOS Sandbox
+1. Create sandbox tester in App Store Connect
+2. Sign out of App Store on device
+3. Use sandbox account when prompted
+
+### Android test users
+1. Add testers in Play Console
+2. Join the test track
+3. Use test card numbers
+
+## Common review issues
+
+| Issue | Solution |
+|-------|----------|
+| "Restore purchases" missing | Add a restore button |
+| Unclear subscription terms | Show price and billing cycle clearly |
+| No way to cancel | Link to subscription management |
+| Free trial not clear | Show trial duration prominently |
+
+## Checklist
+
+- [ ] Chose payment provider
+- [ ] Set up products in store
+- [ ] Integrated SDK
+- [ ] Tested with sandbox user
+- [ ] Added restore purchases
+
+## Common issues
+
+**Purchase not completing?** Check you're using a sandbox/test account.
+
+**Products not loading?** Verify product IDs match exactly.
+
+## What's next
+
+Ready to ship? Learn to [deploy to TestFlight](/docs/deploy/testflight).

@@ -1,0 +1,80 @@
+---
+title: How Nucleate Projects Are Structured
+description: Understand the folder structure, where config lives, and where AI edits should happen.
+section: getting-started
+order: 3
+---
+
+## What you'll accomplish
+
+After this guide, you'll know:
+- Where each type of file belongs
+- What the AI can and should edit
+- Files you shouldn't touch (yet)
+
+## Step-by-step
+
+### App folders
+
+```
+app/                    # Routes and screens
+├── (tabs)/             # Tab navigation group
+│   ├── index.tsx       # Home tab
+│   ├── explore.tsx     # Explore tab
+│   └── _layout.tsx     # Tab bar config
+├── _layout.tsx         # Root layout
+└── +not-found.tsx      # 404 page
+```
+
+### Component folders
+
+```
+components/             # Reusable UI components
+├── ui/                 # Base components (buttons, inputs)
+├── ThemedText.tsx      # Text with theme support
+└── ThemedView.tsx      # View with theme support
+```
+
+### Where config lives
+
+```
+constants/
+├── Colors.ts           # Theme colors
+└── Theme.ts            # Spacing, typography, etc.
+
+app.json                # Expo app config
+package.json            # Dependencies
+```
+
+### Where AI edits should happen
+
+Claude is best at editing:
+- `app/` screens and routes
+- `components/` for new UI
+- `constants/` for theme changes
+- `lib/` for utilities
+
+### What users should not touch yet
+
+Avoid modifying these until you're more advanced:
+- `babel.config.js`
+- `metro.config.js`
+- `tsconfig.json`
+- `node_modules/`
+
+## Checklist
+
+- [ ] Explored the app folder
+- [ ] Found the components folder
+- [ ] Located theme constants
+- [ ] Understood AI edit zones
+
+## Common issues
+
+**Created a file in the wrong place?** Ask Claude to move it for you.
+
+**Can't find a component?** Use the file search in the sidebar.
+
+## What's next
+
+Start [building with AI](/docs/build-with-ai/prompting) - learn how to write effective prompts.

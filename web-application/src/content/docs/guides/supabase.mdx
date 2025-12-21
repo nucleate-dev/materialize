@@ -1,0 +1,100 @@
+---
+title: Add Supabase to Your App
+description: Set up Supabase for authentication, database, and storage in your Nucleate project.
+section: guides
+order: 2
+---
+
+## What you'll accomplish
+
+By the end of this guide, you'll have:
+- Supabase client configured
+- Basic auth working
+- Database queries running
+
+## Step-by-step
+
+### 1. Create a Supabase project
+
+Visit [supabase.com](https://supabase.com) and create a new project. Note your:
+- Project URL
+- Anon public key
+
+### 2. Add environment variables
+
+In Nucleate settings, add:
+- `EXPO_PUBLIC_SUPABASE_URL` = your project URL
+- `EXPO_PUBLIC_SUPABASE_ANON_KEY` = your anon key
+
+### 3. Install the client
+
+Ask Claude:
+> "Add @supabase/supabase-js to the project and create a Supabase client in lib/supabase.ts"
+
+### 4. Create the client
+
+```tsx
+// lib/supabase.ts
+import { createClient } from '@supabase/supabase-js';
+
+const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL!;
+const supabaseKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!;
+
+export const supabase = createClient(supabaseUrl, supabaseKey);
+```
+
+## Auth basics
+
+### Sign up
+```tsx
+const { data, error } = await supabase.auth.signUp({
+  email: 'user@example.com',
+  password: 'securepassword',
+});
+```
+
+### Sign in
+```tsx
+const { data, error } = await supabase.auth.signInWithPassword({
+  email: 'user@example.com',
+  password: 'securepassword',
+});
+```
+
+### Sign out
+```tsx
+await supabase.auth.signOut();
+```
+
+## Database queries
+
+### Fetch data
+```tsx
+const { data, error } = await supabase
+  .from('posts')
+  .select('*');
+```
+
+### Insert data
+```tsx
+const { error } = await supabase
+  .from('posts')
+  .insert({ title: 'Hello', content: 'World' });
+```
+
+## Checklist
+
+- [ ] Created Supabase project
+- [ ] Added env variables
+- [ ] Created client file
+- [ ] Tested a query
+
+## Common issues
+
+**Connection failed?** Double-check your URL and key.
+
+**Auth not persisting?** You may need to set up async storage for session persistence.
+
+## What's next
+
+Learn about [authentication patterns](/docs/guides/authentication).

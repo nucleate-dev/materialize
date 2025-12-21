@@ -1,0 +1,129 @@
+---
+title: Assets - Icons, Splash Screens, Fonts
+description: Customize your app's icon, splash screen, and add custom fonts.
+section: guides
+order: 5
+---
+
+## What you'll accomplish
+
+This guide covers:
+- Setting up app icons
+- Configuring splash screens
+- Adding custom fonts
+- Previewing changes
+
+## App icons
+
+### Requirements
+- Size: 1024x1024 pixels
+- Format: PNG
+- No transparency for iOS
+- No rounded corners (system adds them)
+
+### Setup
+1. Add your icon to `assets/images/icon.png`
+2. Update `app.json`:
+
+```json
+{
+  "expo": {
+    "icon": "./assets/images/icon.png"
+  }
+}
+```
+
+### Adaptive icons (Android)
+```json
+{
+  "expo": {
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      }
+    }
+  }
+}
+```
+
+## Splash screens
+
+### Requirements
+- Size: 1284x2778 pixels (or use resizeMode)
+- Format: PNG
+
+### Setup
+```json
+{
+  "expo": {
+    "splash": {
+      "image": "./assets/images/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    }
+  }
+}
+```
+
+### Resize modes
+- `contain` - Fit within screen
+- `cover` - Fill screen (may crop)
+- `native` - Use native splash
+
+## Custom fonts
+
+### 1. Add font files
+Place `.ttf` or `.otf` files in `assets/fonts/`
+
+### 2. Load fonts
+```tsx
+import { useFonts } from 'expo-font';
+
+export default function App() {
+  const [fontsLoaded] = useFonts({
+    'CustomFont': require('./assets/fonts/CustomFont.ttf'),
+  });
+
+  if (!fontsLoaded) {
+    return null; // Or a loading screen
+  }
+
+  return <YourApp />;
+}
+```
+
+### 3. Use the font
+```tsx
+<Text style={{ fontFamily: 'CustomFont' }}>
+  Custom font text
+</Text>
+```
+
+## Previewing changes
+
+### Icons
+Icons don't show in Expo Go. You need to build a development build or submit to stores.
+
+### Splash screens
+Test by reloading the app in the preview.
+
+### Fonts
+Fonts show immediately after the app reloads.
+
+## Checklist
+
+- [ ] Created 1024x1024 icon
+- [ ] Set up splash screen
+- [ ] Loaded custom fonts
+- [ ] Tested in preview
+
+## Common issues
+
+**Icon not showing?** Icons only appear in built apps, not Expo Go.
+
+**Font not loading?** Check the file path and font name match exactly.
+
+## What's next
+
+Learn about [push notifications](/docs/guides/push-notifications).

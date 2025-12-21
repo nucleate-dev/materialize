@@ -1,0 +1,103 @@
+---
+title: Prompting in Nucleate
+description: Master the art of AI-assisted development. Learn how to direct Claude like a tech lead.
+section: build-with-ai
+order: 1
+---
+
+## What you'll accomplish
+
+This is one of the most important pages in our docs. By the end, you'll:
+- Understand the "tech lead" mental model
+- Write prompts that get results
+- Avoid common prompting mistakes
+
+## Mental model: You are the tech lead
+
+Stop "chatting" with AI. Start **directing** it.
+
+You're not asking a friend for help. You're giving clear instructions to a skilled developer who needs context and constraints.
+
+## The 3-part prompt formula
+
+Every great prompt has three parts:
+
+### 1. Outcome
+What do you want to exist when this is done?
+
+### 2. Constraints
+What rules must be followed?
+
+### 3. Acceptance criteria
+How will you know it's done correctly?
+
+## Step-by-step: The ask-for-plan workflow
+
+1. **Ask for a plan first**
+   > "I want to add a settings screen. Before you write any code, outline your plan."
+
+2. **Review the plan**
+   - Does it make sense?
+   - Any missing pieces?
+
+3. **Approve and execute**
+   > "This looks good. Implement step 1."
+
+4. **Iterate one step at a time**
+   > "Step 1 is done. Now implement step 2."
+
+## Best default prompt template
+
+```
+I want to [OUTCOME].
+
+Requirements:
+- [CONSTRAINT 1]
+- [CONSTRAINT 2]
+- [CONSTRAINT 3]
+
+Before writing code, outline your plan.
+```
+
+## Good vs bad prompts
+
+### Bad prompt ❌
+> "Make the app look better"
+
+### Good prompt ✅
+> "Update the home screen header to use our theme colors. The background should be `colors.primary` and text should be white. Keep the existing layout but add 16px padding."
+
+### Bad prompt ❌
+> "Add authentication"
+
+### Good prompt ✅
+> "Add email/password sign-in using Supabase Auth. Create a login screen at `/auth/login` with email and password fields. On success, redirect to the home tab. Use our existing Button and Input components."
+
+## Nucleate-specific patterns
+
+### Reference files explicitly
+> "Look at `components/Button.tsx` and create a similar `IconButton` component."
+
+### Ask for diffs
+> "Show me the changes you'll make to `app/(tabs)/index.tsx` before applying them."
+
+### One task at a time
+Don't: "Add auth, profile page, and settings"
+Do: "Add the login screen first. We'll do profile next."
+
+## Checklist
+
+- [ ] Wrote a prompt with Outcome/Constraints/Acceptance
+- [ ] Asked for a plan before code
+- [ ] Referenced specific files
+- [ ] Kept to one task at a time
+
+## Common issues
+
+**AI did something unexpected?** You probably didn't give enough constraints. Be more specific.
+
+**Too much code at once?** Ask for a plan first, then implement step by step.
+
+## What's next
+
+Learn about [fixing errors](/docs/build-with-ai/fixing-errors) when things go wrong.

@@ -1,0 +1,134 @@
+---
+title: Debugging Build Failures
+description: Fix EAS build errors, native dependency issues, and missing env vars.
+section: troubleshooting
+order: 1
+---
+
+## What you'll accomplish
+
+This guide helps you fix:
+- EAS build errors
+- Native dependency issues
+- Missing environment variables
+
+## EAS build errors
+
+### Reading build logs
+
+1. Go to your build on [expo.dev](https://expo.dev)
+2. Click "View logs"
+3. Search for "error" (case-insensitive)
+4. Look at lines just before the error
+
+### Common EAS errors
+
+| Error | Cause | Solution |
+|-------|-------|----------|
+| "Provisioning profile" | iOS signing issue | Run `eas credentials --platform ios` |
+| "Version code" | Android version not bumped | Increment versionCode in app.json |
+| "SDK version mismatch" | Wrong Expo SDK | Update to matching SDK |
+| "Out of memory" | Build too large | Increase build resources in eas.json |
+
+## Native dependency issues
+
+### Symptoms
+- Build works locally but fails on EAS
+- "Undefined symbol" errors
+- "Module not found" for native modules
+
+### Fixes
+
+**1. Check Expo compatibility**
+```bash
+npx expo install --check
+```
+
+**2. Clear cache and rebuild**
+```bash
+eas build --platform [ios|android] --clear-cache
+```
+
+**3. Check for required plugins**
+Some packages need app.json plugins:
+
+```json
+{
+  "expo": {
+    "plugins": [
+      "expo-camera",
+      ["expo-notifications", { "icon": "./assets/notification-icon.png" }]
+    ]
+  }
+}
+```
+
+## Missing env vars
+
+### Symptoms
+- `undefined` values at runtime
+- API calls failing
+- Features not working
+
+### Diagnosis
+
+1. Check variable names match exactly
+2. Verify EXPO_PUBLIC_ prefix for client-side vars
+3. Confirm values are set in Nucleate settings
+
+### For EAS builds
+
+Set secrets in EAS:
+```bash
+eas secret:create --name MY_SECRET --value "the-value"
+```
+
+Or in eas.json:
+```json
+{
+  "build": {
+    "production": {
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://api.example.com"
+      }
+    }
+  }
+}
+```
+
+## Step-by-step debugging
+
+### 1. Reproduce locally (if possible)
+```bash
+npx expo prebuild
+npx expo run:ios  # or run:android
+```
+
+### 2. Check the full error
+Don't just read the last line - scroll up for context.
+
+### 3. Search for the error
+- [Expo forums](https://forums.expo.dev)
+- [GitHub issues](https://github.com/expo/expo/issues)
+- Stack Overflow
+
+### 4. Ask Claude for help
+> "My EAS build failed with this error: [paste error]. What's causing it?"
+
+## Checklist
+
+- [ ] Read full build logs
+- [ ] Identified error type
+- [ ] Checked Expo compatibility
+- [ ] Verified env vars
+- [ ] Cleared cache if needed
+
+## Common issues
+
+**Build works sometimes?** Try `--clear-cache` flag.
+
+**Error message unclear?** Look at lines before the error.
+
+## What's next
+
+App crashing? Check [app crashes](/docs/troubleshooting/app-crashes).

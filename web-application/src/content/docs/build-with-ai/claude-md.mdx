@@ -1,0 +1,168 @@
+---
+title: Using CLAUDE.md Effectively
+description: Set up your project's AI constitution. Give Claude persistent context about your codebase.
+section: build-with-ai
+order: 4
+---
+
+## What you'll accomplish
+
+By the end of this guide, you'll:
+- Understand what CLAUDE.md is for
+- Know what belongs in it vs. regular prompts
+- Have a working CLAUDE.md for your project
+
+## What is CLAUDE.md?
+
+CLAUDE.md is your project's **constitution** - permanent instructions that the AI follows for every interaction.
+
+Think of it as onboarding documentation for your AI developer.
+
+## Step-by-step: Creating CLAUDE.md
+
+### 1. Create the file
+
+Create `CLAUDE.md` in your project root:
+
+```markdown
+# Project: My App
+
+## Code conventions
+- Use functional components with hooks
+- Prefer named exports over default exports
+- Use TypeScript strict mode
+
+## UI rules
+- Always use ThemedText and ThemedView
+- Follow the spacing tokens from Theme.ts
+- Icons come from @expo/vector-icons
+
+## Libraries to use
+- Navigation: expo-router
+- State: React Context (no Redux)
+- API: fetch with async/await
+
+## Libraries to avoid
+- moment.js (use date-fns)
+- lodash (use native methods)
+
+## Definition of done
+- No TypeScript errors
+- Works in dark mode
+- Follows existing patterns
+```
+
+### 2. Reference it in prompts
+
+> "Following CLAUDE.md, create a new profile screen."
+
+Or explicitly:
+
+> "Check CLAUDE.md for our UI rules before creating this component."
+
+## What belongs in CLAUDE.md vs. prompts
+
+| CLAUDE.md | Regular prompts |
+|-----------|----------------|
+| Code style rules | Specific feature requests |
+| Library choices | One-time tasks |
+| UI patterns | Bug fixes |
+| Naming conventions | Refactoring |
+| Project structure | Questions |
+
+## Recommended sections
+
+### Code conventions
+How code should be written:
+- Formatting preferences
+- Naming patterns
+- File organization
+
+### UI rules
+How the app should look:
+- Which components to use
+- Spacing and typography
+- Accessibility requirements
+
+### Libraries to use/avoid
+Dependency decisions:
+- Preferred packages
+- What not to use
+- Version constraints
+
+### Performance rules
+Optimization guidelines:
+- Image optimization
+- List virtualization
+- Lazy loading
+
+### Definition of done
+Quality checklist:
+- TypeScript clean
+- Tested in dark mode
+- No console warnings
+
+## Keep it short & powerful
+
+CLAUDE.md should be:
+- ✅ Scannable (bullet points)
+- ✅ Actionable (clear rules)
+- ✅ Updated (reflect current decisions)
+- ❌ Not a novel (keep under 100 lines)
+
+## Prompt snippets that reference it
+
+> "Create a settings screen. Follow CLAUDE.md conventions."
+
+> "Before you start, review CLAUDE.md and confirm you understand our UI rules."
+
+> "Add this feature, but check CLAUDE.md for which libraries to use."
+
+## Starter CLAUDE.md
+
+```markdown
+# [Your App Name]
+
+## Stack
+- Expo with expo-router
+- TypeScript strict
+- React Native 0.74+
+
+## Code style
+- Functional components only
+- Named exports
+- Types in separate .types.ts files
+
+## UI
+- Use ThemedText/ThemedView
+- Spacing from constants/Theme.ts
+- Icons from @expo/vector-icons
+
+## State
+- React Context for global state
+- useState for local state
+- No Redux
+
+## Done means
+- No TS errors
+- Works light + dark mode
+- Matches existing patterns
+```
+
+## Checklist
+
+- [ ] Created CLAUDE.md in project root
+- [ ] Added code conventions
+- [ ] Added UI rules
+- [ ] Added library preferences
+- [ ] Tested with a prompt
+
+## Common issues
+
+**AI ignoring CLAUDE.md?** Explicitly reference it in your prompt.
+
+**File too long?** Keep it focused on decisions, not explanations.
+
+## What's next
+
+Explore [common AI workflows](/docs/build-with-ai/common-workflows) for building features.
