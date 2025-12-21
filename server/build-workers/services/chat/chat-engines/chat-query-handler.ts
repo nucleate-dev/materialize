@@ -1444,10 +1444,10 @@ export class ChatQueryHandler {
     let designSubagentEnabled = false;
     if (userId) {
       designSubagentEnabled =
-        (await posthog.isFeatureEnabled(
+        (await posthog.getFeatureFlag(
           "claude-code-sdk-design-subagent",
           userId,
-        )) ?? false;
+        )) === "test";
     }
     logger.info("design subagent flag checked: ", {
       designSubagentEnabled,
