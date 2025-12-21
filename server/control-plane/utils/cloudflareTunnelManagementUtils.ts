@@ -113,6 +113,12 @@ export async function createCloudflareTunnelForContainer(
               },
               {
                 hostname,
+                path: '/dev-server/undo-last-change',
+                service: `http://localhost:3002`,
+                originRequest: {},
+              },
+              {
+                hostname,
                 service: `http://127.0.0.1:19006`,
                 originRequest: {},
               },

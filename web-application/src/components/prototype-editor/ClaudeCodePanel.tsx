@@ -59,14 +59,14 @@ interface ClaudeCodePanelProps {
 export interface Message {
   id: string;
   type:
-  | "user"
-  | "assistant"
-  | "system"
-  | "error"
-  | "tool"
-  | "thinking"
-  | "usage"
-  | "design_spec";
+    | "user"
+    | "assistant"
+    | "system"
+    | "error"
+    | "tool"
+    | "thinking"
+    | "usage"
+    | "design_spec";
   content: string;
   timestamp: number;
   toolName?: string;
@@ -162,7 +162,7 @@ export default function ClaudeCodePanel({
     allChatSessions.length === 0 ||
     Boolean(
       prototypeChatSessionId &&
-      allChatSessions[0]?.id === prototypeChatSessionId,
+        allChatSessions[0]?.id === prototypeChatSessionId,
     );
 
   // Settings modal state
@@ -1242,7 +1242,7 @@ export default function ClaudeCodePanel({
       }
 
       default: {
-        const unknownMessage = message as { type: string; };
+        const unknownMessage = message as { type: string };
         logger.debug("log", "Unknown message type", {
           messageType: unknownMessage.type,
         });
@@ -1854,7 +1854,7 @@ export default function ClaudeCodePanel({
       const content: Array<{
         type: string;
         text?: string;
-        source?: { type: string; url: string; };
+        source?: { type: string; url: string };
       }> = [];
 
       // Add text if present
@@ -2222,16 +2222,22 @@ export default function ClaudeCodePanel({
         return;
       }
 
-      const response = await fetch(`${normalizedUrl}/undo-last-change`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
+      const response = await fetch(
+        `${normalizedUrl}/dev-server/undo-last-change`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
         },
-      });
+      );
 
       if (!response.ok) {
         const errorText = await response.text();
-        logger.debug("error", "Undo failed", { status: response.status, errorText });
+        logger.debug("error", "Undo failed", {
+          status: response.status,
+          errorText,
+        });
         addMessage("error", "Failed to undo last change");
         return;
       }
