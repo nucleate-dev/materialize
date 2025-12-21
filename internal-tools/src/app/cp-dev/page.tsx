@@ -51,6 +51,7 @@ import {
   Server,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { SandboxDeploymentCard } from "@/components/sandbox-deployment-card";
 
 const INSTANCE_STORAGE_KEY = "dev-ec2-instance";
 
@@ -686,9 +687,6 @@ export default function DevServerPage() {
   const [copiedField, setCopiedField] = useState<
     null | "publicDns" | "publicIpv4" | "sshCommand"
   >(null);
-  const sandboxTerminalRef = useRef<HTMLDivElement>(null);
-  const sandboxXtermRef = useRef<any>(null);
-  const sandboxFitAddonRef = useRef<any>(null);
   const [configuringFiles, setConfiguringFiles] = useState(false);
   const [configureSuccess, setConfigureSuccess] = useState(false);
   const [timeRemaining, setTimeRemaining] = useState<string>("");
@@ -696,7 +694,6 @@ export default function DevServerPage() {
   const [selectedTab, setSelectedTab] = useState<"Server" | "Sandbox">(
     "Server",
   );
-  const [deployingSandbox, setDeployingSandbox] = useState(false);
   const [resettingSandbox, setResettingSandbox] = useState(false);
   const [resetSandboxOutput, setResetSandboxOutput] = useState<string>("");
 
@@ -825,198 +822,6 @@ export default function DevServerPage() {
       // noop
     }
   };
-
-  // Initialize xterm.js terminal for sandbox
-  useEffect(() => {
-    if (!sandboxTerminalRef.current) return;
-    // Don't reinitialize if already initialized
-    if (sandboxXtermRef.current) return;
-
-    console.log("[Frontend] Initializing sandbox terminal");
-
-    const initTerminal = async () => {
-      const { Terminal } = await import("@xterm/xterm");
-      const { FitAddon } = await import("@xterm/addon-fit");
-
-      const terminal = new Terminal({
-        cursorBlink: false,
-        fontSize: 12,
-        fontFamily: 'Menlo, Monaco, "Courier New", monospace',
-        theme: {
-          background: "#09090b",
-          foreground: "#fafafa",
-        },
-        convertEol: true,
-        scrollback: 10000,
-      });
-
-      const fitAddon = new FitAddon();
-      terminal.loadAddon(fitAddon);
-
-      terminal.open(sandboxTerminalRef.current!);
-      fitAddon.fit();
-
-      sandboxXtermRef.current = terminal;
-      sandboxFitAddonRef.current = fitAddon;
-
-      console.log("[Frontend] Sandbox terminal initialized successfully");
-      terminal.writeln(
-        "Ready to deploy sandbox. Click the deploy button to begin...",
-      );
-
-      // Handle window resize
-      const handleResize = () => {
-        fitAddon.fit();
-      };
-      window.addEventListener("resize", handleResize);
-
-      return () => {
-        window.removeEventListener("resize", handleResize);
-        terminal.dispose();
-      };
-    };
-
-    initTerminal();
-  }, []);
-
-  const handleDeploySandbox = useCallback(async () => {
-    console.log("[Frontend] Starting sandbox deployment");
-    console.log(
-      "[Frontend] Sandbox terminal ref exists:",
-      !!sandboxXtermRef.current,
-    );
-
-    setDeployingSandbox(true);
-    setError(null);
-
-    // Clear terminal and write header
-    if (sandboxXtermRef.current) {
-      sandboxXtermRef.current.clear();
-      sandboxXtermRef.current.writeln(
-        "\x1b[1;36m=== Deploying Sandbox to ECR ===\x1b[0m\n",
-      );
-    } else {
-      console.warn("[Frontend] Sandbox terminal not initialized yet!");
-    }
-
-    try {
-      console.log(
-        "[Frontend] Fetching /api/development/deploy-sandbox-for-development",
-      );
-      const response = await fetch(
-        "/api/development/deploy-sandbox-for-development",
-        {
-          method: "POST",
-        },
-      );
-
-      console.log("[Frontend] Response status:", response.status);
-      console.log(
-        "[Frontend] Response headers:",
-        Object.fromEntries(response.headers.entries()),
-      );
-
-      if (!response.ok) {
-        throw new Error("Failed to start sandbox deployment");
-      }
-
-      const reader = response.body?.getReader();
-      const decoder = new TextDecoder();
-
-      if (!reader) {
-        console.error("[Frontend] No response body available");
-        throw new Error("No response body");
-      }
-
-      console.log("[Frontend] Starting to read stream");
-      let buffer = "";
-      let finalResult: { success: boolean; error?: string } = {
-        success: false,
-      };
-      let chunkCount = 0;
-
-      while (true) {
-        const { done, value } = await reader.read();
-
-        if (done) {
-          console.log(
-            "[Frontend] Stream done. Total chunks received:",
-            chunkCount,
-          );
-          break;
-        }
-
-        chunkCount++;
-        const chunk = decoder.decode(value, { stream: true });
-        console.log(
-          "[Frontend] Received chunk #" + chunkCount + ":",
-          chunk.substring(0, 100) + "...",
-        );
-
-        buffer += chunk;
-        const lines = buffer.split("\n");
-        buffer = lines.pop() || "";
-
-        for (const line of lines) {
-          if (!line.trim()) continue;
-
-          console.log(
-            "[Frontend] Processing line:",
-            line.substring(0, 100) + "...",
-          );
-
-          try {
-            const message = JSON.parse(line);
-            console.log("[Frontend] Parsed message type:", message.type);
-
-            if (message.type === "data") {
-              // Write to terminal if available
-              if (sandboxXtermRef.current) {
-                sandboxXtermRef.current.write(message.data);
-              }
-            } else if (message.type === "done") {
-              console.log("[Frontend] Received done message:", message);
-              finalResult = { success: message.success };
-            } else if (message.type === "error") {
-              console.error("[Frontend] Received error message:", message);
-              finalResult = { success: false, error: message.error };
-            }
-          } catch (e) {
-            console.error("[Frontend] Failed to parse message:", line, e);
-          }
-        }
-      }
-
-      console.log("[Frontend] Final result:", finalResult);
-
-      if (!finalResult.success) {
-        const error = new Error(
-          finalResult.error || "Sandbox deployment failed",
-        );
-        throw error;
-      }
-
-      if (sandboxXtermRef.current) {
-        sandboxXtermRef.current.writeln(
-          "\n\x1b[1;32m✓ Sandbox deployment completed successfully!\x1b[0m",
-        );
-      }
-    } catch (err) {
-      console.error("[Frontend] Error during deployment:", err);
-      const errorMsg =
-        err instanceof Error ? err.message : "Failed to deploy sandbox";
-      setError(errorMsg);
-
-      if (sandboxXtermRef.current) {
-        sandboxXtermRef.current.writeln(
-          `\n\x1b[1;31m✗ Error: ${errorMsg}\x1b[0m`,
-        );
-      }
-    } finally {
-      console.log("[Frontend] Deployment finished");
-      setDeployingSandbox(false);
-    }
-  }, []);
 
   const handleResetSandbox = useCallback(async () => {
     if (!ec2Details?.publicIpv4) {
@@ -1783,78 +1588,9 @@ export default function DevServerPage() {
         </div>
 
         {/* Sandbox Tab Content - File Deployment */}
-        <div className={selectedTab === "Sandbox" ? "block" : "hidden"}>
+        <div className={selectedTab === "Sandbox" ? "block space-y-6" : "hidden"}>
           {/* Sandbox Docker Image Deployment Card */}
-          <Card className="w-full mb-6">
-            <CardContent>
-              <div className="grid grid-cols-1 lg:grid-cols-[20%_80%] gap-6">
-                {/* Left side: Controls */}
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <Rocket className="h-5 w-5 text-blue-600" />
-                      <h3 className="text-lg font-semibold">
-                        Sandbox Deployment
-                      </h3>
-                    </div>
-                    <p className="text-sm text-muted-foreground">
-                      Deploy the sandbox Docker image to ECR for development
-                      testing.
-                    </p>
-                  </div>
-
-                  <div className="flex items-center gap-3">
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          onClick={handleDeploySandbox}
-                          disabled={deployingSandbox}
-                          className="flex items-center gap-2"
-                        >
-                          {deployingSandbox ? (
-                            <>
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                              Deploying...
-                            </>
-                          ) : (
-                            <>
-                              <Rocket className="h-4 w-4" />
-                              Deploy Sandbox to ECR
-                            </>
-                          )}
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p className="text-xs">
-                          Build and push the sandbox Docker image to ECR.
-                          <br />
-                          This runs the push-to-ecr.sh script from the server
-                          directory.
-                        </p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </div>
-                </div>
-
-                {/* Right side: Terminal */}
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2 text-sm font-medium">
-                    <Rocket className="h-4 w-4 text-muted-foreground" />
-                    Deployment output
-                  </div>
-                  <div className="rounded border overflow-hidden">
-                    <div
-                      ref={sandboxTerminalRef}
-                      className="h-48"
-                      style={{
-                        backgroundColor: "#09090b",
-                      }}
-                    />
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          <SandboxDeploymentCard deploymentType="development" />
 
           {/* Reset Sandbox Card */}
           <Card className="w-full mb-6">

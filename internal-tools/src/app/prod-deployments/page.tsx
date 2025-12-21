@@ -32,7 +32,9 @@ import {
   Loader2,
   AlertTriangle,
   RefreshCw,
+  Server,
 } from "lucide-react";
+import { SandboxDeploymentCard } from "@/components/sandbox-deployment-card";
 
 interface ValidationResult {
   success: boolean;
@@ -68,6 +70,9 @@ export default function ProdDeploymentsPage() {
   const [refreshResult, setRefreshResult] =
     useState<RefreshIdleContainersResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [selectedTab, setSelectedTab] = useState<"Server" | "Sandbox">(
+    "Server"
+  );
 
   const handleValidateDeployment = async () => {
     try {
@@ -408,263 +413,290 @@ export default function ProdDeploymentsPage() {
           </Alert>
         )}
 
-        {/* Prerequisites Information Card */}
-        <Card className="border-orange-200 bg-orange-50 dark:border-orange-800 dark:bg-orange-900/50">
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-orange-600" />
-              <CardTitle className="text-orange-800 dark:text-orange-200">
-                Prerequisites
-              </CardTitle>
-            </div>
-            <CardDescription className="text-orange-700 dark:text-orange-300">
-              Before deploying to production, ensure your latest changes are
-              available in the deployment artifacts.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="text-sm text-orange-800 dark:text-orange-200">
-              <p className="font-medium mb-2">
-                To deploy your latest changes to production:
-              </p>
-              <ol className="list-decimal list-inside space-y-1 ml-2">
-                <li>
-                  Navigate to{" "}
-                  <code className="bg-orange-100 dark:bg-orange-800 px-1 rounded">
-                    server/control-plane
-                  </code>{" "}
-                  directory
-                </li>
-                <li>
-                  Run{" "}
-                  <code className="bg-orange-100 dark:bg-orange-800 px-1 rounded">
-                    npm run build
-                  </code>{" "}
-                  to compile TypeScript
-                </li>
-                <li>
-                  Run{" "}
-                  <code className="bg-orange-100 dark:bg-orange-800 px-1 rounded">
-                    npm run deploy:prod
-                  </code>{" "}
-                  to upload build artifacts
-                </li>
-                <li>Then use the validation and deployment tools below</li>
-              </ol>
-            </div>
-            <div className="text-xs text-orange-600 dark:text-orange-400 mt-3 p-2 bg-orange-100 dark:bg-orange-900 rounded">
-              <strong>Note:</strong> The deployment validation and production
-              deployment tools below will use the artifacts uploaded by{" "}
-              <code>npm run deploy:prod</code>. Make sure to run this command
-              after any code changes to ensure your latest updates are included
-              in the deployment.
-            </div>
-          </CardContent>
-        </Card>
+        {/* Tab Selector */}
+        <div className="flex items-center gap-2 border-b">
+          <Button
+            variant={selectedTab === "Server" ? "default" : "ghost"}
+            onClick={() => setSelectedTab("Server")}
+            className="rounded-b-none"
+          >
+            <Server className="h-4 w-4 mr-2" />
+            Server
+          </Button>
+          <Button
+            variant={selectedTab === "Sandbox" ? "default" : "ghost"}
+            onClick={() => setSelectedTab("Sandbox")}
+            className="rounded-b-none"
+          >
+            <Rocket className="h-4 w-4 mr-2" />
+            Sandbox
+          </Button>
+        </div>
 
-        {/* Deployment Validation Card */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <Shield className="h-5 w-5 text-green-600" />
-              <CardTitle>Deployment Safety Validation</CardTitle>
-            </div>
-            <CardDescription>
-              Validate deployment safety by spinning up a test instance with the
-              production user data script. This will acquire an EC2 instance,
-              run the production build process, and verify the server starts
-              successfully.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <Button
-              onClick={handleValidateDeployment}
-              disabled={validating}
-              className="w-full sm:w-auto"
-            >
-              {validating ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Validating...
-                </>
-              ) : (
-                <>
-                  <Shield className="h-4 w-4 mr-2" />
-                  Validate Deployment Safety
-                </>
-              )}
-            </Button>
-
-            <div className="text-xs text-muted-foreground space-y-1">
-              <p>
-                • Acquires a temporary EC2 instance with production user data
-                script
-              </p>
-              <p>
-                • Verifies the control plane server starts and responds to
-                health checks
-              </p>
-              <p>• Instance automatically shuts down after 10 minutes</p>
-              <p>• Must pass validation before production deployment</p>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Separator />
-
-        {/* Refresh Idle Containers Card */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <RefreshCw className="h-5 w-5 text-purple-600" />
-              <CardTitle>Refresh Idle Container Pool</CardTitle>
-            </div>
-            <CardDescription>
-              Refresh all idle containers by terminating existing ones and
-              launching new ones. This is useful after deployments to ensure idle
-              containers are running the latest container image.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <Button
-              onClick={handleRefreshIdleContainers}
-              disabled={refreshing}
-              className="w-full sm:w-auto"
-              variant="outline"
-            >
-              {refreshing ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Refreshing...
-                </>
-              ) : (
-                <>
-                  <RefreshCw className="h-4 w-4 mr-2" />
-                  Refresh Idle Containers
-                </>
-              )}
-            </Button>
-
-            <div className="text-xs text-muted-foreground space-y-1">
-              <p>• Terminates all existing idle containers</p>
-              <p>• Launches new idle containers to replace them</p>
-              <p>• New containers will run the latest deployed image</p>
-              <p>
-                • Recommended after successful production deployment to refresh
-                the pool
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Separator />
-
-        {/* Production Deployment Card */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <Rocket className="h-5 w-5 text-blue-600" />
-              <CardTitle>Production Deployment</CardTitle>
-            </div>
-            <CardDescription>
-              Deploy the changes on the main branch to production via an Auto
-              Scaling Group instance refresh. This will gradually replace
-              instances with the latest code from S3.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="min-healthy-percentage">
-                  Min Healthy Percentage
-                </Label>
-                <Input
-                  id="min-healthy-percentage"
-                  type="number"
-                  min="0"
-                  max="100"
-                  value={minHealthyPercentage}
-                  onChange={(e) => setMinHealthyPercentage(e.target.value)}
-                  disabled={deploying}
-                />
-                <p className="text-xs text-muted-foreground">
-                  Percentage of capacity that must remain healthy during
-                  deployment (default: 100)
-                </p>
+        {/* Server Tab Content */}
+        <div className={selectedTab === "Server" ? "block space-y-6" : "hidden"}>
+          {/* Prerequisites Information Card */}
+          <Card className="border-orange-200 bg-orange-50 dark:border-orange-800 dark:bg-orange-900/50">
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="h-5 w-5 text-orange-600" />
+                <CardTitle className="text-orange-800 dark:text-orange-200">
+                  Prerequisites
+                </CardTitle>
               </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="instance-warmup">
-                  Instance Warmup (seconds)
-                </Label>
-                <Input
-                  id="instance-warmup"
-                  type="number"
-                  min="0"
-                  value={instanceWarmup}
-                  onChange={(e) => setInstanceWarmup(e.target.value)}
-                  disabled={deploying}
-                />
-                <p className="text-xs text-muted-foreground">
-                  Time to wait before moving to next instance (default: 180)
+              <CardDescription className="text-orange-700 dark:text-orange-300">
+                Before deploying to production, ensure your latest changes are
+                available in the deployment artifacts.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="text-sm text-orange-800 dark:text-orange-200">
+                <p className="font-medium mb-2">
+                  To deploy your latest changes to production:
                 </p>
+                <ol className="list-decimal list-inside space-y-1 ml-2">
+                  <li>
+                    Navigate to{" "}
+                    <code className="bg-orange-100 dark:bg-orange-800 px-1 rounded">
+                      server/control-plane
+                    </code>{" "}
+                    directory
+                  </li>
+                  <li>
+                    Run{" "}
+                    <code className="bg-orange-100 dark:bg-orange-800 px-1 rounded">
+                      npm run build
+                    </code>{" "}
+                    to compile TypeScript
+                  </li>
+                  <li>
+                    Run{" "}
+                    <code className="bg-orange-100 dark:bg-orange-800 px-1 rounded">
+                      npm run deploy:prod
+                    </code>{" "}
+                    to upload build artifacts
+                  </li>
+                  <li>Then use the validation and deployment tools below</li>
+                </ol>
               </div>
-            </div>
+              <div className="text-xs text-orange-600 dark:text-orange-400 mt-3 p-2 bg-orange-100 dark:bg-orange-900 rounded">
+                <strong>Note:</strong> The deployment validation and production
+                deployment tools below will use the artifacts uploaded by{" "}
+                <code>npm run deploy:prod</code>. Make sure to run this command
+                after any code changes to ensure your latest updates are included
+                in the deployment.
+              </div>
+            </CardContent>
+          </Card>
 
-            <div className="flex gap-2">
+          {/* Deployment Validation Card */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <Shield className="h-5 w-5 text-green-600" />
+                <CardTitle>Deployment Safety Validation</CardTitle>
+              </div>
+              <CardDescription>
+                Validate deployment safety by spinning up a test instance with the
+                production user data script. This will acquire an EC2 instance,
+                run the production build process, and verify the server starts
+                successfully.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
               <Button
-                onClick={handleDeployToProd}
-                disabled={deploying || !validationResult?.success}
-                variant="default"
+                onClick={handleValidateDeployment}
+                disabled={validating}
+                className="w-full sm:w-auto"
               >
-                {deploying ? (
+                {validating ? (
                   <>
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Deploying...
+                    Validating...
                   </>
                 ) : (
                   <>
-                    <Rocket className="h-4 w-4 mr-2" />
-                    Deploy to Production
+                    <Shield className="h-4 w-4 mr-2" />
+                    Validate Deployment Safety
                   </>
                 )}
               </Button>
 
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    onClick={handleValidateAndDeploy}
-                    disabled={validating || deploying}
-                    variant="secondary"
-                  >
-                    {validating || deploying ? (
-                      <>
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        {validating ? "Validating..." : "Deploying..."}
-                      </>
-                    ) : (
-                      <>
-                        <Shield className="h-4 w-4 mr-2" />
-                        Validate & Deploy
-                      </>
-                    )}
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>
-                    Validates deployment safety first, then deploys if
-                    validation passes
-                  </p>
-                </TooltipContent>
-              </Tooltip>
-            </div>
+              <div className="text-xs text-muted-foreground space-y-1">
+                <p>
+                  • Acquires a temporary EC2 instance with production user data
+                  script
+                </p>
+                <p>
+                  • Verifies the control plane server starts and responds to
+                  health checks
+                </p>
+                <p>• Instance automatically shuts down after 10 minutes</p>
+                <p>• Must pass validation before production deployment</p>
+              </div>
+            </CardContent>
+          </Card>
 
-            <div className="text-xs text-muted-foreground space-y-1">
-              <p>• Deployment requires successful validation first</p>
-              <p>• Monitor AWS console for deployment progress</p>
-            </div>
-          </CardContent>
-        </Card>
+          <Separator />
+
+          {/* Production Deployment Card */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <Rocket className="h-5 w-5 text-blue-600" />
+                <CardTitle>Production Deployment</CardTitle>
+              </div>
+              <CardDescription>
+                Deploy the changes on the main branch to production via an Auto
+                Scaling Group instance refresh. This will gradually replace
+                instances with the latest code from S3.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="min-healthy-percentage">
+                    Min Healthy Percentage
+                  </Label>
+                  <Input
+                    id="min-healthy-percentage"
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={minHealthyPercentage}
+                    onChange={(e) => setMinHealthyPercentage(e.target.value)}
+                    disabled={deploying}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Percentage of capacity that must remain healthy during
+                    deployment (default: 100)
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="instance-warmup">
+                    Instance Warmup (seconds)
+                  </Label>
+                  <Input
+                    id="instance-warmup"
+                    type="number"
+                    min="0"
+                    value={instanceWarmup}
+                    onChange={(e) => setInstanceWarmup(e.target.value)}
+                    disabled={deploying}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Time to wait before moving to next instance (default: 180)
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex gap-2">
+                <Button
+                  onClick={handleDeployToProd}
+                  disabled={deploying || !validationResult?.success}
+                  variant="default"
+                >
+                  {deploying ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Deploying...
+                    </>
+                  ) : (
+                    <>
+                      <Rocket className="h-4 w-4 mr-2" />
+                      Deploy to Production
+                    </>
+                  )}
+                </Button>
+
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      onClick={handleValidateAndDeploy}
+                      disabled={validating || deploying}
+                      variant="secondary"
+                    >
+                      {validating || deploying ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          {validating ? "Validating..." : "Deploying..."}
+                        </>
+                      ) : (
+                        <>
+                          <Shield className="h-4 w-4 mr-2" />
+                          Validate & Deploy
+                        </>
+                      )}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>
+                      Validates deployment safety first, then deploys if
+                      validation passes
+                    </p>
+                  </TooltipContent>
+                </Tooltip>
+              </div>
+
+              <div className="text-xs text-muted-foreground space-y-1">
+                <p>• Deployment requires successful validation first</p>
+                <p>• Monitor AWS console for deployment progress</p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Sandbox Tab Content */}
+        <div className={selectedTab === "Sandbox" ? "block space-y-6" : "hidden"}>
+          {/* Sandbox Deployment to Production */}
+          <SandboxDeploymentCard deploymentType="production" />
+
+          {/* Refresh Idle Containers Card */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <RefreshCw className="h-5 w-5 text-purple-600" />
+                <CardTitle>Refresh Idle Container Pool</CardTitle>
+              </div>
+              <CardDescription>
+                Refresh all idle containers by terminating existing ones and
+                launching new ones. This is useful after deployments to ensure idle
+                containers are running the latest container image.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <Button
+                onClick={handleRefreshIdleContainers}
+                disabled={refreshing}
+                className="w-full sm:w-auto"
+                variant="outline"
+              >
+                {refreshing ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Refreshing...
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    Refresh Idle Containers
+                  </>
+                )}
+              </Button>
+
+              <div className="text-xs text-muted-foreground space-y-1">
+                <p>• Terminates all existing idle containers</p>
+                <p>• Launches new idle containers to replace them</p>
+                <p>• New containers will run the latest deployed image</p>
+                <p>
+                  • Recommended after successful production deployment to refresh
+                  the pool
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </TooltipProvider>
   );
