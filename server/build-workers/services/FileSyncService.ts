@@ -9,7 +9,7 @@ import {
   PrototypeFileInput,
 } from "../types/BuildWorkerTypes.js";
 import { Database } from "../types/supabase.js";
-import { writeProjectFiles } from "../utils/shared-utils.js";
+import { resolvePathWithinProject } from "../utils/shared-utils.js";
 import { SupabaseClientService } from "./SupabaseClientService.js";
 import { WORK_DIR } from "../worker.js";
 
@@ -952,6 +952,31 @@ export class FileSyncService {
     await this.cleanWorkspaceDirectory();
     await writeProjectFiles(files, assets, WORK_DIR);
     this.resetTrackedChanges();
+  }
+
+  private async writeProjectFiles(
+    files: PrototypeFileInput[],
+    assets: PrototypeAssetInputWithContent[],
+    projectDir: string,
+  ): Promise<void> {
+    // Handle text files
+    for (const file of files) {
+      const filePath = resolvePathWithinProject(projectDir, file.name);
+      const fileDir = path.dirname(filePath);
+
+      await fs.mkdir(fileDir, { recursive: true });
+      await fs.writeFile(filePath, file.contents, "utf8");
+    }
+
+    // Handle binary assets
+    for (const asset of assets) {
+      const filePath = resolvePathWithinProject(projectDir, asset.name);
+      const fileDir = path.dirname(filePath);
+
+      await fs.mkdir(fileDir, { recursive: true });
+      const binaryContent = Buffer.from(asset.contents, "base64");
+      await fs.writeFile(filePath, binaryContent);
+    }
   }
 
   private async cleanWorkspaceDirectory(): Promise<void> {
