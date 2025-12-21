@@ -11,7 +11,6 @@ import {
 } from '../../types/PublicAPITypes.js';
 import { IdleContainerAllocationSystemService } from '../idle-container-allocation-system/IdleContainerAllocationSystemService.js';
 import { handleDispatchImpl } from './handlers/handleDispatch.js';
-import { handleDispatchChatEditIntentImpl } from './handlers/handleDispatchChatEditIntent.js';
 import { handleDispatchPrecheckImpl } from './handlers/handleDispatchPrecheck.js';
 import { handleRunCommandImpl } from './handlers/handleDispatchRunCommand.js';
 import { handleRestartDevServerImpl } from './handlers/handleDispatchRestartServer.js';
@@ -83,19 +82,6 @@ export class DispatcherService {
       function: 'dispatchPrecheck',
     });
     return handleDispatchPrecheckImpl(body, jwt, this.cache, localLog);
-  }
-
-  public async dispatchChatEditIntent(
-    body: DispatchPrecheckRequestBody,
-    jwt: string,
-    log2: SystemLogger,
-  ): Promise<
-    APIResponse<DispatchPrecheckSuccessResponse, StandardErrorResponse>
-  > {
-    const localLog = log2.child({
-      function: 'dispatchEditIntent',
-    });
-    return handleDispatchChatEditIntentImpl(body, jwt, this.cache, localLog);
   }
 
   public async restartDevServer(
