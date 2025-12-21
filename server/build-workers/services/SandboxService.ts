@@ -732,7 +732,9 @@ export class SandboxService {
       if (result.success) {
         reply.code(200);
         return {
-          data: {},
+          data: {
+            success: true,
+          },
           error: null,
         };
       } else {
@@ -802,8 +804,8 @@ export class SandboxService {
         reply.code(200);
         return {
           data: {
-            contents: result.contents,
-            is_binary: result.isBinary,
+            contents: result.contents ?? "",
+            is_binary: result.isBinary ?? false,
           },
           error: null,
         };
@@ -890,7 +892,9 @@ export class SandboxService {
       if (result.success) {
         reply.code(200);
         return {
-          data: {},
+          data: {
+            success: true,
+          },
           error: null,
         };
       } else {

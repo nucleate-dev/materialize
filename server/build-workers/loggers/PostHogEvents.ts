@@ -5,7 +5,7 @@
 // To update these shared files, modify the source file and run:
 // npm run sync-types (in the control-plane directory)
 //
-// Last synced: 2025-12-21T06:51:26.946Z
+// Last synced: 2025-12-21T07:18:05.867Z
 
 export type PostHogEvent =
   | 'chat_usage_generic'

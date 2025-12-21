@@ -108,7 +108,7 @@ export interface PublicDevServerStopSuccessResponse {
 }
 
 export interface PublicDevServerRestartSuccessResponse {
-  message?: string;
+  message: string;
 }
 
 export interface PublicDevServerRefetchEnvRequest {
@@ -118,16 +118,6 @@ export interface PublicDevServerRefetchEnvRequest {
 export interface PublicDevServerRefetchEnvSuccessResponse {
   message: string;
   env_var_count: number;
-}
-
-export interface PublicBuildAndDeployRequest {
-  prototype_id: string;
-  framework: "expo_react_native" | "react";
-}
-
-export interface PublicBuildAndDeploySuccessResponse {
-  build_url?: string;
-  version?: string;
 }
 
 // Dev Server Response Types
@@ -209,7 +199,7 @@ export interface PublicAllocateRequest {
 }
 
 export interface PublicAllocateSuccessResponse {
-  tunnel_status?: "connected" | "error" | "timeout" | "not_started";
+  tunnel_status: "connected" | "error" | "timeout" | "not_started";
   tunnel_message?: string;
 }
 
@@ -220,7 +210,7 @@ export interface SandboxMakeDirRequest {
 }
 
 export interface SandboxMakeDirSuccessResponse {
-  // No additional fields needed for success
+  success: boolean;
 }
 
 export interface SandboxReadFileRequest {
@@ -228,8 +218,8 @@ export interface SandboxReadFileRequest {
 }
 
 export interface SandboxReadFileSuccessResponse {
-  contents?: string;
-  is_binary?: boolean;
+  contents: string;
+  is_binary: boolean;
 }
 
 export interface SandboxWriteFileRequest {
@@ -239,7 +229,7 @@ export interface SandboxWriteFileRequest {
 }
 
 export interface SandboxWriteFileSuccessResponse {
-  // No additional fields needed for success
+  success: boolean;
 }
 
 export interface SandboxGitCheckoutRequest {
@@ -255,7 +245,7 @@ export interface SandboxGitCheckoutSuccessResponse {
 export type TerminalSessionType = "generic" | "dev-server" | "build" | "test";
 
 export interface TerminalCreateRequest {
-  session_type?: TerminalSessionType;
+  session_type: TerminalSessionType;
   command?: string;
   args?: string[];
   cwd?: string;

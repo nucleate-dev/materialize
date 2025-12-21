@@ -5,7 +5,7 @@
 // To update these types, modify the source file and run:
 // npm run sync-build-worker-types
 //
-// Last synced: 2025-12-21T06:51:26.982Z
+// Last synced: 2025-12-21T07:18:05.907Z
 
 import { Database } from "./supabase.js";
 
@@ -76,7 +76,7 @@ export enum DevServerStatus {
 }
 
 export interface BuildAndDeployResponse {
-  message?: string;
+  message: string;
 }
 
 export interface ResetSandboxSuccessResponse {
@@ -104,13 +104,7 @@ export interface PublicUpdateFilesV2SuccessResponse {
 }
 
 export interface PublicDevServerStartSuccessResponse {
-  tunnel_url?: string;
-  version?: string;
-}
-
-export interface PublicDevServerStopRequest {
-  prototype_id?: string;
-  s3_scoped_token?: string;
+  tunnel_url: string;
 }
 
 export interface PublicDevServerStopSuccessResponse {
@@ -123,7 +117,7 @@ export interface PublicDevServerStopSuccessResponse {
 }
 
 export interface PublicDevServerRestartSuccessResponse {
-  message?: string;
+  message: string;
 }
 
 export interface PublicDevServerRefetchEnvRequest {
@@ -133,16 +127,6 @@ export interface PublicDevServerRefetchEnvRequest {
 export interface PublicDevServerRefetchEnvSuccessResponse {
   message: string;
   env_var_count: number;
-}
-
-export interface PublicBuildAndDeployRequest {
-  prototype_id: string;
-  framework: "expo_react_native" | "react";
-}
-
-export interface PublicBuildAndDeploySuccessResponse {
-  build_url?: string;
-  version?: string;
 }
 
 // Dev Server Response Types
@@ -224,7 +208,7 @@ export interface PublicAllocateRequest {
 }
 
 export interface PublicAllocateSuccessResponse {
-  tunnel_status?: "connected" | "error" | "timeout" | "not_started";
+  tunnel_status: "connected" | "error" | "timeout" | "not_started";
   tunnel_message?: string;
 }
 
@@ -235,7 +219,7 @@ export interface SandboxMakeDirRequest {
 }
 
 export interface SandboxMakeDirSuccessResponse {
-  // No additional fields needed for success
+  success: boolean;
 }
 
 export interface SandboxReadFileRequest {
@@ -243,8 +227,8 @@ export interface SandboxReadFileRequest {
 }
 
 export interface SandboxReadFileSuccessResponse {
-  contents?: string;
-  is_binary?: boolean;
+  contents: string;
+  is_binary: boolean;
 }
 
 export interface SandboxWriteFileRequest {
@@ -254,7 +238,7 @@ export interface SandboxWriteFileRequest {
 }
 
 export interface SandboxWriteFileSuccessResponse {
-  // No additional fields needed for success
+  success: boolean;
 }
 
 export interface SandboxGitCheckoutRequest {
@@ -270,7 +254,7 @@ export interface SandboxGitCheckoutSuccessResponse {
 export type TerminalSessionType = "generic" | "dev-server" | "build" | "test";
 
 export interface TerminalCreateRequest {
-  session_type?: TerminalSessionType;
+  session_type: TerminalSessionType;
   command?: string;
   args?: string[];
   cwd?: string;

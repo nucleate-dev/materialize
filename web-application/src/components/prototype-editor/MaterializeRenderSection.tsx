@@ -76,7 +76,7 @@ import { EnvironmentVariablesModal } from "./EnvironmentVariablesModal";
 // Import the View on Device Modal
 import { ViewOnDeviceModal } from "./ViewOnDeviceModal";
 import {
-  PublicBuildAndDeploySuccessResponse,
+  BuildAndDeployResponse,
   PublicDevServerRestartSuccessResponse,
 } from "@/lib/types/SandboxAPITypes";
 
@@ -720,7 +720,7 @@ const MaterializeRenderSection = forwardRef<
         );
 
         const result: APIResponse<
-          PublicBuildAndDeploySuccessResponse,
+          BuildAndDeployResponse,
           StandardErrorResponse
         > = await response.json().catch(() => ({ data: null, error: null }));
 
