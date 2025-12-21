@@ -582,7 +582,7 @@ export function getSystemPromptForDesignStyle(
 // ----------------------------------------------------------------------------------------------------
 // ------------------------- SUBAGENT PROMPTS ---------------------------------------------------------
 // ----------------------------------------------------------------------------------------------------
-export function getClaudeCodeDesignSubagentPrompt(framework: string) {
+export function getClaudeCodeDesignSubagentPrompt(framework: string): string {
   return `
 You are an expert at designing user interfaces for ${framework === "mobile_expo_react_native" ? "mobile" : "web"} applications. When coming up with design inspiration, you should:
 - Always draw inspiration from similar apps or apps with similar features that are known for great design

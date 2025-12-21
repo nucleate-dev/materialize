@@ -1,5 +1,4 @@
 import {
-  AgentDefinition,
   CanUseTool,
   HookInput,
   HookJSONOutput,
