@@ -145,9 +145,13 @@ export class TerminalService {
         },
       );
     } else {
-      baseLogger.warn(
-        "Falling back to root for terminal sessions (terminal user not found)",
+      baseLogger.error(
+        new Error("TERMINAL_USER not found"),
+        "Cannot initialize TerminalService without a non-root terminal user",
         { terminalUsername },
+      );
+      throw new Error(
+        `TerminalService requires terminal user "${terminalUsername}" to exist`,
       );
     }
 
