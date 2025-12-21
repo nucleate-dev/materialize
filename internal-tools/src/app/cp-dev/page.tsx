@@ -7,10 +7,10 @@ import {
   ControlPlaneFileNode,
 } from "@/components/control-plane-file-explorer";
 import { PageHeader } from "@/components/page-header";
+import { SandboxDeploymentCard } from "@/components/sandbox-deployment-card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Card,
   CardContent,
@@ -18,8 +18,16 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import {
   Tooltip,
@@ -28,13 +36,6 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   generateAuthHeaders,
   getInternalToolsConfig,
 } from "@/lib/internal-tools-auth";
@@ -42,16 +43,15 @@ import {
   AlertCircle,
   Check,
   CheckCircle,
-  GitCommit,
   Copy,
-  Loader2,
+  GitCommit,
   ListTree,
+  Loader2,
   RefreshCcw,
   Rocket,
   Server,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { SandboxDeploymentCard } from "@/components/sandbox-deployment-card";
 
 const INSTANCE_STORAGE_KEY = "dev-ec2-instance";
 
@@ -227,7 +227,7 @@ function FileDeployCard({
       }
 
       let buffer = "";
-      let finalResult: { success: boolean; error?: string } = {
+      let finalResult: { success: boolean; error?: string; } = {
         success: false,
       };
 
@@ -266,7 +266,7 @@ function FileDeployCard({
       if (!finalResult.success) {
         const error = new Error(
           finalResult.error ||
-            (paths.length ? "Selective deploy failed" : "Deploy failed"),
+          (paths.length ? "Selective deploy failed" : "Deploy failed"),
         );
         throw error;
       }
@@ -1607,6 +1607,21 @@ export default function DevServerPage() {
                       Reset the sandbox to a clean state by clearing all files,
                       Claude sessions, and worker context.
                     </p>
+                    <div className="rounded-md bg-muted/50 p-3 text-xs text-muted-foreground">
+                      <p className="font-medium mb-2">The flow is:</p>
+                      <ol className="list-decimal list-inside space-y-1">
+                        <li>
+                          Using dev ec2 and need to make a change or switch
+                          prototype
+                        </li>
+                        <li>Reset dev server</li>
+                        <li>
+                          Kill Build Workers server running on dev ec2 and
+                          deploy new file changes
+                        </li>
+                        <li>Restart server</li>
+                      </ol>
+                    </div>
                   </div>
 
                   <Separator />
