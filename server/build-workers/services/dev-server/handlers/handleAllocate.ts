@@ -129,11 +129,12 @@ export async function handleAllocateImpl(
         if (tunnelStatus === "connected") {
           request.log2.info("Cloudflare tunnel connected successfully");
         } else if (tunnelStatus === "timeout") {
-          request.log2.warn("Cloudflare tunnel connection timed out");
+          throw new Error(
+            `Cloudflare tunnel connection timed out: ${tunnelMessage}`,
+          );
         } else if (tunnelStatus === "error") {
-          request.log2.error(
-            new Error(tunnelMessage ?? "Cloudflare tunnel failed to connect"),
-            "Cloudflare tunnel connection error",
+          throw new Error(
+            tunnelMessage ?? "Cloudflare tunnel failed to connect",
           );
         }
       } catch (tunnelError) {
@@ -143,6 +144,9 @@ export async function handleAllocateImpl(
             ? tunnelError.message
             : "Failed to start Cloudflare tunnel";
         request.log2.error(tunnelError, "Failed to start Cloudflare tunnel");
+        throw tunnelError instanceof Error
+          ? tunnelError
+          : new Error(tunnelMessage);
       }
     }
 
