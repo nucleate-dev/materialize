@@ -68,6 +68,592 @@ interface StoredInstance {
 
 type InstanceStatus = "not-ready" | "ready" | "checking" | "terminated";
 
+interface FileDeployCardProps {
+  title: string;
+  description: string;
+  directoryPath: string;
+  apiEndpoint: string;
+  icon: React.ReactNode;
+}
+
+function FileDeployCard({
+  title,
+  description,
+  directoryPath,
+  apiEndpoint,
+  icon,
+}: FileDeployCardProps) {
+  const [fileTree, setFileTree] = useState<ControlPlaneFileNode[]>([]);
+  const [changedPaths, setChangedPaths] = useState<string[]>([]);
+  const [filesLoading, setFilesLoading] = useState(false);
+  const [deployingAll, setDeployingAll] = useState(false);
+  const [deployingChanged, setDeployingChanged] = useState(false);
+  const [deployingSelected, setDeployingSelected] = useState(false);
+  const [selectedPaths, setSelectedPaths] = useState<string[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const terminalRef = useRef<HTMLDivElement>(null);
+  const xtermRef = useRef<any>(null);
+  const fitAddonRef = useRef<any>(null);
+
+  const flattenFileTree = useCallback((nodes: ControlPlaneFileNode[]) => {
+    const stack = [...nodes];
+    const paths: string[] = [];
+
+    while (stack.length) {
+      const current = stack.pop();
+      if (!current) {
+        continue;
+      }
+      paths.push(current.path);
+      if (current.children?.length) {
+        stack.push(...current.children);
+      }
+    }
+
+    return paths;
+  }, []);
+
+  const fetchFiles = useCallback(async () => {
+    setFilesLoading(true);
+    try {
+      const response = await fetch(apiEndpoint);
+      let data: {
+        files?: ControlPlaneFileNode[];
+        changedPaths?: string[];
+        error?: string;
+      } = {};
+      try {
+        data = await response.json();
+      } catch {
+        data = {};
+      }
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to load files");
+      }
+
+      const files = Array.isArray(data.files) ? data.files : [];
+      setFileTree(files);
+      const available = new Set(flattenFileTree(files));
+      const gitChangedPaths = Array.isArray(data.changedPaths)
+        ? data.changedPaths.filter((path) => available.has(path))
+        : [];
+      setChangedPaths(gitChangedPaths);
+      setSelectedPaths((prev) => prev.filter((path) => available.has(path)));
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Failed to load files",
+      );
+    } finally {
+      setFilesLoading(false);
+    }
+  }, [apiEndpoint, flattenFileTree]);
+
+  useEffect(() => {
+    fetchFiles();
+  }, [fetchFiles]);
+
+  // Initialize xterm.js terminal
+  useEffect(() => {
+    if (!terminalRef.current) return;
+
+    const initTerminal = async () => {
+      const { Terminal } = await import("@xterm/xterm");
+      const { FitAddon } = await import("@xterm/addon-fit");
+
+      const terminal = new Terminal({
+        cursorBlink: false,
+        fontSize: 12,
+        fontFamily: 'Menlo, Monaco, "Courier New", monospace',
+        theme: {
+          background: "#09090b",
+          foreground: "#fafafa",
+        },
+        convertEol: true,
+        scrollback: 10000,
+      });
+
+      const fitAddon = new FitAddon();
+      terminal.loadAddon(fitAddon);
+
+      terminal.open(terminalRef.current!);
+      fitAddon.fit();
+
+      xtermRef.current = terminal;
+      fitAddonRef.current = fitAddon;
+
+      terminal.writeln("Ready to deploy. Click a deploy button to begin...");
+
+      const handleResize = () => {
+        fitAddon.fit();
+      };
+      window.addEventListener("resize", handleResize);
+
+      return () => {
+        window.removeEventListener("resize", handleResize);
+        terminal.dispose();
+      };
+    };
+
+    initTerminal();
+  }, []);
+
+  const toggleSelectedPath = useCallback((path: string) => {
+    setSelectedPaths((prev) =>
+      prev.includes(path)
+        ? prev.filter((item) => item !== path)
+        : [...prev, path],
+    );
+  }, []);
+
+  const callDeploy = useCallback(async (paths: string[]) => {
+    const response = await fetch(apiEndpoint, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(paths.length ? { paths } : {}),
+    });
+
+    if (!response.ok) {
+      throw new Error("Failed to start deploy");
+    }
+
+    const reader = response.body?.getReader();
+    const decoder = new TextDecoder();
+
+    if (!reader) {
+      throw new Error("No response body");
+    }
+
+    let buffer = "";
+    let finalResult: { success: boolean; error?: string } = {
+      success: false,
+    };
+
+    while (true) {
+      const { done, value } = await reader.read();
+
+      if (done) {
+        break;
+      }
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop() || "";
+
+      for (const line of lines) {
+        if (!line.trim()) continue;
+
+        try {
+          const message = JSON.parse(line);
+
+          if (message.type === "data") {
+            if (xtermRef.current) {
+              xtermRef.current.write(message.data);
+            }
+          } else if (message.type === "done") {
+            finalResult = { success: message.success };
+          } else if (message.type === "error") {
+            finalResult = { success: false, error: message.error };
+          }
+        } catch (e) {
+          console.error("Failed to parse message:", line, e);
+        }
+      }
+    }
+
+    if (!finalResult.success) {
+      const error = new Error(
+        finalResult.error ||
+          (paths.length
+            ? "Selective deploy failed"
+            : "Deploy failed"),
+      );
+      throw error;
+    }
+
+    return finalResult;
+  }, [apiEndpoint]);
+
+  const handleDeployAll = useCallback(async () => {
+    setDeployingAll(true);
+    setError(null);
+
+    if (xtermRef.current) {
+      xtermRef.current.clear();
+      xtermRef.current.writeln("\x1b[1;36m=== Deploying All Files ===\x1b[0m\n");
+    }
+
+    try {
+      await callDeploy([]);
+
+      if (xtermRef.current) {
+        xtermRef.current.writeln("\n\x1b[1;32m✓ Deploy completed successfully!\x1b[0m");
+      }
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : "Failed to run full deploy";
+      setError(errorMsg);
+
+      if (xtermRef.current) {
+        xtermRef.current.writeln(`\n\x1b[1;31m✗ Error: ${errorMsg}\x1b[0m`);
+      }
+    } finally {
+      setDeployingAll(false);
+    }
+  }, [callDeploy]);
+
+  const handleDeployChanged = useCallback(async () => {
+    if (!changedPaths.length) {
+      return;
+    }
+
+    setSelectedPaths([...changedPaths]);
+    setDeployingChanged(true);
+    setError(null);
+
+    if (xtermRef.current) {
+      xtermRef.current.clear();
+      xtermRef.current.writeln("\x1b[1;36m=== Deploying Changed Files ===\x1b[0m");
+      xtermRef.current.writeln(`\x1b[33mFiles: ${changedPaths.length}\x1b[0m\n`);
+    }
+
+    try {
+      await callDeploy(changedPaths);
+
+      if (xtermRef.current) {
+        xtermRef.current.writeln("\n\x1b[1;32m✓ Deploy completed successfully!\x1b[0m");
+      }
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : "Failed to deploy changed files";
+      setError(errorMsg);
+
+      if (xtermRef.current) {
+        xtermRef.current.writeln(`\n\x1b[1;31m✗ Error: ${errorMsg}\x1b[0m`);
+      }
+    } finally {
+      setDeployingChanged(false);
+    }
+  }, [callDeploy, changedPaths]);
+
+  const handleDeploySelected = useCallback(async () => {
+    if (!selectedPaths.length) {
+      return;
+    }
+
+    setDeployingSelected(true);
+    setError(null);
+
+    if (xtermRef.current) {
+      xtermRef.current.clear();
+      xtermRef.current.writeln("\x1b[1;36m=== Deploying Selected Files ===\x1b[0m");
+      xtermRef.current.writeln(`\x1b[33mFiles: ${selectedPaths.length}\x1b[0m\n`);
+    }
+
+    try {
+      await callDeploy(selectedPaths);
+
+      if (xtermRef.current) {
+        xtermRef.current.writeln("\n\x1b[1;32m✓ Deploy completed successfully!\x1b[0m");
+      }
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : "Failed to run selective deploy";
+      setError(errorMsg);
+
+      if (xtermRef.current) {
+        xtermRef.current.writeln(`\n\x1b[1;31m✗ Error: ${errorMsg}\x1b[0m`);
+      }
+    } finally {
+      setDeployingSelected(false);
+    }
+  }, [callDeploy, selectedPaths]);
+
+  const handleRefreshFiles = useCallback(() => {
+    fetchFiles();
+  }, [fetchFiles]);
+
+  const handleClearSelection = useCallback(() => {
+    setSelectedPaths([]);
+  }, []);
+
+  const sortedSelectedPaths = useMemo(
+    () => [...selectedPaths].sort((a, b) => a.localeCompare(b)),
+    [selectedPaths],
+  );
+  const sortedChangedPaths = useMemo(
+    () => [...changedPaths].sort((a, b) => a.localeCompare(b)),
+    [changedPaths],
+  );
+
+  const hasSelection = selectedPaths.length > 0;
+  const hasChangedFiles = changedPaths.length > 0;
+  const isDeploying = deployingAll || deployingChanged || deployingSelected;
+
+  return (
+    <Card className="w-full">
+      <CardHeader>
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              {icon}
+              <CardTitle>{title}</CardTitle>
+            </div>
+            <CardDescription>
+              {description}
+              <span className="mx-1 rounded bg-muted px-1.5 py-0.5 font-mono text-xs">
+                {directoryPath}
+              </span>
+              , curate a selection, and deploy updates to your dev EC2.
+            </CardDescription>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleClearSelection}
+              disabled={!hasSelection || isDeploying}
+              className="flex items-center gap-2"
+            >
+              <ListTree className="h-4 w-4" />
+              Clear selection
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleRefreshFiles}
+              disabled={filesLoading}
+              className="flex items-center gap-2"
+            >
+              {filesLoading ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Refreshing
+                </>
+              ) : (
+                <>
+                  <RefreshCcw className="h-4 w-4" />
+                  Refresh files
+                </>
+              )}
+            </Button>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        {error && (
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex flex-wrap items-center gap-2">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  onClick={handleDeployAll}
+                  disabled={isDeploying}
+                  className="flex items-center gap-2"
+                >
+                  {deployingAll ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Deploying all
+                    </>
+                  ) : (
+                    <>
+                      <Rocket className="h-4 w-4" />
+                      Deploy all
+                    </>
+                  )}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p className="text-xs">
+                  Run the full dev deploy script.
+                </p>
+              </TooltipContent>
+            </Tooltip>
+
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="secondary"
+                  onClick={handleDeployChanged}
+                  disabled={isDeploying || !hasChangedFiles}
+                  className="flex items-center gap-2"
+                >
+                  {deployingChanged ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Deploying changed
+                    </>
+                  ) : (
+                    <>
+                      <GitCommit className="h-4 w-4" />
+                      Deploy changed
+                    </>
+                  )}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p className="text-xs">
+                  Deploy only files detected as git changes.
+                </p>
+              </TooltipContent>
+            </Tooltip>
+
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  onClick={handleDeploySelected}
+                  disabled={isDeploying || !hasSelection}
+                  className="flex items-center gap-2"
+                >
+                  {deployingSelected ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Deploying selection
+                    </>
+                  ) : (
+                    <>
+                      <ListTree className="h-4 w-4" />
+                      Deploy selection
+                    </>
+                  )}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p className="text-xs">
+                  Deploy only the paths you have checked in the explorer.
+                </p>
+              </TooltipContent>
+            </Tooltip>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+            <span className="flex items-center gap-1">
+              <GitCommit className="h-4 w-4" />
+              {hasChangedFiles
+                ? `${changedPaths.length} changed`
+                : "No git changes"}
+            </span>
+            <span className="flex items-center gap-1">
+              <ListTree className="h-4 w-4" />
+              {hasSelection
+                ? `${selectedPaths.length} selected`
+                : "No selection"}
+            </span>
+          </div>
+        </div>
+
+        <Separator />
+
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
+          <div className="space-y-4">
+            <div className="rounded-md border bg-muted/40">
+              {filesLoading ? (
+                <div className="flex h-[420px] items-center justify-center gap-2 text-sm text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Loading files...
+                </div>
+              ) : (
+                <div className="max-h-[420px] overflow-auto p-2">
+                  <ControlPlaneFileExplorer
+                    files={fileTree}
+                    selectedPaths={selectedPaths}
+                    onToggle={toggleSelectedPath}
+                  />
+                </div>
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Tip: Selecting a directory adds all nested files to your
+              deploy batch.
+            </p>
+          </div>
+
+          <div className="space-y-4">
+            <div className="space-y-2 rounded-md border bg-background p-4">
+              <div className="flex items-center justify-between text-sm font-medium">
+                <span className="flex items-center gap-2">
+                  <GitCommit className="h-4 w-4 text-muted-foreground" />
+                  Git tracked changes
+                </span>
+                {hasChangedFiles ? (
+                  <Badge variant="secondary" className="gap-1">
+                    <GitCommit className="h-3 w-3" />
+                    {changedPaths.length}
+                  </Badge>
+                ) : (
+                  <Badge variant="outline">Clean</Badge>
+                )}
+              </div>
+              {hasChangedFiles ? (
+                <div className="max-h-36 overflow-auto rounded border bg-muted/40 p-3 text-xs font-mono">
+                  <ul className="space-y-1">
+                    {sortedChangedPaths.map((path) => (
+                      <li key={path}>{path}</li>
+                    ))}
+                  </ul>
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  No local git changes detected for {directoryPath}.
+                </p>
+              )}
+            </div>
+
+            <div className="space-y-2 rounded-md border bg-background p-4">
+              <div className="flex items-center justify-between text-sm font-medium">
+                <span className="flex items-center gap-2">
+                  <ListTree className="h-4 w-4 text-muted-foreground" />
+                  Selected paths
+                </span>
+                <Badge variant="outline">{selectedPaths.length}</Badge>
+              </div>
+              {hasSelection ? (
+                <div className="max-h-40 overflow-auto rounded border bg-muted/40 p-3 text-xs font-mono">
+                  <ul className="space-y-1">
+                    {sortedSelectedPaths.map((path) => (
+                      <li key={path}>{path}</li>
+                    ))}
+                  </ul>
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  Use the explorer to choose specific files or directories
+                  for a selective deploy.
+                </p>
+              )}
+            </div>
+
+            <div className="space-y-2 rounded-md border bg-background p-4">
+              <div className="flex items-center gap-2 text-sm font-medium">
+                <Rocket className="h-4 w-4 text-muted-foreground" />
+                Deploy output
+              </div>
+              <div className="rounded border overflow-hidden">
+                <div
+                  ref={terminalRef}
+                  className="h-64"
+                  style={{
+                    backgroundColor: "#09090b",
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function DevServerPage() {
   const [ec2ServerName, setEc2ServerName] = useState("");
   const [instanceType, setInstanceType] = useState("t3.micro");
@@ -86,16 +672,6 @@ export default function DevServerPage() {
   const [copiedField, setCopiedField] = useState<
     null | "publicDns" | "publicIpv4" | "sshCommand"
   >(null);
-  const [fileTree, setFileTree] = useState<ControlPlaneFileNode[]>([]);
-  const [changedPaths, setChangedPaths] = useState<string[]>([]);
-  const [filesLoading, setFilesLoading] = useState(false);
-  const [deployingAll, setDeployingAll] = useState(false);
-  const [deployingChanged, setDeployingChanged] = useState(false);
-  const [deployingSelected, setDeployingSelected] = useState(false);
-  const [selectedPaths, setSelectedPaths] = useState<string[]>([]);
-  const terminalRef = useRef<HTMLDivElement>(null);
-  const xtermRef = useRef<any>(null);
-  const fitAddonRef = useRef<any>(null);
   const sandboxTerminalRef = useRef<HTMLDivElement>(null);
   const sandboxXtermRef = useRef<any>(null);
   const sandboxFitAddonRef = useRef<any>(null);
@@ -232,112 +808,6 @@ export default function DevServerPage() {
     }
   };
 
-  const flattenFileTree = useCallback((nodes: ControlPlaneFileNode[]) => {
-    const stack = [...nodes];
-    const paths: string[] = [];
-
-    while (stack.length) {
-      const current = stack.pop();
-      if (!current) {
-        continue;
-      }
-      paths.push(current.path);
-      if (current.children?.length) {
-        stack.push(...current.children);
-      }
-    }
-
-    return paths;
-  }, []);
-
-  const fetchFiles = useCallback(async () => {
-    setFilesLoading(true);
-    try {
-      const response = await fetch("/api/control-plane");
-      let data: {
-        files?: ControlPlaneFileNode[];
-        changedPaths?: string[];
-        error?: string;
-      } = {};
-      try {
-        data = await response.json();
-      } catch {
-        data = {};
-      }
-
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to load control plane files");
-      }
-
-      const files = Array.isArray(data.files) ? data.files : [];
-      setFileTree(files);
-      const available = new Set(flattenFileTree(files));
-      const gitChangedPaths = Array.isArray(data.changedPaths)
-        ? data.changedPaths.filter((path) => available.has(path))
-        : [];
-      setChangedPaths(gitChangedPaths);
-      setSelectedPaths((prev) => prev.filter((path) => available.has(path)));
-    } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Failed to load control plane files",
-      );
-    } finally {
-      setFilesLoading(false);
-    }
-  }, [flattenFileTree]);
-
-  useEffect(() => {
-    fetchFiles();
-  }, [fetchFiles]);
-
-  // Initialize xterm.js terminal for server
-  useEffect(() => {
-    if (!terminalRef.current) return;
-
-    const initTerminal = async () => {
-      const { Terminal } = await import("@xterm/xterm");
-      const { FitAddon } = await import("@xterm/addon-fit");
-
-      const terminal = new Terminal({
-        cursorBlink: false,
-        fontSize: 12,
-        fontFamily: 'Menlo, Monaco, "Courier New", monospace',
-        theme: {
-          background: "#09090b",
-          foreground: "#fafafa",
-        },
-        convertEol: true,
-        scrollback: 10000,
-      });
-
-      const fitAddon = new FitAddon();
-      terminal.loadAddon(fitAddon);
-
-      terminal.open(terminalRef.current!);
-      fitAddon.fit();
-
-      xtermRef.current = terminal;
-      fitAddonRef.current = fitAddon;
-
-      terminal.writeln("Ready to deploy. Click a deploy button to begin...");
-
-      // Handle window resize
-      const handleResize = () => {
-        fitAddon.fit();
-      };
-      window.addEventListener("resize", handleResize);
-
-      return () => {
-        window.removeEventListener("resize", handleResize);
-        terminal.dispose();
-      };
-    };
-
-    initTerminal();
-  }, []);
-
   // Initialize xterm.js terminal for sandbox
   useEffect(() => {
     // Only initialize when Sandbox tab is selected
@@ -390,188 +860,6 @@ export default function DevServerPage() {
 
     initTerminal();
   }, [selectedTab]);
-
-  const toggleSelectedPath = useCallback((path: string) => {
-    setSelectedPaths((prev) =>
-      prev.includes(path)
-        ? prev.filter((item) => item !== path)
-        : [...prev, path],
-    );
-  }, []);
-
-  const callDeploy = useCallback(async (paths: string[]) => {
-    const response = await fetch("/api/control-plane", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(paths.length ? { paths } : {}),
-    });
-
-    if (!response.ok) {
-      throw new Error("Failed to start deploy");
-    }
-
-    const reader = response.body?.getReader();
-    const decoder = new TextDecoder();
-
-    if (!reader) {
-      throw new Error("No response body");
-    }
-
-    let buffer = "";
-    let finalResult: { success: boolean; error?: string } = {
-      success: false,
-    };
-
-    while (true) {
-      const { done, value } = await reader.read();
-
-      if (done) {
-        break;
-      }
-
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split("\n");
-      buffer = lines.pop() || "";
-
-      for (const line of lines) {
-        if (!line.trim()) continue;
-
-        try {
-          const message = JSON.parse(line);
-
-          if (message.type === "data") {
-            // Write to terminal if available
-            if (xtermRef.current) {
-              xtermRef.current.write(message.data);
-            }
-          } else if (message.type === "done") {
-            finalResult = { success: message.success };
-          } else if (message.type === "error") {
-            finalResult = { success: false, error: message.error };
-          }
-        } catch (e) {
-          console.error("Failed to parse message:", line, e);
-        }
-      }
-    }
-
-    if (!finalResult.success) {
-      const error = new Error(
-        finalResult.error ||
-          (paths.length
-            ? "Selective deploy failed"
-            : "Control plane deploy failed"),
-      );
-      throw error;
-    }
-
-    return finalResult;
-  }, []);
-
-  const handleDeployAll = useCallback(async () => {
-    setDeployingAll(true);
-    setError(null);
-
-    // Clear terminal and write header
-    if (xtermRef.current) {
-      xtermRef.current.clear();
-      xtermRef.current.writeln("\x1b[1;36m=== Deploying All Files ===\x1b[0m\n");
-    }
-
-    try {
-      await callDeploy([]);
-
-      if (xtermRef.current) {
-        xtermRef.current.writeln("\n\x1b[1;32m✓ Deploy completed successfully!\x1b[0m");
-      }
-    } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : "Failed to run full deploy";
-      setError(errorMsg);
-
-      if (xtermRef.current) {
-        xtermRef.current.writeln(`\n\x1b[1;31m✗ Error: ${errorMsg}\x1b[0m`);
-      }
-    } finally {
-      setDeployingAll(false);
-    }
-  }, [callDeploy]);
-
-  const handleDeployChanged = useCallback(async () => {
-    if (!changedPaths.length) {
-      return;
-    }
-
-    setSelectedPaths([...changedPaths]);
-    setDeployingChanged(true);
-    setError(null);
-
-    // Clear terminal and write header
-    if (xtermRef.current) {
-      xtermRef.current.clear();
-      xtermRef.current.writeln("\x1b[1;36m=== Deploying Changed Files ===\x1b[0m");
-      xtermRef.current.writeln(`\x1b[33mFiles: ${changedPaths.length}\x1b[0m\n`);
-    }
-
-    try {
-      await callDeploy(changedPaths);
-
-      if (xtermRef.current) {
-        xtermRef.current.writeln("\n\x1b[1;32m✓ Deploy completed successfully!\x1b[0m");
-      }
-    } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : "Failed to deploy changed files";
-      setError(errorMsg);
-
-      if (xtermRef.current) {
-        xtermRef.current.writeln(`\n\x1b[1;31m✗ Error: ${errorMsg}\x1b[0m`);
-      }
-    } finally {
-      setDeployingChanged(false);
-    }
-  }, [callDeploy, changedPaths]);
-
-  const handleDeploySelected = useCallback(async () => {
-    if (!selectedPaths.length) {
-      return;
-    }
-
-    setDeployingSelected(true);
-    setError(null);
-
-    // Clear terminal and write header
-    if (xtermRef.current) {
-      xtermRef.current.clear();
-      xtermRef.current.writeln("\x1b[1;36m=== Deploying Selected Files ===\x1b[0m");
-      xtermRef.current.writeln(`\x1b[33mFiles: ${selectedPaths.length}\x1b[0m\n`);
-    }
-
-    try {
-      await callDeploy(selectedPaths);
-
-      if (xtermRef.current) {
-        xtermRef.current.writeln("\n\x1b[1;32m✓ Deploy completed successfully!\x1b[0m");
-      }
-    } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : "Failed to run selective deploy";
-      setError(errorMsg);
-
-      if (xtermRef.current) {
-        xtermRef.current.writeln(`\n\x1b[1;31m✗ Error: ${errorMsg}\x1b[0m`);
-      }
-    } finally {
-      setDeployingSelected(false);
-    }
-  }, [callDeploy, selectedPaths]);
-
-  const handleRefreshFiles = useCallback(() => {
-    fetchFiles();
-  }, [fetchFiles]);
-
-  const handleClearSelection = useCallback(() => {
-    setSelectedPaths([]);
-  }, []);
 
   const handleDeploySandbox = useCallback(async () => {
     console.log("[Frontend] Starting sandbox deployment");
@@ -770,19 +1058,6 @@ export default function DevServerPage() {
       setConfiguringFiles(false);
     }
   };
-
-  const sortedSelectedPaths = useMemo(
-    () => [...selectedPaths].sort((a, b) => a.localeCompare(b)),
-    [selectedPaths],
-  );
-  const sortedChangedPaths = useMemo(
-    () => [...changedPaths].sort((a, b) => a.localeCompare(b)),
-    [changedPaths],
-  );
-
-  const hasSelection = selectedPaths.length > 0;
-  const hasChangedFiles = changedPaths.length > 0;
-  const isDeploying = deployingAll || deployingChanged || deployingSelected;
 
   const handleAcquireEC2 = async () => {
     if (!ec2ServerName.trim()) {
@@ -1316,323 +1591,97 @@ export default function DevServerPage() {
 
         {/* Server Tab Content */}
         {selectedTab === "Server" && (
-          <Card className="w-full">
-            <CardHeader>
-              <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <ListTree className="h-5 w-5 text-blue-600" />
-                    <CardTitle>Control Plane Files & Deploy</CardTitle>
-                  </div>
-                  <CardDescription>
-                    Browse files under
-                    <span className="mx-1 rounded bg-muted px-1.5 py-0.5 font-mono text-xs">
-                      server/control-plane
-                    </span>
-                    , curate a selection, and deploy updates to your dev EC2.
-                  </CardDescription>
-                </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleClearSelection}
-                  disabled={!hasSelection || isDeploying}
-                  className="flex items-center gap-2"
-                >
-                  <ListTree className="h-4 w-4" />
-                  Clear selection
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleRefreshFiles}
-                  disabled={filesLoading}
-                  className="flex items-center gap-2"
-                >
-                  {filesLoading ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Refreshing
-                    </>
-                  ) : (
-                    <>
-                      <RefreshCcw className="h-4 w-4" />
-                      Refresh files
-                    </>
-                  )}
-                </Button>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-              <div className="flex flex-wrap items-center gap-2">
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      onClick={handleDeployAll}
-                      disabled={isDeploying}
-                      className="flex items-center gap-2"
-                    >
-                      {deployingAll ? (
-                        <>
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                          Deploying all
-                        </>
-                      ) : (
-                        <>
-                          <Rocket className="h-4 w-4" />
-                          Deploy all
-                        </>
-                      )}
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p className="text-xs">
-                      Run the full dev control plane deploy script.
-                    </p>
-                  </TooltipContent>
-                </Tooltip>
-
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="secondary"
-                      onClick={handleDeployChanged}
-                      disabled={isDeploying || !hasChangedFiles}
-                      className="flex items-center gap-2"
-                    >
-                      {deployingChanged ? (
-                        <>
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                          Deploying changed
-                        </>
-                      ) : (
-                        <>
-                          <GitCommit className="h-4 w-4" />
-                          Deploy changed
-                        </>
-                      )}
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p className="text-xs">
-                      Deploy only files detected as git changes.
-                    </p>
-                  </TooltipContent>
-                </Tooltip>
-
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="outline"
-                      onClick={handleDeploySelected}
-                      disabled={isDeploying || !hasSelection}
-                      className="flex items-center gap-2"
-                    >
-                      {deployingSelected ? (
-                        <>
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                          Deploying selection
-                        </>
-                      ) : (
-                        <>
-                          <ListTree className="h-4 w-4" />
-                          Deploy selection
-                        </>
-                      )}
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p className="text-xs">
-                      Deploy only the paths you have checked in the explorer.
-                    </p>
-                  </TooltipContent>
-                </Tooltip>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-                <span className="flex items-center gap-1">
-                  <GitCommit className="h-4 w-4" />
-                  {hasChangedFiles
-                    ? `${changedPaths.length} changed`
-                    : "No git changes"}
-                </span>
-                <span className="flex items-center gap-1">
-                  <ListTree className="h-4 w-4" />
-                  {hasSelection
-                    ? `${selectedPaths.length} selected`
-                    : "No selection"}
-                </span>
-              </div>
-            </div>
-
-            <Separator />
-
-            <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
-              <div className="space-y-4">
-                <div className="rounded-md border bg-muted/40">
-                  {filesLoading ? (
-                    <div className="flex h-[420px] items-center justify-center gap-2 text-sm text-muted-foreground">
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Loading files...
-                    </div>
-                  ) : (
-                    <div className="max-h-[420px] overflow-auto p-2">
-                      <ControlPlaneFileExplorer
-                        files={fileTree}
-                        selectedPaths={selectedPaths}
-                        onToggle={toggleSelectedPath}
-                      />
-                    </div>
-                  )}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Tip: Selecting a directory adds all nested files to your
-                  deploy batch.
-                </p>
-              </div>
-
-              <div className="space-y-4">
-                <div className="space-y-2 rounded-md border bg-background p-4">
-                  <div className="flex items-center justify-between text-sm font-medium">
-                    <span className="flex items-center gap-2">
-                      <GitCommit className="h-4 w-4 text-muted-foreground" />
-                      Git tracked changes
-                    </span>
-                    {hasChangedFiles ? (
-                      <Badge variant="secondary" className="gap-1">
-                        <GitCommit className="h-3 w-3" />
-                        {changedPaths.length}
-                      </Badge>
-                    ) : (
-                      <Badge variant="outline">Clean</Badge>
-                    )}
-                  </div>
-                  {hasChangedFiles ? (
-                    <div className="max-h-36 overflow-auto rounded border bg-muted/40 p-3 text-xs font-mono">
-                      <ul className="space-y-1">
-                        {sortedChangedPaths.map((path) => (
-                          <li key={path}>{path}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  ) : (
-                    <p className="text-sm text-muted-foreground">
-                      No local git changes detected for server/control-plane.
-                    </p>
-                  )}
-                </div>
-
-                <div className="space-y-2 rounded-md border bg-background p-4">
-                  <div className="flex items-center justify-between text-sm font-medium">
-                    <span className="flex items-center gap-2">
-                      <ListTree className="h-4 w-4 text-muted-foreground" />
-                      Selected paths
-                    </span>
-                    <Badge variant="outline">{selectedPaths.length}</Badge>
-                  </div>
-                  {hasSelection ? (
-                    <div className="max-h-40 overflow-auto rounded border bg-muted/40 p-3 text-xs font-mono">
-                      <ul className="space-y-1">
-                        {sortedSelectedPaths.map((path) => (
-                          <li key={path}>{path}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  ) : (
-                    <p className="text-sm text-muted-foreground">
-                      Use the explorer to choose specific files or directories
-                      for a selective deploy.
-                    </p>
-                  )}
-                </div>
-
-                <div className="space-y-2 rounded-md border bg-background p-4">
-                  <div className="flex items-center gap-2 text-sm font-medium">
-                    <Rocket className="h-4 w-4 text-muted-foreground" />
-                    Deploy output
-                  </div>
-                  <div className="rounded border overflow-hidden">
-                    <div
-                      ref={terminalRef}
-                      className="h-64"
-                      style={{
-                        backgroundColor: "#09090b",
-                      }}
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+          <FileDeployCard
+            title="Control Plane Files & Deploy"
+            description="Browse files under"
+            directoryPath="server/control-plane"
+            apiEndpoint="/api/control-plane"
+            icon={<ListTree className="h-5 w-5 text-blue-600" />}
+          />
         )}
 
-        {/* Sandbox Tab Content */}
+        {/* Sandbox Tab Content - File Deployment */}
         {selectedTab === "Sandbox" && (
-          <Card className="w-full">
-            <CardHeader>
-              <div className="flex items-center gap-2">
-                <Rocket className="h-5 w-5 text-blue-600" />
-                <CardTitle>Sandbox Deployment</CardTitle>
-              </div>
-              <CardDescription>
-                Deploy the sandbox Docker image to ECR for development testing.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="flex items-center gap-3">
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      onClick={handleDeploySandbox}
-                      disabled={deployingSandbox}
-                      className="flex items-center gap-2"
-                    >
-                      {deployingSandbox ? (
-                        <>
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                          Deploying...
-                        </>
-                      ) : (
-                        <>
-                          <Rocket className="h-4 w-4" />
-                          Deploy Sandbox to ECR
-                        </>
-                      )}
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p className="text-xs">
-                      Build and push the sandbox Docker image to ECR.
-                      <br />
-                      This runs the push-to-ecr.sh script from the server directory.
-                    </p>
-                  </TooltipContent>
-                </Tooltip>
-              </div>
+          <>
+            {/* Sandbox Docker Image Deployment Card */}
+            <Card className="w-full mb-6">
+              <CardContent className="p-6">
+                <div className="grid grid-cols-1 lg:grid-cols-[20%_80%] gap-6">
+                  {/* Left side: Controls */}
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <Rocket className="h-5 w-5 text-blue-600" />
+                        <h3 className="text-lg font-semibold">Sandbox Deployment</h3>
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        Deploy the sandbox Docker image to ECR for development testing.
+                      </p>
+                    </div>
 
-              <Separator />
+                    <Separator />
 
-              <div className="space-y-2">
-                <div className="flex items-center gap-2 text-sm font-medium">
-                  <Rocket className="h-4 w-4 text-muted-foreground" />
-                  Deployment output
+                    <div className="flex items-center gap-3">
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            onClick={handleDeploySandbox}
+                            disabled={deployingSandbox}
+                            className="flex items-center gap-2"
+                          >
+                            {deployingSandbox ? (
+                              <>
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                                Deploying...
+                              </>
+                            ) : (
+                              <>
+                                <Rocket className="h-4 w-4" />
+                                Deploy Sandbox to ECR
+                              </>
+                            )}
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p className="text-xs">
+                            Build and push the sandbox Docker image to ECR.
+                            <br />
+                            This runs the push-to-ecr.sh script from the server directory.
+                          </p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </div>
+                  </div>
+
+                  {/* Right side: Terminal */}
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2 text-sm font-medium">
+                      <Rocket className="h-4 w-4 text-muted-foreground" />
+                      Deployment output
+                    </div>
+                    <div className="rounded border overflow-hidden">
+                      <div
+                        ref={sandboxTerminalRef}
+                        className="h-48"
+                        style={{
+                          backgroundColor: "#09090b",
+                        }}
+                      />
+                    </div>
+                  </div>
                 </div>
-                <div className="rounded border overflow-hidden">
-                  <div
-                    ref={sandboxTerminalRef}
-                    className="h-96"
-                    style={{
-                      backgroundColor: "#09090b",
-                    }}
-                  />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+
+            {/* Build Workers File Deployment Card */}
+            <FileDeployCard
+              title="Build Workers Files & Deploy"
+              description="Browse files under"
+              directoryPath="server/build-workers"
+              apiEndpoint="/api/development/deploy-sandbox-via-scp-to-ec2"
+              icon={<Rocket className="h-5 w-5 text-blue-600" />}
+            />
+          </>
         )}
       </div>
     </TooltipProvider>
