@@ -100,10 +100,6 @@ export async function POST(request: NextRequest) {
         /NEXT_PUBLIC_SERVER_ENDPOINT=.*/,
         `NEXT_PUBLIC_SERVER_ENDPOINT=http://${publicIpv4}:3000`,
       );
-      webEnvContent = webEnvContent.replace(
-        /NEXT_PUBLIC_INTERNAL_BUILD_WORKERS_SERVER_ENDPOINT=.*/,
-        `NEXT_PUBLIC_INTERNAL_BUILD_WORKERS_SERVER_ENDPOINT=http://${publicIpv4}:3002`,
-      );
 
       fs.writeFileSync(webEnvPath, webEnvContent, "utf-8");
       results.push({
@@ -129,12 +125,6 @@ export async function POST(request: NextRequest) {
         `NEXT_PUBLIC_INTERNAL_TOOLS_SERVER_ENDPOINT=http://${publicIpv4}:3000`,
       );
 
-      // Replace NEXT_PUBLIC_INTERNAL_BUILD_WORKERS_SERVER_ENDPOINT
-      internalEnvContent = internalEnvContent.replace(
-        /NEXT_PUBLIC_INTERNAL_BUILD_WORKERS_SERVER_ENDPOINT=.*/,
-        `NEXT_PUBLIC_INTERNAL_BUILD_WORKERS_SERVER_ENDPOINT=http://${publicIpv4}:3002`,
-      );
-
       fs.writeFileSync(internalEnvPath, internalEnvContent, "utf-8");
       results.push({
         file: "internal-tools/.env",
@@ -155,8 +145,8 @@ export async function POST(request: NextRequest) {
 
       // Replace FARGATE_TUNNEL_IP
       cpEnvContent = cpEnvContent.replace(
-        /FARGATE_PRIVATE_IP=.*/,
-        `FARGATE_PRIVATE_IP=${publicIpv4}`,
+        /DEVELOPMENT_EC2_IP=.*/,
+        `DEVELOPMENT_EC2_IP=${publicIpv4}`,
       );
 
       fs.writeFileSync(serverEnvPath, cpEnvContent, "utf-8");

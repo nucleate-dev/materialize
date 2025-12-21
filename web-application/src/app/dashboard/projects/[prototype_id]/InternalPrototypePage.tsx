@@ -567,10 +567,7 @@ export default function InternalPrototypePage() {
         normalizedUrl = "https://" + normalizedUrl;
       }
     }
-    const finalNormalizedUrl =
-      (process.env.NEXT_PUBLIC_FARGATE_DEV_MODE === "true"
-        ? process.env.NEXT_PUBLIC_INTERNAL_BUILD_WORKERS_SERVER_ENDPOINT
-        : null) || normalizedUrl;
+    const finalNormalizedUrl = normalizedUrl;
     fileSystem.setSandboxUrl(finalNormalizedUrl);
     setNormalizedSandboxUrl(finalNormalizedUrl);
   }, [baseTunnelUrl, fileSystem.setSandboxUrl]);

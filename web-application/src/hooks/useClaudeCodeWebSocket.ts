@@ -50,19 +50,13 @@ export function useClaudeCodeWebSocket({
       const token = session.session.access_token;
       authTokenRef.current = token;
 
-      const finalTunnelUrlBase =
-        process.env.NEXT_PUBLIC_FARGATE_DEV_MODE === "true"
-          ? (process.env.NEXT_PUBLIC_INTERNAL_BUILD_WORKERS_SERVER_ENDPOINT ??
-            null)
-          : baseTunnelUrl;
-
-      if (!finalTunnelUrlBase) {
+      if (!baseTunnelUrl) {
         logger.debug("error", "Base tunnel URL not available");
         setIsConnecting(false);
         return;
       }
 
-      const wsUrl = `${finalTunnelUrlBase}/code/ws/${prototypeId}`;
+      const wsUrl = `${baseTunnelUrl}/code/ws/${prototypeId}`;
       logger.debug("log", "Connecting to Claude Code WebSocket", { wsUrl });
 
       const websocket = new WebSocket(wsUrl);
