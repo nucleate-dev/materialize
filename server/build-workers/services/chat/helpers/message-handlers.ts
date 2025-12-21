@@ -271,7 +271,7 @@ export class MessagePersistenceService {
 
           // Upload to Supabase Storage
           const { error: uploadError } = await this.supabaseClient.storage
-            .from("prototype-assets")
+            .from("chat-images")
             .upload(storagePath, processed.buffer, {
               contentType: processed.mediaType,
               upsert: false,

@@ -62,6 +62,8 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey, {
 
 const isFolderEntry = (entry) => entry.id === null && entry.metadata === null;
 
+const shouldSkipPath = (pathName) => pathName.includes("/client/");
+
 const listAllObjects = async (bucket, prefix) => {
   const objects = [];
   const queue = [prefix || ""];
@@ -70,7 +72,7 @@ const listAllObjects = async (bucket, prefix) => {
     const currentPrefix = queue.shift();
     let offset = 0;
 
-    for (;;) {
+    for (; ;) {
       const { data, error } = await supabase.storage
         .from(bucket)
         .list(currentPrefix, { limit: LIST_LIMIT, offset });
@@ -91,6 +93,10 @@ const listAllObjects = async (bucket, prefix) => {
         if (isFolderEntry(entry)) {
           queue.push(fullPath);
         } else {
+          if (shouldSkipPath(fullPath)) {
+            continue;
+          }
+
           objects.push({
             path: fullPath,
             contentType: entry.metadata?.mimetype || undefined,

@@ -470,7 +470,7 @@ export default function ClaudeCodePanel({
                       try {
                         const { data: signedUrlData, error: urlError } =
                           await supabase.storage
-                            .from("prototype-assets")
+                            .from("chat-images")
                             .createSignedUrl(imageMetadata.storage_path, 3600); // 1 hour expiry for viewing
 
                         if (urlError) {
@@ -1676,7 +1676,7 @@ export default function ClaudeCodePanel({
 
         // Upload to Supabase storage
         const { error: uploadError } = await supabase.storage
-          .from("prototype-assets")
+          .from("chat-images")
           .upload(storagePath, bytes, {
             contentType: image.mediaType,
             upsert: false,
@@ -1689,7 +1689,7 @@ export default function ClaudeCodePanel({
 
         // Get signed URL (24 hour expiry for Claude processing)
         const { data: signedUrlData, error: urlError } = await supabase.storage
-          .from("prototype-assets")
+          .from("chat-images")
           .createSignedUrl(storagePath, 86400); // 24 hours
 
         if (urlError) throw urlError;
@@ -1988,7 +1988,7 @@ export default function ClaudeCodePanel({
         // List all images in the chat session folder
         const chatImagePrefix = `${prototypeId}/chat/${prototypeChatSessionId}/`;
         const { data: imageList, error: listError } = await supabase.storage
-          .from("prototype-assets")
+          .from("chat-images")
           .list(chatImagePrefix);
 
         if (listError) {
@@ -2001,7 +2001,7 @@ export default function ClaudeCodePanel({
             (file) => `${chatImagePrefix}${file.name}`,
           );
           const { error: deleteImagesError } = await supabase.storage
-            .from("prototype-assets")
+            .from("chat-images")
             .remove(filePaths);
 
           if (deleteImagesError) {
