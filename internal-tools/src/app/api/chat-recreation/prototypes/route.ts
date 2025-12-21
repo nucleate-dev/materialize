@@ -21,7 +21,7 @@ export async function GET() {
       "id, name, created_at, owner_id, users!prototypes_owner_id_fkey(email)",
     )
     .order("created_at", { ascending: false })
-    .limit(10);
+    .limit(50);
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
