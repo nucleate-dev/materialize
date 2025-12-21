@@ -12,13 +12,8 @@ import {
 import { IdleContainerAllocationSystemService } from '../idle-container-allocation-system/IdleContainerAllocationSystemService.js';
 import { handleDispatchImpl } from './handlers/handleDispatch.js';
 import { handleDispatchPrecheckImpl } from './handlers/handleDispatchPrecheck.js';
-import { handleRunCommandImpl } from './handlers/handleDispatchRunCommand.js';
 import { handleRestartDevServerImpl } from './handlers/handleDispatchRestartServer.js';
 import { SystemLogger } from '../../loggers/SystemLogger.js';
-import {
-  PublicRunCommandRequest,
-  PublicRunCommandSuccessResponse,
-} from '../../types/BuildWorkerTypes.js';
 import { PostHogLogger } from '../../loggers/PostHogLogger.js';
 import { PostHogEvents } from '../../loggers/PostHogEvents.js';
 
@@ -95,18 +90,5 @@ export class DispatcherService {
       function: 'restartDevServer',
     });
     return handleRestartDevServerImpl(body, jwt, this.cache, localLog);
-  }
-
-  public async runCommand(
-    body: PublicRunCommandRequest & { prototype_id: string },
-    jwt: string,
-    log2: SystemLogger,
-  ): Promise<
-    APIResponse<PublicRunCommandSuccessResponse, StandardErrorResponse>
-  > {
-    const localLog = log2.child({
-      function: 'runCommand',
-    });
-    return handleRunCommandImpl(body, jwt, this.cache, localLog);
   }
 }
