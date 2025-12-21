@@ -18,16 +18,10 @@ import { SystemLogger } from '../../loggers/SystemLogger.js';
 import { isDevServerInShutdownStages } from '../../utils/prototypeDevServerStatusUtils.js';
 
 export class OrchestrationService {
-  private fastifyApp: FastifyInstance;
   private cache: GlideClient;
   private logger: SystemLogger;
 
-  constructor(
-    fastifyApp: FastifyInstance,
-    cache: GlideClient,
-    logger: SystemLogger,
-  ) {
-    this.fastifyApp = fastifyApp;
+  constructor(cache: GlideClient, logger: SystemLogger) {
     this.cache = cache;
     this.logger = logger.child({ service: 'OrchestrationService' });
   }

@@ -74,7 +74,6 @@ interface ChatConnection {
 export class ChatService {
   private readonly allowedRoot: string;
   private readonly supabaseClientService: SupabaseClientService;
-  private readonly fastifyApp: FastifyInstance;
   private readonly fileSyncService: FileSyncService;
   private readonly toolPermissionService: ToolPermissionService;
   private readonly messagePersistenceService: MessagePersistenceService;
@@ -101,7 +100,6 @@ export class ChatService {
   private validAiChatSessionIds = new Set<string>(); // Track valid session IDs created during this CodeService instance's lifetime
 
   constructor(
-    fastifyApp: FastifyInstance,
     supabaseClientService: SupabaseClientService,
     sandboxService: SandboxService,
     devServerService: NucleateDevelopmentServerService,
@@ -109,7 +107,6 @@ export class ChatService {
     fileSyncService: FileSyncService,
   ) {
     this.allowedRoot = path.resolve("/tmp/materialize-dev-server");
-    this.fastifyApp = fastifyApp;
     this.supabaseClientService = supabaseClientService;
     this.fileSyncService = fileSyncService;
     this.toolPermissionService = new ToolPermissionService(this.allowedRoot);
@@ -197,16 +194,16 @@ export class ChatService {
     return this.aak;
   }
 
-  public registerRoutes(): void {
+  public registerRoutes(app: FastifyInstance): void {
     // WebSocket endpoint for Claude Code
-    this.fastifyApp.get(
+    app.get(
       "/code/ws/:prototypeId",
       { websocket: true },
       this.handleWebSocketConnection.bind(this),
     );
 
     // Health check endpoint
-    this.fastifyApp.get("/code/health", async () => {
+    app.get("/code/health", async () => {
       return {
         status: "ok",
         service: "claude-code-sdk",
@@ -219,7 +216,7 @@ export class ChatService {
     });
 
     // Get session info
-    this.fastifyApp.get("/code/session", async () => {
+    app.get("/code/session", async () => {
       return {
         status: "ok",
         session: this.sessionState,

@@ -22,7 +22,6 @@ import { PostHogEvents } from '../../loggers/PostHogEvents.js';
 import { validateJWTToken } from '../../utils/prototypeAuth.js';
 
 export class PrototypeManagementService {
-  private fastifyApp: FastifyInstance;
   private supabaseUrl: string;
   private supabaseAnonKey: string;
   private s3Client: S3Client;
@@ -31,13 +30,11 @@ export class PrototypeManagementService {
   private cleanupService: CleanupService;
 
   constructor(
-    fastifyApp: FastifyInstance,
     s3Client: S3Client,
     cache: GlideClient,
     dispatcherService: DispatcherService,
     cleanupService: CleanupService,
   ) {
-    this.fastifyApp = fastifyApp;
     this.s3Client = s3Client;
     this.cache = cache;
     this.dispatcherService = dispatcherService;

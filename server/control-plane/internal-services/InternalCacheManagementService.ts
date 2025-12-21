@@ -11,17 +11,13 @@ import {
 
 export class InternalCacheManagementService {
   private cache: GlideClient;
-  private fastifyApp: FastifyInstance;
 
-  constructor(cache: GlideClient, fastifyApp: FastifyInstance) {
+  constructor(cache: GlideClient) {
     this.cache = cache;
-    this.fastifyApp = fastifyApp;
   }
 
   // Register routes with Fastify
   public registerRoutes(app: FastifyInstance): void {
-    this.fastifyApp = app;
-
     // POST /internal/cache/clear - Clear all cache
     app.post(
       '/internal/cache/clear',

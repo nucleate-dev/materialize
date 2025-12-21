@@ -22,17 +22,11 @@ interface ForceCleanWithBuildRequestBody {
 }
 
 export class InternalCleanupServiceManagement {
-  private fastifyApp: FastifyInstance;
   private supabaseServiceRole: SupabaseClient<Database>;
   private cache: GlideClient;
   private cleanupService: CleanupService;
 
-  constructor(
-    fastifyApp: FastifyInstance,
-    cache: GlideClient,
-    cleanupService: CleanupService,
-  ) {
-    this.fastifyApp = fastifyApp;
+  constructor(cache: GlideClient, cleanupService: CleanupService) {
     this.cache = cache;
     this.cleanupService = cleanupService;
     this.supabaseServiceRole = createClient<Database>(

@@ -82,7 +82,6 @@ await app.register(websocket, {
 
 // ---- Initialize Services ----
 export const terminalService = new TerminalService(
-  app,
   WORK_DIR,
   supabaseClientService,
   {
@@ -94,7 +93,7 @@ export const terminalService = new TerminalService(
 // Initialize FileSyncService (single instance for all services)
 export const fileSyncService = new FileSyncService(supabaseClientService);
 
-const sandboxService = new SandboxService(app, terminalService);
+const sandboxService = new SandboxService(terminalService);
 
 const cloudflareTunnelManagementService =
   new CloudflareTunnelManagementService();
@@ -110,7 +109,6 @@ const nucleateDevelopmentServerService = new NucleateDevelopmentServerService(
 );
 
 const chatService = new ChatService(
-  app,
   supabaseClientService,
   sandboxService,
   nucleateDevelopmentServerService,
@@ -162,13 +160,13 @@ app.get("/health", async () => {
 nucleateDevelopmentServerService.registerRoutes(app);
 
 // Setup terminal WebSocket routes
-terminalService.registerRoutes();
+terminalService.registerRoutes(app);
 
 // Setup sandbox API routes
-sandboxService.registerRoutes();
+sandboxService.registerRoutes(app);
 
 // Setup Claude Code SDK routes
-chatService.registerRoutes();
+chatService.registerRoutes(app);
 
 // --- Graceful Shutdown Handling ---
 const close = async (): Promise<void> => {

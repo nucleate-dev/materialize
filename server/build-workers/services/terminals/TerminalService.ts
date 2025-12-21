@@ -83,7 +83,6 @@ export class TerminalService {
   private readonly allowedRoot: string;
   private readonly sessionInputBuffers = new Map<string, string>();
   private readonly commandValidator?: TerminalCommandValidator;
-  private readonly fastifyApp: FastifyInstance;
   private readonly sessions = new Map<string, TerminalSession>();
   private readonly terminalUserIdentity: TerminalUserIdentity | null;
   private readonly supabaseClientService: SupabaseClientService;
@@ -91,7 +90,6 @@ export class TerminalService {
   private readonly prototypeIdProvider?: () => string | undefined;
 
   constructor(
-    fastifyApp: FastifyInstance,
     workDir: string,
     supabaseClientService: SupabaseClientService,
     options: {
@@ -114,7 +112,6 @@ export class TerminalService {
     } else {
       this.workDir = normalizedWorkDir;
     }
-    this.fastifyApp = fastifyApp;
     this.supabaseClientService = supabaseClientService;
     this.prototypeIdProvider = options.prototypeIdProvider;
     const trackedSessionIds = new Set(
@@ -240,33 +237,33 @@ export class TerminalService {
     );
   }
 
-  public registerRoutes(): void {
+  public registerRoutes(app: FastifyInstance): void {
     // POST /terminal/create - Create a new terminal session
-    this.fastifyApp.post<{ Body: TerminalCreateRequest }>(
+    app.post<{ Body: TerminalCreateRequest }>(
       "/terminal/create",
       this.handleTerminalCreateRoute.bind(this),
     );
 
     // GET /terminal/:sessionId - Get terminal session info
-    this.fastifyApp.get<{ Params: { sessionId: string } }>(
+    app.get<{ Params: { sessionId: string } }>(
       "/terminal/:sessionId",
       this.handleTerminalInfoRoute.bind(this),
     );
 
     // DELETE /terminal/:sessionId - Close a terminal session
-    this.fastifyApp.delete<{ Params: { sessionId: string } }>(
+    app.delete<{ Params: { sessionId: string } }>(
       "/terminal/:sessionId",
       this.handleTerminalCloseRoute.bind(this),
     );
 
     // POST /terminal/:sessionId/input - Send input to terminal
-    this.fastifyApp.post<{
+    app.post<{
       Params: { sessionId: string };
       Body: TerminalInputRequest;
     }>("/terminal/:sessionId/input", this.handleTerminalInputRoute.bind(this));
 
     // POST /terminal/:sessionId/resize - Resize terminal
-    this.fastifyApp.post<{
+    app.post<{
       Params: { sessionId: string };
       Body: TerminalResizeRequest;
     }>(
@@ -275,7 +272,7 @@ export class TerminalService {
     );
 
     // WebSocket /terminal/:sessionId/ws - WebSocket connection
-    this.fastifyApp.get(
+    app.get(
       "/terminal/ws/:sessionId",
       { websocket: true },
       this.handleWebSocketConnection.bind(this),

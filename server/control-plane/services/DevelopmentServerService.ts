@@ -12,16 +12,11 @@ import { isEditableDevServer } from '../utils/prototypeDevServerStatusUtils.js';
 import { DispatcherService } from './dispatcher/DispatcherService.js';
 
 export class DevelopmentServerService {
-  private fastifyApp: FastifyInstance;
   private supabaseUrl: string;
   private supabaseAnonKey: string;
   private dispatcherService: DispatcherService;
 
-  constructor(
-    fastifyApp: FastifyInstance,
-    dispatcherService: DispatcherService,
-  ) {
-    this.fastifyApp = fastifyApp;
+  constructor(dispatcherService: DispatcherService) {
     this.dispatcherService = dispatcherService;
 
     // Environment validation

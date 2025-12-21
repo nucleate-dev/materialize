@@ -229,10 +229,7 @@ const start = async (): Promise<void> => {
     prototypeManagementService.registerRoutes(fastify);
 
     // Create development server service and register routes
-    developmentServerService = new DevelopmentServerService(
-      fastify,
-      dispatcherService,
-    );
+    developmentServerService = new DevelopmentServerService(dispatcherService);
     developmentServerService.registerRoutes(fastify);
 
     // Create orchestration service and register routes

@@ -21,24 +21,19 @@ import { IdleContainerAllocationSystemService } from '../services/idle-container
 export class InternalProductionDeploymentService {
   private ec2Client: EC2Client;
   private autoScalingClient: AutoScalingClient;
-  private fastifyApp: FastifyInstance;
   private idleContainerService: IdleContainerAllocationSystemService;
 
   constructor(
     ec2Client: EC2Client,
     autoScalingClient: AutoScalingClient,
-    fastifyApp: FastifyInstance,
     idleContainerService: IdleContainerAllocationSystemService,
   ) {
     this.ec2Client = ec2Client;
     this.autoScalingClient = autoScalingClient;
-    this.fastifyApp = fastifyApp;
     this.idleContainerService = idleContainerService;
   }
 
   public registerRoutes(app: FastifyInstance): void {
-    this.fastifyApp = app;
-
     // POST /internal/prod-deployment/validate-deployment-safety
     app.post(
       '/internal/prod-deployment/validate-deployment-safety',

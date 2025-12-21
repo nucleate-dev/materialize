@@ -60,41 +60,39 @@ interface GitCheckoutResult {
 }
 
 export class SandboxService {
-  private readonly fastifyApp: FastifyInstance;
   private readonly terminalService: TerminalService;
 
-  constructor(fastifyApp: FastifyInstance, terminalService: TerminalService) {
-    this.fastifyApp = fastifyApp;
+  constructor(terminalService: TerminalService) {
     this.terminalService = terminalService;
   }
 
-  public registerRoutes(): void {
+  public registerRoutes(app: FastifyInstance): void {
     // POST /sandbox/make-dir
-    this.fastifyApp.post<{ Body: SandboxMakeDirRequest }>(
+    app.post<{ Body: SandboxMakeDirRequest }>(
       "/sandbox/make-dir",
       this.handleSandboxMakeDir.bind(this),
     );
 
     // POST /sandbox/read-file
-    this.fastifyApp.post<{ Body: SandboxReadFileRequest }>(
+    app.post<{ Body: SandboxReadFileRequest }>(
       "/sandbox/read-file",
       this.handleSandboxReadFile.bind(this),
     );
 
     // POST /sandbox/write-file
-    this.fastifyApp.post<{ Body: SandboxWriteFileRequest }>(
+    app.post<{ Body: SandboxWriteFileRequest }>(
       "/sandbox/write-file",
       this.handleSandboxWriteFile.bind(this),
     );
 
     // POST /sandbox/git-checkout
-    this.fastifyApp.post<{ Body: SandboxGitCheckoutRequest }>(
+    app.post<{ Body: SandboxGitCheckoutRequest }>(
       "/sandbox/git-checkout",
       this.handleSandboxGitCheckout.bind(this),
     );
 
     // POST /run-command
-    this.fastifyApp.post<{ Body: PublicRunCommandRequest }>(
+    app.post<{ Body: PublicRunCommandRequest }>(
       "/run-command",
       {
         schema: {
