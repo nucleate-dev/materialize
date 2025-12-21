@@ -3,6 +3,7 @@ import {
   DevServerStatus,
   HTTP_STATUS,
   PublicDevServerStartSuccessResponse,
+  PublicRunCommandSuccessResponse,
   PublicStartDevServerRequest,
   SandboxAPIResponse,
   StandardErrorResponse,
@@ -36,6 +37,7 @@ export async function handleStartDevServerImpl(
     };
   }
 
+  // if web, set the adapter to the NextJsReactAdapter with the correct tunnel hostname
   const resolvedFramework =
     developmentServerService.prototypeFramework ?? DEFAULT_PROTOTYPE_FRAMEWORK;
   if (resolvedFramework === "web_nextjs_react") {
@@ -74,6 +76,17 @@ export async function handleStartDevServerImpl(
         message: "Development server is already started or starting",
       },
     };
+  }
+
+  // 0. Initialize git
+  const gitInitializationResponse = await initializeGit(
+    developmentServerService,
+  );
+  if (gitInitializationResponse.error) {
+    request.log2.consoleLogDevOnly(
+      "info",
+      "Git initialization failed. Continuing anyways.",
+    );
   }
 
   // 1. Fetch necessary files (project files + assets, past claude sessions)
@@ -285,4 +298,22 @@ async function restoreClaudeSessions(
       { prototypeId },
     );
   }
+}
+
+// TODO: Initialize with user's OAuth, clone existing repo, etc
+async function initializeGit(
+  developmentServerService: NucleateDevelopmentServerService,
+): Promise<
+  SandboxAPIResponse<PublicRunCommandSuccessResponse, StandardErrorResponse>
+> {
+  const gitInitializationResult =
+    await developmentServerService.sandboxService.runCommandInternal({
+      command: "git",
+      args: ["init"],
+      cwd: `${WORK_DIR}`,
+      session_id: "dev-server",
+      timeout_ms: 180000, // 3 minutes
+      strip_ansi: true,
+    });
+  return gitInitializationResult.response;
 }
