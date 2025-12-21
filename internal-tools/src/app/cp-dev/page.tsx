@@ -141,11 +141,7 @@ function FileDeployCard({
       setChangedPaths(gitChangedPaths);
       setSelectedPaths((prev) => prev.filter((path) => available.has(path)));
     } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Failed to load files",
-      );
+      setError(err instanceof Error ? err.message : "Failed to load files");
     } finally {
       setFilesLoading(false);
     }
@@ -208,75 +204,76 @@ function FileDeployCard({
     );
   }, []);
 
-  const callDeploy = useCallback(async (paths: string[]) => {
-    const response = await fetch(apiEndpoint, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(paths.length ? { paths } : {}),
-    });
+  const callDeploy = useCallback(
+    async (paths: string[]) => {
+      const response = await fetch(apiEndpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(paths.length ? { paths } : {}),
+      });
 
-    if (!response.ok) {
-      throw new Error("Failed to start deploy");
-    }
-
-    const reader = response.body?.getReader();
-    const decoder = new TextDecoder();
-
-    if (!reader) {
-      throw new Error("No response body");
-    }
-
-    let buffer = "";
-    let finalResult: { success: boolean; error?: string } = {
-      success: false,
-    };
-
-    while (true) {
-      const { done, value } = await reader.read();
-
-      if (done) {
-        break;
+      if (!response.ok) {
+        throw new Error("Failed to start deploy");
       }
 
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split("\n");
-      buffer = lines.pop() || "";
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
 
-      for (const line of lines) {
-        if (!line.trim()) continue;
+      if (!reader) {
+        throw new Error("No response body");
+      }
 
-        try {
-          const message = JSON.parse(line);
+      let buffer = "";
+      let finalResult: { success: boolean; error?: string } = {
+        success: false,
+      };
 
-          if (message.type === "data") {
-            if (xtermRef.current) {
-              xtermRef.current.write(message.data);
+      while (true) {
+        const { done, value } = await reader.read();
+
+        if (done) {
+          break;
+        }
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+
+        for (const line of lines) {
+          if (!line.trim()) continue;
+
+          try {
+            const message = JSON.parse(line);
+
+            if (message.type === "data") {
+              if (xtermRef.current) {
+                xtermRef.current.write(message.data);
+              }
+            } else if (message.type === "done") {
+              finalResult = { success: message.success };
+            } else if (message.type === "error") {
+              finalResult = { success: false, error: message.error };
             }
-          } else if (message.type === "done") {
-            finalResult = { success: message.success };
-          } else if (message.type === "error") {
-            finalResult = { success: false, error: message.error };
+          } catch (e) {
+            console.error("Failed to parse message:", line, e);
           }
-        } catch (e) {
-          console.error("Failed to parse message:", line, e);
         }
       }
-    }
 
-    if (!finalResult.success) {
-      const error = new Error(
-        finalResult.error ||
-          (paths.length
-            ? "Selective deploy failed"
-            : "Deploy failed"),
-      );
-      throw error;
-    }
+      if (!finalResult.success) {
+        const error = new Error(
+          finalResult.error ||
+            (paths.length ? "Selective deploy failed" : "Deploy failed"),
+        );
+        throw error;
+      }
 
-    return finalResult;
-  }, [apiEndpoint]);
+      return finalResult;
+    },
+    [apiEndpoint],
+  );
 
   const handleDeployAll = useCallback(async () => {
     setDeployingAll(true);
@@ -284,17 +281,22 @@ function FileDeployCard({
 
     if (xtermRef.current) {
       xtermRef.current.clear();
-      xtermRef.current.writeln("\x1b[1;36m=== Deploying All Files ===\x1b[0m\n");
+      xtermRef.current.writeln(
+        "\x1b[1;36m=== Deploying All Files ===\x1b[0m\n",
+      );
     }
 
     try {
       await callDeploy([]);
 
       if (xtermRef.current) {
-        xtermRef.current.writeln("\n\x1b[1;32m✓ Deploy completed successfully!\x1b[0m");
+        xtermRef.current.writeln(
+          "\n\x1b[1;32m✓ Deploy completed successfully!\x1b[0m",
+        );
       }
     } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : "Failed to run full deploy";
+      const errorMsg =
+        err instanceof Error ? err.message : "Failed to run full deploy";
       setError(errorMsg);
 
       if (xtermRef.current) {
@@ -316,18 +318,25 @@ function FileDeployCard({
 
     if (xtermRef.current) {
       xtermRef.current.clear();
-      xtermRef.current.writeln("\x1b[1;36m=== Deploying Changed Files ===\x1b[0m");
-      xtermRef.current.writeln(`\x1b[33mFiles: ${changedPaths.length}\x1b[0m\n`);
+      xtermRef.current.writeln(
+        "\x1b[1;36m=== Deploying Changed Files ===\x1b[0m",
+      );
+      xtermRef.current.writeln(
+        `\x1b[33mFiles: ${changedPaths.length}\x1b[0m\n`,
+      );
     }
 
     try {
       await callDeploy(changedPaths);
 
       if (xtermRef.current) {
-        xtermRef.current.writeln("\n\x1b[1;32m✓ Deploy completed successfully!\x1b[0m");
+        xtermRef.current.writeln(
+          "\n\x1b[1;32m✓ Deploy completed successfully!\x1b[0m",
+        );
       }
     } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : "Failed to deploy changed files";
+      const errorMsg =
+        err instanceof Error ? err.message : "Failed to deploy changed files";
       setError(errorMsg);
 
       if (xtermRef.current) {
@@ -348,18 +357,25 @@ function FileDeployCard({
 
     if (xtermRef.current) {
       xtermRef.current.clear();
-      xtermRef.current.writeln("\x1b[1;36m=== Deploying Selected Files ===\x1b[0m");
-      xtermRef.current.writeln(`\x1b[33mFiles: ${selectedPaths.length}\x1b[0m\n`);
+      xtermRef.current.writeln(
+        "\x1b[1;36m=== Deploying Selected Files ===\x1b[0m",
+      );
+      xtermRef.current.writeln(
+        `\x1b[33mFiles: ${selectedPaths.length}\x1b[0m\n`,
+      );
     }
 
     try {
       await callDeploy(selectedPaths);
 
       if (xtermRef.current) {
-        xtermRef.current.writeln("\n\x1b[1;32m✓ Deploy completed successfully!\x1b[0m");
+        xtermRef.current.writeln(
+          "\n\x1b[1;32m✓ Deploy completed successfully!\x1b[0m",
+        );
       }
     } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : "Failed to run selective deploy";
+      const errorMsg =
+        err instanceof Error ? err.message : "Failed to run selective deploy";
       setError(errorMsg);
 
       if (xtermRef.current) {
@@ -472,9 +488,7 @@ function FileDeployCard({
                 </Button>
               </TooltipTrigger>
               <TooltipContent>
-                <p className="text-xs">
-                  Run the full dev deploy script.
-                </p>
+                <p className="text-xs">Run the full dev deploy script.</p>
               </TooltipContent>
             </Tooltip>
 
@@ -572,8 +586,8 @@ function FileDeployCard({
               )}
             </div>
             <p className="text-xs text-muted-foreground">
-              Tip: Selecting a directory adds all nested files to your
-              deploy batch.
+              Tip: Selecting a directory adds all nested files to your deploy
+              batch.
             </p>
           </div>
 
@@ -626,8 +640,8 @@ function FileDeployCard({
                 </div>
               ) : (
                 <p className="text-sm text-muted-foreground">
-                  Use the explorer to choose specific files or directories
-                  for a selective deploy.
+                  Use the explorer to choose specific files or directories for a
+                  selective deploy.
                 </p>
               )}
             </div>
@@ -679,7 +693,9 @@ export default function DevServerPage() {
   const [configureSuccess, setConfigureSuccess] = useState(false);
   const [timeRemaining, setTimeRemaining] = useState<string>("");
   const [autoConfigureFiles, setAutoConfigureFiles] = useState(false);
-  const [selectedTab, setSelectedTab] = useState<"Server" | "Sandbox">("Server");
+  const [selectedTab, setSelectedTab] = useState<"Server" | "Sandbox">(
+    "Server",
+  );
   const [deployingSandbox, setDeployingSandbox] = useState(false);
 
   // Load instance from localStorage on mount
@@ -810,8 +826,6 @@ export default function DevServerPage() {
 
   // Initialize xterm.js terminal for sandbox
   useEffect(() => {
-    // Only initialize when Sandbox tab is selected
-    if (selectedTab !== "Sandbox") return;
     if (!sandboxTerminalRef.current) return;
     // Don't reinitialize if already initialized
     if (sandboxXtermRef.current) return;
@@ -844,7 +858,9 @@ export default function DevServerPage() {
       sandboxFitAddonRef.current = fitAddon;
 
       console.log("[Frontend] Sandbox terminal initialized successfully");
-      terminal.writeln("Ready to deploy sandbox. Click the deploy button to begin...");
+      terminal.writeln(
+        "Ready to deploy sandbox. Click the deploy button to begin...",
+      );
 
       // Handle window resize
       const handleResize = () => {
@@ -859,11 +875,14 @@ export default function DevServerPage() {
     };
 
     initTerminal();
-  }, [selectedTab]);
+  }, []);
 
   const handleDeploySandbox = useCallback(async () => {
     console.log("[Frontend] Starting sandbox deployment");
-    console.log("[Frontend] Sandbox terminal ref exists:", !!sandboxXtermRef.current);
+    console.log(
+      "[Frontend] Sandbox terminal ref exists:",
+      !!sandboxXtermRef.current,
+    );
 
     setDeployingSandbox(true);
     setError(null);
@@ -871,19 +890,29 @@ export default function DevServerPage() {
     // Clear terminal and write header
     if (sandboxXtermRef.current) {
       sandboxXtermRef.current.clear();
-      sandboxXtermRef.current.writeln("\x1b[1;36m=== Deploying Sandbox to ECR ===\x1b[0m\n");
+      sandboxXtermRef.current.writeln(
+        "\x1b[1;36m=== Deploying Sandbox to ECR ===\x1b[0m\n",
+      );
     } else {
       console.warn("[Frontend] Sandbox terminal not initialized yet!");
     }
 
     try {
-      console.log("[Frontend] Fetching /api/development/deploy-sandbox-for-development");
-      const response = await fetch("/api/development/deploy-sandbox-for-development", {
-        method: "POST",
-      });
+      console.log(
+        "[Frontend] Fetching /api/development/deploy-sandbox-for-development",
+      );
+      const response = await fetch(
+        "/api/development/deploy-sandbox-for-development",
+        {
+          method: "POST",
+        },
+      );
 
       console.log("[Frontend] Response status:", response.status);
-      console.log("[Frontend] Response headers:", Object.fromEntries(response.headers.entries()));
+      console.log(
+        "[Frontend] Response headers:",
+        Object.fromEntries(response.headers.entries()),
+      );
 
       if (!response.ok) {
         throw new Error("Failed to start sandbox deployment");
@@ -908,13 +937,19 @@ export default function DevServerPage() {
         const { done, value } = await reader.read();
 
         if (done) {
-          console.log("[Frontend] Stream done. Total chunks received:", chunkCount);
+          console.log(
+            "[Frontend] Stream done. Total chunks received:",
+            chunkCount,
+          );
           break;
         }
 
         chunkCount++;
         const chunk = decoder.decode(value, { stream: true });
-        console.log("[Frontend] Received chunk #" + chunkCount + ":", chunk.substring(0, 100) + "...");
+        console.log(
+          "[Frontend] Received chunk #" + chunkCount + ":",
+          chunk.substring(0, 100) + "...",
+        );
 
         buffer += chunk;
         const lines = buffer.split("\n");
@@ -923,7 +958,10 @@ export default function DevServerPage() {
         for (const line of lines) {
           if (!line.trim()) continue;
 
-          console.log("[Frontend] Processing line:", line.substring(0, 100) + "...");
+          console.log(
+            "[Frontend] Processing line:",
+            line.substring(0, 100) + "...",
+          );
 
           try {
             const message = JSON.parse(line);
@@ -951,21 +989,26 @@ export default function DevServerPage() {
 
       if (!finalResult.success) {
         const error = new Error(
-          finalResult.error || "Sandbox deployment failed"
+          finalResult.error || "Sandbox deployment failed",
         );
         throw error;
       }
 
       if (sandboxXtermRef.current) {
-        sandboxXtermRef.current.writeln("\n\x1b[1;32m✓ Sandbox deployment completed successfully!\x1b[0m");
+        sandboxXtermRef.current.writeln(
+          "\n\x1b[1;32m✓ Sandbox deployment completed successfully!\x1b[0m",
+        );
       }
     } catch (err) {
       console.error("[Frontend] Error during deployment:", err);
-      const errorMsg = err instanceof Error ? err.message : "Failed to deploy sandbox";
+      const errorMsg =
+        err instanceof Error ? err.message : "Failed to deploy sandbox";
       setError(errorMsg);
 
       if (sandboxXtermRef.current) {
-        sandboxXtermRef.current.writeln(`\n\x1b[1;31m✗ Error: ${errorMsg}\x1b[0m`);
+        sandboxXtermRef.current.writeln(
+          `\n\x1b[1;31m✗ Error: ${errorMsg}\x1b[0m`,
+        );
       }
     } finally {
       console.log("[Frontend] Deployment finished");
@@ -997,7 +1040,9 @@ export default function DevServerPage() {
         }
 
         const hours = Math.floor(remaining / (1000 * 60 * 60));
-        const minutes = Math.floor((remaining % (1000 * 60 * 60)) / (1000 * 60));
+        const minutes = Math.floor(
+          (remaining % (1000 * 60 * 60)) / (1000 * 60),
+        );
         const seconds = Math.floor((remaining % (1000 * 60)) / 1000);
 
         setTimeRemaining(`${hours}h ${minutes}m ${seconds}s`);
@@ -1015,7 +1060,10 @@ export default function DevServerPage() {
     return () => clearInterval(interval);
   }, [ec2Details]);
 
-  const handleAutoConfigureFiles = async (publicDns?: string, publicIpv4?: string) => {
+  const handleAutoConfigureFiles = async (
+    publicDns?: string,
+    publicIpv4?: string,
+  ) => {
     const dns = publicDns || ec2Details?.publicDns;
     const ipv4 = publicIpv4 || ec2Details?.publicIpv4;
 
@@ -1050,9 +1098,7 @@ export default function DevServerPage() {
       setTimeout(() => setConfigureSuccess(false), 3000);
     } catch (err) {
       setError(
-        err instanceof Error
-          ? err.message
-          : "Failed to auto-configure files"
+        err instanceof Error ? err.message : "Failed to auto-configure files",
       );
     } finally {
       setConfiguringFiles(false);
@@ -1086,7 +1132,7 @@ export default function DevServerPage() {
       const requestBody = JSON.stringify({
         serverName: ec2ServerName.trim(),
         instanceType,
-        lifespanHours: parseInt(lifespanHours, 10)
+        lifespanHours: parseInt(lifespanHours, 10),
       });
       const headers = generateAuthHeaders(
         "POST",
@@ -1187,9 +1233,16 @@ export default function DevServerPage() {
               });
 
               // Auto-configure files if checkbox is selected
-              if (autoConfigureFiles && instanceDetails.publicDns && instanceDetails.publicIpv4) {
+              if (
+                autoConfigureFiles &&
+                instanceDetails.publicDns &&
+                instanceDetails.publicIpv4
+              ) {
                 console.log("[EC2 Acquire] Auto-configuring files...");
-                handleAutoConfigureFiles(instanceDetails.publicDns, instanceDetails.publicIpv4);
+                handleAutoConfigureFiles(
+                  instanceDetails.publicDns,
+                  instanceDetails.publicIpv4,
+                );
               }
             } else if (message.type === "instance-ready") {
               // Second step: instance is ready
@@ -1268,7 +1321,9 @@ export default function DevServerPage() {
               <div className="grid gap-4">
                 <div className="space-y-2">
                   <div className="flex items-center gap-2">
-                    <Label htmlFor="ec2-server-name" className="min-w-32">Server Name</Label>
+                    <Label htmlFor="ec2-server-name" className="min-w-32">
+                      Server Name
+                    </Label>
                     <Input
                       id="ec2-server-name"
                       placeholder="e.g., dev-control-plane-testing"
@@ -1284,22 +1339,40 @@ export default function DevServerPage() {
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <Label htmlFor="instance-type" className="min-w-32">Instance Type</Label>
-                  <Select value={instanceType} onValueChange={setInstanceType} disabled={ec2Loading}>
+                  <Label htmlFor="instance-type" className="min-w-32">
+                    Instance Type
+                  </Label>
+                  <Select
+                    value={instanceType}
+                    onValueChange={setInstanceType}
+                    disabled={ec2Loading}
+                  >
                     <SelectTrigger id="instance-type" className="flex-1">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="t3.micro">t3.micro (2 vCPU, 1GB RAM)</SelectItem>
-                      <SelectItem value="t3.medium">t3.medium (2 vCPU, 4GB RAM)</SelectItem>
-                      <SelectItem value="t3.large">t3.large (2 vCPU, 8GB RAM)</SelectItem>
+                      <SelectItem value="t3.micro">
+                        t3.micro (2 vCPU, 1GB RAM)
+                      </SelectItem>
+                      <SelectItem value="t3.medium">
+                        t3.medium (2 vCPU, 4GB RAM)
+                      </SelectItem>
+                      <SelectItem value="t3.large">
+                        t3.large (2 vCPU, 8GB RAM)
+                      </SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <Label htmlFor="lifespan" className="min-w-32">Lifespan</Label>
-                  <Select value={lifespanHours} onValueChange={setLifespanHours} disabled={ec2Loading}>
+                  <Label htmlFor="lifespan" className="min-w-32">
+                    Lifespan
+                  </Label>
+                  <Select
+                    value={lifespanHours}
+                    onValueChange={setLifespanHours}
+                    disabled={ec2Loading}
+                  >
                     <SelectTrigger id="lifespan" className="flex-1">
                       <SelectValue />
                     </SelectTrigger>
@@ -1316,7 +1389,9 @@ export default function DevServerPage() {
                   <Checkbox
                     id="auto-configure"
                     checked={autoConfigureFiles}
-                    onCheckedChange={(checked) => setAutoConfigureFiles(checked as boolean)}
+                    onCheckedChange={(checked) =>
+                      setAutoConfigureFiles(checked as boolean)
+                    }
                     disabled={ec2Loading}
                   />
                   <Label
@@ -1329,7 +1404,6 @@ export default function DevServerPage() {
               </div>
 
               <div className="flex gap-2">
-
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button
@@ -1447,8 +1521,8 @@ export default function DevServerPage() {
                 {ec2Details && instanceStatus === "ready"
                   ? "EC2 instance is ready! Click 'Auto-configure files' to automatically update your local configuration files."
                   : ec2Details
-                  ? "EC2 instance acquired successfully! Copy the values below into the appropriate files."
-                  : "Instance details will appear here after acquisition."}
+                    ? "EC2 instance acquired successfully! Copy the values below into the appropriate files."
+                    : "Instance details will appear here after acquisition."}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -1456,7 +1530,9 @@ export default function DevServerPage() {
                 <div className="rounded-lg border bg-muted/40 p-3">
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-medium">Time Remaining</span>
-                    <span className="text-sm font-mono font-semibold">{timeRemaining}</span>
+                    <span className="text-sm font-mono font-semibold">
+                      {timeRemaining}
+                    </span>
                   </div>
                 </div>
               )}
@@ -1590,7 +1666,7 @@ export default function DevServerPage() {
         </div>
 
         {/* Server Tab Content */}
-        {selectedTab === "Server" && (
+        <div className={selectedTab === "Server" ? "block" : "hidden"}>
           <FileDeployCard
             title="Control Plane Files & Deploy"
             description="Browse files under"
@@ -1598,91 +1674,91 @@ export default function DevServerPage() {
             apiEndpoint="/api/control-plane"
             icon={<ListTree className="h-5 w-5 text-blue-600" />}
           />
-        )}
+        </div>
 
         {/* Sandbox Tab Content - File Deployment */}
-        {selectedTab === "Sandbox" && (
-          <>
-            {/* Sandbox Docker Image Deployment Card */}
-            <Card className="w-full mb-6">
-              <CardContent className="p-6">
-                <div className="grid grid-cols-1 lg:grid-cols-[20%_80%] gap-6">
-                  {/* Left side: Controls */}
-                  <div className="space-y-4">
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2">
-                        <Rocket className="h-5 w-5 text-blue-600" />
-                        <h3 className="text-lg font-semibold">Sandbox Deployment</h3>
-                      </div>
-                      <p className="text-sm text-muted-foreground">
-                        Deploy the sandbox Docker image to ECR for development testing.
-                      </p>
+        <div className={selectedTab === "Sandbox" ? "block" : "hidden"}>
+          {/* Sandbox Docker Image Deployment Card */}
+          <Card className="w-full mb-6">
+            <CardContent>
+              <div className="grid grid-cols-1 lg:grid-cols-[20%_80%] gap-6">
+                {/* Left side: Controls */}
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Rocket className="h-5 w-5 text-blue-600" />
+                      <h3 className="text-lg font-semibold">
+                        Sandbox Deployment
+                      </h3>
                     </div>
-
-                    <Separator />
-
-                    <div className="flex items-center gap-3">
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            onClick={handleDeploySandbox}
-                            disabled={deployingSandbox}
-                            className="flex items-center gap-2"
-                          >
-                            {deployingSandbox ? (
-                              <>
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                                Deploying...
-                              </>
-                            ) : (
-                              <>
-                                <Rocket className="h-4 w-4" />
-                                Deploy Sandbox to ECR
-                              </>
-                            )}
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p className="text-xs">
-                            Build and push the sandbox Docker image to ECR.
-                            <br />
-                            This runs the push-to-ecr.sh script from the server directory.
-                          </p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      Deploy the sandbox Docker image to ECR for development
+                      testing.
+                    </p>
                   </div>
 
-                  {/* Right side: Terminal */}
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2 text-sm font-medium">
-                      <Rocket className="h-4 w-4 text-muted-foreground" />
-                      Deployment output
-                    </div>
-                    <div className="rounded border overflow-hidden">
-                      <div
-                        ref={sandboxTerminalRef}
-                        className="h-48"
-                        style={{
-                          backgroundColor: "#09090b",
-                        }}
-                      />
-                    </div>
+                  <div className="flex items-center gap-3">
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          onClick={handleDeploySandbox}
+                          disabled={deployingSandbox}
+                          className="flex items-center gap-2"
+                        >
+                          {deployingSandbox ? (
+                            <>
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                              Deploying...
+                            </>
+                          ) : (
+                            <>
+                              <Rocket className="h-4 w-4" />
+                              Deploy Sandbox to ECR
+                            </>
+                          )}
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p className="text-xs">
+                          Build and push the sandbox Docker image to ECR.
+                          <br />
+                          This runs the push-to-ecr.sh script from the server
+                          directory.
+                        </p>
+                      </TooltipContent>
+                    </Tooltip>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
 
-            {/* Build Workers File Deployment Card */}
-            <FileDeployCard
-              title="Build Workers Files & Deploy"
-              description="Browse files under"
-              directoryPath="server/build-workers"
-              apiEndpoint="/api/development/deploy-sandbox-via-scp-to-ec2"
-              icon={<Rocket className="h-5 w-5 text-blue-600" />}
-            />
-          </>
-        )}
+                {/* Right side: Terminal */}
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-sm font-medium">
+                    <Rocket className="h-4 w-4 text-muted-foreground" />
+                    Deployment output
+                  </div>
+                  <div className="rounded border overflow-hidden">
+                    <div
+                      ref={sandboxTerminalRef}
+                      className="h-48"
+                      style={{
+                        backgroundColor: "#09090b",
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Build Workers File Deployment Card */}
+          <FileDeployCard
+            title="Build Workers Files & Deploy"
+            description="Browse files under"
+            directoryPath="server/build-workers"
+            apiEndpoint="/api/development/deploy-sandbox-via-scp-to-ec2"
+            icon={<Rocket className="h-5 w-5 text-blue-600" />}
+          />
+        </div>
       </div>
     </TooltipProvider>
   );
