@@ -1056,6 +1056,60 @@ export default function DevServerPage() {
           `  - Claude sessions deleted: ${result.data.claude_sessions_deleted_count}\n` +
           `  - Message: ${result.data.message}\n`
         );
+
+        // If we have a prototype_id, clear the development cache for it
+        if (result.data.prototype_id) {
+          setResetSandboxOutput((prev) =>
+            prev + `\nClearing development cache for prototype ${result.data.prototype_id}...\n`
+          );
+
+          try {
+            const serverEndpoint =
+              process.env.NEXT_PUBLIC_INTERNAL_TOOLS_SERVER_ENDPOINT;
+
+            if (!serverEndpoint) {
+              throw new Error("Server endpoint not configured");
+            }
+
+            const { secretKey } = getInternalToolsConfig();
+            const headers = generateAuthHeaders(
+              "DELETE",
+              `/internal/cache/development/${result.data.prototype_id}`,
+              "",
+              secretKey,
+            );
+
+            const cacheResponse = await fetch(
+              `${serverEndpoint}/internal/cache/development/${result.data.prototype_id}`,
+              {
+                method: "DELETE",
+                headers,
+              }
+            );
+
+            const cacheResult = await cacheResponse.json();
+
+            if (!cacheResponse.ok) {
+              throw new Error(cacheResult.message || "Failed to clear development cache");
+            }
+
+            setResetSandboxOutput((prev) =>
+              prev +
+              `✓ Development cache cleared!\n` +
+              `  - Deleted: ${cacheResult.deleted ? "Yes" : "No (cache entry not found)"}\n` +
+              `  - Duration: ${cacheResult.durationMs}ms\n`
+            );
+          } catch (cacheErr) {
+            const cacheErrorMsg =
+              cacheErr instanceof Error
+                ? cacheErr.message
+                : "Failed to clear development cache";
+            setResetSandboxOutput((prev) =>
+              prev + `✗ Cache clear error: ${cacheErrorMsg}\n`
+            );
+            // Don't throw - cache clearing is optional
+          }
+        }
       } else {
         setResetSandboxOutput((prev) => prev + "\n✓ Sandbox reset completed!\n");
       }
