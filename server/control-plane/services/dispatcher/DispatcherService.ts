@@ -5,14 +5,11 @@ import {
   type DispatchPrecheckRequestBody,
   type DispatchPrecheckSuccessResponse,
   type DispatchSuccessResponse,
-  type RestartDevServerRequestBody,
-  type RestartDevServerSuccessResponse,
   type StandardErrorResponse,
 } from '../../types/PublicAPITypes.js';
 import { IdleContainerAllocationSystemService } from '../idle-container-allocation-system/IdleContainerAllocationSystemService.js';
 import { handleDispatchImpl } from './handlers/handleDispatch.js';
 import { handleDispatchPrecheckImpl } from './handlers/handleDispatchPrecheck.js';
-import { handleRestartDevServerImpl } from './handlers/handleDispatchRestartServer.js';
 import { SystemLogger } from '../../loggers/SystemLogger.js';
 import { PostHogLogger } from '../../loggers/PostHogLogger.js';
 import { PostHogEvents } from '../../loggers/PostHogEvents.js';
@@ -77,18 +74,5 @@ export class DispatcherService {
       function: 'dispatchPrecheck',
     });
     return handleDispatchPrecheckImpl(body, jwt, this.cache, localLog);
-  }
-
-  public async restartDevServer(
-    body: RestartDevServerRequestBody,
-    jwt: string,
-    log2: SystemLogger,
-  ): Promise<
-    APIResponse<RestartDevServerSuccessResponse, StandardErrorResponse>
-  > {
-    const localLog = log2.child({
-      function: 'restartDevServer',
-    });
-    return handleRestartDevServerImpl(body, jwt, this.cache, localLog);
   }
 }

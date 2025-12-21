@@ -102,18 +102,6 @@ export interface DispatchPrecheckSuccessResponse {
 }
 
 // ============================================================================
-// /dev-server/restart ENDPOINT
-// ============================================================================
-
-export interface RestartDevServerRequestBody {
-  prototype_id: string;
-}
-
-export interface RestartDevServerSuccessResponse {
-  message: string;
-}
-
-// ============================================================================
 // /cache/clear ENDPOINT
 // ============================================================================
 
