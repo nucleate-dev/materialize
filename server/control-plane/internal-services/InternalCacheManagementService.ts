@@ -342,6 +342,72 @@ export class InternalCacheManagementService {
       },
       this.handleClearDevelopmentCache.bind(this),
     );
+
+    // DELETE /internal/cache/development/:prototypeId - Clear development cache for specific prototype
+    app.delete(
+      '/internal/cache/development/:prototypeId',
+      {
+        preHandler: authenticateInternalToolsRequest,
+        schema: {
+          description:
+            'Clear development cache for a specific prototype (requires internal tools authentication)',
+          tags: ['internal-tools'],
+          params: {
+            type: 'object',
+            properties: {
+              prototypeId: { type: 'string' },
+            },
+            required: ['prototypeId'],
+          },
+          headers: {
+            type: 'object',
+            required: ['x-internal-signature', 'x-internal-timestamp'],
+            properties: {
+              'x-internal-signature': {
+                type: 'string',
+                description: 'HMAC-SHA256 signature',
+              },
+              'x-internal-timestamp': {
+                type: 'string',
+                description: 'Unix timestamp',
+              },
+            },
+          },
+          response: {
+            200: {
+              type: 'object',
+              properties: {
+                success: { type: 'boolean' },
+                message: { type: 'string' },
+                prototypeId: { type: 'string' },
+                deleted: { type: 'boolean' },
+                timestamp: { type: 'string' },
+                durationMs: { type: 'number' },
+              },
+            },
+            401: {
+              type: 'object',
+              properties: {
+                error: { type: 'string' },
+                message: { type: 'string' },
+                requiredHeaders: {
+                  type: 'array',
+                  items: { type: 'string' },
+                },
+              },
+            },
+            500: {
+              type: 'object',
+              properties: {
+                error: { type: 'string' },
+                message: { type: 'string' },
+              },
+            },
+          },
+        },
+      },
+      this.handleClearPrototypeDevelopmentCache.bind(this),
+    );
   }
 
   // Route handler for clearing cache
@@ -759,6 +825,64 @@ export class InternalCacheManagementService {
       return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
         error: 'Internal Server Error',
         message: `Failed to clear development cache: ${e.message}`,
+      });
+    }
+  }
+
+  // Route handler for clearing development cache for a specific prototype
+  private async handleClearPrototypeDevelopmentCache(
+    request: FastifyRequest,
+    reply: FastifyReply,
+  ): Promise<void> {
+    const startTime = Date.now();
+    const { prototypeId } = request.params as { prototypeId: string };
+    request.log2 = request.log2.child({
+      service: 'internal-services',
+    });
+    request.log2.consoleLogDevOnly(
+      'info',
+      'Clearing development cache for specific prototype',
+      { prototypeId },
+    );
+
+    try {
+      // Get the development cache key for this prototype
+      const devKey = CACHE_KEYS.protoDev(prototypeId);
+
+      // Delete the key
+      const deleted = await this.cache.del([devKey]);
+
+      const duration = Date.now() - startTime;
+      request.log2.consoleLogDevOnly(
+        'info',
+        'Development cache cleared for prototype',
+        {
+          prototypeId,
+          deleted: deleted > 0,
+          durationMs: duration,
+        },
+      );
+
+      return reply.status(HTTP_STATUS.OK).send({
+        success: true,
+        message:
+          deleted > 0
+            ? `Development cache cleared for prototype ${prototypeId}`
+            : `No development cache found for prototype ${prototypeId}`,
+        prototypeId,
+        deleted: deleted > 0,
+        timestamp: new Date().toISOString(),
+        durationMs: duration,
+      });
+    } catch (error) {
+      const e = error instanceof Error ? error : new Error(String(error));
+      request.log2.error(error, 'Failed to clear prototype development cache', {
+        prototypeId,
+      });
+
+      return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
+        error: 'Internal Server Error',
+        message: `Failed to clear development cache for prototype: ${e.message}`,
       });
     }
   }
