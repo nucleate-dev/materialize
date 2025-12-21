@@ -950,7 +950,7 @@ export class FileSyncService {
   ): Promise<void> {
     await fs.mkdir(WORK_DIR, { recursive: true });
     await this.cleanWorkspaceDirectory();
-    await writeProjectFiles(files, assets, WORK_DIR);
+    await this.writeProjectFiles(files, assets, WORK_DIR);
     this.resetTrackedChanges();
   }
 
