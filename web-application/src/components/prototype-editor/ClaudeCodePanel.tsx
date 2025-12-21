@@ -10,8 +10,8 @@ import {
   ChatEvent,
   ChatSystemEventSubtype,
 } from "@/lib/types/ChatTypes";
-import { Database } from "@/lib/types/supabase";
 import { normalizePrototypeVisibility } from "@/lib/types/prototypes";
+import { Database } from "@/lib/types/supabase";
 import { clearChatIntent, getChatIntent } from "@/lib/utils/chatIntentUtils";
 import type React from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -59,14 +59,14 @@ interface ClaudeCodePanelProps {
 export interface Message {
   id: string;
   type:
-    | "user"
-    | "assistant"
-    | "system"
-    | "error"
-    | "tool"
-    | "thinking"
-    | "usage"
-    | "design_spec";
+  | "user"
+  | "assistant"
+  | "system"
+  | "error"
+  | "tool"
+  | "thinking"
+  | "usage"
+  | "design_spec";
   content: string;
   timestamp: number;
   toolName?: string;
@@ -162,7 +162,7 @@ export default function ClaudeCodePanel({
     allChatSessions.length === 0 ||
     Boolean(
       prototypeChatSessionId &&
-        allChatSessions[0]?.id === prototypeChatSessionId,
+      allChatSessions[0]?.id === prototypeChatSessionId,
     );
 
   // Settings modal state
@@ -774,7 +774,9 @@ export default function ClaudeCodePanel({
 
   // Auto-send queued message when dev server becomes connected
   useEffect(() => {
-    const isDevServerReady = currentRenderStatus === "Connected";
+    const isDevServerReady =
+      currentRenderStatus === "Connected" ||
+      currentRenderStatus === "Connecting..";
 
     if (queuedMessage && isDevServerReady && isConnected && !isProcessing) {
       (async () => {
@@ -1242,7 +1244,7 @@ export default function ClaudeCodePanel({
       }
 
       default: {
-        const unknownMessage = message as { type: string };
+        const unknownMessage = message as { type: string; };
         logger.debug("log", "Unknown message type", {
           messageType: unknownMessage.type,
         });
@@ -1738,7 +1740,9 @@ export default function ClaudeCodePanel({
     }
 
     // Check if dev server is ready
-    const isDevServerReady = currentRenderStatus === "Connected";
+    const isDevServerReady =
+      currentRenderStatus === "Connected" ||
+      currentRenderStatus === "Connecting..";
 
     // If already have a queued message, prevent queueing another
     if (queuedMessage) {
@@ -1748,13 +1752,6 @@ export default function ClaudeCodePanel({
 
     // If not connected or dev server isn't ready, queue the message
     if (!isConnected || !isDevServerReady) {
-      logger.debug("log", "Queueing message", {
-        isConnected,
-        isDevServerReady,
-        currentRenderStatus,
-        message: trimmedInput,
-      });
-
       setQueuedMessage(trimmedInput);
 
       // Add message to chat as queued
@@ -1854,7 +1851,7 @@ export default function ClaudeCodePanel({
       const content: Array<{
         type: string;
         text?: string;
-        source?: { type: string; url: string };
+        source?: { type: string; url: string; };
       }> = [];
 
       // Add text if present
