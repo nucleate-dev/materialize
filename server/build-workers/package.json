@@ -7,7 +7,7 @@
   "scripts": {
     "build": "tsc",
     "start": "node dist/worker.js",
-    "dev": "sh -c 'PORT=3002 nodemon 2>&1 | tee -a /home/ec2-user/build-workers/dev-server.log'",
+    "dev": "sudo -E sh -c 'PORT=3002 nodemon 2>&1 | tee -a /home/ec2-user/build-workers/dev-server.log'",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "lint:check": "eslint . --max-warnings 0",
