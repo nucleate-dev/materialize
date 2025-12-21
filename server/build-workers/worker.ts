@@ -47,6 +47,14 @@ export function getWorkerContext(): { userId?: string; prototypeId?: string } {
   return workerContext;
 }
 
+export function resetWorkerContext(): void {
+  workerContext = { userId: undefined, prototypeId: undefined };
+
+  // Clear logger contexts
+  baseLogger.setContext({});
+  posthogLogger.setContext({});
+}
+
 // Initialize Supabase client service (single source of truth)
 export const supabaseClientService = SupabaseClientService.getInstance();
 

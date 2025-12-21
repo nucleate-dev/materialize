@@ -361,6 +361,96 @@ export async function uploadAllClaudeSessionsToSupabase(
 }
 
 /**
+ * Clears all Claude session .jsonl files from the local directory.
+ * Used when resetting a sandbox to a clean state.
+ *
+ * @param logger - Logger instance
+ * @returns Summary of deletion results
+ */
+export async function clearAllClaudeSessions(
+  logger: SystemLogger,
+): Promise<{
+  success: boolean;
+  deletedCount: number;
+  errors: string[];
+}> {
+  const errors: string[] = [];
+  let deletedCount = 0;
+
+  try {
+    // Check if CLAUDE_PROJECTS_DIR exists
+    try {
+      await fs.access(CLAUDE_PROJECTS_DIR);
+    } catch {
+      logger.consoleLogDevOnly(
+        "info",
+        "Claude projects directory does not exist, nothing to clear",
+        {
+          path: CLAUDE_PROJECTS_DIR,
+        },
+      );
+      return { success: true, deletedCount: 0, errors: [] };
+    }
+
+    // Read all files in the directory
+    const files = await fs.readdir(CLAUDE_PROJECTS_DIR);
+    const sessionFiles = files.filter((file) => file.endsWith(".jsonl"));
+
+    if (sessionFiles.length === 0) {
+      logger.consoleLogDevOnly(
+        "info",
+        "No Claude session files found to clear",
+      );
+      return { success: true, deletedCount: 0, errors: [] };
+    }
+
+    logger.consoleLogDevOnly("info", "Clearing Claude session files", {
+      sessionCount: sessionFiles.length,
+      directory: CLAUDE_PROJECTS_DIR,
+    });
+
+    // Delete all session files
+    for (const filename of sessionFiles) {
+      try {
+        const sessionFilePath = path.join(CLAUDE_PROJECTS_DIR, filename);
+        await fs.unlink(sessionFilePath);
+        deletedCount++;
+        logger.debug("Deleted Claude session file", { filename });
+      } catch (error) {
+        const errorMsg = `Failed to delete ${filename}: ${error instanceof Error ? error.message : String(error)}`;
+        errors.push(errorMsg);
+        logger.error(
+          error instanceof Error ? error : new Error(String(error)),
+          "Failed to delete session file",
+          { filename },
+        );
+      }
+    }
+
+    logger.consoleLogDevOnly("info", "Claude session cleanup completed", {
+      deletedCount,
+      totalFiles: sessionFiles.length,
+      errorCount: errors.length,
+    });
+
+    return {
+      success: errors.length === 0,
+      deletedCount,
+      errors,
+    };
+  } catch (error) {
+    const errorMsg = `Error clearing Claude sessions directory: ${error instanceof Error ? error.message : String(error)}`;
+    errors.push(errorMsg);
+    logger.error(
+      error instanceof Error ? error : new Error(String(error)),
+      "Error clearing Claude sessions directory",
+      { directory: CLAUDE_PROJECTS_DIR },
+    );
+    return { success: false, deletedCount, errors };
+  }
+}
+
+/**
  * Restores Claude session .jsonl files from Supabase Storage to the local directory.
  * Called during worker allocation to restore session state.
  *

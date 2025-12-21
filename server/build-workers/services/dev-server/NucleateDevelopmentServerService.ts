@@ -14,6 +14,7 @@ import {
   PublicStartDevServerRequest,
   PublicUpdateFilesV2Request,
   PublicUpdateFilesV2SuccessResponse,
+  ResetSandboxSuccessResponse,
   SandboxAPIResponse,
   StandardErrorResponse,
 } from "../../types/BuildWorkerTypes.js";
@@ -28,6 +29,7 @@ import { handleStartDevServerImpl } from "./handlers/handleStartDevServer.js";
 import { handleCleanup } from "./handlers/handleCleanup.js";
 import { handleRestartDevServerImpl } from "./handlers/handleRestartDevServer.js";
 import { handleBuildAndDeployImpl } from "./handlers/handleBuildAndDeploy.js";
+import { handleResetSandbox } from "./handlers/handleResetSandbox.js";
 import { IDevelopmentServerAdapter } from "./adapters/IDevelopmentServerAdapter.js";
 import { TerminalService } from "../terminals/TerminalService.js";
 import { ExpoReactNativeAdapter } from "./adapters/ExpoReactNativeAdapter.js";
@@ -115,6 +117,10 @@ export class NucleateDevelopmentServerService {
     );
 
     app.post("/dev-server/build-and-deploy", this.buildAndDeploy.bind(this));
+
+    // ----------- INTERNAL TOOLS ONLY -----------
+    // Reset sandbox to clean state (clears files, Claude sessions, and worker context)
+    app.post("/reset-sandbox", this.resetSandbox.bind(this));
   }
 
   public setS3Client(s3Client: S3Client): void {
@@ -207,5 +213,14 @@ export class NucleateDevelopmentServerService {
     SandboxAPIResponse<BuildAndDeployResponse, StandardErrorResponse>
   > {
     return handleBuildAndDeployImpl(request, reply, this);
+  }
+
+  private async resetSandbox(
+    request: FastifyRequest,
+    reply: FastifyReply,
+  ): Promise<
+    SandboxAPIResponse<ResetSandboxSuccessResponse, StandardErrorResponse>
+  > {
+    return handleResetSandbox(request, reply, this);
   }
 }

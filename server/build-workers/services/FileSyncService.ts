@@ -989,6 +989,15 @@ export class FileSyncService {
     }
   }
 
+  /**
+   * Resets the project workspace by cleaning all files and resetting tracked changes.
+   * Used when resetting a sandbox to a clean state.
+   */
+  public async resetProjectFiles(): Promise<void> {
+    await this.cleanWorkspaceDirectory();
+    this.resetTrackedChanges();
+  }
+
   // ----------------------------------------------------------------------
   // PUBLIC API: Fetch files and assets from Supabase (whole or partial)
   // ----------------------------------------------------------------------

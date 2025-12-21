@@ -70,6 +70,14 @@ export interface BuildAndDeployResponse {
   message?: string;
 }
 
+export interface ResetSandboxSuccessResponse {
+  prototype_id: string | null;
+  message: string;
+  files_cleared: boolean;
+  claude_sessions_cleared: boolean;
+  claude_sessions_deleted_count: number;
+}
+
 export interface PublicStartDevServerRequest {
   prototype_id: string;
 }
