@@ -100,6 +100,7 @@ export default function DevServerPage() {
   const [configureSuccess, setConfigureSuccess] = useState(false);
   const [timeRemaining, setTimeRemaining] = useState<string>("");
   const [autoConfigureFiles, setAutoConfigureFiles] = useState(false);
+  const [selectedTab, setSelectedTab] = useState<"Server" | "Sandbox">("Server");
 
   // Load instance from localStorage on mount
   useEffect(() => {
@@ -1124,22 +1125,44 @@ export default function DevServerPage() {
           </Card>
         </div>
 
-        <Card className="w-full">
-          <CardHeader>
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <ListTree className="h-5 w-5 text-blue-600" />
-                  <CardTitle>Control Plane Files & Deploy</CardTitle>
+        {/* Tab Selector */}
+        <div className="flex items-center gap-2 border-b">
+          <Button
+            variant={selectedTab === "Server" ? "default" : "ghost"}
+            onClick={() => setSelectedTab("Server")}
+            className="rounded-b-none"
+          >
+            <Server className="h-4 w-4 mr-2" />
+            Server
+          </Button>
+          <Button
+            variant={selectedTab === "Sandbox" ? "default" : "ghost"}
+            onClick={() => setSelectedTab("Sandbox")}
+            className="rounded-b-none"
+          >
+            <Rocket className="h-4 w-4 mr-2" />
+            Sandbox
+          </Button>
+        </div>
+
+        {/* Server Tab Content */}
+        {selectedTab === "Server" && (
+          <Card className="w-full">
+            <CardHeader>
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <ListTree className="h-5 w-5 text-blue-600" />
+                    <CardTitle>Control Plane Files & Deploy</CardTitle>
+                  </div>
+                  <CardDescription>
+                    Browse files under
+                    <span className="mx-1 rounded bg-muted px-1.5 py-0.5 font-mono text-xs">
+                      server/control-plane
+                    </span>
+                    , curate a selection, and deploy updates to your dev EC2.
+                  </CardDescription>
                 </div>
-                <CardDescription>
-                  Browse files under
-                  <span className="mx-1 rounded bg-muted px-1.5 py-0.5 font-mono text-xs">
-                    server/control-plane
-                  </span>
-                  , curate a selection, and deploy updates to your dev EC2.
-                </CardDescription>
-              </div>
               <div className="flex flex-wrap items-center gap-2">
                 <Button
                   variant="outline"
@@ -1376,6 +1399,27 @@ export default function DevServerPage() {
             </div>
           </CardContent>
         </Card>
+        )}
+
+        {/* Sandbox Tab Content */}
+        {selectedTab === "Sandbox" && (
+          <Card className="w-full">
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <Rocket className="h-5 w-5 text-blue-600" />
+                <CardTitle>Sandbox Management</CardTitle>
+              </div>
+              <CardDescription>
+                Sandbox management tools and controls will be available here.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center justify-center h-64 text-muted-foreground">
+                <p>Sandbox management features coming soon...</p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </TooltipProvider>
   );
