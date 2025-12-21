@@ -41,10 +41,16 @@ export default function Footer() {
           >
             FAQs
           </span>
-          <span className="hover:text-white cursor-pointer transition-colors">
+          <span
+            onClick={() => router.push("/privacy-policy")}
+            className="hover:text-white cursor-pointer transition-colors"
+          >
             Privacy
           </span>
-          <span className="hover:text-white cursor-pointer transition-colors">
+          <span
+            onClick={() => router.push("/terms-and-conditions")}
+            className="hover:text-white cursor-pointer transition-colors"
+          >
             Terms
           </span>
           <span>© 2025 Nucleate</span>
