@@ -2194,6 +2194,58 @@ export default function ClaudeCodePanel({
     }
   };
 
+  // Handle undo last change
+  const handleUndo = useCallback(async () => {
+    if (!baseTunnelUrl) {
+      addMessage("error", "Cannot undo - no active sandbox connection");
+      return;
+    }
+
+    try {
+      // Normalize the tunnel URL (convert wss:// to https://)
+      let normalizedUrl = baseTunnelUrl;
+      if (normalizedUrl.startsWith("wss://")) {
+        normalizedUrl = "https://" + normalizedUrl.substring(6);
+      } else if (
+        !normalizedUrl.startsWith("http://") &&
+        !normalizedUrl.startsWith("https://")
+      ) {
+        normalizedUrl = "https://" + normalizedUrl;
+      }
+
+      // Get auth token
+      const { data: session } = await supabase.auth.getSession();
+      const token = session.session?.access_token;
+
+      if (!token) {
+        addMessage("error", "Authentication required to undo changes");
+        return;
+      }
+
+      const response = await fetch(`${normalizedUrl}/undo-last-change`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        logger.debug("error", "Undo failed", { status: response.status, errorText });
+        addMessage("error", "Failed to undo last change");
+        return;
+      }
+
+      addMessage("system", "Undid last change");
+      logger.debug("log", "Successfully undid last change");
+    } catch (error) {
+      logger.debug("error", "Error undoing last change", {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      addMessage("error", "Failed to undo last change");
+    }
+  }, [baseTunnelUrl, logger]);
+
   return (
     <ClaudeCodePanelUI
       prototypeTitle={prototypeTitle}
@@ -2258,6 +2310,7 @@ export default function ClaudeCodePanel({
       hasReachedCreditLimit={creditUsage.hasReachedLimit}
       creditsUsed={creditUsage.creditsUsed}
       totalAvailableCredits={creditUsage.totalAvailableCredits}
+      onUndo={handleUndo}
       onMessageUpdate={(updatedMessage) => {
         setMessages((prev) =>
           prev.map((msg) =>

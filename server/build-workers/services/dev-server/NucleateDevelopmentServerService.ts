@@ -16,6 +16,7 @@ import {
   ResetSandboxSuccessResponse,
   SandboxAPIResponse,
   StandardErrorResponse,
+  UndoLastChangeSuccessResponse,
 } from "../../types/BuildWorkerTypes.js";
 import { CloudflareTunnelManagementService } from "../CloudflareTunnelManagementService.js";
 import { SandboxService } from "../SandboxService.js";
@@ -29,6 +30,7 @@ import { handleCleanup } from "./handlers/handleCleanup.js";
 import { handleRestartDevServerImpl } from "./handlers/handleRestartDevServer.js";
 import { handleBuildAndDeployImpl } from "./handlers/handleBuildAndDeploy.js";
 import { handleResetSandbox } from "./handlers/handleResetSandbox.js";
+import { handleUndoLastChangeImpl } from "./handlers/handleUndoLastChange.js";
 import { IDevelopmentServerAdapter } from "./adapters/IDevelopmentServerAdapter.js";
 import { TerminalService } from "../terminals/TerminalService.js";
 import { ExpoReactNativeAdapter } from "./adapters/ExpoReactNativeAdapter.js";
@@ -105,6 +107,7 @@ export class NucleateDevelopmentServerService {
     );
 
     app.post("/dev-server/restart-v2", this.restartDevServerV2.bind(this));
+    app.post("/dev-server/undo-last-change", this.undoLastChange.bind(this));
     app.post<{ Body: PublicDevServerRefetchEnvRequest }>(
       "/dev-server/refetch-env",
       this.refetchEnvVars.bind(this),
@@ -188,6 +191,18 @@ export class NucleateDevelopmentServerService {
     >
   > {
     return handleRestartDevServerImpl(request, reply, this);
+  }
+
+  private async undoLastChange(
+    request: FastifyRequest,
+    reply: FastifyReply,
+  ): Promise<
+    SandboxAPIResponse<
+      UndoLastChangeSuccessResponse,
+      StandardErrorResponse
+    >
+  > {
+    return handleUndoLastChangeImpl(request, reply, this);
   }
 
   private async refetchEnvVars(

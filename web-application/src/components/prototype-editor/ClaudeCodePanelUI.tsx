@@ -45,6 +45,7 @@ import {
   Sparkles,
   StopCircle,
   Terminal,
+  Undo2,
   X,
 } from "lucide-react";
 import type {
@@ -131,6 +132,7 @@ interface ClaudeCodePanelUIProps {
   hasReachedCreditLimit: boolean;
   creditsUsed: number;
   totalAvailableCredits: number;
+  onUndo: () => void;
   onMessageUpdate?: (message: Message) => void;
 }
 
@@ -197,6 +199,7 @@ export default function ClaudeCodePanelUI({
   hasReachedCreditLimit,
   creditsUsed,
   totalAvailableCredits,
+  onUndo,
   onMessageUpdate,
 }: ClaudeCodePanelUIProps) {
   const [showCreditLimitModal, setShowCreditLimitModal] = useState(false);
@@ -335,6 +338,24 @@ export default function ClaudeCodePanelUI({
         </div>
 
         <div className="flex items-center gap-1">
+          {/* Undo Button */}
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  onClick={onUndo}
+                  disabled={!isConnected || isProcessing}
+                  className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                >
+                  <Undo2 className="w-3.5 h-3.5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">Undo Last Change</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+
           {/* Credits Indicator */}
           <TooltipProvider>
             <Tooltip>
@@ -364,17 +385,6 @@ export default function ClaudeCodePanelUI({
                 Reconnect
               </Button>
             )} */}
-
-          {isProcessing && (
-            <Button
-              size="sm"
-              variant="destructive"
-              onClick={interruptQuery}
-              className="h-7 px-2 text-xs bg-red-500/10 text-red-600 dark:text-red-400 hover:bg-red-500/20 border border-red-200 dark:border-red-800"
-            >
-              <StopCircle className="w-3.5 h-3.5 mr-1.5" /> Stop
-            </Button>
-          )}
 
           {/* <TooltipProvider>
             <Tooltip>
@@ -818,23 +828,25 @@ export default function ClaudeCodePanelUI({
           />
 
           <Button
-            onClick={sendQuery}
+            onClick={isProcessing ? interruptQuery : sendQuery}
             disabled={
-              (!inputValue.trim() && uploadedImages.length === 0) ||
-              isProcessing ||
-              !isCurrentSessionMostRecent
+              !isProcessing &&
+              ((!inputValue.trim() && uploadedImages.length === 0) ||
+                !isCurrentSessionMostRecent)
             }
             size="icon"
             className={cn(
               "h-9 w-9 mb-0.5 rounded-lg transition-all",
-              isProcessing ||
-                (!inputValue.trim() && uploadedImages.length === 0)
-                ? "bg-accent text-muted-foreground"
-                : "bg-black dark:bg-white text-white dark:text-black hover:opacity-90 shadow-md",
+              isProcessing
+                ? "bg-red-500 hover:bg-red-600 text-white shadow-md"
+                : (!inputValue.trim() && uploadedImages.length === 0) ||
+                    !isCurrentSessionMostRecent
+                  ? "bg-accent text-muted-foreground"
+                  : "bg-black dark:bg-white text-white dark:text-black hover:opacity-90 shadow-md",
             )}
           >
             {isProcessing ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
+              <StopCircle className="w-4 h-4" />
             ) : (
               <Send className="w-4 h-4 ml-0.5" />
             )}
