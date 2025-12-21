@@ -1,0 +1,125 @@
+---
+title: Security & Privacy
+description: How Nucleate handles secrets, data isolation, and AI access boundaries.
+section: reference
+order: 2
+---
+
+## What you'll accomplish
+
+This reference covers:
+- How your secrets are protected
+- Data isolation between projects
+- What the AI can and cannot access
+
+## Secrets handling
+
+### Environment variables
+
+Your secrets in Nucleate are:
+- **Encrypted at rest** - Stored securely in our database
+- **Injected at runtime** - Only available to your sandbox
+- **Never logged** - Excluded from build logs and analytics
+- **Scoped to your project** - Not accessible by other users
+
+### Best practices
+
+| Do | Don't |
+|-----|-------|
+| Use env vars for API keys | Hardcode secrets in code |
+| Use EXPO_PUBLIC_ for client | Expose private keys to client |
+| Rotate keys periodically | Share keys across projects |
+
+## Data isolation
+
+### Project isolation
+
+Each Nucleate project runs in its own isolated sandbox:
+- **Separate file system** - Your files are private
+- **Separate network** - Your API calls are isolated
+- **Separate secrets** - No cross-project access
+
+### User isolation
+
+- Only you and collaborators can access your project
+- Forked projects get a copy, not access to original
+- Deleted projects are permanently removed
+
+## AI access boundaries
+
+### What Claude can access
+
+| Access | Details |
+|--------|---------|
+| Your code files | To help you build |
+| File structure | To understand your project |
+| Console output | To debug issues |
+| Error messages | To help fix problems |
+
+### What Claude cannot access
+
+| Blocked | Reason |
+|---------|--------|
+| Environment variables | Secrets protection |
+| External databases | Network isolation |
+| Other users' projects | User isolation |
+| Your Nucleate account | Authentication boundary |
+
+### AI context limits
+
+Claude's memory is limited to:
+- Current conversation
+- CLAUDE.md contents
+- Files you reference
+
+Claude doesn't remember:
+- Previous sessions
+- Other projects
+- Your personal info
+
+## Security recommendations
+
+### For API keys
+
+1. Use server-side APIs when possible
+2. Set up key rotation schedules
+3. Use the minimum required permissions
+4. Monitor usage for anomalies
+
+### For authentication
+
+1. Use established providers (Supabase, Auth0)
+2. Never store passwords in plain text
+3. Implement proper session management
+4. Use HTTPS for all API calls
+
+### For user data
+
+1. Only collect what you need
+2. Encrypt sensitive data
+3. Provide data deletion options
+4. Follow platform privacy guidelines
+
+## Reporting security issues
+
+If you find a security vulnerability:
+1. Email security@nucleate.dev
+2. Include detailed reproduction steps
+3. Don't publicly disclose until fixed
+
+## Checklist
+
+- [ ] Secrets stored in env vars
+- [ ] No hardcoded credentials
+- [ ] Using HTTPS for APIs
+- [ ] Privacy policy in place
+
+## Common issues
+
+**Secret exposed in logs?** Check you're not logging env var values.
+
+**API key leaked?** Rotate immediately and use env vars.
+
+## What's next
+
+Check [known limitations](/docs/reference/limitations) for platform constraints.

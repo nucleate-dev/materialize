@@ -1,0 +1,107 @@
+---
+title: Deploy to Google Play
+description: Publish your app on Google Play Store for Android users.
+section: deploy
+order: 3
+---
+
+## What you'll accomplish
+
+By the end of this guide, you'll have:
+- Google Play Developer account set up
+- Android build configured
+- App published on Play Store
+
+## Prerequisites
+
+- Google Play Developer account ($25 one-time)
+- Expo account
+
+## Step-by-step
+
+### 1. Google Play setup
+
+1. Register at [play.google.com/console](https://play.google.com/console)
+2. Pay the $25 registration fee
+3. Complete account verification
+
+### 2. Create your app
+
+In Play Console:
+1. Click "Create app"
+2. Enter app name
+3. Select app type (App or Game)
+4. Choose Free or Paid
+
+### 3. Configure app.json
+
+```json
+{
+  "expo": {
+    "android": {
+      "package": "com.yourcompany.yourapp",
+      "versionCode": 1
+    }
+  }
+}
+```
+
+### 4. Build for Android
+
+```bash
+eas build --platform android --profile production
+```
+
+### 5. Upload to Play Console
+
+1. Go to "Production" or "Internal testing"
+2. Click "Create new release"
+3. Upload your `.aab` file
+4. Add release notes
+5. Review and roll out
+
+## Internal testing
+
+Start with internal testing before production:
+
+1. Create internal test track
+2. Add tester emails
+3. Upload build
+4. Testers get link to install
+
+## Keystores
+
+EAS manages your keystore automatically. To download:
+
+```bash
+eas credentials
+```
+
+Keep your keystore safe - you need it for all future updates.
+
+## Production rollout
+
+Options:
+- **Staged rollout** - Start at 5%, increase gradually
+- **Full rollout** - 100% immediately
+
+Recommendation: Start with staged rollout for new apps.
+
+## Checklist
+
+- [ ] Play Console account active
+- [ ] App created in console
+- [ ] Package name set
+- [ ] Build completed
+- [ ] Internal testing done
+- [ ] Production submitted
+
+## Common issues
+
+**Build failing?** Check versionCode increases with each build.
+
+**Upload rejected?** Ensure .aab format, not .apk.
+
+## What's next
+
+Learn about [updating your app](/docs/deploy/updates) after launch.

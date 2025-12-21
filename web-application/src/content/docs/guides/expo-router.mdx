@@ -1,0 +1,143 @@
+---
+title: Using Expo Router
+description: Master file-based routing, tabs, stacks, and deep linking in your Nucleate app.
+section: guides
+order: 4
+---
+
+## What you'll accomplish
+
+After this guide, you'll understand:
+- File-based routing basics
+- Tab and stack navigation
+- Deep linking
+- Common navigation gotchas
+
+## File-based routing
+
+Every file in `app/` becomes a route:
+
+```
+app/
+├── index.tsx        → /
+├── about.tsx        → /about
+├── profile.tsx      → /profile
+└── settings/
+    ├── index.tsx    → /settings
+    └── account.tsx  → /settings/account
+```
+
+## Step-by-step
+
+### 1. Create a new screen
+
+```tsx
+// app/profile.tsx
+export default function ProfileScreen() {
+  return (
+    <ThemedView>
+      <ThemedText>Profile</ThemedText>
+    </ThemedView>
+  );
+}
+```
+
+### 2. Navigate to it
+
+```tsx
+import { Link } from 'expo-router';
+
+<Link href="/profile">Go to Profile</Link>
+```
+
+Or programmatically:
+
+```tsx
+import { router } from 'expo-router';
+
+router.push('/profile');
+```
+
+## Tabs navigation
+
+```
+app/
+├── (tabs)/
+│   ├── _layout.tsx    # Tab configuration
+│   ├── index.tsx      # Home tab
+│   ├── explore.tsx    # Explore tab
+│   └── settings.tsx   # Settings tab
+```
+
+### Tab layout
+```tsx
+// app/(tabs)/_layout.tsx
+import { Tabs } from 'expo-router';
+
+export default function TabLayout() {
+  return (
+    <Tabs>
+      <Tabs.Screen name="index" options={{ title: 'Home' }} />
+      <Tabs.Screen name="explore" options={{ title: 'Explore' }} />
+    </Tabs>
+  );
+}
+```
+
+## Stack navigation
+
+```tsx
+// Navigate with a stack push
+router.push('/details');
+
+// Go back
+router.back();
+
+// Replace current screen
+router.replace('/home');
+```
+
+## Deep linking
+
+Routes automatically support deep links:
+- `myapp://profile` → opens `/profile`
+- `myapp://settings/account` → opens `/settings/account`
+
+## Navigation gotchas
+
+### Dynamic routes
+Use brackets for parameters:
+```
+app/
+└── post/
+    └── [id].tsx    → /post/123
+```
+
+Access the param:
+```tsx
+import { useLocalSearchParams } from 'expo-router';
+
+const { id } = useLocalSearchParams();
+```
+
+### Groups don't affect URL
+`(tabs)` is a group - it doesn't appear in the URL:
+- `app/(tabs)/index.tsx` → `/`
+- `app/(tabs)/explore.tsx` → `/explore`
+
+## Checklist
+
+- [ ] Created a new route
+- [ ] Added navigation link
+- [ ] Understood groups vs routes
+- [ ] Tested deep linking
+
+## Common issues
+
+**Screen not appearing?** Check the file is in `app/` directory.
+
+**Wrong layout?** Make sure `_layout.tsx` is configured correctly.
+
+## What's next
+
+Learn about [assets](/docs/guides/assets) - icons, splash screens, and fonts.

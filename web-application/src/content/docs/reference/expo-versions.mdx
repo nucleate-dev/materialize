@@ -1,0 +1,110 @@
+---
+title: Supported Expo Versions & Limits
+description: SDK versions, unsupported features, and known limitations.
+section: reference
+order: 1
+---
+
+## What you'll accomplish
+
+This reference covers:
+- Supported Expo SDK versions
+- Features not yet supported
+- Workarounds for common limitations
+
+## Supported SDK versions
+
+| SDK Version | React Native | Status |
+|-------------|--------------|--------|
+| SDK 52 | 0.76 | Current |
+| SDK 51 | 0.74 | Supported |
+| SDK 50 | 0.73 | Supported |
+| SDK 49 | 0.72 | Legacy |
+
+### Checking your SDK version
+
+Look in `app.json`:
+```json
+{
+  "expo": {
+    "sdkVersion": "52.0.0"
+  }
+}
+```
+
+## Unsupported features
+
+### Native modules requiring custom builds
+
+These need a development build (not Expo Go):
+- Background location
+- Background audio
+- Bluetooth
+- NFC
+- Custom native modules
+
+### Platform-specific limitations
+
+**iOS**:
+- CallKit (VoIP)
+- WidgetKit
+- App Clips
+
+**Android**:
+- Background services (limited)
+- System overlays
+- Some Bluetooth features
+
+## Workarounds
+
+### Need a feature not in Expo?
+
+1. **Check Expo packages first**
+   Many features have Expo wrappers that work in managed workflow.
+
+2. **Use a development build**
+   For features requiring native code:
+   ```bash
+   eas build --profile development
+   ```
+
+3. **Request from Nucleate**
+   If many users need a feature, we may add it.
+
+### Common workarounds
+
+| Need | Workaround |
+|------|------------|
+| Background fetch | Use expo-background-fetch |
+| File system access | Use expo-file-system |
+| Secure storage | Use expo-secure-store |
+| Deep links | Built into expo-router |
+
+## Resource limits
+
+### Nucleate sandbox limits
+- File size: 10MB per file
+- Total storage: 500MB
+- Build timeout: 30 minutes
+- Dependencies: Standard npm packages
+
+### App size recommendations
+- iOS: Keep under 200MB
+- Android: Keep under 150MB
+- Use asset optimization
+
+## Checklist
+
+- [ ] Checked SDK version
+- [ ] Verified feature support
+- [ ] Found workarounds if needed
+
+## Common issues
+
+**Package won't install?** Check if it's compatible with your SDK version.
+
+**Feature not working?** Verify it's supported in managed workflow.
+
+## What's next
+
+Learn about [security & privacy](/docs/reference/security).

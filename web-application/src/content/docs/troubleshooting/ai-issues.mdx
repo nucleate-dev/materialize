@@ -1,0 +1,116 @@
+---
+title: AI Didn't Do What I Wanted
+description: Fix prompt issues, conflicting instructions, and get back on track.
+section: troubleshooting
+order: 3
+---
+
+## What you'll accomplish
+
+This guide helps when:
+- AI misunderstood your request
+- Changes broke existing code
+- You're stuck in a bad state
+
+## Common issues
+
+### 1. Prompt too vague
+
+**Symptom**: AI did something unexpected or incomplete.
+
+**Example bad prompt**:
+> "Make the app better"
+
+**Better prompt**:
+> "Add a loading spinner to the home screen. Show it while data is fetching. Use our existing Spinner component from components/ui/Spinner.tsx"
+
+### 2. Missing constraints
+
+**Symptom**: AI chose an approach you didn't want.
+
+**Example bad prompt**:
+> "Add authentication"
+
+**Better prompt**:
+> "Add email/password authentication using Supabase. Create a simple login form with email and password fields. Use our existing Input and Button components. Don't add social login yet."
+
+### 3. Conflicting instructions
+
+**Symptom**: AI seems confused or gives inconsistent results.
+
+**Check for**:
+- Contradictions in CLAUDE.md
+- Different instructions in recent prompts
+- Conflicting patterns in existing code
+
+**Fix**:
+> "Let's clarify: I want [specific approach]. Ignore any previous instructions about [conflicting approach]."
+
+## Reset strategies
+
+### Start fresh on a feature
+> "Let's start over on the settings screen. Undo all changes we made today and try a different approach."
+
+### Rollback changes
+> "Revert app/(tabs)/settings.tsx to how it was before our changes."
+
+### Clear context
+> "Forget our previous discussion about auth. Here's what I actually want: [new requirements]"
+
+## When AI gets stuck
+
+### Break into smaller steps
+Instead of:
+> "Build a complete user profile with avatar upload, name editing, and social links"
+
+Try:
+> "First, create a basic profile screen that just shows the user's name. We'll add more later."
+
+### Provide examples
+> "Create a button like this one: [paste example code]"
+
+### Reference existing code
+> "Look at how we did it in components/PostCard.tsx and follow the same pattern."
+
+## Debugging AI behavior
+
+### Ask why
+> "Before you make changes, explain your approach and why you chose it."
+
+### Request alternatives
+> "Show me 2-3 different ways to implement this. Explain tradeoffs."
+
+### Get confirmation
+> "Here's what I think you're going to do: [your understanding]. Is that right?"
+
+## Prevention
+
+### Write better prompts
+Use the 3-part formula:
+1. **Outcome**: What should exist when done?
+2. **Constraints**: What rules must be followed?
+3. **Acceptance**: How will I know it's right?
+
+### Keep CLAUDE.md updated
+When you make architectural decisions, add them to CLAUDE.md.
+
+### One thing at a time
+Smaller requests = fewer misunderstandings.
+
+## Checklist
+
+- [ ] Identified the miscommunication
+- [ ] Wrote a clearer prompt
+- [ ] Added missing constraints
+- [ ] Resolved conflicts
+- [ ] Got back on track
+
+## Common issues
+
+**Same mistake twice?** Add the rule to CLAUDE.md.
+
+**Completely lost?** Ask Claude to summarize the current state of the code.
+
+## What's next
+
+Check the [Reference](/docs/reference/expo-versions) section for technical details.

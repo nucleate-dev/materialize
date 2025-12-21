@@ -1,0 +1,152 @@
+---
+title: Using the Default Theme System
+description: Build beautiful, consistent UIs with our built-in theme. Support dark and light mode effortlessly.
+section: build-with-ai
+order: 3
+---
+
+## What you'll accomplish
+
+After this guide, you'll:
+- Understand the theme architecture
+- Use tokens correctly for colors, spacing, and typography
+- Avoid anti-patterns that break dark mode
+
+## Theme architecture overview
+
+Nucleate projects come with a pre-built theme system:
+
+```
+constants/
+├── Colors.ts    # Color tokens for light & dark
+└── Theme.ts     # Spacing, typography, radii
+```
+
+The theme automatically switches between light and dark based on system preferences.
+
+## Step-by-step: Using the theme
+
+### 1. Import theme values
+
+```tsx
+import { Colors } from '@/constants/Colors';
+import { useColorScheme } from 'react-native';
+
+function MyComponent() {
+  const colorScheme = useColorScheme();
+  const colors = Colors[colorScheme ?? 'light'];
+
+  return (
+    <View style={{ backgroundColor: colors.background }}>
+      <Text style={{ color: colors.text }}>Hello</Text>
+    </View>
+  );
+}
+```
+
+### 2. Use themed components
+
+Even easier - use the pre-built components:
+
+```tsx
+import { ThemedText } from '@/components/ThemedText';
+import { ThemedView } from '@/components/ThemedView';
+
+function MyScreen() {
+  return (
+    <ThemedView>
+      <ThemedText>This adapts automatically!</ThemedText>
+    </ThemedView>
+  );
+}
+```
+
+## Tokens reference
+
+### Colors
+- `background` - Screen background
+- `text` - Primary text
+- `tint` - Accent/primary color
+- `icon` - Icon default color
+- `tabIconDefault` / `tabIconSelected` - Tab bar icons
+
+### Spacing (add to Theme.ts)
+- `xs`: 4
+- `sm`: 8
+- `md`: 16
+- `lg`: 24
+- `xl`: 32
+
+### Typography
+- Use consistent font sizes
+- Define in Theme.ts and import everywhere
+
+## How to add a token
+
+1. Open `constants/Colors.ts`
+2. Add to both `light` and `dark` objects:
+
+```ts
+export const Colors = {
+  light: {
+    // existing...
+    cardBackground: '#f5f5f5',
+  },
+  dark: {
+    // existing...
+    cardBackground: '#1c1c1e',
+  },
+};
+```
+
+## Anti-patterns to avoid
+
+### ❌ Hardcoded hex values
+```tsx
+// Bad
+<View style={{ backgroundColor: '#ffffff' }}>
+```
+
+```tsx
+// Good
+<View style={{ backgroundColor: colors.background }}>
+```
+
+### ❌ Inline spacing
+```tsx
+// Bad
+<View style={{ padding: 16, margin: 8 }}>
+```
+
+```tsx
+// Good
+<View style={{ padding: theme.spacing.md, margin: theme.spacing.sm }}>
+```
+
+### ❌ Breaking dark mode contrast
+```tsx
+// Bad - black text on dark background
+<Text style={{ color: '#000000' }}>
+```
+
+```tsx
+// Good - theme-aware text
+<Text style={{ color: colors.text }}>
+```
+
+## Checklist
+
+- [ ] Using ThemedText and ThemedView
+- [ ] No hardcoded colors
+- [ ] Tested in both light and dark mode
+- [ ] Using spacing tokens
+
+## Common issues
+
+**Dark mode looks broken?** Check for hardcoded color values.
+
+**Inconsistent spacing?** Define tokens in Theme.ts and use them everywhere.
+
+## What's next
+
+Learn how to use [CLAUDE.md](/docs/build-with-ai/claude-md) to give the AI permanent instructions.

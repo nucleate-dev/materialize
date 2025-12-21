@@ -1,0 +1,106 @@
+---
+title: Push Notifications
+description: Set up push notifications in your Nucleate app.
+section: guides
+order: 6
+---
+
+## What you'll accomplish
+
+After this guide, you'll have:
+- Push notification permissions
+- Device token registration
+- Test notifications working
+
+## Step-by-step
+
+### 1. Install dependencies
+
+Ask Claude:
+> "Add expo-notifications and expo-device to the project"
+
+### 2. Request permissions
+
+```tsx
+import * as Notifications from 'expo-notifications';
+import * as Device from 'expo-device';
+
+async function registerForPushNotifications() {
+  if (!Device.isDevice) {
+    alert('Push notifications require a physical device');
+    return;
+  }
+
+  const { status } = await Notifications.requestPermissionsAsync();
+
+  if (status !== 'granted') {
+    alert('Permission denied');
+    return;
+  }
+
+  const token = await Notifications.getExpoPushTokenAsync();
+  console.log('Push token:', token.data);
+
+  return token.data;
+}
+```
+
+### 3. Handle incoming notifications
+
+```tsx
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+  }),
+});
+```
+
+### 4. Listen for notifications
+
+```tsx
+useEffect(() => {
+  const subscription = Notifications.addNotificationReceivedListener(
+    notification => {
+      console.log('Received:', notification);
+    }
+  );
+
+  return () => subscription.remove();
+}, []);
+```
+
+## Sending test notifications
+
+### Using Expo's push tool
+1. Get your push token from the app
+2. Visit [expo.dev/notifications](https://expo.dev/notifications)
+3. Paste your token and send a test
+
+### Notification payload
+```json
+{
+  "to": "ExponentPushToken[xxx]",
+  "title": "Hello!",
+  "body": "This is a test notification"
+}
+```
+
+## Checklist
+
+- [ ] Installed dependencies
+- [ ] Requested permissions
+- [ ] Got push token
+- [ ] Sent test notification
+- [ ] Handled notification in app
+
+## Common issues
+
+**No token?** Push notifications only work on physical devices.
+
+**Not receiving?** Check permissions are granted and token is valid.
+
+## What's next
+
+Learn about [payments](/docs/guides/payments) with RevenueCat and Stripe.

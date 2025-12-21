@@ -1,0 +1,75 @@
+---
+title: Using Environment Variables
+description: Manage API keys and secrets securely in your Nucleate project.
+section: guides
+order: 1
+---
+
+## What you'll accomplish
+
+After this guide, you'll know:
+- The difference between build-time and runtime env vars
+- How to add and use API keys safely
+- Common mistakes to avoid
+
+## Step-by-step
+
+### 1. Access the secrets panel
+
+In the Nucleate editor, click the **Settings** icon in the sidebar, then select **Environment Variables**.
+
+### 2. Add a variable
+
+- **Name**: Use SCREAMING_SNAKE_CASE (e.g., `SUPABASE_URL`)
+- **Value**: Your secret value
+- Click **Add**
+
+### 3. Use in your code
+
+```tsx
+// Access via process.env
+const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
+```
+
+## Build-time vs runtime
+
+| Type | Prefix | When loaded |
+|------|--------|-------------|
+| Public | `EXPO_PUBLIC_` | Bundled into app |
+| Private | No prefix | Server-side only |
+
+### Public variables
+- Safe to expose in client code
+- Examples: API URLs, public keys
+
+### Private variables
+- Never shipped to client
+- Examples: Secret keys, database passwords
+
+## Common mistakes
+
+### ❌ Committing secrets
+Never put real secrets in your code files.
+
+### ❌ Wrong prefix
+Forgetting `EXPO_PUBLIC_` means the variable won't be available in your app.
+
+### ❌ Not restarting
+After adding env vars, refresh your preview to load them.
+
+## Checklist
+
+- [ ] Added env var in settings panel
+- [ ] Used correct prefix
+- [ ] Accessed with process.env
+- [ ] Tested in preview
+
+## Common issues
+
+**Variable is undefined?** Check the prefix and restart the preview.
+
+**Secrets exposed?** Make sure private keys don't have `EXPO_PUBLIC_` prefix.
+
+## What's next
+
+Learn to [add Supabase](/docs/guides/supabase) to your app.

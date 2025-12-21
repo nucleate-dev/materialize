@@ -1,0 +1,125 @@
+---
+title: Updating an Existing App
+description: Ship new builds, manage versions, and handle hotfixes.
+section: deploy
+order: 4
+---
+
+## What you'll accomplish
+
+This guide covers:
+- Creating new builds
+- Version numbering
+- Hotfix workflows
+
+## New builds
+
+### When do you need a new build?
+
+**New build required:**
+- Native dependency changes
+- Expo SDK upgrade
+- New native modules
+- App icon/splash changes
+
+**Update without new build:**
+- JavaScript/TypeScript changes
+- Asset changes
+- Bug fixes in JS code
+
+### Creating a new build
+
+1. Update version numbers in `app.json`:
+
+```json
+{
+  "expo": {
+    "version": "1.1.0",
+    "ios": {
+      "buildNumber": "2"
+    },
+    "android": {
+      "versionCode": 2
+    }
+  }
+}
+```
+
+2. Build and submit:
+
+```bash
+eas build --platform all --profile production
+eas submit --platform all
+```
+
+## Versioning
+
+### Semantic versioning
+
+`MAJOR.MINOR.PATCH`
+
+- **MAJOR** (1.0.0 → 2.0.0): Breaking changes
+- **MINOR** (1.0.0 → 1.1.0): New features
+- **PATCH** (1.0.0 → 1.0.1): Bug fixes
+
+### Platform-specific versions
+
+- **iOS buildNumber**: Must increase with each submission
+- **Android versionCode**: Must increase with each upload
+
+## Hotfix workflow
+
+When you need to fix a critical bug fast:
+
+### 1. Create fix branch
+```bash
+git checkout -b hotfix/critical-bug
+```
+
+### 2. Make minimal fix
+Only fix the bug - no other changes.
+
+### 3. Test thoroughly
+Even hotfixes need testing.
+
+### 4. Build and submit
+```bash
+eas build --platform all --profile production
+eas submit --platform all
+```
+
+### 5. Request expedited review (iOS)
+In App Store Connect, you can request an expedited review for critical bug fixes.
+
+## OTA updates (Expo Updates)
+
+For JavaScript-only changes, use over-the-air updates:
+
+```bash
+eas update --branch production
+```
+
+Users get the update next time they open the app.
+
+### Limitations
+- Can't change native code
+- Can't add native dependencies
+- Large updates may fail
+
+## Checklist
+
+- [ ] Version numbers updated
+- [ ] Build numbers incremented
+- [ ] Changes tested
+- [ ] Build submitted
+- [ ] Release notes updated
+
+## Common issues
+
+**Build rejected for version?** Make sure buildNumber/versionCode increased.
+
+**Update not appearing?** OTA updates apply on next app launch.
+
+## What's next
+
+Having issues? Check [debugging build failures](/docs/troubleshooting/build-failures).
