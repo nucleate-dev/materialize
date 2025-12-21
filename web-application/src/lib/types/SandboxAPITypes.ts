@@ -5,7 +5,7 @@
 // To update these types, modify the source file and run:
 // npm run sync-build-worker-types
 //
-// Last synced: 2025-12-21T10:59:15.024Z
+// Last synced: 2025-12-21T22:24:54.416Z
 
 import { Database } from "./supabase.js";
 
@@ -118,6 +118,11 @@ export interface PublicDevServerStopSuccessResponse {
 
 export interface PublicDevServerRestartSuccessResponse {
   message: string;
+}
+
+export interface UndoLastChangeSuccessResponse {
+  message: string;
+  stdout: string;
 }
 
 export interface PublicDevServerRefetchEnvRequest {
