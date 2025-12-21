@@ -458,7 +458,9 @@ export default function InternalPrototypePage() {
         }
         if (
           fetchViewData.data.source === "editable_instance" &&
-          fetchViewData.data.viewing_url?.includes("ngrok")
+          (fetchViewData.data.viewing_url?.includes("ngrok") ||
+            fetchViewData.data.viewing_url?.includes("sandbox") ||
+            fetchViewData.data.viewing_url?.includes("19006"))
         ) {
           setCurrentRenderStatus("Connecting..");
           setShouldTriggerInitialFetch(false);
