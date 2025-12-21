@@ -45,6 +45,7 @@ import {
   Sparkles,
   StopCircle,
   Terminal,
+  Undo2,
   X,
 } from "lucide-react";
 import type {
@@ -131,6 +132,7 @@ interface ClaudeCodePanelUIProps {
   hasReachedCreditLimit: boolean;
   creditsUsed: number;
   totalAvailableCredits: number;
+  onUndo: () => void;
   onMessageUpdate?: (message: Message) => void;
 }
 
@@ -197,6 +199,7 @@ export default function ClaudeCodePanelUI({
   hasReachedCreditLimit,
   creditsUsed,
   totalAvailableCredits,
+  onUndo,
   onMessageUpdate,
 }: ClaudeCodePanelUIProps) {
   const [showCreditLimitModal, setShowCreditLimitModal] = useState(false);
@@ -335,6 +338,24 @@ export default function ClaudeCodePanelUI({
         </div>
 
         <div className="flex items-center gap-1">
+          {/* Undo Button */}
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  onClick={onUndo}
+                  disabled={!isConnected || isProcessing}
+                  className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                >
+                  <Undo2 className="w-3.5 h-3.5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">Undo Last Change</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+
           {/* Credits Indicator */}
           <TooltipProvider>
             <Tooltip>
