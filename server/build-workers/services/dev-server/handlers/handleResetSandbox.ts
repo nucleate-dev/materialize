@@ -4,6 +4,7 @@ import {
   StandardErrorResponse,
   HTTP_STATUS,
   ResetSandboxSuccessResponse,
+  DevServerStatus,
 } from "../../../types/BuildWorkerTypes.js";
 import { NucleateDevelopmentServerService } from "../NucleateDevelopmentServerService.js";
 import { getWorkerContext, resetWorkerContext } from "../../../worker.js";
@@ -82,7 +83,21 @@ export async function handleResetSandbox(
       // Don't throw - continue with reset even if Claude sessions fail
     }
 
-    // Step 3: Reset worker context
+    // Step 3: Stop the dev server
+    try {
+      await developmentServerService.developmentServerAdapter.stopDevServer(
+        request.log2,
+      );
+      developmentServerService.developmentServerState.devServerStatus =
+        DevServerStatus.STOPPED;
+      request.log2.consoleLogDevOnly("info", "Dev server stopped successfully");
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      request.log2.error(new Error(errorMessage), "Failed to stop dev server");
+    }
+
+    // Step 4: Reset worker context
     resetWorkerContext();
     request.log2.consoleLogDevOnly("info", "Worker context reset successfully");
 
