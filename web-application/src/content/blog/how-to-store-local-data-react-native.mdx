@@ -1,0 +1,122 @@
+---
+title: "How to Store Local Data with React Native Apps"
+excerpt: "Choosing the right storage solution is critical for React Native performance and security. This guide breaks down the five most common methods: AsyncStorage, Expo SecureStore, Expo-SQLite, and MMKV."
+publishedAt: "2025-12-21"
+tags: ["expo", "react-native"]
+category: "guides"
+---
+
+Choosing the right storage solution is critical for React Native performance and security. This guide breaks down the five most common methods: **AsyncStorage**, **Expo SecureStore**, **Expo-SQLite (KV)**, **MMKV**, and **Expo-SQLite (Relational)**.
+
+### 1. AsyncStorage
+
+*The Legacy Standard*
+
+For years, this was the default way to store data in React Native. It is a simple, unencrypted, asynchronous key-value storage system. While it was once part of the core React Native repository, it has since been moved to the community package `@react-native-async-storage/async-storage`.
+
+* **How it works:** Saves data as serialized JSON strings to a dedicated file (iOS) or SQLite/RocksDB (Android).
+* **Pros:**
+    * **Ubiquitous:** Most older tutorials and libraries default to this.
+    * **Simple API:** `setItem` and `getItem` are very easy to understand.
+
+
+* **Cons:**
+    * **Unsecure:** **Never** store passwords or tokens here; the file is unencrypted and readable by anyone with root access.
+    * **Performance:** It is asynchronous (requires `await` for everything), which can slow down app startup.
+    * **Storage Limits:** Android has a default limit (6MB) which requires extra configuration to increase.
+
+
+
+### 2. Expo SecureStore
+
+*The Vault (For Sensitive Data)*
+
+While other methods focus on speed or volume, SecureStore focuses on **safety**. It is the standard way to store sensitive information like authentication tokens, API keys, and user passwords.
+
+* **How it works:** It uses the device's native security infrastructure—**Keychain Services** on iOS and **SharedPreferences (encrypted with Keystore)** on Android.
+* **Pros:**
+    * **Encryption:** Data is encrypted at rest by the operating system.
+    * **No Configuration:** Works immediately in Expo managed projects.
+
+
+* **Cons:**
+    * **Storage Size:** Strictly for *small* strings. Android has a legacy limit of roughly **2KB (2048 bytes)** per key. It will crash or fail if you try to store a large JSON object.
+    * **Performance:** Encryption/decryption adds overhead, making it slower than other options.
+
+
+
+### 3. Expo-SQLite (Key-Value Store)
+
+*The "Official" AsyncStorage Replacement*
+
+The `expo-sqlite` library now includes a Key-Value storage feature designed to be a drop-in replacement for AsyncStorage, but backed by a robust database.
+
+* **How it works:** It uses the same SQLite engine available in Expo but provides a simplified Key-Value API so you don't have to write SQL queries for simple data.
+* **Pros:**
+    * **Sync & Async:** Unlike AsyncStorage, it offers synchronous methods, meaning you can read data *immediately* when your app launches.
+    * **Robustness:** Backed by SQLite, it is generally more stable and less prone to corruption than flat-file storage.
+
+
+* **Cons:**
+    * **Overhead:** It requires including the SQLite binary, which might slightly increase app size if you aren't using SQLite for anything else.
+
+
+
+### 4. MMKV
+
+*The Speed Demon*
+
+MMKV is a high-performance key-value storage library developed by WeChat. It is widely considered the modern gold standard for key-value storage in React Native apps due to its speed.
+
+* **How it works:** It uses **memory-mapping** (mmap) to keep the file synced with memory directly. This allows for instant reads and writes without bridging to native code asynchronously.
+* **Pros:**
+    * **Performance:** It is orders of magnitude faster than AsyncStorage (often 30x-100x faster).
+    * **Synchronous:** You can block the JS thread safely to read variables, making it perfect for instant state hydration (e.g., keeping a user logged in on app launch).
+    * **Types:** Can store booleans and numbers natively without stringifying them.
+
+
+* **Cons:**
+    * **Strictly Key-Value:** Not suitable for complex relational data (like a full offline database).
+
+
+
+### 5. Expo-SQLite (Relational Usage)
+
+*The Structured Database*
+
+This is the standard usage of the `expo-sqlite` library: writing actual SQL queries (`SELECT`, `INSERT`, `JOIN`) to manage data.
+
+* **How it works:** It provides a full SQLite database engine on the device. You write SQL commands to interact with tables.
+* **Pros:**
+    * **Complex Queries:** Ideal for filtering, sorting, and aggregating data (e.g., "Show me all active tasks created after Tuesday").
+    * **ACID Compliance:** Ensures data integrity (transactions either fully complete or fully fail).
+    * **Scalability:** Can handle hundreds of thousands of rows efficiently if indexed correctly.
+
+
+* **Cons:**
+    * **Complexity:** Requires knowledge of SQL. You have to manage migrations (updating tables when your app updates).
+    * **Boilerplate:** Reading a simple "isDarkMode" boolean requires writing a full SQL query, which is overkill.
+
+> **Tip:** You can use an **ORM (Object-Relational Mapper)** like **Drizzle ORM** with Expo-SQLite. This allows you to interact with the database using TypeScript objects instead of raw SQL strings, effectively removing the "Complexity" and "Boilerplate" cons while keeping all the performance benefits.
+
+
+
+---
+
+### Summary: When to use what?
+
+| Feature | **AsyncStorage** | **SecureStore** | **Expo-SQLite (KV)** | **MMKV** | **Expo-SQLite (SQL)** |
+| --- | --- | --- | --- | --- | --- |
+| **Best For** | Legacy / Prototyping | **Passwords / Tokens** | Simple settings | High performance | Large / Complex Data |
+| **Speed** | 🐢 Slow (Async) | 🚶 Moderate | 🐇 Fast | 🚀 Instant | 🐎 Fast |
+| **Security** | ❌ None | **✅ High (OS Native)** | ❌ None | ✅ (If enabled) | ⚠️ (Via extension) |
+| **Capacity** | ~6MB | **Very Low (<2KB)** | High | High | Very High |
+| **API Style** | Async | Async (mostly) | Sync & Async | Sync | SQL Queries |
+
+### Final Recommendation
+
+1. **Use Expo SecureStore** for **sensitive data only** (Auth Tokens, API Keys, Passwords). Do not put anything else here due to the size limits.
+2. **Use MMKV** for standard **user preferences** (Theme, Settings, Feature Flags) due to its incredible speed and synchronous access.
+3. **Use Expo-SQLite (SQL)** for **user-generated content** (Offline Todo lists, cached posts) where you need to filter or sort data.
+4. **Use Expo-SQLite (KV)** if you want a simple replacement for AsyncStorage and are already using SQLite.
+5. **Prefer KV-Store over AsyncStorage** if you are using Expo, as it offers a more modern and synchronous API.
