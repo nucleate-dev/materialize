@@ -166,7 +166,6 @@ export class ClaudeCodeCliQueryHandler {
           type: ChatEvent.ERROR,
           error: {
             message: "Failed to start chat session",
-            details: err.message,
           },
         });
         return;
