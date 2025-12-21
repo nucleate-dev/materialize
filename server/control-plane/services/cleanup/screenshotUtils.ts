@@ -135,7 +135,7 @@ async function launchBrowser(
       deviceScaleFactor: 2,
     });
     await page.emulateMediaFeatures([
-      { name: 'prefers-color-scheme', value: 'dark' },
+      { name: 'prefers-color-scheme', value: 'light' },
     ]);
 
     return { browser, page };
