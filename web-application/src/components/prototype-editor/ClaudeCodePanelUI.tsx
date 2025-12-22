@@ -35,6 +35,7 @@ import {
   ChevronRight,
   ChevronUp,
   CircleAlert,
+  Copy,
   Edit2,
   Info,
   Loader2,
@@ -477,8 +478,19 @@ export default function ClaudeCodePanelUI({
                           </div>
                         )}
                       </div>
-                      <div className="text-[10px] text-muted-foreground mt-1 text-right opacity-0 group-hover:opacity-100 transition-opacity">
-                        {getRelativeTime(message.timestamp)}
+                      <div className="flex items-center justify-end gap-2 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button
+                          onClick={() => {
+                            navigator.clipboard.writeText(message.content);
+                          }}
+                          className="text-muted-foreground hover:text-foreground transition-colors"
+                          title="Copy message"
+                        >
+                          <Copy className="w-3 h-3" />
+                        </button>
+                        <span className="text-[10px] text-muted-foreground">
+                          {getRelativeTime(message.timestamp)}
+                        </span>
                       </div>
                     </div>
                   )}
