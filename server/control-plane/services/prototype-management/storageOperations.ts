@@ -382,6 +382,64 @@ export async function uploadDefaultAssetsToSupabaseStorage(
 }
 
 /**
+ * Copy the latest build for a prototype into the deployed prefix
+ */
+export async function copyPrototypeBuildToDeployedFolder(
+  s3Client: S3Client,
+  prototypeId: string,
+  buildKey: string | null | undefined,
+  log2: SystemLogger,
+): Promise<S3CopyResult> {
+  const normalizedBuildKey =
+    (buildKey && buildKey.replace(/^\/+|\/+$/g, '')) || 'latest';
+  const sourcePrefix = `${prototypeId}/${normalizedBuildKey}/`;
+  const destinationPrefix = `${prototypeId}/deployed/`;
+
+  log2.consoleLogDevOnly(
+    'info',
+    '[copyPrototypeBuildToDeployedFolder] Copying build to deployed prefix',
+    {
+      prototypeId,
+      buildKey: normalizedBuildKey,
+      sourcePrefix,
+      destinationPrefix,
+    },
+  );
+
+  const copyResult = await copyS3BucketContents(
+    s3Client,
+    sourcePrefix,
+    destinationPrefix,
+    log2,
+  );
+
+  if (!copyResult.success) {
+    log2.error(
+      new Error(copyResult.error || 'Unknown copy error'),
+      '[copyPrototypeBuildToDeployedFolder] Failed to copy build to deployed prefix',
+      {
+        prototypeId,
+        buildKey: normalizedBuildKey,
+        sourcePrefix,
+        destinationPrefix,
+      },
+    );
+  } else {
+    log2.consoleLogDevOnly(
+      'info',
+      '[copyPrototypeBuildToDeployedFolder] Copy completed',
+      {
+        prototypeId,
+        buildKey: normalizedBuildKey,
+        copiedObjects: copyResult.copiedObjects,
+      },
+    );
+  }
+
+  return copyResult;
+}
+
+/**
  * Get the viewing URL for a prototype
  */
 export function getPrototypeViewingUrl(prototypeId: string): string {

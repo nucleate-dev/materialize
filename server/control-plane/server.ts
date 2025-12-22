@@ -228,7 +228,7 @@ const start = async (): Promise<void> => {
     stripeManagementService.registerRoutes(fastify);
 
     // Create deployment service and register routes
-    deploymentService = new PrototypeDeploymentService();
+    deploymentService = new PrototypeDeploymentService(s3Client);
     deploymentService.registerRoutes(fastify);
 
     // Create prototype management service and register routes

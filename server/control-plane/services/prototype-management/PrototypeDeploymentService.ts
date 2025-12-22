@@ -1,3 +1,4 @@
+import { S3Client } from '@aws-sdk/client-s3';
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import {
   type CheckSlugSuccessResponse,
@@ -14,6 +15,7 @@ import {
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '../../types/supabase.js';
 import { posthog } from '../../server.js';
+import { copyPrototypeBuildToDeployedFolder } from './storageOperations.js';
 
 type PrototypeVisibility = Database['public']['Enums']['visibility_level'];
 
@@ -55,9 +57,11 @@ const supabase = createClient<Database>(
 );
 
 export class PrototypeDeploymentService {
+  private s3Client: S3Client;
   private appsBaseUrl: string;
 
-  constructor() {
+  constructor(s3Client: S3Client) {
+    this.s3Client = s3Client;
     this.appsBaseUrl = (
       process.env.APPS_BASE_URL ??
       process.env.APPS_HOST ??
@@ -302,9 +306,25 @@ export class PrototypeDeploymentService {
       };
     }
 
-    // TODO: Actually deploy the prototype to CloudFront under /deployed S3 folder in materialize-sites bucket
+    // 5. Copy the latest build output into the deployed folder
+    const copyResult = await copyPrototypeBuildToDeployedFolder(
+      this.s3Client,
+      authResult.prototype.id,
+      authResult.prototype.latest_build_key,
+      request.log2,
+    );
+    if (!copyResult.success) {
+      reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR);
+      return {
+        data: null,
+        error: {
+          error: 'Deployment failed',
+          message: 'Unable to copy build artifacts for deployment',
+        },
+      };
+    }
 
-    // 5. Update prototype with deployment details
+    // 6. Update prototype with deployment details
     const { data: updatedPrototype, error: updateError } = await supabase
       .from('prototypes')
       .update({
