@@ -4,11 +4,6 @@ import { SystemLogger } from "../../../loggers/SystemLogger.js";
 import { VERCEL_MODEL_COSTS_USD } from "../cost/cost-calculation.js";
 
 /**
- * Classification result indicating whether user wants to design/create UI vs standard chat
- */
-export type DesignIntent = "design_mode" | "standard_mode";
-
-/**
  * Configuration for design intent classification
  */
 export interface DesignIntentClassifierConfig {
@@ -26,8 +21,8 @@ export interface DesignIntentClassifierConfig {
  * Result from design intent classification
  */
 export interface DesignIntentClassifierResult {
-  /** The classified intent */
-  intent: DesignIntent;
+  /** Whether the user wants a design spec generated */
+  shouldGenerateDesignSpec: boolean;
   /** The cost in USD (undefined if not available) */
   costUsd: number | undefined;
 }
@@ -38,10 +33,10 @@ export interface DesignIntentClassifierResult {
 const CLASSIFIER_PROMPT = `You are a classifier that determines if a user wants to DESIGN or BUILD user interface elements, or if they just have a general question or logic request.
 
 Classify the user's request as either:
-- "design_mode": User wants to create, modify, or design UI elements. This applies to FULL APPS, SPECIFIC SCREENS, OR SINGLE COMPONENTS (buttons, cards, inputs, etc).
-- "standard_mode": User has a general question, debugging request, explanation request, or pure logic change with no visual component.
+- "true": User wants to create, modify, or design UI elements. This applies to FULL APPS, SPECIFIC SCREENS, OR SINGLE COMPONENTS (buttons, cards, inputs, etc).
+- "false": User has a general question, debugging request, explanation request, or pure logic change with no visual component.
 
-Examples of "design_mode" (REQUIRES DESIGN THOUGHT):
+Examples of "true" (REQUIRES DESIGN THOUGHT):
 - "Build me a fitness tracking app" (Full App)
 - "Create a login screen" (Screen)
 - "Add a profile card" (Component)
@@ -49,14 +44,14 @@ Examples of "design_mode" (REQUIRES DESIGN THOUGHT):
 - "Redesign this page to look modern" (Modification)
 - "Change the colors to be dark mode" (Modification)
 
-Examples of "standard_mode" (NO DESIGN THOUGHT REQUIRED):
+Examples of "false" (NO DESIGN THOUGHT REQUIRED):
 - "Why is my build failing?"
 - "Explain how useEffect works"
 - "Fix the bug in the calculation function"
 - "Add a console.log here"
 - "Refactor this code to be cleaner" (Logic refactor)
 
-Respond with ONLY one word: either "design_mode" or "standard_mode". No explanation, no punctuation, just the classification.`;
+Respond with ONLY one word: either "true" or "false". No explanation, no punctuation, just the classification.`;
 
 /**
  * Model to use for classification - fast and cheap
@@ -131,21 +126,21 @@ export async function classifyDesignIntent(
     const classificationText = result.text.trim().toLowerCase();
 
     // Parse the classification result
-    let intent: DesignIntent;
-    if (classificationText.includes("design_mode")) {
-      intent = "design_mode";
-    } else if (classificationText.includes("standard_mode")) {
-      intent = "standard_mode";
+    let shouldGenerateDesignSpec = false;
+    if (classificationText === "true") {
+      shouldGenerateDesignSpec = true;
+    } else if (classificationText === "false") {
+      shouldGenerateDesignSpec = false;
     } else {
-      // Default to standard_mode if unclear (safer default - less intrusive)
+      // Default to false if unclear (safer default - less intrusive)
       logger.warn(
-        "Design intent classifier returned unexpected result, defaulting to standard_mode",
+        "Design intent classifier returned unexpected result, defaulting to false",
         {
           classificationText,
           prototypeId,
         },
       );
-      intent = "standard_mode";
+      shouldGenerateDesignSpec = false;
     }
 
     // Extract usage information
@@ -162,18 +157,18 @@ export async function classifyDesignIntent(
 
     logger.consoleLogDevOnly("info", "Design intent classification completed", {
       model: CLASSIFIER_MODEL,
-      intent,
+      shouldGenerateDesignSpec,
       costUsd,
       promptTokens: usageRaw?.promptTokens,
       completionTokens: usageRaw?.completionTokens,
       prototypeId,
     });
 
-    return { intent, costUsd };
+    return { shouldGenerateDesignSpec, costUsd };
   } catch (error) {
     logger.error(
       error instanceof Error ? error : new Error(String(error)),
-      "Design intent classification failed, defaulting to standard_mode",
+      "Design intent classification failed, defaulting to false",
       {
         model: CLASSIFIER_MODEL,
         prototypeId,
@@ -181,7 +176,7 @@ export async function classifyDesignIntent(
       },
     );
 
-    // On error, default to standard_mode (safer path)
-    return { intent: "standard_mode", costUsd: undefined };
+    // On error, default to false (safer path)
+    return { shouldGenerateDesignSpec: false, costUsd: undefined };
   }
 }

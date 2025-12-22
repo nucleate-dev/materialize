@@ -380,18 +380,20 @@ export class ChatQueryHandler {
 
           const classifierCost = classificationResult.costUsd;
           const shouldRunDesignAgent =
-            classificationResult.intent === "design_mode";
+            classificationResult.shouldGenerateDesignSpec;
 
           logger.debug("User intent classified", {
             prototypeId,
-            intent: classificationResult.intent,
+            shouldGenerateDesignSpec:
+              classificationResult.shouldGenerateDesignSpec,
             classifierCost,
           });
 
           logger.debug("Design agent routing decision", {
             prototypeId,
             shouldRunDesignAgent,
-            intent: classificationResult.intent,
+            shouldGenerateDesignSpec:
+              classificationResult.shouldGenerateDesignSpec,
           });
 
           // Step 6b: Only run design agent if user wants a design mode
@@ -483,10 +485,11 @@ export class ChatQueryHandler {
             designAgentCost = classifierCost;
             logger.consoleLogDevOnly(
               "info",
-              "Skipping design agent - user wants standard mode",
+              "Skipping design agent - no design spec needed",
               {
                 prototypeId,
-                intent: classificationResult.intent,
+                shouldGenerateDesignSpec:
+                  classificationResult.shouldGenerateDesignSpec,
                 classifierCost,
               },
             );
