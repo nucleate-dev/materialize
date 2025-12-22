@@ -7,8 +7,12 @@ import {
   type DeployErrorResponse,
   type APIResponse,
   HTTP_STATUS,
+  StandardErrorResponse,
 } from '../types/PublicAPITypes.js';
-import { checkUserHasPrototypeEditAccess } from '../utils/prototypeAuth.js';
+import {
+  checkUserHasPrototypeEditAccess,
+  validateJWTToken,
+} from '../utils/prototypeAuth.js';
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '../types/supabase.js';
 import { posthog } from '../server.js';
@@ -125,28 +129,33 @@ export class PrototypeDeploymentService {
       Querystring: { slug: string; exclude_prototype_id?: string };
     }>,
     reply: FastifyReply,
-  ): Promise<APIResponse<CheckSlugSuccessResponse, CheckSlugErrorResponse>> {
+  ): Promise<APIResponse<CheckSlugSuccessResponse, StandardErrorResponse>> {
+    const token = request.headers.authorization?.split(' ')[1] ?? '';
+    const { user } = await validateJWTToken(token, request.log2);
+    if (!user) {
+      request.log2.warn('Unauthorized user');
+      reply.status(HTTP_STATUS.UNAUTHORIZED);
+      return {
+        data: null,
+        error: {
+          error: 'Unauthorized',
+          message: 'Invalid token',
+        },
+      };
+    }
+
     const { slug: rawSlug, exclude_prototype_id } = request.query;
     const slug = this.normalizeSlug(rawSlug);
 
-    if (!slug) {
-      return reply.status(HTTP_STATUS.BAD_REQUEST).send({
-        data: null,
-        error: {
-          available: false,
-          message: 'Slug is required',
-        },
-      });
-    }
-
     if (!this.isValidSlug(slug)) {
-      return reply.status(HTTP_STATUS.BAD_REQUEST).send({
+      reply.status(HTTP_STATUS.BAD_REQUEST);
+      return {
         data: null,
         error: {
-          available: false,
+          error: 'Invalid slug',
           message: `Slug must be ${SLUG_RULES.min}-${SLUG_RULES.max} characters using lowercase letters, numbers, or hyphens.`,
         },
-      });
+      };
     }
 
     try {
@@ -160,31 +169,34 @@ export class PrototypeDeploymentService {
 
       if (error) {
         request.log2.error(error, 'Failed to check slug availability');
-        return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
+        reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR);
+        return {
           data: null,
           error: {
-            available: false,
+            error: 'Internal server error',
             message: 'Unable to check slug availability',
           },
-        });
+        };
       }
 
-      return reply.status(HTTP_STATUS.OK).send({
+      reply.status(HTTP_STATUS.OK);
+      return {
         data: {
           available: data.length === 0,
           slug,
         },
         error: null,
-      });
+      };
     } catch (error) {
       request.log2.error(error, 'Error checking slug availability');
-      return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
+      reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR);
+      return {
         data: null,
         error: {
-          available: false,
+          error: 'Internal server error',
           message: 'Unable to check slug availability',
         },
-      });
+      };
     }
   }
 
@@ -209,16 +221,6 @@ export class PrototypeDeploymentService {
       slug: rawSlug,
       visibility: rawVisibility,
     } = request.body;
-
-    if (!prototype_id) {
-      return reply.status(HTTP_STATUS.BAD_REQUEST).send({
-        data: null,
-        error: {
-          error: 'Missing parameter',
-          message: 'prototype_id is required',
-        },
-      });
-    }
 
     const token = request.headers.authorization?.split(' ')[1];
     const authResult = await checkUserHasPrototypeEditAccess(
@@ -277,16 +279,6 @@ export class PrototypeDeploymentService {
     }
 
     const normalizedSlug = this.normalizeSlug(rawSlug);
-
-    if (!normalizedSlug) {
-      return reply.status(HTTP_STATUS.BAD_REQUEST).send({
-        data: null,
-        error: {
-          error: 'Missing parameter',
-          message: 'Slug is required',
-        },
-      });
-    }
 
     if (!this.isValidSlug(normalizedSlug)) {
       return reply.status(HTTP_STATUS.BAD_REQUEST).send({
