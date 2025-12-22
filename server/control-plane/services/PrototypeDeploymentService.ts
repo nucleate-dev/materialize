@@ -1,10 +1,8 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import {
   type CheckSlugSuccessResponse,
-  type CheckSlugErrorResponse,
   type DeployRequestBody,
   type DeploySuccessResponse,
-  type DeployErrorResponse,
   type APIResponse,
   HTTP_STATUS,
   StandardErrorResponse,
@@ -160,11 +158,9 @@ export class PrototypeDeploymentService {
 
     try {
       let query = supabase.from('prototypes').select('id').eq('slug', slug);
-
       if (exclude_prototype_id) {
         query = query.neq('id', exclude_prototype_id);
       }
-
       const { data, error } = await query.limit(1);
 
       if (error) {
@@ -215,166 +211,128 @@ export class PrototypeDeploymentService {
   private async handleDeploy(
     request: FastifyRequest<{ Body: DeployRequestBody }>,
     reply: FastifyReply,
-  ): Promise<APIResponse<DeploySuccessResponse, DeployErrorResponse>> {
-    const {
-      prototype_id,
-      slug: rawSlug,
-      visibility: rawVisibility,
-    } = request.body;
+  ): Promise<APIResponse<DeploySuccessResponse, StandardErrorResponse>> {
+    const { prototype_id, slug: rawSlug } = request.body;
 
+    // 1. Authenticate user
     const token = request.headers.authorization?.split(' ')[1];
     const authResult = await checkUserHasPrototypeEditAccess(
       prototype_id,
       token,
       request.log2,
     );
-
-    if (authResult === null || !authResult.canEdit) {
-      return reply.status(HTTP_STATUS.UNAUTHORIZED).send({
+    if (
+      authResult === null ||
+      !authResult.canEdit ||
+      authResult.user === null
+    ) {
+      reply.status(HTTP_STATUS.UNAUTHORIZED);
+      return {
         data: null,
         error: {
           error: 'Unauthorized',
-          message: 'Access denied for this prototype',
+          message: 'Authorization failed or access denied for this prototype',
         },
-      });
+      };
     }
-
-    const { user, prototype, isServiceRole } = authResult;
-
-    if (!user) {
-      return reply.status(HTTP_STATUS.UNAUTHORIZED).send({
-        data: null,
-        error: {
-          error: 'Unauthorized',
-          message: 'Invalid token',
-        },
-      });
-    }
-
-    const userId = user.id;
 
     request.log2 = request.log2.child({
-      userId: userId ?? (isServiceRole ? 'service-role' : 'unknown'),
+      userId: authResult.user.id,
+      prototypeId: prototype_id,
     });
 
-    if (!isServiceRole) {
-      // Check feature flag for deployment
-      const isDeployFeatureEnabled = await posthog.isFeatureEnabled(
-        'deploy-app-for-public-viewing',
-        userId,
-      );
-
-      if (!isDeployFeatureEnabled) {
-        request.log2.warn('Deployment feature not enabled for user', {
-          user_id: userId,
-        });
-        return reply.status(HTTP_STATUS.FORBIDDEN).send({
-          data: null,
-          error: {
-            error: 'Feature not available',
-            message: 'Deployment feature is not enabled for your account',
-          },
-        });
-      }
+    // 2. Check user has access to the deploy feature
+    const isDeployFeatureEnabled = await posthog.isFeatureEnabled(
+      'deploy-app-for-public-viewing',
+      authResult.user.id,
+    );
+    if (!isDeployFeatureEnabled) {
+      request.log2.warn('Deployment feature not enabled for user', {
+        user_id: authResult.user.id,
+      });
+      reply.status(HTTP_STATUS.FORBIDDEN);
+      return {
+        data: null,
+        error: {
+          error: 'Feature not available',
+          message: 'Deployment feature is not enabled for your account',
+        },
+      };
     }
 
+    // 3. Validate the slug formatting
     const normalizedSlug = this.normalizeSlug(rawSlug);
-
     if (!this.isValidSlug(normalizedSlug)) {
-      return reply.status(HTTP_STATUS.BAD_REQUEST).send({
+      reply.status(HTTP_STATUS.BAD_REQUEST);
+      return {
         data: null,
         error: {
           error: 'Invalid slug',
           message: `Slug must be ${SLUG_RULES.min}-${SLUG_RULES.max} characters using lowercase letters, numbers, or hyphens.`,
         },
-      });
+      };
     }
 
-    const requestedVisibility = rawVisibility
-      ? normalizePrototypeVisibility(rawVisibility)
-      : ('PUBLIC' as PrototypeVisibility);
-    const visibility = isValidVisibility(requestedVisibility)
-      ? requestedVisibility
-      : ('PUBLIC' as PrototypeVisibility);
-
-    try {
-      // Check slug uniqueness
-      const { data: slugMatches, error: slugCheckError } = await supabase
-        .from('prototypes')
-        .select('id')
-        .eq('slug', normalizedSlug)
-        .neq('id', prototype.id)
-        .limit(1);
-
-      if (slugCheckError) {
-        request.log2.error(
-          slugCheckError,
-          'Failed to validate slug uniqueness',
-        );
-        return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
-          data: null,
-          error: {
-            error: 'Validation failed',
-            message: 'Unable to validate slug uniqueness',
-          },
-        });
-      }
-
-      if ((slugMatches?.length ?? 0) > 0) {
-        return reply.status(HTTP_STATUS.CONFLICT).send({
-          data: null,
-          error: {
-            error: 'Conflict',
-            message: 'Slug already in use',
-          },
-        });
-      }
-
-      // Update prototype with deployment details
-      const { data: updatedPrototype, error: updateError } = await supabase
-        .from('prototypes')
-        .update({
-          slug: normalizedSlug,
-          visibility,
-          is_deployed: true,
-        })
-        .eq('id', prototype.id)
-        .select('id, slug, visibility')
-        .single();
-
-      if (updateError || !updatedPrototype) {
-        request.log2.error(updateError, 'Failed to deploy prototype');
-        return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
-          data: null,
-          error: {
-            error: 'Deployment failed',
-            message: 'Unable to deploy prototype',
-          },
-        });
-      }
-
-      return reply.status(HTTP_STATUS.OK).send({
-        data: {
-          prototype_id: updatedPrototype.id,
-          slug: updatedPrototype.slug ?? '',
-          visibility: updatedPrototype.visibility ?? 'PUBLIC',
-          url: `${this.appsBaseUrl}/${updatedPrototype.slug}`,
-        },
-        error: null,
-      });
-    } catch (error) {
-      request.log2.error(error, 'Error deploying prototype');
-      return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
+    // 4. Check the slug uniqueness
+    const { data: slugMatches, error: slugCheckError } = await supabase
+      .from('prototypes')
+      .select('id')
+      .eq('slug', normalizedSlug)
+      .neq('id', authResult.prototype.id)
+      .limit(1);
+    if (slugCheckError) {
+      request.log2.error(slugCheckError, 'Failed to validate slug uniqueness');
+      reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR);
+      return {
         data: null,
         error: {
-          error: 'Internal server error',
-          message:
-            error instanceof Error
-              ? error.message
-              : 'Unable to deploy prototype',
+          error: 'Validation failed',
+          message: 'Unable to validate slug uniqueness',
         },
-      });
+      };
     }
+    if ((slugMatches?.length ?? 0) > 0) {
+      reply.status(HTTP_STATUS.CONFLICT);
+      return {
+        data: null,
+        error: {
+          error: 'Conflict',
+          message: 'Slug already in use',
+        },
+      };
+    }
+
+    // TODO: Actually deploy the prototype to CloudFront under /deployed S3 folder in materialize-sites bucket
+
+    // 5. Update prototype with deployment details
+    const { data: updatedPrototype, error: updateError } = await supabase
+      .from('prototypes')
+      .update({
+        slug: normalizedSlug,
+      })
+      .eq('id', authResult.prototype.id)
+      .select('id, slug')
+      .single();
+
+    if (updateError || !updatedPrototype) {
+      request.log2.error(updateError, 'Failed to deploy prototype');
+      reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR);
+      return {
+        data: null,
+        error: {
+          error: 'Deployment failed',
+          message: 'Unable to deploy prototype',
+        },
+      };
+    }
+
+    reply.status(HTTP_STATUS.OK);
+    return {
+      data: {
+        url: `${this.appsBaseUrl}/${updatedPrototype.slug}`,
+      },
+      error: null,
+    };
   }
 
   private normalizeSlug(slug: string): string {
