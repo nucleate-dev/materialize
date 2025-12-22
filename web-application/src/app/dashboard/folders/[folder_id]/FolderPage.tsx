@@ -97,7 +97,7 @@ export default function ProjectPage() {
         (p) => ({
           id: p.id,
           name: p.name,
-          thumbnail_url: p.thumbnail_url,
+          thumbnail_url: null,
           updated_at: p.updated_at,
           created_at: p.created_at,
           type: "prototype" as const,

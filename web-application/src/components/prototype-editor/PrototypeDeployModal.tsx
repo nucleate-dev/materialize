@@ -115,13 +115,13 @@ export default function PrototypeDeployModal({
           .order("created_at", { ascending: false });
 
         if (error) {
-          logger.error("error", "Failed to fetch build history", { error });
+          logger.debug("error", "Failed to fetch build history", { error });
           return;
         }
 
         setBuildHistory(data ?? []);
       } catch (error) {
-        logger.error("error", "Error fetching build history", { error });
+        logger.debug("error", "Error fetching build history", { error });
       } finally {
         setIsLoadingHistory(false);
       }
@@ -239,7 +239,7 @@ export default function PrototypeDeployModal({
 
         if (error) {
           setSlugError("Failed to update slug");
-          logger.error("error", "Failed to update slug", { error });
+          logger.debug("error", "Failed to update slug", { error });
           return;
         }
 
@@ -495,13 +495,13 @@ export default function PrototypeDeployModal({
               </Button>
               <Button
                 onClick={handleDeploy}
-                disabled={
+                disabled={Boolean(
                   isDeploying ||
                   isCheckingSlug ||
-                  slugAvailable === false ||
-                  !!slugError ||
+                  slugAvailable !== true ||
+                  slugError ||
                   (!hasSlugChanged && isLatestBuildDeployed)
-                }
+                )}
                 className="bg-indigo-600 hover:bg-indigo-700 text-white"
               >
                 {isDeploying ? (
