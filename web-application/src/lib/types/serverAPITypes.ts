@@ -5,7 +5,7 @@
 // To update these shared files, modify the source file and run:
 // npm run sync-types (in the control-plane directory)
 //
-// Last synced: 2025-12-21T22:24:54.369Z
+// Last synced: 2025-12-22T12:52:35.515Z
 
 // Public API types for the Control Plane Server
 // These types define the request and response schemas for all public endpoints
@@ -199,19 +199,10 @@ export interface CheckSlugErrorResponse {
 export interface DeployRequestBody {
   prototype_id: string;
   slug: string;
-  visibility?: 'PUBLIC' | 'SELF' | 'TEAM_SUBSET' | 'TEAM';
 }
 
 export interface DeploySuccessResponse {
-  prototype_id: string;
-  slug: string;
-  visibility: string;
   url: string;
-}
-
-export interface DeployErrorResponse {
-  error: string;
-  message: string;
 }
 
 // ============================================================================
