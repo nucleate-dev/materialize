@@ -1,6 +1,6 @@
 import { google } from "@ai-sdk/google";
 import { openai } from "@ai-sdk/openai";
-import { generateText, type LanguageModel } from "ai";
+import { generateText, type LanguageModel, type UserContent } from "ai";
 import fs from "fs/promises";
 import path from "path";
 import { SystemLogger } from "../../../loggers/SystemLogger.js";
@@ -21,8 +21,8 @@ export interface DesignAgentConfig {
   provider: DesignAgentProvider;
   /** The specific model name (e.g., "claude-sonnet-4-5", "gemini-2.0-flash-exp", "gpt-4o") */
   model: string;
-  /** The user's message/request */
-  userMessage: string;
+  /** The user's message/request (text or multimodal parts) */
+  userContent: UserContent;
   /** Working directory for context */
   workDir: string;
   /** Abort controller for cancellation */
@@ -107,7 +107,7 @@ export async function executeDesignAgent(
   const {
     provider,
     model,
-    userMessage,
+    userContent,
     workDir,
     abortController,
     logger,
@@ -118,7 +118,11 @@ export async function executeDesignAgent(
     logger.consoleLogDevOnly("info", "Executing design agent with AI SDK", {
       provider,
       model,
-      userMessageLength: userMessage.length,
+      userMessageLength:
+        typeof userContent === "string" ? userContent.length : undefined,
+      hasImages: Array.isArray(userContent)
+        ? userContent.some((part) => part.type === "image")
+        : false,
       prototypeId,
       workDir,
     });
@@ -126,19 +130,40 @@ export async function executeDesignAgent(
     const modelInstance = resolveModel(provider, model);
 
     // Execute design agent using AI SDK's generateText
-    const result = await generateText({
-      model: modelInstance,
-      prompt: DESIGN_AGENT_PROMPT + "\n\n" + userMessage,
-      abortSignal: abortController.signal,
-      providerOptions: {
-        google: {
-          thinkingConfig: {
-            includeThoughts: true,
-            thinkingLevel: "low",
-          },
-        },
-      },
-    });
+    const result =
+      typeof userContent === "string"
+        ? await generateText({
+            model: modelInstance,
+            prompt: DESIGN_AGENT_PROMPT + "\n\n" + userContent,
+            abortSignal: abortController.signal,
+            providerOptions: {
+              google: {
+                thinkingConfig: {
+                  includeThoughts: true,
+                  thinkingLevel: "low",
+                },
+              },
+            },
+          })
+        : await generateText({
+            model: modelInstance,
+            system: DESIGN_AGENT_PROMPT,
+            messages: [
+              {
+                role: "user",
+                content: userContent,
+              },
+            ],
+            abortSignal: abortController.signal,
+            providerOptions: {
+              google: {
+                thinkingConfig: {
+                  includeThoughts: true,
+                  thinkingLevel: "low",
+                },
+              },
+            },
+          });
 
     const designSpec = result.text;
     logger.consoleLogDevOnly("info", "Design agent execution completed", {

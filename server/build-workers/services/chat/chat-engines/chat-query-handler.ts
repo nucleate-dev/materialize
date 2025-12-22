@@ -11,6 +11,7 @@ import {
   SDKUserMessage,
   SettingSource,
 } from "@anthropic-ai/claude-agent-sdk";
+import type { UserContent } from "ai";
 import path from "path";
 import WebSocket from "ws";
 import { SystemLogger } from "../../../loggers/SystemLogger.js";
@@ -36,6 +37,7 @@ import {
   type DesignAgentProvider,
 } from "../classifiers-and-subagents/design-agent-service.js";
 import { classifyDesignIntent } from "../classifiers-and-subagents/design-intent-classifier.js";
+import { buildDesignAgentUserContent } from "../classifiers-and-subagents/design-classifier-utils.js";
 import {
   costFunctionV3,
   CURRENT_COST_FUNCTION_NAME,
@@ -359,6 +361,12 @@ export class ChatQueryHandler {
                   .map((block) => block.text || "")
                   .join("\n")
               : prompt || "";
+        const designAgentUserContent = buildDesignAgentUserContent(
+          typeof content === "string" ? content : prompt,
+          Array.isArray(content) ? content : undefined,
+          logger,
+          prototypeId,
+        );
 
         if (userMessageText) {
           // Create abort controller for classifier and potential design agent
@@ -416,7 +424,7 @@ export class ChatQueryHandler {
 
             const designResult = await this.executeDesignAgentWrapper(
               prototypeId,
-              userMessageText,
+              designAgentUserContent ?? userMessageText,
               classifierAbortController,
               logger,
               "", // system prompt not used anymore (handled by design-agent-service)
@@ -942,7 +950,7 @@ export class ChatQueryHandler {
    */
   private async executeDesignAgentWrapper(
     prototypeId: string,
-    userMessage: string,
+    userContent: UserContent,
     abortController: AbortController,
     logger: SystemLogger,
     _systemPrompt: string,
@@ -951,23 +959,29 @@ export class ChatQueryHandler {
     const provider: DesignAgentProvider = "google";
     const model = DEFAULT_DESIGN_AGENT_MODELS[provider];
 
+    const imageCount = Array.isArray(userContent)
+      ? userContent.filter((part) => part.type === "image").length
+      : 0;
     logger.consoleLogDevOnly("info", "Executing design agent via AI SDK", {
       prototypeId,
       provider,
       model,
-      userMessageLength: userMessage.length,
+      userMessageLength:
+        typeof userContent === "string" ? userContent.length : undefined,
+      imageCount,
     });
 
     return executeDesignAgent({
       provider,
       model,
-      userMessage,
+      userContent,
       workDir: WORK_DIR,
       abortController,
       logger: logger,
       prototypeId,
     });
   }
+
 
   private parseDesignAgentSpec(rawSpec: string): {
     spec: string;
