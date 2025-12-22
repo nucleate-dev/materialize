@@ -815,7 +815,7 @@ export default function InternalPrototypePage() {
             }
           : prev,
       );
-      setIsPublic(result.visibility !== "SELF");
+      setIsPublic(result.visibility === "PUBLIC");
       setDeployedUrl(result.url);
     },
     [],
