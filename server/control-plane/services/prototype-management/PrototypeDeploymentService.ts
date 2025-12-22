@@ -32,15 +32,9 @@ const supabase = createClient<Database>(
 
 export class PrototypeDeploymentService {
   private s3Client: S3Client;
-  private appsBaseUrl: string;
 
   constructor(s3Client: S3Client) {
     this.s3Client = s3Client;
-    this.appsBaseUrl = (
-      process.env.APPS_BASE_URL ??
-      process.env.APPS_HOST ??
-      'https://apps.nucleate.dev'
-    ).replace(/\/$/, '');
   }
 
   /**
@@ -323,7 +317,7 @@ export class PrototypeDeploymentService {
     reply.status(HTTP_STATUS.OK);
     return {
       data: {
-        url: `${this.appsBaseUrl}/${updatedPrototype.slug}`,
+        url: `${updatedPrototype.slug}.app.nucleate.dev`,
       },
       error: null,
     };
