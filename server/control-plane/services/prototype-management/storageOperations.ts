@@ -696,7 +696,7 @@ export async function deletePrototypeS3Builds(
   log2: SystemLogger,
 ): Promise<boolean> {
   try {
-    const prefix = prototypeId; // matches prototypeId/latest/, prototypeId/v123/, etc.
+    const prefix = prototypeId; // matches prototypeId builds and deployments
     let continuationToken: string | undefined = undefined;
 
     do {

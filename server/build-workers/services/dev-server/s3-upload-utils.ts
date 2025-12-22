@@ -48,58 +48,45 @@ async function uploadToVersionedAndLatest(
   version: string;
 }> {
   const versionedPrefix = `${prototypeId}/${version}`;
-  const latestPrefix = `${prototypeId}/latest`;
   const uploadResults: Array<{ key: string; location: string }> = [];
   const filesToUpload: Array<{
     fullPath: string;
     fileName: string;
     versionedKey: string;
-    latestKey: string;
   }> = [];
 
   const collectFiles = async (
     dirPath: string,
     currentVersionPrefix: string,
-    currentLatestPrefix: string,
   ): Promise<void> => {
     const entries = await fs.readdir(dirPath, { withFileTypes: true });
     for (const entry of entries) {
       const entryName = entry.name;
       const fullPath = path.join(dirPath, entryName);
       if (entry.isDirectory()) {
-        await collectFiles(
-          fullPath,
-          `${currentVersionPrefix}/${entryName}`,
-          `${currentLatestPrefix}/${entryName}`,
-        );
+        await collectFiles(fullPath, `${currentVersionPrefix}/${entryName}`);
       } else if (entry.isFile()) {
         filesToUpload.push({
           fullPath,
           fileName: entryName,
           versionedKey: `${currentVersionPrefix}/${entryName}`,
-          latestKey: `${currentLatestPrefix}/${entryName}`,
         });
       } else if (entry.isSymbolicLink()) {
         const stats = await fs.stat(fullPath);
         if (stats.isDirectory()) {
-          await collectFiles(
-            fullPath,
-            `${currentVersionPrefix}/${entryName}`,
-            `${currentLatestPrefix}/${entryName}`,
-          );
+          await collectFiles(fullPath, `${currentVersionPrefix}/${entryName}`);
         } else if (stats.isFile()) {
           filesToUpload.push({
             fullPath,
             fileName: entryName,
             versionedKey: `${currentVersionPrefix}/${entryName}`,
-            latestKey: `${currentLatestPrefix}/${entryName}`,
           });
         }
       }
     }
   };
 
-  await collectFiles(localPath, versionedPrefix, latestPrefix);
+  await collectFiles(localPath, versionedPrefix);
 
   if (filesToUpload.length === 0) {
     return { uploadResults, version };
@@ -112,7 +99,6 @@ async function uploadToVersionedAndLatest(
     fullPath: string;
     fileName: string;
     versionedKey: string;
-    latestKey: string;
   }): Promise<void> => {
     const fileContent = await fs.readFile(file.fullPath);
 
@@ -135,16 +121,6 @@ async function uploadToVersionedAndLatest(
       Key: file.versionedKey,
     });
     await s3.send(versionedCommand);
-
-    const latestCommand = new PutObjectCommand({
-      ...uploadParams,
-      Bucket: S3_BUCKET,
-      Key: file.latestKey,
-      CacheControl: file.fileName.endsWith(".html")
-        ? "public, max-age=300"
-        : uploadParams.CacheControl,
-    });
-    await s3.send(latestCommand);
 
     uploadResults.push({
       key: file.versionedKey,
