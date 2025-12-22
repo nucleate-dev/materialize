@@ -736,7 +736,7 @@ export type Database = {
           folder_id: string | null
           framework: Database["public"]["Enums"]["prototype_framework"] | null
           id: string
-          latest_build_key: string | null
+          latest_build_key: string
           latest_deploy_key: string | null
           name: string
           owner_id: string | null
@@ -754,7 +754,7 @@ export type Database = {
           folder_id?: string | null
           framework?: Database["public"]["Enums"]["prototype_framework"] | null
           id?: string
-          latest_build_key?: string | null
+          latest_build_key: string
           latest_deploy_key?: string | null
           name?: string
           owner_id?: string | null
@@ -772,7 +772,7 @@ export type Database = {
           folder_id?: string | null
           framework?: Database["public"]["Enums"]["prototype_framework"] | null
           id?: string
-          latest_build_key?: string | null
+          latest_build_key?: string
           latest_deploy_key?: string | null
           name?: string
           owner_id?: string | null
