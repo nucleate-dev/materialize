@@ -134,7 +134,7 @@ const DashboardSidebarContent = () => {
                 >
                   <Link href="/dashboard" onClick={handleMobileLinkClick}>
                     <Sparkles className="w-5 h-5" />
-                    {!isCollapsed && <span>New chat +</span>}
+                    {!isCollapsed && <span className="text-sidebar-foreground">New chat +</span>}
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -156,7 +156,7 @@ const DashboardSidebarContent = () => {
                   >
                     <Link href={item.href} onClick={handleMobileLinkClick}>
                       <item.icon className="w-5 h-5" />
-                      {!isCollapsed && <span>{item.label}</span>}
+                      {!isCollapsed && <span className="text-sidebar-foreground">{item.label}</span>}
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -179,7 +179,7 @@ const DashboardSidebarContent = () => {
                 className={isCollapsed ? "justify-center" : ""}
               >
                 <Zap className="w-5 h-5 text-amber-500" />
-                {!isCollapsed && <span>Upgrade</span>}
+                {!isCollapsed && <span className="text-sidebar-foreground">Upgrade</span>}
               </SidebarMenuButton>
             </SidebarMenuItem>
           )}
@@ -193,7 +193,7 @@ const DashboardSidebarContent = () => {
             >
               <Link href="/dashboard/account" onClick={handleMobileLinkClick}>
                 <User className="w-5 h-5" />
-                {!isCollapsed && <span>Account</span>}
+                {!isCollapsed && <span className="text-sidebar-foreground">Account</span>}
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
@@ -205,7 +205,7 @@ const DashboardSidebarContent = () => {
               className={isCollapsed ? "justify-center" : ""}
             >
               <LogOut className="w-5 h-5" />
-              {!isCollapsed && <span>Logout</span>}
+              {!isCollapsed && <span className="text-sidebar-foreground">Logout</span>}
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
