@@ -14,9 +14,9 @@ export const handler = async (event) => {
   const headers = request.headers || {};
   const uri = request.uri || "/";
   const host = headers.host?.[0]?.value || "";
-  const root = "render.materializeui.com";
+  const root = "build.nucleate.dev";
 
-  // Only allow our hostnames (*.render.materializeui.com)
+  // Only allow our hostnames (*.build.nucleate.dev)
   if (!host.endsWith(root)) {
     console.log("Access denied: invalid host", host);
     return {
@@ -25,7 +25,7 @@ export const handler = async (event) => {
     };
   }
 
-  // Extract prototype ID from "<id>.render.materializeui.com"
+  // Extract prototype ID from "<id>.build.nucleate.dev"
   let sub = host.slice(0, -root.length);
   if (sub.endsWith(".")) sub = sub.slice(0, -1);
   if (!sub || !/^[a-zA-Z0-9-]+$/.test(sub)) return request;

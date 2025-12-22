@@ -8,7 +8,7 @@ import {
   type APIResponse,
   HTTP_STATUS,
 } from '../types/PublicAPITypes.js';
-import { validateJWTToken } from '../utils/prototypeAuth.js';
+import { checkUserHasPrototypeEditAccess } from '../utils/prototypeAuth.js';
 import { isValidSlug, normalizeSlug, SLUG_RULES } from '../utils/slugUtils.js';
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '../types/supabase.js';
@@ -198,9 +198,40 @@ export class PrototypeDeploymentService {
     request: FastifyRequest<{ Body: DeployRequestBody }>,
     reply: FastifyReply,
   ): Promise<APIResponse<DeploySuccessResponse, DeployErrorResponse>> {
-    // Extract JWT token from Authorization header and validate it
-    const token = request.headers.authorization?.split(' ')[1] ?? '';
-    const { user } = await validateJWTToken(token, request.log2);
+    const {
+      prototype_id,
+      slug: rawSlug,
+      visibility: rawVisibility,
+    } = request.body;
+
+    if (!prototype_id) {
+      return reply.status(HTTP_STATUS.BAD_REQUEST).send({
+        data: null,
+        error: {
+          error: 'Missing parameter',
+          message: 'prototype_id is required',
+        },
+      });
+    }
+
+    const token = request.headers.authorization?.split(' ')[1];
+    const authResult = await checkUserHasPrototypeEditAccess(
+      prototype_id,
+      token,
+      request.log2,
+    );
+
+    if (authResult === null || !authResult.canEdit) {
+      return reply.status(HTTP_STATUS.UNAUTHORIZED).send({
+        data: null,
+        error: {
+          error: 'Unauthorized',
+          message: 'Access denied for this prototype',
+        },
+      });
+    }
+
+    const { user, prototype, isServiceRole } = authResult;
 
     if (!user) {
       return reply.status(HTTP_STATUS.UNAUTHORIZED).send({
@@ -212,46 +243,34 @@ export class PrototypeDeploymentService {
       });
     }
 
-    // Update logger context
+    const userId = user.id;
+
     request.log2 = request.log2.child({
-      userId: user.id,
+      userId: userId ?? (isServiceRole ? 'service-role' : 'unknown'),
     });
 
-    // Check feature flag for deployment
-    const isDeployFeatureEnabled = await posthog.isFeatureEnabled(
-      'deploy-app-for-public-viewing',
-      user.id,
-    );
+    if (!isServiceRole) {
+      // Check feature flag for deployment
+      const isDeployFeatureEnabled = await posthog.isFeatureEnabled(
+        'deploy-app-for-public-viewing',
+        userId,
+      );
 
-    if (!isDeployFeatureEnabled) {
-      request.log2.warn('Deployment feature not enabled for user', {
-        user_id: user.id,
-      });
-      return reply.status(HTTP_STATUS.FORBIDDEN).send({
-        data: null,
-        error: {
-          error: 'Feature not available',
-          message: 'Deployment feature is not enabled for your account',
-        },
-      });
+      if (!isDeployFeatureEnabled) {
+        request.log2.warn('Deployment feature not enabled for user', {
+          user_id: userId,
+        });
+        return reply.status(HTTP_STATUS.FORBIDDEN).send({
+          data: null,
+          error: {
+            error: 'Feature not available',
+            message: 'Deployment feature is not enabled for your account',
+          },
+        });
+      }
     }
 
-    const {
-      prototype_id,
-      slug: rawSlug,
-      visibility: rawVisibility,
-    } = request.body;
     const normalizedSlug = normalizeSlug(rawSlug);
-
-    if (!prototype_id) {
-      return reply.status(HTTP_STATUS.BAD_REQUEST).send({
-        data: null,
-        error: {
-          error: 'Missing parameter',
-          message: 'prototype_id is required',
-        },
-      });
-    }
 
     if (!normalizedSlug) {
       return reply.status(HTTP_STATUS.BAD_REQUEST).send({
@@ -281,39 +300,6 @@ export class PrototypeDeploymentService {
       : ('PUBLIC' as PrototypeVisibility);
 
     try {
-      // Check if prototype exists and user owns it
-      const { data: prototype, error: prototypeError } = await supabase
-        .from('prototypes')
-        .select('id, owner_id, slug')
-        .eq('id', prototype_id)
-        .single();
-
-      if (prototypeError || !prototype) {
-        request.log2.warn('Prototype not found', { prototype_id });
-        return reply.status(HTTP_STATUS.NOT_FOUND).send({
-          data: null,
-          error: {
-            error: 'Not found',
-            message: 'Prototype not found',
-          },
-        });
-      }
-
-      if (prototype.owner_id && prototype.owner_id !== user.id) {
-        request.log2.warn('User does not own prototype', {
-          prototype_id,
-          owner_id: prototype.owner_id,
-          user_id: user.id,
-        });
-        return reply.status(HTTP_STATUS.FORBIDDEN).send({
-          data: null,
-          error: {
-            error: 'Forbidden',
-            message: 'You do not have permission to deploy this prototype',
-          },
-        });
-      }
-
       // Check slug uniqueness
       const { data: slugMatches, error: slugCheckError } = await supabase
         .from('prototypes')

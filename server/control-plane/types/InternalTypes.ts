@@ -269,4 +269,4 @@ export const BUILD_TIMEOUTS = {
 export const DEFAULT_FRAMEWORK: Framework = 'expo_react_native';
 
 export const S3_URL_TEMPLATE = (prototypeId: string): string =>
-  `${prototypeId}.render.materializeui.com/`;
+  `${prototypeId}.build.nucleate.dev/`;

@@ -529,7 +529,7 @@ export class IdleContainerAllocationSystemService {
               },
               {
                 name: 'NUCLEATE_SERVER_ENDPOINT',
-                value: 'https://api.materializeui.com',
+                value: 'https://api.nucleate.dev',
               },
               {
                 name: 'S3_BUCKET',

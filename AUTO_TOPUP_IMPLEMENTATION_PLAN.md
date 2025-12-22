@@ -2031,7 +2031,7 @@ STRIPE_CREDIT_PACK_1000_PRICE_ID=price_...
 INTERNAL_API_SECRET=your-random-secret-here
 
 # Control plane URL for build workers to call
-CONTROL_PLANE_BASE_URL=https://api.materializeui.com
+CONTROL_PLANE_BASE_URL=https://api.nucleate.dev
 ```
 
 ---
