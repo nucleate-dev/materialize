@@ -1,17 +1,14 @@
 "use client";
 
 import {
+  BarChart3,
   Database,
-  Home,
+  MessagesSquare,
+  Rocket,
   Server,
   Settings,
-  Users,
-  Rocket,
-  Trash2,
-  Container,
   Smartphone,
-  Terminal,
-  MessagesSquare,
+  Trash2
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -62,6 +59,11 @@ const items = [
     url: "/chat-recreation",
     icon: MessagesSquare,
   },
+  {
+    title: "Supabase Stats",
+    url: "/supabase-stats",
+    icon: BarChart3,
+  },
 ];
 
 export function InternalToolsSidebar() {
@@ -94,7 +96,7 @@ export function InternalToolsSidebar() {
                     className={cn(
                       "w-full justify-start",
                       pathname === item.url &&
-                        "bg-accent text-accent-foreground",
+                      "bg-accent text-accent-foreground",
                     )}
                   >
                     <Link href={item.url}>
