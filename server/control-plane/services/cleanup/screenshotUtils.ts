@@ -213,7 +213,7 @@ async function uploadScreenshotToSupabase(
 }
 
 export function getCloudfrontScreenshotUrl(prototypeId: string): string {
-  const host = `${prototypeId}.render.materializeui.com`;
+  const host = `${prototypeId}.build.nucleate.dev`;
   const token = generateServiceTokenForScreenshotAccess(host, '/', 30);
   return `https://${host}/?token=${token}`;
 }
