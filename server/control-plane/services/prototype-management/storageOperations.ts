@@ -440,6 +440,100 @@ export async function copyPrototypeBuildToDeploymentFolder(
   return copyResult;
 }
 
+async function deleteObjectsWithPrefix(
+  s3Client: S3Client,
+  prefix: string,
+  log2: SystemLogger,
+): Promise<boolean> {
+  let continuationToken: string | undefined;
+  let hasError = false;
+
+  do {
+    const listResponse: ListObjectsV2CommandOutput = await s3Client.send(
+      new ListObjectsV2Command({
+        Bucket: S3_PROTOTYPE_BUCKET,
+        Prefix: prefix,
+        ContinuationToken: continuationToken,
+      }),
+    );
+    continuationToken = listResponse.NextContinuationToken;
+    const objects = listResponse.Contents ?? [];
+    if (objects.length === 0) {
+      continue;
+    }
+    try {
+      await s3Client.send(
+        new DeleteObjectsCommand({
+          Bucket: S3_PROTOTYPE_BUCKET,
+          Delete: {
+            Objects: objects.map((obj) => ({ Key: obj.Key! })),
+          },
+        }),
+      );
+    } catch (error) {
+      hasError = true;
+      log2.error(error, '[deleteObjectsWithPrefix] Failed to delete batch', {
+        prefix,
+      });
+    }
+  } while (continuationToken);
+
+  return !hasError;
+}
+
+export async function listPrototypeDeploymentPrefixes(
+  s3Client: S3Client,
+  prototypeId: string,
+  log2: SystemLogger,
+): Promise<string[]> {
+  const prefix = `${prototypeId}/d`;
+  const deploymentPrefixes = new Set<string>();
+  let continuationToken: string | undefined;
+  do {
+    const listResponse: ListObjectsV2CommandOutput = await s3Client.send(
+      new ListObjectsV2Command({
+        Bucket: S3_PROTOTYPE_BUCKET,
+        Prefix: prefix,
+        ContinuationToken: continuationToken,
+      }),
+    );
+    continuationToken = listResponse.NextContinuationToken;
+    for (const object of listResponse.Contents ?? []) {
+      if (!object.Key) continue;
+      const remaining = object.Key.slice(prototypeId.length + 1);
+      const match = remaining.match(/(d[^/]+)\//);
+      if (match) {
+        deploymentPrefixes.add(`${prototypeId}/${match[1]}/`);
+      }
+    }
+  } while (continuationToken);
+
+  log2.consoleLogDevOnly('info', '[listPrototypeDeploymentPrefixes] Found', {
+    prototypeId,
+    prefixes: Array.from(deploymentPrefixes),
+  });
+  return Array.from(deploymentPrefixes);
+}
+
+export async function deletePrototypeDeploymentPrefixes(
+  s3Client: S3Client,
+  prefixes: string[],
+  log2: SystemLogger,
+): Promise<boolean> {
+  if (prefixes.length === 0) {
+    return true;
+  }
+  log2.consoleLogDevOnly(
+    'info',
+    '[deletePrototypeDeploymentPrefixes] Deleting old deployment folders',
+    { prefixes },
+  );
+  const results = await Promise.all(
+    prefixes.map((prefix) => deleteObjectsWithPrefix(s3Client, prefix, log2)),
+  );
+  return results.every(Boolean);
+}
+
 /**
  * Get the viewing URL for a prototype
  */

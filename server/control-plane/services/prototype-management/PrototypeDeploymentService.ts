@@ -15,7 +15,11 @@ import {
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '../../types/supabase.js';
 import { posthog } from '../../server.js';
-import { copyPrototypeBuildToDeploymentFolder } from './storageOperations.js';
+import {
+  copyPrototypeBuildToDeploymentFolder,
+  deletePrototypeDeploymentPrefixes,
+  listPrototypeDeploymentPrefixes,
+} from './storageOperations.js';
 
 const MIN_SLUG_LENGTH = 3;
 const MAX_SLUG_LENGTH = 64;
@@ -274,6 +278,12 @@ export class PrototypeDeploymentService {
       };
     }
 
+    const existingDeploymentPrefixes = await listPrototypeDeploymentPrefixes(
+      this.s3Client,
+      authResult.prototype.id,
+      request.log2,
+    );
+
     // 5. Copy the build output into a unique deployment folder
     const deploymentKey = `d${Date.now()}`;
     const copyResult = await copyPrototypeBuildToDeploymentFolder(
@@ -294,7 +304,24 @@ export class PrototypeDeploymentService {
       };
     }
 
-    // 6. Update prototype with deployment details
+    // 6. Clean up old deployment folders to preserve S3 storage space
+    const prefixesToDelete = existingDeploymentPrefixes.filter(
+      (prefix) => !prefix.endsWith(`/${deploymentKey}/`),
+    );
+    if (prefixesToDelete.length > 0) {
+      const deleteResult = await deletePrototypeDeploymentPrefixes(
+        this.s3Client,
+        prefixesToDelete,
+        request.log2,
+      );
+      if (!deleteResult) {
+        request.log2.warn('Failed to delete some old deployment folders', {
+          prefixesToDelete,
+        });
+      }
+    }
+
+    // 7. Update prototype with deployment details
     const { data: updatedPrototype, error: updateError } = await supabase
       .from('prototypes')
       .update({
