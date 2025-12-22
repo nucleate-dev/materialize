@@ -166,7 +166,7 @@ export const backfill: NucleateDBFixer<"prototypes"> = {
   orderByColumn: "created_at",
 
   genIsInconsistent(row) {
-    return !row.latest_build_key;
+    return !row.latest_build_key || row.latest_build_key === "latest";
   },
 
   async genFixRow(row) {
