@@ -9,7 +9,6 @@ import {
   HTTP_STATUS,
 } from '../types/PublicAPITypes.js';
 import { checkUserHasPrototypeEditAccess } from '../utils/prototypeAuth.js';
-import { isValidSlug, normalizeSlug, SLUG_RULES } from '../utils/slugUtils.js';
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '../types/supabase.js';
 import { posthog } from '../server.js';
@@ -39,6 +38,13 @@ const isValidVisibility = (
   visibility === 'SELF' ||
   visibility === 'TEAM_SUBSET' ||
   visibility === 'TEAM';
+
+const MIN_SLUG_LENGTH = 3;
+const MAX_SLUG_LENGTH = 64;
+const SLUG_RULES = {
+  min: MIN_SLUG_LENGTH,
+  max: MAX_SLUG_LENGTH,
+};
 
 // Initialize Supabase client with service role key for admin access
 const supabase = createClient<Database>(
@@ -121,7 +127,7 @@ export class PrototypeDeploymentService {
     reply: FastifyReply,
   ): Promise<APIResponse<CheckSlugSuccessResponse, CheckSlugErrorResponse>> {
     const { slug: rawSlug, exclude_prototype_id } = request.query;
-    const slug = normalizeSlug(rawSlug);
+    const slug = this.normalizeSlug(rawSlug);
 
     if (!slug) {
       return reply.status(HTTP_STATUS.BAD_REQUEST).send({
@@ -133,7 +139,7 @@ export class PrototypeDeploymentService {
       });
     }
 
-    if (!isValidSlug(slug)) {
+    if (!this.isValidSlug(slug)) {
       return reply.status(HTTP_STATUS.BAD_REQUEST).send({
         data: null,
         error: {
@@ -270,7 +276,7 @@ export class PrototypeDeploymentService {
       }
     }
 
-    const normalizedSlug = normalizeSlug(rawSlug);
+    const normalizedSlug = this.normalizeSlug(rawSlug);
 
     if (!normalizedSlug) {
       return reply.status(HTTP_STATUS.BAD_REQUEST).send({
@@ -282,7 +288,7 @@ export class PrototypeDeploymentService {
       });
     }
 
-    if (!isValidSlug(normalizedSlug)) {
+    if (!this.isValidSlug(normalizedSlug)) {
       return reply.status(HTTP_STATUS.BAD_REQUEST).send({
         data: null,
         error: {
@@ -377,5 +383,22 @@ export class PrototypeDeploymentService {
         },
       });
     }
+  }
+
+  private normalizeSlug(slug: string): string {
+    return slug
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9-]+/g, '-')
+      .replace(/-+/g, '-')
+      .replace(/^-|-$/g, '');
+  }
+
+  private isValidSlug(slug: string): boolean {
+    return (
+      slug.length >= MIN_SLUG_LENGTH &&
+      slug.length <= MAX_SLUG_LENGTH &&
+      /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)
+    );
   }
 }
