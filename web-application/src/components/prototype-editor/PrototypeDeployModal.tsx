@@ -449,44 +449,39 @@ export default function PrototypeDeployModal({
                   return (
                     <div
                       key={build.id}
-                      className={`flex items-start gap-3 p-3 rounded-lg border ${
+                      className={`flex items-center justify-between gap-4 p-3 rounded-lg border ${
                         isDeployed
                           ? "bg-emerald-950/20 border-emerald-500/30"
                           : "bg-[#0B0C0E] border-white/5"
                       }`}
                     >
-                      <div className="mt-0.5">
-                        {isDeployed ? (
-                          <PackageCheck className="w-4 h-4 text-emerald-400" />
-                        ) : (
-                          <Clock className="w-4 h-4 text-[#8A8F98]" />
-                        )}
-                      </div>
-                      <div className="flex-1 min-w-0 space-y-1">
-                        <div className="flex items-center gap-2">
-                          <p className="text-xs font-medium text-white">
-                            Build {build.build_key}
-                          </p>
-                          {isLatest && (
-                            <span className="px-1.5 py-0.5 text-[10px] rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
-                              Latest
-                            </span>
-                          )}
-                          {isDeployed && (
-                            <span className="px-1.5 py-0.5 text-[10px] rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                              Deployed
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-[10px] text-[#8A8F98]">
-                          {buildDate.toLocaleString()}
+                      {/* Build ID with badges */}
+                      <div className="flex items-center gap-2 min-w-0">
+                        <p className="text-xs font-mono text-white">
+                          {build.id.slice(-8)}
                         </p>
-                        {build.deploy_key && (
-                          <p className="text-[10px] text-[#8A8F98]">
-                            Deploy: {build.deploy_key}
-                          </p>
+                        {isLatest && (
+                          <span className="px-1.5 py-0.5 text-[10px] rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 whitespace-nowrap">
+                            Latest
+                          </span>
+                        )}
+                        {isDeployed && (
+                          <span className="px-1.5 py-0.5 text-[10px] rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 whitespace-nowrap">
+                            Deployed
+                          </span>
                         )}
                       </div>
+
+                      {/* Build status */}
+                      <div className="flex items-center gap-1.5">
+                        <div className="w-2 h-2 rounded-full bg-emerald-400" />
+                        <p className="text-xs text-emerald-400">Ready</p>
+                      </div>
+
+                      {/* Build time */}
+                      <p className="text-xs text-[#8A8F98] whitespace-nowrap">
+                        {buildDate.toLocaleString()}
+                      </p>
                     </div>
                   );
                 })}
