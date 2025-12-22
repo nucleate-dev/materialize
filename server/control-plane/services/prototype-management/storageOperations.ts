@@ -382,25 +382,28 @@ export async function uploadDefaultAssetsToSupabaseStorage(
 }
 
 /**
- * Copy the latest build for a prototype into the deployed prefix
+ * Copy a prototype build output into a deployment-specific prefix
  */
-export async function copyPrototypeBuildToDeployedFolder(
+export async function copyPrototypeBuildToDeploymentFolder(
   s3Client: S3Client,
   prototypeId: string,
   buildKey: string | null | undefined,
+  deploymentKey: string,
   log2: SystemLogger,
 ): Promise<S3CopyResult> {
   const normalizedBuildKey =
     (buildKey && buildKey.replace(/^\/+|\/+$/g, '')) || 'latest';
+  const normalizedDeploymentKey = deploymentKey.replace(/^\/+|\/+$/g, '');
   const sourcePrefix = `${prototypeId}/${normalizedBuildKey}/`;
-  const destinationPrefix = `${prototypeId}/deployed/`;
+  const destinationPrefix = `${prototypeId}/${normalizedDeploymentKey}/`;
 
   log2.consoleLogDevOnly(
     'info',
-    '[copyPrototypeBuildToDeployedFolder] Copying build to deployed prefix',
+    '[copyPrototypeBuildToDeploymentFolder] Copying build to deployment prefix',
     {
       prototypeId,
       buildKey: normalizedBuildKey,
+      deploymentKey: normalizedDeploymentKey,
       sourcePrefix,
       destinationPrefix,
     },
@@ -414,23 +417,21 @@ export async function copyPrototypeBuildToDeployedFolder(
   );
 
   if (!copyResult.success) {
-    log2.error(
-      new Error(copyResult.error || 'Unknown copy error'),
-      '[copyPrototypeBuildToDeployedFolder] Failed to copy build to deployed prefix',
-      {
-        prototypeId,
-        buildKey: normalizedBuildKey,
-        sourcePrefix,
-        destinationPrefix,
-      },
-    );
+    log2.error(new Error(copyResult.error || 'Unknown copy error'), '[copyPrototypeBuildToDeploymentFolder] Failed to copy build to deployment prefix', {
+      prototypeId,
+      buildKey: normalizedBuildKey,
+      deploymentKey: normalizedDeploymentKey,
+      sourcePrefix,
+      destinationPrefix,
+    });
   } else {
     log2.consoleLogDevOnly(
       'info',
-      '[copyPrototypeBuildToDeployedFolder] Copy completed',
+      '[copyPrototypeBuildToDeploymentFolder] Copy completed',
       {
         prototypeId,
         buildKey: normalizedBuildKey,
+        deploymentKey: normalizedDeploymentKey,
         copiedObjects: copyResult.copiedObjects,
       },
     );

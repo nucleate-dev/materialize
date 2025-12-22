@@ -15,7 +15,7 @@ import {
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '../../types/supabase.js';
 import { posthog } from '../../server.js';
-import { copyPrototypeBuildToDeployedFolder } from './storageOperations.js';
+import { copyPrototypeBuildToDeploymentFolder } from './storageOperations.js';
 
 const MIN_SLUG_LENGTH = 3;
 const MAX_SLUG_LENGTH = 64;
@@ -274,11 +274,13 @@ export class PrototypeDeploymentService {
       };
     }
 
-    // 5. Copy the latest build output into the deployed folder
-    const copyResult = await copyPrototypeBuildToDeployedFolder(
+    // 5. Copy the build output into a unique deployment folder
+    const deploymentKey = `d${Date.now()}`;
+    const copyResult = await copyPrototypeBuildToDeploymentFolder(
       this.s3Client,
       authResult.prototype.id,
       authResult.prototype.latest_build_key,
+      deploymentKey,
       request.log2,
     );
     if (!copyResult.success) {
