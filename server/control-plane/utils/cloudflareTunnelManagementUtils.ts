@@ -17,7 +17,7 @@ export async function createCloudflareTunnelForContainer(
 ): Promise<{
   tunnelId: string;
   token: string; // use in /allocate flow
-  hostname: string; // <rand>.sandbox.materializeui.com
+  hostname: string; // <rand>.sandbox.nucleate.dev
   cnameTarget: string; // <tunnelId>.cfargotunnel.com
 }> {
   let tunnelId: string | null = null;
@@ -26,7 +26,7 @@ export async function createCloudflareTunnelForContainer(
   try {
     // choose a random subdomain for this task
     const sub = Math.random().toString(36).slice(2, 10);
-    hostname = `${sub}.sandbox.materializeui.com`;
+    hostname = `${sub}.sandbox.nucleate.dev`;
 
     // 1) Create the tunnel (returns id + token)
     const createTunnelResponse = await fetch(

@@ -26,8 +26,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { usePostHog } from "posthog-js/react";
 
-type PrototypeFramework =
-  Database["public"]["Enums"]["prototype_framework"];
+type PrototypeFramework = Database["public"]["Enums"]["prototype_framework"];
 
 const DEFAULT_FRAMEWORK: PrototypeFramework = "mobile_expo_react_native";
 const PLATFORM_OPTIONS: Array<{
@@ -295,8 +294,8 @@ function FeaturesBentoGrid() {
             Build beautiful, production-ready apps fast
           </h2>
           <p className="text-xl text-[#8A8F98] max-w-2xl">
-            Nucleate is shaped by the practices and principles that
-            distinguish world-class product teams from the rest.
+            Nucleate is shaped by the practices and principles that distinguish
+            world-class product teams from the rest.
           </p>
         </div>
 
@@ -484,23 +483,20 @@ function GallerySection() {
     {
       name: "Animated Carousel",
       iframeSrc:
-        "https://10666dbd-f8e2-47ae-971d-45aef8aa8c2e.render.materializeui.com",
-      publicLink:
-        "https://nucleate.dev/p/10666dbd-f8e2-47ae-971d-45aef8aa8c2e",
+        "https://10666dbd-f8e2-47ae-971d-45aef8aa8c2e.build.nucleate.dev",
+      publicLink: "https://nucleate.dev/p/10666dbd-f8e2-47ae-971d-45aef8aa8c2e",
     },
     {
       name: "Flight Tracker",
       iframeSrc:
-        "https://2eb2bc6a-4fe7-4595-a5a5-447af2542522.render.materializeui.com",
-      publicLink:
-        "https://nucleate.dev/p/2eb2bc6a-4fe7-4595-a5a5-447af2542522",
+        "https://2eb2bc6a-4fe7-4595-a5a5-447af2542522.build.nucleate.dev",
+      publicLink: "https://nucleate.dev/p/2eb2bc6a-4fe7-4595-a5a5-447af2542522",
     },
     {
       name: "Beats Store",
       iframeSrc:
-        "https://60e49673-fdb5-48ea-a53c-06352e250aba.render.materializeui.com",
-      publicLink:
-        "https://nucleate.dev/p/60e49673-fdb5-48ea-a53c-06352e250aba",
+        "https://60e49673-fdb5-48ea-a53c-06352e250aba.build.nucleate.dev",
+      publicLink: "https://nucleate.dev/p/60e49673-fdb5-48ea-a53c-06352e250aba",
     },
   ];
 
@@ -673,10 +669,11 @@ function PricingSection() {
           {pricingPlans.map((plan, index) => (
             <div
               key={index}
-              className={`relative p-6 rounded-2xl flex flex-col ${plan.highlighted
-                ? "bg-[#141517] border border-indigo-500/50 shadow-[0_0_40px_-10px_rgba(99,102,241,0.15)]"
-                : "bg-transparent border border-white/10"
-                }`}
+              className={`relative p-6 rounded-2xl flex flex-col ${
+                plan.highlighted
+                  ? "bg-[#141517] border border-indigo-500/50 shadow-[0_0_40px_-10px_rgba(99,102,241,0.15)]"
+                  : "bg-transparent border border-white/10"
+              }`}
             >
               {/* {plan.highlighted && (
                 <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-indigo-500 text-white text-[10px] font-bold uppercase tracking-wider rounded-full">
@@ -705,10 +702,11 @@ function PricingSection() {
 
               <Button
                 onClick={() => handleGetStarted(plan.productKey)}
-                className={`w-full h-10 rounded-full text-sm font-medium transition-all mb-8 ${plan.highlighted
-                  ? "bg-white text-black hover:bg-white/90"
-                  : "bg-white/5 text-white hover:bg-white/10 border border-white/10"
-                  }`}
+                className={`w-full h-10 rounded-full text-sm font-medium transition-all mb-8 ${
+                  plan.highlighted
+                    ? "bg-white text-black hover:bg-white/90"
+                    : "bg-white/5 text-white hover:bg-white/10 border border-white/10"
+                }`}
               >
                 {plan.cta}
               </Button>

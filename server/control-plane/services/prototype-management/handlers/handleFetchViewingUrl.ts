@@ -57,7 +57,7 @@ export default async function handleFetchViewingUrlImpl(
             !isEditable &&
             token &&
             authResult.prototype.visibility !== 'PUBLIC' &&
-            staticViewingUrl.includes('render.materializeui.com')
+            staticViewingUrl.includes('build.nucleate.dev')
           ) {
             staticViewingUrl += `?token=${encodeURIComponent(token)}`;
           }
@@ -82,7 +82,7 @@ export default async function handleFetchViewingUrlImpl(
     }
 
     // Return static build URL
-    let staticViewingUrl = `https://${prototype_id}.render.materializeui.com/`;
+    let staticViewingUrl = `https://${prototype_id}.build.nucleate.dev/`;
     if (token && authResult.prototype.visibility !== 'PUBLIC') {
       !authResult.isServiceRole
         ? (staticViewingUrl += `?token=${encodeURIComponent(token)}`)

@@ -183,8 +183,7 @@ export async function copyS3BucketContentsVersioned(
       version,
       versionedSuccess: versionedResult.success,
       latestSuccess: latestResult.success,
-      copiedObjects:
-        versionedResult.copiedObjects + latestResult.copiedObjects,
+      copiedObjects: versionedResult.copiedObjects + latestResult.copiedObjects,
     },
   );
   return {
@@ -386,7 +385,7 @@ export async function uploadDefaultAssetsToSupabaseStorage(
  * Get the viewing URL for a prototype
  */
 export function getPrototypeViewingUrl(prototypeId: string): string {
-  return `https://${prototypeId}.render.materializeui.com/`;
+  return `https://${prototypeId}.build.nucleate.dev/`;
 }
 
 export function getDefaultAppFilesSourcePrefixes(

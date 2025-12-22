@@ -34,21 +34,21 @@ export default function TermsAndConditionsPage() {
                 Summary: When you use Nucleate, you are agreeing to these terms
                 and our Privacy Policy, and promising to safeguard your account.
                 You agree to use the service for non-commercial purposes and are
-                of legal age to accept these terms. If you are a commercial user,
-                please visit our Nucleate Teams page for more information.
+                of legal age to accept these terms. If you are a commercial
+                user, please visit our Nucleate Teams page for more information.
               </p>
               <ol className="list-decimal pl-6 space-y-4 text-[#8A8F98]">
                 <li>
                   <span className="text-white">Acceptance of Terms</span>
                   <p className="mt-2">
-                    Nucleate, Inc. (&quot;Nucleate&quot;) provides users with a hosted
-                    environment and community to code, build, share, and deploy
-                    software and web servers through our websites and apps (the
-                    &quot;Service&quot;). By using the Service, you are entering into a
-                    binding agreement with Nucleate, and you agree to comply with
-                    these Terms of Service (&quot;Terms&quot;) and also agree to our
-                    Privacy Policy; if you do not agree, you must not use the
-                    Service.
+                    Nucleate, Inc. (&quot;Nucleate&quot;) provides users with a
+                    hosted environment and community to code, build, share, and
+                    deploy software and web servers through our websites and
+                    apps (the &quot;Service&quot;). By using the Service, you
+                    are entering into a binding agreement with Nucleate, and you
+                    agree to comply with these Terms of Service
+                    (&quot;Terms&quot;) and also agree to our Privacy Policy; if
+                    you do not agree, you must not use the Service.
                   </p>
                 </li>
                 <li>
@@ -76,11 +76,11 @@ export default function TermsAndConditionsPage() {
                   <p className="mt-2">
                     You must be an adult to use the Service. If you are younger
                     than 13 we will allow you to use the Service if you first
-                    provide us with your parent or guardian&apos;s written consent.
-                    If you are a parent or legal guardian of a user under the age
-                    of 18, by allowing your child to use the Service, you are
-                    subject to these Terms and responsible for your child&apos;s
-                    activity on the Service.
+                    provide us with your parent or guardian&apos;s written
+                    consent. If you are a parent or legal guardian of a user
+                    under the age of 18, by allowing your child to use the
+                    Service, you are subject to these Terms and responsible for
+                    your child&apos;s activity on the Service.
                   </p>
                 </li>
               </ol>
@@ -114,12 +114,17 @@ export default function TermsAndConditionsPage() {
                       container resources, or by copying projects to run or host
                       the same code.
                     </li>
-                    <li>Abusive advertising, spamming, or commercial solicitation.</li>
+                    <li>
+                      Abusive advertising, spamming, or commercial solicitation.
+                    </li>
                     <li>
                       Phishing or impersonation, whether or not the target is a
                       user of the Service.
                     </li>
-                    <li>Creating accounts with automation or registering accounts in bulk.</li>
+                    <li>
+                      Creating accounts with automation or registering accounts
+                      in bulk.
+                    </li>
                     <li>
                       Conducting network attacks, whether against the Service or
                       against any other party.
@@ -135,7 +140,9 @@ export default function TermsAndConditionsPage() {
                       Infringing the privacy of other users, including by
                       harvesting personal information.
                     </li>
-                    <li>Using accounts to evade a ban or penalty from Nucleate.</li>
+                    <li>
+                      Using accounts to evade a ban or penalty from Nucleate.
+                    </li>
                   </ul>
                 </li>
                 <li>
@@ -147,8 +154,13 @@ export default function TermsAndConditionsPage() {
                     Service:
                   </p>
                   <ul className="list-disc pl-6 mt-3 space-y-2">
-                    <li>Defamatory, harassing, abusive, threatening, or bullying.</li>
-                    <li>Profanity, violent, or graphic content, including hate speech or symbols.</li>
+                    <li>
+                      Defamatory, harassing, abusive, threatening, or bullying.
+                    </li>
+                    <li>
+                      Profanity, violent, or graphic content, including hate
+                      speech or symbols.
+                    </li>
                     <li>
                       Visual depictions or explicit descriptions of sex and
                       nudity, including sexual advances and solicitation, and
@@ -156,7 +168,9 @@ export default function TermsAndConditionsPage() {
                     </li>
                     <li>Promoting illegal conduct.</li>
                     <li>Hoaxes, malware, and pyramid schemes.</li>
-                    <li>Infringing the intellectual property rights of others.</li>
+                    <li>
+                      Infringing the intellectual property rights of others.
+                    </li>
                     <li>Disrupting the experience of other users.</li>
                   </ul>
                 </li>
@@ -178,9 +192,9 @@ export default function TermsAndConditionsPage() {
                 C. Content on Nucleate
               </h2>
               <p className="text-[#8A8F98]">
-                Summary: You affirm you own the rights to the content you post to
-                Nucleate. You give us permission to host your content, make your
-                content available to others, and to use it to improve our
+                Summary: You affirm you own the rights to the content you post
+                to Nucleate. You give us permission to host your content, make
+                your content available to others, and to use it to improve our
                 Service. Other content on Nucleate comes from various sources
                 and is provided for you to use at your own risk and subject to
                 limitations.
@@ -199,9 +213,9 @@ export default function TermsAndConditionsPage() {
                     responsible for protecting those rights.
                   </p>
                   <p className="mt-2">
-                    To provide the Service, you grant Nucleate the right to copy,
-                    display, distribute, perform, reformat, and modify your
-                    content as necessary, and the right to sublicense such
+                    To provide the Service, you grant Nucleate the right to
+                    copy, display, distribute, perform, reformat, and modify
+                    your content as necessary, and the right to sublicense such
                     rights to any third party provider for the Service.
                   </p>
                 </li>
@@ -211,12 +225,12 @@ export default function TermsAndConditionsPage() {
                     Content you publish as a public App is automatically made
                     subject to the MIT License, which allows others to view,
                     copy, modify, and distribute your code, on or off platform.
-                    Other users may &quot;fork&quot; your public Apps, which will provide
-                    them a copy of your App that they control. It is your
-                    responsibility to ensure that your content is compatible
-                    with the MIT License before publishing. If you do not wish
-                    to or cannot have your code licensed under the MIT License,
-                    you must make it a private App, as explained in the
+                    Other users may &quot;fork&quot; your public Apps, which
+                    will provide them a copy of your App that they control. It
+                    is your responsibility to ensure that your content is
+                    compatible with the MIT License before publishing. If you do
+                    not wish to or cannot have your code licensed under the MIT
+                    License, you must make it a private App, as explained in the
                     Licensing Information documentation.
                   </p>
                   <p className="mt-2">
@@ -266,7 +280,9 @@ export default function TermsAndConditionsPage() {
                   </p>
                 </li>
                 <li>
-                  <span className="text-white">Data Protection and Privacy</span>
+                  <span className="text-white">
+                    Data Protection and Privacy
+                  </span>
                   <p className="mt-2">
                     Your privacy is important to us. As explained in our Privacy
                     Policy, which is part of this Terms, we want to inform you
@@ -349,10 +365,10 @@ export default function TermsAndConditionsPage() {
                     The Extensions Store enables you to access Apps to work with
                     and extend the capabilities of your workspace and individual
                     Apps. Extensions within the Store are published by Nucleate
-                    and also third-party providers (&quot;Developers&quot;). As an
-                    Extension user, your access and use rights are supplemented
-                    by the Nucleate Extensions Store - User Terms. The
-                    Extensions Store also enables you to create and provide
+                    and also third-party providers (&quot;Developers&quot;). As
+                    an Extension user, your access and use rights are
+                    supplemented by the Nucleate Extensions Store - User Terms.
+                    The Extensions Store also enables you to create and provide
                     Extensions for use by other users. As an Extension
                     Developer, your access and use rights are subject to the
                     Nucleate Extensions Store - Developer Terms.
@@ -414,9 +430,9 @@ export default function TermsAndConditionsPage() {
                     Upon termination, your right to use the Service will cease
                     immediately. If you wish to delete your account, you may
                     request account deletion at https://nucleate.dev/account by
-                    selecting &quot;Request Account Deletion.&quot; Upon account deletion,
-                    we will delete your stored data in accordance with our data
-                    retention policy and applicable law.
+                    selecting &quot;Request Account Deletion.&quot; Upon account
+                    deletion, we will delete your stored data in accordance with
+                    our data retention policy and applicable law.
                   </p>
                   <p className="mt-2">
                     Nucleate holds, in its sole discretion, the right to suspend
@@ -438,7 +454,9 @@ export default function TermsAndConditionsPage() {
                   </p>
                 </li>
                 <li>
-                  <span className="text-white">Deprecation of Service Features</span>
+                  <span className="text-white">
+                    Deprecation of Service Features
+                  </span>
                   <p className="mt-2">
                     Nucleate reserves the right to modify, deprecate, or remove
                     features of the Service at any time and for any reason;
@@ -487,12 +505,13 @@ export default function TermsAndConditionsPage() {
                   <span className="text-white">Disclaimer of Warranties</span>
                   <p className="mt-2">
                     Your use of the Service is at your sole risk. The Service is
-                    provided on an &quot;AS IS&quot; and &quot;AS AVAILABLE&quot; basis. To the
-                    fullest extent permitted by law, the Service is provided
-                    without warranties of any kind, whether express or implied,
-                    including, but not limited to, implied warranties of
-                    merchantability, fitness for a particular purpose,
-                    non-infringement or course of performance.
+                    provided on an &quot;AS IS&quot; and &quot;AS
+                    AVAILABLE&quot; basis. To the fullest extent permitted by
+                    law, the Service is provided without warranties of any kind,
+                    whether express or implied, including, but not limited to,
+                    implied warranties of merchantability, fitness for a
+                    particular purpose, non-infringement or course of
+                    performance.
                   </p>
                   <p className="mt-2">
                     Nucleate, its subsidiaries, affiliates, and its licensors do
@@ -517,8 +536,8 @@ export default function TermsAndConditionsPage() {
                     resulting from (a) your access to or use of or inability to
                     access or use the Service; (b) any conduct or content of any
                     third party on the Service; (c) any content obtained from
-                    the Service; and (d) unauthorized access, use, or
-                    alteration of your transmissions or content.
+                    the Service; and (d) unauthorized access, use, or alteration
+                    of your transmissions or content.
                   </p>
                   <p className="mt-2">
                     Nucleate assumes no liability or responsibility for any
@@ -549,10 +568,10 @@ export default function TermsAndConditionsPage() {
                   <span className="text-white">Indemnification</span>
                   <p className="mt-2">
                     You are responsible for any claims against Nucleate
-                    regarding your use of the Service. By using the Service,
-                    you agree to indemnify and hold Nucleate harmless from any
-                    loss or damage incurred by Nucleate as a result of your use
-                    of the platform. This includes but is not limited to legal
+                    regarding your use of the Service. By using the Service, you
+                    agree to indemnify and hold Nucleate harmless from any loss
+                    or damage incurred by Nucleate as a result of your use of
+                    the platform. This includes but is not limited to legal
                     costs and expenses related to any actions, claims, or
                     disputes arising from your use of the Service.
                   </p>
@@ -570,11 +589,11 @@ export default function TermsAndConditionsPage() {
                   <span className="text-white">Feedback and Suggestions</span>
                   <p className="mt-2">
                     Any feedback, comments, ideas, improvements, or suggestions
-                    (collectively, &quot;Suggestions&quot;) provided by you to Nucleate
-                    with respect to the Service will remain the sole and
-                    exclusive property of Nucleate. Nucleate will be free to use,
-                    copy, modify, publish, or redistribute the Suggestions for
-                    any purpose and in any way without any credit or any
+                    (collectively, &quot;Suggestions&quot;) provided by you to
+                    Nucleate with respect to the Service will remain the sole
+                    and exclusive property of Nucleate. Nucleate will be free to
+                    use, copy, modify, publish, or redistribute the Suggestions
+                    for any purpose and in any way without any credit or any
                     compensation to you.
                   </p>
                 </li>
@@ -593,9 +612,9 @@ export default function TermsAndConditionsPage() {
                 <li>
                   <span className="text-white">Entire Agreement</span>
                   <p className="mt-2">
-                    These Terms are the parties&apos; entire agreement regarding its
-                    subject matter and supersede any prior or contemporaneous
-                    agreements regarding its subject matter.
+                    These Terms are the parties&apos; entire agreement regarding
+                    its subject matter and supersede any prior or
+                    contemporaneous agreements regarding its subject matter.
                   </p>
                 </li>
                 <li>
@@ -624,10 +643,11 @@ export default function TermsAndConditionsPage() {
                 <li>
                   <span className="text-white">Google APIs</span>
                   <p className="mt-2">
-                    Nucleate&apos;s use and transfer of information received from
-                    Google APIs to any other app is subject to Nucleate&apos;s Privacy
-                    Policy and will adhere to Google&apos;s API Services User Data
-                    Policy including the Limited Use requirements.
+                    Nucleate&apos;s use and transfer of information received
+                    from Google APIs to any other app is subject to
+                    Nucleate&apos;s Privacy Policy and will adhere to
+                    Google&apos;s API Services User Data Policy including the
+                    Limited Use requirements.
                   </p>
                 </li>
                 <li>
