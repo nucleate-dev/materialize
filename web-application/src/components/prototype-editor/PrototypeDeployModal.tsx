@@ -18,6 +18,7 @@ import {
   AlertTriangle,
   Check,
   Clock,
+  Copy,
   Loader2,
   PackageCheck,
   Rocket,
@@ -299,14 +300,13 @@ export default function PrototypeDeployModal({
     onOpenChange,
   ]);
 
-  const handleGenerateSlug = useCallback(() => {
-    const base = normalizeSlug(prototype?.name ?? "app");
-    const suffix = prototype?.id ? prototype.id.slice(0, 4) : "";
-    const candidate = [base, suffix].filter(Boolean).join("-");
-    setDeploySlug(candidate || "my-app");
-    setSlugAvailable(null);
-    setSlugError(null);
-  }, [prototype]);
+  const handleCopyUrl = useCallback(() => {
+    if (!deploySlug) return;
+
+    const fullUrl = `https://${deploySlug}.app.nucleate.dev`;
+    navigator.clipboard.writeText(fullUrl);
+    toast.success("URL copied to clipboard!");
+  }, [deploySlug]);
 
   const handleDeployLatestBuild = useCallback(async () => {
     if (!prototype || !normalizedSandboxUrl) return;
@@ -358,50 +358,46 @@ export default function PrototypeDeployModal({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Rocket className="w-4 h-4 text-indigo-400" />
-            Deploy Project
+            Deploy {prototype?.name ?? "Project"}
           </DialogTitle>
           <DialogDescription className="text-sm text-[#8A8F98]">
-            Expose your project or prototype at apps.nucleate.dev
+            Create a production build of your project to share with live users.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-6">
           <div className="space-y-2">
             <p className="text-xs uppercase tracking-wide text-[#8A8F98]">
-              Name
+              Url
             </p>
-            <Input
-              readOnly
-              value={prototype?.name ?? ""}
-              className="bg-[#0B0C0E] border-white/10 text-white/80"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <div className="flex items-center justify-between gap-2">
-              <p className="text-xs uppercase tracking-wide text-[#8A8F98]">
-                Slug
-              </p>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleGenerateSlug}
-                className="h-8 px-2 border-white/10 text-white/80"
-              >
-                Auto-generate
-              </Button>
-            </div>
             <div className="flex items-center gap-2">
-              <Input
-                value={deploySlug}
-                onChange={(e) => {
-                  setDeploySlug(e.target.value);
-                  setSlugAvailable(null);
-                  setSlugError(null);
-                }}
-                className="bg-[#0B0C0E] border-white/10 text-white"
-                placeholder="my-app"
-              />
+              <div className="flex items-center flex-1 bg-[#0B0C0E] border border-white/10 rounded-md">
+                <span className="pl-3 pr-3 text-white/60 text-sm">
+                  https://
+                </span>
+                <Input
+                  value={deploySlug}
+                  onChange={(e) => {
+                    setDeploySlug(e.target.value);
+                    setSlugAvailable(null);
+                    setSlugError(null);
+                  }}
+                  className="border-0 bg-transparent text-white focus-visible:ring-0 focus-visible:ring-offset-0 px-0"
+                  placeholder="my-app"
+                />
+                <span className="pr-3 pl-1 text-white/60 text-sm">
+                  .app.nucleate.dev
+                </span>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleCopyUrl}
+                disabled={!deploySlug}
+                className="h-10 pl-3 text-white/80 hover:text-white"
+              >
+                <Copy className="w-4 h-4" />
+              </Button>
               <div className="w-24 text-xs text-right">
                 {isCheckingSlug && (
                   <span className="inline-flex items-center gap-1 text-[#8A8F98]">
@@ -420,12 +416,7 @@ export default function PrototypeDeployModal({
                 )}
               </div>
             </div>
-            <p className="text-xs text-[#8A8F98]">
-              {APPS_BASE_URL}/{deploySlug || "<slug>"}
-            </p>
-            {slugError && (
-              <p className="text-xs text-amber-400">{slugError}</p>
-            )}
+            {slugError && <p className="text-xs text-amber-400">{slugError}</p>}
           </div>
 
           {/* Build History Timeline */}
@@ -508,9 +499,15 @@ export default function PrototypeDeployModal({
             <div className="space-y-2">
               <Button
                 onClick={handleDeployLatestBuild}
-                disabled={isDeploying || isLatestBuildDeployed || !prototype?.slug}
+                disabled={
+                  isDeploying || isLatestBuildDeployed || !prototype?.slug
+                }
                 className="w-full bg-emerald-600 hover:bg-emerald-700 text-white disabled:bg-[#0B0C0E] disabled:text-[#8A8F98]"
-                variant={isLatestBuildDeployed || !prototype?.slug ? "outline" : "default"}
+                variant={
+                  isLatestBuildDeployed || !prototype?.slug
+                    ? "outline"
+                    : "default"
+                }
               >
                 {isDeploying ? (
                   <>
