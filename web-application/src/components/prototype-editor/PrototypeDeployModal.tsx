@@ -104,9 +104,23 @@ export default function PrototypeDeployModal({
 
     const checkSlug = async () => {
       try {
+        const session = await supabase.auth.getSession();
+        const token = session.data.session?.access_token;
+
+        if (!token) {
+          setSlugError("Authentication required");
+          setSlugAvailable(null);
+          return;
+        }
+
         const response = await fetch(
           `${process.env.NEXT_PUBLIC_SERVER_ENDPOINT}/deployments/check-slug?slug=${encodeURIComponent(deploySlug)}&exclude_prototype_id=${encodeURIComponent(prototype.id)}`,
-          { signal: controller.signal },
+          {
+            signal: controller.signal,
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          },
         );
         const result = await response.json();
 
@@ -185,11 +199,16 @@ export default function PrototypeDeployModal({
         return;
       }
 
-      const nextSlug = result.data?.slug ?? normalizedSlug;
-      const deployUrl = result.data?.url ?? `${APPS_BASE_URL}/${nextSlug}`;
+      // API returns { data: { url: string }, error: null }
+      const deployUrl = result.data?.url;
+
+      if (!deployUrl) {
+        setSlugError("Deployment succeeded but no URL was returned");
+        return;
+      }
 
       onDeploySuccess({
-        slug: nextSlug,
+        slug: normalizedSlug,
         url: deployUrl,
         visibility: deployVisibility,
       });
