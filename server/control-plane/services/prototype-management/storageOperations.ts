@@ -15,11 +15,7 @@ import type {
   PrototypeFileInsert,
   S3CopyResult,
 } from '../../types/InternalTypes.js';
-import type {
-  Database,
-  TablesInsert,
-  TablesUpdate,
-} from '../../types/supabase.js';
+import type { Database } from '../../types/supabase.js';
 
 type PrototypeFramework = Database['public']['Enums']['prototype_framework'];
 
@@ -143,7 +139,7 @@ export async function copyDefaultPrototypeThumbnail(
   };
 }
 
-function getVersion(): string {
+export function getVersion(): string {
   return 'v' + Date.now().toString();
 }
 
@@ -151,90 +147,42 @@ function getVersion(): string {
  * Copy S3 bucket contents with versioned deployment for forking
  */
 export async function copyS3BucketContentsVersioned(
-  supabase: SupabaseClient<Database>,
   s3Client: S3Client,
   sourcePrototypeId: string,
   sourceBuildKey: string,
   targetPrototypeId: string,
+  targetVersion: string,
   log2: SystemLogger,
 ): Promise<S3CopyResult> {
-  const version = getVersion();
   log2.consoleLogDevOnly(
     'info',
     '[copyS3BucketContentsVersioned] Copying latest build for fork',
     {
       sourcePrototypeId,
       targetPrototypeId,
-      version,
+      version: targetVersion,
     },
   );
   const versionedResult = await copyS3BucketContents(
     s3Client,
     `${sourcePrototypeId}/${sourceBuildKey}/`,
-    `${targetPrototypeId}/${version}/`,
+    `${targetPrototypeId}/${targetVersion}/`,
     log2,
   );
   log2.consoleLogDevOnly(
     'info',
     '[copyS3BucketContentsVersioned] Copy completed',
     {
-      version,
+      version: targetVersion,
       versionedSuccess: versionedResult.success,
       copiedObjects: versionedResult.copiedObjects,
     },
   );
-  if (versionedResult.success) {
-    const [prototypeUpdateResult, buildHistoryInsertResult] =
-      await Promise.all([
-        supabase
-          .from('prototypes')
-          .update({
-            latest_build_key: version,
-          } satisfies TablesUpdate<'prototypes'>)
-          .eq('id', targetPrototypeId),
-        supabase
-          .from('prototype_build_history')
-          .insert({
-            prototype_id: targetPrototypeId,
-            build_key: version,
-            deploy_key: '',
-          } satisfies TablesInsert<'prototype_build_history'>),
-      ]);
-    if (prototypeUpdateResult.error) {
-      log2.error(
-        prototypeUpdateResult.error,
-        '[copyS3BucketContentsVersioned] Failed to update latest_build_key',
-        {
-          targetPrototypeId,
-          version,
-        },
-      );
-    }
-    if (buildHistoryInsertResult.error) {
-      log2.error(
-        buildHistoryInsertResult.error,
-        '[copyS3BucketContentsVersioned] Failed to insert prototype_build_history row',
-        {
-          targetPrototypeId,
-          version,
-        },
-      );
-    } else {
-      log2.consoleLogDevOnly(
-        'info',
-        '[copyS3BucketContentsVersioned] Recorded prototype_build_history entry',
-        {
-          targetPrototypeId,
-          version,
-        },
-      );
-    }
-  }
   return {
     success: versionedResult.success,
     error: versionedResult.error || undefined,
     copiedObjects: versionedResult.copiedObjects,
-    version,
+    version: targetVersion,
   };
 }
 
@@ -328,18 +276,17 @@ async function copyS3BucketContents(
  * Copy default app to a new prototype with versioned deployment
  */
 export async function copyDefaultAppToVersionedPrototype(
-  supabase: SupabaseClient<Database>,
   s3Client: S3Client,
   prototypeId: string,
   designStyle: DesignStyle,
   framework: PrototypeFramework,
+  version: string,
   log2: SystemLogger,
 ): Promise<S3CopyResult> {
   const { distFilesPrefix: sourcePrefix } = getDefaultAppFilesSourcePrefixes(
     designStyle,
     framework,
   );
-  const version = getVersion();
   log2.consoleLogDevOnly(
     'info',
     '[copyDefaultAppToVersionedPrototype] Copying default dist files',
@@ -366,43 +313,6 @@ export async function copyDefaultAppToVersionedPrototype(
       error: copyResult.error,
     },
   );
-  if (copyResult.success) {
-    const [prototypeUpdateResult, buildHistoryInsertResult] = await Promise.all(
-      [
-        supabase
-          .from('prototypes')
-          .update({
-            latest_build_key: version,
-          } satisfies TablesUpdate<'prototypes'>)
-          .eq('id', prototypeId),
-        supabase.from('prototype_build_history').insert({
-          prototype_id: prototypeId,
-          build_key: version,
-          deploy_key: '',
-        } satisfies TablesInsert<'prototype_build_history'>),
-      ],
-    );
-    if (prototypeUpdateResult.error) {
-      log2.error(
-        prototypeUpdateResult.error,
-        '[copyDefaultAppToVersionedPrototype] Failed to update latest_build_key',
-        {
-          prototypeId,
-          version,
-        },
-      );
-    }
-    if (buildHistoryInsertResult.error) {
-      log2.error(
-        buildHistoryInsertResult.error,
-        '[copyDefaultAppToVersionedPrototype] Failed to insert prototype_build_history row',
-        {
-          prototypeId,
-          version,
-        },
-      );
-    }
-  }
   return {
     success: copyResult.success,
     error: copyResult.error,
