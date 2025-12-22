@@ -151,8 +151,10 @@ function getVersion(): string {
  * Copy S3 bucket contents with versioned deployment for forking
  */
 export async function copyS3BucketContentsVersioned(
+  supabase: SupabaseClient<Database>,
   s3Client: S3Client,
   sourcePrototypeId: string,
+  sourceBuildKey: string,
   targetPrototypeId: string,
   log2: SystemLogger,
 ): Promise<S3CopyResult> {
@@ -166,34 +168,72 @@ export async function copyS3BucketContentsVersioned(
       version,
     },
   );
-  const [versionedResult, latestResult] = await Promise.all([
-    copyS3BucketContents(
-      s3Client,
-      `${sourcePrototypeId}/latest/`,
-      `${targetPrototypeId}/${version}/`,
-      log2,
-    ),
-    copyS3BucketContents(
-      s3Client,
-      `${sourcePrototypeId}/latest/`,
-      `${targetPrototypeId}/latest/`,
-      log2,
-    ),
-  ]);
+  const versionedResult = await copyS3BucketContents(
+    s3Client,
+    `${sourcePrototypeId}/${sourceBuildKey}/`,
+    `${targetPrototypeId}/${version}/`,
+    log2,
+  );
   log2.consoleLogDevOnly(
     'info',
     '[copyS3BucketContentsVersioned] Copy completed',
     {
       version,
       versionedSuccess: versionedResult.success,
-      latestSuccess: latestResult.success,
-      copiedObjects: versionedResult.copiedObjects + latestResult.copiedObjects,
+      copiedObjects: versionedResult.copiedObjects,
     },
   );
+  if (versionedResult.success) {
+    const [prototypeUpdateResult, buildHistoryInsertResult] =
+      await Promise.all([
+        supabase
+          .from('prototypes')
+          .update({
+            latest_build_key: version,
+          } satisfies TablesUpdate<'prototypes'>)
+          .eq('id', targetPrototypeId),
+        supabase
+          .from('prototype_build_history')
+          .insert({
+            prototype_id: targetPrototypeId,
+            build_key: version,
+            deploy_key: '',
+          } satisfies TablesInsert<'prototype_build_history'>),
+      ]);
+    if (prototypeUpdateResult.error) {
+      log2.error(
+        prototypeUpdateResult.error,
+        '[copyS3BucketContentsVersioned] Failed to update latest_build_key',
+        {
+          targetPrototypeId,
+          version,
+        },
+      );
+    }
+    if (buildHistoryInsertResult.error) {
+      log2.error(
+        buildHistoryInsertResult.error,
+        '[copyS3BucketContentsVersioned] Failed to insert prototype_build_history row',
+        {
+          targetPrototypeId,
+          version,
+        },
+      );
+    } else {
+      log2.consoleLogDevOnly(
+        'info',
+        '[copyS3BucketContentsVersioned] Recorded prototype_build_history entry',
+        {
+          targetPrototypeId,
+          version,
+        },
+      );
+    }
+  }
   return {
-    success: versionedResult.success && latestResult.success,
-    error: versionedResult.error || latestResult.error || undefined,
-    copiedObjects: versionedResult.copiedObjects + latestResult.copiedObjects,
+    success: versionedResult.success,
+    error: versionedResult.error || undefined,
+    copiedObjects: versionedResult.copiedObjects,
     version,
   };
 }

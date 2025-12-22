@@ -434,6 +434,7 @@ async function forkPrototype(
     );
     throw new Error('Access denied for source prototype');
   }
+  const sourceBuildKey = accessResult.prototype.latest_build_key;
 
   // 1. Fetch files and assets from source prototype and copy assets + s3 builds + thumbnail to new prototype
   const isSourceOwner =
@@ -456,8 +457,10 @@ async function forkPrototype(
       .select('*')
       .eq('prototype_id', sourcePrototypeId),
     copyS3BucketContentsVersioned(
+      supabase,
       s3Client,
       sourcePrototypeId,
+      sourceBuildKey ?? 'latest',
       newPrototypeId,
       log2,
     ),
