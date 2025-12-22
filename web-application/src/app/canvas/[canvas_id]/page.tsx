@@ -4,7 +4,7 @@ import { supabase } from "@/ClientConstants";
 import Loader from "@/components/dashboard/Loader";
 import { useUser } from "@/hooks/useUser";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
-import { Database } from "@/lib/types/supabase";
+import { Database, Json } from "@/lib/types/supabase";
 import {
   ChatBubbleLeftIcon,
   PaperAirplaneIcon,
@@ -61,11 +61,13 @@ export default function CanvasPage() {
       setCanvasDocument(data);
     }
     async function fetchSession() {
+      if (!user?.id) return;
+
       const { data, error } = await supabase
         .from("canvas_sessions")
         .select("*")
         .eq("canvas_id", canvasId)
-        .eq("user_id", user?.id)
+        .eq("user_id", user.id)
         .maybeSingle();
       if (error) {
         logger.debug("error", "Error fetching canvas session:", {
@@ -118,18 +120,18 @@ export default function CanvasPage() {
 
   // ------------------ Persistence functions -----------------------------------------------------------
   const saveCanvasDocument = useCallback(async () => {
-    if (!editor.current || !canvasId) return;
+    if (!editor.current || !canvasId || !canvasDocument?.id) return;
     const snapshot = editor.current.getSnapshot();
 
     // save document to db
     const { error: documentUploadError } = await supabase
       .from("canvas_documents")
       .update({
-        document_data: snapshot.document,
+        document_data: snapshot.document as unknown as Json,
         updated_at: new Date().toISOString(),
       })
       .eq("canvas_id", canvasId)
-      .eq("id", canvasDocument?.id);
+      .eq("id", canvasDocument.id);
     if (documentUploadError) {
       logger.debug("error", "Error updating canvas document:", {
         ...documentUploadError,
@@ -143,7 +145,7 @@ export default function CanvasPage() {
           {
             canvas_id: canvasId,
             user_id: user.id,
-            session_data: snapshot.session,
+            session_data: snapshot.session as unknown as Json,
             last_accessed: new Date().toISOString(),
           },
           {

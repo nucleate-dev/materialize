@@ -17,10 +17,13 @@ import { SLUG_RULES, isValidSlug, normalizeSlug } from "@/lib/utils/slugUtils";
 import {
   AlertTriangle,
   Check,
+  Clock,
+  Copy,
   Loader2,
+  PackageCheck,
   Rocket,
 } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 type Prototype = Database["public"]["Tables"]["prototypes"]["Row"];
@@ -59,6 +62,33 @@ export default function PrototypeDeployModal({
   const [slugAvailable, setSlugAvailable] = useState<boolean | null>(null);
   const [slugError, setSlugError] = useState<string | null>(null);
   const [isDeploying, setIsDeploying] = useState(false);
+  const [buildHistory, setBuildHistory] = useState<
+    Array<{
+      id: string;
+      build_key: string;
+      deploy_key: string;
+      created_at: string;
+    }>
+  >([]);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+
+  // Check if latest build is deployed
+  const isLatestBuildDeployed = useMemo(() => {
+    if (!prototype || buildHistory.length === 0) return false;
+
+    const latestBuild = buildHistory[0];
+    return (
+      latestBuild.deploy_key &&
+      prototype.latest_deploy_key &&
+      latestBuild.deploy_key === prototype.latest_deploy_key
+    );
+  }, [prototype, buildHistory]);
+
+  // Check if slug has changed from the original
+  const hasSlugChanged = useMemo(() => {
+    const normalizedDeploySlug = normalizeSlug(deploySlug);
+    return normalizedDeploySlug !== prototype?.slug;
+  }, [deploySlug, prototype?.slug]);
 
   // Initialize state when modal opens
   useEffect(() => {
@@ -70,6 +100,35 @@ export default function PrototypeDeployModal({
     setSlugAvailable(null);
     setSlugError(null);
   }, [open, prototype]);
+
+  // Fetch build history when modal opens
+  useEffect(() => {
+    if (!open || !prototype) return;
+
+    const fetchBuildHistory = async () => {
+      setIsLoadingHistory(true);
+      try {
+        const { data, error } = await supabase
+          .from("prototype_build_history")
+          .select("id, build_key, deploy_key, created_at")
+          .eq("prototype_id", prototype.id)
+          .order("created_at", { ascending: false });
+
+        if (error) {
+          logger.debug("error", "Failed to fetch build history", { error });
+          return;
+        }
+
+        setBuildHistory(data ?? []);
+      } catch (error) {
+        logger.debug("error", "Error fetching build history", { error });
+      } finally {
+        setIsLoadingHistory(false);
+      }
+    };
+
+    fetchBuildHistory();
+  }, [open, prototype, logger]);
 
   // Slug validation effect
   useEffect(() => {
@@ -104,9 +163,23 @@ export default function PrototypeDeployModal({
 
     const checkSlug = async () => {
       try {
+        const session = await supabase.auth.getSession();
+        const token = session.data.session?.access_token;
+
+        if (!token) {
+          setSlugError("Authentication required");
+          setSlugAvailable(null);
+          return;
+        }
+
         const response = await fetch(
           `${process.env.NEXT_PUBLIC_SERVER_ENDPOINT}/deployments/check-slug?slug=${encodeURIComponent(deploySlug)}&exclude_prototype_id=${encodeURIComponent(prototype.id)}`,
-          { signal: controller.signal },
+          {
+            signal: controller.signal,
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          },
         );
         const result = await response.json();
 
@@ -155,6 +228,38 @@ export default function PrototypeDeployModal({
 
     try {
       setIsDeploying(true);
+
+      // Case 1: Slug changed but latest build is already deployed
+      // Just update the slug without redeploying
+      if (hasSlugChanged && isLatestBuildDeployed) {
+        const { error } = await supabase
+          .from("prototypes")
+          .update({ slug: normalizedSlug })
+          .eq("id", prototype.id);
+
+        if (error) {
+          setSlugError("Failed to update slug");
+          logger.debug("error", "Failed to update slug", { error });
+          return;
+        }
+
+        const deployUrl = `https://${normalizedSlug}.app.nucleate.dev`;
+
+        onDeploySuccess({
+          slug: normalizedSlug,
+          url: deployUrl,
+          visibility: deployVisibility,
+        });
+
+        onOpenChange(false);
+        setSlugError(null);
+        setSlugAvailable(true);
+        toast.success("Slug updated successfully!");
+        return;
+      }
+
+      // Case 2: Latest build is not deployed (regardless of slug change)
+      // Call the deploy endpoint to update slug and deploy
       const session = await supabase.auth.getSession();
       const token = session.data.session?.access_token;
 
@@ -185,11 +290,16 @@ export default function PrototypeDeployModal({
         return;
       }
 
-      const nextSlug = result.data?.slug ?? normalizedSlug;
-      const deployUrl = result.data?.url ?? `${APPS_BASE_URL}/${nextSlug}`;
+      // API returns { data: { url: string }, error: null }
+      const deployUrl = result.data?.url;
+
+      if (!deployUrl) {
+        setSlugError("Deployment succeeded but no URL was returned");
+        return;
+      }
 
       onDeploySuccess({
-        slug: nextSlug,
+        slug: normalizedSlug,
         url: deployUrl,
         visibility: deployVisibility,
       });
@@ -226,67 +336,64 @@ export default function PrototypeDeployModal({
     logger,
     onDeploySuccess,
     onOpenChange,
+    hasSlugChanged,
+    isLatestBuildDeployed,
   ]);
 
-  const handleGenerateSlug = useCallback(() => {
-    const base = normalizeSlug(prototype?.name ?? "app");
-    const suffix = prototype?.id ? prototype.id.slice(0, 4) : "";
-    const candidate = [base, suffix].filter(Boolean).join("-");
-    setDeploySlug(candidate || "my-app");
-    setSlugAvailable(null);
-    setSlugError(null);
-  }, [prototype]);
+  const handleCopyUrl = useCallback(() => {
+    if (!deploySlug) return;
+
+    const fullUrl = `https://${deploySlug}.app.nucleate.dev`;
+    navigator.clipboard.writeText(fullUrl);
+    toast.success("URL copied to clipboard!");
+  }, [deploySlug]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg bg-[#141517] border border-white/10 text-white">
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto bg-[#141517] border border-white/10 text-white">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Rocket className="w-4 h-4 text-indigo-400" />
-            Deploy Project
+            Deploy {prototype?.name ?? "Project"}
           </DialogTitle>
           <DialogDescription className="text-sm text-[#8A8F98]">
-            Expose your project or prototype at apps.nucleate.dev
+            Create a production build of your project to share with live users.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <div className="space-y-6">
           <div className="space-y-2">
             <p className="text-xs uppercase tracking-wide text-[#8A8F98]">
-              Name
+              Url
             </p>
-            <Input
-              readOnly
-              value={prototype?.name ?? ""}
-              className="bg-[#0B0C0E] border-white/10 text-white/80"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <div className="flex items-center justify-between gap-2">
-              <p className="text-xs uppercase tracking-wide text-[#8A8F98]">
-                Slug
-              </p>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleGenerateSlug}
-                className="h-8 px-2 border-white/10 text-white/80"
-              >
-                Auto-generate
-              </Button>
-            </div>
             <div className="flex items-center gap-2">
-              <Input
-                value={deploySlug}
-                onChange={(e) => {
-                  setDeploySlug(e.target.value);
-                  setSlugAvailable(null);
-                  setSlugError(null);
-                }}
-                className="bg-[#0B0C0E] border-white/10 text-white"
-                placeholder="my-app"
-              />
+              <div className="flex items-center flex-1 bg-[#0B0C0E] border border-white/10 rounded-md">
+                <span className="pl-3 pr-3 text-white/60 text-sm">
+                  https://
+                </span>
+                <Input
+                  value={deploySlug}
+                  onChange={(e) => {
+                    setDeploySlug(e.target.value);
+                    setSlugAvailable(null);
+                    setSlugError(null);
+                  }}
+                  className="border-0 bg-transparent text-white focus-visible:ring-0 focus-visible:ring-offset-0 px-0"
+                  placeholder="my-app"
+                />
+                <span className="pr-3 pl-1 text-white/60 text-sm">
+                  .app.nucleate.dev
+                </span>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleCopyUrl}
+                disabled={!deploySlug}
+                className="h-10 pl-3 text-white/80 hover:text-white"
+              >
+                <Copy className="w-4 h-4" />
+              </Button>
               <div className="w-24 text-xs text-right">
                 {isCheckingSlug && (
                   <span className="inline-flex items-center gap-1 text-[#8A8F98]">
@@ -305,41 +412,107 @@ export default function PrototypeDeployModal({
                 )}
               </div>
             </div>
-            <p className="text-xs text-[#8A8F98]">
-              {APPS_BASE_URL}/{deploySlug || "<slug>"}
-            </p>
-            {slugError && (
-              <p className="text-xs text-amber-400">{slugError}</p>
+            {slugError && <p className="text-xs text-amber-400">{slugError}</p>}
+          </div>
+
+          {/* Build History Timeline */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <p className="text-xs uppercase tracking-wide text-[#8A8F98]">
+                Build History
+              </p>
+              {isLoadingHistory && (
+                <Loader2 className="w-3 h-3 animate-spin text-[#8A8F98]" />
+              )}
+            </div>
+
+            {buildHistory.length === 0 && !isLoadingHistory && (
+              <p className="text-xs text-[#8A8F98] italic">
+                No builds found for this project
+              </p>
+            )}
+
+            {buildHistory.length > 0 && (
+              <div className="space-y-2 max-h-48 overflow-y-auto">
+                {buildHistory.map((build, index) => {
+                  const isDeployed =
+                    build.deploy_key &&
+                    prototype?.latest_deploy_key &&
+                    build.deploy_key === prototype.latest_deploy_key;
+                  const isLatest = index === 0;
+                  const buildDate = new Date(build.created_at);
+
+                  return (
+                    <div
+                      key={build.id}
+                      className={`flex items-center justify-between gap-4 p-3 rounded-lg border ${
+                        isDeployed
+                          ? "bg-emerald-950/20 border-emerald-500/30"
+                          : "bg-[#0B0C0E] border-white/5"
+                      }`}
+                    >
+                      {/* Build ID with badges */}
+                      <div className="flex items-center gap-2 min-w-0">
+                        <p className="text-xs font-mono text-white">
+                          {build.id.slice(-8)}
+                        </p>
+                        {isLatest && (
+                          <span className="px-1.5 py-0.5 text-[10px] rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 whitespace-nowrap">
+                            Latest
+                          </span>
+                        )}
+                        {isDeployed && (
+                          <span className="px-1.5 py-0.5 text-[10px] rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 whitespace-nowrap">
+                            Deployed
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Build status */}
+                      <div className="flex items-center gap-1.5">
+                        <div className="w-2 h-2 rounded-full bg-emerald-400" />
+                        <p className="text-xs text-emerald-400">Ready</p>
+                      </div>
+
+                      {/* Build time */}
+                      <p className="text-xs text-[#8A8F98] whitespace-nowrap">
+                        {buildDate.toLocaleString()}
+                      </p>
+                    </div>
+                  );
+                })}
+              </div>
             )}
           </div>
 
-          <div className="flex justify-end gap-2 pt-2">
-            <Button
-              variant="ghost"
-              onClick={() => onOpenChange(false)}
-              className="text-white/80 hover:text-white"
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleDeploy}
-              disabled={
-                isDeploying ||
-                isCheckingSlug ||
-                slugAvailable === false ||
-                !!slugError
-              }
-              className="bg-indigo-600 hover:bg-indigo-700 text-white"
-            >
-              {isDeploying ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                  Deploying...
-                </>
-              ) : (
-                "Save & deploy"
-              )}
-            </Button>
+          <div className="flex justify-end gap-2 pt-4">
+              <Button
+                variant="ghost"
+                onClick={() => onOpenChange(false)}
+                className="text-white/80 hover:text-white"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleDeploy}
+                disabled={Boolean(
+                  isDeploying ||
+                  isCheckingSlug ||
+                  slugAvailable !== true ||
+                  slugError ||
+                  (!hasSlugChanged && isLatestBuildDeployed)
+                )}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white"
+              >
+                {isDeploying ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                    Deploying...
+                  </>
+                ) : (
+                  "Save & deploy"
+                )}
+              </Button>
           </div>
         </div>
       </DialogContent>

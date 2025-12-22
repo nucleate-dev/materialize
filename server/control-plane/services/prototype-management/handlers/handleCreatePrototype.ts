@@ -14,11 +14,7 @@ import {
   CreatePrototypeSuccessResponse,
   HTTP_STATUS,
 } from '../../../types/PublicAPITypes.js';
-import {
-  Database,
-  TablesInsert,
-  TablesUpdate,
-} from '../../../types/supabase.js';
+import { Database, TablesInsert } from '../../../types/supabase.js';
 import {
   checkUserHasPrototypeViewingAccess,
   validateJWTToken,
@@ -34,6 +30,7 @@ import {
   deletePrototypeS3Builds,
   deletePrototypeThumbnailFromSupabaseStorage,
   getDefaultAppFilesFromS3,
+  getVersion,
   getPrototypeViewingUrl,
   uploadDefaultAssetsToSupabaseStorage,
 } from '../storageOperations.js';
@@ -226,6 +223,7 @@ export async function handleCreatePrototypeImpl(
       },
     );
 
+    const version = getVersion();
     const { data: newPrototype, error: prototypeInsertError } = await supabase
       .from('prototypes')
       .insert({
@@ -240,6 +238,7 @@ export async function handleCreatePrototypeImpl(
           ? null
           : resolvedCustomDesignSystem,
         framework: resolvedFramework,
+        latest_build_key: version,
       } satisfies TablesInsert<'prototypes'>)
       .select()
       .single();
@@ -272,7 +271,6 @@ export async function handleCreatePrototypeImpl(
     );
     try {
       // 5. Handle prototype files and S3 operations
-      let version: string | undefined;
       if (forkPrototypeId) {
         request.log2.consoleLogDevOnly(
           'info',
@@ -282,12 +280,13 @@ export async function handleCreatePrototypeImpl(
             newPrototypeId,
           },
         );
-        version = await forkPrototype(
+        await forkPrototype(
           supabase,
           s3Client,
           forkPrototypeId,
           newPrototypeId,
           token,
+          version,
           request.log2,
         );
       } else {
@@ -300,54 +299,33 @@ export async function handleCreatePrototypeImpl(
             framework: resolvedFramework,
           },
         );
-        version = await copyAllDefaultsForNewPrototype(
+        await copyAllDefaultsForNewPrototype(
           supabase,
           s3Client,
           newPrototypeId,
           resolvedDesignStyle,
           resolvedFramework,
+          version,
           request.log2,
         );
       }
-      request.log2.consoleLogDevOnly(
-        'info',
-        '[handleCreatePrototype] Completed file+asset setup',
-        {
-          newPrototypeId,
-          version,
-        },
-      );
 
-      // 5.5. Update prototype with latest_build_key if version was created
-      if (version) {
-        request.log2.consoleLogDevOnly(
-          'info',
-          '[handleCreatePrototype] Updating prototype latest_build_key',
+      const { error: buildHistoryError } = await supabase
+        .from('prototype_build_history')
+        .insert({
+          prototype_id: newPrototypeId,
+          build_key: version,
+          deploy_key: '',
+        } satisfies TablesInsert<'prototype_build_history'>);
+      if (buildHistoryError) {
+        request.log2.error(
+          buildHistoryError,
+          '[handleCreatePrototype] Failed to insert prototype_build_history entry',
           {
             newPrototypeId,
             version,
           },
         );
-        try {
-          const { error: updateError } = await supabase
-            .from('prototypes')
-            .update({
-              latest_build_key: version,
-            } satisfies TablesUpdate<'prototypes'>)
-            .eq('id', newPrototypeId);
-
-          if (updateError) {
-            request.log2.error(
-              updateError,
-              '[handleCreatePrototype] Failed to update latest_build_key, but continuing with prototype creation',
-            );
-          }
-        } catch (updateError) {
-          request.log2.error(
-            updateError,
-            '[handleCreatePrototype] Failed to update latest_build_key, but continuing with prototype creation',
-          );
-        }
       }
 
       // 6. Get viewing URL and return success
@@ -417,8 +395,9 @@ async function forkPrototype(
   sourcePrototypeId: string,
   newPrototypeId: string,
   jwtToken: string | undefined,
+  targetVersion: string,
   log2: SystemLogger,
-): Promise<string | undefined> {
+): Promise<void> {
   const accessResult = await checkUserHasPrototypeViewingAccess(
     sourcePrototypeId,
     jwtToken,
@@ -434,6 +413,7 @@ async function forkPrototype(
     );
     throw new Error('Access denied for source prototype');
   }
+  const sourceBuildKey = accessResult.prototype.latest_build_key;
 
   // 1. Fetch files and assets from source prototype and copy assets + s3 builds + thumbnail to new prototype
   const isSourceOwner =
@@ -458,7 +438,9 @@ async function forkPrototype(
     copyS3BucketContentsVersioned(
       s3Client,
       sourcePrototypeId,
+      sourceBuildKey ?? 'latest',
       newPrototypeId,
+      targetVersion,
       log2,
     ),
     copyPrototypeThumbnailInSupabaseStorage(
@@ -606,7 +588,7 @@ async function forkPrototype(
       }
     }
   }
-  return s3CopyResult.version;
+  return;
 }
 
 /**
@@ -618,8 +600,9 @@ export async function copyAllDefaultsForNewPrototype(
   newPrototypeId: string,
   newPrototypeDesignStyle: DesignStyle,
   framework: PrototypeFramework,
+  version: string,
   log2: SystemLogger,
-): Promise<string | undefined> {
+): Promise<void> {
   log2.consoleLogDevOnly(
     'info',
     '[copyAllDefaultsForNewPrototype] Starting default asset copy',
@@ -644,6 +627,7 @@ export async function copyAllDefaultsForNewPrototype(
         newPrototypeId,
         newPrototypeDesignStyle,
         framework,
+        version,
         log2,
       ),
       copyDefaultPrototypeThumbnail(supabase, newPrototypeId),
@@ -735,10 +719,10 @@ export async function copyAllDefaultsForNewPrototype(
     '[copyAllDefaultsForNewPrototype] Completed default setup',
     {
       newPrototypeId,
-      version: s3CopyResult.version,
+      version,
       fileCount: defaultFilesResult.files?.length ?? 0,
       assetCount: defaultFilesResult.assets?.length ?? 0,
     },
   );
-  return s3CopyResult.version;
+  return;
 }

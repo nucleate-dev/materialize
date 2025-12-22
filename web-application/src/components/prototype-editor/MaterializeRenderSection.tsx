@@ -25,8 +25,8 @@ import type {
 } from "@/lib/types/serverAPITypes";
 import { Database } from "@/lib/types/supabase";
 import { getBulkAssetSignedUrls } from "@/lib/utils/assetUtils";
-import { toast } from "sonner";
 import { usePostHog } from "posthog-js/react";
+import { toast } from "sonner";
 
 import JSZip from "jszip";
 
@@ -51,12 +51,13 @@ import {
   Plus,
   QrCode,
   RefreshCw,
+  Rocket,
   RotateCcw,
   Share2,
   Smartphone,
   Terminal as TerminalIcon,
   X,
-  Zap
+  Zap,
 } from "lucide-react";
 import dynamic from "next/dynamic";
 import React, {
@@ -1669,7 +1670,7 @@ const MaterializeRenderSection = forwardRef<
                   <Share2 className="w-3.5 h-3.5" />
                 </Button>
               )}
-              {/* {onDeploy && !isReadOnlyView && (
+              {onDeploy && !isReadOnlyView && (
                 <Button
                   size="sm"
                   onClick={onDeploy}
@@ -1688,7 +1689,7 @@ const MaterializeRenderSection = forwardRef<
                   )}
                   {deploymentUrl ? "Manage deploy" : "Deploy app"}
                 </Button>
-              )} */}
+              )}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
