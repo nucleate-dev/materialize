@@ -321,7 +321,46 @@ export class PrototypeDeploymentService {
       }
     }
 
-    // 7. Update prototype with deployment details
+    // 7. Record deployment key against the latest build history entry
+    const { data: latestBuildHistory, error: buildHistoryError } = await supabase
+      .from('prototype_build_history')
+      .select('id')
+      .eq('prototype_id', authResult.prototype.id)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (buildHistoryError) {
+      request.log2.error(buildHistoryError, 'Failed to fetch build history entry');
+      reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR);
+      return {
+        data: null,
+        error: {
+          error: 'Deployment failed',
+          message: 'Unable to record deployment history',
+        },
+      };
+    }
+
+    if (latestBuildHistory?.id) {
+      const { error: updateHistoryError } = await supabase
+        .from('prototype_build_history')
+        .update({ deploy_key: deploymentKey })
+        .eq('id', latestBuildHistory.id);
+
+      if (updateHistoryError) {
+        request.log2.error(
+          updateHistoryError,
+          'Failed to update build history deploy key',
+          {
+            build_history_id: latestBuildHistory.id,
+            deploymentKey,
+          },
+        );
+      }
+    }
+
+    // 8. Update prototype with deployment details
     const { data: updatedPrototype, error: updateError } = await supabase
       .from('prototypes')
       .update({
