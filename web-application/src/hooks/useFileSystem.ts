@@ -116,8 +116,9 @@ export const useFileSystem = (
           // File exists and we're still on default - no change needed
         } else if (!filesDict[selectedFile] && !preserveSelection) {
           // Current selection doesn't exist, fallback to default or first available
-          const availableFile =
-            filesDict[defaultFile] || Object.keys(filesDict)[0];
+          const availableFile = filesDict[defaultFile]
+            ? defaultFile
+            : Object.keys(filesDict)[0];
           if (availableFile) {
             setSelectedFile(availableFile);
           }

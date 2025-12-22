@@ -157,15 +157,27 @@ export async function triggerDevServerBuildAndUploadToS3(
   developmentServerService.developmentServerState.builtVersion =
     uploadResult.version;
 
-  // 3.5. Update the prototypes table with the latest build version
+  // 4. Insert a new build record into the prototype_build_history table and update prototypes table with latest build version key
   const supabase = developmentServerService.supabaseClientService.getClient();
+  const { error: insertHistoryError } = await supabase
+    .from("prototype_build_history")
+    .insert({
+      prototype_id: prototypeId,
+      build_key: uploadResult.version,
+      deploy_key: "",
+    });
+  if (insertHistoryError) {
+    log2.error(insertHistoryError, "Failed to insert prototype build history", {
+      prototypeId,
+      version: uploadResult.version,
+    });
+  }
   const { error: updateBuildVersionError } = await supabase
     .from("prototypes")
     .update({
       latest_build_key: uploadResult.version,
     })
     .eq("id", prototypeId);
-
   if (updateBuildVersionError) {
     log2.error(
       updateBuildVersionError,
@@ -186,7 +198,7 @@ export async function triggerDevServerBuildAndUploadToS3(
     );
   }
 
-  // 4. Sync files to Supabase
+  // 5. Sync files to Supabase
   try {
     const syncResult =
       await developmentServerService.fileSyncService.syncFilesToSupabase(
@@ -208,7 +220,7 @@ export async function triggerDevServerBuildAndUploadToS3(
     log2.error(new Error(errorMessage), "Failed to sync files to Supabase");
   }
 
-  // 5. Sync terminal output to supabase storage
+  // 6. Sync terminal output to supabase storage
   try {
     const persistenceResult =
       await developmentServerService.terminalService.persistTrackedTerminalLogs(
@@ -229,7 +241,7 @@ export async function triggerDevServerBuildAndUploadToS3(
     });
   }
 
-  // 6. Upload claude sessions to supabase storage
+  // 7. Upload claude sessions to supabase storage
   // Upload all Claude session files to Supabase before build
   try {
     const uploadResult = await uploadAllClaudeSessionsToSupabase(

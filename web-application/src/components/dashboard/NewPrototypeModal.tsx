@@ -591,16 +591,10 @@ export default function NewPrototypeModal({
                     Public
                   </SelectItem>
                   <SelectItem
-                    value="TEAM_SUBSET"
-                    className="focus:bg-zinc-100 dark:focus:bg-white/10 focus:text-zinc-900 dark:focus:text-white cursor-pointer"
-                  >
-                    Unlisted
-                  </SelectItem>
-                  <SelectItem
                     value="SELF"
                     className="focus:bg-zinc-100 dark:focus:bg-white/10 focus:text-zinc-900 dark:focus:text-white cursor-pointer"
                   >
-                    Private (Self)
+                    Private
                   </SelectItem>
                 </SelectContent>
               </Select>
