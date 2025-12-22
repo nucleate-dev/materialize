@@ -432,11 +432,9 @@ export default function PublicPrototypeHeader({
                             )}
                             {normalizedVisibility === "SELF"
                               ? "Private"
-                              : normalizedVisibility === "TEAM_SUBSET"
-                                ? "Unlisted"
-                                : normalizedVisibility === "TEAM"
-                                  ? "Team"
-                                  : "Public"}
+                              : normalizedVisibility === "TEAM"
+                                ? "Team"
+                                : "Public"}
                           </Badge>
                         </div>
 
@@ -595,30 +593,6 @@ export default function PublicPrototypeHeader({
                 </div>
                 <div className="text-sm text-gray-500 dark:text-[#8A8F98]">
                   Anyone with the link can view
-                </div>
-              </div>
-            </Button>
-            <Button
-              variant="outline"
-              className="w-full justify-start text-left h-auto py-4 px-4 border-gray-200 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-white/5 bg-transparent"
-              onClick={() => handleVisibilityChange("TEAM_SUBSET")}
-              disabled={isUpdatingVisibility}
-            >
-              <div className="flex flex-col items-start gap-1">
-                <div className="font-medium flex items-center gap-2">
-                  <Share2 className="w-4 h-4 text-indigo-500" />
-                  Unlisted
-                  {!IsUserPlanSubscribed(userPlan) && (
-                    <Badge
-                      variant="secondary"
-                      className="ml-2 text-[10px] h-5 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400"
-                    >
-                      Plus
-                    </Badge>
-                  )}
-                </div>
-                <div className="text-sm text-gray-500 dark:text-[#8A8F98]">
-                  Only people with the link can view
                 </div>
               </div>
             </Button>

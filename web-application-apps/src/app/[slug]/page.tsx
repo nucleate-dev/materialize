@@ -30,11 +30,9 @@ function MinimalHeader({
   const visibilityLabel =
     visibility === "SELF"
       ? "Private"
-      : visibility === "TEAM_SUBSET"
-        ? "Unlisted"
-        : visibility === "TEAM"
-          ? "Team"
-          : "Public";
+      : visibility === "TEAM"
+        ? "Team"
+        : "Public";
   const remixUrl = `${SITE_BASE_URL}/p/${prototype.id}`;
 
   return (
