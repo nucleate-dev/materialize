@@ -489,6 +489,41 @@ export type Database = {
           },
         ]
       }
+      prototype_build_history: {
+        Row: {
+          build_key: string
+          created_at: string
+          deploy_key: string
+          id: string
+          prototype_id: string
+          updated_at: string
+        }
+        Insert: {
+          build_key: string
+          created_at?: string
+          deploy_key: string
+          id?: string
+          prototype_id: string
+          updated_at?: string
+        }
+        Update: {
+          build_key?: string
+          created_at?: string
+          deploy_key?: string
+          id?: string
+          prototype_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prototype_build_history_prototype_id_fkey"
+            columns: ["prototype_id"]
+            isOneToOne: false
+            referencedRelation: "prototypes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       prototype_chat_messages: {
         Row: {
           chat_session_id: string | null
@@ -701,7 +736,6 @@ export type Database = {
           folder_id: string | null
           framework: Database["public"]["Enums"]["prototype_framework"] | null
           id: string
-          is_deployed: boolean
           latest_build_key: string | null
           name: string
           owner_id: string | null
@@ -719,7 +753,6 @@ export type Database = {
           folder_id?: string | null
           framework?: Database["public"]["Enums"]["prototype_framework"] | null
           id?: string
-          is_deployed?: boolean
           latest_build_key?: string | null
           name?: string
           owner_id?: string | null
@@ -737,7 +770,6 @@ export type Database = {
           folder_id?: string | null
           framework?: Database["public"]["Enums"]["prototype_framework"] | null
           id?: string
-          is_deployed?: boolean
           latest_build_key?: string | null
           name?: string
           owner_id?: string | null
