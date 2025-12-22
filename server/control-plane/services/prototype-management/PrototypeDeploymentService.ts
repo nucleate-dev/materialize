@@ -6,14 +6,14 @@ import {
   type APIResponse,
   HTTP_STATUS,
   StandardErrorResponse,
-} from '../types/PublicAPITypes.js';
+} from '../../types/PublicAPITypes.js';
 import {
   checkUserHasPrototypeEditAccess,
   validateJWTToken,
-} from '../utils/prototypeAuth.js';
+} from '../../utils/prototypeAuth.js';
 import { createClient } from '@supabase/supabase-js';
-import type { Database } from '../types/supabase.js';
-import { posthog } from '../server.js';
+import type { Database } from '../../types/supabase.js';
+import { posthog } from '../../server.js';
 
 type PrototypeVisibility = Database['public']['Enums']['visibility_level'];
 
