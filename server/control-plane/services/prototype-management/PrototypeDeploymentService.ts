@@ -17,32 +17,6 @@ import type { Database } from '../../types/supabase.js';
 import { posthog } from '../../server.js';
 import { copyPrototypeBuildToDeployedFolder } from './storageOperations.js';
 
-type PrototypeVisibility = Database['public']['Enums']['visibility_level'];
-
-const normalizePrototypeVisibility = (
-  visibility?: string | null,
-): PrototypeVisibility => {
-  const lower = visibility?.toString().toLowerCase();
-  if (lower === 'private' || lower === 'self') {
-    return 'SELF';
-  }
-  if (lower === 'team_subset' || lower === 'unlisted') {
-    return 'TEAM_SUBSET';
-  }
-  if (lower === 'team') {
-    return 'TEAM';
-  }
-  return 'PUBLIC';
-};
-
-const isValidVisibility = (
-  visibility?: string,
-): visibility is PrototypeVisibility =>
-  visibility === 'PUBLIC' ||
-  visibility === 'SELF' ||
-  visibility === 'TEAM_SUBSET' ||
-  visibility === 'TEAM';
-
 const MIN_SLUG_LENGTH = 3;
 const MAX_SLUG_LENGTH = 64;
 const SLUG_RULES = {
