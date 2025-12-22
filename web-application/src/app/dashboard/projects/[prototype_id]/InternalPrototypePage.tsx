@@ -415,7 +415,9 @@ export default function InternalPrototypePage() {
       setPrototype(data);
       setIsPublic(normalizedVisibility !== "SELF");
       setDeployedUrl(
-        data.is_deployed && data.slug ? `${APPS_BASE_URL}/${data.slug}` : null,
+        data.latest_deploy_key && data.slug
+          ? `${data.slug}.app.nucleate.dev`
+          : null,
       );
 
       // 2. FETCH CURRENT VIEWING URL FROM SERVER
@@ -815,7 +817,7 @@ export default function InternalPrototypePage() {
             }
           : prev,
       );
-      setIsPublic(result.visibility !== "SELF");
+      setIsPublic(result.visibility === "PUBLIC");
       setDeployedUrl(result.url);
     },
     [],

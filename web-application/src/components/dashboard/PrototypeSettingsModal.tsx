@@ -257,16 +257,7 @@ export default function PrototypeSettingsModal({
                       >
                         <div className="flex items-center gap-2">
                           <Lock className="w-4 h-4 text-gray-500 dark:text-gray-400" />
-                          <span>Private (Only You)</span>
-                        </div>
-                      </SelectItem>
-                      <SelectItem
-                        value="TEAM_SUBSET"
-                        className="cursor-pointer focus:bg-gray-100 dark:focus:bg-white/10"
-                      >
-                        <div className="flex items-center gap-2">
-                          <Share2 className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
-                          <span>Unlisted (Link only)</span>
+                          <span>Private</span>
                         </div>
                       </SelectItem>
                       <SelectItem
@@ -275,7 +266,7 @@ export default function PrototypeSettingsModal({
                       >
                         <div className="flex items-center gap-2">
                           <Globe className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
-                          <span>Public (Shareable Link)</span>
+                          <span>Public</span>
                         </div>
                       </SelectItem>
                     </SelectContent>

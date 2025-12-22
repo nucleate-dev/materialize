@@ -208,9 +208,7 @@ export default function ClaudeCodePanel({
       ? "Public"
       : normalizedVisibility === "TEAM"
         ? "Team"
-        : normalizedVisibility === "TEAM_SUBSET"
-          ? "Unlisted"
-          : "Private";
+        : "Private";
   const createdAtLabel = prototype?.created_at
     ? new Date(prototype.created_at).toLocaleDateString()
     : null;

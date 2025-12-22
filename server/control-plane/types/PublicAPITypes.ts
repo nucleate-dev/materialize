@@ -190,19 +190,10 @@ export interface CheckSlugErrorResponse {
 export interface DeployRequestBody {
   prototype_id: string;
   slug: string;
-  visibility?: 'PUBLIC' | 'SELF' | 'TEAM_SUBSET' | 'TEAM';
 }
 
 export interface DeploySuccessResponse {
-  prototype_id: string;
-  slug: string;
-  visibility: string;
   url: string;
-}
-
-export interface DeployErrorResponse {
-  error: string;
-  message: string;
 }
 
 // ============================================================================

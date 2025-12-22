@@ -15,7 +15,7 @@ import type {
   PrototypeFileInsert,
   S3CopyResult,
 } from '../../types/InternalTypes.js';
-import { Database } from '../../types/supabase.js';
+import type { Database } from '../../types/supabase.js';
 
 type PrototypeFramework = Database['public']['Enums']['prototype_framework'];
 
@@ -139,7 +139,7 @@ export async function copyDefaultPrototypeThumbnail(
   };
 }
 
-function getVersion(): string {
+export function getVersion(): string {
   return 'v' + Date.now().toString();
 }
 
@@ -149,48 +149,40 @@ function getVersion(): string {
 export async function copyS3BucketContentsVersioned(
   s3Client: S3Client,
   sourcePrototypeId: string,
+  sourceBuildKey: string,
   targetPrototypeId: string,
+  targetVersion: string,
   log2: SystemLogger,
 ): Promise<S3CopyResult> {
-  const version = getVersion();
   log2.consoleLogDevOnly(
     'info',
     '[copyS3BucketContentsVersioned] Copying latest build for fork',
     {
       sourcePrototypeId,
       targetPrototypeId,
-      version,
+      version: targetVersion,
     },
   );
-  const [versionedResult, latestResult] = await Promise.all([
-    copyS3BucketContents(
-      s3Client,
-      `${sourcePrototypeId}/latest/`,
-      `${targetPrototypeId}/${version}/`,
-      log2,
-    ),
-    copyS3BucketContents(
-      s3Client,
-      `${sourcePrototypeId}/latest/`,
-      `${targetPrototypeId}/latest/`,
-      log2,
-    ),
-  ]);
+  const versionedResult = await copyS3BucketContents(
+    s3Client,
+    `${sourcePrototypeId}/${sourceBuildKey}/`,
+    `${targetPrototypeId}/${targetVersion}/`,
+    log2,
+  );
   log2.consoleLogDevOnly(
     'info',
     '[copyS3BucketContentsVersioned] Copy completed',
     {
-      version,
+      version: targetVersion,
       versionedSuccess: versionedResult.success,
-      latestSuccess: latestResult.success,
-      copiedObjects: versionedResult.copiedObjects + latestResult.copiedObjects,
+      copiedObjects: versionedResult.copiedObjects,
     },
   );
   return {
-    success: versionedResult.success && latestResult.success,
-    error: versionedResult.error || latestResult.error || undefined,
-    copiedObjects: versionedResult.copiedObjects + latestResult.copiedObjects,
-    version,
+    success: versionedResult.success,
+    error: versionedResult.error || undefined,
+    copiedObjects: versionedResult.copiedObjects,
+    version: targetVersion,
   };
 }
 
@@ -288,13 +280,13 @@ export async function copyDefaultAppToVersionedPrototype(
   prototypeId: string,
   designStyle: DesignStyle,
   framework: PrototypeFramework,
+  version: string,
   log2: SystemLogger,
 ): Promise<S3CopyResult> {
   const { distFilesPrefix: sourcePrefix } = getDefaultAppFilesSourcePrefixes(
     designStyle,
     framework,
   );
-  const version = 'latest';
   log2.consoleLogDevOnly(
     'info',
     '[copyDefaultAppToVersionedPrototype] Copying default dist files',
@@ -305,10 +297,10 @@ export async function copyDefaultAppToVersionedPrototype(
       sourcePrefix,
     },
   );
-  const latestResult = await copyS3BucketContents(
+  const copyResult = await copyS3BucketContents(
     s3Client,
     sourcePrefix,
-    `${prototypeId}/latest/`,
+    `${prototypeId}/${version}/`,
     log2,
   );
   log2.consoleLogDevOnly(
@@ -316,15 +308,15 @@ export async function copyDefaultAppToVersionedPrototype(
     '[copyDefaultAppToVersionedPrototype] Copy finished',
     {
       prototypeId,
-      success: latestResult.success,
-      copiedObjects: latestResult.copiedObjects,
-      error: latestResult.error,
+      success: copyResult.success,
+      copiedObjects: copyResult.copiedObjects,
+      error: copyResult.error,
     },
   );
   return {
-    success: latestResult.success,
-    error: latestResult.error,
-    copiedObjects: latestResult.copiedObjects,
+    success: copyResult.success,
+    error: copyResult.error,
+    copiedObjects: copyResult.copiedObjects,
     version,
   };
 }
@@ -379,6 +371,163 @@ export async function uploadDefaultAssetsToSupabaseStorage(
     error: uploadResults.find((r) => !r.success)?.error || undefined,
     copiedObjects: uploadResults.length,
   };
+}
+
+/**
+ * Copy a prototype build output into a deployment-specific prefix
+ */
+export async function copyPrototypeBuildToDeploymentFolder(
+  s3Client: S3Client,
+  prototypeId: string,
+  buildKey: string | null | undefined,
+  deploymentKey: string,
+  log2: SystemLogger,
+): Promise<S3CopyResult> {
+  const normalizedBuildKey =
+    (buildKey && buildKey.replace(/^\/+|\/+$/g, '')) || 'latest';
+  const normalizedDeploymentKey = deploymentKey.replace(/^\/+|\/+$/g, '');
+  const sourcePrefix = `${prototypeId}/${normalizedBuildKey}/`;
+  const destinationPrefix = `${prototypeId}/${normalizedDeploymentKey}/`;
+
+  log2.consoleLogDevOnly(
+    'info',
+    '[copyPrototypeBuildToDeploymentFolder] Copying build to deployment prefix',
+    {
+      prototypeId,
+      buildKey: normalizedBuildKey,
+      deploymentKey: normalizedDeploymentKey,
+      sourcePrefix,
+      destinationPrefix,
+    },
+  );
+
+  const copyResult = await copyS3BucketContents(
+    s3Client,
+    sourcePrefix,
+    destinationPrefix,
+    log2,
+  );
+
+  if (!copyResult.success) {
+    log2.error(
+      new Error(copyResult.error || 'Unknown copy error'),
+      '[copyPrototypeBuildToDeploymentFolder] Failed to copy build to deployment prefix',
+      {
+        prototypeId,
+        buildKey: normalizedBuildKey,
+        deploymentKey: normalizedDeploymentKey,
+        sourcePrefix,
+        destinationPrefix,
+      },
+    );
+  } else {
+    log2.consoleLogDevOnly(
+      'info',
+      '[copyPrototypeBuildToDeploymentFolder] Copy completed',
+      {
+        prototypeId,
+        buildKey: normalizedBuildKey,
+        deploymentKey: normalizedDeploymentKey,
+        copiedObjects: copyResult.copiedObjects,
+      },
+    );
+  }
+
+  return copyResult;
+}
+
+async function deleteObjectsWithPrefix(
+  s3Client: S3Client,
+  prefix: string,
+  log2: SystemLogger,
+): Promise<boolean> {
+  let continuationToken: string | undefined;
+  let hasError = false;
+
+  do {
+    const listResponse: ListObjectsV2CommandOutput = await s3Client.send(
+      new ListObjectsV2Command({
+        Bucket: S3_PROTOTYPE_BUCKET,
+        Prefix: prefix,
+        ContinuationToken: continuationToken,
+      }),
+    );
+    continuationToken = listResponse.NextContinuationToken;
+    const objects = listResponse.Contents ?? [];
+    if (objects.length === 0) {
+      continue;
+    }
+    try {
+      await s3Client.send(
+        new DeleteObjectsCommand({
+          Bucket: S3_PROTOTYPE_BUCKET,
+          Delete: {
+            Objects: objects.map((obj) => ({ Key: obj.Key! })),
+          },
+        }),
+      );
+    } catch (error) {
+      hasError = true;
+      log2.error(error, '[deleteObjectsWithPrefix] Failed to delete batch', {
+        prefix,
+      });
+    }
+  } while (continuationToken);
+
+  return !hasError;
+}
+
+export async function listPrototypeDeploymentPrefixes(
+  s3Client: S3Client,
+  prototypeId: string,
+  log2: SystemLogger,
+): Promise<string[]> {
+  const prefix = `${prototypeId}/d`;
+  const deploymentPrefixes = new Set<string>();
+  let continuationToken: string | undefined;
+  do {
+    const listResponse: ListObjectsV2CommandOutput = await s3Client.send(
+      new ListObjectsV2Command({
+        Bucket: S3_PROTOTYPE_BUCKET,
+        Prefix: prefix,
+        ContinuationToken: continuationToken,
+      }),
+    );
+    continuationToken = listResponse.NextContinuationToken;
+    for (const object of listResponse.Contents ?? []) {
+      if (!object.Key) continue;
+      const remaining = object.Key.slice(prototypeId.length + 1);
+      const match = remaining.match(/(d[^/]+)\//);
+      if (match) {
+        deploymentPrefixes.add(`${prototypeId}/${match[1]}/`);
+      }
+    }
+  } while (continuationToken);
+
+  log2.consoleLogDevOnly('info', '[listPrototypeDeploymentPrefixes] Found', {
+    prototypeId,
+    prefixes: Array.from(deploymentPrefixes),
+  });
+  return Array.from(deploymentPrefixes);
+}
+
+export async function deletePrototypeDeploymentPrefixes(
+  s3Client: S3Client,
+  prefixes: string[],
+  log2: SystemLogger,
+): Promise<boolean> {
+  if (prefixes.length === 0) {
+    return true;
+  }
+  log2.consoleLogDevOnly(
+    'info',
+    '[deletePrototypeDeploymentPrefixes] Deleting old deployment folders',
+    { prefixes },
+  );
+  const results = await Promise.all(
+    prefixes.map((prefix) => deleteObjectsWithPrefix(s3Client, prefix, log2)),
+  );
+  return results.every(Boolean);
 }
 
 /**
@@ -547,7 +696,7 @@ export async function deletePrototypeS3Builds(
   log2: SystemLogger,
 ): Promise<boolean> {
   try {
-    const prefix = prototypeId; // matches prototypeId/latest/, prototypeId/v123/, etc.
+    const prefix = prototypeId; // matches prototypeId builds and deployments
     let continuationToken: string | undefined = undefined;
 
     do {
