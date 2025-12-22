@@ -44,11 +44,13 @@ import {
   Info,
   Loader2,
   Lock,
+  Maximize2,
   MoreVertical,
   Pencil,
   Share2,
   X,
 } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
@@ -487,6 +489,21 @@ export default function PublicPrototypeHeader({
                 >
                   <Share2 className="w-4 h-4" />
                 </Button>
+
+                <Button
+                  asChild
+                  variant="outline"
+                  size="sm"
+                  className="border-gray-200 dark:border-white/10 bg-transparent hover:bg-gray-100 dark:hover:bg-white/5 text-gray-700 dark:text-white"
+                >
+                  <Link
+                    href={`/apps/${prototype.id}`}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    <Maximize2 className="w-4 h-4" />
+                  </Link>
+                </Button>
               </div>
 
               {/* Mobile dropdown */}
@@ -522,6 +539,17 @@ export default function PublicPrototypeHeader({
                   >
                     <Share2 className="w-4 h-4 mr-2" />
                     Share
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link
+                      href={`/apps/${prototype.id}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="cursor-pointer focus:bg-gray-100 dark:focus:bg-white/10"
+                    >
+                      <Maximize2 className="w-4 h-4 mr-2" />
+                      View Fullscreen
+                    </Link>
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
