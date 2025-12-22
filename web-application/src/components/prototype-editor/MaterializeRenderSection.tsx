@@ -26,6 +26,7 @@ import type {
 import { Database } from "@/lib/types/supabase";
 import { getBulkAssetSignedUrls } from "@/lib/utils/assetUtils";
 import { toast } from "sonner";
+import { usePostHog } from "posthog-js/react";
 
 import JSZip from "jszip";
 
@@ -47,8 +48,10 @@ import {
   Monitor,
   MoreVertical,
   Palette,
+  Plus,
   QrCode,
-  RefreshCw, RotateCcw,
+  RefreshCw,
+  RotateCcw,
   Share2,
   Smartphone,
   Terminal as TerminalIcon,
@@ -224,6 +227,10 @@ const MaterializeRenderSection = forwardRef<
   ) => {
     const logger = useProductLogger();
     const { userPlan, loadingSubscriptionData } = useSubscriptionAccess();
+    const posthog = usePostHog();
+
+    // Check if multi-screen feature is enabled
+    const isMultiScreenEnabled = posthog?.isFeatureEnabled("multiple-frames-view") ?? false;
 
     // Determine if this is a web-only framework
     const isWebFramework = framework === "web_nextjs_react";
@@ -274,6 +281,7 @@ const MaterializeRenderSection = forwardRef<
       window.addEventListener("resize", calculateSize);
       return () => window.removeEventListener("resize", calculateSize);
     }, [hasManuallyResized]);
+
     const [isIframeLoading, setIsIframeLoading] = useState(false);
     const [iframeError, setIframeError] = useState(false);
     const [isExporting, setIsExporting] = useState(false);
@@ -284,6 +292,38 @@ const MaterializeRenderSection = forwardRef<
       () =>
         viewing_url ? [{ id: 0, path: extractInitialPath(viewing_url) }] : [],
     );
+
+    // Calculate scaled mobile size based on number of screens when multi-screen is enabled
+    const scaledMobileSize = React.useMemo(() => {
+      if (!isMultiScreenEnabled || mobileScreens.length <= 1) {
+        return mobileSize;
+      }
+
+      // Get available width (approximate viewport width minus padding)
+      const availableWidth = typeof window !== "undefined" ? window.innerWidth - 100 : 1200;
+      const screenCount = mobileScreens.length;
+      const gapBetweenScreens = 32; // gap-x-8 = 32px
+      const addButtonWidth = mobileSize.width + 48; // Inline add button takes space too
+
+      // Calculate how much width each screen can have
+      const totalGapSpace = (screenCount - 1) * gapBetweenScreens + addButtonWidth;
+      const availablePerScreen = (availableWidth - totalGapSpace) / screenCount;
+
+      // Minimum width threshold (below this, use horizontal scroll)
+      const minWidth = 200;
+      const maxWidth = mobileSize.width + 16; // Original size + frame
+
+      // Calculate scale factor
+      const targetWidth = Math.max(minWidth, Math.min(maxWidth, availablePerScreen));
+      const scaleFactor = targetWidth / (mobileSize.width + 16);
+
+      // Apply scale to both dimensions to maintain aspect ratio
+      return {
+        width: mobileSize.width * scaleFactor,
+        height: mobileSize.height * scaleFactor,
+      };
+    }, [isMultiScreenEnabled, mobileScreens.length, mobileSize]);
+
     const [editingScreenId, setEditingScreenId] = useState<number | null>(null);
     const [tempPath, setTempPath] = useState<string>("");
     const [routeSuggestions, setRouteSuggestions] = useState<
@@ -413,9 +453,16 @@ const MaterializeRenderSection = forwardRef<
       return () => window.removeEventListener("message", handleMessage);
     }, [viewing_url, editingScreenId, onCurrentPathChange]);
 
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const _handleAddMobileScreen = () => {
+    const handleAddMobileScreen = useCallback(() => {
       if (!viewing_url) return;
+
+      // Warn user when adding 4+ screens
+      const currentCount = mobileScreens.length;
+      if (currentCount >= 4) {
+        toast.warning("Performance note", {
+          description: "Having many screens open may slow down your browser. Consider closing unused screens.",
+        });
+      }
 
       setMobileScreens((prev) => [
         ...prev,
@@ -423,7 +470,19 @@ const MaterializeRenderSection = forwardRef<
       ]);
       setIsIframeLoading(true);
       setIframeError(false);
-    };
+    }, [viewing_url, mobileScreens.length]);
+
+    // Refresh individual screen
+    const refreshScreen = useCallback((screenId: number) => {
+      const iframe = iframeRefs.current.get(screenId);
+      if (iframe) {
+        const currentSrc = iframe.src;
+        iframe.src = "about:blank";
+        setTimeout(() => {
+          iframe.src = currentSrc;
+        }, 100);
+      }
+    }, []);
 
     const handleRemoveMobileScreen = (id: number) => {
       setMobileScreens((prev) => {
@@ -1171,12 +1230,12 @@ const MaterializeRenderSection = forwardRef<
                       <div
                         className="relative mx-auto select-none"
                         style={{
-                          width: mobileSize.width + 16,
-                          height: mobileSize.height + 16,
+                          width: scaledMobileSize.width + 16,
+                          height: scaledMobileSize.height + 16,
                         }}
                       >
-                        {/* URL Bar / Controls */}
-                        {mobileScreens.length > 1 && (
+                        {/* URL Bar / Controls - Show when multi-screen feature is enabled */}
+                        {isMultiScreenEnabled && (
                           <div className="absolute -top-12 left-1/2 -translate-x-1/2 z-20">
                             {editingScreenId === screen.id ? (
                               <div className="flex flex-col items-center gap-1 animate-in fade-in slide-in-from-bottom-1 duration-200">
@@ -1251,14 +1310,25 @@ const MaterializeRenderSection = forwardRef<
                                 <Button
                                   variant="ghost"
                                   size="icon"
-                                  className="h-6 w-6 bg-accent border border-border rounded-full hover:bg-red-500/10 hover:text-red-400 hover:border-red-500/20 text-muted-foreground"
-                                  onClick={() =>
-                                    handleRemoveMobileScreen(screen.id)
-                                  }
-                                  aria-label="Remove screen"
+                                  className="h-6 w-6 bg-accent border border-border rounded-full hover:bg-accent/80 text-muted-foreground"
+                                  onClick={() => refreshScreen(screen.id)}
+                                  aria-label="Refresh screen"
                                 >
-                                  <X className="w-3 h-3" />
+                                  <RefreshCw className="w-3 h-3" />
                                 </Button>
+                                {mobileScreens.length > 1 && (
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-6 w-6 bg-accent border border-border rounded-full hover:bg-red-500/10 hover:text-red-400 hover:border-red-500/20 text-muted-foreground"
+                                    onClick={() =>
+                                      handleRemoveMobileScreen(screen.id)
+                                    }
+                                    aria-label="Remove screen"
+                                  >
+                                    <X className="w-3 h-3" />
+                                  </Button>
+                                )}
                               </div>
                             )}
                           </div>
@@ -1268,8 +1338,8 @@ const MaterializeRenderSection = forwardRef<
                         <div
                           className="relative bg-[#0B0C0E] shadow-2xl"
                           style={{
-                            width: mobileSize.width + 16,
-                            height: mobileSize.height + 16,
+                            width: scaledMobileSize.width + 16,
+                            height: scaledMobileSize.height + 16,
                             borderRadius: "2.5rem",
                             border: "1px solid rgba(255,255,255,0.1)",
                             boxShadow:
@@ -1299,8 +1369,8 @@ const MaterializeRenderSection = forwardRef<
                           <div
                             className="absolute bg-white overflow-hidden"
                             style={{
-                              width: mobileSize.width,
-                              height: mobileSize.height,
+                              width: scaledMobileSize.width,
+                              height: scaledMobileSize.height,
                               top: "8px",
                               left: "8px",
                               borderRadius: "2rem",
@@ -1351,6 +1421,32 @@ const MaterializeRenderSection = forwardRef<
                     </div>
                   );
                 })}
+                {/* Inline Add Screen button */}
+                {isMultiScreenEnabled && (
+                  <div className="flex flex-col items-center justify-center gap-2 pt-2">
+                    <div
+                      className="relative mx-auto select-none flex items-center justify-center"
+                      style={{
+                        width: scaledMobileSize.width + 16,
+                        height: scaledMobileSize.height + 16,
+                      }}
+                    >
+                      <button
+                        onClick={handleAddMobileScreen}
+                        disabled={!viewing_url}
+                        className="flex flex-col items-center gap-3 p-8 rounded-3xl border-2 border-dashed border-border hover:border-muted-foreground/50 bg-accent/30 hover:bg-accent/50 transition-all group disabled:opacity-50 disabled:cursor-not-allowed"
+                        aria-label="Add another screen"
+                      >
+                        <div className="w-12 h-12 rounded-full bg-accent border border-border flex items-center justify-center group-hover:bg-accent/80 group-hover:border-muted-foreground/30 transition-all">
+                          <Plus className="w-5 h-5 text-muted-foreground group-hover:text-foreground transition-colors" />
+                        </div>
+                        <span className="text-xs font-medium text-muted-foreground group-hover:text-foreground transition-colors">
+                          Add Screen
+                        </span>
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -1533,6 +1629,21 @@ const MaterializeRenderSection = forwardRef<
                   title="Toggle Terminal"
                 >
                   <TerminalIcon className="w-3.5 h-3.5" />
+                </Button>
+              )}
+              {!isReadOnlyView && isMultiScreenEnabled && isPreviewView && previewMode === "mobile" && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleAddMobileScreen}
+                  className="hidden sm:flex h-8 bg-accent border border-border text-muted-foreground hover:text-foreground hover:border-border/80 hover:bg-accent/80 transition-all"
+                  title="Add another screen"
+                  disabled={!viewing_url}
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span className="ml-2 hidden md:inline text-xs font-medium">
+                    Add Screen
+                  </span>
                 </Button>
               )}
               {!isReadOnlyView && (

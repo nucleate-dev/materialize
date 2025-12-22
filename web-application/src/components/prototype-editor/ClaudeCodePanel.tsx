@@ -3,6 +3,7 @@
 import { RenderStatus } from "@/app/dashboard/projects/[prototype_id]/InternalPrototypePage";
 import { supabase } from "@/ClientConstants";
 import { useCreditUsage } from "@/hooks/useCreditUsage";
+import { UseFileSystemReturn } from "@/hooks/useFileSystem";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import type { ChatServerMessage } from "@/lib/types/ChatTypes";
 import {
@@ -34,6 +35,8 @@ interface ToolEventData {
   tool_input?: ToolInput;
 }
 
+export type ClaudeCodePanelActiveView = "chat" | "context";
+
 interface ClaudeCodePanelProps {
   prototypeId: string;
   baseTunnelUrl: string | null;
@@ -42,6 +45,7 @@ interface ClaudeCodePanelProps {
   onPrototypeUpdate?: (updatedPrototype: Prototype) => void;
   currentRenderStatus?: RenderStatus;
   currentViewingPath?: string;
+  fileSystem?: UseFileSystemReturn;
   // External WebSocket management (required - InternalPrototypePage manages connection)
   externalWS: WebSocket | null;
   externalWSConnected: boolean;
@@ -104,6 +108,7 @@ export default function ClaudeCodePanel({
   onPrototypeUpdate,
   currentRenderStatus,
   currentViewingPath,
+  fileSystem,
   externalWS,
   externalWSConnected,
   externalWSConnecting,
@@ -114,6 +119,10 @@ export default function ClaudeCodePanel({
   onRestartDevServerComplete,
 }: ClaudeCodePanelProps) {
   const logger = useProductLogger();
+
+  // Active view state (chat or context editor)
+  const [activeView, setActiveView] =
+    useState<ClaudeCodePanelActiveView>("chat");
 
   // Track credit usage for paywall
   const creditUsage = useCreditUsage();
@@ -2251,6 +2260,7 @@ export default function ClaudeCodePanel({
 
   return (
     <ClaudeCodePanelUI
+      prototypeId={prototypeId}
       prototypeTitle={prototypeTitle}
       visibilityLabel={visibilityLabel}
       createdAtLabel={createdAtLabel}
@@ -2321,6 +2331,9 @@ export default function ClaudeCodePanel({
           ),
         );
       }}
+      activeView={activeView}
+      onActiveViewChange={setActiveView}
+      fileSystem={fileSystem}
     />
   );
 }

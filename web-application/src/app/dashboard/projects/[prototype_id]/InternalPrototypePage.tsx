@@ -1107,6 +1107,7 @@ export default function InternalPrototypePage() {
               onPrototypeUpdate={setPrototype}
               currentRenderStatus={currentRenderStatus}
               currentViewingPath={currentViewingPath}
+              fileSystem={fileSystem}
               externalWS={claudeCodeWS}
               externalWSConnected={claudeCodeWSConnected}
               externalWSConnecting={claudeCodeWSConnecting}

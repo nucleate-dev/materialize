@@ -2,6 +2,7 @@
 
 import { RenderStatus } from "@/app/dashboard/projects/[prototype_id]/InternalPrototypePage";
 import ProPlanUpsellModal from "@/components/prototype-editor/ProPlanUpsellModal";
+import ProjectContextEditor from "@/components/prototype-editor/ProjectContextEditor";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -27,7 +28,9 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { UseFileSystemReturn } from "@/hooks/useFileSystem";
 import { cn } from "@/lib/classNames"; // Assuming cn utility exists
+import type { ClaudeCodePanelActiveView } from "./ClaudeCodePanel";
 import {
   ArrowDown,
   Check,
@@ -37,8 +40,10 @@ import {
   CircleAlert,
   Copy,
   Edit2,
+  FileText,
   Info,
   Loader2,
+  MessageSquare,
   Paperclip,
   Plus,
   RefreshCw,
@@ -65,6 +70,7 @@ import type {
 } from "./ClaudeCodePanel";
 
 interface ClaudeCodePanelUIProps {
+  prototypeId: string;
   prototypeTitle: string;
   visibilityLabel: string;
   createdAtLabel: string | null;
@@ -135,9 +141,14 @@ interface ClaudeCodePanelUIProps {
   totalAvailableCredits: number;
   onUndo: () => void;
   onMessageUpdate?: (message: Message) => void;
+  // View toggle and context editor props
+  activeView: ClaudeCodePanelActiveView;
+  onActiveViewChange: (view: ClaudeCodePanelActiveView) => void;
+  fileSystem?: UseFileSystemReturn;
 }
 
 export default function ClaudeCodePanelUI({
+  prototypeId,
   prototypeTitle,
   visibilityLabel,
   createdAtLabel,
@@ -202,6 +213,9 @@ export default function ClaudeCodePanelUI({
   totalAvailableCredits,
   onUndo,
   onMessageUpdate,
+  activeView,
+  onActiveViewChange,
+  fileSystem,
 }: ClaudeCodePanelUIProps) {
   const [showCreditLimitModal, setShowCreditLimitModal] = useState(false);
   const hasShownModalRef = useRef(false);
@@ -274,6 +288,40 @@ export default function ClaudeCodePanelUI({
               </Tooltip>
             </TooltipProvider>
           </div>
+
+          {/* View Toggle - Chat / Context */}
+          {fileSystem && (
+            <div className="bg-accent p-0.5 rounded-lg border border-border flex items-center gap-0.5">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => onActiveViewChange("chat")}
+                className={cn(
+                  "h-6 px-2 text-xs rounded-md",
+                  activeView === "chat"
+                    ? "bg-white dark:bg-slate-800 text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground hover:bg-transparent",
+                )}
+              >
+                <MessageSquare className="w-3 h-3 mr-1" />
+                Chat
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => onActiveViewChange("context")}
+                className={cn(
+                  "h-6 px-2 text-xs rounded-md",
+                  activeView === "context"
+                    ? "bg-white dark:bg-slate-800 text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground hover:bg-transparent",
+                )}
+              >
+                <FileText className="w-3 h-3 mr-1" />
+                Context
+              </Button>
+            </div>
+          )}
 
           {/* Session Selector */}
           {allChatSessions.length > 0 && (
@@ -406,11 +454,24 @@ export default function ClaudeCodePanelUI({
         </div>
       </div>
 
-      {/* --- Messages Area --- */}
-      <ScrollArea
-        className="flex-1 px-4 relative bg-accent/20"
-        ref={scrollAreaRef}
-      >
+      {/* Context Editor View */}
+      {activeView === "context" && fileSystem && (
+        <div className="flex-1 min-h-0">
+          <ProjectContextEditor
+            fileSystem={fileSystem}
+            prototypeId={prototypeId}
+          />
+        </div>
+      )}
+
+      {/* Chat View */}
+      {activeView === "chat" && (
+        <>
+          {/* --- Messages Area --- */}
+          <ScrollArea
+            className="flex-1 px-4 relative bg-accent/20"
+            ref={scrollAreaRef}
+          >
         <div className="py-4 space-y-3 max-w-3xl mx-auto">
           {messages.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-[50vh] text-center opacity-0 animate-in fade-in duration-700">
@@ -865,6 +926,8 @@ export default function ClaudeCodePanelUI({
           </Button>
         </div>
       </div>
+        </>
+      )}
 
       {/* --- Settings Modal --- */}
       <Dialog open={showSettingsModal} onOpenChange={setShowSettingsModal}>
