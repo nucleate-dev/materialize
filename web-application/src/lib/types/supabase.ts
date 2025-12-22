@@ -737,6 +737,7 @@ export type Database = {
           framework: Database["public"]["Enums"]["prototype_framework"] | null
           id: string
           latest_build_key: string | null
+          latest_deploy_key: string | null
           name: string
           owner_id: string | null
           project_context: string
@@ -754,6 +755,7 @@ export type Database = {
           framework?: Database["public"]["Enums"]["prototype_framework"] | null
           id?: string
           latest_build_key?: string | null
+          latest_deploy_key?: string | null
           name?: string
           owner_id?: string | null
           project_context?: string
@@ -771,6 +773,7 @@ export type Database = {
           framework?: Database["public"]["Enums"]["prototype_framework"] | null
           id?: string
           latest_build_key?: string | null
+          latest_deploy_key?: string | null
           name?: string
           owner_id?: string | null
           project_context?: string
