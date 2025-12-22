@@ -15,7 +15,11 @@ import type {
   PrototypeFileInsert,
   S3CopyResult,
 } from '../../types/InternalTypes.js';
-import { Database } from '../../types/supabase.js';
+import type {
+  Database,
+  TablesInsert,
+  TablesUpdate,
+} from '../../types/supabase.js';
 
 type PrototypeFramework = Database['public']['Enums']['prototype_framework'];
 
@@ -284,6 +288,7 @@ async function copyS3BucketContents(
  * Copy default app to a new prototype with versioned deployment
  */
 export async function copyDefaultAppToVersionedPrototype(
+  supabase: SupabaseClient<Database>,
   s3Client: S3Client,
   prototypeId: string,
   designStyle: DesignStyle,
@@ -294,7 +299,7 @@ export async function copyDefaultAppToVersionedPrototype(
     designStyle,
     framework,
   );
-  const version = 'latest';
+  const version = getVersion();
   log2.consoleLogDevOnly(
     'info',
     '[copyDefaultAppToVersionedPrototype] Copying default dist files',
@@ -305,10 +310,10 @@ export async function copyDefaultAppToVersionedPrototype(
       sourcePrefix,
     },
   );
-  const latestResult = await copyS3BucketContents(
+  const copyResult = await copyS3BucketContents(
     s3Client,
     sourcePrefix,
-    `${prototypeId}/latest/`,
+    `${prototypeId}/${version}/`,
     log2,
   );
   log2.consoleLogDevOnly(
@@ -316,15 +321,52 @@ export async function copyDefaultAppToVersionedPrototype(
     '[copyDefaultAppToVersionedPrototype] Copy finished',
     {
       prototypeId,
-      success: latestResult.success,
-      copiedObjects: latestResult.copiedObjects,
-      error: latestResult.error,
+      success: copyResult.success,
+      copiedObjects: copyResult.copiedObjects,
+      error: copyResult.error,
     },
   );
+  if (copyResult.success) {
+    const [prototypeUpdateResult, buildHistoryInsertResult] = await Promise.all(
+      [
+        supabase
+          .from('prototypes')
+          .update({
+            latest_build_key: version,
+          } satisfies TablesUpdate<'prototypes'>)
+          .eq('id', prototypeId),
+        supabase.from('prototype_build_history').insert({
+          prototype_id: prototypeId,
+          build_key: version,
+          deploy_key: '',
+        } satisfies TablesInsert<'prototype_build_history'>),
+      ],
+    );
+    if (prototypeUpdateResult.error) {
+      log2.error(
+        prototypeUpdateResult.error,
+        '[copyDefaultAppToVersionedPrototype] Failed to update latest_build_key',
+        {
+          prototypeId,
+          version,
+        },
+      );
+    }
+    if (buildHistoryInsertResult.error) {
+      log2.error(
+        buildHistoryInsertResult.error,
+        '[copyDefaultAppToVersionedPrototype] Failed to insert prototype_build_history row',
+        {
+          prototypeId,
+          version,
+        },
+      );
+    }
+  }
   return {
-    success: latestResult.success,
-    error: latestResult.error,
-    copiedObjects: latestResult.copiedObjects,
+    success: copyResult.success,
+    error: copyResult.error,
+    copiedObjects: copyResult.copiedObjects,
     version,
   };
 }
@@ -417,13 +459,17 @@ export async function copyPrototypeBuildToDeploymentFolder(
   );
 
   if (!copyResult.success) {
-    log2.error(new Error(copyResult.error || 'Unknown copy error'), '[copyPrototypeBuildToDeploymentFolder] Failed to copy build to deployment prefix', {
-      prototypeId,
-      buildKey: normalizedBuildKey,
-      deploymentKey: normalizedDeploymentKey,
-      sourcePrefix,
-      destinationPrefix,
-    });
+    log2.error(
+      new Error(copyResult.error || 'Unknown copy error'),
+      '[copyPrototypeBuildToDeploymentFolder] Failed to copy build to deployment prefix',
+      {
+        prototypeId,
+        buildKey: normalizedBuildKey,
+        deploymentKey: normalizedDeploymentKey,
+        sourcePrefix,
+        destinationPrefix,
+      },
+    );
   } else {
     log2.consoleLogDevOnly(
       'info',

@@ -640,6 +640,7 @@ export async function copyAllDefaultsForNewPrototype(
         log2,
       ),
       copyDefaultAppToVersionedPrototype(
+        supabase,
         s3Client,
         newPrototypeId,
         newPrototypeDesignStyle,
