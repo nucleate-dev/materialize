@@ -38,7 +38,7 @@ export const handler = async (event) => {
     const prototypeResponse = await fetch(
       `${SUPABASE_URL}/rest/v1/prototypes?slug=eq.${encodeURIComponent(
         slug,
-      )}&select=id`,
+      )}&select=id,latest_deploy_key`,
       { headers: supabaseHeaders },
     );
     if (!prototypeResponse.ok) {
@@ -50,24 +50,11 @@ export const handler = async (event) => {
     }
     const prototypeData = await prototypeResponse.json();
     const prototypeId = prototypeData?.[0]?.id;
+    const deploymentKey = prototypeData?.[0]?.latest_deploy_key;
     if (!prototypeId) {
       console.log("No prototype for slug", { slug });
       return forbidden("Prototype not found");
     }
-
-    const buildHistoryResponse = await fetch(
-      `${SUPABASE_URL}/rest/v1/prototype_build_history?prototype_id=eq.${prototypeId}&deploy_key=is.not.null&select=deploy_key&order=created_at.desc&limit=1`,
-      { headers: supabaseHeaders },
-    );
-    if (!buildHistoryResponse.ok) {
-      console.log("Failed to load deployment history", {
-        prototypeId,
-        status: buildHistoryResponse.status,
-      });
-      return forbidden("Deployment not available");
-    }
-    const historyData = await buildHistoryResponse.json();
-    const deploymentKey = historyData?.[0]?.deploy_key;
     if (!deploymentKey) {
       console.log("No deployable build found", { prototypeId });
       return forbidden("Deployment not available");

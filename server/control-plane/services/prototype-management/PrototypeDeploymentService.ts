@@ -365,6 +365,7 @@ export class PrototypeDeploymentService {
       .from('prototypes')
       .update({
         slug: normalizedSlug,
+        latest_deploy_key: deploymentKey,
       })
       .eq('id', authResult.prototype.id)
       .select('id, slug')
