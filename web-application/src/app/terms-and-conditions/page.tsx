@@ -41,12 +41,12 @@ export default function TermsAndConditionsPage() {
                 <li>
                   <span className="text-white">Acceptance of Terms</span>
                   <p className="mt-2">
-                    Nucleate, Inc. ("Nucleate") provides users with a hosted
+                    Nucleate, Inc. (&quot;Nucleate&quot;) provides users with a hosted
                     environment and community to code, build, share, and deploy
                     software and web servers through our websites and apps (the
-                    "Service"). By using the Service, you are entering into a
+                    &quot;Service&quot;). By using the Service, you are entering into a
                     binding agreement with Nucleate, and you agree to comply with
-                    these Terms of Service ("Terms") and also agree to our
+                    these Terms of Service (&quot;Terms&quot;) and also agree to our
                     Privacy Policy; if you do not agree, you must not use the
                     Service.
                   </p>
@@ -76,10 +76,10 @@ export default function TermsAndConditionsPage() {
                   <p className="mt-2">
                     You must be an adult to use the Service. If you are younger
                     than 13 we will allow you to use the Service if you first
-                    provide us with your parent or guardian's written consent.
+                    provide us with your parent or guardian&apos;s written consent.
                     If you are a parent or legal guardian of a user under the age
                     of 18, by allowing your child to use the Service, you are
-                    subject to these Terms and responsible for your child's
+                    subject to these Terms and responsible for your child&apos;s
                     activity on the Service.
                   </p>
                 </li>
@@ -211,7 +211,7 @@ export default function TermsAndConditionsPage() {
                     Content you publish as a public App is automatically made
                     subject to the MIT License, which allows others to view,
                     copy, modify, and distribute your code, on or off platform.
-                    Other users may "fork" your public Apps, which will provide
+                    Other users may &quot;fork&quot; your public Apps, which will provide
                     them a copy of your App that they control. It is your
                     responsibility to ensure that your content is compatible
                     with the MIT License before publishing. If you do not wish
@@ -349,7 +349,7 @@ export default function TermsAndConditionsPage() {
                     The Extensions Store enables you to access Apps to work with
                     and extend the capabilities of your workspace and individual
                     Apps. Extensions within the Store are published by Nucleate
-                    and also third-party providers ("Developers"). As an
+                    and also third-party providers (&quot;Developers&quot;). As an
                     Extension user, your access and use rights are supplemented
                     by the Nucleate Extensions Store - User Terms. The
                     Extensions Store also enables you to create and provide
@@ -414,7 +414,7 @@ export default function TermsAndConditionsPage() {
                     Upon termination, your right to use the Service will cease
                     immediately. If you wish to delete your account, you may
                     request account deletion at https://nucleate.dev/account by
-                    selecting "Request Account Deletion." Upon account deletion,
+                    selecting &quot;Request Account Deletion.&quot; Upon account deletion,
                     we will delete your stored data in accordance with our data
                     retention policy and applicable law.
                   </p>
@@ -487,7 +487,7 @@ export default function TermsAndConditionsPage() {
                   <span className="text-white">Disclaimer of Warranties</span>
                   <p className="mt-2">
                     Your use of the Service is at your sole risk. The Service is
-                    provided on an "AS IS" and "AS AVAILABLE" basis. To the
+                    provided on an &quot;AS IS&quot; and &quot;AS AVAILABLE&quot; basis. To the
                     fullest extent permitted by law, the Service is provided
                     without warranties of any kind, whether express or implied,
                     including, but not limited to, implied warranties of
@@ -570,7 +570,7 @@ export default function TermsAndConditionsPage() {
                   <span className="text-white">Feedback and Suggestions</span>
                   <p className="mt-2">
                     Any feedback, comments, ideas, improvements, or suggestions
-                    (collectively, "Suggestions") provided by you to Nucleate
+                    (collectively, &quot;Suggestions&quot;) provided by you to Nucleate
                     with respect to the Service will remain the sole and
                     exclusive property of Nucleate. Nucleate will be free to use,
                     copy, modify, publish, or redistribute the Suggestions for
@@ -593,7 +593,7 @@ export default function TermsAndConditionsPage() {
                 <li>
                   <span className="text-white">Entire Agreement</span>
                   <p className="mt-2">
-                    These Terms are the parties' entire agreement regarding its
+                    These Terms are the parties&apos; entire agreement regarding its
                     subject matter and supersede any prior or contemporaneous
                     agreements regarding its subject matter.
                   </p>
@@ -624,9 +624,9 @@ export default function TermsAndConditionsPage() {
                 <li>
                   <span className="text-white">Google APIs</span>
                   <p className="mt-2">
-                    Nucleate's use and transfer of information received from
-                    Google APIs to any other app is subject to Nucleate's Privacy
-                    Policy and will adhere to Google's API Services User Data
+                    Nucleate&apos;s use and transfer of information received from
+                    Google APIs to any other app is subject to Nucleate&apos;s Privacy
+                    Policy and will adhere to Google&apos;s API Services User Data
                     Policy including the Limited Use requirements.
                   </p>
                 </li>
