@@ -84,6 +84,12 @@ export default function PrototypeDeployModal({
     );
   }, [prototype, buildHistory]);
 
+  // Check if slug has changed from the original
+  const hasSlugChanged = useMemo(() => {
+    const normalizedDeploySlug = normalizeSlug(deploySlug);
+    return normalizedDeploySlug !== prototype?.slug;
+  }, [deploySlug, prototype?.slug]);
+
   // Initialize state when modal opens
   useEffect(() => {
     if (!open || !prototype) return;
@@ -222,6 +228,38 @@ export default function PrototypeDeployModal({
 
     try {
       setIsDeploying(true);
+
+      // Case 1: Slug changed but latest build is already deployed
+      // Just update the slug without redeploying
+      if (hasSlugChanged && isLatestBuildDeployed) {
+        const { error } = await supabase
+          .from("prototypes")
+          .update({ slug: normalizedSlug })
+          .eq("id", prototype.id);
+
+        if (error) {
+          setSlugError("Failed to update slug");
+          logger.error("error", "Failed to update slug", { error });
+          return;
+        }
+
+        const deployUrl = `https://${normalizedSlug}.app.nucleate.dev`;
+
+        onDeploySuccess({
+          slug: normalizedSlug,
+          url: deployUrl,
+          visibility: deployVisibility,
+        });
+
+        onOpenChange(false);
+        setSlugError(null);
+        setSlugAvailable(true);
+        toast.success("Slug updated successfully!");
+        return;
+      }
+
+      // Case 2: Latest build is not deployed (regardless of slug change)
+      // Call the deploy endpoint to update slug and deploy
       const session = await supabase.auth.getSession();
       const token = session.data.session?.access_token;
 
@@ -298,6 +336,8 @@ export default function PrototypeDeployModal({
     logger,
     onDeploySuccess,
     onOpenChange,
+    hasSlugChanged,
+    isLatestBuildDeployed,
   ]);
 
   const handleCopyUrl = useCallback(() => {
@@ -307,50 +347,6 @@ export default function PrototypeDeployModal({
     navigator.clipboard.writeText(fullUrl);
     toast.success("URL copied to clipboard!");
   }, [deploySlug]);
-
-  const handleDeployLatestBuild = useCallback(async () => {
-    if (!prototype || !normalizedSandboxUrl) return;
-
-    try {
-      setIsDeploying(true);
-
-      // Trigger build-and-deploy on sandbox
-      const response = await fetch(`${normalizedSandboxUrl}/build-and-deploy`, {
-        method: "POST",
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to trigger deployment");
-      }
-
-      toast.success(
-        "Deploy started! Expect your new deploy to be up in about 3-5 minutes.",
-      );
-
-      // Refresh build history after a short delay to show the new deployment
-      setTimeout(() => {
-        const fetchBuildHistory = async () => {
-          const { data, error } = await supabase
-            .from("prototype_build_history")
-            .select("id, build_key, deploy_key, created_at")
-            .eq("prototype_id", prototype.id)
-            .order("created_at", { ascending: false });
-
-          if (!error && data) {
-            setBuildHistory(data);
-          }
-        };
-        fetchBuildHistory();
-      }, 1000);
-    } catch (error) {
-      logger.error("error", "Failed to deploy latest build", {
-        error: error instanceof Error ? error.message : String(error),
-      });
-      toast.error("Failed to start deployment");
-    } finally {
-      setIsDeploying(false);
-    }
-  }, [prototype, normalizedSandboxUrl, logger]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -489,47 +485,7 @@ export default function PrototypeDeployModal({
             )}
           </div>
 
-          <div className="flex flex-col gap-3 pt-2">
-            {/* Deploy Latest Build Button */}
-            <div className="space-y-2">
-              <Button
-                onClick={handleDeployLatestBuild}
-                disabled={
-                  isDeploying || isLatestBuildDeployed || !prototype?.slug
-                }
-                className="w-full bg-emerald-600 hover:bg-emerald-700 text-white disabled:bg-[#0B0C0E] disabled:text-[#8A8F98]"
-                variant={
-                  isLatestBuildDeployed || !prototype?.slug
-                    ? "outline"
-                    : "default"
-                }
-              >
-                {isDeploying ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                    Deploying...
-                  </>
-                ) : (
-                  <>
-                    <PackageCheck className="w-4 h-4 mr-2" />
-                    Deploy Latest Build to Production
-                  </>
-                )}
-              </Button>
-              {isLatestBuildDeployed && (
-                <p className="text-xs text-emerald-400 text-center">
-                  ✓ Your deployment is already up to date
-                </p>
-              )}
-              {!prototype?.slug && !isLatestBuildDeployed && (
-                <p className="text-xs text-amber-400 text-center">
-                  Please set a slug first before deploying
-                </p>
-              )}
-            </div>
-
-            {/* Action Buttons */}
-            <div className="flex justify-end gap-2 border-t border-white/10 pt-3">
+          <div className="flex justify-end gap-2 pt-4">
               <Button
                 variant="ghost"
                 onClick={() => onOpenChange(false)}
@@ -543,7 +499,8 @@ export default function PrototypeDeployModal({
                   isDeploying ||
                   isCheckingSlug ||
                   slugAvailable === false ||
-                  !!slugError
+                  !!slugError ||
+                  (!hasSlugChanged && isLatestBuildDeployed)
                 }
                 className="bg-indigo-600 hover:bg-indigo-700 text-white"
               >
@@ -556,7 +513,6 @@ export default function PrototypeDeployModal({
                   "Save & deploy"
                 )}
               </Button>
-            </div>
           </div>
         </div>
       </DialogContent>
