@@ -333,6 +333,19 @@ export default function NewPrototypeModal({
   }, [open, designSystems, customDesignSystemId]);
 
   useEffect(() => {
+    if (!open) {
+      return;
+    }
+    logger.log({
+      event: "client_new_prototype_modal_opened",
+      properties: {
+        projectId,
+        userPlan,
+      },
+    });
+  }, [open, logger, projectId, userPlan]);
+
+  useEffect(() => {
     if (framework !== "web_nextjs_react") {
       return;
     }
@@ -352,10 +365,33 @@ export default function NewPrototypeModal({
     if (!name.trim() || !user) return;
 
     if (userPlan === "free" && prototypeCount >= 5) {
+      logger.log({
+        event: "client_new_prototype_modal_limit_hit",
+        properties: {
+          projectId,
+          name: name.trim(),
+          userPlan,
+          framework,
+          design_style: designStyle,
+          custom_design_system: customDesignSystemId,
+        },
+      });
       return;
     }
 
     setIsCreating(true);
+    logger.log({
+      event: "client_new_prototype_modal_submitted",
+      properties: {
+        projectId,
+        name: name.trim(),
+        folder_id: selectedFolder,
+        visibility,
+        design_style: designStyle,
+        custom_design_system: customDesignSystemId,
+        framework,
+      },
+    });
 
     try {
       const session = await supabase.auth.getSession();
@@ -388,6 +424,16 @@ export default function NewPrototypeModal({
       > = await response.json();
 
       if (result.data) {
+        logger.log({
+          event: "client_new_prototype_modal_creation_success",
+          properties: {
+            projectId,
+            prototype_id: result.data.prototype_id,
+            framework,
+            design_style: designStyle,
+            custom_design_system: customDesignSystemId,
+          },
+        });
         setName("");
         setSelectedFolder(null);
         setVisibility(userPlan === "free" ? "PUBLIC" : "SELF");
@@ -399,6 +445,17 @@ export default function NewPrototypeModal({
         onCreated(result.data.prototype_id);
         onClose();
       } else if (result.error?.error === "PROTOTYPE_LIMIT_REACHED") {
+        logger.log({
+          event: "client_new_prototype_modal_limit_hit",
+          properties: {
+            projectId,
+            name: name.trim(),
+            userPlan,
+            framework,
+            design_style: designStyle,
+            custom_design_system: customDesignSystemId,
+          },
+        });
         onClose();
         setShowUpsellModal(true);
       } else {
@@ -457,7 +514,16 @@ export default function NewPrototypeModal({
                     type="button"
                     size="sm"
                     className="h-7 text-xs bg-amber-500 text-white dark:text-black hover:bg-amber-600 dark:hover:bg-yellow-400 border-0"
-                    onClick={() => handleCheckout("plus", router)}
+                    onClick={() => {
+                      logger.log({
+                        event: "client_upgrade_checkout_clicked",
+                        properties: {
+                          source: "new_prototype_modal_limit_banner",
+                          plan: "plus",
+                        },
+                      });
+                      void handleCheckout("plus", router);
+                    }}
                   >
                     Upgrade Now
                   </Button>

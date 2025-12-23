@@ -9,7 +9,7 @@ import { CreditLimits } from "@/lib/types/serverAPITypes";
 import { handleCheckout } from "@/lib/utils/payments/CheckoutUtils";
 import { Check, Loader2, Sparkles, Star, Zap } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 type UpsellReason =
   | "free_message_limit_reached"
@@ -103,7 +103,16 @@ export default function ProPlanUpsellModal({
   const handleUpgrade = async (tier?: string) => {
     try {
       setIsProcessing(true);
-      await handleCheckout(tier || suggestedUpgrade.tier, router);
+      const targetTier = tier || suggestedUpgrade.tier;
+      logger.log({
+        event: "client_upgrade_checkout_clicked",
+        properties: {
+          source: "pro_plan_upsell_modal",
+          reason,
+          plan: targetTier,
+        },
+      });
+      await handleCheckout(targetTier, router);
       // Keep processing state for 1 second longer to account for Stripe redirect delay
       setTimeout(() => {
         setIsProcessing(false);
@@ -127,6 +136,18 @@ export default function ProPlanUpsellModal({
     }
     onOpenChange(false);
   };
+
+  useEffect(() => {
+    if (open) {
+      logger.log({
+        event: "client_pro_plan_upsell_modal_opened",
+        properties: {
+          reason,
+          userPlan,
+        },
+      });
+    }
+  }, [open, logger, reason, userPlan]);
 
   // For paid users, show credit packs; for free users, show upgrade
   if (isPaidUser) {

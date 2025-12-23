@@ -37,6 +37,7 @@ import { UseFileSystemReturn } from "@/hooks/useFileSystem";
 import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import { cn } from "@/lib/classNames";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
+import type { PostHogEvent } from "@/lib/loggers/PostHogEvents";
 import { getBulkAssetSignedUrls } from "@/lib/utils/assetUtils";
 import { handleCheckout } from "@/lib/utils/payments/CheckoutUtils";
 import Editor from "@monaco-editor/react";
@@ -178,6 +179,18 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
   onFilesSaved,
 }) => {
   const logger = useProductLogger();
+  const logEditorEvent = useCallback(
+    (event: PostHogEvent, properties?: Record<string, unknown>) => {
+      logger.log({
+        event,
+        properties: {
+          prototype_id: prototypeId,
+          ...properties,
+        },
+      });
+    },
+    [logger, prototypeId],
+  );
   const router = useRouter();
   const { userPlan } = useSubscriptionAccess();
 
@@ -267,6 +280,12 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
   const [isDeleting, setIsDeleting] = useState(false);
   const [uploadAsProjectRoot, setUploadAsProjectRoot] = useState(false);
   const [showProjectRootConfirm, setShowProjectRootConfirm] = useState(false);
+  const handleOpenUploadModal = useCallback(() => {
+    logEditorEvent("client_internal_code_editor_upload_modal_opened", {
+      source: "toolbar",
+    });
+    setShowUploadModal(true);
+  }, [logEditorEvent]);
 
   // File selection and validation state
   type FileValidationStatus =
@@ -531,6 +550,9 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
       });
 
       if (result.success) {
+        logEditorEvent("client_internal_code_editor_file_created", {
+          file_name: fileName,
+        });
         fileSystem.selectFile(fileName);
         setShowNewFileModal(false);
         setNewFileName("");
@@ -1204,6 +1226,14 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
           filesToUpsert.map((f) => f.name),
           assetsToUpload.map((a) => a.path),
         );
+        logEditorEvent("client_internal_code_editor_files_uploaded", {
+          file_count: filesToUpsert.length + assetsToUpload.length,
+          code_file_count: filesToUpsert.length,
+          asset_count: assetsToUpload.length,
+          upload_mode: uploadMode,
+          upload_type: uploadType,
+          project_root: uploadAsProjectRoot,
+        });
       }
 
       setUploadProgress({ current: totalUploads, total: totalUploads });
@@ -1248,6 +1278,9 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
 
       if (result.success) {
         onFilesSaved?.([fileSystem.state.selectedFile], []);
+        logEditorEvent("client_internal_code_editor_file_saved", {
+          file_name: fileSystem.state.selectedFile,
+        });
       }
     } catch (error) {
       logger.debug("error", "Error saving file");
@@ -1276,6 +1309,9 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
 
       if (result.success) {
         onFilesSaved?.(Object.keys(fileSystem.state.files), []);
+        logEditorEvent("client_internal_code_editor_all_files_saved", {
+          file_count: filesToUpsert.length,
+        });
       }
     } catch (error) {
       logger.debug("error", "Error saving files");
@@ -1292,10 +1328,16 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
 
     try {
       const wasAsset = isAsset(fileName);
-      await fileSystem.syncFilesAndAssets({
+      const result = await fileSystem.syncFilesAndAssets({
         filesToDelete: wasAsset ? [] : [fileName],
         assetsToDelete: wasAsset ? [fileName] : [],
       });
+      if (result.success) {
+        logEditorEvent("client_internal_code_editor_file_deleted", {
+          file_name: fileName,
+          kind: wasAsset ? "asset" : "file",
+        });
+      }
     } catch (error) {
       logger.debug("error", "Error deleting file");
     } finally {
@@ -1459,7 +1501,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
                         Create new file
                       </DropdownMenuItem>
                       <DropdownMenuItem
-                        onSelect={() => setShowUploadModal(true)}
+                        onSelect={handleOpenUploadModal}
                         disabled={userPlan === "free"}
                         className="focus:bg-accent/80 focus:text-foreground cursor-pointer"
                       >
@@ -1517,7 +1559,16 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
                 size="sm"
                 variant="ghost"
                 className="h-6 px-2 text-[10px] bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 border border-amber-500/20 rounded-full"
-                onClick={() => handleCheckout("plus", router)}
+                onClick={() => {
+                  logger.log({
+                    event: "client_upgrade_checkout_clicked",
+                    properties: {
+                      source: "code_editor_readonly_banner",
+                      plan: "plus",
+                    },
+                  });
+                  void handleCheckout("plus", router);
+                }}
               >
                 Upgrade Plan
               </Button>

@@ -3,6 +3,7 @@
 import { handleCheckout } from "@/lib/utils/payments/CheckoutUtils";
 import { CheckIcon } from "@heroicons/react/24/outline";
 import { useRouter } from "next/navigation";
+import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 
 export interface PricingCardProps {
   title?: string;
@@ -34,8 +35,22 @@ export function PricingCard({
   theme = "light",
 }: PricingCardProps) {
   const router = useRouter();
+  const logger = useProductLogger();
   const cardTitle = title || name || "";
   const productId = productKey || productID || "";
+
+  const handlePlanClick = () => {
+    if (!productId) return;
+    logger.log({
+      event: "client_upgrade_checkout_clicked",
+      properties: {
+        source: `pricing_card_${theme}`,
+        plan: productId,
+        cardTitle,
+      },
+    });
+    void handleCheckout(productId, router);
+  };
 
   if (theme === "dark") {
     // Dark theme for main landing page
@@ -91,7 +106,7 @@ export function PricingCard({
           <div className="pt-6">
             <button
               className={`w-full py-4 px-6 rounded-2xl font-semibold transition-all duration-300 hover:scale-105 shadow-lg ${ctaStyle || "bg-gradient-to-r from-purple-600 to-pink-600 text-white hover:from-purple-700 hover:to-pink-700"}`}
-              onClick={() => handleCheckout(productId, router)}
+              onClick={handlePlanClick}
             >
               {cta}
             </button>
@@ -137,9 +152,7 @@ export function PricingCard({
         </ul>
         <div className="pt-6">
           <button
-            onClick={() => {
-              handleCheckout(productId, router);
-            }}
+            onClick={handlePlanClick}
             className="block w-full py-3 px-6 bg-purple-500 text-white text-center rounded-lg font-semibold hover:bg-purple-600 transition-colors cursor-pointer"
           >
             {cta}

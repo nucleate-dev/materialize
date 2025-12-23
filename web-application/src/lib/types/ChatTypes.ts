@@ -5,7 +5,7 @@
 // To update these shared files, modify the source file and run:
 // npm run sync-types (in the control-plane directory)
 //
-// Last synced: 2025-12-23T06:26:05.462Z
+// Last synced: 2025-12-23T07:35:43.584Z
 
 export enum ChatEvent {
   AUTHENTICATED = "authenticated",

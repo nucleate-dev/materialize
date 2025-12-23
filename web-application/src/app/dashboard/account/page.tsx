@@ -143,6 +143,13 @@ function AccountSettings() {
   const handleUpgradeClick = async (targetPlan: string) => {
     try {
       setIsProcessingUpgrade(true);
+      logger.log({
+        event: "client_upgrade_checkout_clicked",
+        properties: {
+          source: "account_page",
+          plan: targetPlan,
+        },
+      });
       await handleCheckout(targetPlan, router);
       setTimeout(() => setIsProcessingUpgrade(false), 2000);
     } catch (error) {

@@ -5,10 +5,65 @@
 // To update these shared files, modify the source file and run:
 // npm run sync-types (in the control-plane directory)
 //
-// Last synced: 2025-12-23T06:26:05.463Z
+// Last synced: 2025-12-23T07:35:43.584Z
 
 export type PostHogEvent =
+  | 'client_auth_callback_login_completed'
+  | 'client_dashboard_logout_clicked'
+  | 'client_dashboard_new_chat_clicked'
+  | 'client_dashboard_prompt_submitted'
+  | 'client_dashboard_prototype_creation_success'
+  | 'client_dashboard_prototype_limit_hit'
+  | 'client_dashboard_settings_clicked'
+  | 'client_dashboard_sidebar_tab_clicked'
+  | 'client_internal_build_and_deploy_clicked'
+  | 'client_internal_browser_preview_opened'
+  | 'client_internal_chat_message_queued'
+  | 'client_internal_chat_message_sent'
+  | 'client_internal_clone_button_clicked'
+  | 'client_internal_code_editor_all_files_saved'
+  | 'client_internal_code_editor_file_created'
+  | 'client_internal_code_editor_file_deleted'
+  | 'client_internal_code_editor_file_saved'
+  | 'client_internal_code_editor_files_uploaded'
+  | 'client_internal_code_editor_upload_modal_opened'
+  | 'client_internal_code_tab_selected'
+  | 'client_internal_deploy_modal_opened'
+  | 'client_internal_deploy_slug_copied'
+  | 'client_internal_deploy_submitted'
+  | 'client_internal_env_var_added'
+  | 'client_internal_env_var_deleted'
+  | 'client_internal_env_var_updated'
+  | 'client_internal_env_vars_opened'
+  | 'client_internal_export_clicked'
+  | 'client_internal_preview_tab_selected'
+  | 'client_internal_preview_mode_changed'
+  | 'client_internal_refresh_preview_clicked'
+  | 'client_internal_restart_dev_server_clicked'
+  | 'client_internal_share_link_copied'
+  | 'client_internal_share_modal_opened'
+  | 'client_internal_share_visibility_changed'
+  | 'client_internal_start_dev_server_clicked'
+  | 'client_internal_undo_last_change_clicked'
+  | 'client_internal_view_on_device_link_copied'
+  | 'client_internal_view_on_device_opened'
   | 'client_oauth_registration_initiated'
+  | 'client_upgrade_checkout_clicked'
+  | 'client_landing_preset_prompt_selected'
+  | 'client_landing_prompt_submitted'
+  | 'client_nav_blog_clicked'
+  | 'client_nav_create_account_clicked'
+  | 'client_nav_for_teams_clicked'
+  | 'client_nav_sign_in_clicked'
+  | 'client_new_prototype_modal_creation_success'
+  | 'client_new_prototype_modal_limit_hit'
+  | 'client_new_prototype_modal_opened'
+  | 'client_new_prototype_modal_submitted'
+  | 'client_pro_plan_upsell_modal_opened'
+  | 'client_dashboard_prototype_creation_success'
+  | 'client_dashboard_prototype_limit_hit'
+  | 'client_dashboard_prompt_submitted'
+  | 'client_dashboard_sidebar_item_clicked'
   | 'client_user_email_registration_completed'
   | 'sandbox_chat_usage_generic'
   | 'server_dispatch'
@@ -19,7 +74,79 @@ export type PostHogEvent =
   | 'server_stripe_checkout_session_creation';
 
 export const PostHogEvents: Record<PostHogEvent, PostHogEvent> = Object.freeze({
+  client_auth_callback_login_completed: 'client_auth_callback_login_completed',
+  client_dashboard_logout_clicked: 'client_dashboard_logout_clicked',
+  client_dashboard_new_chat_clicked: 'client_dashboard_new_chat_clicked',
+  client_dashboard_prompt_submitted: 'client_dashboard_prompt_submitted',
+  client_dashboard_sidebar_item_clicked:
+    'client_dashboard_sidebar_item_clicked',
+  client_dashboard_prototype_creation_success:
+    'client_dashboard_prototype_creation_success',
+  client_dashboard_prototype_limit_hit: 'client_dashboard_prototype_limit_hit',
+  client_dashboard_settings_clicked: 'client_dashboard_settings_clicked',
+  client_dashboard_sidebar_tab_clicked: 'client_dashboard_sidebar_tab_clicked',
+  client_internal_build_and_deploy_clicked:
+    'client_internal_build_and_deploy_clicked',
+  client_internal_browser_preview_opened:
+    'client_internal_browser_preview_opened',
+  client_internal_chat_message_queued: 'client_internal_chat_message_queued',
+  client_internal_chat_message_sent: 'client_internal_chat_message_sent',
+  client_internal_clone_button_clicked:
+    'client_internal_clone_button_clicked',
+  client_internal_code_editor_all_files_saved:
+    'client_internal_code_editor_all_files_saved',
+  client_internal_code_editor_file_created:
+    'client_internal_code_editor_file_created',
+  client_internal_code_editor_file_deleted:
+    'client_internal_code_editor_file_deleted',
+  client_internal_code_editor_file_saved:
+    'client_internal_code_editor_file_saved',
+  client_internal_code_editor_files_uploaded:
+    'client_internal_code_editor_files_uploaded',
+  client_internal_code_editor_upload_modal_opened:
+    'client_internal_code_editor_upload_modal_opened',
+  client_internal_code_tab_selected: 'client_internal_code_tab_selected',
+  client_internal_deploy_modal_opened: 'client_internal_deploy_modal_opened',
+  client_internal_deploy_slug_copied: 'client_internal_deploy_slug_copied',
+  client_internal_deploy_submitted: 'client_internal_deploy_submitted',
+  client_internal_env_var_added: 'client_internal_env_var_added',
+  client_internal_env_var_deleted: 'client_internal_env_var_deleted',
+  client_internal_env_var_updated: 'client_internal_env_var_updated',
+  client_internal_env_vars_opened: 'client_internal_env_vars_opened',
+  client_internal_export_clicked: 'client_internal_export_clicked',
+  client_internal_preview_tab_selected: 'client_internal_preview_tab_selected',
+  client_internal_preview_mode_changed: 'client_internal_preview_mode_changed',
+  client_internal_refresh_preview_clicked:
+    'client_internal_refresh_preview_clicked',
+  client_internal_restart_dev_server_clicked:
+    'client_internal_restart_dev_server_clicked',
+  client_internal_share_link_copied: 'client_internal_share_link_copied',
+  client_internal_share_modal_opened: 'client_internal_share_modal_opened',
+  client_internal_share_visibility_changed:
+    'client_internal_share_visibility_changed',
+  client_internal_start_dev_server_clicked:
+    'client_internal_start_dev_server_clicked',
+  client_internal_undo_last_change_clicked:
+    'client_internal_undo_last_change_clicked',
+  client_internal_view_on_device_link_copied:
+    'client_internal_view_on_device_link_copied',
+  client_internal_view_on_device_opened:
+    'client_internal_view_on_device_opened',
   client_oauth_registration_initiated: 'client_oauth_registration_initiated',
+  client_upgrade_checkout_clicked: 'client_upgrade_checkout_clicked',
+  client_landing_preset_prompt_selected:
+    'client_landing_preset_prompt_selected',
+  client_landing_prompt_submitted: 'client_landing_prompt_submitted',
+  client_nav_blog_clicked: 'client_nav_blog_clicked',
+  client_nav_create_account_clicked: 'client_nav_create_account_clicked',
+  client_nav_for_teams_clicked: 'client_nav_for_teams_clicked',
+  client_nav_sign_in_clicked: 'client_nav_sign_in_clicked',
+  client_new_prototype_modal_creation_success:
+    'client_new_prototype_modal_creation_success',
+  client_new_prototype_modal_limit_hit: 'client_new_prototype_modal_limit_hit',
+  client_new_prototype_modal_opened: 'client_new_prototype_modal_opened',
+  client_new_prototype_modal_submitted: 'client_new_prototype_modal_submitted',
+  client_pro_plan_upsell_modal_opened: 'client_pro_plan_upsell_modal_opened',
   client_user_email_registration_completed:
     'client_user_email_registration_completed',
   sandbox_chat_usage_generic: 'sandbox_chat_usage_generic',

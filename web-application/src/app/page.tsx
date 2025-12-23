@@ -105,6 +105,14 @@ function HeroSection() {
 
   const handlePresetClick = (presetKey: keyof typeof presetPrompts) => {
     setPrompt(presetPrompts[presetKey]);
+    logger.log({
+      event: "client_landing_preset_prompt_selected",
+      properties: {
+        preset: presetKey,
+        framework,
+        component: "HeroSection",
+      },
+    });
   };
 
   const submitPrompt = async (message: string) => {
@@ -112,6 +120,15 @@ function HeroSection() {
     if (!content || isLoading) return;
 
     setIsLoading(true);
+    logger.log({
+      event: "client_landing_prompt_submitted",
+      properties: {
+        has_user: Boolean(user?.id),
+        framework,
+        source: "landing_hero",
+        component: "HeroSection",
+      },
+    });
 
     try {
       if (!user?.id) {
@@ -555,8 +572,18 @@ function GallerySection() {
 
 function PricingSection() {
   const router = useRouter();
+  const logger = useProductLogger();
 
   const handleGetStarted = (productKey: string) => {
+    if (productKey !== "free") {
+      logger.log({
+        event: "client_upgrade_checkout_clicked",
+        properties: {
+          source: "landing_pricing_section",
+          plan: productKey,
+        },
+      });
+    }
     handleCheckout(productKey, router);
   };
 

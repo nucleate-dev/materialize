@@ -193,7 +193,8 @@ export default function PrototypeDeployModal({
           return;
         }
 
-        setSlugAvailable(result.data?.available ?? null);
+        const available = result.data?.available ?? null;
+        setSlugAvailable(available);
       } catch (error) {
         if (!controller.signal.aborted) {
           setSlugError("Unable to check slug availability");
@@ -213,7 +214,7 @@ export default function PrototypeDeployModal({
       controller.abort();
       clearTimeout(timeoutId);
     };
-  }, [deploySlug, open, prototype]);
+  }, [deploySlug, open, prototype, logger]);
 
   const handleDeploy = useCallback(async () => {
     if (!prototype) return;
@@ -228,6 +229,15 @@ export default function PrototypeDeployModal({
 
     try {
       setIsDeploying(true);
+      logger.log({
+        event: "client_internal_deploy_submitted",
+        properties: {
+          prototype_id: prototype.id,
+          slug: normalizedSlug,
+          visibility: deployVisibility,
+          has_sandbox: Boolean(normalizedSandboxUrl),
+        },
+      });
 
       // Case 1: Slug changed but latest build is already deployed
       // Just update the slug without redeploying
@@ -346,7 +356,15 @@ export default function PrototypeDeployModal({
     const fullUrl = `https://${deploySlug}.app.nucleate.dev`;
     navigator.clipboard.writeText(fullUrl);
     toast.success("URL copied to clipboard!");
-  }, [deploySlug]);
+    logger.log({
+      event: "client_internal_deployment_url_copied",
+      properties: {
+        prototype_id: prototype?.id,
+        slug: deploySlug,
+        url: fullUrl,
+      },
+    });
+  }, [deploySlug, logger, prototype?.id]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

@@ -11,7 +11,7 @@ import type {
 } from "@/lib/types/serverAPITypes";
 import { handleRedirectToPaymentsPage } from "@/lib/utils/payments/CheckoutUtils";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMetaPixel } from "@/hooks/useMetaPixel";
 import { usePostHog } from "posthog-js/react";
 import RegistrationAccountCreatedEmailVerificationPending from "../../../(auth)/register/RegistrationAccountCreatedEmailVerificationPending";
@@ -24,6 +24,7 @@ export default function AuthCallback() {
   const logger = useProductLogger();
   const { trackEvent } = useMetaPixel();
   const posthog = usePostHog();
+  const authEventLogged = useRef(false);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -53,6 +54,17 @@ export default function AuthCallback() {
         }
       }
       if (data.session?.user) {
+        if (!authEventLogged.current) {
+          authEventLogged.current = true;
+          logger.log({
+            event: "client_auth_callback_login_completed",
+            properties: {
+              has_checkout_intent: Boolean(productId),
+              has_chat_intent: Boolean(chatIntent?.message),
+              user_plan: userPlan,
+            },
+          });
+        }
         // Associate logging events with this authenticated user
         posthog?.identify(data.session.user.id, {
           email: data.session.user.email ?? "",

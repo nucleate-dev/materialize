@@ -207,10 +207,11 @@ export function EnvironmentVariablesModal({
     }
   };
 
-  const refetchEnvVarsOnDevServer = useCallback(async (): Promise<boolean> => {
-    // Clear previous sync messages
-    setEnvSyncWarning(null);
-    setEnvSyncError(null);
+  const refetchEnvVarsOnDevServer = useCallback(
+    async (_source: "manual" | "auto" = "auto"): Promise<boolean> => {
+      // Clear previous sync messages
+      setEnvSyncWarning(null);
+      setEnvSyncError(null);
 
     if (!sandbox_url || !prototypeId) {
       setEnvSyncWarning("Dev server not started yet, try syncing again soon.");
@@ -262,7 +263,9 @@ export function EnvironmentVariablesModal({
     } finally {
       setIsSyncingEnvFile(false);
     }
-  }, [sandbox_url, prototypeId, logger]);
+  },
+    [sandbox_url, prototypeId, logger],
+  );
 
   const handleUpdateEnvVar = useCallback(
     async (envVarId: string, newValue: string) => {
@@ -306,9 +309,16 @@ export function EnvironmentVariablesModal({
         });
 
         toast.success("Environment variable updated");
+        logger.log({
+          event: "client_internal_env_var_updated",
+          properties: {
+            prototype_id: prototypeId,
+            env_var_id: envVarId,
+          },
+        });
 
         if (sandbox_url) {
-          await refetchEnvVarsOnDevServer();
+          await refetchEnvVarsOnDevServer("auto");
         }
       } catch (error) {
         logger.debug("error", "Failed to update environment variable", {
@@ -365,9 +375,16 @@ export function EnvironmentVariablesModal({
         setEnvVars((prev) => prev.filter((envVar) => envVar.id !== envVarId));
 
         toast.success("Environment variable deleted");
+        logger.log({
+          event: "client_internal_env_var_deleted",
+          properties: {
+            prototype_id: prototypeId,
+            env_var_id: envVarId,
+          },
+        });
 
         if (sandbox_url) {
-          await refetchEnvVarsOnDevServer();
+          await refetchEnvVarsOnDevServer("auto");
         }
       } catch (error) {
         logger.debug("error", "Failed to delete environment variable", {
@@ -524,9 +541,16 @@ export function EnvironmentVariablesModal({
       toast.success(
         `${validInputs.length} environment variable${validInputs.length > 1 ? "s" : ""} added`,
       );
+      logger.log({
+        event: "client_internal_env_var_added",
+        properties: {
+          prototype_id: prototypeId,
+          count: validInputs.length,
+        },
+      });
 
       if (sandbox_url) {
-        await refetchEnvVarsOnDevServer();
+        await refetchEnvVarsOnDevServer("auto");
       }
     } catch (error) {
       logger.debug("error", "Failed to add environment variables", {
@@ -598,7 +622,7 @@ export function EnvironmentVariablesModal({
                           className="h-8 px-3 text-xs"
                           disabled={!canSyncEnvToDevServer || isSyncingEnvFile}
                           onClick={() => {
-                            void refetchEnvVarsOnDevServer();
+                            void refetchEnvVarsOnDevServer("manual");
                           }}
                         >
                           {isSyncingEnvFile ? (

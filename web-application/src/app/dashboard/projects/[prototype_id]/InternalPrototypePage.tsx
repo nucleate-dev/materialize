@@ -738,6 +738,12 @@ export default function InternalPrototypePage() {
   };
 
   const handleShare = () => {
+    logger.log({
+      event: "client_internal_share_modal_opened",
+      properties: {
+        prototype_id: prototypeId,
+      },
+    });
     setShowShareModal(true);
   };
 
@@ -745,6 +751,12 @@ export default function InternalPrototypePage() {
     if (!prototype) return;
 
     try {
+      logger.log({
+        event: "client_internal_clone_button_clicked",
+        properties: {
+          prototype_id: prototype?.id,
+        },
+      });
       setIsCloningPrototype(true);
       const clonedPrototypeName = `${prototype.name} (Copy)`;
       const session = await supabase.auth.getSession();
@@ -798,6 +810,12 @@ export default function InternalPrototypePage() {
   }, [logger, prototype]);
 
   const handleOpenDeployModal = () => {
+    logger.log({
+      event: "client_internal_deploy_modal_opened",
+      properties: {
+        prototype_id: prototype?.id,
+      },
+    });
     setIsDeployModalOpen(true);
   };
 
@@ -845,6 +863,13 @@ export default function InternalPrototypePage() {
       );
 
       toast.success("Copied!");
+      logger.log({
+        event: "client_internal_share_link_copied",
+        properties: {
+          prototype_id: prototype.id,
+          visibility_before: isPublic ? "PUBLIC" : "SELF",
+        },
+      });
 
       setHasCopied(true);
       setTimeout(() => {
@@ -869,6 +894,13 @@ export default function InternalPrototypePage() {
 
     try {
       const newVisibility: PrototypeVisibility = checked ? "PUBLIC" : "SELF";
+      logger.log({
+        event: "client_internal_share_visibility_changed",
+        properties: {
+          prototype_id: prototype.id,
+          visibility: newVisibility,
+        },
+      });
       await supabase
         .from("prototypes")
         .update({ visibility: newVisibility })
@@ -945,6 +977,15 @@ export default function InternalPrototypePage() {
         filesToDelete,
         assetsToDelete,
       });
+      logger.log({
+        event: "client_internal_code_editor_file_deleted",
+        properties: {
+          prototype_id: prototypeId,
+          file_count: filesToDelete.length,
+          asset_count: assetsToDelete.length,
+          delete_type: deleteTarget?.type,
+        },
+      });
 
       // Close dialog
       setShowDeleteConfirm(false);
@@ -1017,6 +1058,17 @@ export default function InternalPrototypePage() {
           assetsToUpload,
         });
 
+        if (result.success) {
+          logger.log({
+            event: "client_internal_code_editor_files_uploaded",
+            properties: {
+              prototype_id: prototypeId,
+              file_count: files.length,
+              target_path: resolvedTargetPath || "/",
+              source: "drag_drop",
+            },
+          });
+        }
         logger.debug("log", "Files uploaded via drag and drop", {
           fileCount: files.length,
           targetPath: resolvedTargetPath,
