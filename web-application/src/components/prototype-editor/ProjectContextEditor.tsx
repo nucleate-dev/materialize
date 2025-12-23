@@ -11,10 +11,12 @@ import { UseFileSystemReturn } from "@/hooks/useFileSystem";
 import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import { cn } from "@/lib/classNames";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
-import Editor from "@monaco-editor/react";
+import { Crepe } from "@milkdown/crepe";
+import "@milkdown/crepe/theme/common/style.css";
+import { replaceAll } from "@milkdown/utils";
 import { FileText, Loader2, Lock, Plus, Save } from "lucide-react";
 import { useRouter } from "next/navigation";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { handleCheckout } from "@/lib/utils/payments/CheckoutUtils";
 
 interface ProjectContextEditorProps {
@@ -44,41 +46,110 @@ const ProjectContextEditor: React.FC<ProjectContextEditorProps> = ({
 
   const [isSaving, setIsSaving] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
-  const [localContent, setLocalContent] = useState<string>("");
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [isEditorReady, setIsEditorReady] = useState(false);
+
+  const editorContainerRef = useRef<HTMLDivElement>(null);
+  const crepeRef = useRef<Crepe | null>(null);
+  const initialContentRef = useRef<string>("");
 
   const claudeMdFile = fileSystem.state.files[CLAUDE_MD_FILENAME];
   const fileExists = Boolean(claudeMdFile);
+  const isReadOnly = readOnly || userPlan === "free";
 
-  // Sync local content with file system content
-  useEffect(() => {
-    if (claudeMdFile) {
-      setLocalContent(claudeMdFile.contents || "");
-      setHasUnsavedChanges(false);
-    }
-  }, [claudeMdFile]);
-
-  const handleContentChange = useCallback(
-    (value: string | undefined) => {
-      if (userPlan === "free") return;
-      if (value !== undefined) {
-        setLocalContent(value);
-        setHasUnsavedChanges(value !== (claudeMdFile?.contents || ""));
+  // Get current content from editor (with safety check)
+  const getEditorContent = useCallback((): string => {
+    if (crepeRef.current && isEditorReady) {
+      try {
+        return crepeRef.current.getMarkdown();
+      } catch {
+        return initialContentRef.current;
       }
-    },
-    [userPlan, claudeMdFile],
-  );
+    }
+    return initialContentRef.current;
+  }, [isEditorReady]);
+
+  // Initialize Milkdown editor
+  useEffect(() => {
+    if (!fileExists || !editorContainerRef.current) return;
+
+    const content = claudeMdFile?.contents || "";
+    initialContentRef.current = content;
+
+    const crepe = new Crepe({
+      root: editorContainerRef.current,
+      defaultValue: content,
+      features: {
+        [Crepe.Feature.CodeMirror]: false, // Disable code mirror for simpler experience
+        [Crepe.Feature.Latex]: false, // Disable LaTeX (requires CodeMirror)
+        [Crepe.Feature.ListItem]: true,
+        [Crepe.Feature.LinkTooltip]: true,
+        [Crepe.Feature.ImageBlock]: false, // No images in context file
+        [Crepe.Feature.BlockEdit]: false, // Disable block handles to reduce padding
+        [Crepe.Feature.Toolbar]: !isReadOnly,
+        [Crepe.Feature.Placeholder]: true,
+      },
+      featureConfigs: {
+        [Crepe.Feature.Placeholder]: {
+          text: "Start typing your project context...",
+        },
+      },
+    });
+
+    crepe.create().then(() => {
+      crepeRef.current = crepe;
+      setIsEditorReady(true);
+
+      // Set up change listener
+      crepe.on((listener) => {
+        listener.markdownUpdated((_, markdown) => {
+          const hasChanges = markdown !== initialContentRef.current;
+          setHasUnsavedChanges(hasChanges);
+        });
+      });
+
+      // Apply read-only mode
+      if (isReadOnly) {
+        crepe.setReadonly(true);
+      }
+    });
+
+    return () => {
+      crepe.destroy();
+      crepeRef.current = null;
+      setIsEditorReady(false);
+    };
+  }, [fileExists, claudeMdFile?.contents, isReadOnly]);
+
+  // Sync content when file changes externally
+  useEffect(() => {
+    if (crepeRef.current && isEditorReady && claudeMdFile?.contents !== undefined) {
+      try {
+        const currentContent = getEditorContent();
+        if (claudeMdFile.contents !== currentContent && claudeMdFile.contents !== initialContentRef.current) {
+          // File changed externally, update editor using replaceAll action
+          initialContentRef.current = claudeMdFile.contents;
+          crepeRef.current.editor.action(replaceAll(claudeMdFile.contents));
+          setHasUnsavedChanges(false);
+        }
+      } catch {
+        // Editor not ready yet, ignore
+      }
+    }
+  }, [claudeMdFile?.contents, getEditorContent, isEditorReady]);
 
   const handleSave = useCallback(async () => {
-    if (!prototypeId || !fileExists) return;
+    if (!prototypeId || !fileExists || !crepeRef.current) return;
 
     setIsSaving(true);
     try {
+      const content = getEditorContent();
       const result = await fileSystem.syncFilesAndAssets({
-        filesToUpsert: [{ name: CLAUDE_MD_FILENAME, content: localContent }],
+        filesToUpsert: [{ name: CLAUDE_MD_FILENAME, content }],
       });
 
       if (result.success) {
+        initialContentRef.current = content;
         setHasUnsavedChanges(false);
         logger.debug("log", "CLAUDE.md saved successfully");
       }
@@ -89,7 +160,7 @@ const ProjectContextEditor: React.FC<ProjectContextEditorProps> = ({
     } finally {
       setIsSaving(false);
     }
-  }, [prototypeId, fileExists, fileSystem, localContent, logger]);
+  }, [prototypeId, fileExists, fileSystem, getEditorContent, logger]);
 
   const handleCreateFile = useCallback(async () => {
     if (!prototypeId || userPlan === "free") return;
@@ -101,7 +172,6 @@ const ProjectContextEditor: React.FC<ProjectContextEditorProps> = ({
       });
 
       if (result.success) {
-        setLocalContent(DEFAULT_TEMPLATE);
         logger.debug("log", "CLAUDE.md created successfully");
       }
     } catch (error) {
@@ -112,24 +182,6 @@ const ProjectContextEditor: React.FC<ProjectContextEditorProps> = ({
       setIsCreating(false);
     }
   }, [prototypeId, userPlan, fileSystem, logger]);
-
-  // Monaco editor configuration
-  const beforeMount = (monaco: typeof import("monaco-editor")) => {
-    monaco.editor.defineTheme("materialize-dark", {
-      base: "vs-dark",
-      inherit: true,
-      rules: [],
-      colors: {
-        "editor.background": "#0B0C0E",
-        "editor.lineHighlightBackground": "#141517",
-        "editorGutter.background": "#0B0C0E",
-        "editorIndentGuide.background": "#FFFFFF10",
-        "scrollbarSlider.background": "#FFFFFF10",
-        "scrollbarSlider.hoverBackground": "#FFFFFF20",
-        "scrollbarSlider.activeBackground": "#FFFFFF30",
-      },
-    });
-  };
 
   // Empty state - file doesn't exist
   if (!fileExists) {
@@ -195,7 +247,7 @@ const ProjectContextEditor: React.FC<ProjectContextEditorProps> = ({
                 Unsaved
               </span>
             )}
-            {readOnly && (
+            {isReadOnly && (
               <span className="px-1.5 py-0.5 text-[10px] bg-accent text-muted-foreground rounded uppercase tracking-wider font-semibold">
                 Read Only
               </span>
@@ -203,7 +255,7 @@ const ProjectContextEditor: React.FC<ProjectContextEditorProps> = ({
           </div>
 
           <div className="flex items-center gap-1">
-            {!readOnly && (
+            {!isReadOnly && (
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
@@ -212,11 +264,9 @@ const ProjectContextEditor: React.FC<ProjectContextEditorProps> = ({
                     className={cn(
                       "h-7 w-7 p-0 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors",
                       isSaving && "text-indigo-400 animate-pulse",
-                      userPlan === "free" &&
-                        "opacity-30 cursor-not-allowed hover:bg-transparent",
                     )}
                     onClick={handleSave}
-                    disabled={isSaving || userPlan === "free" || !hasUnsavedChanges}
+                    disabled={isSaving || !hasUnsavedChanges}
                   >
                     <Save className="w-4 h-4" />
                   </Button>
@@ -226,11 +276,7 @@ const ProjectContextEditor: React.FC<ProjectContextEditorProps> = ({
                   className="bg-accent border-border text-xs"
                 >
                   <p>
-                    {userPlan === "free"
-                      ? "Upgrade to save"
-                      : hasUnsavedChanges
-                        ? "Save changes"
-                        : "No changes to save"}
+                    {hasUnsavedChanges ? "Save changes" : "No changes to save"}
                   </p>
                 </TooltipContent>
               </Tooltip>
@@ -260,43 +306,161 @@ const ProjectContextEditor: React.FC<ProjectContextEditorProps> = ({
             </div>
           )}
 
-          <div className="flex-1 h-full relative">
-            <Editor
-              height="100%"
-              language="markdown"
-              value={localContent}
-              onChange={handleContentChange}
-              theme="materialize-dark"
-              beforeMount={beforeMount}
-              options={{
-                minimap: { enabled: false },
-                fontSize: 13,
-                fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
-                fontLigatures: true,
-                lineNumbers: "on",
-                scrollBeyondLastLine: false,
-                automaticLayout: true,
-                wordWrap: "on",
-                folding: true,
-                padding: { top: 16, bottom: 16 },
-                renderLineHighlight: "line",
-                readOnly: readOnly || userPlan === "free",
-                contextmenu: !(readOnly || userPlan === "free"),
-                smoothScrolling: true,
-                cursorBlinking: "smooth",
-                cursorSmoothCaretAnimation: "on",
-                scrollbar: {
-                  vertical: "visible",
-                  horizontal: "visible",
-                  useShadows: false,
-                  verticalScrollbarSize: 10,
-                  horizontalScrollbarSize: 10,
-                },
-              }}
-            />
-          </div>
+          {/* Milkdown Editor Container */}
+          <div
+            ref={editorContainerRef}
+            className={cn(
+              "flex-1 h-full overflow-auto milkdown-editor",
+              userPlan === "free" && "pt-10",
+              !isEditorReady && "opacity-0",
+            )}
+          />
+
+          {/* Loading state */}
+          {!isEditorReady && (
+            <div className="absolute inset-0 flex items-center justify-center">
+              <Loader2 className="w-6 h-6 text-muted-foreground animate-spin" />
+            </div>
+          )}
         </div>
       </div>
+
+      {/* Custom styles for Milkdown - theme-aware */}
+      <style jsx global>{`
+        .milkdown-editor {
+          --crepe-color-background: hsl(var(--background));
+          --crepe-color-surface: hsl(var(--accent));
+          --crepe-color-overlay: hsl(var(--muted));
+          --crepe-color-primary: #6366f1;
+          --crepe-color-secondary: #8b5cf6;
+          --crepe-color-solid: hsl(var(--foreground));
+          --crepe-color-line: hsl(var(--border));
+          --crepe-color-border: hsl(var(--border));
+          --crepe-color-hover: hsl(var(--accent));
+          --crepe-color-muted: hsl(var(--muted-foreground));
+          --crepe-font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+          --crepe-font-code: 'JetBrains Mono', 'Fira Code', monospace;
+        }
+
+        .milkdown-editor .milkdown {
+          background: var(--crepe-color-background);
+          color: var(--crepe-color-solid);
+          min-height: 100%;
+          padding: 0.75rem 1rem;
+        }
+
+        .milkdown-editor .editor {
+          outline: none;
+        }
+
+        .milkdown-editor .ProseMirror,
+        .milkdown-editor .milkdown .ProseMirror {
+          outline: none;
+          min-height: 200px;
+          caret-color: var(--crepe-color-solid);
+          padding: 16px 24px !important;
+        }
+
+        .milkdown-editor .ProseMirror > *:first-child {
+          margin-top: 0 !important;
+        }
+
+        .milkdown-editor .ProseMirror:focus {
+          outline: none;
+        }
+
+        .milkdown-editor .ProseMirror p {
+          margin: 0.35em 0;
+          line-height: 1.6;
+        }
+
+        .milkdown-editor .ProseMirror h1,
+        .milkdown-editor .ProseMirror h2,
+        .milkdown-editor .ProseMirror h3 {
+          color: var(--crepe-color-solid);
+          font-weight: 600;
+          margin-top: 1em;
+          margin-bottom: 0.35em;
+        }
+
+        .milkdown-editor .ProseMirror h1 {
+          font-size: 1.5rem;
+          border-bottom: 1px solid var(--crepe-color-line);
+          padding-bottom: 0.25em;
+        }
+
+        .milkdown-editor .ProseMirror h2 {
+          font-size: 1.25rem;
+        }
+
+        .milkdown-editor .ProseMirror h3 {
+          font-size: 1.1rem;
+        }
+
+        .milkdown-editor .ProseMirror ul,
+        .milkdown-editor .ProseMirror ol {
+          padding-left: 1.25em;
+          margin: 0.35em 0;
+        }
+
+        .milkdown-editor .ProseMirror li {
+          margin: 0.15em 0;
+        }
+
+        .milkdown-editor .ProseMirror li p {
+          margin: 0;
+        }
+
+        .milkdown-editor .ProseMirror code {
+          background: var(--crepe-color-surface);
+          color: var(--crepe-color-primary);
+          padding: 0.15em 0.35em;
+          border-radius: 4px;
+          font-family: var(--crepe-font-code);
+          font-size: 0.875em;
+        }
+
+        .milkdown-editor .ProseMirror blockquote {
+          border-left: 3px solid var(--crepe-color-primary);
+          margin: 0.5em 0;
+          padding-left: 0.75em;
+          color: var(--crepe-color-muted);
+        }
+
+        .milkdown-editor .ProseMirror a {
+          color: var(--crepe-color-primary);
+          text-decoration: underline;
+        }
+
+        .milkdown-editor .ProseMirror hr {
+          border: none;
+          border-top: 1px solid var(--crepe-color-line);
+          margin: 1em 0;
+        }
+
+        .milkdown-editor .ProseMirror .placeholder {
+          color: var(--crepe-color-muted);
+          pointer-events: none;
+        }
+
+        /* Toolbar styling */
+        .milkdown-editor .crepe-toolbar {
+          background: var(--crepe-color-background);
+          border: 1px solid var(--crepe-color-border);
+          border-radius: 6px;
+          padding: 2px;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .milkdown-editor .crepe-toolbar button {
+          color: var(--crepe-color-solid);
+        }
+
+        .milkdown-editor .crepe-toolbar button:hover {
+          background: var(--crepe-color-hover);
+        }
+
+      `}</style>
     </TooltipProvider>
   );
 };
