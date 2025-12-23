@@ -1649,6 +1649,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
               <Editor
                 height="100%"
                 language={editorLanguage}
+                path={fileSystem.state.selectedFile}
                 value={fileSystem.getSelectedFileContent()}
                 onChange={onChange}
                 theme="materialize-dark"
