@@ -2,6 +2,7 @@
 
 import { supabase } from "@/ClientConstants";
 import { Button } from "@/components/ui/button";
+import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import { normalizePrototypeVisibility } from "@/lib/types/prototypes";
 import type {
   APIResponse,
@@ -18,11 +19,11 @@ type Prototype = Database["public"]["Tables"]["prototypes"]["Row"];
 
 const SITE_BASE_URL = (
   process.env.NEXT_PUBLIC_SITE_BASE_URL ??
-    process.env.NEXT_PUBLIC_APP_BASE_URL ??
-    "https://nucleate.dev"
+  process.env.NEXT_PUBLIC_APP_BASE_URL ??
+  "https://nucleate.dev"
 ).replace(/\/$/, "");
 
-function MinimalHeader({ prototype }: { prototype: Prototype }) {
+function MinimalHeader({ prototype }: { prototype: Prototype; }) {
   const visibility = normalizePrototypeVisibility(prototype.visibility);
   const visibilityLabel =
     visibility === "SELF"
@@ -64,9 +65,10 @@ function MinimalHeader({ prototype }: { prototype: Prototype }) {
 export default function FullscreenPrototypePage({
   params,
 }: {
-  params: Promise<{ prototype_id: string }>;
+  params: Promise<{ prototype_id: string; }>;
 }) {
   const { prototype_id } = use(params);
+  const logger = useProductLogger();
   const [prototype, setPrototype] = useState<Prototype | null>(null);
   const [viewingUrl, setViewingUrl] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
@@ -109,7 +111,7 @@ export default function FullscreenPrototypePage({
       }
 
       let resolvedViewingUrl =
-        (data as Prototype & { viewing_url?: string }).viewing_url ?? "";
+        (data as Prototype & { viewing_url?: string; }).viewing_url ?? "";
       const serverEndpoint = process.env.NEXT_PUBLIC_SERVER_ENDPOINT;
 
       if (serverEndpoint) {
@@ -142,7 +144,9 @@ export default function FullscreenPrototypePage({
             resolvedViewingUrl = result.data.viewing_url;
           }
         } catch (err) {
-          console.error("Failed to fetch viewing URL for prototype", err);
+          logger.debug("error", "Failed to fetch viewing URL for prototype", {
+            error: err,
+          });
         }
       }
 
@@ -152,7 +156,7 @@ export default function FullscreenPrototypePage({
     };
 
     fetchPrototype();
-  }, [prototype_id]);
+  }, [prototype_id, logger]);
 
   if (loading) {
     return (
