@@ -1304,7 +1304,10 @@ const MaterializeRenderSection = forwardRef<
         return (
           <div className="w-full h-full overflow-auto bg-background">
             <div className="min-h-full flex items-center justify-center">
-              <div className="flex flex-wrap justify-center gap-x-8 gap-y-12 py-8 relative">
+              <div className={cn(
+                "flex flex-wrap justify-center gap-x-8 gap-y-12 pb-8 relative",
+                isMultiScreenEnabled ? "pt-16" : "pt-8"
+              )}>
                 {mobileScreens.map((screen, index) => {
                   const iframeSrc = resolveIframeSrc(viewing_url, screen.path);
                   const isPrimaryScreen = index === 0;
@@ -1508,8 +1511,8 @@ const MaterializeRenderSection = forwardRef<
                     </div>
                   );
                 })}
-                {/* Inline Add Screen button */}
-                {isMultiScreenEnabled && (
+                {/* Inline Add Screen button - only show when 2+ screens exist */}
+                {isMultiScreenEnabled && mobileScreens.length >= 2 && (
                   <div className="flex flex-col items-center justify-center gap-2 pt-2">
                     <div
                       className="relative mx-auto select-none flex items-center justify-center"
@@ -1708,21 +1711,6 @@ const MaterializeRenderSection = forwardRef<
                   title="Toggle Terminal"
                 >
                   <TerminalIcon className="w-3.5 h-3.5" />
-                </Button>
-              )}
-              {!isReadOnlyView && isMultiScreenEnabled && isPreviewView && previewMode === "mobile" && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleAddMobileScreen}
-                  className="hidden sm:flex h-8 bg-accent border border-border text-muted-foreground hover:text-foreground hover:border-border/80 hover:bg-accent/80 transition-all"
-                  title="Add another screen"
-                  disabled={!viewing_url}
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span className="ml-2 hidden md:inline text-xs font-medium">
-                    Add Screen
-                  </span>
                 </Button>
               )}
               {!isReadOnlyView && (
@@ -1948,22 +1936,22 @@ const MaterializeRenderSection = forwardRef<
             transition: isResizingTerminal ? "none" : "height 0.2s ease-in-out",
           }}
         >
-          {!isReadOnlyView && isPreviewView && (
-            <div className="absolute top-3 left-3 z-20">
-              {/* Also need to include the browser button here, so for now I removed this */}
-              {/* <Button
+          {/* Floating Add Screen button - top right of canvas */}
+          {!isReadOnlyView && isPreviewView && isMultiScreenEnabled && previewMode === "mobile" && (
+            <div className="absolute top-3 right-3 z-20">
+              <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => setIsQRModalOpen(true)}
+                onClick={handleAddMobileScreen}
                 className="h-8 bg-accent border border-border text-muted-foreground hover:text-foreground hover:border-border/80 hover:bg-accent/80 transition-all"
-                title="View on Device"
+                title="Add another screen"
                 disabled={!viewing_url}
               >
-                <QrCode className="w-3.5 h-3.5" />
-                <span className="ml-2 hidden md:inline text-xs font-medium">
-                  Device
+                <Plus className="h-3.5" />
+                <span className="hidden md:inline text-xs font-medium">
+                  Add Screen
                 </span>
-              </Button> */}
+              </Button>
             </div>
           )}
           {isPreviewView ? (
