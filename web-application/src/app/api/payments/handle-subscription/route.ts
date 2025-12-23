@@ -626,9 +626,13 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
 
   posthog.capture({
     distinctId: userId,
-    event: SuccessEvents.HANDLED_STRIPE_SUBSCRIPTION_INVOICE_PAID,
+    event: "server_stripe_webhook_subscription_payment_completed",
     properties: {
       source: LoggingEventSource.API_PAYMENTS_HANDLE_SUBSCRIPTION,
+      subscription_id: subscription.id,
+      plan_key: planKey,
+      amount_total: invoice.amount_paid,
+      currency: invoice.currency,
     },
   });
 
