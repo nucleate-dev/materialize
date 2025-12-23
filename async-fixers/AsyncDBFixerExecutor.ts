@@ -322,10 +322,7 @@ export class AsyncFixerExecutor<TName extends TableName> {
   }
 
   private getOrderColumn(): string {
-    return (
-      (this.backfill.orderByColumn as string | undefined) ??
-      "id"
-    );
+    return (this.backfill.orderByColumn as string | undefined) ?? "id";
   }
 }
 

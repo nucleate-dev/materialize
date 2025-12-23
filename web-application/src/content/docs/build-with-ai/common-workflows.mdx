@@ -8,6 +8,7 @@ order: 5
 ## What you'll accomplish
 
 This guide covers the most common development tasks:
+
 - Building a new screen
 - Refactoring a component safely
 - Adding features without breaking existing code
@@ -16,71 +17,88 @@ This guide covers the most common development tasks:
 ## Workflow 1: Build a new screen
 
 ### Step 1: Define the requirements
+
 > "I want to create a profile screen that shows the user's avatar, name, email, and a logout button."
 
 ### Step 2: Ask for a plan
+
 > "Before coding, outline what files you'll create or modify."
 
 ### Step 3: Review the plan
+
 The AI might say:
+
 - Create `app/profile.tsx`
 - Add navigation link from settings
 - Use existing Avatar component
 
 ### Step 4: Implement one piece at a time
+
 > "Create the basic profile screen layout first, without the logout logic."
 
 ### Step 5: Add functionality
+
 > "Now add the logout button that calls signOut from our auth context."
 
 ## Workflow 2: Refactor a component safely
 
 ### Step 1: Explain the goal
+
 > "I want to refactor Button.tsx to support an 'outline' variant, without breaking existing uses."
 
 ### Step 2: Ask for impact analysis
+
 > "Show me everywhere Button is currently used."
 
 ### Step 3: Ensure backwards compatibility
+
 > "Make sure the default behavior stays the same. Outline should be opt-in via a prop."
 
 ### Step 4: Test existing uses
+
 > "After refactoring, verify the existing buttons still work."
 
 ## Workflow 3: Add a feature without breaking things
 
 ### Step 1: Scope the change
+
 > "Add a favorites feature. Users can favorite items and see them in a new tab."
 
 ### Step 2: Isolate the new code
+
 > "Create the favorites logic in a new file. Don't modify existing files yet."
 
 ### Step 3: Integrate gradually
+
 > "Now add the favorite button to the item card. Use the hook we just created."
 
 ### Step 4: Test both paths
+
 > "Make sure items without favorites still render correctly."
 
 ## Workflow 4: Understand AI-generated code
 
 ### Ask for explanations
+
 > "Explain what this useEffect does and why we need the dependency array."
 
 ### Ask for alternatives
+
 > "Is there a simpler way to do this?"
 
 ### Ask for tradeoffs
+
 > "What are the downsides of this approach?"
 
 ## Quick reference prompts
 
-| Task | Prompt |
-|------|--------|
-| New screen | "Create a [name] screen at app/[path].tsx" |
-| New component | "Create a [Name] component like [existing]" |
-| Add prop | "Add a [name] prop to [Component] without breaking existing uses" |
-| Fix bug | "This line causes [error]. What's wrong and how to fix?" |
-| Explain code | "Explain what lines 20-35 do in [file]" |
+| Task          | Prompt                                                            |
+| ------------- | ----------------------------------------------------------------- |
+| New screen    | "Create a [name] screen at app/[path].tsx"                        |
+| New component | "Create a [Name] component like [existing]"                       |
+| Add prop      | "Add a [name] prop to [Component] without breaking existing uses" |
+| Fix bug       | "This line causes [error]. What's wrong and how to fix?"          |
+| Explain code  | "Explain what lines 20-35 do in [file]"                           |
 
 ## Checklist
 

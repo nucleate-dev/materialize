@@ -27,14 +27,15 @@ export interface DocSection {
 }
 
 // Define the section order and titles
-export const SECTION_CONFIG: Record<string, { title: string; order: number }> = {
-  "getting-started": { title: "Getting Started", order: 1 },
-  "build-with-ai": { title: "Build with AI", order: 2 },
-  "guides": { title: "Guides", order: 3 },
-  "deploy": { title: "Deploy", order: 4 },
-  "troubleshooting": { title: "Troubleshooting", order: 5 },
-  "reference": { title: "Reference", order: 6 },
-};
+export const SECTION_CONFIG: Record<string, { title: string; order: number }> =
+  {
+    "getting-started": { title: "Getting Started", order: 1 },
+    "build-with-ai": { title: "Build with AI", order: 2 },
+    guides: { title: "Guides", order: 3 },
+    deploy: { title: "Deploy", order: 4 },
+    troubleshooting: { title: "Troubleshooting", order: 5 },
+    reference: { title: "Reference", order: 6 },
+  };
 
 export function getAllDocs(): DocPage[] {
   if (!fs.existsSync(docsDirectory)) {

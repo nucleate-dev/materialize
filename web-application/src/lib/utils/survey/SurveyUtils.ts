@@ -28,7 +28,7 @@ export async function checkSurveyCompleted(userId: string): Promise<boolean> {
  */
 export async function submitSurvey(
   userId: string,
-  responses: SurveyResponses
+  responses: SurveyResponses,
 ): Promise<{ success: boolean; error?: string }> {
   try {
     // Check if survey already exists
@@ -62,18 +62,16 @@ export async function submitSurvey(
       }
     } else {
       // Insert new survey
-      const { error } = await supabase
-        .from("user_onboarding_survey")
-        .insert({
-          user_id: userId,
-          use_cases: responses.useCases,
-          use_cases_other: responses.useCasesOther || null,
-          role: responses.role,
-          role_other: responses.roleOther || null,
-          ai_coding_experience: responses.aiCodingExperience,
-          referral_source: responses.referralSource,
-          referral_source_other: responses.referralSourceOther || null,
-        });
+      const { error } = await supabase.from("user_onboarding_survey").insert({
+        user_id: userId,
+        use_cases: responses.useCases,
+        use_cases_other: responses.useCasesOther || null,
+        role: responses.role,
+        role_other: responses.roleOther || null,
+        ai_coding_experience: responses.aiCodingExperience,
+        referral_source: responses.referralSource,
+        referral_source_other: responses.referralSourceOther || null,
+      });
 
       if (error) {
         return {
@@ -97,7 +95,7 @@ export async function submitSurvey(
  */
 export function saveSurveyProgress(
   step: number,
-  responses: Partial<SurveyResponses>
+  responses: Partial<SurveyResponses>,
 ): void {
   if (typeof window === "undefined") return;
 
@@ -108,7 +106,7 @@ export function saveSurveyProgress(
         step,
         responses,
         savedAt: new Date().toISOString(),
-      })
+      }),
     );
   } catch {
     // Silently fail - localStorage may be unavailable

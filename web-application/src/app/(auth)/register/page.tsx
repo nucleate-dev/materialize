@@ -50,9 +50,9 @@ export default function Register() {
   return (
     <Suspense
       fallback={
-      <div className="min-h-screen bg-background flex items-center justify-center text-muted-foreground">
-        Loading...
-      </div>
+        <div className="min-h-screen bg-background flex items-center justify-center text-muted-foreground">
+          Loading...
+        </div>
       }
     >
       <RegisterContent />

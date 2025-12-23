@@ -59,14 +59,14 @@ interface ClaudeCodePanelProps {
 export interface Message {
   id: string;
   type:
-  | "user"
-  | "assistant"
-  | "system"
-  | "error"
-  | "tool"
-  | "thinking"
-  | "usage"
-  | "design_spec";
+    | "user"
+    | "assistant"
+    | "system"
+    | "error"
+    | "tool"
+    | "thinking"
+    | "usage"
+    | "design_spec";
   content: string;
   timestamp: number;
   toolName?: string;
@@ -1251,7 +1251,7 @@ export default function ClaudeCodePanel({
       }
 
       default: {
-        const unknownMessage = message as { type: string; };
+        const unknownMessage = message as { type: string };
         logger.debug("log", "Unknown message type", {
           messageType: unknownMessage.type,
         });
@@ -1871,7 +1871,7 @@ export default function ClaudeCodePanel({
       const content: Array<{
         type: string;
         text?: string;
-        source?: { type: string; url: string; };
+        source?: { type: string; url: string };
       }> = [];
 
       // Add text if present

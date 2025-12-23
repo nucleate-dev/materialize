@@ -93,7 +93,8 @@ export function EnvironmentVariablesModal({
   const logger = useProductLogger();
 
   // Determine the appropriate environment variable prefix based on framework
-  const envPrefix = framework === "web_nextjs_react" ? "NEXT_PUBLIC_" : "EXPO_PUBLIC_";
+  const envPrefix =
+    framework === "web_nextjs_react" ? "NEXT_PUBLIC_" : "EXPO_PUBLIC_";
 
   const [envVars, setEnvVars] = useState<PrototypeEnvVar[]>([]);
   const [isLoadingEnvVars, setIsLoadingEnvVars] = useState(false);
@@ -213,57 +214,61 @@ export function EnvironmentVariablesModal({
       setEnvSyncWarning(null);
       setEnvSyncError(null);
 
-    if (!sandbox_url || !prototypeId) {
-      setEnvSyncWarning("Dev server not started yet, try syncing again soon.");
-      return false;
-    }
-
-    setIsSyncingEnvFile(true);
-    try {
-      const session = await supabase.auth.getSession();
-      const token = session.data.session?.access_token;
-      if (!token) {
-        toast.error("Sign in again to sync environment variables.");
-        setEnvSyncError(
-          "Error syncing to development server. Try again later.",
+      if (!sandbox_url || !prototypeId) {
+        setEnvSyncWarning(
+          "Dev server not started yet, try syncing again soon.",
         );
         return false;
       }
 
-      const response = await fetch(`${sandbox_url}/dev-server/refetch-env`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ prototype_id: prototypeId }),
-      });
+      setIsSyncingEnvFile(true);
+      try {
+        const session = await supabase.auth.getSession();
+        const token = session.data.session?.access_token;
+        if (!token) {
+          toast.error("Sign in again to sync environment variables.");
+          setEnvSyncError(
+            "Error syncing to development server. Try again later.",
+          );
+          return false;
+        }
 
-      const result: APIResponse<
-        { env_var_count: number; message: string },
-        StandardErrorResponse
-      > = await response.json().catch(() => ({ data: null, error: null }));
+        const response = await fetch(`${sandbox_url}/dev-server/refetch-env`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ prototype_id: prototypeId }),
+        });
 
-      if (!response.ok || result.error) {
-        const message =
-          result.error?.message ?? "Failed to refresh dev server env vars";
-        throw new Error(message);
+        const result: APIResponse<
+          { env_var_count: number; message: string },
+          StandardErrorResponse
+        > = await response.json().catch(() => ({ data: null, error: null }));
+
+        if (!response.ok || result.error) {
+          const message =
+            result.error?.message ?? "Failed to refresh dev server env vars";
+          throw new Error(message);
+        }
+
+        toast.success("Dev server environment updated");
+        return true;
+      } catch (error) {
+        logger.debug("error", "Failed to refresh dev server env vars", {
+          error: error instanceof Error ? error.message : String(error),
+          sandbox_url,
+        });
+        toast.error("Unable to refresh dev server env vars");
+        setEnvSyncError(
+          "Error syncing to development server. Try again later.",
+        );
+        return false;
+      } finally {
+        setIsSyncingEnvFile(false);
       }
-
-      toast.success("Dev server environment updated");
-      return true;
-    } catch (error) {
-      logger.debug("error", "Failed to refresh dev server env vars", {
-        error: error instanceof Error ? error.message : String(error),
-        sandbox_url,
-      });
-      toast.error("Unable to refresh dev server env vars");
-      setEnvSyncError("Error syncing to development server. Try again later.");
-      return false;
-    } finally {
-      setIsSyncingEnvFile(false);
-    }
-  },
+    },
     [sandbox_url, prototypeId, logger],
   );
 
@@ -435,7 +440,10 @@ export function EnvironmentVariablesModal({
       }
 
       // Strip any existing prefix if user included it
-      if (input.visibility === "client" && normalizedName.startsWith(envPrefix)) {
+      if (
+        input.visibility === "client" &&
+        normalizedName.startsWith(envPrefix)
+      ) {
         normalizedName = normalizedName.substring(envPrefix.length);
       }
 
@@ -478,7 +486,10 @@ export function EnvironmentVariablesModal({
         let normalizedName = normalizeEnvVarNameInput(input.name);
 
         // Strip any existing prefix if user included it
-        if (input.visibility === "client" && normalizedName.startsWith(envPrefix)) {
+        if (
+          input.visibility === "client" &&
+          normalizedName.startsWith(envPrefix)
+        ) {
           normalizedName = normalizedName.substring(envPrefix.length);
         }
 
@@ -909,7 +920,9 @@ export function EnvironmentVariablesModal({
                       className={cn(
                         "h-9 text-sm font-mono",
                         input.visibility === "client" &&
-                          (envPrefix === "NEXT_PUBLIC_" ? "pl-[110px]" : "pl-[105px]"),
+                          (envPrefix === "NEXT_PUBLIC_"
+                            ? "pl-[110px]"
+                            : "pl-[105px]"),
                       )}
                       disabled={isSavingEnvVar}
                     />

@@ -61,7 +61,8 @@ export default function CacheManagementPage() {
 
   // Prototype lookup state
   const [prototypeId, setPrototypeId] = useState("");
-  const [prototypeBuildData, setPrototypeBuildData] = useState<PrototypeBuildData | null>(null);
+  const [prototypeBuildData, setPrototypeBuildData] =
+    useState<PrototypeBuildData | null>(null);
   const [prototypeLoading, setPrototypeLoading] = useState(false);
   const [prototypeError, setPrototypeError] = useState<string | null>(null);
 
@@ -73,7 +74,7 @@ export default function CacheManagementPage() {
       setStats(data);
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : "Failed to fetch cache stats"
+        err instanceof Error ? err.message : "Failed to fetch cache stats",
       );
     } finally {
       setLoading(false);
@@ -126,7 +127,11 @@ export default function CacheManagementPage() {
       // Refresh stats after clearing
       await fetchStats();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to clear development cache");
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Failed to clear development cache",
+      );
     } finally {
       setClearDevLoading(false);
     }
@@ -147,7 +152,7 @@ export default function CacheManagementPage() {
       setPrototypeBuildData(data);
     } catch (err) {
       setPrototypeError(
-        err instanceof Error ? err.message : "Failed to fetch prototype data"
+        err instanceof Error ? err.message : "Failed to fetch prototype data",
       );
     } finally {
       setPrototypeLoading(false);
@@ -391,7 +396,8 @@ export default function CacheManagementPage() {
               <div className="space-y-1">
                 <h4 className="font-medium">Clear Development Cache</h4>
                 <p className="text-sm text-muted-foreground">
-                  Remove all development:* keys from the cache. These are used during local development.
+                  Remove all development:* keys from the cache. These are used
+                  during local development.
                 </p>
               </div>
               <Button
@@ -459,7 +465,9 @@ export default function CacheManagementPage() {
                   onClick={handlePrototypeLookup}
                   disabled={prototypeLoading || !prototypeId.trim()}
                 >
-                  <Search className={`h-4 w-4 mr-2 ${prototypeLoading ? "animate-pulse" : ""}`} />
+                  <Search
+                    className={`h-4 w-4 mr-2 ${prototypeLoading ? "animate-pulse" : ""}`}
+                  />
                   {prototypeLoading ? "Looking up..." : "Lookup"}
                 </Button>
               </div>
@@ -477,9 +485,13 @@ export default function CacheManagementPage() {
             {prototypeBuildData && (
               <div className="space-y-4 border rounded-lg p-4 bg-muted/50">
                 <div className="flex items-center justify-between">
-                  <h4 className="font-medium">Build Data for {prototypeBuildData.prototypeId}</h4>
+                  <h4 className="font-medium">
+                    Build Data for {prototypeBuildData.prototypeId}
+                  </h4>
                   <Badge variant="outline">
-                    {prototypeBuildData.activeBuilds.length > 0 ? `${prototypeBuildData.activeBuilds.length} Active Build${prototypeBuildData.activeBuilds.length > 1 ? 's' : ''}` : "No Active Builds"}
+                    {prototypeBuildData.activeBuilds.length > 0
+                      ? `${prototypeBuildData.activeBuilds.length} Active Build${prototypeBuildData.activeBuilds.length > 1 ? "s" : ""}`
+                      : "No Active Builds"}
                   </Badge>
                 </div>
 
@@ -487,7 +499,9 @@ export default function CacheManagementPage() {
                 {prototypeBuildData.message && (
                   <Alert>
                     <Info className="h-4 w-4" />
-                    <AlertDescription>{prototypeBuildData.message}</AlertDescription>
+                    <AlertDescription>
+                      {prototypeBuildData.message}
+                    </AlertDescription>
                   </Alert>
                 )}
 
@@ -506,12 +520,20 @@ export default function CacheManagementPage() {
                         {/* Build Header */}
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
-                            <span className="font-medium text-sm font-mono">{buildData.buildId}</span>
+                            <span className="font-medium text-sm font-mono">
+                              {buildData.buildId}
+                            </span>
                             {buildData.isCurrent && (
-                              <Badge variant="outline" className="text-xs">Current</Badge>
+                              <Badge variant="outline" className="text-xs">
+                                Current
+                              </Badge>
                             )}
                           </div>
-                          <Badge variant={getStatusBadgeVariant(buildData.activeBuild.status)}>
+                          <Badge
+                            variant={getStatusBadgeVariant(
+                              buildData.activeBuild.status,
+                            )}
+                          >
                             {buildData.activeBuild.status}
                           </Badge>
                         </div>
@@ -521,27 +543,36 @@ export default function CacheManagementPage() {
                           <div className="space-y-2">
                             <div className="flex items-center gap-2">
                               <Clock className="h-4 w-4" />
-                              <span className="font-medium text-sm">Last Touched</span>
+                              <span className="font-medium text-sm">
+                                Last Touched
+                              </span>
                             </div>
                             <span className="text-sm text-muted-foreground">
-                              {formatTimestamp(buildData.activeBuild.last_touched)}
+                              {formatTimestamp(
+                                buildData.activeBuild.last_touched,
+                              )}
                             </span>
                           </div>
 
                           <div className="space-y-2">
                             <div className="flex items-center gap-2">
                               <Server className="h-4 w-4" />
-                              <span className="font-medium text-sm">Fargate Private IP</span>
+                              <span className="font-medium text-sm">
+                                Fargate Private IP
+                              </span>
                             </div>
                             <span className="text-xs font-mono bg-muted p-1 rounded border">
-                              {buildData.activeBuild.fargate_private_ip || "N/A"}
+                              {buildData.activeBuild.fargate_private_ip ||
+                                "N/A"}
                             </span>
                           </div>
 
                           <div className="space-y-2">
                             <div className="flex items-center gap-2">
                               <Link className="h-4 w-4" />
-                              <span className="font-medium text-sm">Build URL</span>
+                              <span className="font-medium text-sm">
+                                Build URL
+                              </span>
                             </div>
                             <span className="text-xs font-mono bg-muted p-1 rounded border break-all">
                               {buildData.activeBuild.url || "N/A"}
@@ -551,7 +582,9 @@ export default function CacheManagementPage() {
                           <div className="space-y-2">
                             <div className="flex items-center gap-2">
                               <Database className="h-4 w-4" />
-                              <span className="font-medium text-sm">Task ARN</span>
+                              <span className="font-medium text-sm">
+                                Task ARN
+                              </span>
                             </div>
                             <span className="text-xs font-mono bg-muted p-1 rounded border break-all">
                               {buildData.activeBuild.fargate_task_arn || "N/A"}
@@ -561,27 +594,35 @@ export default function CacheManagementPage() {
                           <div className="space-y-2">
                             <div className="flex items-center gap-2">
                               <Link className="h-4 w-4" />
-                              <span className="font-medium text-sm">Terminal Tunnel Hostname</span>
+                              <span className="font-medium text-sm">
+                                Terminal Tunnel Hostname
+                              </span>
                             </div>
                             <span className="text-xs font-mono bg-muted p-1 rounded border break-all">
-                              {buildData.activeBuild.terminal_tunnel_hostname || "N/A"}
+                              {buildData.activeBuild.terminal_tunnel_hostname ||
+                                "N/A"}
                             </span>
                           </div>
 
                           <div className="space-y-2">
                             <div className="flex items-center gap-2">
                               <Activity className="h-4 w-4" />
-                              <span className="font-medium text-sm">Terminal Tunnel ID</span>
+                              <span className="font-medium text-sm">
+                                Terminal Tunnel ID
+                              </span>
                             </div>
                             <span className="text-xs font-mono bg-muted p-1 rounded border break-all">
-                              {buildData.activeBuild.terminal_tunnel_id || "N/A"}
+                              {buildData.activeBuild.terminal_tunnel_id ||
+                                "N/A"}
                             </span>
                           </div>
 
                           <div className="space-y-2">
                             <div className="flex items-center gap-2">
                               <Shield className="h-4 w-4" />
-                              <span className="font-medium text-sm">Orchestration Token</span>
+                              <span className="font-medium text-sm">
+                                Orchestration Token
+                              </span>
                             </div>
                             <span className="text-xs font-mono bg-muted p-1 rounded border break-all">
                               {buildData.activeBuild.orchestration_token
@@ -593,22 +634,32 @@ export default function CacheManagementPage() {
                           <div className="space-y-2">
                             <div className="flex items-center gap-2">
                               <RefreshCw className="h-4 w-4" />
-                              <span className="font-medium text-sm">Clean Attempts</span>
+                              <span className="font-medium text-sm">
+                                Clean Attempts
+                              </span>
                             </div>
                             <div className="flex items-center gap-2">
                               <span className="text-sm font-mono bg-muted px-2 py-1 rounded border">
                                 {buildData.activeBuild.clean_attempts ?? 0}
                               </span>
                               {buildData.activeBuild.clean_attempts >= 3 && (
-                                <Badge variant="destructive" className="text-xs">
+                                <Badge
+                                  variant="destructive"
+                                  className="text-xs"
+                                >
                                   Max Reached
                                 </Badge>
                               )}
-                              {buildData.activeBuild.clean_attempts > 0 && buildData.activeBuild.clean_attempts < 3 && (
-                                <Badge variant="outline" className="text-xs text-yellow-600 border-yellow-600">
-                                  {3 - buildData.activeBuild.clean_attempts} remaining
-                                </Badge>
-                              )}
+                              {buildData.activeBuild.clean_attempts > 0 &&
+                                buildData.activeBuild.clean_attempts < 3 && (
+                                  <Badge
+                                    variant="outline"
+                                    className="text-xs text-yellow-600 border-yellow-600"
+                                  >
+                                    {3 - buildData.activeBuild.clean_attempts}{" "}
+                                    remaining
+                                  </Badge>
+                                )}
                             </div>
                           </div>
                         </div>
@@ -626,29 +677,40 @@ export default function CacheManagementPage() {
                   <>
                     <Separator />
                     <div className="space-y-2">
-                      <h5 className="font-medium">Build History ({prototypeBuildData.buildHistory.length} total)</h5>
+                      <h5 className="font-medium">
+                        Build History ({prototypeBuildData.buildHistory.length}{" "}
+                        total)
+                      </h5>
                       <div className="max-h-40 overflow-y-auto space-y-1">
-                        {prototypeBuildData.buildHistory.slice(0, 10).map((build, idx) => (
-                          <div
-                            key={idx}
-                            className={`flex justify-between items-center text-xs p-2 rounded border ${
-                              build.buildId === prototypeBuildData.currentBuildId
-                                ? "bg-blue-50 border-blue-200 dark:bg-blue-900/20 dark:border-blue-800"
-                                : "bg-background"
-                            }`}
-                          >
-                            <span className="font-mono">{build.buildId}</span>
-                            <span className="text-muted-foreground">
-                              {formatTimestamp(build.timestamp)}
-                            </span>
-                            {build.buildId === prototypeBuildData.currentBuildId && (
-                              <Badge variant="outline" className="text-xs">Current</Badge>
-                            )}
-                          </div>
-                        ))}
+                        {prototypeBuildData.buildHistory
+                          .slice(0, 10)
+                          .map((build, idx) => (
+                            <div
+                              key={idx}
+                              className={`flex justify-between items-center text-xs p-2 rounded border ${
+                                build.buildId ===
+                                prototypeBuildData.currentBuildId
+                                  ? "bg-blue-50 border-blue-200 dark:bg-blue-900/20 dark:border-blue-800"
+                                  : "bg-background"
+                              }`}
+                            >
+                              <span className="font-mono">{build.buildId}</span>
+                              <span className="text-muted-foreground">
+                                {formatTimestamp(build.timestamp)}
+                              </span>
+                              {build.buildId ===
+                                prototypeBuildData.currentBuildId && (
+                                <Badge variant="outline" className="text-xs">
+                                  Current
+                                </Badge>
+                              )}
+                            </div>
+                          ))}
                         {prototypeBuildData.buildHistory.length > 10 && (
                           <div className="text-xs text-muted-foreground italic text-center">
-                            ... and {prototypeBuildData.buildHistory.length - 10} more builds
+                            ... and{" "}
+                            {prototypeBuildData.buildHistory.length - 10} more
+                            builds
                           </div>
                         )}
                       </div>
@@ -814,10 +876,12 @@ export default function CacheManagementPage() {
                   <div className="flex items-center gap-2">
                     <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
                     <h4 className="font-medium text-sm">
-                      Development Keys ({stats.stats.developmentKeys || 0} total)
+                      Development Keys ({stats.stats.developmentKeys || 0}{" "}
+                      total)
                     </h4>
                   </div>
-                  {stats.stats.sampleKeys.development && stats.stats.sampleKeys.development.length > 0 ? (
+                  {stats.stats.sampleKeys.development &&
+                  stats.stats.sampleKeys.development.length > 0 ? (
                     <div className="ml-5 space-y-1">
                       {stats.stats.sampleKeys.development.map((key, idx) => (
                         <div
@@ -881,7 +945,10 @@ export default function CacheManagementPage() {
       </div>
 
       {/* Clear Cache Confirmation Dialog */}
-      <Dialog open={showClearConfirmDialog} onOpenChange={setShowClearConfirmDialog}>
+      <Dialog
+        open={showClearConfirmDialog}
+        onOpenChange={setShowClearConfirmDialog}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Clear All Cache?</DialogTitle>
@@ -890,7 +957,8 @@ export default function CacheManagementPage() {
                 ⚠️ WARNING: This is a destructive action!
               </p>
               <p>
-                You are about to clear <strong>ALL</strong> keys from the Redis cache. This will:
+                You are about to clear <strong>ALL</strong> keys from the Redis
+                cache. This will:
               </p>
               <ul className="list-disc pl-6 space-y-1 text-sm">
                 <li>Remove all active build data</li>
@@ -899,7 +967,8 @@ export default function CacheManagementPage() {
                 <li>Potentially disrupt active user sessions</li>
               </ul>
               <p className="font-semibold">
-                Are you absolutely sure you understand the implications and want to proceed?
+                Are you absolutely sure you understand the implications and want
+                to proceed?
               </p>
             </DialogDescription>
           </DialogHeader>

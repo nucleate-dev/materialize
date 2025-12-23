@@ -1,4 +1,5 @@
 ## name: creating-landing-pages
+
 description: Creates distinctive, award-winning landing pages as single-file HTML with embedded CSS/JS. Generates production-ready marketing pages, startup websites, product launch pages, and conversion funnels with bold typography, orchestrated animations, and memorable aesthetics. Avoids generic AI patterns. Use when asked to build a landing page, marketing site, product page, startup website, or conversion-focused webpage.
 
 # Creating Landing Pages
@@ -68,8 +69,8 @@ Single HTML file containing:
 
 ```css
 :root {
-  --font-display: 'Playfair Display', serif;
-  --font-body: 'Source Serif Pro', serif;
+  --font-display: "Playfair Display", serif;
+  --font-body: "Source Serif Pro", serif;
   --color-bg: #0a0a0f;
   --color-text: #ffffff;
   --color-muted: #a0a0a0;

@@ -45,7 +45,8 @@ function getAdjacentDocs(currentSlug: string) {
 
   return {
     prev: currentIndex > 0 ? allPages[currentIndex - 1] : null,
-    next: currentIndex < allPages.length - 1 ? allPages[currentIndex + 1] : null,
+    next:
+      currentIndex < allPages.length - 1 ? allPages[currentIndex + 1] : null,
   };
 }
 
@@ -66,7 +67,10 @@ export default async function DocPage({ params }: DocPageProps) {
       <nav className="mb-6 text-sm text-muted-foreground">
         <ol className="flex items-center gap-2">
           <li>
-            <Link href="/docs" className="hover:text-foreground transition-colors">
+            <Link
+              href="/docs"
+              className="hover:text-foreground transition-colors"
+            >
               Docs
             </Link>
           </li>

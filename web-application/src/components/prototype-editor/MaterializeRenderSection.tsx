@@ -330,7 +330,9 @@ const MaterializeRenderSection = forwardRef<
 
     const handleOpenEnvModal = useCallback(
       (source: string) => {
-        logPrototypeEvent("client_prototype_editor_env_vars_opened", { source });
+        logPrototypeEvent("client_prototype_editor_env_vars_opened", {
+          source,
+        });
         setIsEnvVarDialogOpen(true);
       },
       [logPrototypeEvent],
@@ -338,7 +340,9 @@ const MaterializeRenderSection = forwardRef<
 
     const handleOpenViewOnDevice = useCallback(
       (source: string) => {
-        logPrototypeEvent("client_prototype_editor_view_on_device_opened", { source });
+        logPrototypeEvent("client_prototype_editor_view_on_device_opened", {
+          source,
+        });
         setIsQRModalOpen(true);
       },
       [logPrototypeEvent],
@@ -956,7 +960,9 @@ const MaterializeRenderSection = forwardRef<
     }, [assets, files, loadingSubscriptionData, logger, prototypeId, userPlan]);
 
     const handleModeChange = (mode: PreviewMode) => {
-      logPrototypeEvent("client_prototype_editor_preview_mode_changed", { mode });
+      logPrototypeEvent("client_prototype_editor_preview_mode_changed", {
+        mode,
+      });
       setPreviewMode(mode);
       // Trigger loading state when switching preview modes
       if (viewing_url) {
@@ -1198,9 +1204,12 @@ const MaterializeRenderSection = forwardRef<
           <Button
             size="sm"
             onClick={() => {
-              logPrototypeEvent("client_prototype_editor_refresh_preview_clicked", {
-                status: "error_overlay",
-              });
+              logPrototypeEvent(
+                "client_prototype_editor_refresh_preview_clicked",
+                {
+                  status: "error_overlay",
+                },
+              );
               setIframeError(false);
               setIsIframeLoading(true);
               setRefreshKey((prev) => prev + 1);
@@ -1488,10 +1497,10 @@ const MaterializeRenderSection = forwardRef<
               {!isReadOnlyView && (
                 <>
                   <div className="bg-accent p-1 rounded-lg border border-border flex items-center gap-1">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => handlePreviewToggle(true)}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handlePreviewToggle(true)}
                       className={cn(
                         "h-7 px-3 text-xs font-medium rounded-md transition-all",
                         isPreviewView
@@ -1502,10 +1511,10 @@ const MaterializeRenderSection = forwardRef<
                       <Eye className="w-3.5 h-3.5 mr-1.5" />
                       Preview
                     </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => handlePreviewToggle(false)}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handlePreviewToggle(false)}
                       className={cn(
                         "h-7 px-3 text-xs font-medium rounded-md transition-all",
                         !isPreviewView
@@ -1707,9 +1716,7 @@ const MaterializeRenderSection = forwardRef<
                   )}
                   {!isReadOnlyView && isWebFramework && (
                     <DropdownMenuItem
-                      onClick={() =>
-                        handleOpenBrowserPreview("dropdown")
-                      }
+                      onClick={() => handleOpenBrowserPreview("dropdown")}
                       disabled={!viewing_url}
                       className="sm:hidden focus:bg-accent/80 focus:text-foreground text-muted-foreground text-sm cursor-pointer"
                     >

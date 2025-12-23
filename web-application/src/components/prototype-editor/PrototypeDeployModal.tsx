@@ -504,33 +504,33 @@ export default function PrototypeDeployModal({
           </div>
 
           <div className="flex justify-end gap-2 pt-4">
-              <Button
-                variant="ghost"
-                onClick={() => onOpenChange(false)}
-                className="text-white/80 hover:text-white"
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleDeploy}
-                disabled={Boolean(
-                  isDeploying ||
-                  isCheckingSlug ||
-                  slugAvailable !== true ||
-                  slugError ||
-                  (!hasSlugChanged && isLatestBuildDeployed)
-                )}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white"
-              >
-                {isDeploying ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                    Deploying...
-                  </>
-                ) : (
-                  "Save & deploy"
-                )}
-              </Button>
+            <Button
+              variant="ghost"
+              onClick={() => onOpenChange(false)}
+              className="text-white/80 hover:text-white"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleDeploy}
+              disabled={Boolean(
+                isDeploying ||
+                isCheckingSlug ||
+                slugAvailable !== true ||
+                slugError ||
+                (!hasSlugChanged && isLatestBuildDeployed),
+              )}
+              className="bg-indigo-600 hover:bg-indigo-700 text-white"
+            >
+              {isDeploying ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                  Deploying...
+                </>
+              ) : (
+                "Save & deploy"
+              )}
+            </Button>
           </div>
         </div>
       </DialogContent>

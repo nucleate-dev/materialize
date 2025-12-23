@@ -8,6 +8,7 @@ order: 2
 ## What you'll accomplish
 
 This reference covers:
+
 - How your secrets are protected
 - Data isolation between projects
 - What the AI can and cannot access
@@ -17,6 +18,7 @@ This reference covers:
 ### Environment variables
 
 Your secrets in Nucleate are:
+
 - **Encrypted at rest** - Stored securely in our database
 - **Injected at runtime** - Only available to your sandbox
 - **Never logged** - Excluded from build logs and analytics
@@ -24,17 +26,18 @@ Your secrets in Nucleate are:
 
 ### Best practices
 
-| Do | Don't |
-|-----|-------|
-| Use env vars for API keys | Hardcode secrets in code |
-| Use EXPO_PUBLIC_ for client | Expose private keys to client |
-| Rotate keys periodically | Share keys across projects |
+| Do                          | Don't                         |
+| --------------------------- | ----------------------------- |
+| Use env vars for API keys   | Hardcode secrets in code      |
+| Use EXPO*PUBLIC* for client | Expose private keys to client |
+| Rotate keys periodically    | Share keys across projects    |
 
 ## Data isolation
 
 ### Project isolation
 
 Each Nucleate project runs in its own isolated sandbox:
+
 - **Separate file system** - Your files are private
 - **Separate network** - Your API calls are isolated
 - **Separate secrets** - No cross-project access
@@ -49,30 +52,32 @@ Each Nucleate project runs in its own isolated sandbox:
 
 ### What Claude can access
 
-| Access | Details |
-|--------|---------|
-| Your code files | To help you build |
-| File structure | To understand your project |
-| Console output | To debug issues |
-| Error messages | To help fix problems |
+| Access          | Details                    |
+| --------------- | -------------------------- |
+| Your code files | To help you build          |
+| File structure  | To understand your project |
+| Console output  | To debug issues            |
+| Error messages  | To help fix problems       |
 
 ### What Claude cannot access
 
-| Blocked | Reason |
-|---------|--------|
-| Environment variables | Secrets protection |
-| External databases | Network isolation |
-| Other users' projects | User isolation |
+| Blocked               | Reason                  |
+| --------------------- | ----------------------- |
+| Environment variables | Secrets protection      |
+| External databases    | Network isolation       |
+| Other users' projects | User isolation          |
 | Your Nucleate account | Authentication boundary |
 
 ### AI context limits
 
 Claude's memory is limited to:
+
 - Current conversation
 - CLAUDE.md contents
 - Files you reference
 
 Claude doesn't remember:
+
 - Previous sessions
 - Other projects
 - Your personal info
@@ -103,6 +108,7 @@ Claude doesn't remember:
 ## Reporting security issues
 
 If you find a security vulnerability:
+
 1. Email security@nucleate.dev
 2. Include detailed reproduction steps
 3. Don't publicly disclose until fixed

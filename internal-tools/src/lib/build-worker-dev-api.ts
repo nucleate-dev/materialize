@@ -31,7 +31,7 @@ export interface BuildWorkerRouteError {
 }
 
 export async function sendBuildWorkerRequest(
-  body: BuildWorkerRequestPayload
+  body: BuildWorkerRequestPayload,
 ): Promise<BuildWorkerRouteResponse> {
   const path = "/internal/build-worker-dev/execute";
   const method = "POST";
@@ -57,18 +57,20 @@ export async function sendBuildWorkerRequest(
     const details = errorPayload.details ? ` (${errorPayload.details})` : "";
 
     throw new Error(
-      (errorPayload.message || `Request failed with status ${response.status}`) +
-        details
+      (errorPayload.message ||
+        `Request failed with status ${response.status}`) + details,
     );
   }
 
-  return (responseJson as BuildWorkerRouteResponse) ?? {
-    success: false,
-    status: response.status,
-    statusText: response.statusText,
-    requestedUrl: "",
-    durationMs: 0,
-    headers: {},
-    data: null,
-  };
+  return (
+    (responseJson as BuildWorkerRouteResponse) ?? {
+      success: false,
+      status: response.status,
+      statusText: response.statusText,
+      requestedUrl: "",
+      durationMs: 0,
+      headers: {},
+      data: null,
+    }
+  );
 }

@@ -1,6 +1,6 @@
-import React from "react"
-import Link from "next/link"
-import { ChevronRight, Home } from "lucide-react"
+import React from "react";
+import Link from "next/link";
+import { ChevronRight, Home } from "lucide-react";
 
 import {
   Breadcrumb,
@@ -9,19 +9,19 @@ import {
   BreadcrumbList,
   BreadcrumbPage,
   BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb"
-import { SidebarTrigger } from "@/components/ui/sidebar"
-import { Separator } from "@/components/ui/separator"
+} from "@/components/ui/breadcrumb";
+import { SidebarTrigger } from "@/components/ui/sidebar";
+import { Separator } from "@/components/ui/separator";
 
 interface BreadcrumbItem {
-  title: string
-  href?: string
+  title: string;
+  href?: string;
 }
 
 interface PageHeaderProps {
-  title: string
-  breadcrumbs: BreadcrumbItem[]
-  children?: React.ReactNode
+  title: string;
+  breadcrumbs: BreadcrumbItem[];
+  children?: React.ReactNode;
 }
 
 export function PageHeader({ title, breadcrumbs, children }: PageHeaderProps) {
@@ -75,5 +75,5 @@ export function PageHeader({ title, breadcrumbs, children }: PageHeaderProps) {
         </div>
       </div>
     </header>
-  )
+  );
 }

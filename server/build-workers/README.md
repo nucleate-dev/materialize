@@ -84,6 +84,7 @@ server/build-workers/
 Manages AI-powered chat interactions via WebSocket connections.
 
 **Features:**
+
 - Real-time WebSocket communication with heartbeat monitoring
 - Support for multiple AI providers (Claude via Agent SDK, OpenAI/Google via Vercel AI SDK)
 - MCP (Model Context Protocol) tools for file operations, bash commands, and design systems
@@ -122,6 +123,7 @@ Central orchestrator for development server lifecycle management.
 | `GET` | `/build-status` | Get current build status |
 
 **Dev Server Lifecycle:**
+
 ```
 allocate → start-v2 → [update-files-v2]* → build-and-deploy → cleanup
 ```
@@ -133,6 +135,7 @@ allocate → start-v2 → [update-files-v2]* → build-and-deploy → cleanup
 Manages Expo React Native development server with tunnel support.
 
 **Workflow:**
+
 1. Fetch project files from Supabase
 2. Install dependencies (`npm install`)
 3. Start Expo with tunnel: `npx expo start --web --tunnel`
@@ -142,6 +145,7 @@ Manages Expo React Native development server with tunnel support.
 7. Build to static web output on deploy
 
 **Key Methods:**
+
 - `startDevServer()` - Launch Expo with tunnel detection (60s timeout)
 - `updateDevServerFiles()` - Smart file updates with dependency diffing
 - `buildAndDeployProjectCore()` - Export to web and upload to S3
@@ -153,6 +157,7 @@ Manages Expo React Native development server with tunnel support.
 Multi-session PTY terminal management with WebSocket support.
 
 **Features:**
+
 - Multiple concurrent terminal sessions using `node-pty`
 - WebSocket-based real-time I/O
 - Session persistence with log uploads to Supabase
@@ -168,11 +173,13 @@ Multi-session PTY terminal management with WebSocket support.
 | `DELETE` | `/ws/terminal/:sessionId` | Close terminal session |
 
 **Session Types:**
+
 - `dev-server` - Expo development server output
 - `test` - Testing terminal
 - `build` - Build terminal
 
 **WebSocket Message Format:**
+
 ```typescript
 {
   type: "create" | "input" | "resize" | "close",
@@ -190,6 +197,7 @@ Multi-session PTY terminal management with WebSocket support.
 Bi-directional file synchronization with Supabase as source of truth.
 
 **Sync Directions:**
+
 1. **Supabase → Disk** (on container start)
    - Fetch files from `prototype_files` table
    - Download assets from Supabase Storage
@@ -201,10 +209,11 @@ Bi-directional file synchronization with Supabase as source of truth.
    - Batch upsert to Supabase
 
 **Configuration:**
+
 ```typescript
-FILE_FETCH_BATCH_SIZE: 500
-FILE_UPSERT_BATCH_SIZE: 200
-ASSET_DOWNLOAD_CONCURRENCY: 10
+FILE_FETCH_BATCH_SIZE: 500;
+FILE_UPSERT_BATCH_SIZE: 200;
+ASSET_DOWNLOAD_CONCURRENCY: 10;
 ```
 
 **Excluded Directories:** `node_modules`, `.git`, `.expo`, `dist`, `build`, `.cache`
@@ -235,12 +244,14 @@ Primary AI integration using Anthropic's Claude Code SDK.
 **Package:** `@anthropic-ai/claude-agent-sdk`
 
 **MCP Tools Provided:**
+
 - File operations (Read, Write, Edit, Glob, Grep)
 - Bash command execution
 - Terminal session management
 - Design system integration
 
 **Tool Permission Validation:**
+
 - Enforces file access boundaries
 - Prevents access to server code (`/app/`)
 - Restricts sensitive file operations
@@ -252,6 +263,7 @@ Alternative AI provider support for OpenAI and Google models.
 **Package:** `ai`
 
 **Supported Providers:**
+
 - OpenAI (GPT models)
 - Google (Gemini models)
 
@@ -260,15 +272,18 @@ Alternative AI provider support for OpenAI and Google models.
 ## Docker Configuration
 
 ### Base Image
+
 `node:22-slim` (Debian-based)
 
 ### Security Model
 
 **Users:**
+
 - `root` - Runs the Fastify server and manages processes
 - `materialize-user` - Unprivileged user for development server and user code
 
 **Directory Permissions:**
+
 ```
 /app/                        → root only (server code)
 /tmp/materialize-dev-server/ → materialize-user (project files)
@@ -277,16 +292,17 @@ Alternative AI provider support for OpenAI and Google models.
 
 ### Key Environment Variables
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `PORT` | `3002` | Fastify server port |
-| `WORK_DIR` | `/tmp/materialize-dev-server` | Project workspace |
-| `TERMINAL_USER` | `materialize-user` | PTY session user |
-| `EXPO_NO_TELEMETRY` | `1` | Disable Expo telemetry |
-| `CHOKIDAR_USEPOLLING` | `1` | Enable polling for file watch |
-| `NODE_OPTIONS` | `--max-old-space-size=2048` | Node memory limit |
+| Variable              | Default                       | Description                   |
+| --------------------- | ----------------------------- | ----------------------------- |
+| `PORT`                | `3002`                        | Fastify server port           |
+| `WORK_DIR`            | `/tmp/materialize-dev-server` | Project workspace             |
+| `TERMINAL_USER`       | `materialize-user`            | PTY session user              |
+| `EXPO_NO_TELEMETRY`   | `1`                           | Disable Expo telemetry        |
+| `CHOKIDAR_USEPOLLING` | `1`                           | Enable polling for file watch |
+| `NODE_OPTIONS`        | `--max-old-space-size=2048`   | Node memory limit             |
 
 ### Build Process
+
 ```bash
 # Install system dependencies
 apt-get install build-essential python3 curl git watchman
@@ -304,10 +320,12 @@ npm run build  # TypeScript compilation
 ## Development
 
 ### Prerequisites
+
 - Node.js 22+
 - Docker (for local container testing)
 
 ### Local Development
+
 ```bash
 # Install dependencies
 npm install
@@ -320,16 +338,18 @@ npm start
 ```
 
 ### Scripts
-| Script | Description |
-|--------|-------------|
-| `npm run dev` | Start with nodemon/ts-node |
-| `npm run build` | Compile TypeScript |
-| `npm start` | Run compiled server |
-| `npm run lint:check` | ESLint check |
-| `npm run typecheck` | TypeScript type check |
-| `npm run gen:supabase:types` | Generate Supabase types |
+
+| Script                       | Description                |
+| ---------------------------- | -------------------------- |
+| `npm run dev`                | Start with nodemon/ts-node |
+| `npm run build`              | Compile TypeScript         |
+| `npm start`                  | Run compiled server        |
+| `npm run lint:check`         | ESLint check               |
+| `npm run typecheck`          | TypeScript type check      |
+| `npm run gen:supabase:types` | Generate Supabase types    |
 
 ### Building Docker Image
+
 ```bash
 docker build -t build-worker .
 docker run -p 3002:3002 build-worker
@@ -340,6 +360,7 @@ docker run -p 3002:3002 build-worker
 ## API Reference
 
 ### Health Check
+
 ```http
 GET /health
 
@@ -352,6 +373,7 @@ Response:
 ```
 
 ### Allocate Resources
+
 ```http
 POST /allocate
 
@@ -372,6 +394,7 @@ Response:
 ```
 
 ### Start Dev Server
+
 ```http
 POST /dev-server/start-v2
 
@@ -389,6 +412,7 @@ Response:
 ```
 
 ### Update Files
+
 ```http
 POST /update-files-v2
 
@@ -412,6 +436,7 @@ Response:
 ## Logging & Observability
 
 ### SystemLogger
+
 - JSON structured logging to stdout
 - CloudWatch EMF metrics support
 - Request/trace ID correlation
@@ -422,6 +447,7 @@ Response:
 **Redacted Fields:** `password`, `authorization`, `token`, `api_key`, `secret`
 
 ### Terminal Logging
+
 - Session output persisted to `/tmp/materialize-eternal-terminal-logs/`
 - Uploaded to Supabase Storage bucket: `terminal-sessions`
 - Tracked sessions: `dev-server`, `test`, `build`
@@ -431,30 +457,33 @@ Response:
 ## Dependencies
 
 ### Core
-| Package | Purpose |
-|---------|---------|
-| `fastify` | Web server framework |
-| `@fastify/websocket` | WebSocket support |
-| `node-pty` | PTY terminal spawning |
-| `@supabase/supabase-js` | Database client |
-| `@aws-sdk/client-s3` | S3 uploads |
+
+| Package                 | Purpose               |
+| ----------------------- | --------------------- |
+| `fastify`               | Web server framework  |
+| `@fastify/websocket`    | WebSocket support     |
+| `node-pty`              | PTY terminal spawning |
+| `@supabase/supabase-js` | Database client       |
+| `@aws-sdk/client-s3`    | S3 uploads            |
 
 ### AI
-| Package | Purpose |
-|---------|---------|
+
+| Package                          | Purpose                 |
+| -------------------------------- | ----------------------- |
 | `@anthropic-ai/claude-agent-sdk` | Claude Code integration |
-| `@modelcontextprotocol/sdk` | MCP protocol |
-| `ai` | Vercel AI SDK |
-| `@ai-sdk/openai` | OpenAI provider |
-| `@ai-sdk/google` | Google AI provider |
+| `@modelcontextprotocol/sdk`      | MCP protocol            |
+| `ai`                             | Vercel AI SDK           |
+| `@ai-sdk/openai`                 | OpenAI provider         |
+| `@ai-sdk/google`                 | Google AI provider      |
 
 ### Utilities
-| Package | Purpose |
-|---------|---------|
+
+| Package    | Purpose              |
+| ---------- | -------------------- |
 | `chokidar` | File system watching |
-| `sharp` | Image processing |
-| `axios` | HTTP requests |
-| `uuid` | ID generation |
+| `sharp`    | Image processing     |
+| `axios`    | HTTP requests        |
+| `uuid`     | ID generation        |
 
 ---
 
@@ -462,10 +491,10 @@ Response:
 
 Defined in `FLAGS.ts`:
 
-| Flag | Default | Description |
-|------|---------|-------------|
-| `ENABLE_DESIGN_AGENT_ON_FIRST_MESSAGE` | `true` | Run design agent on first chat message |
-| `ENABLE_MCP_DESIGN_TOOLS` | `false` | Enable MCP design tools |
+| Flag                                   | Default | Description                            |
+| -------------------------------------- | ------- | -------------------------------------- |
+| `ENABLE_DESIGN_AGENT_ON_FIRST_MESSAGE` | `true`  | Run design agent on first chat message |
+| `ENABLE_MCP_DESIGN_TOOLS`              | `false` | Enable MCP design tools                |
 
 ---
 

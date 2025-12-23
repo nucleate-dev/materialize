@@ -188,13 +188,13 @@ export default function FAQPage() {
   // Filter logic
   const filteredData = searchQuery.trim()
     ? FAQ_DATA.map((cat) => ({
-      ...cat,
-      items: cat.items.filter(
-        (item) =>
-          item.q.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          item.a.toLowerCase().includes(searchQuery.toLowerCase()),
-      ),
-    })).filter((cat) => cat.items.length > 0)
+        ...cat,
+        items: cat.items.filter(
+          (item) =>
+            item.q.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            item.a.toLowerCase().includes(searchQuery.toLowerCase()),
+        ),
+      })).filter((cat) => cat.items.length > 0)
     : FAQ_DATA;
 
   const scrollToCategory = (category: string) => {
@@ -258,10 +258,11 @@ export default function FAQPage() {
                       <button
                         key={cat.category}
                         onClick={() => scrollToCategory(cat.category)}
-                        className={`w-full text-left px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${activeCategory === cat.category
-                          ? "bg-white/10 text-white"
-                          : "text-[#8A8F98] hover:text-white hover:bg-white/5"
-                          }`}
+                        className={`w-full text-left px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+                          activeCategory === cat.category
+                            ? "bg-white/10 text-white"
+                            : "text-[#8A8F98] hover:text-white hover:bg-white/5"
+                        }`}
                       >
                         {cat.category}
                       </button>
@@ -339,7 +340,7 @@ export default function FAQPage() {
 }
 
 // Utility to parse URLs in text and make them clickable
-function ParsedAnswer({ text }: { text: string; }) {
+function ParsedAnswer({ text }: { text: string }) {
   const parts = text.split(/(https?:\/\/[^\s]+)/g);
 
   return (

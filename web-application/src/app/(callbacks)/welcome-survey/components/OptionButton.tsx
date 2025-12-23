@@ -18,7 +18,8 @@ export function OptionButton({
   showCheckmark = false,
 }: OptionButtonProps) {
   // Dynamically get the icon component from lucide-react
-  const IconComponent = (LucideIcons[icon as keyof typeof LucideIcons] as LucideIcon) || Circle;
+  const IconComponent =
+    (LucideIcons[icon as keyof typeof LucideIcons] as LucideIcon) || Circle;
 
   return (
     <button
@@ -28,13 +29,15 @@ export function OptionButton({
         "border hover:scale-[1.01] active:scale-[0.99]",
         isSelected
           ? "bg-white/10 border-white/20 text-white shadow-lg shadow-white/5"
-          : "bg-white/[0.02] border-white/10 text-white/80 hover:bg-white/[0.05] hover:border-white/15"
+          : "bg-white/[0.02] border-white/10 text-white/80 hover:bg-white/[0.05] hover:border-white/15",
       )}
     >
       <div
         className={cn(
           "w-9 h-9 rounded-lg flex items-center justify-center shrink-0 transition-colors",
-          isSelected ? "bg-gradient-to-br from-indigo-500 to-blue-500" : "bg-white/10"
+          isSelected
+            ? "bg-gradient-to-br from-indigo-500 to-blue-500"
+            : "bg-white/10",
         )}
       >
         <IconComponent
@@ -48,7 +51,7 @@ export function OptionButton({
             "w-5 h-5 rounded-md border flex items-center justify-center shrink-0 transition-all",
             isSelected
               ? "bg-white border-white"
-              : "bg-transparent border-white/20"
+              : "bg-transparent border-white/20",
           )}
         >
           {isSelected && <Check className="w-3.5 h-3.5 text-[#141517]" />}

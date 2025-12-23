@@ -59,10 +59,10 @@ export default function LiveViewerPage() {
       prev.map((cell) =>
         cell.id === id
           ? {
-            ...cell,
-            prototypeId: value,
-            error: null,
-          }
+              ...cell,
+              prototypeId: value,
+              error: null,
+            }
           : cell,
       ),
     );
@@ -84,10 +84,10 @@ export default function LiveViewerPage() {
         prev.map((item) =>
           item.id === cellId
             ? {
-              ...item,
-              loading: false,
-              error: "Please enter a prototype ID",
-            }
+                ...item,
+                loading: false,
+                error: "Please enter a prototype ID",
+              }
             : item,
         ),
       );
@@ -107,11 +107,11 @@ export default function LiveViewerPage() {
         prev.map((item) =>
           item.id === cellId
             ? {
-              ...item,
-              loading: false,
-              error:
-                "Server endpoint not configured. Set NEXT_PUBLIC_INTERNAL_TOOLS_SERVER_ENDPOINT.",
-            }
+                ...item,
+                loading: false,
+                error:
+                  "Server endpoint not configured. Set NEXT_PUBLIC_INTERNAL_TOOLS_SERVER_ENDPOINT.",
+              }
             : item,
         ),
       );
@@ -123,11 +123,11 @@ export default function LiveViewerPage() {
         prev.map((item) =>
           item.id === cellId
             ? {
-              ...item,
-              loading: false,
-              error:
-                "Supabase service role key not configured. Set NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY.",
-            }
+                ...item,
+                loading: false,
+                error:
+                  "Supabase service role key not configured. Set NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY.",
+              }
             : item,
         ),
       );
@@ -162,10 +162,10 @@ export default function LiveViewerPage() {
         prev.map((item) =>
           item.id === cellId
             ? {
-              ...item,
-              loading: false,
-              viewingUrl: payload.data?.viewing_url ?? null,
-            }
+                ...item,
+                loading: false,
+                viewingUrl: payload.data?.viewing_url ?? null,
+              }
             : item,
         ),
       );
@@ -174,13 +174,13 @@ export default function LiveViewerPage() {
         prev.map((item) =>
           item.id === cellId
             ? {
-              ...item,
-              loading: false,
-              error:
-                error instanceof Error
-                  ? error.message
-                  : "Unknown error fetching viewing URL",
-            }
+                ...item,
+                loading: false,
+                error:
+                  error instanceof Error
+                    ? error.message
+                    : "Unknown error fetching viewing URL",
+              }
             : item,
         ),
       );
@@ -192,10 +192,10 @@ export default function LiveViewerPage() {
       prev.map((item) =>
         item.id === cellId
           ? {
-            ...item,
-            viewingUrl: null,
-            error: null,
-          }
+              ...item,
+              viewingUrl: null,
+              error: null,
+            }
           : item,
       ),
     );

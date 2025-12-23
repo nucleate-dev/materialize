@@ -49,7 +49,7 @@ function NodeItem({
   onToggleWithChildren?: (paths: string[]) => void;
 }) {
   const isDirectory = node.type === "directory";
-  const isExpanded = isDirectory ? expanded[node.path] ?? false : false;
+  const isExpanded = isDirectory ? (expanded[node.path] ?? false) : false;
   const isSelected = selected.has(node.path);
   const hasChanges = Boolean(node.hasChanges);
   const checkboxId = `cp-node-${node.path.replace(/[^a-zA-Z0-9_-]/g, "_")}`;
@@ -80,8 +80,10 @@ function NodeItem({
         className={cn(
           "flex items-center gap-2 rounded-md border border-transparent px-2 py-1 text-sm transition-colors",
           isSelected && "bg-accent text-accent-foreground",
-          !isSelected && hasChanges && "border-amber-300 bg-amber-50/70 text-amber-900",
-          !isSelected && !hasChanges && "hover:bg-muted/60"
+          !isSelected &&
+            hasChanges &&
+            "border-amber-300 bg-amber-50/70 text-amber-900",
+          !isSelected && !hasChanges && "hover:bg-muted/60",
         )}
       >
         {isDirectory ? (
@@ -114,7 +116,7 @@ function NodeItem({
             className={cn(
               "flex flex-1 cursor-pointer select-none items-center gap-2 truncate",
               isDirectory ? "font-medium" : undefined,
-              hasChanges && !isSelected && "font-semibold text-amber-700"
+              hasChanges && !isSelected && "font-semibold text-amber-700",
             )}
           >
             {isDirectory ? (
@@ -131,7 +133,10 @@ function NodeItem({
         </div>
 
         {hasChanges ? (
-          <Badge variant="outline" className="border-amber-200 bg-amber-50 text-amber-700">
+          <Badge
+            variant="outline"
+            className="border-amber-200 bg-amber-50 text-amber-700"
+          >
             Changed
           </Badge>
         ) : null}
@@ -182,10 +187,10 @@ export function ControlPlaneFileExplorer({
 
     if (isCurrentlySelected) {
       // If selected, remove all paths
-      paths.forEach(path => onToggle(path));
+      paths.forEach((path) => onToggle(path));
     } else {
       // If not selected, add all paths that aren't already selected
-      paths.forEach(path => {
+      paths.forEach((path) => {
         if (!selectedPaths.includes(path)) {
           onToggle(path);
         }
@@ -194,9 +199,7 @@ export function ControlPlaneFileExplorer({
   };
 
   if (!files.length) {
-    return (
-      <div className="text-sm text-muted-foreground">No files found.</div>
-    );
+    return <div className="text-sm text-muted-foreground">No files found.</div>;
   }
 
   return (

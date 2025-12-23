@@ -45,8 +45,7 @@ import { usePostHog } from "posthog-js/react";
 // --- Types ---
 type DesignSystemRow = Database["public"]["Tables"]["design_systems"]["Row"];
 type DesignStyle = Database["public"]["Enums"]["design_style"];
-type PrototypeFramework =
-  Database["public"]["Enums"]["prototype_framework"];
+type PrototypeFramework = Database["public"]["Enums"]["prototype_framework"];
 
 const DESIGN_STYLE_OPTIONS: DesignStyle[] = ["stylesheets", "nativewind"];
 const WEB_DESIGN_STYLE_OPTIONS: DesignStyle[] = ["stylesheets"];
@@ -104,9 +103,7 @@ export default function DashboardPage() {
   const getDesignStyleLabel = (style: DesignStyle): string => {
     if (isWebFrameworkSelected) {
       return (
-        WEB_DESIGN_STYLE_LABELS[style] ??
-        DESIGN_STYLE_LABELS[style] ??
-        style
+        WEB_DESIGN_STYLE_LABELS[style] ?? DESIGN_STYLE_LABELS[style] ?? style
       );
     }
     return DESIGN_STYLE_LABELS[style] ?? style;

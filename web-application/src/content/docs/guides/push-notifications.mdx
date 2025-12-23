@@ -8,6 +8,7 @@ order: 6
 ## What you'll accomplish
 
 After this guide, you'll have:
+
 - Push notification permissions
 - Device token registration
 - Test notifications working
@@ -17,29 +18,30 @@ After this guide, you'll have:
 ### 1. Install dependencies
 
 Ask Claude:
+
 > "Add expo-notifications and expo-device to the project"
 
 ### 2. Request permissions
 
 ```tsx
-import * as Notifications from 'expo-notifications';
-import * as Device from 'expo-device';
+import * as Notifications from "expo-notifications";
+import * as Device from "expo-device";
 
 async function registerForPushNotifications() {
   if (!Device.isDevice) {
-    alert('Push notifications require a physical device');
+    alert("Push notifications require a physical device");
     return;
   }
 
   const { status } = await Notifications.requestPermissionsAsync();
 
-  if (status !== 'granted') {
-    alert('Permission denied');
+  if (status !== "granted") {
+    alert("Permission denied");
     return;
   }
 
   const token = await Notifications.getExpoPushTokenAsync();
-  console.log('Push token:', token.data);
+  console.log("Push token:", token.data);
 
   return token.data;
 }
@@ -62,9 +64,9 @@ Notifications.setNotificationHandler({
 ```tsx
 useEffect(() => {
   const subscription = Notifications.addNotificationReceivedListener(
-    notification => {
-      console.log('Received:', notification);
-    }
+    (notification) => {
+      console.log("Received:", notification);
+    },
   );
 
   return () => subscription.remove();
@@ -74,11 +76,13 @@ useEffect(() => {
 ## Sending test notifications
 
 ### Using Expo's push tool
+
 1. Get your push token from the app
 2. Visit [expo.dev/notifications](https://expo.dev/notifications)
 3. Paste your token and send a test
 
 ### Notification payload
+
 ```json
 {
   "to": "ExponentPushToken[xxx]",

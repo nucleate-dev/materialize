@@ -9,7 +9,7 @@
 
 // Public API types for the Control Plane Server
 // These types define the request and response schemas for all public endpoints
-import type { Database } from '../types/supabase.js';
+import type { Database } from "../types/supabase.js";
 
 // ============================================================================
 // PRODUCT AND SUBSCRIPTION CONSTANTS
@@ -45,22 +45,22 @@ export type APIResponse<TData = any, TError = any> =
 // ============================================================================
 
 export type PrototypeFileInput =
-  Database['public']['Tables']['prototype_files']['Row'];
+  Database["public"]["Tables"]["prototype_files"]["Row"];
 export type PrototypeAssetInput =
-  Database['public']['Tables']['prototype_assets']['Row'];
+  Database["public"]["Tables"]["prototype_assets"]["Row"];
 
 export type PrototypeAssetInputWithContent = PrototypeAssetInput & {
   contents: string; // base64 encoded string
 };
 
 export type BuildStatus =
-  | 'creating'
-  | 'chatting'
-  | 'updating'
-  | 'error'
-  | 'stable'
-  | 'cleaning'
-  | 'building';
+  | "creating"
+  | "chatting"
+  | "updating"
+  | "error"
+  | "stable"
+  | "cleaning"
+  | "building";
 
 // ============================================================================
 // STANDARD ERROR RESPONSE
@@ -76,7 +76,7 @@ export interface StandardErrorResponse {
 // ============================================================================
 
 export interface HealthSuccessResponse {
-  status: 'healthy';
+  status: "healthy";
   timestamp: string;
 }
 
@@ -88,7 +88,7 @@ export type HealthResponse = HealthSuccessResponse | StandardErrorResponse;
 
 export interface DispatchRequestBody {
   prototype_id: string;
-  file_scope: 'updates' | 'complete';
+  file_scope: "updates" | "complete";
 }
 
 export interface DispatchSuccessResponse {
@@ -130,13 +130,13 @@ export type CacheClearResponse =
 
 export interface CheckoutRequestBody {
   productID:
-    | 'free'
-    | 'plus'
-    | 'pro'
-    | 'max'
-    | 'credit_pack_100'
-    | 'credit_pack_500'
-    | 'credit_pack_1000';
+    | "free"
+    | "plus"
+    | "pro"
+    | "max"
+    | "credit_pack_100"
+    | "credit_pack_500"
+    | "credit_pack_1000";
 }
 
 export interface CheckoutSuccessResponse {
@@ -228,12 +228,12 @@ export const HTTP_STATUS = {
 
 export interface FetchViewingUrlRequestBody {
   prototype_id: string;
-  current_page?: 'view' | 'edit' | null;
+  current_page?: "view" | "edit" | null;
 }
 
 export interface FetchViewingUrlSuccessResponse {
   viewing_url: string;
-  source: 'editable_instance' | 'static_build';
+  source: "editable_instance" | "static_build";
   status: BuildStatus | null;
   terminal_url: string | null;
 }
@@ -247,10 +247,10 @@ export interface CreatePrototypeRequestBody {
   description?: string;
   folder_id?: string;
   prototype_id?: string; // For forking an existing prototype
-  visibility?: 'PUBLIC' | 'SELF';
-  design_style?: Database['public']['Enums']['design_style'];
+  visibility?: "PUBLIC" | "SELF";
+  design_style?: Database["public"]["Enums"]["design_style"];
   custom_design_system?: string | null;
-  framework?: Database['public']['Enums']['prototype_framework'];
+  framework?: Database["public"]["Enums"]["prototype_framework"];
 }
 
 export interface CreatePrototypeSuccessResponse {
@@ -260,11 +260,11 @@ export interface CreatePrototypeSuccessResponse {
 
 export interface CreatePrototypeErrorResponse {
   error:
-    | 'UNAUTHORIZED'
-    | 'PROTOTYPE_LIMIT_REACHED'
-    | 'DATABASE_ERROR'
-    | 'S3_ERROR'
-    | 'INVALID_REQUEST';
+    | "UNAUTHORIZED"
+    | "PROTOTYPE_LIMIT_REACHED"
+    | "DATABASE_ERROR"
+    | "S3_ERROR"
+    | "INVALID_REQUEST";
   message: string;
 }
 
@@ -279,7 +279,7 @@ export interface DeletePrototypeSuccessResponse {
 
 export interface DeletePrototypeErrorResponse {
   success: false;
-  error: 'UNAUTHORIZED' | 'NOT_FOUND' | 'DATABASE_ERROR' | 'S3_ERROR';
+  error: "UNAUTHORIZED" | "NOT_FOUND" | "DATABASE_ERROR" | "S3_ERROR";
   message: string;
 }
 
@@ -293,7 +293,7 @@ export interface StartDevServerRequestBody {
 
 export interface StartDevServerSuccessResponse {
   success: true;
-  status: 'success' | 'error';
+  status: "success" | "error";
   viewing_url: string;
   message: string;
   terminal_url: string | null;
@@ -350,9 +350,9 @@ export function isStandardErrorResponse(
   response: unknown,
 ): response is StandardErrorResponse {
   return (
-    typeof response === 'object' &&
+    typeof response === "object" &&
     response !== null &&
-    'error' in response &&
-    'message' in response
+    "error" in response &&
+    "message" in response
   );
 }

@@ -87,13 +87,13 @@ const DashboardSidebarContent = () => {
     },
     ...(SHOW_WHITEBOARDS
       ? [
-        {
-          href: "/dashboard/whiteboards",
-          icon: SquareStack,
-          label: "Whiteboards",
-          active: pathname?.includes("whiteboards"),
-        },
-      ]
+          {
+            href: "/dashboard/whiteboards",
+            icon: SquareStack,
+            label: "Whiteboards",
+            active: pathname?.includes("whiteboards"),
+          },
+        ]
       : []),
   ];
 
@@ -148,17 +148,21 @@ const DashboardSidebarContent = () => {
                   tooltip={isCollapsed ? "New chat +" : undefined}
                   className={isCollapsed ? "justify-center" : ""}
                 >
-                    <Link
-                      href="/dashboard"
-                      onClick={() => {
-                        logSidebarItemClick("new_chat", {
-                          href: "/dashboard",
-                        });
-                        handleMobileLinkClick();
-                      }}
-                    >
+                  <Link
+                    href="/dashboard"
+                    onClick={() => {
+                      logSidebarItemClick("new_chat", {
+                        href: "/dashboard",
+                      });
+                      handleMobileLinkClick();
+                    }}
+                  >
                     <Sparkles className="w-5 h-5" />
-                    {!isCollapsed && <span className="text-sidebar-foreground">New chat +</span>}
+                    {!isCollapsed && (
+                      <span className="text-sidebar-foreground">
+                        New chat +
+                      </span>
+                    )}
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -188,7 +192,11 @@ const DashboardSidebarContent = () => {
                       }}
                     >
                       <item.icon className="w-5 h-5" />
-                      {!isCollapsed && <span className="text-sidebar-foreground">{item.label}</span>}
+                      {!isCollapsed && (
+                        <span className="text-sidebar-foreground">
+                          {item.label}
+                        </span>
+                      )}
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -217,7 +225,9 @@ const DashboardSidebarContent = () => {
                 className={isCollapsed ? "justify-center" : ""}
               >
                 <Zap className="w-5 h-5 text-amber-500" />
-                {!isCollapsed && <span className="text-sidebar-foreground">Upgrade</span>}
+                {!isCollapsed && (
+                  <span className="text-sidebar-foreground">Upgrade</span>
+                )}
               </SidebarMenuButton>
             </SidebarMenuItem>
           )}
@@ -232,12 +242,16 @@ const DashboardSidebarContent = () => {
               <Link
                 href="/dashboard/account"
                 onClick={() => {
-                  logSidebarItemClick("settings", { href: "/dashboard/account" });
+                  logSidebarItemClick("settings", {
+                    href: "/dashboard/account",
+                  });
                   handleMobileLinkClick();
                 }}
               >
                 <User className="w-5 h-5" />
-                {!isCollapsed && <span className="text-sidebar-foreground">Account</span>}
+                {!isCollapsed && (
+                  <span className="text-sidebar-foreground">Account</span>
+                )}
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
@@ -252,7 +266,9 @@ const DashboardSidebarContent = () => {
               className={isCollapsed ? "justify-center" : ""}
             >
               <LogOut className="w-5 h-5" />
-              {!isCollapsed && <span className="text-sidebar-foreground">Logout</span>}
+              {!isCollapsed && (
+                <span className="text-sidebar-foreground">Logout</span>
+              )}
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>

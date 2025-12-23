@@ -11,7 +11,13 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Textarea } from "@/components/ui/textarea";
@@ -119,7 +125,9 @@ function mapMessages(rawMessages: ChatMessage[]): UiMessage[] {
       const toolCallId = eventData?.tool_call_id;
       const toolMessageIndex = uiMessages.findIndex(
         (msg) =>
-          msg.type === "tool" && msg.toolCallId === toolCallId && !msg.isComplete,
+          msg.type === "tool" &&
+          msg.toolCallId === toolCallId &&
+          !msg.isComplete,
       );
 
       if (toolMessageIndex !== -1) {
@@ -189,13 +197,17 @@ function messageTypeVariant(type: UiMessage["type"]) {
 export default function ChatRecreationPage() {
   const [prototypeId, setPrototypeId] = useState("");
   const [sessions, setSessions] = useState<ChatSession[]>([]);
-  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
+  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(
+    null,
+  );
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loadingSessions, setLoadingSessions] = useState(false);
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [loadingRecent, setLoadingRecent] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [recentPrototypes, setRecentPrototypes] = useState<RecentPrototype[]>([]);
+  const [recentPrototypes, setRecentPrototypes] = useState<RecentPrototype[]>(
+    [],
+  );
   const [expandedMessageIds, setExpandedMessageIds] = useState<Set<string>>(
     new Set(),
   );
@@ -249,7 +261,9 @@ export default function ChatRecreationPage() {
       setRecentPrototypes(data.prototypes);
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : "Failed to load recent prototypes.",
+        err instanceof Error
+          ? err.message
+          : "Failed to load recent prototypes.",
       );
     } finally {
       setLoadingRecent(false);
@@ -315,7 +329,9 @@ export default function ChatRecreationPage() {
             <div className="flex flex-wrap items-center gap-3">
               <Select
                 value={
-                  recentPrototypes.some((prototype) => prototype.id === prototypeId)
+                  recentPrototypes.some(
+                    (prototype) => prototype.id === prototypeId,
+                  )
                     ? prototypeId
                     : ""
                 }
@@ -425,9 +441,7 @@ export default function ChatRecreationPage() {
                             {message.type}
                           </Badge>
                           <span>{formatTimestamp(message.timestamp)}</span>
-                          <span>
-                            &#8226; {message.id}
-                          </span>
+                          <span>&#8226; {message.id}</span>
                           {message.type === "tool" && message.toolName && (
                             <Badge variant="outline">{message.toolName}</Badge>
                           )}
@@ -441,18 +455,19 @@ export default function ChatRecreationPage() {
                             <pre className="whitespace-pre-wrap break-words font-sans">
                               {message.content}
                             </pre>
-                            {message.imageUrls && message.imageUrls.length > 0 && (
-                              <div className="mt-3 flex flex-wrap gap-2">
-                                {message.imageUrls.map((url, imageIndex) => (
-                                  <img
-                                    key={`${message.id}-image-${imageIndex}`}
-                                    src={url}
-                                    alt="Chat attachment"
-                                    className="h-20 w-auto rounded border object-cover"
-                                  />
-                                ))}
-                              </div>
-                            )}
+                            {message.imageUrls &&
+                              message.imageUrls.length > 0 && (
+                                <div className="mt-3 flex flex-wrap gap-2">
+                                  {message.imageUrls.map((url, imageIndex) => (
+                                    <img
+                                      key={`${message.id}-image-${imageIndex}`}
+                                      src={url}
+                                      alt="Chat attachment"
+                                      className="h-20 w-auto rounded border object-cover"
+                                    />
+                                  ))}
+                                </div>
+                              )}
                           </div>
                         )}
 

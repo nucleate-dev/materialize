@@ -16,16 +16,13 @@ import { use, useEffect, useState } from "react";
 
 type Prototype = Database["public"]["Tables"]["prototypes"]["Row"];
 
-const SITE_BASE_URL =
-  (process.env.NEXT_PUBLIC_SITE_BASE_URL ??
-    process.env.NEXT_PUBLIC_APP_BASE_URL ??
-    "https://nucleate.dev").replace(/\/$/, "");
+const SITE_BASE_URL = (
+  process.env.NEXT_PUBLIC_SITE_BASE_URL ??
+  process.env.NEXT_PUBLIC_APP_BASE_URL ??
+  "https://nucleate.dev"
+).replace(/\/$/, "");
 
-function MinimalHeader({
-  prototype,
-}: {
-  prototype: Prototype;
-}) {
+function MinimalHeader({ prototype }: { prototype: Prototype }) {
   const visibility = normalizePrototypeVisibility(prototype.visibility);
   const visibilityLabel =
     visibility === "SELF"
@@ -42,7 +39,9 @@ function MinimalHeader({
           {prototype.name.slice(0, 2).toUpperCase()}
         </div>
         <div>
-          <p className="text-sm font-semibold leading-tight">{prototype.name}</p>
+          <p className="text-sm font-semibold leading-tight">
+            {prototype.name}
+          </p>
           <p className="text-xs text-white/60 flex items-center gap-1">
             <Sparkles className="w-3 h-3" />
             Built with Nucleate • {visibilityLabel}
@@ -65,7 +64,7 @@ function MinimalHeader({
 export default function DeployedAppPage({
   params,
 }: {
-  params: Promise<{ slug: string; }>;
+  params: Promise<{ slug: string }>;
 }) {
   const { slug } = use(params);
   const [prototype, setPrototype] = useState<Prototype | null>(null);

@@ -59,8 +59,7 @@ interface NewPrototypeModalProps {
 }
 
 type DesignStyle = Database["public"]["Enums"]["design_style"];
-type PrototypeFramework =
-  Database["public"]["Enums"]["prototype_framework"];
+type PrototypeFramework = Database["public"]["Enums"]["prototype_framework"];
 type DesignSystemRow = Database["public"]["Tables"]["design_systems"]["Row"];
 type FolderOption = {
   id: string;
@@ -143,9 +142,7 @@ export default function NewPrototypeModal({
   const getDesignStyleLabel = (style: DesignStyle): string => {
     if (isWebFrameworkSelected) {
       return (
-        WEB_DESIGN_STYLE_LABELS[style] ??
-        DESIGN_STYLE_LABELS[style] ??
-        style
+        WEB_DESIGN_STYLE_LABELS[style] ?? DESIGN_STYLE_LABELS[style] ?? style
       );
     }
     return DESIGN_STYLE_LABELS[style] ?? style;
@@ -537,8 +534,8 @@ export default function NewPrototypeModal({
             className={cn(
               "space-y-5",
               userPlan === "free" &&
-              prototypeCount >= 5 &&
-              "opacity-50 pointer-events-none",
+                prototypeCount >= 5 &&
+                "opacity-50 pointer-events-none",
             )}
           >
             {/* Project Name Input */}
@@ -558,8 +555,8 @@ export default function NewPrototypeModal({
                 className={cn(
                   "h-11 bg-white dark:bg-[#0B0C0E] border-zinc-200 dark:border-white/10 text-zinc-900 dark:text-white focus:border-indigo-500 dark:focus:border-white/20 placeholder:text-zinc-400 dark:placeholder:text-white/20 transition-all",
                   touched &&
-                  !name.trim() &&
-                  "border-red-500/50 focus-visible:ring-red-500/20",
+                    !name.trim() &&
+                    "border-red-500/50 focus-visible:ring-red-500/20",
                 )}
                 autoFocus
                 maxLength={64}

@@ -142,8 +142,7 @@ function buildSortedObjectText(objectExpression, sortedProperties, sourceCode) {
   );
   const lines = sortedProperties.map((prop, index) => {
     const text = sourceCode.getText(prop);
-    const needsComma =
-      hasTrailingComma || index < sortedProperties.length - 1;
+    const needsComma = hasTrailingComma || index < sortedProperties.length - 1;
     return `${newline}${indent}${text}${(needsComma && ',') || ''}`;
   });
   return `${lines.join('')}${closingWhitespace}`;
@@ -228,8 +227,7 @@ export default {
         );
 
         if (declaration) {
-          const init =
-            declaration.declaration.declarations[0].init ?? null;
+          const init = declaration.declaration.declarations[0].init ?? null;
           const objectExpression = findObjectExpression(init);
           if (objectExpression) {
             const objectKeys = getObjectKeys(objectExpression);
@@ -252,7 +250,8 @@ export default {
                   const properties = objectExpression.properties;
                   if (
                     !properties.every(
-                      (prop) => prop.type === 'Property' && getPropertyKey(prop),
+                      (prop) =>
+                        prop.type === 'Property' && getPropertyKey(prop),
                     )
                   ) {
                     return null;
@@ -270,12 +269,10 @@ export default {
                   if (!replacement) {
                     return null;
                   }
-                  const openingBrace = sourceCode.getFirstToken(
-                    objectExpression,
-                  );
-                  const closingBrace = sourceCode.getLastToken(
-                    objectExpression,
-                  );
+                  const openingBrace =
+                    sourceCode.getFirstToken(objectExpression);
+                  const closingBrace =
+                    sourceCode.getLastToken(objectExpression);
                   if (!openingBrace || !closingBrace) {
                     return null;
                   }

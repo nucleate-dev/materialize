@@ -8,6 +8,7 @@ order: 2
 ## What you'll accomplish
 
 By the end of this guide, you'll be able to:
+
 - Identify different types of errors
 - Use the 60-second triage checklist
 - Paste errors correctly into prompts
@@ -16,17 +17,20 @@ By the end of this guide, you'll be able to:
 ## Error taxonomy
 
 ### TypeScript errors
+
 - Red squiggles in the editor
 - Type mismatches
 - Missing properties
 - Import errors
 
 ### Runtime red screens
+
 - App crashes with a red error screen
 - Stack traces pointing to your code
 - Usually logic errors or null references
 
 ### Metro / bundler issues
+
 - "Unable to resolve module"
 - "Invariant Violation"
 - Bundle failed to build
@@ -51,9 +55,11 @@ By the end of this guide, you'll be able to:
 ## How to paste errors correctly
 
 ### Bad way ❌
+
 > "It's not working"
 
 ### Good way ✅
+
 ```
 I'm getting this error:
 
@@ -75,12 +81,15 @@ This prevents the AI from applying a quick fix that breaks something else.
 ## Rollback & isolation strategies
 
 ### Quick rollback
+
 > "Undo the last change to `app/(tabs)/index.tsx`"
 
 ### Isolation
+
 > "Comment out the new code so I can verify the app worked before"
 
 ### Fresh start
+
 > "Let's start this feature over. Delete what we added and try a different approach."
 
 ## Copy-paste error fix prompt
@@ -103,11 +112,11 @@ Then apply the fix.
 
 ## Common Expo / React Native error buckets
 
-| Error | Likely cause |
-|-------|-------------|
-| "Cannot read property of undefined" | Missing null check |
-| "Unable to resolve module" | Missing import or package |
-| "Invalid hook call" | Hook called conditionally |
+| Error                                   | Likely cause               |
+| --------------------------------------- | -------------------------- |
+| "Cannot read property of undefined"     | Missing null check         |
+| "Unable to resolve module"              | Missing import or package  |
+| "Invalid hook call"                     | Hook called conditionally  |
 | "Text strings must be rendered in Text" | JSX outside Text component |
 
 ## Checklist
@@ -119,7 +128,7 @@ Then apply the fix.
 
 ## Common issues
 
-**Same error keeps coming back?** Ask the AI to explain *why* it keeps happening.
+**Same error keeps coming back?** Ask the AI to explain _why_ it keeps happening.
 
 **App won't start at all?** Try refreshing the preview or restarting the dev server.
 

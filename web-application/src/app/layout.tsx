@@ -10,8 +10,7 @@ const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: "Nucleate - Build Mobile Apps with AI",
-  description:
-    "Nucleate helps you build beautiful mobile apps with AI.",
+  description: "Nucleate helps you build beautiful mobile apps with AI.",
   keywords: [
     "prototyping",
     "design",
@@ -24,15 +23,13 @@ export const metadata: Metadata = {
   authors: [{ name: "Nucleate" }],
   openGraph: {
     title: "Nucleate - Build Mobile Apps with AI",
-    description:
-      "Nucleate helps you build beautiful mobile apps with AI.",
+    description: "Nucleate helps you build beautiful mobile apps with AI.",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
     title: "Nucleate - Build Mobile Apps with AI",
-    description:
-      "Nucleate helps you build beautiful mobile apps with AI.",
+    description: "Nucleate helps you build beautiful mobile apps with AI.",
   },
   verification: {
     other: {

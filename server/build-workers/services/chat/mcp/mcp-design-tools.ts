@@ -82,7 +82,7 @@ export function createDesignToolsMcpServer(
                 google: {
                   thinkingConfig: {
                     includeThoughts: true,
-                    thinkingLevel: 'low',
+                    thinkingLevel: "low",
                   },
                 },
               },

@@ -20,13 +20,14 @@ import { cn } from "@/lib/classNames";
 import { logout } from "@/lib/utils/auth/SupabaseAuthUtils";
 import { useAtom } from "jotai";
 import {
-  Atom, Folder,
+  Atom,
+  Folder,
   LogOut,
   Palette,
   Plus,
   Rocket,
   Settings,
-  SquareStack
+  SquareStack,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -58,13 +59,13 @@ const DashboardSidebarContent = () => {
     },
     ...(SHOW_WHITEBOARDS
       ? [
-        {
-          href: "/dashboard/whiteboards",
-          icon: SquareStack,
-          label: "Whiteboards",
-          active: pathname?.includes("whiteboards"),
-        },
-      ]
+          {
+            href: "/dashboard/whiteboards",
+            icon: SquareStack,
+            label: "Whiteboards",
+            active: pathname?.includes("whiteboards"),
+          },
+        ]
       : []),
   ];
 
