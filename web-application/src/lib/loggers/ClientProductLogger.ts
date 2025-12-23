@@ -8,7 +8,7 @@ import type { PostHogEvent } from "./PostHogEvents";
 export type LogLevel = "log" | "warn" | "error";
 
 export interface ProductLogProperties {
-  source: string;
+  source?: string;
   functionName?: string;
   fileName?: string;
   component?: string;
