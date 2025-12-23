@@ -1,0 +1,626 @@
+---
+title: "How to Structure a React Native App for Fast Iteration"
+excerpt: "Project organization optimized for speed, not theoretical purity. Patterns for screens, components, hooks, and feature-based structuring."
+publishedAt: "2025-12-22"
+tags: ["react-native", "architecture", "productivity"]
+category: "guides"
+featured: false
+---
+
+# How to Structure a React Native App for Fast Iteration
+
+The best project structure isn't the one that looks cleanest in a diagram. It's the one that lets you ship features without fighting your own codebase.
+
+Most structure guides focus on "best practices" that sound good but slow you down. Deep folder hierarchies that require six clicks to find anything. Strict separation of concerns that forces you to edit five files to add one field. Abstractions that made sense at 10 components but are nonsense at 50.
+
+Let's talk about structure optimized for real work: shipping features, fixing bugs, and iterating fast without everything breaking.
+
+---
+
+## The Core Principle: Optimize for Change
+
+Good structure makes common changes easy and uncommon changes possible.
+
+Ask yourself: what do you actually do every day?
+- Add new screens
+- Modify existing UI
+- Connect to APIs
+- Fix bugs in specific features
+- Share components across screens
+
+Your folder structure should make these tasks trivial. If adding a new screen requires creating files in five different folders and updating three config files, your structure is fighting you.
+
+---
+
+## Start Simple: The Minimal Structure
+
+For the first few screens, this is all you need:
+
+```
+/src
+  /screens
+    HomeScreen.tsx
+    ProfileScreen.tsx
+  /components
+    Button.tsx
+    Card.tsx
+  App.tsx
+```
+
+Screens go in `/screens`. Reusable components go in `/components`. That's it.
+
+This works until you have about 10-15 screens. After that, you need more organization.
+
+---
+
+## Scale Up: Feature-Based Structure
+
+When the simple structure gets messy, group by feature instead of by type:
+
+```
+/src
+  /features
+    /home
+      HomeScreen.tsx
+      HomeHeader.tsx
+      PopularSection.tsx
+      useHomeData.tsx
+    /profile
+      ProfileScreen.tsx
+      EditProfileScreen.tsx
+      ProfileCard.tsx
+      useProfile.tsx
+    /auth
+      LoginScreen.tsx
+      SignupScreen.tsx
+      useAuth.tsx
+  /shared
+    /components
+      Button.tsx
+      Card.tsx
+    /hooks
+      useAPI.tsx
+  App.tsx
+```
+
+Now everything related to "profile" lives in `/features/profile`. Need to change how profiles work? Open one folder, not seven.
+
+### Why This Works
+
+**Feature isolation.** Changing the profile feature doesn't touch home or auth. Less risk of breaking unrelated things.
+
+**Easier navigation.** You don't hunt through `/components` looking for the right file. Everything for a feature is together.
+
+**Clearer ownership.** If you're working on authentication, you own `/features/auth`. New team members can own entire features without understanding the whole codebase.
+
+**Scales naturally.** Adding a new feature means creating a new folder, not reorganizing the entire project.
+
+---
+
+## Screen Patterns: Keep It Flat
+
+Screens should be thin orchestration layers. They compose components and hooks but don't contain complex logic.
+
+### Bad Screen (Too Much Logic)
+
+```tsx
+export default function ProfileScreen() {
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [editing, setEditing] = useState(false);
+
+  useEffect(() => {
+    fetch('/api/profile')
+      .then(res => res.json())
+      .then(data => {
+        setUser(data);
+        setLoading(false);
+      });
+  }, []);
+
+  const handleSave = async (updates) => {
+    await fetch('/api/profile', {
+      method: 'PATCH',
+      body: JSON.stringify(updates),
+    });
+    setEditing(false);
+  };
+
+  if (loading) return <Loader />;
+
+  return editing ? (
+    <EditProfileForm user={user} onSave={handleSave} />
+  ) : (
+    <ProfileView user={user} onEdit={() => setEditing(true)} />
+  );
+}
+```
+
+This screen does too much. Data fetching, state management, and conditional rendering are all mixed together.
+
+### Good Screen (Thin Orchestration)
+
+```tsx
+import { useProfile } from './useProfile';
+import { ProfileView } from './ProfileView';
+import { EditProfileForm } from './EditProfileForm';
+
+export default function ProfileScreen() {
+  const { user, loading, editing, setEditing, updateProfile } = useProfile();
+
+  if (loading) return <Loader />;
+
+  return editing ? (
+    <EditProfileForm user={user} onSave={updateProfile} />
+  ) : (
+    <ProfileView user={user} onEdit={() => setEditing(true)} />
+  );
+}
+```
+
+Now the screen just wires things together. Logic lives in hooks, UI lives in components.
+
+---
+
+## Component Patterns: Local Until Shared
+
+Don't put every component in `/shared` from the start. Keep components local to features until they're actually used in multiple places.
+
+### Local Components First
+
+```
+/features/profile
+  ProfileScreen.tsx
+  ProfileCard.tsx       ← Used only in ProfileScreen
+  ProfileAvatar.tsx     ← Used only in ProfileCard
+```
+
+These components are specific to the profile feature. Keep them in `/features/profile`.
+
+### Share When Reused
+
+If you need `ProfileCard` in another feature, then move it to `/shared/components`:
+
+```
+/shared/components
+  ProfileCard.tsx       ← Now used by multiple features
+```
+
+**Rule of thumb:** Don't share until you've used a component 2-3 times. Premature abstraction is worse than duplication.
+
+---
+
+## Hook Patterns: Extract Logic, Not Everything
+
+Custom hooks are great for extracting stateful logic. But not everything needs to be a hook.
+
+### What Should Be a Hook
+
+**Data fetching:**
+```tsx
+function useProfile() {
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchProfile().then(data => {
+      setUser(data);
+      setLoading(false);
+    });
+  }, []);
+
+  return { user, loading };
+}
+```
+
+**Shared state logic:**
+```tsx
+function useToggle(initial = false) {
+  const [value, setValue] = useState(initial);
+  const toggle = () => setValue(v => !v);
+  return [value, toggle];
+}
+```
+
+**Side effects that multiple components need:**
+```tsx
+function useKeyboardHeight() {
+  const [height, setHeight] = useState(0);
+
+  useEffect(() => {
+    const listener = Keyboard.addListener('keyboardDidShow', (e) => {
+      setHeight(e.endCoordinates.height);
+    });
+    return () => listener.remove();
+  }, []);
+
+  return height;
+}
+```
+
+### What Shouldn't Be a Hook
+
+Simple calculations, formatters, and pure functions don't need to be hooks:
+
+```tsx
+// Don't do this
+function useFormatDate(date) {
+  return useMemo(() => format(date, 'MMM d, yyyy'), [date]);
+}
+
+// Do this instead
+function formatDate(date) {
+  return format(date, 'MMM d, yyyy');
+}
+```
+
+Hooks are for stateful logic. Pure functions stay as functions.
+
+---
+
+## API Layer: Centralize Requests
+
+Don't scatter API calls throughout your components. Centralize them in an API module.
+
+### Feature-Specific API Files
+
+```
+/features/profile
+  profileAPI.ts
+```
+
+```tsx
+// profileAPI.ts
+export async function fetchProfile() {
+  const response = await fetch('/api/profile');
+  return response.json();
+}
+
+export async function updateProfile(updates) {
+  const response = await fetch('/api/profile', {
+    method: 'PATCH',
+    body: JSON.stringify(updates),
+  });
+  return response.json();
+}
+```
+
+Now your hooks call these functions instead of using `fetch` directly:
+
+```tsx
+function useProfile() {
+  const [user, setUser] = useState(null);
+
+  useEffect(() => {
+    fetchProfile().then(setUser);
+  }, []);
+
+  const updateUser = async (updates) => {
+    const updated = await updateProfile(updates);
+    setUser(updated);
+  };
+
+  return { user, updateUser };
+}
+```
+
+**Why this helps:**
+- API changes happen in one place
+- Easier to add auth headers, error handling, retries
+- Easier to mock for testing
+
+---
+
+## Navigation: File-Based or Declarative
+
+Two main approaches in 2025:
+
+### File-Based Routing (Expo Router)
+
+```
+/app
+  index.tsx              → /
+  profile.tsx            → /profile
+  posts/[id].tsx         → /posts/:id
+```
+
+Your file structure defines your routes. Simple, intuitive, scales well.
+
+### Declarative Routing (React Navigation)
+
+```tsx
+<Stack.Navigator>
+  <Stack.Screen name="Home" component={HomeScreen} />
+  <Stack.Screen name="Profile" component={ProfileScreen} />
+  <Stack.Screen name="PostDetail" component={PostDetailScreen} />
+</Stack.Navigator>
+```
+
+More control, but requires manual configuration.
+
+**For fast iteration, file-based routing wins.** Adding a new screen is just creating a new file. No config updates needed.
+
+---
+
+## Shared Code: Be Intentional
+
+The `/shared` folder is for code used across multiple features. But not everything should go there.
+
+### What Goes in /shared
+
+**UI primitives:**
+```
+/shared/components/ui
+  Button.tsx
+  Input.tsx
+  Card.tsx
+  Modal.tsx
+```
+
+**Layout components:**
+```
+/shared/components/layout
+  Screen.tsx
+  Header.tsx
+  Container.tsx
+```
+
+**Common hooks:**
+```
+/shared/hooks
+  useTheme.tsx
+  useAPI.tsx
+  useDebounce.tsx
+```
+
+**Utilities:**
+```
+/shared/utils
+  formatDate.ts
+  validation.ts
+  storage.ts
+```
+
+### What Doesn't Go in /shared
+
+**Feature-specific components.** If it's only used in one feature, keep it in that feature's folder.
+
+**One-off utilities.** A function used in one place doesn't need to be "shared."
+
+**Premature abstractions.** Wait until something is actually reused before moving it to `/shared`.
+
+---
+
+## Theme and Design Tokens
+
+Keep design tokens centralized:
+
+```
+/theme
+  colors.ts
+  typography.ts
+  spacing.ts
+  index.ts
+```
+
+```tsx
+// colors.ts
+export const colors = {
+  primary: '#007AFF',
+  background: '#FFFFFF',
+  text: '#000000',
+  textSecondary: '#666666',
+};
+
+// typography.ts
+export const typography = {
+  sizes: {
+    h1: 32,
+    h2: 24,
+    body: 16,
+    caption: 12,
+  },
+  weights: {
+    regular: '400',
+    bold: '700',
+  },
+};
+
+// spacing.ts
+export const spacing = {
+  xs: 4,
+  sm: 8,
+  md: 16,
+  lg: 24,
+  xl: 32,
+};
+```
+
+Import in components:
+
+```tsx
+import { colors, typography, spacing } from '@/theme';
+
+const styles = StyleSheet.create({
+  container: {
+    padding: spacing.lg,
+    backgroundColor: colors.background,
+  },
+  title: {
+    fontSize: typography.sizes.h1,
+    fontWeight: typography.weights.bold,
+    color: colors.text,
+  },
+});
+```
+
+**Why this matters:** Change colors once, update the entire app. No hunting through hundreds of files for hardcoded values.
+
+---
+
+## TypeScript: Types Per Feature
+
+Keep types close to where they're used:
+
+```
+/features/profile
+  ProfileScreen.tsx
+  types.ts              ← Profile-specific types
+```
+
+```tsx
+// types.ts
+export interface User {
+  id: string;
+  name: string;
+  email: string;
+  avatar: string;
+}
+
+export interface ProfileFormData {
+  name: string;
+  bio: string;
+}
+```
+
+For shared types, use `/shared/types`:
+
+```
+/shared/types
+  common.ts
+  api.ts
+```
+
+Don't create a giant `types.ts` file at the root. Split by feature or domain.
+
+---
+
+## Testing: Colocate Tests
+
+Put tests next to the code they test:
+
+```
+/features/profile
+  ProfileScreen.tsx
+  ProfileScreen.test.tsx
+  useProfile.tsx
+  useProfile.test.tsx
+```
+
+This makes tests easier to find and update. When you change `useProfile.tsx`, the test is right there.
+
+Alternatively, use a `__tests__` folder if you prefer:
+
+```
+/features/profile
+  __tests__
+    ProfileScreen.test.tsx
+    useProfile.test.tsx
+  ProfileScreen.tsx
+  useProfile.tsx
+```
+
+Both work. Pick one and be consistent.
+
+---
+
+## The Full Structure (Practical Example)
+
+Here's what I recommend for fast iteration:
+
+```
+/src
+  /features
+    /auth
+      LoginScreen.tsx
+      SignupScreen.tsx
+      useAuth.tsx
+      authAPI.ts
+      types.ts
+    /home
+      HomeScreen.tsx
+      PopularSection.tsx
+      useHomeData.tsx
+      homeAPI.ts
+    /profile
+      ProfileScreen.tsx
+      EditProfileScreen.tsx
+      ProfileCard.tsx
+      useProfile.tsx
+      profileAPI.ts
+      types.ts
+  /shared
+    /components
+      /ui
+        Button.tsx
+        Input.tsx
+        Card.tsx
+      /layout
+        Screen.tsx
+        Header.tsx
+    /hooks
+      useTheme.tsx
+      useDebounce.tsx
+    /utils
+      formatDate.ts
+      validation.ts
+    /types
+      common.ts
+  /theme
+    colors.ts
+    typography.ts
+    spacing.ts
+    index.ts
+  /navigation
+    index.tsx
+  App.tsx
+```
+
+This structure:
+- Keeps features isolated
+- Makes common changes easy
+- Scales to 100+ screens without modification
+- Doesn't require reorganization as the app grows
+
+---
+
+## Refactoring: When to Reorganize
+
+You'll know it's time to refactor your structure when:
+
+**Finding files takes too long.** You waste time hunting for the right file instead of making changes.
+
+**Changes touch too many files.** Adding a simple feature requires editing 10+ files in different folders.
+
+**Features are coupled.** Changing one feature breaks others because they're tightly interconnected.
+
+**New developers are confused.** If onboarding someone takes days because the structure is convoluted, simplify.
+
+When you refactor, do it incrementally. Move one feature at a time. Don't try to reorganize everything at once.
+
+---
+
+## Conclusion
+
+Structure for fast iteration means:
+
+1. **Group by feature**, not by file type
+2. **Keep screens thin**, extract logic to hooks
+3. **Share components only when reused**, not preemptively
+4. **Centralize API calls**, not scattered throughout
+5. **Colocate related files**, tests next to code, types in features
+6. **Use design tokens**, avoid hardcoded values
+7. **Refactor incrementally**, don't reorganize everything at once
+
+The goal isn't the perfect structure. It's a structure that doesn't slow you down.
+
+Ship features, iterate fast, refactor when it hurts. That's how real apps get built.
+
+---
+
+**Sources:**
+- [Scalable and Modular React Native Expo Folder Structure 2025](https://medium.com/@md.alishanali/scalable-and-modular-react-native-expo-folder-structure-2025-606abc0bf7d6)
+- [How to structure a React App in 2025](https://ramonprata.medium.com/how-to-structure-a-react-app-in-2025-spa-ssr-or-native-10d8de7a245a)
+- [Optimal Folder Structures for React Native / React JS Projects](https://dev.to/ajmal_hasan/react-nativereact-architecture-47p5)
+- [How To Structure a React Native App For Scale](https://medium.com/the-andela-way/how-to-structure-a-react-native-app-for-scale-a29194cd33fc)
+- [Structuring a Scalable React Native Project: A Comprehensive Guide (2025)](https://www.codingeasypeasy.com/blog/structuring-a-scalable-react-native-project-a-comprehensive-guide-2025)
