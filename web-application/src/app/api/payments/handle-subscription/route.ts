@@ -116,6 +116,20 @@ async function handleCheckoutSessionCompleted(
       return;
     }
     await handleCreditPackPurchase(session, creditPackAmount);
+    posthog.capture({
+      distinctId: session.metadata?.user_id ?? "unknown",
+      event: "server_stripe_webhook_checkout_payment_completed",
+      properties: {
+        source: LoggingEventSource.API_PAYMENTS_HANDLE_SUBSCRIPTION,
+        session_id: session.id,
+        mode: session.mode,
+        product_type: "credit_pack",
+        credit_amount: creditPackAmount,
+        amount_total: session.amount_total ?? 0,
+        currency: session.currency ?? "usd",
+        price_id: priceId,
+      },
+    });
   } else if (session.mode === "subscription") {
     // Handle subscription checkout - send Meta Purchase event
     // The actual subscription setup is handled by invoice.paid event
@@ -142,6 +156,19 @@ async function handleCheckoutSessionCompleted(
       transactionId: session.id, // Same ID used by client-side pixel for deduplication
       contentName: `${planKey.charAt(0).toUpperCase() + planKey.slice(1)} Subscription`,
       eventSourceUrl: process.env.NEXT_PUBLIC_SITE_BASE_URL ?? "",
+    });
+    posthog.capture({
+      distinctId: userId,
+      event: "server_stripe_webhook_subscription_payment_completed",
+      properties: {
+        source: LoggingEventSource.API_PAYMENTS_HANDLE_SUBSCRIPTION,
+        session_id: session.id,
+        subscription_id: session.subscription ?? null,
+        plan_key: planKey,
+        amount_total: session.amount_total ?? 0,
+        currency: session.currency ?? "usd",
+        price_id: priceId,
+      },
     });
   }
 }

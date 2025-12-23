@@ -43,6 +43,7 @@ export type PostHogEvent =
   | 'client_upgrade_checkout_clicked'
   | 'client_landing_preset_prompt_selected'
   | 'client_landing_prompt_submitted'
+  | 'client_checkout_payment_completed'
   | 'client_new_prototype_modal_creation_success'
   | 'client_new_prototype_modal_limit_hit'
   | 'client_new_prototype_modal_opened'
@@ -59,7 +60,9 @@ export type PostHogEvent =
   | 'server_prototype_creation'
   | 'server_prototype_deletion'
   | 'server_stripe_billing_portal_session_creation'
-  | 'server_stripe_checkout_session_creation';
+  | 'server_stripe_checkout_session_creation'
+  | 'server_stripe_webhook_checkout_payment_completed'
+  | 'server_stripe_webhook_subscription_payment_completed';
 
 export const PostHogEvents: Record<PostHogEvent, PostHogEvent> = Object.freeze({
   client_auth_callback_login_completed: 'client_auth_callback_login_completed',
@@ -78,6 +81,7 @@ export const PostHogEvents: Record<PostHogEvent, PostHogEvent> = Object.freeze({
   client_landing_preset_prompt_selected:
     'client_landing_preset_prompt_selected',
   client_landing_prompt_submitted: 'client_landing_prompt_submitted',
+  client_checkout_payment_completed: 'client_checkout_payment_completed',
   client_new_prototype_modal_creation_success:
     'client_new_prototype_modal_creation_success',
   client_new_prototype_modal_limit_hit: 'client_new_prototype_modal_limit_hit',
@@ -159,4 +163,8 @@ export const PostHogEvents: Record<PostHogEvent, PostHogEvent> = Object.freeze({
     'server_stripe_billing_portal_session_creation',
   server_stripe_checkout_session_creation:
     'server_stripe_checkout_session_creation',
+  server_stripe_webhook_checkout_payment_completed:
+    'server_stripe_webhook_checkout_payment_completed',
+  server_stripe_webhook_subscription_payment_completed:
+    'server_stripe_webhook_subscription_payment_completed',
 });
