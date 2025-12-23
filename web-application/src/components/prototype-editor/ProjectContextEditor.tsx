@@ -1,12 +1,6 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { UseFileSystemReturn } from "@/hooks/useFileSystem";
 import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import { cn } from "@/lib/classNames";
@@ -14,7 +8,7 @@ import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import { Crepe } from "@milkdown/crepe";
 import "@milkdown/crepe/theme/common/style.css";
 import { replaceAll } from "@milkdown/utils";
-import { FileText, Loader2, Lock, Plus, Save } from "lucide-react";
+import { FileText, Loader2, Lock, Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { handleCheckout } from "@/lib/utils/payments/CheckoutUtils";
@@ -44,14 +38,13 @@ const ProjectContextEditor: React.FC<ProjectContextEditorProps> = ({
   const router = useRouter();
   const { userPlan } = useSubscriptionAccess();
 
-  const [isSaving, setIsSaving] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [isEditorReady, setIsEditorReady] = useState(false);
 
   const editorContainerRef = useRef<HTMLDivElement>(null);
   const crepeRef = useRef<Crepe | null>(null);
   const initialContentRef = useRef<string>("");
+  const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const claudeMdFile = fileSystem.state.files[CLAUDE_MD_FILENAME];
   const fileExists = Boolean(claudeMdFile);
@@ -68,6 +61,27 @@ const ProjectContextEditor: React.FC<ProjectContextEditorProps> = ({
     }
     return initialContentRef.current;
   }, [isEditorReady]);
+
+  // Auto-save function
+  const autoSave = useCallback(async (content: string) => {
+    if (!prototypeId || !fileExists || isReadOnly) return;
+    if (content === initialContentRef.current) return;
+
+    try {
+      const result = await fileSystem.syncFilesAndAssets({
+        filesToUpsert: [{ name: CLAUDE_MD_FILENAME, content }],
+      });
+
+      if (result.success) {
+        initialContentRef.current = content;
+        logger.debug("log", "CLAUDE.md auto-saved");
+      }
+    } catch (error) {
+      logger.debug("error", "Error auto-saving CLAUDE.md:", {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }, [prototypeId, fileExists, isReadOnly, fileSystem, logger]);
 
   // Initialize Milkdown editor
   useEffect(() => {
@@ -98,28 +112,43 @@ const ProjectContextEditor: React.FC<ProjectContextEditorProps> = ({
 
     crepe.create().then(() => {
       crepeRef.current = crepe;
-      setIsEditorReady(true);
 
-      // Set up change listener
-      crepe.on((listener) => {
-        listener.markdownUpdated((_, markdown) => {
-          const hasChanges = markdown !== initialContentRef.current;
-          setHasUnsavedChanges(hasChanges);
-        });
-      });
-
-      // Apply read-only mode
+      // Apply read-only mode first
       if (isReadOnly) {
         crepe.setReadonly(true);
       }
+
+      // Set up change listener with a small delay to ensure editor is fully ready
+      setTimeout(() => {
+        try {
+          crepe.on((listener) => {
+            listener.markdownUpdated((_, markdown) => {
+              // Debounced auto-save
+              if (autoSaveTimeoutRef.current) {
+                clearTimeout(autoSaveTimeoutRef.current);
+              }
+              autoSaveTimeoutRef.current = setTimeout(() => {
+                autoSave(markdown);
+              }, 1000); // Auto-save after 1 second of no typing
+            });
+          });
+        } catch {
+          // Listener setup failed, ignore
+        }
+        setIsEditorReady(true);
+      }, 50);
     });
 
     return () => {
+      // Clear any pending auto-save
+      if (autoSaveTimeoutRef.current) {
+        clearTimeout(autoSaveTimeoutRef.current);
+      }
       crepe.destroy();
       crepeRef.current = null;
       setIsEditorReady(false);
     };
-  }, [fileExists, claudeMdFile?.contents, isReadOnly]);
+  }, [fileExists, claudeMdFile?.contents, isReadOnly, autoSave]);
 
   // Sync content when file changes externally
   useEffect(() => {
@@ -130,37 +159,12 @@ const ProjectContextEditor: React.FC<ProjectContextEditorProps> = ({
           // File changed externally, update editor using replaceAll action
           initialContentRef.current = claudeMdFile.contents;
           crepeRef.current.editor.action(replaceAll(claudeMdFile.contents));
-          setHasUnsavedChanges(false);
         }
       } catch {
         // Editor not ready yet, ignore
       }
     }
   }, [claudeMdFile?.contents, getEditorContent, isEditorReady]);
-
-  const handleSave = useCallback(async () => {
-    if (!prototypeId || !fileExists || !crepeRef.current) return;
-
-    setIsSaving(true);
-    try {
-      const content = getEditorContent();
-      const result = await fileSystem.syncFilesAndAssets({
-        filesToUpsert: [{ name: CLAUDE_MD_FILENAME, content }],
-      });
-
-      if (result.success) {
-        initialContentRef.current = content;
-        setHasUnsavedChanges(false);
-        logger.debug("log", "CLAUDE.md saved successfully");
-      }
-    } catch (error) {
-      logger.debug("error", "Error saving CLAUDE.md:", {
-        error: error instanceof Error ? error.message : String(error),
-      });
-    } finally {
-      setIsSaving(false);
-    }
-  }, [prototypeId, fileExists, fileSystem, getEditorContent, logger]);
 
   const handleCreateFile = useCallback(async () => {
     if (!prototypeId || userPlan === "free") return;
@@ -231,99 +235,43 @@ const ProjectContextEditor: React.FC<ProjectContextEditorProps> = ({
 
   // Editor view - file exists
   return (
-    <TooltipProvider>
-      <div className="h-full flex flex-col bg-background text-foreground">
-        {/* Header Toolbar */}
-        <div className="flex items-center justify-between p-3 border-b border-border bg-accent/50">
-          <div className="flex items-center gap-2.5">
-            <div className="p-1.5 rounded bg-accent border border-border">
-              <FileText className="w-3.5 h-3.5 text-indigo-400" />
-            </div>
-            <span className="text-sm font-medium tracking-tight text-foreground">
-              {CLAUDE_MD_FILENAME}
+    <div className="h-full flex flex-col bg-background text-foreground relative">
+      {/* Free Plan Banner */}
+      {userPlan === "free" && (
+        <div className="absolute top-0 left-0 right-0 z-20 bg-amber-500/10 border-b border-amber-500/20 backdrop-blur-md px-4 py-2 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Lock className="w-3 h-3 text-amber-500" />
+            <span className="text-xs text-amber-200/80 font-medium">
+              Read-only mode
             </span>
-            {hasUnsavedChanges && (
-              <span className="px-1.5 py-0.5 text-[10px] bg-amber-500/20 text-amber-500 rounded uppercase tracking-wider font-semibold">
-                Unsaved
-              </span>
-            )}
-            {isReadOnly && (
-              <span className="px-1.5 py-0.5 text-[10px] bg-accent text-muted-foreground rounded uppercase tracking-wider font-semibold">
-                Read Only
-              </span>
-            )}
           </div>
-
-          <div className="flex items-center gap-1">
-            {!isReadOnly && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className={cn(
-                      "h-7 w-7 p-0 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors",
-                      isSaving && "text-indigo-400 animate-pulse",
-                    )}
-                    onClick={handleSave}
-                    disabled={isSaving || !hasUnsavedChanges}
-                  >
-                    <Save className="w-4 h-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent
-                  side="bottom"
-                  className="bg-accent border-border text-xs"
-                >
-                  <p>
-                    {hasUnsavedChanges ? "Save changes" : "No changes to save"}
-                  </p>
-                </TooltipContent>
-              </Tooltip>
-            )}
-          </div>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-6 px-2 text-[10px] bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 border border-amber-500/20 rounded-full"
+            onClick={() => handleCheckout("plus", router)}
+          >
+            Upgrade Plan
+          </Button>
         </div>
+      )}
 
-        {/* Main Content Area */}
-        <div className="flex-1 flex flex-col relative overflow-hidden">
-          {/* Free Plan Banner */}
-          {userPlan === "free" && (
-            <div className="absolute top-0 left-0 right-0 z-20 bg-amber-500/10 border-b border-amber-500/20 backdrop-blur-md px-4 py-2 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Lock className="w-3 h-3 text-amber-500" />
-                <span className="text-xs text-amber-200/80 font-medium">
-                  Read-only mode
-                </span>
-              </div>
-              <Button
-                size="sm"
-                variant="ghost"
-                className="h-6 px-2 text-[10px] bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 border border-amber-500/20 rounded-full"
-                onClick={() => handleCheckout("plus", router)}
-              >
-                Upgrade Plan
-              </Button>
-            </div>
-          )}
+      {/* Milkdown Editor Container */}
+      <div
+        ref={editorContainerRef}
+        className={cn(
+          "flex-1 h-full overflow-auto milkdown-editor",
+          userPlan === "free" && "pt-10",
+          !isEditorReady && "opacity-0",
+        )}
+      />
 
-          {/* Milkdown Editor Container */}
-          <div
-            ref={editorContainerRef}
-            className={cn(
-              "flex-1 h-full overflow-auto milkdown-editor",
-              userPlan === "free" && "pt-10",
-              !isEditorReady && "opacity-0",
-            )}
-          />
-
-          {/* Loading state */}
-          {!isEditorReady && (
-            <div className="absolute inset-0 flex items-center justify-center">
-              <Loader2 className="w-6 h-6 text-muted-foreground animate-spin" />
-            </div>
-          )}
+      {/* Loading state */}
+      {!isEditorReady && (
+        <div className="absolute inset-0 flex items-center justify-center">
+          <Loader2 className="w-6 h-6 text-muted-foreground animate-spin" />
         </div>
-      </div>
+      )}
 
       {/* Custom styles for Milkdown - theme-aware */}
       <style jsx global>{`
@@ -461,7 +409,7 @@ const ProjectContextEditor: React.FC<ProjectContextEditorProps> = ({
         }
 
       `}</style>
-    </TooltipProvider>
+    </div>
   );
 };
 
