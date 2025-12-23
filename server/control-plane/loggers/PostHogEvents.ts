@@ -7,6 +7,7 @@ export type PostHogEvent =
   | 'client_dashboard_prototype_limit_hit'
   | 'client_dashboard_settings_clicked'
   | 'client_dashboard_sidebar_tab_clicked'
+  | 'client_landing_page_header_item_clicked'
   | 'client_prototype_editor_build_and_deploy_clicked'
   | 'client_prototype_editor_browser_preview_opened'
   | 'client_prototype_editor_chat_message_queued'
@@ -20,8 +21,8 @@ export type PostHogEvent =
   | 'client_prototype_editor_code_editor_upload_modal_opened'
   | 'client_prototype_editor_code_tab_selected'
   | 'client_prototype_editor_deploy_modal_opened'
-  | 'client_prototype_editor_deploy_slug_copied'
   | 'client_prototype_editor_deploy_submitted'
+  | 'client_prototype_editor_deployment_url_copied'
   | 'client_prototype_editor_env_var_added'
   | 'client_prototype_editor_env_var_deleted'
   | 'client_prototype_editor_env_var_updated'
@@ -42,10 +43,6 @@ export type PostHogEvent =
   | 'client_upgrade_checkout_clicked'
   | 'client_landing_preset_prompt_selected'
   | 'client_landing_prompt_submitted'
-  | 'client_nav_blog_clicked'
-  | 'client_nav_create_account_clicked'
-  | 'client_nav_for_teams_clicked'
-  | 'client_nav_sign_in_clicked'
   | 'client_new_prototype_modal_creation_success'
   | 'client_new_prototype_modal_limit_hit'
   | 'client_new_prototype_modal_opened'
@@ -76,13 +73,11 @@ export const PostHogEvents: Record<PostHogEvent, PostHogEvent> = Object.freeze({
   client_dashboard_sidebar_item_clicked:
     'client_dashboard_sidebar_item_clicked',
   client_dashboard_sidebar_tab_clicked: 'client_dashboard_sidebar_tab_clicked',
+  client_landing_page_header_item_clicked:
+    'client_landing_page_header_item_clicked',
   client_landing_preset_prompt_selected:
     'client_landing_preset_prompt_selected',
   client_landing_prompt_submitted: 'client_landing_prompt_submitted',
-  client_nav_blog_clicked: 'client_nav_blog_clicked',
-  client_nav_create_account_clicked: 'client_nav_create_account_clicked',
-  client_nav_for_teams_clicked: 'client_nav_for_teams_clicked',
-  client_nav_sign_in_clicked: 'client_nav_sign_in_clicked',
   client_new_prototype_modal_creation_success:
     'client_new_prototype_modal_creation_success',
   client_new_prototype_modal_limit_hit: 'client_new_prototype_modal_limit_hit',
@@ -116,10 +111,10 @@ export const PostHogEvents: Record<PostHogEvent, PostHogEvent> = Object.freeze({
     'client_prototype_editor_code_tab_selected',
   client_prototype_editor_deploy_modal_opened:
     'client_prototype_editor_deploy_modal_opened',
-  client_prototype_editor_deploy_slug_copied:
-    'client_prototype_editor_deploy_slug_copied',
   client_prototype_editor_deploy_submitted:
     'client_prototype_editor_deploy_submitted',
+  client_prototype_editor_deployment_url_copied:
+    'client_prototype_editor_deployment_url_copied',
   client_prototype_editor_env_var_added:
     'client_prototype_editor_env_var_added',
   client_prototype_editor_env_var_deleted:
