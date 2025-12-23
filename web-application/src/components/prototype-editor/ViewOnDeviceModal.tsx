@@ -50,24 +50,20 @@ export function ViewOnDeviceModal({
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md bg-accent border-border text-foreground">
         <DialogHeader>
-          <DialogTitle className="text-foreground">
-            View on Device
-          </DialogTitle>
+          <DialogTitle className="text-foreground">View on Device</DialogTitle>
           <DialogDescription className="text-muted-foreground">
-            {currentRenderStatus === "Connected"
+            {currentRenderStatus === "Connected" ||
+            currentRenderStatus === "Connecting.."
               ? "Scan this QR code with your phone's camera to open in Expo Go"
               : "Public viewing URL"}
           </DialogDescription>
         </DialogHeader>
         <div className="flex flex-col items-center justify-center gap-6 py-6">
-          {viewing_url && currentRenderStatus === "Connected" ? (
+          {(viewing_url && currentRenderStatus === "Connected") ||
+          currentRenderStatus === "Connecting.." ? (
             <>
               <div className="bg-white p-4 rounded-xl shadow-lg">
-                <QRCodeSVG
-                  value={getExpoGoDeepLink()}
-                  size={200}
-                  level="H"
-                />
+                <QRCodeSVG value={getExpoGoDeepLink()} size={200} level="H" />
               </div>
               <div className="text-center space-y-2 w-full px-4">
                 <p className="text-xs text-muted-foreground">
