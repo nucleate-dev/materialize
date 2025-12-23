@@ -8,7 +8,7 @@ import {
   Server,
   Settings,
   Smartphone,
-  Trash2
+  Trash2,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -96,7 +96,7 @@ export function InternalToolsSidebar() {
                     className={cn(
                       "w-full justify-start",
                       pathname === item.url &&
-                      "bg-accent text-accent-foreground",
+                        "bg-accent text-accent-foreground",
                     )}
                   >
                     <Link href={item.url}>

@@ -11,6 +11,7 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "lint:check": "eslint . --max-warnings 0",
+    "prettier": "prettier --write \"**/*.{js,jsx,ts,tsx,md,mdx,json}\" \"!**/node_modules/**\" \"!**/dist/**\" \"!**/build/**\"",
     "prebuild": "npm run lint:check",
     "test:build": "node --loader ts-node/esm testscripts/test-build-endpoint.ts",
     "test:deploy": "node --loader ts-node/esm testscripts/test-deploy-endpoint.ts",
@@ -49,6 +50,7 @@
     "@typescript-eslint/parser": "^8.45.0",
     "eslint": "^9.37.0",
     "eslint-config-prettier": "^10.1.8",
+    "prettier": "^3.5.1",
     "nodemon": "^3.1.11",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3"

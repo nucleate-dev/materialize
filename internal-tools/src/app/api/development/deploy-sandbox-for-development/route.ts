@@ -9,15 +9,15 @@ const REPO_ROOT = path.resolve(process.cwd(), "..");
 const SERVER_DIR = path.join(REPO_ROOT, "server");
 const PUSH_TO_ECR_SCRIPT = path.join(SERVER_DIR, "push-to-ecr.sh");
 
-function runPushToECRScriptWithStreaming(
-  onData: (data: string) => void
-) {
+function runPushToECRScriptWithStreaming(onData: (data: string) => void) {
   return new Promise<{
     code: number | null;
     success: boolean;
   }>((resolve, reject) => {
     if (!fs.existsSync(PUSH_TO_ECR_SCRIPT)) {
-      reject(new Error(`Push to ECR script not found at ${PUSH_TO_ECR_SCRIPT}`));
+      reject(
+        new Error(`Push to ECR script not found at ${PUSH_TO_ECR_SCRIPT}`),
+      );
       return;
     }
 
@@ -53,7 +53,7 @@ export async function POST() {
         const result = await runPushToECRScriptWithStreaming((data) => {
           // Send each chunk of output as it arrives
           controller.enqueue(
-            encoder.encode(JSON.stringify({ type: "data", data }) + "\n")
+            encoder.encode(JSON.stringify({ type: "data", data }) + "\n"),
           );
         });
 
@@ -64,8 +64,8 @@ export async function POST() {
               type: "done",
               success: result.success,
               code: result.code,
-            }) + "\n"
-          )
+            }) + "\n",
+          ),
         );
 
         controller.close();
@@ -74,9 +74,11 @@ export async function POST() {
           encoder.encode(
             JSON.stringify({
               type: "error",
-              error: (error as Error).message || "Failed to execute push-to-ecr script",
-            }) + "\n"
-          )
+              error:
+                (error as Error).message ||
+                "Failed to execute push-to-ecr script",
+            }) + "\n",
+          ),
         );
         controller.close();
       }

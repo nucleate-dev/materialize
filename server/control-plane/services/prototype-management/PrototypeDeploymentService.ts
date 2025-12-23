@@ -322,16 +322,20 @@ export class PrototypeDeploymentService {
     }
 
     // 7. Record deployment key against the latest build history entry
-    const { data: latestBuildHistory, error: buildHistoryError } = await supabase
-      .from('prototype_build_history')
-      .select('id')
-      .eq('prototype_id', authResult.prototype.id)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
+    const { data: latestBuildHistory, error: buildHistoryError } =
+      await supabase
+        .from('prototype_build_history')
+        .select('id')
+        .eq('prototype_id', authResult.prototype.id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
     if (buildHistoryError) {
-      request.log2.error(buildHistoryError, 'Failed to fetch build history entry');
+      request.log2.error(
+        buildHistoryError,
+        'Failed to fetch build history entry',
+      );
       reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR);
       return {
         data: null,

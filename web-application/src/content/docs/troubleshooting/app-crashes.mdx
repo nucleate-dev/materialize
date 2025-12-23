@@ -8,6 +8,7 @@ order: 2
 ## What you'll accomplish
 
 This guide helps you fix:
+
 - Runtime crashes (red screens)
 - Blank/white screens
 - Frozen/unresponsive apps
@@ -17,11 +18,13 @@ This guide helps you fix:
 ### Read the error message
 
 Red screens show:
+
 1. **Error type** (e.g., TypeError, ReferenceError)
 2. **Message** (what went wrong)
 3. **Stack trace** (where it happened)
 
 ### Example
+
 ```
 TypeError: Cannot read property 'name' of undefined
     at UserProfile (app/profile.tsx:15)
@@ -34,6 +37,7 @@ This means: On line 15 of profile.tsx, you tried to access `.name` on something 
 ## Common causes
 
 ### 1. Undefined data
+
 ```tsx
 // Crashes if user is undefined
 <Text>{user.name}</Text>
@@ -46,16 +50,18 @@ This means: On line 15 of profile.tsx, you tried to access `.name` on something 
 ```
 
 ### 2. Navigation issues
+
 ```tsx
 // Crashes if params missing
 const { id } = useLocalSearchParams();
 fetchUser(id); // id might be undefined
 
 // Fix with default value
-const { id = '' } = useLocalSearchParams();
+const { id = "" } = useLocalSearchParams();
 ```
 
 ### 3. Async timing
+
 ```tsx
 // Crashes if data not loaded yet
 const [data, setData] = useState();

@@ -33,6 +33,7 @@ import JSZip from "jszip";
 import { RenderStatus } from "@/app/dashboard/projects/[prototype_id]/InternalPrototypePage";
 import { cn } from "@/lib/classNames";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
+import type { PostHogEvent } from "@/lib/loggers/PostHogEvents";
 import { IsUserPlanSubscribed } from "@/lib/utils/payments/SubscriptionManagementUtils";
 import {
   Check,
@@ -340,6 +341,64 @@ const MaterializeRenderSection = forwardRef<
     // Modal states
     const [isQRModalOpen, setIsQRModalOpen] = useState(false);
     const [isEnvVarDialogOpen, setIsEnvVarDialogOpen] = useState(false);
+
+    const logPrototypeEvent = useCallback(
+      (event: PostHogEvent, properties?: Record<string, unknown>) => {
+        logger.log({
+          event,
+          properties: {
+            prototype_id: prototypeId,
+            ...properties,
+          },
+        });
+      },
+      [logger, prototypeId],
+    );
+
+    const handlePreviewToggle = useCallback(
+      (isPreview: boolean) => {
+        logPrototypeEvent(
+          isPreview
+            ? "client_prototype_editor_preview_tab_selected"
+            : "client_prototype_editor_code_tab_selected",
+        );
+        onPreviewViewChange(isPreview);
+      },
+      [logPrototypeEvent, onPreviewViewChange],
+    );
+
+    const handleOpenEnvModal = useCallback(
+      (source: string) => {
+        logPrototypeEvent("client_prototype_editor_env_vars_opened", {
+          source,
+        });
+        setIsEnvVarDialogOpen(true);
+      },
+      [logPrototypeEvent],
+    );
+
+    const handleOpenViewOnDevice = useCallback(
+      (source: string) => {
+        logPrototypeEvent("client_prototype_editor_view_on_device_opened", {
+          source,
+        });
+        setIsQRModalOpen(true);
+      },
+      [logPrototypeEvent],
+    );
+
+    const handleOpenBrowserPreview = useCallback(
+      (source: string) => {
+        logPrototypeEvent("client_prototype_editor_browser_preview_opened", {
+          framework,
+          source,
+        });
+        if (viewing_url) {
+          window.open(viewing_url, "_blank", "noopener,noreferrer");
+        }
+      },
+      [framework, logPrototypeEvent, viewing_url],
+    );
 
     const nextMobileScreenId = useRef(1);
 
@@ -659,6 +718,9 @@ const MaterializeRenderSection = forwardRef<
 
     // Function to start dev server with all files
     const handleStartDevServer = async () => {
+      logPrototypeEvent("client_prototype_editor_start_dev_server_clicked", {
+        has_prototype: Boolean(prototypeId),
+      });
       if (!prototypeId) {
         logger.debug("error", "Cannot start dev server: missing prototype ID");
         return;
@@ -716,6 +778,10 @@ const MaterializeRenderSection = forwardRef<
     };
 
     const handleRestartDevServer = async () => {
+      logPrototypeEvent("client_prototype_editor_restart_dev_server_clicked", {
+        has_prototype: Boolean(prototypeId),
+        has_sandbox: Boolean(sandbox_url),
+      });
       if (!prototypeId) {
         logger.debug(
           "error",
@@ -775,6 +841,10 @@ const MaterializeRenderSection = forwardRef<
     };
 
     const handleBuildAndDeploy = async () => {
+      logPrototypeEvent("client_prototype_editor_build_and_deploy_clicked", {
+        has_sandbox: Boolean(sandbox_url),
+        framework,
+      });
       if (!sandbox_url || !prototypeId) {
         logger.debug(
           "error",
@@ -843,6 +913,9 @@ const MaterializeRenderSection = forwardRef<
     };
 
     const handleRefresh = () => {
+      logPrototypeEvent("client_prototype_editor_refresh_preview_clicked", {
+        status: currentRenderStatus,
+      });
       if (webPreviewRef.current && viewing_url) {
         setIsIframeLoading(true);
         setIframeError(false);
@@ -851,6 +924,10 @@ const MaterializeRenderSection = forwardRef<
     };
 
     const handleExport = useCallback(async () => {
+      logPrototypeEvent("client_prototype_editor_export_clicked", {
+        can_export: IsUserPlanSubscribed(userPlan),
+        file_count: files ? Object.keys(files).length : 0,
+      });
       if (loadingSubscriptionData) {
         alert(
           "We're still loading your subscription status. Please try again in a moment.",
@@ -941,6 +1018,9 @@ const MaterializeRenderSection = forwardRef<
     }, [assets, files, loadingSubscriptionData, logger, prototypeId, userPlan]);
 
     const handleModeChange = (mode: PreviewMode) => {
+      logPrototypeEvent("client_prototype_editor_preview_mode_changed", {
+        mode,
+      });
       setPreviewMode(mode);
       // Trigger loading state when switching preview modes
       if (viewing_url) {
@@ -1182,6 +1262,12 @@ const MaterializeRenderSection = forwardRef<
           <Button
             size="sm"
             onClick={() => {
+              logPrototypeEvent(
+                "client_prototype_editor_refresh_preview_clicked",
+                {
+                  status: "error_overlay",
+                },
+              );
               setIframeError(false);
               setIsIframeLoading(true);
               setRefreshKey((prev) => prev + 1);
@@ -1509,7 +1595,7 @@ const MaterializeRenderSection = forwardRef<
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => onPreviewViewChange(true)}
+                      onClick={() => handlePreviewToggle(true)}
                       className={cn(
                         "h-7 px-3 text-xs font-medium rounded-md transition-all",
                         isPreviewView
@@ -1523,7 +1609,7 @@ const MaterializeRenderSection = forwardRef<
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => onPreviewViewChange(false)}
+                      onClick={() => handlePreviewToggle(false)}
                       className={cn(
                         "h-7 px-3 text-xs font-medium rounded-md transition-all",
                         !isPreviewView
@@ -1583,15 +1669,7 @@ const MaterializeRenderSection = forwardRef<
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => {
-                      if (viewing_url) {
-                        window.open(
-                          viewing_url,
-                          "_blank",
-                          "noopener,noreferrer",
-                        );
-                      }
-                    }}
+                    onClick={() => handleOpenBrowserPreview("toolbar_button")}
                     className="hidden sm:flex h-8 bg-accent border border-border text-muted-foreground hover:text-foreground hover:border-border/80 hover:bg-accent/80 transition-all"
                     title="Open in new tab"
                     disabled={!viewing_url}
@@ -1605,7 +1683,7 @@ const MaterializeRenderSection = forwardRef<
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => setIsQRModalOpen(true)}
+                    onClick={() => handleOpenViewOnDevice("toolbar_button")}
                     className="h-8 bg-accent border border-border text-muted-foreground hover:text-foreground hover:border-border/80 hover:bg-accent/80 transition-all"
                     title="View on Device"
                     disabled={!viewing_url}
@@ -1651,7 +1729,7 @@ const MaterializeRenderSection = forwardRef<
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => setIsEnvVarDialogOpen(true)}
+                  onClick={() => handleOpenEnvModal("toolbar_button")}
                   className="hidden sm:flex h-8 bg-accent border border-border text-muted-foreground hover:text-foreground hover:border-border/80 hover:bg-accent/80 transition-all"
                   title="Manage environment variables"
                   disabled={!prototypeId}
@@ -1748,15 +1826,7 @@ const MaterializeRenderSection = forwardRef<
                   )}
                   {!isReadOnlyView && isWebFramework && (
                     <DropdownMenuItem
-                      onClick={() => {
-                        if (viewing_url) {
-                          window.open(
-                            viewing_url,
-                            "_blank",
-                            "noopener,noreferrer",
-                          );
-                        }
-                      }}
+                      onClick={() => handleOpenBrowserPreview("dropdown")}
                       disabled={!viewing_url}
                       className="sm:hidden focus:bg-accent/80 focus:text-foreground text-muted-foreground text-sm cursor-pointer"
                     >
@@ -1787,7 +1857,7 @@ const MaterializeRenderSection = forwardRef<
                         {isTerminalOpen ? "Hide Terminal" : "Show Terminal"}
                       </DropdownMenuItem>
                       <DropdownMenuItem
-                        onClick={() => setIsEnvVarDialogOpen(true)}
+                        onClick={() => handleOpenEnvModal("dropdown")}
                         disabled={!prototypeId}
                         className="sm:hidden focus:bg-accent/80 focus:text-foreground text-muted-foreground text-sm cursor-pointer"
                       >

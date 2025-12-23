@@ -53,7 +53,9 @@ async function syncBuildWorkerTypes() {
 
     // Get line count for reporting
     const lineCount = sourceContent.split('\n').length;
-    console.log(`📊 Source file size: ${(sourceContent.length / 1024).toFixed(2)} KB`);
+    console.log(
+      `📊 Source file size: ${(sourceContent.length / 1024).toFixed(2)} KB`,
+    );
     console.log(`📝 Lines to sync: ${lineCount}`);
     console.log('');
 

@@ -5,7 +5,8 @@ import { DocsMobileSidebar, DocsSidebar } from "./DocsSidebar";
 
 export const metadata: Metadata = {
   title: "Documentation | Nucleate",
-  description: "Learn how to build apps with Nucleate - from getting started to advanced patterns.",
+  description:
+    "Learn how to build apps with Nucleate - from getting started to advanced patterns.",
 };
 
 export default function DocsLayout({
@@ -20,9 +21,7 @@ export default function DocsLayout({
       <DocsHeader />
       <div className="flex">
         <DocsSidebar sections={sections} />
-        <main className="flex-1 min-w-0">
-          {children}
-        </main>
+        <main className="flex-1 min-w-0">{children}</main>
         <DocsMobileSidebar sections={sections} />
       </div>
     </div>

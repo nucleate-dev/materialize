@@ -69,7 +69,5 @@ export function fetchChatMessages(sessionId: string) {
 }
 
 export function fetchRecentPrototypes() {
-  return fetchJson<RecentPrototypesResponse>(
-    "/api/chat-recreation/prototypes",
-  );
+  return fetchJson<RecentPrototypesResponse>("/api/chat-recreation/prototypes");
 }

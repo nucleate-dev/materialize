@@ -13,6 +13,7 @@ import { Copy, Monitor } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { useCallback } from "react";
 import { toast } from "sonner";
+import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 
 interface ViewOnDeviceModalProps {
   isOpen: boolean;
@@ -27,6 +28,7 @@ export function ViewOnDeviceModal({
   viewing_url,
   currentRenderStatus = "Static build",
 }: ViewOnDeviceModalProps) {
+  const logger = useProductLogger();
   // Generate Expo Go deep link from viewing URL
   const getExpoGoDeepLink = useCallback(() => {
     if (!viewing_url) return "";
@@ -48,24 +50,20 @@ export function ViewOnDeviceModal({
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md bg-accent border-border text-foreground">
         <DialogHeader>
-          <DialogTitle className="text-foreground">
-            View on Device
-          </DialogTitle>
+          <DialogTitle className="text-foreground">View on Device</DialogTitle>
           <DialogDescription className="text-muted-foreground">
-            {currentRenderStatus === "Connected"
+            {currentRenderStatus === "Connected" ||
+            currentRenderStatus === "Connecting.."
               ? "Scan this QR code with your phone's camera to open in Expo Go"
               : "Public viewing URL"}
           </DialogDescription>
         </DialogHeader>
         <div className="flex flex-col items-center justify-center gap-6 py-6">
-          {viewing_url && currentRenderStatus === "Connected" ? (
+          {(viewing_url && currentRenderStatus === "Connected") ||
+          currentRenderStatus === "Connecting.." ? (
             <>
               <div className="bg-white p-4 rounded-xl shadow-lg">
-                <QRCodeSVG
-                  value={getExpoGoDeepLink()}
-                  size={200}
-                  level="H"
-                />
+                <QRCodeSVG value={getExpoGoDeepLink()} size={200} level="H" />
               </div>
               <div className="text-center space-y-2 w-full px-4">
                 <p className="text-xs text-muted-foreground">
@@ -82,6 +80,13 @@ export function ViewOnDeviceModal({
                     onClick={() => {
                       navigator.clipboard.writeText(getExpoGoDeepLink());
                       toast.success("Deep link copied");
+                      logger.log({
+                        event:
+                          "client_prototype_editor_view_on_device_link_copied",
+                        properties: {
+                          link_type: "expo",
+                        },
+                      });
                     }}
                   >
                     <Copy className="w-3 h-3 text-muted-foreground" />
@@ -108,6 +113,13 @@ export function ViewOnDeviceModal({
                     onClick={() => {
                       navigator.clipboard.writeText(viewing_url);
                       toast.success("URL copied to clipboard!");
+                      logger.log({
+                        event:
+                          "client_prototype_editor_view_on_device_link_copied",
+                        properties: {
+                          link_type: "tunnel_url",
+                        },
+                      });
                     }}
                     className="h-7 px-3 hover:bg-accent text-muted-foreground hover:text-foreground"
                   >

@@ -8,6 +8,7 @@ order: 3
 ## What you'll accomplish
 
 After this guide, you'll:
+
 - Understand the theme architecture
 - Use tokens correctly for colors, spacing, and typography
 - Avoid anti-patterns that break dark mode
@@ -29,12 +30,12 @@ The theme automatically switches between light and dark based on system preferen
 ### 1. Import theme values
 
 ```tsx
-import { Colors } from '@/constants/Colors';
-import { useColorScheme } from 'react-native';
+import { Colors } from "@/constants/Colors";
+import { useColorScheme } from "react-native";
 
 function MyComponent() {
   const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'light'];
+  const colors = Colors[colorScheme ?? "light"];
 
   return (
     <View style={{ backgroundColor: colors.background }}>
@@ -49,8 +50,8 @@ function MyComponent() {
 Even easier - use the pre-built components:
 
 ```tsx
-import { ThemedText } from '@/components/ThemedText';
-import { ThemedView } from '@/components/ThemedView';
+import { ThemedText } from "@/components/ThemedText";
+import { ThemedView } from "@/components/ThemedView";
 
 function MyScreen() {
   return (
@@ -64,6 +65,7 @@ function MyScreen() {
 ## Tokens reference
 
 ### Colors
+
 - `background` - Screen background
 - `text` - Primary text
 - `tint` - Accent/primary color
@@ -71,6 +73,7 @@ function MyScreen() {
 - `tabIconDefault` / `tabIconSelected` - Tab bar icons
 
 ### Spacing (add to Theme.ts)
+
 - `xs`: 4
 - `sm`: 8
 - `md`: 16
@@ -78,6 +81,7 @@ function MyScreen() {
 - `xl`: 32
 
 ### Typography
+
 - Use consistent font sizes
 - Define in Theme.ts and import everywhere
 
@@ -90,11 +94,11 @@ function MyScreen() {
 export const Colors = {
   light: {
     // existing...
-    cardBackground: '#f5f5f5',
+    cardBackground: "#f5f5f5",
   },
   dark: {
     // existing...
-    cardBackground: '#1c1c1e',
+    cardBackground: "#1c1c1e",
   },
 };
 ```
@@ -102,6 +106,7 @@ export const Colors = {
 ## Anti-patterns to avoid
 
 ### ❌ Hardcoded hex values
+
 ```tsx
 // Bad
 <View style={{ backgroundColor: '#ffffff' }}>
@@ -113,6 +118,7 @@ export const Colors = {
 ```
 
 ### ❌ Inline spacing
+
 ```tsx
 // Bad
 <View style={{ padding: 16, margin: 8 }}>
@@ -124,6 +130,7 @@ export const Colors = {
 ```
 
 ### ❌ Breaking dark mode contrast
+
 ```tsx
 // Bad - black text on dark background
 <Text style={{ color: '#000000' }}>

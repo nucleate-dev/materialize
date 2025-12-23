@@ -23,6 +23,7 @@
     "start:cp": "npm -w rn-web-control-plane run start",
     "start:worker": "npm -w rn-web-build-worker run start",
     "lint": "npm run lint -ws --if-present",
+    "prettier": "npm -ws --if-present run prettier",
     "typecheck": "npm run typecheck -ws --if-present",
     "test": "npm run test -ws --if-present",
     "gen:supabase:types": "npm run gen:supabase:types -ws --if-present"

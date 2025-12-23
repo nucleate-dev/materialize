@@ -71,7 +71,7 @@ export default function ProdDeploymentsPage() {
     useState<RefreshIdleContainersResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [selectedTab, setSelectedTab] = useState<"Server" | "Sandbox">(
-    "Server"
+    "Server",
   );
 
   const handleValidateDeployment = async () => {
@@ -84,7 +84,7 @@ export default function ProdDeploymentsPage() {
         process.env.NEXT_PUBLIC_INTERNAL_TOOLS_SERVER_ENDPOINT;
       if (!serverEndpoint) {
         throw new Error(
-          "Server endpoint not configured. Please set NEXT_PUBLIC_INTERNAL_TOOLS_SERVER_ENDPOINT environment variable."
+          "Server endpoint not configured. Please set NEXT_PUBLIC_INTERNAL_TOOLS_SERVER_ENDPOINT environment variable.",
         );
       }
 
@@ -94,7 +94,7 @@ export default function ProdDeploymentsPage() {
         "POST",
         "/internal/prod-deployment/validate-deployment-safety",
         requestBody,
-        secretKey
+        secretKey,
       );
 
       const response = await fetch(
@@ -103,14 +103,14 @@ export default function ProdDeploymentsPage() {
           method: "POST",
           headers,
           body: requestBody,
-        }
+        },
       );
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         throw new Error(
           errorData.message ||
-            `Failed to validate deployment: ${response.status}`
+            `Failed to validate deployment: ${response.status}`,
         );
       }
 
@@ -118,7 +118,7 @@ export default function ProdDeploymentsPage() {
       setValidationResult(result);
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : "Failed to validate deployment"
+        err instanceof Error ? err.message : "Failed to validate deployment",
       );
     } finally {
       setValidating(false);
@@ -135,7 +135,7 @@ export default function ProdDeploymentsPage() {
         process.env.NEXT_PUBLIC_INTERNAL_TOOLS_SERVER_ENDPOINT;
       if (!serverEndpoint) {
         throw new Error(
-          "Server endpoint not configured. Please set NEXT_PUBLIC_INTERNAL_TOOLS_SERVER_ENDPOINT environment variable."
+          "Server endpoint not configured. Please set NEXT_PUBLIC_INTERNAL_TOOLS_SERVER_ENDPOINT environment variable.",
         );
       }
 
@@ -148,7 +148,7 @@ export default function ProdDeploymentsPage() {
         "POST",
         "/internal/prod-deployment/deploy-to-prod",
         requestBody,
-        secretKey
+        secretKey,
       );
 
       const response = await fetch(
@@ -157,14 +157,14 @@ export default function ProdDeploymentsPage() {
           method: "POST",
           headers,
           body: requestBody,
-        }
+        },
       );
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         throw new Error(
           errorData.message ||
-            `Failed to deploy to production: ${response.status}`
+            `Failed to deploy to production: ${response.status}`,
         );
       }
 
@@ -172,7 +172,7 @@ export default function ProdDeploymentsPage() {
       setDeploymentResult(result);
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : "Failed to deploy to production"
+        err instanceof Error ? err.message : "Failed to deploy to production",
       );
     } finally {
       setDeploying(false);
@@ -191,7 +191,7 @@ export default function ProdDeploymentsPage() {
         process.env.NEXT_PUBLIC_INTERNAL_TOOLS_SERVER_ENDPOINT;
       if (!serverEndpoint) {
         throw new Error(
-          "Server endpoint not configured. Please set NEXT_PUBLIC_INTERNAL_TOOLS_SERVER_ENDPOINT environment variable."
+          "Server endpoint not configured. Please set NEXT_PUBLIC_INTERNAL_TOOLS_SERVER_ENDPOINT environment variable.",
         );
       }
 
@@ -204,7 +204,7 @@ export default function ProdDeploymentsPage() {
         "POST",
         "/internal/prod-deployment/validate-and-deploy",
         requestBody,
-        secretKey
+        secretKey,
       );
 
       const response = await fetch(
@@ -213,14 +213,14 @@ export default function ProdDeploymentsPage() {
           method: "POST",
           headers,
           body: requestBody,
-        }
+        },
       );
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         throw new Error(
           errorData.message ||
-            `Failed to validate and deploy: ${response.status}`
+            `Failed to validate and deploy: ${response.status}`,
         );
       }
 
@@ -235,7 +235,7 @@ export default function ProdDeploymentsPage() {
       }
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : "Failed to validate and deploy"
+        err instanceof Error ? err.message : "Failed to validate and deploy",
       );
     } finally {
       setValidating(false);
@@ -253,7 +253,7 @@ export default function ProdDeploymentsPage() {
         process.env.NEXT_PUBLIC_INTERNAL_TOOLS_PROD_SERVER_ENDPOINT;
       if (!serverEndpoint) {
         throw new Error(
-          "Production server endpoint not configured. Please set NEXT_PUBLIC_INTERNAL_TOOLS_PROD_SERVER_ENDPOINT environment variable."
+          "Production server endpoint not configured. Please set NEXT_PUBLIC_INTERNAL_TOOLS_PROD_SERVER_ENDPOINT environment variable.",
         );
       }
 
@@ -263,7 +263,7 @@ export default function ProdDeploymentsPage() {
         "POST",
         "/internal/prod-deployment/refresh-idle-containers",
         requestBody,
-        secretKey
+        secretKey,
       );
 
       const response = await fetch(
@@ -272,14 +272,14 @@ export default function ProdDeploymentsPage() {
           method: "POST",
           headers,
           body: requestBody,
-        }
+        },
       );
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         throw new Error(
           errorData.message ||
-            `Failed to refresh idle containers: ${response.status}`
+            `Failed to refresh idle containers: ${response.status}`,
         );
       }
 
@@ -289,7 +289,7 @@ export default function ProdDeploymentsPage() {
       setError(
         err instanceof Error
           ? err.message
-          : "Failed to refresh idle containers"
+          : "Failed to refresh idle containers",
       );
     } finally {
       setRefreshing(false);
@@ -391,7 +391,9 @@ export default function ProdDeploymentsPage() {
               <div className="space-y-1">
                 <p>
                   <strong>Idle Container Refresh:</strong>{" "}
-                  {refreshResult.success ? "COMPLETED" : "COMPLETED WITH ERRORS"}
+                  {refreshResult.success
+                    ? "COMPLETED"
+                    : "COMPLETED WITH ERRORS"}
                 </p>
                 <p>{refreshResult.message}</p>
                 <p>
@@ -434,7 +436,9 @@ export default function ProdDeploymentsPage() {
         </div>
 
         {/* Server Tab Content */}
-        <div className={selectedTab === "Server" ? "block space-y-6" : "hidden"}>
+        <div
+          className={selectedTab === "Server" ? "block space-y-6" : "hidden"}
+        >
           {/* Deployment Instructions Card */}
           <Card className="border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-900/50">
             <CardHeader>
@@ -445,7 +449,8 @@ export default function ProdDeploymentsPage() {
                 </CardTitle>
               </div>
               <CardDescription className="text-blue-700 dark:text-blue-300">
-                Follow these three steps in order to deploy to production safely.
+                Follow these three steps in order to deploy to production
+                safely.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
@@ -455,8 +460,8 @@ export default function ProdDeploymentsPage() {
                 </p>
                 <ol className="list-decimal list-inside space-y-2 ml-2">
                   <li>
-                    <strong>Deploy Control Plane Artifacts:</strong> Use the tool
-                    below to run{" "}
+                    <strong>Deploy Control Plane Artifacts:</strong> Use the
+                    tool below to run{" "}
                     <code className="bg-blue-100 dark:bg-blue-800 px-1 rounded">
                       npm run deploy:prod
                     </code>{" "}
@@ -469,15 +474,16 @@ export default function ProdDeploymentsPage() {
                   </li>
                   <li>
                     <strong>Deploy to Production:</strong> Initiate the Auto
-                    Scaling Group instance refresh to roll out your changes across
-                    all production instances
+                    Scaling Group instance refresh to roll out your changes
+                    across all production instances
                   </li>
                 </ol>
               </div>
               <div className="text-xs text-blue-600 dark:text-blue-400 mt-3 p-2 bg-blue-100 dark:bg-blue-900 rounded">
                 <strong>Important:</strong> Always complete steps 1 and 2 before
-                proceeding to step 3. The validation step ensures your deployment
-                artifacts work correctly before affecting production traffic.
+                proceeding to step 3. The validation step ensures your
+                deployment artifacts work correctly before affecting production
+                traffic.
               </div>
             </CardContent>
           </Card>
@@ -493,10 +499,10 @@ export default function ProdDeploymentsPage() {
                 <CardTitle>Deployment Safety Validation</CardTitle>
               </div>
               <CardDescription>
-                Validate deployment safety by spinning up a test instance with the
-                production user data script. This will acquire an EC2 instance,
-                run the production build process, and verify the server starts
-                successfully.
+                Validate deployment safety by spinning up a test instance with
+                the production user data script. This will acquire an EC2
+                instance, run the production build process, and verify the
+                server starts successfully.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -637,14 +643,18 @@ export default function ProdDeploymentsPage() {
 
               <div className="text-xs text-muted-foreground space-y-1">
                 <p>• Monitor AWS console for deployment progress</p>
-                <p>• Validation is recommended but not required before deployment</p>
+                <p>
+                  • Validation is recommended but not required before deployment
+                </p>
               </div>
             </CardContent>
           </Card>
         </div>
 
         {/* Sandbox Tab Content */}
-        <div className={selectedTab === "Sandbox" ? "block space-y-6" : "hidden"}>
+        <div
+          className={selectedTab === "Sandbox" ? "block space-y-6" : "hidden"}
+        >
           {/* Sandbox Deployment to Production */}
           <SandboxDeploymentCard deploymentType="production" />
 
@@ -657,8 +667,8 @@ export default function ProdDeploymentsPage() {
               </div>
               <CardDescription>
                 Refresh all idle containers by terminating existing ones and
-                launching new ones. This is useful after deployments to ensure idle
-                containers are running the latest container image.
+                launching new ones. This is useful after deployments to ensure
+                idle containers are running the latest container image.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -686,8 +696,8 @@ export default function ProdDeploymentsPage() {
                 <p>• Launches new idle containers to replace them</p>
                 <p>• New containers will run the latest deployed image</p>
                 <p>
-                  • Recommended after successful production deployment to refresh
-                  the pool
+                  • Recommended after successful production deployment to
+                  refresh the pool
                 </p>
               </div>
             </CardContent>

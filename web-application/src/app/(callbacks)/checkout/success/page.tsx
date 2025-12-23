@@ -68,6 +68,16 @@ function CheckoutSuccessContent() {
           eventID: sessionId, // Used for deduplication with server-side Conversions API
         });
 
+        logger.log({
+          event: "client_checkout_payment_completed",
+          properties: {
+            component: "CheckoutSuccess",
+            session_id: sessionId,
+            amount_total_cents: sessionData.amount_total,
+            currency: sessionData.currency?.toUpperCase() ?? "USD",
+            product_name: sessionData.content_name ?? "Subscription",
+          },
+        });
         logger.debug("log", "Meta Pixel Purchase event tracked", { sessionId });
       } catch (error) {
         logger.debug("error", "Error tracking purchase event", {

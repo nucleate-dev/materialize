@@ -120,9 +120,10 @@ export default function Blog({ initialPosts }: BlogProps) {
                       onClick={() => setSelectedCategory(category.key)}
                       className={`
                         flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200
-                        ${isSelected
-                          ? "bg-white text-black hover:bg-white/90"
-                          : "bg-white/5 text-white/70 hover:bg-white/10 hover:text-white border border-white/5"
+                        ${
+                          isSelected
+                            ? "bg-white text-black hover:bg-white/90"
+                            : "bg-white/5 text-white/70 hover:bg-white/10 hover:text-white border border-white/5"
                         }
                       `}
                     >

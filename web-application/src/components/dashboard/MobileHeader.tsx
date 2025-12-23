@@ -25,10 +25,25 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 
 const MobileHeader = () => {
   const pathname = usePathname();
   const { openMobile, setOpenMobile } = useSidebar();
+  const logger = useProductLogger();
+  const logSidebarClick = (
+    item: string,
+    properties?: Record<string, unknown>,
+  ) => {
+    logger.log({
+      event: "client_dashboard_sidebar_item_clicked",
+      properties: {
+        component: "MobileHeader",
+        item,
+        ...properties,
+      },
+    });
+  };
 
   const menuItems = [
     {
@@ -98,6 +113,12 @@ const MobileHeader = () => {
                       <Link
                         href={item.href}
                         className="flex items-center gap-3 cursor-pointer"
+                        onClick={() => {
+                          logSidebarClick(item.label.toLowerCase(), {
+                            href: item.href,
+                          });
+                          setOpenMobile(false);
+                        }}
                       >
                         <item.icon className="w-4 h-4" />
                         <span>{item.label}</span>
@@ -121,6 +142,12 @@ const MobileHeader = () => {
                     <Link
                       href="/dashboard/account"
                       className="flex items-center gap-3 cursor-pointer"
+                      onClick={() => {
+                        logSidebarClick("settings", {
+                          href: "/dashboard/account",
+                        });
+                        setOpenMobile(false);
+                      }}
                     >
                       <Settings className="w-4 h-4" />
                       <span>Settings</span>
@@ -136,7 +163,10 @@ const MobileHeader = () => {
                   <DropdownMenuSeparator />
 
                   <DropdownMenuItem
-                    onClick={logout}
+                    onClick={() => {
+                      logSidebarClick("logout");
+                      logout();
+                    }}
                     className="flex items-center gap-3 cursor-pointer text-destructive focus:text-destructive"
                   >
                     <LogOut className="w-4 h-4" />

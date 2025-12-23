@@ -63,14 +63,14 @@ interface ClaudeCodePanelProps {
 export interface Message {
   id: string;
   type:
-  | "user"
-  | "assistant"
-  | "system"
-  | "error"
-  | "tool"
-  | "thinking"
-  | "usage"
-  | "design_spec";
+    | "user"
+    | "assistant"
+    | "system"
+    | "error"
+    | "tool"
+    | "thinking"
+    | "usage"
+    | "design_spec";
   content: string;
   timestamp: number;
   toolName?: string;
@@ -808,6 +808,15 @@ export default function ClaudeCodePanel({
         setQueuedMessage(null);
         setIsProcessing(true);
         setHasReceivedResponse(false);
+        logger.log({
+          event: "client_prototype_editor_chat_message_sent",
+          properties: {
+            prototype_id: prototype?.id,
+            queued: true,
+            has_images: false,
+            content_length: content.length,
+          },
+        });
 
         // Clear chat intent from localStorage
         clearChatIntent();
@@ -1251,7 +1260,7 @@ export default function ClaudeCodePanel({
       }
 
       default: {
-        const unknownMessage = message as { type: string; };
+        const unknownMessage = message as { type: string };
         logger.debug("log", "Unknown message type", {
           messageType: unknownMessage.type,
         });
@@ -1735,6 +1744,10 @@ export default function ClaudeCodePanel({
     if (!trimmedInput && uploadedImages.length === 0) {
       return;
     }
+    const messageMetrics = {
+      has_images: uploadedImages.length > 0,
+      content_length: trimmedInput.length,
+    };
 
     // If not connected, auto-reconnect
     if (!ws || !isConnected) {
@@ -1812,6 +1825,15 @@ export default function ClaudeCodePanel({
         "system",
         `Message queued - waiting for ${waitingFor.join(" and ")}`,
       );
+      logger.log({
+        event: "client_prototype_editor_chat_message_queued",
+        properties: {
+          prototype_id: prototype?.id,
+          ...messageMetrics,
+          connection_ready: isConnected,
+          dev_server_ready: isDevServerReady,
+        },
+      });
       return;
     }
 
@@ -1858,7 +1880,7 @@ export default function ClaudeCodePanel({
       const content: Array<{
         type: string;
         text?: string;
-        source?: { type: string; url: string; };
+        source?: { type: string; url: string };
       }> = [];
 
       // Add text if present
@@ -1910,6 +1932,14 @@ export default function ClaudeCodePanel({
           imageUrls: uploadedImageMetadata.map((img) => img.signed_url),
         },
       ]);
+      logger.log({
+        event: "client_prototype_editor_chat_message_sent",
+        properties: {
+          prototype_id: prototype?.id,
+          ...messageMetrics,
+          queued: false,
+        },
+      });
 
       setInputValue("");
       setUploadedImages([]);
@@ -2200,6 +2230,12 @@ export default function ClaudeCodePanel({
 
   // Handle undo last change
   const handleUndo = useCallback(async () => {
+    logger.log({
+      event: "client_prototype_editor_undo_last_change_clicked",
+      properties: {
+        prototype_id: prototype?.id,
+      },
+    });
     if (!baseTunnelUrl) {
       addMessage("error", "Cannot undo - no active sandbox connection");
       return;
@@ -2254,7 +2290,7 @@ export default function ClaudeCodePanel({
       });
       addMessage("error", "Failed to undo last change");
     }
-  }, [baseTunnelUrl, logger]);
+  }, [baseTunnelUrl, logger, prototype?.id]);
 
   return (
     <ClaudeCodePanelUI

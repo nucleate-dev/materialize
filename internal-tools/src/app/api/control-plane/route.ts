@@ -12,7 +12,7 @@ const CONTROL_PLANE_DIR = path.join(SERVER_DIR, "control-plane");
 const DEPLOY_SCRIPT = path.join(
   SERVER_DIR,
   "scripts",
-  "deploy-control-plane-for-dev.js"
+  "deploy-control-plane-for-dev.js",
 );
 
 const EXCLUDED_DIRECTORIES = new Set([
@@ -84,7 +84,7 @@ async function getGitChangedPaths() {
       {
         cwd: REPO_ROOT,
         env: process.env,
-      }
+      },
     );
 
     let stdout = "";
@@ -106,8 +106,8 @@ async function getGitChangedPaths() {
       if (code !== 0) {
         reject(
           new Error(
-            stderr.trim() || "Failed to retrieve git status for control plane"
-          )
+            stderr.trim() || "Failed to retrieve git status for control plane",
+          ),
         );
         return;
       }
@@ -123,7 +123,7 @@ async function getGitChangedPaths() {
 
 async function readDirectory(
   directory: string,
-  changedPaths: Set<string>
+  changedPaths: Set<string>,
 ): Promise<FileNode[]> {
   const entries = await fsp.readdir(directory, { withFileTypes: true });
   const results: FileNode[] = [];
@@ -135,7 +135,7 @@ async function readDirectory(
 
     const fullPath = path.join(directory, entry.name);
     const relativePath = normalizeRelativePath(
-      path.relative(CONTROL_PLANE_DIR, fullPath)
+      path.relative(CONTROL_PLANE_DIR, fullPath),
     );
 
     if (entry.isDirectory()) {
@@ -175,7 +175,7 @@ export async function GET() {
   } catch (error) {
     return NextResponse.json(
       { error: `Control plane directory not accessible: ${String(error)}` },
-      { status: 500 }
+      { status: 500 },
     );
   }
 
@@ -192,15 +192,17 @@ export async function GET() {
     return NextResponse.json({ files, changedPaths: gitChangedPaths });
   } catch (error) {
     return NextResponse.json(
-      { error: (error as Error).message || "Failed to read control plane files" },
-      { status: 500 }
+      {
+        error: (error as Error).message || "Failed to read control plane files",
+      },
+      { status: 500 },
     );
   }
 }
 
 function runDeployScriptWithStreaming(
   paths: string[],
-  onData: (data: string) => void
+  onData: (data: string) => void,
 ) {
   return new Promise<{
     code: number | null;
@@ -247,7 +249,7 @@ export async function POST(request: NextRequest) {
     : [];
 
   const normalizedPaths = paths.map((relativePath) =>
-    path.join("control-plane", relativePath)
+    path.join("control-plane", relativePath),
   );
 
   // Create a readable stream for streaming the deploy output
@@ -260,9 +262,9 @@ export async function POST(request: NextRequest) {
           (data) => {
             // Send each chunk of output as it arrives
             controller.enqueue(
-              encoder.encode(JSON.stringify({ type: "data", data }) + "\n")
+              encoder.encode(JSON.stringify({ type: "data", data }) + "\n"),
             );
-          }
+          },
         );
 
         // Send final status
@@ -272,8 +274,8 @@ export async function POST(request: NextRequest) {
               type: "done",
               success: result.success,
               code: result.code,
-            }) + "\n"
-          )
+            }) + "\n",
+          ),
         );
 
         controller.close();
@@ -282,9 +284,10 @@ export async function POST(request: NextRequest) {
           encoder.encode(
             JSON.stringify({
               type: "error",
-              error: (error as Error).message || "Failed to execute deploy script",
-            }) + "\n"
-          )
+              error:
+                (error as Error).message || "Failed to execute deploy script",
+            }) + "\n",
+          ),
         );
         controller.close();
       }

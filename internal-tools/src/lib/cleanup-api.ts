@@ -39,7 +39,7 @@ export interface ApiError {
 async function makeAuthenticatedRequest<T>(
   method: string,
   path: string,
-  body?: Record<string, unknown>
+  body?: Record<string, unknown>,
 ): Promise<T> {
   const { secretKey, serverEndpoint } = getInternalToolsConfig();
 
@@ -61,7 +61,7 @@ async function makeAuthenticatedRequest<T>(
     }));
 
     throw new Error(
-      errorData.message || `Request failed with status ${response.status}`
+      errorData.message || `Request failed with status ${response.status}`,
     );
   }
 
@@ -72,12 +72,12 @@ async function makeAuthenticatedRequest<T>(
  * Take a screenshot of a specific prototype build
  */
 export async function takePrototypeScreenshot(
-  prototypeId: string
+  prototypeId: string,
 ): Promise<TakeScreenshotResponse> {
   return makeAuthenticatedRequest<TakeScreenshotResponse>(
     "POST",
     "/internal/cleanup/take-prototype-screenshot",
-    { prototype_id: prototypeId }
+    { prototype_id: prototypeId },
   );
 }
 
@@ -85,12 +85,12 @@ export async function takePrototypeScreenshot(
  * Force clean a build without waiting for successful build
  */
 export async function forceCleanNoBuild(
-  prototypeId: string
+  prototypeId: string,
 ): Promise<ForceCleanNoBuildResponse> {
   return makeAuthenticatedRequest<ForceCleanNoBuildResponse>(
     "POST",
     "/internal/cleanup/force-clean-no-build",
-    { prototype_id: prototypeId }
+    { prototype_id: prototypeId },
   );
 }
 
@@ -98,11 +98,11 @@ export async function forceCleanNoBuild(
  * Force clean a build with retry logic (3 attempts, 2 minutes apart) and take screenshot on success
  */
 export async function forceCleanWithBuild(
-  prototypeId: string
+  prototypeId: string,
 ): Promise<ForceCleanWithBuildResponse> {
   return makeAuthenticatedRequest<ForceCleanWithBuildResponse>(
     "POST",
     "/internal/cleanup/force-clean-with-build",
-    { prototype_id: prototypeId }
+    { prototype_id: prototypeId },
   );
 }

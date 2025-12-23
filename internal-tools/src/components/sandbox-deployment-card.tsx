@@ -56,8 +56,14 @@ export function SandboxDeploymentCard({
     },
   };
 
-  const { title, description, apiEndpoint, tooltipText, buttonText, headerText } =
-    config[deploymentType];
+  const {
+    title,
+    description,
+    apiEndpoint,
+    tooltipText,
+    buttonText,
+    headerText,
+  } = config[deploymentType];
 
   // Initialize xterm.js terminal
   useEffect(() => {
@@ -94,7 +100,7 @@ export function SandboxDeploymentCard({
 
       console.log("[SandboxDeployment] Terminal initialized successfully");
       terminal.writeln(
-        "Ready to deploy sandbox. Click the deploy button to begin..."
+        "Ready to deploy sandbox. Click the deploy button to begin...",
       );
 
       // Handle window resize
@@ -114,19 +120,14 @@ export function SandboxDeploymentCard({
 
   const handleDeploy = useCallback(async () => {
     console.log("[SandboxDeployment] Starting deployment");
-    console.log(
-      "[SandboxDeployment] Terminal ref exists:",
-      !!xtermRef.current
-    );
+    console.log("[SandboxDeployment] Terminal ref exists:", !!xtermRef.current);
 
     setDeploying(true);
 
     // Clear terminal and write header
     if (xtermRef.current) {
       xtermRef.current.clear();
-      xtermRef.current.writeln(
-        `\x1b[1;36m${headerText}\x1b[0m\n`
-      );
+      xtermRef.current.writeln(`\x1b[1;36m${headerText}\x1b[0m\n`);
     } else {
       console.warn("[SandboxDeployment] Terminal not initialized yet!");
     }
@@ -140,7 +141,7 @@ export function SandboxDeploymentCard({
       console.log("[SandboxDeployment] Response status:", response.status);
       console.log(
         "[SandboxDeployment] Response headers:",
-        Object.fromEntries(response.headers.entries())
+        Object.fromEntries(response.headers.entries()),
       );
 
       if (!response.ok) {
@@ -168,7 +169,7 @@ export function SandboxDeploymentCard({
         if (done) {
           console.log(
             "[SandboxDeployment] Stream done. Total chunks received:",
-            chunkCount
+            chunkCount,
           );
           break;
         }
@@ -177,7 +178,7 @@ export function SandboxDeploymentCard({
         const chunk = decoder.decode(value, { stream: true });
         console.log(
           "[SandboxDeployment] Received chunk #" + chunkCount + ":",
-          chunk.substring(0, 100) + "..."
+          chunk.substring(0, 100) + "...",
         );
 
         buffer += chunk;
@@ -189,12 +190,15 @@ export function SandboxDeploymentCard({
 
           console.log(
             "[SandboxDeployment] Processing line:",
-            line.substring(0, 100) + "..."
+            line.substring(0, 100) + "...",
           );
 
           try {
             const message = JSON.parse(line);
-            console.log("[SandboxDeployment] Parsed message type:", message.type);
+            console.log(
+              "[SandboxDeployment] Parsed message type:",
+              message.type,
+            );
 
             if (message.type === "data") {
               // Write to terminal if available
@@ -202,17 +206,24 @@ export function SandboxDeploymentCard({
                 xtermRef.current.write(message.data);
               }
             } else if (message.type === "done") {
-              console.log("[SandboxDeployment] Received done message:", message);
+              console.log(
+                "[SandboxDeployment] Received done message:",
+                message,
+              );
               finalResult = { success: message.success };
             } else if (message.type === "error") {
               console.error(
                 "[SandboxDeployment] Received error message:",
-                message
+                message,
               );
               finalResult = { success: false, error: message.error };
             }
           } catch (e) {
-            console.error("[SandboxDeployment] Failed to parse message:", line, e);
+            console.error(
+              "[SandboxDeployment] Failed to parse message:",
+              line,
+              e,
+            );
           }
         }
       }
@@ -221,14 +232,14 @@ export function SandboxDeploymentCard({
 
       if (!finalResult.success) {
         const error = new Error(
-          finalResult.error || "Sandbox deployment failed"
+          finalResult.error || "Sandbox deployment failed",
         );
         throw error;
       }
 
       if (xtermRef.current) {
         xtermRef.current.writeln(
-          "\n\x1b[1;32m✓ Sandbox deployment completed successfully!\x1b[0m"
+          "\n\x1b[1;32m✓ Sandbox deployment completed successfully!\x1b[0m",
         );
       }
     } catch (err) {
@@ -237,9 +248,7 @@ export function SandboxDeploymentCard({
         err instanceof Error ? err.message : "Failed to deploy sandbox";
 
       if (xtermRef.current) {
-        xtermRef.current.writeln(
-          `\n\x1b[1;31m✗ Error: ${errorMsg}\x1b[0m`
-        );
+        xtermRef.current.writeln(`\n\x1b[1;31m✗ Error: ${errorMsg}\x1b[0m`);
       }
     } finally {
       console.log("[SandboxDeployment] Deployment finished");

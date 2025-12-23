@@ -5,7 +5,7 @@
 // To update these shared files, modify the source file and run:
 // npm run sync-types (in the control-plane directory)
 //
-// Last synced: 2025-12-22T12:52:35.515Z
+// Last synced: 2025-12-23T10:06:15.031Z
 
 // Public API types for the Control Plane Server
 // These types define the request and response schemas for all public endpoints
@@ -242,8 +242,22 @@ export interface FetchViewingUrlSuccessResponse {
 // /prototype/create ENDPOINT
 // ============================================================================
 
+export const PROTOTYPE_CREATION_SOURCES = [
+  'landing_prompt',
+  'dashboard_prompt',
+  'dashboard_modal',
+  'public_prototype_clone',
+  'prototype_editor_clone',
+  'auth_callback_chat_intent',
+  'unknown',
+] as const;
+
+export type PrototypeCreationSource =
+  (typeof PROTOTYPE_CREATION_SOURCES)[number];
+
 export interface CreatePrototypeRequestBody {
   name: string;
+  creation_source: PrototypeCreationSource;
   description?: string;
   folder_id?: string;
   prototype_id?: string; // For forking an existing prototype

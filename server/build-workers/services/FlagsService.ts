@@ -43,10 +43,9 @@ export class FlagsService {
 
       return updatedFlags;
     } catch (error) {
-      logger.warn(
-        "Unexpected error refreshing feature flags from Supabase",
-        { error },
-      );
+      logger.warn("Unexpected error refreshing feature flags from Supabase", {
+        error,
+      });
       return { ...baseFlags };
     }
   }

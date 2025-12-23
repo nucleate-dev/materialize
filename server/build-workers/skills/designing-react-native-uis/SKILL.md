@@ -37,14 +37,14 @@ React Native Aesthetics & Technical Guidelines
 Focus on:
 
 1. Typography & Layout
-Font Choice: It's possible, though not required, to use @expo-google-fonts to load distinctive typefaces. Pair a characterful header font with a highly readable geometric sans for body text.
+   Font Choice: It's possible, though not required, to use @expo-google-fonts to load distinctive typefaces. Pair a characterful header font with a highly readable geometric sans for body text.
 
 Layout: Use react-native-safe-area-context intelligently--sometimes bleeding backgrounds into the status bar creates a more immersive feel.
 
 Whitespace: Mobile screens are small; use generous padding and whitespace to reduce cognitive load. Don't crowd the interface.
 
 1. Motion & Physics (The "Secret Sauce")
-Library: Use animations like the Animated API in React Native.
+   Library: Use animations like the Animated API in React Native.
 
 Physics: Avoid linear easing. Use fast spring-based animations (mass, damping, stiffness) that feel natural under the finger.
 
@@ -53,19 +53,19 @@ Transitions: Elements should not just "appear." They should slide, scale, or fad
 Micro-interactions: Animate icons on press. Scale buttons down slightly (0.95) on touch to provide "weight."
 
 1. Tactility & Feedback
-Haptics: Integrate expo-haptics (Light, Medium, Heavy, Selection) to reinforce interactions. A UI should "click" when you use it.
+   Haptics: Integrate expo-haptics (Light, Medium, Heavy, Selection) to reinforce interactions. A UI should "click" when you use it.
 
 Gestures: Use react-native-gesture-handler. Don't rely solely on taps. Swipe-to-dismiss, long-press actions, and pan gestures make an app feel native and premium.
 
 2. Visual Depth & Styling
-Shadows & Gradients: Use expo-linear-gradient. React Native shadows on Android are limited (elevation), so consider using SVGs or gradients to create custom, soft shadows that look consistent across platforms.
+   Shadows & Gradients: Use expo-linear-gradient. React Native shadows on Android are limited (elevation), so consider using SVGs or gradients to create custom, soft shadows that look consistent across platforms.
 
 Blur: Use expo-blur to create glassmorphism effects (e.g., a frosted bottom tab bar or modal overlay).
 
 Shapes: Use borderRadius aggressively--hyper-round for friendly apps, sharp/zero for brutalist apps. Masked views for non-standard image shapes.
 
 1. Implementation Details
-Icons: Use @expo/vector-icons (Feather, Ionicons, MaterialCommunityIcons) but style them creatively (e.g., inside a circle container, with a glow, or rotated).
+   Icons: Use @expo/vector-icons (Feather, Ionicons, MaterialCommunityIcons) but style them creatively (e.g., inside a circle container, with a glow, or rotated).
 
 Structure: Keep the component tree clean. Separate styles into StyleSheet.create.
 

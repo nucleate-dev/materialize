@@ -738,6 +738,12 @@ export default function InternalPrototypePage() {
   };
 
   const handleShare = () => {
+    logger.log({
+      event: "client_prototype_editor_share_modal_opened",
+      properties: {
+        prototype_id: prototypeId,
+      },
+    });
     setShowShareModal(true);
   };
 
@@ -745,6 +751,12 @@ export default function InternalPrototypePage() {
     if (!prototype) return;
 
     try {
+      logger.log({
+        event: "client_prototype_editor_clone_button_clicked",
+        properties: {
+          prototype_id: prototype?.id,
+        },
+      });
       setIsCloningPrototype(true);
       const clonedPrototypeName = `${prototype.name} (Copy)`;
       const session = await supabase.auth.getSession();
@@ -755,6 +767,24 @@ export default function InternalPrototypePage() {
         return;
       }
 
+      const folderId =
+        typeof prototype.folder_id === "string"
+          ? prototype.folder_id
+          : undefined;
+      const description =
+        typeof prototype.description === "string"
+          ? prototype.description
+          : undefined;
+
+      const payload: CreatePrototypeRequestBody = {
+        name: clonedPrototypeName,
+        creation_source: "prototype_editor_clone",
+        description,
+        folder_id: folderId,
+        prototype_id: prototype.id,
+        visibility: "PUBLIC",
+      };
+
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_SERVER_ENDPOINT!}/prototype/create`,
         {
@@ -763,13 +793,7 @@ export default function InternalPrototypePage() {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
-          body: JSON.stringify({
-            name: clonedPrototypeName,
-            description: prototype.description,
-            folder_id: prototype.folder_id || undefined,
-            prototype_id: prototype.id,
-            visibility: "PUBLIC",
-          } as CreatePrototypeRequestBody),
+          body: JSON.stringify(payload),
         },
       );
 
@@ -798,6 +822,12 @@ export default function InternalPrototypePage() {
   }, [logger, prototype]);
 
   const handleOpenDeployModal = () => {
+    logger.log({
+      event: "client_prototype_editor_deploy_modal_opened",
+      properties: {
+        prototype_id: prototype?.id,
+      },
+    });
     setIsDeployModalOpen(true);
   };
 
@@ -845,6 +875,13 @@ export default function InternalPrototypePage() {
       );
 
       toast.success("Copied!");
+      logger.log({
+        event: "client_prototype_editor_share_link_copied",
+        properties: {
+          prototype_id: prototype.id,
+          visibility_before: isPublic ? "PUBLIC" : "SELF",
+        },
+      });
 
       setHasCopied(true);
       setTimeout(() => {
@@ -869,6 +906,13 @@ export default function InternalPrototypePage() {
 
     try {
       const newVisibility: PrototypeVisibility = checked ? "PUBLIC" : "SELF";
+      logger.log({
+        event: "client_prototype_editor_share_visibility_changed",
+        properties: {
+          prototype_id: prototype.id,
+          visibility: newVisibility,
+        },
+      });
       await supabase
         .from("prototypes")
         .update({ visibility: newVisibility })
@@ -945,6 +989,15 @@ export default function InternalPrototypePage() {
         filesToDelete,
         assetsToDelete,
       });
+      logger.log({
+        event: "client_prototype_editor_code_editor_file_deleted",
+        properties: {
+          prototype_id: prototypeId,
+          file_count: filesToDelete.length,
+          asset_count: assetsToDelete.length,
+          delete_type: deleteTarget?.type,
+        },
+      });
 
       // Close dialog
       setShowDeleteConfirm(false);
@@ -1017,6 +1070,17 @@ export default function InternalPrototypePage() {
           assetsToUpload,
         });
 
+        if (result.success) {
+          logger.log({
+            event: "client_prototype_editor_code_editor_files_uploaded",
+            properties: {
+              prototype_id: prototypeId,
+              file_count: files.length,
+              target_path: resolvedTargetPath || "/",
+              source: "drag_drop",
+            },
+          });
+        }
         logger.debug("log", "Files uploaded via drag and drop", {
           fileCount: files.length,
           targetPath: resolvedTargetPath,

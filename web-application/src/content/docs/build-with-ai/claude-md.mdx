@@ -8,6 +8,7 @@ order: 4
 ## What you'll accomplish
 
 By the end of this guide, you'll:
+
 - Understand what CLAUDE.md is for
 - Know what belongs in it vs. regular prompts
 - Have a working CLAUDE.md for your project
@@ -28,25 +29,30 @@ Create `CLAUDE.md` in your project root:
 # Project: My App
 
 ## Code conventions
+
 - Use functional components with hooks
 - Prefer named exports over default exports
 - Use TypeScript strict mode
 
 ## UI rules
+
 - Always use ThemedText and ThemedView
 - Follow the spacing tokens from Theme.ts
 - Icons come from @expo/vector-icons
 
 ## Libraries to use
+
 - Navigation: expo-router
 - State: React Context (no Redux)
 - API: fetch with async/await
 
 ## Libraries to avoid
+
 - moment.js (use date-fns)
 - lodash (use native methods)
 
 ## Definition of done
+
 - No TypeScript errors
 - Works in dark mode
 - Follows existing patterns
@@ -62,42 +68,52 @@ Or explicitly:
 
 ## What belongs in CLAUDE.md vs. prompts
 
-| CLAUDE.md | Regular prompts |
-|-----------|----------------|
-| Code style rules | Specific feature requests |
-| Library choices | One-time tasks |
-| UI patterns | Bug fixes |
-| Naming conventions | Refactoring |
-| Project structure | Questions |
+| CLAUDE.md          | Regular prompts           |
+| ------------------ | ------------------------- |
+| Code style rules   | Specific feature requests |
+| Library choices    | One-time tasks            |
+| UI patterns        | Bug fixes                 |
+| Naming conventions | Refactoring               |
+| Project structure  | Questions                 |
 
 ## Recommended sections
 
 ### Code conventions
+
 How code should be written:
+
 - Formatting preferences
 - Naming patterns
 - File organization
 
 ### UI rules
+
 How the app should look:
+
 - Which components to use
 - Spacing and typography
 - Accessibility requirements
 
 ### Libraries to use/avoid
+
 Dependency decisions:
+
 - Preferred packages
 - What not to use
 - Version constraints
 
 ### Performance rules
+
 Optimization guidelines:
+
 - Image optimization
 - List virtualization
 - Lazy loading
 
 ### Definition of done
+
 Quality checklist:
+
 - TypeScript clean
 - Tested in dark mode
 - No console warnings
@@ -105,6 +121,7 @@ Quality checklist:
 ## Keep it short & powerful
 
 CLAUDE.md should be:
+
 - ✅ Scannable (bullet points)
 - ✅ Actionable (clear rules)
 - ✅ Updated (reflect current decisions)
@@ -124,26 +141,31 @@ CLAUDE.md should be:
 # [Your App Name]
 
 ## Stack
+
 - Expo with expo-router
 - TypeScript strict
 - React Native 0.74+
 
 ## Code style
+
 - Functional components only
 - Named exports
 - Types in separate .types.ts files
 
 ## UI
+
 - Use ThemedText/ThemedView
 - Spacing from constants/Theme.ts
 - Icons from @expo/vector-icons
 
 ## State
+
 - React Context for global state
 - useState for local state
 - No Redux
 
 ## Done means
+
 - No TS errors
 - Works light + dark mode
 - Matches existing patterns

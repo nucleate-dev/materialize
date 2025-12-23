@@ -8,6 +8,7 @@ order: 4
 ## What you'll accomplish
 
 After this guide, you'll understand:
+
 - File-based routing basics
 - Tab and stack navigation
 - Deep linking
@@ -45,17 +46,17 @@ export default function ProfileScreen() {
 ### 2. Navigate to it
 
 ```tsx
-import { Link } from 'expo-router';
+import { Link } from "expo-router";
 
-<Link href="/profile">Go to Profile</Link>
+<Link href="/profile">Go to Profile</Link>;
 ```
 
 Or programmatically:
 
 ```tsx
-import { router } from 'expo-router';
+import { router } from "expo-router";
 
-router.push('/profile');
+router.push("/profile");
 ```
 
 ## Tabs navigation
@@ -70,15 +71,16 @@ app/
 ```
 
 ### Tab layout
+
 ```tsx
 // app/(tabs)/_layout.tsx
-import { Tabs } from 'expo-router';
+import { Tabs } from "expo-router";
 
 export default function TabLayout() {
   return (
     <Tabs>
-      <Tabs.Screen name="index" options={{ title: 'Home' }} />
-      <Tabs.Screen name="explore" options={{ title: 'Explore' }} />
+      <Tabs.Screen name="index" options={{ title: "Home" }} />
+      <Tabs.Screen name="explore" options={{ title: "Explore" }} />
     </Tabs>
   );
 }
@@ -88,25 +90,28 @@ export default function TabLayout() {
 
 ```tsx
 // Navigate with a stack push
-router.push('/details');
+router.push("/details");
 
 // Go back
 router.back();
 
 // Replace current screen
-router.replace('/home');
+router.replace("/home");
 ```
 
 ## Deep linking
 
 Routes automatically support deep links:
+
 - `myapp://profile` → opens `/profile`
 - `myapp://settings/account` → opens `/settings/account`
 
 ## Navigation gotchas
 
 ### Dynamic routes
+
 Use brackets for parameters:
+
 ```
 app/
 └── post/
@@ -114,14 +119,17 @@ app/
 ```
 
 Access the param:
+
 ```tsx
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams } from "expo-router";
 
 const { id } = useLocalSearchParams();
 ```
 
 ### Groups don't affect URL
+
 `(tabs)` is a group - it doesn't appear in the URL:
+
 - `app/(tabs)/index.tsx` → `/`
 - `app/(tabs)/explore.tsx` → `/explore`
 

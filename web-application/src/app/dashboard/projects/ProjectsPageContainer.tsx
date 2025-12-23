@@ -30,7 +30,7 @@ export default function ProjectsPageContainer() {
     async ({
       offset: start = 0,
       append = false,
-    }: { offset?: number; append?: boolean; } = {}) => {
+    }: { offset?: number; append?: boolean } = {}) => {
       if (!user?.id) {
         setPrototypes([]);
         setHasMore(false);

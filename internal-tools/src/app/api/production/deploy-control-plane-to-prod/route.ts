@@ -8,15 +8,15 @@ export const dynamic = "force-dynamic";
 const REPO_ROOT = path.resolve(process.cwd(), "..");
 const CONTROL_PLANE_DIR = path.join(REPO_ROOT, "server", "control-plane");
 
-function runNpmDeployProdWithStreaming(
-  onData: (data: string) => void
-) {
+function runNpmDeployProdWithStreaming(onData: (data: string) => void) {
   return new Promise<{
     code: number | null;
     success: boolean;
   }>((resolve, reject) => {
     if (!fs.existsSync(CONTROL_PLANE_DIR)) {
-      reject(new Error(`Control plane directory not found at ${CONTROL_PLANE_DIR}`));
+      reject(
+        new Error(`Control plane directory not found at ${CONTROL_PLANE_DIR}`),
+      );
       return;
     }
 
@@ -52,7 +52,7 @@ export async function POST() {
         const result = await runNpmDeployProdWithStreaming((data) => {
           // Send each chunk of output as it arrives
           controller.enqueue(
-            encoder.encode(JSON.stringify({ type: "data", data }) + "\n")
+            encoder.encode(JSON.stringify({ type: "data", data }) + "\n"),
           );
         });
 
@@ -63,8 +63,8 @@ export async function POST() {
               type: "done",
               success: result.success,
               code: result.code,
-            }) + "\n"
-          )
+            }) + "\n",
+          ),
         );
 
         controller.close();
@@ -73,9 +73,11 @@ export async function POST() {
           encoder.encode(
             JSON.stringify({
               type: "error",
-              error: (error as Error).message || "Failed to execute npm run deploy:prod",
-            }) + "\n"
-          )
+              error:
+                (error as Error).message ||
+                "Failed to execute npm run deploy:prod",
+            }) + "\n",
+          ),
         );
         controller.close();
       }

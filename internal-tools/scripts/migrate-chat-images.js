@@ -72,7 +72,7 @@ const listAllObjects = async (bucket, prefix) => {
     const currentPrefix = queue.shift();
     let offset = 0;
 
-    for (; ;) {
+    for (;;) {
       const { data, error } = await supabase.storage
         .from(bucket)
         .list(currentPrefix, { limit: LIST_LIMIT, offset });

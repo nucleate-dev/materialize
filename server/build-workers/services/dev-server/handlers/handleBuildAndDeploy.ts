@@ -105,10 +105,14 @@ export async function handleBuildAndDeployImpl(
         log2,
       );
 
-      log2.consoleLogDevOnly("info", "Build and deploy completed successfully", {
-        prototypeId,
-        version: developmentServerService.developmentServerState.builtVersion,
-      });
+      log2.consoleLogDevOnly(
+        "info",
+        "Build and deploy completed successfully",
+        {
+          prototypeId,
+          version: developmentServerService.developmentServerState.builtVersion,
+        },
+      );
 
       reply.status(HTTP_STATUS.OK);
       return {

@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "prettier": "prettier --write \"**/*.{js,jsx,ts,tsx,md,mdx,json}\" \"!**/node_modules/**\" \"!**/.next/**\" \"!**/dist/**\" \"!**/out/**\"",
     "pull-prototype": "node scripts/pull-prototype.js",
     "gen:supabase:types": "supabase gen types typescript --project-id hfgjmwidcoszkmvejxhw --schema public > src/lib/types/supabase.ts",
     "typecheck": "tsc -p . --noEmit"
@@ -108,6 +109,7 @@
     "eslint": "^9.37.0",
     "eslint-config-next": "^15.5.3",
     "eslint-config-prettier": "^9.1.2",
+    "prettier": "^3.5.1",
     "supabase": "^2.34.3",
     "typescript": "^5.9.3"
   }

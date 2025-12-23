@@ -8,6 +8,7 @@ order: 3
 ## What you'll accomplish
 
 This guide covers:
+
 - Email/password authentication
 - Magic link (passwordless) login
 - OAuth with social providers
@@ -32,6 +33,7 @@ const { data, error } = await supabase.auth.signInWithPassword({
 ```
 
 ### Prompt for Claude
+
 > "Create a login screen with email and password fields. Use Supabase auth. Show errors below the form. On success, redirect to home."
 
 ## Magic links
@@ -47,6 +49,7 @@ const { error } = await supabase.auth.signInWithOtp({
 User receives an email with a login link.
 
 ### Prompt for Claude
+
 > "Add magic link login option. Show a success message after sending the link."
 
 ## OAuth
@@ -55,11 +58,12 @@ Social login (Google, Apple, GitHub):
 
 ```tsx
 const { error } = await supabase.auth.signInWithOAuth({
-  provider: 'google',
+  provider: "google",
 });
 ```
 
 ### Setup required
+
 1. Enable provider in Supabase dashboard
 2. Configure OAuth credentials
 3. Set redirect URLs
@@ -67,8 +71,11 @@ const { error } = await supabase.auth.signInWithOAuth({
 ## Session handling
 
 ### Check if logged in
+
 ```tsx
-const { data: { session } } = await supabase.auth.getSession();
+const {
+  data: { session },
+} = await supabase.auth.getSession();
 
 if (session) {
   // User is logged in
@@ -76,15 +83,17 @@ if (session) {
 ```
 
 ### Listen for auth changes
+
 ```tsx
 supabase.auth.onAuthStateChange((event, session) => {
-  if (event === 'SIGNED_IN') {
+  if (event === "SIGNED_IN") {
     // Handle sign in
   }
 });
 ```
 
 ### Auth context pattern
+
 ```tsx
 // Create an AuthProvider that wraps your app
 // Expose user, signIn, signOut via context

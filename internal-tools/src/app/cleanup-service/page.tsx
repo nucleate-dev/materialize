@@ -77,9 +77,7 @@ export default function CleanupServicePage() {
 
       const result = await forceCleanNoBuild(prototypeId.trim());
 
-      setSuccess(
-        `${result.message}\nBuild ID: ${result.build_id}`,
-      );
+      setSuccess(`${result.message}\nBuild ID: ${result.build_id}`);
     } catch (err) {
       setError(
         err instanceof Error
@@ -259,9 +257,9 @@ export default function CleanupServicePage() {
             <CardDescription>
               Force clean a build for a specific prototype while waiting for
               successful build completion. This uses retry logic (3 attempts, 2
-              minutes apart) and automatically takes a screenshot after successful
-              cleanup. Use this when you want to ensure the build completes before
-              cleanup.
+              minutes apart) and automatically takes a screenshot after
+              successful cleanup. Use this when you want to ensure the build
+              completes before cleanup.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -300,8 +298,8 @@ export default function CleanupServicePage() {
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>
                 <strong>Note:</strong> This operation may take up to 6+ minutes
-                (3 attempts × 2 minute delays) if the build is still in progress.
-                A screenshot will be taken automatically on success.
+                (3 attempts × 2 minute delays) if the build is still in
+                progress. A screenshot will be taken automatically on success.
               </AlertDescription>
             </Alert>
           </CardContent>

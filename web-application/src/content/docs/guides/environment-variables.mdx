@@ -8,6 +8,7 @@ order: 1
 ## What you'll accomplish
 
 After this guide, you'll know:
+
 - The difference between build-time and runtime env vars
 - How to add and use API keys safely
 - Common mistakes to avoid
@@ -33,28 +34,33 @@ const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
 
 ## Build-time vs runtime
 
-| Type | Prefix | When loaded |
-|------|--------|-------------|
-| Public | `EXPO_PUBLIC_` | Bundled into app |
-| Private | No prefix | Server-side only |
+| Type    | Prefix         | When loaded      |
+| ------- | -------------- | ---------------- |
+| Public  | `EXPO_PUBLIC_` | Bundled into app |
+| Private | No prefix      | Server-side only |
 
 ### Public variables
+
 - Safe to expose in client code
 - Examples: API URLs, public keys
 
 ### Private variables
+
 - Never shipped to client
 - Examples: Secret keys, database passwords
 
 ## Common mistakes
 
 ### ❌ Committing secrets
+
 Never put real secrets in your code files.
 
 ### ❌ Wrong prefix
+
 Forgetting `EXPO_PUBLIC_` means the variable won't be available in your app.
 
 ### ❌ Not restarting
+
 After adding env vars, refresh your preview to load them.
 
 ## Checklist

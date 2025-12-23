@@ -15,7 +15,7 @@ export function generateInternalToolsSignature(
   method: string,
   path: string,
   body: string,
-  secretKey: string
+  secretKey: string,
 ): string {
   // Create the payload to sign: timestamp + method + path + body
   const payload = `${timestamp}.${method.toUpperCase()}.${path}.${body}`;
@@ -37,7 +37,7 @@ export function generateAuthHeaders(
   method: string,
   path: string,
   body: string,
-  secretKey: string
+  secretKey: string,
 ): Record<string, string> {
   const timestamp = Math.floor(Date.now() / 1000).toString();
   const signature = generateInternalToolsSignature(
@@ -45,7 +45,7 @@ export function generateAuthHeaders(
     method,
     path,
     body,
-    secretKey
+    secretKey,
   );
 
   const headers: Record<string, string> = {
@@ -70,13 +70,13 @@ export function getInternalToolsConfig() {
 
   if (!secretKey) {
     throw new Error(
-      "NEXT_PUBLIC_INTERNAL_TOOLS_SECRET_KEY environment variable is required"
+      "NEXT_PUBLIC_INTERNAL_TOOLS_SECRET_KEY environment variable is required",
     );
   }
 
   if (!serverEndpoint) {
     throw new Error(
-      "NEXT_PUBLIC_INTERNAL_TOOLS_SERVER_ENDPOINT environment variable is required"
+      "NEXT_PUBLIC_INTERNAL_TOOLS_SERVER_ENDPOINT environment variable is required",
     );
   }
 

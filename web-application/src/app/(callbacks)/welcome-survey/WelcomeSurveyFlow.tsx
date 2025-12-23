@@ -99,7 +99,10 @@ export function WelcomeSurveyFlow() {
       } = await supabase.auth.getSession();
 
       if (!session?.access_token) {
-        logger.debug("error", "No access token available for survey submission");
+        logger.debug(
+          "error",
+          "No access token available for survey submission",
+        );
         router.push("/login");
         return;
       }
@@ -221,7 +224,9 @@ export function WelcomeSurveyFlow() {
     }
   };
 
-  const currentValue = responses[currentQuestion.id] || (currentQuestion.type === "multi-select" ? [] : "");
+  const currentValue =
+    responses[currentQuestion.id] ||
+    (currentQuestion.type === "multi-select" ? [] : "");
   const otherKey = `${currentQuestion.id}Other` as keyof typeof otherTexts;
   const otherText = otherTexts[otherKey] || "";
 

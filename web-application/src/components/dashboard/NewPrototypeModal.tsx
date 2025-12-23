@@ -59,8 +59,7 @@ interface NewPrototypeModalProps {
 }
 
 type DesignStyle = Database["public"]["Enums"]["design_style"];
-type PrototypeFramework =
-  Database["public"]["Enums"]["prototype_framework"];
+type PrototypeFramework = Database["public"]["Enums"]["prototype_framework"];
 type DesignSystemRow = Database["public"]["Tables"]["design_systems"]["Row"];
 type FolderOption = {
   id: string;
@@ -143,9 +142,7 @@ export default function NewPrototypeModal({
   const getDesignStyleLabel = (style: DesignStyle): string => {
     if (isWebFrameworkSelected) {
       return (
-        WEB_DESIGN_STYLE_LABELS[style] ??
-        DESIGN_STYLE_LABELS[style] ??
-        style
+        WEB_DESIGN_STYLE_LABELS[style] ?? DESIGN_STYLE_LABELS[style] ?? style
       );
     }
     return DESIGN_STYLE_LABELS[style] ?? style;
@@ -333,6 +330,19 @@ export default function NewPrototypeModal({
   }, [open, designSystems, customDesignSystemId]);
 
   useEffect(() => {
+    if (!open) {
+      return;
+    }
+    logger.log({
+      event: "client_new_prototype_modal_opened",
+      properties: {
+        projectId,
+        userPlan,
+      },
+    });
+  }, [open, logger, projectId, userPlan]);
+
+  useEffect(() => {
     if (framework !== "web_nextjs_react") {
       return;
     }
@@ -352,10 +362,33 @@ export default function NewPrototypeModal({
     if (!name.trim() || !user) return;
 
     if (userPlan === "free" && prototypeCount >= 5) {
+      logger.log({
+        event: "client_new_prototype_modal_limit_hit",
+        properties: {
+          projectId,
+          name: name.trim(),
+          userPlan,
+          framework,
+          design_style: designStyle,
+          custom_design_system: customDesignSystemId,
+        },
+      });
       return;
     }
 
     setIsCreating(true);
+    logger.log({
+      event: "client_new_prototype_modal_submitted",
+      properties: {
+        projectId,
+        name: name.trim(),
+        folder_id: selectedFolder,
+        visibility,
+        design_style: designStyle,
+        custom_design_system: customDesignSystemId,
+        framework,
+      },
+    });
 
     try {
       const session = await supabase.auth.getSession();
@@ -366,20 +399,28 @@ export default function NewPrototypeModal({
       const serverEndpoint = process.env.NEXT_PUBLIC_SERVER_ENDPOINT;
       if (!serverEndpoint) return;
 
+      const normalizedVisibility: CreatePrototypeRequestBody["visibility"] =
+        visibility === "SELF" ? "SELF" : "PUBLIC";
+
+      const folderId = selectedFolder ?? undefined;
+
+      const payload: CreatePrototypeRequestBody = {
+        name: name.trim(),
+        creation_source: "dashboard_modal",
+        folder_id: folderId,
+        visibility: normalizedVisibility,
+        design_style: designStyle,
+        custom_design_system: customDesignSystemId ?? undefined,
+        framework,
+      };
+
       const response = await fetch(`${serverEndpoint}/prototype/create`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({
-          name: name.trim(),
-          folder_id: selectedFolder || undefined,
-          visibility,
-          design_style: designStyle,
-          custom_design_system: customDesignSystemId ?? undefined,
-          framework,
-        } as CreatePrototypeRequestBody),
+        body: JSON.stringify(payload),
       });
 
       const result: APIResponse<
@@ -388,6 +429,16 @@ export default function NewPrototypeModal({
       > = await response.json();
 
       if (result.data) {
+        logger.log({
+          event: "client_new_prototype_modal_creation_success",
+          properties: {
+            projectId,
+            prototype_id: result.data.prototype_id,
+            framework,
+            design_style: designStyle,
+            custom_design_system: customDesignSystemId,
+          },
+        });
         setName("");
         setSelectedFolder(null);
         setVisibility(userPlan === "free" ? "PUBLIC" : "SELF");
@@ -399,6 +450,17 @@ export default function NewPrototypeModal({
         onCreated(result.data.prototype_id);
         onClose();
       } else if (result.error?.error === "PROTOTYPE_LIMIT_REACHED") {
+        logger.log({
+          event: "client_new_prototype_modal_limit_hit",
+          properties: {
+            projectId,
+            name: name.trim(),
+            userPlan,
+            framework,
+            design_style: designStyle,
+            custom_design_system: customDesignSystemId,
+          },
+        });
         onClose();
         setShowUpsellModal(true);
       } else {
@@ -457,7 +519,16 @@ export default function NewPrototypeModal({
                     type="button"
                     size="sm"
                     className="h-7 text-xs bg-amber-500 text-white dark:text-black hover:bg-amber-600 dark:hover:bg-yellow-400 border-0"
-                    onClick={() => handleCheckout("plus", router)}
+                    onClick={() => {
+                      logger.log({
+                        event: "client_upgrade_checkout_clicked",
+                        properties: {
+                          source: "new_prototype_modal_limit_banner",
+                          plan: "plus",
+                        },
+                      });
+                      void handleCheckout("plus", router);
+                    }}
                   >
                     Upgrade Now
                   </Button>
@@ -471,8 +542,8 @@ export default function NewPrototypeModal({
             className={cn(
               "space-y-5",
               userPlan === "free" &&
-              prototypeCount >= 5 &&
-              "opacity-50 pointer-events-none",
+                prototypeCount >= 5 &&
+                "opacity-50 pointer-events-none",
             )}
           >
             {/* Project Name Input */}
@@ -492,8 +563,8 @@ export default function NewPrototypeModal({
                 className={cn(
                   "h-11 bg-white dark:bg-[#0B0C0E] border-zinc-200 dark:border-white/10 text-zinc-900 dark:text-white focus:border-indigo-500 dark:focus:border-white/20 placeholder:text-zinc-400 dark:placeholder:text-white/20 transition-all",
                   touched &&
-                  !name.trim() &&
-                  "border-red-500/50 focus-visible:ring-red-500/20",
+                    !name.trim() &&
+                    "border-red-500/50 focus-visible:ring-red-500/20",
                 )}
                 autoFocus
                 maxLength={64}

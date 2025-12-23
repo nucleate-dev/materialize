@@ -143,6 +143,13 @@ function AccountSettings() {
   const handleUpgradeClick = async (targetPlan: string) => {
     try {
       setIsProcessingUpgrade(true);
+      logger.log({
+        event: "client_upgrade_checkout_clicked",
+        properties: {
+          source: "account_page",
+          plan: targetPlan,
+        },
+      });
       await handleCheckout(targetPlan, router);
       setTimeout(() => setIsProcessingUpgrade(false), 2000);
     } catch (error) {
@@ -415,157 +422,162 @@ function AccountSettings() {
             </SectionCard>
 
             {/* Claude Subscription Connection */}
-            {posthog?.isFeatureEnabled("claude-code-cli-with-personal-token") && (
+            {posthog?.isFeatureEnabled(
+              "claude-code-cli-with-personal-token",
+            ) && (
               <SectionCard>
                 <SectionHeader
                   title="Claude Subscription"
                   description="Connect your Claude Pro or Max subscription for AI chat"
                   icon={Key}
                 />
-              <div className="p-6 space-y-6">
-                {currentSubscription === "free" ? (
-                  /* Free Plan - Upgrade Required */
-                  <div className="space-y-4">
-                    <div className="flex items-start gap-3 p-4 rounded-lg bg-purple-500/10 border border-purple-500/20">
-                      <Crown className="w-5 h-5 text-purple-600 dark:text-purple-400 mt-0.5 shrink-0" />
-                      <div className="flex-1">
-                        <p className="font-medium text-purple-700 dark:text-purple-300 mb-1">
-                          Upgrade Required
-                        </p>
-                        <p className="text-sm text-purple-600 dark:text-purple-400">
-                          Connect your Claude Pro or Max subscription to use unlimited AI
-                          chat. This feature is available for Plus subscribers and above.
-                        </p>
+                <div className="p-6 space-y-6">
+                  {currentSubscription === "free" ? (
+                    /* Free Plan - Upgrade Required */
+                    <div className="space-y-4">
+                      <div className="flex items-start gap-3 p-4 rounded-lg bg-purple-500/10 border border-purple-500/20">
+                        <Crown className="w-5 h-5 text-purple-600 dark:text-purple-400 mt-0.5 shrink-0" />
+                        <div className="flex-1">
+                          <p className="font-medium text-purple-700 dark:text-purple-300 mb-1">
+                            Upgrade Required
+                          </p>
+                          <p className="text-sm text-purple-600 dark:text-purple-400">
+                            Connect your Claude Pro or Max subscription to use
+                            unlimited AI chat. This feature is available for
+                            Plus subscribers and above.
+                          </p>
+                        </div>
                       </div>
-                    </div>
-                    <Button
-                      onClick={() => handleUpgradeClick("plus")}
-                      className="w-full bg-black dark:bg-white text-white dark:text-black hover:bg-black/90 dark:hover:bg-white/90"
-                      disabled={isProcessingUpgrade}
-                    >
-                      {isProcessingUpgrade ? (
-                        <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                      ) : (
-                        <Crown className="w-4 h-4 mr-2" />
-                      )}
-                      Upgrade to Plus
-                    </Button>
-                  </div>
-                ) : hasClaudeToken ? (
-                  /* Token Connected State */
-                  <div className="space-y-4">
-                    <div className="flex items-start gap-3 p-4 rounded-lg bg-green-500/10 border border-green-500/20">
-                      <Check className="w-5 h-5 text-green-600 dark:text-green-400 mt-0.5 shrink-0" />
-                      <div className="flex-1">
-                        <p className="font-medium text-green-700 dark:text-green-300 mb-1">
-                          Claude Subscription Connected
-                        </p>
-                        <p className="text-sm text-green-600 dark:text-green-400">
-                          Your AI chat will use your Claude Pro/Max subscription
-                          instead of API credits.
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="flex gap-2">
                       <Button
-                        onClick={handleDeleteClaudeToken}
-                        variant="outline"
-                        disabled={isDeletingToken}
-                        className="border-red-200 dark:border-red-900 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950"
+                        onClick={() => handleUpgradeClick("plus")}
+                        className="w-full bg-black dark:bg-white text-white dark:text-black hover:bg-black/90 dark:hover:bg-white/90"
+                        disabled={isProcessingUpgrade}
                       >
-                        {isDeletingToken ? (
+                        {isProcessingUpgrade ? (
                           <Loader2 className="w-4 h-4 animate-spin mr-2" />
                         ) : (
-                          <Trash2 className="w-4 h-4 mr-2" />
+                          <Crown className="w-4 h-4 mr-2" />
                         )}
-                        Disconnect
+                        Upgrade to Plus
                       </Button>
                     </div>
-                  </div>
-                ) : (
-                  /* No Token State - Paid User */
-                  <div className="space-y-4">
-                    <div className="flex items-start gap-3 p-4 rounded-lg bg-blue-500/10 border border-blue-500/20">
-                      <AlertCircle className="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5 shrink-0" />
-                      <div className="flex-1">
-                        <p className="font-medium text-blue-700 dark:text-blue-300 mb-1">
-                          Connect Your Claude Subscription
-                        </p>
-                        <p className="text-sm text-blue-600 dark:text-blue-400 mb-2">
-                          Use your Claude Pro or Max subscription for unlimited
-                          AI chat (~10x cheaper than API credits).
-                        </p>
-                        <ol className="text-sm text-blue-600 dark:text-blue-400 space-y-1 ml-4 list-decimal">
-                          <li>
-                            Run{" "}
-                            <code className="px-1.5 py-0.5 bg-blue-500/20 rounded font-mono text-xs">
-                              claude setup-token
-                            </code>{" "}
-                            in your terminal
-                          </li>
-                          <li>Copy the token it gives you</li>
-                          <li>Paste it below and click Save</li>
-                        </ol>
-                      </div>
-                    </div>
-
-                    <div className="space-y-3">
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                          Claude Token
-                        </label>
-                        <div className="flex gap-2">
-                          <input
-                            type="password"
-                            value={claudeTokenInput}
-                            onChange={(e) =>
-                              setClaudeTokenInput(e.target.value)
-                            }
-                            placeholder="Paste your token here"
-                            className="flex-1 px-3 py-2 bg-white dark:bg-[#1A1B1E] border border-black/10 dark:border-white/10 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 dark:focus:ring-purple-400"
-                          />
-                          <Button
-                            onClick={handleSaveClaudeToken}
-                            disabled={isSavingToken || !claudeTokenInput.trim()}
-                            className="bg-black dark:bg-white text-white dark:text-black hover:bg-black/90 dark:hover:bg-white/90"
-                          >
-                            {isSavingToken ? (
-                              <Loader2 className="w-4 h-4 animate-spin" />
-                            ) : (
-                              "Save Token"
-                            )}
-                          </Button>
+                  ) : hasClaudeToken ? (
+                    /* Token Connected State */
+                    <div className="space-y-4">
+                      <div className="flex items-start gap-3 p-4 rounded-lg bg-green-500/10 border border-green-500/20">
+                        <Check className="w-5 h-5 text-green-600 dark:text-green-400 mt-0.5 shrink-0" />
+                        <div className="flex-1">
+                          <p className="font-medium text-green-700 dark:text-green-300 mb-1">
+                            Claude Subscription Connected
+                          </p>
+                          <p className="text-sm text-green-600 dark:text-green-400">
+                            Your AI chat will use your Claude Pro/Max
+                            subscription instead of API credits.
+                          </p>
                         </div>
                       </div>
 
-                      {tokenSaveSuccess && (
-                        <div className="flex items-center gap-2 text-sm text-green-600 dark:text-green-400">
-                          <Check className="w-4 h-4" />
-                          Token saved successfully!
-                        </div>
-                      )}
-
-                      {tokenError && (
-                        <div className="flex items-center gap-2 text-sm text-red-600 dark:text-red-400">
-                          <AlertCircle className="w-4 h-4" />
-                          {tokenError}
-                        </div>
-                      )}
-
-                      <a
-                        href="https://docs.anthropic.com/en/docs/agents/claude-cli"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1.5 text-sm text-purple-600 dark:text-purple-400 hover:underline"
-                      >
-                        <ExternalLink className="w-3.5 h-3.5" />
-                        Learn more about Claude Code CLI
-                      </a>
+                      <div className="flex gap-2">
+                        <Button
+                          onClick={handleDeleteClaudeToken}
+                          variant="outline"
+                          disabled={isDeletingToken}
+                          className="border-red-200 dark:border-red-900 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950"
+                        >
+                          {isDeletingToken ? (
+                            <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                          ) : (
+                            <Trash2 className="w-4 h-4 mr-2" />
+                          )}
+                          Disconnect
+                        </Button>
+                      </div>
                     </div>
-                  </div>
-                )}
-              </div>
+                  ) : (
+                    /* No Token State - Paid User */
+                    <div className="space-y-4">
+                      <div className="flex items-start gap-3 p-4 rounded-lg bg-blue-500/10 border border-blue-500/20">
+                        <AlertCircle className="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5 shrink-0" />
+                        <div className="flex-1">
+                          <p className="font-medium text-blue-700 dark:text-blue-300 mb-1">
+                            Connect Your Claude Subscription
+                          </p>
+                          <p className="text-sm text-blue-600 dark:text-blue-400 mb-2">
+                            Use your Claude Pro or Max subscription for
+                            unlimited AI chat (~10x cheaper than API credits).
+                          </p>
+                          <ol className="text-sm text-blue-600 dark:text-blue-400 space-y-1 ml-4 list-decimal">
+                            <li>
+                              Run{" "}
+                              <code className="px-1.5 py-0.5 bg-blue-500/20 rounded font-mono text-xs">
+                                claude setup-token
+                              </code>{" "}
+                              in your terminal
+                            </li>
+                            <li>Copy the token it gives you</li>
+                            <li>Paste it below and click Save</li>
+                          </ol>
+                        </div>
+                      </div>
+
+                      <div className="space-y-3">
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                            Claude Token
+                          </label>
+                          <div className="flex gap-2">
+                            <input
+                              type="password"
+                              value={claudeTokenInput}
+                              onChange={(e) =>
+                                setClaudeTokenInput(e.target.value)
+                              }
+                              placeholder="Paste your token here"
+                              className="flex-1 px-3 py-2 bg-white dark:bg-[#1A1B1E] border border-black/10 dark:border-white/10 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 dark:focus:ring-purple-400"
+                            />
+                            <Button
+                              onClick={handleSaveClaudeToken}
+                              disabled={
+                                isSavingToken || !claudeTokenInput.trim()
+                              }
+                              className="bg-black dark:bg-white text-white dark:text-black hover:bg-black/90 dark:hover:bg-white/90"
+                            >
+                              {isSavingToken ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                              ) : (
+                                "Save Token"
+                              )}
+                            </Button>
+                          </div>
+                        </div>
+
+                        {tokenSaveSuccess && (
+                          <div className="flex items-center gap-2 text-sm text-green-600 dark:text-green-400">
+                            <Check className="w-4 h-4" />
+                            Token saved successfully!
+                          </div>
+                        )}
+
+                        {tokenError && (
+                          <div className="flex items-center gap-2 text-sm text-red-600 dark:text-red-400">
+                            <AlertCircle className="w-4 h-4" />
+                            {tokenError}
+                          </div>
+                        )}
+
+                        <a
+                          href="https://docs.anthropic.com/en/docs/agents/claude-cli"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 text-sm text-purple-600 dark:text-purple-400 hover:underline"
+                        >
+                          <ExternalLink className="w-3.5 h-3.5" />
+                          Learn more about Claude Code CLI
+                        </a>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </SectionCard>
             )}
 

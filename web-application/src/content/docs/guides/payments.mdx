@@ -8,6 +8,7 @@ order: 7
 ## What you'll accomplish
 
 This guide covers:
+
 - RevenueCat for in-app purchases
 - Stripe for web payments
 - Test users and sandbox
@@ -16,6 +17,7 @@ This guide covers:
 ## RevenueCat (recommended for mobile)
 
 ### Why RevenueCat?
+
 - Handles both iOS and Android
 - Manages subscriptions
 - Provides analytics
@@ -29,12 +31,13 @@ This guide covers:
 4. Install the SDK:
 
 ```tsx
-import Purchases from 'react-native-purchases';
+import Purchases from "react-native-purchases";
 
-Purchases.configure({ apiKey: 'your_api_key' });
+Purchases.configure({ apiKey: "your_api_key" });
 ```
 
 ### Get offerings
+
 ```tsx
 const offerings = await Purchases.getOfferings();
 
@@ -45,10 +48,11 @@ if (offerings.current) {
 ```
 
 ### Make a purchase
+
 ```tsx
 const { customerInfo } = await Purchases.purchasePackage(package);
 
-if (customerInfo.entitlements.active['premium']) {
+if (customerInfo.entitlements.active["premium"]) {
   // User now has premium access
 }
 ```
@@ -71,23 +75,25 @@ const session = await stripe.checkout.sessions.create({
 ## Store test users
 
 ### iOS Sandbox
+
 1. Create sandbox tester in App Store Connect
 2. Sign out of App Store on device
 3. Use sandbox account when prompted
 
 ### Android test users
+
 1. Add testers in Play Console
 2. Join the test track
 3. Use test card numbers
 
 ## Common review issues
 
-| Issue | Solution |
-|-------|----------|
-| "Restore purchases" missing | Add a restore button |
-| Unclear subscription terms | Show price and billing cycle clearly |
-| No way to cancel | Link to subscription management |
-| Free trial not clear | Show trial duration prominently |
+| Issue                       | Solution                             |
+| --------------------------- | ------------------------------------ |
+| "Restore purchases" missing | Add a restore button                 |
+| Unclear subscription terms  | Show price and billing cycle clearly |
+| No way to cancel            | Link to subscription management      |
+| Free trial not clear        | Show trial duration prominently      |
 
 ## Checklist
 

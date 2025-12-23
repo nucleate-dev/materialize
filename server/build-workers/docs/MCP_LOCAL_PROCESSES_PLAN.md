@@ -10,13 +10,13 @@ This document outlines the plan to convert our MCP tool servers (dev-tools and d
 
 ## Decisions Made
 
-| Decision | Choice |
-|----------|--------|
-| Architecture | Option A: HTTP-based internal API |
-| Process Count | Two separate MCP servers (dev-tools and design-tools) |
-| Process Lifecycle | Fastify server (worker.ts) spawns MCP servers on startup |
-| Internal Communication | HTTP REST API on localhost |
-| Authentication | No auth (trust localhost connections) |
+| Decision               | Choice                                                   |
+| ---------------------- | -------------------------------------------------------- |
+| Architecture           | Option A: HTTP-based internal API                        |
+| Process Count          | Two separate MCP servers (dev-tools and design-tools)    |
+| Process Lifecycle      | Fastify server (worker.ts) spawns MCP servers on startup |
+| Internal Communication | HTTP REST API on localhost                               |
+| Authentication         | No auth (trust localhost connections)                    |
 
 ---
 
@@ -59,6 +59,7 @@ const response = query({
 ### Existing CLI Integration
 
 There's already a `ClaudeCodeCliQueryHandler` (`services/chat/claude-code-cli-query-handler.ts`) that:
+
 - Spawns the `claude` CLI as a subprocess
 - Passes OAuth token via `CLAUDE_CODE_OAUTH_TOKEN` environment variable
 - Parses JSON output from stdout (`--output-format stream-json`)
@@ -69,6 +70,7 @@ This existing pattern shows how the CLI path works, and the MCP servers need to 
 ### Key Challenge
 
 In-process callbacks cannot be passed to separate MCP server processes. We need:
+
 1. An internal HTTP API that MCP servers can call
 2. MCP servers that communicate via stdio with Claude Code CLI
 3. Process lifecycle management in worker.ts
@@ -164,10 +166,10 @@ Create HTTP endpoints that expose the service layer functionality to MCP servers
 #### File: `server/build-workers/routes/mcp-api.ts`
 
 ```typescript
-import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
-import { SandboxService } from '../services/SandboxService.js';
-import { TerminalService } from '../services/terminals/TerminalService.js';
-import { NucleateDevelopmentServerService } from '../services/dev-server/NucleateDevelopmentServerService.js';
+import { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
+import { SandboxService } from "../services/SandboxService.js";
+import { TerminalService } from "../services/terminals/TerminalService.js";
+import { NucleateDevelopmentServerService } from "../services/dev-server/NucleateDevelopmentServerService.js";
 
 // Request/Response types
 interface WriteFileRequest {
@@ -225,35 +227,34 @@ export function registerMcpRoutes(
   terminalService: TerminalService,
   devServerService: NucleateDevelopmentServerService,
 ): void {
-
   // POST /mcp/write
   app.post<{ Body: WriteFileRequest; Reply: WriteFileResponse }>(
-    '/mcp/write',
+    "/mcp/write",
     async (request, reply) => {
       const { filePath, content } = request.body;
       try {
         await sandboxService.writeFile(filePath, content);
-        const bytesWritten = Buffer.byteLength(content, 'utf8');
+        const bytesWritten = Buffer.byteLength(content, "utf8");
         return { success: true, bytesWritten };
       } catch (error) {
         return {
           success: false,
-          error: error instanceof Error ? error.message : String(error)
+          error: error instanceof Error ? error.message : String(error),
         };
       }
-    }
+    },
   );
 
   // POST /mcp/bash
   app.post<{ Body: BashRequest; Reply: BashResponse }>(
-    '/mcp/bash',
+    "/mcp/bash",
     async (request, reply) => {
       const { command, args = [] } = request.body;
       try {
         const result = await sandboxService.runCommandInternal(
           command,
           args,
-          30000 // 30 second timeout
+          30000, // 30 second timeout
         );
         return {
           success: !result.error,
@@ -267,40 +268,40 @@ export function registerMcpRoutes(
           error: error instanceof Error ? error.message : String(error),
         };
       }
-    }
+    },
   );
 
   // GET /mcp/terminal
   app.get<{ Querystring: TerminalRequest; Reply: TerminalResponse }>(
-    '/mcp/terminal',
+    "/mcp/terminal",
     async (request, reply) => {
       const lines = Math.min(Math.max(request.query.lines || 20, 1), 1000);
       const output = terminalService.getRecentOutput(lines);
       return { output };
-    }
+    },
   );
 
   // POST /mcp/restart-dev-server
   app.post<{ Reply: RestartDevServerResponse }>(
-    '/mcp/restart-dev-server',
+    "/mcp/restart-dev-server",
     async (request, reply) => {
       try {
         await devServerService.developmentServerAdapter.restartDevServer(
-          request.log2 || baseLogger
+          request.log2 || baseLogger,
         );
-        return { success: true, message: 'Dev server restarted successfully' };
+        return { success: true, message: "Dev server restarted successfully" };
       } catch (error) {
         return {
           success: false,
           error: error instanceof Error ? error.message : String(error),
         };
       }
-    }
+    },
   );
 
   // POST /mcp/gemini-design (for design tools MCP server)
   app.post<{ Body: GeminiDesignRequest; Reply: GeminiDesignResponse }>(
-    '/mcp/gemini-design',
+    "/mcp/gemini-design",
     async (request, reply) => {
       const { request: designRequest, context } = request.body;
       try {
@@ -314,7 +315,7 @@ export function registerMcpRoutes(
           error: error instanceof Error ? error.message : String(error),
         };
       }
-    }
+    },
   );
 }
 ```
@@ -372,7 +373,8 @@ import {
 import { InternalApiClient } from "./internal-client.js";
 import { getToolDefinitions, handleToolCall } from "./tools.js";
 
-const INTERNAL_API_URL = process.env.INTERNAL_API_URL || "http://localhost:3002";
+const INTERNAL_API_URL =
+  process.env.INTERNAL_API_URL || "http://localhost:3002";
 
 async function main() {
   const server = new Server(
@@ -384,7 +386,7 @@ async function main() {
       capabilities: {
         tools: {},
       },
-    }
+    },
   );
 
   const client = new InternalApiClient(INTERNAL_API_URL);
@@ -423,7 +425,8 @@ export function getToolDefinitions(): Tool[] {
   return [
     {
       name: "SafeWrite",
-      description: "Write a file to the local filesystem with proper permissions and tracking",
+      description:
+        "Write a file to the local filesystem with proper permissions and tracking",
       inputSchema: {
         type: "object",
         properties: {
@@ -442,7 +445,8 @@ export function getToolDefinitions(): Tool[] {
     },
     {
       name: "SafeBash",
-      description: "Execute bash commands in a safe terminal environment (only short-running commands)",
+      description:
+        "Execute bash commands in a safe terminal environment (only short-running commands)",
       inputSchema: {
         type: "object",
         properties: {
@@ -468,7 +472,8 @@ export function getToolDefinitions(): Tool[] {
         properties: {
           lines: {
             type: "number",
-            description: "Number of recent output lines to retrieve (1-1000, default: 20)",
+            description:
+              "Number of recent output lines to retrieve (1-1000, default: 20)",
             minimum: 1,
             maximum: 1000,
             default: 20,
@@ -478,7 +483,8 @@ export function getToolDefinitions(): Tool[] {
     },
     {
       name: "RestartDevServer",
-      description: "Restart the Expo dev server. Useful after config changes or package installs.",
+      description:
+        "Restart the Expo dev server. Useful after config changes or package installs.",
       inputSchema: {
         type: "object",
         properties: {},
@@ -490,12 +496,15 @@ export function getToolDefinitions(): Tool[] {
 export async function handleToolCall(
   name: string,
   args: Record<string, unknown> | undefined,
-  client: InternalApiClient
+  client: InternalApiClient,
 ): Promise<CallToolResult> {
   try {
     switch (name) {
       case "SafeWrite": {
-        const { file_path, content } = args as { file_path: string; content: string };
+        const { file_path, content } = args as {
+          file_path: string;
+          content: string;
+        };
         const result = await client.writeFile(file_path, content);
         if (result.success) {
           return {
@@ -515,7 +524,10 @@ export async function handleToolCall(
       }
 
       case "SafeBash": {
-        const { command, args: cmdArgs } = args as { command: string; args?: string[] };
+        const { command, args: cmdArgs } = args as {
+          command: string;
+          args?: string[];
+        };
         const result = await client.runBash(command, cmdArgs);
         if (result.success) {
           return {
@@ -523,7 +535,9 @@ export async function handleToolCall(
           };
         } else {
           return {
-            content: [{ type: "text", text: `Error: ${result.error || result.stderr}` }],
+            content: [
+              { type: "text", text: `Error: ${result.error || result.stderr}` },
+            ],
             isError: true,
           };
         }
@@ -541,7 +555,9 @@ export async function handleToolCall(
         const result = await client.restartDevServer();
         if (result.success) {
           return {
-            content: [{ type: "text", text: result.message || "Dev server restarted" }],
+            content: [
+              { type: "text", text: result.message || "Dev server restarted" },
+            ],
           };
         } else {
           return {
@@ -605,7 +621,10 @@ export class InternalApiClient {
     this.baseUrl = baseUrl.replace(/\/$/, ""); // Remove trailing slash
   }
 
-  async writeFile(filePath: string, content: string): Promise<WriteFileResponse> {
+  async writeFile(
+    filePath: string,
+    content: string,
+  ): Promise<WriteFileResponse> {
     const response = await fetch(`${this.baseUrl}/mcp/write`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -643,6 +662,7 @@ export class InternalApiClient {
 ### Phase 3: Worker.ts Integration
 
 Update worker.ts to:
+
 1. Register MCP API routes
 2. Spawn MCP server processes on startup
 3. Generate `.mcp.json` configuration file
@@ -651,8 +671,8 @@ Update worker.ts to:
 #### Changes to `server/build-workers/worker.ts`
 
 ```typescript
-import { spawn, ChildProcess } from 'child_process';
-import { registerMcpRoutes } from './routes/mcp-api.js';
+import { spawn, ChildProcess } from "child_process";
+import { registerMcpRoutes } from "./routes/mcp-api.js";
 
 // ... existing imports and setup ...
 
@@ -670,46 +690,54 @@ registerMcpRoutes(
 
 // Spawn MCP server processes
 async function spawnMcpServers(): Promise<void> {
-  const mcpServerDir = '/app/mcp-servers'; // Path in container
+  const mcpServerDir = "/app/mcp-servers"; // Path in container
 
   // Spawn dev-tools MCP server
-  mcpDevToolsProcess = spawn('node', [`${mcpServerDir}/dev-tools/dist/index.js`], {
-    env: {
-      ...process.env,
-      INTERNAL_API_URL: `http://localhost:${PORT}`,
+  mcpDevToolsProcess = spawn(
+    "node",
+    [`${mcpServerDir}/dev-tools/dist/index.js`],
+    {
+      env: {
+        ...process.env,
+        INTERNAL_API_URL: `http://localhost:${PORT}`,
+      },
+      stdio: ["pipe", "pipe", "pipe"],
     },
-    stdio: ['pipe', 'pipe', 'pipe'],
+  );
+
+  mcpDevToolsProcess.stderr?.on("data", (data) => {
+    baseLogger.debug("MCP dev-tools stderr", { output: data.toString() });
   });
 
-  mcpDevToolsProcess.stderr?.on('data', (data) => {
-    baseLogger.debug('MCP dev-tools stderr', { output: data.toString() });
-  });
-
-  mcpDevToolsProcess.on('exit', (code) => {
-    baseLogger.warn('MCP dev-tools process exited', { code });
+  mcpDevToolsProcess.on("exit", (code) => {
+    baseLogger.warn("MCP dev-tools process exited", { code });
     mcpDevToolsProcess = null;
   });
 
   // Spawn design-tools MCP server
-  mcpDesignToolsProcess = spawn('node', [`${mcpServerDir}/design-tools/dist/index.js`], {
-    env: {
-      ...process.env,
-      INTERNAL_API_URL: `http://localhost:${PORT}`,
-      GOOGLE_API_KEY: process.env.GOOGLE_API_KEY,
+  mcpDesignToolsProcess = spawn(
+    "node",
+    [`${mcpServerDir}/design-tools/dist/index.js`],
+    {
+      env: {
+        ...process.env,
+        INTERNAL_API_URL: `http://localhost:${PORT}`,
+        GOOGLE_API_KEY: process.env.GOOGLE_API_KEY,
+      },
+      stdio: ["pipe", "pipe", "pipe"],
     },
-    stdio: ['pipe', 'pipe', 'pipe'],
+  );
+
+  mcpDesignToolsProcess.stderr?.on("data", (data) => {
+    baseLogger.debug("MCP design-tools stderr", { output: data.toString() });
   });
 
-  mcpDesignToolsProcess.stderr?.on('data', (data) => {
-    baseLogger.debug('MCP design-tools stderr', { output: data.toString() });
-  });
-
-  mcpDesignToolsProcess.on('exit', (code) => {
-    baseLogger.warn('MCP design-tools process exited', { code });
+  mcpDesignToolsProcess.on("exit", (code) => {
+    baseLogger.warn("MCP design-tools process exited", { code });
     mcpDesignToolsProcess = null;
   });
 
-  baseLogger.info('MCP server processes spawned');
+  baseLogger.info("MCP server processes spawned");
 }
 
 // Generate .mcp.json for Claude Code CLI
@@ -741,7 +769,7 @@ async function generateMcpConfig(): Promise<void> {
     JSON.stringify(mcpConfig, null, 2),
   );
 
-  baseLogger.info('Generated .mcp.json for Claude Code CLI');
+  baseLogger.info("Generated .mcp.json for Claude Code CLI");
 }
 
 // Update graceful shutdown
@@ -750,10 +778,10 @@ const close = async (): Promise<void> => {
   try {
     // Kill MCP server processes
     if (mcpDevToolsProcess) {
-      mcpDevToolsProcess.kill('SIGTERM');
+      mcpDevToolsProcess.kill("SIGTERM");
     }
     if (mcpDesignToolsProcess) {
-      mcpDesignToolsProcess.kill('SIGTERM');
+      mcpDesignToolsProcess.kill("SIGTERM");
     }
 
     await nucleateDevelopmentServerService.developmentServerAdapter.stopDevServer(
@@ -844,25 +872,25 @@ COPY --from=mcp-builder /build/mcp-servers/design-tools/node_modules /app/mcp-se
 
 ### New Files
 
-| File | Purpose |
-|------|---------|
-| `routes/mcp-api.ts` | HTTP API endpoints for MCP servers |
-| `mcp-servers/dev-tools/package.json` | Dev tools MCP server package config |
-| `mcp-servers/dev-tools/tsconfig.json` | TypeScript config |
-| `mcp-servers/dev-tools/src/index.ts` | Entry point |
-| `mcp-servers/dev-tools/src/server.ts` | MCP server setup |
-| `mcp-servers/dev-tools/src/tools.ts` | Tool definitions and handlers |
-| `mcp-servers/dev-tools/src/internal-client.ts` | HTTP client for internal API |
-| `mcp-servers/design-tools/...` | Same structure for design tools |
-| `mcp-servers/shared/...` | Shared types and utilities |
+| File                                           | Purpose                             |
+| ---------------------------------------------- | ----------------------------------- |
+| `routes/mcp-api.ts`                            | HTTP API endpoints for MCP servers  |
+| `mcp-servers/dev-tools/package.json`           | Dev tools MCP server package config |
+| `mcp-servers/dev-tools/tsconfig.json`          | TypeScript config                   |
+| `mcp-servers/dev-tools/src/index.ts`           | Entry point                         |
+| `mcp-servers/dev-tools/src/server.ts`          | MCP server setup                    |
+| `mcp-servers/dev-tools/src/tools.ts`           | Tool definitions and handlers       |
+| `mcp-servers/dev-tools/src/internal-client.ts` | HTTP client for internal API        |
+| `mcp-servers/design-tools/...`                 | Same structure for design tools     |
+| `mcp-servers/shared/...`                       | Shared types and utilities          |
 
 ### Modified Files
 
-| File | Changes |
-|------|---------|
-| `worker.ts` | Register MCP routes, generate .mcp.json |
-| `Dockerfile` | Build and copy MCP server packages |
-| `package.json` | Add workspace reference to mcp-servers |
+| File           | Changes                                 |
+| -------------- | --------------------------------------- |
+| `worker.ts`    | Register MCP routes, generate .mcp.json |
+| `Dockerfile`   | Build and copy MCP server packages      |
+| `package.json` | Add workspace reference to mcp-servers  |
 
 ---
 

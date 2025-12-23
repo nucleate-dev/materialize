@@ -172,7 +172,7 @@ export function SurveyOverlay({ userId, isBuildRunning }: SurveyOverlayProps) {
   if (!showSurvey) return null;
 
   return (
-    <Dialog open={showSurvey} onOpenChange={() => { }}>
+    <Dialog open={showSurvey} onOpenChange={() => {}}>
       <DialogContent
         className="max-w-lg p-0 bg-[#141517] rounded-2xl border border-white/10 shadow-2xl overflow-hidden flex flex-col gap-0"
         hideCloseButton
@@ -180,7 +180,6 @@ export function SurveyOverlay({ userId, isBuildRunning }: SurveyOverlayProps) {
         onEscapeKeyDown={(e) => e.preventDefault()}
         onInteractOutside={(e) => e.preventDefault()}
       >
-
         <SurveyHeader
           currentStep={currentStep}
           totalSteps={totalSteps}

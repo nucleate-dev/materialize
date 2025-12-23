@@ -197,10 +197,7 @@ export class NucleateDevelopmentServerService {
     request: FastifyRequest,
     reply: FastifyReply,
   ): Promise<
-    SandboxAPIResponse<
-      UndoLastChangeSuccessResponse,
-      StandardErrorResponse
-    >
+    SandboxAPIResponse<UndoLastChangeSuccessResponse, StandardErrorResponse>
   > {
     return handleUndoLastChangeImpl(request, reply, this);
   }

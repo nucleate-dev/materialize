@@ -34,8 +34,8 @@ export default function WaitlistModal({
             Coming Soon!
           </DialogTitle>
           <DialogDescription className="text-center text-lg">
-            Nucleate is still in development. We&apos;re working hard to
-            bring you the best React Native prototyping experience.
+            Nucleate is still in development. We&apos;re working hard to bring
+            you the best React Native prototyping experience.
           </DialogDescription>
         </DialogHeader>
         <div className="flex flex-col gap-4 pt-4">

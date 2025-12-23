@@ -41,12 +41,13 @@ import { Database } from "@/lib/types/supabase";
 import { logout } from "@/lib/utils/auth/SupabaseAuthUtils";
 import { EyeIcon, SparklesIcon } from "@heroicons/react/24/outline";
 import {
-  Atom, Folder,
+  Atom,
+  Folder,
   LogOut,
   Rocket,
   Settings,
   Sparkles,
-  SquareStack
+  SquareStack,
 } from "lucide-react";
 import Link from "next/link";
 import { useParams, usePathname } from "next/navigation";
@@ -89,13 +90,13 @@ function AppSidebar() {
     },
     ...(SHOW_WHITEBOARDS
       ? [
-        {
-          href: "/dashboard/whiteboards",
-          icon: SquareStack,
-          label: "Whiteboards",
-          active: pathname?.includes("whiteboards"),
-        },
-      ]
+          {
+            href: "/dashboard/whiteboards",
+            icon: SquareStack,
+            label: "Whiteboards",
+            active: pathname?.includes("whiteboards"),
+          },
+        ]
       : []),
   ];
 
@@ -155,7 +156,7 @@ function AppSidebar() {
                     className={cn(
                       "text-gray-600 dark:text-[#8A8F98] hover:text-gray-900 dark:hover:text-white transition-colors",
                       item.active &&
-                      "bg-gray-100 dark:bg-white/5 text-gray-900 dark:text-white font-medium",
+                        "bg-gray-100 dark:bg-white/5 text-gray-900 dark:text-white font-medium",
                     )}
                   >
                     <Link href={item.href}>
@@ -228,7 +229,7 @@ function AppSidebar() {
 }
 
 export default function PrototypePage() {
-  const params = useParams<{ prototype_id: string; }>();
+  const params = useParams<{ prototype_id: string }>();
   const prototypeId = params?.prototype_id;
   const logger = useProductLogger();
 

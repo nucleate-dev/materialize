@@ -33,6 +33,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 
 const DashboardSidebarContent = () => {
   const pathname = usePathname();
@@ -42,6 +43,21 @@ const DashboardSidebarContent = () => {
   const { userPlan } = useSubscriptionAccess();
   const isCollapsed = state === "collapsed";
   const isPaidUser = IsUserPlanSubscribed(userPlan);
+  const logger = useProductLogger();
+
+  const logSidebarItemClick = (
+    item: string,
+    properties?: Record<string, unknown>,
+  ) => {
+    logger.log({
+      event: "client_dashboard_sidebar_item_clicked",
+      properties: {
+        component: "DashboardSidebar",
+        item,
+        ...properties,
+      },
+    });
+  };
 
   // Handler to close mobile sidebar when a link is clicked
   const handleMobileLinkClick = () => {
@@ -71,13 +87,13 @@ const DashboardSidebarContent = () => {
     },
     ...(SHOW_WHITEBOARDS
       ? [
-        {
-          href: "/dashboard/whiteboards",
-          icon: SquareStack,
-          label: "Whiteboards",
-          active: pathname?.includes("whiteboards"),
-        },
-      ]
+          {
+            href: "/dashboard/whiteboards",
+            icon: SquareStack,
+            label: "Whiteboards",
+            active: pathname?.includes("whiteboards"),
+          },
+        ]
       : []),
   ];
 
@@ -132,9 +148,21 @@ const DashboardSidebarContent = () => {
                   tooltip={isCollapsed ? "New chat +" : undefined}
                   className={isCollapsed ? "justify-center" : ""}
                 >
-                  <Link href="/dashboard" onClick={handleMobileLinkClick}>
+                  <Link
+                    href="/dashboard"
+                    onClick={() => {
+                      logSidebarItemClick("new_chat", {
+                        href: "/dashboard",
+                      });
+                      handleMobileLinkClick();
+                    }}
+                  >
                     <Sparkles className="w-5 h-5" />
-                    {!isCollapsed && <span className="text-sidebar-foreground">New chat +</span>}
+                    {!isCollapsed && (
+                      <span className="text-sidebar-foreground">
+                        New chat +
+                      </span>
+                    )}
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -154,9 +182,21 @@ const DashboardSidebarContent = () => {
                     tooltip={isCollapsed ? item.label : undefined}
                     className={isCollapsed ? "justify-center" : ""}
                   >
-                    <Link href={item.href} onClick={handleMobileLinkClick}>
+                    <Link
+                      href={item.href}
+                      onClick={() => {
+                        logSidebarItemClick(item.label.toLowerCase(), {
+                          href: item.href,
+                        });
+                        handleMobileLinkClick();
+                      }}
+                    >
                       <item.icon className="w-5 h-5" />
-                      {!isCollapsed && <span className="text-sidebar-foreground">{item.label}</span>}
+                      {!isCollapsed && (
+                        <span className="text-sidebar-foreground">
+                          {item.label}
+                        </span>
+                      )}
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -173,13 +213,21 @@ const DashboardSidebarContent = () => {
           {!isPaidUser && (
             <SidebarMenuItem>
               <SidebarMenuButton
-                onClick={() => handleCheckout("plus", router)}
+                onClick={() => {
+                  logSidebarItemClick("upgrade_button", {
+                    action: "checkout",
+                    plan: "plus",
+                  });
+                  void handleCheckout("plus", router);
+                }}
                 size="lg"
                 tooltip={isCollapsed ? "Upgrade" : undefined}
                 className={isCollapsed ? "justify-center" : ""}
               >
                 <Zap className="w-5 h-5 text-amber-500" />
-                {!isCollapsed && <span className="text-sidebar-foreground">Upgrade</span>}
+                {!isCollapsed && (
+                  <span className="text-sidebar-foreground">Upgrade</span>
+                )}
               </SidebarMenuButton>
             </SidebarMenuItem>
           )}
@@ -191,21 +239,36 @@ const DashboardSidebarContent = () => {
               tooltip={isCollapsed ? "Account" : undefined}
               className={isCollapsed ? "justify-center" : ""}
             >
-              <Link href="/dashboard/account" onClick={handleMobileLinkClick}>
+              <Link
+                href="/dashboard/account"
+                onClick={() => {
+                  logSidebarItemClick("settings", {
+                    href: "/dashboard/account",
+                  });
+                  handleMobileLinkClick();
+                }}
+              >
                 <User className="w-5 h-5" />
-                {!isCollapsed && <span className="text-sidebar-foreground">Account</span>}
+                {!isCollapsed && (
+                  <span className="text-sidebar-foreground">Account</span>
+                )}
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>
             <SidebarMenuButton
-              onClick={logout}
+              onClick={() => {
+                logSidebarItemClick("logout");
+                logout();
+              }}
               size="lg"
               tooltip={isCollapsed ? "Logout" : undefined}
               className={isCollapsed ? "justify-center" : ""}
             >
               <LogOut className="w-5 h-5" />
-              {!isCollapsed && <span className="text-sidebar-foreground">Logout</span>}
+              {!isCollapsed && (
+                <span className="text-sidebar-foreground">Logout</span>
+              )}
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>

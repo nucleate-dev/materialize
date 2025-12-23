@@ -241,7 +241,9 @@ export default function PrototypeSettingsModal({
                 >
                   <Select
                     value={visibility}
-                    onValueChange={(v) => setVisibility(v as PrototypeVisibility)}
+                    onValueChange={(v) =>
+                      setVisibility(v as PrototypeVisibility)
+                    }
                     disabled={isSubmitting || !IsUserPlanSubscribed(userPlan)}
                   >
                     <SelectTrigger

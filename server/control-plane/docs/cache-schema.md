@@ -15,22 +15,22 @@ development helpers in `InternalCacheManagementService`.
 
 ## Prototype Scoped Keys
 
-| Key | Type | Purpose |
-| --- | ---- | ------- |
-| `proto:{prototypeId}:current` | String | Points to the build ID that should be treated as the current dev server for a prototype. Read first in `handleDispatch` to decide whether to reuse an existing build or create a new one. |
-| `proto:{prototypeId}:builds` | Sorted Set | Tracks every build ever created for that prototype. The score is the Unix timestamp that represents the last time the build was touched. Updated via `ZADD` whenever a build transitions to `stable` and used by cleanup jobs to find idle builds. |
+| Key                           | Type       | Purpose                                                                                                                                                                                                                                            |
+| ----------------------------- | ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `proto:{prototypeId}:current` | String     | Points to the build ID that should be treated as the current dev server for a prototype. Read first in `handleDispatch` to decide whether to reuse an existing build or create a new one.                                                          |
+| `proto:{prototypeId}:builds`  | Sorted Set | Tracks every build ever created for that prototype. The score is the Unix timestamp that represents the last time the build was touched. Updated via `ZADD` whenever a build transitions to `stable` and used by cleanup jobs to find idle builds. |
 
 ### Current Pointer Workflow
 
-1. `handleDispatch` looks up `proto:{id}:current`.  
-2. If a build exists, it loads `active_build:{buildId}` for details.  
-3. `setNewBuildCacheData` updates the `current` pointer whenever a new build is created.  
+1. `handleDispatch` looks up `proto:{id}:current`.
+2. If a build exists, it loads `active_build:{buildId}` for details.
+3. `setNewBuildCacheData` updates the `current` pointer whenever a new build is created.
 4. `removeBuildDataFromCache` clears the pointer when its build is deleted.
 
 ### Build History Sorted Set Workflow
 
-1. When `setNewBuildCacheData` creates a build it immediately `ZADD`s the build ID with the creation timestamp.  
-2. When dispatch finishes successfully, `handleDispatch` refreshes the score with the latest `last_touched` timestamp.  
+1. When `setNewBuildCacheData` creates a build it immediately `ZADD`s the build ID with the creation timestamp.
+2. When dispatch finishes successfully, `handleDispatch` refreshes the score with the latest `last_touched` timestamp.
 3. `removeBuildDataFromCache` uses `ZREM` to drop a build ID from the set when it is retired.
 
 ## Build Scoped Hash
@@ -39,16 +39,16 @@ Key: `active_build:{buildId}` (Hash).
 Fields mirror the `ActiveBuild` interface and are read/written through
 `hgetallAsActiveBuild` and `activeBuildToStringRecord`.
 
-| Field | Description |
-| ----- | ----------- |
-| `fargate_task_arn` | ARN of the task backing this dev server. |
-| `fargate_private_ip` | Internal IP address used to dispatch requests. |
-| `url` | Latest viewing/tunnel URL; initialized to the static S3 render URL. |
-| `status` | `BuildStatus` enum (`creating`, `updating`, `stable`, `chatting`, `cleaning`, `building`, `error`). Controls dispatch behavior (e.g., `isDispatchInProgress`). |
-| `last_touched` | Unix seconds tracking activity. Bumped during dispatch success, chat orchestration, etc. |
-| `terminal_tunnel_id` / `terminal_tunnel_hostname` | Identifiers for the tunnel that exposes the terminal. |
-| `orchestration_token` | Token required by sandboxes to call orchestration endpoints. |
-| `clean_attempts` | Counter used by cleanup routines to avoid infinite retries. |
+| Field                                             | Description                                                                                                                                                    |
+| ------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `fargate_task_arn`                                | ARN of the task backing this dev server.                                                                                                                       |
+| `fargate_private_ip`                              | Internal IP address used to dispatch requests.                                                                                                                 |
+| `url`                                             | Latest viewing/tunnel URL; initialized to the static S3 render URL.                                                                                            |
+| `status`                                          | `BuildStatus` enum (`creating`, `updating`, `stable`, `chatting`, `cleaning`, `building`, `error`). Controls dispatch behavior (e.g., `isDispatchInProgress`). |
+| `last_touched`                                    | Unix seconds tracking activity. Bumped during dispatch success, chat orchestration, etc.                                                                       |
+| `terminal_tunnel_id` / `terminal_tunnel_hostname` | Identifiers for the tunnel that exposes the terminal.                                                                                                          |
+| `orchestration_token`                             | Token required by sandboxes to call orchestration endpoints.                                                                                                   |
+| `clean_attempts`                                  | Counter used by cleanup routines to avoid infinite retries.                                                                                                    |
 
 ### Lifecycle
 
@@ -84,11 +84,11 @@ When `NODE_ENV=development` with the sandbox simulator enabled, the dispatcher
 short-circuits into `handleDispatchForSandboxSimulatorFlow`. Instead of the
 standard `proto:*`/`active_build:*` hierarchy it stores a simplified record:
 
-| Field | Description |
-| ----- | ----------- |
-| `status` | Same `BuildStatus` enum, used to block concurrent dispatches (`isDispatchInProgress`). |
-| `url` | Last known viewing URL (defaults to the static S3 URL until the dev tunnel responds). |
-| `terminal_tunnel_hostname` | HTTP endpoint to reach the developer EC2 terminal (built from `DEVELOPMENT_EC2_IP`). |
+| Field                      | Description                                                                            |
+| -------------------------- | -------------------------------------------------------------------------------------- |
+| `status`                   | Same `BuildStatus` enum, used to block concurrent dispatches (`isDispatchInProgress`). |
+| `url`                      | Last known viewing URL (defaults to the static S3 URL until the dev tunnel responds).  |
+| `terminal_tunnel_hostname` | HTTP endpoint to reach the developer EC2 terminal (built from `DEVELOPMENT_EC2_IP`).   |
 
 Workflow:
 

@@ -982,7 +982,6 @@ export class ChatQueryHandler {
     });
   }
 
-
   private parseDesignAgentSpec(rawSpec: string): {
     spec: string;
     metadata: DesignAgentMetadata;

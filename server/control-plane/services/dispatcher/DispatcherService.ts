@@ -51,7 +51,7 @@ export class DispatcherService {
     });
     return await posthogLogger.timeAndRecord(
       userId,
-      PostHogEvents.dispatch,
+      PostHogEvents.server_dispatch,
       () =>
         handleDispatchImpl(
           prototype_id,

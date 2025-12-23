@@ -7,11 +7,7 @@ export const metadata: Metadata = {
   description: "Deployed Nucleate prototypes",
 };
 
-export default function RootLayout({
-  children,
-}: {
-  children: ReactNode;
-}) {
+export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
       <body className="bg-black text-white">{children}</body>

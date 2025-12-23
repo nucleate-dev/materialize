@@ -1,0 +1,441 @@
+---
+title: "Common Performance Mistakes in React Native Apps"
+excerpt: "The most frequent causes of jank and slow apps. Re-renders, lists, images, animations, and how to spot issues early without premature optimization."
+publishedAt: "2025-12-22"
+tags: ["react-native", "performance", "optimization"]
+category: "guides"
+featured: true
+---
+
+# Common Performance Mistakes in React Native Apps
+
+Your React Native app feels slow. Scrolling stutters. Animations drop frames. Tapping a button has a noticeable delay.
+
+Most performance issues in React Native come from a handful of common mistakes, not exotic edge cases. Fix these, and your app will feel fast without complex optimization.
+
+This guide covers what actually causes jank in real apps, how to spot it, and how to fix it without premature optimization.
+
+---
+
+## Why Performance Matters
+
+Users notice. A janky scroll feels broken. A slow transition feels cheap. If your app drops frames, users assume it's buggy or low-quality.
+
+Performance isn't about hitting perfect benchmarks. It's about feeling responsive. Taps should respond instantly. Scrolls should be smooth. Animations should hit 60fps (or 120fps on modern devices).
+
+The good news: most performance problems are fixable once you know what to look for.
+
+---
+
+## The Most Common Mistake: Unnecessary Re-Renders
+
+This is the #1 performance killer in React Native apps.
+
+### The Problem
+
+Every time a component re-renders, React Native recalculates the component tree, diffs it with the previous version, and applies changes to the UI. If this happens too often or to too many components, you get jank.
+
+Common causes:
+- Parent component re-renders, triggering all children to re-render
+- Global state changes affecting components that don't care about the changed data
+- Inline functions or objects in render causing child components to re-render
+
+### How to Spot It
+
+Use [React DevTools Profiler](https://reactnative.dev/docs/profile-performance) or [why-did-you-render](https://github.com/welldone-software/why-did-you-render) to see which components re-render and why.
+
+Look for:
+- Components re-rendering on every state change, even when their props didn't change
+- Large lists where every item re-renders when one item updates
+
+### How to Fix It
+
+**1. Memoize components with `React.memo`**
+
+```tsx
+// Before: Re-renders every time parent updates
+function ListItem({ item }) {
+  return <Text>{item.name}</Text>;
+}
+
+// After: Only re-renders when item changes
+const ListItem = React.memo(function ListItem({ item }) {
+  return <Text>{item.name}</Text>;
+});
+```
+
+**2. Use `useCallback` for functions passed as props**
+
+```tsx
+// Before: New function on every render
+function ParentComponent() {
+  return <Button onPress={() => console.log('pressed')} />;
+}
+
+// After: Same function reference
+function ParentComponent() {
+  const handlePress = useCallback(() => {
+    console.log('pressed');
+  }, []);
+
+  return <Button onPress={handlePress} />;
+}
+```
+
+**3. Use `useMemo` for expensive calculations**
+
+```tsx
+// Before: Recalculates on every render
+function ExpensiveComponent({ data }) {
+  const processedData = heavyProcessing(data);
+  return <List data={processedData} />;
+}
+
+// After: Only recalculates when data changes
+function ExpensiveComponent({ data }) {
+  const processedData = useMemo(() => heavyProcessing(data), [data]);
+  return <List data={processedData} />;
+}
+```
+
+**4. Avoid storing too much in global state**
+
+If your Context or Redux store has `{ user, posts, settings, notifications }` and you update `notifications`, every component using that context re-renders—even if they only care about `user`.
+
+**Fix:** Split state into smaller contexts or use a library like [Zustand](https://github.com/pmndrs/zustand) or [Jotai](https://github.com/pmndrs/jotai) that allows granular subscriptions.
+
+---
+
+## Second Most Common: Poorly Optimized Lists
+
+Lists are everywhere: feeds, chats, search results, settings screens. If your list is slow, your app feels slow.
+
+### The Problem: Using ScrollView for Long Lists
+
+`ScrollView` renders all items upfront. For a list of 1000 items, that's 1000 components rendered at once—even if only 10 are visible.
+
+This tanks performance.
+
+### The Fix: Use FlatList (or Better)
+
+`FlatList` uses **virtualization**—it only renders items currently visible on screen plus a buffer.
+
+```tsx
+// Bad
+<ScrollView>
+  {posts.map(post => <PostCard key={post.id} post={post} />)}
+</ScrollView>
+
+// Good
+<FlatList
+  data={posts}
+  renderItem={({ item }) => <PostCard post={item} />}
+  keyExtractor={item => item.id}
+/>
+```
+
+### Optimize FlatList Further
+
+**1. Provide `getItemLayout` for fixed-height items**
+
+This tells FlatList the exact height of each item, skipping expensive measurements.
+
+```tsx
+<FlatList
+  data={posts}
+  renderItem={({ item }) => <PostCard post={item} />}
+  keyExtractor={item => item.id}
+  getItemLayout={(data, index) => ({
+    length: 100, // height of each item
+    offset: 100 * index,
+    index,
+  })}
+/>
+```
+
+**2. Use `React.memo` on list items**
+
+Prevent re-rendering of items when the list updates:
+
+```tsx
+const PostCard = React.memo(function PostCard({ post }) {
+  return <Text>{post.title}</Text>;
+});
+```
+
+**3. Reduce `initialNumToRender`**
+
+Default is 10. If your items are large, reduce this to render fewer items on mount:
+
+```tsx
+<FlatList
+  data={posts}
+  renderItem={({ item }) => <PostCard post={item} />}
+  initialNumToRender={5}
+/>
+```
+
+**4. Set `maxToRenderPerBatch` and `windowSize`**
+
+These control how many items are rendered per scroll and how large the render window is. Lower values improve initial render, higher values improve scrolling:
+
+```tsx
+<FlatList
+  data={posts}
+  renderItem={({ item }) => <PostCard post={item} />}
+  maxToRenderPerBatch={5}
+  windowSize={5}
+/>
+```
+
+### Go Further: Use FlashList or LegendList
+
+[FlashList](https://shopify.github.io/flash-list/) (by Shopify) improves on FlatList by recycling views instead of creating/destroying them. This reduces jank significantly.
+
+[LegendList](https://legendapp.com/open-source/list/) goes even further with better support for dynamic item heights.
+
+**When to upgrade:** If you've optimized FlatList and still see jank, try FlashList or LegendList.
+
+---
+
+## Third: Image Loading and Caching
+
+Images are heavy. If you load large images without optimization, your app will lag.
+
+### The Problem
+
+Loading high-res images from the network without caching or resizing slows down rendering and uses excessive memory.
+
+### The Fix
+
+**1. Resize images on the server**
+
+Don't load a 4000x3000 image if you're displaying it in a 200x200 container. Serve appropriately sized images.
+
+**2. Use caching**
+
+[React Native Fast Image](https://github.com/DylanVann/react-native-fast-image) provides image caching and better performance than the default `Image` component:
+
+```tsx
+import FastImage from 'react-native-fast-image';
+
+<FastImage
+  source={{ uri: 'https://example.com/image.jpg', priority: FastImage.priority.normal }}
+  style={{ width: 200, height: 200 }}
+  resizeMode={FastImage.resizeMode.cover}
+/>
+```
+
+**3. Use `placeholder` or `blurHash`**
+
+Show a low-res placeholder while the image loads. Libraries like [Blurhash](https://github.com/woltapp/blurhash) create beautiful placeholders from a short string.
+
+**4. Lazy load images**
+
+Only load images when they're about to become visible:
+
+```tsx
+<FlatList
+  data={items}
+  renderItem={({ item, index }) => (
+    <PostCard
+      post={item}
+      shouldLoadImage={index < 10} // Only load first 10
+    />
+  )}
+/>
+```
+
+---
+
+## Fourth: Animations Running on the JS Thread
+
+React Native has two threads: the **JS thread** (where your React code runs) and the **UI thread** (where native UI updates happen).
+
+### The Problem
+
+If animations run on the JS thread and that thread is busy, animations drop frames.
+
+Example:
+```tsx
+<Animated.View style={{ opacity: fadeAnim }} />
+```
+
+If the JS thread is processing data or handling a network request, the animation stutters.
+
+### The Fix: Use Native-Driven Animations
+
+Set `useNativeDriver: true` to move animations to the UI thread:
+
+```tsx
+Animated.timing(fadeAnim, {
+  toValue: 1,
+  duration: 300,
+  useNativeDriver: true, // Runs on UI thread
+}).start();
+```
+
+**Limitations:** `useNativeDriver` only works for `transform` and `opacity`. Layout properties (width, height, padding) can't use it.
+
+### Better: Use React Native Reanimated
+
+[Reanimated](https://docs.swmansion.com/react-native-reanimated/) runs all animations on the UI thread and supports complex gestures:
+
+```tsx
+import Animated, { useSharedValue, withTiming } from 'react-native-reanimated';
+
+function FadeInView({ children }) {
+  const opacity = useSharedValue(0);
+
+  useEffect(() => {
+    opacity.value = withTiming(1);
+  }, []);
+
+  return <Animated.View style={{ opacity }}>{children}</Animated.View>;
+}
+```
+
+This is smooth even if the JS thread is blocked.
+
+---
+
+## Fifth: Heavy Operations on the JS Thread
+
+Long-running computations (parsing large JSON, heavy calculations) block the JS thread, freezing the UI.
+
+### The Problem
+
+```tsx
+function processData(data) {
+  // Heavy calculation that takes 500ms
+  return data.map(item => expensiveTransform(item));
+}
+
+function MyComponent() {
+  const [processedData, setProcessedData] = useState([]);
+
+  useEffect(() => {
+    setProcessedData(processData(rawData)); // Blocks UI
+  }, [rawData]);
+}
+```
+
+While `processData` runs, the UI is frozen. Users can't scroll or tap buttons.
+
+### The Fix: Move Heavy Work Off-Thread
+
+**Option 1: Use `InteractionManager`**
+
+Delay heavy work until after interactions finish:
+
+```tsx
+import { InteractionManager } from 'react-native';
+
+useEffect(() => {
+  InteractionManager.runAfterInteractions(() => {
+    setProcessedData(processData(rawData));
+  });
+}, [rawData]);
+```
+
+**Option 2: Use Web Workers (via JSI)**
+
+For truly heavy computation, use a background thread with [react-native-worker](https://github.com/fabricjs/react-native-worker).
+
+---
+
+## Sixth: Not Measuring Performance
+
+You can't fix what you don't measure.
+
+### Tools to Use
+
+**1. React DevTools Profiler**
+
+Shows which components re-render and how long they take.
+
+**2. Flipper Performance Plugin**
+
+Monitors FPS, memory usage, and network requests in real-time.
+
+**3. Systrace (Android) and Instruments (iOS)**
+
+Native profiling tools that show frame drops and thread usage.
+
+**4. console.time / console.timeEnd**
+
+Quick way to measure how long something takes:
+
+```tsx
+console.time('data-processing');
+const processed = processData(rawData);
+console.timeEnd('data-processing');
+```
+
+### What to Look For
+
+- **Dropped frames** - Anything under 60fps feels janky
+- **Long render times** - Components taking >16ms to render
+- **Excessive re-renders** - Same component rendering 5+ times per second
+- **Memory leaks** - Memory usage growing over time without dropping
+
+---
+
+## When NOT to Optimize
+
+Premature optimization wastes time.
+
+**Don't optimize:**
+- Until you've measured and confirmed there's actually a problem
+- Screens that users see once (onboarding, settings)
+- Code that runs rarely (login, one-time setup)
+
+**Do optimize:**
+- Screens users see constantly (home feed, chat, search)
+- Animations and transitions
+- Lists with 50+ items
+- Image-heavy screens
+
+Focus on the 20% of your app that users spend 80% of their time in.
+
+---
+
+## Quick Performance Checklist
+
+- [ ] Lists use FlatList (or FlashList), not ScrollView
+- [ ] List items are memoized with `React.memo`
+- [ ] Functions passed as props use `useCallback`
+- [ ] Expensive calculations use `useMemo`
+- [ ] Animations use `useNativeDriver` or Reanimated
+- [ ] Images are cached and appropriately sized
+- [ ] Heavy computations run after interactions or off-thread
+- [ ] Global state is split to avoid unnecessary re-renders
+- [ ] Performance is measured with profiling tools
+
+---
+
+## Conclusion
+
+Most React Native performance issues come from:
+1. Unnecessary re-renders
+2. Poorly optimized lists
+3. Unoptimized images
+4. Animations on the JS thread
+5. Heavy operations blocking the UI
+
+Fix these, and your app will feel fast.
+
+Don't optimize prematurely. Measure first, then fix what's actually slow. Users care about how the app feels, not theoretical perfection.
+
+Build fast enough to feel responsive. That's the bar.
+
+---
+
+**Sources:**
+- [React Native Performance Optimization & Best Practices (2025 Guide)](https://baltech.in/blog/react-native-performance-optimization-best-practices/)
+- [7 React Native App Performance Mistakes Developers Should Avoid in 2025](https://nativeexpertsblog.medium.com/7-react-native-app-performance-mistakes-developers-should-avoid-in-2025-7fedcc2af319)
+- [React Native Optimization: Fixing Slow Apps | 2025](https://bitskingdom.com/blog/react-native-performance-optimization-fix-slow-apps/)
+- [Top Tips to Boost React Native Performance in 2025](https://www.netguru.com/blog/react-native-performance)
+- [Optimizing React Native | Coinbase](https://www.coinbase.com/blog/optimizing-react-native)
+- [How to Optimize React Native Performance in 2025 | Nascenture](https://www.nascenture.com/blog/how-to-optimize-react-native-performance-in-2025/)
+- [Performance Overview · React Native](https://reactnative.dev/docs/performance)

@@ -88,7 +88,7 @@ export interface PrototypeBuildData {
 async function makeAuthenticatedRequest<T>(
   method: string,
   path: string,
-  body?: Record<string, unknown>
+  body?: Record<string, unknown>,
 ): Promise<T> {
   const { secretKey, serverEndpoint } = getInternalToolsConfig();
 
@@ -110,7 +110,7 @@ async function makeAuthenticatedRequest<T>(
     }));
 
     throw new Error(
-      errorData.message || `Request failed with status ${response.status}`
+      errorData.message || `Request failed with status ${response.status}`,
     );
   }
 
@@ -130,7 +130,7 @@ export async function getCacheStats(): Promise<CacheStats> {
 export async function clearCache(): Promise<ClearCacheResponse> {
   return makeAuthenticatedRequest<ClearCacheResponse>(
     "POST",
-    "/internal/cache/clear"
+    "/internal/cache/clear",
   );
 }
 
@@ -138,11 +138,11 @@ export async function clearCache(): Promise<ClearCacheResponse> {
  * Get prototype build data by prototype ID
  */
 export async function getPrototypeBuildData(
-  prototypeId: string
+  prototypeId: string,
 ): Promise<PrototypeBuildData> {
   return makeAuthenticatedRequest<PrototypeBuildData>(
     "GET",
-    `/internal/cache/prototype/${encodeURIComponent(prototypeId)}`
+    `/internal/cache/prototype/${encodeURIComponent(prototypeId)}`,
   );
 }
 
@@ -152,7 +152,7 @@ export async function getPrototypeBuildData(
 export async function clearDevelopmentCache(): Promise<ClearDevelopmentCacheResponse> {
   return makeAuthenticatedRequest<ClearDevelopmentCacheResponse>(
     "DELETE",
-    "/internal/cache/development"
+    "/internal/cache/development",
   );
 }
 

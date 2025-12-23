@@ -227,7 +227,7 @@ function FileDeployCard({
       }
 
       let buffer = "";
-      let finalResult: { success: boolean; error?: string; } = {
+      let finalResult: { success: boolean; error?: string } = {
         success: false,
       };
 
@@ -266,7 +266,7 @@ function FileDeployCard({
       if (!finalResult.success) {
         const error = new Error(
           finalResult.error ||
-          (paths.length ? "Selective deploy failed" : "Deploy failed"),
+            (paths.length ? "Selective deploy failed" : "Deploy failed"),
         );
         throw error;
       }
@@ -852,20 +852,23 @@ export default function DevServerPage() {
       }
 
       if (result.data) {
-        setResetSandboxOutput((prev) =>
-          prev +
-          `\n✓ Sandbox reset successfully!\n` +
-          `  - Prototype ID: ${result.data.prototype_id || "None"}\n` +
-          `  - Files cleared: ${result.data.files_cleared ? "Yes" : "No"}\n` +
-          `  - Claude sessions cleared: ${result.data.claude_sessions_cleared ? "Yes" : "No"}\n` +
-          `  - Claude sessions deleted: ${result.data.claude_sessions_deleted_count}\n` +
-          `  - Message: ${result.data.message}\n`
+        setResetSandboxOutput(
+          (prev) =>
+            prev +
+            `\n✓ Sandbox reset successfully!\n` +
+            `  - Prototype ID: ${result.data.prototype_id || "None"}\n` +
+            `  - Files cleared: ${result.data.files_cleared ? "Yes" : "No"}\n` +
+            `  - Claude sessions cleared: ${result.data.claude_sessions_cleared ? "Yes" : "No"}\n` +
+            `  - Claude sessions deleted: ${result.data.claude_sessions_deleted_count}\n` +
+            `  - Message: ${result.data.message}\n`,
         );
 
         // If we have a prototype_id, clear the development cache for it
         if (result.data.prototype_id) {
-          setResetSandboxOutput((prev) =>
-            prev + `\nClearing development cache for prototype ${result.data.prototype_id}...\n`
+          setResetSandboxOutput(
+            (prev) =>
+              prev +
+              `\nClearing development cache for prototype ${result.data.prototype_id}...\n`,
           );
 
           try {
@@ -889,37 +892,43 @@ export default function DevServerPage() {
               {
                 method: "DELETE",
                 headers,
-              }
+              },
             );
 
             const cacheResult = await cacheResponse.json();
 
             if (!cacheResponse.ok) {
-              throw new Error(cacheResult.message || "Failed to clear development cache");
+              throw new Error(
+                cacheResult.message || "Failed to clear development cache",
+              );
             }
 
-            setResetSandboxOutput((prev) =>
-              prev +
-              `✓ Development cache cleared!\n` +
-              `  - Deleted: ${cacheResult.deleted ? "Yes" : "No (cache entry not found)"}\n` +
-              `  - Duration: ${cacheResult.durationMs}ms\n`
+            setResetSandboxOutput(
+              (prev) =>
+                prev +
+                `✓ Development cache cleared!\n` +
+                `  - Deleted: ${cacheResult.deleted ? "Yes" : "No (cache entry not found)"}\n` +
+                `  - Duration: ${cacheResult.durationMs}ms\n`,
             );
           } catch (cacheErr) {
             const cacheErrorMsg =
               cacheErr instanceof Error
                 ? cacheErr.message
                 : "Failed to clear development cache";
-            setResetSandboxOutput((prev) =>
-              prev + `✗ Cache clear error: ${cacheErrorMsg}\n`
+            setResetSandboxOutput(
+              (prev) => prev + `✗ Cache clear error: ${cacheErrorMsg}\n`,
             );
             // Don't throw - cache clearing is optional
           }
         }
       } else {
-        setResetSandboxOutput((prev) => prev + "\n✓ Sandbox reset completed!\n");
+        setResetSandboxOutput(
+          (prev) => prev + "\n✓ Sandbox reset completed!\n",
+        );
       }
     } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : "Failed to reset sandbox";
+      const errorMsg =
+        err instanceof Error ? err.message : "Failed to reset sandbox";
       setError(errorMsg);
       setResetSandboxOutput((prev) => prev + `\n✗ Error: ${errorMsg}\n`);
     } finally {
@@ -1588,7 +1597,9 @@ export default function DevServerPage() {
         </div>
 
         {/* Sandbox Tab Content - File Deployment */}
-        <div className={selectedTab === "Sandbox" ? "block space-y-6" : "hidden"}>
+        <div
+          className={selectedTab === "Sandbox" ? "block space-y-6" : "hidden"}
+        >
           {/* Sandbox Docker Image Deployment Card */}
           <SandboxDeploymentCard deploymentType="development" />
 

@@ -171,7 +171,7 @@ export class StripeManagementService {
     try {
       const result = await posthogLogger.timeAndRecord(
         user.id,
-        PostHogEvents.stripe_checkout_session_creation,
+        PostHogEvents.server_stripe_checkout_session_creation,
         async () => {
           const sessionConfig: Stripe.Checkout.SessionCreateParams = {
             payment_method_types: ['card', 'us_bank_account'],
@@ -378,7 +378,7 @@ export class StripeManagementService {
     try {
       const result = await posthogLogger.timeAndRecord(
         user.id,
-        PostHogEvents.stripe_billing_portal_session_creation,
+        PostHogEvents.server_stripe_billing_portal_session_creation,
         async () => {
           // Create Stripe billing portal session
           const session = await stripe.billingPortal.sessions.create({

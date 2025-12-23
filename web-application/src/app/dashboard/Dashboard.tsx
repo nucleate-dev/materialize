@@ -45,8 +45,7 @@ import { usePostHog } from "posthog-js/react";
 // --- Types ---
 type DesignSystemRow = Database["public"]["Tables"]["design_systems"]["Row"];
 type DesignStyle = Database["public"]["Enums"]["design_style"];
-type PrototypeFramework =
-  Database["public"]["Enums"]["prototype_framework"];
+type PrototypeFramework = Database["public"]["Enums"]["prototype_framework"];
 
 const DESIGN_STYLE_OPTIONS: DesignStyle[] = ["stylesheets", "nativewind"];
 const WEB_DESIGN_STYLE_OPTIONS: DesignStyle[] = ["stylesheets"];
@@ -104,9 +103,7 @@ export default function DashboardPage() {
   const getDesignStyleLabel = (style: DesignStyle): string => {
     if (isWebFrameworkSelected) {
       return (
-        WEB_DESIGN_STYLE_LABELS[style] ??
-        DESIGN_STYLE_LABELS[style] ??
-        style
+        WEB_DESIGN_STYLE_LABELS[style] ?? DESIGN_STYLE_LABELS[style] ?? style
       );
     }
     return DESIGN_STYLE_LABELS[style] ?? style;
@@ -219,6 +216,16 @@ export default function DashboardPage() {
     if (!content || isLoading) return;
 
     setIsLoading(true);
+    logger.log({
+      event: "client_dashboard_prompt_submitted",
+      properties: {
+        framework,
+        design_style: designStyle,
+        has_custom_design_system: Boolean(customDesignSystemId),
+        has_user: Boolean(user?.id),
+        source: "dashboard_prompt",
+      },
+    });
 
     try {
       if (!user?.id) {
@@ -232,12 +239,30 @@ export default function DashboardPage() {
         custom_design_system: customDesignSystemId ?? undefined,
         visibility: "PUBLIC",
         framework,
+        creation_source: "dashboard_prompt",
       });
 
       if (result.data) {
+        logger.log({
+          event: "client_dashboard_prototype_creation_success",
+          properties: {
+            prototype_id: result.data.prototype_id,
+            framework,
+            design_style: designStyle,
+            source: "dashboard_prompt",
+          },
+        });
         setChatIntent(result.data.prototype_id, content, false);
         router.push(`/dashboard/projects/${result.data.prototype_id}`);
       } else if (result.error?.error === "PROTOTYPE_LIMIT_REACHED") {
+        logger.log({
+          event: "client_dashboard_prototype_limit_hit",
+          properties: {
+            framework,
+            design_style: designStyle,
+            source: "dashboard_prompt",
+          },
+        });
         setShowUpsellModal(true);
       } else {
         logger.debug("error", "Error creating prototype:", {
