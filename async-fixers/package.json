@@ -8,7 +8,8 @@
     "exec": "ts-node --project tsconfig.json",
     "fixer": "ts-node --project tsconfig.json run-fixer.ts",
     "build": "tsc --noEmit",
-    "check": "tsc --noEmit"
+    "check": "tsc --noEmit",
+    "prettier": "prettier --write \"**/*.{js,jsx,ts,tsx,md,mdx,json}\" \"!**/node_modules/**\" \"!**/dist/**\" \"!**/build/**\""
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.84.0",
@@ -17,6 +18,7 @@
   "devDependencies": {
     "@types/node": "^20.12.12",
     "ts-node": "^10.9.2",
-    "typescript": "^5.4.5"
+    "typescript": "^5.4.5",
+    "prettier": "^3.5.1"
   }
 }
