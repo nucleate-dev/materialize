@@ -34,7 +34,7 @@ function SimpleBarChart({
   return (
     <div className="w-full flex flex-col gap-2">
       <div
-        className="flex items-end justify-between gap-2 w-full"
+        className="flex justify-between gap-2 w-full"
         style={{ height }}
       >
         {data.map((item) => {
@@ -50,16 +50,17 @@ function SimpleBarChart({
               key={item.date}
               className="flex-1 flex flex-col items-center gap-1 group"
             >
-              <div className="relative w-full flex items-end justify-center h-full bg-muted/20 rounded-t-sm overflow-hidden">
+              {/* Track - uses flex-1 to fill vertical space above the label */}
+              <div className="relative w-full flex items-end justify-center flex-1 bg-muted/20 rounded-t-sm">
                 <div
                   className={cn(
-                    "w-3/4 min-h-[4px] rounded-t-sm transition-all duration-500",
+                    "w-3/4 min-h-[4px] rounded-t-sm transition-all duration-500 relative",
                     colorClass,
                   )}
                   style={{ height: `${percent}%` }}
                 >
                   {/* Tooltip-ish label on hover */}
-                  <div className="opacity-0 group-hover:opacity-100 absolute -top-8 left-1/2 -translate-x-1/2 bg-popover text-popover-foreground text-xs px-2 py-1 rounded shadow-md whitespace-nowrap z-10 pointer-events-none transition-opacity">
+                  <div className="opacity-0 group-hover:opacity-100 absolute -top-8 left-1/2 -translate-x-1/2 bg-popover text-popover-foreground text-xs px-2 py-1 rounded shadow-md whitespace-nowrap z-50 pointer-events-none transition-opacity">
                     {item.count}
                   </div>
                 </div>
@@ -161,7 +162,7 @@ export default function SupabaseStatsPage() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">
-                Messages Sent (7 Days)
+                User Messages Sent (7 Days)
               </CardTitle>
               <MessageSquare className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
