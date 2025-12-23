@@ -230,7 +230,7 @@ export default function PrototypeDeployModal({
     try {
       setIsDeploying(true);
       logger.log({
-        event: "client_internal_deploy_submitted",
+        event: "client_prototype_editor_deploy_submitted",
         properties: {
           prototype_id: prototype.id,
           slug: normalizedSlug,
@@ -357,7 +357,7 @@ export default function PrototypeDeployModal({
     navigator.clipboard.writeText(fullUrl);
     toast.success("URL copied to clipboard!");
     logger.log({
-      event: "client_internal_deployment_url_copied",
+      event: "client_prototype_editor_deployment_url_copied",
       properties: {
         prototype_id: prototype?.id,
         slug: deploySlug,

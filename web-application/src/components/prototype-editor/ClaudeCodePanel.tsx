@@ -800,7 +800,7 @@ export default function ClaudeCodePanel({
         setIsProcessing(true);
         setHasReceivedResponse(false);
         logger.log({
-          event: "client_internal_chat_message_sent",
+          event: "client_prototype_editor_chat_message_sent",
           properties: {
             prototype_id: prototype?.id,
             queued: true,
@@ -1817,7 +1817,7 @@ export default function ClaudeCodePanel({
         `Message queued - waiting for ${waitingFor.join(" and ")}`,
       );
       logger.log({
-        event: "client_internal_chat_message_queued",
+        event: "client_prototype_editor_chat_message_queued",
         properties: {
           prototype_id: prototype?.id,
           ...messageMetrics,
@@ -1924,7 +1924,7 @@ export default function ClaudeCodePanel({
         },
       ]);
       logger.log({
-        event: "client_internal_chat_message_sent",
+        event: "client_prototype_editor_chat_message_sent",
         properties: {
           prototype_id: prototype?.id,
           ...messageMetrics,
@@ -2222,7 +2222,7 @@ export default function ClaudeCodePanel({
   // Handle undo last change
   const handleUndo = useCallback(async () => {
     logger.log({
-      event: "client_internal_undo_last_change_clicked",
+      event: "client_prototype_editor_undo_last_change_clicked",
       properties: {
         prototype_id: prototype?.id,
       },

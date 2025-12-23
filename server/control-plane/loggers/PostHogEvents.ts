@@ -7,37 +7,37 @@ export type PostHogEvent =
   | 'client_dashboard_prototype_limit_hit'
   | 'client_dashboard_settings_clicked'
   | 'client_dashboard_sidebar_tab_clicked'
-  | 'client_internal_build_and_deploy_clicked'
-  | 'client_internal_browser_preview_opened'
-  | 'client_internal_chat_message_queued'
-  | 'client_internal_chat_message_sent'
-  | 'client_internal_clone_button_clicked'
-  | 'client_internal_code_editor_all_files_saved'
-  | 'client_internal_code_editor_file_created'
-  | 'client_internal_code_editor_file_deleted'
-  | 'client_internal_code_editor_file_saved'
-  | 'client_internal_code_editor_files_uploaded'
-  | 'client_internal_code_editor_upload_modal_opened'
-  | 'client_internal_code_tab_selected'
-  | 'client_internal_deploy_modal_opened'
-  | 'client_internal_deploy_slug_copied'
-  | 'client_internal_deploy_submitted'
-  | 'client_internal_env_var_added'
-  | 'client_internal_env_var_deleted'
-  | 'client_internal_env_var_updated'
-  | 'client_internal_env_vars_opened'
-  | 'client_internal_export_clicked'
-  | 'client_internal_preview_tab_selected'
-  | 'client_internal_preview_mode_changed'
-  | 'client_internal_refresh_preview_clicked'
-  | 'client_internal_restart_dev_server_clicked'
-  | 'client_internal_share_link_copied'
-  | 'client_internal_share_modal_opened'
-  | 'client_internal_share_visibility_changed'
-  | 'client_internal_start_dev_server_clicked'
-  | 'client_internal_undo_last_change_clicked'
-  | 'client_internal_view_on_device_link_copied'
-  | 'client_internal_view_on_device_opened'
+  | 'client_prototype_editor_build_and_deploy_clicked'
+  | 'client_prototype_editor_browser_preview_opened'
+  | 'client_prototype_editor_chat_message_queued'
+  | 'client_prototype_editor_chat_message_sent'
+  | 'client_prototype_editor_clone_button_clicked'
+  | 'client_prototype_editor_code_editor_all_files_saved'
+  | 'client_prototype_editor_code_editor_file_created'
+  | 'client_prototype_editor_code_editor_file_deleted'
+  | 'client_prototype_editor_code_editor_file_saved'
+  | 'client_prototype_editor_code_editor_files_uploaded'
+  | 'client_prototype_editor_code_editor_upload_modal_opened'
+  | 'client_prototype_editor_code_tab_selected'
+  | 'client_prototype_editor_deploy_modal_opened'
+  | 'client_prototype_editor_deploy_slug_copied'
+  | 'client_prototype_editor_deploy_submitted'
+  | 'client_prototype_editor_env_var_added'
+  | 'client_prototype_editor_env_var_deleted'
+  | 'client_prototype_editor_env_var_updated'
+  | 'client_prototype_editor_env_vars_opened'
+  | 'client_prototype_editor_export_clicked'
+  | 'client_prototype_editor_preview_tab_selected'
+  | 'client_prototype_editor_preview_mode_changed'
+  | 'client_prototype_editor_refresh_preview_clicked'
+  | 'client_prototype_editor_restart_dev_server_clicked'
+  | 'client_prototype_editor_share_link_copied'
+  | 'client_prototype_editor_share_modal_opened'
+  | 'client_prototype_editor_share_visibility_changed'
+  | 'client_prototype_editor_start_dev_server_clicked'
+  | 'client_prototype_editor_undo_last_change_clicked'
+  | 'client_prototype_editor_view_on_device_link_copied'
+  | 'client_prototype_editor_view_on_device_opened'
   | 'client_oauth_registration_initiated'
   | 'client_upgrade_checkout_clicked'
   | 'client_landing_preset_prompt_selected'
@@ -76,53 +76,52 @@ export const PostHogEvents: Record<PostHogEvent, PostHogEvent> = Object.freeze({
   client_dashboard_prototype_limit_hit: 'client_dashboard_prototype_limit_hit',
   client_dashboard_settings_clicked: 'client_dashboard_settings_clicked',
   client_dashboard_sidebar_tab_clicked: 'client_dashboard_sidebar_tab_clicked',
-  client_internal_build_and_deploy_clicked:
-    'client_internal_build_and_deploy_clicked',
-  client_internal_browser_preview_opened:
-    'client_internal_browser_preview_opened',
-  client_internal_chat_message_queued: 'client_internal_chat_message_queued',
-  client_internal_chat_message_sent: 'client_internal_chat_message_sent',
-  client_internal_clone_button_clicked:
-    'client_internal_clone_button_clicked',
-  client_internal_code_editor_all_files_saved:
-    'client_internal_code_editor_all_files_saved',
-  client_internal_code_editor_file_created:
-    'client_internal_code_editor_file_created',
-  client_internal_code_editor_file_deleted:
-    'client_internal_code_editor_file_deleted',
-  client_internal_code_editor_file_saved:
-    'client_internal_code_editor_file_saved',
-  client_internal_code_editor_files_uploaded:
-    'client_internal_code_editor_files_uploaded',
-  client_internal_code_editor_upload_modal_opened:
-    'client_internal_code_editor_upload_modal_opened',
-  client_internal_code_tab_selected: 'client_internal_code_tab_selected',
-  client_internal_deploy_modal_opened: 'client_internal_deploy_modal_opened',
-  client_internal_deploy_slug_copied: 'client_internal_deploy_slug_copied',
-  client_internal_deploy_submitted: 'client_internal_deploy_submitted',
-  client_internal_env_var_added: 'client_internal_env_var_added',
-  client_internal_env_var_deleted: 'client_internal_env_var_deleted',
-  client_internal_env_var_updated: 'client_internal_env_var_updated',
-  client_internal_env_vars_opened: 'client_internal_env_vars_opened',
-  client_internal_export_clicked: 'client_internal_export_clicked',
-  client_internal_preview_tab_selected: 'client_internal_preview_tab_selected',
-  client_internal_preview_mode_changed: 'client_internal_preview_mode_changed',
-  client_internal_refresh_preview_clicked:
-    'client_internal_refresh_preview_clicked',
-  client_internal_restart_dev_server_clicked:
-    'client_internal_restart_dev_server_clicked',
-  client_internal_share_link_copied: 'client_internal_share_link_copied',
-  client_internal_share_modal_opened: 'client_internal_share_modal_opened',
-  client_internal_share_visibility_changed:
-    'client_internal_share_visibility_changed',
-  client_internal_start_dev_server_clicked:
-    'client_internal_start_dev_server_clicked',
-  client_internal_undo_last_change_clicked:
-    'client_internal_undo_last_change_clicked',
-  client_internal_view_on_device_link_copied:
-    'client_internal_view_on_device_link_copied',
-  client_internal_view_on_device_opened:
-    'client_internal_view_on_device_opened',
+  client_prototype_editor_build_and_deploy_clicked:
+    'client_prototype_editor_build_and_deploy_clicked',
+  client_prototype_editor_browser_preview_opened:
+    'client_prototype_editor_browser_preview_opened',
+  client_prototype_editor_chat_message_queued: 'client_prototype_editor_chat_message_queued',
+  client_prototype_editor_chat_message_sent: 'client_prototype_editor_chat_message_sent',
+  client_prototype_editor_clone_button_clicked: 'client_prototype_editor_clone_button_clicked',
+  client_prototype_editor_code_editor_all_files_saved:
+    'client_prototype_editor_code_editor_all_files_saved',
+  client_prototype_editor_code_editor_file_created:
+    'client_prototype_editor_code_editor_file_created',
+  client_prototype_editor_code_editor_file_deleted:
+    'client_prototype_editor_code_editor_file_deleted',
+  client_prototype_editor_code_editor_file_saved:
+    'client_prototype_editor_code_editor_file_saved',
+  client_prototype_editor_code_editor_files_uploaded:
+    'client_prototype_editor_code_editor_files_uploaded',
+  client_prototype_editor_code_editor_upload_modal_opened:
+    'client_prototype_editor_code_editor_upload_modal_opened',
+  client_prototype_editor_code_tab_selected: 'client_prototype_editor_code_tab_selected',
+  client_prototype_editor_deploy_modal_opened: 'client_prototype_editor_deploy_modal_opened',
+  client_prototype_editor_deploy_slug_copied: 'client_prototype_editor_deploy_slug_copied',
+  client_prototype_editor_deploy_submitted: 'client_prototype_editor_deploy_submitted',
+  client_prototype_editor_env_var_added: 'client_prototype_editor_env_var_added',
+  client_prototype_editor_env_var_deleted: 'client_prototype_editor_env_var_deleted',
+  client_prototype_editor_env_var_updated: 'client_prototype_editor_env_var_updated',
+  client_prototype_editor_env_vars_opened: 'client_prototype_editor_env_vars_opened',
+  client_prototype_editor_export_clicked: 'client_prototype_editor_export_clicked',
+  client_prototype_editor_preview_tab_selected: 'client_prototype_editor_preview_tab_selected',
+  client_prototype_editor_preview_mode_changed: 'client_prototype_editor_preview_mode_changed',
+  client_prototype_editor_refresh_preview_clicked:
+    'client_prototype_editor_refresh_preview_clicked',
+  client_prototype_editor_restart_dev_server_clicked:
+    'client_prototype_editor_restart_dev_server_clicked',
+  client_prototype_editor_share_link_copied: 'client_prototype_editor_share_link_copied',
+  client_prototype_editor_share_modal_opened: 'client_prototype_editor_share_modal_opened',
+  client_prototype_editor_share_visibility_changed:
+    'client_prototype_editor_share_visibility_changed',
+  client_prototype_editor_start_dev_server_clicked:
+    'client_prototype_editor_start_dev_server_clicked',
+  client_prototype_editor_undo_last_change_clicked:
+    'client_prototype_editor_undo_last_change_clicked',
+  client_prototype_editor_view_on_device_link_copied:
+    'client_prototype_editor_view_on_device_link_copied',
+  client_prototype_editor_view_on_device_opened:
+    'client_prototype_editor_view_on_device_opened',
   client_oauth_registration_initiated: 'client_oauth_registration_initiated',
   client_upgrade_checkout_clicked: 'client_upgrade_checkout_clicked',
   client_landing_preset_prompt_selected:

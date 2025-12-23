@@ -739,7 +739,7 @@ export default function InternalPrototypePage() {
 
   const handleShare = () => {
     logger.log({
-      event: "client_internal_share_modal_opened",
+      event: "client_prototype_editor_share_modal_opened",
       properties: {
         prototype_id: prototypeId,
       },
@@ -752,7 +752,7 @@ export default function InternalPrototypePage() {
 
     try {
       logger.log({
-        event: "client_internal_clone_button_clicked",
+        event: "client_prototype_editor_clone_button_clicked",
         properties: {
           prototype_id: prototype?.id,
         },
@@ -811,7 +811,7 @@ export default function InternalPrototypePage() {
 
   const handleOpenDeployModal = () => {
     logger.log({
-      event: "client_internal_deploy_modal_opened",
+      event: "client_prototype_editor_deploy_modal_opened",
       properties: {
         prototype_id: prototype?.id,
       },
@@ -864,7 +864,7 @@ export default function InternalPrototypePage() {
 
       toast.success("Copied!");
       logger.log({
-        event: "client_internal_share_link_copied",
+        event: "client_prototype_editor_share_link_copied",
         properties: {
           prototype_id: prototype.id,
           visibility_before: isPublic ? "PUBLIC" : "SELF",
@@ -895,7 +895,7 @@ export default function InternalPrototypePage() {
     try {
       const newVisibility: PrototypeVisibility = checked ? "PUBLIC" : "SELF";
       logger.log({
-        event: "client_internal_share_visibility_changed",
+        event: "client_prototype_editor_share_visibility_changed",
         properties: {
           prototype_id: prototype.id,
           visibility: newVisibility,
@@ -978,7 +978,7 @@ export default function InternalPrototypePage() {
         assetsToDelete,
       });
       logger.log({
-        event: "client_internal_code_editor_file_deleted",
+        event: "client_prototype_editor_code_editor_file_deleted",
         properties: {
           prototype_id: prototypeId,
           file_count: filesToDelete.length,
@@ -1060,7 +1060,7 @@ export default function InternalPrototypePage() {
 
         if (result.success) {
           logger.log({
-            event: "client_internal_code_editor_files_uploaded",
+            event: "client_prototype_editor_code_editor_files_uploaded",
             properties: {
               prototype_id: prototypeId,
               file_count: files.length,

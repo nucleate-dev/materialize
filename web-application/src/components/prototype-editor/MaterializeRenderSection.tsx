@@ -320,8 +320,8 @@ const MaterializeRenderSection = forwardRef<
       (isPreview: boolean) => {
         logPrototypeEvent(
           isPreview
-            ? "client_internal_preview_tab_selected"
-            : "client_internal_code_tab_selected",
+            ? "client_prototype_editor_preview_tab_selected"
+            : "client_prototype_editor_code_tab_selected",
         );
         onPreviewViewChange(isPreview);
       },
@@ -330,7 +330,7 @@ const MaterializeRenderSection = forwardRef<
 
     const handleOpenEnvModal = useCallback(
       (source: string) => {
-        logPrototypeEvent("client_internal_env_vars_opened", { source });
+        logPrototypeEvent("client_prototype_editor_env_vars_opened", { source });
         setIsEnvVarDialogOpen(true);
       },
       [logPrototypeEvent],
@@ -338,7 +338,7 @@ const MaterializeRenderSection = forwardRef<
 
     const handleOpenViewOnDevice = useCallback(
       (source: string) => {
-        logPrototypeEvent("client_internal_view_on_device_opened", { source });
+        logPrototypeEvent("client_prototype_editor_view_on_device_opened", { source });
         setIsQRModalOpen(true);
       },
       [logPrototypeEvent],
@@ -346,7 +346,7 @@ const MaterializeRenderSection = forwardRef<
 
     const handleOpenBrowserPreview = useCallback(
       (source: string) => {
-        logPrototypeEvent("client_internal_browser_preview_opened", {
+        logPrototypeEvent("client_prototype_editor_browser_preview_opened", {
           framework,
           source,
         });
@@ -656,7 +656,7 @@ const MaterializeRenderSection = forwardRef<
 
     // Function to start dev server with all files
     const handleStartDevServer = async () => {
-      logPrototypeEvent("client_internal_start_dev_server_clicked", {
+      logPrototypeEvent("client_prototype_editor_start_dev_server_clicked", {
         has_prototype: Boolean(prototypeId),
       });
       if (!prototypeId) {
@@ -716,7 +716,7 @@ const MaterializeRenderSection = forwardRef<
     };
 
     const handleRestartDevServer = async () => {
-      logPrototypeEvent("client_internal_restart_dev_server_clicked", {
+      logPrototypeEvent("client_prototype_editor_restart_dev_server_clicked", {
         has_prototype: Boolean(prototypeId),
         has_sandbox: Boolean(sandbox_url),
       });
@@ -779,7 +779,7 @@ const MaterializeRenderSection = forwardRef<
     };
 
     const handleBuildAndDeploy = async () => {
-      logPrototypeEvent("client_internal_build_and_deploy_clicked", {
+      logPrototypeEvent("client_prototype_editor_build_and_deploy_clicked", {
         has_sandbox: Boolean(sandbox_url),
         framework,
       });
@@ -851,7 +851,7 @@ const MaterializeRenderSection = forwardRef<
     };
 
     const handleRefresh = () => {
-      logPrototypeEvent("client_internal_refresh_preview_clicked", {
+      logPrototypeEvent("client_prototype_editor_refresh_preview_clicked", {
         status: currentRenderStatus,
       });
       if (webPreviewRef.current && viewing_url) {
@@ -862,7 +862,7 @@ const MaterializeRenderSection = forwardRef<
     };
 
     const handleExport = useCallback(async () => {
-      logPrototypeEvent("client_internal_export_clicked", {
+      logPrototypeEvent("client_prototype_editor_export_clicked", {
         can_export: IsUserPlanSubscribed(userPlan),
         file_count: files ? Object.keys(files).length : 0,
       });
@@ -956,7 +956,7 @@ const MaterializeRenderSection = forwardRef<
     }, [assets, files, loadingSubscriptionData, logger, prototypeId, userPlan]);
 
     const handleModeChange = (mode: PreviewMode) => {
-      logPrototypeEvent("client_internal_preview_mode_changed", { mode });
+      logPrototypeEvent("client_prototype_editor_preview_mode_changed", { mode });
       setPreviewMode(mode);
       // Trigger loading state when switching preview modes
       if (viewing_url) {
@@ -1198,7 +1198,7 @@ const MaterializeRenderSection = forwardRef<
           <Button
             size="sm"
             onClick={() => {
-              logPrototypeEvent("client_internal_refresh_preview_clicked", {
+              logPrototypeEvent("client_prototype_editor_refresh_preview_clicked", {
                 status: "error_overlay",
               });
               setIframeError(false);

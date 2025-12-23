@@ -310,7 +310,7 @@ export function EnvironmentVariablesModal({
 
         toast.success("Environment variable updated");
         logger.log({
-          event: "client_internal_env_var_updated",
+          event: "client_prototype_editor_env_var_updated",
           properties: {
             prototype_id: prototypeId,
             env_var_id: envVarId,
@@ -376,7 +376,7 @@ export function EnvironmentVariablesModal({
 
         toast.success("Environment variable deleted");
         logger.log({
-          event: "client_internal_env_var_deleted",
+          event: "client_prototype_editor_env_var_deleted",
           properties: {
             prototype_id: prototypeId,
             env_var_id: envVarId,
@@ -542,7 +542,7 @@ export function EnvironmentVariablesModal({
         `${validInputs.length} environment variable${validInputs.length > 1 ? "s" : ""} added`,
       );
       logger.log({
-        event: "client_internal_env_var_added",
+        event: "client_prototype_editor_env_var_added",
         properties: {
           prototype_id: prototypeId,
           count: validInputs.length,

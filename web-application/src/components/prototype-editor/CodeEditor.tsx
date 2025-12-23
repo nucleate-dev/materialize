@@ -281,7 +281,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
   const [uploadAsProjectRoot, setUploadAsProjectRoot] = useState(false);
   const [showProjectRootConfirm, setShowProjectRootConfirm] = useState(false);
   const handleOpenUploadModal = useCallback(() => {
-    logEditorEvent("client_internal_code_editor_upload_modal_opened", {
+    logEditorEvent("client_prototype_editor_code_editor_upload_modal_opened", {
       source: "toolbar",
     });
     setShowUploadModal(true);
@@ -550,7 +550,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
       });
 
       if (result.success) {
-        logEditorEvent("client_internal_code_editor_file_created", {
+        logEditorEvent("client_prototype_editor_code_editor_file_created", {
           file_name: fileName,
         });
         fileSystem.selectFile(fileName);
@@ -1226,7 +1226,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
           filesToUpsert.map((f) => f.name),
           assetsToUpload.map((a) => a.path),
         );
-        logEditorEvent("client_internal_code_editor_files_uploaded", {
+        logEditorEvent("client_prototype_editor_code_editor_files_uploaded", {
           file_count: filesToUpsert.length + assetsToUpload.length,
           code_file_count: filesToUpsert.length,
           asset_count: assetsToUpload.length,
@@ -1278,7 +1278,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
 
       if (result.success) {
         onFilesSaved?.([fileSystem.state.selectedFile], []);
-        logEditorEvent("client_internal_code_editor_file_saved", {
+        logEditorEvent("client_prototype_editor_code_editor_file_saved", {
           file_name: fileSystem.state.selectedFile,
         });
       }
@@ -1309,7 +1309,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
 
       if (result.success) {
         onFilesSaved?.(Object.keys(fileSystem.state.files), []);
-        logEditorEvent("client_internal_code_editor_all_files_saved", {
+        logEditorEvent("client_prototype_editor_code_editor_all_files_saved", {
           file_count: filesToUpsert.length,
         });
       }
@@ -1333,7 +1333,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
         assetsToDelete: wasAsset ? [fileName] : [],
       });
       if (result.success) {
-        logEditorEvent("client_internal_code_editor_file_deleted", {
+        logEditorEvent("client_prototype_editor_code_editor_file_deleted", {
           file_name: fileName,
           kind: wasAsset ? "asset" : "file",
         });

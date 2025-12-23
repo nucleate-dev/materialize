@@ -81,7 +81,7 @@ export function ViewOnDeviceModal({
                       navigator.clipboard.writeText(getExpoGoDeepLink());
                       toast.success("Deep link copied");
                       logger.log({
-                        event: "client_internal_view_on_device_link_copied",
+                        event: "client_prototype_editor_view_on_device_link_copied",
                         properties: {
                           link_type: "expo",
                         },
@@ -113,7 +113,7 @@ export function ViewOnDeviceModal({
                       navigator.clipboard.writeText(viewing_url);
                       toast.success("URL copied to clipboard!");
                       logger.log({
-                        event: "client_internal_view_on_device_link_copied",
+                        event: "client_prototype_editor_view_on_device_link_copied",
                         properties: {
                           link_type: "tunnel_url",
                         },
