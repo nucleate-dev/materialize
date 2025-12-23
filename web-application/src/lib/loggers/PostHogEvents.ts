@@ -5,28 +5,30 @@
 // To update these shared files, modify the source file and run:
 // npm run sync-types (in the control-plane directory)
 //
-// Last synced: 2025-12-22T12:52:35.520Z
+// Last synced: 2025-12-23T06:26:05.464Z
 
 export type PostHogEvent =
-  | 'chat_usage_generic'
-  | 'dispatch'
-  | 'dispatch_precheck'
-  | 'oauth_registration_initiated'
-  | 'prototype_creation'
-  | 'prototype_deletion'
-  | 'stripe_billing_portal_session_creation'
-  | 'stripe_checkout_session_creation'
-  | 'user_registration_completed';
+  | 'client_oauth_registration_initiated'
+  | 'client_user_email_registration_completed'
+  | 'sandbox_chat_usage_generic'
+  | 'server_dispatch'
+  | 'server_dispatch_precheck'
+  | 'server_prototype_creation'
+  | 'server_prototype_deletion'
+  | 'server_stripe_billing_portal_session_creation'
+  | 'server_stripe_checkout_session_creation';
 
 export const PostHogEvents: Record<PostHogEvent, PostHogEvent> = Object.freeze({
-  chat_usage_generic: 'chat_usage_generic',
-  dispatch: 'dispatch',
-  dispatch_precheck: 'dispatch_precheck',
-  oauth_registration_initiated: 'oauth_registration_initiated',
-  prototype_creation: 'prototype_creation',
-  prototype_deletion: 'prototype_deletion',
-  stripe_billing_portal_session_creation:
-    'stripe_billing_portal_session_creation',
-  stripe_checkout_session_creation: 'stripe_checkout_session_creation',
-  user_registration_completed: 'user_registration_completed',
+  client_oauth_registration_initiated: 'client_oauth_registration_initiated',
+  client_user_email_registration_completed:
+    'client_user_email_registration_completed',
+  sandbox_chat_usage_generic: 'sandbox_chat_usage_generic',
+  server_dispatch: 'server_dispatch',
+  server_dispatch_precheck: 'server_dispatch_precheck',
+  server_prototype_creation: 'server_prototype_creation',
+  server_prototype_deletion: 'server_prototype_deletion',
+  server_stripe_billing_portal_session_creation:
+    'server_stripe_billing_portal_session_creation',
+  server_stripe_checkout_session_creation:
+    'server_stripe_checkout_session_creation',
 });

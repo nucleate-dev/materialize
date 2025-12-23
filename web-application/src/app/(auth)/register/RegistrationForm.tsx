@@ -182,7 +182,7 @@ export default function RegistrationForm() {
 
       // Track successful registration with PostHog
       logger.log({
-        event: "user_registration_completed",
+        event: "client_user_email_registration_completed",
         properties: {
           source: "registration_form",
           component: "RegistrationForm",
@@ -413,7 +413,7 @@ export default function RegistrationForm() {
 
                 // Track OAuth registration initiation
                 logger.log({
-                  event: "oauth_registration_initiated",
+                  event: "client_oauth_registration_initiated",
                   properties: {
                     source: "registration_form",
                     component: "RegistrationForm",
@@ -443,12 +443,16 @@ export default function RegistrationForm() {
                     // Clear any prior sent marker so we can emit for this new OAuth sign-up
                     localStorage.removeItem("meta_registration_sent");
                   } catch (storageError) {
-                    logger.debug("warn", "Failed to persist pending meta registration intent", {
-                      error:
-                        storageError instanceof Error
-                          ? storageError.message
-                          : String(storageError),
-                    });
+                    logger.debug(
+                      "warn",
+                      "Failed to persist pending meta registration intent",
+                      {
+                        error:
+                          storageError instanceof Error
+                            ? storageError.message
+                            : String(storageError),
+                      },
+                    );
                   }
                 }
 

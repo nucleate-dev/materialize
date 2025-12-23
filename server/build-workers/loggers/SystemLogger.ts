@@ -281,7 +281,7 @@ export class SystemLogger {
 
       this.posthog.capture({
         distinctId: this.base.userId,
-        event: PostHogEvents.chat_usage_generic,
+        event: PostHogEvents.sandbox_chat_usage_generic,
         properties: posthogProperties,
       });
     }

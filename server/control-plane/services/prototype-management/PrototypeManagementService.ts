@@ -171,7 +171,7 @@ export class PrototypeManagementService {
 
     return await posthogLogger.timeAndRecord(
       user.id,
-      PostHogEvents.prototype_creation,
+      PostHogEvents.server_prototype_creation,
       async () => {
         return await handleCreatePrototypeImpl(request, reply, this.s3Client);
       },
@@ -212,7 +212,7 @@ export class PrototypeManagementService {
 
     return await posthogLogger.timeAndRecord(
       user.id,
-      PostHogEvents.prototype_deletion,
+      PostHogEvents.server_prototype_deletion,
       async () => {
         return await handleDeletePrototypeImpl(
           request,
