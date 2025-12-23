@@ -256,12 +256,21 @@ const ProjectContextEditor: React.FC<ProjectContextEditorProps> = ({
         </div>
       )}
 
+      {/* Context description */}
+      <div className={cn(
+        "px-6 py-3 border-b border-border/50",
+        userPlan === "free" && "mt-10"
+      )}>
+        <p className="text-xs text-muted-foreground">
+          This is what the AI sees and knows about your project. Add instructions, guidelines, or context to help guide code generation.
+        </p>
+      </div>
+
       {/* Milkdown Editor Container */}
       <div
         ref={editorContainerRef}
         className={cn(
           "flex-1 h-full overflow-auto milkdown-editor",
-          userPlan === "free" && "pt-10",
           !isEditorReady && "opacity-0",
         )}
       />
