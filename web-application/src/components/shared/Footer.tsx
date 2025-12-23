@@ -35,6 +35,12 @@ export default function Footer() {
           </a>
         </div>
         <div className="flex gap-6">
+          <a
+            href="mailto:team@nucleate.dev"
+            className="hover:text-white cursor-pointer transition-colors"
+          >
+            Contact Us
+          </a>
           <span
             onClick={() => router.push("/faqs")}
             className="hover:text-white cursor-pointer transition-colors"
