@@ -805,16 +805,6 @@ export default function ClaudeCodePanel({
         setQueuedMessage(null);
         setIsProcessing(true);
         setHasReceivedResponse(false);
-        logger.log({
-          event: "client_prototype_editor_chat_message_sent",
-          properties: {
-            prototype_id: prototype?.id,
-            queued: true,
-            has_images: false,
-            content_length: content.length,
-          },
-        });
-
         // Clear chat intent from localStorage
         clearChatIntent();
 
@@ -1825,10 +1815,11 @@ export default function ClaudeCodePanel({
         `Message queued - waiting for ${waitingFor.join(" and ")}`,
       );
       logger.log({
-        event: "client_prototype_editor_chat_message_queued",
+        event: "client_prototype_editor_chat_message_sent",
         properties: {
           prototype_id: prototype?.id,
           ...messageMetrics,
+          queued: true,
           connection_ready: isConnected,
           dev_server_ready: isDevServerReady,
         },
