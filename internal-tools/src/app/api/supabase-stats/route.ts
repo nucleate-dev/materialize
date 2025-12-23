@@ -18,70 +18,88 @@ const supabase = createClient(supabaseUrl, supabaseServiceRoleKey, {
 export async function GET() {
   try {
     const now = new Date();
-    const sevenDaysAgo = new Date(now);
-    sevenDaysAgo.setDate(now.getDate() - 7);
-    const startDate = sevenDaysAgo.toISOString();
+
+    // Generate buckets for the last 7 days (including today)
+    // We generate keys in YYYY-MM-DD format (UTC)
+    const dates: string[] = [];
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(now);
+      d.setDate(now.getDate() - i);
+      dates.push(d.toISOString().split("T")[0]);
+    }
+
+    // The oldest date is the last one in the array
+    const oldestDateStr = dates[dates.length - 1];
+    // Start from the beginning of that day
+    const queryStartDate = `${oldestDateStr}T00:00:00.000Z`;
 
     // Fetch data for the last 7 days from the 3 tables
-    // We only need created_at to count
-
     // 1. Prototypes
     const { data: prototypesData, error: prototypesError } = await supabase
       .from("prototypes")
       .select("created_at")
-      .gte("created_at", startDate);
+      .gte("created_at", queryStartDate);
 
     if (prototypesError) throw prototypesError;
 
     // 2. Messages
-    const { data: messagesData, error: messagesError } = await supabase
+    // Fetch all for the time range to ensure we capture everything, then filter
+    const { data: messagesDataRaw, error: messagesError } = await supabase
       .from("prototype_chat_messages")
-      .select("created_at")
-      .gte("created_at", startDate);
+      .select("created_at, role")
+      .gte("created_at", queryStartDate);
 
     if (messagesError) throw messagesError;
+
+    // Filter in memory for role 'user'
+    const messagesData = (messagesDataRaw || []).filter(
+      (m) => m.role === "user" || m.role === "User",
+    );
 
     // 3. Users
     const { data: usersData, error: usersError } = await supabase
       .from("users")
       .select("created_at")
-      .gte("created_at", startDate);
+      .gte("created_at", queryStartDate);
 
     if (usersError) throw usersError;
 
-    // Helper to aggregate by date (YYYY-MM-DD)
-    const aggregateByDay = (items: { created_at: string | null }[]) => {
+    // Helper to aggregate by date
+    const aggregateData = (items: { created_at: string | null; }[]) => {
       const counts: Record<string, number> = {};
 
-      // Initialize last 7 days with 0
-      for (let i = 0; i < 7; i++) {
-        const d = new Date(now);
-        d.setDate(now.getDate() - i);
-        const dateStr = d.toISOString().split("T")[0];
-        counts[dateStr] = 0;
-      }
+      // Initialize with 0 for our target dates
+      dates.forEach(d => {
+        counts[d] = 0;
+      });
 
       items.forEach((item) => {
         if (!item.created_at) return;
         const dateStr = new Date(item.created_at).toISOString().split("T")[0];
+        // Only count if it falls within our buckets
         if (counts[dateStr] !== undefined) {
           counts[dateStr]++;
         }
       });
 
-      // Sort by date key
+      // Return array sorted by date (ascending)
       return Object.entries(counts)
         .sort(([dateA], [dateB]) => dateA.localeCompare(dateB))
         .map(([date, count]) => ({ date, count }));
     };
 
+    const prototypesStats = aggregateData(prototypesData || []);
+    const messagesStats = aggregateData(messagesData || []);
+    const usersStats = aggregateData(usersData || []);
+
     const stats = {
-      prototypes: aggregateByDay(prototypesData || []),
-      messages: aggregateByDay(messagesData || []),
-      users: aggregateByDay(usersData || []),
-      totalPrototypes: prototypesData?.length || 0,
-      totalMessages: messagesData?.length || 0,
-      totalUsers: usersData?.length || 0,
+      prototypes: prototypesStats,
+      messages: messagesStats,
+      users: usersStats,
+      // Calculate totals from the stats to ensure consistency with the graph
+      totalPrototypes: prototypesStats.reduce((acc, curr) => acc + curr.count, 0),
+      totalMessages: messagesStats.reduce((acc, curr) => acc + curr.count, 0),
+      totalUsers: usersStats.reduce((acc, curr) => acc + curr.count, 0),
     };
 
     return NextResponse.json(stats);
