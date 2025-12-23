@@ -63,14 +63,14 @@ interface ClaudeCodePanelProps {
 export interface Message {
   id: string;
   type:
-    | "user"
-    | "assistant"
-    | "system"
-    | "error"
-    | "tool"
-    | "thinking"
-    | "usage"
-    | "design_spec";
+  | "user"
+  | "assistant"
+  | "system"
+  | "error"
+  | "tool"
+  | "thinking"
+  | "usage"
+  | "design_spec";
   content: string;
   timestamp: number;
   toolName?: string;
@@ -111,9 +111,7 @@ export default function ClaudeCodePanel({
   fileSystem,
   externalWS,
   externalWSConnected,
-  externalWSConnecting,
   onConnect,
-  onDisconnect,
   onRegisterMessageHandler,
   onUnregisterMessageHandler,
   onRestartDevServerComplete,
@@ -130,13 +128,12 @@ export default function ClaudeCodePanel({
   // Always use external WebSocket (InternalPrototypePage is the source of truth)
   const ws = externalWS;
   const isConnected = externalWSConnected;
-  const isConnecting = externalWSConnecting;
 
   const [messages, setMessages] = useState<Message[]>([]);
   const messagesRef = useRef<Message[]>([]);
   const [inputValue, setInputValue] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
-  const [aiChatSessionId, setAiChatSessionId] = useState<string | null>(null);
+  const [, setAiChatSessionId] = useState<string | null>(null);
   const [prototypeChatSessionId, setPrototypeChatSessionId] = useState<
     string | null
   >(null); // prototype_chat_sessions.id
@@ -872,6 +869,8 @@ export default function ClaudeCodePanel({
     prototype,
     currentViewingPath,
     isCorruptedSession,
+    model,
+    modelProvider,
   ]);
 
   // WebSocket connection is managed by parent component (InternalPrototypePage)
@@ -954,7 +953,7 @@ export default function ClaudeCodePanel({
 
   // Connection is managed by parent component via external props
   const connect = onConnect;
-  const disconnect = onDisconnect;
+  // onDisconnect is available via props if needed
 
   // Handle messages from server
   const handleServerMessage = (message: ChatServerMessage) => {
@@ -1260,7 +1259,7 @@ export default function ClaudeCodePanel({
       }
 
       default: {
-        const unknownMessage = message as { type: string };
+        const unknownMessage = message as { type: string; };
         logger.debug("log", "Unknown message type", {
           messageType: unknownMessage.type,
         });
@@ -1880,7 +1879,7 @@ export default function ClaudeCodePanel({
       const content: Array<{
         type: string;
         text?: string;
-        source?: { type: string; url: string };
+        source?: { type: string; url: string; };
       }> = [];
 
       // Add text if present

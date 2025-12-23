@@ -172,7 +172,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
   prototypeId,
   language = "typescript",
   readOnly = false,
-  onViewingUrlUpdate,
+  // onViewingUrlUpdate is available via props if needed
   onBuildingStateChange,
   saveMode = "single-file",
   currentRenderStatus,
@@ -241,23 +241,11 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
     );
   };
 
-  const currentFile =
-    fileSystem.state.selectedFile &&
-    fileSystem.state.files &&
-    fileSystem.state.selectedFile in fileSystem.state.files
-      ? fileSystem.state.files[fileSystem.state.selectedFile]
-      : fileSystem.state.selectedFile &&
-          fileSystem.state.assets &&
-          fileSystem.state.selectedFile in fileSystem.state.assets
-        ? fileSystem.state.assets[fileSystem.state.selectedFile]
-        : null;
-
   const isAssetImage =
     fileSystem.state.selectedFile &&
     isAsset(fileSystem.state.selectedFile) &&
     isImageFile(fileSystem.state.selectedFile);
 
-  // --- State ---
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [isLoadingImageUrl, setIsLoadingImageUrl] = useState(false);
   const [showNewFileModal, setShowNewFileModal] = useState(false);
@@ -287,7 +275,6 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
     setShowUploadModal(true);
   }, [logEditorEvent]);
 
-  // File selection and validation state
   type FileValidationStatus =
     | "ready"
     | "blocked-folder"
@@ -295,16 +282,13 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
     | "too-large"
     | "conflict";
   const [fileValidation, setFileValidation] = useState<
-    Map<string, { status: FileValidationStatus; reason?: string; size: number }>
+    Map<string, { status: FileValidationStatus; reason?: string; size: number; }>
   >(new Map());
   const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set());
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(
     new Set(),
   );
 
-  // --- Helper Functions (defined before useMemo) ---
-
-  // Build nested folder structure for display
   type FileNode = {
     name: string;
     path: string;
@@ -324,45 +308,48 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
     return node.children.flatMap((child) => getAllFilesInNode(child));
   };
 
-  const buildFileTree = (
-    filePaths: string[],
-    validationMap: Map<
-      string,
-      { status: FileValidationStatus; reason?: string; size: number }
-    >,
-  ): FileNode[] => {
-    const root: FileNode[] = [];
+  const buildFileTree = useCallback(
+    (
+      filePaths: string[],
+      validationMap: Map<
+        string,
+        { status: FileValidationStatus; reason?: string; size: number; }
+      >,
+    ): FileNode[] => {
+      const root: FileNode[] = [];
 
-    filePaths.forEach((filePath) => {
-      const parts = filePath.split("/");
-      let currentLevel = root;
+      filePaths.forEach((filePath) => {
+        const parts = filePath.split("/");
+        let currentLevel = root;
 
-      parts.forEach((part, index) => {
-        const isLastPart = index === parts.length - 1;
-        const currentPath = parts.slice(0, index + 1).join("/");
+        parts.forEach((part, index) => {
+          const isLastPart = index === parts.length - 1;
+          const currentPath = parts.slice(0, index + 1).join("/");
 
-        let existingNode = currentLevel.find((node) => node.name === part);
+          let existingNode = currentLevel.find((node) => node.name === part);
 
-        if (!existingNode) {
-          const newNode: FileNode = {
-            name: part,
-            path: currentPath,
-            isFolder: !isLastPart,
-            children: [],
-            validation: isLastPart ? validationMap.get(filePath) : undefined,
-          };
-          currentLevel.push(newNode);
-          existingNode = newNode;
-        }
+          if (!existingNode) {
+            const newNode: FileNode = {
+              name: part,
+              path: currentPath,
+              isFolder: !isLastPart,
+              children: [],
+              validation: isLastPart ? validationMap.get(filePath) : undefined,
+            };
+            currentLevel.push(newNode);
+            existingNode = newNode;
+          }
 
-        if (!isLastPart) {
-          currentLevel = existingNode.children;
-        }
+          if (!isLastPart) {
+            currentLevel = existingNode.children;
+          }
+        });
       });
-    });
 
-    return root;
-  };
+      return root;
+    },
+    [],
+  );
 
   // --- Computed ---
   const directoryOptions = useMemo(() => {
@@ -442,11 +429,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
     [resolvedUploadFolder],
   );
 
-  const uploadConflicts = useMemo(() => {
-    return Array.from(fileValidation.entries())
-      .filter(([, validation]) => validation.status === "conflict")
-      .map(([path]) => path);
-  }, [fileValidation]);
+  // uploadConflicts can be computed from fileValidation if needed
 
   const uploadSummary = useMemo(() => {
     const total = fileValidation.size;
@@ -462,7 +445,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
     ).length;
     const totalSize = Array.from(fileValidation.entries())
       .filter(([path]) => selectedFiles.has(path))
-      .reduce((sum, [_, v]) => sum + v.size, 0);
+      .reduce((sum, [, v]) => sum + v.size, 0);
 
     return { total, selected, blocked, conflicts, totalSize };
   }, [fileValidation, selectedFiles]);
@@ -471,7 +454,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
     if (fileValidation.size === 0) return [];
     const paths = Array.from(fileValidation.keys());
     return buildFileTree(paths, fileValidation);
-  }, [fileValidation]);
+  }, [fileValidation, buildFileTree]);
 
   const saveButtonState = useMemo(() => {
     if (userPlan === "free")
@@ -517,10 +500,10 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
         name.split(".").pop() === name
           ? name
           : name
-              .split(".")[0]
-              .split("/")
-              .pop()
-              ?.replace(/[^a-zA-Z0-9]/g, "");
+            .split(".")[0]
+            .split("/")
+            .pop()
+            ?.replace(/[^a-zA-Z0-9]/g, "");
 
       switch (ext) {
         case "js":
@@ -560,7 +543,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
       } else {
         setNewFileError("Failed to create file. Please try again.");
       }
-    } catch (error) {
+    } catch {
       logger.debug("error", "Error creating file");
       setNewFileError("Failed to create file. Please try again.");
     } finally {
@@ -654,7 +637,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
   const toggleAllFiles = () => {
     const allSelectableFiles = Array.from(fileValidation.entries())
       .filter(
-        ([_, validation]) =>
+        ([, validation]) =>
           validation.status === "ready" || validation.status === "conflict",
       )
       .map(([path]) => path);
@@ -883,7 +866,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
   const validateFile = (
     file: File,
     targetPath: string,
-  ): { status: FileValidationStatus; reason?: string } => {
+  ): { status: FileValidationStatus; reason?: string; } => {
     // Block system files
     const fileName = file.name.toLowerCase();
     if (
@@ -1046,7 +1029,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
 
     const validationMap = new Map<
       string,
-      { status: FileValidationStatus; reason?: string; size: number }
+      { status: FileValidationStatus; reason?: string; size: number; }
     >();
     const selectedSet = new Set<string>();
     const validFiles: File[] = [];
@@ -1142,7 +1125,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
     // We need to recalculate using the original upload context, not current uploadAsProjectRoot state
     const filePathMap = new Map<
       File,
-      { path: string; kind: "code" | "asset" }
+      { path: string; kind: "code" | "asset"; }
     >();
 
     uploadFiles.forEach((file) => {
@@ -1200,7 +1183,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
       }
 
       // Collect all code files to upsert
-      const filesToUpsert: Array<{ name: string; content: string }> = [];
+      const filesToUpsert: Array<{ name: string; content: string; }> = [];
       for (const [file, info] of uploads) {
         if (info.kind === "code") {
           const fileContents = await file.text();
@@ -1282,7 +1265,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
           file_name: fileSystem.state.selectedFile,
         });
       }
-    } catch (error) {
+    } catch {
       logger.debug("error", "Error saving file");
     } finally {
       setIsSaving(false);
@@ -1313,7 +1296,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
           file_count: filesToUpsert.length,
         });
       }
-    } catch (error) {
+    } catch {
       logger.debug("error", "Error saving files");
     } finally {
       setIsSaving(false);
@@ -1338,7 +1321,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
           kind: wasAsset ? "asset" : "file",
         });
       }
-    } catch (error) {
+    } catch {
       logger.debug("error", "Error deleting file");
     } finally {
       setIsDeleting(false);
@@ -1364,6 +1347,17 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
       },
     });
 
+    // Disable semantic validation (type errors for missing definitions)
+    // since Monaco doesn't have access to the project's node_modules
+    monaco.languages.typescript.typescriptDefaults.setDiagnosticsOptions({
+      noSemanticValidation: true,
+      noSyntaxValidation: false,
+    });
+    monaco.languages.typescript.javascriptDefaults.setDiagnosticsOptions({
+      noSemanticValidation: true,
+      noSyntaxValidation: false,
+    });
+
     monaco.languages.typescript.typescriptDefaults.setCompilerOptions({
       target: monaco.languages.typescript.ScriptTarget.Latest,
       allowNonTsExtensions: true,
@@ -1375,6 +1369,19 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
       reactNamespace: "React",
       allowJs: true,
       typeRoots: ["node_modules/@types"],
+      strict: false,
+      skipLibCheck: true,
+    });
+    monaco.languages.typescript.javascriptDefaults.setCompilerOptions({
+      target: monaco.languages.typescript.ScriptTarget.Latest,
+      allowNonTsExtensions: true,
+      moduleResolution: monaco.languages.typescript.ModuleResolutionKind.NodeJs,
+      module: monaco.languages.typescript.ModuleKind.CommonJS,
+      noEmit: true,
+      esModuleInterop: true,
+      jsx: monaco.languages.typescript.JsxEmit.React,
+      reactNamespace: "React",
+      allowJs: true,
       strict: false,
       skipLibCheck: true,
     });
@@ -1436,7 +1443,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
                             "h-7 w-7 p-0 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors",
                             isSaving && "text-indigo-400 animate-pulse",
                             saveButtonState.disabled &&
-                              "opacity-30 cursor-not-allowed hover:bg-transparent",
+                            "opacity-30 cursor-not-allowed hover:bg-transparent",
                           )}
                           onClick={
                             saveMode === "single-file"
@@ -1969,7 +1976,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
                           className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
                         >
                           {selectedFiles.size ===
-                          uploadSummary.total - uploadSummary.blocked
+                            uploadSummary.total - uploadSummary.blocked
                             ? "Deselect All"
                             : "Select All"}
                         </button>

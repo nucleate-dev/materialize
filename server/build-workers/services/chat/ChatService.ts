@@ -3,15 +3,8 @@ import axios from "axios";
 import { FastifyInstance, FastifyRequest } from "fastify";
 import path from "path";
 import WebSocket from "ws";
-import { DEFAULT_FLAGS, FeatureFlags } from "../../FLAGS.js";
 import { baseLogger, posthog } from "../../loggers/index.js";
 import { SystemLogger } from "../../loggers/SystemLogger.js";
-import {
-  APIResponse,
-  EndChatResponse,
-  StandardErrorResponse,
-  StartChatResponse,
-} from "../../types/ControlPlaneTypes.js";
 import {
   ChatClientEvent,
   ChatClientMessage,
@@ -21,12 +14,17 @@ import {
   ChatSystemEventSubtype,
   HistoryResponseData,
 } from "../../types/ChatTypes.js";
+import {
+  APIResponse,
+  EndChatResponse,
+  StandardErrorResponse,
+  StartChatResponse,
+} from "../../types/ControlPlaneTypes.js";
 import { Database } from "../../types/supabase.js";
 import { WORK_DIR } from "../../worker.js";
 import { ClaudeTokenService } from "../auth/claude-token-service.js";
 import { NucleateDevelopmentServerService } from "../dev-server/NucleateDevelopmentServerService.js";
 import { FileSyncService } from "../FileSyncService.js";
-import { FlagsService } from "../FlagsService.js";
 import { SandboxService } from "../SandboxService.js";
 import { SupabaseClientService } from "../SupabaseClientService.js";
 import { TerminalService } from "../terminals/TerminalService.js";
@@ -62,7 +60,7 @@ interface CodeSessionState {
   modifiedFilesThisQuery: Set<string>; // Track files modified by tools for the current query
   designSystemId: string | null; // ID of currently loaded design system
   designSystemRules: string | null; // Cached design system rules
-  firstMessageStatus: { sessionId: string; isFirst: boolean } | null; // Cache first-message detection
+  firstMessageStatus: { sessionId: string; isFirst: boolean; } | null; // Cache first-message detection
 }
 
 interface ChatConnection {
@@ -80,7 +78,6 @@ export class ChatService {
   private readonly chatQueryHandler: ChatQueryHandler;
   private readonly claudeCodeCliQueryHandler: ClaudeCodeCliQueryHandler;
   private readonly claudeTokenService: ClaudeTokenService;
-  private featureFlags: FeatureFlags = { ...DEFAULT_FLAGS };
   private sessionState: CodeSessionState = {
     sessionId: null,
     prototypeChatSessionId: null,
@@ -124,8 +121,6 @@ export class ChatService {
       sandboxService,
       devServerService,
       terminalService,
-      this.featureFlags.ENABLE_DESIGN_AGENT_ON_FIRST_MESSAGE,
-      this.featureFlags.ENABLE_MCP_DESIGN_TOOLS,
       () => this.getAak(),
     );
 
@@ -149,7 +144,6 @@ export class ChatService {
       allowedRoot: this.allowedRoot,
     });
 
-    void this.refreshFeatureFlags();
 
     const normalizedWorkDir = path.resolve(WORK_DIR);
     if (!this.isPathInsideAllowedRoot(normalizedWorkDir)) {
@@ -158,22 +152,6 @@ export class ChatService {
         allowedRoot: this.allowedRoot,
       });
     }
-  }
-
-  private async refreshFeatureFlags(): Promise<void> {
-    const updatedFlags = await FlagsService.loadFlags(
-      this.supabaseClientService.getClient(),
-      baseLogger,
-      this.featureFlags,
-    );
-
-    this.featureFlags = updatedFlags;
-    this.chatQueryHandler.setEnableDesignAgentOnFirstMessage(
-      updatedFlags.ENABLE_DESIGN_AGENT_ON_FIRST_MESSAGE,
-    );
-    this.chatQueryHandler.setEnableDesignMcpTools(
-      updatedFlags.ENABLE_MCP_DESIGN_TOOLS,
-    );
   }
 
   public setOrchestrationToken(token: string): void {
@@ -226,9 +204,8 @@ export class ChatService {
 
   private handleWebSocketConnection(
     socket: WebSocket,
-    req: FastifyRequest<{ Params: { prototypeId: string } }>,
+    req: FastifyRequest<{ Params: { prototypeId: string; }; }>,
   ): void {
-    void this.refreshFeatureFlags();
 
     const { prototypeId } = req.params;
     const connectionId = `${prototypeId}-${Date.now()}`;
@@ -473,8 +450,6 @@ export class ChatService {
       handler: handlerName,
       useCliMode,
       hasPrototypeChatSessionId: !!this.sessionState.prototypeChatSessionId,
-      enableDesignAgentOnFirstMessage:
-        this.featureFlags.ENABLE_DESIGN_AGENT_ON_FIRST_MESSAGE,
       sessionId: this.sessionState.sessionId,
     });
 
@@ -524,7 +499,7 @@ export class ChatService {
         uploadChatImages: async (
           prototypeId: string,
           chatSessionId: string,
-          images: Array<{ base64: string; mediaType: string }>,
+          images: Array<{ base64: string; mediaType: string; }>,
         ) => {
           return await this.messagePersistenceService.uploadChatImages(
             prototypeId,
@@ -561,7 +536,7 @@ export class ChatService {
     let historyContext = "";
     if (historical_messages.length > 0) {
       const formattedMessages = historical_messages
-        .map((msg: { role: string; content: string }) => {
+        .map((msg: { role: string; content: string; }) => {
           const role = msg.role === "user" ? "User" : "Assistant";
           return `${role}: ${msg.content}`;
         })
@@ -772,8 +747,8 @@ export class ChatService {
         orchestrationError ??
         (axiosError
           ? new Error(
-              `Failed to notify control plane of chat start (status ${axiosError.response?.status ?? "unknown"})`,
-            )
+            `Failed to notify control plane of chat start (status ${axiosError.response?.status ?? "unknown"})`,
+          )
           : error instanceof Error
             ? error
             : new Error(String(error)));
