@@ -250,6 +250,24 @@ export default function PublicPrototypeHeader({
         return;
       }
 
+      const folderId =
+        typeof prototype.folder_id === "string"
+          ? prototype.folder_id
+          : undefined;
+      const description =
+        typeof prototype.description === "string"
+          ? prototype.description
+          : undefined;
+
+      const payload: CreatePrototypeRequestBody = {
+        name: clonedPrototypeName,
+        creation_source: "public_prototype_clone",
+        description,
+        folder_id: folderId,
+        prototype_id: prototype.id,
+        visibility: "PUBLIC", // TODO evaluate whether this should ever be private
+      };
+
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_SERVER_ENDPOINT!}/prototype/create`,
         {
@@ -258,13 +276,7 @@ export default function PublicPrototypeHeader({
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
-          body: JSON.stringify({
-            name: clonedPrototypeName,
-            description: prototype.description,
-            folder_id: prototype.folder_id || undefined,
-            prototype_id: prototype.id,
-            visibility: "PUBLIC", // TODO evaluate whether this should ever be private
-          } as CreatePrototypeRequestBody),
+          body: JSON.stringify(payload),
         },
       );
 

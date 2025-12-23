@@ -399,20 +399,28 @@ export default function NewPrototypeModal({
       const serverEndpoint = process.env.NEXT_PUBLIC_SERVER_ENDPOINT;
       if (!serverEndpoint) return;
 
+      const normalizedVisibility: CreatePrototypeRequestBody["visibility"] =
+        visibility === "SELF" ? "SELF" : "PUBLIC";
+
+      const folderId = selectedFolder ?? undefined;
+
+      const payload: CreatePrototypeRequestBody = {
+        name: name.trim(),
+        creation_source: "dashboard_modal",
+        folder_id: folderId,
+        visibility: normalizedVisibility,
+        design_style: designStyle,
+        custom_design_system: customDesignSystemId ?? undefined,
+        framework,
+      };
+
       const response = await fetch(`${serverEndpoint}/prototype/create`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({
-          name: name.trim(),
-          folder_id: selectedFolder || undefined,
-          visibility,
-          design_style: designStyle,
-          custom_design_system: customDesignSystemId ?? undefined,
-          framework,
-        } as CreatePrototypeRequestBody),
+        body: JSON.stringify(payload),
       });
 
       const result: APIResponse<

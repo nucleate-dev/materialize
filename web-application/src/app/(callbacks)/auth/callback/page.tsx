@@ -136,6 +136,11 @@ export default function AuthCallback() {
           let prototypeId = chatIntent.prototype_id;
           if (!prototypeId) {
             try {
+              const payload: CreatePrototypeRequestBody = {
+                name: "New Prototype",
+                creation_source: "auth_callback_chat_intent",
+              };
+
               const response = await fetch(
                 `${process.env.NEXT_PUBLIC_SERVER_ENDPOINT!}/prototype/create`,
                 {
@@ -144,9 +149,7 @@ export default function AuthCallback() {
                     "Content-Type": "application/json",
                     Authorization: `Bearer ${data.session.access_token}`,
                   },
-                  body: JSON.stringify({
-                    name: "New Prototype",
-                  } as CreatePrototypeRequestBody),
+                  body: JSON.stringify(payload),
                 },
               );
 

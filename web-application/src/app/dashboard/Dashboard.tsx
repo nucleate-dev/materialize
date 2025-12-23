@@ -239,6 +239,7 @@ export default function DashboardPage() {
         custom_design_system: customDesignSystemId ?? undefined,
         visibility: "PUBLIC",
         framework,
+        creation_source: "dashboard_prompt",
       });
 
       if (result.data) {

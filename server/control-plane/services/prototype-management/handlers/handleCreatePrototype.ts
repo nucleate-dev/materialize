@@ -68,19 +68,34 @@ export async function handleCreatePrototypeImpl(
         },
       });
     }
+    // 2. Extract validated body (validation handled by Fastify schema)
+    const {
+      name,
+      creation_source,
+      description,
+      folder_id,
+      prototype_id: forkPrototypeId, // If provided, this is a fork
+      design_style,
+      custom_design_system,
+      framework,
+    } = request.body;
+    let { visibility } = request.body;
+
     // update logger context
     request.log2 = request.log2.child({
       userId: user.id,
+      creationSource: creation_source,
     });
     request.log2.consoleLogDevOnly(
       'info',
       '[handleCreatePrototype] Authenticated user for prototype creation',
       {
         userId: user.id,
+        creationSource: creation_source,
       },
     );
 
-    // 2. Check prototype limits for free users (5 max)
+    // 3. Check prototype limits for free users (5 max)
     const limitCheck = await hasExceededPrototypeCreationLimit(
       token,
       user.id,
@@ -102,20 +117,9 @@ export async function handleCreatePrototypeImpl(
       {
         plan: limitCheck.plan,
         exceeded: limitCheck.exceeded,
+        creationSource: creation_source,
       },
     );
-
-    // 3. Extract validated body (validation handled by Fastify schema)
-    const {
-      name,
-      description,
-      folder_id,
-      prototype_id: forkPrototypeId, // If provided, this is a fork
-      design_style,
-      custom_design_system,
-      framework,
-    } = request.body;
-    let { visibility } = request.body;
     if (!visibility) {
       visibility = 'PUBLIC';
     }

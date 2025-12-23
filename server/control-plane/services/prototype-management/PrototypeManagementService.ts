@@ -12,7 +12,10 @@ import type {
   FetchViewingUrlSuccessResponse,
   StandardErrorResponse,
 } from '../../types/PublicAPITypes.js';
-import { HTTP_STATUS } from '../../types/PublicAPITypes.js';
+import {
+  HTTP_STATUS,
+  PROTOTYPE_CREATION_SOURCES,
+} from '../../types/PublicAPITypes.js';
 import { CleanupService } from '../cleanup/CleanupService.js';
 import { DispatcherService } from '../dispatcher/DispatcherService.js';
 import { handleCreatePrototypeImpl } from './handlers/handleCreatePrototype.js';
@@ -78,9 +81,13 @@ export class PrototypeManagementService {
         schema: {
           body: {
             type: 'object',
-            required: ['name'],
+            required: ['name', 'creation_source'],
             properties: {
               name: { type: 'string' },
+              creation_source: {
+                type: 'string',
+                enum: PROTOTYPE_CREATION_SOURCES,
+              },
               description: { type: 'string' },
               folder_id: { type: 'string' },
               prototype_id: { type: 'string' }, // For forking
@@ -159,6 +166,7 @@ export class PrototypeManagementService {
     // Update logger context
     request.log2 = request.log2.child({
       userId: user.id,
+      creationSource: request.body.creation_source,
     });
 
     // Setup PostHog logger with context
@@ -167,6 +175,7 @@ export class PrototypeManagementService {
       service: 'PrototypeManagementService',
       is_forking: !!request.body.prototype_id,
       has_custom_design_system: !!request.body.custom_design_system,
+      creation_source: request.body.creation_source,
     });
 
     return await posthogLogger.timeAndRecord(

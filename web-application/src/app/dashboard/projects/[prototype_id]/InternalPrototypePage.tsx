@@ -767,6 +767,24 @@ export default function InternalPrototypePage() {
         return;
       }
 
+      const folderId =
+        typeof prototype.folder_id === "string"
+          ? prototype.folder_id
+          : undefined;
+      const description =
+        typeof prototype.description === "string"
+          ? prototype.description
+          : undefined;
+
+      const payload: CreatePrototypeRequestBody = {
+        name: clonedPrototypeName,
+        creation_source: "prototype_editor_clone",
+        description,
+        folder_id: folderId,
+        prototype_id: prototype.id,
+        visibility: "PUBLIC",
+      };
+
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_SERVER_ENDPOINT!}/prototype/create`,
         {
@@ -775,13 +793,7 @@ export default function InternalPrototypePage() {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
-          body: JSON.stringify({
-            name: clonedPrototypeName,
-            description: prototype.description,
-            folder_id: prototype.folder_id || undefined,
-            prototype_id: prototype.id,
-            visibility: "PUBLIC",
-          } as CreatePrototypeRequestBody),
+          body: JSON.stringify(payload),
         },
       );
 

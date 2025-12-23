@@ -66,6 +66,7 @@ export type PostHogEvent =
 
 export const PostHogEvents: Record<PostHogEvent, PostHogEvent> = Object.freeze({
   client_auth_callback_login_completed: 'client_auth_callback_login_completed',
+  client_checkout_payment_completed: 'client_checkout_payment_completed',
   client_dashboard_logout_clicked: 'client_dashboard_logout_clicked',
   client_dashboard_new_chat_clicked: 'client_dashboard_new_chat_clicked',
   client_dashboard_prompt_submitted: 'client_dashboard_prompt_submitted',
@@ -81,7 +82,6 @@ export const PostHogEvents: Record<PostHogEvent, PostHogEvent> = Object.freeze({
   client_landing_preset_prompt_selected:
     'client_landing_preset_prompt_selected',
   client_landing_prompt_submitted: 'client_landing_prompt_submitted',
-  client_checkout_payment_completed: 'client_checkout_payment_completed',
   client_new_prototype_modal_creation_success:
     'client_new_prototype_modal_creation_success',
   client_new_prototype_modal_limit_hit: 'client_new_prototype_modal_limit_hit',

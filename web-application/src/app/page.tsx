@@ -137,7 +137,10 @@ function HeroSection() {
         return;
       }
 
-      const result = await createPrototype({ framework });
+      const result = await createPrototype({
+        framework,
+        creation_source: "landing_prompt",
+      });
 
       if (result.data) {
         setChatIntent(result.data.prototype_id, content, false);

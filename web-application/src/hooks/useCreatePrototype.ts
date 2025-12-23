@@ -7,26 +7,37 @@ import type {
   CreatePrototypeSuccessResponse,
 } from "@/lib/types/serverAPITypes";
 
-interface CreatePrototypeOptions {
+type CreatePrototypeOptions = {
   name?: string;
-  design_style?: CreatePrototypeRequestBody["design_style"];
-  custom_design_system?: CreatePrototypeRequestBody["custom_design_system"];
-  description?: string;
   folder_id?: string | null;
-  prototype_id?: string;
-  visibility?: CreatePrototypeRequestBody["visibility"];
-  framework?: CreatePrototypeRequestBody["framework"];
-}
+  creation_source: CreatePrototypeRequestBody["creation_source"];
+} & Partial<
+  Omit<
+    CreatePrototypeRequestBody,
+    "name" | "creation_source" | "folder_id"
+  >
+>;
 
 export function useCreatePrototype() {
   const logger = useProductLogger();
 
   const createPrototype = async (
-    options: CreatePrototypeOptions = {},
+    options: CreatePrototypeOptions,
   ): Promise<
     APIResponse<CreatePrototypeSuccessResponse, CreatePrototypeErrorResponse>
   > => {
     try {
+      if (!options?.creation_source) {
+        logger.debug("error", "creation_source is required to create prototype");
+        return {
+          data: null,
+          error: {
+            error: "INVALID_REQUEST",
+            message: "creation_source is required",
+          },
+        };
+      }
+
       const session = await supabase.auth.getSession();
       const token = session.data.session?.access_token;
 
@@ -41,6 +52,23 @@ export function useCreatePrototype() {
         };
       }
 
+      const {
+        creation_source,
+        name,
+        folder_id,
+        ...rest
+      } = options;
+
+      const payload: CreatePrototypeRequestBody = {
+        name: name ?? "New Prototype",
+        creation_source,
+        ...rest,
+      };
+
+      if (folder_id) {
+        payload.folder_id = folder_id;
+      }
+
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_SERVER_ENDPOINT!}/prototype/create`,
         {
@@ -49,10 +77,7 @@ export function useCreatePrototype() {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
-          body: JSON.stringify({
-            name: "New Prototype",
-            ...options,
-          } as CreatePrototypeRequestBody),
+          body: JSON.stringify(payload),
         },
       );
 
