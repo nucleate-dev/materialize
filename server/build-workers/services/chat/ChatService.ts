@@ -155,7 +155,6 @@ export class ChatService {
       allowedRoot: this.allowedRoot,
     });
 
-
     const normalizedWorkDir = path.resolve(WORK_DIR);
     if (!this.isPathInsideAllowedRoot(normalizedWorkDir)) {
       baseLogger.warn("WorkDir is outside the allowed root for Claude Code", {
@@ -190,34 +189,12 @@ export class ChatService {
       { websocket: true },
       this.handleWebSocketConnection.bind(this),
     );
-
-    // Health check endpoint
-    app.get("/code/health", async () => {
-      return {
-        status: "ok",
-        service: "claude-code-sdk",
-        session: {
-          id: this.sessionState.sessionId,
-          isActive: this.sessionState.isActive,
-          lastActiveAt: this.sessionState.lastActiveAt,
-        },
-      };
-    });
-
-    // Get session info
-    app.get("/code/session", async () => {
-      return {
-        status: "ok",
-        session: this.sessionState,
-      };
-    });
   }
 
   private handleWebSocketConnection(
     socket: WebSocket,
-    req: FastifyRequest<{ Params: { prototypeId: string; }; }>,
+    req: FastifyRequest<{ Params: { prototypeId: string } }>,
   ): void {
-
     const { prototypeId } = req.params;
     const connectionId = `${prototypeId}-${Date.now()}`;
 
@@ -602,7 +579,12 @@ export class ChatService {
           persistMessage: async (
             role: "user" | "assistant" | "system",
             content: string,
-            messageType: "text" | "tool_use" | "tool_result" | "error" | "system",
+            messageType:
+              | "text"
+              | "tool_use"
+              | "tool_result"
+              | "error"
+              | "system",
             eventType?: string | null,
             eventData?: unknown,
             creditsUsed?: number | null,
@@ -634,7 +616,7 @@ export class ChatService {
           uploadChatImages: async (
             prototypeId: string,
             chatSessionId: string,
-            images: Array<{ base64: string; mediaType: string; }>,
+            images: Array<{ base64: string; mediaType: string }>,
           ) => {
             return await this.messagePersistenceService.uploadChatImages(
               prototypeId,
@@ -669,8 +651,7 @@ export class ChatService {
         try {
           await this.notifyOrchestrationEndChat(prototypeId);
         } catch (error) {
-          const err =
-            error instanceof Error ? error : new Error(String(error));
+          const err = error instanceof Error ? error : new Error(String(error));
           logger.error(err, "Failed to notify orchestration end chat", {
             prototypeId,
           });
@@ -696,7 +677,7 @@ export class ChatService {
     let historyContext = "";
     if (historical_messages.length > 0) {
       const formattedMessages = historical_messages
-        .map((msg: { role: string; content: string; }) => {
+        .map((msg: { role: string; content: string }) => {
           const role = msg.role === "user" ? "User" : "Assistant";
           return `${role}: ${msg.content}`;
         })
@@ -1311,13 +1292,12 @@ export class ChatService {
         logger.consoleLogDevOnly("info", "Design system cleared");
       } else {
         try {
-          const { data: designSystem, error } =
-            await this.supabaseClientService
-              .getClient()
-              .from("design_systems")
-              .select("*")
-              .eq("id", customDesignSystemId)
-              .single();
+          const { data: designSystem, error } = await this.supabaseClientService
+            .getClient()
+            .from("design_systems")
+            .select("*")
+            .eq("id", customDesignSystemId)
+            .single();
 
           if (error) {
             logger.error(error, "Failed to fetch design system", {
@@ -1518,8 +1498,8 @@ export class ChatService {
         orchestrationError ??
         (axiosError
           ? new Error(
-            `Failed to notify control plane of chat start (status ${axiosError.response?.status ?? "unknown"})`,
-          )
+              `Failed to notify control plane of chat start (status ${axiosError.response?.status ?? "unknown"})`,
+            )
           : error instanceof Error
             ? error
             : new Error(String(error)));
