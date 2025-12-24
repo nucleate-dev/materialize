@@ -456,22 +456,22 @@ export class ChatService {
     }
 
     let cliAuthEnv: CliAuthEnvironment | null = null;
-    if (handler === this.chatQueryHandler) {
-      const creditResult = await this.ensureCreditsAvailable(
-        prototypeId,
-        logger,
-      );
-      if (!creditResult.valid) {
-        this.sendMessage(socket, {
-          type: ChatEvent.ERROR,
-          error: {
-            message: creditResult.errorMessage ?? "Credit check failed",
-            details: creditResult.errorDetails,
-          },
-        });
-        return;
-      }
-    } else if (cliAuthRequired && userId) {
+    const creditResult = await this.ensureCreditsAvailable(
+      prototypeId,
+      logger,
+    );
+    if (!creditResult.valid) {
+      this.sendMessage(socket, {
+        type: ChatEvent.ERROR,
+        error: {
+          message: creditResult.errorMessage ?? "Credit check failed",
+          details: creditResult.errorDetails,
+        },
+      });
+      return;
+    }
+
+    if (cliAuthRequired && userId) {
       const cliResult = await this.buildClaudeCliAuthEnvironment(
         userId,
         logger,

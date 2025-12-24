@@ -15,6 +15,9 @@ import {
 } from "./chat-engine.js";
 import { ALLOWED_ROOT } from "../ChatService.js";
 
+// Temporary flat-rate usage cost for CLI mode queries until Anthropic billing is integrated.
+const CLI_USAGE_COST_USD = 0.025;
+
 // CLI message types from --output-format stream-json
 interface ClaudeCodeMessage {
   type: "assistant" | "tool_result" | "result" | "system" | "error";
@@ -164,7 +167,7 @@ export class ClaudeCodeCliQueryHandler implements ChatEngine {
       sessionState.abortController = null;
     }
 
-    return {};
+    return { totalCostUsd: CLI_USAGE_COST_USD };
   }
 
   /**
