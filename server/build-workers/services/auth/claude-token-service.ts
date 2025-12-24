@@ -1,6 +1,5 @@
-import { SupabaseClient } from "@supabase/supabase-js";
-import { Database } from "../../types/supabase.js";
 import { baseLogger } from "../../worker.js";
+import { SupabaseClientService } from "../SupabaseClientService.js";
 
 interface TokenCacheEntry {
   token: string;
@@ -12,15 +11,15 @@ interface TokenCacheEntry {
  * Handles storing, retrieving, and validating tokens from the database.
  */
 export class ClaudeTokenService {
-  private readonly supabase: SupabaseClient<Database>;
+  private readonly supabaseClientService: SupabaseClientService;
   private tokenCache = new Map<string, TokenCacheEntry>();
   private cleanupInterval: NodeJS.Timeout;
 
   // Cache tokens for 5 minutes to reduce DB calls
   private static readonly CACHE_TTL_MS = 5 * 60 * 1000;
 
-  constructor(supabase: SupabaseClient<Database>) {
-    this.supabase = supabase;
+  constructor(supabaseClientService: SupabaseClientService) {
+    this.supabaseClientService = supabaseClientService;
 
     // Cleanup expired cache entries every minute
     this.cleanupInterval = setInterval(() => {
@@ -53,7 +52,8 @@ export class ClaudeTokenService {
         },
       );
 
-      const { data, error } = await this.supabase
+      const { data, error } = await this.supabaseClientService
+        .getClient()
         .from("user_claude_tokens")
         .select("oauth_token, is_valid")
         .eq("user_id", userId)
@@ -71,11 +71,13 @@ export class ClaudeTokenService {
 
         if (error.code === "PGRST116") {
           // No rows returned - check if user has ANY token record (regardless of is_valid)
-          const { data: anyToken, error: checkError } = await this.supabase
-            .from("user_claude_tokens")
-            .select("id, is_valid, user_id")
-            .eq("user_id", userId)
-            .maybeSingle();
+          const { data: anyToken, error: checkError } =
+            await this.supabaseClientService
+              .getClient()
+              .from("user_claude_tokens")
+              .select("id, is_valid, user_id")
+              .eq("user_id", userId)
+              .maybeSingle();
 
           if (checkError) {
             baseLogger.error(
@@ -149,20 +151,23 @@ export class ClaudeTokenService {
       const now = new Date().toISOString();
 
       // Upsert the token
-      const { error } = await this.supabase.from("user_claude_tokens").upsert(
-        {
-          user_id: userId,
-          oauth_token: token,
-          token_type: "setup-token",
-          is_valid: true,
-          last_validated_at: now,
-          validation_error: null,
-          updated_at: now,
-        },
-        {
-          onConflict: "user_id",
-        },
-      );
+      const { error } = await this.supabaseClientService
+        .getClient()
+        .from("user_claude_tokens")
+        .upsert(
+          {
+            user_id: userId,
+            oauth_token: token,
+            token_type: "setup-token",
+            is_valid: true,
+            last_validated_at: now,
+            validation_error: null,
+            updated_at: now,
+          },
+          {
+            onConflict: "user_id",
+          },
+        );
 
       if (error) {
         throw error;
@@ -194,7 +199,8 @@ export class ClaudeTokenService {
     validationError?: string,
   ): Promise<void> {
     try {
-      const { error } = await this.supabase
+      const { error } = await this.supabaseClientService
+        .getClient()
         .from("user_claude_tokens")
         .update({
           is_valid: false,
@@ -228,7 +234,8 @@ export class ClaudeTokenService {
    */
   async deleteToken(userId: string): Promise<boolean> {
     try {
-      const { error } = await this.supabase
+      const { error } = await this.supabaseClientService
+        .getClient()
         .from("user_claude_tokens")
         .delete()
         .eq("user_id", userId);
@@ -288,7 +295,8 @@ export class ClaudeTokenService {
    */
   private async updateLastUsed(userId: string): Promise<void> {
     try {
-      await this.supabase
+      await this.supabaseClientService
+        .getClient()
         .from("user_claude_tokens")
         .update({
           last_used_at: new Date().toISOString(),

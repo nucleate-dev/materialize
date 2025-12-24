@@ -17,14 +17,8 @@ import WebSocket from "ws";
 import { posthog } from "../../../loggers/index.js";
 import { SystemLogger } from "../../../loggers/SystemLogger.js";
 import { DevServerStatus } from "../../../types/BuildWorkerTypes.js";
-import {
-  ChatContentBlock,
-  ChatEvent,
-  ChatQueryData,
-  ChatServerMessage,
-} from "../../../types/ChatTypes.js";
+import { ChatContentBlock, ChatEvent } from "../../../types/ChatTypes.js";
 import { Database } from "../../../types/supabase.js";
-import { hasRemainingCredits } from "../../../utils/credit-checks.js";
 import { baseLogger, getWorkerContext, WORK_DIR } from "../../../worker.js";
 import { NucleateDevelopmentServerService } from "../../dev-server/NucleateDevelopmentServerService.js";
 import { FileSyncService } from "../../FileSyncService.js";
@@ -43,30 +37,24 @@ import {
   costFunctionV3,
   CURRENT_COST_FUNCTION_NAME,
 } from "../cost/cost-calculation.js";
-import { trackApiUsageBuildWorker } from "../cost/usage-tracking.js";
 import { getToolDisplayName } from "../helpers/message-handlers.js";
-import { ToolPermissionService } from "../helpers/tool-permission-service.js";
+import { evaluateToolPermission } from "../helpers/tool-permission-service.js";
 import { createDesignToolsMcpServer } from "../mcp/mcp-design-tools.js";
 import { createDevelopmentToolsMcpServer } from "../mcp/mcp-dev-tools.js";
 import {
   getClaudeCodeDesignSubagentPrompt,
   getSystemPromptForDesignStyle,
 } from "../prompts/ClaudeCodePrompts.js";
+import {
+  ChatEngine,
+  ChatEngineContext,
+  ChatEngineMessageHandlers,
+  ChatEngineSessionState,
+  ChatEngineResult,
+} from "./chat-engine.js";
+import { ALLOWED_ROOT } from "../ChatService.js";
 
 const HISTORY_MESSAGE_REQUEST_COUNT = 6;
-
-interface CodeSessionState {
-  sessionId: string | null;
-  prototypeChatSessionId: string | null;
-  isActive: boolean;
-  createdAt: number;
-  lastActiveAt: number;
-  abortController: AbortController | null;
-  modifiedFilesThisQuery: Set<string>;
-  designSystemId: string | null;
-  designSystemRules: string | null;
-  firstMessageStatus: { sessionId: string; isFirst: boolean; } | null;
-}
 
 interface ToolInputWithFilePath {
   file_path?: string;
@@ -92,62 +80,16 @@ type ToolName =
 
 type ToolInput = Record<string, unknown>;
 
-interface QueryValidationResult {
-  valid: boolean;
-  errorMessage?: string;
-  errorDetails?: string;
-}
-
-interface DesignSystemResult {
-  systemPrompt: string;
-  designSystemId: string | null;
-  designSystemRules: string | null;
-}
-
 interface DesignAgentMetadata {
   scope: "app" | "screen" | "component" | "other" | "unknown";
 }
 
-interface QueryExecutionContext {
-  prototypeId: string;
-  socket: WebSocket;
-  data: ChatQueryData;
-  sessionState: CodeSessionState;
-  validAiChatSessionIds: Set<string>;
-  logger: SystemLogger;
-}
-
-interface MessageHandlers {
-  sendMessage: (socket: WebSocket, message: ChatServerMessage) => void;
-  persistMessage: (
-    role: "user" | "assistant" | "system",
-    content: string,
-    messageType: "text" | "tool_use" | "tool_result" | "error" | "system",
-    eventType?: string | null,
-    eventData?: unknown,
-    creditsUsed?: number | null,
-    costFunction?: string | null,
-    provider?: string | null,
-    model?: string | null,
-  ) => Promise<void>;
-  uploadChatImages: (
-    prototypeId: string,
-    chatSessionId: string,
-    images: Array<{ base64: string; mediaType: string; }>,
-  ) => Promise<
-    Array<{ storage_path: string; media_type: string; file_size: number; }>
-  >;
-  updatePersistenceClient?: (client: unknown) => void;
-  notifyOrchestrationStartChat: (prototypeId: string) => Promise<void>;
-  notifyOrchestrationEndChat: (prototypeId: string) => Promise<void>;
-}
-
 interface StreamContext {
   messageContent:
-  | string
-  | Array<{ type: string; text?: string; source?: unknown; }>;
-  queryOptions: Options & { resume?: string; };
-  sessionState: CodeSessionState;
+    | string
+    | Array<{ type: string; text?: string; source?: unknown }>;
+  queryOptions: Options & { resume?: string };
+  sessionState: ChatEngineSessionState;
   validAiChatSessionIds: Set<string>;
   socket: WebSocket;
   bufferState: {
@@ -161,8 +103,9 @@ interface HookContext {
   input: HookInput;
   toolUseID: string | undefined;
   socket: WebSocket;
-  sessionState?: CodeSessionState;
+  sessionState?: ChatEngineSessionState;
   flushAssistantBuffer?: () => Promise<void>;
+  getRelativePath?: (path: string) => string;
 }
 
 /**
@@ -174,7 +117,7 @@ interface HookContext {
  * - File sync coordination
  * - Usage tracking
  */
-export class ChatQueryHandler {
+export class ChatQueryHandler implements ChatEngine {
   // Feature flags for MCP stream fix
   // When enabled, keeps the input stream open until the result message arrives
   // to prevent premature MCP server connection closure during multi-turn conversations
@@ -183,37 +126,22 @@ export class ChatQueryHandler {
   private static readonly MCP_STREAM_POLL_INTERVAL_MS = 100; // Check every 100ms
 
   private readonly supabaseClientService: SupabaseClientService;
-  private readonly fileSyncService: FileSyncService;
-  private readonly toolPermissionService: ToolPermissionService;
   private readonly sandboxService: SandboxService;
   private readonly devServerService: NucleateDevelopmentServerService;
   private readonly terminalService: TerminalService;
-  private readonly getAak: () => string | null;
-  private enableDesignAgentOnFirstMessage: boolean;
   private enableDesignMcpTools: boolean;
 
   constructor(
     supabaseClientService: SupabaseClientService,
-    fileSyncService: FileSyncService,
-    toolPermissionService: ToolPermissionService,
     sandboxService: SandboxService,
     devServerService: NucleateDevelopmentServerService,
     terminalService: TerminalService,
-    getAak: () => string | null,
   ) {
     this.supabaseClientService = supabaseClientService;
-    this.fileSyncService = fileSyncService;
-    this.toolPermissionService = toolPermissionService;
     this.sandboxService = sandboxService;
     this.devServerService = devServerService;
     this.terminalService = terminalService;
-    this.getAak = getAak;
-    this.enableDesignAgentOnFirstMessage = true;
     this.enableDesignMcpTools = false;
-  }
-
-  public setEnableDesignAgentOnFirstMessage(enabled: boolean): void {
-    this.enableDesignAgentOnFirstMessage = enabled;
   }
 
   public setEnableDesignMcpTools(enabled: boolean): void {
@@ -224,17 +152,19 @@ export class ChatQueryHandler {
    * Main entry point for handling a query request
    */
   public async handleQuery(
-    context: QueryExecutionContext,
-    handlers: MessageHandlers,
-  ): Promise<void> {
+    context: ChatEngineContext,
+    handlers: ChatEngineMessageHandlers,
+  ): Promise<ChatEngineResult | void> {
     const { prototypeId, socket, data, sessionState, logger } = context;
-    const { prompt, content, token, ai_chat_session_id, design_style } = data;
+    const { prompt, content, token, ai_chat_session_id } = data;
     const framework = this.devServerService.prototypeFramework;
     baseLogger.consoleLogDevOnly("info", "framework in handleQuery is: ", {
       framework,
     });
 
-    const options = (data.options ?? {}) as Options;
+    const designContext = context.designContext;
+    const systemPromptAppend = designContext?.systemPrompt ?? "";
+    const isFirstMessage = context.isFirstMessage ?? false;
 
     // Log incoming parameters
     logger.consoleLogDevOnly("info", "handleQuery received parameters", {
@@ -242,8 +172,6 @@ export class ChatQueryHandler {
       session_id: ai_chat_session_id,
       chat_session_id: data.prototype_chat_session_id,
       current_viewing_path: data.current_viewing_path,
-      custom_design_system_id: data.custom_design_system_id,
-      design_style,
       hasPrompt: !!prompt,
       hasContent: !!content,
       contentLength: content?.length,
@@ -252,74 +180,12 @@ export class ChatQueryHandler {
       options: data.options,
     });
 
-    // Step 1: Validate request
-    const validation = this.validateQueryRequest(data);
-    if (!validation.valid) {
-      handlers.sendMessage(socket, {
-        type: ChatEvent.ERROR,
-        error: {
-          message: validation.errorMessage!,
-          details: validation.errorDetails,
-        },
-      });
-      return;
-    }
-
-    // Step 2: Authenticate with token if provided
-    if (token) {
-      const authResult = await this.authenticateWithToken(
-        token,
-        prototypeId,
-        handlers,
-        logger,
-      );
-      if (!authResult.success) {
-        handlers.sendMessage(socket, {
-          type: ChatEvent.ERROR,
-          error: {
-            message: authResult.errorMessage!,
-            details: authResult.errorDetails,
-          },
-        });
-        return;
-      }
-    }
-
-    // Step 3: Setup session state
-    this.setupSessionState(data, sessionState, logger);
-
-    // Step 4: Load design system if needed
-    const designSystemResult = await this.loadDesignSystem(
-      logger,
-      data.custom_design_system_id ?? null,
-      sessionState,
-      design_style,
-      framework,
-      data.current_viewing_path,
-      options,
-    );
-
-    // Step 5: Perform credit check
-    const creditCheck = await this.performCreditCheck(prototypeId, logger);
-    if (!creditCheck.success) {
-      handlers.sendMessage(socket, {
-        type: ChatEvent.ERROR,
-        error: {
-          message: creditCheck.errorMessage!,
-          details: creditCheck.errorDetails,
-        },
-      });
-      return;
-    }
-
-    // Step 6: Check if this is the first message and execute design agent if needed
+    // Step 1: Check if this is the first message and execute design agent if needed
     let designAgentCost: number | undefined = undefined;
     let designSpec: string | null = null;
     let designMetadata: DesignAgentMetadata | null = null;
 
-    const canAttemptClassification =
-      this.enableDesignAgentOnFirstMessage &&
-      !!sessionState.prototypeChatSessionId;
+    const canAttemptClassification = !!sessionState.prototypeChatSessionId;
 
     if (!canAttemptClassification) {
       logger.consoleLogDevOnly(
@@ -327,217 +193,178 @@ export class ChatQueryHandler {
         "Skipping design intent classification gate",
         {
           prototypeId,
-          enableDesignAgentOnFirstMessage: this.enableDesignAgentOnFirstMessage,
           hasPrototypeChatSessionId: !!sessionState.prototypeChatSessionId,
         },
       );
     }
 
-    if (canAttemptClassification) {
-      const isFirst = await this.isFirstMessage(
+    if (canAttemptClassification && isFirstMessage) {
+      logger.debug("Preparing to classify user intent", {
         prototypeId,
-        sessionState.prototypeChatSessionId ?? "",
-        sessionState,
-        logger,
-      );
+        hasSession: !!sessionState.prototypeChatSessionId,
+        willClassify: true,
+      });
 
-      if (isFirst) {
-        logger.debug("Preparing to classify user intent", {
-          prototypeId,
-          enableDesignAgentOnFirstMessage: this.enableDesignAgentOnFirstMessage,
-          hasSession: !!sessionState.prototypeChatSessionId,
-          willClassify: true,
-        });
-
-        // Extract user message text for design agent
-        const userMessageText =
-          typeof content === "string"
+      // Extract user message text for design agent
+      const userMessageText =
+        typeof content === "string"
+          ? content
+          : Array.isArray(content)
             ? content
-            : Array.isArray(content)
-              ? content
                 .filter((block) => block.type === "text")
                 .map((block) => block.text || "")
                 .join("\n")
-              : prompt || "";
-        const designAgentUserContent = buildDesignAgentUserContent(
-          typeof content === "string" ? content : prompt,
-          Array.isArray(content) ? content : undefined,
-          logger,
+            : prompt || "";
+      const designAgentUserContent = buildDesignAgentUserContent(
+        typeof content === "string" ? content : prompt,
+        Array.isArray(content) ? content : undefined,
+        logger,
+        prototypeId,
+      );
+
+      if (userMessageText) {
+        // Create abort controller for classifier and potential design agent
+        const classifierAbortController = new AbortController();
+        sessionState.abortController = classifierAbortController;
+
+        logger.debug("Classifying user intent on first message", {
           prototypeId,
-        );
+          userMessageLength: userMessageText.length,
+        });
 
-        if (userMessageText) {
-          // Create abort controller for classifier and potential design agent
-          const classifierAbortController = new AbortController();
-          sessionState.abortController = classifierAbortController;
+        const classificationResult = await classifyDesignIntent({
+          userMessage: userMessageText,
+          abortController: classifierAbortController,
+          logger: logger,
+          prototypeId,
+        });
 
-          // Step 6a: Classify the user's intent
-          logger.debug("Classifying user intent on first message", {
+        const classifierCost = classificationResult.costUsd;
+        const shouldRunDesignAgent =
+          classificationResult.shouldGenerateDesignSpec;
+
+        logger.debug("User intent classified", {
+          prototypeId,
+          shouldGenerateDesignSpec:
+            classificationResult.shouldGenerateDesignSpec,
+          classifierCost,
+        });
+
+        logger.debug("Design agent routing decision", {
+          prototypeId,
+          shouldRunDesignAgent,
+          shouldGenerateDesignSpec:
+            classificationResult.shouldGenerateDesignSpec,
+        });
+
+        if (shouldRunDesignAgent) {
+          handlers.sendMessage(socket, {
+            type: ChatEvent.DESIGN_GENERATION,
+            data: {
+              status: "started",
+              message: "Generating design specification...",
+              runDesignAgent: true,
+            },
+          });
+
+          logger.debug("Calling design agent", {
             prototypeId,
             userMessageLength: userMessageText.length,
+            hasAbortController: !!classifierAbortController,
           });
 
-          const classificationResult = await classifyDesignIntent({
-            userMessage: userMessageText,
-            abortController: classifierAbortController,
-            logger: logger,
+          const designResult = await this.executeDesignAgentWrapper(
             prototypeId,
-          });
+            designAgentUserContent ?? userMessageText,
+            classifierAbortController,
+            logger,
+            "",
+          );
 
-          const classifierCost = classificationResult.costUsd;
-          const shouldRunDesignAgent =
-            classificationResult.shouldGenerateDesignSpec;
-
-          logger.debug("User intent classified", {
+          logger.debug("Design agent returned", {
             prototypeId,
-            shouldGenerateDesignSpec:
-              classificationResult.shouldGenerateDesignSpec,
-            classifierCost,
+            hasDesignSpec: !!designResult.designSpec,
+            designSpecLength: designResult.designSpec?.length,
+            costUsd: designResult.costUsd,
           });
 
-          logger.debug("Design agent routing decision", {
-            prototypeId,
-            shouldRunDesignAgent,
-            shouldGenerateDesignSpec:
-              classificationResult.shouldGenerateDesignSpec,
-          });
+          designAgentCost = (designResult.costUsd ?? 0) + (classifierCost ?? 0);
 
-          // Step 6b: Only run design agent if user wants a design mode
-          if (shouldRunDesignAgent) {
-            // Send design generation started message to client
-            handlers.sendMessage(socket, {
-              type: ChatEvent.DESIGN_GENERATION,
-              data: {
-                status: "started",
-                message: "Generating design specification...",
-                runDesignAgent: true,
-              },
-            });
+          if (designResult.designSpec) {
+            const { spec, metadata } = this.parseDesignAgentSpec(
+              designResult.designSpec,
+            );
+            designSpec = spec;
+            designMetadata = metadata;
 
-            logger.debug("Calling design agent", {
-              prototypeId,
-              userMessageLength: userMessageText.length,
-              hasAbortController: !!classifierAbortController,
-            });
-
-            const designResult = await this.executeDesignAgentWrapper(
-              prototypeId,
-              designAgentUserContent ?? userMessageText,
-              classifierAbortController,
+            await persistDesignSpecToFiles(
+              WORK_DIR,
+              designSpec,
               logger,
-              "", // system prompt not used anymore (handled by design-agent-service)
-            );
-
-            logger.debug("Design agent returned", {
               prototypeId,
-              hasDesignSpec: !!designResult.designSpec,
-              designSpecLength: designResult.designSpec?.length,
-              costUsd: designResult.costUsd,
-            });
+            );
 
-            // Add classifier cost to design agent cost
-            designAgentCost =
-              (designResult.costUsd ?? 0) + (classifierCost ?? 0);
+            const { error: updateError } = await this.supabaseClientService
+              .getClient()
+              .from("prototypes")
+              .update({ project_context: designSpec })
+              .eq("id", prototypeId);
 
-            if (designResult.designSpec) {
-              const { spec, metadata } = this.parseDesignAgentSpec(
-                designResult.designSpec,
+            if (updateError) {
+              logger.error(
+                updateError,
+                "Failed to store design specification in project_context",
+                { prototypeId },
               );
-              designSpec = spec;
-              designMetadata = metadata;
-
-              // Always persist design spec to CLAUDE.md and project_context for now
-              await persistDesignSpecToFiles(
-                WORK_DIR,
-                designSpec,
-                logger,
-                prototypeId,
+            } else {
+              logger.consoleLogDevOnly(
+                "info",
+                "Stored design specification in project_context database",
+                { prototypeId, specLength: designSpec.length },
               );
-
-              // Also store in database for backup/reference
-              const { error: updateError } = await this.supabaseClientService
-                .getClient()
-                .from("prototypes")
-                .update({ project_context: designSpec })
-                .eq("id", prototypeId);
-
-              if (updateError) {
-                logger.error(
-                  updateError,
-                  "Failed to store design specification in project_context",
-                  { prototypeId },
-                );
-              } else {
-                logger.consoleLogDevOnly(
-                  "info",
-                  "Stored design specification in project_context database",
-                  { prototypeId, specLength: designSpec.length },
-                );
-              }
             }
-
-            logger.consoleLogDevOnly(
-              "info",
-              "Design agent execution completed",
-              {
-                prototypeId,
-                hasDesignSpec: !!designSpec,
-                designAgentCost,
-                metadata: designMetadata,
-              },
-            );
-          } else {
-            // User wants standard mode - skip design agent, just track classifier cost
-            designAgentCost = classifierCost;
-            logger.consoleLogDevOnly(
-              "info",
-              "Skipping design agent - no design spec needed",
-              {
-                prototypeId,
-                shouldGenerateDesignSpec:
-                  classificationResult.shouldGenerateDesignSpec,
-                classifierCost,
-              },
-            );
           }
-        }
 
-        if (sessionState.prototypeChatSessionId) {
-          sessionState.firstMessageStatus = {
-            sessionId: sessionState.prototypeChatSessionId,
-            isFirst: false,
-          };
+          logger.consoleLogDevOnly("info", "Design agent execution completed", {
+            prototypeId,
+            hasDesignSpec: !!designSpec,
+            designAgentCost,
+            metadata: designMetadata,
+          });
+        } else {
+          designAgentCost = classifierCost;
+          logger.consoleLogDevOnly(
+            "info",
+            "Skipping design agent - no design spec needed",
+            {
+              prototypeId,
+              shouldGenerateDesignSpec:
+                classificationResult.shouldGenerateDesignSpec,
+              classifierCost,
+            },
+          );
         }
+      }
+
+      if (sessionState.prototypeChatSessionId) {
+        sessionState.firstMessageStatus = {
+          sessionId: sessionState.prototypeChatSessionId,
+          isFirst: false,
+        };
       }
     }
 
-    // Step 7: Invalidate build before chat starts
+    // Step 4: Invalidate build before chat starts
     this.devServerService.developmentServerState.lastUpdatedTime = new Date();
 
-    // Step 8: Notify orchestration that chat is starting
-    try {
-      await handlers.notifyOrchestrationStartChat(prototypeId);
-    } catch (error) {
-      const err = error instanceof Error ? error : new Error(String(error));
-      logger.error(err, "Failed to notify orchestration start chat", {
-        prototypeId,
-      });
-      handlers.sendMessage(socket, {
-        type: ChatEvent.ERROR,
-        error: {
-          message: "Failed to start chat session",
-        },
-      });
-      return;
-    }
-
-    // Step 9: Execute query with proper cleanup
+    // Step 5: Execute query with proper cleanup
     let implementationCostUsd: number | undefined = undefined;
+    let combinedCostUsd: number | undefined = undefined;
 
     try {
       implementationCostUsd = await this.executeClaudeQuery(
         context,
-        designSystemResult.systemPrompt,
+        systemPromptAppend,
         handlers,
         logger,
         framework,
@@ -545,399 +372,20 @@ export class ChatQueryHandler {
         designMetadata ?? undefined,
       );
     } finally {
-      // Step 10: Combine costs from design agent and implementation
-      const totalCostUsd =
-        (designAgentCost ?? 0) + (implementationCostUsd ?? 0);
+      // Step 6: Combine costs from design agent and implementation
+      combinedCostUsd = (designAgentCost ?? 0) + (implementationCostUsd ?? 0);
 
       logger.consoleLogDevOnly("info", "Combined cost calculation", {
         designAgentCost,
         implementationCostUsd,
-        totalCostUsd,
+        totalCostUsd: combinedCostUsd,
       });
 
-      // Run git add/commit before syncing usage data
-      await this.commitChatChangesToGit(data, logger);
-
-      // Step 11: Sync files and track usage
-      await this.syncAndTrackUsage(
-        prototypeId,
-        socket,
-        sessionState,
-        totalCostUsd,
-        handlers.sendMessage,
-        logger,
-      );
-
-      // Step 12: Invalidate build after chat ends
+      // Step 7: Invalidate build after chat ends
       this.devServerService.developmentServerState.lastUpdatedTime = new Date();
-
-      // Step 13: Always notify orchestration that chat has ended
-      await handlers.notifyOrchestrationEndChat(prototypeId);
-    }
-  }
-
-  /**
-   * Validates the incoming query request
-   */
-  private validateQueryRequest(data: ChatQueryData): QueryValidationResult {
-    const { prompt, content } = data;
-
-    // Support both old format (prompt) and new format (content)
-    if (!prompt && !content) {
-      return {
-        valid: false,
-        errorMessage: "prompt or content is required",
-      };
     }
 
-    // Validate content if provided
-    if (content && (!Array.isArray(content) || content.length === 0)) {
-      return {
-        valid: false,
-        errorMessage: "content must be a non-empty array",
-      };
-    }
-
-    return { valid: true };
-  }
-
-  /**
-   * Authenticates with JWT token and refreshes Supabase client
-   */
-  private async authenticateWithToken(
-    token: string,
-    prototypeId: string,
-    handlers: MessageHandlers,
-    logger: SystemLogger,
-  ): Promise<{
-    success: boolean;
-    errorMessage?: string;
-    errorDetails?: string;
-  }> {
-    try {
-      // Refresh the Supabase client with the authenticated token
-      this.supabaseClientService.refreshClientWithToken(token);
-
-      // FileSyncService will automatically use the updated client from SupabaseClientService
-
-      // Update MessagePersistenceService's Supabase client reference
-      if (handlers.updatePersistenceClient) {
-        handlers.updatePersistenceClient(
-          this.supabaseClientService.getClient(),
-        );
-      }
-
-      logger.consoleLogDevOnly(
-        "info",
-        "Refreshed Supabase client with JWT token",
-        {
-          prototypeId,
-        },
-      );
-      return { success: true };
-    } catch (error) {
-      logger.error(
-        error instanceof Error ? error : new Error(String(error)),
-        "Failed to refresh Supabase client with JWT token",
-        { prototypeId },
-      );
-      return {
-        success: false,
-        errorMessage: "Failed to authenticate with provided token",
-        errorDetails: error instanceof Error ? error.message : String(error),
-      };
-    }
-  }
-
-  /**
-   * Sets up session state based on incoming request data
-   */
-  private setupSessionState(
-    data: ChatQueryData,
-    sessionState: CodeSessionState,
-    logger: SystemLogger,
-  ): void {
-    const { prototype_chat_session_id, ai_chat_session_id } = data;
-    const previousPrototypeChatSessionId = sessionState.prototypeChatSessionId;
-
-    // Use the chat_session_id provided by the client for message persistence
-    if (prototype_chat_session_id) {
-      sessionState.prototypeChatSessionId = prototype_chat_session_id;
-      logger.consoleLogDevOnly("info", "Using chat session ID from client", {
-        chatSessionId: prototype_chat_session_id,
-        claudeCodeSessionId: ai_chat_session_id,
-      });
-      if (previousPrototypeChatSessionId !== prototype_chat_session_id) {
-        sessionState.firstMessageStatus = null;
-      }
-    } else {
-      logger.warn("No chat_session_id provided by client", {
-        session_id: ai_chat_session_id,
-      });
-      sessionState.prototypeChatSessionId = null;
-      sessionState.firstMessageStatus = null;
-    }
-
-    // If client explicitly passes null session_id, it wants to start a NEW session
-    if (ai_chat_session_id === null) {
-      logger.consoleLogDevOnly(
-        "info",
-        "Client requested new session - clearing internal state",
-        {
-          previousSessionId: sessionState.sessionId,
-        },
-      );
-      sessionState.sessionId = null;
-      sessionState.firstMessageStatus = null;
-    }
-  }
-
-  /**
-   * Loads design system and builds system prompt
-   */
-  private async loadDesignSystem(
-    logger: SystemLogger,
-    custom_design_system_id: string | null,
-    sessionState: CodeSessionState,
-    design_style: string | undefined,
-    framework: string | undefined,
-    _current_viewing_path: string | undefined,
-    _options: Options,
-  ): Promise<DesignSystemResult> {
-    // Check if design system changed or needs to be loaded
-    if (custom_design_system_id !== sessionState.designSystemId) {
-      if (
-        custom_design_system_id === null ||
-        custom_design_system_id === undefined
-      ) {
-        // Clear design system
-        sessionState.designSystemId = null;
-        sessionState.designSystemRules = null;
-        logger.consoleLogDevOnly("info", "Design system cleared");
-      } else {
-        // Fetch new design system
-        try {
-          const { data: designSystem, error } = await this.supabaseClientService
-            .getClient()
-            .from("design_systems")
-            .select("*")
-            .eq("id", custom_design_system_id)
-            .single();
-
-          if (error) {
-            logger.error(error, "Failed to fetch design system", {
-              designSystemId: custom_design_system_id,
-            });
-            sessionState.designSystemId = null;
-            sessionState.designSystemRules = null;
-          } else if (designSystem) {
-            sessionState.designSystemId = custom_design_system_id;
-            sessionState.designSystemRules = (
-              designSystem as Database["public"]["Tables"]["design_systems"]["Row"]
-            ).design_rules;
-          } else {
-            logger.warn("Design system not found", {
-              designSystemId: custom_design_system_id,
-            });
-            sessionState.designSystemId = null;
-            sessionState.designSystemRules = null;
-          }
-        } catch (error) {
-          logger.error(
-            error instanceof Error ? error : new Error(String(error)),
-            "Error fetching design system",
-            { designSystemId: custom_design_system_id },
-          );
-          sessionState.designSystemId = null;
-          sessionState.designSystemRules = null;
-        }
-      }
-    }
-
-    // Build system prompt with optional design system rules and viewing path context
-    let systemPromptAppend = getSystemPromptForDesignStyle(
-      design_style,
-      framework,
-    );
-    logger.consoleLogDevOnly("info", "systemprompt: ", { systemPromptAppend });
-
-    logger.consoleLogDevOnly(
-      "info",
-      "Using design-style-specific system prompt",
-      {
-        design_style,
-        hasCustomDesignSystem: !!sessionState.designSystemRules,
-        framework,
-      },
-    );
-
-    // Append custom design system rules if available
-    if (sessionState.designSystemRules) {
-      systemPromptAppend +=
-        "\n\n## Custom Design System Rules:\n" + sessionState.designSystemRules;
-    }
-
-    return {
-      systemPrompt: systemPromptAppend,
-      designSystemId: sessionState.designSystemId,
-      designSystemRules: sessionState.designSystemRules,
-    };
-  }
-
-  /**
-   * Performs credit check to ensure user has remaining credits
-   */
-  private async performCreditCheck(
-    prototypeId: string,
-    logger: SystemLogger,
-  ): Promise<{
-    success: boolean;
-    errorMessage?: string;
-    errorDetails?: string;
-  }> {
-    try {
-      const {
-        data: { user },
-        error: userError,
-      } = await this.supabaseClientService.getClient().auth.getUser();
-
-      if (userError || !user) {
-        logger.error(
-          userError || new Error("No user found"),
-          "Unable to verify user for credit check",
-          { prototypeId },
-        );
-        return {
-          success: false,
-          errorMessage: "Authentication required",
-          errorDetails: "Unable to verify user credentials",
-        };
-      }
-
-      const creditCheck = await hasRemainingCredits(
-        this.supabaseClientService.getClient(),
-        user.id,
-        logger,
-      );
-
-      if (!creditCheck.hasCredits) {
-        logger.warn("User has no remaining credits", {
-          userId: user.id,
-          prototypeId,
-          remaining: creditCheck.remaining,
-          used: creditCheck.used,
-          granted: creditCheck.granted,
-          plan: creditCheck.plan,
-        });
-
-        return {
-          success: false,
-          errorMessage: "Credit limit exceeded",
-          errorDetails: `You have used all ${creditCheck.granted} credits available. Please upgrade your plan to continue.`,
-        };
-      }
-
-      return { success: true };
-    } catch (error) {
-      logger.error(
-        error instanceof Error ? error : new Error(String(error)),
-        "Error during credit check",
-        { prototypeId },
-      );
-      return {
-        success: false,
-        errorMessage: "Unable to verify credits",
-        errorDetails: "An error occurred while checking your credit balance",
-      };
-    }
-  }
-
-  /**
-   * Checks if this is the user's first message for the entire prototype
-   * Returns true only if:
-   * 1. No messages exist in prototype_chat_messages for this session
-   * 2. This is the only chat session in prototype_chat_sessions for this prototype
-   */
-  private async isFirstMessage(
-    prototypeId: string,
-    prototypeChatSessionId: string,
-    sessionState: CodeSessionState,
-    logger: SystemLogger,
-  ): Promise<boolean> {
-    if (!prototypeChatSessionId) {
-      return false;
-    }
-
-    const cached = sessionState.firstMessageStatus;
-    if (cached && cached.sessionId === prototypeChatSessionId) {
-      return cached.isFirst;
-    }
-
-    try {
-      // Check if any messages exist for this chat session
-      const { count: messageCount, error: messageError } =
-        await this.supabaseClientService
-          .getClient()
-          .from("prototype_chat_messages")
-          .select("*", { count: "exact", head: true })
-          .eq("chat_session_id", prototypeChatSessionId);
-
-      if (messageError) {
-        logger.error(
-          messageError,
-          "Failed to check message count for first message detection",
-          { prototypeChatSessionId },
-        );
-        return false;
-      }
-
-      // If messages exist, not the first message
-      if (messageCount && messageCount > 0) {
-        return false;
-      }
-
-      // Check if this is the only chat session for this prototype
-      const { count: sessionCount, error: sessionError } =
-        await this.supabaseClientService
-          .getClient()
-          .from("prototype_chat_sessions")
-          .select("*", { count: "exact", head: true })
-          .eq("prototype_id", prototypeId);
-
-      if (sessionError) {
-        logger.error(
-          sessionError,
-          "Failed to check session count for first message detection",
-          { prototypeId },
-        );
-        return false;
-      }
-
-      // This is the first message if this is the only session
-      const isFirst = sessionCount === 1;
-
-      sessionState.firstMessageStatus = {
-        sessionId: prototypeChatSessionId,
-        isFirst,
-      };
-
-      logger.consoleLogDevOnly("info", "First message detection result", {
-        prototypeId,
-        prototypeChatSessionId,
-        messageCount,
-        sessionCount,
-        isFirst,
-      });
-
-      return isFirst;
-    } catch (error) {
-      logger.error(
-        error instanceof Error ? error : new Error(String(error)),
-        "Error during first message detection",
-        { prototypeId, prototypeChatSessionId },
-      );
-      return false;
-    }
+    return { totalCostUsd: combinedCostUsd };
   }
 
   /**
@@ -952,7 +400,7 @@ export class ChatQueryHandler {
     abortController: AbortController,
     logger: SystemLogger,
     _systemPrompt: string,
-  ): Promise<{ designSpec: string | null; costUsd: number | undefined; }> {
+  ): Promise<{ designSpec: string | null; costUsd: number | undefined }> {
     // Use Gemini by default for design agent (fast and free)
     const provider: DesignAgentProvider = "google";
     const model = DEFAULT_DESIGN_AGENT_MODELS[provider];
@@ -1035,9 +483,9 @@ export class ChatQueryHandler {
    * Executes the Claude query with hooks and streaming
    */
   private async executeClaudeQuery(
-    context: QueryExecutionContext,
+    context: ChatEngineContext,
     systemPromptAppend: string,
-    handlers: MessageHandlers,
+    handlers: ChatEngineMessageHandlers,
     logger: SystemLogger,
     framework: Database["public"]["Enums"]["prototype_framework"],
     designSpec?: string | null,
@@ -1150,6 +598,7 @@ export class ChatQueryHandler {
         flushAssistantBuffer,
         logger,
         framework,
+        context.getRelativePath,
       );
 
       // Check if session is valid for resumption
@@ -1275,7 +724,7 @@ export class ChatQueryHandler {
   private prepareMessageContent(
     prompt: string | undefined,
     content: ChatContentBlock[] | undefined,
-  ): string | Array<{ type: string; text?: string; source?: unknown; }> {
+  ): string | Array<{ type: string; text?: string; source?: unknown }> {
     if (content) {
       return content.map((block) => {
         if (block.type === "text") {
@@ -1301,8 +750,8 @@ export class ChatQueryHandler {
   private extractImagesFromContent(
     messageContent:
       | string
-      | Array<{ type: string; text?: string; source?: unknown; }>,
-  ): Array<{ base64: string; mediaType: string; }> {
+      | Array<{ type: string; text?: string; source?: unknown }>,
+  ): Array<{ base64: string; mediaType: string }> {
     if (!Array.isArray(messageContent)) {
       return [];
     }
@@ -1310,8 +759,8 @@ export class ChatQueryHandler {
     return messageContent
       .filter((block) => block.type === "image")
       .map((block) => ({
-        base64: (block.source as { data: string; }).data,
-        mediaType: (block.source as { media_type: string; }).media_type,
+        base64: (block.source as { data: string }).data,
+        mediaType: (block.source as { media_type: string }).media_type,
       }));
   }
 
@@ -1321,8 +770,8 @@ export class ChatQueryHandler {
   private async persistUserMessage(
     messageContent:
       | string
-      | Array<{ type: string; text?: string; source?: unknown; }>,
-    imagesFromContent: Array<{ base64: string; mediaType: string; }>,
+      | Array<{ type: string; text?: string; source?: unknown }>,
+    imagesFromContent: Array<{ base64: string; mediaType: string }>,
     imageMetadata: Array<{
       storage_path: string;
       media_type: string;
@@ -1340,9 +789,9 @@ export class ChatQueryHandler {
       typeof messageContent === "string"
         ? messageContent
         : messageContent
-          .filter((block) => block.type === "text")
-          .map((block) => block.text || "")
-          .join("\n");
+            .filter((block) => block.type === "text")
+            .map((block) => block.text || "")
+            .join("\n");
 
     const hasImages = imagesFromContent.length > 0;
     const userMessageDisplay = hasImages
@@ -1364,30 +813,20 @@ export class ChatQueryHandler {
     systemPromptAppend: string,
     abortController: AbortController,
     socket: WebSocket,
-    sessionState: CodeSessionState,
-    handlers: MessageHandlers,
+    sessionState: ChatEngineSessionState,
+    handlers: ChatEngineMessageHandlers,
     flushAssistantBuffer: () => Promise<void>,
     logger: SystemLogger,
     framework: Database["public"]["Enums"]["prototype_framework"],
-  ): Promise<Options & { resume?: string; }> {
+    relativePathResolver: (path: string) => string,
+  ): Promise<Options & { resume?: string }> {
     const canUseTool: CanUseTool = async (
       toolName: ToolName,
       input: ToolInput,
       _options: unknown,
     ): Promise<PermissionResult> => {
-      return this.toolPermissionService.evaluateToolPermission(toolName, input);
+      return evaluateToolPermission(ALLOWED_ROOT, toolName, input);
     };
-
-    // Prepare environment variables
-    const env: Record<string, string | undefined> = {};
-    const aak = this.getAak();
-    logger.consoleLogDevOnly("info", "AAK", {
-      exists: !!aak,
-      lastFourCharacters: aak?.slice(-4),
-    });
-    if (aak) {
-      env.ANTHROPIC_API_KEY = aak;
-    }
 
     const allowedToolsDefault = [
       "Read",
@@ -1474,12 +913,12 @@ export class ChatQueryHandler {
       ...options,
       agents: designSubagentEnabled
         ? {
-          "ui-ux-designer": {
-            description: `Expert UI/UX designer for ${framework === "mobile_expo_react_native" ? "mobile react native" : "tailwindcss web Next.js"} applications. Use for design inspiration and planning great design implementation, any time the user requests a feature that has significant user interface changes.`,
-            prompt: getClaudeCodeDesignSubagentPrompt(framework),
-            tools: ["Read", "Glob", "Grep", "WebSearch", "WebFetch"],
-          },
-        }
+            "ui-ux-designer": {
+              description: `Expert UI/UX designer for ${framework === "mobile_expo_react_native" ? "mobile react native" : "tailwindcss web Next.js"} applications. Use for design inspiration and planning great design implementation, any time the user requests a feature that has significant user interface changes.`,
+              prompt: getClaudeCodeDesignSubagentPrompt(framework),
+              tools: ["Read", "Glob", "Grep", "WebSearch", "WebFetch"],
+            },
+          }
         : undefined,
       includePartialMessages: false,
       cwd: WORK_DIR,
@@ -1509,13 +948,14 @@ export class ChatQueryHandler {
               async (
                 input: HookInput,
                 toolUseID: string | undefined,
-                _options: { signal: AbortSignal; },
+                _options: { signal: AbortSignal },
               ): Promise<HookJSONOutput> => {
                 const hookContext: HookContext = {
                   input,
                   toolUseID,
                   socket,
                   flushAssistantBuffer,
+                  getRelativePath: relativePathResolver,
                 };
                 return this.handlePreToolUseHook(hookContext, handlers, logger);
               },
@@ -1528,13 +968,14 @@ export class ChatQueryHandler {
               async (
                 input: HookInput,
                 toolUseID: string | undefined,
-                _options: { signal: AbortSignal; },
+                _options: { signal: AbortSignal },
               ): Promise<HookJSONOutput> => {
                 const hookContext: HookContext = {
                   input,
                   toolUseID,
                   socket,
                   sessionState,
+                  getRelativePath: relativePathResolver,
                 };
                 return this.handlePostToolUseHook(
                   hookContext,
@@ -1557,7 +998,7 @@ export class ChatQueryHandler {
     command: string,
     args: string[],
     cwd?: string,
-  ): Promise<{ stdout: string; isError: boolean; }> {
+  ): Promise<{ stdout: string; isError: boolean }> {
     try {
       // Normalize cwd - if it doesn't start with WORK_DIR, treat it as relative
       let normalizedCwd = WORK_DIR;
@@ -1675,7 +1116,7 @@ export class ChatQueryHandler {
    */
   private async handlePreToolUseHook(
     hookContext: HookContext,
-    handlers: MessageHandlers,
+    handlers: ChatEngineMessageHandlers,
     logger: SystemLogger,
   ): Promise<HookJSONOutput> {
     const { input, toolUseID, socket, flushAssistantBuffer } = hookContext;
@@ -1687,7 +1128,8 @@ export class ChatQueryHandler {
             input.tool_input,
           )}`,
         );
-        const permission = this.toolPermissionService.evaluateToolPermission(
+        const permission = evaluateToolPermission(
+          ALLOWED_ROOT,
           input.tool_name as ToolName,
           (input.tool_input ?? {}) as ToolInput,
         );
@@ -1761,7 +1203,7 @@ export class ChatQueryHandler {
    */
   private async handlePostToolUseHook(
     hookContext: HookContext,
-    handlers: MessageHandlers,
+    handlers: ChatEngineMessageHandlers,
     logger: SystemLogger,
   ): Promise<HookJSONOutput> {
     const { input, toolUseID, socket, sessionState } = hookContext;
@@ -1793,7 +1235,8 @@ export class ChatQueryHandler {
           }
 
           if (filePath && sessionState) {
-            const relativePath = this.getRelativePath(filePath);
+            const resolver = hookContext.getRelativePath;
+            const relativePath = resolver ? resolver(filePath) : filePath;
             // Track for query-level reporting
             sessionState.modifiedFilesThisQuery.add(relativePath);
           }
@@ -1878,7 +1321,7 @@ export class ChatQueryHandler {
    */
   private async streamQueryResponse(
     streamContext: StreamContext,
-    handlers: MessageHandlers,
+    handlers: ChatEngineMessageHandlers,
     logger: SystemLogger,
   ): Promise<number | undefined> {
     const {
@@ -1891,7 +1334,7 @@ export class ChatQueryHandler {
     } = streamContext;
 
     // Shared state for MCP stream fix - allows generator to monitor for result message
-    const messages: Array<{ type: string;[key: string]: unknown; }> = [];
+    const messages: Array<{ type: string; [key: string]: unknown }> = [];
 
     // Create async generator for streaming input
     const generateMessages = async function* (): AsyncGenerator<{
@@ -1899,8 +1342,8 @@ export class ChatQueryHandler {
       message: {
         role: "user";
         content:
-        | string
-        | Array<{ type: string; text?: string; source?: unknown; }>;
+          | string
+          | Array<{ type: string; text?: string; source?: unknown }>;
       };
     }> {
       // Design spec is now written to CLAUDE.md and automatically read by Claude Code SDK
@@ -2091,253 +1534,5 @@ export class ChatQueryHandler {
     }
 
     return totalCostUsd;
-  }
-
-  /**
-   * Runs git add/commit with the latest user message so we can diff work between queries
-   */
-  private async commitChatChangesToGit(
-    data: ChatQueryData,
-    logger: SystemLogger,
-  ): Promise<void> {
-    const commitMessageArg = this.buildCommitMessageArg(data);
-    if (!commitMessageArg) {
-      logger.consoleLogDevOnly(
-        "info",
-        "Skipping git commit after chat - no commit message available",
-      );
-      return;
-    }
-
-    try {
-      const { response } = await this.sandboxService.runCommandInternal({
-        command: "git",
-        args: ["add", ".", "&&", "git", "commit", "-m", commitMessageArg],
-        cwd: WORK_DIR,
-        session_id: "test",
-        timeout_ms: 60000,
-        strip_ansi: true,
-      });
-
-      if (response.error) {
-        logger.warn("Git commit after chat failed", {
-          error: response.error,
-        });
-        return;
-      }
-
-      const stdout = response.data?.stdout ?? "";
-      const status = response.data?.status;
-
-      if (
-        status === "timeout" &&
-        stdout.toLowerCase().includes("nothing to commit")
-      ) {
-        logger.consoleLogDevOnly(
-          "info",
-          "No git changes to commit after chat execution",
-        );
-        return;
-      }
-
-      logger.consoleLogDevOnly("info", "Committed chat changes to git", {
-        status,
-      });
-    } catch (error) {
-      logger.error(
-        error instanceof Error ? error : new Error(String(error)),
-        "Failed to commit chat changes after execution",
-      );
-    }
-  }
-
-  /**
-   * Builds a sanitized commit message argument from the user message
-   */
-  private buildCommitMessageArg(data: ChatQueryData): string | null {
-    const userMessage = this.extractCommitMessageText(data);
-    const normalized = userMessage.replace(/\s+/g, " ").trim();
-    const baseMessage =
-      normalized.length > 0 ? normalized : "Automated chat commit";
-    const truncated =
-      baseMessage.length > 180
-        ? `${baseMessage.slice(0, 177)}...`
-        : baseMessage;
-
-    // Escape characters that would be interpreted by the shell
-    const escaped = truncated
-      .replace(/\\/g, "\\\\")
-      .replace(/"/g, '\\"')
-      .replace(/\$/g, "\\$")
-      .replace(/`/g, "\\`");
-
-    if (!escaped.trim()) {
-      return null;
-    }
-
-    return `"${escaped}"`;
-  }
-
-  /**
-   * Extracts the user message text used for commit messages
-   */
-  private extractCommitMessageText(data: ChatQueryData): string {
-    if (typeof data.prompt === "string" && data.prompt.length > 0) {
-      return data.prompt;
-    }
-
-    if (Array.isArray(data.content)) {
-      const text = data.content
-        .filter((block) => block.type === "text")
-        .map((block) => block.text || "")
-        .join(" ")
-        .trim();
-      if (text) {
-        return text;
-      }
-    }
-
-    return "";
-  }
-
-  /**
-   * Syncs files and tracks usage after query completion
-   */
-  private async syncAndTrackUsage(
-    prototypeId: string,
-    socket: WebSocket,
-    sessionState: CodeSessionState,
-    totalCostUsd: number | undefined,
-    sendMessage: (socket: WebSocket, message: ChatServerMessage) => void,
-    logger: SystemLogger,
-  ): Promise<void> {
-    // Sync file changes to Supabase
-    try {
-      logger.consoleLogDevOnly(
-        "info",
-        "Syncing file changes to Supabase (incremental sync)",
-        {
-          prototypeId,
-        },
-      );
-      const syncResult = await this.fileSyncService.syncFilesToSupabase(
-        prototypeId,
-        "tracked",
-      );
-
-      if (syncResult.success) {
-        logger.consoleLogDevOnly("info", "File sync completed successfully", {
-          prototypeId,
-          filesUpdated: syncResult.filesUpdated,
-          filesDeleted: syncResult.filesDeleted,
-          assetsUpdated: syncResult.assetsUpdated,
-          assetsDeleted: syncResult.assetsDeleted,
-        });
-      } else {
-        logger.error(
-          new Error("File sync completed with errors"),
-          "File sync had errors",
-          {
-            prototypeId,
-            errorCount: syncResult.errors.length,
-            errors: syncResult.errors,
-          },
-        );
-      }
-    } catch (syncError) {
-      logger.error(
-        syncError instanceof Error ? syncError : new Error(String(syncError)),
-        "Failed to sync files to Supabase",
-        { prototypeId },
-      );
-    }
-
-    // Emit modified files list
-    const modifiedFiles = Array.from(sessionState.modifiedFilesThisQuery);
-    if (modifiedFiles.length > 0) {
-      try {
-        sendMessage(socket, {
-          type: ChatEvent.MODIFIED_FILES,
-          data: { files: modifiedFiles },
-        });
-      } catch (modifiedFilesError) {
-        logger.error(
-          modifiedFilesError instanceof Error
-            ? modifiedFilesError
-            : new Error(String(modifiedFilesError)),
-          "Failed to send modified files event",
-          { prototypeId },
-        );
-      }
-    }
-    sessionState.modifiedFilesThisQuery.clear();
-
-    // Track API usage
-    try {
-      const {
-        data: { user },
-        error: userError,
-      } = await this.supabaseClientService.getClient().auth.getUser();
-
-      if (userError || !user) {
-        logger.warn("Unable to track API usage - no authenticated user", {
-          prototypeId,
-          error: userError,
-        });
-      } else {
-        // Calculate credits used using the shared cost calculation function
-        const creditsUsed = costFunctionV3(totalCostUsd) ?? 1.0;
-
-        logger.consoleLogDevOnly("info", "Tracking API usage", {
-          userId: user.id,
-          prototypeId,
-          totalCostUsd,
-          creditsUsed,
-        });
-
-        const { totalRemainingCredits } = await trackApiUsageBuildWorker(
-          this.supabaseClientService.getClient(),
-          user.id,
-          prototypeId,
-          logger,
-          creditsUsed,
-        );
-
-        // Send updated credits to client
-        sendMessage(socket, {
-          type: ChatEvent.USAGE_UPDATE,
-          data: {
-            creditsUsed: creditsUsed,
-            creditsRemaining: totalRemainingCredits,
-          },
-        });
-
-        logger.consoleLogDevOnly("info", "API usage tracked successfully", {
-          userId: user.id,
-          prototypeId,
-          totalCostUsd,
-          creditsUsed,
-          totalRemainingCredits,
-        });
-      }
-    } catch (usageError) {
-      logger.error(
-        usageError instanceof Error
-          ? usageError
-          : new Error(String(usageError)),
-        "Failed to track API usage",
-        { prototypeId },
-      );
-    }
-  }
-
-  /**
-   * Converts absolute file path to relative path from workDir
-   */
-  private getRelativePath(absolutePath: string): string {
-    if (absolutePath.startsWith(WORK_DIR)) {
-      return absolutePath.slice(WORK_DIR.length + 1);
-    }
-    return absolutePath;
   }
 }

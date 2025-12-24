@@ -1,70 +1,22 @@
 import { ChildProcessByStdio, spawn } from "child_process";
 import { Readable } from "stream";
 import WebSocket from "ws";
-import { SystemLogger } from "../../../loggers/SystemLogger.js";
-import {
-  ChatEvent,
-  ChatQueryData,
-  ChatServerMessage,
-} from "../../../types/ChatTypes.js";
-import { Database } from "../../../types/supabase.js";
-import { ClaudeTokenService } from "../../auth/claude-token-service.js";
+import { ChatEvent } from "../../../types/ChatTypes.js";
 import { SupabaseClientService } from "../../SupabaseClientService.js";
-import { getSystemPromptForDesignStyle } from "../prompts/ClaudeCodePrompts.js";
 import { getToolDisplayName } from "../helpers/message-handlers.js";
-import { ToolPermissionService } from "../helpers/tool-permission-service.js";
+import { evaluateToolPermission } from "../helpers/tool-permission-service.js";
 import { baseLogger, WORK_DIR } from "../../../worker.js";
 import {
-  DEFAULT_PROTOTYPE_FRAMEWORK,
-  NucleateDevelopmentServerService,
-} from "../../dev-server/NucleateDevelopmentServerService.js";
+  ChatEngine,
+  ChatEngineContext,
+  ChatEngineMessageHandlers,
+  ChatEngineSessionState,
+  ChatEngineResult,
+} from "./chat-engine.js";
+import { ALLOWED_ROOT } from "../ChatService.js";
 
-interface CodeSessionState {
-  sessionId: string | null;
-  prototypeChatSessionId: string | null;
-  isActive: boolean;
-  createdAt: number;
-  lastActiveAt: number;
-  abortController: AbortController | null;
-  modifiedFilesThisQuery: Set<string>;
-  designSystemId: string | null;
-  designSystemRules: string | null;
-  firstMessageStatus: { sessionId: string; isFirst: boolean } | null;
-}
-
-interface QueryExecutionContext {
-  prototypeId: string;
-  socket: WebSocket;
-  data: ChatQueryData;
-  sessionState: CodeSessionState;
-  validAiChatSessionIds: Set<string>;
-  logger: SystemLogger;
-}
-
-interface MessageHandlers {
-  sendMessage: (socket: WebSocket, message: ChatServerMessage) => void;
-  persistMessage: (
-    role: "user" | "assistant" | "system",
-    content: string,
-    messageType: "text" | "tool_use" | "tool_result" | "error" | "system",
-    eventType?: string | null,
-    eventData?: unknown,
-    creditsUsed?: number | null,
-    costFunction?: string | null,
-    provider?: string | null,
-    model?: string | null,
-  ) => Promise<void>;
-  uploadChatImages: (
-    prototypeId: string,
-    chatSessionId: string,
-    images: Array<{ base64: string; mediaType: string }>,
-  ) => Promise<
-    Array<{ storage_path: string; media_type: string; file_size: number }>
-  >;
-  updatePersistenceClient?: (client: unknown) => void;
-  notifyOrchestrationStartChat: (prototypeId: string) => Promise<void>;
-  notifyOrchestrationEndChat: (prototypeId: string) => Promise<void>;
-}
+// Temporary flat-rate usage cost for CLI mode queries until Anthropic billing is integrated.
+const CLI_USAGE_COST_USD = 0.025;
 
 // CLI message types from --output-format stream-json
 interface ClaudeCodeMessage {
@@ -117,20 +69,12 @@ type ToolInput = Record<string, unknown>;
  * This handler spawns the CLI process, parses its JSON output, and transforms
  * it into WebSocket messages that match the existing frontend expectations.
  */
-export class ClaudeCodeCliQueryHandler {
+export class ClaudeCodeCliQueryHandler implements ChatEngine {
   private readonly supabaseClientService: SupabaseClientService;
-  private readonly toolPermissionService: ToolPermissionService;
-  private readonly devServerService: NucleateDevelopmentServerService;
   private sessionState: SessionState;
 
-  constructor(
-    supabaseClientService: SupabaseClientService,
-    toolPermissionService: ToolPermissionService,
-    devServerService: NucleateDevelopmentServerService,
-  ) {
+  constructor(supabaseClientService: SupabaseClientService) {
     this.supabaseClientService = supabaseClientService;
-    this.toolPermissionService = toolPermissionService;
-    this.devServerService = devServerService;
     this.sessionState = {
       modifiedFilesThisQuery: new Set(),
       pendingToolCalls: new Map(),
@@ -141,99 +85,28 @@ export class ClaudeCodeCliQueryHandler {
    * Main entry point for handling a query using the CLI
    */
   async handleQuery(
-    context: QueryExecutionContext,
-    handlers: MessageHandlers,
-  ): Promise<void> {
-    const { socket, data, sessionState, logger } = context;
-    const {
-      sendMessage,
-      notifyOrchestrationStartChat,
-      notifyOrchestrationEndChat,
-    } = handlers;
-    const framework =
-      this.devServerService.prototypeFramework ?? DEFAULT_PROTOTYPE_FRAMEWORK;
-
-    let queryTextForCommit = "";
+    context: ChatEngineContext,
+    handlers: ChatEngineMessageHandlers,
+  ): Promise<ChatEngineResult | void> {
+    const { socket, data, sessionState, logger, cliAuthEnv, designContext } =
+      context;
+    const { sendMessage } = handlers;
+    if (!cliAuthEnv) {
+      sendMessage(socket, {
+        type: ChatEvent.ERROR,
+        error: {
+          message: "Missing CLI authentication context",
+        },
+      });
+      return;
+    }
 
     try {
-      // Notify orchestration that chat has started
-      try {
-        await notifyOrchestrationStartChat(context.prototypeId);
-      } catch (error) {
-        const err = error instanceof Error ? error : new Error(String(error));
-        logger.error(err, "Failed to notify orchestration start chat (CLI)", {
-          prototypeId: context.prototypeId,
-        });
-        sendMessage(socket, {
-          type: ChatEvent.ERROR,
-          error: {
-            message: "Failed to start chat session",
-          },
-        });
-        return;
-      }
-
-      // Extract user ID from JWT token
-      const token = data.token;
-      if (!token) {
-        throw new Error("No authentication token provided");
-      }
-
-      // Decode JWT to extract user ID from the 'sub' claim
-      // JWT format: header.payload.signature
-      const payload = JSON.parse(
-        Buffer.from(token.split(".")[1], "base64").toString(),
-      );
-      const userId = payload.sub;
-
-      if (!userId) {
-        throw new Error("Invalid authentication token - no user ID");
-      }
-
-      logger.debug("Extracted user ID from JWT", { userId });
-
-      // Create authenticated Supabase client with user's JWT to pass RLS policies
-      const authenticatedSupabase =
-        this.supabaseClientService.createAuthenticatedClient(token);
-
-      // Update message persistence service with authenticated client
-      if (handlers.updatePersistenceClient) {
-        handlers.updatePersistenceClient(authenticatedSupabase);
-      }
-
-      // Create token service with authenticated client to fetch user's Claude token
-      const authenticatedTokenService = new ClaudeTokenService(
-        authenticatedSupabase,
-      );
-
-      // Build authentication environment using the authenticated user ID
-      const authEnv = await this.buildAuthEnvironment(
-        userId,
-        authenticatedTokenService,
-      );
-
-      // Load design system if needed
-      const systemPromptAppend = await this.loadDesignSystem(
-        data.custom_design_system_id ?? null,
-        sessionState,
-        data.design_style,
-        framework,
-      );
-
-      // Initialize session state with chat session ID from client
-      const { prototype_chat_session_id } = data;
-      if (prototype_chat_session_id) {
-        sessionState.prototypeChatSessionId = prototype_chat_session_id;
-        logger.debug("Using chat session ID from client", {
-          chatSessionId: prototype_chat_session_id,
-        });
-      } else {
-        logger.warn("No chat_session_id provided by client");
-        sessionState.prototypeChatSessionId = null;
-      }
+      const systemPromptAppend = designContext?.systemPrompt ?? "";
 
       // Reset session state for new query
       this.sessionState.modifiedFilesThisQuery.clear();
+      sessionState.modifiedFilesThisQuery.clear();
       this.sessionState.pendingToolCalls.clear();
 
       // Get the query text - support both old format (prompt) and new format (content)
@@ -252,12 +125,10 @@ export class ClaudeCodeCliQueryHandler {
         throw new Error("No query provided");
       }
 
-      queryTextForCommit = queryText;
-
       // Spawn CLI process
       const cliProcess = this.spawnCliProcess(
         queryText,
-        authEnv.env,
+        cliAuthEnv.env,
         sessionState,
         systemPromptAppend,
       );
@@ -276,7 +147,7 @@ export class ClaudeCodeCliQueryHandler {
 
       // Query completed successfully
       logger.info("CLI query completed successfully", {
-        authMethod: authEnv.authMethod,
+        authMethod: cliAuthEnv.authMethod,
       });
     } catch (error) {
       logger.error(
@@ -292,123 +163,11 @@ export class ClaudeCodeCliQueryHandler {
         },
       });
     } finally {
-      await this.commitChatChangesToGit(queryTextForCommit, logger);
-      // Always notify orchestration that chat has ended
-      await notifyOrchestrationEndChat(context.prototypeId);
-
       // Clear abort controller
       sessionState.abortController = null;
     }
-  }
 
-  /**
-   * Build authentication environment for CLI process
-   * IMPORTANT: Only uses user OAuth tokens, never API keys
-   */
-  private async buildAuthEnvironment(
-    userId: string,
-    tokenService: ClaudeTokenService,
-  ): Promise<{
-    env: NodeJS.ProcessEnv;
-    authMethod: "user_token";
-  }> {
-    const env = { ...process.env };
-
-    // Get user's OAuth token (REQUIRED - no fallback to API key)
-    const userToken = await tokenService.getUserToken(userId);
-    if (!userToken) {
-      throw new Error(
-        "No Claude subscription connected. Please connect your Claude Pro or Max subscription in Settings to use AI chat.",
-      );
-    }
-
-    env.CLAUDE_CODE_OAUTH_TOKEN = userToken;
-    delete env.ANTHROPIC_API_KEY;
-    baseLogger.debug("Using user OAuth token for auth");
-    return { env, authMethod: "user_token" };
-  }
-
-  /**
-   * Loads design system and builds system prompt
-   */
-  private async loadDesignSystem(
-    custom_design_system_id: string | null,
-    sessionState: CodeSessionState,
-    design_style: string | undefined,
-    framework: string | undefined,
-  ): Promise<string> {
-    // Check if design system changed or needs to be loaded
-    if (custom_design_system_id !== sessionState.designSystemId) {
-      if (
-        custom_design_system_id === null ||
-        custom_design_system_id === undefined
-      ) {
-        // Clear design system
-        sessionState.designSystemId = null;
-        sessionState.designSystemRules = null;
-        baseLogger.consoleLogDevOnly("info", "Design system cleared");
-      } else {
-        // Fetch new design system
-        try {
-          const { data: designSystem, error } = await this.supabaseClientService
-            .getClient()
-            .from("design_systems")
-            .select("*")
-            .eq("id", custom_design_system_id)
-            .single();
-
-          if (error) {
-            baseLogger.error(error, "Failed to fetch design system", {
-              designSystemId: custom_design_system_id,
-            });
-            sessionState.designSystemId = null;
-            sessionState.designSystemRules = null;
-          } else if (designSystem) {
-            sessionState.designSystemId = custom_design_system_id;
-            sessionState.designSystemRules = (
-              designSystem as Database["public"]["Tables"]["design_systems"]["Row"]
-            ).design_rules;
-          } else {
-            baseLogger.warn("Design system not found", {
-              designSystemId: custom_design_system_id,
-            });
-            sessionState.designSystemId = null;
-            sessionState.designSystemRules = null;
-          }
-        } catch (error) {
-          baseLogger.error(
-            error instanceof Error ? error : new Error(String(error)),
-            "Error fetching design system",
-            { designSystemId: custom_design_system_id },
-          );
-          sessionState.designSystemId = null;
-          sessionState.designSystemRules = null;
-        }
-      }
-    }
-
-    // Build system prompt with optional design system rules
-    let systemPromptAppend = getSystemPromptForDesignStyle(
-      design_style,
-      framework,
-    );
-
-    baseLogger.consoleLogDevOnly(
-      "info",
-      "Using design-style-specific system prompt",
-      {
-        design_style,
-        hasCustomDesignSystem: !!sessionState.designSystemRules,
-      },
-    );
-
-    // Append custom design system rules if available
-    if (sessionState.designSystemRules) {
-      systemPromptAppend +=
-        "\n\n## Custom Design System Rules:\n" + sessionState.designSystemRules;
-    }
-
-    return systemPromptAppend;
+    return { totalCostUsd: CLI_USAGE_COST_USD };
   }
 
   /**
@@ -417,7 +176,7 @@ export class ClaudeCodeCliQueryHandler {
   private spawnCliProcess(
     query: string,
     env: NodeJS.ProcessEnv,
-    sessionState: CodeSessionState,
+    sessionState: ChatEngineSessionState,
     systemPromptAppend?: string,
   ): ChildProcessByStdio<null, Readable, Readable> {
     const args = [
@@ -462,8 +221,8 @@ export class ClaudeCodeCliQueryHandler {
   private async handleCliOutput(
     cliProcess: ChildProcessByStdio<null, Readable, Readable>,
     socket: WebSocket,
-    handlers: MessageHandlers,
-    context: QueryExecutionContext,
+    handlers: ChatEngineMessageHandlers,
+    context: ChatEngineContext,
   ): Promise<void> {
     return new Promise((resolve, reject) => {
       let stdoutBuffer = "";
@@ -527,8 +286,8 @@ export class ClaudeCodeCliQueryHandler {
   private async handleCliMessage(
     cliMessage: ClaudeCodeMessage,
     socket: WebSocket,
-    handlers: MessageHandlers,
-    context: QueryExecutionContext,
+    handlers: ChatEngineMessageHandlers,
+    context: ChatEngineContext,
   ): Promise<void> {
     const { sendMessage } = handlers;
 
@@ -581,8 +340,8 @@ export class ClaudeCodeCliQueryHandler {
   private async handleAssistantMessage(
     message: ClaudeCodeMessage,
     socket: WebSocket,
-    handlers: MessageHandlers,
-    _context: QueryExecutionContext,
+    handlers: ChatEngineMessageHandlers,
+    _context: ChatEngineContext,
   ): Promise<void> {
     const { sendMessage, persistMessage } = handlers;
     const content = message.message?.content || [];
@@ -621,7 +380,7 @@ export class ClaudeCodeCliQueryHandler {
   private async handlePreToolUse(
     toolUse: ToolUseBlock,
     socket: WebSocket,
-    handlers: MessageHandlers,
+    handlers: ChatEngineMessageHandlers,
   ): Promise<void> {
     const { sendMessage, persistMessage } = handlers;
     const { id: toolUseId, name: toolName, input: toolInput } = toolUse;
@@ -629,7 +388,8 @@ export class ClaudeCodeCliQueryHandler {
     baseLogger.debug(`PreToolUse: ${toolName}`, { toolUseId, toolInput });
 
     // 1. Evaluate tool permission (monitoring only in CLI mode)
-    const permission = this.toolPermissionService.evaluateToolPermission(
+    const permission = evaluateToolPermission(
+      ALLOWED_ROOT,
       toolName as ToolName,
       toolInput as ToolInput,
     );
@@ -684,8 +444,8 @@ export class ClaudeCodeCliQueryHandler {
   private async handleToolResult(
     result: ClaudeCodeMessage,
     socket: WebSocket,
-    handlers: MessageHandlers,
-    _context: QueryExecutionContext,
+    handlers: ChatEngineMessageHandlers,
+    context: ChatEngineContext,
   ): Promise<void> {
     const { sendMessage, persistMessage } = handlers;
     const toolUseId = result.tool_use_id;
@@ -716,8 +476,9 @@ export class ClaudeCodeCliQueryHandler {
           .file_path || (toolInput as { notebook_path?: string }).notebook_path;
 
       if (filePath) {
-        const relativePath = this.getRelativePath(filePath);
+        const relativePath = context.getRelativePath(filePath);
         this.sessionState.modifiedFilesThisQuery.add(relativePath);
+        context.sessionState.modifiedFilesThisQuery.add(relativePath);
         baseLogger.debug("File modified", { relativePath });
       }
     }
@@ -758,13 +519,11 @@ export class ClaudeCodeCliQueryHandler {
   private handleQueryComplete(
     message: ClaudeCodeMessage,
     socket: WebSocket,
-    handlers: MessageHandlers,
-    context: QueryExecutionContext,
+    handlers: ChatEngineMessageHandlers,
+    context: ChatEngineContext,
   ): void {
     const { sendMessage } = handlers;
     const { sessionState } = context;
-
-    const modifiedFiles = Array.from(this.sessionState.modifiedFilesThisQuery);
 
     // Update session ID from CLI output
     if (message.session_id) {
@@ -779,16 +538,6 @@ export class ClaudeCodeCliQueryHandler {
       },
     });
 
-    // Send modified files if any
-    if (modifiedFiles.length > 0) {
-      sendMessage(socket, {
-        type: ChatEvent.MODIFIED_FILES,
-        data: {
-          files: modifiedFiles,
-        },
-      });
-    }
-
     // Reset session state for next query
     this.sessionState.modifiedFilesThisQuery.clear();
     this.sessionState.pendingToolCalls.clear();
@@ -799,7 +548,7 @@ export class ClaudeCodeCliQueryHandler {
    */
   private async handleSystemInitMessage(
     message: ClaudeCodeMessage,
-    context: QueryExecutionContext,
+    context: ChatEngineContext,
   ): Promise<void> {
     const { sessionState } = context;
 
@@ -890,94 +639,5 @@ export class ClaudeCodeCliQueryHandler {
         },
       );
     }
-  }
-
-  /**
-   * Get relative path from absolute path
-   */
-  private getRelativePath(absolutePath: string): string {
-    if (absolutePath.startsWith(WORK_DIR)) {
-      return absolutePath.slice(WORK_DIR.length).replace(/^\//, "");
-    }
-    return absolutePath;
-  }
-
-  /**
-   * Runs git add/commit after chat execution completes
-   */
-  private async commitChatChangesToGit(
-    userMessage: string,
-    logger: SystemLogger,
-  ): Promise<void> {
-    const commitMessageArg = this.buildCommitMessageArg(userMessage || "");
-    if (!commitMessageArg) {
-      return;
-    }
-
-    try {
-      const { response } =
-        await this.devServerService.sandboxService.runCommandInternal({
-          command: "git",
-          args: ["add", ".", "&&", "git", "commit", "-m", commitMessageArg],
-          cwd: WORK_DIR,
-          session_id: "test",
-          timeout_ms: 60000,
-          strip_ansi: true,
-        });
-
-      if (response.error) {
-        logger.warn("CLI git commit after chat failed", {
-          error: response.error,
-        });
-        return;
-      }
-
-      const stdout = response.data?.stdout ?? "";
-      if (
-        response.data?.status === "timeout" &&
-        stdout.toLowerCase().includes("nothing to commit")
-      ) {
-        logger.consoleLogDevOnly(
-          "info",
-          "CLI git commit skipped - nothing to commit",
-        );
-        return;
-      }
-
-      logger.consoleLogDevOnly(
-        "info",
-        "CLI chat changes committed to git successfully",
-      );
-    } catch (error) {
-      logger.error(
-        error instanceof Error ? error : new Error(String(error)),
-        "Failed to commit CLI chat changes",
-      );
-    }
-  }
-
-  /**
-   * Sanitizes user message for use in git commit -m arguments
-   */
-  private buildCommitMessageArg(userMessage: string): string | null {
-    const normalized = userMessage.replace(/\s+/g, " ").trim();
-    const baseMessage =
-      normalized.length > 0 ? normalized : "Automated chat commit";
-    const truncated =
-      baseMessage.length > 180
-        ? `${baseMessage.slice(0, 177)}...`
-        : baseMessage;
-
-    const escaped = truncated
-      .replace(/\\/g, "\\\\")
-      .replace(/"/g, '\\"')
-      .replace(/\$/g, "\\$")
-      .replace(/`/g, "\\`");
-
-    if (!escaped.trim()) {
-      return null;
-    }
-
-    return `"${escaped}"`;
   }
 }

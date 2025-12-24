@@ -28,12 +28,26 @@ import { FileSyncService } from "../FileSyncService.js";
 import { SandboxService } from "../SandboxService.js";
 import { SupabaseClientService } from "../SupabaseClientService.js";
 import { TerminalService } from "../terminals/TerminalService.js";
+import {
+  ChatEngine,
+  ChatEngineSessionState,
+  CliAuthEnvironment,
+  DesignContextInfo,
+  ChatEngineResult,
+} from "./chat-engines/chat-engine.js";
 import { ChatQueryHandler } from "./chat-engines/chat-query-handler.js";
 import { ClaudeCodeCliQueryHandler } from "./chat-engines/claude-code-cli-query-handler.js";
-import { MessagePersistenceService } from "./helpers/message-handlers.js";
+import {
+  persistChatMessage,
+  uploadChatImages,
+} from "./helpers/message-handlers.js";
 import { ChatProvider, isAllowedModel } from "./helpers/model-providers.js";
-import { ToolPermissionService } from "./helpers/tool-permission-service.js";
+import { getSystemPromptForDesignStyle } from "./prompts/ClaudeCodePrompts.js";
+import { costFunctionV3 } from "./cost/cost-calculation.js";
+import { trackApiUsageBuildWorker } from "./cost/usage-tracking.js";
+import { hasRemainingCredits } from "../../utils/credit-checks.js";
 
+export const ALLOWED_ROOT = "/tmp/materialize-dev-server";
 const CHAT_HEARTBEAT_INTERVAL_MS = 15000;
 
 class OrchestrationAPIError<TData = unknown> extends Error {
@@ -49,18 +63,8 @@ class OrchestrationAPIError<TData = unknown> extends Error {
   }
 }
 
-interface CodeSessionState {
-  sessionId: string | null;
-  prototypeChatSessionId: string | null; // ID from prototype_chat_sessions table
-  isActive: boolean;
-  createdAt: number;
-  lastActiveAt: number;
-  abortController: AbortController | null;
+interface CodeSessionState extends ChatEngineSessionState {
   trackedFiles: Set<string>; // Track files that were modified during the session
-  modifiedFilesThisQuery: Set<string>; // Track files modified by tools for the current query
-  designSystemId: string | null; // ID of currently loaded design system
-  designSystemRules: string | null; // Cached design system rules
-  firstMessageStatus: { sessionId: string; isFirst: boolean; } | null; // Cache first-message detection
 }
 
 interface ChatConnection {
@@ -69,14 +73,20 @@ interface ChatConnection {
   logger: SystemLogger;
 }
 
+interface ChatQueryValidationResult {
+  valid: boolean;
+  errorMessage?: string;
+  errorDetails?: string;
+}
+
 export class ChatService {
-  private readonly allowedRoot: string;
   private readonly supabaseClientService: SupabaseClientService;
+  private readonly sandboxService: SandboxService;
+  private readonly devServerService: NucleateDevelopmentServerService;
   private readonly fileSyncService: FileSyncService;
-  private readonly toolPermissionService: ToolPermissionService;
-  private readonly messagePersistenceService: MessagePersistenceService;
-  private readonly chatQueryHandler: ChatQueryHandler;
-  private readonly claudeCodeCliQueryHandler: ClaudeCodeCliQueryHandler;
+
+  private readonly chatQueryHandler: ChatEngine;
+  private readonly claudeCodeCliQueryHandler: ChatEngine;
   private readonly claudeTokenService: ClaudeTokenService;
   private sessionState: CodeSessionState = {
     sessionId: null,
@@ -103,53 +113,37 @@ export class ChatService {
     terminalService: TerminalService,
     fileSyncService: FileSyncService,
   ) {
-    this.allowedRoot = path.resolve("/tmp/materialize-dev-server");
     this.supabaseClientService = supabaseClientService;
     this.fileSyncService = fileSyncService;
-    this.toolPermissionService = new ToolPermissionService(this.allowedRoot);
-
-    // Initialize MessagePersistenceService
-    this.messagePersistenceService = new MessagePersistenceService(
-      supabaseClientService.getClient(),
-    );
+    this.sandboxService = sandboxService;
+    this.devServerService = devServerService;
 
     // Initialize ChatQueryHandler
     this.chatQueryHandler = new ChatQueryHandler(
       supabaseClientService,
-      this.fileSyncService,
-      this.toolPermissionService,
       sandboxService,
       devServerService,
       terminalService,
-      () => this.getAak(),
     );
 
     // Initialize ClaudeTokenService
-    this.claudeTokenService = new ClaudeTokenService(
-      supabaseClientService.getClient(),
-    );
+    this.claudeTokenService = new ClaudeTokenService(supabaseClientService);
 
     // Always initialize ClaudeCodeCliQueryHandler - will be used if user has a token
     this.claudeCodeCliQueryHandler = new ClaudeCodeCliQueryHandler(
       supabaseClientService,
-      this.toolPermissionService,
-      devServerService,
-    );
-    baseLogger.info(
-      "Claude Code CLI handler initialized - will be used for users with subscription tokens",
     );
 
     baseLogger.consoleLogDevOnly("info", "ChatService initialized", {
       workDir: WORK_DIR,
-      allowedRoot: this.allowedRoot,
+      allowedRoot: ALLOWED_ROOT,
     });
-
 
     const normalizedWorkDir = path.resolve(WORK_DIR);
     if (!this.isPathInsideAllowedRoot(normalizedWorkDir)) {
       baseLogger.warn("WorkDir is outside the allowed root for Claude Code", {
         workDir: normalizedWorkDir,
-        allowedRoot: this.allowedRoot,
+        allowedRoot: ALLOWED_ROOT,
       });
     }
   }
@@ -157,10 +151,6 @@ export class ChatService {
   public setOrchestrationToken(token: string): void {
     this.orchestrationToken = token;
     baseLogger.consoleLogDevOnly("info", "Orchestration token set");
-  }
-
-  public getOrchestrationToken(): string | null {
-    return this.orchestrationToken;
   }
 
   public setAak(key: string): void {
@@ -179,34 +169,12 @@ export class ChatService {
       { websocket: true },
       this.handleWebSocketConnection.bind(this),
     );
-
-    // Health check endpoint
-    app.get("/code/health", async () => {
-      return {
-        status: "ok",
-        service: "claude-code-sdk",
-        session: {
-          id: this.sessionState.sessionId,
-          isActive: this.sessionState.isActive,
-          lastActiveAt: this.sessionState.lastActiveAt,
-        },
-      };
-    });
-
-    // Get session info
-    app.get("/code/session", async () => {
-      return {
-        status: "ok",
-        session: this.sessionState,
-      };
-    });
   }
 
   private handleWebSocketConnection(
     socket: WebSocket,
-    req: FastifyRequest<{ Params: { prototypeId: string; }; }>,
+    req: FastifyRequest<{ Params: { prototypeId: string } }>,
   ): void {
-
     const { prototypeId } = req.params;
     const connectionId = `${prototypeId}-${Date.now()}`;
 
@@ -377,12 +345,25 @@ export class ChatService {
       (options.provider as ChatProvider) || "claude";
     const model = options.model;
 
+    let userId: string | null = null;
     if (model && !isAllowedModel(provider, model)) {
       this.sendMessage(socket, {
         type: ChatEvent.ERROR,
         error: {
           message: `Model ${model} is not allowed for provider ${provider}`,
           details: "Please choose a supported model.",
+        },
+      });
+      return;
+    }
+
+    const validationResult = this.validateChatQuery(data);
+    if (!validationResult.valid) {
+      this.sendMessage(socket, {
+        type: ChatEvent.ERROR,
+        error: {
+          message: validationResult.errorMessage ?? "Invalid chat query",
+          details: validationResult.errorDetails,
         },
       });
       return;
@@ -398,7 +379,7 @@ export class ChatService {
         const payload = JSON.parse(
           Buffer.from(token.split(".")[1], "base64").toString(),
         );
-        const userId = payload.sub;
+        userId = payload.sub;
 
         if (userId) {
           // Check PostHog feature flag first
@@ -445,6 +426,89 @@ export class ChatService {
       handlerName = "claude-sdk";
     }
 
+    const cliAuthRequired = handler === this.claudeCodeCliQueryHandler;
+    if (cliAuthRequired && (!token || !userId)) {
+      this.sendMessage(socket, {
+        type: ChatEvent.ERROR,
+        error: {
+          message: "Authentication token required for Claude CLI mode",
+        },
+      });
+      return;
+    }
+
+    if (token) {
+      const authResult = await this.authenticateSupabaseClient(
+        token,
+        prototypeId,
+        logger,
+      );
+      if (!authResult.valid) {
+        this.sendMessage(socket, {
+          type: ChatEvent.ERROR,
+          error: {
+            message: authResult.errorMessage ?? "Authentication failed",
+            details: authResult.errorDetails,
+          },
+        });
+        return;
+      }
+    }
+
+    let cliAuthEnv: CliAuthEnvironment | null = null;
+    const creditResult = await this.ensureCreditsAvailable(prototypeId, logger);
+    if (!creditResult.valid) {
+      this.sendMessage(socket, {
+        type: ChatEvent.ERROR,
+        error: {
+          message: creditResult.errorMessage ?? "Credit check failed",
+          details: creditResult.errorDetails,
+        },
+      });
+      return;
+    }
+
+    if (cliAuthRequired && userId) {
+      const cliResult = await this.buildClaudeCliAuthEnvironment(
+        userId,
+        logger,
+      );
+      if (!cliResult.success || !cliResult.authEnv) {
+        this.sendMessage(socket, {
+          type: ChatEvent.ERROR,
+          error: {
+            message:
+              cliResult.errorMessage ??
+              "Claude CLI is not available for this account",
+            details: cliResult.errorDetails,
+          },
+        });
+        return;
+      }
+      cliAuthEnv = cliResult.authEnv;
+    }
+
+    this.prepareSessionStateForQuery(data, logger);
+    const framework = this.devServerService.prototypeFramework ?? null;
+    const designContext = await this.loadDesignSystemContext(
+      logger,
+      data.custom_design_system_id ?? null,
+      data.design_style,
+      framework,
+    );
+
+    let isFirstMessage = false;
+    if (
+      handler === this.chatQueryHandler &&
+      this.sessionState.prototypeChatSessionId
+    ) {
+      isFirstMessage = await this.isFirstMessageForPrototype(
+        prototypeId,
+        this.sessionState.prototypeChatSessionId,
+        logger,
+      );
+    }
+
     logger.consoleLogDevOnly("info", "Dispatching chat query to handler", {
       prototypeId,
       handler: handlerName,
@@ -453,70 +517,121 @@ export class ChatService {
       sessionId: this.sessionState.sessionId,
     });
 
-    await handler.handleQuery(
-      {
+    let chatStarted = false;
+    try {
+      await this.notifyOrchestrationStartChat(prototypeId);
+      chatStarted = true;
+    } catch (error) {
+      const err = error instanceof Error ? error : new Error(String(error));
+      logger.error(err, "Failed to notify orchestration start chat", {
         prototypeId,
-        socket,
-        data,
-        sessionState: this.sessionState,
-        validAiChatSessionIds: this.validAiChatSessionIds,
-        logger,
-      },
-      {
-        sendMessage: this.sendMessage.bind(this),
-        persistMessage: async (
-          role: "user" | "assistant" | "system",
-          content: string,
-          messageType: "text" | "tool_use" | "tool_result" | "error" | "system",
-          eventType?: string | null,
-          eventData?: unknown,
-          creditsUsed?: number | null,
-          costFunction?: string | null,
-          provider?: string | null,
-          model?: string | null,
-        ) => {
-          if (!this.sessionState.prototypeChatSessionId) {
-            baseLogger.warn("Cannot persist message - no chat session ID");
-            return;
-          }
-          await this.messagePersistenceService.persistMessage(
-            this.sessionState.prototypeChatSessionId,
-            role,
-            content,
-            messageType,
-            eventType,
-            {
-              ...(eventData ?? {}),
-              provider: provider ?? null,
-              model: model ?? null,
-            },
-            creditsUsed,
-            costFunction,
-            provider,
-            model,
-          );
+      });
+      this.sendMessage(socket, {
+        type: ChatEvent.ERROR,
+        error: {
+          message: "Failed to start chat session",
         },
-        uploadChatImages: async (
-          prototypeId: string,
-          chatSessionId: string,
-          images: Array<{ base64: string; mediaType: string; }>,
-        ) => {
-          return await this.messagePersistenceService.uploadChatImages(
+      });
+      return;
+    }
+
+    let handlerResult: ChatEngineResult | void = undefined;
+    try {
+      handlerResult = await handler.handleQuery(
+        {
+          prototypeId,
+          socket,
+          data,
+          sessionState: this.sessionState,
+          validAiChatSessionIds: this.validAiChatSessionIds,
+          logger,
+          userId,
+          cliAuthEnv,
+          designContext,
+          isFirstMessage,
+          getRelativePath: this.getRelativePath.bind(this),
+        },
+        {
+          sendMessage: this.sendMessage.bind(this),
+          persistMessage: async (
+            role: "user" | "assistant" | "system",
+            content: string,
+            messageType:
+              | "text"
+              | "tool_use"
+              | "tool_result"
+              | "error"
+              | "system",
+            eventType?: string | null,
+            eventData?: unknown,
+            creditsUsed?: number | null,
+            costFunction?: string | null,
+            provider?: string | null,
+            model?: string | null,
+          ) => {
+            if (!this.sessionState.prototypeChatSessionId) {
+              baseLogger.warn("Cannot persist message - no chat session ID");
+              return;
+            }
+            await persistChatMessage(
+              this.supabaseClientService,
+              this.sessionState.prototypeChatSessionId,
+              role,
+              content,
+              messageType,
+              eventType,
+              {
+                ...(eventData ?? {}),
+                provider: provider ?? null,
+                model: model ?? null,
+              },
+              creditsUsed,
+              costFunction,
+              provider,
+              model,
+            );
+          },
+          uploadChatImages: async (
+            prototypeId: string,
+            chatSessionId: string,
+            images: Array<{ base64: string; mediaType: string }>,
+          ) => {
+            return await uploadChatImages(
+              this.supabaseClientService,
+              prototypeId,
+              chatSessionId,
+              images,
+            );
+          },
+        },
+      );
+    } finally {
+      try {
+        await this.finalizeChatExecution(
+          prototypeId,
+          socket,
+          data,
+          handlerResult?.totalCostUsd,
+          logger,
+        );
+      } catch (error) {
+        logger.error(
+          error instanceof Error ? error : new Error(String(error)),
+          "Failed to complete post-run bookkeeping",
+          { prototypeId },
+        );
+      }
+      if (chatStarted) {
+        try {
+          await this.notifyOrchestrationEndChat(prototypeId);
+        } catch (error) {
+          const err = error instanceof Error ? error : new Error(String(error));
+          logger.error(err, "Failed to notify orchestration end chat", {
             prototypeId,
-            chatSessionId,
-            images,
-          );
-        },
-        updatePersistenceClient: (client: unknown) => {
-          this.messagePersistenceService.setSupabaseClient(
-            client as import("@supabase/supabase-js").SupabaseClient<Database>,
-          );
-        },
-        notifyOrchestrationStartChat:
-          this.notifyOrchestrationStartChat.bind(this),
-        notifyOrchestrationEndChat: this.notifyOrchestrationEndChat.bind(this),
-      },
-    );
+          });
+        }
+      }
+    }
   }
 
   private async handleHistoryResponse(
@@ -536,7 +651,7 @@ export class ChatService {
     let historyContext = "";
     if (historical_messages.length > 0) {
       const formattedMessages = historical_messages
-        .map((msg: { role: string; content: string; }) => {
+        .map((msg: { role: string; content: string }) => {
           const role = msg.role === "user" ? "User" : "Assistant";
           return `${role}: ${msg.content}`;
         })
@@ -629,7 +744,8 @@ export class ChatService {
 
         // Persist interrupt event to database
         if (this.sessionState.prototypeChatSessionId) {
-          await this.messagePersistenceService.persistMessage(
+          await persistChatMessage(
+            this.supabaseClientService,
             this.sessionState.prototypeChatSessionId,
             "system",
             "Query interrupted by user",
@@ -680,6 +796,606 @@ export class ChatService {
           "Failed to send WebSocket message",
         );
       }
+    }
+  }
+
+  private validateChatQuery(data: ChatQueryData): ChatQueryValidationResult {
+    const { prompt, content } = data;
+
+    if (!prompt && !content) {
+      return {
+        valid: false,
+        errorMessage: "prompt or content is required",
+      };
+    }
+
+    if (content && (!Array.isArray(content) || content.length === 0)) {
+      return {
+        valid: false,
+        errorMessage: "content must be a non-empty array",
+      };
+    }
+
+    return { valid: true };
+  }
+
+  private async authenticateSupabaseClient(
+    token: string,
+    prototypeId: string,
+    logger: SystemLogger,
+  ): Promise<ChatQueryValidationResult> {
+    try {
+      this.supabaseClientService.refreshClientWithToken(token);
+      logger.consoleLogDevOnly(
+        "info",
+        "Refreshed Supabase client with JWT token for chat request",
+        {
+          prototypeId,
+        },
+      );
+      return { valid: true };
+    } catch (error) {
+      logger.error(
+        error instanceof Error ? error : new Error(String(error)),
+        "Failed to refresh Supabase client with JWT token",
+        { prototypeId },
+      );
+      return {
+        valid: false,
+        errorMessage: "Failed to authenticate with provided token",
+        errorDetails: error instanceof Error ? error.message : String(error),
+      };
+    }
+  }
+
+  private async ensureCreditsAvailable(
+    prototypeId: string,
+    logger: SystemLogger,
+  ): Promise<ChatQueryValidationResult> {
+    try {
+      const {
+        data: { user },
+        error: userError,
+      } = await this.supabaseClientService.getClient().auth.getUser();
+
+      if (userError || !user) {
+        logger.error(
+          userError || new Error("No user found"),
+          "Unable to verify user for credit check",
+          { prototypeId },
+        );
+        return {
+          valid: false,
+          errorMessage: "Authentication required",
+          errorDetails: "Unable to verify user credentials",
+        };
+      }
+
+      const creditCheck = await hasRemainingCredits(
+        this.supabaseClientService.getClient(),
+        user.id,
+        logger,
+      );
+
+      if (!creditCheck.hasCredits) {
+        logger.warn("User has no remaining credits", {
+          userId: user.id,
+          prototypeId,
+          remaining: creditCheck.remaining,
+          used: creditCheck.used,
+          granted: creditCheck.granted,
+          plan: creditCheck.plan,
+        });
+
+        return {
+          valid: false,
+          errorMessage: "Credit limit exceeded",
+          errorDetails: `You have used all ${creditCheck.granted} credits available. Please upgrade your plan to continue.`,
+        };
+      }
+
+      return { valid: true };
+    } catch (error) {
+      logger.error(
+        error instanceof Error ? error : new Error(String(error)),
+        "Error during credit check",
+        { prototypeId },
+      );
+      return {
+        valid: false,
+        errorMessage: "Unable to verify credits",
+        errorDetails: "An error occurred while checking your credit balance",
+      };
+    }
+  }
+
+  private async buildClaudeCliAuthEnvironment(
+    userId: string,
+    logger: SystemLogger,
+  ): Promise<{
+    success: boolean;
+    authEnv?: CliAuthEnvironment;
+    errorMessage?: string;
+    errorDetails?: string;
+  }> {
+    try {
+      const userToken = await this.claudeTokenService.getUserToken(userId);
+
+      if (!userToken) {
+        return {
+          success: false,
+          errorMessage:
+            "No Claude subscription connected. Please connect your Claude Pro or Max subscription in Settings to use AI chat.",
+        };
+      }
+
+      const env = { ...process.env };
+      env.CLAUDE_CODE_OAUTH_TOKEN = userToken;
+      delete env.ANTHROPIC_API_KEY;
+
+      return {
+        success: true,
+        authEnv: {
+          env,
+          authMethod: "user_token",
+        },
+      };
+    } catch (error) {
+      logger.error(
+        error instanceof Error ? error : new Error(String(error)),
+        "Failed to prepare Claude CLI authentication environment",
+        { userId },
+      );
+      return {
+        success: false,
+        errorMessage: "Failed to prepare Claude CLI authentication",
+        errorDetails: error instanceof Error ? error.message : String(error),
+      };
+    }
+  }
+
+  private async finalizeChatExecution(
+    prototypeId: string,
+    socket: WebSocket,
+    data: ChatQueryData,
+    totalCostUsd: number | undefined,
+    logger: SystemLogger,
+  ): Promise<void> {
+    try {
+      await this.commitChatChangesToGit(data, logger);
+    } catch (error) {
+      logger.error(
+        error instanceof Error ? error : new Error(String(error)),
+        "Failed to commit chat changes",
+        { prototypeId },
+      );
+    }
+
+    await this.syncFilesAndTrackUsage(
+      prototypeId,
+      socket,
+      this.sessionState,
+      totalCostUsd,
+      logger,
+    );
+  }
+
+  private async commitChatChangesToGit(
+    data: ChatQueryData,
+    logger: SystemLogger,
+  ): Promise<void> {
+    const commitMessageArg = this.buildCommitMessageArg(data);
+    if (!commitMessageArg) {
+      logger.consoleLogDevOnly(
+        "info",
+        "Skipping git commit after chat - no commit message available",
+      );
+      return;
+    }
+
+    try {
+      const { response } = await this.sandboxService.runCommandInternal({
+        command: "git",
+        args: ["add", ".", "&&", "git", "commit", "-m", commitMessageArg],
+        cwd: WORK_DIR,
+        session_id: "chat-service",
+        timeout_ms: 60000,
+        strip_ansi: true,
+      });
+
+      if (response.error) {
+        logger.warn("Git commit after chat failed", {
+          error: response.error,
+        });
+        return;
+      }
+
+      const stdout = response.data?.stdout ?? "";
+      const status = response.data?.status;
+
+      if (
+        status === "timeout" &&
+        stdout.toLowerCase().includes("nothing to commit")
+      ) {
+        logger.consoleLogDevOnly(
+          "info",
+          "No git changes to commit after chat execution",
+        );
+        return;
+      }
+
+      logger.consoleLogDevOnly("info", "Committed chat changes to git", {
+        status,
+      });
+    } catch (error) {
+      logger.error(
+        error instanceof Error ? error : new Error(String(error)),
+        "Failed to commit chat changes after execution",
+      );
+    }
+  }
+
+  private buildCommitMessageArg(data: ChatQueryData): string | null {
+    const userMessage = this.extractCommitMessageText(data);
+    const normalized = userMessage.replace(/\s+/g, " ").trim();
+    const baseMessage =
+      normalized.length > 0 ? normalized : "Automated chat commit";
+    const truncated =
+      baseMessage.length > 180
+        ? `${baseMessage.slice(0, 177)}...`
+        : baseMessage;
+
+    const escaped = truncated
+      .replace(/\\/g, "\\\\")
+      .replace(/"/g, '\\"')
+      .replace(/\$/g, "\\$")
+      .replace(/`/g, "\\`");
+
+    if (!escaped.trim()) {
+      return null;
+    }
+
+    return `"${escaped}"`;
+  }
+
+  private extractCommitMessageText(data: ChatQueryData): string {
+    if (typeof data.prompt === "string" && data.prompt.length > 0) {
+      return data.prompt;
+    }
+
+    if (Array.isArray(data.content)) {
+      const text = data.content
+        .filter((block) => block.type === "text")
+        .map((block) => block.text || "")
+        .join(" ")
+        .trim();
+      if (text) {
+        return text;
+      }
+    }
+
+    return "";
+  }
+
+  private async syncFilesAndTrackUsage(
+    prototypeId: string,
+    socket: WebSocket,
+    sessionState: CodeSessionState,
+    totalCostUsd: number | undefined,
+    logger: SystemLogger,
+  ): Promise<void> {
+    try {
+      logger.consoleLogDevOnly(
+        "info",
+        "Syncing file changes to Supabase (incremental sync)",
+        {
+          prototypeId,
+        },
+      );
+      const syncResult = await this.fileSyncService.syncFilesToSupabase(
+        prototypeId,
+        "tracked",
+      );
+
+      if (syncResult.success) {
+        logger.consoleLogDevOnly("info", "File sync completed successfully", {
+          prototypeId,
+          filesUpdated: syncResult.filesUpdated,
+          filesDeleted: syncResult.filesDeleted,
+          assetsUpdated: syncResult.assetsUpdated,
+          assetsDeleted: syncResult.assetsDeleted,
+        });
+      } else {
+        logger.error(
+          new Error("File sync completed with errors"),
+          "File sync had errors",
+          {
+            prototypeId,
+            errorCount: syncResult.errors.length,
+            errors: syncResult.errors,
+          },
+        );
+      }
+    } catch (syncError) {
+      logger.error(
+        syncError instanceof Error ? syncError : new Error(String(syncError)),
+        "Failed to sync files to Supabase",
+        { prototypeId },
+      );
+    }
+
+    const modifiedFiles = Array.from(sessionState.modifiedFilesThisQuery);
+    if (modifiedFiles.length > 0) {
+      try {
+        this.sendMessage(socket, {
+          type: ChatEvent.MODIFIED_FILES,
+          data: { files: modifiedFiles },
+        });
+      } catch (modifiedFilesError) {
+        logger.error(
+          modifiedFilesError instanceof Error
+            ? modifiedFilesError
+            : new Error(String(modifiedFilesError)),
+          "Failed to send modified files event",
+          { prototypeId },
+        );
+      }
+    }
+    sessionState.modifiedFilesThisQuery.clear();
+
+    try {
+      const {
+        data: { user },
+        error: userError,
+      } = await this.supabaseClientService.getClient().auth.getUser();
+
+      if (userError || !user) {
+        logger.warn("Unable to track API usage - no authenticated user", {
+          prototypeId,
+          error: userError,
+        });
+      } else {
+        const creditsUsed = costFunctionV3(totalCostUsd) ?? 1.0;
+
+        logger.consoleLogDevOnly("info", "Tracking API usage", {
+          userId: user.id,
+          prototypeId,
+          totalCostUsd,
+          creditsUsed,
+        });
+
+        const { totalRemainingCredits } = await trackApiUsageBuildWorker(
+          this.supabaseClientService.getClient(),
+          user.id,
+          prototypeId,
+          logger,
+          creditsUsed,
+        );
+
+        this.sendMessage(socket, {
+          type: ChatEvent.USAGE_UPDATE,
+          data: {
+            creditsUsed,
+            creditsRemaining: totalRemainingCredits,
+          },
+        });
+
+        logger.consoleLogDevOnly("info", "API usage tracked successfully", {
+          userId: user.id,
+          prototypeId,
+          totalCostUsd,
+          creditsUsed,
+          totalRemainingCredits,
+        });
+      }
+    } catch (usageError) {
+      logger.error(
+        usageError instanceof Error
+          ? usageError
+          : new Error(String(usageError)),
+        "Failed to track API usage",
+        { prototypeId },
+      );
+    }
+  }
+
+  private getRelativePath(absolutePath: string): string {
+    if (absolutePath.startsWith(WORK_DIR)) {
+      return absolutePath.slice(WORK_DIR.length + 1);
+    }
+    return absolutePath;
+  }
+
+  private prepareSessionStateForQuery(
+    data: ChatQueryData,
+    logger: SystemLogger,
+  ): void {
+    const { prototype_chat_session_id, ai_chat_session_id } = data;
+    const previousPrototypeChatSessionId =
+      this.sessionState.prototypeChatSessionId;
+
+    if (prototype_chat_session_id) {
+      this.sessionState.prototypeChatSessionId = prototype_chat_session_id;
+      logger.consoleLogDevOnly("info", "Using chat session ID from client", {
+        chatSessionId: prototype_chat_session_id,
+        claudeCodeSessionId: ai_chat_session_id,
+      });
+      if (previousPrototypeChatSessionId !== prototype_chat_session_id) {
+        this.sessionState.firstMessageStatus = null;
+      }
+    } else {
+      logger.warn("No chat_session_id provided by client", {
+        session_id: ai_chat_session_id,
+      });
+      this.sessionState.prototypeChatSessionId = null;
+      this.sessionState.firstMessageStatus = null;
+    }
+
+    if (ai_chat_session_id === null) {
+      logger.consoleLogDevOnly(
+        "info",
+        "Client requested new session - clearing internal state",
+        {
+          previousSessionId: this.sessionState.sessionId,
+        },
+      );
+      this.sessionState.sessionId = null;
+      this.sessionState.firstMessageStatus = null;
+    }
+  }
+
+  private async loadDesignSystemContext(
+    logger: SystemLogger,
+    customDesignSystemId: string | null,
+    designStyle: string | undefined,
+    framework: Database["public"]["Enums"]["prototype_framework"] | null,
+  ): Promise<DesignContextInfo> {
+    if (customDesignSystemId !== this.sessionState.designSystemId) {
+      if (!customDesignSystemId) {
+        this.sessionState.designSystemId = null;
+        this.sessionState.designSystemRules = null;
+        logger.consoleLogDevOnly("info", "Design system cleared");
+      } else {
+        try {
+          const { data: designSystem, error } = await this.supabaseClientService
+            .getClient()
+            .from("design_systems")
+            .select("*")
+            .eq("id", customDesignSystemId)
+            .single();
+
+          if (error) {
+            logger.error(error, "Failed to fetch design system", {
+              designSystemId: customDesignSystemId,
+            });
+            this.sessionState.designSystemId = null;
+            this.sessionState.designSystemRules = null;
+          } else if (designSystem) {
+            this.sessionState.designSystemId = customDesignSystemId;
+            this.sessionState.designSystemRules = (
+              designSystem as Database["public"]["Tables"]["design_systems"]["Row"]
+            ).design_rules;
+          } else {
+            logger.warn("Design system not found", {
+              designSystemId: customDesignSystemId,
+            });
+            this.sessionState.designSystemId = null;
+            this.sessionState.designSystemRules = null;
+          }
+        } catch (error) {
+          logger.error(
+            error instanceof Error ? error : new Error(String(error)),
+            "Error fetching design system",
+            { designSystemId: customDesignSystemId },
+          );
+          this.sessionState.designSystemId = null;
+          this.sessionState.designSystemRules = null;
+        }
+      }
+    }
+
+    let systemPromptAppend = getSystemPromptForDesignStyle(
+      designStyle,
+      framework ?? undefined,
+    );
+
+    logger.consoleLogDevOnly(
+      "info",
+      "Using design-style-specific system prompt",
+      {
+        design_style: designStyle,
+        hasCustomDesignSystem: !!this.sessionState.designSystemRules,
+        framework,
+      },
+    );
+
+    if (this.sessionState.designSystemRules) {
+      systemPromptAppend +=
+        "\n\n## Custom Design System Rules:\n" +
+        this.sessionState.designSystemRules;
+    }
+
+    return {
+      systemPrompt: systemPromptAppend,
+      designSystemId: this.sessionState.designSystemId,
+      designSystemRules: this.sessionState.designSystemRules,
+    };
+  }
+
+  private async isFirstMessageForPrototype(
+    prototypeId: string,
+    prototypeChatSessionId: string,
+    logger: SystemLogger,
+  ): Promise<boolean> {
+    if (!prototypeChatSessionId) {
+      return false;
+    }
+
+    const cached = this.sessionState.firstMessageStatus;
+    if (cached && cached.sessionId === prototypeChatSessionId) {
+      return cached.isFirst;
+    }
+
+    try {
+      const { count: messageCount, error: messageError } =
+        await this.supabaseClientService
+          .getClient()
+          .from("prototype_chat_messages")
+          .select("*", { count: "exact", head: true })
+          .eq("chat_session_id", prototypeChatSessionId);
+
+      if (messageError) {
+        logger.error(
+          messageError,
+          "Failed to check message count for first message detection",
+          { prototypeChatSessionId },
+        );
+        return false;
+      }
+
+      if (messageCount && messageCount > 0) {
+        return false;
+      }
+
+      const { count: sessionCount, error: sessionError } =
+        await this.supabaseClientService
+          .getClient()
+          .from("prototype_chat_sessions")
+          .select("*", { count: "exact", head: true })
+          .eq("prototype_id", prototypeId);
+
+      if (sessionError) {
+        logger.error(
+          sessionError,
+          "Failed to check session count for first message detection",
+          { prototypeId },
+        );
+        return false;
+      }
+
+      const isFirst = sessionCount === 1;
+
+      this.sessionState.firstMessageStatus = {
+        sessionId: prototypeChatSessionId,
+        isFirst,
+      };
+
+      logger.consoleLogDevOnly("info", "First message detection result", {
+        prototypeId,
+        prototypeChatSessionId,
+        messageCount,
+        sessionCount,
+        isFirst,
+      });
+
+      return isFirst;
+    } catch (error) {
+      logger.error(
+        error instanceof Error ? error : new Error(String(error)),
+        "Error during first message detection",
+        { prototypeId, prototypeChatSessionId },
+      );
+      return false;
     }
   }
 
@@ -747,8 +1463,8 @@ export class ChatService {
         orchestrationError ??
         (axiosError
           ? new Error(
-            `Failed to notify control plane of chat start (status ${axiosError.response?.status ?? "unknown"})`,
-          )
+              `Failed to notify control plane of chat start (status ${axiosError.response?.status ?? "unknown"})`,
+            )
           : error instanceof Error
             ? error
             : new Error(String(error)));
@@ -889,11 +1605,11 @@ export class ChatService {
 
   private isPathInsideAllowedRoot(resolvedPath: string): boolean {
     const normalizedPath = path.resolve(resolvedPath);
-    const allowedWithSep = this.allowedRoot.endsWith(path.sep)
-      ? this.allowedRoot
-      : `${this.allowedRoot}${path.sep}`;
+    const allowedWithSep = ALLOWED_ROOT.endsWith(path.sep)
+      ? ALLOWED_ROOT
+      : `${ALLOWED_ROOT}${path.sep}`;
     return (
-      normalizedPath === this.allowedRoot ||
+      normalizedPath === ALLOWED_ROOT ||
       normalizedPath.startsWith(allowedWithSep)
     );
   }
