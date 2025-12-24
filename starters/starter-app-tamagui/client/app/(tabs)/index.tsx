@@ -15,9 +15,6 @@ export default function HomeScreen() {
       </H1>
 
       <Separator width="80%" borderColor="$borderColor" />
-      <Text fontSize="$3" color="$color11" textAlign="center" opacity={0.8}>
-        The app automatically supports dark and light mode with theme support.
-      </Text>
     </YStack>
   );
 }

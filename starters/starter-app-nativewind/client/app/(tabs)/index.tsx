@@ -9,10 +9,6 @@ export default function HomeScreen() {
       </StyledText>
 
       <View className="h-[1px] w-4/5 border-b border-gray-300 dark:border-gray-700" />
-
-      <StyledText variant="caption" className="text-center opacity-80">
-        The app automatically supports dark and light mode with theme support.
-      </StyledText>
     </View>
   );
 }

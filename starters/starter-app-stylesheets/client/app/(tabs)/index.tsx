@@ -12,10 +12,6 @@ export default function HomeScreen() {
       </StyledText>
 
       <View style={styles.separator} />
-
-      <StyledText variant="caption" color="textSecondary" style={styles.subtext}>
-        The app automatically supports dark and light mode with theme support.
-      </StyledText>
     </View>
   );
 }
