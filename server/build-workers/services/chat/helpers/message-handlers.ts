@@ -1,26 +1,19 @@
 /**
  * Utility functions for handling and formatting chat messages
  */
+
 import { processImage } from "./image-processing.js";
 import { baseLogger } from "../../../worker.js";
 import { SupabaseClientService } from "../../SupabaseClientService.js";
 
 type ToolInput = Record<string, unknown>;
 
-/**
- * Helper function to sanitize file paths by removing the dev server prefix
- */
 export function sanitizeFilePath(path: string): string {
   if (!path) return path;
   const prefix = "/tmp/materialize-dev-server/";
-  // Replace all occurrences of the prefix, not just at the start
   return path.replace(new RegExp(prefix, "g"), "");
 }
 
-/**
- * Helper function to get friendly tool display name
- * Mirrors the frontend logic in ClaudeCodePanel.tsx
- */
 export function getToolDisplayName(
   toolName: string,
   toolInput?: ToolInput,
@@ -40,16 +33,13 @@ export function getToolDisplayName(
     return "Checking for errors";
   }
   if (normalized.includes("bash") && toolInput?.description) {
-    // For Bash commands, use the description if available
     return toolInput.description as string;
   }
 
-  // For Task tool, use the description if available
   if (normalized === "task" && toolInput?.description) {
     return toolInput.description as string;
   }
 
-  // More descriptive tool names with parameters
   if (normalized.includes("read") && toolInput?.file_path) {
     const fileName =
       sanitizeFilePath(toolInput.file_path as string)
@@ -92,7 +82,6 @@ export function getToolDisplayName(
     return `Deleting ${fileName}`;
   }
 
-  // Default friendly names
   if (normalized.includes("read")) return "Reading files";
   if (normalized.includes("glob")) return "Searching files";
   if (normalized.includes("grep")) return "Searching code";
@@ -106,175 +95,175 @@ export function getToolDisplayName(
   return toolName;
 }
 
-/**
- * Service for persisting chat messages and related media to Supabase
- */
-export class MessagePersistenceService {
-  private readonly supabaseClientService: SupabaseClientService;
-
-  constructor(supabaseClientService: SupabaseClientService) {
-    this.supabaseClientService = supabaseClientService;
+export async function persistChatMessage(
+  supabaseClientService: SupabaseClientService,
+  chatSessionId: string,
+  role: "user" | "assistant" | "system",
+  content: string,
+  messageType: "text" | "tool_use" | "tool_result" | "error" | "system",
+  eventType?: string | null,
+  eventData?: unknown,
+  creditsUsed?: number | null,
+  costFunction?: string | null,
+  provider?: string | null,
+  model?: string | null,
+): Promise<void> {
+  if (!chatSessionId) {
+    baseLogger.warn("Cannot persist message - no chat session ID", {
+      role,
+      messageType,
+      eventType,
+    });
+    return;
   }
 
-  /**
-   * Persists a message to the prototype_chat_messages table.
-   * Called for user messages, assistant messages, tool events, and system events.
-   */
-  async persistMessage(
-    chatSessionId: string,
-    role: "user" | "assistant" | "system",
-    content: string,
-    messageType: "text" | "tool_use" | "tool_result" | "error" | "system",
-    eventType?: string | null,
-    eventData?: unknown,
-    creditsUsed?: number | null,
-    costFunction?: string | null,
-    provider?: string | null,
-    model?: string | null,
-  ): Promise<void> {
-    if (!chatSessionId) {
-      baseLogger.warn("Cannot persist message - no chat session ID", {
+  const supabase = supabaseClientService.getClient();
+
+  try {
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    baseLogger.consoleLogDevOnly("debug", "Attempting to persist message", {
+      chatSessionId,
+      role,
+      messageType,
+      eventType,
+      hasEventData: !!eventData,
+      eventDataType: eventData ? typeof eventData : null,
+      creditsUsed,
+      costFunction,
+      provider,
+      model,
+      isAuthenticated: !!user,
+      userId: user?.id,
+      authError: authError?.message,
+    });
+
+    const mergedEventData = {
+      ...(eventData ?? {}),
+      provider: provider ?? null,
+      model: model ?? null,
+    };
+
+    const { error } = await supabase.from("prototype_chat_messages").insert({
+      chat_session_id: chatSessionId,
+      role,
+      content,
+      message_type: messageType,
+      event_type: eventType || null,
+      event_data: mergedEventData ? JSON.stringify(mergedEventData) : null,
+      credits_used: creditsUsed ?? null,
+      cost_function: costFunction ?? null,
+    });
+
+    if (error) {
+      baseLogger.error(error, "Failed to persist message", {
+        chatSessionId,
         role,
         messageType,
         eventType,
       });
-      return;
-    }
-
-    try {
-      // Check if client is authenticated
-      const supabase = this.supabaseClientService.getClient();
-      const mergedEventData = {
-        ...(eventData ?? {}),
-        provider: provider ?? null,
-        model: model ?? null,
-      };
-      const { error } = await supabase.from("prototype_chat_messages").insert({
-        chat_session_id: chatSessionId,
+    } else {
+      baseLogger.consoleLogDevOnly("info", "Persisted chat message", {
+        chatSessionId,
         role,
-        content,
-        message_type: messageType,
-        event_type: eventType || null,
-        event_data: mergedEventData ? JSON.stringify(mergedEventData) : null,
-        credits_used: creditsUsed ?? null,
-        cost_function: costFunction ?? null,
+        messageType,
+        eventType,
       });
-
-      if (error) {
-        baseLogger.error(error, "Failed to persist message", {
-          chatSessionId,
-          role,
-          messageType,
-          eventType,
-          hasEventData: !!eventData,
-          eventDataSample: eventData
-            ? JSON.stringify(eventData).substring(0, 200)
-            : null,
-        });
-      }
-    } catch (error) {
-      baseLogger.error(
-        error instanceof Error ? error : new Error(String(error)),
-        "Error in persistMessage",
-        {
-          chatSessionId,
-          role,
-          messageType,
-        },
-      );
     }
+  } catch (error) {
+    baseLogger.error(
+      error instanceof Error ? error : new Error(String(error)),
+      "Failed to persist message",
+      {
+        chatSessionId,
+        role,
+        messageType,
+        eventType,
+      },
+    );
   }
+}
 
-  /**
-   * Uploads chat images to Supabase Storage and returns the image metadata
-   * @param prototypeId - The prototype ID
-   * @param chatSessionId - The chat session ID
-   * @param images - Array of images with base64 data and media type
-   * @returns Array of uploaded image metadata
-   */
-  async uploadChatImages(
-    prototypeId: string,
-    chatSessionId: string,
-    images: Array<{ base64: string; mediaType: string }>,
-  ): Promise<
-    Array<{ storage_path: string; media_type: string; file_size: number }>
-  > {
-    try {
-      baseLogger.consoleLogDevOnly("info", "Uploading chat images to storage", {
-        prototypeId,
-        chatSessionId,
-        imageCount: images.length,
-      });
+export async function uploadChatImages(
+  supabaseClientService: SupabaseClientService,
+  prototypeId: string,
+  chatSessionId: string,
+  images: Array<{ base64: string; mediaType: string }>,
+): Promise<
+  Array<{ storage_path: string; media_type: string; file_size: number }>
+> {
+  try {
+    baseLogger.consoleLogDevOnly("info", "Uploading chat images to storage", {
+      prototypeId,
+      chatSessionId,
+      imageCount: images.length,
+    });
 
-      const uploadedImageMetadata: Array<{
-        storage_path: string;
-        media_type: string;
-        file_size: number;
-      }> = [];
+    const uploadedImageMetadata: Array<{
+      storage_path: string;
+      media_type: string;
+      file_size: number;
+    }> = [];
 
-      // Process and upload each image
-      for (let i = 0; i < images.length; i++) {
-        const image = images[i];
-        try {
-          // Resize and optimize image
-          const processed = await processImage(image.base64, image.mediaType);
+    for (let i = 0; i < images.length; i++) {
+      const image = images[i];
+      try {
+        const processed = await processImage(image.base64, image.mediaType);
 
-          // Generate unique filename: timestamp_uuid.ext
-          const timestamp = Date.now();
-          const uuid = Math.random().toString(36).substring(2, 15);
-          const filename = `${timestamp}_${uuid}.${processed.extension}`;
-          const storagePath = `${prototypeId}/chat/${chatSessionId}/${filename}`;
+        const timestamp = Date.now();
+        const uuid = Math.random().toString(36).substring(2, 15);
+        const filename = `${timestamp}_${uuid}.${processed.extension}`;
+        const storagePath = `${prototypeId}/chat/${chatSessionId}/${filename}`;
 
-          // Upload to Supabase Storage
-          const supabase = this.supabaseClientService.getClient();
-          const { error: uploadError } = await supabase.storage
-            .from("chat-images")
-            .upload(storagePath, processed.buffer, {
-              contentType: processed.mediaType,
-              upsert: false,
-            });
-
-          if (uploadError) {
-            throw uploadError;
-          }
-
-          uploadedImageMetadata.push({
-            storage_path: storagePath,
-            media_type: processed.mediaType,
-            file_size: processed.buffer.length,
+        const { error: uploadError } = await supabaseClientService
+          .getClient()
+          .storage.from("chat-images")
+          .upload(storagePath, processed.buffer, {
+            contentType: processed.mediaType,
+            upsert: false,
           });
 
-          baseLogger.consoleLogDevOnly("debug", "Uploaded chat image", {
-            storagePath,
-            mediaType: processed.mediaType,
-            fileSize: processed.buffer.length,
-          });
-        } catch (error) {
-          baseLogger.error(
-            error instanceof Error ? error : new Error(String(error)),
-            `Failed to upload image ${i + 1}/${images.length}`,
-            { prototypeId, chatSessionId },
-          );
-          // Continue with other images even if one fails
+        if (uploadError) {
+          throw uploadError;
         }
+
+        uploadedImageMetadata.push({
+          storage_path: storagePath,
+          media_type: processed.mediaType,
+          file_size: processed.buffer.length,
+        });
+
+        baseLogger.consoleLogDevOnly("debug", "Uploaded chat image", {
+          storagePath,
+          mediaType: processed.mediaType,
+          fileSize: processed.buffer.length,
+        });
+      } catch (error) {
+        baseLogger.error(
+          error instanceof Error ? error : new Error(String(error)),
+          `Failed to upload image ${i + 1}/${images.length}`,
+          { prototypeId, chatSessionId },
+        );
       }
-
-      baseLogger.consoleLogDevOnly("info", "Chat images upload completed", {
-        prototypeId,
-        chatSessionId,
-        successCount: uploadedImageMetadata.length,
-        totalCount: images.length,
-      });
-
-      return uploadedImageMetadata;
-    } catch (error) {
-      baseLogger.error(
-        error instanceof Error ? error : new Error(String(error)),
-        "Failed to upload chat images",
-        { prototypeId, chatSessionId },
-      );
-      // Return empty array on error - we don't want to fail the entire query if image upload fails
-      return [];
     }
+
+    baseLogger.consoleLogDevOnly("info", "Chat images upload completed", {
+      prototypeId,
+      chatSessionId,
+      successCount: uploadedImageMetadata.length,
+      totalCount: images.length,
+    });
+
+    return uploadedImageMetadata;
+  } catch (error) {
+    baseLogger.error(
+      error instanceof Error ? error : new Error(String(error)),
+      "Failed to upload chat images",
+      { prototypeId, chatSessionId },
+    );
+    return [];
   }
 }

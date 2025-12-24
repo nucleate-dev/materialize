@@ -1,4 +1,3 @@
-import { Database } from "../../types/supabase.js";
 import { baseLogger } from "../../worker.js";
 import { SupabaseClientService } from "../SupabaseClientService.js";
 
@@ -76,9 +75,9 @@ export class ClaudeTokenService {
             await this.supabaseClientService
               .getClient()
               .from("user_claude_tokens")
-            .select("id, is_valid, user_id")
-            .eq("user_id", userId)
-            .maybeSingle();
+              .select("id, is_valid, user_id")
+              .eq("user_id", userId)
+              .maybeSingle();
 
           if (checkError) {
             baseLogger.error(

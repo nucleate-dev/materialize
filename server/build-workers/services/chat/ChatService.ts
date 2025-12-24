@@ -37,9 +37,11 @@ import {
 } from "./chat-engines/chat-engine.js";
 import { ChatQueryHandler } from "./chat-engines/chat-query-handler.js";
 import { ClaudeCodeCliQueryHandler } from "./chat-engines/claude-code-cli-query-handler.js";
-import { MessagePersistenceService } from "./helpers/message-handlers.js";
+import {
+  persistChatMessage,
+  uploadChatImages,
+} from "./helpers/message-handlers.js";
 import { ChatProvider, isAllowedModel } from "./helpers/model-providers.js";
-import { ToolPermissionService } from "./helpers/tool-permission-service.js";
 import { getSystemPromptForDesignStyle } from "./prompts/ClaudeCodePrompts.js";
 import { costFunctionV3 } from "./cost/cost-calculation.js";
 import { trackApiUsageBuildWorker } from "./cost/usage-tracking.js";
@@ -82,9 +84,7 @@ export class ChatService {
   private readonly sandboxService: SandboxService;
   private readonly devServerService: NucleateDevelopmentServerService;
   private readonly fileSyncService: FileSyncService;
-  private readonly toolPermissionService: ToolPermissionService;
 
-  private readonly messagePersistenceService: MessagePersistenceService;
   private readonly chatQueryHandler: ChatEngine;
   private readonly claudeCodeCliQueryHandler: ChatEngine;
   private readonly claudeTokenService: ClaudeTokenService;
@@ -117,18 +117,12 @@ export class ChatService {
     this.fileSyncService = fileSyncService;
     this.sandboxService = sandboxService;
     this.devServerService = devServerService;
-    this.toolPermissionService = new ToolPermissionService(ALLOWED_ROOT);
-
-    // Initialize MessagePersistenceService
-    this.messagePersistenceService = new MessagePersistenceService(
-      supabaseClientService,
-    );
 
     // Initialize ChatQueryHandler
     this.chatQueryHandler = new ChatQueryHandler(
       supabaseClientService,
       this.fileSyncService,
-      this.toolPermissionService,
+      ALLOWED_ROOT,
       sandboxService,
       devServerService,
       terminalService,
@@ -140,7 +134,7 @@ export class ChatService {
     // Always initialize ClaudeCodeCliQueryHandler - will be used if user has a token
     this.claudeCodeCliQueryHandler = new ClaudeCodeCliQueryHandler(
       supabaseClientService,
-      this.toolPermissionService,
+      ALLOWED_ROOT,
       devServerService,
     );
 
@@ -586,7 +580,8 @@ export class ChatService {
               baseLogger.warn("Cannot persist message - no chat session ID");
               return;
             }
-            await this.messagePersistenceService.persistMessage(
+            await persistChatMessage(
+              this.supabaseClientService,
               this.sessionState.prototypeChatSessionId,
               role,
               content,
@@ -608,7 +603,8 @@ export class ChatService {
             chatSessionId: string,
             images: Array<{ base64: string; mediaType: string }>,
           ) => {
-            return await this.messagePersistenceService.uploadChatImages(
+            return await uploadChatImages(
+              this.supabaseClientService,
               prototypeId,
               chatSessionId,
               images,
@@ -754,8 +750,9 @@ export class ChatService {
         );
 
         // Persist interrupt event to database
-        if (this.sessionState.prototypeChatSessionId) {
-          await this.messagePersistenceService.persistMessage(
+          if (this.sessionState.prototypeChatSessionId) {
+          await persistChatMessage(
+            this.supabaseClientService,
             this.sessionState.prototypeChatSessionId,
             "system",
             "Query interrupted by user",

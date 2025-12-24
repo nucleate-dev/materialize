@@ -5,7 +5,7 @@ import { SystemLogger } from "../../../loggers/SystemLogger.js";
 import { ChatEvent } from "../../../types/ChatTypes.js";
 import { SupabaseClientService } from "../../SupabaseClientService.js";
 import { getToolDisplayName } from "../helpers/message-handlers.js";
-import { ToolPermissionService } from "../helpers/tool-permission-service.js";
+import { evaluateToolPermission } from "../helpers/tool-permission-service.js";
 import { baseLogger, WORK_DIR } from "../../../worker.js";
 import { NucleateDevelopmentServerService } from "../../dev-server/NucleateDevelopmentServerService.js";
 import {
@@ -70,17 +70,17 @@ type ToolInput = Record<string, unknown>;
  */
 export class ClaudeCodeCliQueryHandler implements ChatEngine {
   private readonly supabaseClientService: SupabaseClientService;
-  private readonly toolPermissionService: ToolPermissionService;
+  private readonly allowedRoot: string;
   private readonly devServerService: NucleateDevelopmentServerService;
   private sessionState: SessionState;
 
   constructor(
     supabaseClientService: SupabaseClientService,
-    toolPermissionService: ToolPermissionService,
+    allowedRoot: string,
     devServerService: NucleateDevelopmentServerService,
   ) {
     this.supabaseClientService = supabaseClientService;
-    this.toolPermissionService = toolPermissionService;
+    this.allowedRoot = allowedRoot;
     this.devServerService = devServerService;
     this.sessionState = {
       modifiedFilesThisQuery: new Set(),
@@ -395,7 +395,8 @@ export class ClaudeCodeCliQueryHandler implements ChatEngine {
     baseLogger.debug(`PreToolUse: ${toolName}`, { toolUseId, toolInput });
 
     // 1. Evaluate tool permission (monitoring only in CLI mode)
-    const permission = this.toolPermissionService.evaluateToolPermission(
+    const permission = evaluateToolPermission(
+      this.allowedRoot,
       toolName as ToolName,
       toolInput as ToolInput,
     );

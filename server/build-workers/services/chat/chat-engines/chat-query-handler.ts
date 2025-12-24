@@ -38,7 +38,7 @@ import {
   CURRENT_COST_FUNCTION_NAME,
 } from "../cost/cost-calculation.js";
 import { getToolDisplayName } from "../helpers/message-handlers.js";
-import { ToolPermissionService } from "../helpers/tool-permission-service.js";
+import { evaluateToolPermission } from "../helpers/tool-permission-service.js";
 import { createDesignToolsMcpServer } from "../mcp/mcp-design-tools.js";
 import { createDevelopmentToolsMcpServer } from "../mcp/mcp-dev-tools.js";
 import {
@@ -126,7 +126,7 @@ export class ChatQueryHandler implements ChatEngine {
 
   private readonly supabaseClientService: SupabaseClientService;
   private readonly fileSyncService: FileSyncService;
-  private readonly toolPermissionService: ToolPermissionService;
+  private readonly allowedRoot: string;
   private readonly sandboxService: SandboxService;
   private readonly devServerService: NucleateDevelopmentServerService;
   private readonly terminalService: TerminalService;
@@ -136,14 +136,14 @@ export class ChatQueryHandler implements ChatEngine {
   constructor(
     supabaseClientService: SupabaseClientService,
     fileSyncService: FileSyncService,
-    toolPermissionService: ToolPermissionService,
+    allowedRoot: string,
     sandboxService: SandboxService,
     devServerService: NucleateDevelopmentServerService,
     terminalService: TerminalService,
   ) {
     this.supabaseClientService = supabaseClientService;
     this.fileSyncService = fileSyncService;
-    this.toolPermissionService = toolPermissionService;
+    this.allowedRoot = allowedRoot;
     this.sandboxService = sandboxService;
     this.devServerService = devServerService;
     this.terminalService = terminalService;
@@ -843,7 +843,7 @@ export class ChatQueryHandler implements ChatEngine {
       input: ToolInput,
       _options: unknown,
     ): Promise<PermissionResult> => {
-      return this.toolPermissionService.evaluateToolPermission(toolName, input);
+      return evaluateToolPermission(this.allowedRoot, toolName, input);
     };
 
     const allowedToolsDefault = [
@@ -1146,7 +1146,8 @@ export class ChatQueryHandler implements ChatEngine {
             input.tool_input,
           )}`,
         );
-        const permission = this.toolPermissionService.evaluateToolPermission(
+        const permission = evaluateToolPermission(
+          this.allowedRoot,
           input.tool_name as ToolName,
           (input.tool_input ?? {}) as ToolInput,
         );
