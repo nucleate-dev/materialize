@@ -42,7 +42,6 @@ import {
   costFunctionV3,
   CURRENT_COST_FUNCTION_NAME,
 } from "../cost/cost-calculation.js";
-import { trackApiUsageBuildWorker } from "../cost/usage-tracking.js";
 import { getToolDisplayName } from "../helpers/message-handlers.js";
 import { ToolPermissionService } from "../helpers/tool-permission-service.js";
 import { createDesignToolsMcpServer } from "../mcp/mcp-design-tools.js";
@@ -56,6 +55,7 @@ import {
   ChatEngineContext,
   ChatEngineMessageHandlers,
   ChatEngineSessionState,
+  ChatEngineResult,
 } from "./chat-engine.js";
 
 const HISTORY_MESSAGE_REQUEST_COUNT = 6;
@@ -109,6 +109,7 @@ interface HookContext {
   socket: WebSocket;
   sessionState?: ChatEngineSessionState;
   flushAssistantBuffer?: () => Promise<void>;
+  getRelativePath?: (path: string) => string;
 }
 
 /**
@@ -172,7 +173,7 @@ export class ChatQueryHandler implements ChatEngine {
   public async handleQuery(
     context: ChatEngineContext,
     handlers: ChatEngineMessageHandlers,
-  ): Promise<void> {
+  ): Promise<ChatEngineResult | void> {
     const { prototypeId, socket, data, sessionState, logger } = context;
     const { prompt, content, token, ai_chat_session_id, design_style } = data;
     const framework = this.devServerService.prototypeFramework;
@@ -411,22 +412,11 @@ export class ChatQueryHandler implements ChatEngine {
         totalCostUsd,
       });
 
-      // Run git add/commit before syncing usage data
-      await this.commitChatChangesToGit(data, logger);
-
-      // Step 7: Sync files and track usage
-      await this.syncAndTrackUsage(
-        prototypeId,
-        socket,
-        sessionState,
-        totalCostUsd,
-        handlers.sendMessage,
-        logger,
-      );
-
-      // Step 8: Invalidate build after chat ends
+      // Step 7: Invalidate build after chat ends
       this.devServerService.developmentServerState.lastUpdatedTime = new Date();
     }
+
+    return { totalCostUsd };
   }
 
   /**
@@ -1005,6 +995,7 @@ export class ChatQueryHandler implements ChatEngine {
                   toolUseID,
                   socket,
                   flushAssistantBuffer,
+                  getRelativePath: context.getRelativePath,
                 };
                 return this.handlePreToolUseHook(hookContext, handlers, logger);
               },
@@ -1024,6 +1015,7 @@ export class ChatQueryHandler implements ChatEngine {
                   toolUseID,
                   socket,
                   sessionState,
+                  getRelativePath: context.getRelativePath,
                 };
                 return this.handlePostToolUseHook(
                   hookContext,
@@ -1282,7 +1274,8 @@ export class ChatQueryHandler implements ChatEngine {
           }
 
           if (filePath && sessionState) {
-            const relativePath = this.getRelativePath(filePath);
+            const resolver = hookContext.getRelativePath;
+            const relativePath = resolver ? resolver(filePath) : filePath;
             // Track for query-level reporting
             sessionState.modifiedFilesThisQuery.add(relativePath);
           }
@@ -1585,248 +1578,3 @@ export class ChatQueryHandler implements ChatEngine {
   /**
    * Runs git add/commit with the latest user message so we can diff work between queries
    */
-  private async commitChatChangesToGit(
-    data: ChatQueryData,
-    logger: SystemLogger,
-  ): Promise<void> {
-    const commitMessageArg = this.buildCommitMessageArg(data);
-    if (!commitMessageArg) {
-      logger.consoleLogDevOnly(
-        "info",
-        "Skipping git commit after chat - no commit message available",
-      );
-      return;
-    }
-
-    try {
-      const { response } = await this.sandboxService.runCommandInternal({
-        command: "git",
-        args: ["add", ".", "&&", "git", "commit", "-m", commitMessageArg],
-        cwd: WORK_DIR,
-        session_id: "test",
-        timeout_ms: 60000,
-        strip_ansi: true,
-      });
-
-      if (response.error) {
-        logger.warn("Git commit after chat failed", {
-          error: response.error,
-        });
-        return;
-      }
-
-      const stdout = response.data?.stdout ?? "";
-      const status = response.data?.status;
-
-      if (
-        status === "timeout" &&
-        stdout.toLowerCase().includes("nothing to commit")
-      ) {
-        logger.consoleLogDevOnly(
-          "info",
-          "No git changes to commit after chat execution",
-        );
-        return;
-      }
-
-      logger.consoleLogDevOnly("info", "Committed chat changes to git", {
-        status,
-      });
-    } catch (error) {
-      logger.error(
-        error instanceof Error ? error : new Error(String(error)),
-        "Failed to commit chat changes after execution",
-      );
-    }
-  }
-
-  /**
-   * Builds a sanitized commit message argument from the user message
-   */
-  private buildCommitMessageArg(data: ChatQueryData): string | null {
-    const userMessage = this.extractCommitMessageText(data);
-    const normalized = userMessage.replace(/\s+/g, " ").trim();
-    const baseMessage =
-      normalized.length > 0 ? normalized : "Automated chat commit";
-    const truncated =
-      baseMessage.length > 180
-        ? `${baseMessage.slice(0, 177)}...`
-        : baseMessage;
-
-    // Escape characters that would be interpreted by the shell
-    const escaped = truncated
-      .replace(/\\/g, "\\\\")
-      .replace(/"/g, '\\"')
-      .replace(/\$/g, "\\$")
-      .replace(/`/g, "\\`");
-
-    if (!escaped.trim()) {
-      return null;
-    }
-
-    return `"${escaped}"`;
-  }
-
-  /**
-   * Extracts the user message text used for commit messages
-   */
-  private extractCommitMessageText(data: ChatQueryData): string {
-    if (typeof data.prompt === "string" && data.prompt.length > 0) {
-      return data.prompt;
-    }
-
-    if (Array.isArray(data.content)) {
-      const text = data.content
-        .filter((block) => block.type === "text")
-        .map((block) => block.text || "")
-        .join(" ")
-        .trim();
-      if (text) {
-        return text;
-      }
-    }
-
-    return "";
-  }
-
-  /**
-   * Syncs files and tracks usage after query completion
-   */
-  private async syncAndTrackUsage(
-    prototypeId: string,
-    socket: WebSocket,
-    sessionState: ChatEngineSessionState,
-    totalCostUsd: number | undefined,
-    sendMessage: (socket: WebSocket, message: ChatServerMessage) => void,
-    logger: SystemLogger,
-  ): Promise<void> {
-    // Sync file changes to Supabase
-    try {
-      logger.consoleLogDevOnly(
-        "info",
-        "Syncing file changes to Supabase (incremental sync)",
-        {
-          prototypeId,
-        },
-      );
-      const syncResult = await this.fileSyncService.syncFilesToSupabase(
-        prototypeId,
-        "tracked",
-      );
-
-      if (syncResult.success) {
-        logger.consoleLogDevOnly("info", "File sync completed successfully", {
-          prototypeId,
-          filesUpdated: syncResult.filesUpdated,
-          filesDeleted: syncResult.filesDeleted,
-          assetsUpdated: syncResult.assetsUpdated,
-          assetsDeleted: syncResult.assetsDeleted,
-        });
-      } else {
-        logger.error(
-          new Error("File sync completed with errors"),
-          "File sync had errors",
-          {
-            prototypeId,
-            errorCount: syncResult.errors.length,
-            errors: syncResult.errors,
-          },
-        );
-      }
-    } catch (syncError) {
-      logger.error(
-        syncError instanceof Error ? syncError : new Error(String(syncError)),
-        "Failed to sync files to Supabase",
-        { prototypeId },
-      );
-    }
-
-    // Emit modified files list
-    const modifiedFiles = Array.from(sessionState.modifiedFilesThisQuery);
-    if (modifiedFiles.length > 0) {
-      try {
-        sendMessage(socket, {
-          type: ChatEvent.MODIFIED_FILES,
-          data: { files: modifiedFiles },
-        });
-      } catch (modifiedFilesError) {
-        logger.error(
-          modifiedFilesError instanceof Error
-            ? modifiedFilesError
-            : new Error(String(modifiedFilesError)),
-          "Failed to send modified files event",
-          { prototypeId },
-        );
-      }
-    }
-    sessionState.modifiedFilesThisQuery.clear();
-
-    // Track API usage
-    try {
-      const {
-        data: { user },
-        error: userError,
-      } = await this.supabaseClientService.getClient().auth.getUser();
-
-      if (userError || !user) {
-        logger.warn("Unable to track API usage - no authenticated user", {
-          prototypeId,
-          error: userError,
-        });
-      } else {
-        // Calculate credits used using the shared cost calculation function
-        const creditsUsed = costFunctionV3(totalCostUsd) ?? 1.0;
-
-        logger.consoleLogDevOnly("info", "Tracking API usage", {
-          userId: user.id,
-          prototypeId,
-          totalCostUsd,
-          creditsUsed,
-        });
-
-        const { totalRemainingCredits } = await trackApiUsageBuildWorker(
-          this.supabaseClientService.getClient(),
-          user.id,
-          prototypeId,
-          logger,
-          creditsUsed,
-        );
-
-        // Send updated credits to client
-        sendMessage(socket, {
-          type: ChatEvent.USAGE_UPDATE,
-          data: {
-            creditsUsed: creditsUsed,
-            creditsRemaining: totalRemainingCredits,
-          },
-        });
-
-        logger.consoleLogDevOnly("info", "API usage tracked successfully", {
-          userId: user.id,
-          prototypeId,
-          totalCostUsd,
-          creditsUsed,
-          totalRemainingCredits,
-        });
-      }
-    } catch (usageError) {
-      logger.error(
-        usageError instanceof Error
-          ? usageError
-          : new Error(String(usageError)),
-        "Failed to track API usage",
-        { prototypeId },
-      );
-    }
-  }
-
-  /**
-   * Converts absolute file path to relative path from workDir
-   */
-  private getRelativePath(absolutePath: string): string {
-    if (absolutePath.startsWith(WORK_DIR)) {
-      return absolutePath.slice(WORK_DIR.length + 1);
-    }
-    return absolutePath;
-  }
-}

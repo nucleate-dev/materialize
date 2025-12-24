@@ -7,16 +7,14 @@ import { SupabaseClientService } from "../../SupabaseClientService.js";
 import { getToolDisplayName } from "../helpers/message-handlers.js";
 import { ToolPermissionService } from "../helpers/tool-permission-service.js";
 import { baseLogger, WORK_DIR } from "../../../worker.js";
-import {
-  DEFAULT_PROTOTYPE_FRAMEWORK,
-  NucleateDevelopmentServerService,
-} from "../../dev-server/NucleateDevelopmentServerService.js";
+import { NucleateDevelopmentServerService } from "../../dev-server/NucleateDevelopmentServerService.js";
 import {
   ChatEngine,
   ChatEngineContext,
   ChatEngineMessageHandlers,
   ChatEngineSessionState,
   CliAuthEnvironment,
+  ChatEngineResult,
 } from "./chat-engine.js";
 
 // CLI message types from --output-format stream-json
@@ -96,14 +94,10 @@ export class ClaudeCodeCliQueryHandler implements ChatEngine {
   async handleQuery(
     context: ChatEngineContext,
     handlers: ChatEngineMessageHandlers,
-  ): Promise<void> {
+  ): Promise<ChatEngineResult | void> {
     const { socket, data, sessionState, logger, cliAuthEnv, designContext } =
       context;
     const { sendMessage } = handlers;
-    const framework =
-      this.devServerService.prototypeFramework ?? DEFAULT_PROTOTYPE_FRAMEWORK;
-
-    let queryTextForCommit = "";
     if (!cliAuthEnv) {
       sendMessage(socket, {
         type: ChatEvent.ERROR,
@@ -119,6 +113,7 @@ export class ClaudeCodeCliQueryHandler implements ChatEngine {
 
       // Reset session state for new query
       this.sessionState.modifiedFilesThisQuery.clear();
+      sessionState.modifiedFilesThisQuery.clear();
       this.sessionState.pendingToolCalls.clear();
 
       // Get the query text - support both old format (prompt) and new format (content)
@@ -136,8 +131,6 @@ export class ClaudeCodeCliQueryHandler implements ChatEngine {
       if (!queryText) {
         throw new Error("No query provided");
       }
-
-      queryTextForCommit = queryText;
 
       // Spawn CLI process
       const cliProcess = this.spawnCliProcess(
@@ -177,11 +170,11 @@ export class ClaudeCodeCliQueryHandler implements ChatEngine {
         },
       });
     } finally {
-      await this.commitChatChangesToGit(queryTextForCommit, logger);
-
       // Clear abort controller
       sessionState.abortController = null;
     }
+
+    return {};
   }
 
   /**
@@ -489,8 +482,9 @@ export class ClaudeCodeCliQueryHandler implements ChatEngine {
           .file_path || (toolInput as { notebook_path?: string }).notebook_path;
 
       if (filePath) {
-        const relativePath = this.getRelativePath(filePath);
+        const relativePath = context.getRelativePath(filePath);
         this.sessionState.modifiedFilesThisQuery.add(relativePath);
+        context.sessionState.modifiedFilesThisQuery.add(relativePath);
         baseLogger.debug("File modified", { relativePath });
       }
     }
@@ -537,8 +531,6 @@ export class ClaudeCodeCliQueryHandler implements ChatEngine {
     const { sendMessage } = handlers;
     const { sessionState } = context;
 
-    const modifiedFiles = Array.from(this.sessionState.modifiedFilesThisQuery);
-
     // Update session ID from CLI output
     if (message.session_id) {
       sessionState.sessionId = message.session_id;
@@ -551,16 +543,6 @@ export class ClaudeCodeCliQueryHandler implements ChatEngine {
         sessionId: message.session_id || null,
       },
     });
-
-    // Send modified files if any
-    if (modifiedFiles.length > 0) {
-      sendMessage(socket, {
-        type: ChatEvent.MODIFIED_FILES,
-        data: {
-          files: modifiedFiles,
-        },
-      });
-    }
 
     // Reset session state for next query
     this.sessionState.modifiedFilesThisQuery.clear();
@@ -664,93 +646,3 @@ export class ClaudeCodeCliQueryHandler implements ChatEngine {
       );
     }
   }
-
-  /**
-   * Get relative path from absolute path
-   */
-  private getRelativePath(absolutePath: string): string {
-    if (absolutePath.startsWith(WORK_DIR)) {
-      return absolutePath.slice(WORK_DIR.length).replace(/^\//, "");
-    }
-    return absolutePath;
-  }
-
-  /**
-   * Runs git add/commit after chat execution completes
-   */
-  private async commitChatChangesToGit(
-    userMessage: string,
-    logger: SystemLogger,
-  ): Promise<void> {
-    const commitMessageArg = this.buildCommitMessageArg(userMessage || "");
-    if (!commitMessageArg) {
-      return;
-    }
-
-    try {
-      const { response } =
-        await this.devServerService.sandboxService.runCommandInternal({
-          command: "git",
-          args: ["add", ".", "&&", "git", "commit", "-m", commitMessageArg],
-          cwd: WORK_DIR,
-          session_id: "test",
-          timeout_ms: 60000,
-          strip_ansi: true,
-        });
-
-      if (response.error) {
-        logger.warn("CLI git commit after chat failed", {
-          error: response.error,
-        });
-        return;
-      }
-
-      const stdout = response.data?.stdout ?? "";
-      if (
-        response.data?.status === "timeout" &&
-        stdout.toLowerCase().includes("nothing to commit")
-      ) {
-        logger.consoleLogDevOnly(
-          "info",
-          "CLI git commit skipped - nothing to commit",
-        );
-        return;
-      }
-
-      logger.consoleLogDevOnly(
-        "info",
-        "CLI chat changes committed to git successfully",
-      );
-    } catch (error) {
-      logger.error(
-        error instanceof Error ? error : new Error(String(error)),
-        "Failed to commit CLI chat changes",
-      );
-    }
-  }
-
-  /**
-   * Sanitizes user message for use in git commit -m arguments
-   */
-  private buildCommitMessageArg(userMessage: string): string | null {
-    const normalized = userMessage.replace(/\s+/g, " ").trim();
-    const baseMessage =
-      normalized.length > 0 ? normalized : "Automated chat commit";
-    const truncated =
-      baseMessage.length > 180
-        ? `${baseMessage.slice(0, 177)}...`
-        : baseMessage;
-
-    const escaped = truncated
-      .replace(/\\/g, "\\\\")
-      .replace(/"/g, '\\"')
-      .replace(/\$/g, "\\$")
-      .replace(/`/g, "\\`");
-
-    if (!escaped.trim()) {
-      return null;
-    }
-
-    return `"${escaped}"`;
-  }
-}

@@ -40,6 +40,7 @@ export interface ChatEngineContext {
   cliAuthEnv?: CliAuthEnvironment | null;
   designContext?: DesignContextInfo;
   isFirstMessage?: boolean;
+  getRelativePath: (absolutePath: string) => string;
 }
 
 export interface ChatEngineMessageHandlers {
@@ -65,9 +66,13 @@ export interface ChatEngineMessageHandlers {
   updatePersistenceClient?: (client: unknown) => void;
 }
 
+export interface ChatEngineResult {
+  totalCostUsd?: number;
+}
+
 export interface ChatEngine {
   handleQuery(
     context: ChatEngineContext,
     handlers: ChatEngineMessageHandlers,
-  ): Promise<void>;
+  ): Promise<ChatEngineResult | void>;
 }

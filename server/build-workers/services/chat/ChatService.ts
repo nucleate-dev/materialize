@@ -33,6 +33,7 @@ import {
   ChatEngineSessionState,
   CliAuthEnvironment,
   DesignContextInfo,
+  ChatEngineResult,
 } from "./chat-engines/chat-engine.js";
 import { ChatQueryHandler } from "./chat-engines/chat-query-handler.js";
 import { ClaudeCodeCliQueryHandler } from "./chat-engines/claude-code-cli-query-handler.js";
@@ -40,6 +41,8 @@ import { MessagePersistenceService } from "./helpers/message-handlers.js";
 import { ChatProvider, isAllowedModel } from "./helpers/model-providers.js";
 import { ToolPermissionService } from "./helpers/tool-permission-service.js";
 import { getSystemPromptForDesignStyle } from "./chat-engines/prompts/ClaudeCodePrompts.js";
+import { costFunctionV3 } from "./chat-engines/cost/cost-calculation.js";
+import { trackApiUsageBuildWorker } from "./chat-engines/cost/usage-tracking.js";
 import { hasRemainingCredits } from "../../utils/credit-checks.js";
 
 const CHAT_HEARTBEAT_INTERVAL_MS = 15000;
@@ -78,6 +81,7 @@ export class ChatService {
   private readonly supabaseClientService: SupabaseClientService;
   private readonly fileSyncService: FileSyncService;
   private readonly toolPermissionService: ToolPermissionService;
+  private readonly sandboxService: SandboxService;
   private readonly devServerService: NucleateDevelopmentServerService;
   private readonly messagePersistenceService: MessagePersistenceService;
   private readonly chatQueryHandler: ChatEngine;
@@ -111,6 +115,7 @@ export class ChatService {
     this.allowedRoot = path.resolve("/tmp/materialize-dev-server");
     this.supabaseClientService = supabaseClientService;
     this.fileSyncService = fileSyncService;
+    this.sandboxService = sandboxService;
     this.devServerService = devServerService;
     this.toolPermissionService = new ToolPermissionService(this.allowedRoot);
 
@@ -530,8 +535,7 @@ export class ChatService {
     }
 
     this.prepareSessionStateForQuery(data, logger);
-
-    const framework = this.devServerService.prototypeFramework;
+    const framework = this.devServerService.prototypeFramework ?? null;
     const designContext = await this.loadDesignSystemContext(
       logger,
       data.custom_design_system_id ?? null,
@@ -577,8 +581,9 @@ export class ChatService {
       return;
     }
 
+    let handlerResult: ChatEngineResult | void;
     try {
-      await handler.handleQuery(
+      handlerResult = await handler.handleQuery(
         {
           prototypeId,
           socket,
@@ -590,6 +595,7 @@ export class ChatService {
           cliAuthEnv,
           designContext,
           isFirstMessage,
+          getRelativePath: this.getRelativePath.bind(this),
         },
         {
           sendMessage: this.sendMessage.bind(this),
@@ -644,6 +650,21 @@ export class ChatService {
         },
       );
     } finally {
+      try {
+        await this.finalizeChatExecution(
+          prototypeId,
+          socket,
+          data,
+          handlerResult?.totalCostUsd,
+          logger,
+        );
+      } catch (error) {
+        logger.error(
+          error instanceof Error ? error : new Error(String(error)),
+          "Failed to complete post-run bookkeeping",
+          { prototypeId },
+        );
+      }
       if (chatStarted) {
         try {
           await this.notifyOrchestrationEndChat(prototypeId);
@@ -985,6 +1006,258 @@ export class ChatService {
         errorDetails: error instanceof Error ? error.message : String(error),
       };
     }
+  }
+
+  private async finalizeChatExecution(
+    prototypeId: string,
+    socket: WebSocket,
+    data: ChatQueryData,
+    totalCostUsd: number | undefined,
+    logger: SystemLogger,
+  ): Promise<void> {
+    try {
+      await this.commitChatChangesToGit(data, logger);
+    } catch (error) {
+      logger.error(
+        error instanceof Error ? error : new Error(String(error)),
+        "Failed to commit chat changes",
+        { prototypeId },
+      );
+    }
+
+    await this.syncFilesAndTrackUsage(
+      prototypeId,
+      socket,
+      this.sessionState,
+      totalCostUsd,
+      logger,
+    );
+  }
+
+  private async commitChatChangesToGit(
+    data: ChatQueryData,
+    logger: SystemLogger,
+  ): Promise<void> {
+    const commitMessageArg = this.buildCommitMessageArg(data);
+    if (!commitMessageArg) {
+      logger.consoleLogDevOnly(
+        "info",
+        "Skipping git commit after chat - no commit message available",
+      );
+      return;
+    }
+
+    try {
+      const { response } = await this.sandboxService.runCommandInternal({
+        command: "git",
+        args: ["add", ".", "&&", "git", "commit", "-m", commitMessageArg],
+        cwd: WORK_DIR,
+        session_id: "chat-service",
+        timeout_ms: 60000,
+        strip_ansi: true,
+      });
+
+      if (response.error) {
+        logger.warn("Git commit after chat failed", {
+          error: response.error,
+        });
+        return;
+      }
+
+      const stdout = response.data?.stdout ?? "";
+      const status = response.data?.status;
+
+      if (
+        status === "timeout" &&
+        stdout.toLowerCase().includes("nothing to commit")
+      ) {
+        logger.consoleLogDevOnly(
+          "info",
+          "No git changes to commit after chat execution",
+        );
+        return;
+      }
+
+      logger.consoleLogDevOnly("info", "Committed chat changes to git", {
+        status,
+      });
+    } catch (error) {
+      logger.error(
+        error instanceof Error ? error : new Error(String(error)),
+        "Failed to commit chat changes after execution",
+      );
+    }
+  }
+
+  private buildCommitMessageArg(data: ChatQueryData): string | null {
+    const userMessage = this.extractCommitMessageText(data);
+    const normalized = userMessage.replace(/\s+/g, " ").trim();
+    const baseMessage =
+      normalized.length > 0 ? normalized : "Automated chat commit";
+    const truncated =
+      baseMessage.length > 180
+        ? `${baseMessage.slice(0, 177)}...`
+        : baseMessage;
+
+    const escaped = truncated
+      .replace(/\\/g, "\\\\")
+      .replace(/"/g, '\\"')
+      .replace(/\$/g, "\\$")
+      .replace(/`/g, "\\`");
+
+    if (!escaped.trim()) {
+      return null;
+    }
+
+    return `"${escaped}"`;
+  }
+
+  private extractCommitMessageText(data: ChatQueryData): string {
+    if (typeof data.prompt === "string" && data.prompt.length > 0) {
+      return data.prompt;
+    }
+
+    if (Array.isArray(data.content)) {
+      const text = data.content
+        .filter((block) => block.type === "text")
+        .map((block) => block.text || "")
+        .join(" ")
+        .trim();
+      if (text) {
+        return text;
+      }
+    }
+
+    return "";
+  }
+
+  private async syncFilesAndTrackUsage(
+    prototypeId: string,
+    socket: WebSocket,
+    sessionState: CodeSessionState,
+    totalCostUsd: number | undefined,
+    logger: SystemLogger,
+  ): Promise<void> {
+    try {
+      logger.consoleLogDevOnly(
+        "info",
+        "Syncing file changes to Supabase (incremental sync)",
+        {
+          prototypeId,
+        },
+      );
+      const syncResult = await this.fileSyncService.syncFilesToSupabase(
+        prototypeId,
+        "tracked",
+      );
+
+      if (syncResult.success) {
+        logger.consoleLogDevOnly("info", "File sync completed successfully", {
+          prototypeId,
+          filesUpdated: syncResult.filesUpdated,
+          filesDeleted: syncResult.filesDeleted,
+          assetsUpdated: syncResult.assetsUpdated,
+          assetsDeleted: syncResult.assetsDeleted,
+        });
+      } else {
+        logger.error(
+          new Error("File sync completed with errors"),
+          "File sync had errors",
+          {
+            prototypeId,
+            errorCount: syncResult.errors.length,
+            errors: syncResult.errors,
+          },
+        );
+      }
+    } catch (syncError) {
+      logger.error(
+        syncError instanceof Error ? syncError : new Error(String(syncError)),
+        "Failed to sync files to Supabase",
+        { prototypeId },
+      );
+    }
+
+    const modifiedFiles = Array.from(sessionState.modifiedFilesThisQuery);
+    if (modifiedFiles.length > 0) {
+      try {
+        this.sendMessage(socket, {
+          type: ChatEvent.MODIFIED_FILES,
+          data: { files: modifiedFiles },
+        });
+      } catch (modifiedFilesError) {
+        logger.error(
+          modifiedFilesError instanceof Error
+            ? modifiedFilesError
+            : new Error(String(modifiedFilesError)),
+          "Failed to send modified files event",
+          { prototypeId },
+        );
+      }
+    }
+    sessionState.modifiedFilesThisQuery.clear();
+
+    try {
+      const {
+        data: { user },
+        error: userError,
+      } = await this.supabaseClientService.getClient().auth.getUser();
+
+      if (userError || !user) {
+        logger.warn("Unable to track API usage - no authenticated user", {
+          prototypeId,
+          error: userError,
+        });
+      } else {
+        const creditsUsed = costFunctionV3(totalCostUsd) ?? 1.0;
+
+        logger.consoleLogDevOnly("info", "Tracking API usage", {
+          userId: user.id,
+          prototypeId,
+          totalCostUsd,
+          creditsUsed,
+        });
+
+        const { totalRemainingCredits } = await trackApiUsageBuildWorker(
+          this.supabaseClientService.getClient(),
+          user.id,
+          prototypeId,
+          logger,
+          creditsUsed,
+        );
+
+        this.sendMessage(socket, {
+          type: ChatEvent.USAGE_UPDATE,
+          data: {
+            creditsUsed,
+            creditsRemaining: totalRemainingCredits,
+          },
+        });
+
+        logger.consoleLogDevOnly("info", "API usage tracked successfully", {
+          userId: user.id,
+          prototypeId,
+          totalCostUsd,
+          creditsUsed,
+          totalRemainingCredits,
+        });
+      }
+    } catch (usageError) {
+      logger.error(
+        usageError instanceof Error
+          ? usageError
+          : new Error(String(usageError)),
+        "Failed to track API usage",
+        { prototypeId },
+      );
+    }
+  }
+
+  private getRelativePath(absolutePath: string): string {
+    if (absolutePath.startsWith(WORK_DIR)) {
+      return absolutePath.slice(WORK_DIR.length + 1);
+    }
+    return absolutePath;
   }
 
   private prepareSessionStateForQuery(
