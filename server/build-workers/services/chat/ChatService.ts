@@ -28,6 +28,10 @@ import { FileSyncService } from "../FileSyncService.js";
 import { SandboxService } from "../SandboxService.js";
 import { SupabaseClientService } from "../SupabaseClientService.js";
 import { TerminalService } from "../terminals/TerminalService.js";
+import {
+  ChatEngine,
+  ChatEngineSessionState,
+} from "./chat-engines/chat-engine.js";
 import { ChatQueryHandler } from "./chat-engines/chat-query-handler.js";
 import { ClaudeCodeCliQueryHandler } from "./chat-engines/claude-code-cli-query-handler.js";
 import { MessagePersistenceService } from "./helpers/message-handlers.js";
@@ -49,18 +53,8 @@ class OrchestrationAPIError<TData = unknown> extends Error {
   }
 }
 
-interface CodeSessionState {
-  sessionId: string | null;
-  prototypeChatSessionId: string | null; // ID from prototype_chat_sessions table
-  isActive: boolean;
-  createdAt: number;
-  lastActiveAt: number;
-  abortController: AbortController | null;
+interface CodeSessionState extends ChatEngineSessionState {
   trackedFiles: Set<string>; // Track files that were modified during the session
-  modifiedFilesThisQuery: Set<string>; // Track files modified by tools for the current query
-  designSystemId: string | null; // ID of currently loaded design system
-  designSystemRules: string | null; // Cached design system rules
-  firstMessageStatus: { sessionId: string; isFirst: boolean; } | null; // Cache first-message detection
 }
 
 interface ChatConnection {
@@ -75,8 +69,8 @@ export class ChatService {
   private readonly fileSyncService: FileSyncService;
   private readonly toolPermissionService: ToolPermissionService;
   private readonly messagePersistenceService: MessagePersistenceService;
-  private readonly chatQueryHandler: ChatQueryHandler;
-  private readonly claudeCodeCliQueryHandler: ClaudeCodeCliQueryHandler;
+  private readonly chatQueryHandler: ChatEngine;
+  private readonly claudeCodeCliQueryHandler: ChatEngine;
   private readonly claudeTokenService: ClaudeTokenService;
   private sessionState: CodeSessionState = {
     sessionId: null,

@@ -52,21 +52,14 @@ import {
   getClaudeCodeDesignSubagentPrompt,
   getSystemPromptForDesignStyle,
 } from "../prompts/ClaudeCodePrompts.js";
+import {
+  ChatEngine,
+  ChatEngineContext,
+  ChatEngineMessageHandlers,
+  ChatEngineSessionState,
+} from "./chat-engine.js";
 
 const HISTORY_MESSAGE_REQUEST_COUNT = 6;
-
-interface CodeSessionState {
-  sessionId: string | null;
-  prototypeChatSessionId: string | null;
-  isActive: boolean;
-  createdAt: number;
-  lastActiveAt: number;
-  abortController: AbortController | null;
-  modifiedFilesThisQuery: Set<string>;
-  designSystemId: string | null;
-  designSystemRules: string | null;
-  firstMessageStatus: { sessionId: string; isFirst: boolean; } | null;
-}
 
 interface ToolInputWithFilePath {
   file_path?: string;
@@ -108,46 +101,12 @@ interface DesignAgentMetadata {
   scope: "app" | "screen" | "component" | "other" | "unknown";
 }
 
-interface QueryExecutionContext {
-  prototypeId: string;
-  socket: WebSocket;
-  data: ChatQueryData;
-  sessionState: CodeSessionState;
-  validAiChatSessionIds: Set<string>;
-  logger: SystemLogger;
-}
-
-interface MessageHandlers {
-  sendMessage: (socket: WebSocket, message: ChatServerMessage) => void;
-  persistMessage: (
-    role: "user" | "assistant" | "system",
-    content: string,
-    messageType: "text" | "tool_use" | "tool_result" | "error" | "system",
-    eventType?: string | null,
-    eventData?: unknown,
-    creditsUsed?: number | null,
-    costFunction?: string | null,
-    provider?: string | null,
-    model?: string | null,
-  ) => Promise<void>;
-  uploadChatImages: (
-    prototypeId: string,
-    chatSessionId: string,
-    images: Array<{ base64: string; mediaType: string; }>,
-  ) => Promise<
-    Array<{ storage_path: string; media_type: string; file_size: number; }>
-  >;
-  updatePersistenceClient?: (client: unknown) => void;
-  notifyOrchestrationStartChat: (prototypeId: string) => Promise<void>;
-  notifyOrchestrationEndChat: (prototypeId: string) => Promise<void>;
-}
-
 interface StreamContext {
   messageContent:
   | string
   | Array<{ type: string; text?: string; source?: unknown; }>;
   queryOptions: Options & { resume?: string; };
-  sessionState: CodeSessionState;
+  sessionState: ChatEngineSessionState;
   validAiChatSessionIds: Set<string>;
   socket: WebSocket;
   bufferState: {
@@ -161,7 +120,7 @@ interface HookContext {
   input: HookInput;
   toolUseID: string | undefined;
   socket: WebSocket;
-  sessionState?: CodeSessionState;
+  sessionState?: ChatEngineSessionState;
   flushAssistantBuffer?: () => Promise<void>;
 }
 
@@ -174,7 +133,7 @@ interface HookContext {
  * - File sync coordination
  * - Usage tracking
  */
-export class ChatQueryHandler {
+export class ChatQueryHandler implements ChatEngine {
   // Feature flags for MCP stream fix
   // When enabled, keeps the input stream open until the result message arrives
   // to prevent premature MCP server connection closure during multi-turn conversations
@@ -224,8 +183,8 @@ export class ChatQueryHandler {
    * Main entry point for handling a query request
    */
   public async handleQuery(
-    context: QueryExecutionContext,
-    handlers: MessageHandlers,
+    context: ChatEngineContext,
+    handlers: ChatEngineMessageHandlers,
   ): Promise<void> {
     const { prototypeId, socket, data, sessionState, logger } = context;
     const { prompt, content, token, ai_chat_session_id, design_style } = data;
@@ -607,7 +566,7 @@ export class ChatQueryHandler {
   private async authenticateWithToken(
     token: string,
     prototypeId: string,
-    handlers: MessageHandlers,
+    handlers: ChatEngineMessageHandlers,
     logger: SystemLogger,
   ): Promise<{
     success: boolean;
@@ -654,7 +613,7 @@ export class ChatQueryHandler {
    */
   private setupSessionState(
     data: ChatQueryData,
-    sessionState: CodeSessionState,
+    sessionState: ChatEngineSessionState,
     logger: SystemLogger,
   ): void {
     const { prototype_chat_session_id, ai_chat_session_id } = data;
@@ -698,7 +657,7 @@ export class ChatQueryHandler {
   private async loadDesignSystem(
     logger: SystemLogger,
     custom_design_system_id: string | null,
-    sessionState: CodeSessionState,
+    sessionState: ChatEngineSessionState,
     design_style: string | undefined,
     framework: string | undefined,
     _current_viewing_path: string | undefined,
@@ -861,7 +820,7 @@ export class ChatQueryHandler {
   private async isFirstMessage(
     prototypeId: string,
     prototypeChatSessionId: string,
-    sessionState: CodeSessionState,
+    sessionState: ChatEngineSessionState,
     logger: SystemLogger,
   ): Promise<boolean> {
     if (!prototypeChatSessionId) {
@@ -1035,9 +994,9 @@ export class ChatQueryHandler {
    * Executes the Claude query with hooks and streaming
    */
   private async executeClaudeQuery(
-    context: QueryExecutionContext,
+    context: ChatEngineContext,
     systemPromptAppend: string,
-    handlers: MessageHandlers,
+    handlers: ChatEngineMessageHandlers,
     logger: SystemLogger,
     framework: Database["public"]["Enums"]["prototype_framework"],
     designSpec?: string | null,
@@ -1364,8 +1323,8 @@ export class ChatQueryHandler {
     systemPromptAppend: string,
     abortController: AbortController,
     socket: WebSocket,
-    sessionState: CodeSessionState,
-    handlers: MessageHandlers,
+    sessionState: ChatEngineSessionState,
+    handlers: ChatEngineMessageHandlers,
     flushAssistantBuffer: () => Promise<void>,
     logger: SystemLogger,
     framework: Database["public"]["Enums"]["prototype_framework"],
@@ -1675,7 +1634,7 @@ export class ChatQueryHandler {
    */
   private async handlePreToolUseHook(
     hookContext: HookContext,
-    handlers: MessageHandlers,
+    handlers: ChatEngineMessageHandlers,
     logger: SystemLogger,
   ): Promise<HookJSONOutput> {
     const { input, toolUseID, socket, flushAssistantBuffer } = hookContext;
@@ -1761,7 +1720,7 @@ export class ChatQueryHandler {
    */
   private async handlePostToolUseHook(
     hookContext: HookContext,
-    handlers: MessageHandlers,
+    handlers: ChatEngineMessageHandlers,
     logger: SystemLogger,
   ): Promise<HookJSONOutput> {
     const { input, toolUseID, socket, sessionState } = hookContext;
@@ -1878,7 +1837,7 @@ export class ChatQueryHandler {
    */
   private async streamQueryResponse(
     streamContext: StreamContext,
-    handlers: MessageHandlers,
+    handlers: ChatEngineMessageHandlers,
     logger: SystemLogger,
   ): Promise<number | undefined> {
     const {
@@ -2206,7 +2165,7 @@ export class ChatQueryHandler {
   private async syncAndTrackUsage(
     prototypeId: string,
     socket: WebSocket,
-    sessionState: CodeSessionState,
+    sessionState: ChatEngineSessionState,
     totalCostUsd: number | undefined,
     sendMessage: (socket: WebSocket, message: ChatServerMessage) => void,
     logger: SystemLogger,

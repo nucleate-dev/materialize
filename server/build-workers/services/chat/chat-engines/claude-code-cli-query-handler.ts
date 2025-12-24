@@ -2,11 +2,7 @@ import { ChildProcessByStdio, spawn } from "child_process";
 import { Readable } from "stream";
 import WebSocket from "ws";
 import { SystemLogger } from "../../../loggers/SystemLogger.js";
-import {
-  ChatEvent,
-  ChatQueryData,
-  ChatServerMessage,
-} from "../../../types/ChatTypes.js";
+import { ChatEvent } from "../../../types/ChatTypes.js";
 import { Database } from "../../../types/supabase.js";
 import { ClaudeTokenService } from "../../auth/claude-token-service.js";
 import { SupabaseClientService } from "../../SupabaseClientService.js";
@@ -18,53 +14,12 @@ import {
   DEFAULT_PROTOTYPE_FRAMEWORK,
   NucleateDevelopmentServerService,
 } from "../../dev-server/NucleateDevelopmentServerService.js";
-
-interface CodeSessionState {
-  sessionId: string | null;
-  prototypeChatSessionId: string | null;
-  isActive: boolean;
-  createdAt: number;
-  lastActiveAt: number;
-  abortController: AbortController | null;
-  modifiedFilesThisQuery: Set<string>;
-  designSystemId: string | null;
-  designSystemRules: string | null;
-  firstMessageStatus: { sessionId: string; isFirst: boolean } | null;
-}
-
-interface QueryExecutionContext {
-  prototypeId: string;
-  socket: WebSocket;
-  data: ChatQueryData;
-  sessionState: CodeSessionState;
-  validAiChatSessionIds: Set<string>;
-  logger: SystemLogger;
-}
-
-interface MessageHandlers {
-  sendMessage: (socket: WebSocket, message: ChatServerMessage) => void;
-  persistMessage: (
-    role: "user" | "assistant" | "system",
-    content: string,
-    messageType: "text" | "tool_use" | "tool_result" | "error" | "system",
-    eventType?: string | null,
-    eventData?: unknown,
-    creditsUsed?: number | null,
-    costFunction?: string | null,
-    provider?: string | null,
-    model?: string | null,
-  ) => Promise<void>;
-  uploadChatImages: (
-    prototypeId: string,
-    chatSessionId: string,
-    images: Array<{ base64: string; mediaType: string }>,
-  ) => Promise<
-    Array<{ storage_path: string; media_type: string; file_size: number }>
-  >;
-  updatePersistenceClient?: (client: unknown) => void;
-  notifyOrchestrationStartChat: (prototypeId: string) => Promise<void>;
-  notifyOrchestrationEndChat: (prototypeId: string) => Promise<void>;
-}
+import {
+  ChatEngine,
+  ChatEngineContext,
+  ChatEngineMessageHandlers,
+  ChatEngineSessionState,
+} from "./chat-engine.js";
 
 // CLI message types from --output-format stream-json
 interface ClaudeCodeMessage {
@@ -117,7 +72,7 @@ type ToolInput = Record<string, unknown>;
  * This handler spawns the CLI process, parses its JSON output, and transforms
  * it into WebSocket messages that match the existing frontend expectations.
  */
-export class ClaudeCodeCliQueryHandler {
+export class ClaudeCodeCliQueryHandler implements ChatEngine {
   private readonly supabaseClientService: SupabaseClientService;
   private readonly toolPermissionService: ToolPermissionService;
   private readonly devServerService: NucleateDevelopmentServerService;
@@ -141,8 +96,8 @@ export class ClaudeCodeCliQueryHandler {
    * Main entry point for handling a query using the CLI
    */
   async handleQuery(
-    context: QueryExecutionContext,
-    handlers: MessageHandlers,
+    context: ChatEngineContext,
+    handlers: ChatEngineMessageHandlers,
   ): Promise<void> {
     const { socket, data, sessionState, logger } = context;
     const {
@@ -333,7 +288,7 @@ export class ClaudeCodeCliQueryHandler {
    */
   private async loadDesignSystem(
     custom_design_system_id: string | null,
-    sessionState: CodeSessionState,
+    sessionState: ChatEngineSessionState,
     design_style: string | undefined,
     framework: string | undefined,
   ): Promise<string> {
@@ -417,7 +372,7 @@ export class ClaudeCodeCliQueryHandler {
   private spawnCliProcess(
     query: string,
     env: NodeJS.ProcessEnv,
-    sessionState: CodeSessionState,
+    sessionState: ChatEngineSessionState,
     systemPromptAppend?: string,
   ): ChildProcessByStdio<null, Readable, Readable> {
     const args = [
@@ -462,8 +417,8 @@ export class ClaudeCodeCliQueryHandler {
   private async handleCliOutput(
     cliProcess: ChildProcessByStdio<null, Readable, Readable>,
     socket: WebSocket,
-    handlers: MessageHandlers,
-    context: QueryExecutionContext,
+    handlers: ChatEngineMessageHandlers,
+    context: ChatEngineContext,
   ): Promise<void> {
     return new Promise((resolve, reject) => {
       let stdoutBuffer = "";
@@ -527,8 +482,8 @@ export class ClaudeCodeCliQueryHandler {
   private async handleCliMessage(
     cliMessage: ClaudeCodeMessage,
     socket: WebSocket,
-    handlers: MessageHandlers,
-    context: QueryExecutionContext,
+    handlers: ChatEngineMessageHandlers,
+    context: ChatEngineContext,
   ): Promise<void> {
     const { sendMessage } = handlers;
 
@@ -581,8 +536,8 @@ export class ClaudeCodeCliQueryHandler {
   private async handleAssistantMessage(
     message: ClaudeCodeMessage,
     socket: WebSocket,
-    handlers: MessageHandlers,
-    _context: QueryExecutionContext,
+    handlers: ChatEngineMessageHandlers,
+    _context: ChatEngineContext,
   ): Promise<void> {
     const { sendMessage, persistMessage } = handlers;
     const content = message.message?.content || [];
@@ -621,7 +576,7 @@ export class ClaudeCodeCliQueryHandler {
   private async handlePreToolUse(
     toolUse: ToolUseBlock,
     socket: WebSocket,
-    handlers: MessageHandlers,
+    handlers: ChatEngineMessageHandlers,
   ): Promise<void> {
     const { sendMessage, persistMessage } = handlers;
     const { id: toolUseId, name: toolName, input: toolInput } = toolUse;
@@ -684,8 +639,8 @@ export class ClaudeCodeCliQueryHandler {
   private async handleToolResult(
     result: ClaudeCodeMessage,
     socket: WebSocket,
-    handlers: MessageHandlers,
-    _context: QueryExecutionContext,
+    handlers: ChatEngineMessageHandlers,
+    _context: ChatEngineContext,
   ): Promise<void> {
     const { sendMessage, persistMessage } = handlers;
     const toolUseId = result.tool_use_id;
@@ -758,8 +713,8 @@ export class ClaudeCodeCliQueryHandler {
   private handleQueryComplete(
     message: ClaudeCodeMessage,
     socket: WebSocket,
-    handlers: MessageHandlers,
-    context: QueryExecutionContext,
+    handlers: ChatEngineMessageHandlers,
+    context: ChatEngineContext,
   ): void {
     const { sendMessage } = handlers;
     const { sessionState } = context;
@@ -799,7 +754,7 @@ export class ClaudeCodeCliQueryHandler {
    */
   private async handleSystemInitMessage(
     message: ClaudeCodeMessage,
-    context: QueryExecutionContext,
+    context: ChatEngineContext,
   ): Promise<void> {
     const { sessionState } = context;
 
