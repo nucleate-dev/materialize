@@ -92,6 +92,53 @@ export async function GET() {
     const messagesStats = aggregateData(messagesData || []);
     const usersStats = aggregateData(usersData || []);
 
+    // 4. Onboarding Survey Stats
+    const { data: surveyData, error: surveyError } = await supabase
+      .from("user_onboarding_survey")
+      .select("role, ai_coding_experience, referral_source, use_cases, created_at");
+
+    if (surveyError) throw surveyError;
+
+    // Aggregate survey data by different dimensions
+    const aggregateByCounts = (items: { [key: string]: string | null }[], field: string) => {
+      const counts: Record<string, number> = {};
+      items.forEach((item) => {
+        const value = item[field];
+        if (value) {
+          counts[value] = (counts[value] || 0) + 1;
+        }
+      });
+      return Object.entries(counts)
+        .map(([name, count]) => ({ name, count }))
+        .sort((a, b) => b.count - a.count);
+    };
+
+    // For use_cases which is a text array, we need to unnest and count each value
+    const aggregateUseCases = (items: { use_cases: string[] | null }[]) => {
+      const counts: Record<string, number> = {};
+      items.forEach((item) => {
+        if (item.use_cases && Array.isArray(item.use_cases)) {
+          item.use_cases.forEach((useCase) => {
+            if (useCase) {
+              counts[useCase] = (counts[useCase] || 0) + 1;
+            }
+          });
+        }
+      });
+      return Object.entries(counts)
+        .map(([name, count]) => ({ name, count }))
+        .sort((a, b) => b.count - a.count);
+    };
+
+    const surveyStats = {
+      totalResponses: surveyData?.length || 0,
+      byRole: aggregateByCounts(surveyData || [], "role"),
+      byExperience: aggregateByCounts(surveyData || [], "ai_coding_experience"),
+      byReferralSource: aggregateByCounts(surveyData || [], "referral_source"),
+      byUseCases: aggregateUseCases(surveyData || []),
+      daily: aggregateData((surveyData || []).map(s => ({ created_at: s.created_at }))),
+    };
+
     const stats = {
       prototypes: prototypesStats,
       messages: messagesStats,
@@ -100,6 +147,8 @@ export async function GET() {
       totalPrototypes: prototypesStats.reduce((acc, curr) => acc + curr.count, 0),
       totalMessages: messagesStats.reduce((acc, curr) => acc + curr.count, 0),
       totalUsers: usersStats.reduce((acc, curr) => acc + curr.count, 0),
+      // Onboarding survey stats
+      onboardingSurvey: surveyStats,
     };
 
     return NextResponse.json(stats);

@@ -3,12 +3,26 @@
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import { Box, Loader2, MessageSquare, Users } from "lucide-react";
+import { Box, Briefcase, ClipboardList, Loader2, MessageSquare, Share2, Sparkles, Target, Users } from "lucide-react";
 import { useEffect, useState } from "react";
 
 interface DailyStat {
   date: string;
   count: number;
+}
+
+interface CategoryStat {
+  name: string;
+  count: number;
+}
+
+interface OnboardingSurveyStats {
+  totalResponses: number;
+  byRole: CategoryStat[];
+  byExperience: CategoryStat[];
+  byReferralSource: CategoryStat[];
+  byUseCases: CategoryStat[];
+  daily: DailyStat[];
 }
 
 interface StatsData {
@@ -18,6 +32,7 @@ interface StatsData {
   totalPrototypes: number;
   totalMessages: number;
   totalUsers: number;
+  onboardingSurvey: OnboardingSurveyStats;
 }
 
 function SimpleBarChart({
@@ -72,6 +87,43 @@ function SimpleBarChart({
           );
         })}
       </div>
+    </div>
+  );
+}
+
+function HorizontalBarChart({
+  data,
+  colorClass = "bg-blue-500",
+}: {
+  data: CategoryStat[];
+  colorClass?: string;
+}) {
+  const max = Math.max(...data.map((d) => d.count), 1);
+
+  return (
+    <div className="w-full flex flex-col gap-2">
+      {data.map((item) => {
+        const percent = (item.count / max) * 100;
+        return (
+          <div key={item.name} className="flex items-center gap-2 group">
+            <div className="w-28 text-xs text-muted-foreground truncate" title={item.name}>
+              {item.name}
+            </div>
+            <div className="flex-1 h-6 bg-muted/20 rounded-sm relative">
+              <div
+                className={cn(
+                  "h-full rounded-sm transition-all duration-500",
+                  colorClass,
+                )}
+                style={{ width: `${percent}%` }}
+              />
+              <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs font-medium">
+                {item.count}
+              </span>
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -194,6 +246,118 @@ export default function SupabaseStatsPage() {
               )}
             </CardContent>
           </Card>
+        </div>
+
+        {/* Onboarding Survey Section */}
+        <div className="space-y-4">
+          <div className="flex items-center gap-2">
+            <ClipboardList className="h-5 w-5 text-muted-foreground" />
+            <h2 className="text-lg font-semibold">Onboarding Survey</h2>
+            <span className="text-sm text-muted-foreground">
+              ({stats?.onboardingSurvey?.totalResponses || 0} total responses)
+            </span>
+          </div>
+
+          <div className="grid gap-6 md:grid-cols-2">
+            {/* Survey Completions (7 Days) */}
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">
+                  Survey Completions (7 Days)
+                </CardTitle>
+                <ClipboardList className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold mb-4">
+                  {stats?.onboardingSurvey?.daily?.reduce((acc, curr) => acc + curr.count, 0) || 0}
+                </div>
+                {stats?.onboardingSurvey?.daily && (
+                  <SimpleBarChart
+                    data={stats.onboardingSurvey.daily}
+                    colorClass="bg-violet-500"
+                  />
+                )}
+              </CardContent>
+            </Card>
+
+            {/* By Role */}
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">By Role</CardTitle>
+                <Briefcase className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                {stats?.onboardingSurvey?.byRole && stats.onboardingSurvey.byRole.length > 0 ? (
+                  <HorizontalBarChart
+                    data={stats.onboardingSurvey.byRole}
+                    colorClass="bg-sky-500"
+                  />
+                ) : (
+                  <div className="text-sm text-muted-foreground">No data</div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* By AI Coding Experience */}
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">
+                  By AI Coding Experience
+                </CardTitle>
+                <Sparkles className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                {stats?.onboardingSurvey?.byExperience && stats.onboardingSurvey.byExperience.length > 0 ? (
+                  <HorizontalBarChart
+                    data={stats.onboardingSurvey.byExperience}
+                    colorClass="bg-amber-500"
+                  />
+                ) : (
+                  <div className="text-sm text-muted-foreground">No data</div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* By Referral Source */}
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">
+                  By Referral Source
+                </CardTitle>
+                <Share2 className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                {stats?.onboardingSurvey?.byReferralSource && stats.onboardingSurvey.byReferralSource.length > 0 ? (
+                  <HorizontalBarChart
+                    data={stats.onboardingSurvey.byReferralSource}
+                    colorClass="bg-rose-500"
+                  />
+                ) : (
+                  <div className="text-sm text-muted-foreground">No data</div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* By Use Cases */}
+            <Card className="md:col-span-2">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">
+                  By Use Cases
+                </CardTitle>
+                <Target className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                {stats?.onboardingSurvey?.byUseCases && stats.onboardingSurvey.byUseCases.length > 0 ? (
+                  <HorizontalBarChart
+                    data={stats.onboardingSurvey.byUseCases}
+                    colorClass="bg-teal-500"
+                  />
+                ) : (
+                  <div className="text-sm text-muted-foreground">No data</div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
         </div>
       </main>
     </div>
