@@ -100,34 +100,13 @@ export class ClaudeCodeCliQueryHandler implements ChatEngine {
     handlers: ChatEngineMessageHandlers,
   ): Promise<void> {
     const { socket, data, sessionState, logger } = context;
-    const {
-      sendMessage,
-      notifyOrchestrationStartChat,
-      notifyOrchestrationEndChat,
-    } = handlers;
+    const { sendMessage } = handlers;
     const framework =
       this.devServerService.prototypeFramework ?? DEFAULT_PROTOTYPE_FRAMEWORK;
 
     let queryTextForCommit = "";
 
     try {
-      // Notify orchestration that chat has started
-      try {
-        await notifyOrchestrationStartChat(context.prototypeId);
-      } catch (error) {
-        const err = error instanceof Error ? error : new Error(String(error));
-        logger.error(err, "Failed to notify orchestration start chat (CLI)", {
-          prototypeId: context.prototypeId,
-        });
-        sendMessage(socket, {
-          type: ChatEvent.ERROR,
-          error: {
-            message: "Failed to start chat session",
-          },
-        });
-        return;
-      }
-
       // Extract user ID from JWT token
       const token = data.token;
       if (!token) {
@@ -248,8 +227,6 @@ export class ClaudeCodeCliQueryHandler implements ChatEngine {
       });
     } finally {
       await this.commitChatChangesToGit(queryTextForCommit, logger);
-      // Always notify orchestration that chat has ended
-      await notifyOrchestrationEndChat(context.prototypeId);
 
       // Clear abort controller
       sessionState.abortController = null;

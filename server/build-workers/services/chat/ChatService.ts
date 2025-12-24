@@ -63,6 +63,12 @@ interface ChatConnection {
   logger: SystemLogger;
 }
 
+interface ChatQueryValidationResult {
+  valid: boolean;
+  errorMessage?: string;
+  errorDetails?: string;
+}
+
 export class ChatService {
   private readonly allowedRoot: string;
   private readonly supabaseClientService: SupabaseClientService;
@@ -382,6 +388,18 @@ export class ChatService {
       return;
     }
 
+    const validationResult = this.validateChatQuery(data);
+    if (!validationResult.valid) {
+      this.sendMessage(socket, {
+        type: ChatEvent.ERROR,
+        error: {
+          message: validationResult.errorMessage ?? "Invalid chat query",
+          details: validationResult.errorDetails,
+        },
+      });
+      return;
+    }
+
     // Check if user has a Claude Code subscription token
     let useCliMode = false;
     const token = data.token;
@@ -447,70 +465,99 @@ export class ChatService {
       sessionId: this.sessionState.sessionId,
     });
 
-    await handler.handleQuery(
-      {
+    let chatStarted = false;
+    try {
+      await this.notifyOrchestrationStartChat(prototypeId);
+      chatStarted = true;
+    } catch (error) {
+      const err = error instanceof Error ? error : new Error(String(error));
+      logger.error(err, "Failed to notify orchestration start chat", {
         prototypeId,
-        socket,
-        data,
-        sessionState: this.sessionState,
-        validAiChatSessionIds: this.validAiChatSessionIds,
-        logger,
-      },
-      {
-        sendMessage: this.sendMessage.bind(this),
-        persistMessage: async (
-          role: "user" | "assistant" | "system",
-          content: string,
-          messageType: "text" | "tool_use" | "tool_result" | "error" | "system",
-          eventType?: string | null,
-          eventData?: unknown,
-          creditsUsed?: number | null,
-          costFunction?: string | null,
-          provider?: string | null,
-          model?: string | null,
-        ) => {
-          if (!this.sessionState.prototypeChatSessionId) {
-            baseLogger.warn("Cannot persist message - no chat session ID");
-            return;
-          }
-          await this.messagePersistenceService.persistMessage(
-            this.sessionState.prototypeChatSessionId,
-            role,
-            content,
-            messageType,
-            eventType,
-            {
-              ...(eventData ?? {}),
-              provider: provider ?? null,
-              model: model ?? null,
-            },
-            creditsUsed,
-            costFunction,
-            provider,
-            model,
-          );
+      });
+      this.sendMessage(socket, {
+        type: ChatEvent.ERROR,
+        error: {
+          message: "Failed to start chat session",
         },
-        uploadChatImages: async (
-          prototypeId: string,
-          chatSessionId: string,
-          images: Array<{ base64: string; mediaType: string; }>,
-        ) => {
-          return await this.messagePersistenceService.uploadChatImages(
+      });
+      return;
+    }
+
+    try {
+      await handler.handleQuery(
+        {
+          prototypeId,
+          socket,
+          data,
+          sessionState: this.sessionState,
+          validAiChatSessionIds: this.validAiChatSessionIds,
+          logger,
+        },
+        {
+          sendMessage: this.sendMessage.bind(this),
+          persistMessage: async (
+            role: "user" | "assistant" | "system",
+            content: string,
+            messageType: "text" | "tool_use" | "tool_result" | "error" | "system",
+            eventType?: string | null,
+            eventData?: unknown,
+            creditsUsed?: number | null,
+            costFunction?: string | null,
+            provider?: string | null,
+            model?: string | null,
+          ) => {
+            if (!this.sessionState.prototypeChatSessionId) {
+              baseLogger.warn("Cannot persist message - no chat session ID");
+              return;
+            }
+            await this.messagePersistenceService.persistMessage(
+              this.sessionState.prototypeChatSessionId,
+              role,
+              content,
+              messageType,
+              eventType,
+              {
+                ...(eventData ?? {}),
+                provider: provider ?? null,
+                model: model ?? null,
+              },
+              creditsUsed,
+              costFunction,
+              provider,
+              model,
+            );
+          },
+          uploadChatImages: async (
+            prototypeId: string,
+            chatSessionId: string,
+            images: Array<{ base64: string; mediaType: string; }>,
+          ) => {
+            return await this.messagePersistenceService.uploadChatImages(
+              prototypeId,
+              chatSessionId,
+              images,
+            );
+          },
+          updatePersistenceClient: (client: unknown) => {
+            this.messagePersistenceService.setSupabaseClient(
+              client as import("@supabase/supabase-js").SupabaseClient<Database>,
+            );
+          },
+        },
+      );
+    } finally {
+      if (chatStarted) {
+        try {
+          await this.notifyOrchestrationEndChat(prototypeId);
+        } catch (error) {
+          const err =
+            error instanceof Error ? error : new Error(String(error));
+          logger.error(err, "Failed to notify orchestration end chat", {
             prototypeId,
-            chatSessionId,
-            images,
-          );
-        },
-        updatePersistenceClient: (client: unknown) => {
-          this.messagePersistenceService.setSupabaseClient(
-            client as import("@supabase/supabase-js").SupabaseClient<Database>,
-          );
-        },
-        notifyOrchestrationStartChat:
-          this.notifyOrchestrationStartChat.bind(this),
-        notifyOrchestrationEndChat: this.notifyOrchestrationEndChat.bind(this),
-      },
-    );
+          });
+        }
+      }
+    }
   }
 
   private async handleHistoryResponse(
@@ -675,6 +722,26 @@ export class ChatService {
         );
       }
     }
+  }
+
+  private validateChatQuery(data: ChatQueryData): ChatQueryValidationResult {
+    const { prompt, content } = data;
+
+    if (!prompt && !content) {
+      return {
+        valid: false,
+        errorMessage: "prompt or content is required",
+      };
+    }
+
+    if (content && (!Array.isArray(content) || content.length === 0)) {
+      return {
+        valid: false,
+        errorMessage: "content must be a non-empty array",
+      };
+    }
+
+    return { valid: true };
   }
 
   /**

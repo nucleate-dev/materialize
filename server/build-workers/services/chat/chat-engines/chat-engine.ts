@@ -48,8 +48,6 @@ export interface ChatEngineMessageHandlers {
     Array<{ storage_path: string; media_type: string; file_size: number }>
   >;
   updatePersistenceClient?: (client: unknown) => void;
-  notifyOrchestrationStartChat: (prototypeId: string) => Promise<void>;
-  notifyOrchestrationEndChat: (prototypeId: string) => Promise<void>;
 }
 
 export interface ChatEngine {

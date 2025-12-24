@@ -85,12 +85,6 @@ type ToolName =
 
 type ToolInput = Record<string, unknown>;
 
-interface QueryValidationResult {
-  valid: boolean;
-  errorMessage?: string;
-  errorDetails?: string;
-}
-
 interface DesignSystemResult {
   systemPrompt: string;
   designSystemId: string | null;
@@ -211,20 +205,7 @@ export class ChatQueryHandler implements ChatEngine {
       options: data.options,
     });
 
-    // Step 1: Validate request
-    const validation = this.validateQueryRequest(data);
-    if (!validation.valid) {
-      handlers.sendMessage(socket, {
-        type: ChatEvent.ERROR,
-        error: {
-          message: validation.errorMessage!,
-          details: validation.errorDetails,
-        },
-      });
-      return;
-    }
-
-    // Step 2: Authenticate with token if provided
+    // Step 1: Authenticate with token if provided
     if (token) {
       const authResult = await this.authenticateWithToken(
         token,
@@ -244,10 +225,10 @@ export class ChatQueryHandler implements ChatEngine {
       }
     }
 
-    // Step 3: Setup session state
+    // Step 2: Setup session state
     this.setupSessionState(data, sessionState, logger);
 
-    // Step 4: Load design system if needed
+    // Step 3: Load design system if needed
     const designSystemResult = await this.loadDesignSystem(
       logger,
       data.custom_design_system_id ?? null,
@@ -258,7 +239,7 @@ export class ChatQueryHandler implements ChatEngine {
       options,
     );
 
-    // Step 5: Perform credit check
+    // Step 4: Perform credit check
     const creditCheck = await this.performCreditCheck(prototypeId, logger);
     if (!creditCheck.success) {
       handlers.sendMessage(socket, {
@@ -271,7 +252,7 @@ export class ChatQueryHandler implements ChatEngine {
       return;
     }
 
-    // Step 6: Check if this is the first message and execute design agent if needed
+    // Step 5: Check if this is the first message and execute design agent if needed
     let designAgentCost: number | undefined = undefined;
     let designSpec: string | null = null;
     let designMetadata: DesignAgentMetadata | null = null;
@@ -470,27 +451,10 @@ export class ChatQueryHandler implements ChatEngine {
       }
     }
 
-    // Step 7: Invalidate build before chat starts
+    // Step 6: Invalidate build before chat starts
     this.devServerService.developmentServerState.lastUpdatedTime = new Date();
 
-    // Step 8: Notify orchestration that chat is starting
-    try {
-      await handlers.notifyOrchestrationStartChat(prototypeId);
-    } catch (error) {
-      const err = error instanceof Error ? error : new Error(String(error));
-      logger.error(err, "Failed to notify orchestration start chat", {
-        prototypeId,
-      });
-      handlers.sendMessage(socket, {
-        type: ChatEvent.ERROR,
-        error: {
-          message: "Failed to start chat session",
-        },
-      });
-      return;
-    }
-
-    // Step 9: Execute query with proper cleanup
+    // Step 7: Execute query with proper cleanup
     let implementationCostUsd: number | undefined = undefined;
 
     try {
@@ -504,7 +468,7 @@ export class ChatQueryHandler implements ChatEngine {
         designMetadata ?? undefined,
       );
     } finally {
-      // Step 10: Combine costs from design agent and implementation
+      // Step 8: Combine costs from design agent and implementation
       const totalCostUsd =
         (designAgentCost ?? 0) + (implementationCostUsd ?? 0);
 
@@ -517,7 +481,7 @@ export class ChatQueryHandler implements ChatEngine {
       // Run git add/commit before syncing usage data
       await this.commitChatChangesToGit(data, logger);
 
-      // Step 11: Sync files and track usage
+      // Step 9: Sync files and track usage
       await this.syncAndTrackUsage(
         prototypeId,
         socket,
@@ -527,37 +491,9 @@ export class ChatQueryHandler implements ChatEngine {
         logger,
       );
 
-      // Step 12: Invalidate build after chat ends
+      // Step 10: Invalidate build after chat ends
       this.devServerService.developmentServerState.lastUpdatedTime = new Date();
-
-      // Step 13: Always notify orchestration that chat has ended
-      await handlers.notifyOrchestrationEndChat(prototypeId);
     }
-  }
-
-  /**
-   * Validates the incoming query request
-   */
-  private validateQueryRequest(data: ChatQueryData): QueryValidationResult {
-    const { prompt, content } = data;
-
-    // Support both old format (prompt) and new format (content)
-    if (!prompt && !content) {
-      return {
-        valid: false,
-        errorMessage: "prompt or content is required",
-      };
-    }
-
-    // Validate content if provided
-    if (content && (!Array.isArray(content) || content.length === 0)) {
-      return {
-        valid: false,
-        errorMessage: "content must be a non-empty array",
-      };
-    }
-
-    return { valid: true };
   }
 
   /**
