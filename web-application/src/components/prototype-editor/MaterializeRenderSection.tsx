@@ -1144,12 +1144,19 @@ const MaterializeRenderSection = forwardRef<
             };
           case "Updating..":
           case "Connecting..":
-          case "Starting Dev Server..":
             return {
               className: "bg-accent border border-border text-muted-foreground",
               dotClassName:
                 "w-2 h-2 bg-amber-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(245,158,11,0.6)]",
               text: status,
+              animate: true,
+            };
+          case "Starting Dev Server..":
+            return {
+              className: "bg-amber-500/10 border border-amber-500/20 text-amber-500",
+              dotClassName:
+                "w-2 h-2 bg-amber-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(245,158,11,0.6)]",
+              text: "Starting Dev Server.. (~1m)",
               animate: true,
             };
           case "Disconnected":
@@ -1629,14 +1636,6 @@ const MaterializeRenderSection = forwardRef<
 
                   <ConnectionStatusIndicator />
 
-                  {currentRenderStatus === "Starting Dev Server.." && (
-                    <div className="flex items-center gap-2 bg-amber-500/10 px-3 py-1.5 rounded-md border border-amber-500/20">
-                      <Loader2 className="w-3 h-3 animate-spin text-amber-500" />
-                      <span className="text-xs font-medium text-amber-500 whitespace-nowrap">
-                        Booting up (~1m)
-                      </span>
-                    </div>
-                  )}
                   {mobileHint && isMobileLayout && (
                     <span className="text-xs text-muted-foreground animate-pulse">
                       {mobileHint}
