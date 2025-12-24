@@ -4,7 +4,6 @@ import WebSocket from "ws";
 import { SystemLogger } from "../../../loggers/SystemLogger.js";
 import { ChatEvent } from "../../../types/ChatTypes.js";
 import { Database } from "../../../types/supabase.js";
-import { ClaudeTokenService } from "../../auth/claude-token-service.js";
 import { SupabaseClientService } from "../../SupabaseClientService.js";
 import { getSystemPromptForDesignStyle } from "../prompts/ClaudeCodePrompts.js";
 import { getToolDisplayName } from "../helpers/message-handlers.js";
@@ -19,6 +18,7 @@ import {
   ChatEngineContext,
   ChatEngineMessageHandlers,
   ChatEngineSessionState,
+  CliAuthEnvironment,
 } from "./chat-engine.js";
 
 // CLI message types from --output-format stream-json
@@ -99,53 +99,23 @@ export class ClaudeCodeCliQueryHandler implements ChatEngine {
     context: ChatEngineContext,
     handlers: ChatEngineMessageHandlers,
   ): Promise<void> {
-    const { socket, data, sessionState, logger } = context;
+    const { socket, data, sessionState, logger, cliAuthEnv } = context;
     const { sendMessage } = handlers;
     const framework =
       this.devServerService.prototypeFramework ?? DEFAULT_PROTOTYPE_FRAMEWORK;
 
     let queryTextForCommit = "";
+    if (!cliAuthEnv) {
+      sendMessage(socket, {
+        type: ChatEvent.ERROR,
+        error: {
+          message: "Missing CLI authentication context",
+        },
+      });
+      return;
+    }
 
     try {
-      // Extract user ID from JWT token
-      const token = data.token;
-      if (!token) {
-        throw new Error("No authentication token provided");
-      }
-
-      // Decode JWT to extract user ID from the 'sub' claim
-      // JWT format: header.payload.signature
-      const payload = JSON.parse(
-        Buffer.from(token.split(".")[1], "base64").toString(),
-      );
-      const userId = payload.sub;
-
-      if (!userId) {
-        throw new Error("Invalid authentication token - no user ID");
-      }
-
-      logger.debug("Extracted user ID from JWT", { userId });
-
-      // Create authenticated Supabase client with user's JWT to pass RLS policies
-      const authenticatedSupabase =
-        this.supabaseClientService.createAuthenticatedClient(token);
-
-      // Update message persistence service with authenticated client
-      if (handlers.updatePersistenceClient) {
-        handlers.updatePersistenceClient(authenticatedSupabase);
-      }
-
-      // Create token service with authenticated client to fetch user's Claude token
-      const authenticatedTokenService = new ClaudeTokenService(
-        authenticatedSupabase,
-      );
-
-      // Build authentication environment using the authenticated user ID
-      const authEnv = await this.buildAuthEnvironment(
-        userId,
-        authenticatedTokenService,
-      );
-
       // Load design system if needed
       const systemPromptAppend = await this.loadDesignSystem(
         data.custom_design_system_id ?? null,
@@ -191,7 +161,7 @@ export class ClaudeCodeCliQueryHandler implements ChatEngine {
       // Spawn CLI process
       const cliProcess = this.spawnCliProcess(
         queryText,
-        authEnv.env,
+        cliAuthEnv.env,
         sessionState,
         systemPromptAppend,
       );
@@ -210,7 +180,7 @@ export class ClaudeCodeCliQueryHandler implements ChatEngine {
 
       // Query completed successfully
       logger.info("CLI query completed successfully", {
-        authMethod: authEnv.authMethod,
+        authMethod: cliAuthEnv.authMethod,
       });
     } catch (error) {
       logger.error(
@@ -231,33 +201,6 @@ export class ClaudeCodeCliQueryHandler implements ChatEngine {
       // Clear abort controller
       sessionState.abortController = null;
     }
-  }
-
-  /**
-   * Build authentication environment for CLI process
-   * IMPORTANT: Only uses user OAuth tokens, never API keys
-   */
-  private async buildAuthEnvironment(
-    userId: string,
-    tokenService: ClaudeTokenService,
-  ): Promise<{
-    env: NodeJS.ProcessEnv;
-    authMethod: "user_token";
-  }> {
-    const env = { ...process.env };
-
-    // Get user's OAuth token (REQUIRED - no fallback to API key)
-    const userToken = await tokenService.getUserToken(userId);
-    if (!userToken) {
-      throw new Error(
-        "No Claude subscription connected. Please connect your Claude Pro or Max subscription in Settings to use AI chat.",
-      );
-    }
-
-    env.CLAUDE_CODE_OAUTH_TOKEN = userToken;
-    delete env.ANTHROPIC_API_KEY;
-    baseLogger.debug("Using user OAuth token for auth");
-    return { env, authMethod: "user_token" };
   }
 
   /**

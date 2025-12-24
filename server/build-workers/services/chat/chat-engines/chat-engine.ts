@@ -5,6 +5,11 @@ import {
   ChatServerMessage,
 } from "../../../types/ChatTypes.js";
 
+export interface CliAuthEnvironment {
+  env: NodeJS.ProcessEnv;
+  authMethod: "user_token";
+}
+
 export interface ChatEngineSessionState {
   sessionId: string | null;
   prototypeChatSessionId: string | null;
@@ -25,6 +30,8 @@ export interface ChatEngineContext {
   sessionState: ChatEngineSessionState;
   validAiChatSessionIds: Set<string>;
   logger: SystemLogger;
+  userId?: string | null;
+  cliAuthEnv?: CliAuthEnvironment | null;
 }
 
 export interface ChatEngineMessageHandlers {

@@ -31,12 +31,14 @@ import { TerminalService } from "../terminals/TerminalService.js";
 import {
   ChatEngine,
   ChatEngineSessionState,
+  CliAuthEnvironment,
 } from "./chat-engines/chat-engine.js";
 import { ChatQueryHandler } from "./chat-engines/chat-query-handler.js";
 import { ClaudeCodeCliQueryHandler } from "./chat-engines/claude-code-cli-query-handler.js";
 import { MessagePersistenceService } from "./helpers/message-handlers.js";
 import { ChatProvider, isAllowedModel } from "./helpers/model-providers.js";
 import { ToolPermissionService } from "./helpers/tool-permission-service.js";
+import { hasRemainingCredits } from "../../utils/credit-checks.js";
 
 const CHAT_HEARTBEAT_INTERVAL_MS = 15000;
 
@@ -377,6 +379,7 @@ export class ChatService {
       (options.provider as ChatProvider) || "claude";
     const model = options.model;
 
+    let userId: string | null = null;
     if (model && !isAllowedModel(provider, model)) {
       this.sendMessage(socket, {
         type: ChatEvent.ERROR,
@@ -410,7 +413,7 @@ export class ChatService {
         const payload = JSON.parse(
           Buffer.from(token.split(".")[1], "base64").toString(),
         );
-        const userId = payload.sub;
+        userId = payload.sub;
 
         if (userId) {
           // Check PostHog feature flag first
@@ -457,6 +460,71 @@ export class ChatService {
       handlerName = "claude-sdk";
     }
 
+    const cliAuthRequired = handler === this.claudeCodeCliQueryHandler;
+    if (cliAuthRequired && (!token || !userId)) {
+      this.sendMessage(socket, {
+        type: ChatEvent.ERROR,
+        error: {
+          message: "Authentication token required for Claude CLI mode",
+        },
+      });
+      return;
+    }
+
+    if (token) {
+      const authResult = await this.authenticateSupabaseClient(
+        token,
+        prototypeId,
+        logger,
+      );
+      if (!authResult.valid) {
+        this.sendMessage(socket, {
+          type: ChatEvent.ERROR,
+          error: {
+            message: authResult.errorMessage ?? "Authentication failed",
+            details: authResult.errorDetails,
+          },
+        });
+        return;
+      }
+    }
+
+    let cliAuthEnv: CliAuthEnvironment | null = null;
+    if (handler === this.chatQueryHandler) {
+      const creditResult = await this.ensureCreditsAvailable(
+        prototypeId,
+        logger,
+      );
+      if (!creditResult.valid) {
+        this.sendMessage(socket, {
+          type: ChatEvent.ERROR,
+          error: {
+            message: creditResult.errorMessage ?? "Credit check failed",
+            details: creditResult.errorDetails,
+          },
+        });
+        return;
+      }
+    } else if (cliAuthRequired && userId) {
+      const cliResult = await this.buildClaudeCliAuthEnvironment(
+        userId,
+        logger,
+      );
+      if (!cliResult.success || !cliResult.authEnv) {
+        this.sendMessage(socket, {
+          type: ChatEvent.ERROR,
+          error: {
+            message:
+              cliResult.errorMessage ??
+              "Claude CLI is not available for this account",
+            details: cliResult.errorDetails,
+          },
+        });
+        return;
+      }
+      cliAuthEnv = cliResult.authEnv;
+    }
+
     logger.consoleLogDevOnly("info", "Dispatching chat query to handler", {
       prototypeId,
       handler: handlerName,
@@ -492,6 +560,8 @@ export class ChatService {
           sessionState: this.sessionState,
           validAiChatSessionIds: this.validAiChatSessionIds,
           logger,
+          userId,
+          cliAuthEnv,
         },
         {
           sendMessage: this.sendMessage.bind(this),
@@ -742,6 +812,151 @@ export class ChatService {
     }
 
     return { valid: true };
+  }
+
+  private async authenticateSupabaseClient(
+    token: string,
+    prototypeId: string,
+    logger: SystemLogger,
+  ): Promise<ChatQueryValidationResult> {
+    try {
+      this.supabaseClientService.refreshClientWithToken(token);
+      this.messagePersistenceService.setSupabaseClient(
+        this.supabaseClientService.getClient(),
+      );
+      logger.consoleLogDevOnly(
+        "info",
+        "Refreshed Supabase client with JWT token for chat request",
+        {
+          prototypeId,
+        },
+      );
+      return { valid: true };
+    } catch (error) {
+      logger.error(
+        error instanceof Error ? error : new Error(String(error)),
+        "Failed to refresh Supabase client with JWT token",
+        { prototypeId },
+      );
+      return {
+        valid: false,
+        errorMessage: "Failed to authenticate with provided token",
+        errorDetails: error instanceof Error ? error.message : String(error),
+      };
+    }
+  }
+
+  private async ensureCreditsAvailable(
+    prototypeId: string,
+    logger: SystemLogger,
+  ): Promise<ChatQueryValidationResult> {
+    try {
+      const {
+        data: { user },
+        error: userError,
+      } = await this.supabaseClientService.getClient().auth.getUser();
+
+      if (userError || !user) {
+        logger.error(
+          userError || new Error("No user found"),
+          "Unable to verify user for credit check",
+          { prototypeId },
+        );
+        return {
+          valid: false,
+          errorMessage: "Authentication required",
+          errorDetails: "Unable to verify user credentials",
+        };
+      }
+
+      const creditCheck = await hasRemainingCredits(
+        this.supabaseClientService.getClient(),
+        user.id,
+        logger,
+      );
+
+      if (!creditCheck.hasCredits) {
+        logger.warn("User has no remaining credits", {
+          userId: user.id,
+          prototypeId,
+          remaining: creditCheck.remaining,
+          used: creditCheck.used,
+          granted: creditCheck.granted,
+          plan: creditCheck.plan,
+        });
+
+        return {
+          valid: false,
+          errorMessage: "Credit limit exceeded",
+          errorDetails: `You have used all ${creditCheck.granted} credits available. Please upgrade your plan to continue.`,
+        };
+      }
+
+      return { valid: true };
+    } catch (error) {
+      logger.error(
+        error instanceof Error ? error : new Error(String(error)),
+        "Error during credit check",
+        { prototypeId },
+      );
+      return {
+        valid: false,
+        errorMessage: "Unable to verify credits",
+        errorDetails: "An error occurred while checking your credit balance",
+      };
+    }
+  }
+
+  private async buildClaudeCliAuthEnvironment(
+    userId: string,
+    logger: SystemLogger,
+  ): Promise<{
+    success: boolean;
+    authEnv?: CliAuthEnvironment;
+    errorMessage?: string;
+    errorDetails?: string;
+  }> {
+    try {
+      const authenticatedTokenService = new ClaudeTokenService(
+        this.supabaseClientService.getClient(),
+      );
+      try {
+        const userToken = await authenticatedTokenService.getUserToken(userId);
+
+        if (!userToken) {
+          return {
+            success: false,
+            errorMessage:
+              "No Claude subscription connected. Please connect your Claude Pro or Max subscription in Settings to use AI chat.",
+          };
+        }
+
+        const env = { ...process.env };
+        env.CLAUDE_CODE_OAUTH_TOKEN = userToken;
+        delete env.ANTHROPIC_API_KEY;
+
+        return {
+          success: true,
+          authEnv: {
+            env,
+            authMethod: "user_token",
+          },
+        };
+      } finally {
+        authenticatedTokenService.destroy();
+      }
+    } catch (error) {
+      logger.error(
+        error instanceof Error ? error : new Error(String(error)),
+        "Failed to prepare Claude CLI authentication environment",
+        { userId },
+      );
+      return {
+        success: false,
+        errorMessage: "Failed to prepare Claude CLI authentication",
+        errorDetails: error instanceof Error ? error.message : String(error),
+      };
+    }
   }
 
   /**

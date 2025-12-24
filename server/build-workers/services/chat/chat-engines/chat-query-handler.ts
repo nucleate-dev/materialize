@@ -24,7 +24,6 @@ import {
   ChatServerMessage,
 } from "../../../types/ChatTypes.js";
 import { Database } from "../../../types/supabase.js";
-import { hasRemainingCredits } from "../../../utils/credit-checks.js";
 import { baseLogger, getWorkerContext, WORK_DIR } from "../../../worker.js";
 import { NucleateDevelopmentServerService } from "../../dev-server/NucleateDevelopmentServerService.js";
 import { FileSyncService } from "../../FileSyncService.js";
@@ -228,7 +227,7 @@ export class ChatQueryHandler implements ChatEngine {
     // Step 2: Setup session state
     this.setupSessionState(data, sessionState, logger);
 
-    // Step 3: Load design system if needed
+    // Step 2: Load design system if needed
     const designSystemResult = await this.loadDesignSystem(
       logger,
       data.custom_design_system_id ?? null,
@@ -239,20 +238,7 @@ export class ChatQueryHandler implements ChatEngine {
       options,
     );
 
-    // Step 4: Perform credit check
-    const creditCheck = await this.performCreditCheck(prototypeId, logger);
-    if (!creditCheck.success) {
-      handlers.sendMessage(socket, {
-        type: ChatEvent.ERROR,
-        error: {
-          message: creditCheck.errorMessage!,
-          details: creditCheck.errorDetails,
-        },
-      });
-      return;
-    }
-
-    // Step 5: Check if this is the first message and execute design agent if needed
+    // Step 3: Check if this is the first message and execute design agent if needed
     let designAgentCost: number | undefined = undefined;
     let designSpec: string | null = null;
     let designMetadata: DesignAgentMetadata | null = null;
@@ -451,10 +437,10 @@ export class ChatQueryHandler implements ChatEngine {
       }
     }
 
-    // Step 6: Invalidate build before chat starts
+    // Step 4: Invalidate build before chat starts
     this.devServerService.developmentServerState.lastUpdatedTime = new Date();
 
-    // Step 7: Execute query with proper cleanup
+    // Step 5: Execute query with proper cleanup
     let implementationCostUsd: number | undefined = undefined;
 
     try {
@@ -468,7 +454,7 @@ export class ChatQueryHandler implements ChatEngine {
         designMetadata ?? undefined,
       );
     } finally {
-      // Step 8: Combine costs from design agent and implementation
+      // Step 6: Combine costs from design agent and implementation
       const totalCostUsd =
         (designAgentCost ?? 0) + (implementationCostUsd ?? 0);
 
@@ -481,7 +467,7 @@ export class ChatQueryHandler implements ChatEngine {
       // Run git add/commit before syncing usage data
       await this.commitChatChangesToGit(data, logger);
 
-      // Step 9: Sync files and track usage
+      // Step 7: Sync files and track usage
       await this.syncAndTrackUsage(
         prototypeId,
         socket,
@@ -491,56 +477,8 @@ export class ChatQueryHandler implements ChatEngine {
         logger,
       );
 
-      // Step 10: Invalidate build after chat ends
+      // Step 8: Invalidate build after chat ends
       this.devServerService.developmentServerState.lastUpdatedTime = new Date();
-    }
-  }
-
-  /**
-   * Authenticates with JWT token and refreshes Supabase client
-   */
-  private async authenticateWithToken(
-    token: string,
-    prototypeId: string,
-    handlers: ChatEngineMessageHandlers,
-    logger: SystemLogger,
-  ): Promise<{
-    success: boolean;
-    errorMessage?: string;
-    errorDetails?: string;
-  }> {
-    try {
-      // Refresh the Supabase client with the authenticated token
-      this.supabaseClientService.refreshClientWithToken(token);
-
-      // FileSyncService will automatically use the updated client from SupabaseClientService
-
-      // Update MessagePersistenceService's Supabase client reference
-      if (handlers.updatePersistenceClient) {
-        handlers.updatePersistenceClient(
-          this.supabaseClientService.getClient(),
-        );
-      }
-
-      logger.consoleLogDevOnly(
-        "info",
-        "Refreshed Supabase client with JWT token",
-        {
-          prototypeId,
-        },
-      );
-      return { success: true };
-    } catch (error) {
-      logger.error(
-        error instanceof Error ? error : new Error(String(error)),
-        "Failed to refresh Supabase client with JWT token",
-        { prototypeId },
-      );
-      return {
-        success: false,
-        errorMessage: "Failed to authenticate with provided token",
-        errorDetails: error instanceof Error ? error.message : String(error),
-      };
     }
   }
 
@@ -679,73 +617,6 @@ export class ChatQueryHandler implements ChatEngine {
     };
   }
 
-  /**
-   * Performs credit check to ensure user has remaining credits
-   */
-  private async performCreditCheck(
-    prototypeId: string,
-    logger: SystemLogger,
-  ): Promise<{
-    success: boolean;
-    errorMessage?: string;
-    errorDetails?: string;
-  }> {
-    try {
-      const {
-        data: { user },
-        error: userError,
-      } = await this.supabaseClientService.getClient().auth.getUser();
-
-      if (userError || !user) {
-        logger.error(
-          userError || new Error("No user found"),
-          "Unable to verify user for credit check",
-          { prototypeId },
-        );
-        return {
-          success: false,
-          errorMessage: "Authentication required",
-          errorDetails: "Unable to verify user credentials",
-        };
-      }
-
-      const creditCheck = await hasRemainingCredits(
-        this.supabaseClientService.getClient(),
-        user.id,
-        logger,
-      );
-
-      if (!creditCheck.hasCredits) {
-        logger.warn("User has no remaining credits", {
-          userId: user.id,
-          prototypeId,
-          remaining: creditCheck.remaining,
-          used: creditCheck.used,
-          granted: creditCheck.granted,
-          plan: creditCheck.plan,
-        });
-
-        return {
-          success: false,
-          errorMessage: "Credit limit exceeded",
-          errorDetails: `You have used all ${creditCheck.granted} credits available. Please upgrade your plan to continue.`,
-        };
-      }
-
-      return { success: true };
-    } catch (error) {
-      logger.error(
-        error instanceof Error ? error : new Error(String(error)),
-        "Error during credit check",
-        { prototypeId },
-      );
-      return {
-        success: false,
-        errorMessage: "Unable to verify credits",
-        errorDetails: "An error occurred while checking your credit balance",
-      };
-    }
-  }
 
   /**
    * Checks if this is the user's first message for the entire prototype
