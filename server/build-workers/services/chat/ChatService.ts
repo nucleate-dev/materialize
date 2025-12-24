@@ -47,7 +47,7 @@ import { costFunctionV3 } from "./cost/cost-calculation.js";
 import { trackApiUsageBuildWorker } from "./cost/usage-tracking.js";
 import { hasRemainingCredits } from "../../utils/credit-checks.js";
 
-export const ALLOWED_ROOT = WORK_DIR;
+export const ALLOWED_ROOT = "/tmp/materialize-dev-server";
 const CHAT_HEARTBEAT_INTERVAL_MS = 15000;
 
 class OrchestrationAPIError<TData = unknown> extends Error {
@@ -456,10 +456,7 @@ export class ChatService {
     }
 
     let cliAuthEnv: CliAuthEnvironment | null = null;
-    const creditResult = await this.ensureCreditsAvailable(
-      prototypeId,
-      logger,
-    );
+    const creditResult = await this.ensureCreditsAvailable(prototypeId, logger);
     if (!creditResult.valid) {
       this.sendMessage(socket, {
         type: ChatEvent.ERROR,
