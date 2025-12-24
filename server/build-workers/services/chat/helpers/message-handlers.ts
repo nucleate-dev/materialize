@@ -1,8 +1,6 @@
 /**
  * Utility functions for handling and formatting chat messages
  */
-
-import { Database } from "../../../types/supabase.js";
 import { processImage } from "./image-processing.js";
 import { baseLogger } from "../../../worker.js";
 import { SupabaseClientService } from "../../SupabaseClientService.js";
@@ -146,45 +144,21 @@ export class MessagePersistenceService {
     try {
       // Check if client is authenticated
       const supabase = this.supabaseClientService.getClient();
-      const {
-        data: { user },
-        error: authError,
-      } = await supabase.auth.getUser();
-
-      baseLogger.consoleLogDevOnly("debug", "Attempting to persist message", {
-        chatSessionId,
-        role,
-        messageType,
-        eventType,
-        hasEventData: !!eventData,
-        eventDataType: eventData ? typeof eventData : null,
-        creditsUsed,
-        costFunction,
-        provider,
-        model,
-        isAuthenticated: !!user,
-        userId: user?.id,
-        authError: authError?.message,
-      });
-
       const mergedEventData = {
         ...(eventData ?? {}),
         provider: provider ?? null,
         model: model ?? null,
       };
-
-      const { error } = await supabase
-        .from("prototype_chat_messages")
-        .insert({
-          chat_session_id: chatSessionId,
-          role,
-          content,
-          message_type: messageType,
-          event_type: eventType || null,
-          event_data: mergedEventData ? JSON.stringify(mergedEventData) : null,
-          credits_used: creditsUsed ?? null,
-          cost_function: costFunction ?? null,
-        });
+      const { error } = await supabase.from("prototype_chat_messages").insert({
+        chat_session_id: chatSessionId,
+        role,
+        content,
+        message_type: messageType,
+        event_type: eventType || null,
+        event_data: mergedEventData ? JSON.stringify(mergedEventData) : null,
+        credits_used: creditsUsed ?? null,
+        cost_function: costFunction ?? null,
+      });
 
       if (error) {
         baseLogger.error(error, "Failed to persist message", {
@@ -196,18 +170,6 @@ export class MessagePersistenceService {
           eventDataSample: eventData
             ? JSON.stringify(eventData).substring(0, 200)
             : null,
-          isAuthenticated: !!user,
-          userId: user?.id,
-        });
-      } else {
-        baseLogger.consoleLogDevOnly("debug", "Persisted message", {
-          chatSessionId,
-          role,
-          messageType,
-          eventType,
-          contentLength: content.length,
-          creditsUsed,
-          costFunction,
         });
       }
     } catch (error) {

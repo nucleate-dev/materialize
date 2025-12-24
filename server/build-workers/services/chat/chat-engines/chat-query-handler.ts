@@ -17,12 +17,7 @@ import WebSocket from "ws";
 import { posthog } from "../../../loggers/index.js";
 import { SystemLogger } from "../../../loggers/SystemLogger.js";
 import { DevServerStatus } from "../../../types/BuildWorkerTypes.js";
-import {
-  ChatContentBlock,
-  ChatEvent,
-  ChatQueryData,
-  ChatServerMessage,
-} from "../../../types/ChatTypes.js";
+import { ChatContentBlock, ChatEvent } from "../../../types/ChatTypes.js";
 import { Database } from "../../../types/supabase.js";
 import { baseLogger, getWorkerContext, WORK_DIR } from "../../../worker.js";
 import { NucleateDevelopmentServerService } from "../../dev-server/NucleateDevelopmentServerService.js";
@@ -90,9 +85,9 @@ interface DesignAgentMetadata {
 
 interface StreamContext {
   messageContent:
-  | string
-  | Array<{ type: string; text?: string; source?: unknown; }>;
-  queryOptions: Options & { resume?: string; };
+    | string
+    | Array<{ type: string; text?: string; source?: unknown }>;
+  queryOptions: Options & { resume?: string };
   sessionState: ChatEngineSessionState;
   validAiChatSessionIds: Set<string>;
   socket: WebSocket;
@@ -135,7 +130,6 @@ export class ChatQueryHandler implements ChatEngine {
   private readonly sandboxService: SandboxService;
   private readonly devServerService: NucleateDevelopmentServerService;
   private readonly terminalService: TerminalService;
-  private readonly getAak: () => string | null;
   private enableDesignAgentOnFirstMessage: boolean;
   private enableDesignMcpTools: boolean;
 
@@ -146,7 +140,6 @@ export class ChatQueryHandler implements ChatEngine {
     sandboxService: SandboxService,
     devServerService: NucleateDevelopmentServerService,
     terminalService: TerminalService,
-    getAak: () => string | null,
   ) {
     this.supabaseClientService = supabaseClientService;
     this.fileSyncService = fileSyncService;
@@ -154,7 +147,6 @@ export class ChatQueryHandler implements ChatEngine {
     this.sandboxService = sandboxService;
     this.devServerService = devServerService;
     this.terminalService = terminalService;
-    this.getAak = getAak;
     this.enableDesignAgentOnFirstMessage = true;
     this.enableDesignMcpTools = false;
   }
@@ -237,9 +229,9 @@ export class ChatQueryHandler implements ChatEngine {
           ? content
           : Array.isArray(content)
             ? content
-              .filter((block) => block.type === "text")
-              .map((block) => block.text || "")
-              .join("\n")
+                .filter((block) => block.type === "text")
+                .map((block) => block.text || "")
+                .join("\n")
             : prompt || "";
       const designAgentUserContent = buildDesignAgentUserContent(
         typeof content === "string" ? content : prompt,
@@ -314,8 +306,7 @@ export class ChatQueryHandler implements ChatEngine {
             costUsd: designResult.costUsd,
           });
 
-          designAgentCost =
-            (designResult.costUsd ?? 0) + (classifierCost ?? 0);
+          designAgentCost = (designResult.costUsd ?? 0) + (classifierCost ?? 0);
 
           if (designResult.designSpec) {
             const { spec, metadata } = this.parseDesignAgentSpec(
@@ -352,16 +343,12 @@ export class ChatQueryHandler implements ChatEngine {
             }
           }
 
-          logger.consoleLogDevOnly(
-            "info",
-            "Design agent execution completed",
-            {
-              prototypeId,
-              hasDesignSpec: !!designSpec,
-              designAgentCost,
-              metadata: designMetadata,
-            },
-          );
+          logger.consoleLogDevOnly("info", "Design agent execution completed", {
+            prototypeId,
+            hasDesignSpec: !!designSpec,
+            designAgentCost,
+            metadata: designMetadata,
+          });
         } else {
           designAgentCost = classifierCost;
           logger.consoleLogDevOnly(
@@ -404,8 +391,7 @@ export class ChatQueryHandler implements ChatEngine {
       );
     } finally {
       // Step 6: Combine costs from design agent and implementation
-      combinedCostUsd =
-        (designAgentCost ?? 0) + (implementationCostUsd ?? 0);
+      combinedCostUsd = (designAgentCost ?? 0) + (implementationCostUsd ?? 0);
 
       logger.consoleLogDevOnly("info", "Combined cost calculation", {
         designAgentCost,
@@ -432,7 +418,7 @@ export class ChatQueryHandler implements ChatEngine {
     abortController: AbortController,
     logger: SystemLogger,
     _systemPrompt: string,
-  ): Promise<{ designSpec: string | null; costUsd: number | undefined; }> {
+  ): Promise<{ designSpec: string | null; costUsd: number | undefined }> {
     // Use Gemini by default for design agent (fast and free)
     const provider: DesignAgentProvider = "google";
     const model = DEFAULT_DESIGN_AGENT_MODELS[provider];
@@ -756,7 +742,7 @@ export class ChatQueryHandler implements ChatEngine {
   private prepareMessageContent(
     prompt: string | undefined,
     content: ChatContentBlock[] | undefined,
-  ): string | Array<{ type: string; text?: string; source?: unknown; }> {
+  ): string | Array<{ type: string; text?: string; source?: unknown }> {
     if (content) {
       return content.map((block) => {
         if (block.type === "text") {
@@ -782,8 +768,8 @@ export class ChatQueryHandler implements ChatEngine {
   private extractImagesFromContent(
     messageContent:
       | string
-      | Array<{ type: string; text?: string; source?: unknown; }>,
-  ): Array<{ base64: string; mediaType: string; }> {
+      | Array<{ type: string; text?: string; source?: unknown }>,
+  ): Array<{ base64: string; mediaType: string }> {
     if (!Array.isArray(messageContent)) {
       return [];
     }
@@ -791,8 +777,8 @@ export class ChatQueryHandler implements ChatEngine {
     return messageContent
       .filter((block) => block.type === "image")
       .map((block) => ({
-        base64: (block.source as { data: string; }).data,
-        mediaType: (block.source as { media_type: string; }).media_type,
+        base64: (block.source as { data: string }).data,
+        mediaType: (block.source as { media_type: string }).media_type,
       }));
   }
 
@@ -802,8 +788,8 @@ export class ChatQueryHandler implements ChatEngine {
   private async persistUserMessage(
     messageContent:
       | string
-      | Array<{ type: string; text?: string; source?: unknown; }>,
-    imagesFromContent: Array<{ base64: string; mediaType: string; }>,
+      | Array<{ type: string; text?: string; source?: unknown }>,
+    imagesFromContent: Array<{ base64: string; mediaType: string }>,
     imageMetadata: Array<{
       storage_path: string;
       media_type: string;
@@ -821,9 +807,9 @@ export class ChatQueryHandler implements ChatEngine {
       typeof messageContent === "string"
         ? messageContent
         : messageContent
-          .filter((block) => block.type === "text")
-          .map((block) => block.text || "")
-          .join("\n");
+            .filter((block) => block.type === "text")
+            .map((block) => block.text || "")
+            .join("\n");
 
     const hasImages = imagesFromContent.length > 0;
     const userMessageDisplay = hasImages
@@ -851,7 +837,7 @@ export class ChatQueryHandler implements ChatEngine {
     logger: SystemLogger,
     framework: Database["public"]["Enums"]["prototype_framework"],
     relativePathResolver: (path: string) => string,
-  ): Promise<Options & { resume?: string; }> {
+  ): Promise<Options & { resume?: string }> {
     const canUseTool: CanUseTool = async (
       toolName: ToolName,
       input: ToolInput,
@@ -859,17 +845,6 @@ export class ChatQueryHandler implements ChatEngine {
     ): Promise<PermissionResult> => {
       return this.toolPermissionService.evaluateToolPermission(toolName, input);
     };
-
-    // Prepare environment variables
-    const env: Record<string, string | undefined> = {};
-    const aak = this.getAak();
-    logger.consoleLogDevOnly("info", "AAK", {
-      exists: !!aak,
-      lastFourCharacters: aak?.slice(-4),
-    });
-    if (aak) {
-      env.ANTHROPIC_API_KEY = aak;
-    }
 
     const allowedToolsDefault = [
       "Read",
@@ -956,12 +931,12 @@ export class ChatQueryHandler implements ChatEngine {
       ...options,
       agents: designSubagentEnabled
         ? {
-          "ui-ux-designer": {
-            description: `Expert UI/UX designer for ${framework === "mobile_expo_react_native" ? "mobile react native" : "tailwindcss web Next.js"} applications. Use for design inspiration and planning great design implementation, any time the user requests a feature that has significant user interface changes.`,
-            prompt: getClaudeCodeDesignSubagentPrompt(framework),
-            tools: ["Read", "Glob", "Grep", "WebSearch", "WebFetch"],
-          },
-        }
+            "ui-ux-designer": {
+              description: `Expert UI/UX designer for ${framework === "mobile_expo_react_native" ? "mobile react native" : "tailwindcss web Next.js"} applications. Use for design inspiration and planning great design implementation, any time the user requests a feature that has significant user interface changes.`,
+              prompt: getClaudeCodeDesignSubagentPrompt(framework),
+              tools: ["Read", "Glob", "Grep", "WebSearch", "WebFetch"],
+            },
+          }
         : undefined,
       includePartialMessages: false,
       cwd: WORK_DIR,
@@ -991,7 +966,7 @@ export class ChatQueryHandler implements ChatEngine {
               async (
                 input: HookInput,
                 toolUseID: string | undefined,
-                _options: { signal: AbortSignal; },
+                _options: { signal: AbortSignal },
               ): Promise<HookJSONOutput> => {
                 const hookContext: HookContext = {
                   input,
@@ -1011,7 +986,7 @@ export class ChatQueryHandler implements ChatEngine {
               async (
                 input: HookInput,
                 toolUseID: string | undefined,
-                _options: { signal: AbortSignal; },
+                _options: { signal: AbortSignal },
               ): Promise<HookJSONOutput> => {
                 const hookContext: HookContext = {
                   input,
@@ -1041,7 +1016,7 @@ export class ChatQueryHandler implements ChatEngine {
     command: string,
     args: string[],
     cwd?: string,
-  ): Promise<{ stdout: string; isError: boolean; }> {
+  ): Promise<{ stdout: string; isError: boolean }> {
     try {
       // Normalize cwd - if it doesn't start with WORK_DIR, treat it as relative
       let normalizedCwd = WORK_DIR;
@@ -1376,7 +1351,7 @@ export class ChatQueryHandler implements ChatEngine {
     } = streamContext;
 
     // Shared state for MCP stream fix - allows generator to monitor for result message
-    const messages: Array<{ type: string;[key: string]: unknown; }> = [];
+    const messages: Array<{ type: string; [key: string]: unknown }> = [];
 
     // Create async generator for streaming input
     const generateMessages = async function* (): AsyncGenerator<{
@@ -1384,8 +1359,8 @@ export class ChatQueryHandler implements ChatEngine {
       message: {
         role: "user";
         content:
-        | string
-        | Array<{ type: string; text?: string; source?: unknown; }>;
+          | string
+          | Array<{ type: string; text?: string; source?: unknown }>;
       };
     }> {
       // Design spec is now written to CLAUDE.md and automatically read by Claude Code SDK
@@ -1577,5 +1552,4 @@ export class ChatQueryHandler implements ChatEngine {
 
     return totalCostUsd;
   }
-
 }

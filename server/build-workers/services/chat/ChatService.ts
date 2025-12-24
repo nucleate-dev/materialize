@@ -46,6 +46,7 @@ import { trackApiUsageBuildWorker } from "./cost/usage-tracking.js";
 import { hasRemainingCredits } from "../../utils/credit-checks.js";
 
 const CHAT_HEARTBEAT_INTERVAL_MS = 15000;
+const ALLOWED_ROOT = "/tmp/materialize-dev-server";
 
 class OrchestrationAPIError<TData = unknown> extends Error {
   public readonly responseBody: APIResponse<TData, StandardErrorResponse>;
@@ -77,12 +78,12 @@ interface ChatQueryValidationResult {
 }
 
 export class ChatService {
-  private readonly allowedRoot: string;
   private readonly supabaseClientService: SupabaseClientService;
-  private readonly fileSyncService: FileSyncService;
-  private readonly toolPermissionService: ToolPermissionService;
   private readonly sandboxService: SandboxService;
   private readonly devServerService: NucleateDevelopmentServerService;
+  private readonly fileSyncService: FileSyncService;
+  private readonly toolPermissionService: ToolPermissionService;
+
   private readonly messagePersistenceService: MessagePersistenceService;
   private readonly chatQueryHandler: ChatEngine;
   private readonly claudeCodeCliQueryHandler: ChatEngine;
@@ -112,12 +113,11 @@ export class ChatService {
     terminalService: TerminalService,
     fileSyncService: FileSyncService,
   ) {
-    this.allowedRoot = path.resolve("/tmp/materialize-dev-server");
     this.supabaseClientService = supabaseClientService;
     this.fileSyncService = fileSyncService;
     this.sandboxService = sandboxService;
     this.devServerService = devServerService;
-    this.toolPermissionService = new ToolPermissionService(this.allowedRoot);
+    this.toolPermissionService = new ToolPermissionService(ALLOWED_ROOT);
 
     // Initialize MessagePersistenceService
     this.messagePersistenceService = new MessagePersistenceService(
@@ -132,13 +132,10 @@ export class ChatService {
       sandboxService,
       devServerService,
       terminalService,
-      () => this.getAak(),
     );
 
     // Initialize ClaudeTokenService
-    this.claudeTokenService = new ClaudeTokenService(
-      supabaseClientService,
-    );
+    this.claudeTokenService = new ClaudeTokenService(supabaseClientService);
 
     // Always initialize ClaudeCodeCliQueryHandler - will be used if user has a token
     this.claudeCodeCliQueryHandler = new ClaudeCodeCliQueryHandler(
@@ -146,20 +143,17 @@ export class ChatService {
       this.toolPermissionService,
       devServerService,
     );
-    baseLogger.info(
-      "Claude Code CLI handler initialized - will be used for users with subscription tokens",
-    );
 
     baseLogger.consoleLogDevOnly("info", "ChatService initialized", {
       workDir: WORK_DIR,
-      allowedRoot: this.allowedRoot,
+      allowedRoot: ALLOWED_ROOT,
     });
 
     const normalizedWorkDir = path.resolve(WORK_DIR);
     if (!this.isPathInsideAllowedRoot(normalizedWorkDir)) {
       baseLogger.warn("WorkDir is outside the allowed root for Claude Code", {
         workDir: normalizedWorkDir,
-        allowedRoot: this.allowedRoot,
+        allowedRoot: ALLOWED_ROOT,
       });
     }
   }
@@ -167,10 +161,6 @@ export class ChatService {
   public setOrchestrationToken(token: string): void {
     this.orchestrationToken = token;
     baseLogger.consoleLogDevOnly("info", "Orchestration token set");
-  }
-
-  public getOrchestrationToken(): string | null {
-    return this.orchestrationToken;
   }
 
   public setAak(key: string): void {
@@ -1625,11 +1615,11 @@ export class ChatService {
 
   private isPathInsideAllowedRoot(resolvedPath: string): boolean {
     const normalizedPath = path.resolve(resolvedPath);
-    const allowedWithSep = this.allowedRoot.endsWith(path.sep)
-      ? this.allowedRoot
-      : `${this.allowedRoot}${path.sep}`;
+    const allowedWithSep = ALLOWED_ROOT.endsWith(path.sep)
+      ? ALLOWED_ROOT
+      : `${ALLOWED_ROOT}${path.sep}`;
     return (
-      normalizedPath === this.allowedRoot ||
+      normalizedPath === ALLOWED_ROOT ||
       normalizedPath.startsWith(allowedWithSep)
     );
   }
