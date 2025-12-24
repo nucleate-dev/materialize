@@ -129,7 +129,6 @@ export class ChatQueryHandler implements ChatEngine {
   private readonly sandboxService: SandboxService;
   private readonly devServerService: NucleateDevelopmentServerService;
   private readonly terminalService: TerminalService;
-  private enableDesignAgentOnFirstMessage: boolean;
   private enableDesignMcpTools: boolean;
 
   constructor(
@@ -142,12 +141,7 @@ export class ChatQueryHandler implements ChatEngine {
     this.sandboxService = sandboxService;
     this.devServerService = devServerService;
     this.terminalService = terminalService;
-    this.enableDesignAgentOnFirstMessage = true;
     this.enableDesignMcpTools = false;
-  }
-
-  public setEnableDesignAgentOnFirstMessage(enabled: boolean): void {
-    this.enableDesignAgentOnFirstMessage = enabled;
   }
 
   public setEnableDesignMcpTools(enabled: boolean): void {
@@ -162,13 +156,12 @@ export class ChatQueryHandler implements ChatEngine {
     handlers: ChatEngineMessageHandlers,
   ): Promise<ChatEngineResult | void> {
     const { prototypeId, socket, data, sessionState, logger } = context;
-    const { prompt, content, token, ai_chat_session_id, design_style } = data;
+    const { prompt, content, token, ai_chat_session_id } = data;
     const framework = this.devServerService.prototypeFramework;
     baseLogger.consoleLogDevOnly("info", "framework in handleQuery is: ", {
       framework,
     });
 
-    const options = (data.options ?? {}) as Options;
     const designContext = context.designContext;
     const systemPromptAppend = designContext?.systemPrompt ?? "";
     const isFirstMessage = context.isFirstMessage ?? false;
@@ -179,8 +172,6 @@ export class ChatQueryHandler implements ChatEngine {
       session_id: ai_chat_session_id,
       chat_session_id: data.prototype_chat_session_id,
       current_viewing_path: data.current_viewing_path,
-      custom_design_system_id: data.custom_design_system_id,
-      design_style,
       hasPrompt: !!prompt,
       hasContent: !!content,
       contentLength: content?.length,
@@ -194,9 +185,7 @@ export class ChatQueryHandler implements ChatEngine {
     let designSpec: string | null = null;
     let designMetadata: DesignAgentMetadata | null = null;
 
-    const canAttemptClassification =
-      this.enableDesignAgentOnFirstMessage &&
-      !!sessionState.prototypeChatSessionId;
+    const canAttemptClassification = !!sessionState.prototypeChatSessionId;
 
     if (!canAttemptClassification) {
       logger.consoleLogDevOnly(
@@ -204,7 +193,6 @@ export class ChatQueryHandler implements ChatEngine {
         "Skipping design intent classification gate",
         {
           prototypeId,
-          enableDesignAgentOnFirstMessage: this.enableDesignAgentOnFirstMessage,
           hasPrototypeChatSessionId: !!sessionState.prototypeChatSessionId,
         },
       );
@@ -213,7 +201,6 @@ export class ChatQueryHandler implements ChatEngine {
     if (canAttemptClassification && isFirstMessage) {
       logger.debug("Preparing to classify user intent", {
         prototypeId,
-        enableDesignAgentOnFirstMessage: this.enableDesignAgentOnFirstMessage,
         hasSession: !!sessionState.prototypeChatSessionId,
         willClassify: true,
       });

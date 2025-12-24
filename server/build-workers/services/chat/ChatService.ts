@@ -132,8 +132,6 @@ export class ChatService {
     // Always initialize ClaudeCodeCliQueryHandler - will be used if user has a token
     this.claudeCodeCliQueryHandler = new ClaudeCodeCliQueryHandler(
       supabaseClientService,
-      ALLOWED_ROOT,
-      devServerService,
     );
 
     baseLogger.consoleLogDevOnly("info", "ChatService initialized", {
