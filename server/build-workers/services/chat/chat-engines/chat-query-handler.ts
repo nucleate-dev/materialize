@@ -1206,42 +1206,12 @@ export class ChatQueryHandler implements ChatEngine {
     handlers: ChatEngineMessageHandlers,
     logger: SystemLogger,
   ): Promise<HookJSONOutput> {
-    const { input, toolUseID, socket, sessionState } = hookContext;
+    const { input, toolUseID, socket } = hookContext;
 
     try {
       logger.consoleLogDevOnly("debug", JSON.stringify(input));
 
       if (input.hook_event_name === "PostToolUse") {
-        // Track file modifications
-        const fileModifyingTools = [
-          "Write",
-          "Edit",
-          "NotebookEdit",
-          "SafeWrite",
-        ];
-        if (fileModifyingTools.includes(input.tool_name)) {
-          const toolInput = input.tool_input as ToolInputWithFilePath;
-          const toolResponse = input.tool_response as ToolResponseWithFilePath;
-
-          // Extract file path from tool input or response
-          let filePath: string | null = null;
-
-          if (toolInput?.file_path) {
-            filePath = toolInput.file_path;
-          } else if (toolInput?.notebook_path) {
-            filePath = toolInput.notebook_path;
-          } else if (toolResponse?.file_path) {
-            filePath = toolResponse.file_path;
-          }
-
-          if (filePath && sessionState) {
-            const resolver = hookContext.getRelativePath;
-            const relativePath = resolver ? resolver(filePath) : filePath;
-            // Track for query-level reporting
-            sessionState.modifiedFilesThisQuery.add(relativePath);
-          }
-        }
-
         // Send tool complete event to WebSocket client
         if (socket.readyState === WebSocket.OPEN) {
           socket.send(

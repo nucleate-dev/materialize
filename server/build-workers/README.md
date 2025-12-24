@@ -101,7 +101,6 @@ Manages AI-powered chat interactions via WebSocket connections.
 | `MESSAGE_RECEIVED` | Incoming message from client |
 | `AGENT_MESSAGE` | AI response (streaming) |
 | `TOOL_START` / `TOOL_COMPLETE` | Tool execution lifecycle |
-| `MODIFIED_FILES` | Files changed during session |
 | `QUERY_COMPLETE` | Query processing finished |
 
 ---

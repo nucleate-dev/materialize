@@ -90,7 +90,6 @@ export class ChatService {
     sessionId: null,
     prototypeChatSessionId: null,
     abortController: null,
-    modifiedFilesThisQuery: new Set<string>(),
     designSystemId: null,
     designSystemRules: null,
     firstMessageStatus: null,
@@ -1118,25 +1117,6 @@ export class ChatService {
       );
     }
 
-    const modifiedFiles = Array.from(sessionState.modifiedFilesThisQuery);
-    if (modifiedFiles.length > 0) {
-      try {
-        this.sendMessage(socket, {
-          type: ChatEvent.MODIFIED_FILES,
-          data: { files: modifiedFiles },
-        });
-      } catch (modifiedFilesError) {
-        logger.error(
-          modifiedFilesError instanceof Error
-            ? modifiedFilesError
-            : new Error(String(modifiedFilesError)),
-          "Failed to send modified files event",
-          { prototypeId },
-        );
-      }
-    }
-    sessionState.modifiedFilesThisQuery.clear();
-
     try {
       const {
         data: { user },
@@ -1638,7 +1618,6 @@ export class ChatService {
       abortController: null,
       designSystemId: null,
       designSystemRules: null,
-      modifiedFilesThisQuery: new Set<string>(),
       firstMessageStatus: null,
     };
 

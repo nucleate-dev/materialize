@@ -13,7 +13,6 @@ export enum ChatEvent {
   TOOL_START = "tool_start",
   TOOL_COMPLETE = "tool_complete",
   HISTORY_REQUEST = "history_request",
-  MODIFIED_FILES = "modified_files",
   DESIGN_GENERATION = "design_generation",
 }
 
@@ -196,13 +195,6 @@ export interface FileSyncResultData {
   errors?: string[];
 }
 
-export interface ModifiedFilesMessage {
-  type: ChatEvent.MODIFIED_FILES;
-  data: {
-    files: string[];
-  };
-}
-
 export interface AuthenticatedMessage {
   type: ChatEvent.AUTHENTICATED;
   userId: string;
@@ -253,6 +245,5 @@ export type ChatServerMessage =
   | AuthenticatedMessage
   | MessageReceivedMessage
   | ReadyMessage
-  | ModifiedFilesMessage
   | HistoryRequestMessage
   | DesignGenerationMessage;

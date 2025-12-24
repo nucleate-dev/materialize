@@ -1156,18 +1156,6 @@
 //       });
 //     }
 
-//     const modifiedFiles = Array.from(sessionState.modifiedFilesThisQuery);
-//     if (modifiedFiles.length > 0) {
-//       try {
-//         sendMessage(socket, {
-//           type: ChatEvent.MODIFIED_FILES,
-//           data: { files: modifiedFiles },
-//         });
-//       } catch (modifiedFilesError) {
-//         baseLogger.error(modifiedFilesError, "Failed to send modified files", {
-//           prototypeId,
-//         });
-//       }
 //     }
 //     sessionState.modifiedFilesThisQuery.clear();
 

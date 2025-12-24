@@ -5,7 +5,7 @@
 // To update these shared files, modify the source file and run:
 // npm run sync-types (in the control-plane directory)
 //
-// Last synced: 2025-12-23T10:06:15.033Z
+// Last synced: 2025-12-24T23:46:46.388Z
 
 export enum ChatEvent {
   AUTHENTICATED = "authenticated",
@@ -22,7 +22,6 @@ export enum ChatEvent {
   TOOL_START = "tool_start",
   TOOL_COMPLETE = "tool_complete",
   HISTORY_REQUEST = "history_request",
-  MODIFIED_FILES = "modified_files",
   DESIGN_GENERATION = "design_generation",
 }
 
@@ -205,13 +204,6 @@ export interface FileSyncResultData {
   errors?: string[];
 }
 
-export interface ModifiedFilesMessage {
-  type: ChatEvent.MODIFIED_FILES;
-  data: {
-    files: string[];
-  };
-}
-
 export interface AuthenticatedMessage {
   type: ChatEvent.AUTHENTICATED;
   userId: string;
@@ -262,6 +254,5 @@ export type ChatServerMessage =
   | AuthenticatedMessage
   | MessageReceivedMessage
   | ReadyMessage
-  | ModifiedFilesMessage
   | HistoryRequestMessage
   | DesignGenerationMessage;

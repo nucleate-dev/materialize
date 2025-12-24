@@ -47,7 +47,6 @@ interface ToolUseBlock {
 }
 
 interface SessionState {
-  modifiedFilesThisQuery: Set<string>;
   pendingToolCalls: Map<string, ToolUseBlock>;
 }
 
@@ -76,7 +75,6 @@ export class ClaudeCodeCliQueryHandler implements ChatEngine {
   constructor(supabaseClientService: SupabaseClientService) {
     this.supabaseClientService = supabaseClientService;
     this.sessionState = {
-      modifiedFilesThisQuery: new Set(),
       pendingToolCalls: new Map(),
     };
   }
@@ -105,8 +103,6 @@ export class ClaudeCodeCliQueryHandler implements ChatEngine {
       const systemPromptAppend = designContext?.systemPrompt ?? "";
 
       // Reset session state for new query
-      this.sessionState.modifiedFilesThisQuery.clear();
-      sessionState.modifiedFilesThisQuery.clear();
       this.sessionState.pendingToolCalls.clear();
 
       // Get the query text - support both old format (prompt) and new format (content)
@@ -468,22 +464,7 @@ export class ClaudeCodeCliQueryHandler implements ChatEngine {
 
     baseLogger.debug(`PostToolUse: ${toolName}`, { toolUseId, isError });
 
-    // 1. Track file modifications
-    const fileModifyingTools = ["Write", "Edit", "NotebookEdit", "SafeWrite"];
-    if (fileModifyingTools.includes(toolName)) {
-      const filePath =
-        (toolInput as { file_path?: string; notebook_path?: string })
-          .file_path || (toolInput as { notebook_path?: string }).notebook_path;
-
-      if (filePath) {
-        const relativePath = context.getRelativePath(filePath);
-        this.sessionState.modifiedFilesThisQuery.add(relativePath);
-        context.sessionState.modifiedFilesThisQuery.add(relativePath);
-        baseLogger.debug("File modified", { relativePath });
-      }
-    }
-
-    // 2. Send TOOL_COMPLETE event to WebSocket
+    // 1. Send TOOL_COMPLETE event to WebSocket
     sendMessage(socket, {
       type: ChatEvent.TOOL_COMPLETE,
       data: {
@@ -494,7 +475,7 @@ export class ClaudeCodeCliQueryHandler implements ChatEngine {
       },
     });
 
-    // 3. Persist tool completion to database
+    // 2. Persist tool completion to database
     await persistMessage(
       "assistant",
       `Tool completed: ${toolName}`,
@@ -509,12 +490,12 @@ export class ClaudeCodeCliQueryHandler implements ChatEngine {
       },
     );
 
-    // 4. Clean up pending tool call
+    // 3. Clean up pending tool call
     this.sessionState.pendingToolCalls.delete(toolUseId);
   }
 
   /**
-   * Handle query completion - report modified files
+   * Handle query completion
    */
   private handleQueryComplete(
     message: ClaudeCodeMessage,
@@ -539,7 +520,6 @@ export class ClaudeCodeCliQueryHandler implements ChatEngine {
     });
 
     // Reset session state for next query
-    this.sessionState.modifiedFilesThisQuery.clear();
     this.sessionState.pendingToolCalls.clear();
   }
 

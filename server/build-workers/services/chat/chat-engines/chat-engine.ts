@@ -14,7 +14,6 @@ export interface ChatEngineSessionState {
   sessionId: string | null;
   prototypeChatSessionId: string | null;
   abortController: AbortController | null;
-  modifiedFilesThisQuery: Set<string>;
   designSystemId: string | null;
   designSystemRules: string | null;
   firstMessageStatus: { sessionId: string; isFirst: boolean } | null;
