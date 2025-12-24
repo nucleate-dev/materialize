@@ -40,9 +40,9 @@ import { ClaudeCodeCliQueryHandler } from "./chat-engines/claude-code-cli-query-
 import { MessagePersistenceService } from "./helpers/message-handlers.js";
 import { ChatProvider, isAllowedModel } from "./helpers/model-providers.js";
 import { ToolPermissionService } from "./helpers/tool-permission-service.js";
-import { getSystemPromptForDesignStyle } from "./chat-engines/prompts/ClaudeCodePrompts.js";
-import { costFunctionV3 } from "./chat-engines/cost/cost-calculation.js";
-import { trackApiUsageBuildWorker } from "./chat-engines/cost/usage-tracking.js";
+import { getSystemPromptForDesignStyle } from "./prompts/ClaudeCodePrompts.js";
+import { costFunctionV3 } from "./cost/cost-calculation.js";
+import { trackApiUsageBuildWorker } from "./cost/usage-tracking.js";
 import { hasRemainingCredits } from "../../utils/credit-checks.js";
 
 const CHAT_HEARTBEAT_INTERVAL_MS = 15000;
@@ -581,7 +581,7 @@ export class ChatService {
       return;
     }
 
-    let handlerResult: ChatEngineResult | void;
+    let handlerResult: ChatEngineResult | void = undefined;
     try {
       handlerResult = await handler.handleQuery(
         {

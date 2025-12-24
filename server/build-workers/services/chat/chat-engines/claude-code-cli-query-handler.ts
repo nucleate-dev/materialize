@@ -451,7 +451,7 @@ export class ClaudeCodeCliQueryHandler implements ChatEngine {
     result: ClaudeCodeMessage,
     socket: WebSocket,
     handlers: ChatEngineMessageHandlers,
-    _context: ChatEngineContext,
+    context: ChatEngineContext,
   ): Promise<void> {
     const { sendMessage, persistMessage } = handlers;
     const toolUseId = result.tool_use_id;
@@ -646,3 +646,5 @@ export class ClaudeCodeCliQueryHandler implements ChatEngine {
       );
     }
   }
+
+}

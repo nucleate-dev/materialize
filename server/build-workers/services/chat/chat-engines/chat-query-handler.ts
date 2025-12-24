@@ -390,6 +390,7 @@ export class ChatQueryHandler implements ChatEngine {
 
     // Step 5: Execute query with proper cleanup
     let implementationCostUsd: number | undefined = undefined;
+    let combinedCostUsd: number | undefined = undefined;
 
     try {
       implementationCostUsd = await this.executeClaudeQuery(
@@ -403,20 +404,20 @@ export class ChatQueryHandler implements ChatEngine {
       );
     } finally {
       // Step 6: Combine costs from design agent and implementation
-      const totalCostUsd =
+      combinedCostUsd =
         (designAgentCost ?? 0) + (implementationCostUsd ?? 0);
 
       logger.consoleLogDevOnly("info", "Combined cost calculation", {
         designAgentCost,
         implementationCostUsd,
-        totalCostUsd,
+        totalCostUsd: combinedCostUsd,
       });
 
       // Step 7: Invalidate build after chat ends
       this.devServerService.developmentServerState.lastUpdatedTime = new Date();
     }
 
-    return { totalCostUsd };
+    return { totalCostUsd: combinedCostUsd };
   }
 
   /**
@@ -629,6 +630,7 @@ export class ChatQueryHandler implements ChatEngine {
         flushAssistantBuffer,
         logger,
         framework,
+        context.getRelativePath,
       );
 
       // Check if session is valid for resumption
@@ -848,6 +850,7 @@ export class ChatQueryHandler implements ChatEngine {
     flushAssistantBuffer: () => Promise<void>,
     logger: SystemLogger,
     framework: Database["public"]["Enums"]["prototype_framework"],
+    relativePathResolver: (path: string) => string,
   ): Promise<Options & { resume?: string; }> {
     const canUseTool: CanUseTool = async (
       toolName: ToolName,
@@ -995,7 +998,7 @@ export class ChatQueryHandler implements ChatEngine {
                   toolUseID,
                   socket,
                   flushAssistantBuffer,
-                  getRelativePath: context.getRelativePath,
+                  getRelativePath: relativePathResolver,
                 };
                 return this.handlePreToolUseHook(hookContext, handlers, logger);
               },
@@ -1015,7 +1018,7 @@ export class ChatQueryHandler implements ChatEngine {
                   toolUseID,
                   socket,
                   sessionState,
-                  getRelativePath: context.getRelativePath,
+                  getRelativePath: relativePathResolver,
                 };
                 return this.handlePostToolUseHook(
                   hookContext,
@@ -1575,6 +1578,4 @@ export class ChatQueryHandler implements ChatEngine {
     return totalCostUsd;
   }
 
-  /**
-   * Runs git add/commit with the latest user message so we can diff work between queries
-   */
+}
