@@ -63,7 +63,6 @@ export interface ChatEngineMessageHandlers {
   ) => Promise<
     Array<{ storage_path: string; media_type: string; file_size: number }>
   >;
-  updatePersistenceClient?: (client: unknown) => void;
 }
 
 export interface ChatEngineResult {

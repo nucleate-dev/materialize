@@ -2,10 +2,10 @@
  * Utility functions for handling and formatting chat messages
  */
 
-import { SupabaseClient } from "@supabase/supabase-js";
 import { Database } from "../../../types/supabase.js";
 import { processImage } from "./image-processing.js";
 import { baseLogger } from "../../../worker.js";
+import { SupabaseClientService } from "../../SupabaseClientService.js";
 
 type ToolInput = Record<string, unknown>;
 
@@ -112,17 +112,10 @@ export function getToolDisplayName(
  * Service for persisting chat messages and related media to Supabase
  */
 export class MessagePersistenceService {
-  private supabaseClient: SupabaseClient<Database>;
+  private readonly supabaseClientService: SupabaseClientService;
 
-  constructor(supabaseClient: SupabaseClient<Database>) {
-    this.supabaseClient = supabaseClient;
-  }
-
-  /**
-   * Updates the Supabase client reference (called when token is refreshed)
-   */
-  public setSupabaseClient(client: SupabaseClient<Database>): void {
-    this.supabaseClient = client;
+  constructor(supabaseClientService: SupabaseClientService) {
+    this.supabaseClientService = supabaseClientService;
   }
 
   /**
@@ -152,10 +145,11 @@ export class MessagePersistenceService {
 
     try {
       // Check if client is authenticated
+      const supabase = this.supabaseClientService.getClient();
       const {
         data: { user },
         error: authError,
-      } = await this.supabaseClient.auth.getUser();
+      } = await supabase.auth.getUser();
 
       baseLogger.consoleLogDevOnly("debug", "Attempting to persist message", {
         chatSessionId,
@@ -179,7 +173,7 @@ export class MessagePersistenceService {
         model: model ?? null,
       };
 
-      const { error } = await this.supabaseClient
+      const { error } = await supabase
         .from("prototype_chat_messages")
         .insert({
           chat_session_id: chatSessionId,
@@ -270,7 +264,8 @@ export class MessagePersistenceService {
           const storagePath = `${prototypeId}/chat/${chatSessionId}/${filename}`;
 
           // Upload to Supabase Storage
-          const { error: uploadError } = await this.supabaseClient.storage
+          const supabase = this.supabaseClientService.getClient();
+          const { error: uploadError } = await supabase.storage
             .from("chat-images")
             .upload(storagePath, processed.buffer, {
               contentType: processed.mediaType,

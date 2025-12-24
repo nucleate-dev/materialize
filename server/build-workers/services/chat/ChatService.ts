@@ -121,7 +121,7 @@ export class ChatService {
 
     // Initialize MessagePersistenceService
     this.messagePersistenceService = new MessagePersistenceService(
-      supabaseClientService.getClient(),
+      supabaseClientService,
     );
 
     // Initialize ChatQueryHandler
@@ -137,7 +137,7 @@ export class ChatService {
 
     // Initialize ClaudeTokenService
     this.claudeTokenService = new ClaudeTokenService(
-      supabaseClientService.getClient(),
+      supabaseClientService,
     );
 
     // Always initialize ClaudeCodeCliQueryHandler - will be used if user has a token
@@ -624,11 +624,6 @@ export class ChatService {
               images,
             );
           },
-          updatePersistenceClient: (client: unknown) => {
-            this.messagePersistenceService.setSupabaseClient(
-              client as import("@supabase/supabase-js").SupabaseClient<Database>,
-            );
-          },
         },
       );
     } finally {
@@ -851,9 +846,6 @@ export class ChatService {
   ): Promise<ChatQueryValidationResult> {
     try {
       this.supabaseClientService.refreshClientWithToken(token);
-      this.messagePersistenceService.setSupabaseClient(
-        this.supabaseClientService.getClient(),
-      );
       logger.consoleLogDevOnly(
         "info",
         "Refreshed Supabase client with JWT token for chat request",
@@ -947,34 +939,27 @@ export class ChatService {
     errorDetails?: string;
   }> {
     try {
-      const authenticatedTokenService = new ClaudeTokenService(
-        this.supabaseClientService.getClient(),
-      );
-      try {
-        const userToken = await authenticatedTokenService.getUserToken(userId);
+      const userToken = await this.claudeTokenService.getUserToken(userId);
 
-        if (!userToken) {
-          return {
-            success: false,
-            errorMessage:
-              "No Claude subscription connected. Please connect your Claude Pro or Max subscription in Settings to use AI chat.",
-          };
-        }
-
-        const env = { ...process.env };
-        env.CLAUDE_CODE_OAUTH_TOKEN = userToken;
-        delete env.ANTHROPIC_API_KEY;
-
+      if (!userToken) {
         return {
-          success: true,
-          authEnv: {
-            env,
-            authMethod: "user_token",
-          },
+          success: false,
+          errorMessage:
+            "No Claude subscription connected. Please connect your Claude Pro or Max subscription in Settings to use AI chat.",
         };
-      } finally {
-        authenticatedTokenService.destroy();
       }
+
+      const env = { ...process.env };
+      env.CLAUDE_CODE_OAUTH_TOKEN = userToken;
+      delete env.ANTHROPIC_API_KEY;
+
+      return {
+        success: true,
+        authEnv: {
+          env,
+          authMethod: "user_token",
+        },
+      };
     } catch (error) {
       logger.error(
         error instanceof Error ? error : new Error(String(error)),
