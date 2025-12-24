@@ -23,6 +23,12 @@ export interface ChatEngineSessionState {
   firstMessageStatus: { sessionId: string; isFirst: boolean } | null;
 }
 
+export interface DesignContextInfo {
+  systemPrompt: string;
+  designSystemId: string | null;
+  designSystemRules: string | null;
+}
+
 export interface ChatEngineContext {
   prototypeId: string;
   socket: WebSocket;
@@ -32,6 +38,8 @@ export interface ChatEngineContext {
   logger: SystemLogger;
   userId?: string | null;
   cliAuthEnv?: CliAuthEnvironment | null;
+  designContext?: DesignContextInfo;
+  isFirstMessage?: boolean;
 }
 
 export interface ChatEngineMessageHandlers {

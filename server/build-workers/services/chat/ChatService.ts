@@ -32,12 +32,14 @@ import {
   ChatEngine,
   ChatEngineSessionState,
   CliAuthEnvironment,
+  DesignContextInfo,
 } from "./chat-engines/chat-engine.js";
 import { ChatQueryHandler } from "./chat-engines/chat-query-handler.js";
 import { ClaudeCodeCliQueryHandler } from "./chat-engines/claude-code-cli-query-handler.js";
 import { MessagePersistenceService } from "./helpers/message-handlers.js";
 import { ChatProvider, isAllowedModel } from "./helpers/model-providers.js";
 import { ToolPermissionService } from "./helpers/tool-permission-service.js";
+import { getSystemPromptForDesignStyle } from "./chat-engines/prompts/ClaudeCodePrompts.js";
 import { hasRemainingCredits } from "../../utils/credit-checks.js";
 
 const CHAT_HEARTBEAT_INTERVAL_MS = 15000;
@@ -76,6 +78,7 @@ export class ChatService {
   private readonly supabaseClientService: SupabaseClientService;
   private readonly fileSyncService: FileSyncService;
   private readonly toolPermissionService: ToolPermissionService;
+  private readonly devServerService: NucleateDevelopmentServerService;
   private readonly messagePersistenceService: MessagePersistenceService;
   private readonly chatQueryHandler: ChatEngine;
   private readonly claudeCodeCliQueryHandler: ChatEngine;
@@ -108,6 +111,7 @@ export class ChatService {
     this.allowedRoot = path.resolve("/tmp/materialize-dev-server");
     this.supabaseClientService = supabaseClientService;
     this.fileSyncService = fileSyncService;
+    this.devServerService = devServerService;
     this.toolPermissionService = new ToolPermissionService(this.allowedRoot);
 
     // Initialize MessagePersistenceService
@@ -525,6 +529,28 @@ export class ChatService {
       cliAuthEnv = cliResult.authEnv;
     }
 
+    this.prepareSessionStateForQuery(data, logger);
+
+    const framework = this.devServerService.prototypeFramework;
+    const designContext = await this.loadDesignSystemContext(
+      logger,
+      data.custom_design_system_id ?? null,
+      data.design_style,
+      framework,
+    );
+
+    let isFirstMessage = false;
+    if (
+      handler === this.chatQueryHandler &&
+      this.sessionState.prototypeChatSessionId
+    ) {
+      isFirstMessage = await this.isFirstMessageForPrototype(
+        prototypeId,
+        this.sessionState.prototypeChatSessionId,
+        logger,
+      );
+    }
+
     logger.consoleLogDevOnly("info", "Dispatching chat query to handler", {
       prototypeId,
       handler: handlerName,
@@ -562,6 +588,8 @@ export class ChatService {
           logger,
           userId,
           cliAuthEnv,
+          designContext,
+          isFirstMessage,
         },
         {
           sendMessage: this.sendMessage.bind(this),
@@ -956,6 +984,200 @@ export class ChatService {
         errorMessage: "Failed to prepare Claude CLI authentication",
         errorDetails: error instanceof Error ? error.message : String(error),
       };
+    }
+  }
+
+  private prepareSessionStateForQuery(
+    data: ChatQueryData,
+    logger: SystemLogger,
+  ): void {
+    const { prototype_chat_session_id, ai_chat_session_id } = data;
+    const previousPrototypeChatSessionId =
+      this.sessionState.prototypeChatSessionId;
+
+    if (prototype_chat_session_id) {
+      this.sessionState.prototypeChatSessionId = prototype_chat_session_id;
+      logger.consoleLogDevOnly("info", "Using chat session ID from client", {
+        chatSessionId: prototype_chat_session_id,
+        claudeCodeSessionId: ai_chat_session_id,
+      });
+      if (previousPrototypeChatSessionId !== prototype_chat_session_id) {
+        this.sessionState.firstMessageStatus = null;
+      }
+    } else {
+      logger.warn("No chat_session_id provided by client", {
+        session_id: ai_chat_session_id,
+      });
+      this.sessionState.prototypeChatSessionId = null;
+      this.sessionState.firstMessageStatus = null;
+    }
+
+    if (ai_chat_session_id === null) {
+      logger.consoleLogDevOnly(
+        "info",
+        "Client requested new session - clearing internal state",
+        {
+          previousSessionId: this.sessionState.sessionId,
+        },
+      );
+      this.sessionState.sessionId = null;
+      this.sessionState.firstMessageStatus = null;
+    }
+  }
+
+  private async loadDesignSystemContext(
+    logger: SystemLogger,
+    customDesignSystemId: string | null,
+    designStyle: string | undefined,
+    framework: Database["public"]["Enums"]["prototype_framework"] | null,
+  ): Promise<DesignContextInfo> {
+    if (customDesignSystemId !== this.sessionState.designSystemId) {
+      if (!customDesignSystemId) {
+        this.sessionState.designSystemId = null;
+        this.sessionState.designSystemRules = null;
+        logger.consoleLogDevOnly("info", "Design system cleared");
+      } else {
+        try {
+          const { data: designSystem, error } =
+            await this.supabaseClientService
+              .getClient()
+              .from("design_systems")
+              .select("*")
+              .eq("id", customDesignSystemId)
+              .single();
+
+          if (error) {
+            logger.error(error, "Failed to fetch design system", {
+              designSystemId: customDesignSystemId,
+            });
+            this.sessionState.designSystemId = null;
+            this.sessionState.designSystemRules = null;
+          } else if (designSystem) {
+            this.sessionState.designSystemId = customDesignSystemId;
+            this.sessionState.designSystemRules = (
+              designSystem as Database["public"]["Tables"]["design_systems"]["Row"]
+            ).design_rules;
+          } else {
+            logger.warn("Design system not found", {
+              designSystemId: customDesignSystemId,
+            });
+            this.sessionState.designSystemId = null;
+            this.sessionState.designSystemRules = null;
+          }
+        } catch (error) {
+          logger.error(
+            error instanceof Error ? error : new Error(String(error)),
+            "Error fetching design system",
+            { designSystemId: customDesignSystemId },
+          );
+          this.sessionState.designSystemId = null;
+          this.sessionState.designSystemRules = null;
+        }
+      }
+    }
+
+    let systemPromptAppend = getSystemPromptForDesignStyle(
+      designStyle,
+      framework ?? undefined,
+    );
+
+    logger.consoleLogDevOnly(
+      "info",
+      "Using design-style-specific system prompt",
+      {
+        design_style: designStyle,
+        hasCustomDesignSystem: !!this.sessionState.designSystemRules,
+        framework,
+      },
+    );
+
+    if (this.sessionState.designSystemRules) {
+      systemPromptAppend +=
+        "\n\n## Custom Design System Rules:\n" +
+        this.sessionState.designSystemRules;
+    }
+
+    return {
+      systemPrompt: systemPromptAppend,
+      designSystemId: this.sessionState.designSystemId,
+      designSystemRules: this.sessionState.designSystemRules,
+    };
+  }
+
+  private async isFirstMessageForPrototype(
+    prototypeId: string,
+    prototypeChatSessionId: string,
+    logger: SystemLogger,
+  ): Promise<boolean> {
+    if (!prototypeChatSessionId) {
+      return false;
+    }
+
+    const cached = this.sessionState.firstMessageStatus;
+    if (cached && cached.sessionId === prototypeChatSessionId) {
+      return cached.isFirst;
+    }
+
+    try {
+      const { count: messageCount, error: messageError } =
+        await this.supabaseClientService
+          .getClient()
+          .from("prototype_chat_messages")
+          .select("*", { count: "exact", head: true })
+          .eq("chat_session_id", prototypeChatSessionId);
+
+      if (messageError) {
+        logger.error(
+          messageError,
+          "Failed to check message count for first message detection",
+          { prototypeChatSessionId },
+        );
+        return false;
+      }
+
+      if (messageCount && messageCount > 0) {
+        return false;
+      }
+
+      const { count: sessionCount, error: sessionError } =
+        await this.supabaseClientService
+          .getClient()
+          .from("prototype_chat_sessions")
+          .select("*", { count: "exact", head: true })
+          .eq("prototype_id", prototypeId);
+
+      if (sessionError) {
+        logger.error(
+          sessionError,
+          "Failed to check session count for first message detection",
+          { prototypeId },
+        );
+        return false;
+      }
+
+      const isFirst = sessionCount === 1;
+
+      this.sessionState.firstMessageStatus = {
+        sessionId: prototypeChatSessionId,
+        isFirst,
+      };
+
+      logger.consoleLogDevOnly("info", "First message detection result", {
+        prototypeId,
+        prototypeChatSessionId,
+        messageCount,
+        sessionCount,
+        isFirst,
+      });
+
+      return isFirst;
+    } catch (error) {
+      logger.error(
+        error instanceof Error ? error : new Error(String(error)),
+        "Error during first message detection",
+        { prototypeId, prototypeChatSessionId },
+      );
+      return false;
     }
   }
 

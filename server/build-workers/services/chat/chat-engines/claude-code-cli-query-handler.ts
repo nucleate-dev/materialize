@@ -3,9 +3,7 @@ import { Readable } from "stream";
 import WebSocket from "ws";
 import { SystemLogger } from "../../../loggers/SystemLogger.js";
 import { ChatEvent } from "../../../types/ChatTypes.js";
-import { Database } from "../../../types/supabase.js";
 import { SupabaseClientService } from "../../SupabaseClientService.js";
-import { getSystemPromptForDesignStyle } from "../prompts/ClaudeCodePrompts.js";
 import { getToolDisplayName } from "../helpers/message-handlers.js";
 import { ToolPermissionService } from "../helpers/tool-permission-service.js";
 import { baseLogger, WORK_DIR } from "../../../worker.js";
@@ -99,7 +97,8 @@ export class ClaudeCodeCliQueryHandler implements ChatEngine {
     context: ChatEngineContext,
     handlers: ChatEngineMessageHandlers,
   ): Promise<void> {
-    const { socket, data, sessionState, logger, cliAuthEnv } = context;
+    const { socket, data, sessionState, logger, cliAuthEnv, designContext } =
+      context;
     const { sendMessage } = handlers;
     const framework =
       this.devServerService.prototypeFramework ?? DEFAULT_PROTOTYPE_FRAMEWORK;
@@ -116,25 +115,7 @@ export class ClaudeCodeCliQueryHandler implements ChatEngine {
     }
 
     try {
-      // Load design system if needed
-      const systemPromptAppend = await this.loadDesignSystem(
-        data.custom_design_system_id ?? null,
-        sessionState,
-        data.design_style,
-        framework,
-      );
-
-      // Initialize session state with chat session ID from client
-      const { prototype_chat_session_id } = data;
-      if (prototype_chat_session_id) {
-        sessionState.prototypeChatSessionId = prototype_chat_session_id;
-        logger.debug("Using chat session ID from client", {
-          chatSessionId: prototype_chat_session_id,
-        });
-      } else {
-        logger.warn("No chat_session_id provided by client");
-        sessionState.prototypeChatSessionId = null;
-      }
+      const systemPromptAppend = designContext?.systemPrompt ?? "";
 
       // Reset session state for new query
       this.sessionState.modifiedFilesThisQuery.clear();
@@ -201,89 +182,6 @@ export class ClaudeCodeCliQueryHandler implements ChatEngine {
       // Clear abort controller
       sessionState.abortController = null;
     }
-  }
-
-  /**
-   * Loads design system and builds system prompt
-   */
-  private async loadDesignSystem(
-    custom_design_system_id: string | null,
-    sessionState: ChatEngineSessionState,
-    design_style: string | undefined,
-    framework: string | undefined,
-  ): Promise<string> {
-    // Check if design system changed or needs to be loaded
-    if (custom_design_system_id !== sessionState.designSystemId) {
-      if (
-        custom_design_system_id === null ||
-        custom_design_system_id === undefined
-      ) {
-        // Clear design system
-        sessionState.designSystemId = null;
-        sessionState.designSystemRules = null;
-        baseLogger.consoleLogDevOnly("info", "Design system cleared");
-      } else {
-        // Fetch new design system
-        try {
-          const { data: designSystem, error } = await this.supabaseClientService
-            .getClient()
-            .from("design_systems")
-            .select("*")
-            .eq("id", custom_design_system_id)
-            .single();
-
-          if (error) {
-            baseLogger.error(error, "Failed to fetch design system", {
-              designSystemId: custom_design_system_id,
-            });
-            sessionState.designSystemId = null;
-            sessionState.designSystemRules = null;
-          } else if (designSystem) {
-            sessionState.designSystemId = custom_design_system_id;
-            sessionState.designSystemRules = (
-              designSystem as Database["public"]["Tables"]["design_systems"]["Row"]
-            ).design_rules;
-          } else {
-            baseLogger.warn("Design system not found", {
-              designSystemId: custom_design_system_id,
-            });
-            sessionState.designSystemId = null;
-            sessionState.designSystemRules = null;
-          }
-        } catch (error) {
-          baseLogger.error(
-            error instanceof Error ? error : new Error(String(error)),
-            "Error fetching design system",
-            { designSystemId: custom_design_system_id },
-          );
-          sessionState.designSystemId = null;
-          sessionState.designSystemRules = null;
-        }
-      }
-    }
-
-    // Build system prompt with optional design system rules
-    let systemPromptAppend = getSystemPromptForDesignStyle(
-      design_style,
-      framework,
-    );
-
-    baseLogger.consoleLogDevOnly(
-      "info",
-      "Using design-style-specific system prompt",
-      {
-        design_style,
-        hasCustomDesignSystem: !!sessionState.designSystemRules,
-      },
-    );
-
-    // Append custom design system rules if available
-    if (sessionState.designSystemRules) {
-      systemPromptAppend +=
-        "\n\n## Custom Design System Rules:\n" + sessionState.designSystemRules;
-    }
-
-    return systemPromptAppend;
   }
 
   /**

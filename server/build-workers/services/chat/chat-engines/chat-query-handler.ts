@@ -84,12 +84,6 @@ type ToolName =
 
 type ToolInput = Record<string, unknown>;
 
-interface DesignSystemResult {
-  systemPrompt: string;
-  designSystemId: string | null;
-  designSystemRules: string | null;
-}
-
 interface DesignAgentMetadata {
   scope: "app" | "screen" | "component" | "other" | "unknown";
 }
@@ -187,6 +181,9 @@ export class ChatQueryHandler implements ChatEngine {
     });
 
     const options = (data.options ?? {}) as Options;
+    const designContext = context.designContext;
+    const systemPromptAppend = designContext?.systemPrompt ?? "";
+    const isFirstMessage = context.isFirstMessage ?? false;
 
     // Log incoming parameters
     logger.consoleLogDevOnly("info", "handleQuery received parameters", {
@@ -204,41 +201,7 @@ export class ChatQueryHandler implements ChatEngine {
       options: data.options,
     });
 
-    // Step 1: Authenticate with token if provided
-    if (token) {
-      const authResult = await this.authenticateWithToken(
-        token,
-        prototypeId,
-        handlers,
-        logger,
-      );
-      if (!authResult.success) {
-        handlers.sendMessage(socket, {
-          type: ChatEvent.ERROR,
-          error: {
-            message: authResult.errorMessage!,
-            details: authResult.errorDetails,
-          },
-        });
-        return;
-      }
-    }
-
-    // Step 2: Setup session state
-    this.setupSessionState(data, sessionState, logger);
-
-    // Step 2: Load design system if needed
-    const designSystemResult = await this.loadDesignSystem(
-      logger,
-      data.custom_design_system_id ?? null,
-      sessionState,
-      design_style,
-      framework,
-      data.current_viewing_path,
-      options,
-    );
-
-    // Step 3: Check if this is the first message and execute design agent if needed
+    // Step 1: Check if this is the first message and execute design agent if needed
     let designAgentCost: number | undefined = undefined;
     let designSpec: string | null = null;
     let designMetadata: DesignAgentMetadata | null = null;
@@ -259,181 +222,165 @@ export class ChatQueryHandler implements ChatEngine {
       );
     }
 
-    if (canAttemptClassification) {
-      const isFirst = await this.isFirstMessage(
+    if (canAttemptClassification && isFirstMessage) {
+      logger.debug("Preparing to classify user intent", {
         prototypeId,
-        sessionState.prototypeChatSessionId ?? "",
-        sessionState,
+        enableDesignAgentOnFirstMessage: this.enableDesignAgentOnFirstMessage,
+        hasSession: !!sessionState.prototypeChatSessionId,
+        willClassify: true,
+      });
+
+      // Extract user message text for design agent
+      const userMessageText =
+        typeof content === "string"
+          ? content
+          : Array.isArray(content)
+            ? content
+              .filter((block) => block.type === "text")
+              .map((block) => block.text || "")
+              .join("\n")
+            : prompt || "";
+      const designAgentUserContent = buildDesignAgentUserContent(
+        typeof content === "string" ? content : prompt,
+        Array.isArray(content) ? content : undefined,
         logger,
+        prototypeId,
       );
 
-      if (isFirst) {
-        logger.debug("Preparing to classify user intent", {
+      if (userMessageText) {
+        // Create abort controller for classifier and potential design agent
+        const classifierAbortController = new AbortController();
+        sessionState.abortController = classifierAbortController;
+
+        logger.debug("Classifying user intent on first message", {
           prototypeId,
-          enableDesignAgentOnFirstMessage: this.enableDesignAgentOnFirstMessage,
-          hasSession: !!sessionState.prototypeChatSessionId,
-          willClassify: true,
+          userMessageLength: userMessageText.length,
         });
 
-        // Extract user message text for design agent
-        const userMessageText =
-          typeof content === "string"
-            ? content
-            : Array.isArray(content)
-              ? content
-                .filter((block) => block.type === "text")
-                .map((block) => block.text || "")
-                .join("\n")
-              : prompt || "";
-        const designAgentUserContent = buildDesignAgentUserContent(
-          typeof content === "string" ? content : prompt,
-          Array.isArray(content) ? content : undefined,
-          logger,
+        const classificationResult = await classifyDesignIntent({
+          userMessage: userMessageText,
+          abortController: classifierAbortController,
+          logger: logger,
           prototypeId,
-        );
+        });
 
-        if (userMessageText) {
-          // Create abort controller for classifier and potential design agent
-          const classifierAbortController = new AbortController();
-          sessionState.abortController = classifierAbortController;
+        const classifierCost = classificationResult.costUsd;
+        const shouldRunDesignAgent =
+          classificationResult.shouldGenerateDesignSpec;
 
-          // Step 6a: Classify the user's intent
-          logger.debug("Classifying user intent on first message", {
+        logger.debug("User intent classified", {
+          prototypeId,
+          shouldGenerateDesignSpec:
+            classificationResult.shouldGenerateDesignSpec,
+          classifierCost,
+        });
+
+        logger.debug("Design agent routing decision", {
+          prototypeId,
+          shouldRunDesignAgent,
+          shouldGenerateDesignSpec:
+            classificationResult.shouldGenerateDesignSpec,
+        });
+
+        if (shouldRunDesignAgent) {
+          handlers.sendMessage(socket, {
+            type: ChatEvent.DESIGN_GENERATION,
+            data: {
+              status: "started",
+              message: "Generating design specification...",
+              runDesignAgent: true,
+            },
+          });
+
+          logger.debug("Calling design agent", {
             prototypeId,
             userMessageLength: userMessageText.length,
+            hasAbortController: !!classifierAbortController,
           });
 
-          const classificationResult = await classifyDesignIntent({
-            userMessage: userMessageText,
-            abortController: classifierAbortController,
-            logger: logger,
+          const designResult = await this.executeDesignAgentWrapper(
             prototypeId,
-          });
+            designAgentUserContent ?? userMessageText,
+            classifierAbortController,
+            logger,
+            "",
+          );
 
-          const classifierCost = classificationResult.costUsd;
-          const shouldRunDesignAgent =
-            classificationResult.shouldGenerateDesignSpec;
-
-          logger.debug("User intent classified", {
+          logger.debug("Design agent returned", {
             prototypeId,
-            shouldGenerateDesignSpec:
-              classificationResult.shouldGenerateDesignSpec,
-            classifierCost,
+            hasDesignSpec: !!designResult.designSpec,
+            designSpecLength: designResult.designSpec?.length,
+            costUsd: designResult.costUsd,
           });
 
-          logger.debug("Design agent routing decision", {
-            prototypeId,
-            shouldRunDesignAgent,
-            shouldGenerateDesignSpec:
-              classificationResult.shouldGenerateDesignSpec,
-          });
+          designAgentCost =
+            (designResult.costUsd ?? 0) + (classifierCost ?? 0);
 
-          // Step 6b: Only run design agent if user wants a design mode
-          if (shouldRunDesignAgent) {
-            // Send design generation started message to client
-            handlers.sendMessage(socket, {
-              type: ChatEvent.DESIGN_GENERATION,
-              data: {
-                status: "started",
-                message: "Generating design specification...",
-                runDesignAgent: true,
-              },
-            });
+          if (designResult.designSpec) {
+            const { spec, metadata } = this.parseDesignAgentSpec(
+              designResult.designSpec,
+            );
+            designSpec = spec;
+            designMetadata = metadata;
 
-            logger.debug("Calling design agent", {
-              prototypeId,
-              userMessageLength: userMessageText.length,
-              hasAbortController: !!classifierAbortController,
-            });
-
-            const designResult = await this.executeDesignAgentWrapper(
-              prototypeId,
-              designAgentUserContent ?? userMessageText,
-              classifierAbortController,
+            await persistDesignSpecToFiles(
+              WORK_DIR,
+              designSpec,
               logger,
-              "", // system prompt not used anymore (handled by design-agent-service)
-            );
-
-            logger.debug("Design agent returned", {
               prototypeId,
-              hasDesignSpec: !!designResult.designSpec,
-              designSpecLength: designResult.designSpec?.length,
-              costUsd: designResult.costUsd,
-            });
+            );
 
-            // Add classifier cost to design agent cost
-            designAgentCost =
-              (designResult.costUsd ?? 0) + (classifierCost ?? 0);
+            const { error: updateError } = await this.supabaseClientService
+              .getClient()
+              .from("prototypes")
+              .update({ project_context: designSpec })
+              .eq("id", prototypeId);
 
-            if (designResult.designSpec) {
-              const { spec, metadata } = this.parseDesignAgentSpec(
-                designResult.designSpec,
+            if (updateError) {
+              logger.error(
+                updateError,
+                "Failed to store design specification in project_context",
+                { prototypeId },
               );
-              designSpec = spec;
-              designMetadata = metadata;
-
-              // Always persist design spec to CLAUDE.md and project_context for now
-              await persistDesignSpecToFiles(
-                WORK_DIR,
-                designSpec,
-                logger,
-                prototypeId,
+            } else {
+              logger.consoleLogDevOnly(
+                "info",
+                "Stored design specification in project_context database",
+                { prototypeId, specLength: designSpec.length },
               );
-
-              // Also store in database for backup/reference
-              const { error: updateError } = await this.supabaseClientService
-                .getClient()
-                .from("prototypes")
-                .update({ project_context: designSpec })
-                .eq("id", prototypeId);
-
-              if (updateError) {
-                logger.error(
-                  updateError,
-                  "Failed to store design specification in project_context",
-                  { prototypeId },
-                );
-              } else {
-                logger.consoleLogDevOnly(
-                  "info",
-                  "Stored design specification in project_context database",
-                  { prototypeId, specLength: designSpec.length },
-                );
-              }
             }
-
-            logger.consoleLogDevOnly(
-              "info",
-              "Design agent execution completed",
-              {
-                prototypeId,
-                hasDesignSpec: !!designSpec,
-                designAgentCost,
-                metadata: designMetadata,
-              },
-            );
-          } else {
-            // User wants standard mode - skip design agent, just track classifier cost
-            designAgentCost = classifierCost;
-            logger.consoleLogDevOnly(
-              "info",
-              "Skipping design agent - no design spec needed",
-              {
-                prototypeId,
-                shouldGenerateDesignSpec:
-                  classificationResult.shouldGenerateDesignSpec,
-                classifierCost,
-              },
-            );
           }
-        }
 
-        if (sessionState.prototypeChatSessionId) {
-          sessionState.firstMessageStatus = {
-            sessionId: sessionState.prototypeChatSessionId,
-            isFirst: false,
-          };
+          logger.consoleLogDevOnly(
+            "info",
+            "Design agent execution completed",
+            {
+              prototypeId,
+              hasDesignSpec: !!designSpec,
+              designAgentCost,
+              metadata: designMetadata,
+            },
+          );
+        } else {
+          designAgentCost = classifierCost;
+          logger.consoleLogDevOnly(
+            "info",
+            "Skipping design agent - no design spec needed",
+            {
+              prototypeId,
+              shouldGenerateDesignSpec:
+                classificationResult.shouldGenerateDesignSpec,
+              classifierCost,
+            },
+          );
         }
+      }
+
+      if (sessionState.prototypeChatSessionId) {
+        sessionState.firstMessageStatus = {
+          sessionId: sessionState.prototypeChatSessionId,
+          isFirst: false,
+        };
       }
     }
 
@@ -446,7 +393,7 @@ export class ChatQueryHandler implements ChatEngine {
     try {
       implementationCostUsd = await this.executeClaudeQuery(
         context,
-        designSystemResult.systemPrompt,
+        systemPromptAppend,
         handlers,
         logger,
         framework,
@@ -479,230 +426,6 @@ export class ChatQueryHandler implements ChatEngine {
 
       // Step 8: Invalidate build after chat ends
       this.devServerService.developmentServerState.lastUpdatedTime = new Date();
-    }
-  }
-
-  /**
-   * Sets up session state based on incoming request data
-   */
-  private setupSessionState(
-    data: ChatQueryData,
-    sessionState: ChatEngineSessionState,
-    logger: SystemLogger,
-  ): void {
-    const { prototype_chat_session_id, ai_chat_session_id } = data;
-    const previousPrototypeChatSessionId = sessionState.prototypeChatSessionId;
-
-    // Use the chat_session_id provided by the client for message persistence
-    if (prototype_chat_session_id) {
-      sessionState.prototypeChatSessionId = prototype_chat_session_id;
-      logger.consoleLogDevOnly("info", "Using chat session ID from client", {
-        chatSessionId: prototype_chat_session_id,
-        claudeCodeSessionId: ai_chat_session_id,
-      });
-      if (previousPrototypeChatSessionId !== prototype_chat_session_id) {
-        sessionState.firstMessageStatus = null;
-      }
-    } else {
-      logger.warn("No chat_session_id provided by client", {
-        session_id: ai_chat_session_id,
-      });
-      sessionState.prototypeChatSessionId = null;
-      sessionState.firstMessageStatus = null;
-    }
-
-    // If client explicitly passes null session_id, it wants to start a NEW session
-    if (ai_chat_session_id === null) {
-      logger.consoleLogDevOnly(
-        "info",
-        "Client requested new session - clearing internal state",
-        {
-          previousSessionId: sessionState.sessionId,
-        },
-      );
-      sessionState.sessionId = null;
-      sessionState.firstMessageStatus = null;
-    }
-  }
-
-  /**
-   * Loads design system and builds system prompt
-   */
-  private async loadDesignSystem(
-    logger: SystemLogger,
-    custom_design_system_id: string | null,
-    sessionState: ChatEngineSessionState,
-    design_style: string | undefined,
-    framework: string | undefined,
-    _current_viewing_path: string | undefined,
-    _options: Options,
-  ): Promise<DesignSystemResult> {
-    // Check if design system changed or needs to be loaded
-    if (custom_design_system_id !== sessionState.designSystemId) {
-      if (
-        custom_design_system_id === null ||
-        custom_design_system_id === undefined
-      ) {
-        // Clear design system
-        sessionState.designSystemId = null;
-        sessionState.designSystemRules = null;
-        logger.consoleLogDevOnly("info", "Design system cleared");
-      } else {
-        // Fetch new design system
-        try {
-          const { data: designSystem, error } = await this.supabaseClientService
-            .getClient()
-            .from("design_systems")
-            .select("*")
-            .eq("id", custom_design_system_id)
-            .single();
-
-          if (error) {
-            logger.error(error, "Failed to fetch design system", {
-              designSystemId: custom_design_system_id,
-            });
-            sessionState.designSystemId = null;
-            sessionState.designSystemRules = null;
-          } else if (designSystem) {
-            sessionState.designSystemId = custom_design_system_id;
-            sessionState.designSystemRules = (
-              designSystem as Database["public"]["Tables"]["design_systems"]["Row"]
-            ).design_rules;
-          } else {
-            logger.warn("Design system not found", {
-              designSystemId: custom_design_system_id,
-            });
-            sessionState.designSystemId = null;
-            sessionState.designSystemRules = null;
-          }
-        } catch (error) {
-          logger.error(
-            error instanceof Error ? error : new Error(String(error)),
-            "Error fetching design system",
-            { designSystemId: custom_design_system_id },
-          );
-          sessionState.designSystemId = null;
-          sessionState.designSystemRules = null;
-        }
-      }
-    }
-
-    // Build system prompt with optional design system rules and viewing path context
-    let systemPromptAppend = getSystemPromptForDesignStyle(
-      design_style,
-      framework,
-    );
-    logger.consoleLogDevOnly("info", "systemprompt: ", { systemPromptAppend });
-
-    logger.consoleLogDevOnly(
-      "info",
-      "Using design-style-specific system prompt",
-      {
-        design_style,
-        hasCustomDesignSystem: !!sessionState.designSystemRules,
-        framework,
-      },
-    );
-
-    // Append custom design system rules if available
-    if (sessionState.designSystemRules) {
-      systemPromptAppend +=
-        "\n\n## Custom Design System Rules:\n" + sessionState.designSystemRules;
-    }
-
-    return {
-      systemPrompt: systemPromptAppend,
-      designSystemId: sessionState.designSystemId,
-      designSystemRules: sessionState.designSystemRules,
-    };
-  }
-
-
-  /**
-   * Checks if this is the user's first message for the entire prototype
-   * Returns true only if:
-   * 1. No messages exist in prototype_chat_messages for this session
-   * 2. This is the only chat session in prototype_chat_sessions for this prototype
-   */
-  private async isFirstMessage(
-    prototypeId: string,
-    prototypeChatSessionId: string,
-    sessionState: ChatEngineSessionState,
-    logger: SystemLogger,
-  ): Promise<boolean> {
-    if (!prototypeChatSessionId) {
-      return false;
-    }
-
-    const cached = sessionState.firstMessageStatus;
-    if (cached && cached.sessionId === prototypeChatSessionId) {
-      return cached.isFirst;
-    }
-
-    try {
-      // Check if any messages exist for this chat session
-      const { count: messageCount, error: messageError } =
-        await this.supabaseClientService
-          .getClient()
-          .from("prototype_chat_messages")
-          .select("*", { count: "exact", head: true })
-          .eq("chat_session_id", prototypeChatSessionId);
-
-      if (messageError) {
-        logger.error(
-          messageError,
-          "Failed to check message count for first message detection",
-          { prototypeChatSessionId },
-        );
-        return false;
-      }
-
-      // If messages exist, not the first message
-      if (messageCount && messageCount > 0) {
-        return false;
-      }
-
-      // Check if this is the only chat session for this prototype
-      const { count: sessionCount, error: sessionError } =
-        await this.supabaseClientService
-          .getClient()
-          .from("prototype_chat_sessions")
-          .select("*", { count: "exact", head: true })
-          .eq("prototype_id", prototypeId);
-
-      if (sessionError) {
-        logger.error(
-          sessionError,
-          "Failed to check session count for first message detection",
-          { prototypeId },
-        );
-        return false;
-      }
-
-      // This is the first message if this is the only session
-      const isFirst = sessionCount === 1;
-
-      sessionState.firstMessageStatus = {
-        sessionId: prototypeChatSessionId,
-        isFirst,
-      };
-
-      logger.consoleLogDevOnly("info", "First message detection result", {
-        prototypeId,
-        prototypeChatSessionId,
-        messageCount,
-        sessionCount,
-        isFirst,
-      });
-
-      return isFirst;
-    } catch (error) {
-      logger.error(
-        error instanceof Error ? error : new Error(String(error)),
-        "Error during first message detection",
-        { prototypeId, prototypeChatSessionId },
-      );
-      return false;
     }
   }
 
