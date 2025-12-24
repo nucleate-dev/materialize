@@ -52,6 +52,7 @@ import {
   ChatEngineSessionState,
   ChatEngineResult,
 } from "./chat-engine.js";
+import { ALLOWED_ROOT } from "../ChatService.js";
 
 const HISTORY_MESSAGE_REQUEST_COUNT = 6;
 
@@ -125,8 +126,6 @@ export class ChatQueryHandler implements ChatEngine {
   private static readonly MCP_STREAM_POLL_INTERVAL_MS = 100; // Check every 100ms
 
   private readonly supabaseClientService: SupabaseClientService;
-  private readonly fileSyncService: FileSyncService;
-  private readonly allowedRoot: string;
   private readonly sandboxService: SandboxService;
   private readonly devServerService: NucleateDevelopmentServerService;
   private readonly terminalService: TerminalService;
@@ -135,15 +134,11 @@ export class ChatQueryHandler implements ChatEngine {
 
   constructor(
     supabaseClientService: SupabaseClientService,
-    fileSyncService: FileSyncService,
-    allowedRoot: string,
     sandboxService: SandboxService,
     devServerService: NucleateDevelopmentServerService,
     terminalService: TerminalService,
   ) {
     this.supabaseClientService = supabaseClientService;
-    this.fileSyncService = fileSyncService;
-    this.allowedRoot = allowedRoot;
     this.sandboxService = sandboxService;
     this.devServerService = devServerService;
     this.terminalService = terminalService;
@@ -843,7 +838,7 @@ export class ChatQueryHandler implements ChatEngine {
       input: ToolInput,
       _options: unknown,
     ): Promise<PermissionResult> => {
-      return evaluateToolPermission(this.allowedRoot, toolName, input);
+      return evaluateToolPermission(ALLOWED_ROOT, toolName, input);
     };
 
     const allowedToolsDefault = [
@@ -1147,7 +1142,7 @@ export class ChatQueryHandler implements ChatEngine {
           )}`,
         );
         const permission = evaluateToolPermission(
-          this.allowedRoot,
+          ALLOWED_ROOT,
           input.tool_name as ToolName,
           (input.tool_input ?? {}) as ToolInput,
         );

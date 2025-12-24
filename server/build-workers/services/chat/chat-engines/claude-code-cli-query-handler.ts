@@ -1,21 +1,19 @@
 import { ChildProcessByStdio, spawn } from "child_process";
 import { Readable } from "stream";
 import WebSocket from "ws";
-import { SystemLogger } from "../../../loggers/SystemLogger.js";
 import { ChatEvent } from "../../../types/ChatTypes.js";
 import { SupabaseClientService } from "../../SupabaseClientService.js";
 import { getToolDisplayName } from "../helpers/message-handlers.js";
 import { evaluateToolPermission } from "../helpers/tool-permission-service.js";
 import { baseLogger, WORK_DIR } from "../../../worker.js";
-import { NucleateDevelopmentServerService } from "../../dev-server/NucleateDevelopmentServerService.js";
 import {
   ChatEngine,
   ChatEngineContext,
   ChatEngineMessageHandlers,
   ChatEngineSessionState,
-  CliAuthEnvironment,
   ChatEngineResult,
 } from "./chat-engine.js";
+import { ALLOWED_ROOT } from "../ChatService.js";
 
 // CLI message types from --output-format stream-json
 interface ClaudeCodeMessage {
@@ -70,18 +68,10 @@ type ToolInput = Record<string, unknown>;
  */
 export class ClaudeCodeCliQueryHandler implements ChatEngine {
   private readonly supabaseClientService: SupabaseClientService;
-  private readonly allowedRoot: string;
-  private readonly devServerService: NucleateDevelopmentServerService;
   private sessionState: SessionState;
 
-  constructor(
-    supabaseClientService: SupabaseClientService,
-    allowedRoot: string,
-    devServerService: NucleateDevelopmentServerService,
-  ) {
+  constructor(supabaseClientService: SupabaseClientService) {
     this.supabaseClientService = supabaseClientService;
-    this.allowedRoot = allowedRoot;
-    this.devServerService = devServerService;
     this.sessionState = {
       modifiedFilesThisQuery: new Set(),
       pendingToolCalls: new Map(),
@@ -396,7 +386,7 @@ export class ClaudeCodeCliQueryHandler implements ChatEngine {
 
     // 1. Evaluate tool permission (monitoring only in CLI mode)
     const permission = evaluateToolPermission(
-      this.allowedRoot,
+      ALLOWED_ROOT,
       toolName as ToolName,
       toolInput as ToolInput,
     );
@@ -647,5 +637,4 @@ export class ClaudeCodeCliQueryHandler implements ChatEngine {
       );
     }
   }
-
 }

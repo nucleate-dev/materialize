@@ -47,8 +47,8 @@ import { costFunctionV3 } from "./cost/cost-calculation.js";
 import { trackApiUsageBuildWorker } from "./cost/usage-tracking.js";
 import { hasRemainingCredits } from "../../utils/credit-checks.js";
 
+export const ALLOWED_ROOT = WORK_DIR;
 const CHAT_HEARTBEAT_INTERVAL_MS = 15000;
-const ALLOWED_ROOT = "/tmp/materialize-dev-server";
 
 class OrchestrationAPIError<TData = unknown> extends Error {
   public readonly responseBody: APIResponse<TData, StandardErrorResponse>;
@@ -121,8 +121,6 @@ export class ChatService {
     // Initialize ChatQueryHandler
     this.chatQueryHandler = new ChatQueryHandler(
       supabaseClientService,
-      this.fileSyncService,
-      ALLOWED_ROOT,
       sandboxService,
       devServerService,
       terminalService,
@@ -750,7 +748,7 @@ export class ChatService {
         );
 
         // Persist interrupt event to database
-          if (this.sessionState.prototypeChatSessionId) {
+        if (this.sessionState.prototypeChatSessionId) {
           await persistChatMessage(
             this.supabaseClientService,
             this.sessionState.prototypeChatSessionId,
