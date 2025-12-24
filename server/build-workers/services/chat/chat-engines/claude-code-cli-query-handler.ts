@@ -562,11 +562,6 @@ export class ClaudeCodeCliQueryHandler implements ChatEngine {
 
     // Update in-memory state
     sessionState.sessionId = message.session_id;
-    sessionState.isActive = true;
-    if (isNewSession) {
-      sessionState.createdAt = Date.now();
-    }
-    sessionState.lastActiveAt = Date.now();
 
     baseLogger.consoleLogDevOnly(
       "info",

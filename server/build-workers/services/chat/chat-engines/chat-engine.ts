@@ -13,9 +13,6 @@ export interface CliAuthEnvironment {
 export interface ChatEngineSessionState {
   sessionId: string | null;
   prototypeChatSessionId: string | null;
-  isActive: boolean;
-  createdAt: number;
-  lastActiveAt: number;
   abortController: AbortController | null;
   modifiedFilesThisQuery: Set<string>;
   designSystemId: string | null;

@@ -63,9 +63,7 @@ class OrchestrationAPIError<TData = unknown> extends Error {
   }
 }
 
-interface CodeSessionState extends ChatEngineSessionState {
-  trackedFiles: Set<string>; // Track files that were modified during the session
-}
+interface CodeSessionState extends ChatEngineSessionState {}
 
 interface ChatConnection {
   socket: WebSocket;
@@ -91,11 +89,7 @@ export class ChatService {
   private sessionState: CodeSessionState = {
     sessionId: null,
     prototypeChatSessionId: null,
-    isActive: false,
-    createdAt: 0,
-    lastActiveAt: 0,
     abortController: null,
-    trackedFiles: new Set<string>(),
     modifiedFilesThisQuery: new Set<string>(),
     designSystemId: null,
     designSystemRules: null,
@@ -1641,11 +1635,7 @@ export class ChatService {
     this.sessionState = {
       sessionId: null,
       prototypeChatSessionId: null,
-      isActive: false,
-      createdAt: 0,
-      lastActiveAt: 0,
       abortController: null,
-      trackedFiles: new Set<string>(),
       designSystemId: null,
       designSystemRules: null,
       modifiedFilesThisQuery: new Set<string>(),

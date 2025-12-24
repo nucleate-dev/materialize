@@ -1403,11 +1403,6 @@ export class ChatQueryHandler implements ChatEngine {
         const previousSessionId = sessionState.sessionId;
 
         sessionState.sessionId = msg.session_id;
-        sessionState.isActive = true;
-        if (isNewSession) {
-          sessionState.createdAt = Date.now();
-        }
-        sessionState.lastActiveAt = Date.now();
 
         // Add this session ID to our set of valid session IDs
         validAiChatSessionIds.add(msg.session_id);
@@ -1511,9 +1506,6 @@ export class ChatQueryHandler implements ChatEngine {
           );
         }
       }
-
-      // Update last active time
-      sessionState.lastActiveAt = Date.now();
 
       // Forward message to client
       handlers.sendMessage(socket, {
