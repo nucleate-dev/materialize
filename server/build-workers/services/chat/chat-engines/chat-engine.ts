@@ -20,6 +20,12 @@ export interface DesignAgentMetadata {
   scope: "app" | "screen" | "component" | "other" | "unknown";
 }
 
+export interface DesignContextInfo {
+  systemPrompt: string;
+  designSystemId: string | null;
+  designSystemRules: string | null;
+}
+
 export interface ChatEngineContext {
   prototypeId: string;
   socket: WebSocket;

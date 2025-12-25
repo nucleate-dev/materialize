@@ -34,6 +34,7 @@ import {
   CliAuthEnvironment,
   DesignAgentMetadata,
   ChatEngineResult,
+  DesignContextInfo,
 } from "./chat-engines/chat-engine.js";
 import { ChatQueryHandler } from "./chat-engines/chat-query-handler.js";
 import { ClaudeCodeCliQueryHandler } from "./chat-engines/claude-code-cli-query-handler.js";
@@ -52,6 +53,8 @@ import {
   persistDesignSpecToFiles,
   type DesignAgentProvider,
 } from "./classifiers-and-subagents/design-agent-service.js";
+import { Database } from "../../types/supabase.js";
+import { getSystemPromptForDesignStyle } from "./prompts/ClaudeCodePrompts.js";
 
 export const ALLOWED_ROOT = "/tmp/materialize-dev-server";
 const CHAT_HEARTBEAT_INTERVAL_MS = 15000;
@@ -489,13 +492,11 @@ export class ChatService {
       );
     }
 
-    let designPreparation:
-      | {
-          designSpec: string | null;
-          designMetadata: DesignAgentMetadata | null;
-          designAgentCost?: number;
-        }
-      | null = null;
+    let designPreparation: {
+      designSpec: string | null;
+      designMetadata: DesignAgentMetadata | null;
+      designAgentCost?: number;
+    } | null = null;
     if (selectedChatEngine === this.chatQueryHandler) {
       designPreparation = await this.prepareFirstMessageDesignContext(
         socket,
@@ -802,15 +803,19 @@ export class ChatService {
         logger,
       );
 
-      designAgentCost =
-        (designResult.costUsd ?? 0) + (designAgentCost ?? 0);
+      designAgentCost = (designResult.costUsd ?? 0) + (designAgentCost ?? 0);
 
       if (designResult.designSpec) {
         const parsed = this.parseDesignAgentSpec(designResult.designSpec);
         designSpec = parsed.spec;
         designMetadata = parsed.metadata;
 
-        await persistDesignSpecToFiles(WORK_DIR, designSpec, logger, prototypeId);
+        await persistDesignSpecToFiles(
+          WORK_DIR,
+          designSpec,
+          logger,
+          prototypeId,
+        );
 
         const { error: updateError } = await this.supabaseClientService
           .getClient()
@@ -1694,7 +1699,7 @@ export class ChatService {
     }
     return absolutePath;
   }
-}
+
   private async executeDesignAgentForFirstMessage(
     prototypeId: string,
     userContent: UserContent,
@@ -1777,3 +1782,4 @@ export class ChatService {
 
     return { spec: specWithoutMetadata, metadata };
   }
+}
