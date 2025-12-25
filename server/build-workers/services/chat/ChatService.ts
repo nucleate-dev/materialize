@@ -531,18 +531,15 @@ export class ChatService {
     try {
       handlerResult = await selectedChatEngine.handleQuery(
         {
-          prototypeId,
           socket,
           data,
           sessionState: this.sessionState,
           validAiChatSessionIds: this.validAiChatSessionIds,
-          logger,
-          userId,
           cliAuthEnv,
           systemPrompt,
           getRelativePath: this.getRelativePath.bind(this),
           designSpec: designPreparation?.designSpec ?? null,
-          designMetadata: designPreparation?.designMetadata ?? undefined,
+          designMetadata: designPreparation?.designMetadata ?? null,
         },
         {
           sendMessage: this.sendMessage.bind(this),

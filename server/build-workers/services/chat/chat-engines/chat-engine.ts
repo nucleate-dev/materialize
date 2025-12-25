@@ -1,5 +1,4 @@
 import WebSocket from "ws";
-import { SystemLogger } from "../../../loggers/SystemLogger.js";
 import { ChatQueryData, ChatServerMessage } from "../../../types/ChatTypes.js";
 
 export interface CliAuthEnvironment {
@@ -21,18 +20,15 @@ export interface DesignAgentMetadata {
 }
 
 export interface ChatEngineContext {
-  prototypeId: string;
   socket: WebSocket;
   data: ChatQueryData;
   sessionState: ChatEngineSessionState;
   validAiChatSessionIds: Set<string>;
-  logger: SystemLogger;
-  userId?: string | null;
   cliAuthEnv?: CliAuthEnvironment | null;
   getRelativePath: (absolutePath: string) => string;
-  designSpec?: string | null;
-  designMetadata?: DesignAgentMetadata | null;
-  systemPrompt?: string | null;
+  designSpec: string | null;
+  designMetadata: DesignAgentMetadata | null;
+  systemPrompt: string;
 }
 
 export interface ChatEngineMessageHandlers {

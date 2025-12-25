@@ -86,8 +86,8 @@ export class ClaudeCodeCliQueryHandler implements ChatEngine {
     context: ChatEngineContext,
     handlers: ChatEngineMessageHandlers,
   ): Promise<ChatEngineResult | void> {
-    const { socket, data, sessionState, logger, cliAuthEnv, systemPrompt } =
-      context;
+    const { socket, data, sessionState, cliAuthEnv, systemPrompt } = context;
+    const logger = baseLogger;
     const { sendMessage } = handlers;
     if (!cliAuthEnv) {
       sendMessage(socket, {

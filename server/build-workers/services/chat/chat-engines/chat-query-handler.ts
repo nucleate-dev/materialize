@@ -14,7 +14,6 @@ import {
 import path from "path";
 import WebSocket from "ws";
 import { posthog } from "../../../loggers/index.js";
-import { SystemLogger } from "../../../loggers/SystemLogger.js";
 import { DevServerStatus } from "../../../types/BuildWorkerTypes.js";
 import { ChatContentBlock, ChatEvent } from "../../../types/ChatTypes.js";
 import { Database } from "../../../types/supabase.js";
@@ -131,12 +130,14 @@ export class ChatQueryHandler implements ChatEngine {
     context: ChatEngineContext,
     handlers: ChatEngineMessageHandlers,
   ): Promise<ChatEngineResult | void> {
-    const { prototypeId, data, logger } = context;
+    const { data } = context;
+    const workerContext = getWorkerContext();
+    const prototypeId = workerContext.prototypeId || "unknown";
     const { prompt, content, token, ai_chat_session_id } = data;
     const framework = this.devServerService.prototypeFramework;
 
     // Log incoming parameters
-    logger.consoleLogDevOnly("info", "handleQuery received parameters", {
+    baseLogger.consoleLogDevOnly("info", "handleQuery received parameters", {
       prototypeId,
       session_id: ai_chat_session_id,
       chat_session_id: data.prototype_chat_session_id,
@@ -159,11 +160,10 @@ export class ChatQueryHandler implements ChatEngine {
       implementationCostUsd = await this.executeClaudeQuery(
         context,
         handlers,
-        logger,
         framework,
-        context.designSpec ?? null,
-        context.designMetadata ?? undefined,
-        context.systemPrompt ?? null,
+        context.designSpec,
+        context.designMetadata,
+        context.systemPrompt,
       );
     } finally {
       // Step 6: Invalidate build after chat ends
@@ -179,14 +179,14 @@ export class ChatQueryHandler implements ChatEngine {
   private async executeClaudeQuery(
     context: ChatEngineContext,
     handlers: ChatEngineMessageHandlers,
-    logger: SystemLogger,
     framework: Database["public"]["Enums"]["prototype_framework"],
-    designSpec?: string | null,
-    designMetadata?: DesignAgentMetadata,
-    systemPrompt?: string | null,
+    designSpec: string | null,
+    designMetadata: DesignAgentMetadata | null,
+    systemPrompt: string,
   ): Promise<number | undefined> {
-    const { prototypeId, socket, data, sessionState, validAiChatSessionIds } =
-      context;
+    const { socket, data, sessionState, validAiChatSessionIds } = context;
+    const workerContext = getWorkerContext();
+    const prototypeId = workerContext.prototypeId || "unknown";
     const { prompt, content, ai_chat_session_id } = data;
     const options = (data.options ?? {}) as Options;
 
@@ -252,7 +252,7 @@ export class ChatQueryHandler implements ChatEngine {
           },
         });
 
-        logger.consoleLogDevOnly(
+        baseLogger.consoleLogDevOnly(
           "info",
           "Persisted design spec after user message",
           { prototypeId, designSpecLength: designSpec.length },
@@ -289,10 +289,9 @@ export class ChatQueryHandler implements ChatEngine {
         sessionState,
         handlers,
         flushAssistantBuffer,
-        logger,
         framework,
         context.getRelativePath,
-        systemPrompt ?? undefined,
+        systemPrompt,
       );
 
       // Check if session is valid for resumption
@@ -305,7 +304,7 @@ export class ChatQueryHandler implements ChatEngine {
         ai_chat_session_id !== null &&
         ai_chat_session_id !== undefined
       ) {
-        logger.warn(
+        baseLogger.warn(
           "Invalid session ID detected - requesting history from client",
           {
             providedSessionId: ai_chat_session_id,
@@ -313,7 +312,7 @@ export class ChatQueryHandler implements ChatEngine {
           },
         );
 
-        logger.debug("Sending HISTORY_REQUEST to client", {
+        baseLogger.debug("Sending HISTORY_REQUEST to client", {
           providedSessionId: ai_chat_session_id,
           validSessionIds: Array.from(validAiChatSessionIds),
           requestedMessageCount: HISTORY_MESSAGE_REQUEST_COUNT,
@@ -335,7 +334,7 @@ export class ChatQueryHandler implements ChatEngine {
         queryOptions.resume = ai_chat_session_id;
       }
 
-      logger.consoleLogDevOnly("info", "Querying Claude Agent SDK", {
+      baseLogger.consoleLogDevOnly("info", "Querying Claude Agent SDK", {
         hasResume: !!queryOptions.resume,
         resumeSessionId: queryOptions.resume,
         providedSessionId: ai_chat_session_id,
@@ -357,7 +356,6 @@ export class ChatQueryHandler implements ChatEngine {
       const totalCostUsd = await this.streamQueryResponse(
         streamContext,
         handlers,
-        logger,
       );
 
       // Images were already uploaded before persisting the user message
@@ -382,7 +380,7 @@ export class ChatQueryHandler implements ChatEngine {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
 
-      logger.error(
+      baseLogger.error(
         error instanceof Error ? error : new Error(String(error)),
         "Claude Code query failed",
         { prototypeId },
@@ -509,10 +507,9 @@ export class ChatQueryHandler implements ChatEngine {
     sessionState: ChatEngineSessionState,
     handlers: ChatEngineMessageHandlers,
     flushAssistantBuffer: () => Promise<void>,
-    logger: SystemLogger,
     framework: Database["public"]["Enums"]["prototype_framework"],
     relativePathResolver: (path: string) => string,
-    systemPromptOverride?: string,
+    systemPromptOverride: string,
   ): Promise<Options & { resume?: string }> {
     const canUseTool: CanUseTool = async (
       toolName: ToolName,
@@ -546,7 +543,6 @@ export class ChatQueryHandler implements ChatEngine {
       devtools: createDevelopmentToolsMcpServer(
         async (command: string, args: string[], cwd?: string) => {
           const executeSandboxCommandResult = await this.executeSandboxCommand(
-            logger,
             command,
             args,
             cwd,
@@ -555,11 +551,10 @@ export class ChatQueryHandler implements ChatEngine {
         },
         async (filePath: string, content: string) => {
           const writeFileResult = await this.handleMcpWriteFile(
-            logger,
             filePath,
             content,
           );
-          logger.consoleLogDevOnly(
+          baseLogger.consoleLogDevOnly(
             "info",
             "MCP writeFile tool: write file result:",
             {
@@ -571,14 +566,14 @@ export class ChatQueryHandler implements ChatEngine {
         },
         this.terminalService,
         async () => {
-          logger.consoleLogDevOnly(
+          baseLogger.consoleLogDevOnly(
             "info",
             "MCP restartDevServer tool: restarting dev server",
           );
           this.devServerService.developmentServerState.devServerStatus =
             DevServerStatus.RESTARTING;
           await this.devServerService.developmentServerAdapter.restartDevServer(
-            logger,
+            baseLogger,
           );
           this.devServerService.developmentServerState.devServerStatus =
             DevServerStatus.RUNNING;
@@ -587,7 +582,7 @@ export class ChatQueryHandler implements ChatEngine {
     };
 
     if (this.enableDesignMcpTools) {
-      mcpServers.design = createDesignToolsMcpServer(logger);
+      mcpServers.design = createDesignToolsMcpServer(baseLogger);
     }
 
     const { userId } = getWorkerContext();
@@ -599,7 +594,7 @@ export class ChatQueryHandler implements ChatEngine {
           userId,
         )) === "test";
     }
-    logger.info("design subagent flag checked: ", {
+    baseLogger.info("design subagent flag checked: ", {
       designSubagentEnabled,
       userIdLocal: userId,
     });
@@ -653,7 +648,7 @@ export class ChatQueryHandler implements ChatEngine {
                   flushAssistantBuffer,
                   getRelativePath: relativePathResolver,
                 };
-                return this.handlePreToolUseHook(hookContext, handlers, logger);
+                return this.handlePreToolUseHook(hookContext, handlers);
               },
             ],
           },
@@ -673,11 +668,7 @@ export class ChatQueryHandler implements ChatEngine {
                   sessionState,
                   getRelativePath: relativePathResolver,
                 };
-                return this.handlePostToolUseHook(
-                  hookContext,
-                  handlers,
-                  logger,
-                );
+                return this.handlePostToolUseHook(hookContext, handlers);
               },
             ],
           },
@@ -690,7 +681,6 @@ export class ChatQueryHandler implements ChatEngine {
    * Executes sandbox command for MCP tools
    */
   private async executeSandboxCommand(
-    logger: SystemLogger,
     command: string,
     args: string[],
     cwd?: string,
@@ -727,7 +717,7 @@ export class ChatQueryHandler implements ChatEngine {
           isError: false,
         };
       } else if (response.status === "timeout") {
-        logger.warn(
+        baseLogger.warn(
           "Terminal command timed out in MCP executeSandboxCommand tool",
           {
             command,
@@ -746,7 +736,7 @@ export class ChatQueryHandler implements ChatEngine {
       };
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
-      logger.error(
+      baseLogger.error(
         error instanceof Error ? error : new Error(errorMsg),
         "MCP Tool execution failed",
       );
@@ -758,7 +748,6 @@ export class ChatQueryHandler implements ChatEngine {
    * Handles MCP write file requests
    */
   private async handleMcpWriteFile(
-    logger: SystemLogger,
     filePath: string,
     content: string,
   ): Promise<{
@@ -795,7 +784,7 @@ export class ChatQueryHandler implements ChatEngine {
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
-      logger.error(
+      baseLogger.error(
         error instanceof Error ? error : new Error(errorMessage),
         "MCP Write tool: failed to write file",
         { filePath },
@@ -813,13 +802,12 @@ export class ChatQueryHandler implements ChatEngine {
   private async handlePreToolUseHook(
     hookContext: HookContext,
     handlers: ChatEngineMessageHandlers,
-    logger: SystemLogger,
   ): Promise<HookJSONOutput> {
     const { input, toolUseID, socket, flushAssistantBuffer } = hookContext;
 
     try {
       if (input.hook_event_name === "PreToolUse") {
-        logger.debug(
+        baseLogger.debug(
           `PreToolUse Hook called for tool ${input.tool_name} with args: ${JSON.stringify(
             input.tool_input,
           )}`,
@@ -886,7 +874,7 @@ export class ChatQueryHandler implements ChatEngine {
       }
     } catch (error) {
       // Log but don't fail the hook
-      logger.error(
+      baseLogger.error(
         error instanceof Error ? error : new Error(String(error)),
         "PreToolUse hook error",
       );
@@ -900,12 +888,11 @@ export class ChatQueryHandler implements ChatEngine {
   private async handlePostToolUseHook(
     hookContext: HookContext,
     handlers: ChatEngineMessageHandlers,
-    logger: SystemLogger,
   ): Promise<HookJSONOutput> {
     const { input, toolUseID, socket } = hookContext;
 
     try {
-      logger.consoleLogDevOnly("debug", JSON.stringify(input));
+      baseLogger.consoleLogDevOnly("debug", JSON.stringify(input));
 
       if (input.hook_event_name === "PostToolUse") {
         // Send tool complete event to WebSocket client
@@ -939,7 +926,7 @@ export class ChatQueryHandler implements ChatEngine {
       }
     } catch (error) {
       // Log but don't fail the hook
-      logger.error(
+      baseLogger.error(
         error instanceof Error ? error : new Error(String(error)),
         "PostToolUse hook error",
       );
@@ -988,7 +975,6 @@ export class ChatQueryHandler implements ChatEngine {
   private async streamQueryResponse(
     streamContext: StreamContext,
     handlers: ChatEngineMessageHandlers,
-    logger: SystemLogger,
   ): Promise<number | undefined> {
     const {
       messageContent,
@@ -1073,11 +1059,15 @@ export class ChatQueryHandler implements ChatEngine {
         // Add this session ID to our set of valid session IDs
         validAiChatSessionIds.add(msg.session_id);
 
-        logger.consoleLogDevOnly("info", "Claude Code session initialized", {
-          sessionId: msg.session_id,
-          isNewSession,
-          previousSessionId,
-        });
+        baseLogger.consoleLogDevOnly(
+          "info",
+          "Claude Code session initialized",
+          {
+            sessionId: msg.session_id,
+            isNewSession,
+            previousSessionId,
+          },
+        );
 
         // Persist the newly created Claude session ID to the prototype chat session row
         if (sessionState.prototypeChatSessionId) {
@@ -1089,7 +1079,7 @@ export class ChatQueryHandler implements ChatEngine {
               .eq("id", sessionState.prototypeChatSessionId);
 
             if (error) {
-              logger.error(
+              baseLogger.error(
                 error,
                 "Failed to update session_id in prototype_chat_sessions",
                 {
@@ -1098,7 +1088,7 @@ export class ChatQueryHandler implements ChatEngine {
                 },
               );
             } else {
-              logger.consoleLogDevOnly(
+              baseLogger.consoleLogDevOnly(
                 "info",
                 "Updated prototype_chat_sessions with new Claude session_id",
                 {
@@ -1108,7 +1098,7 @@ export class ChatQueryHandler implements ChatEngine {
               );
             }
           } catch (error) {
-            logger.error(
+            baseLogger.error(
               error instanceof Error ? error : new Error(String(error)),
               "Exception while updating session_id in prototype_chat_sessions",
               {
@@ -1118,7 +1108,7 @@ export class ChatQueryHandler implements ChatEngine {
             );
           }
         } else {
-          logger.warn(
+          baseLogger.warn(
             "Cannot persist Claude session_id because prototypeChatSessionId is missing",
             { claudeSessionId: msg.session_id },
           );
@@ -1154,7 +1144,7 @@ export class ChatQueryHandler implements ChatEngine {
           bufferState.creditsUsed = costFunctionV3(total_cost_usd);
           bufferState.costFunction = CURRENT_COST_FUNCTION_NAME;
 
-          logger.metricTokenUsage({
+          baseLogger.metricTokenUsage({
             modelName: queryOptions.model ?? "unknown",
             inputTokens,
             outputTokens,
@@ -1166,7 +1156,7 @@ export class ChatQueryHandler implements ChatEngine {
           });
           tokenUsageLogged = true;
         } catch (logError) {
-          logger.error(
+          baseLogger.error(
             logError instanceof Error ? logError : new Error(String(logError)),
             "Failed to log token usage",
           );
