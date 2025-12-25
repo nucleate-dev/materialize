@@ -391,24 +391,37 @@ export class ChatService {
       return;
     }
 
-    // 4. DETERMINE APPROPRIATE CHAT HANDLER FOR THE USER
-    // 4a. Check if the user has a claude subscription token to determine whether to use CLI mode
+    // 4. TELL CONTROL PLANE THAT CHAT IS STARTING
+    try {
+      await this.notifyOrchestrationStartChat(prototypeId);
+    } catch (error) {
+      const err = error instanceof Error ? error : new Error(String(error));
+      logger.error(err, "Failed to notify orchestration start chat", {
+        prototypeId,
+      });
+      this.sendMessage(socket, {
+        type: ChatEvent.ERROR,
+        error: {
+          message: "Failed to start chat session",
+        },
+      });
+      return;
+    }
+
+    // 5. DETERMINE APPROPRIATE CHAT HANDLER FOR THE USER
+    // 5a. Check if the user has a claude subscription token to determine whether to use CLI mode
     let useCliMode = false;
     const userId = getWorkerContext().userId;
     if (userId) {
       try {
-        // Check PostHog feature flag first
         const isFeatureEnabled = await posthog.isFeatureEnabled(
           "claude-code-cli-with-personal-token",
           userId,
         );
-
         if (isFeatureEnabled) {
-          // Check if user has a Claude subscription token in the database
           const userToken = await this.claudeTokenService.getUserToken(userId);
           useCliMode = !!userToken;
         }
-
         logger.consoleLogDevOnly(
           "info",
           "Checked user Claude subscription token",
@@ -453,18 +466,12 @@ export class ChatService {
       handlerName = "claude-sdk";
     }
 
+    // 5. PREPARE SESSION STATE
     this.prepareSessionStateForQuery(data, logger);
-    const framework = this.devServerService.prototypeFramework ?? null;
-    const designContext = await this.loadDesignSystemContext(
-      logger,
-      data.custom_design_system_id ?? null,
-      data.design_style,
-      framework,
-    );
 
     let isFirstMessage = false;
     if (
-      handler === this.chatQueryHandler &&
+      selectedChatEngine === this.chatQueryHandler &&
       this.sessionState.prototypeChatSessionId
     ) {
       isFirstMessage = await this.isFirstMessageForPrototype(
@@ -482,27 +489,9 @@ export class ChatService {
       sessionId: this.sessionState.sessionId,
     });
 
-    let chatStarted = false;
-    try {
-      await this.notifyOrchestrationStartChat(prototypeId);
-      chatStarted = true;
-    } catch (error) {
-      const err = error instanceof Error ? error : new Error(String(error));
-      logger.error(err, "Failed to notify orchestration start chat", {
-        prototypeId,
-      });
-      this.sendMessage(socket, {
-        type: ChatEvent.ERROR,
-        error: {
-          message: "Failed to start chat session",
-        },
-      });
-      return;
-    }
-
     let handlerResult: ChatEngineResult | void = undefined;
     try {
-      handlerResult = await handler.handleQuery(
+      handlerResult = await selectedChatEngine.handleQuery(
         {
           prototypeId,
           socket,
@@ -512,7 +501,6 @@ export class ChatService {
           logger,
           userId,
           cliAuthEnv,
-          designContext,
           isFirstMessage,
           getRelativePath: this.getRelativePath.bind(this),
         },
@@ -586,15 +574,13 @@ export class ChatService {
           { prototypeId },
         );
       }
-      if (chatStarted) {
-        try {
-          await this.notifyOrchestrationEndChat(prototypeId);
-        } catch (error) {
-          const err = error instanceof Error ? error : new Error(String(error));
-          logger.error(err, "Failed to notify orchestration end chat", {
-            prototypeId,
-          });
-        }
+      try {
+        await this.notifyOrchestrationEndChat(prototypeId);
+      } catch (error) {
+        const err = error instanceof Error ? error : new Error(String(error));
+        logger.error(err, "Failed to notify orchestration end chat", {
+          prototypeId,
+        });
       }
     }
   }

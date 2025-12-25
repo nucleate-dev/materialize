@@ -1,9 +1,6 @@
 import WebSocket from "ws";
 import { SystemLogger } from "../../../loggers/SystemLogger.js";
-import {
-  ChatQueryData,
-  ChatServerMessage,
-} from "../../../types/ChatTypes.js";
+import { ChatQueryData, ChatServerMessage } from "../../../types/ChatTypes.js";
 
 export interface CliAuthEnvironment {
   env: NodeJS.ProcessEnv;
@@ -34,7 +31,6 @@ export interface ChatEngineContext {
   logger: SystemLogger;
   userId?: string | null;
   cliAuthEnv?: CliAuthEnvironment | null;
-  designContext?: DesignContextInfo;
   isFirstMessage?: boolean;
   getRelativePath: (absolutePath: string) => string;
 }

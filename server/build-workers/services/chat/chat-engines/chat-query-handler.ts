@@ -146,12 +146,6 @@ export class ChatQueryHandler implements ChatEngine {
     const { prototypeId, socket, data, sessionState, logger } = context;
     const { prompt, content, token, ai_chat_session_id } = data;
     const framework = this.devServerService.prototypeFramework;
-    baseLogger.consoleLogDevOnly("info", "framework in handleQuery is: ", {
-      framework,
-    });
-
-    const designContext = context.designContext;
-    const systemPromptAppend = designContext?.systemPrompt ?? "";
     const isFirstMessage = context.isFirstMessage ?? false;
 
     // Log incoming parameters
@@ -352,7 +346,6 @@ export class ChatQueryHandler implements ChatEngine {
     try {
       implementationCostUsd = await this.executeClaudeQuery(
         context,
-        systemPromptAppend,
         handlers,
         logger,
         framework,
@@ -472,7 +465,6 @@ export class ChatQueryHandler implements ChatEngine {
    */
   private async executeClaudeQuery(
     context: ChatEngineContext,
-    systemPromptAppend: string,
     handlers: ChatEngineMessageHandlers,
     logger: SystemLogger,
     framework: Database["public"]["Enums"]["prototype_framework"],
@@ -578,7 +570,6 @@ export class ChatQueryHandler implements ChatEngine {
       // Setup query options
       const queryOptions = await this.setupQueryOptions(
         options,
-        systemPromptAppend,
         abortController,
         socket,
         sessionState,
@@ -798,7 +789,6 @@ export class ChatQueryHandler implements ChatEngine {
    */
   private async setupQueryOptions(
     options: Options,
-    systemPromptAppend: string,
     abortController: AbortController,
     socket: WebSocket,
     sessionState: ChatEngineSessionState,
