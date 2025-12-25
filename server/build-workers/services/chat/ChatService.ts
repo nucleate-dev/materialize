@@ -348,11 +348,6 @@ export class ChatService {
         await this.handleInterrupt(socket);
         break;
 
-      case ChatClientEvent.RESET_SESSION:
-        // For now, we don't allow users to delete sessions
-        // await this.handleResetSession(socket);
-        break;
-
       case ChatClientEvent.HISTORY_RESPONSE:
         await this.handleHistoryResponse(
           socket,

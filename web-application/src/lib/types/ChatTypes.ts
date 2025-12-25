@@ -5,7 +5,7 @@
 // To update these shared files, modify the source file and run:
 // npm run sync-types (in the control-plane directory)
 //
-// Last synced: 2025-12-24T23:46:46.388Z
+// Last synced: 2025-12-25T00:27:40.496Z
 
 export enum ChatEvent {
   AUTHENTICATED = "authenticated",
@@ -18,7 +18,6 @@ export enum ChatEvent {
   USAGE_UPDATE = "usage_update",
   INTERRUPTED = "interrupted",
   INFO = "info",
-  SESSION_RESET = "session_reset",
   TOOL_START = "tool_start",
   TOOL_COMPLETE = "tool_complete",
   HISTORY_REQUEST = "history_request",
@@ -28,8 +27,6 @@ export enum ChatEvent {
 export enum ChatClientEvent {
   QUERY = "query",
   INTERRUPT = "interrupt",
-  RESET_SESSION = "reset_session",
-  SYNC_FILES = "sync_files",
   HISTORY_RESPONSE = "history_response",
 }
 
@@ -82,22 +79,6 @@ export interface InterruptMessage {
   type: ChatClientEvent.INTERRUPT;
 }
 
-export interface ResetSessionMessage {
-  type: ChatClientEvent.RESET_SESSION;
-}
-
-export interface SyncFilesRequest {
-  prototypeId?: string;
-  filenames?: string[];
-  assetNames?: string[];
-  token?: string;
-}
-
-export interface SyncFilesMessage {
-  type: ChatClientEvent.SYNC_FILES;
-  data: SyncFilesRequest;
-}
-
 export interface HistoricalMessage {
   role: "user" | "assistant";
   content: string;
@@ -117,8 +98,6 @@ export interface HistoryResponseMessage {
 export type ChatClientMessage =
   | QueryMessage
   | InterruptMessage
-  | ResetSessionMessage
-  | SyncFilesMessage
   | HistoryResponseMessage;
 
 export interface SystemConnectionMessage {
@@ -167,13 +146,6 @@ export interface InterruptedMessage {
 export interface InfoMessage {
   type: ChatEvent.INFO;
   message: string;
-}
-
-export interface SessionResetMessage {
-  type: ChatEvent.SESSION_RESET;
-  data: {
-    message: string;
-  };
 }
 
 export interface ToolEventPayload {
@@ -248,7 +220,6 @@ export type ChatServerMessage =
   | UsageUpdateMessage
   | InterruptedMessage
   | InfoMessage
-  | SessionResetMessage
   | ToolStartMessage
   | ToolCompleteMessage
   | AuthenticatedMessage

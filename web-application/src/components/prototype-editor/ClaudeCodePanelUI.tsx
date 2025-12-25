@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -78,8 +77,6 @@ interface ClaudeCodePanelUIProps {
   isUpdatingTitle: boolean;
   showSettingsModal: boolean;
   setShowSettingsModal: (open: boolean) => void;
-  showResetConfirmation: boolean;
-  setShowResetConfirmation: (open: boolean) => void;
   allChatSessions: PrototypeChatSession[];
   prototypeChatSessionId: string | null;
   isConnected: boolean;
@@ -127,7 +124,6 @@ interface ClaudeCodePanelUIProps {
   setInputValue: (value: string) => void;
   handleKeyPress: (event: KeyboardEvent) => void;
   sendQuery: () => void;
-  resetSession: () => void;
   scrollToBottom: () => void;
   handleDragEnter: (event: React.DragEvent) => void;
   handleDragLeave: (event: React.DragEvent) => void;
@@ -182,8 +178,6 @@ export default function ClaudeCodePanelUI({
   isUpdatingTitle,
   showSettingsModal,
   setShowSettingsModal,
-  showResetConfirmation,
-  setShowResetConfirmation,
   allChatSessions,
   prototypeChatSessionId,
   isConnected,
@@ -220,7 +214,6 @@ export default function ClaudeCodePanelUI({
   setInputValue,
   handleKeyPress,
   sendQuery,
-  resetSession,
   scrollToBottom,
   handleDragEnter,
   handleDragLeave,
@@ -454,22 +447,6 @@ export default function ClaudeCodePanelUI({
               </Button>
             )} */}
 
-          {/* <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  onClick={() => setShowResetConfirmation(true)}
-                  disabled={!prototypeChatSessionId || isProcessing}
-                  className="h-7 w-7 text-muted-foreground hover:text-red-500 transition-colors"
-                >
-                  <RefreshCw className="w-3.5 h-3.5" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Reset Session</TooltipContent>
-            </Tooltip>
-          </TooltipProvider> */}
         </div>
       </div>
 
@@ -1088,46 +1065,6 @@ export default function ClaudeCodePanelUI({
               </p>
             </div> */}
           </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* --- Reset Confirmation --- */}
-      <Dialog
-        open={showResetConfirmation}
-        onOpenChange={setShowResetConfirmation}
-      >
-        <DialogContent className="sm:max-w-md bg-background border-border text-foreground">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-red-600">
-              <CircleAlert className="w-5 h-5" /> Reset Session?
-            </DialogTitle>
-          </DialogHeader>
-          <div className="py-2">
-            <p className="text-sm text-muted-foreground leading-relaxed">
-              This will clear the current conversation history and context. Your
-              project files will not be deleted, but the AI will lose memory of
-              previous messages in this session.
-            </p>
-          </div>
-          <DialogFooter className="gap-2 sm:gap-0">
-            <Button
-              variant="outline"
-              onClick={() => setShowResetConfirmation(false)}
-              className="border-border"
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={() => {
-                setShowResetConfirmation(false);
-                resetSession();
-              }}
-              className="bg-red-600 hover:bg-red-700"
-            >
-              Reset Session
-            </Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
 

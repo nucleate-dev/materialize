@@ -203,7 +203,6 @@ export default function ClaudeCodePanel({
   }, [modelProvider, model, vercelModelOptions]);
 
   // Reset confirmation modal state
-  const [showResetConfirmation, setShowResetConfirmation] = useState(false);
 
   const prototypeTitle = prototype?.name?.trim() || "Project";
   const normalizedVisibility = prototype
@@ -1015,13 +1014,6 @@ export default function ClaudeCodePanel({
           }),
         );
         addMessage("system", message.data.message || "Query interrupted");
-        break;
-
-      case ChatEvent.SESSION_RESET:
-        setMessages([]);
-        sessionIdRef.current = null;
-        setAiChatSessionId(null);
-        addMessage("system", message.data.message);
         break;
 
       case ChatEvent.TOOL_START: {
@@ -1979,122 +1971,6 @@ export default function ClaudeCodePanel({
     );
   };
 
-  // Reset session - delete current chat session and create a new one
-  const resetSession = async () => {
-    if (!prototypeChatSessionId) {
-      addMessage("error", "No active chat session");
-      return;
-    }
-
-    try {
-      // Get current user for RLS policy
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) {
-        addMessage("error", "Not authenticated. Please log in.");
-        return;
-      }
-
-      // Delete chat images from storage before deleting session
-      try {
-        // List all images in the chat session folder
-        const chatImagePrefix = `${prototypeId}/chat/${prototypeChatSessionId}/`;
-        const { data: imageList, error: listError } = await supabase.storage
-          .from("chat-images")
-          .list(chatImagePrefix);
-
-        if (listError) {
-          logger.debug("error", "Failed to list chat images for deletion", {
-            error: listError,
-          });
-        } else if (imageList && imageList.length > 0) {
-          // Delete all images in the folder
-          const filePaths = imageList.map(
-            (file) => `${chatImagePrefix}${file.name}`,
-          );
-          const { error: deleteImagesError } = await supabase.storage
-            .from("chat-images")
-            .remove(filePaths);
-
-          if (deleteImagesError) {
-            logger.debug("error", "Failed to delete chat images", {
-              error: deleteImagesError,
-            });
-          } else {
-            logger.debug("log", "Deleted chat images", {
-              count: imageList.length,
-            });
-          }
-        }
-      } catch (error) {
-        logger.debug("error", "Error cleaning up chat images", {
-          error: error instanceof Error ? error.message : String(error),
-        });
-        // Continue with session deletion even if image cleanup fails
-      }
-
-      // Delete the current chat session (cascade will delete messages)
-      const { error: deleteError } = await supabase
-        .from("prototype_chat_sessions")
-        .delete()
-        .eq("id", prototypeChatSessionId);
-
-      if (deleteError) {
-        logger.debug("error", "Failed to delete chat session", {
-          error: deleteError,
-        });
-        addMessage("error", "Failed to reset session");
-        return;
-      }
-
-      // Create new chat session with null session_id
-      const { data: newSession, error: createError } = await supabase
-        .from("prototype_chat_sessions")
-        .insert({
-          prototype_id: prototypeId,
-          session_id: null,
-          user_id: user.id,
-        })
-        .select()
-        .single();
-
-      if (createError) {
-        logger.debug("error", "Failed to create new chat session", {
-          error: createError,
-        });
-        addMessage("error", "Failed to create new session");
-        return;
-      }
-
-      // Update state with new session
-      setPrototypeChatSessionId(newSession.id);
-      setAiChatSessionId(null);
-      sessionIdRef.current = null;
-      setMessages([]);
-      setCurrentTodos([]); // Clear todos when resetting session
-      setIsCorruptedSession(false); // Clear corruption flag when resetting
-
-      // Update the sessions list
-      setAllChatSessions((prev) => [
-        newSession,
-        ...prev.filter((s) => s.id !== prototypeChatSessionId),
-      ]);
-
-      logger.debug("log", "Reset session - created new chat session", {
-        oldChatSessionId: prototypeChatSessionId,
-        newChatSessionId: newSession.id,
-      });
-
-      addMessage("system", "Session reset - starting fresh conversation");
-    } catch (error) {
-      logger.debug("error", "Error resetting session", {
-        error: error instanceof Error ? error.message : String(error),
-      });
-      addMessage("error", "Failed to reset session");
-    }
-  };
-
   // Switch to a different chat session
   const switchChatSession = async (targetChatSessionId: string) => {
     try {
@@ -2283,8 +2159,6 @@ export default function ClaudeCodePanel({
       isUpdatingTitle={isUpdatingTitle}
       showSettingsModal={showSettingsModal}
       setShowSettingsModal={setShowSettingsModal}
-      showResetConfirmation={showResetConfirmation}
-      setShowResetConfirmation={setShowResetConfirmation}
       allChatSessions={allChatSessions}
       prototypeChatSessionId={prototypeChatSessionId}
       isConnected={isConnected}
@@ -2326,7 +2200,6 @@ export default function ClaudeCodePanel({
       setInputValue={setInputValue}
       handleKeyPress={handleKeyPress}
       sendQuery={sendQuery}
-      resetSession={resetSession}
       scrollToBottom={scrollToBottom}
       handleDragEnter={handleDragEnter}
       handleDragLeave={handleDragLeave}

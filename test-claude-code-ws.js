@@ -28,7 +28,6 @@ ws.on('open', () => {
   console.log('✅ Connected to Claude Code WebSocket\n');
   console.log('💡 Type your messages and press Enter to send');
   console.log('💡 Type /interrupt to stop the current query');
-  console.log('💡 Type /reset to reset the session');
   console.log('💡 Type /quit to exit\n');
 
   promptUser();
@@ -52,9 +51,6 @@ rl.on('line', (input) => {
     console.log('\n⚠️  Sending interrupt...');
     ws.send(JSON.stringify({ type: 'interrupt' }));
     isProcessing = false;
-  } else if (trimmed === '/reset') {
-    console.log('\n🔄 Resetting session...');
-    ws.send(JSON.stringify({ type: 'reset_session' }));
   } else {
     // Send query
     console.log('\n📤 Sending query...\n');
@@ -110,9 +106,6 @@ ws.on('message', (data) => {
     } else if (message.type === 'interrupted') {
       console.log('\n⚠️  Interrupted:', message.data?.message);
       isProcessing = false;
-      promptUser();
-    } else if (message.type === 'session_reset') {
-      console.log('✅ Session reset');
       promptUser();
     }
   } catch (error) {
