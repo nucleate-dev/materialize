@@ -21,7 +21,7 @@ import {
   StartChatResponse,
 } from "../../types/ControlPlaneTypes.js";
 import { Database } from "../../types/supabase.js";
-import { WORK_DIR } from "../../worker.js";
+import { getWorkerContext, WORK_DIR } from "../../worker.js";
 import { ClaudeTokenService } from "../auth/claude-token-service.js";
 import { NucleateDevelopmentServerService } from "../dev-server/NucleateDevelopmentServerService.js";
 import { FileSyncService } from "../FileSyncService.js";
@@ -362,7 +362,11 @@ export class ChatService {
     prototypeId: string,
     logger: SystemLogger,
   ): Promise<void> {
-    // 1. VALIDATE USER QUERY
+    // 1. REFRESH THE USER TOKEN IN SUPABASE INSTANCE:
+    if (data.token) {
+      this.supabaseClientService.refreshClientWithToken(data.token);
+    }
+    // 2. VALIDATE USER QUERY
     const validationResult = this.validateChatQuery(data);
     if (!validationResult.valid) {
       this.sendMessage(socket, {
@@ -374,12 +378,6 @@ export class ChatService {
       });
       return;
     }
-
-    // 2. REFRESH THE USER TOKEN IN SUPABASE INSTANCE:
-    if (data.token) {
-      this.supabaseClientService.refreshClientWithToken(data.token);
-    }
-
     // 3. PAYWALL CHECK THE USER
     const creditResult = await this.ensureCreditsAvailable(prototypeId, logger);
     if (!creditResult.valid) {
@@ -393,75 +391,46 @@ export class ChatService {
       return;
     }
 
-    // Check if user has a Claude Code subscription token
+    // 4. DETERMINE APPROPRIATE CHAT HANDLER FOR THE USER
+    // 4a. Check if the user has a claude subscription token to determine whether to use CLI mode
     let useCliMode = false;
-    const token = data.token;
-    let userId: string | null = null;
-    if (token) {
+    const userId = getWorkerContext().userId;
+    if (userId) {
       try {
-        // Decode JWT to extract user ID
-        const payload = JSON.parse(
-          Buffer.from(token.split(".")[1], "base64").toString(),
+        // Check PostHog feature flag first
+        const isFeatureEnabled = await posthog.isFeatureEnabled(
+          "claude-code-cli-with-personal-token",
+          userId,
         );
-        userId = payload.sub;
 
-        if (userId) {
-          // Check PostHog feature flag first
-          const isFeatureEnabled = await posthog.isFeatureEnabled(
-            "claude-code-cli-with-personal-token",
-            userId,
-          );
-
-          if (isFeatureEnabled) {
-            // Check if user has a Claude subscription token in the database
-            const userToken =
-              await this.claudeTokenService.getUserToken(userId);
-            useCliMode = !!userToken;
-          }
-
-          logger.consoleLogDevOnly(
-            "info",
-            "Checked user Claude subscription token",
-            {
-              userId,
-              isFeatureEnabled,
-              hasToken: useCliMode,
-            },
-          );
+        if (isFeatureEnabled) {
+          // Check if user has a Claude subscription token in the database
+          const userToken = await this.claudeTokenService.getUserToken(userId);
+          useCliMode = !!userToken;
         }
+
+        logger.consoleLogDevOnly(
+          "info",
+          "Checked user Claude subscription token",
+          {
+            userId,
+            isFeatureEnabled,
+            hasToken: useCliMode,
+          },
+        );
       } catch (error) {
         logger.warn("Failed to check user Claude subscription token", {
           error: error instanceof Error ? error.message : String(error),
         });
       }
     }
-
-    // Delegate to appropriate handler based on provider and user subscription
-    let handler;
+    // 4b. Delegate to appropriate handler based on provider and user subscription
+    let selectedChatEngine: ChatEngine;
     let handlerName: string;
-
-    if (useCliMode && this.claudeCodeCliQueryHandler) {
-      handler = this.claudeCodeCliQueryHandler;
-      handlerName = "claude-cli";
-    } else {
-      handler = this.chatQueryHandler;
-      handlerName = "claude-sdk";
-    }
-
-    const cliAuthRequired = handler === this.claudeCodeCliQueryHandler;
-    if (cliAuthRequired && (!token || !userId)) {
-      this.sendMessage(socket, {
-        type: ChatEvent.ERROR,
-        error: {
-          message: "Authentication token required for Claude CLI mode",
-        },
-      });
-      return;
-    }
-
     let cliAuthEnv: CliAuthEnvironment | null = null;
-
-    if (cliAuthRequired && userId) {
+    if (useCliMode && this.claudeCodeCliQueryHandler && userId) {
+      selectedChatEngine = this.claudeCodeCliQueryHandler;
+      handlerName = "claude-cli";
       const cliResult = await this.buildClaudeCliAuthEnvironment(
         userId,
         logger,
@@ -479,6 +448,9 @@ export class ChatService {
         return;
       }
       cliAuthEnv = cliResult.authEnv;
+    } else {
+      selectedChatEngine = this.chatQueryHandler;
+      handlerName = "claude-sdk";
     }
 
     this.prepareSessionStateForQuery(data, logger);
