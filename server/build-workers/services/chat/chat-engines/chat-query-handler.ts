@@ -131,10 +131,9 @@ export class ChatQueryHandler implements ChatEngine {
     context: ChatEngineContext,
     handlers: ChatEngineMessageHandlers,
   ): Promise<ChatEngineResult | void> {
-    const { prototypeId, socket, data, sessionState, logger } = context;
+    const { prototypeId, data, logger } = context;
     const { prompt, content, token, ai_chat_session_id } = data;
     const framework = this.devServerService.prototypeFramework;
-    const isFirstMessage = context.isFirstMessage ?? false;
 
     // Log incoming parameters
     logger.consoleLogDevOnly("info", "handleQuery received parameters", {
@@ -164,6 +163,7 @@ export class ChatQueryHandler implements ChatEngine {
         framework,
         context.designSpec ?? null,
         context.designMetadata ?? undefined,
+        context.systemPrompt ?? null,
       );
     } finally {
       // Step 6: Invalidate build after chat ends
@@ -183,6 +183,7 @@ export class ChatQueryHandler implements ChatEngine {
     framework: Database["public"]["Enums"]["prototype_framework"],
     designSpec?: string | null,
     designMetadata?: DesignAgentMetadata,
+    systemPrompt?: string | null,
   ): Promise<number | undefined> {
     const { prototypeId, socket, data, sessionState, validAiChatSessionIds } =
       context;
@@ -291,6 +292,7 @@ export class ChatQueryHandler implements ChatEngine {
         logger,
         framework,
         context.getRelativePath,
+        systemPrompt ?? undefined,
       );
 
       // Check if session is valid for resumption
@@ -510,6 +512,7 @@ export class ChatQueryHandler implements ChatEngine {
     logger: SystemLogger,
     framework: Database["public"]["Enums"]["prototype_framework"],
     relativePathResolver: (path: string) => string,
+    systemPromptOverride?: string,
   ): Promise<Options & { resume?: string }> {
     const canUseTool: CanUseTool = async (
       toolName: ToolName,
@@ -620,7 +623,9 @@ export class ChatQueryHandler implements ChatEngine {
       systemPrompt: {
         type: "preset" as const,
         preset: "claude_code" as const,
-        append: getSystemPromptForDesignStyle(undefined, framework),
+        append:
+          systemPromptOverride ??
+          getSystemPromptForDesignStyle(undefined, framework),
       },
       settingSources: [
         "project", // For Project CLAUDE.MD

@@ -86,7 +86,7 @@ export class ClaudeCodeCliQueryHandler implements ChatEngine {
     context: ChatEngineContext,
     handlers: ChatEngineMessageHandlers,
   ): Promise<ChatEngineResult | void> {
-    const { socket, data, sessionState, logger, cliAuthEnv, designContext } =
+    const { socket, data, sessionState, logger, cliAuthEnv, systemPrompt } =
       context;
     const { sendMessage } = handlers;
     if (!cliAuthEnv) {
@@ -100,7 +100,7 @@ export class ClaudeCodeCliQueryHandler implements ChatEngine {
     }
 
     try {
-      const systemPromptAppend = designContext?.systemPrompt ?? "";
+      const systemPromptAppend = systemPrompt ?? "";
 
       // Reset session state for new query
       this.sessionState.pendingToolCalls.clear();

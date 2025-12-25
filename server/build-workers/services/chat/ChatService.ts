@@ -21,6 +21,7 @@ import {
   StandardErrorResponse,
   StartChatResponse,
 } from "../../types/ControlPlaneTypes.js";
+import { Database } from "../../types/supabase.js";
 import { getWorkerContext, WORK_DIR } from "../../worker.js";
 import { ClaudeTokenService } from "../auth/claude-token-service.js";
 import { NucleateDevelopmentServerService } from "../dev-server/NucleateDevelopmentServerService.js";
@@ -34,7 +35,6 @@ import {
   CliAuthEnvironment,
   DesignAgentMetadata,
   ChatEngineResult,
-  DesignContextInfo,
 } from "./chat-engines/chat-engine.js";
 import { ChatQueryHandler } from "./chat-engines/chat-query-handler.js";
 import { ClaudeCodeCliQueryHandler } from "./chat-engines/claude-code-cli-query-handler.js";
@@ -53,7 +53,6 @@ import {
   persistDesignSpecToFiles,
   type DesignAgentProvider,
 } from "./classifiers-and-subagents/design-agent-service.js";
-import { Database } from "../../types/supabase.js";
 import { getSystemPromptForDesignStyle } from "./prompts/ClaudeCodePrompts.js";
 
 export const ALLOWED_ROOT = "/tmp/materialize-dev-server";
@@ -511,6 +510,14 @@ export class ChatService {
       );
     }
 
+    const framework = this.devServerService.prototypeFramework ?? null;
+    const systemPrompt = await this.constructSystemPrompt(
+      logger,
+      data.custom_design_system_id ?? null,
+      data.design_style,
+      framework,
+    );
+
     // 7. DISPATCH REQUEST TO APPROPRIATE ENGINE
     logger.consoleLogDevOnly("info", "Dispatching chat query to handler", {
       prototypeId,
@@ -532,7 +539,7 @@ export class ChatService {
           logger,
           userId,
           cliAuthEnv,
-          isFirstMessage,
+          systemPrompt,
           getRelativePath: this.getRelativePath.bind(this),
           designSpec: designPreparation?.designSpec ?? null,
           designMetadata: designPreparation?.designMetadata ?? undefined,
@@ -1115,7 +1122,7 @@ export class ChatService {
     logger: SystemLogger,
     customDesignSystemId: string | null,
     designStyle: string | undefined,
-    framework: Database["public"]["Enums"]["prototype_framework"],
+    framework: Database["public"]["Enums"]["prototype_framework"] | null,
   ): Promise<string> {
     if (customDesignSystemId !== this.sessionState.designSystemId) {
       if (!customDesignSystemId) {
@@ -1163,7 +1170,7 @@ export class ChatService {
 
     let systemPromptAppend = getSystemPromptForDesignStyle(
       designStyle,
-      framework,
+      framework ?? undefined,
     );
 
     if (this.sessionState.designSystemRules) {

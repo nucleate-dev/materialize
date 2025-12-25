@@ -20,12 +20,6 @@ export interface DesignAgentMetadata {
   scope: "app" | "screen" | "component" | "other" | "unknown";
 }
 
-export interface DesignContextInfo {
-  systemPrompt: string;
-  designSystemId: string | null;
-  designSystemRules: string | null;
-}
-
 export interface ChatEngineContext {
   prototypeId: string;
   socket: WebSocket;
@@ -35,10 +29,10 @@ export interface ChatEngineContext {
   logger: SystemLogger;
   userId?: string | null;
   cliAuthEnv?: CliAuthEnvironment | null;
-  isFirstMessage?: boolean;
   getRelativePath: (absolutePath: string) => string;
   designSpec?: string | null;
   designMetadata?: DesignAgentMetadata | null;
+  systemPrompt?: string | null;
 }
 
 export interface ChatEngineMessageHandlers {
