@@ -15,7 +15,11 @@ import path from "path";
 import WebSocket from "ws";
 import { posthog } from "../../../loggers/index.js";
 import { DevServerStatus } from "../../../types/BuildWorkerTypes.js";
-import { ChatContentBlock, ChatEvent } from "../../../types/ChatTypes.js";
+import {
+  ChatContentBlock,
+  ChatEvent,
+  ChatServerMessage,
+} from "../../../types/ChatTypes.js";
 import { Database } from "../../../types/supabase.js";
 import { baseLogger, getWorkerContext, WORK_DIR } from "../../../worker.js";
 import { NucleateDevelopmentServerService } from "../../dev-server/NucleateDevelopmentServerService.js";
@@ -26,7 +30,10 @@ import {
   costFunctionV3,
   CURRENT_COST_FUNCTION_NAME,
 } from "../cost/cost-calculation.js";
-import { getToolDisplayName } from "../helpers/message-handlers.js";
+import {
+  getToolDisplayName,
+  persistChatMessage,
+} from "../helpers/message-handlers.js";
 import { evaluateToolPermission } from "../helpers/tool-permission-service.js";
 import { createDesignToolsMcpServer } from "../mcp/mcp-design-tools.js";
 import { createDevelopmentToolsMcpServer } from "../mcp/mcp-dev-tools.js";
@@ -37,7 +44,6 @@ import {
 import {
   ChatEngine,
   ChatEngineContext,
-  ChatEngineMessageHandlers,
   ChatEngineSessionState,
   ChatEngineResult,
 } from "./chat-engine.js";
@@ -127,7 +133,6 @@ export class ChatQueryHandler implements ChatEngine {
    */
   public async handleQuery(
     context: ChatEngineContext,
-    handlers: ChatEngineMessageHandlers,
   ): Promise<ChatEngineResult | void> {
     const { data } = context;
     const workerContext = getWorkerContext();
@@ -158,7 +163,6 @@ export class ChatQueryHandler implements ChatEngine {
     try {
       implementationCostUsd = await this.executeClaudeQuery(
         context,
-        handlers,
         framework,
         context.systemPrompt,
       );
@@ -175,7 +179,6 @@ export class ChatQueryHandler implements ChatEngine {
    */
   private async executeClaudeQuery(
     context: ChatEngineContext,
-    handlers: ChatEngineMessageHandlers,
     framework: Database["public"]["Enums"]["prototype_framework"],
     systemPrompt: string,
   ): Promise<number | undefined> {
@@ -211,7 +214,7 @@ export class ChatQueryHandler implements ChatEngine {
         messageContent,
         imagesFromContent,
         imageMetadata,
-        handlers.persistMessage,
+        sessionState.prototypeChatSessionId,
       );
 
       // Create shared state for assistant message buffering
@@ -227,7 +230,7 @@ export class ChatQueryHandler implements ChatEngine {
         if (bufferState.assistantMessageBuffer.trim()) {
           await this.persistAssistantMessageBuffer(
             bufferState.assistantMessageBuffer,
-            handlers.persistMessage,
+            sessionState.prototypeChatSessionId,
             bufferState.creditsUsed,
             bufferState.costFunction,
           );
@@ -242,11 +245,11 @@ export class ChatQueryHandler implements ChatEngine {
         abortController,
         socket,
         sessionState,
-        handlers,
         flushAssistantBuffer,
         framework,
         context.getRelativePath,
         systemPrompt,
+        sessionState.prototypeChatSessionId,
       );
 
       // Check if session is valid for resumption
@@ -273,7 +276,7 @@ export class ChatQueryHandler implements ChatEngine {
           requestedMessageCount: HISTORY_MESSAGE_REQUEST_COUNT,
         });
 
-        handlers.sendMessage(socket, {
+        this.sendMessage(socket, {
           type: ChatEvent.HISTORY_REQUEST,
           data: {
             message:
@@ -310,7 +313,7 @@ export class ChatQueryHandler implements ChatEngine {
       };
       const totalCostUsd = await this.streamQueryResponse(
         streamContext,
-        handlers,
+        sessionState.prototypeChatSessionId,
       );
 
       // Images were already uploaded before persisting the user message
@@ -320,7 +323,7 @@ export class ChatQueryHandler implements ChatEngine {
       sessionState.abortController = null;
 
       // Send completion message
-      handlers.sendMessage(socket, {
+      this.sendMessage(socket, {
         type: ChatEvent.QUERY_COMPLETE,
         data: {
           sessionId: sessionState.sessionId,
@@ -342,7 +345,8 @@ export class ChatQueryHandler implements ChatEngine {
       );
 
       // Persist error to database
-      await handlers.persistMessage(
+      await this.persistMessage(
+        sessionState.prototypeChatSessionId,
         "system",
         `Error: ${errorMessage}`,
         "error",
@@ -353,7 +357,7 @@ export class ChatQueryHandler implements ChatEngine {
         },
       );
 
-      handlers.sendMessage(socket, {
+      this.sendMessage(socket, {
         type: ChatEvent.ERROR,
         error: {
           message: "Query failed",
@@ -424,13 +428,7 @@ export class ChatQueryHandler implements ChatEngine {
       media_type: string;
       name?: string;
     }>,
-    persistMessage: (
-      role: "user" | "assistant" | "system",
-      content: string,
-      messageType: "text" | "tool_use" | "tool_result" | "error" | "system",
-      eventType?: string | null,
-      eventData?: unknown,
-    ) => Promise<void>,
+    prototypeChatSessionId: string | null,
   ): Promise<void> {
     const userMessageText =
       typeof messageContent === "string"
@@ -449,7 +447,14 @@ export class ChatQueryHandler implements ChatEngine {
     const eventData =
       imageMetadata.length > 0 ? { images: imageMetadata } : null;
 
-    await persistMessage("user", userMessageDisplay, "text", null, eventData);
+    await this.persistMessage(
+      prototypeChatSessionId,
+      "user",
+      userMessageDisplay,
+      "text",
+      null,
+      eventData,
+    );
   }
 
   /**
@@ -460,11 +465,11 @@ export class ChatQueryHandler implements ChatEngine {
     abortController: AbortController,
     socket: WebSocket,
     sessionState: ChatEngineSessionState,
-    handlers: ChatEngineMessageHandlers,
     flushAssistantBuffer: () => Promise<void>,
     framework: Database["public"]["Enums"]["prototype_framework"],
     relativePathResolver: (path: string) => string,
     systemPromptOverride: string,
+    prototypeChatSessionId: string | null,
   ): Promise<Options & { resume?: string }> {
     const canUseTool: CanUseTool = async (
       toolName: ToolName,
@@ -603,7 +608,10 @@ export class ChatQueryHandler implements ChatEngine {
                   flushAssistantBuffer,
                   getRelativePath: relativePathResolver,
                 };
-                return this.handlePreToolUseHook(hookContext, handlers);
+                return this.handlePreToolUseHook(
+                  hookContext,
+                  prototypeChatSessionId,
+                );
               },
             ],
           },
@@ -623,7 +631,10 @@ export class ChatQueryHandler implements ChatEngine {
                   sessionState,
                   getRelativePath: relativePathResolver,
                 };
-                return this.handlePostToolUseHook(hookContext, handlers);
+                return this.handlePostToolUseHook(
+                  hookContext,
+                  prototypeChatSessionId,
+                );
               },
             ],
           },
@@ -756,7 +767,7 @@ export class ChatQueryHandler implements ChatEngine {
    */
   private async handlePreToolUseHook(
     hookContext: HookContext,
-    handlers: ChatEngineMessageHandlers,
+    prototypeChatSessionId: string | null,
   ): Promise<HookJSONOutput> {
     const { input, toolUseID, socket, flushAssistantBuffer } = hookContext;
 
@@ -797,25 +808,22 @@ export class ChatQueryHandler implements ChatEngine {
         }
 
         // Send tool start event to WebSocket client
-        if (socket.readyState === WebSocket.OPEN) {
-          socket.send(
-            JSON.stringify({
-              type: ChatEvent.TOOL_START,
-              data: {
-                tool_name: input.tool_name,
-                tool_input: normalizedToolInput,
-                tool_call_id: toolUseID,
-              },
-            }),
-          );
-        }
+        this.sendMessage(socket, {
+          type: ChatEvent.TOOL_START,
+          data: {
+            tool_name: input.tool_name,
+            tool_input: normalizedToolInput,
+            tool_call_id: toolUseID,
+          },
+        });
 
         // Persist tool start to database with friendly display name
         const displayName = getToolDisplayName(
           input.tool_name,
           normalizedToolInput as ToolInput,
         );
-        await handlers.persistMessage(
+        await this.persistMessage(
+          prototypeChatSessionId,
           "assistant",
           displayName,
           "tool_use",
@@ -842,7 +850,7 @@ export class ChatQueryHandler implements ChatEngine {
    */
   private async handlePostToolUseHook(
     hookContext: HookContext,
-    handlers: ChatEngineMessageHandlers,
+    prototypeChatSessionId: string | null,
   ): Promise<HookJSONOutput> {
     const { input, toolUseID, socket } = hookContext;
 
@@ -851,22 +859,19 @@ export class ChatQueryHandler implements ChatEngine {
 
       if (input.hook_event_name === "PostToolUse") {
         // Send tool complete event to WebSocket client
-        if (socket.readyState === WebSocket.OPEN) {
-          socket.send(
-            JSON.stringify({
-              type: ChatEvent.TOOL_COMPLETE,
-              data: {
-                tool_name: input.tool_name,
-                tool_input: input.tool_input,
-                tool_response: input.tool_response,
-                tool_call_id: toolUseID,
-              },
-            }),
-          );
-        }
+        this.sendMessage(socket, {
+          type: ChatEvent.TOOL_COMPLETE,
+          data: {
+            tool_name: input.tool_name,
+            tool_input: input.tool_input as Record<string, unknown>,
+            tool_response: input.tool_response,
+            tool_call_id: toolUseID,
+          },
+        });
 
         // Persist tool completion to database
-        await handlers.persistMessage(
+        await this.persistMessage(
+          prototypeChatSessionId,
           "assistant",
           `Tool completed: ${input.tool_name}`,
           "tool_result",
@@ -894,15 +899,7 @@ export class ChatQueryHandler implements ChatEngine {
    */
   private async persistAssistantMessageBuffer(
     buffer: string,
-    persistMessage: (
-      role: "user" | "assistant" | "system",
-      content: string,
-      messageType: "text" | "tool_use" | "tool_result" | "error" | "system",
-      eventType?: string | null,
-      eventData?: unknown,
-      creditsUsed?: number | null,
-      costFunction?: string | null,
-    ) => Promise<void>,
+    prototypeChatSessionId: string | null,
     creditsUsed?: number,
     costFunction?: string,
   ): Promise<boolean> {
@@ -911,7 +908,8 @@ export class ChatQueryHandler implements ChatEngine {
       return false;
     }
 
-    await persistMessage(
+    await this.persistMessage(
+      prototypeChatSessionId,
       "assistant",
       trimmedBuffer,
       "text",
@@ -929,7 +927,7 @@ export class ChatQueryHandler implements ChatEngine {
    */
   private async streamQueryResponse(
     streamContext: StreamContext,
-    handlers: ChatEngineMessageHandlers,
+    prototypeChatSessionId: string | null,
   ): Promise<number | undefined> {
     const {
       messageContent,
@@ -1119,7 +1117,7 @@ export class ChatQueryHandler implements ChatEngine {
       }
 
       // Forward message to client
-      handlers.sendMessage(socket, {
+      this.sendMessage(socket, {
         type: ChatEvent.AGENT_MESSAGE,
         data: msg,
       });
@@ -1130,12 +1128,61 @@ export class ChatQueryHandler implements ChatEngine {
     if (bufferState.assistantMessageBuffer.trim()) {
       await this.persistAssistantMessageBuffer(
         bufferState.assistantMessageBuffer,
-        handlers.persistMessage,
+        prototypeChatSessionId,
         bufferState.creditsUsed,
         bufferState.costFunction,
       );
     }
 
     return totalCostUsd;
+  }
+
+  private async persistMessage(
+    prototypeChatSessionId: string | null,
+    role: "user" | "assistant" | "system",
+    content: string,
+    messageType: "text" | "tool_use" | "tool_result" | "error" | "system",
+    eventType?: string | null,
+    eventData?: unknown,
+    creditsUsed?: number | null,
+    costFunction?: string | null,
+    provider?: string | null,
+    model?: string | null,
+  ): Promise<void> {
+    if (!prototypeChatSessionId) {
+      baseLogger.warn("Cannot persist message - no chat session ID", {
+        role,
+        messageType,
+        eventType,
+      });
+      return;
+    }
+
+    await persistChatMessage(
+      this.supabaseClientService,
+      prototypeChatSessionId,
+      role,
+      content,
+      messageType,
+      eventType,
+      eventData,
+      creditsUsed,
+      costFunction,
+      provider,
+      model,
+    );
+  }
+
+  private sendMessage(socket: WebSocket, message: ChatServerMessage): void {
+    if (socket.readyState === WebSocket.OPEN) {
+      try {
+        socket.send(JSON.stringify(message));
+      } catch (error) {
+        baseLogger.error(
+          error instanceof Error ? error : new Error(String(error)),
+          "Failed to send WebSocket message",
+        );
+      }
+    }
   }
 }

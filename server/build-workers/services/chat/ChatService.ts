@@ -38,10 +38,7 @@ import {
 } from "./chat-engines/chat-engine.js";
 import { ChatQueryHandler } from "./chat-engines/chat-query-handler.js";
 import { ClaudeCodeCliQueryHandler } from "./chat-engines/claude-code-cli-query-handler.js";
-import {
-  persistChatMessage,
-  uploadChatImages,
-} from "./helpers/message-handlers.js";
+import { persistChatMessage } from "./helpers/message-handlers.js";
 import { costFunctionV3 } from "./cost/cost-calculation.js";
 import { trackApiUsageBuildWorker } from "./cost/usage-tracking.js";
 import { hasRemainingCredits } from "../../utils/credit-checks.js";
@@ -569,70 +566,15 @@ export class ChatService {
     let handlerResult: ChatEngineResult | void = undefined;
     const designAgentCost = designPreparation?.designAgentCost;
     try {
-      handlerResult = await selectedChatEngine.handleQuery(
-        {
-          socket,
-          data,
-          sessionState: this.sessionState,
-          validAiChatSessionIds: this.validAiChatSessionIds,
-          cliAuthEnv,
-          systemPrompt,
-          getRelativePath: this.getRelativePath.bind(this),
-        },
-        {
-          sendMessage: this.sendMessage.bind(this),
-          persistMessage: async (
-            role: "user" | "assistant" | "system",
-            content: string,
-            messageType:
-              | "text"
-              | "tool_use"
-              | "tool_result"
-              | "error"
-              | "system",
-            eventType?: string | null,
-            eventData?: unknown,
-            creditsUsed?: number | null,
-            costFunction?: string | null,
-            provider?: string | null,
-            model?: string | null,
-          ) => {
-            if (!this.sessionState.prototypeChatSessionId) {
-              baseLogger.warn("Cannot persist message - no chat session ID");
-              return;
-            }
-            await persistChatMessage(
-              this.supabaseClientService,
-              this.sessionState.prototypeChatSessionId,
-              role,
-              content,
-              messageType,
-              eventType,
-              {
-                ...(eventData ?? {}),
-                provider: provider ?? null,
-                model: model ?? null,
-              },
-              creditsUsed,
-              costFunction,
-              provider,
-              model,
-            );
-          },
-          uploadChatImages: async (
-            prototypeId: string,
-            chatSessionId: string,
-            images: Array<{ base64: string; mediaType: string }>,
-          ) => {
-            return await uploadChatImages(
-              this.supabaseClientService,
-              prototypeId,
-              chatSessionId,
-              images,
-            );
-          },
-        },
-      );
+      handlerResult = await selectedChatEngine.handleQuery({
+        socket,
+        data,
+        sessionState: this.sessionState,
+        validAiChatSessionIds: this.validAiChatSessionIds,
+        cliAuthEnv,
+        systemPrompt,
+        getRelativePath: this.getRelativePath.bind(this),
+      });
     } finally {
       const combinedCost =
         designAgentCost === undefined &&

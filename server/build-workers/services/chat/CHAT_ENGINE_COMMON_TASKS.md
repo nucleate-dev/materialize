@@ -4,7 +4,7 @@ This document captures the cross-cutting responsibilities that every `ChatEngine
 
 ## Interface baseline
 
-- `server/build-workers/services/chat/chat-engines/chat-engine.ts` now defines `ChatEngine`, `ChatEngineContext`, `ChatEngineMessageHandlers`, and `ChatEngineSessionState`. Every query handler should implement this minimal contract so that `ChatService` can wire common orchestration before/after delegating to a concrete engine.
+- `server/build-workers/services/chat/chat-engines/chat-engine.ts` defines `ChatEngine`, `ChatEngineContext`, and `ChatEngineSessionState`. Every query handler should implement this minimal contract so that `ChatService` can wire common orchestration before/after delegating to a concrete engine, and the context now carries the active `prototypeChatSessionId` so engines can call shared persistence utilities directly.
 
 ## Candidates for centralization inside `ChatService`
 

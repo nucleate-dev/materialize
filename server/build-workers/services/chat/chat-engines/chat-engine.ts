@@ -1,5 +1,5 @@
 import WebSocket from "ws";
-import { ChatQueryData, ChatServerMessage } from "../../../types/ChatTypes.js";
+import { ChatQueryData } from "../../../types/ChatTypes.js";
 
 export interface CliAuthEnvironment {
   env: NodeJS.ProcessEnv;
@@ -29,35 +29,10 @@ export interface ChatEngineContext {
   systemPrompt: string;
 }
 
-export interface ChatEngineMessageHandlers {
-  sendMessage: (socket: WebSocket, message: ChatServerMessage) => void;
-  persistMessage: (
-    role: "user" | "assistant" | "system",
-    content: string,
-    messageType: "text" | "tool_use" | "tool_result" | "error" | "system",
-    eventType?: string | null,
-    eventData?: unknown,
-    creditsUsed?: number | null,
-    costFunction?: string | null,
-    provider?: string | null,
-    model?: string | null,
-  ) => Promise<void>;
-  uploadChatImages: (
-    prototypeId: string,
-    chatSessionId: string,
-    images: Array<{ base64: string; mediaType: string }>,
-  ) => Promise<
-    Array<{ storage_path: string; media_type: string; file_size: number }>
-  >;
-}
-
 export interface ChatEngineResult {
   totalCostUsd?: number;
 }
 
 export interface ChatEngine {
-  handleQuery(
-    context: ChatEngineContext,
-    handlers: ChatEngineMessageHandlers,
-  ): Promise<ChatEngineResult | void>;
+  handleQuery(context: ChatEngineContext): Promise<ChatEngineResult | void>;
 }
