@@ -294,11 +294,7 @@ export class ClaudeCodeCliQueryHandler implements ChatEngine {
         break;
 
       case "tool_result":
-        await this.handleToolResult(
-          cliMessage,
-          socket,
-          prototypeChatSessionId,
-        );
+        await this.handleToolResult(cliMessage, socket, prototypeChatSessionId);
         break;
 
       case "result":
@@ -336,7 +332,7 @@ export class ClaudeCodeCliQueryHandler implements ChatEngine {
   private async handleAssistantMessage(
     message: ClaudeCodeMessage,
     socket: WebSocket,
-    prototypeChatSessionId: string | null,
+    prototypeChatSessionId: string,
   ): Promise<void> {
     const content = message.message?.content || [];
 
@@ -353,7 +349,8 @@ export class ClaudeCodeCliQueryHandler implements ChatEngine {
 
     if (textParts.length > 0) {
       const text = textParts.join("");
-      await this.persistMessage(
+      await persistChatMessage(
+        this.supabaseClientService,
         prototypeChatSessionId,
         "assistant",
         text,
@@ -379,7 +376,7 @@ export class ClaudeCodeCliQueryHandler implements ChatEngine {
   private async handlePreToolUse(
     toolUse: ToolUseBlock,
     socket: WebSocket,
-    prototypeChatSessionId: string | null,
+    prototypeChatSessionId: string,
   ): Promise<void> {
     const { id: toolUseId, name: toolName, input: toolInput } = toolUse;
 
@@ -429,7 +426,8 @@ export class ClaudeCodeCliQueryHandler implements ChatEngine {
       toolName,
       normalizedInput as ToolInput,
     );
-    await this.persistMessage(
+    await persistChatMessage(
+      this.supabaseClientService,
       prototypeChatSessionId,
       "assistant",
       displayName,
@@ -449,7 +447,7 @@ export class ClaudeCodeCliQueryHandler implements ChatEngine {
   private async handleToolResult(
     result: ClaudeCodeMessage,
     socket: WebSocket,
-    prototypeChatSessionId: string | null,
+    prototypeChatSessionId: string,
   ): Promise<void> {
     const toolUseId = result.tool_use_id;
     const content = result.content || "";
@@ -483,7 +481,8 @@ export class ClaudeCodeCliQueryHandler implements ChatEngine {
     });
 
     // 2. Persist tool completion to database
-    await this.persistMessage(
+    await persistChatMessage(
+      this.supabaseClientService,
       prototypeChatSessionId,
       "assistant",
       `Tool completed: ${toolName}`,
@@ -622,50 +621,8 @@ export class ClaudeCodeCliQueryHandler implements ChatEngine {
     }
   }
 
-  private getPrototypeChatSessionId(
-    context: ChatEngineContext,
-  ): string | null {
-    return (
-      context.prototypeChatSessionId ??
-      context.sessionState.prototypeChatSessionId ??
-      null
-    );
-  }
-
-  private async persistMessage(
-    prototypeChatSessionId: string | null,
-    role: "user" | "assistant" | "system",
-    content: string,
-    messageType: "text" | "tool_use" | "tool_result" | "error" | "system",
-    eventType?: string | null,
-    eventData?: unknown,
-    creditsUsed?: number | null,
-    costFunction?: string | null,
-    provider?: string | null,
-    model?: string | null,
-  ): Promise<void> {
-    if (!prototypeChatSessionId) {
-      baseLogger.warn("Cannot persist message - no chat session ID", {
-        role,
-        messageType,
-        eventType,
-      });
-      return;
-    }
-
-    await persistChatMessage(
-      this.supabaseClientService,
-      prototypeChatSessionId,
-      role,
-      content,
-      messageType,
-      eventType,
-      eventData,
-      creditsUsed,
-      costFunction,
-      provider,
-      model,
-    );
+  private getPrototypeChatSessionId(context: ChatEngineContext): string {
+    return context.sessionState.prototypeChatSessionId!;
   }
 
   private sendMessage(socket: WebSocket, message: ChatServerMessage): void {

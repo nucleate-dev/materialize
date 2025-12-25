@@ -188,6 +188,10 @@ export class ChatQueryHandler implements ChatEngine {
     const { prompt, content, ai_chat_session_id } = data;
     const options = (data.options ?? {}) as Options;
 
+    if (!sessionState.prototypeChatSessionId) {
+      throw new Error("Missing prototype chat session ID, cannot start chat");
+    }
+
     try {
       // Create a new AbortController for this query
       const abortController = new AbortController();
@@ -230,7 +234,7 @@ export class ChatQueryHandler implements ChatEngine {
         if (bufferState.assistantMessageBuffer.trim()) {
           await this.persistAssistantMessageBuffer(
             bufferState.assistantMessageBuffer,
-            sessionState.prototypeChatSessionId,
+            sessionState.prototypeChatSessionId!,
             bufferState.creditsUsed,
             bufferState.costFunction,
           );
@@ -345,7 +349,8 @@ export class ChatQueryHandler implements ChatEngine {
       );
 
       // Persist error to database
-      await this.persistMessage(
+      await persistChatMessage(
+        this.supabaseClientService,
         sessionState.prototypeChatSessionId,
         "system",
         `Error: ${errorMessage}`,
@@ -428,7 +433,7 @@ export class ChatQueryHandler implements ChatEngine {
       media_type: string;
       name?: string;
     }>,
-    prototypeChatSessionId: string | null,
+    prototypeChatSessionId: string,
   ): Promise<void> {
     const userMessageText =
       typeof messageContent === "string"
@@ -447,7 +452,8 @@ export class ChatQueryHandler implements ChatEngine {
     const eventData =
       imageMetadata.length > 0 ? { images: imageMetadata } : null;
 
-    await this.persistMessage(
+    await persistChatMessage(
+      this.supabaseClientService,
       prototypeChatSessionId,
       "user",
       userMessageDisplay,
@@ -469,7 +475,7 @@ export class ChatQueryHandler implements ChatEngine {
     framework: Database["public"]["Enums"]["prototype_framework"],
     relativePathResolver: (path: string) => string,
     systemPromptOverride: string,
-    prototypeChatSessionId: string | null,
+    prototypeChatSessionId: string,
   ): Promise<Options & { resume?: string }> {
     const canUseTool: CanUseTool = async (
       toolName: ToolName,
@@ -767,7 +773,7 @@ export class ChatQueryHandler implements ChatEngine {
    */
   private async handlePreToolUseHook(
     hookContext: HookContext,
-    prototypeChatSessionId: string | null,
+    prototypeChatSessionId: string,
   ): Promise<HookJSONOutput> {
     const { input, toolUseID, socket, flushAssistantBuffer } = hookContext;
 
@@ -822,7 +828,8 @@ export class ChatQueryHandler implements ChatEngine {
           input.tool_name,
           normalizedToolInput as ToolInput,
         );
-        await this.persistMessage(
+        await persistChatMessage(
+          this.supabaseClientService,
           prototypeChatSessionId,
           "assistant",
           displayName,
@@ -850,7 +857,7 @@ export class ChatQueryHandler implements ChatEngine {
    */
   private async handlePostToolUseHook(
     hookContext: HookContext,
-    prototypeChatSessionId: string | null,
+    prototypeChatSessionId: string,
   ): Promise<HookJSONOutput> {
     const { input, toolUseID, socket } = hookContext;
 
@@ -870,7 +877,8 @@ export class ChatQueryHandler implements ChatEngine {
         });
 
         // Persist tool completion to database
-        await this.persistMessage(
+        await persistChatMessage(
+          this.supabaseClientService,
           prototypeChatSessionId,
           "assistant",
           `Tool completed: ${input.tool_name}`,
@@ -899,7 +907,7 @@ export class ChatQueryHandler implements ChatEngine {
    */
   private async persistAssistantMessageBuffer(
     buffer: string,
-    prototypeChatSessionId: string | null,
+    prototypeChatSessionId: string,
     creditsUsed?: number,
     costFunction?: string,
   ): Promise<boolean> {
@@ -908,7 +916,8 @@ export class ChatQueryHandler implements ChatEngine {
       return false;
     }
 
-    await this.persistMessage(
+    await persistChatMessage(
+      this.supabaseClientService,
       prototypeChatSessionId,
       "assistant",
       trimmedBuffer,
@@ -927,7 +936,7 @@ export class ChatQueryHandler implements ChatEngine {
    */
   private async streamQueryResponse(
     streamContext: StreamContext,
-    prototypeChatSessionId: string | null,
+    prototypeChatSessionId: string,
   ): Promise<number | undefined> {
     const {
       messageContent,
@@ -1135,42 +1144,6 @@ export class ChatQueryHandler implements ChatEngine {
     }
 
     return totalCostUsd;
-  }
-
-  private async persistMessage(
-    prototypeChatSessionId: string | null,
-    role: "user" | "assistant" | "system",
-    content: string,
-    messageType: "text" | "tool_use" | "tool_result" | "error" | "system",
-    eventType?: string | null,
-    eventData?: unknown,
-    creditsUsed?: number | null,
-    costFunction?: string | null,
-    provider?: string | null,
-    model?: string | null,
-  ): Promise<void> {
-    if (!prototypeChatSessionId) {
-      baseLogger.warn("Cannot persist message - no chat session ID", {
-        role,
-        messageType,
-        eventType,
-      });
-      return;
-    }
-
-    await persistChatMessage(
-      this.supabaseClientService,
-      prototypeChatSessionId,
-      role,
-      content,
-      messageType,
-      eventType,
-      eventData,
-      creditsUsed,
-      costFunction,
-      provider,
-      model,
-    );
   }
 
   private sendMessage(socket: WebSocket, message: ChatServerMessage): void {
