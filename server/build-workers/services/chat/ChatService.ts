@@ -1,4 +1,5 @@
 import { Options } from "@anthropic-ai/claude-agent-sdk";
+import type { UserContent } from "ai";
 import axios from "axios";
 import { FastifyInstance, FastifyRequest } from "fastify";
 import path from "path";
@@ -20,7 +21,6 @@ import {
   StandardErrorResponse,
   StartChatResponse,
 } from "../../types/ControlPlaneTypes.js";
-import { Database } from "../../types/supabase.js";
 import { getWorkerContext, WORK_DIR } from "../../worker.js";
 import { ClaudeTokenService } from "../auth/claude-token-service.js";
 import { NucleateDevelopmentServerService } from "../dev-server/NucleateDevelopmentServerService.js";
@@ -32,7 +32,7 @@ import {
   ChatEngine,
   ChatEngineSessionState,
   CliAuthEnvironment,
-  DesignContextInfo,
+  DesignAgentMetadata,
   ChatEngineResult,
 } from "./chat-engines/chat-engine.js";
 import { ChatQueryHandler } from "./chat-engines/chat-query-handler.js";
@@ -41,10 +41,17 @@ import {
   persistChatMessage,
   uploadChatImages,
 } from "./helpers/message-handlers.js";
-import { getSystemPromptForDesignStyle } from "./prompts/ClaudeCodePrompts.js";
 import { costFunctionV3 } from "./cost/cost-calculation.js";
 import { trackApiUsageBuildWorker } from "./cost/usage-tracking.js";
 import { hasRemainingCredits } from "../../utils/credit-checks.js";
+import { buildDesignAgentUserContent } from "./classifiers-and-subagents/design-classifier-utils.js";
+import { classifyDesignIntent } from "./classifiers-and-subagents/design-intent-classifier.js";
+import {
+  DEFAULT_DESIGN_AGENT_MODELS,
+  executeDesignAgent,
+  persistDesignSpecToFiles,
+  type DesignAgentProvider,
+} from "./classifiers-and-subagents/design-agent-service.js";
 
 export const ALLOWED_ROOT = "/tmp/materialize-dev-server";
 const CHAT_HEARTBEAT_INTERVAL_MS = 15000;
@@ -469,6 +476,7 @@ export class ChatService {
     // 5. PREPARE SESSION STATE
     this.prepareSessionStateForQuery(data, logger);
 
+    // 6. PERFORM DESIGN INSPIRATION + CLASSIFICATION STEPS FOR USER FIRST MESSAGES
     let isFirstMessage = false;
     if (
       selectedChatEngine === this.chatQueryHandler &&
@@ -481,6 +489,23 @@ export class ChatService {
       );
     }
 
+    let designPreparation:
+      | {
+          designSpec: string | null;
+          designMetadata: DesignAgentMetadata | null;
+          designAgentCost?: number;
+        }
+      | null = null;
+    if (selectedChatEngine === this.chatQueryHandler) {
+      designPreparation = await this.prepareFirstMessageDesignContext(
+        socket,
+        data,
+        prototypeId,
+        logger,
+        isFirstMessage,
+      );
+    }
+
     logger.consoleLogDevOnly("info", "Dispatching chat query to handler", {
       prototypeId,
       handler: handlerName,
@@ -490,6 +515,7 @@ export class ChatService {
     });
 
     let handlerResult: ChatEngineResult | void = undefined;
+    const designAgentCost = designPreparation?.designAgentCost;
     try {
       handlerResult = await selectedChatEngine.handleQuery(
         {
@@ -503,6 +529,8 @@ export class ChatService {
           cliAuthEnv,
           isFirstMessage,
           getRelativePath: this.getRelativePath.bind(this),
+          designSpec: designPreparation?.designSpec ?? null,
+          designMetadata: designPreparation?.designMetadata ?? undefined,
         },
         {
           sendMessage: this.sendMessage.bind(this),
@@ -559,12 +587,17 @@ export class ChatService {
         },
       );
     } finally {
+      const combinedCost =
+        designAgentCost === undefined &&
+        handlerResult?.totalCostUsd === undefined
+          ? undefined
+          : (designAgentCost ?? 0) + (handlerResult?.totalCostUsd ?? 0);
       try {
         await this.finalizeChatExecution(
           prototypeId,
           socket,
           data,
-          handlerResult?.totalCostUsd,
+          combinedCost,
           logger,
         );
       } catch (error) {
@@ -674,6 +707,163 @@ export class ChatService {
       prototypeId,
       logger,
     );
+  }
+
+  private async prepareFirstMessageDesignContext(
+    socket: WebSocket,
+    data: ChatQueryData,
+    prototypeId: string,
+    logger: SystemLogger,
+    isFirstMessage: boolean,
+  ): Promise<{
+    designSpec: string | null;
+    designMetadata: DesignAgentMetadata | null;
+    designAgentCost?: number;
+  } | null> {
+    if (!isFirstMessage) {
+      return null;
+    }
+
+    const canAttemptClassification = !!this.sessionState.prototypeChatSessionId;
+    if (!canAttemptClassification) {
+      logger.consoleLogDevOnly(
+        "info",
+        "Skipping design intent classification gate",
+        {
+          prototypeId,
+          hasPrototypeChatSessionId: !!this.sessionState.prototypeChatSessionId,
+        },
+      );
+      return null;
+    }
+
+    const { prompt, content } = data;
+    const userMessageText =
+      typeof content === "string"
+        ? content
+        : Array.isArray(content)
+          ? content
+              .filter((block) => block.type === "text")
+              .map((block) => block.text || "")
+              .join("\n")
+          : prompt || "";
+
+    const designAgentUserContent = buildDesignAgentUserContent(
+      typeof content === "string" ? content : prompt,
+      Array.isArray(content) ? content : undefined,
+      logger,
+      prototypeId,
+    );
+
+    if (!userMessageText) {
+      return null;
+    }
+
+    const classifierAbortController = new AbortController();
+    this.sessionState.abortController = classifierAbortController;
+
+    logger.debug("Classifying user intent on first message", {
+      prototypeId,
+      userMessageLength: userMessageText.length,
+    });
+
+    const classificationResult = await classifyDesignIntent({
+      userMessage: userMessageText,
+      abortController: classifierAbortController,
+      logger,
+      prototypeId,
+    });
+
+    const classifierCost = classificationResult.costUsd;
+    let designAgentCost = classifierCost;
+    let designSpec: string | null = null;
+    let designMetadata: DesignAgentMetadata | null = null;
+
+    if (classificationResult.shouldGenerateDesignSpec) {
+      this.sendMessage(socket, {
+        type: ChatEvent.DESIGN_GENERATION,
+        data: {
+          status: "started",
+          message: "Generating design specification...",
+          runDesignAgent: true,
+        },
+      });
+
+      logger.debug("Calling design agent", {
+        prototypeId,
+        userMessageLength: userMessageText.length,
+        hasAbortController: !!classifierAbortController,
+      });
+
+      const designResult = await this.executeDesignAgentForFirstMessage(
+        prototypeId,
+        designAgentUserContent ?? userMessageText,
+        classifierAbortController,
+        logger,
+      );
+
+      designAgentCost =
+        (designResult.costUsd ?? 0) + (designAgentCost ?? 0);
+
+      if (designResult.designSpec) {
+        const parsed = this.parseDesignAgentSpec(designResult.designSpec);
+        designSpec = parsed.spec;
+        designMetadata = parsed.metadata;
+
+        await persistDesignSpecToFiles(WORK_DIR, designSpec, logger, prototypeId);
+
+        const { error: updateError } = await this.supabaseClientService
+          .getClient()
+          .from("prototypes")
+          .update({ project_context: designSpec })
+          .eq("id", prototypeId);
+
+        if (updateError) {
+          logger.error(
+            updateError,
+            "Failed to store design specification in project_context",
+            { prototypeId },
+          );
+        } else {
+          logger.consoleLogDevOnly(
+            "info",
+            "Stored design specification in project_context database",
+            { prototypeId, specLength: designSpec.length },
+          );
+        }
+      }
+
+      logger.consoleLogDevOnly("info", "Design agent execution completed", {
+        prototypeId,
+        hasDesignSpec: !!designSpec,
+        designAgentCost,
+        metadata: designMetadata,
+      });
+    } else {
+      logger.consoleLogDevOnly(
+        "info",
+        "Skipping design agent - no design spec needed",
+        {
+          prototypeId,
+          shouldGenerateDesignSpec:
+            classificationResult.shouldGenerateDesignSpec,
+          classifierCost,
+        },
+      );
+    }
+
+    if (this.sessionState.prototypeChatSessionId) {
+      this.sessionState.firstMessageStatus = {
+        sessionId: this.sessionState.prototypeChatSessionId,
+        isFirst: false,
+      };
+    }
+
+    return {
+      designSpec,
+      designMetadata,
+      designAgentCost,
+    };
   }
 
   private async handleInterrupt(socket: WebSocket): Promise<void> {
@@ -1505,3 +1695,85 @@ export class ChatService {
     return absolutePath;
   }
 }
+  private async executeDesignAgentForFirstMessage(
+    prototypeId: string,
+    userContent: UserContent,
+    abortController: AbortController,
+    logger: SystemLogger,
+  ): Promise<{ designSpec: string | null; costUsd: number | undefined }> {
+    const provider: DesignAgentProvider = "google";
+    const model = DEFAULT_DESIGN_AGENT_MODELS[provider];
+
+    const imageCount = Array.isArray(userContent)
+      ? userContent.filter((part) => part.type === "image").length
+      : 0;
+    logger.consoleLogDevOnly("info", "Executing design agent via AI SDK", {
+      prototypeId,
+      provider,
+      model,
+      userMessageLength:
+        typeof userContent === "string" ? userContent.length : undefined,
+      imageCount,
+    });
+
+    return executeDesignAgent({
+      provider,
+      model,
+      userContent,
+      workDir: WORK_DIR,
+      abortController,
+      logger,
+      prototypeId,
+    });
+  }
+
+  private parseDesignAgentSpec(rawSpec: string): {
+    spec: string;
+    metadata: DesignAgentMetadata;
+  } {
+    const defaultMetadata: DesignAgentMetadata = {
+      scope: "unknown",
+    };
+
+    const metadataHeading = "### METADATA";
+    const headingIndex = rawSpec.lastIndexOf(metadataHeading);
+
+    if (headingIndex === -1) {
+      return { spec: rawSpec.trim(), metadata: defaultMetadata };
+    }
+
+    const specWithoutMetadata = rawSpec.slice(0, headingIndex).trim();
+    const metadataSection = rawSpec
+      .slice(headingIndex + metadataHeading.length)
+      .trim();
+
+    const metadataLines = metadataSection
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean);
+
+    const metadata: DesignAgentMetadata = { ...defaultMetadata };
+
+    for (const line of metadataLines) {
+      const [rawKey, ...rest] = line.split(":");
+      if (!rawKey || rest.length === 0) {
+        continue;
+      }
+      const key = rawKey.trim().toLowerCase();
+      const value = rest.join(":").trim().toLowerCase();
+
+      if (key === "scope") {
+        if (value === "app") {
+          metadata.scope = "app";
+        } else if (value === "screen") {
+          metadata.scope = "screen";
+        } else if (value === "component") {
+          metadata.scope = "component";
+        } else if (value === "other") {
+          metadata.scope = "other";
+        }
+      }
+    }
+
+    return { spec: specWithoutMetadata, metadata };
+  }

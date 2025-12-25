@@ -16,10 +16,8 @@ export interface ChatEngineSessionState {
   firstMessageStatus: { sessionId: string; isFirst: boolean } | null;
 }
 
-export interface DesignContextInfo {
-  systemPrompt: string;
-  designSystemId: string | null;
-  designSystemRules: string | null;
+export interface DesignAgentMetadata {
+  scope: "app" | "screen" | "component" | "other" | "unknown";
 }
 
 export interface ChatEngineContext {
@@ -33,6 +31,8 @@ export interface ChatEngineContext {
   cliAuthEnv?: CliAuthEnvironment | null;
   isFirstMessage?: boolean;
   getRelativePath: (absolutePath: string) => string;
+  designSpec?: string | null;
+  designMetadata?: DesignAgentMetadata | null;
 }
 
 export interface ChatEngineMessageHandlers {
