@@ -447,7 +447,7 @@ export class ChatService {
         });
       }
     }
-    // 4b. Delegate to appropriate handler based on provider and user subscription
+    // 5b. Delegate to appropriate handler based on provider and user subscription
     let selectedChatEngine: ChatEngine;
     let handlerName: string;
     let cliAuthEnv: CliAuthEnvironment | null = null;
@@ -847,7 +847,7 @@ export class ChatService {
         },
       );
       this.sessionState.sessionId = null;
-      this.sessionState.firstMessageStatus = null;
+      this.sessionState.firstMessageStatus = null; // Is this supposed to be here? --sourish
     }
   }
 
@@ -1113,12 +1113,12 @@ export class ChatService {
     };
   }
 
-  private async loadDesignSystemContext(
+  private async constructSystemPrompt(
     logger: SystemLogger,
     customDesignSystemId: string | null,
     designStyle: string | undefined,
-    framework: Database["public"]["Enums"]["prototype_framework"] | null,
-  ): Promise<DesignContextInfo> {
+    framework: Database["public"]["Enums"]["prototype_framework"],
+  ): Promise<string> {
     if (customDesignSystemId !== this.sessionState.designSystemId) {
       if (!customDesignSystemId) {
         this.sessionState.designSystemId = null;
@@ -1165,17 +1165,7 @@ export class ChatService {
 
     let systemPromptAppend = getSystemPromptForDesignStyle(
       designStyle,
-      framework ?? undefined,
-    );
-
-    logger.consoleLogDevOnly(
-      "info",
-      "Using design-style-specific system prompt",
-      {
-        design_style: designStyle,
-        hasCustomDesignSystem: !!this.sessionState.designSystemRules,
-        framework,
-      },
+      framework,
     );
 
     if (this.sessionState.designSystemRules) {
@@ -1184,11 +1174,7 @@ export class ChatService {
         this.sessionState.designSystemRules;
     }
 
-    return {
-      systemPrompt: systemPromptAppend,
-      designSystemId: this.sessionState.designSystemId,
-      designSystemRules: this.sessionState.designSystemRules,
-    };
+    return systemPromptAppend;
   }
 
   private async isFirstMessageForPrototype(
@@ -1206,12 +1192,13 @@ export class ChatService {
     }
 
     try {
-      const { count: messageCount, error: messageError } =
+      const { data: messageRows, error: messageError } =
         await this.supabaseClientService
           .getClient()
           .from("prototype_chat_messages")
-          .select("*", { count: "exact", head: true })
-          .eq("chat_session_id", prototypeChatSessionId);
+          .select("id")
+          .eq("chat_session_id", prototypeChatSessionId)
+          .limit(1);
 
       if (messageError) {
         logger.error(
@@ -1222,16 +1209,17 @@ export class ChatService {
         return false;
       }
 
-      if (messageCount && messageCount > 0) {
+      if (messageRows && messageRows.length > 0) {
         return false;
       }
 
-      const { count: sessionCount, error: sessionError } =
+      const { data: sessionRows, error: sessionError } =
         await this.supabaseClientService
           .getClient()
           .from("prototype_chat_sessions")
-          .select("*", { count: "exact", head: true })
-          .eq("prototype_id", prototypeId);
+          .select("id")
+          .eq("prototype_id", prototypeId)
+          .limit(1);
 
       if (sessionError) {
         logger.error(
@@ -1242,7 +1230,7 @@ export class ChatService {
         return false;
       }
 
-      const isFirst = sessionCount === 1;
+      const isFirst = sessionRows.length === 1;
 
       this.sessionState.firstMessageStatus = {
         sessionId: prototypeChatSessionId,
@@ -1252,8 +1240,8 @@ export class ChatService {
       logger.consoleLogDevOnly("info", "First message detection result", {
         prototypeId,
         prototypeChatSessionId,
-        messageCount,
-        sessionCount,
+        messageRows,
+        sessionRows,
         isFirst,
       });
 
