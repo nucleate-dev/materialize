@@ -20,6 +20,7 @@ interface ProjectContextEditorProps {
 }
 
 const CLAUDE_MD_FILENAME = "CLAUDE.md";
+const AGENTS_MD_FILENAME = "AGENTS.md";
 
 const DEFAULT_TEMPLATE = `# Project Context
 
@@ -70,7 +71,10 @@ const ProjectContextEditor: React.FC<ProjectContextEditorProps> = ({
 
     try {
       const result = await fileSystem.syncFilesAndAssets({
-        filesToUpsert: [{ name: CLAUDE_MD_FILENAME, content }],
+        filesToUpsert: [
+          { name: CLAUDE_MD_FILENAME, content },
+          { name: AGENTS_MD_FILENAME, content },
+        ],
       });
 
       if (result.success) {
@@ -178,7 +182,10 @@ const ProjectContextEditor: React.FC<ProjectContextEditorProps> = ({
     setIsCreating(true);
     try {
       const result = await fileSystem.syncFilesAndAssets({
-        filesToUpsert: [{ name: CLAUDE_MD_FILENAME, content: DEFAULT_TEMPLATE }],
+        filesToUpsert: [
+          { name: CLAUDE_MD_FILENAME, content: DEFAULT_TEMPLATE },
+          { name: AGENTS_MD_FILENAME, content: DEFAULT_TEMPLATE },
+        ],
       });
 
       if (result.success) {
