@@ -50,8 +50,6 @@ import { hasRemainingCredits } from "../../utils/credit-checks.js";
 export const ALLOWED_ROOT = "/tmp/materialize-dev-server";
 const CHAT_HEARTBEAT_INTERVAL_MS = 15000;
 
-interface CodeSessionState extends ChatEngineSessionState {}
-
 interface ChatConnection {
   socket: WebSocket;
   heartbeat?: NodeJS.Timeout;
@@ -73,7 +71,7 @@ export class ChatService {
   private readonly chatQueryHandler: ChatEngine;
   private readonly claudeCodeCliQueryHandler: ChatEngine;
   private readonly claudeTokenService: ClaudeTokenService;
-  private sessionState: CodeSessionState = {
+  private sessionState: ChatEngineSessionState = {
     sessionId: null,
     prototypeChatSessionId: null,
     abortController: null,
@@ -472,23 +470,8 @@ export class ChatService {
       });
       return;
     }
-
     if (token) {
-      const authResult = await this.authenticateSupabaseClient(
-        token,
-        prototypeId,
-        logger,
-      );
-      if (!authResult.valid) {
-        this.sendMessage(socket, {
-          type: ChatEvent.ERROR,
-          error: {
-            message: authResult.errorMessage ?? "Authentication failed",
-            details: authResult.errorDetails,
-          },
-        });
-        return;
-      }
+      this.supabaseClientService.refreshClientWithToken(token);
     }
 
     let cliAuthEnv: CliAuthEnvironment | null = null;
@@ -859,35 +842,6 @@ export class ChatService {
     return { valid: true };
   }
 
-  private async authenticateSupabaseClient(
-    token: string,
-    prototypeId: string,
-    logger: SystemLogger,
-  ): Promise<ChatQueryValidationResult> {
-    try {
-      this.supabaseClientService.refreshClientWithToken(token);
-      logger.consoleLogDevOnly(
-        "info",
-        "Refreshed Supabase client with JWT token for chat request",
-        {
-          prototypeId,
-        },
-      );
-      return { valid: true };
-    } catch (error) {
-      logger.error(
-        error instanceof Error ? error : new Error(String(error)),
-        "Failed to refresh Supabase client with JWT token",
-        { prototypeId },
-      );
-      return {
-        valid: false,
-        errorMessage: "Failed to authenticate with provided token",
-        errorDetails: error instanceof Error ? error.message : String(error),
-      };
-    }
-  }
-
   private async buildClaudeCliAuthEnvironment(
     userId: string,
     logger: SystemLogger,
@@ -1247,14 +1201,13 @@ export class ChatService {
       );
     } catch (error) {
       const axiosError = axios.isAxiosError(error) ? error : null;
-      const derivedError =
-        axiosError
-          ? new Error(
-              `Failed to notify control plane of chat start (status ${axiosError.response?.status ?? "unknown"})`,
-            )
-          : error instanceof Error
-            ? error
-            : new Error(String(error));
+      const derivedError = axiosError
+        ? new Error(
+            `Failed to notify control plane of chat start (status ${axiosError.response?.status ?? "unknown"})`,
+          )
+        : error instanceof Error
+          ? error
+          : new Error(String(error));
       const responseBody =
         (error as { responseBody?: unknown })?.responseBody ??
         axiosError?.response?.data;
