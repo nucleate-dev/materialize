@@ -183,6 +183,8 @@ interface MaterializeRenderSectionProps {
   deployedView?: boolean;
   // Framework type to determine default preview mode
   framework?: string;
+  // Callback to start dev server (consolidated in parent)
+  onStartDevServer?: () => void;
 }
 
 export interface MaterializeRenderSectionRef {
@@ -224,6 +226,7 @@ const MaterializeRenderSection = forwardRef<
       deployedView = false,
       publicView = false,
       framework,
+      onStartDevServer,
     },
     ref,
   ) => {
@@ -716,67 +719,6 @@ const MaterializeRenderSection = forwardRef<
       [forceRefresh],
     );
 
-    // Function to start dev server with all files
-    const handleStartDevServer = async () => {
-      logPrototypeEvent("client_prototype_editor_start_dev_server_clicked", {
-        has_prototype: Boolean(prototypeId),
-      });
-      if (!prototypeId) {
-        logger.debug("error", "Cannot start dev server: missing prototype ID");
-        return;
-      }
-
-      onRenderStatusChange("Starting Dev Server..");
-
-      try {
-        const session = await supabase.auth.getSession();
-        const token = session.data.session?.access_token;
-
-        if (!token) {
-          logger.debug("error", "No authentication token available");
-          return;
-        }
-
-        const response = await fetch(
-          `${process.env.NEXT_PUBLIC_SERVER_ENDPOINT!}/files/start-dev-server`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify({
-              prototype_id: prototypeId,
-            } as StartDevServerRequestBody),
-          },
-        );
-
-        const result: APIResponse<
-          StartDevServerSuccessResponse,
-          StandardErrorResponse
-        > = await response.json();
-
-        if (response.ok && result.data) {
-          // Update viewing URL if provided
-          if (result.data.viewing_url && onViewingUrlUpdate) {
-            onViewingUrlUpdate(result.data.viewing_url);
-          }
-
-          // Force refresh the preview to load the new dev server
-          forceRefresh();
-        } else {
-          logger.debug("error", "Failed to start dev server:", {
-            error: result.error?.message,
-          });
-        }
-      } catch (error) {
-        logger.debug("error", "Error starting dev server:", {
-          error: error instanceof Error ? error.message : String(error),
-          stack: error instanceof Error ? error.stack : undefined,
-        });
-      }
-    };
-
     const handleRestartDevServer = async () => {
       logPrototypeEvent("client_prototype_editor_restart_dev_server_clicked", {
         has_prototype: Boolean(prototypeId),
@@ -1192,14 +1134,14 @@ const MaterializeRenderSection = forwardRef<
         >
           <div className={cn("mr-2", config?.dotClassName)}></div>
           {config?.text}
-          {isStaticBuild && prototypeId && (
+          {isStaticBuild && prototypeId && onStartDevServer && (
             <TooltipProvider delayDuration={200}>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      handleStartDevServer();
+                      onStartDevServer();
                     }}
                     className="ml-2 p-1 hover:bg-accent rounded-md transition-colors group"
                     aria-label="Start Dev Server"

@@ -1095,6 +1095,74 @@ export default function InternalPrototypePage() {
     [prototypeId, fileSystem, logger],
   );
 
+  // Consolidated function to start dev server - used by both MaterializeRenderSection and ClaudeCodePanel
+  const handleStartDevServer = useCallback(async () => {
+    logger.log({
+      event: "client_prototype_editor_start_dev_server_clicked",
+      properties: {
+        prototype_id: prototypeId,
+      },
+    });
+
+    if (!prototypeId) {
+      logger.debug("error", "Cannot start dev server: missing prototype ID");
+      return;
+    }
+
+    setCurrentRenderStatus("Starting Dev Server..");
+
+    try {
+      const session = await supabase.auth.getSession();
+      const token = session.data.session?.access_token;
+
+      if (!token) {
+        logger.debug("error", "No authentication token available");
+        return;
+      }
+
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_SERVER_ENDPOINT!}/files/start-dev-server`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            prototype_id: prototypeId,
+          } as StartDevServerRequestBody),
+        },
+      );
+
+      const result: APIResponse<
+        StartDevServerSuccessResponse,
+        StandardErrorResponse
+      > = await response.json();
+
+      if (response.ok && result.data) {
+        // Update viewing URL if provided
+        if (result.data.viewing_url) {
+          setViewingUrl(result.data.viewing_url);
+        }
+        if (result.data.terminal_url) {
+          setBaseTunnelUrl(result.data.terminal_url);
+        }
+
+        // Force refresh the preview to load the new dev server
+        materializeRenderRef.current?.forceRefresh();
+      } else {
+        logger.debug("error", "Failed to start dev server:", {
+          error: result.error?.message,
+        });
+      }
+    } catch (error) {
+      logger.debug("error", "Error starting dev server:", {
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+      });
+    }
+  }, [prototypeId, logger]);
+
   if (
     !prototypeId ||
     userIsLoading ||
@@ -1189,6 +1257,7 @@ export default function InternalPrototypePage() {
                 claudeCodeWSMessageHandlers.current.delete(id);
               }}
               onRestartDevServerComplete={handleChatRestartDevServerComplete}
+              onStartDevServer={handleStartDevServer}
             />
           </div>
         </div>
@@ -1252,6 +1321,7 @@ export default function InternalPrototypePage() {
               onClone={handleClone}
               isCloningPrototype={isCloningPrototype}
               framework={prototype?.framework ?? undefined}
+              onStartDevServer={handleStartDevServer}
               codeView={
                 <div className={`flex h-full ${isMobile ? "flex-col" : ""}`}>
                   {isMobile ? (

@@ -58,6 +58,7 @@ interface ClaudeCodePanelProps {
   ) => void;
   onUnregisterMessageHandler: (id: string) => void;
   onRestartDevServerComplete?: () => void;
+  onStartDevServer?: () => void;
 }
 
 export interface Message {
@@ -115,6 +116,7 @@ export default function ClaudeCodePanel({
   onRegisterMessageHandler,
   onUnregisterMessageHandler,
   onRestartDevServerComplete,
+  onStartDevServer,
 }: ClaudeCodePanelProps) {
   const logger = useProductLogger();
 
@@ -1805,6 +1807,13 @@ export default function ClaudeCodePanel({
           dev_server_ready: isDevServerReady,
         },
       });
+
+      // If dev server is in Static build mode, trigger it to start
+      if (currentRenderStatus === "Static build" && onStartDevServer) {
+        logger.debug("log", "Triggering dev server start for queued message");
+        onStartDevServer();
+      }
+
       return;
     }
 
