@@ -348,7 +348,7 @@ export class ChatService {
 
     switch (message.type) {
       case ChatClientEvent.QUERY:
-        await this.handleQuery(socket, message.data, prototypeId, logger);
+        await this.handleQuery(socket, message.data, logger);
         break;
 
       case ChatClientEvent.INTERRUPT:
@@ -356,12 +356,7 @@ export class ChatService {
         break;
 
       case ChatClientEvent.HISTORY_RESPONSE:
-        await this.handleHistoryResponse(
-          socket,
-          message.data,
-          prototypeId,
-          logger,
-        );
+        await this.handleHistoryResponse(socket, message.data, logger);
         break;
     }
   }
@@ -369,7 +364,6 @@ export class ChatService {
   private async handleQuery(
     socket: WebSocket,
     data: ChatQueryData,
-    prototypeId: string,
     logger: SystemLogger,
   ): Promise<void> {
     // 1. REFRESH THE USER TOKEN IN SUPABASE INSTANCE:
@@ -384,6 +378,17 @@ export class ChatService {
         error: {
           message: validationResult.errorMessage ?? "Invalid chat query",
           details: validationResult.errorDetails,
+        },
+      });
+      return;
+    }
+    const { userId, prototypeId } = getWorkerContext();
+    if (!prototypeId) {
+      this.sendMessage(socket, {
+        type: ChatEvent.ERROR,
+        error: {
+          message: "Sandbox is missing the project ID",
+          details: "project ID is required. Please get a new sandbox.",
         },
       });
       return;
@@ -421,7 +426,6 @@ export class ChatService {
     // 5. DETERMINE APPROPRIATE CHAT HANDLER FOR THE USER
     // 5a. Check if the user has a claude subscription token to determine whether to use CLI mode
     let useCliMode = false;
-    const userId = getWorkerContext().userId;
     if (userId) {
       try {
         const isFeatureEnabled = await posthog.isFeatureEnabled(
@@ -507,6 +511,7 @@ export class ChatService {
       );
     }
 
+    // 7. DISPATCH REQUEST TO APPROPRIATE ENGINE
     logger.consoleLogDevOnly("info", "Dispatching chat query to handler", {
       prototypeId,
       handler: handlerName,
@@ -514,7 +519,6 @@ export class ChatService {
       hasPrototypeChatSessionId: !!this.sessionState.prototypeChatSessionId,
       sessionId: this.sessionState.sessionId,
     });
-
     let handlerResult: ChatEngineResult | void = undefined;
     const designAgentCost = designPreparation?.designAgentCost;
     try {
@@ -622,14 +626,12 @@ export class ChatService {
   private async handleHistoryResponse(
     socket: WebSocket,
     data: HistoryResponseData,
-    prototypeId: string,
     logger: SystemLogger,
   ): Promise<void> {
     const { historical_messages, original_query } = data;
 
     logger.consoleLogDevOnly("info", "Received history response from client", {
       messageCount: historical_messages.length,
-      prototypeId,
     });
 
     // Format historical messages for system prompt
@@ -664,7 +666,6 @@ export class ChatService {
     await this.handleQueryWithHistory(
       socket,
       original_query,
-      prototypeId,
       historyContext,
       logger,
     );
@@ -915,14 +916,12 @@ export class ChatService {
   private async handleQueryWithHistory(
     socket: WebSocket,
     data: ChatQueryData,
-    prototypeId: string,
     historyContext: string,
     logger: SystemLogger,
   ): Promise<void> {
     const options = (data.options ?? {}) as Options;
 
     logger.consoleLogDevOnly("info", "Processing query with history context", {
-      prototypeId,
       hasHistoryContext: historyContext.length > 0,
       historyContextLength: historyContext.length,
     });
@@ -947,7 +946,6 @@ export class ChatService {
     await this.handleQuery(
       socket,
       { ...modifiedData, options: modifiedOptions },
-      prototypeId,
       logger,
     );
   }
