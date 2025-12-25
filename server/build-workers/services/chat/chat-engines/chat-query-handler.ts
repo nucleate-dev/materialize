@@ -21,7 +21,6 @@ import { ChatContentBlock, ChatEvent } from "../../../types/ChatTypes.js";
 import { Database } from "../../../types/supabase.js";
 import { baseLogger, getWorkerContext, WORK_DIR } from "../../../worker.js";
 import { NucleateDevelopmentServerService } from "../../dev-server/NucleateDevelopmentServerService.js";
-import { FileSyncService } from "../../FileSyncService.js";
 import { SandboxService } from "../../SandboxService.js";
 import { SupabaseClientService } from "../../SupabaseClientService.js";
 import { TerminalService } from "../../terminals/TerminalService.js";
@@ -55,17 +54,6 @@ import {
 import { ALLOWED_ROOT } from "../ChatService.js";
 
 const HISTORY_MESSAGE_REQUEST_COUNT = 6;
-
-interface ToolInputWithFilePath {
-  file_path?: string;
-  notebook_path?: string;
-  [key: string]: unknown;
-}
-
-interface ToolResponseWithFilePath {
-  file_path?: string;
-  [key: string]: unknown;
-}
 
 type ToolName =
   | "Bash"

@@ -41,7 +41,6 @@ import {
   persistChatMessage,
   uploadChatImages,
 } from "./helpers/message-handlers.js";
-import { ChatProvider, isAllowedModel } from "./helpers/model-providers.js";
 import { getSystemPromptForDesignStyle } from "./prompts/ClaudeCodePrompts.js";
 import { costFunctionV3 } from "./cost/cost-calculation.js";
 import { trackApiUsageBuildWorker } from "./cost/usage-tracking.js";
@@ -222,13 +221,11 @@ export class ChatService {
     socket.on("message", async (raw: Buffer | string) => {
       try {
         const parsedMessage = JSON.parse(raw.toString());
-
         if (!parsedMessage || typeof parsedMessage.type !== "string") {
           throw new Error("Invalid message format");
         }
 
         const messageType = parsedMessage.type as ChatClientEvent;
-
         if (!Object.values(ChatClientEvent).includes(messageType)) {
           throw new Error(`Unknown message type: ${parsedMessage.type}`);
         }
@@ -322,7 +319,7 @@ export class ChatService {
     // Cleanup ClaudeTokenService
     this.claudeTokenService.destroy();
 
-    baseLogger.info("CodeService shutdown complete");
+    baseLogger.info("ChatService shutdown complete");
   }
 
   // --------------------------------------------------------------------------
@@ -365,27 +362,7 @@ export class ChatService {
     prototypeId: string,
     logger: SystemLogger,
   ): Promise<void> {
-    const options = (data.options ?? {}) as Options & {
-      provider?: ChatProvider;
-      model?: string;
-    };
-
-    const provider: ChatProvider =
-      (options.provider as ChatProvider) || "claude";
-    const model = options.model;
-
-    let userId: string | null = null;
-    if (model && !isAllowedModel(provider, model)) {
-      this.sendMessage(socket, {
-        type: ChatEvent.ERROR,
-        error: {
-          message: `Model ${model} is not allowed for provider ${provider}`,
-          details: "Please choose a supported model.",
-        },
-      });
-      return;
-    }
-
+    // 1. VALIDATE USER QUERY
     const validationResult = this.validateChatQuery(data);
     if (!validationResult.valid) {
       this.sendMessage(socket, {
@@ -398,10 +375,28 @@ export class ChatService {
       return;
     }
 
+    // 2. REFRESH THE USER TOKEN IN SUPABASE INSTANCE:
+    if (data.token) {
+      this.supabaseClientService.refreshClientWithToken(data.token);
+    }
+
+    // 3. PAYWALL CHECK THE USER
+    const creditResult = await this.ensureCreditsAvailable(prototypeId, logger);
+    if (!creditResult.valid) {
+      this.sendMessage(socket, {
+        type: ChatEvent.ERROR,
+        error: {
+          message: creditResult.errorMessage ?? "Credit check failed",
+          details: creditResult.errorDetails,
+        },
+      });
+      return;
+    }
+
     // Check if user has a Claude Code subscription token
     let useCliMode = false;
     const token = data.token;
-
+    let userId: string | null = null;
     if (token) {
       try {
         // Decode JWT to extract user ID
@@ -445,9 +440,7 @@ export class ChatService {
     let handler;
     let handlerName: string;
 
-    if (provider === "vercel") {
-      throw Error("This provider is not supported.");
-    } else if (useCliMode && this.claudeCodeCliQueryHandler) {
+    if (useCliMode && this.claudeCodeCliQueryHandler) {
       handler = this.claudeCodeCliQueryHandler;
       handlerName = "claude-cli";
     } else {
@@ -465,22 +458,8 @@ export class ChatService {
       });
       return;
     }
-    if (token) {
-      this.supabaseClientService.refreshClientWithToken(token);
-    }
 
     let cliAuthEnv: CliAuthEnvironment | null = null;
-    const creditResult = await this.ensureCreditsAvailable(prototypeId, logger);
-    if (!creditResult.valid) {
-      this.sendMessage(socket, {
-        type: ChatEvent.ERROR,
-        error: {
-          message: creditResult.errorMessage ?? "Credit check failed",
-          details: creditResult.errorDetails,
-        },
-      });
-      return;
-    }
 
     if (cliAuthRequired && userId) {
       const cliResult = await this.buildClaudeCliAuthEnvironment(
