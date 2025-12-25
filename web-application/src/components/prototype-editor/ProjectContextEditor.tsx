@@ -45,6 +45,7 @@ const ProjectContextEditor: React.FC<ProjectContextEditorProps> = ({
   const crepeRef = useRef<Crepe | null>(null);
   const initialContentRef = useRef<string>("");
   const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const autoSaveRef = useRef<(content: string) => Promise<void>>(async () => {});
 
   const claudeMdFile = fileSystem.state.files[CLAUDE_MD_FILENAME];
   const fileExists = Boolean(claudeMdFile);
@@ -82,6 +83,11 @@ const ProjectContextEditor: React.FC<ProjectContextEditorProps> = ({
       });
     }
   }, [prototypeId, fileExists, isReadOnly, fileSystem, logger]);
+
+  // Keep autoSaveRef updated with latest autoSave function
+  useEffect(() => {
+    autoSaveRef.current = autoSave;
+  }, [autoSave]);
 
   // Initialize Milkdown editor
   useEffect(() => {
@@ -128,7 +134,7 @@ const ProjectContextEditor: React.FC<ProjectContextEditorProps> = ({
                 clearTimeout(autoSaveTimeoutRef.current);
               }
               autoSaveTimeoutRef.current = setTimeout(() => {
-                autoSave(markdown);
+                autoSaveRef.current(markdown);
               }, 1000); // Auto-save after 1 second of no typing
             });
           });
@@ -148,7 +154,7 @@ const ProjectContextEditor: React.FC<ProjectContextEditorProps> = ({
       crepeRef.current = null;
       setIsEditorReady(false);
     };
-  }, [fileExists, claudeMdFile?.contents, isReadOnly, autoSave]);
+  }, [fileExists, claudeMdFile?.contents, isReadOnly]);
 
   // Sync content when file changes externally
   useEffect(() => {
