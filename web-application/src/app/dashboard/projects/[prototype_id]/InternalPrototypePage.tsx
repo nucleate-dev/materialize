@@ -1479,7 +1479,7 @@ export default function InternalPrototypePage() {
 
       {/* Share Modal */}
       <Dialog open={showShareModal} onOpenChange={setShowShareModal}>
-        <DialogContent className="sm:max-w-md bg-[#141517] border border-white/10 text-white">
+        <DialogContent className="sm:max-w-md bg-background border border-border text-foreground">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Share2 className="w-4 h-4 text-indigo-500" /> Share Project
@@ -1487,7 +1487,7 @@ export default function InternalPrototypePage() {
           </DialogHeader>
           <div className="space-y-4 pt-2">
             {/* Visibility Toggle */}
-            <div className="flex items-center justify-between p-3 bg-[#0B0C0E] border border-white/5 rounded-lg">
+            <div className="flex items-center justify-between p-3 bg-accent border border-border rounded-lg">
               <div>
                 <div className="flex items-center gap-2">
                   {isPublic ? (
@@ -1497,7 +1497,7 @@ export default function InternalPrototypePage() {
                   )}
                   <p className="font-medium text-sm">Make Public</p>
                 </div>
-                <p className="text-xs text-[#8A8F98] mt-1 ml-5">
+                <p className="text-xs text-muted-foreground mt-1 ml-5">
                   {isPublic
                     ? "Anyone with the link can view"
                     : "Only you can view"}
@@ -1522,13 +1522,13 @@ export default function InternalPrototypePage() {
                   disabled={!IsUserPlanSubscribed(userPlan) && !isPublic}
                   className="sr-only peer"
                 />
-                <div className="w-9 h-5 bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-500 peer-disabled:cursor-not-allowed"></div>
+                <div className="w-9 h-5 bg-muted peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-500 peer-disabled:cursor-not-allowed"></div>
               </label>
             </div>
 
             {/* Share Link */}
             <div className="space-y-2">
-              <p className="text-sm font-medium text-[#8A8F98]">Share Link</p>
+              <p className="text-sm font-medium text-muted-foreground">Share Link</p>
               <div className="flex items-center gap-2">
                 <Input
                   value={window.location.href.replace(
@@ -1536,7 +1536,7 @@ export default function InternalPrototypePage() {
                     "p",
                   )}
                   readOnly
-                  className="flex-1 bg-[#0B0C0E] border-white/10 text-white/80 h-9 text-xs"
+                  className="flex-1 bg-accent border-border text-foreground h-9 text-xs"
                 />
                 <Button
                   onClick={handleCopyLink}

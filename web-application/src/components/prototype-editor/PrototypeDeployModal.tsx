@@ -368,25 +368,25 @@ export default function PrototypeDeployModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto bg-[#141517] border border-white/10 text-white">
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto bg-background border border-border text-foreground">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Rocket className="w-4 h-4 text-indigo-400" />
             Deploy {prototype?.name ?? "Project"}
           </DialogTitle>
-          <DialogDescription className="text-sm text-[#8A8F98]">
+          <DialogDescription className="text-sm text-muted-foreground">
             Create a production build of your project to share with live users.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-6">
           <div className="space-y-2">
-            <p className="text-xs uppercase tracking-wide text-[#8A8F98]">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">
               Url
             </p>
             <div className="flex items-center gap-2">
-              <div className="flex items-center flex-1 bg-[#0B0C0E] border border-white/10 rounded-md">
-                <span className="pl-3 pr-3 text-white/60 text-sm">
+              <div className="flex items-center flex-1 bg-accent border border-border rounded-md">
+                <span className="pl-3 pr-3 text-muted-foreground text-sm">
                   https://
                 </span>
                 <Input
@@ -396,10 +396,10 @@ export default function PrototypeDeployModal({
                     setSlugAvailable(null);
                     setSlugError(null);
                   }}
-                  className="border-0 bg-transparent text-white focus-visible:ring-0 focus-visible:ring-offset-0 px-0"
+                  className="border-0 bg-transparent text-foreground focus-visible:ring-0 focus-visible:ring-offset-0 px-0"
                   placeholder="my-app"
                 />
-                <span className="pr-3 pl-1 text-white/60 text-sm">
+                <span className="pr-3 pl-1 text-muted-foreground text-sm">
                   .app.nucleate.dev
                 </span>
               </div>
@@ -408,13 +408,13 @@ export default function PrototypeDeployModal({
                 size="sm"
                 onClick={handleCopyUrl}
                 disabled={!deploySlug}
-                className="h-10 pl-3 text-white/80 hover:text-white"
+                className="h-10 pl-3 text-muted-foreground hover:text-foreground"
               >
                 <Copy className="w-4 h-4" />
               </Button>
               <div className="w-24 text-xs text-right">
                 {isCheckingSlug && (
-                  <span className="inline-flex items-center gap-1 text-[#8A8F98]">
+                  <span className="inline-flex items-center gap-1 text-muted-foreground">
                     <Loader2 className="w-3 h-3 animate-spin" /> Checking
                   </span>
                 )}
@@ -436,16 +436,16 @@ export default function PrototypeDeployModal({
           {/* Build History Timeline */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <p className="text-xs uppercase tracking-wide text-[#8A8F98]">
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">
                 Build History
               </p>
               {isLoadingHistory && (
-                <Loader2 className="w-3 h-3 animate-spin text-[#8A8F98]" />
+                <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />
               )}
             </div>
 
             {buildHistory.length === 0 && !isLoadingHistory && (
-              <p className="text-xs text-[#8A8F98] italic">
+              <p className="text-xs text-muted-foreground italic">
                 No builds found for this project
               </p>
             )}
@@ -466,12 +466,12 @@ export default function PrototypeDeployModal({
                       className={`flex items-center justify-between gap-4 p-3 rounded-lg border ${
                         isDeployed
                           ? "bg-emerald-950/20 border-emerald-500/30"
-                          : "bg-[#0B0C0E] border-white/5"
+                          : "bg-accent border-border"
                       }`}
                     >
                       {/* Build ID with badges */}
                       <div className="flex items-center gap-2 min-w-0">
-                        <p className="text-xs font-mono text-white">
+                        <p className="text-xs font-mono text-foreground">
                           {build.id.slice(-8)}
                         </p>
                         {isLatest && (
@@ -493,7 +493,7 @@ export default function PrototypeDeployModal({
                       </div>
 
                       {/* Build time */}
-                      <p className="text-xs text-[#8A8F98] whitespace-nowrap">
+                      <p className="text-xs text-muted-foreground whitespace-nowrap">
                         {buildDate.toLocaleString()}
                       </p>
                     </div>
@@ -507,7 +507,7 @@ export default function PrototypeDeployModal({
             <Button
               variant="ghost"
               onClick={() => onOpenChange(false)}
-              className="text-white/80 hover:text-white"
+              className="text-muted-foreground hover:text-foreground"
             >
               Cancel
             </Button>
