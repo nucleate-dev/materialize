@@ -510,6 +510,42 @@ export class ChatService {
       );
     }
 
+    if (designPreparation?.designSpec && this.sessionState.prototypeChatSessionId) {
+      const designSpec = designPreparation.designSpec;
+      const metadata = designPreparation.designMetadata;
+      const scope = metadata?.scope ?? "unknown";
+      const isAppLevel = scope === "app";
+      const isNarrowBuild = scope === "screen" || scope === "component";
+
+      await persistChatMessage(
+        this.supabaseClientService,
+        this.sessionState.prototypeChatSessionId,
+        "assistant",
+        designSpec,
+        "text",
+        "design_generation",
+        { prototypeId },
+        null,
+        null,
+        null,
+        null,
+      );
+
+      this.sendMessage(socket, {
+        type: ChatEvent.DESIGN_GENERATION,
+        data: {
+          status: "completed",
+          message: "Design specification generated",
+          designSpec,
+          runDesignAgent: true,
+          isAppLevel,
+          isNarrowBuild,
+          persistToProjectContext: true,
+          scope,
+        },
+      });
+    }
+
     const framework = this.devServerService.prototypeFramework ?? null;
     const systemPrompt = await this.constructSystemPrompt(
       logger,
@@ -538,8 +574,6 @@ export class ChatService {
           cliAuthEnv,
           systemPrompt,
           getRelativePath: this.getRelativePath.bind(this),
-          designSpec: designPreparation?.designSpec ?? null,
-          designMetadata: designPreparation?.designMetadata ?? null,
         },
         {
           sendMessage: this.sendMessage.bind(this),

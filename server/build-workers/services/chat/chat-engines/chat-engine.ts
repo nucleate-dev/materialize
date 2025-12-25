@@ -26,8 +26,6 @@ export interface ChatEngineContext {
   validAiChatSessionIds: Set<string>;
   cliAuthEnv?: CliAuthEnvironment | null;
   getRelativePath: (absolutePath: string) => string;
-  designSpec: string | null;
-  designMetadata: DesignAgentMetadata | null;
   systemPrompt: string;
 }
 

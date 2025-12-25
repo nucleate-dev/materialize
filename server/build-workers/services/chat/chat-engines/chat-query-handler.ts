@@ -40,7 +40,6 @@ import {
   ChatEngineMessageHandlers,
   ChatEngineSessionState,
   ChatEngineResult,
-  DesignAgentMetadata,
 } from "./chat-engine.js";
 import { ALLOWED_ROOT } from "../ChatService.js";
 
@@ -161,8 +160,6 @@ export class ChatQueryHandler implements ChatEngine {
         context,
         handlers,
         framework,
-        context.designSpec,
-        context.designMetadata,
         context.systemPrompt,
       );
     } finally {
@@ -180,8 +177,6 @@ export class ChatQueryHandler implements ChatEngine {
     context: ChatEngineContext,
     handlers: ChatEngineMessageHandlers,
     framework: Database["public"]["Enums"]["prototype_framework"],
-    designSpec: string | null,
-    designMetadata: DesignAgentMetadata | null,
     systemPrompt: string,
   ): Promise<number | undefined> {
     const { socket, data, sessionState, validAiChatSessionIds } = context;
@@ -191,14 +186,6 @@ export class ChatQueryHandler implements ChatEngine {
     const options = (data.options ?? {}) as Options;
 
     try {
-      const metadata: DesignAgentMetadata = designMetadata ?? {
-        scope: "unknown",
-      };
-      const isAppLevel = metadata.scope === "app";
-      const isNarrowBuild =
-        metadata.scope === "screen" || metadata.scope === "component";
-      const shouldRunDesignAgent = !!designSpec;
-
       // Create a new AbortController for this query
       const abortController = new AbortController();
       sessionState.abortController = abortController;
@@ -226,38 +213,6 @@ export class ChatQueryHandler implements ChatEngine {
         imageMetadata,
         handlers.persistMessage,
       );
-
-      // Persist design spec as assistant message right after user message (if available)
-      if (designSpec) {
-        await handlers.persistMessage(
-          "assistant",
-          designSpec,
-          "text",
-          "design_generation",
-          { prototypeId },
-        );
-
-        // Send design generation completed message to client
-        handlers.sendMessage(socket, {
-          type: ChatEvent.DESIGN_GENERATION,
-          data: {
-            status: "completed",
-            message: "Design specification generated",
-            designSpec: designSpec, // Include the actual spec content
-            runDesignAgent: shouldRunDesignAgent,
-            isAppLevel,
-            isNarrowBuild,
-            persistToProjectContext: true,
-            scope: metadata.scope,
-          },
-        });
-
-        baseLogger.consoleLogDevOnly(
-          "info",
-          "Persisted design spec after user message",
-          { prototypeId, designSpecLength: designSpec.length },
-        );
-      }
 
       // Create shared state for assistant message buffering
       // This allows the flush callback to access and clear the buffer
