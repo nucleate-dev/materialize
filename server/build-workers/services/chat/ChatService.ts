@@ -670,207 +670,6 @@ export class ChatService {
     );
   }
 
-  private async handleQueryWithHistory(
-    socket: WebSocket,
-    data: ChatQueryData,
-    prototypeId: string,
-    historyContext: string,
-    logger: SystemLogger,
-  ): Promise<void> {
-    const options = (data.options ?? {}) as Options;
-
-    logger.consoleLogDevOnly("info", "Processing query with history context", {
-      prototypeId,
-      hasHistoryContext: historyContext.length > 0,
-      historyContextLength: historyContext.length,
-    });
-
-    // For queries with history, we always start a fresh session (don't try to resume)
-    // The history context provides continuity instead of session resumption
-
-    // Call the original handleQuery but with ai_chat_session_id set to null
-    // to force a new session, and we need to inject the history context
-    const modifiedData = {
-      ...data,
-      ai_chat_session_id: null, // Force new session
-    };
-
-    // Store the history context temporarily so handleQuery can access it
-    // We'll use a simple approach: add it as a special option
-    const modifiedOptions = {
-      ...options,
-      __historyContext: historyContext, // Internal flag
-    };
-
-    await this.handleQuery(
-      socket,
-      { ...modifiedData, options: modifiedOptions },
-      prototypeId,
-      logger,
-    );
-  }
-
-  private async prepareFirstMessageDesignContext(
-    socket: WebSocket,
-    data: ChatQueryData,
-    prototypeId: string,
-    logger: SystemLogger,
-    isFirstMessage: boolean,
-  ): Promise<{
-    designSpec: string | null;
-    designMetadata: DesignAgentMetadata | null;
-    designAgentCost?: number;
-  } | null> {
-    if (!isFirstMessage) {
-      return null;
-    }
-
-    const canAttemptClassification = !!this.sessionState.prototypeChatSessionId;
-    if (!canAttemptClassification) {
-      logger.consoleLogDevOnly(
-        "info",
-        "Skipping design intent classification gate",
-        {
-          prototypeId,
-          hasPrototypeChatSessionId: !!this.sessionState.prototypeChatSessionId,
-        },
-      );
-      return null;
-    }
-
-    const { prompt, content } = data;
-    const userMessageText =
-      typeof content === "string"
-        ? content
-        : Array.isArray(content)
-          ? content
-              .filter((block) => block.type === "text")
-              .map((block) => block.text || "")
-              .join("\n")
-          : prompt || "";
-
-    const designAgentUserContent = buildDesignAgentUserContent(
-      typeof content === "string" ? content : prompt,
-      Array.isArray(content) ? content : undefined,
-      logger,
-      prototypeId,
-    );
-
-    if (!userMessageText) {
-      return null;
-    }
-
-    const classifierAbortController = new AbortController();
-    this.sessionState.abortController = classifierAbortController;
-
-    logger.debug("Classifying user intent on first message", {
-      prototypeId,
-      userMessageLength: userMessageText.length,
-    });
-
-    const classificationResult = await classifyDesignIntent({
-      userMessage: userMessageText,
-      abortController: classifierAbortController,
-      logger,
-      prototypeId,
-    });
-
-    const classifierCost = classificationResult.costUsd;
-    let designAgentCost = classifierCost;
-    let designSpec: string | null = null;
-    let designMetadata: DesignAgentMetadata | null = null;
-
-    if (classificationResult.shouldGenerateDesignSpec) {
-      this.sendMessage(socket, {
-        type: ChatEvent.DESIGN_GENERATION,
-        data: {
-          status: "started",
-          message: "Generating design specification...",
-          runDesignAgent: true,
-        },
-      });
-
-      logger.debug("Calling design agent", {
-        prototypeId,
-        userMessageLength: userMessageText.length,
-        hasAbortController: !!classifierAbortController,
-      });
-
-      const designResult = await this.executeDesignAgentForFirstMessage(
-        prototypeId,
-        designAgentUserContent ?? userMessageText,
-        classifierAbortController,
-        logger,
-      );
-
-      designAgentCost = (designResult.costUsd ?? 0) + (designAgentCost ?? 0);
-
-      if (designResult.designSpec) {
-        const parsed = this.parseDesignAgentSpec(designResult.designSpec);
-        designSpec = parsed.spec;
-        designMetadata = parsed.metadata;
-
-        await persistDesignSpecToFiles(
-          WORK_DIR,
-          designSpec,
-          logger,
-          prototypeId,
-        );
-
-        const { error: updateError } = await this.supabaseClientService
-          .getClient()
-          .from("prototypes")
-          .update({ project_context: designSpec })
-          .eq("id", prototypeId);
-
-        if (updateError) {
-          logger.error(
-            updateError,
-            "Failed to store design specification in project_context",
-            { prototypeId },
-          );
-        } else {
-          logger.consoleLogDevOnly(
-            "info",
-            "Stored design specification in project_context database",
-            { prototypeId, specLength: designSpec.length },
-          );
-        }
-      }
-
-      logger.consoleLogDevOnly("info", "Design agent execution completed", {
-        prototypeId,
-        hasDesignSpec: !!designSpec,
-        designAgentCost,
-        metadata: designMetadata,
-      });
-    } else {
-      logger.consoleLogDevOnly(
-        "info",
-        "Skipping design agent - no design spec needed",
-        {
-          prototypeId,
-          shouldGenerateDesignSpec:
-            classificationResult.shouldGenerateDesignSpec,
-          classifierCost,
-        },
-      );
-    }
-
-    if (this.sessionState.prototypeChatSessionId) {
-      this.sessionState.firstMessageStatus = {
-        sessionId: this.sessionState.prototypeChatSessionId,
-        isFirst: false,
-      };
-    }
-
-    return {
-      designSpec,
-      designMetadata,
-      designAgentCost,
-    };
-  }
-
   private async handleInterrupt(socket: WebSocket): Promise<void> {
     baseLogger.consoleLogDevOnly("info", "Interrupt requested", {
       sessionId: this.sessionState.sessionId,
@@ -1111,6 +910,207 @@ export class ChatService {
         errorDetails: "An error occurred while checking your credit balance",
       };
     }
+  }
+
+  private async handleQueryWithHistory(
+    socket: WebSocket,
+    data: ChatQueryData,
+    prototypeId: string,
+    historyContext: string,
+    logger: SystemLogger,
+  ): Promise<void> {
+    const options = (data.options ?? {}) as Options;
+
+    logger.consoleLogDevOnly("info", "Processing query with history context", {
+      prototypeId,
+      hasHistoryContext: historyContext.length > 0,
+      historyContextLength: historyContext.length,
+    });
+
+    // For queries with history, we always start a fresh session (don't try to resume)
+    // The history context provides continuity instead of session resumption
+
+    // Call the original handleQuery but with ai_chat_session_id set to null
+    // to force a new session, and we need to inject the history context
+    const modifiedData = {
+      ...data,
+      ai_chat_session_id: null, // Force new session
+    };
+
+    // Store the history context temporarily so handleQuery can access it
+    // We'll use a simple approach: add it as a special option
+    const modifiedOptions = {
+      ...options,
+      __historyContext: historyContext, // Internal flag
+    };
+
+    await this.handleQuery(
+      socket,
+      { ...modifiedData, options: modifiedOptions },
+      prototypeId,
+      logger,
+    );
+  }
+
+  private async prepareFirstMessageDesignContext(
+    socket: WebSocket,
+    data: ChatQueryData,
+    prototypeId: string,
+    logger: SystemLogger,
+    isFirstMessage: boolean,
+  ): Promise<{
+    designSpec: string | null;
+    designMetadata: DesignAgentMetadata | null;
+    designAgentCost?: number;
+  } | null> {
+    if (!isFirstMessage) {
+      return null;
+    }
+
+    const canAttemptClassification = !!this.sessionState.prototypeChatSessionId;
+    if (!canAttemptClassification) {
+      logger.consoleLogDevOnly(
+        "info",
+        "Skipping design intent classification gate",
+        {
+          prototypeId,
+          hasPrototypeChatSessionId: !!this.sessionState.prototypeChatSessionId,
+        },
+      );
+      return null;
+    }
+
+    const { prompt, content } = data;
+    const userMessageText =
+      typeof content === "string"
+        ? content
+        : Array.isArray(content)
+          ? content
+              .filter((block) => block.type === "text")
+              .map((block) => block.text || "")
+              .join("\n")
+          : prompt || "";
+
+    const designAgentUserContent = buildDesignAgentUserContent(
+      typeof content === "string" ? content : prompt,
+      Array.isArray(content) ? content : undefined,
+      logger,
+      prototypeId,
+    );
+
+    if (!userMessageText) {
+      return null;
+    }
+
+    const classifierAbortController = new AbortController();
+    this.sessionState.abortController = classifierAbortController;
+
+    logger.debug("Classifying user intent on first message", {
+      prototypeId,
+      userMessageLength: userMessageText.length,
+    });
+
+    const classificationResult = await classifyDesignIntent({
+      userMessage: userMessageText,
+      abortController: classifierAbortController,
+      logger,
+      prototypeId,
+    });
+
+    const classifierCost = classificationResult.costUsd;
+    let designAgentCost = classifierCost;
+    let designSpec: string | null = null;
+    let designMetadata: DesignAgentMetadata | null = null;
+
+    if (classificationResult.shouldGenerateDesignSpec) {
+      this.sendMessage(socket, {
+        type: ChatEvent.DESIGN_GENERATION,
+        data: {
+          status: "started",
+          message: "Generating design specification...",
+          runDesignAgent: true,
+        },
+      });
+
+      logger.debug("Calling design agent", {
+        prototypeId,
+        userMessageLength: userMessageText.length,
+        hasAbortController: !!classifierAbortController,
+      });
+
+      const designResult = await this.executeDesignAgentForFirstMessage(
+        prototypeId,
+        designAgentUserContent ?? userMessageText,
+        classifierAbortController,
+        logger,
+      );
+
+      designAgentCost = (designResult.costUsd ?? 0) + (designAgentCost ?? 0);
+
+      if (designResult.designSpec) {
+        const parsed = this.parseDesignAgentSpec(designResult.designSpec);
+        designSpec = parsed.spec;
+        designMetadata = parsed.metadata;
+
+        await persistDesignSpecToFiles(
+          WORK_DIR,
+          designSpec,
+          logger,
+          prototypeId,
+        );
+
+        const { error: updateError } = await this.supabaseClientService
+          .getClient()
+          .from("prototypes")
+          .update({ project_context: designSpec })
+          .eq("id", prototypeId);
+
+        if (updateError) {
+          logger.error(
+            updateError,
+            "Failed to store design specification in project_context",
+            { prototypeId },
+          );
+        } else {
+          logger.consoleLogDevOnly(
+            "info",
+            "Stored design specification in project_context database",
+            { prototypeId, specLength: designSpec.length },
+          );
+        }
+      }
+
+      logger.consoleLogDevOnly("info", "Design agent execution completed", {
+        prototypeId,
+        hasDesignSpec: !!designSpec,
+        designAgentCost,
+        metadata: designMetadata,
+      });
+    } else {
+      logger.consoleLogDevOnly(
+        "info",
+        "Skipping design agent - no design spec needed",
+        {
+          prototypeId,
+          shouldGenerateDesignSpec:
+            classificationResult.shouldGenerateDesignSpec,
+          classifierCost,
+        },
+      );
+    }
+
+    if (this.sessionState.prototypeChatSessionId) {
+      this.sessionState.firstMessageStatus = {
+        sessionId: this.sessionState.prototypeChatSessionId,
+        isFirst: false,
+      };
+    }
+
+    return {
+      designSpec,
+      designMetadata,
+      designAgentCost,
+    };
   }
 
   private async loadDesignSystemContext(
