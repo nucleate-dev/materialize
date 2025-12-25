@@ -510,7 +510,10 @@ export class ChatService {
       );
     }
 
-    if (designPreparation?.designSpec && this.sessionState.prototypeChatSessionId) {
+    if (
+      designPreparation?.designSpec &&
+      this.sessionState.prototypeChatSessionId
+    ) {
       const designSpec = designPreparation.designSpec;
       const metadata = designPreparation.designMetadata;
       const scope = metadata?.scope ?? "unknown";
@@ -546,6 +549,7 @@ export class ChatService {
       });
     }
 
+    // 7. CONSTRUCT DYNAMIC SYSTEM PROMPT (based on user design system + prototype framework)
     const framework = this.devServerService.prototypeFramework ?? null;
     const systemPrompt = await this.constructSystemPrompt(
       logger,
@@ -554,7 +558,7 @@ export class ChatService {
       framework,
     );
 
-    // 7. DISPATCH REQUEST TO APPROPRIATE ENGINE
+    // 8. DISPATCH REQUEST TO APPROPRIATE ENGINE
     logger.consoleLogDevOnly("info", "Dispatching chat query to handler", {
       prototypeId,
       handler: handlerName,
