@@ -111,18 +111,13 @@ export class ChatService {
     this.sandboxService = sandboxService;
     this.devServerService = devServerService;
 
-    // Initialize ChatQueryHandler
     this.chatQueryHandler = new ChatQueryHandler(
       supabaseClientService,
       sandboxService,
       devServerService,
       terminalService,
     );
-
-    // Initialize ClaudeTokenService
     this.claudeTokenService = new ClaudeTokenService(supabaseClientService);
-
-    // Always initialize ClaudeCodeCliQueryHandler - will be used if user has a token
     this.claudeCodeCliQueryHandler = new ClaudeCodeCliQueryHandler(
       supabaseClientService,
     );
@@ -131,15 +126,11 @@ export class ChatService {
       workDir: WORK_DIR,
       allowedRoot: ALLOWED_ROOT,
     });
-
-    const normalizedWorkDir = path.resolve(WORK_DIR);
-    if (!this.isPathInsideAllowedRoot(normalizedWorkDir)) {
-      baseLogger.warn("WorkDir is outside the allowed root for Claude Code", {
-        workDir: normalizedWorkDir,
-        allowedRoot: ALLOWED_ROOT,
-      });
-    }
   }
+
+  // ---------------------------------------------------------------------------
+  // CLASS METHODS
+  // ---------------------------------------------------------------------------
 
   public setOrchestrationToken(token: string): void {
     this.orchestrationToken = token;
@@ -151,9 +142,27 @@ export class ChatService {
     baseLogger.consoleLogDevOnly("info", "Anthropic API key set");
   }
 
-  public getAak(): string | null {
-    return this.aak;
+  /**
+   * Register previously created session IDs as valid for resumption.
+   * Called during worker allocation to restore sessions from previous instances.
+   */
+  public registerValidSessionIds(sessionIds: string[]): void {
+    for (const sessionId of sessionIds) {
+      this.validAiChatSessionIds.add(sessionId);
+    }
+    baseLogger.consoleLogDevOnly(
+      "info",
+      "Registered valid session IDs from restored sessions",
+      {
+        count: sessionIds.length,
+        sessionIds,
+      },
+    );
   }
+
+  // ---------------------------------------------------------------------------
+  // ROUTE HANDLERS
+  // ---------------------------------------------------------------------------
 
   public registerRoutes(app: FastifyInstance): void {
     // WebSocket endpoint for Claude Code
@@ -163,6 +172,10 @@ export class ChatService {
       this.handleWebSocketConnection.bind(this),
     );
   }
+
+  // ---------------------------------------------------------------------------
+  // WEBSOCKET CONNECTION HANDLERS AND UTILS
+  // ---------------------------------------------------------------------------
 
   private handleWebSocketConnection(
     socket: WebSocket,
@@ -287,6 +300,49 @@ export class ChatService {
     }
     this.activeConnections.delete(connectionId);
   }
+
+  public async shutdown(): Promise<void> {
+    baseLogger.info("Shutting down CodeService");
+
+    // Abort any active query
+    if (this.sessionState.abortController) {
+      this.sessionState.abortController.abort();
+    }
+
+    // Close all active connections
+    for (const [connectionId, connection] of this.activeConnections.entries()) {
+      try {
+        if (connection.heartbeat) {
+          clearInterval(connection.heartbeat);
+        }
+        connection.socket.close(1000, "Server shutting down");
+      } catch {
+        baseLogger.warn("Failed to close WebSocket connection", {
+          connectionId,
+        });
+      }
+    }
+
+    this.activeConnections.clear();
+    this.validAiChatSessionIds.clear(); // Clear valid session IDs on shutdown
+    this.sessionState = {
+      sessionId: null,
+      prototypeChatSessionId: null,
+      abortController: null,
+      designSystemId: null,
+      designSystemRules: null,
+      firstMessageStatus: null,
+    };
+
+    // Cleanup ClaudeTokenService
+    this.claudeTokenService.destroy();
+
+    baseLogger.info("CodeService shutdown complete");
+  }
+
+  // --------------------------------------------------------------------------
+  // CLIENT USER MESSAGE HANDLERS
+  // --------------------------------------------------------------------------
 
   private async handleClientMessage(
     socket: WebSocket,
@@ -792,6 +848,10 @@ export class ChatService {
     }
   }
 
+  // --------------------------------------------------------------------------
+  // PRE-CHAT EXECUTION UTILS
+  // --------------------------------------------------------------------------
+
   private validateChatQuery(data: ChatQueryData): ChatQueryValidationResult {
     const { prompt, content } = data;
 
@@ -838,6 +898,89 @@ export class ChatService {
         errorMessage: "Failed to authenticate with provided token",
         errorDetails: error instanceof Error ? error.message : String(error),
       };
+    }
+  }
+
+  private async buildClaudeCliAuthEnvironment(
+    userId: string,
+    logger: SystemLogger,
+  ): Promise<{
+    success: boolean;
+    authEnv?: CliAuthEnvironment;
+    errorMessage?: string;
+    errorDetails?: string;
+  }> {
+    try {
+      const userToken = await this.claudeTokenService.getUserToken(userId);
+
+      if (!userToken) {
+        return {
+          success: false,
+          errorMessage:
+            "No Claude subscription connected. Please connect your Claude Pro or Max subscription in Settings to use AI chat.",
+        };
+      }
+
+      const env = { ...process.env };
+      env.CLAUDE_CODE_OAUTH_TOKEN = userToken;
+      delete env.ANTHROPIC_API_KEY;
+
+      return {
+        success: true,
+        authEnv: {
+          env,
+          authMethod: "user_token",
+        },
+      };
+    } catch (error) {
+      logger.error(
+        error instanceof Error ? error : new Error(String(error)),
+        "Failed to prepare Claude CLI authentication environment",
+        { userId },
+      );
+      return {
+        success: false,
+        errorMessage: "Failed to prepare Claude CLI authentication",
+        errorDetails: error instanceof Error ? error.message : String(error),
+      };
+    }
+  }
+
+  private prepareSessionStateForQuery(
+    data: ChatQueryData,
+    logger: SystemLogger,
+  ): void {
+    const { prototype_chat_session_id, ai_chat_session_id } = data;
+    const previousPrototypeChatSessionId =
+      this.sessionState.prototypeChatSessionId;
+
+    if (prototype_chat_session_id) {
+      this.sessionState.prototypeChatSessionId = prototype_chat_session_id;
+      logger.consoleLogDevOnly("info", "Using chat session ID from client", {
+        chatSessionId: prototype_chat_session_id,
+        claudeCodeSessionId: ai_chat_session_id,
+      });
+      if (previousPrototypeChatSessionId !== prototype_chat_session_id) {
+        this.sessionState.firstMessageStatus = null;
+      }
+    } else {
+      logger.warn("No chat_session_id provided by client", {
+        session_id: ai_chat_session_id,
+      });
+      this.sessionState.prototypeChatSessionId = null;
+      this.sessionState.firstMessageStatus = null;
+    }
+
+    if (ai_chat_session_id === null) {
+      logger.consoleLogDevOnly(
+        "info",
+        "Client requested new session - clearing internal state",
+        {
+          previousSessionId: this.sessionState.sessionId,
+        },
+      );
+      this.sessionState.sessionId = null;
+      this.sessionState.firstMessageStatus = null;
     }
   }
 
@@ -899,322 +1042,6 @@ export class ChatService {
         errorMessage: "Unable to verify credits",
         errorDetails: "An error occurred while checking your credit balance",
       };
-    }
-  }
-
-  private async buildClaudeCliAuthEnvironment(
-    userId: string,
-    logger: SystemLogger,
-  ): Promise<{
-    success: boolean;
-    authEnv?: CliAuthEnvironment;
-    errorMessage?: string;
-    errorDetails?: string;
-  }> {
-    try {
-      const userToken = await this.claudeTokenService.getUserToken(userId);
-
-      if (!userToken) {
-        return {
-          success: false,
-          errorMessage:
-            "No Claude subscription connected. Please connect your Claude Pro or Max subscription in Settings to use AI chat.",
-        };
-      }
-
-      const env = { ...process.env };
-      env.CLAUDE_CODE_OAUTH_TOKEN = userToken;
-      delete env.ANTHROPIC_API_KEY;
-
-      return {
-        success: true,
-        authEnv: {
-          env,
-          authMethod: "user_token",
-        },
-      };
-    } catch (error) {
-      logger.error(
-        error instanceof Error ? error : new Error(String(error)),
-        "Failed to prepare Claude CLI authentication environment",
-        { userId },
-      );
-      return {
-        success: false,
-        errorMessage: "Failed to prepare Claude CLI authentication",
-        errorDetails: error instanceof Error ? error.message : String(error),
-      };
-    }
-  }
-
-  private async finalizeChatExecution(
-    prototypeId: string,
-    socket: WebSocket,
-    data: ChatQueryData,
-    totalCostUsd: number | undefined,
-    logger: SystemLogger,
-  ): Promise<void> {
-    try {
-      await this.commitChatChangesToGit(data, logger);
-    } catch (error) {
-      logger.error(
-        error instanceof Error ? error : new Error(String(error)),
-        "Failed to commit chat changes",
-        { prototypeId },
-      );
-    }
-
-    await this.syncFilesAndTrackUsage(
-      prototypeId,
-      socket,
-      this.sessionState,
-      totalCostUsd,
-      logger,
-    );
-  }
-
-  private async commitChatChangesToGit(
-    data: ChatQueryData,
-    logger: SystemLogger,
-  ): Promise<void> {
-    const commitMessageArg = this.buildCommitMessageArg(data);
-    if (!commitMessageArg) {
-      logger.consoleLogDevOnly(
-        "info",
-        "Skipping git commit after chat - no commit message available",
-      );
-      return;
-    }
-
-    try {
-      const { response } = await this.sandboxService.runCommandInternal({
-        command: "git",
-        args: ["add", ".", "&&", "git", "commit", "-m", commitMessageArg],
-        cwd: WORK_DIR,
-        session_id: "chat-service",
-        timeout_ms: 60000,
-        strip_ansi: true,
-      });
-
-      if (response.error) {
-        logger.warn("Git commit after chat failed", {
-          error: response.error,
-        });
-        return;
-      }
-
-      const stdout = response.data?.stdout ?? "";
-      const status = response.data?.status;
-
-      if (
-        status === "timeout" &&
-        stdout.toLowerCase().includes("nothing to commit")
-      ) {
-        logger.consoleLogDevOnly(
-          "info",
-          "No git changes to commit after chat execution",
-        );
-        return;
-      }
-
-      logger.consoleLogDevOnly("info", "Committed chat changes to git", {
-        status,
-      });
-    } catch (error) {
-      logger.error(
-        error instanceof Error ? error : new Error(String(error)),
-        "Failed to commit chat changes after execution",
-      );
-    }
-  }
-
-  private buildCommitMessageArg(data: ChatQueryData): string | null {
-    const userMessage = this.extractCommitMessageText(data);
-    const normalized = userMessage.replace(/\s+/g, " ").trim();
-    const baseMessage =
-      normalized.length > 0 ? normalized : "Automated chat commit";
-    const truncated =
-      baseMessage.length > 180
-        ? `${baseMessage.slice(0, 177)}...`
-        : baseMessage;
-
-    const escaped = truncated
-      .replace(/\\/g, "\\\\")
-      .replace(/"/g, '\\"')
-      .replace(/\$/g, "\\$")
-      .replace(/`/g, "\\`");
-
-    if (!escaped.trim()) {
-      return null;
-    }
-
-    return `"${escaped}"`;
-  }
-
-  private extractCommitMessageText(data: ChatQueryData): string {
-    if (typeof data.prompt === "string" && data.prompt.length > 0) {
-      return data.prompt;
-    }
-
-    if (Array.isArray(data.content)) {
-      const text = data.content
-        .filter((block) => block.type === "text")
-        .map((block) => block.text || "")
-        .join(" ")
-        .trim();
-      if (text) {
-        return text;
-      }
-    }
-
-    return "";
-  }
-
-  private async syncFilesAndTrackUsage(
-    prototypeId: string,
-    socket: WebSocket,
-    sessionState: CodeSessionState,
-    totalCostUsd: number | undefined,
-    logger: SystemLogger,
-  ): Promise<void> {
-    try {
-      logger.consoleLogDevOnly(
-        "info",
-        "Syncing file changes to Supabase (incremental sync)",
-        {
-          prototypeId,
-        },
-      );
-      const syncResult = await this.fileSyncService.syncFilesToSupabase(
-        prototypeId,
-        "tracked",
-      );
-
-      if (syncResult.success) {
-        logger.consoleLogDevOnly("info", "File sync completed successfully", {
-          prototypeId,
-          filesUpdated: syncResult.filesUpdated,
-          filesDeleted: syncResult.filesDeleted,
-          assetsUpdated: syncResult.assetsUpdated,
-          assetsDeleted: syncResult.assetsDeleted,
-        });
-      } else {
-        logger.error(
-          new Error("File sync completed with errors"),
-          "File sync had errors",
-          {
-            prototypeId,
-            errorCount: syncResult.errors.length,
-            errors: syncResult.errors,
-          },
-        );
-      }
-    } catch (syncError) {
-      logger.error(
-        syncError instanceof Error ? syncError : new Error(String(syncError)),
-        "Failed to sync files to Supabase",
-        { prototypeId },
-      );
-    }
-
-    try {
-      const {
-        data: { user },
-        error: userError,
-      } = await this.supabaseClientService.getClient().auth.getUser();
-
-      if (userError || !user) {
-        logger.warn("Unable to track API usage - no authenticated user", {
-          prototypeId,
-          error: userError,
-        });
-      } else {
-        const creditsUsed = costFunctionV3(totalCostUsd) ?? 1.0;
-
-        logger.consoleLogDevOnly("info", "Tracking API usage", {
-          userId: user.id,
-          prototypeId,
-          totalCostUsd,
-          creditsUsed,
-        });
-
-        const { totalRemainingCredits } = await trackApiUsageBuildWorker(
-          this.supabaseClientService.getClient(),
-          user.id,
-          prototypeId,
-          logger,
-          creditsUsed,
-        );
-
-        this.sendMessage(socket, {
-          type: ChatEvent.USAGE_UPDATE,
-          data: {
-            creditsUsed,
-            creditsRemaining: totalRemainingCredits,
-          },
-        });
-
-        logger.consoleLogDevOnly("info", "API usage tracked successfully", {
-          userId: user.id,
-          prototypeId,
-          totalCostUsd,
-          creditsUsed,
-          totalRemainingCredits,
-        });
-      }
-    } catch (usageError) {
-      logger.error(
-        usageError instanceof Error
-          ? usageError
-          : new Error(String(usageError)),
-        "Failed to track API usage",
-        { prototypeId },
-      );
-    }
-  }
-
-  private getRelativePath(absolutePath: string): string {
-    if (absolutePath.startsWith(WORK_DIR)) {
-      return absolutePath.slice(WORK_DIR.length + 1);
-    }
-    return absolutePath;
-  }
-
-  private prepareSessionStateForQuery(
-    data: ChatQueryData,
-    logger: SystemLogger,
-  ): void {
-    const { prototype_chat_session_id, ai_chat_session_id } = data;
-    const previousPrototypeChatSessionId =
-      this.sessionState.prototypeChatSessionId;
-
-    if (prototype_chat_session_id) {
-      this.sessionState.prototypeChatSessionId = prototype_chat_session_id;
-      logger.consoleLogDevOnly("info", "Using chat session ID from client", {
-        chatSessionId: prototype_chat_session_id,
-        claudeCodeSessionId: ai_chat_session_id,
-      });
-      if (previousPrototypeChatSessionId !== prototype_chat_session_id) {
-        this.sessionState.firstMessageStatus = null;
-      }
-    } else {
-      logger.warn("No chat_session_id provided by client", {
-        session_id: ai_chat_session_id,
-      });
-      this.sessionState.prototypeChatSessionId = null;
-      this.sessionState.firstMessageStatus = null;
-    }
-
-    if (ai_chat_session_id === null) {
-      logger.consoleLogDevOnly(
-        "info",
-        "Client requested new session - clearing internal state",
-        {
-          previousSessionId: this.sessionState.sessionId,
-        },
-      );
-      this.sessionState.sessionId = null;
-      this.sessionState.firstMessageStatus = null;
     }
   }
 
@@ -1457,6 +1284,245 @@ export class ChatService {
     }
   }
 
+  private isPathInsideAllowedRoot(resolvedPath: string): boolean {
+    const normalizedPath = path.resolve(resolvedPath);
+    const allowedWithSep = ALLOWED_ROOT.endsWith(path.sep)
+      ? ALLOWED_ROOT
+      : `${ALLOWED_ROOT}${path.sep}`;
+    return (
+      normalizedPath === ALLOWED_ROOT ||
+      normalizedPath.startsWith(allowedWithSep)
+    );
+  }
+
+  // --------------------------------------------------------------------------
+  // POST CHAT EXECUTION UTILS
+  // --------------------------------------------------------------------------
+
+  private async finalizeChatExecution(
+    prototypeId: string,
+    socket: WebSocket,
+    data: ChatQueryData,
+    totalCostUsd: number | undefined,
+    logger: SystemLogger,
+  ): Promise<void> {
+    try {
+      await this.commitChatChangesToGit(data, logger);
+    } catch (error) {
+      logger.error(
+        error instanceof Error ? error : new Error(String(error)),
+        "Failed to commit chat changes",
+        { prototypeId },
+      );
+    }
+
+    await this.syncFilesAndTrackUsage(
+      prototypeId,
+      socket,
+      totalCostUsd,
+      logger,
+    );
+  }
+
+  private async commitChatChangesToGit(
+    data: ChatQueryData,
+    logger: SystemLogger,
+  ): Promise<void> {
+    const commitMessageArg = this.buildCommitMessageArg(data);
+    if (!commitMessageArg) {
+      logger.consoleLogDevOnly(
+        "info",
+        "Skipping git commit after chat - no commit message available",
+      );
+      return;
+    }
+
+    try {
+      const { response } = await this.sandboxService.runCommandInternal({
+        command: "git",
+        args: ["add", ".", "&&", "git", "commit", "-m", commitMessageArg],
+        cwd: WORK_DIR,
+        session_id: "chat-service",
+        timeout_ms: 60000,
+        strip_ansi: true,
+      });
+
+      if (response.error) {
+        logger.warn("Git commit after chat failed", {
+          error: response.error,
+        });
+        return;
+      }
+
+      const stdout = response.data?.stdout ?? "";
+      const status = response.data?.status;
+
+      if (
+        status === "timeout" &&
+        stdout.toLowerCase().includes("nothing to commit")
+      ) {
+        logger.consoleLogDevOnly(
+          "info",
+          "No git changes to commit after chat execution",
+        );
+        return;
+      }
+
+      logger.consoleLogDevOnly("info", "Committed chat changes to git", {
+        status,
+      });
+    } catch (error) {
+      logger.error(
+        error instanceof Error ? error : new Error(String(error)),
+        "Failed to commit chat changes after execution",
+      );
+    }
+  }
+
+  private async syncFilesAndTrackUsage(
+    prototypeId: string,
+    socket: WebSocket,
+    totalCostUsd: number | undefined,
+    logger: SystemLogger,
+  ): Promise<void> {
+    try {
+      logger.consoleLogDevOnly(
+        "info",
+        "Syncing file changes to Supabase (incremental sync)",
+        {
+          prototypeId,
+        },
+      );
+      const syncResult = await this.fileSyncService.syncFilesToSupabase(
+        prototypeId,
+        "tracked",
+      );
+
+      if (syncResult.success) {
+        logger.consoleLogDevOnly("info", "File sync completed successfully", {
+          prototypeId,
+          filesUpdated: syncResult.filesUpdated,
+          filesDeleted: syncResult.filesDeleted,
+          assetsUpdated: syncResult.assetsUpdated,
+          assetsDeleted: syncResult.assetsDeleted,
+        });
+      } else {
+        logger.error(
+          new Error("File sync completed with errors"),
+          "File sync had errors",
+          {
+            prototypeId,
+            errorCount: syncResult.errors.length,
+            errors: syncResult.errors,
+          },
+        );
+      }
+    } catch (syncError) {
+      logger.error(
+        syncError instanceof Error ? syncError : new Error(String(syncError)),
+        "Failed to sync files to Supabase",
+        { prototypeId },
+      );
+    }
+
+    try {
+      const {
+        data: { user },
+        error: userError,
+      } = await this.supabaseClientService.getClient().auth.getUser();
+
+      if (userError || !user) {
+        logger.warn("Unable to track API usage - no authenticated user", {
+          prototypeId,
+          error: userError,
+        });
+      } else {
+        const creditsUsed = costFunctionV3(totalCostUsd) ?? 1.0;
+
+        logger.consoleLogDevOnly("info", "Tracking API usage", {
+          userId: user.id,
+          prototypeId,
+          totalCostUsd,
+          creditsUsed,
+        });
+
+        const { totalRemainingCredits } = await trackApiUsageBuildWorker(
+          this.supabaseClientService.getClient(),
+          user.id,
+          prototypeId,
+          logger,
+          creditsUsed,
+        );
+
+        this.sendMessage(socket, {
+          type: ChatEvent.USAGE_UPDATE,
+          data: {
+            creditsUsed,
+            creditsRemaining: totalRemainingCredits,
+          },
+        });
+
+        logger.consoleLogDevOnly("info", "API usage tracked successfully", {
+          userId: user.id,
+          prototypeId,
+          totalCostUsd,
+          creditsUsed,
+          totalRemainingCredits,
+        });
+      }
+    } catch (usageError) {
+      logger.error(
+        usageError instanceof Error
+          ? usageError
+          : new Error(String(usageError)),
+        "Failed to track API usage",
+        { prototypeId },
+      );
+    }
+  }
+
+  private buildCommitMessageArg(data: ChatQueryData): string | null {
+    const userMessage = this.extractCommitMessageText(data);
+    const normalized = userMessage.replace(/\s+/g, " ").trim();
+    const baseMessage =
+      normalized.length > 0 ? normalized : "Automated chat commit";
+    const truncated =
+      baseMessage.length > 180
+        ? `${baseMessage.slice(0, 177)}...`
+        : baseMessage;
+
+    const escaped = truncated
+      .replace(/\\/g, "\\\\")
+      .replace(/"/g, '\\"')
+      .replace(/\$/g, "\\$")
+      .replace(/`/g, "\\`");
+
+    if (!escaped.trim()) {
+      return null;
+    }
+
+    return `"${escaped}"`;
+  }
+
+  private extractCommitMessageText(data: ChatQueryData): string {
+    if (typeof data.prompt === "string" && data.prompt.length > 0) {
+      return data.prompt;
+    }
+
+    if (Array.isArray(data.content)) {
+      const text = data.content
+        .filter((block) => block.type === "text")
+        .map((block) => block.text || "")
+        .join(" ")
+        .trim();
+      if (text) {
+        return text;
+      }
+    }
+
+    return "";
+  }
+
   /**
    * Notifies the control plane that a chat session has ended
    * CRITICAL: This method must ALWAYS be called at the end of every chat session,
@@ -1555,75 +1621,13 @@ export class ChatService {
     );
   }
 
-  public getSessionState(): CodeSessionState {
-    return { ...this.sessionState };
-  }
-
-  /**
-   * Register previously created session IDs as valid for resumption.
-   * Called during worker allocation to restore sessions from previous instances.
-   */
-  public registerValidSessionIds(sessionIds: string[]): void {
-    for (const sessionId of sessionIds) {
-      this.validAiChatSessionIds.add(sessionId);
+  // --------------------------------------------------------------------------
+  // MISCELLANEOUS UTILS
+  // --------------------------------------------------------------------------
+  private getRelativePath(absolutePath: string): string {
+    if (absolutePath.startsWith(WORK_DIR)) {
+      return absolutePath.slice(WORK_DIR.length + 1);
     }
-    baseLogger.consoleLogDevOnly(
-      "info",
-      "Registered valid session IDs from restored sessions",
-      {
-        count: sessionIds.length,
-        sessionIds,
-      },
-    );
-  }
-
-  private isPathInsideAllowedRoot(resolvedPath: string): boolean {
-    const normalizedPath = path.resolve(resolvedPath);
-    const allowedWithSep = ALLOWED_ROOT.endsWith(path.sep)
-      ? ALLOWED_ROOT
-      : `${ALLOWED_ROOT}${path.sep}`;
-    return (
-      normalizedPath === ALLOWED_ROOT ||
-      normalizedPath.startsWith(allowedWithSep)
-    );
-  }
-
-  public async shutdown(): Promise<void> {
-    baseLogger.info("Shutting down CodeService");
-
-    // Abort any active query
-    if (this.sessionState.abortController) {
-      this.sessionState.abortController.abort();
-    }
-
-    // Close all active connections
-    for (const [connectionId, connection] of this.activeConnections.entries()) {
-      try {
-        if (connection.heartbeat) {
-          clearInterval(connection.heartbeat);
-        }
-        connection.socket.close(1000, "Server shutting down");
-      } catch {
-        baseLogger.warn("Failed to close WebSocket connection", {
-          connectionId,
-        });
-      }
-    }
-
-    this.activeConnections.clear();
-    this.validAiChatSessionIds.clear(); // Clear valid session IDs on shutdown
-    this.sessionState = {
-      sessionId: null,
-      prototypeChatSessionId: null,
-      abortController: null,
-      designSystemId: null,
-      designSystemRules: null,
-      firstMessageStatus: null,
-    };
-
-    // Cleanup ClaudeTokenService
-    this.claudeTokenService.destroy();
-
-    baseLogger.info("CodeService shutdown complete");
+    return absolutePath;
   }
 }
