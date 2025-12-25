@@ -207,8 +207,8 @@ const ProjectContextEditor: React.FC<ProjectContextEditorProps> = ({
                 No project context
               </h3>
               <p className="text-sm text-muted-foreground">
-                Create a CLAUDE.md file to provide AI instructions and project
-                context that guides code generation.
+                Add instructions and context for the AI to help guide code
+                generation for your project.
               </p>
             </div>
             <Button
@@ -224,7 +224,7 @@ const ProjectContextEditor: React.FC<ProjectContextEditorProps> = ({
               ) : (
                 <>
                   <Plus className="w-4 h-4 mr-2" />
-                  Create CLAUDE.md
+                  Add Project Context
                 </>
               )}
             </Button>
