@@ -50,19 +50,6 @@ import { hasRemainingCredits } from "../../utils/credit-checks.js";
 export const ALLOWED_ROOT = "/tmp/materialize-dev-server";
 const CHAT_HEARTBEAT_INTERVAL_MS = 15000;
 
-class OrchestrationAPIError<TData = unknown> extends Error {
-  public readonly responseBody: APIResponse<TData, StandardErrorResponse>;
-
-  constructor(
-    message: string,
-    responseBody: APIResponse<TData, StandardErrorResponse>,
-  ) {
-    super(message);
-    this.name = "OrchestrationAPIError";
-    this.responseBody = responseBody;
-  }
-}
-
 interface CodeSessionState extends ChatEngineSessionState {}
 
 interface ChatConnection {
@@ -1240,12 +1227,14 @@ export class ChatService {
       const payload = response.data;
 
       if (payload.error || !payload.data?.success) {
-        throw new OrchestrationAPIError<StartChatResponse>(
-          payload.error
-            ? `Control plane rejected start-chat: ${payload.error.message}`
-            : "Control plane returned an invalid start-chat response",
-          payload,
-        );
+        const errorMessage = payload.error
+          ? `Control plane rejected start-chat: ${payload.error.message}`
+          : "Control plane returned an invalid start-chat response";
+        const err = new Error(errorMessage) as Error & {
+          responseBody?: APIResponse<StartChatResponse, StandardErrorResponse>;
+        };
+        err.responseBody = payload;
+        throw err;
       }
 
       baseLogger.consoleLogDevOnly(
@@ -1258,17 +1247,17 @@ export class ChatService {
       );
     } catch (error) {
       const axiosError = axios.isAxiosError(error) ? error : null;
-      const orchestrationError =
-        error instanceof OrchestrationAPIError ? error : null;
       const derivedError =
-        orchestrationError ??
-        (axiosError
+        axiosError
           ? new Error(
               `Failed to notify control plane of chat start (status ${axiosError.response?.status ?? "unknown"})`,
             )
           : error instanceof Error
             ? error
-            : new Error(String(error)));
+            : new Error(String(error));
+      const responseBody =
+        (error as { responseBody?: unknown })?.responseBody ??
+        axiosError?.response?.data;
 
       baseLogger.error(
         derivedError,
@@ -1276,8 +1265,7 @@ export class ChatService {
         {
           prototypeId,
           statusCode: axiosError?.response?.status,
-          responseBody:
-            orchestrationError?.responseBody ?? axiosError?.response?.data,
+          responseBody,
         },
       );
       throw derivedError;
@@ -1570,12 +1558,14 @@ export class ChatService {
         const payload = response.data;
 
         if (payload.error || !payload.data?.success) {
-          throw new OrchestrationAPIError<EndChatResponse>(
-            payload.error
-              ? `Control plane rejected end-chat: ${payload.error.message}`
-              : "Control plane returned an invalid end-chat response",
-            payload,
-          );
+          const errorMessage = payload.error
+            ? `Control plane rejected end-chat: ${payload.error.message}`
+            : "Control plane returned an invalid end-chat response";
+          const err = new Error(errorMessage) as Error & {
+            responseBody?: APIResponse<EndChatResponse, StandardErrorResponse>;
+          };
+          err.responseBody = payload;
+          throw err;
         }
 
         baseLogger.consoleLogDevOnly(
@@ -1590,8 +1580,6 @@ export class ChatService {
         return; // Success - exit the function
       } catch (error) {
         const axiosError = axios.isAxiosError(error) ? error : null;
-        const orchestrationError =
-          error instanceof OrchestrationAPIError ? error : null;
         lastError = error instanceof Error ? error : new Error(String(error));
         baseLogger.error(
           lastError,
@@ -1600,7 +1588,8 @@ export class ChatService {
             prototypeId,
             statusCode: axiosError?.response?.status,
             responseBody:
-              orchestrationError?.responseBody ?? axiosError?.response?.data,
+              (error as { responseBody?: unknown })?.responseBody ??
+              axiosError?.response?.data,
           },
         );
 
