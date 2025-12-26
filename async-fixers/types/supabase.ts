@@ -22,6 +22,7 @@ export type Database = {
           id: number
           is_free_tier: boolean
           prototype_id: string | null
+          team_id: string | null
           user_id: string
         }
         Insert: {
@@ -31,6 +32,7 @@ export type Database = {
           id?: never
           is_free_tier?: boolean
           prototype_id?: string | null
+          team_id?: string | null
           user_id: string
         }
         Update: {
@@ -40,6 +42,7 @@ export type Database = {
           id?: never
           is_free_tier?: boolean
           prototype_id?: string | null
+          team_id?: string | null
           user_id?: string
         }
         Relationships: [
@@ -55,6 +58,13 @@ export type Database = {
             columns: ["credit_grant_id"]
             isOneToOne: false
             referencedRelation: "credit_grants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "api_usage_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
             referencedColumns: ["id"]
           },
           {

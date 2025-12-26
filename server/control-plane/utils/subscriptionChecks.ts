@@ -23,6 +23,40 @@ function getCurrentMonthPeriod(): { startOfMonth: Date; endOfMonth: Date } {
   return { startOfMonth, endOfMonth };
 }
 
+async function getPersonalTeamId(
+  jwtToken: string,
+  userId: string,
+  log2: SystemLogger,
+): Promise<string | null> {
+  const supabaseClient = createClient<Database>(
+    process.env.SUPABASE_URL!,
+    process.env.SUPABASE_ANON_KEY!,
+    {
+      global: {
+        headers: {
+          Authorization: `Bearer ${jwtToken}`,
+        },
+      },
+    },
+  );
+
+  const { data, error } = await supabaseClient
+    .from('teams')
+    .select('id')
+    .eq('personal_owner_user_id', userId)
+    .maybeSingle();
+
+  if (error) {
+    log2.error(error, 'Error fetching personal team for user', {
+      functionName: 'getPersonalTeamId',
+      userId,
+    });
+    return null;
+  }
+
+  return data?.id ?? null;
+}
+
 export async function getSubscriptionInfo(
   jwtToken: string,
   userId: string,
@@ -154,7 +188,7 @@ export async function getSubscriptionInfo(
 
 async function calculateFreeTierCreditInfo(
   supabaseClient: SupabaseClient<Database>,
-  userId: string,
+  teamId: string,
   log2: SystemLogger,
 ): Promise<{ remaining: number; granted: number; used: number }> {
   const { startOfMonth, endOfMonth } = getCurrentMonthPeriod();
@@ -163,7 +197,7 @@ async function calculateFreeTierCreditInfo(
   const { data: usageRows, error } = await supabaseClient
     .from('api_usage')
     .select('credits_used')
-    .eq('user_id', userId)
+    .eq('team_id', teamId)
     .eq('is_free_tier', true)
     .gte('created_at', periodStart)
     .lte('created_at', periodEnd);
@@ -171,7 +205,7 @@ async function calculateFreeTierCreditInfo(
   if (error) {
     log2.error(error, 'Error fetching free-tier usage:', {
       functionName: 'calculateFreeTierCreditInfo',
-      userId,
+      teamId,
     });
   }
 
@@ -189,13 +223,19 @@ export async function hasExceededPrototypeCreationLimit(
   jwtToken: string,
   userId: string,
   log2: SystemLogger,
+  teamId: string,
 ): Promise<{
   exceeded: boolean;
   current: number;
   limit: number;
   plan: string;
 }> {
-  const subscriptionInfo = await getSubscriptionInfo(jwtToken, userId, log2);
+  const subscriptionInfo = await getSubscriptionInfo(
+    jwtToken,
+    userId,
+    log2,
+    teamId,
+  );
 
   // Paid users have no limit
   if (subscriptionInfo.userPlan !== 'free') {
@@ -222,7 +262,7 @@ export async function hasExceededPrototypeCreationLimit(
   const { count, error } = await supabaseClient
     .from('prototypes')
     .select('*', { count: 'exact', head: true })
-    .eq('owner_id', userId);
+    .eq('team_id', teamId);
   if (error) {
     log2.error(error, 'Error counting user prototypes from supabase:', {
       functionName: 'hasExceededPrototypeCreationLimit',
@@ -261,6 +301,7 @@ export async function getRemainingCredits(
   jwtToken: string,
   userId: string,
   log2: SystemLogger,
+  teamId?: string,
 ): Promise<{
   remaining: number;
   granted: number;
@@ -284,12 +325,35 @@ export async function getRemainingCredits(
   );
 
   try {
-    const subscriptionInfo = await getSubscriptionInfo(jwtToken, userId, log2);
+    const resolvedTeamId =
+      teamId ?? (await getPersonalTeamId(jwtToken, userId, log2));
+    const subscriptionInfo = await getSubscriptionInfo(
+      jwtToken,
+      userId,
+      log2,
+      resolvedTeamId ?? undefined,
+    );
 
     if (subscriptionInfo.userPlan === 'free') {
+      if (!resolvedTeamId) {
+        log2.warn(
+          'Unable to determine team for free-tier credit calculation; defaulting to zero',
+          { userId },
+        );
+        return {
+          remaining: 0,
+          granted: CreditLimits.FREE,
+          used: 0,
+          limit: CreditLimits.FREE,
+          plan: subscriptionInfo.userPlan,
+          currentPeriodStart: subscriptionInfo.currentPeriodStart,
+          currentPeriodEnd: subscriptionInfo.currentPeriodEnd,
+          stripeCustomerId: subscriptionInfo.stripeCustomerId,
+        };
+      }
       const freeCreditInfo = await calculateFreeTierCreditInfo(
         supabaseClient,
-        userId,
+        resolvedTeamId,
         log2,
       );
       return {

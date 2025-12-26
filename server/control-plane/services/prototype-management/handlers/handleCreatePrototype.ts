@@ -101,6 +101,7 @@ export async function handleCreatePrototypeImpl(
       token,
       user.id,
       request.log2,
+      team_id,
     );
     if (limitCheck.exceeded) {
       return reply.status(HTTP_STATUS.PAYMENT_REQUIRED).send({
