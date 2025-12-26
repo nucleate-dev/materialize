@@ -1496,6 +1496,7 @@ export class ChatService {
           creditsUsed,
         });
 
+        const { teamId } = getWorkerContext();
         const { totalRemainingCredits } = await trackApiUsageBuildWorker(
           this.supabaseClientService.getClient(),
           user.id,
