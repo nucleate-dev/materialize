@@ -22,18 +22,7 @@ export async function handleAllocateImpl(
   const { s3_credentials, user_details, cloudflare_credentials, keys } =
     request.body;
 
-  // 1. USER CREDENTIALS:
-  // Import setWorkerContext dynamically to avoid circular dependency
-  const { setWorkerContext } = await import("../../../worker.js");
-  // Set worker context so all future requests include userId and prototypeId in logs
-  setWorkerContext(user_details.userId, user_details.prototypeId);
-  // Also update current request's logger
-  request.log2 = request.log2.child({
-    userId: user_details.userId,
-    prototypeId: user_details.prototypeId,
-  });
-
-  // Extract JWT token from Authorization header
+  // 1. Extract JWT token from Authorization header
   const authHeader = request.headers.authorization;
   let jwtToken: string | undefined;
   if (authHeader) {
@@ -57,21 +46,40 @@ export async function handleAllocateImpl(
     };
   }
   // 2. SUPABASE CLIENT INSTANTIATION:
-  materializeDevelopmentServerService.supabaseClientService.refreshClientWithToken(
-    jwtToken,
-  );
+  materializeDevelopmentServerService.supabaseClientService
+    .refreshClientWithToken(
+      jwtToken,
+    );
   request.log2.consoleLogDevOnly(
     "info",
     "Initialized authenticated Supabase client for worker",
   );
-  // 2.5 PROTOTYPE FRAMEWORK INITIALIZATION:
-  const supabaseClient =
-    materializeDevelopmentServerService.supabaseClientService.getClient();
+
+  // 3. SET WORKER CONTEXT:
+  const supabaseClient = materializeDevelopmentServerService
+    .supabaseClientService.getClient();
   const { data: prototypeRow, error: prototypeError } = await supabaseClient
     .from("prototypes")
-    .select("framework")
+    .select("framework, team_id")
     .eq("id", user_details.prototypeId)
     .single();
+  const prototypeTeamId = prototypeRow?.team_id ?? undefined;
+
+  // Import setWorkerContext dynamically to avoid circular dependency
+  const { setWorkerContext } = await import("../../../worker.js");
+  setWorkerContext(
+    user_details.userId,
+    user_details.prototypeId,
+    prototypeTeamId,
+  );
+  // Also update current request's logger
+  request.log2 = request.log2.child({
+    userId: user_details.userId,
+    prototypeId: user_details.prototypeId,
+    teamId: prototypeTeamId,
+  });
+
+  // 4 PROTOTYPE FRAMEWORK INITIALIZATION:
   if (prototypeError) {
     request.log2.error(
       prototypeError,
@@ -92,7 +100,7 @@ export async function handleAllocateImpl(
   }
 
   try {
-    // 3. S3 CLIENT INSTANTIATION:
+    // 5. S3 CLIENT INSTANTIATION:
     // TODO: for dev ec2 flow, just do S3Client()
     let scopedS3: S3Client;
     if (process.env.FARGATE_DEV_MODE === "true") {
@@ -112,15 +120,15 @@ export async function handleAllocateImpl(
     let tunnelStatus: "connected" | "error" | "timeout" | "not_started" =
       "not_started";
     let tunnelMessage: string | undefined;
-    // 4. CLOUDFLARE TUNNEL:
+    // 6. CLOUDFLARE TUNNEL:
     if (process.env.FARGATE_DEV_MODE !== "true") {
       request.log2.consoleLogDevOnly(
         "info",
         "Starting Cloudflare tunnel setup",
       );
       try {
-        const result =
-          await materializeDevelopmentServerService.cloudflareTunnelManagementService.createTunnel(
+        const result = await materializeDevelopmentServerService
+          .cloudflareTunnelManagementService.createTunnel(
             cloudflare_credentials.cloudflare_tunnel_token,
           );
         tunnelStatus = result.status;
@@ -139,10 +147,9 @@ export async function handleAllocateImpl(
         }
       } catch (tunnelError) {
         tunnelStatus = "error";
-        tunnelMessage =
-          tunnelError instanceof Error
-            ? tunnelError.message
-            : "Failed to start Cloudflare tunnel";
+        tunnelMessage = tunnelError instanceof Error
+          ? tunnelError.message
+          : "Failed to start Cloudflare tunnel";
         request.log2.error(tunnelError, "Failed to start Cloudflare tunnel");
         throw tunnelError instanceof Error
           ? tunnelError
@@ -150,7 +157,7 @@ export async function handleAllocateImpl(
       }
     }
 
-    // 5. CREDENTIALS:
+    // 7. CREDENTIALS:
     materializeDevelopmentServerService.chatService.setOrchestrationToken(
       keys.orchestration_token,
     );

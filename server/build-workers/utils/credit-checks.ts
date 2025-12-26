@@ -23,6 +23,31 @@ function getCurrentMonthPeriod(): { startOfMonth: Date; endOfMonth: Date } {
 }
 
 /**
+ * Fetch the user's personal team
+ */
+export async function getPersonalTeam(
+  supabase: SupabaseClient<Database>,
+  userId: string,
+  log2: SystemLogger,
+): Promise<Database["public"]["Tables"]["teams"]["Row"]> {
+  const { data, error } = await supabase
+    .from("teams")
+    .select("*")
+    .eq("personal_owner_user_id", userId)
+    .single();
+
+  if (error) {
+    log2.error(error, "Error fetching personal team for user", {
+      functionName: "getPersonalTeam",
+      userId,
+    });
+    throw error;
+  }
+
+  return data;
+}
+
+/**
  * Fetch user's subscription plan
  */
 export async function fetchUserPlan(
@@ -127,16 +152,14 @@ async function calculatePaidUserCreditInfo(
     return { remaining: 0, granted: 0, used: 0 };
   }
 
-  const totalGranted =
-    balances?.reduce(
-      (sum, balance) => sum + (balance.credits_granted || 0),
-      0,
-    ) || 0;
-  const totalRemaining =
-    balances?.reduce(
-      (sum, balance) => sum + (balance.credits_remaining || 0),
-      0,
-    ) || 0;
+  const totalGranted = balances?.reduce(
+    (sum, balance) => sum + (balance.credits_granted || 0),
+    0,
+  ) || 0;
+  const totalRemaining = balances?.reduce(
+    (sum, balance) => sum + (balance.credits_remaining || 0),
+    0,
+  ) || 0;
   const totalUsed = totalGranted - totalRemaining;
 
   return {
