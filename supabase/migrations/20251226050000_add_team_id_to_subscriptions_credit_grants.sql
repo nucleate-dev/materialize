@@ -6,4 +6,7 @@ alter table public.subscriptions
 alter table public.credit_grants
   add column if not exists team_id uuid references public.teams(id) on update cascade on delete cascade;
 
+alter table public.prototypes
+  add column if not exists team_id uuid references public.teams(id) on update cascade on delete cascade;
+
 commit;

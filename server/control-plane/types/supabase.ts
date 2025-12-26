@@ -753,6 +753,7 @@ export type Database = {
           project_context: string
           prototype_context: Json | null
           slug: string | null
+          team_id: string | null
           updated_at: string | null
           visibility: Database["public"]["Enums"]["visibility_level"] | null
         }
@@ -771,6 +772,7 @@ export type Database = {
           project_context?: string
           prototype_context?: Json | null
           slug?: string | null
+          team_id?: string | null
           updated_at?: string | null
           visibility?: Database["public"]["Enums"]["visibility_level"] | null
         }
@@ -789,6 +791,7 @@ export type Database = {
           project_context?: string
           prototype_context?: Json | null
           slug?: string | null
+          team_id?: string | null
           updated_at?: string | null
           visibility?: Database["public"]["Enums"]["visibility_level"] | null
         }
@@ -812,6 +815,13 @@ export type Database = {
             columns: ["owner_id"]
             isOneToOne: false
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prototypes_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
             referencedColumns: ["id"]
           },
         ]
