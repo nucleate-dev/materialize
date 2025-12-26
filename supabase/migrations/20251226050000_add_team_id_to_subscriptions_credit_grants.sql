@@ -12,4 +12,38 @@ alter table public.prototypes
 alter table public.api_usage
   add column if not exists team_id uuid references public.teams(id) on update cascade on delete cascade;
 
+create or replace view public.credit_grant_balances as
+select
+  g.id,
+  g.user_id,
+  g.team_id,
+  g.subscription_id,
+  g.grant_reason,
+  g.grant_type,
+  g.billing_period_start,
+  g.billing_period_end,
+  g.expires_at,
+  g.created_at,
+  g.credits_granted,
+  coalesce(sum(u.credits_used), 0) as credits_used,
+  greatest(
+    g.credits_granted - coalesce(sum(u.credits_used), 0),
+    0
+  )::decimal(10, 2) as credits_remaining
+from public.credit_grants g
+left join public.api_usage u
+  on u.credit_grant_id = g.id
+group by
+  g.id,
+  g.user_id,
+  g.team_id,
+  g.subscription_id,
+  g.grant_reason,
+  g.grant_type,
+  g.billing_period_start,
+  g.billing_period_end,
+  g.expires_at,
+  g.created_at,
+  g.credits_granted;
+
 commit;
