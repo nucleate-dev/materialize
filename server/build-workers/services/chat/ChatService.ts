@@ -1392,7 +1392,7 @@ export class ChatService {
         command: "git",
         args: ["add", ".", "&&", "git", "commit", "-m", commitMessageArg],
         cwd: WORK_DIR,
-        session_id: "chat-service",
+        session_id: "test",
         timeout_ms: 60000,
         strip_ansi: true,
       });

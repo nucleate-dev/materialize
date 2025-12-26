@@ -1,5 +1,15 @@
 begin;
 
+-- Corrected: team-based FIFO credit consumption
+-- Key fixes:
+-- 1) Do NOT rely on team_id in JWT claims (you said it never exists)
+-- 2) Authorize via auth.uid() + team membership (unless service_role)
+-- 3) Use auth.role() (NOT current_user) to detect service_role in SECURITY DEFINER
+-- 4) Attribute usage to the caller (user_id = auth.uid()) for non-service_role calls
+--    (service_role calls will record user_id NULL unless you add a p_user_id param)
+-- 5) Treat expires_at NULL as "never expires" (included), and order NULL last
+-- 6) Clamp total_remaining to >= 0 to avoid negative "remaining" on overage
+
 create or replace function public.consume_credits_teams(
   p_team_id uuid,
   p_prototype_id uuid,
@@ -14,57 +24,54 @@ returns table (
 )
 language plpgsql
 security definer
-set search_path = public
+set search_path = public, pg_temp
 as $$
 declare
   credits_needed numeric := coalesce(p_credits, 0);
   overage_amount numeric := 0;
+
   grant_row record;
   grant_remaining numeric;
   allocation numeric;
+
   total_available numeric := 0;
   consumed jsonb := '[]'::jsonb;
   balances jsonb := '[]'::jsonb;
-  caller_team_id uuid;
-  jwt_team text;
+
+  v_uid uuid := auth.uid();
+  v_role text := auth.role();
 begin
-  if current_user <> 'service_role' then
-    begin
-      jwt_team := current_setting('request.jwt.claim.team_id', true);
-    exception
-      when others then
-        jwt_team := null;
-    end;
+  -- Basic validation
+  if credits_needed <= 0 then
+    return query
+    select false, 0::numeric, consumed, balances, 'Credits requested must be greater than zero';
+    return;
+  end if;
 
-    if jwt_team is null then
-      begin
-        jwt_team :=
-          (current_setting('request.jwt.claims', true)::jsonb ->> 'team_id');
-      exception
-        when others then
-          jwt_team := null;
-      end;
-    end if;
-
-    if jwt_team is not null then
-      caller_team_id := jwt_team::uuid;
-    end if;
-
-    if caller_team_id is null or caller_team_id <> p_team_id then
+  -- Authorization:
+  -- Do NOT trust a team_id claim. Require the caller be a member of p_team_id (unless service_role).
+  if v_role is distinct from 'service_role' then
+    if v_uid is null then
       return query
-      select false, 0::numeric, consumed, balances,
-        'Unauthorized credit consumption attempt';
+      select false, 0::numeric, consumed, balances, 'No auth context';
+      return;
+    end if;
+
+    -- NOTE: Adjust table/columns if your membership table differs.
+    -- Expected: public.team_memberships(team_id uuid, user_id uuid, ...)
+    if not exists (
+      select 1
+      from public.team_memberships tm
+      where tm.team_id = p_team_id
+        and tm.user_id = v_uid
+    ) then
+      return query
+      select false, 0::numeric, consumed, balances, 'Unauthorized credit consumption attempt';
       return;
     end if;
   end if;
 
-  if credits_needed <= 0 then
-    return query
-    select false, 0::numeric, consumed, balances,
-      'Credits requested must be greater than zero';
-    return;
-  end if;
-
+  -- Lock relevant grants and compute FIFO consumption plan
   for grant_row in
     select
       g.id,
@@ -79,14 +86,15 @@ begin
       ) as credits_used
     from public.credit_grants g
     where g.team_id = p_team_id
-      and g.expires_at > now()
-    order by g.expires_at
+      and (g.expires_at is null or g.expires_at > now())
+    order by coalesce(g.expires_at, 'infinity'::timestamptz)
     for update of g
   loop
     grant_remaining := greatest(grant_row.credits_granted - grant_row.credits_used, 0);
 
     if grant_remaining > 0 then
       total_available := total_available + grant_remaining;
+
       allocation := least(credits_needed, grant_remaining);
       if allocation > 0 then
         consumed := consumed || jsonb_build_object(
@@ -96,6 +104,7 @@ begin
           'billing_period_start', grant_row.billing_period_start,
           'billing_period_end', grant_row.billing_period_end
         );
+
         credits_needed := credits_needed - allocation;
         grant_row.credits_used := grant_row.credits_used + allocation;
         grant_remaining := grant_remaining - allocation;
@@ -113,6 +122,7 @@ begin
     );
   end loop;
 
+  -- Overage: record usage with NULL credit_grant_id
   if credits_needed > 0 then
     overage_amount := credits_needed;
     consumed := consumed || jsonb_build_object(
@@ -123,29 +133,32 @@ begin
     credits_needed := 0;
   end if;
 
+  -- Insert usage rows
   for grant_row in
     select
-      (entry->>'grant_id')::uuid as grant_id,
+      nullif(entry->>'grant_id','')::uuid as grant_id,
       (entry->>'credits')::numeric as credits_to_use
     from jsonb_array_elements(consumed) as entry
   loop
     insert into public.api_usage (user_id, team_id, prototype_id, credits_used, credit_grant_id)
-    values (null, p_team_id, p_prototype_id, grant_row.credits_to_use, grant_row.grant_id);
+    values (
+      case when v_role = 'service_role' then null else v_uid end,
+      p_team_id,
+      p_prototype_id,
+      grant_row.credits_to_use,
+      grant_row.grant_id
+    );
   end loop;
-
-  if credits_needed > 0 then
-    insert into public.api_usage (user_id, team_id, prototype_id, credits_used, credit_grant_id)
-    values (null, p_team_id, p_prototype_id, credits_needed, null);
-  end if;
 
   return query
   select
     true,
-    total_available - p_credits,
+    greatest(total_available - p_credits, 0),
     consumed,
     balances,
     case
-      when overage_amount > 0 then format('Overage recorded: %s credits beyond available balance', overage_amount)
+      when overage_amount > 0
+        then format('Overage recorded: %s credits beyond available balance', overage_amount)
       else null::text
     end;
 end;
