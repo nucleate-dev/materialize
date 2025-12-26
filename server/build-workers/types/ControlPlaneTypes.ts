@@ -179,6 +179,10 @@ export interface ManageBillingErrorResponse {
   message: string;
 }
 
+export interface ManageBillingRequestBody {
+  teamId: string;
+}
+
 // ============================================================================
 // /deployments/check-slug ENDPOINT (GET)
 // ============================================================================

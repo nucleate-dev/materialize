@@ -23,18 +23,11 @@ function getCurrentMonthPeriod(): { startOfMonth: Date; endOfMonth: Date } {
   return { startOfMonth, endOfMonth };
 }
 
-/**
- * Server-side function to get user's subscription plan and billing period
- * Equivalent to the useSubscriptionAccess hook but for server-side use
- *
- * @param supabaseClient - Authenticated Supabase client
- * @param userId - The user ID to check subscription for
- * @returns Promise<SubscriptionInfo> - Subscription plan and billing period information
- */
 export async function getSubscriptionInfo(
   jwtToken: string,
   userId: string,
   log2: SystemLogger,
+  teamId?: string,
 ): Promise<SubscriptionInfo> {
   const nowInSeconds = Math.floor(Date.now() / 1000);
   const supabaseClient = createClient<Database>(
@@ -49,16 +42,23 @@ export async function getSubscriptionInfo(
     },
   );
   try {
-    const { data, error } = await supabaseClient
+    let query = supabaseClient
       .from('subscriptions')
       .select('*')
-      .eq('user_id', userId)
       .eq('status', 'active')
       .lte('current_period_start', nowInSeconds)
       .gte('current_period_end', nowInSeconds)
       .order('updated_at', {
         ascending: false,
       });
+
+    if (teamId) {
+      query = query.eq('team_id', teamId);
+    } else {
+      query = query.eq('user_id', userId);
+    }
+
+    const { data, error } = await query;
 
     if (error) {
       log2.error(error, 'Error fetching subscription from supabase:', {

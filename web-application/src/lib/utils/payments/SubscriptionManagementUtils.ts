@@ -4,6 +4,7 @@ import type {
   ManageBillingErrorResponse,
   ManageBillingSuccessResponse,
 } from "@/lib/types/serverAPITypes";
+import { fetchPersonalTeamId } from "@/lib/utils/payments/CheckoutUtils";
 import { AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
 
 /**
@@ -16,7 +17,8 @@ import { AppRouterInstance } from "next/dist/shared/lib/app-router-context.share
  *
  * Workflow:
  *  1. Gets the user's session from Supabase auth.
- *  2. Sends a `POST` request to the control-plane `/payments/manage-billing` endpoint with JWT auth.
+ *  2. Determines the user's personal team (temporary default) to scope billing.
+ *  3. Sends a `POST` request to the control-plane `/payments/manage-billing` endpoint with JWT auth.
  *  3. The API returns a URL (`redirect_url`) to the Stripe customer portal.
  *  4. Redirects the user to the Stripe customer portal using `router.push` with the returned URL.
  *
@@ -52,14 +54,21 @@ export async function handleRedirectToStripeCustomerPortal(
       throw new Error("Server endpoint not configured");
     }
 
+    const teamId = await fetchPersonalTeamId(session.session.user.id);
+    if (!teamId) {
+      alert(
+        "We could not determine your personal team. Please refresh and try again.",
+      );
+      return;
+    }
+
     const response = await fetch(`${serverEndpoint}/payments/manage-billing`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${session.session.access_token}`,
         "Content-Type": "application/json",
       },
-      // Empty body since user ID comes from JWT
-      body: JSON.stringify({}),
+      body: JSON.stringify({ teamId }),
     });
 
     if (!response.ok) {

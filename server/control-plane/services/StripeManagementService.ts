@@ -9,6 +9,7 @@ import {
   type GetCheckoutSessionSuccessResponse,
   HTTP_STATUS,
   type ManageBillingErrorResponse,
+  type ManageBillingRequestBody,
   type ManageBillingSuccessResponse,
 } from "../types/PublicAPITypes.js";
 import { validateJWTToken } from "../utils/prototypeAuth.js";
@@ -76,8 +77,19 @@ export class StripeManagementService {
     );
 
     // POST /payments/manage-billing
-    app.post<{ Body: {} }>(
+    app.post<{ Body: ManageBillingRequestBody }>(
       "/payments/manage-billing",
+      {
+        schema: {
+          body: {
+            type: "object",
+            required: ["teamId"],
+            properties: {
+              teamId: { type: "string" },
+            },
+          },
+        },
+      },
       this.handleManageBilling.bind(this),
     );
   }
@@ -376,7 +388,7 @@ export class StripeManagementService {
    *  6. Handles and logs errors appropriately, such as missing user IDs or database/Stripe errors.
    */
   private async handleManageBilling(
-    request: FastifyRequest<{ Body: {} }>,
+    request: FastifyRequest<{ Body: ManageBillingRequestBody }>,
     reply: FastifyReply,
   ): Promise<
     APIResponse<ManageBillingSuccessResponse, ManageBillingErrorResponse>
@@ -399,17 +411,64 @@ export class StripeManagementService {
       userId: user.id,
     });
 
+    const { teamId } = request.body;
+
+    const supabaseClient = createClient<Database>(
+      process.env.SUPABASE_URL!,
+      process.env.SUPABASE_ANON_KEY!,
+      {
+        global: {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      },
+    );
+
+    const hasTeamAccess = await userIsTeamAdminOrOwner(
+      teamId,
+      user.id,
+      supabaseClient,
+      request.log2,
+    );
+    if (!hasTeamAccess) {
+      request.log2.warn("User is not owner/admin of requested team", {
+        teamId,
+      });
+      return reply.status(HTTP_STATUS.FORBIDDEN).send({
+        data: null,
+        error: {
+          error: "Forbidden",
+          message: "You do not have permission to manage billing for this team",
+        },
+      });
+    }
+
     // Setup PostHog logger with context
     const posthogLogger = request.posthogLogger.child({
       function: "handleManageBilling",
       service: "StripeManagementService",
+      teamId,
     });
 
     const subscriptionInfo = await getSubscriptionInfo(
       token,
       user.id,
       request.log2,
+      teamId,
     );
+
+    if (!subscriptionInfo.stripeCustomerId) {
+      request.log2.warn("No Stripe customer found for team", { teamId });
+      return reply.status(HTTP_STATUS.BAD_REQUEST).send({
+        data: null,
+        error: {
+          error: "no_subscription",
+          message:
+            "This team does not have an active subscription to manage billing.",
+        },
+      });
+    }
 
     try {
       const result = await posthogLogger.timeAndRecord(
