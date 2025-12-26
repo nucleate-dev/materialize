@@ -1,5 +1,4 @@
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/ClientConstants";
 import { fetchPersonalTeamId } from "@/lib/utils/payments/CheckoutUtils";
 import { useUser } from "@/hooks/useUser";
 

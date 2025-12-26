@@ -41,7 +41,9 @@ function requireUserAndTeamIds(
     const missing: string[] = [];
     if (!userId) missing.push("user_id");
     if (!teamId) missing.push("team_id");
-    const errorMessage = `Missing ${missing.join(" and ")} in Stripe metadata for ${context}`;
+    const errorMessage = `Missing ${
+      missing.join(" and ")
+    } in Stripe metadata for ${context}`;
     console.error(errorMessage);
     posthog.capture({
       distinctId: userId ?? "unknown",
@@ -199,7 +201,9 @@ async function handleCheckoutSessionCompleted(
       value: (session.amount_total ?? 0) / 100, // Convert cents to dollars
       currency: session.currency ?? "usd",
       transactionId: session.id, // Same ID used by client-side pixel for deduplication
-      contentName: `${planKey.charAt(0).toUpperCase() + planKey.slice(1)} Subscription`,
+      contentName: `${
+        planKey.charAt(0).toUpperCase() + planKey.slice(1)
+      } Subscription`,
       eventSourceUrl: process.env.NEXT_PUBLIC_SITE_BASE_URL ?? "",
     });
     posthog.capture({
@@ -524,7 +528,7 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
       const { data: overageRows, error: overageFetchError } = await supabase
         .from("api_usage")
         .select("id, credits_used, prototype_id")
-        .eq("user_id", userId)
+        .eq("team_id", teamId)
         .eq("is_free_tier", false)
         .is("credit_grant_id", null)
         .order("created_at", { ascending: true });
@@ -553,14 +557,14 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
               .eq("id", usageRow.id);
 
             if (assignZeroError) {
-            posthog.capture({
-              distinctId: userId,
-              event: ExceptionEvents.CREDIT_GRANT_ERROR,
-              properties: {
-                ...posthogBaseProps,
-                error: assignZeroError,
-                context: "assign_zero_overage",
-              },
+              posthog.capture({
+                distinctId: userId,
+                event: ExceptionEvents.CREDIT_GRANT_ERROR,
+                properties: {
+                  ...posthogBaseProps,
+                  error: assignZeroError,
+                  context: "assign_zero_overage",
+                },
               });
               console.error(
                 "Error assigning zero-credit usage to grant:",
@@ -577,14 +581,14 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
               .eq("id", usageRow.id);
 
             if (assignError) {
-            posthog.capture({
-              distinctId: userId,
-              event: ExceptionEvents.CREDIT_GRANT_ERROR,
-              properties: {
-                ...posthogBaseProps,
-                error: assignError,
-                context: "assign_full_overage",
-              },
+              posthog.capture({
+                distinctId: userId,
+                event: ExceptionEvents.CREDIT_GRANT_ERROR,
+                properties: {
+                  ...posthogBaseProps,
+                  error: assignError,
+                  context: "assign_full_overage",
+                },
               });
               console.error(
                 "Error assigning overage usage to grant:",
@@ -624,6 +628,7 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
               .from("api_usage")
               .insert({
                 user_id: userId,
+                team_id: teamId,
                 prototype_id: usageRow.prototype_id,
                 credits_used: partialCredits,
                 credit_grant_id: newGrant.id,
@@ -631,14 +636,14 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
               });
 
             if (partialInsertError) {
-            posthog.capture({
-              distinctId: userId,
-              event: ExceptionEvents.CREDIT_GRANT_ERROR,
-              properties: {
-                ...posthogBaseProps,
-                error: partialInsertError,
-                context: "insert_partial_overage",
-              },
+              posthog.capture({
+                distinctId: userId,
+                event: ExceptionEvents.CREDIT_GRANT_ERROR,
+                properties: {
+                  ...posthogBaseProps,
+                  error: partialInsertError,
+                  context: "insert_partial_overage",
+                },
               });
               console.error(
                 "Error inserting partial overage coverage row:",
@@ -923,7 +928,7 @@ async function reconcileCreditUsageForDowngrade(
     .from("api_usage")
     .select("id, credits_used, prototype_id, created_at")
     .eq("credit_grant_id", grantId)
-    .eq("user_id", userId)
+    .eq("team_id", teamId)
     .order("created_at", { ascending: true });
 
   if (usageError) {
@@ -968,13 +973,13 @@ async function reconcileCreditUsageForDowngrade(
         posthog.capture({
           distinctId: userId,
           event: ExceptionEvents.CREDIT_GRANT_ERROR,
-        properties: {
-          source: LoggingEventSource.API_PAYMENTS_HANDLE_SUBSCRIPTION,
-          error: nullifyError,
-          context: "reconcile_downgrade_nullify_row",
-          team_id: teamId,
-        },
-      });
+          properties: {
+            source: LoggingEventSource.API_PAYMENTS_HANDLE_SUBSCRIPTION,
+            error: nullifyError,
+            context: "reconcile_downgrade_nullify_row",
+            team_id: teamId,
+          },
+        });
         console.error(
           "Error nullifying usage row for downgrade:",
           nullifyError,
@@ -995,13 +1000,13 @@ async function reconcileCreditUsageForDowngrade(
         posthog.capture({
           distinctId: userId,
           event: ExceptionEvents.CREDIT_GRANT_ERROR,
-        properties: {
-          source: LoggingEventSource.API_PAYMENTS_HANDLE_SUBSCRIPTION,
-          error: updateError,
-          context: "reconcile_downgrade_split_update",
-          team_id: teamId,
-        },
-      });
+          properties: {
+            source: LoggingEventSource.API_PAYMENTS_HANDLE_SUBSCRIPTION,
+            error: updateError,
+            context: "reconcile_downgrade_split_update",
+            team_id: teamId,
+          },
+        });
         console.error(
           "Error updating split usage row for downgrade:",
           updateError,
@@ -1012,6 +1017,7 @@ async function reconcileCreditUsageForDowngrade(
       // Insert a new row for the credits beyond the limit (with null credit_grant_id)
       const { error: insertError } = await supabase.from("api_usage").insert({
         user_id: userId,
+        team_id: teamId,
         prototype_id: usageRow.prototype_id,
         credits_used: creditsBeyondLimit,
         credit_grant_id: null,
