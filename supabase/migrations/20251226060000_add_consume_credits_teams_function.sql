@@ -8,7 +8,6 @@ begin;
 -- 4) Attribute usage to the caller (user_id = auth.uid()) for non-service_role calls
 --    (service_role calls will record user_id NULL unless you add a p_user_id param)
 -- 5) Treat expires_at NULL as "never expires" (included), and order NULL last
--- 6) Clamp total_remaining to >= 0 to avoid negative "remaining" on overage
 
 create or replace function public.consume_credits_teams(
   p_team_id uuid,
@@ -153,7 +152,7 @@ begin
   return query
   select
     true,
-    greatest(total_available - p_credits, 0),
+    total_available - p_credits,
     consumed,
     balances,
     case
