@@ -407,10 +407,6 @@ export default function NewPrototypeModal({
 
       const teamId = await fetchPersonalTeamId(userId);
       if (!teamId) {
-        logger.log({
-          event: "client_new_prototype_modal_missing_team",
-          properties: { userId },
-        });
         return;
       }
 
