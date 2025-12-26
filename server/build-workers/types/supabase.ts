@@ -847,8 +847,8 @@ export type Database = {
           scheduled_for_cancellation: boolean | null
           status: Database["public"]["Enums"]["subscription_status"] | null
           stripe_customer_id: string | null
-          updated_at: string | null
           team_id: string | null
+          updated_at: string | null
           user_id: string | null
         }
         Insert: {
@@ -861,8 +861,8 @@ export type Database = {
           scheduled_for_cancellation?: boolean | null
           status?: Database["public"]["Enums"]["subscription_status"] | null
           stripe_customer_id?: string | null
-          updated_at?: string | null
           team_id?: string | null
+          updated_at?: string | null
           user_id?: string | null
         }
         Update: {
@@ -875,23 +875,23 @@ export type Database = {
           scheduled_for_cancellation?: boolean | null
           status?: Database["public"]["Enums"]["subscription_status"] | null
           stripe_customer_id?: string | null
-          updated_at?: string | null
           team_id?: string | null
+          updated_at?: string | null
           user_id?: string | null
         }
         Relationships: [
-          {
-            foreignKeyName: "subscriptions_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "subscriptions_team_id_fkey"
             columns: ["team_id"]
             isOneToOne: false
             referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subscriptions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
             referencedColumns: ["id"]
           },
         ]
@@ -1248,6 +1248,16 @@ export type Database = {
       }
       consume_credits: {
         Args: { p_credits: number; p_prototype_id: string; p_user_id: string }
+        Returns: {
+          consumed_grants: Json
+          error: string
+          grant_balances: Json
+          success: boolean
+          total_remaining: number
+        }[]
+      }
+      consume_credits_teams: {
+        Args: { p_credits: number; p_prototype_id: string; p_team_id: string }
         Returns: {
           consumed_grants: Json
           error: string
