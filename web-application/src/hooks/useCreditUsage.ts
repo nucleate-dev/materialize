@@ -8,6 +8,7 @@ import {
   fetchOverageCredits,
   fetchUserCreditGrantBalances,
 } from "@/lib/utils/credits/CreditUtils";
+import { fetchPersonalTeamId } from "@/lib/utils/payments/CheckoutUtils";
 
 interface CreditUsageState {
   creditsUsed: number;
@@ -51,6 +52,37 @@ export function useCreditUsage(): CreditUsageHook {
     hasReachedLimit: false,
   });
 
+  const [teamId, setTeamId] = useState<string | null>(null);
+  const [teamLoading, setTeamLoading] = useState<boolean>(true);
+
+  useEffect(() => {
+    let isMounted = true;
+    async function resolveTeam() {
+      if (!user?.id) {
+        if (isMounted) {
+          setTeamId(null);
+          setTeamLoading(false);
+        }
+        return;
+      }
+      setTeamLoading(true);
+      try {
+        const personalTeamId = await fetchPersonalTeamId(user.id);
+        if (isMounted) {
+          setTeamId(personalTeamId);
+        }
+      } finally {
+        if (isMounted) {
+          setTeamLoading(false);
+        }
+      }
+    }
+    resolveTeam();
+    return () => {
+      isMounted = false;
+    };
+  }, [user?.id]);
+
   /**
    * Calculate credit limit based on user plan
    */
@@ -75,7 +107,21 @@ export function useCreditUsage(): CreditUsageHook {
    * Fetch credit usage data from backend
    */
   const fetchCreditUsage = useCallback(async () => {
-    if (!user?.id || loadingSubscriptionData) return;
+    if (!user?.id || loadingSubscriptionData || teamLoading) return;
+    if (!teamId) {
+      setState({
+        creditsUsed: 0,
+        creditLimit: CreditLimits.FREE,
+        totalAvailableCredits: CreditLimits.FREE,
+        creditsRemaining: CreditLimits.FREE,
+        usagePercentage: 0,
+        creditGrants: [],
+        overageCredits: 0,
+        loading: false,
+        hasReachedLimit: false,
+      });
+      return;
+    }
 
     setState((prev) => ({ ...prev, loading: true }));
 
@@ -99,7 +145,7 @@ export function useCreditUsage(): CreditUsageHook {
         const { data: freeUsageRows, error: freeUsageError } = await supabase
           .from("api_usage")
           .select("credits_used")
-          .eq("user_id", user.id)
+          .eq("team_id", teamId)
           .eq("is_free_tier", true)
           .gte("created_at", startOfMonth.toISOString())
           .lte("created_at", endOfMonth.toISOString());
@@ -147,8 +193,8 @@ export function useCreditUsage(): CreditUsageHook {
 
       // PAID USERS: Fetch credit grants and overage
       const [grants, overage] = await Promise.all([
-        fetchUserCreditGrantBalances(supabase, user.id),
-        fetchOverageCredits(supabase, user.id),
+        fetchUserCreditGrantBalances(supabase, teamId),
+        fetchOverageCredits(supabase, teamId),
       ]);
 
       const totalUsed = grants.reduce(
@@ -196,7 +242,15 @@ export function useCreditUsage(): CreditUsageHook {
         hasReachedLimit: false,
       });
     }
-  }, [user?.id, userPlan, loadingSubscriptionData, logger, getCreditLimit]);
+  }, [
+    user?.id,
+    userPlan,
+    loadingSubscriptionData,
+    teamLoading,
+    teamId,
+    logger,
+    getCreditLimit,
+  ]);
 
   /**
    * Directly update the remaining balance

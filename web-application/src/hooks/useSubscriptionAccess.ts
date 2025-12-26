@@ -4,6 +4,7 @@ import { useUser } from "@/hooks/useUser";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import { subscriptionAccessQueryKey } from "@/lib/react-query/queryKeys";
 import { Database } from "@/lib/types/supabase";
+import { usePersonalTeam } from "@/hooks/usePersonalTeam";
 import { useQuery } from "@tanstack/react-query";
 
 type SubscriptionPlanType =
@@ -43,7 +44,7 @@ function getFreeTierAccess(): SubscriptionAccessResult {
 }
 
 async function fetchSubscriptionAccess(
-  userId: string,
+  teamId: string,
   logger: ReturnType<typeof useProductLogger>,
 ): Promise<SubscriptionAccessResult> {
   const freeTierAccess = getFreeTierAccess();
@@ -52,7 +53,7 @@ async function fetchSubscriptionAccess(
     const { data, error } = await supabase
       .from("subscriptions")
       .select("*")
-      .eq("user_id", userId)
+      .eq("team_id", teamId)
       .eq("status", SubscriptionStatuses.ACTIVE)
       .lte("current_period_start", nowInSeconds)
       .gte("current_period_end", nowInSeconds)
@@ -149,20 +150,28 @@ async function fetchSubscriptionAccess(
  */
 export function useSubscriptionAccess() {
   const userState = useUser();
+  const { teamId, isLoading: teamLoading } = usePersonalTeam();
   const logger = useProductLogger();
   const userId = userState.user?.id;
-  const queryEnabled = Boolean(userId) && userState.userIsLoading === false;
+  const queryEnabled =
+    Boolean(userId && teamId) &&
+    userState.userIsLoading === false &&
+    teamLoading === false;
 
   const subscriptionQuery = useQuery({
-    queryKey: subscriptionAccessQueryKey(userId),
-    queryFn: () => fetchSubscriptionAccess(userId as string, logger),
+    queryKey: subscriptionAccessQueryKey(
+      userId ? `${userId}:${teamId ?? "no-team"}` : undefined,
+    ),
+    queryFn: () => fetchSubscriptionAccess(teamId as string, logger),
     enabled: queryEnabled,
     staleTime: 1000 * 60 * 5,
   });
 
-  const subscriptionData = subscriptionQuery.data ?? getFreeTierAccess();
+  const subscriptionData =
+    subscriptionQuery.data ?? getFreeTierAccess();
   const loadingSubscriptionData =
     userState.userIsLoading ||
+    teamLoading ||
     (queryEnabled ? subscriptionQuery.isPending : false);
 
   return {
