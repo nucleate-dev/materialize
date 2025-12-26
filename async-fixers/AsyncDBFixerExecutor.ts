@@ -50,7 +50,9 @@ export class AsyncFixerExecutor<TName extends TableName> {
 
     console.log(`\n🚀 Starting backfill on table: ${this.backfill.table}`);
     console.log(
-      `   Mode: ${isDryRun ? "DRY RUN (no changes will be made)" : "LIVE (will fix rows)"}`,
+      `   Mode: ${
+        isDryRun ? "DRY RUN (no changes will be made)" : "LIVE (will fix rows)"
+      }`,
     );
     if (isFilteredRun) {
       console.log(
@@ -109,7 +111,7 @@ export class AsyncFixerExecutor<TName extends TableName> {
         // Live mode: just show stats, no detailed output
         console.log(`\n   🔧 Fixing ${inconsistentRows.length} row(s)...`);
         const fixedRows = await this.fixRows(inconsistentRows);
-        await this.upsertRows(fixedRows);
+        await this.persistRows(fixedRows);
         this.stats.rowsFixed = fixedRows.length;
 
         console.log(`   ✅ Fixed ${fixedRows.length} row(s)`);
@@ -147,7 +149,7 @@ export class AsyncFixerExecutor<TName extends TableName> {
 
       if (inconsistentRows.length > 0 && !isDryRun) {
         const fixedRows = await this.fixRows(inconsistentRows);
-        await this.upsertRows(fixedRows);
+        await this.persistRows(fixedRows);
         this.stats.rowsFixed += fixedRows.length;
       } else if (inconsistentRows.length > 0 && isDryRun) {
         console.log(
@@ -175,13 +177,12 @@ export class AsyncFixerExecutor<TName extends TableName> {
     );
     console.log(`Rows fixed:               ${this.stats.rowsFixed}`);
 
-    const percentage =
-      this.stats.totalRowsProcessed > 0
-        ? (
-            (this.stats.inconsistentRowsFound / this.stats.totalRowsProcessed) *
-            100
-          ).toFixed(2)
-        : "0.00";
+    const percentage = this.stats.totalRowsProcessed > 0
+      ? (
+        (this.stats.inconsistentRowsFound / this.stats.totalRowsProcessed) *
+        100
+      ).toFixed(2)
+      : "0.00";
     console.log(`Inconsistency rate:       ${percentage}%`);
 
     if (isDryRun && this.stats.inconsistentRowsFound > 0) {
@@ -252,6 +253,15 @@ export class AsyncFixerExecutor<TName extends TableName> {
     );
   }
 
+  private async persistRows(rows: SupabaseTableRow<TName>[]): Promise<void> {
+    const mode = this.backfill.writeBackMode ?? "upsert";
+    if (mode === "update") {
+      await this.updateRows(rows);
+    } else {
+      await this.upsertRows(rows);
+    }
+  }
+
   private async upsertRows(rows: SupabaseTableRow<TName>[]): Promise<void> {
     for (let i = 0; i < rows.length; i += UPSERT_BATCH_SIZE) {
       const chunk = rows.slice(i, i + UPSERT_BATCH_SIZE);
@@ -269,6 +279,36 @@ export class AsyncFixerExecutor<TName extends TableName> {
         `   💾 Upserted ${chunk.length} rows back into "${this.backfill.table}"`,
       );
     }
+  }
+
+  private async updateRows(rows: SupabaseTableRow<TName>[]): Promise<void> {
+    const pkColumn = this.getPrimaryKeyColumn();
+    await this.runWithConcurrency(
+      rows,
+      async (row) => {
+        const pkValue = (row as any)[pkColumn];
+        if (pkValue === undefined || pkValue === null) {
+          throw new Error(
+            `Cannot update row in table "${this.backfill.table}" without primary key value (${pkColumn})`,
+          );
+        }
+
+        const updatePayload = { ...row } as Record<string, unknown>;
+        delete updatePayload[pkColumn];
+
+        const { error } = await this.supabase
+          .from(this.backfill.table)
+          .update(updatePayload as any)
+          .eq(pkColumn, pkValue);
+
+        if (error) {
+          throw new Error(
+            `Failed to update row ${pkValue} in table "${this.backfill.table}": ${error.message}`,
+          );
+        }
+      },
+      FIX_CONCURRENCY,
+    );
   }
 
   private async runWithConcurrency<T, R>(
@@ -323,6 +363,10 @@ export class AsyncFixerExecutor<TName extends TableName> {
 
   private getOrderColumn(): string {
     return (this.backfill.orderByColumn as string | undefined) ?? "id";
+  }
+
+  private getPrimaryKeyColumn(): string {
+    return (this.backfill.primaryKeyColumn as string | undefined) ?? "id";
   }
 }
 
