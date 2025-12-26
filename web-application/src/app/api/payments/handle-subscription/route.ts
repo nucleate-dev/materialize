@@ -32,7 +32,7 @@ type StripeMetadataLike = Record<string, string | undefined> | null | undefined;
 function requireUserAndTeamIds(
   metadata: StripeMetadataLike,
   context: string,
-  exceptionEvent: ExceptionEvents = ExceptionEvents.SUSBCRIPTION_UPDATE_ERROR,
+  exceptionEvent: string = ExceptionEvents.SUSBCRIPTION_UPDATE_ERROR,
 ): { userId: string; teamId: string } | null {
   const userId = metadata?.user_id;
   const teamId = metadata?.team_id;

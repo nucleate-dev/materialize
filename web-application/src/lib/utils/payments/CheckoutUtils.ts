@@ -48,7 +48,7 @@ export async function handleCheckout(
       return;
     }
 
-    let checkoutTeamId = teamId;
+    let checkoutTeamId = teamId ?? null;
     if (!checkoutTeamId) {
       checkoutTeamId = await fetchPersonalTeamId(session.session.user.id);
     }
@@ -109,7 +109,8 @@ export async function handleRedirectToPaymentsPage(
     teamId,
   };
 
-  const checkoutEndpoint = `${process.env.NEXT_PUBLIC_SERVER_ENDPOINT}/payments/checkout`;
+  const checkoutEndpoint =
+    `${process.env.NEXT_PUBLIC_SERVER_ENDPOINT}/payments/checkout`;
 
   const response = await fetch(checkoutEndpoint, {
     method: "POST",
@@ -149,7 +150,6 @@ export async function fetchPersonalTeamId(
     .maybeSingle();
 
   if (error) {
-    console.error("Failed to fetch personal team id", error);
     return null;
   }
 
