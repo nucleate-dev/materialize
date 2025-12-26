@@ -255,6 +255,7 @@ export interface CreatePrototypeRequestBody {
   name: string;
   creation_source: PrototypeCreationSource;
   description?: string;
+  team_id: string;
   folder_id?: string;
   prototype_id?: string; // For forking an existing prototype
   visibility?: 'PUBLIC' | 'SELF';

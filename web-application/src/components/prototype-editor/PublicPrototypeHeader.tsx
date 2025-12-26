@@ -36,6 +36,7 @@ import {
   type PrototypeVisibility,
 } from "@/lib/types/prototypes";
 import { IsUserPlanSubscribed } from "@/lib/utils/payments/SubscriptionManagementUtils";
+import { fetchPersonalTeamId } from "@/lib/utils/payments/CheckoutUtils";
 import {
   Check,
   Copy,
@@ -261,6 +262,21 @@ export default function PublicPrototypeHeader({
           ? prototype.description
           : undefined;
 
+      const userId = session.data.session?.user.id;
+      if (!userId) {
+        setIsCloning(false);
+        return;
+      }
+
+      const teamId = await fetchPersonalTeamId(userId);
+      if (!teamId) {
+        setIsCloning(false);
+        logger.debug("error", "Unable to locate personal team for clone", {
+          userId,
+        });
+        return;
+      }
+
       const payload: CreatePrototypeRequestBody = {
         name: clonedPrototypeName,
         creation_source: "public_prototype_clone",
@@ -268,6 +284,7 @@ export default function PublicPrototypeHeader({
         folder_id: folderId,
         prototype_id: prototype.id,
         visibility: "PUBLIC", // TODO evaluate whether this should ever be private
+        team_id: teamId,
       };
 
       const response = await fetch(

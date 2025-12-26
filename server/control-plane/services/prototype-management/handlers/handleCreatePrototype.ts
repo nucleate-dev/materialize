@@ -73,6 +73,7 @@ export async function handleCreatePrototypeImpl(
       name,
       creation_source,
       description,
+      team_id,
       folder_id,
       prototype_id: forkPrototypeId, // If provided, this is a fork
       design_style,
@@ -243,6 +244,7 @@ export async function handleCreatePrototypeImpl(
           : resolvedCustomDesignSystem,
         framework: resolvedFramework,
         latest_build_key: version,
+        team_id: team_id,
       } satisfies TablesInsert<'prototypes'>)
       .select()
       .single();

@@ -151,10 +151,20 @@ export default function AuthCallback() {
           let prototypeId = chatIntent.prototype_id;
           if (!prototypeId) {
             try {
-              const payload: CreatePrototypeRequestBody = {
-                name: "New Prototype",
-                creation_source: "auth_callback_chat_intent",
-              };
+          const teamId = await fetchPersonalTeamId(data.session.user.id);
+          if (!teamId) {
+            logger.debug("error", "Unable to determine personal team", {
+              user_id: data.session.user.id,
+            });
+            router.push("/dashboard");
+            return;
+          }
+
+          const payload: CreatePrototypeRequestBody = {
+            name: "New Prototype",
+            creation_source: "auth_callback_chat_intent",
+            team_id: teamId,
+          };
 
               const response = await fetch(
                 `${process.env.NEXT_PUBLIC_SERVER_ENDPOINT!}/prototype/create`,

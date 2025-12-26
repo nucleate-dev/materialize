@@ -61,6 +61,7 @@ import {
   type StartDevServerSuccessResponse,
 } from "@/lib/types/serverAPITypes";
 import { Database } from "@/lib/types/supabase";
+import { fetchPersonalTeamId } from "@/lib/utils/payments/CheckoutUtils";
 import { IsUserPlanSubscribed } from "@/lib/utils/payments/SubscriptionManagementUtils";
 import { useSetAtom } from "jotai";
 import {
@@ -776,6 +777,21 @@ export default function InternalPrototypePage() {
           ? prototype.description
           : undefined;
 
+      const userId = session.data.session?.user.id;
+      if (!userId) {
+        setIsCloningPrototype(false);
+        return;
+      }
+
+      const teamId = await fetchPersonalTeamId(userId);
+      if (!teamId) {
+        logger.debug("error", "Unable to locate personal team for clone", {
+          userId,
+        });
+        setIsCloningPrototype(false);
+        return;
+      }
+
       const payload: CreatePrototypeRequestBody = {
         name: clonedPrototypeName,
         creation_source: "prototype_editor_clone",
@@ -783,6 +799,7 @@ export default function InternalPrototypePage() {
         folder_id: folderId,
         prototype_id: prototype.id,
         visibility: "PUBLIC",
+        team_id: teamId,
       };
 
       const response = await fetch(

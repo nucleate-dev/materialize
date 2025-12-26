@@ -81,13 +81,14 @@ export class PrototypeManagementService {
         schema: {
           body: {
             type: 'object',
-            required: ['name', 'creation_source'],
+            required: ['name', 'creation_source', 'team_id'],
             properties: {
               name: { type: 'string' },
               creation_source: {
                 type: 'string',
                 enum: PROTOTYPE_CREATION_SOURCES,
               },
+              team_id: { type: 'string' },
               description: { type: 'string' },
               folder_id: { type: 'string' },
               prototype_id: { type: 'string' }, // For forking
