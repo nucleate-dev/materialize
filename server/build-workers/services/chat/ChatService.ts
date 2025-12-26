@@ -378,7 +378,7 @@ export class ChatService {
       });
       return;
     }
-    const { userId, prototypeId } = getWorkerContext();
+    const { userId, prototypeId, teamId } = getWorkerContext();
     if (!prototypeId) {
       this.sendMessage(socket, {
         type: ChatEvent.ERROR,
@@ -841,6 +841,7 @@ export class ChatService {
     logger: SystemLogger,
   ): Promise<ChatQueryValidationResult> {
     try {
+      const { teamId } = getWorkerContext();
       const {
         data: { user },
         error: userError,
@@ -858,10 +859,17 @@ export class ChatService {
           errorDetails: "Unable to verify user credentials",
         };
       }
+      if (!teamId) {
+        logger.warn("Team ID missing in worker context for credit check", {
+          prototypeId,
+          userId: user.id,
+        });
+      }
 
       const creditCheck = await hasRemainingCredits(
         this.supabaseClientService.getClient(),
         user.id,
+        teamId,
         logger,
       );
 
@@ -1490,6 +1498,7 @@ export class ChatService {
           prototypeId,
           logger,
           creditsUsed,
+          teamId,
         );
 
         this.sendMessage(socket, {
