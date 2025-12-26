@@ -232,6 +232,7 @@ export type Database = {
           grant_type: string
           id: string
           subscription_id: string | null
+          team_id: string | null
           user_id: string
         }
         Insert: {
@@ -244,6 +245,7 @@ export type Database = {
           grant_type?: string
           id?: string
           subscription_id?: string | null
+          team_id?: string | null
           user_id: string
         }
         Update: {
@@ -256,6 +258,7 @@ export type Database = {
           grant_type?: string
           id?: string
           subscription_id?: string | null
+          team_id?: string | null
           user_id?: string
         }
         Relationships: [
@@ -264,6 +267,13 @@ export type Database = {
             columns: ["subscription_id"]
             isOneToOne: false
             referencedRelation: "subscriptions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "credit_grants_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
             referencedColumns: ["id"]
           },
           {
@@ -818,6 +828,7 @@ export type Database = {
           status: Database["public"]["Enums"]["subscription_status"] | null
           stripe_customer_id: string | null
           updated_at: string | null
+          team_id: string | null
           user_id: string | null
         }
         Insert: {
@@ -831,6 +842,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["subscription_status"] | null
           stripe_customer_id?: string | null
           updated_at?: string | null
+          team_id?: string | null
           user_id?: string | null
         }
         Update: {
@@ -844,6 +856,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["subscription_status"] | null
           stripe_customer_id?: string | null
           updated_at?: string | null
+          team_id?: string | null
           user_id?: string | null
         }
         Relationships: [
@@ -852,6 +865,13 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subscriptions_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
             referencedColumns: ["id"]
           },
         ]
@@ -1157,6 +1177,7 @@ export type Database = {
           grant_type: string | null
           id: string | null
           subscription_id: string | null
+          team_id: string | null
           user_id: string | null
         }
         Relationships: [
@@ -1165,6 +1186,13 @@ export type Database = {
             columns: ["subscription_id"]
             isOneToOne: false
             referencedRelation: "subscriptions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "credit_grants_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
             referencedColumns: ["id"]
           },
           {
