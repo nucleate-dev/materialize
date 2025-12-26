@@ -763,7 +763,7 @@ export type Database = {
           project_context: string
           prototype_context: Json | null
           slug: string | null
-          team_id: string | null
+          team_id: string
           updated_at: string | null
           visibility: Database["public"]["Enums"]["visibility_level"] | null
         }
@@ -782,7 +782,7 @@ export type Database = {
           project_context?: string
           prototype_context?: Json | null
           slug?: string | null
-          team_id?: string | null
+          team_id: string
           updated_at?: string | null
           visibility?: Database["public"]["Enums"]["visibility_level"] | null
         }
@@ -801,7 +801,7 @@ export type Database = {
           project_context?: string
           prototype_context?: Json | null
           slug?: string | null
-          team_id?: string | null
+          team_id?: string
           updated_at?: string | null
           visibility?: Database["public"]["Enums"]["visibility_level"] | null
         }
@@ -1265,6 +1265,10 @@ export type Database = {
           success: boolean
           total_remaining: number
         }[]
+      }
+      is_team_member: {
+        Args: { p_team_id: string; p_user_id: string }
+        Returns: boolean
       }
     }
     Enums: {
