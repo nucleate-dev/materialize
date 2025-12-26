@@ -14,11 +14,13 @@ import { AppRouterInstance } from "next/dist/shared/lib/app-router-context.share
  *
  * @param {string} productID - The ID of the product the user is trying to purchase.
  * @param {AppRouterInstance} router - The Next.js router instance for handling navigation.
+ * @param {string} [teamId] - Optional team ID to charge; defaults to the user's personal team.
  *
  * Workflow:
  *  1. Checks if the user is authenticated by fetching the user object from Supabase.
  *  2. If the user is logged in:
- *     - Calls `handleRedirectToPaymentsPage` with the `productID` and the user's ID to initiate the checkout process.
+ *     - Finds the user's personal team and calls `handleRedirectToPaymentsPage`
+ *       with the `productID`, access token, and `teamId` to initiate the checkout process.
  *  3. If the user is not logged in:
  *     - Stores the `productID` in `localStorage` under the key `"checkout_intent"` to remember the user's intent.
  *     - Redirects the user to the login page using the Next.js `router.push("/login")`.
@@ -35,6 +37,7 @@ import { AppRouterInstance } from "next/dist/shared/lib/app-router-context.share
 export async function handleCheckout(
   productID: string,
   router: AppRouterInstance,
+  teamId?: string,
 ) {
   const { data: session } = await supabase.auth.getSession();
 
@@ -42,9 +45,22 @@ export async function handleCheckout(
     // User is logged in, create the Stripe checkout session
     if (productID === "free") {
       router.push("/dashboard");
-    } else {
-      handleRedirectToPaymentsPage(productID, session.session.access_token);
+      return;
     }
+
+    let checkoutTeamId = teamId;
+    if (!checkoutTeamId) {
+      checkoutTeamId = await fetchPersonalTeamId(session.session.user.id);
+    }
+    if (!checkoutTeamId) {
+      throw new Error("Could not determine personal team for checkout");
+    }
+
+    await handleRedirectToPaymentsPage(
+      productID,
+      session.session.access_token,
+      checkoutTeamId,
+    );
   } else {
     // Store product ID in local storage or URL and redirect to login
     if (productID !== "free") {
@@ -59,6 +75,7 @@ export async function handleCheckout(
  *
  * @param {string} productID - The ID of the product the user is purchasing.
  * @param {string} accessToken - The JWT access token of the authenticated user.
+ * @param {string} teamId - The team ID that will own the subscription/credits.
  *
  * Workflow:
  *  1. Loads the Stripe library using the publishable key from environment variables.
@@ -69,11 +86,12 @@ export async function handleCheckout(
  *
  * @example
  * // Example usage of handleRedirectToPaymentsPage
- * handleRedirectToPaymentsPage("team", "jwt_access_token");
+ * handleRedirectToPaymentsPage("team", "jwt_access_token", "team_id");
  */
 export async function handleRedirectToPaymentsPage(
   productID: string,
   accessToken: string,
+  teamId: string,
 ): Promise<void> {
   const stripe = await loadStripe(
     process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY as string,
@@ -88,6 +106,7 @@ export async function handleRedirectToPaymentsPage(
       | "credit_pack_100"
       | "credit_pack_500"
       | "credit_pack_1000",
+    teamId,
   };
 
   const checkoutEndpoint = `${process.env.NEXT_PUBLIC_SERVER_ENDPOINT}/payments/checkout`;
@@ -118,4 +137,21 @@ export async function handleRedirectToPaymentsPage(
       `Checkout failed: ${result.error.message || result.error.error}`,
     );
   }
+}
+
+export async function fetchPersonalTeamId(
+  userId: string,
+): Promise<string | null> {
+  const { data, error } = await supabase
+    .from("teams")
+    .select("id")
+    .eq("personal_owner_user_id", userId)
+    .maybeSingle();
+
+  if (error) {
+    console.error("Failed to fetch personal team id", error);
+    return null;
+  }
+
+  return data?.id ?? null;
 }

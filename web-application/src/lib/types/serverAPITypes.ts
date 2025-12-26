@@ -137,6 +137,7 @@ export interface CheckoutRequestBody {
     | 'credit_pack_100'
     | 'credit_pack_500'
     | 'credit_pack_1000';
+  teamId: string;
 }
 
 export interface CheckoutSuccessResponse {

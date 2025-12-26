@@ -13,7 +13,9 @@ import {
 } from '../types/PublicAPITypes.js';
 import { validateJWTToken } from '../utils/prototypeAuth.js';
 import { getSubscriptionInfo } from '../utils/subscriptionChecks.js';
+import { userIsTeamAdminOrOwner } from '../utils/teamUtils.js';
 import { PostHogEvents } from '../loggers/PostHogEvents.js';
+import { createClient } from '@supabase/supabase-js';
 
 // Initialize Stripe
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
@@ -32,7 +34,7 @@ export class StripeManagementService {
         schema: {
           body: {
             type: 'object',
-            required: ['productID'],
+            required: ['productID', 'teamId'],
             properties: {
               productID: {
                 type: 'string',
@@ -123,13 +125,46 @@ export class StripeManagementService {
       userId: user.id,
     });
 
-    const { productID } = request.body;
+    const { productID, teamId } = request.body;
+
+    const supabaseClient = createClient<Database>(
+      process.env.SUPABASE_URL!,
+      process.env.SUPABASE_ANON_KEY!,
+      {
+        global: {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      },
+    );
+
+    const hasTeamAccess = await userIsTeamAdminOrOwner(
+      teamId,
+      user.id,
+      supabaseClient,
+      request.log2,
+    );
+    if (!hasTeamAccess) {
+      request.log2.warn('User is not owner/admin of requested team', {
+        teamId,
+      });
+      return reply.status(HTTP_STATUS.FORBIDDEN).send({
+        data: null,
+        error: {
+          id: null,
+          error: 'Forbidden',
+          message: 'You do not have permission to manage billing for this team',
+        },
+      });
+    }
 
     // Setup PostHog logger with context
     const posthogLogger = request.posthogLogger.child({
       function: 'handleCheckout',
       service: 'StripeManagementService',
       productID,
+      teamId,
     });
 
     // Handle free tier - no Stripe checkout needed
@@ -173,6 +208,11 @@ export class StripeManagementService {
         user.id,
         PostHogEvents.server_stripe_checkout_session_creation,
         async () => {
+          const sessionMetadata: Stripe.MetadataParam = {
+            user_id: user.id,
+            team_id: teamId,
+          };
+
           const sessionConfig: Stripe.Checkout.SessionCreateParams = {
             payment_method_types: ['card', 'us_bank_account'],
             line_items: [
@@ -185,18 +225,12 @@ export class StripeManagementService {
             success_url: `${process.env.SITE_BASE_URL}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
             cancel_url: `${process.env.SITE_BASE_URL}/dashboard/account`,
             allow_promotion_codes: true,
+            metadata: sessionMetadata,
           };
 
           if (mode === 'subscription') {
             sessionConfig.subscription_data = {
-              metadata: {
-                user_id: user.id,
-              },
-            };
-          } else {
-            // For one-time payments (credit packs)
-            sessionConfig.metadata = {
-              user_id: user.id,
+              metadata: sessionMetadata,
             };
           }
 
