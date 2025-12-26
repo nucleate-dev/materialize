@@ -1,19 +1,23 @@
-import Stripe from 'stripe';
-import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
+import Stripe from "stripe";
+import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import {
-  type ManageBillingSuccessResponse,
-  type ManageBillingErrorResponse,
+  type APIResponse,
+  type CheckoutErrorResponse,
   type CheckoutRequestBody,
   type CheckoutSuccessResponse,
-  type CheckoutErrorResponse,
-  type GetCheckoutSessionSuccessResponse,
   type GetCheckoutSessionErrorResponse,
-  type APIResponse,
+  type GetCheckoutSessionSuccessResponse,
   HTTP_STATUS,
-} from '../types/PublicAPITypes.js';
-import { validateJWTToken } from '../utils/prototypeAuth.js';
-import { getSubscriptionInfo } from '../utils/subscriptionChecks.js';
-import { PostHogEvents } from '../loggers/PostHogEvents.js';
+  type ManageBillingErrorResponse,
+  type ManageBillingRequestBody,
+  type ManageBillingSuccessResponse,
+} from "../types/PublicAPITypes.js";
+import { validateJWTToken } from "../utils/prototypeAuth.js";
+import { getSubscriptionInfo } from "../utils/subscriptionChecks.js";
+import { userIsTeamAdminOrOwner } from "../utils/teamUtils.js";
+import { PostHogEvents } from "../loggers/PostHogEvents.js";
+import { createClient } from "@supabase/supabase-js";
+import { Database } from "../types/supabase.js";
 
 // Initialize Stripe
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
@@ -27,23 +31,23 @@ export class StripeManagementService {
   public registerRoutes(app: FastifyInstance): void {
     // POST /payments/checkout
     app.post<{ Body: CheckoutRequestBody }>(
-      '/payments/checkout',
+      "/payments/checkout",
       {
         schema: {
           body: {
-            type: 'object',
-            required: ['productID'],
+            type: "object",
+            required: ["productID", "teamId"],
             properties: {
               productID: {
-                type: 'string',
+                type: "string",
                 enum: [
-                  'free',
-                  'plus',
-                  'pro',
-                  'max',
-                  'credit_pack_100',
-                  'credit_pack_500',
-                  'credit_pack_1000',
+                  "free",
+                  "plus",
+                  "pro",
+                  "max",
+                  "credit_pack_100",
+                  "credit_pack_500",
+                  "credit_pack_1000",
                 ],
               },
             },
@@ -55,15 +59,15 @@ export class StripeManagementService {
 
     // GET /payments/checkout/session
     app.get<{ Querystring: { session_id: string } }>(
-      '/payments/checkout/session',
+      "/payments/checkout/session",
       {
         schema: {
           querystring: {
-            type: 'object',
-            required: ['session_id'],
+            type: "object",
+            required: ["session_id"],
             properties: {
               session_id: {
-                type: 'string',
+                type: "string",
               },
             },
           },
@@ -73,8 +77,19 @@ export class StripeManagementService {
     );
 
     // POST /payments/manage-billing
-    app.post<{ Body: {} }>(
-      '/payments/manage-billing',
+    app.post<{ Body: ManageBillingRequestBody }>(
+      "/payments/manage-billing",
+      {
+        schema: {
+          body: {
+            type: "object",
+            required: ["teamId"],
+            properties: {
+              teamId: { type: "string" },
+            },
+          },
+        },
+      },
       this.handleManageBilling.bind(this),
     );
   }
@@ -105,16 +120,16 @@ export class StripeManagementService {
     reply: FastifyReply,
   ): Promise<APIResponse<CheckoutSuccessResponse, CheckoutErrorResponse>> {
     // Extract JWT token from Authorization header and validate it
-    const token = request.headers.authorization?.split(' ')[1] ?? '';
+    const token = request.headers.authorization?.split(" ")[1] ?? "";
     const { user } = await validateJWTToken(token, request.log2);
     if (!user) {
-      request.log2.warn('Unauthorized user');
+      request.log2.warn("Unauthorized user");
       return reply.status(HTTP_STATUS.UNAUTHORIZED).send({
         data: null,
         error: {
           id: null,
-          error: 'Unauthorized',
-          message: 'Invalid token',
+          error: "Unauthorized",
+          message: "Invalid token",
         },
       });
     }
@@ -123,49 +138,82 @@ export class StripeManagementService {
       userId: user.id,
     });
 
-    const { productID } = request.body;
+    const { productID, teamId } = request.body;
+
+    const supabaseClient = createClient<Database>(
+      process.env.SUPABASE_URL!,
+      process.env.SUPABASE_ANON_KEY!,
+      {
+        global: {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      },
+    );
+
+    const hasTeamAccess = await userIsTeamAdminOrOwner(
+      teamId,
+      user.id,
+      supabaseClient,
+      request.log2,
+    );
+    if (!hasTeamAccess) {
+      request.log2.warn("User is not owner/admin of requested team", {
+        teamId,
+      });
+      return reply.status(HTTP_STATUS.FORBIDDEN).send({
+        data: null,
+        error: {
+          id: null,
+          error: "Forbidden",
+          message: "You do not have permission to manage billing for this team",
+        },
+      });
+    }
 
     // Setup PostHog logger with context
     const posthogLogger = request.posthogLogger.child({
-      function: 'handleCheckout',
-      service: 'StripeManagementService',
+      function: "handleCheckout",
+      service: "StripeManagementService",
       productID,
+      teamId,
     });
 
     // Handle free tier - no Stripe checkout needed
-    if (productID === 'free') {
-      request.log2.warn('Free tier selected - no Stripe checkout needed');
+    if (productID === "free") {
+      request.log2.warn("Free tier selected - no Stripe checkout needed");
       return reply.status(HTTP_STATUS.BAD_REQUEST).send({
         data: null,
         error: {
           id: null,
-          error: 'Invalid product selection',
-          message: 'Free tier does not require checkout',
+          error: "Invalid product selection",
+          message: "Free tier does not require checkout",
         },
       });
     }
 
     // Determine price ID based on product
     let priceID: string;
-    let mode: 'subscription' | 'payment' = 'subscription';
+    let mode: "subscription" | "payment" = "subscription";
 
-    if (productID === 'plus') {
+    if (productID === "plus") {
       priceID = process.env.STRIPE_PLUS_PRICE_ID as string;
-    } else if (productID === 'pro') {
+    } else if (productID === "pro") {
       priceID = process.env.STRIPE_PRO_PRICE_ID as string;
-    } else if (productID === 'max') {
+    } else if (productID === "max") {
       priceID = process.env.STRIPE_MAX_PRICE_ID as string;
-    } else if (productID === 'credit_pack_100') {
+    } else if (productID === "credit_pack_100") {
       priceID = process.env.STRIPE_CREDIT_PACK_100_PRICE_ID as string;
-      mode = 'payment';
-    } else if (productID === 'credit_pack_500') {
+      mode = "payment";
+    } else if (productID === "credit_pack_500") {
       priceID = process.env.STRIPE_CREDIT_PACK_500_PRICE_ID as string;
-      mode = 'payment';
-    } else if (productID === 'credit_pack_1000') {
+      mode = "payment";
+    } else if (productID === "credit_pack_1000") {
       priceID = process.env.STRIPE_CREDIT_PACK_1000_PRICE_ID as string;
-      mode = 'payment';
+      mode = "payment";
     } else {
-      throw new Error('Invalid product ID');
+      throw new Error("Invalid product ID");
     }
 
     try {
@@ -173,8 +221,13 @@ export class StripeManagementService {
         user.id,
         PostHogEvents.server_stripe_checkout_session_creation,
         async () => {
+          const sessionMetadata: Stripe.MetadataParam = {
+            user_id: user.id,
+            team_id: teamId,
+          };
+
           const sessionConfig: Stripe.Checkout.SessionCreateParams = {
-            payment_method_types: ['card', 'us_bank_account'],
+            payment_method_types: ["card", "us_bank_account"],
             line_items: [
               {
                 price: priceID,
@@ -182,21 +235,16 @@ export class StripeManagementService {
               },
             ],
             mode,
-            success_url: `${process.env.SITE_BASE_URL}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
+            success_url:
+              `${process.env.SITE_BASE_URL}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
             cancel_url: `${process.env.SITE_BASE_URL}/dashboard/account`,
             allow_promotion_codes: true,
+            metadata: sessionMetadata,
           };
 
-          if (mode === 'subscription') {
+          if (mode === "subscription") {
             sessionConfig.subscription_data = {
-              metadata: {
-                user_id: user.id,
-              },
-            };
-          } else {
-            // For one-time payments (credit packs)
-            sessionConfig.metadata = {
-              user_id: user.id,
+              metadata: sessionMetadata,
             };
           }
 
@@ -212,13 +260,13 @@ export class StripeManagementService {
         error: null,
       });
     } catch (error) {
-      request.log2.error(error, 'Exception creating checkout session');
+      request.log2.error(error, "Exception creating checkout session");
       return reply.status(HTTP_STATUS.BAD_REQUEST).send({
         data: null,
         error: {
           id: null,
-          error: 'Checkout session creation failed',
-          message: error instanceof Error ? error.message : 'Unknown error',
+          error: "Checkout session creation failed",
+          message: error instanceof Error ? error.message : "Unknown error",
         },
       });
     }
@@ -254,12 +302,12 @@ export class StripeManagementService {
     const { session_id } = request.query;
 
     if (!session_id) {
-      request.log2.warn('Missing session_id parameter');
+      request.log2.warn("Missing session_id parameter");
       return reply.status(HTTP_STATUS.BAD_REQUEST).send({
         data: null,
         error: {
-          error: 'Missing parameter',
-          message: 'Missing session_id parameter',
+          error: "Missing parameter",
+          message: "Missing session_id parameter",
         },
       });
     }
@@ -267,16 +315,15 @@ export class StripeManagementService {
     try {
       // Retrieve the checkout session from Stripe
       const session = await stripe.checkout.sessions.retrieve(session_id, {
-        expand: ['line_items', 'line_items.data.price.product'],
+        expand: ["line_items", "line_items.data.price.product"],
       });
 
       // Extract relevant information for Meta Pixel tracking
       const lineItem = session.line_items?.data[0];
       const product = lineItem?.price?.product;
-      const productName =
-        typeof product === 'object' && 'name' in product
-          ? product.name
-          : 'Subscription';
+      const productName = typeof product === "object" && "name" in product
+        ? product.name
+        : "Subscription";
 
       return reply.status(HTTP_STATUS.OK).send({
         data: {
@@ -288,13 +335,14 @@ export class StripeManagementService {
         error: null,
       });
     } catch (error) {
-      request.log2.error(error, 'Failed to fetch checkout session');
+      request.log2.error(error, "Failed to fetch checkout session");
       return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
         data: null,
         error: {
-          error: 'Session fetch failed',
-          message:
-            error instanceof Error ? error.message : 'Failed to fetch session',
+          error: "Session fetch failed",
+          message: error instanceof Error
+            ? error.message
+            : "Failed to fetch session",
         },
       });
     }
@@ -340,21 +388,21 @@ export class StripeManagementService {
    *  6. Handles and logs errors appropriately, such as missing user IDs or database/Stripe errors.
    */
   private async handleManageBilling(
-    request: FastifyRequest<{ Body: {} }>,
+    request: FastifyRequest<{ Body: ManageBillingRequestBody }>,
     reply: FastifyReply,
   ): Promise<
     APIResponse<ManageBillingSuccessResponse, ManageBillingErrorResponse>
   > {
     // Extract JWT token from Authorization header
-    const token = request.headers.authorization?.split(' ')[1] ?? '';
+    const token = request.headers.authorization?.split(" ")[1] ?? "";
     const { user } = await validateJWTToken(token, request.log2);
     if (!user) {
-      request.log2.warn('Unauthorized user');
+      request.log2.warn("Unauthorized user");
       return reply.status(HTTP_STATUS.UNAUTHORIZED).send({
         data: null,
         error: {
-          error: 'Unauthorized',
-          message: 'Invalid token',
+          error: "Unauthorized",
+          message: "Invalid token",
         },
       });
     }
@@ -363,17 +411,64 @@ export class StripeManagementService {
       userId: user.id,
     });
 
+    const { teamId } = request.body;
+
+    const supabaseClient = createClient<Database>(
+      process.env.SUPABASE_URL!,
+      process.env.SUPABASE_ANON_KEY!,
+      {
+        global: {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      },
+    );
+
+    const hasTeamAccess = await userIsTeamAdminOrOwner(
+      teamId,
+      user.id,
+      supabaseClient,
+      request.log2,
+    );
+    if (!hasTeamAccess) {
+      request.log2.warn("User is not owner/admin of requested team", {
+        teamId,
+      });
+      return reply.status(HTTP_STATUS.FORBIDDEN).send({
+        data: null,
+        error: {
+          error: "Forbidden",
+          message: "You do not have permission to manage billing for this team",
+        },
+      });
+    }
+
     // Setup PostHog logger with context
     const posthogLogger = request.posthogLogger.child({
-      function: 'handleManageBilling',
-      service: 'StripeManagementService',
+      function: "handleManageBilling",
+      service: "StripeManagementService",
+      teamId,
     });
 
     const subscriptionInfo = await getSubscriptionInfo(
       token,
       user.id,
       request.log2,
+      teamId,
     );
+
+    if (!subscriptionInfo.stripeCustomerId) {
+      request.log2.warn("No Stripe customer found for team", { teamId });
+      return reply.status(HTTP_STATUS.BAD_REQUEST).send({
+        data: null,
+        error: {
+          error: "no_subscription",
+          message:
+            "This team does not have an active subscription to manage billing.",
+        },
+      });
+    }
 
     try {
       const result = await posthogLogger.timeAndRecord(
@@ -398,13 +493,13 @@ export class StripeManagementService {
     } catch (error) {
       request.log2.error(
         error,
-        '[handleManageBilling] Could not create stripe billing portal session:',
+        "[handleManageBilling] Could not create stripe billing portal session:",
       );
       return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
         data: null,
         error: {
-          error: 'Internal Server Error',
-          message: 'Could not create stripe billing portal session',
+          error: "Internal Server Error",
+          message: "Could not create stripe billing portal session",
         },
       });
     }

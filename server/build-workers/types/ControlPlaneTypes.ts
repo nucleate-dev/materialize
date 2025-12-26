@@ -137,6 +137,7 @@ export interface CheckoutRequestBody {
     | 'credit_pack_100'
     | 'credit_pack_500'
     | 'credit_pack_1000';
+  teamId: string;
 }
 
 export interface CheckoutSuccessResponse {
@@ -176,6 +177,10 @@ export interface ManageBillingSuccessResponse {
 export interface ManageBillingErrorResponse {
   error: string;
   message: string;
+}
+
+export interface ManageBillingRequestBody {
+  teamId: string;
 }
 
 // ============================================================================
@@ -259,6 +264,7 @@ export interface CreatePrototypeRequestBody {
   name: string;
   creation_source: PrototypeCreationSource;
   description?: string;
+  team_id: string;
   folder_id?: string;
   prototype_id?: string; // For forking an existing prototype
   visibility?: 'PUBLIC' | 'SELF';

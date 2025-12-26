@@ -73,6 +73,7 @@ export async function handleCreatePrototypeImpl(
       name,
       creation_source,
       description,
+      team_id,
       folder_id,
       prototype_id: forkPrototypeId, // If provided, this is a fork
       design_style,
@@ -100,6 +101,7 @@ export async function handleCreatePrototypeImpl(
       token,
       user.id,
       request.log2,
+      team_id,
     );
     if (limitCheck.exceeded) {
       return reply.status(HTTP_STATUS.PAYMENT_REQUIRED).send({
@@ -243,6 +245,7 @@ export async function handleCreatePrototypeImpl(
           : resolvedCustomDesignSystem,
         framework: resolvedFramework,
         latest_build_key: version,
+        team_id: team_id,
       } satisfies TablesInsert<'prototypes'>)
       .select()
       .single();

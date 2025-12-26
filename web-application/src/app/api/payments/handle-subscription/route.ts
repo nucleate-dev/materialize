@@ -27,6 +27,39 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY ?? "",
 );
 
+type StripeMetadataLike = Record<string, string | undefined> | null | undefined;
+
+function requireUserAndTeamIds(
+  metadata: StripeMetadataLike,
+  context: string,
+  exceptionEvent: string = ExceptionEvents.SUSBCRIPTION_UPDATE_ERROR,
+): { userId: string; teamId: string } | null {
+  const userId = metadata?.user_id;
+  const teamId = metadata?.team_id;
+
+  if (!userId || !teamId) {
+    const missing: string[] = [];
+    if (!userId) missing.push("user_id");
+    if (!teamId) missing.push("team_id");
+    const errorMessage = `Missing ${
+      missing.join(" and ")
+    } in Stripe metadata for ${context}`;
+    console.error(errorMessage);
+    posthog.capture({
+      distinctId: userId ?? "unknown",
+      event: exceptionEvent,
+      properties: {
+        source: LoggingEventSource.API_PAYMENTS_HANDLE_SUBSCRIPTION,
+        error: errorMessage,
+        context,
+      },
+    });
+    return null;
+  }
+
+  return { userId, teamId };
+}
+
 /**
  * Handles Stripe webhook events sent to the server. This function verifies that the incoming
  * webhook request is genuinely from Stripe using the Stripe signature, and processes different
@@ -111,13 +144,22 @@ async function handleCheckoutSessionCompleted(
 
   if (session.mode === "payment") {
     // Handle one-time credit pack purchases
+    const ids = requireUserAndTeamIds(
+      session.metadata ?? null,
+      "checkout.session.completed:payment",
+      ExceptionEvents.CREDIT_GRANT_ERROR,
+    );
+    if (!ids) {
+      return;
+    }
+
     const creditPackAmount = getCreditPackAmount(priceId);
     if (creditPackAmount === null) {
       return;
     }
-    await handleCreditPackPurchase(session, creditPackAmount);
+    await handleCreditPackPurchase(session, creditPackAmount, ids);
     posthog.capture({
-      distinctId: session.metadata?.user_id ?? "unknown",
+      distinctId: ids.userId,
       event: "server_stripe_webhook_checkout_payment_completed",
       properties: {
         source: LoggingEventSource.API_PAYMENTS_HANDLE_SUBSCRIPTION,
@@ -128,16 +170,21 @@ async function handleCheckoutSessionCompleted(
         amount_total: session.amount_total ?? 0,
         currency: session.currency ?? "usd",
         price_id: priceId,
+        team_id: ids.teamId,
       },
     });
   } else if (session.mode === "subscription") {
     // Handle subscription checkout - send Meta Purchase event
     // The actual subscription setup is handled by invoice.paid event
-    if (!session.metadata?.user_id) {
+    const ids = requireUserAndTeamIds(
+      session.metadata ?? null,
+      "checkout.session.completed:subscription",
+    );
+    if (!ids) {
       return;
     }
 
-    const userId = session.metadata.user_id;
+    const { userId, teamId } = ids;
     const { data: userData } = await supabase
       .from("users")
       .select("email")
@@ -154,7 +201,9 @@ async function handleCheckoutSessionCompleted(
       value: (session.amount_total ?? 0) / 100, // Convert cents to dollars
       currency: session.currency ?? "usd",
       transactionId: session.id, // Same ID used by client-side pixel for deduplication
-      contentName: `${planKey.charAt(0).toUpperCase() + planKey.slice(1)} Subscription`,
+      contentName: `${
+        planKey.charAt(0).toUpperCase() + planKey.slice(1)
+      } Subscription`,
       eventSourceUrl: process.env.NEXT_PUBLIC_SITE_BASE_URL ?? "",
     });
     posthog.capture({
@@ -168,6 +217,7 @@ async function handleCheckoutSessionCompleted(
         amount_total: session.amount_total ?? 0,
         currency: session.currency ?? "usd",
         price_id: priceId,
+        team_id: teamId,
       },
     });
   }
@@ -185,22 +235,9 @@ async function handleCheckoutSessionCompleted(
 async function handleCreditPackPurchase(
   session: Stripe.Checkout.Session,
   creditAmount: number,
+  ids: { userId: string; teamId: string },
 ): Promise<void> {
-  if (!session.metadata?.user_id) {
-    console.error("Could not find user_id for credit pack purchase");
-    posthog.capture({
-      distinctId: "unknown",
-      event: ExceptionEvents.CREDIT_GRANT_ERROR,
-      properties: {
-        source: LoggingEventSource.API_PAYMENTS_HANDLE_SUBSCRIPTION,
-        error: "Could not find user_id for credit pack purchase",
-        context: "credit_pack_purchase",
-      },
-    });
-    return;
-  }
-
-  const userId = session.metadata.user_id;
+  const { userId, teamId } = ids;
 
   // Record the payment first so retries cannot re-grant credits
   const { error: paymentError } = await supabase.from("payments").insert({
@@ -221,6 +258,7 @@ async function handleCreditPackPurchase(
         source: LoggingEventSource.API_PAYMENTS_HANDLE_SUBSCRIPTION,
         error: paymentError,
         context: "credit_pack_purchase",
+        team_id: teamId,
       },
     });
     console.error("Error recording payment for credit pack:", paymentError);
@@ -235,6 +273,7 @@ async function handleCreditPackPurchase(
     .from("credit_grants")
     .insert({
       user_id: userId,
+      team_id: teamId,
       credits_granted: creditAmount,
       subscription_id: null,
       grant_reason: "one_time_credit_pack",
@@ -252,6 +291,7 @@ async function handleCreditPackPurchase(
         source: LoggingEventSource.API_PAYMENTS_HANDLE_SUBSCRIPTION,
         error: creditGrantError,
         context: "credit_pack_purchase",
+        team_id: teamId,
       },
     });
     console.error("Error granting credits for credit pack:", creditGrantError);
@@ -264,6 +304,7 @@ async function handleCreditPackPurchase(
     properties: {
       source: LoggingEventSource.API_PAYMENTS_HANDLE_SUBSCRIPTION,
       credit_pack_amount: creditAmount,
+      team_id: teamId,
     },
   });
 
@@ -330,7 +371,18 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
     });
     return;
   }
-  const userId = subscription.metadata?.user_id;
+  const metadataIds = requireUserAndTeamIds(
+    subscription.metadata ?? null,
+    "invoice.paid",
+  );
+  if (!metadataIds) {
+    return;
+  }
+  const { userId, teamId } = metadataIds;
+  const posthogBaseProps = {
+    source: LoggingEventSource.API_PAYMENTS_HANDLE_SUBSCRIPTION,
+    team_id: teamId,
+  };
 
   // update the database with the new subscription info and record the payment for access later
   const { error: subscriptionUpdateError } = await supabase
@@ -338,6 +390,7 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
     .upsert({
       id: subscription.id, // primary key
       user_id: userId,
+      team_id: teamId,
       stripe_customer_id: getCustomerIdFromInvoice(invoice),
       status: SubscriptionStatuses.ACTIVE,
       current_period_start: subscription.items.data[0].current_period_start,
@@ -350,7 +403,7 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
       distinctId: userId,
       event: ExceptionEvents.SUSBCRIPTION_UPDATE_ERROR,
       properties: {
-        source: LoggingEventSource.API_PAYMENTS_HANDLE_SUBSCRIPTION,
+        ...posthogBaseProps,
         error: subscriptionUpdateError,
       },
     });
@@ -385,7 +438,7 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
       distinctId: userId,
       event: ExceptionEvents.CREDIT_GRANT_ERROR,
       properties: {
-        source: LoggingEventSource.API_PAYMENTS_HANDLE_SUBSCRIPTION,
+        ...posthogBaseProps,
         error: existingGrantError,
         context: "check_existing_grant",
       },
@@ -418,6 +471,7 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
         grant_type: "subscription",
         billing_period_end: billingPeriodEnd,
         expires_at: expiresAt,
+        team_id: teamId,
       })
       .eq("id", existingGrant.id)
       .select();
@@ -431,6 +485,7 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
         userId,
         existingGrant.id,
         creditsToGrant,
+        teamId,
       );
     }
   } else {
@@ -439,6 +494,7 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
       .from("credit_grants")
       .insert({
         user_id: userId,
+        team_id: teamId,
         credits_granted: creditsToGrant,
         subscription_id: subscription.id,
         grant_reason: "subscription_renewal",
@@ -458,7 +514,7 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
       distinctId: userId,
       event: ExceptionEvents.CREDIT_GRANT_ERROR,
       properties: {
-        source: LoggingEventSource.API_PAYMENTS_HANDLE_SUBSCRIPTION,
+        ...posthogBaseProps,
         error: creditGrantError,
       },
     });
@@ -472,7 +528,7 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
       const { data: overageRows, error: overageFetchError } = await supabase
         .from("api_usage")
         .select("id, credits_used, prototype_id")
-        .eq("user_id", userId)
+        .eq("team_id", teamId)
         .eq("is_free_tier", false)
         .is("credit_grant_id", null)
         .order("created_at", { ascending: true });
@@ -482,7 +538,7 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
           distinctId: userId,
           event: ExceptionEvents.CREDIT_GRANT_ERROR,
           properties: {
-            source: LoggingEventSource.API_PAYMENTS_HANDLE_SUBSCRIPTION,
+            ...posthogBaseProps,
             error: overageFetchError,
             context: "fetch_overage_usage",
           },
@@ -505,7 +561,7 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
                 distinctId: userId,
                 event: ExceptionEvents.CREDIT_GRANT_ERROR,
                 properties: {
-                  source: LoggingEventSource.API_PAYMENTS_HANDLE_SUBSCRIPTION,
+                  ...posthogBaseProps,
                   error: assignZeroError,
                   context: "assign_zero_overage",
                 },
@@ -529,7 +585,7 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
                 distinctId: userId,
                 event: ExceptionEvents.CREDIT_GRANT_ERROR,
                 properties: {
-                  source: LoggingEventSource.API_PAYMENTS_HANDLE_SUBSCRIPTION,
+                  ...posthogBaseProps,
                   error: assignError,
                   context: "assign_full_overage",
                 },
@@ -572,6 +628,7 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
               .from("api_usage")
               .insert({
                 user_id: userId,
+                team_id: teamId,
                 prototype_id: usageRow.prototype_id,
                 credits_used: partialCredits,
                 credit_grant_id: newGrant.id,
@@ -583,7 +640,7 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
                 distinctId: userId,
                 event: ExceptionEvents.CREDIT_GRANT_ERROR,
                 properties: {
-                  source: LoggingEventSource.API_PAYMENTS_HANDLE_SUBSCRIPTION,
+                  ...posthogBaseProps,
                   error: partialInsertError,
                   context: "insert_partial_overage",
                 },
@@ -617,7 +674,7 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
       distinctId: userId,
       event: ExceptionEvents.PAYMENT_UPDATE_ERROR,
       properties: {
-        source: LoggingEventSource.API_PAYMENTS_HANDLE_SUBSCRIPTION,
+        ...posthogBaseProps,
         error: paymentUpdateError,
       },
     });
@@ -628,7 +685,7 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
     distinctId: userId,
     event: "server_stripe_webhook_subscription_payment_completed",
     properties: {
-      source: LoggingEventSource.API_PAYMENTS_HANDLE_SUBSCRIPTION,
+      ...posthogBaseProps,
       subscription_id: subscription.id,
       plan_key: planKey,
       amount_total: invoice.amount_paid,
@@ -686,7 +743,14 @@ async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
     return;
   }
 
-  const userId = subscription.metadata?.user_id;
+  const metadataIds = requireUserAndTeamIds(
+    subscription.metadata ?? null,
+    "invoice.payment_failed",
+  );
+  if (!metadataIds) {
+    return;
+  }
+  const { userId, teamId } = metadataIds;
 
   const { error: subscriptionUpdateError } = await supabase
     .from("subscriptions")
@@ -702,6 +766,7 @@ async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
         source: LoggingEventSource.API_PAYMENTS_HANDLE_SUBSCRIPTION,
         error: subscriptionUpdateError,
         function: "handleInvoicePaymentFailed",
+        team_id: teamId,
       },
     });
     return;
@@ -720,6 +785,7 @@ async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
         source: LoggingEventSource.API_PAYMENTS_HANDLE_SUBSCRIPTION,
         error: userFetchError,
         function: "handleInvoicePaymentFailed",
+        team_id: teamId,
       },
     });
     return;
@@ -742,6 +808,7 @@ async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
       properties: {
         source: LoggingEventSource.API_PAYMENTS_HANDLE_SUBSCRIPTION,
         error: err,
+        team_id: teamId,
       },
     });
   }
@@ -760,6 +827,7 @@ async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
       properties: {
         source: LoggingEventSource.API_PAYMENTS_HANDLE_SUBSCRIPTION,
         error: resendError,
+        team_id: teamId,
       },
     });
   }
@@ -769,6 +837,7 @@ async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
     event: SuccessEvents.HANDLED_STRIPE_INVOICE_PAYMENT_FAILED,
     properties: {
       source: LoggingEventSource.API_PAYMENTS_HANDLE_SUBSCRIPTION,
+      team_id: teamId,
     },
   });
 }
@@ -800,7 +869,14 @@ async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
  * @returns {Promise<void>} - The function does not return any value, but logs relevant information and updates the database.
  */
 async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
-  const userId = subscription.metadata?.user_id;
+  const metadataIds = requireUserAndTeamIds(
+    subscription.metadata ?? null,
+    "customer.subscription.updated",
+  );
+  if (!metadataIds) {
+    return;
+  }
+  const { userId, teamId } = metadataIds;
 
   const newPlanKey = getPlanKey(subscription.items.data[0].price.id);
 
@@ -823,6 +899,7 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
         source: LoggingEventSource.API_PAYMENTS_HANDLE_SUBSCRIPTION,
         function: "handleSubscriptionUpdated",
         error: subscriptionUpdateError,
+        team_id: teamId,
       },
     });
     return;
@@ -844,13 +921,14 @@ async function reconcileCreditUsageForDowngrade(
   userId: string,
   grantId: string,
   newCreditLimit: number,
+  teamId: string,
 ) {
   // Get all api_usage rows for this grant, ordered by creation time
   const { data: usageRows, error: usageError } = await supabase
     .from("api_usage")
     .select("id, credits_used, prototype_id, created_at")
     .eq("credit_grant_id", grantId)
-    .eq("user_id", userId)
+    .eq("team_id", teamId)
     .order("created_at", { ascending: true });
 
   if (usageError) {
@@ -861,6 +939,7 @@ async function reconcileCreditUsageForDowngrade(
         source: LoggingEventSource.API_PAYMENTS_HANDLE_SUBSCRIPTION,
         error: usageError,
         context: "reconcile_downgrade_fetch_usage",
+        team_id: teamId,
       },
     });
     console.error(
@@ -898,6 +977,7 @@ async function reconcileCreditUsageForDowngrade(
             source: LoggingEventSource.API_PAYMENTS_HANDLE_SUBSCRIPTION,
             error: nullifyError,
             context: "reconcile_downgrade_nullify_row",
+            team_id: teamId,
           },
         });
         console.error(
@@ -924,6 +1004,7 @@ async function reconcileCreditUsageForDowngrade(
             source: LoggingEventSource.API_PAYMENTS_HANDLE_SUBSCRIPTION,
             error: updateError,
             context: "reconcile_downgrade_split_update",
+            team_id: teamId,
           },
         });
         console.error(
@@ -936,6 +1017,7 @@ async function reconcileCreditUsageForDowngrade(
       // Insert a new row for the credits beyond the limit (with null credit_grant_id)
       const { error: insertError } = await supabase.from("api_usage").insert({
         user_id: userId,
+        team_id: teamId,
         prototype_id: usageRow.prototype_id,
         credits_used: creditsBeyondLimit,
         credit_grant_id: null,
@@ -951,6 +1033,7 @@ async function reconcileCreditUsageForDowngrade(
             source: LoggingEventSource.API_PAYMENTS_HANDLE_SUBSCRIPTION,
             error: insertError,
             context: "reconcile_downgrade_split_insert",
+            team_id: teamId,
           },
         });
         console.error(
@@ -986,7 +1069,14 @@ async function reconcileCreditUsageForDowngrade(
 async function handleSubscriptionTrialWillEnd(
   subscription: Stripe.Subscription,
 ) {
-  const userId = subscription.metadata?.user_id;
+  const metadataIds = requireUserAndTeamIds(
+    subscription.metadata ?? null,
+    "customer.subscription.trial_will_end",
+  );
+  if (!metadataIds) {
+    return;
+  }
+  const { userId, teamId } = metadataIds;
   const { data: userData, error: userFetchError } = await supabase
     .from("users")
     .select("email, name")
@@ -1000,6 +1090,7 @@ async function handleSubscriptionTrialWillEnd(
         source: LoggingEventSource.API_PAYMENTS_HANDLE_SUBSCRIPTION,
         error: userFetchError,
         function: "handleSubscriptionTrialWillEnd",
+        team_id: teamId,
       },
     });
   }
@@ -1018,6 +1109,7 @@ async function handleSubscriptionTrialWillEnd(
         source: LoggingEventSource.API_PAYMENTS_HANDLE_SUBSCRIPTION,
         error: userFetchError,
         function: "handleSubscriptionTrialWillEnd",
+        team_id: teamId,
       },
     });
     return;
@@ -1044,7 +1136,14 @@ async function handleSubscriptionTrialWillEnd(
  * @returns {Promise<void>} - The function does not return any value but logs relevant information and updates the database.
  */
 async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
-  const userId = subscription.metadata?.user_id;
+  const metadataIds = requireUserAndTeamIds(
+    subscription.metadata ?? null,
+    "customer.subscription.deleted",
+  );
+  if (!metadataIds) {
+    return;
+  }
+  const { userId, teamId } = metadataIds;
 
   const { error: subscriptionUpdateError } = await supabase
     .from("subscriptions")
@@ -1060,6 +1159,7 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
         source: LoggingEventSource.API_PAYMENTS_HANDLE_SUBSCRIPTION,
         function: "handleSubscriptionDeleted",
         error: subscriptionUpdateError,
+        team_id: teamId,
       },
     });
     return;

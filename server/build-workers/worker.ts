@@ -33,22 +33,38 @@ const PORT = parseInt(process.env.PORT || "3002", 10);
 export const WORK_DIR = process.env.WORK_DIR || "/tmp/materialize-dev-server";
 
 // Store worker context (set by /allocate endpoint)
-let workerContext: { userId?: string; prototypeId?: string } = {};
+let workerContext: {
+  userId?: string;
+  prototypeId?: string;
+  teamId?: string;
+} = {};
 
-export function setWorkerContext(userId: string, prototypeId: string): void {
-  workerContext = { userId, prototypeId };
+export function setWorkerContext(
+  userId: string,
+  prototypeId: string,
+  teamId?: string,
+): void {
+  workerContext = { userId, prototypeId, teamId };
 
   // Update logger contexts so all future child loggers inherit this context
-  baseLogger.setContext({ userId, prototypeId });
-  posthogLogger.setContext({ userId, prototypeId });
+  baseLogger.setContext({ userId, prototypeId, teamId });
+  posthogLogger.setContext({ userId, prototypeId, teamId });
 }
 
-export function getWorkerContext(): { userId?: string; prototypeId?: string } {
+export function getWorkerContext(): {
+  userId?: string;
+  prototypeId?: string;
+  teamId?: string;
+} {
   return workerContext;
 }
 
 export function resetWorkerContext(): void {
-  workerContext = { userId: undefined, prototypeId: undefined };
+  workerContext = {
+    userId: undefined,
+    prototypeId: undefined,
+    teamId: undefined,
+  };
 
   // Clear logger contexts
   baseLogger.setContext({});
@@ -187,9 +203,10 @@ const close = async (): Promise<void> => {
   const logger = baseLogger.child({ context: "shutdown" });
   logger.info("Shutting down build worker...");
   try {
-    await nucleateDevelopmentServerService.developmentServerAdapter.stopDevServer(
-      logger,
-    );
+    await nucleateDevelopmentServerService.developmentServerAdapter
+      .stopDevServer(
+        logger,
+      );
     terminalService.shutdownAllSessions();
     await chatService.shutdown();
     await app.close();

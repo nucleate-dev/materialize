@@ -31,10 +31,10 @@ import { SupabaseClientService } from "../SupabaseClientService.js";
 import { TerminalService } from "../terminals/TerminalService.js";
 import {
   ChatEngine,
+  ChatEngineResult,
   ChatEngineSessionState,
   CliAuthEnvironment,
   DesignAgentMetadata,
-  ChatEngineResult,
 } from "./chat-engines/chat-engine.js";
 import { ChatQueryHandler } from "./chat-engines/chat-query-handler.js";
 import { ClaudeCodeCliQueryHandler } from "./chat-engines/claude-code-cli-query-handler.js";
@@ -46,9 +46,9 @@ import { buildDesignAgentUserContent } from "./classifiers-and-subagents/design-
 import { classifyDesignIntent } from "./classifiers-and-subagents/design-intent-classifier.js";
 import {
   DEFAULT_DESIGN_AGENT_MODELS,
+  type DesignAgentProvider,
   executeDesignAgent,
   persistDesignSpecToFiles,
-  type DesignAgentProvider,
 } from "./classifiers-and-subagents/design-agent-service.js";
 import { getSystemPromptForDesignStyle } from "./prompts/ClaudeCodePrompts.js";
 
@@ -462,8 +462,7 @@ export class ChatService {
         this.sendMessage(socket, {
           type: ChatEvent.ERROR,
           error: {
-            message:
-              cliResult.errorMessage ??
+            message: cliResult.errorMessage ??
               "Claude CLI is not available for this account",
             details: cliResult.errorDetails,
           },
@@ -576,11 +575,10 @@ export class ChatService {
         getRelativePath: this.getRelativePath.bind(this),
       });
     } finally {
-      const combinedCost =
-        designAgentCost === undefined &&
-        handlerResult?.totalCostUsd === undefined
-          ? undefined
-          : (designAgentCost ?? 0) + (handlerResult?.totalCostUsd ?? 0);
+      const combinedCost = designAgentCost === undefined &&
+          handlerResult?.totalCostUsd === undefined
+        ? undefined
+        : (designAgentCost ?? 0) + (handlerResult?.totalCostUsd ?? 0);
       try {
         await this.finalizeChatExecution(
           prototypeId,
@@ -628,7 +626,8 @@ export class ChatService {
         })
         .join("\n\n");
 
-      historyContext = `\n\n## Previous Conversation Context:\n${formattedMessages}\n\n---\n\nThe above is context from a previous session. Continue the conversation naturally.`;
+      historyContext =
+        `\n\n## Previous Conversation Context:\n${formattedMessages}\n\n---\n\nThe above is context from a previous session. Continue the conversation naturally.`;
 
       logger.consoleLogDevOnly("info", "Formatted history context", {
         contextLength: historyContext.length,
@@ -841,6 +840,7 @@ export class ChatService {
     logger: SystemLogger,
   ): Promise<ChatQueryValidationResult> {
     try {
+      const { teamId } = getWorkerContext();
       const {
         data: { user },
         error: userError,
@@ -858,10 +858,17 @@ export class ChatService {
           errorDetails: "Unable to verify user credentials",
         };
       }
+      if (!teamId) {
+        logger.warn("Team ID missing in worker context for credit check", {
+          prototypeId,
+          userId: user.id,
+        });
+      }
 
       const creditCheck = await hasRemainingCredits(
         this.supabaseClientService.getClient(),
         user.id,
+        teamId,
         logger,
       );
 
@@ -878,7 +885,8 @@ export class ChatService {
         return {
           valid: false,
           errorMessage: "Credit limit exceeded",
-          errorDetails: `You have used all ${creditCheck.granted} credits available. Please upgrade your plan to continue.`,
+          errorDetails:
+            `You have used all ${creditCheck.granted} credits available. Please upgrade your plan to continue.`,
         };
       }
 
@@ -940,11 +948,13 @@ export class ChatService {
     prototypeId: string,
     logger: SystemLogger,
     isFirstMessage: boolean,
-  ): Promise<{
-    designSpec: string | null;
-    designMetadata: DesignAgentMetadata | null;
-    designAgentCost?: number;
-  } | null> {
+  ): Promise<
+    {
+      designSpec: string | null;
+      designMetadata: DesignAgentMetadata | null;
+      designAgentCost?: number;
+    } | null
+  > {
     if (!isFirstMessage) {
       return null;
     }
@@ -963,15 +973,14 @@ export class ChatService {
     }
 
     const { prompt, content } = data;
-    const userMessageText =
-      typeof content === "string"
-        ? content
-        : Array.isArray(content)
-          ? content
-              .filter((block) => block.type === "text")
-              .map((block) => block.text || "")
-              .join("\n")
-          : prompt || "";
+    const userMessageText = typeof content === "string"
+      ? content
+      : Array.isArray(content)
+      ? content
+        .filter((block) => block.type === "text")
+        .map((block) => block.text || "")
+        .join("\n")
+      : prompt || "";
 
     const designAgentUserContent = buildDesignAgentUserContent(
       typeof content === "string" ? content : prompt,
@@ -1124,7 +1133,9 @@ export class ChatService {
           } else if (designSystem) {
             this.sessionState.designSystemId = customDesignSystemId;
             this.sessionState.designSystemRules = (
-              designSystem as Database["public"]["Tables"]["design_systems"]["Row"]
+              designSystem as Database["public"]["Tables"]["design_systems"][
+                "Row"
+              ]
             ).design_rules;
           } else {
             logger.warn("Design system not found", {
@@ -1151,8 +1162,7 @@ export class ChatService {
     );
 
     if (this.sessionState.designSystemRules) {
-      systemPromptAppend +=
-        "\n\n## Custom Design System Rules:\n" +
+      systemPromptAppend += "\n\n## Custom Design System Rules:\n" +
         this.sessionState.designSystemRules;
     }
 
@@ -1174,13 +1184,13 @@ export class ChatService {
     }
 
     try {
-      const { data: messageRows, error: messageError } =
-        await this.supabaseClientService
-          .getClient()
-          .from("prototype_chat_messages")
-          .select("id")
-          .eq("chat_session_id", prototypeChatSessionId)
-          .limit(1);
+      const { data: messageRows, error: messageError } = await this
+        .supabaseClientService
+        .getClient()
+        .from("prototype_chat_messages")
+        .select("id")
+        .eq("chat_session_id", prototypeChatSessionId)
+        .limit(1);
 
       if (messageError) {
         logger.error(
@@ -1195,13 +1205,13 @@ export class ChatService {
         return false;
       }
 
-      const { data: sessionRows, error: sessionError } =
-        await this.supabaseClientService
-          .getClient()
-          .from("prototype_chat_sessions")
-          .select("id")
-          .eq("prototype_id", prototypeId)
-          .limit(1);
+      const { data: sessionRows, error: sessionError } = await this
+        .supabaseClientService
+        .getClient()
+        .from("prototype_chat_sessions")
+        .select("id")
+        .eq("prototype_id", prototypeId)
+        .limit(1);
 
       if (sessionError) {
         logger.error(
@@ -1300,14 +1310,16 @@ export class ChatService {
       const axiosError = axios.isAxiosError(error) ? error : null;
       const derivedError = axiosError
         ? new Error(
-            `Failed to notify control plane of chat start (status ${axiosError.response?.status ?? "unknown"})`,
-          )
+          `Failed to notify control plane of chat start (status ${
+            axiosError.response?.status ?? "unknown"
+          })`,
+        )
         : error instanceof Error
-          ? error
-          : new Error(String(error));
+        ? error
+        : new Error(String(error));
       const responseBody =
         (error as { responseBody?: unknown })?.responseBody ??
-        axiosError?.response?.data;
+          axiosError?.response?.data;
 
       baseLogger.error(
         derivedError,
@@ -1380,7 +1392,7 @@ export class ChatService {
         command: "git",
         args: ["add", ".", "&&", "git", "commit", "-m", commitMessageArg],
         cwd: WORK_DIR,
-        session_id: "chat-service",
+        session_id: "test",
         timeout_ms: 60000,
         strip_ansi: true,
       });
@@ -1484,12 +1496,14 @@ export class ChatService {
           creditsUsed,
         });
 
+        const { teamId } = getWorkerContext();
         const { totalRemainingCredits } = await trackApiUsageBuildWorker(
           this.supabaseClientService.getClient(),
           user.id,
           prototypeId,
           logger,
           creditsUsed,
+          teamId,
         );
 
         this.sendMessage(socket, {
@@ -1522,12 +1536,12 @@ export class ChatService {
   private buildCommitMessageArg(data: ChatQueryData): string | null {
     const userMessage = this.extractCommitMessageText(data);
     const normalized = userMessage.replace(/\s+/g, " ").trim();
-    const baseMessage =
-      normalized.length > 0 ? normalized : "Automated chat commit";
-    const truncated =
-      baseMessage.length > 180
-        ? `${baseMessage.slice(0, 177)}...`
-        : baseMessage;
+    const baseMessage = normalized.length > 0
+      ? normalized
+      : "Automated chat commit";
+    const truncated = baseMessage.length > 180
+      ? `${baseMessage.slice(0, 177)}...`
+      : baseMessage;
 
     const escaped = truncated
       .replace(/\\/g, "\\\\")
@@ -1637,8 +1651,7 @@ export class ChatService {
           {
             prototypeId,
             statusCode: axiosError?.response?.status,
-            responseBody:
-              (error as { responseBody?: unknown })?.responseBody ??
+            responseBody: (error as { responseBody?: unknown })?.responseBody ??
               axiosError?.response?.data,
           },
         );
@@ -1646,7 +1659,7 @@ export class ChatService {
         // Wait before retrying (exponential backoff)
         if (attempt < maxRetries) {
           await new Promise((resolve) =>
-            setTimeout(resolve, Math.pow(2, attempt) * 100),
+            setTimeout(resolve, Math.pow(2, attempt) * 100)
           );
         }
       }
@@ -1686,8 +1699,9 @@ export class ChatService {
       prototypeId,
       provider,
       model,
-      userMessageLength:
-        typeof userContent === "string" ? userContent.length : undefined,
+      userMessageLength: typeof userContent === "string"
+        ? userContent.length
+        : undefined,
       imageCount,
     });
 

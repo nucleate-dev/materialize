@@ -6,6 +6,7 @@ import type {
   CreatePrototypeRequestBody,
   CreatePrototypeSuccessResponse,
 } from "@/lib/types/serverAPITypes";
+import { fetchPersonalTeamId } from "@/lib/utils/payments/CheckoutUtils";
 
 type CreatePrototypeOptions = {
   name?: string;
@@ -14,7 +15,7 @@ type CreatePrototypeOptions = {
 } & Partial<
   Omit<
     CreatePrototypeRequestBody,
-    "name" | "creation_source" | "folder_id"
+    "name" | "creation_source" | "folder_id" | "team_id"
   >
 >;
 
@@ -52,16 +53,38 @@ export function useCreatePrototype() {
         };
       }
 
-      const {
-        creation_source,
-        name,
-        folder_id,
-        ...rest
-      } = options;
+      const { creation_source, name, folder_id, ...rest } = options;
+
+      const userId = session.data.session?.user.id;
+      if (!userId) {
+        return {
+          data: null,
+          error: {
+            error: "UNAUTHORIZED",
+            message: "User session missing",
+          },
+        };
+      }
+
+      const teamId = await fetchPersonalTeamId(userId);
+      if (!teamId) {
+        logger.debug(
+          "error",
+          "Unable to determine personal team for prototype creation",
+        );
+        return {
+          data: null,
+          error: {
+            error: "INVALID_REQUEST",
+            message: "No personal team found for user",
+          },
+        };
+      }
 
       const payload: CreatePrototypeRequestBody = {
         name: name ?? "New Prototype",
         creation_source,
+        team_id: teamId,
         ...rest,
       };
 

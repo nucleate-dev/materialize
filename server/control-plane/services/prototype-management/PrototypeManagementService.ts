@@ -1,6 +1,6 @@
-import { S3Client } from '@aws-sdk/client-s3';
-import { GlideClient } from '@valkey/valkey-glide';
-import { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
+import { S3Client } from "@aws-sdk/client-s3";
+import { GlideClient } from "@valkey/valkey-glide";
+import { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import type {
   APIResponse,
   CreatePrototypeErrorResponse,
@@ -11,18 +11,18 @@ import type {
   FetchViewingUrlRequestBody,
   FetchViewingUrlSuccessResponse,
   StandardErrorResponse,
-} from '../../types/PublicAPITypes.js';
+} from "../../types/PublicAPITypes.js";
 import {
   HTTP_STATUS,
   PROTOTYPE_CREATION_SOURCES,
-} from '../../types/PublicAPITypes.js';
-import { CleanupService } from '../cleanup/CleanupService.js';
-import { DispatcherService } from '../dispatcher/DispatcherService.js';
-import { handleCreatePrototypeImpl } from './handlers/handleCreatePrototype.js';
-import handleDeletePrototypeImpl from './handlers/handleDeletePrototype.js';
-import handleFetchViewingUrlImpl from './handlers/handleFetchViewingUrl.js';
-import { PostHogEvents } from '../../loggers/PostHogEvents.js';
-import { validateJWTToken } from '../../utils/prototypeAuth.js';
+} from "../../types/PublicAPITypes.js";
+import { CleanupService } from "../cleanup/CleanupService.js";
+import { DispatcherService } from "../dispatcher/DispatcherService.js";
+import { handleCreatePrototypeImpl } from "./handlers/handleCreatePrototype.js";
+import handleDeletePrototypeImpl from "./handlers/handleDeletePrototype.js";
+import handleFetchViewingUrlImpl from "./handlers/handleFetchViewingUrl.js";
+import { PostHogEvents } from "../../loggers/PostHogEvents.js";
+import { validateJWTToken } from "../../utils/prototypeAuth.js";
 
 export class PrototypeManagementService {
   private supabaseUrl: string;
@@ -49,24 +49,24 @@ export class PrototypeManagementService {
 
     if (!this.supabaseUrl || !this.supabaseAnonKey) {
       throw new Error(
-        'Missing required Supabase environment variables for PrototypeManagementService',
+        "Missing required Supabase environment variables for PrototypeManagementService",
       );
     }
   }
 
   public registerRoutes(app: FastifyInstance): void {
     app.post<{ Body: FetchViewingUrlRequestBody }>(
-      '/prototype/fetch-viewing-url',
+      "/prototype/fetch-viewing-url",
       {
         schema: {
           body: {
-            type: 'object',
-            required: ['prototype_id'],
+            type: "object",
+            required: ["prototype_id"],
             properties: {
-              prototype_id: { type: 'string' },
+              prototype_id: { type: "string" },
               current_page: {
-                type: 'string',
-                enum: ['view', 'edit'],
+                type: "string",
+                enum: ["view", "edit"],
               },
             },
           },
@@ -76,35 +76,36 @@ export class PrototypeManagementService {
     );
 
     app.post<{ Body: CreatePrototypeRequestBody }>(
-      '/prototype/create',
+      "/prototype/create",
       {
         schema: {
           body: {
-            type: 'object',
-            required: ['name', 'creation_source'],
+            type: "object",
+            required: ["name", "creation_source", "team_id"],
             properties: {
-              name: { type: 'string' },
+              name: { type: "string" },
               creation_source: {
-                type: 'string',
+                type: "string",
                 enum: PROTOTYPE_CREATION_SOURCES,
               },
-              description: { type: 'string' },
-              folder_id: { type: 'string' },
-              prototype_id: { type: 'string' }, // For forking
+              team_id: { type: "string" },
+              description: { type: "string" },
+              folder_id: { type: "string" },
+              prototype_id: { type: "string" }, // For forking
               visibility: {
-                type: 'string',
-                enum: ['PUBLIC', 'SELF'],
+                type: "string",
+                enum: ["PUBLIC", "SELF"],
               },
               design_style: {
-                type: 'string',
-                enum: ['tamagui', 'stylesheets', 'nativewind'],
+                type: "string",
+                enum: ["tamagui", "stylesheets", "nativewind"],
               },
               custom_design_system: {
-                type: ['string', 'null'],
+                type: ["string", "null"],
               },
               framework: {
-                type: 'string',
-                enum: ['mobile_expo_react_native', 'web_nextjs_react'],
+                type: "string",
+                enum: ["mobile_expo_react_native", "web_nextjs_react"],
               },
             },
           },
@@ -114,14 +115,14 @@ export class PrototypeManagementService {
     );
 
     app.delete<{ Params: { prototype_id: string } }>(
-      '/prototype/:prototype_id',
+      "/prototype/:prototype_id",
       {
         schema: {
           params: {
-            type: 'object',
-            required: ['prototype_id'],
+            type: "object",
+            required: ["prototype_id"],
             properties: {
-              prototype_id: { type: 'string' },
+              prototype_id: { type: "string" },
             },
           },
         },
@@ -150,15 +151,15 @@ export class PrototypeManagementService {
     APIResponse<CreatePrototypeSuccessResponse, CreatePrototypeErrorResponse>
   > {
     // Extract JWT token from Authorization header and validate it
-    const token = request.headers.authorization?.split(' ')[1] ?? '';
+    const token = request.headers.authorization?.split(" ")[1] ?? "";
     const { user } = await validateJWTToken(token, request.log2);
     if (!user) {
-      request.log2.warn('Unauthorized user');
+      request.log2.warn("Unauthorized user");
       return reply.status(HTTP_STATUS.UNAUTHORIZED).send({
         data: null,
         error: {
-          error: 'Unauthorized',
-          message: 'Invalid token',
+          error: "Unauthorized",
+          message: "Invalid token",
         },
       });
     }
@@ -171,8 +172,8 @@ export class PrototypeManagementService {
 
     // Setup PostHog logger with context
     const posthogLogger = request.posthogLogger.child({
-      function: 'handleCreatePrototype',
-      service: 'PrototypeManagementService',
+      function: "handleCreatePrototype",
+      service: "PrototypeManagementService",
       is_forking: !!request.body.prototype_id,
       has_custom_design_system: !!request.body.custom_design_system,
       creation_source: request.body.creation_source,
@@ -194,15 +195,15 @@ export class PrototypeManagementService {
     APIResponse<DeletePrototypeSuccessResponse, DeletePrototypeErrorResponse>
   > {
     // Extract JWT token from Authorization header and validate it
-    const token = request.headers.authorization?.split(' ')[1] ?? '';
+    const token = request.headers.authorization?.split(" ")[1] ?? "";
     const { user } = await validateJWTToken(token, request.log2);
     if (!user) {
-      request.log2.warn('Unauthorized user');
+      request.log2.warn("Unauthorized user");
       return reply.status(HTTP_STATUS.UNAUTHORIZED).send({
         data: null,
         error: {
-          error: 'Unauthorized',
-          message: 'Invalid token',
+          error: "Unauthorized",
+          message: "Invalid token",
         },
       });
     }
@@ -214,8 +215,8 @@ export class PrototypeManagementService {
 
     // Setup PostHog logger with context
     const posthogLogger = request.posthogLogger.child({
-      function: 'handleDeletePrototype',
-      service: 'PrototypeManagementService',
+      function: "handleDeletePrototype",
+      service: "PrototypeManagementService",
       prototype_id: request.params.prototype_id,
     });
 

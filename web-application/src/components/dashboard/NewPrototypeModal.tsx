@@ -34,7 +34,10 @@ import type {
   CreatePrototypeSuccessResponse,
 } from "@/lib/types/serverAPITypes";
 import { Database } from "@/lib/types/supabase";
-import { handleCheckout } from "@/lib/utils/payments/CheckoutUtils";
+import {
+  fetchPersonalTeamId,
+  handleCheckout,
+} from "@/lib/utils/payments/CheckoutUtils";
 import { IsUserPlanSubscribed } from "@/lib/utils/payments/SubscriptionManagementUtils";
 import { User } from "@supabase/supabase-js";
 import {
@@ -399,6 +402,14 @@ export default function NewPrototypeModal({
       const serverEndpoint = process.env.NEXT_PUBLIC_SERVER_ENDPOINT;
       if (!serverEndpoint) return;
 
+      const userId = session.data.session?.user.id;
+      if (!userId) return;
+
+      const teamId = await fetchPersonalTeamId(userId);
+      if (!teamId) {
+        return;
+      }
+
       const normalizedVisibility: CreatePrototypeRequestBody["visibility"] =
         visibility === "SELF" ? "SELF" : "PUBLIC";
 
@@ -412,6 +423,7 @@ export default function NewPrototypeModal({
         design_style: designStyle,
         custom_design_system: customDesignSystemId ?? undefined,
         framework,
+        team_id: teamId,
       };
 
       const response = await fetch(`${serverEndpoint}/prototype/create`, {

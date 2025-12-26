@@ -28,22 +28,27 @@ async function fetchUserPlan(
   supabase: SupabaseClient<Database>,
   userId: string,
   log2: SystemLogger,
+  teamId?: string,
 ): Promise<string> {
   const nowInSeconds = Math.floor(Date.now() / 1000);
-  const { data, error } = await supabase
+  const planQuery = supabase
     .from("subscriptions")
     .select("plan_id, current_period_start, current_period_end")
-    .eq("user_id", userId)
     .eq("status", "active")
     .lte("current_period_start", nowInSeconds)
     .gte("current_period_end", nowInSeconds)
     .order("updated_at", { ascending: false })
     .limit(1);
+  const { data, error } =
+    await (teamId
+      ? planQuery.eq("team_id", teamId)
+      : planQuery.eq("user_id", userId));
 
   if (error) {
     log2.error(error, "Failed to fetch user plan for usage tracking", {
       functionName: "fetchUserPlan",
       userId,
+      teamId,
     });
     return "free";
   }
@@ -71,6 +76,7 @@ async function trackFreeTierUsage(
   prototypeId: string | null,
   creditsUsed: number,
   log2: SystemLogger,
+  teamId?: string,
 ): Promise<UsageTrackingResult> {
   const { startOfMonth, endOfMonth } = getCurrentMonthPeriod();
   const periodStart = startOfMonth.toISOString();
@@ -82,30 +88,36 @@ async function trackFreeTierUsage(
     credits_used: creditsUsed,
     credit_grant_id: null,
     is_free_tier: true,
+    team_id: teamId ?? null,
   });
 
   if (insertError) {
     log2.error(insertError, "Failed to insert free-tier api_usage row", {
       functionName: "trackFreeTierUsage",
       userId,
+      teamId,
     });
     return {
       totalRemainingCredits: 0,
     };
   }
 
-  const { data: usageRows, error: usageError } = await supabase
+  const usageQuery = supabase
     .from("api_usage")
     .select("credits_used")
-    .eq("user_id", userId)
     .eq("is_free_tier", true)
     .gte("created_at", periodStart)
     .lte("created_at", periodEnd);
+  const { data: usageRows, error: usageError } =
+    await (teamId
+      ? usageQuery.eq("team_id", teamId)
+      : usageQuery.eq("user_id", userId));
 
   if (usageError) {
     log2.error(usageError, "Failed to fetch free-tier usage totals", {
       functionName: "trackFreeTierUsage",
       userId,
+      teamId,
     });
     return {
       totalRemainingCredits: 0,
@@ -129,15 +141,11 @@ export async function trackApiUsageBuildWorker(
   prototypeId: string,
   log2: SystemLogger,
   creditsUsed: number = 1.0,
+  teamId?: string,
 ): Promise<UsageTrackingResult> {
   log2 = log2.child({
     function: "trackCodeUsage",
   });
-
-  const userPlan = await fetchUserPlan(supabase, userId, log2);
-  if (userPlan === "free") {
-    return trackFreeTierUsage(supabase, userId, prototypeId, creditsUsed, log2);
-  }
 
   const insertFallbackUsage = async (): Promise<void> => {
     const { error: insertError } = await supabase.from("api_usage").insert({
@@ -146,27 +154,60 @@ export async function trackApiUsageBuildWorker(
       credits_used: creditsUsed,
       credit_grant_id: null,
       is_free_tier: false,
+      team_id: teamId ?? null,
     });
 
     if (insertError) {
       log2.error(insertError, "Fallback api_usage insert failed", {
         functionName: "trackApiUsageBuildWorker",
         userId,
+        teamId,
       });
     }
   };
 
+  if (!teamId) {
+    log2.error(
+      new Error("Missing teamId for consume_credits_teams"),
+      "Cannot track paid usage without team context",
+      {
+        userId,
+        prototypeId,
+      },
+    );
+    await insertFallbackUsage();
+    return {
+      totalRemainingCredits: 0,
+    };
+  }
+
+  const userPlan = await fetchUserPlan(supabase, userId, log2, teamId);
+  if (userPlan === "free") {
+    return trackFreeTierUsage(
+      supabase,
+      userId,
+      prototypeId,
+      creditsUsed,
+      log2,
+      teamId,
+    );
+  }
+
   try {
-    const { data, error: rpcError } = await supabase.rpc("consume_credits", {
-      p_user_id: userId,
-      p_prototype_id: prototypeId,
-      p_credits: creditsUsed,
-    });
+    const { data, error: rpcError } = await supabase.rpc(
+      "consume_credits_teams",
+      {
+        p_team_id: teamId,
+        p_prototype_id: prototypeId,
+        p_credits: creditsUsed,
+      },
+    );
 
     if (rpcError) {
-      log2.error(rpcError, "consume_credits RPC failed", {
+      log2.error(rpcError, "consume_credits_teams RPC failed", {
         functionName: "trackApiUsageBuildWorker",
         userId,
+        teamId,
       });
       await insertFallbackUsage();
       return {
@@ -178,11 +219,14 @@ export async function trackApiUsageBuildWorker(
 
     if (!payload || !payload.success) {
       log2.error(
-        new Error(payload?.error ?? "consume_credits RPC returned failure"),
-        "consume_credits RPC returned failure",
+        new Error(
+          payload?.error ?? "consume_credits_teams RPC returned failure",
+        ),
+        "consume_credits_teams RPC returned failure",
         {
           functionName: "trackApiUsageBuildWorker",
           userId,
+          teamId,
         },
       );
       await insertFallbackUsage();
@@ -199,6 +243,7 @@ export async function trackApiUsageBuildWorker(
     log2.error(error, "Exception in trackApiUsageBuildWorker:", {
       functionName: "trackApiUsageBuildWorker",
       userId,
+      teamId,
     });
     await insertFallbackUsage();
     return {

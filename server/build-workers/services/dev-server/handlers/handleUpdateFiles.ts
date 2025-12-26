@@ -11,7 +11,7 @@ import {
 import { fetchUserPlan } from "../../../utils/credit-checks.js";
 import { checkUserHasPrototypeEditAccess } from "../../../utils/prototypeAuth.js";
 import { NucleateDevelopmentServerService } from "../NucleateDevelopmentServerService.js";
-import { WORK_DIR } from "../../../worker.js";
+import { getWorkerContext, WORK_DIR } from "../../../worker.js";
 
 export async function handleUpdateFilesImpl(
   request: FastifyRequest<{ Body: PublicUpdateFilesV2Request }>,
@@ -70,10 +70,12 @@ export async function handleUpdateFilesImpl(
     }
 
     // Step 3: Paywall check - ensure user is NOT on free plan
+    const { teamId } = getWorkerContext();
     const userPlan = await fetchUserPlan(
       developmentServerService.supabaseClientService.getClient(),
       authResult.user.id,
       request.log2,
+      teamId,
     );
 
     if (userPlan === "free") {

@@ -1,8 +1,8 @@
-import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import type { Database } from '../types/supabase.js';
-import type { SubscriptionInfo } from '../types/InternalTypes.js';
-import { SystemLogger } from '../loggers/SystemLogger.js';
-import { CreditLimits } from '../types/PublicAPITypes.js';
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "../types/supabase.js";
+import type { SubscriptionInfo } from "../types/InternalTypes.js";
+import { SystemLogger } from "../loggers/SystemLogger.js";
+import { CreditLimits } from "../types/PublicAPITypes.js";
 
 /**
  * Helper function to get the start and end of the current month
@@ -23,18 +23,45 @@ function getCurrentMonthPeriod(): { startOfMonth: Date; endOfMonth: Date } {
   return { startOfMonth, endOfMonth };
 }
 
-/**
- * Server-side function to get user's subscription plan and billing period
- * Equivalent to the useSubscriptionAccess hook but for server-side use
- *
- * @param supabaseClient - Authenticated Supabase client
- * @param userId - The user ID to check subscription for
- * @returns Promise<SubscriptionInfo> - Subscription plan and billing period information
- */
+async function getPersonalTeamId(
+  jwtToken: string,
+  userId: string,
+  log2: SystemLogger,
+): Promise<string | null> {
+  const supabaseClient = createClient<Database>(
+    process.env.SUPABASE_URL!,
+    process.env.SUPABASE_ANON_KEY!,
+    {
+      global: {
+        headers: {
+          Authorization: `Bearer ${jwtToken}`,
+        },
+      },
+    },
+  );
+
+  const { data, error } = await supabaseClient
+    .from("teams")
+    .select("id")
+    .eq("personal_owner_user_id", userId)
+    .maybeSingle();
+
+  if (error) {
+    log2.error(error, "Error fetching personal team for user", {
+      functionName: "getPersonalTeamId",
+      userId,
+    });
+    return null;
+  }
+
+  return data?.id ?? null;
+}
+
 export async function getSubscriptionInfo(
   jwtToken: string,
   userId: string,
   log2: SystemLogger,
+  teamId?: string,
 ): Promise<SubscriptionInfo> {
   const nowInSeconds = Math.floor(Date.now() / 1000);
   const supabaseClient = createClient<Database>(
@@ -49,28 +76,35 @@ export async function getSubscriptionInfo(
     },
   );
   try {
-    const { data, error } = await supabaseClient
-      .from('subscriptions')
-      .select('*')
-      .eq('user_id', userId)
-      .eq('status', 'active')
-      .lte('current_period_start', nowInSeconds)
-      .gte('current_period_end', nowInSeconds)
-      .order('updated_at', {
+    let query = supabaseClient
+      .from("subscriptions")
+      .select("*")
+      .eq("status", "active")
+      .lte("current_period_start", nowInSeconds)
+      .gte("current_period_end", nowInSeconds)
+      .order("updated_at", {
         ascending: false,
       });
 
+    if (teamId) {
+      query = query.eq("team_id", teamId);
+    } else {
+      query = query.eq("user_id", userId);
+    }
+
+    const { data, error } = await query;
+
     if (error) {
-      log2.error(error, 'Error fetching subscription from supabase:', {
-        functionName: 'getSubscriptionInfo',
+      log2.error(error, "Error fetching subscription from supabase:", {
+        functionName: "getSubscriptionInfo",
       });
       // Default to free tier with current month period
       const { startOfMonth, endOfMonth } = getCurrentMonthPeriod();
       return {
-        userPlan: 'free',
+        userPlan: "free",
         currentPeriodStart: startOfMonth,
         currentPeriodEnd: endOfMonth,
-        stripeCustomerId: '',
+        stripeCustomerId: "",
       };
     }
 
@@ -78,10 +112,10 @@ export async function getSubscriptionInfo(
       // No active subscription found, user is on free tier
       const { startOfMonth, endOfMonth } = getCurrentMonthPeriod();
       return {
-        userPlan: 'free',
+        userPlan: "free",
         currentPeriodStart: startOfMonth,
         currentPeriodEnd: endOfMonth,
-        stripeCustomerId: '',
+        stripeCustomerId: "",
       };
     }
 
@@ -108,10 +142,10 @@ export async function getSubscriptionInfo(
         } else {
           const { startOfMonth, endOfMonth } = getCurrentMonthPeriod();
           return {
-            userPlan: 'free',
+            userPlan: "free",
             currentPeriodStart: startOfMonth,
             currentPeriodEnd: endOfMonth,
-            stripeCustomerId: '',
+            stripeCustomerId: "",
           };
         }
       } else {
@@ -125,53 +159,53 @@ export async function getSubscriptionInfo(
         userPlan: plan,
         currentPeriodStart,
         currentPeriodEnd,
-        stripeCustomerId: latestSubscription.stripe_customer_id || '',
+        stripeCustomerId: latestSubscription.stripe_customer_id || "",
       };
     } else {
       // Fallback to free if no plan is found
       const { startOfMonth, endOfMonth } = getCurrentMonthPeriod();
       return {
-        userPlan: 'free',
+        userPlan: "free",
         currentPeriodStart: startOfMonth,
         currentPeriodEnd: endOfMonth,
-        stripeCustomerId: '',
+        stripeCustomerId: "",
       };
     }
   } catch (error) {
-    log2.error(error, 'Error in getSubscriptionInfo:', {
-      functionName: 'getSubscriptionInfo',
+    log2.error(error, "Error in getSubscriptionInfo:", {
+      functionName: "getSubscriptionInfo",
     });
     // Default to free tier on any error
     const { startOfMonth, endOfMonth } = getCurrentMonthPeriod();
     return {
-      userPlan: 'free',
+      userPlan: "free",
       currentPeriodStart: startOfMonth,
       currentPeriodEnd: endOfMonth,
-      stripeCustomerId: '',
+      stripeCustomerId: "",
     };
   }
 }
 
 async function calculateFreeTierCreditInfo(
   supabaseClient: SupabaseClient<Database>,
-  userId: string,
+  teamId: string,
   log2: SystemLogger,
 ): Promise<{ remaining: number; granted: number; used: number }> {
   const { startOfMonth, endOfMonth } = getCurrentMonthPeriod();
   const periodStart = startOfMonth.toISOString();
   const periodEnd = endOfMonth.toISOString();
   const { data: usageRows, error } = await supabaseClient
-    .from('api_usage')
-    .select('credits_used')
-    .eq('user_id', userId)
-    .eq('is_free_tier', true)
-    .gte('created_at', periodStart)
-    .lte('created_at', periodEnd);
+    .from("api_usage")
+    .select("credits_used")
+    .eq("team_id", teamId)
+    .eq("is_free_tier", true)
+    .gte("created_at", periodStart)
+    .lte("created_at", periodEnd);
 
   if (error) {
-    log2.error(error, 'Error fetching free-tier usage:', {
-      functionName: 'calculateFreeTierCreditInfo',
-      userId,
+    log2.error(error, "Error fetching free-tier usage:", {
+      functionName: "calculateFreeTierCreditInfo",
+      teamId,
     });
   }
 
@@ -189,16 +223,22 @@ export async function hasExceededPrototypeCreationLimit(
   jwtToken: string,
   userId: string,
   log2: SystemLogger,
+  teamId: string,
 ): Promise<{
   exceeded: boolean;
   current: number;
   limit: number;
   plan: string;
 }> {
-  const subscriptionInfo = await getSubscriptionInfo(jwtToken, userId, log2);
+  const subscriptionInfo = await getSubscriptionInfo(
+    jwtToken,
+    userId,
+    log2,
+    teamId,
+  );
 
   // Paid users have no limit
-  if (subscriptionInfo.userPlan !== 'free') {
+  if (subscriptionInfo.userPlan !== "free") {
     return {
       exceeded: false,
       current: 0,
@@ -207,25 +247,19 @@ export async function hasExceededPrototypeCreationLimit(
     };
   }
 
+  // must use service role key because it's possible that this team has prototypes that this user cannot view
   const supabaseClient = createClient<Database>(
     process.env.SUPABASE_URL!,
-    process.env.SUPABASE_ANON_KEY!,
-    {
-      global: {
-        headers: {
-          Authorization: `Bearer ${jwtToken}`,
-        },
-      },
-    },
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
   );
 
   const { count, error } = await supabaseClient
-    .from('prototypes')
-    .select('*', { count: 'exact', head: true })
-    .eq('owner_id', userId);
+    .from("prototypes")
+    .select("*", { count: "exact", head: true })
+    .eq("team_id", teamId);
   if (error) {
-    log2.error(error, 'Error counting user prototypes from supabase:', {
-      functionName: 'hasExceededPrototypeCreationLimit',
+    log2.error(error, "Error counting user prototypes from supabase:", {
+      functionName: "hasExceededPrototypeCreationLimit",
     });
     // Default to exceeded on error to be safe
     return {
@@ -261,6 +295,7 @@ export async function getRemainingCredits(
   jwtToken: string,
   userId: string,
   log2: SystemLogger,
+  teamId?: string,
 ): Promise<{
   remaining: number;
   granted: number;
@@ -284,12 +319,35 @@ export async function getRemainingCredits(
   );
 
   try {
-    const subscriptionInfo = await getSubscriptionInfo(jwtToken, userId, log2);
+    const resolvedTeamId = teamId ??
+      (await getPersonalTeamId(jwtToken, userId, log2));
+    const subscriptionInfo = await getSubscriptionInfo(
+      jwtToken,
+      userId,
+      log2,
+      resolvedTeamId ?? undefined,
+    );
 
-    if (subscriptionInfo.userPlan === 'free') {
+    if (subscriptionInfo.userPlan === "free") {
+      if (!resolvedTeamId) {
+        log2.warn(
+          "Unable to determine team for free-tier credit calculation; defaulting to zero",
+          { userId },
+        );
+        return {
+          remaining: 0,
+          granted: CreditLimits.FREE,
+          used: 0,
+          limit: CreditLimits.FREE,
+          plan: subscriptionInfo.userPlan,
+          currentPeriodStart: subscriptionInfo.currentPeriodStart,
+          currentPeriodEnd: subscriptionInfo.currentPeriodEnd,
+          stripeCustomerId: subscriptionInfo.stripeCustomerId,
+        };
+      }
       const freeCreditInfo = await calculateFreeTierCreditInfo(
         supabaseClient,
-        userId,
+        resolvedTeamId,
         log2,
       );
       return {
@@ -306,45 +364,43 @@ export async function getRemainingCredits(
 
     const nowIso = new Date().toISOString();
     const { data: balances, error: balancesError } = await supabaseClient
-      .from('credit_grant_balances')
-      .select('credits_granted, credits_remaining')
-      .eq('user_id', userId)
-      .gt('expires_at', nowIso);
+      .from("credit_grant_balances")
+      .select("credits_granted, credits_remaining")
+      .eq("user_id", userId)
+      .gt("expires_at", nowIso);
 
     if (balancesError) {
-      log2.error(balancesError, 'Error fetching credit grant balances:', {
-        functionName: 'getRemainingCredits',
+      log2.error(balancesError, "Error fetching credit grant balances:", {
+        functionName: "getRemainingCredits",
       });
     }
 
-    const totalGranted =
-      balances?.reduce(
-        (sum, balance) => sum + (balance.credits_granted || 0),
-        0,
-      ) || 0;
-    const totalRemaining =
-      balances?.reduce(
-        (sum, balance) => sum + (balance.credits_remaining || 0),
-        0,
-      ) || 0;
+    const totalGranted = balances?.reduce(
+      (sum, balance) => sum + (balance.credits_granted || 0),
+      0,
+    ) || 0;
+    const totalRemaining = balances?.reduce(
+      (sum, balance) => sum + (balance.credits_remaining || 0),
+      0,
+    ) || 0;
     const totalUsed = totalGranted - totalRemaining;
 
     // Get the credit limit for this plan
     let creditLimit = 0;
     switch (subscriptionInfo.userPlan as string) {
-      case 'free':
+      case "free":
         creditLimit = CreditLimits.FREE;
         break;
-      case 'plus':
+      case "plus":
         creditLimit = CreditLimits.PLUS;
         break;
-      case 'pro':
+      case "pro":
         creditLimit = CreditLimits.PRO;
         break;
-      case 'max':
+      case "max":
         creditLimit = CreditLimits.MAX;
         break;
-      case 'team':
+      case "team":
         creditLimit = CreditLimits.TEAM;
         break;
       default:
@@ -362,8 +418,8 @@ export async function getRemainingCredits(
       stripeCustomerId: subscriptionInfo.stripeCustomerId,
     };
   } catch (error) {
-    log2.error(error, 'Error in getRemainingCredits:', {
-      functionName: 'getRemainingCredits',
+    log2.error(error, "Error in getRemainingCredits:", {
+      functionName: "getRemainingCredits",
     });
     const { startOfMonth, endOfMonth } = getCurrentMonthPeriod();
     return {
@@ -371,10 +427,10 @@ export async function getRemainingCredits(
       granted: 0,
       used: 0,
       limit: CreditLimits.FREE,
-      plan: 'free',
+      plan: "free",
       currentPeriodStart: startOfMonth,
       currentPeriodEnd: endOfMonth,
-      stripeCustomerId: '',
+      stripeCustomerId: "",
     };
   }
 }
@@ -411,8 +467,8 @@ export async function hasExceededCreditLimit(
       ...creditInfo,
     };
   } catch (error) {
-    log2.error(error, 'Error in hasExceededCreditLimit:', {
-      functionName: 'hasExceededCreditLimit',
+    log2.error(error, "Error in hasExceededCreditLimit:", {
+      functionName: "hasExceededCreditLimit",
     });
     const { startOfMonth, endOfMonth } = getCurrentMonthPeriod();
     return {
@@ -421,10 +477,10 @@ export async function hasExceededCreditLimit(
       granted: 0,
       used: 0,
       limit: CreditLimits.FREE,
-      plan: 'free',
+      plan: "free",
       currentPeriodStart: startOfMonth,
       currentPeriodEnd: endOfMonth,
-      stripeCustomerId: '',
+      stripeCustomerId: "",
     };
   }
 }

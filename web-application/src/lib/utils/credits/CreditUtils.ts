@@ -20,8 +20,11 @@ export interface CreditGrantBalance {
  */
 export async function fetchUserCreditGrantBalances(
   supabase: SupabaseClient<Database>,
-  userId: string,
+  teamId: string,
 ): Promise<CreditGrantBalance[]> {
+  if (!teamId) {
+    return [];
+  }
   const nowIso = new Date().toISOString();
 
   const { data: balances, error } = await supabase
@@ -29,7 +32,7 @@ export async function fetchUserCreditGrantBalances(
     .select(
       "id, grant_type, grant_reason, credits_granted, credits_remaining, billing_period_start, billing_period_end, expires_at, created_at",
     )
-    .eq("user_id", userId)
+    .eq("team_id", teamId)
     .gt("expires_at", nowIso)
     .order("expires_at", { ascending: true }); // FIFO order
 
@@ -117,12 +120,15 @@ export function calculateUsagePercentage(
  */
 export async function fetchOverageCredits(
   supabase: SupabaseClient<Database>,
-  userId: string,
+  teamId: string,
 ): Promise<number> {
+  if (!teamId) {
+    return 0;
+  }
   const { data: overageRows, error } = await supabase
     .from("api_usage")
     .select("credits_used")
-    .eq("user_id", userId)
+    .eq("team_id", teamId)
     .is("credit_grant_id", null)
     .eq("is_free_tier", false);
 

@@ -9,7 +9,10 @@ import type {
   CreatePrototypeRequestBody,
   CreatePrototypeSuccessResponse,
 } from "@/lib/types/serverAPITypes";
-import { handleRedirectToPaymentsPage } from "@/lib/utils/payments/CheckoutUtils";
+import {
+  fetchPersonalTeamId,
+  handleRedirectToPaymentsPage,
+} from "@/lib/utils/payments/CheckoutUtils";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { useMetaPixel } from "@/hooks/useMetaPixel";
@@ -130,16 +133,38 @@ export default function AuthCallback() {
         // User is logged in and there is a checkout_intent with a product ID, proceed to checkout
         // Leave any chat intent in local storage so it can be handled after returning from checkout
         localStorage.removeItem("checkout_intent");
-        handleRedirectToPaymentsPage(productId, data.session.access_token);
+        const teamId = await fetchPersonalTeamId(data.session.user.id);
+        if (!teamId) {
+          logger.debug("error", "Unable to locate personal team for checkout", {
+            user_id: data.session.user.id,
+          });
+          router.push("/dashboard");
+          return;
+        }
+        handleRedirectToPaymentsPage(
+          productId,
+          data.session.access_token,
+          teamId,
+        );
       } else if (data.session.user && chatIntent?.message) {
         try {
           let prototypeId = chatIntent.prototype_id;
           if (!prototypeId) {
             try {
-              const payload: CreatePrototypeRequestBody = {
-                name: "New Prototype",
-                creation_source: "auth_callback_chat_intent",
-              };
+          const teamId = await fetchPersonalTeamId(data.session.user.id);
+          if (!teamId) {
+            logger.debug("error", "Unable to determine personal team", {
+              user_id: data.session.user.id,
+            });
+            router.push("/dashboard");
+            return;
+          }
+
+          const payload: CreatePrototypeRequestBody = {
+            name: "New Prototype",
+            creation_source: "auth_callback_chat_intent",
+            team_id: teamId,
+          };
 
               const response = await fetch(
                 `${process.env.NEXT_PUBLIC_SERVER_ENDPOINT!}/prototype/create`,

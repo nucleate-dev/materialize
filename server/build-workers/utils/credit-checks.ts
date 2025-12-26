@@ -23,28 +23,58 @@ function getCurrentMonthPeriod(): { startOfMonth: Date; endOfMonth: Date } {
 }
 
 /**
+ * Fetch the user's personal team
+ */
+export async function getPersonalTeam(
+  supabase: SupabaseClient<Database>,
+  userId: string,
+  log2: SystemLogger,
+): Promise<Database["public"]["Tables"]["teams"]["Row"]> {
+  const { data, error } = await supabase
+    .from("teams")
+    .select("*")
+    .eq("personal_owner_user_id", userId)
+    .single();
+
+  if (error) {
+    log2.error(error, "Error fetching personal team for user", {
+      functionName: "getPersonalTeam",
+      userId,
+    });
+    throw error;
+  }
+
+  return data;
+}
+
+/**
  * Fetch user's subscription plan
  */
 export async function fetchUserPlan(
   supabase: SupabaseClient<Database>,
   userId: string,
   log2: SystemLogger,
+  teamId?: string,
 ): Promise<string> {
   const nowInSeconds = Math.floor(Date.now() / 1000);
-  const { data, error } = await supabase
+  const planQuery = supabase
     .from("subscriptions")
     .select("plan_id, current_period_start, current_period_end")
-    .eq("user_id", userId)
     .eq("status", "active")
     .lte("current_period_start", nowInSeconds)
     .gte("current_period_end", nowInSeconds)
     .order("updated_at", { ascending: false })
     .limit(1);
 
+  const { data, error } = await (teamId
+    ? planQuery.eq("team_id", teamId)
+    : planQuery.eq("user_id", userId));
+
   if (error) {
     log2.error(error, "Failed to fetch user plan for credit check", {
       functionName: "fetchUserPlan",
       userId,
+      teamId,
     });
     return "free";
   }
@@ -73,23 +103,27 @@ async function calculateFreeTierCreditInfo(
   supabase: SupabaseClient<Database>,
   userId: string,
   log2: SystemLogger,
+  teamId?: string,
 ): Promise<{ remaining: number; granted: number; used: number }> {
   const { startOfMonth, endOfMonth } = getCurrentMonthPeriod();
   const periodStart = startOfMonth.toISOString();
   const periodEnd = endOfMonth.toISOString();
 
-  const { data: usageRows, error } = await supabase
+  const baseQuery = supabase
     .from("api_usage")
     .select("credits_used")
-    .eq("user_id", userId)
     .eq("is_free_tier", true)
     .gte("created_at", periodStart)
     .lte("created_at", periodEnd);
+  const { data: usageRows, error } = await (teamId
+    ? baseQuery.eq("team_id", teamId)
+    : baseQuery.eq("user_id", userId));
 
   if (error) {
     log2.error(error, "Error fetching free-tier usage", {
       functionName: "calculateFreeTierCreditInfo",
       userId,
+      teamId,
     });
   }
 
@@ -127,16 +161,14 @@ async function calculatePaidUserCreditInfo(
     return { remaining: 0, granted: 0, used: 0 };
   }
 
-  const totalGranted =
-    balances?.reduce(
-      (sum, balance) => sum + (balance.credits_granted || 0),
-      0,
-    ) || 0;
-  const totalRemaining =
-    balances?.reduce(
-      (sum, balance) => sum + (balance.credits_remaining || 0),
-      0,
-    ) || 0;
+  const totalGranted = balances?.reduce(
+    (sum, balance) => sum + (balance.credits_granted || 0),
+    0,
+  ) || 0;
+  const totalRemaining = balances?.reduce(
+    (sum, balance) => sum + (balance.credits_remaining || 0),
+    0,
+  ) || 0;
   const totalUsed = totalGranted - totalRemaining;
 
   return {
@@ -153,6 +185,7 @@ async function calculatePaidUserCreditInfo(
 export async function hasRemainingCredits(
   supabase: SupabaseClient<Database>,
   userId: string,
+  teamId: string | undefined,
   log2: SystemLogger,
 ): Promise<{
   hasCredits: boolean;
@@ -162,13 +195,14 @@ export async function hasRemainingCredits(
   plan: string;
 }> {
   try {
-    const userPlan = await fetchUserPlan(supabase, userId, log2);
+    const userPlan = await fetchUserPlan(supabase, userId, log2, teamId);
 
     if (userPlan === "free") {
       const freeCreditInfo = await calculateFreeTierCreditInfo(
         supabase,
         userId,
         log2,
+        teamId,
       );
       return {
         hasCredits: freeCreditInfo.remaining > 0,
@@ -200,6 +234,7 @@ export async function hasRemainingCredits(
       {
         functionName: "hasRemainingCredits",
         userId,
+        teamId,
       },
     );
     // On error, deny access to be safe
