@@ -12,7 +12,9 @@ alter table public.prototypes
 alter table public.api_usage
   add column if not exists team_id uuid references public.teams(id) on update cascade on delete cascade;
 
-create or replace view public.credit_grant_balances as
+drop view if exists public.credit_grant_balances;
+
+create view public.credit_grant_balances as
 select
   g.id,
   g.user_id,
@@ -45,5 +47,14 @@ group by
   g.expires_at,
   g.created_at,
   g.credits_granted;
+
+comment on view public.credit_grant_balances is
+  'Aggregated credit grant usage (granted, used, remaining) computed from api_usage';
+comment on column public.credit_grant_balances.credits_used is
+  'Total credits consumed from this grant via api_usage';
+comment on column public.credit_grant_balances.credits_remaining is
+  'Credits still available for this grant (non-negative)';
+
+grant select on public.credit_grant_balances to authenticated;
 
 commit;

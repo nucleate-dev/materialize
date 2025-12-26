@@ -39,9 +39,10 @@ async function fetchUserPlan(
     .gte("current_period_end", nowInSeconds)
     .order("updated_at", { ascending: false })
     .limit(1);
-  const { data, error } = await (teamId
-    ? planQuery.eq("team_id", teamId)
-    : planQuery.eq("user_id", userId));
+  const { data, error } =
+    await (teamId
+      ? planQuery.eq("team_id", teamId)
+      : planQuery.eq("user_id", userId));
 
   if (error) {
     log2.error(error, "Failed to fetch user plan for usage tracking", {
@@ -107,9 +108,10 @@ async function trackFreeTierUsage(
     .eq("is_free_tier", true)
     .gte("created_at", periodStart)
     .lte("created_at", periodEnd);
-  const { data: usageRows, error: usageError } = await (teamId
-    ? usageQuery.eq("team_id", teamId)
-    : usageQuery.eq("user_id", userId));
+  const { data: usageRows, error: usageError } =
+    await (teamId
+      ? usageQuery.eq("team_id", teamId)
+      : usageQuery.eq("user_id", userId));
 
   if (usageError) {
     log2.error(usageError, "Failed to fetch free-tier usage totals", {
@@ -217,7 +219,9 @@ export async function trackApiUsageBuildWorker(
 
     if (!payload || !payload.success) {
       log2.error(
-        new Error(payload?.error ?? "consume_credits_teams RPC returned failure"),
+        new Error(
+          payload?.error ?? "consume_credits_teams RPC returned failure",
+        ),
         "consume_credits_teams RPC returned failure",
         {
           functionName: "trackApiUsageBuildWorker",
