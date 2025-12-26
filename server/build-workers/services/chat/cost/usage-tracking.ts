@@ -145,18 +145,6 @@ export async function trackApiUsageBuildWorker(
     function: "trackCodeUsage",
   });
 
-  const userPlan = await fetchUserPlan(supabase, userId, log2, teamId);
-  if (userPlan === "free") {
-    return trackFreeTierUsage(
-      supabase,
-      userId,
-      prototypeId,
-      creditsUsed,
-      log2,
-      teamId,
-    );
-  }
-
   const insertFallbackUsage = async (): Promise<void> => {
     const { error: insertError } = await supabase.from("api_usage").insert({
       user_id: userId,
@@ -176,15 +164,45 @@ export async function trackApiUsageBuildWorker(
     }
   };
 
+  if (!teamId) {
+    log2.error(
+      new Error("Missing teamId for consume_credits_teams"),
+      "Cannot track paid usage without team context",
+      {
+        userId,
+        prototypeId,
+      },
+    );
+    await insertFallbackUsage();
+    return {
+      totalRemainingCredits: 0,
+    };
+  }
+
+  const userPlan = await fetchUserPlan(supabase, userId, log2, teamId);
+  if (userPlan === "free") {
+    return trackFreeTierUsage(
+      supabase,
+      userId,
+      prototypeId,
+      creditsUsed,
+      log2,
+      teamId,
+    );
+  }
+
   try {
-    const { data, error: rpcError } = await supabase.rpc("consume_credits", {
-      p_user_id: userId,
-      p_prototype_id: prototypeId,
-      p_credits: creditsUsed,
-    });
+    const { data, error: rpcError } = await supabase.rpc(
+      "consume_credits_teams",
+      {
+        p_team_id: teamId,
+        p_prototype_id: prototypeId,
+        p_credits: creditsUsed,
+      },
+    );
 
     if (rpcError) {
-      log2.error(rpcError, "consume_credits RPC failed", {
+      log2.error(rpcError, "consume_credits_teams RPC failed", {
         functionName: "trackApiUsageBuildWorker",
         userId,
         teamId,
@@ -199,8 +217,8 @@ export async function trackApiUsageBuildWorker(
 
     if (!payload || !payload.success) {
       log2.error(
-        new Error(payload?.error ?? "consume_credits RPC returned failure"),
-        "consume_credits RPC returned failure",
+        new Error(payload?.error ?? "consume_credits_teams RPC returned failure"),
+        "consume_credits_teams RPC returned failure",
         {
           functionName: "trackApiUsageBuildWorker",
           userId,
