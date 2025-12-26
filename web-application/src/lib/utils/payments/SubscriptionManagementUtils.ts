@@ -4,7 +4,6 @@ import type {
   ManageBillingErrorResponse,
   ManageBillingSuccessResponse,
 } from "@/lib/types/serverAPITypes";
-import { fetchPersonalTeamId } from "@/lib/utils/payments/CheckoutUtils";
 import { AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
 
 /**
@@ -12,13 +11,12 @@ import { AppRouterInstance } from "next/dist/shared/lib/app-router-context.share
  *
  * UPDATED: Now uses the control-plane Fastify server instead of Vercel API routes.
  *
- * @param {string} userID - The ID of the authenticated user who wants to manage their billing information.
+ * @param {string} teamId - The ID of the team whose billing portal should be opened.
  * @param {AppRouterInstance} router - The Next.js router instance used for handling navigation.
  *
  * Workflow:
  *  1. Gets the user's session from Supabase auth.
- *  2. Determines the user's personal team (temporary default) to scope billing.
- *  3. Sends a `POST` request to the control-plane `/payments/manage-billing` endpoint with JWT auth.
+ *  2. Sends a `POST` request to the control-plane `/payments/manage-billing` endpoint with JWT auth.
  *  3. The API returns a URL (`redirect_url`) to the Stripe customer portal.
  *  4. Redirects the user to the Stripe customer portal using `router.push` with the returned URL.
  *
@@ -26,26 +24,17 @@ import { AppRouterInstance } from "next/dist/shared/lib/app-router-context.share
  *
  * @example
  * // Example usage of handleRedirectToStripeCustomerPortal
- * handleRedirectToStripeCustomerPortal("user_456", router);
+ * handleRedirectToStripeCustomerPortal("team_123", router);
  */
 export async function handleRedirectToStripeCustomerPortal(
-  userID: string,
+  teamId: string,
   router: AppRouterInstance,
 ): Promise<void> {
   try {
-    const { data: session, error: sessionError } =
-      await supabase.auth.getSession();
-
-    if (sessionError) {
-      alert("Authentication error. Please try logging in again.");
-      return;
-    }
-
-    if (!session.session) {
-      alert(
-        "You must be logged in to manage billing. Please log in and try again.",
-      );
-      return;
+    const { data: session } = await supabase.auth.getSession();
+    const accessToken = session.session?.access_token;
+    if (!accessToken) {
+      throw new Error("Missing authentication session");
     }
 
     // Use the control-plane server endpoint
@@ -54,18 +43,10 @@ export async function handleRedirectToStripeCustomerPortal(
       throw new Error("Server endpoint not configured");
     }
 
-    const teamId = await fetchPersonalTeamId(session.session.user.id);
-    if (!teamId) {
-      alert(
-        "We could not determine your personal team. Please refresh and try again.",
-      );
-      return;
-    }
-
     const response = await fetch(`${serverEndpoint}/payments/manage-billing`, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${session.session.access_token}`,
+        Authorization: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({ teamId }),

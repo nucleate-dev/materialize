@@ -10,7 +10,10 @@ import { cn } from "@/lib/classNames";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import { formatGrantType } from "@/lib/utils/credits/CreditUtils";
 import { usePostHog } from "posthog-js/react";
-import { handleCheckout } from "@/lib/utils/payments/CheckoutUtils";
+import {
+  fetchPersonalTeamId,
+  handleCheckout,
+} from "@/lib/utils/payments/CheckoutUtils";
 import {
   handleRedirectToStripeCustomerPortal,
   IsUserPlanSubscribed,
@@ -100,6 +103,7 @@ function AccountSettings() {
   const [isDeletingToken, setIsDeletingToken] = useState<boolean>(false);
   const [tokenSaveSuccess, setTokenSaveSuccess] = useState<boolean>(false);
   const [tokenError, setTokenError] = useState<string | null>(null);
+  const [isManagingBilling, setIsManagingBilling] = useState<boolean>(false);
 
   useEffect(() => {
     if (user.user) {
@@ -157,6 +161,30 @@ function AccountSettings() {
         error: error instanceof Error ? error.message : String(error),
       });
       setIsProcessingUpgrade(false);
+    }
+  };
+
+  const handleManageBillingClick = async () => {
+    if (!user.user?.id) {
+      return;
+    }
+    try {
+      setIsManagingBilling(true);
+      const teamId = await fetchPersonalTeamId(user.user.id);
+      if (!teamId) {
+        alert(
+          "We couldn't find your personal team. Please refresh and try again.",
+        );
+        return;
+      }
+      await handleRedirectToStripeCustomerPortal(teamId, router);
+    } catch (error) {
+      logger.debug("error", "Error opening billing portal:", {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      alert("Unable to open billing portal right now. Please try again later.");
+    } finally {
+      setIsManagingBilling(false);
     }
   };
 
@@ -404,16 +432,16 @@ function AccountSettings() {
 
                   {currentSubscription !== "free" && (
                     <Button
-                      onClick={() =>
-                        handleRedirectToStripeCustomerPortal(
-                          user.user?.id ?? "",
-                          router,
-                        )
-                      }
+                      onClick={handleManageBillingClick}
                       variant="outline"
+                      disabled={isManagingBilling}
                       className="flex-1 border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 text-gray-900 dark:text-white"
                     >
-                      <Settings className="w-4 h-4 mr-2" />
+                      {isManagingBilling ? (
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      ) : (
+                        <Settings className="w-4 h-4 mr-2" />
+                      )}
                       Manage Billing
                     </Button>
                   )}
