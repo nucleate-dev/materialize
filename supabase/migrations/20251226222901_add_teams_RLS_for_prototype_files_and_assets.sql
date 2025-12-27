@@ -34,6 +34,11 @@ using (
           p.visibility = 'TEAM'
           and public.is_team_member(p.team_id, auth.uid())
         )
+        OR
+        (
+          -- Owners and admins can always view
+          public.is_team_owner_or_admin(p.team_id, auth.uid())
+        )
       )
   )
 );
