@@ -117,7 +117,7 @@ to public
 using (
   (auth.role() = 'service_role')
   OR
-  public.can_delete_prototype_resource(prototype_env_vars.prototype_id, auth.uid())
+  public.can_edit_prototype(prototype_env_vars.prototype_id, auth.uid())
 );
 
 -- ------------------------------------------------------------
@@ -250,7 +250,7 @@ using (
   OR
   (
     auth.uid() is not null
-    and public.can_delete_prototype_resource(
+    and public.can_edit_prototype(
       (select pev.prototype_id from public.prototype_env_vars pev where pev.id = prototype_env_var_secrets.env_var_id),
       auth.uid()
     )
@@ -357,7 +357,7 @@ on public.prototype_build_history
 for delete
 to public
 using (
-  public.can_delete_prototype_resource(prototype_build_history.prototype_id, auth.uid())
+  public.can_edit_prototype(prototype_build_history.prototype_id, auth.uid())
 );
 
 commit;

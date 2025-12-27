@@ -5,12 +5,31 @@
 
 begin;
 
--- Helper function to check if user can delete prototype-related resources
+-- Helper function to check if user is a team owner or admin
+create or replace function public.is_team_owner_or_admin(p_team_id uuid, p_user_id uuid)
+returns boolean
+language sql
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1
+    from public.team_memberships tm
+    where tm.team_id = p_team_id
+      and tm.user_id = p_user_id
+      and tm.role in ('owner', 'admin')
+  );
+$$;
+
+revoke all on function public.is_team_owner_or_admin(uuid, uuid) from public;
+grant execute on function public.is_team_owner_or_admin(uuid, uuid) to authenticated;
+
+-- Helper function to check if user can edit/delete prototype-related resources
 -- Returns true if:
 --   - User is the prototype owner
 --   - User is a team member and prototype visibility is TEAM
 --   - User is a team owner/admin (regardless of visibility)
-create or replace function public.can_delete_prototype_resource(p_prototype_id uuid, p_user_id uuid)
+create or replace function public.can_edit_prototype(p_prototype_id uuid, p_user_id uuid)
 returns boolean
 language sql
 security definer
@@ -21,29 +40,23 @@ as $$
     from public.prototypes p
     where p.id = p_prototype_id
       and (
-        -- Owner can delete
+        -- Owner can edit
         p.owner_id = p_user_id
         OR
-        -- Team members can delete if visibility is TEAM
+        -- Team members can edit if visibility is TEAM
         (
           p.visibility = 'TEAM'
           and public.is_team_member(p.team_id, p_user_id)
         )
         OR
-        -- Team owners/admins can always delete
-        exists (
-          select 1
-          from public.team_memberships tm
-          where tm.team_id = p.team_id
-            and tm.user_id = p_user_id
-            and tm.role in ('owner', 'admin')
-        )
+        -- Team owners/admins can always edit
+        public.is_team_owner_or_admin(p.team_id, p_user_id)
       )
   );
 $$;
 
-revoke all on function public.can_delete_prototype_resource(uuid, uuid) from public;
-grant execute on function public.can_delete_prototype_resource(uuid, uuid) to authenticated;
+revoke all on function public.can_edit_prototype(uuid, uuid) from public;
+grant execute on function public.can_edit_prototype(uuid, uuid) to authenticated;
 
 -- Subscriptions table
 drop policy if exists "Enable users to view their own data only" on public.subscriptions;
@@ -78,6 +91,12 @@ using (
     and auth.uid() is not null
     and public.is_team_member(team_id, auth.uid())
   )
+  -- Owners and admins can always view
+  OR 
+  (
+    auth.uid() is not null
+    and public.is_team_owner_or_admin(team_id, auth.uid())
+  )
 );
 
 -- INSERT: user must insert for themselves AND be a member of the team
@@ -94,24 +113,14 @@ with check (
   public.is_team_member(team_id, auth.uid())
 );
 
--- DELETE: owner can always delete, team owners/admins can delete
+-- DELETE: owner, team members (if TEAM visibility), or team owners/admins can delete
 drop policy if exists "Users can delete own prototypes" on public.prototypes;
 create policy "prototypes_delete_owner_or_team_admin"
 on public.prototypes
 for delete
 to authenticated
 using (
-  -- Owner can always delete
-  (auth.uid() = owner_id)
-  OR
-  -- Team owners/admins can delete
-  exists (
-    select 1
-    from public.team_memberships tm
-    where tm.team_id = prototypes.team_id
-      and tm.user_id = auth.uid()
-      and tm.role in ('owner', 'admin')
-  )
+  public.can_edit_prototype(prototypes.id, auth.uid())
 );
 
 -- UPDATE: owner can always update, team members can update if visibility is TEAM

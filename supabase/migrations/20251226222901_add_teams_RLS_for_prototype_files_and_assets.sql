@@ -3,7 +3,7 @@
 --   SELECT: users can view from prototypes they can view (owner, PUBLIC, or TEAM member)
 --   INSERT/UPDATE: users can modify prototypes they can update (owner or TEAM member if visibility is TEAM)
 --   DELETE: owner, TEAM members if visibility is TEAM, or team owners/admins can always delete
--- Note: Uses can_delete_prototype_resource() helper function defined in earlier migration
+-- Note: Uses can_edit_prototype() helper function defined in earlier migration
 
 begin;
 
@@ -110,7 +110,7 @@ on public.prototype_files
 for delete
 to authenticated
 using (
-  public.can_delete_prototype_resource(prototype_files.prototype_id, auth.uid())
+  public.can_edit_prototype(prototype_files.prototype_id, auth.uid())
 );
 
 -- ------------------------------------------------------------
@@ -216,7 +216,7 @@ on public.prototype_assets
 for delete
 to authenticated
 using (
-  public.can_delete_prototype_resource(prototype_assets.prototype_id, auth.uid())
+  public.can_edit_prototype(prototype_assets.prototype_id, auth.uid())
 );
 
 commit;
