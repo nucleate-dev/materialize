@@ -1,3 +1,23 @@
+begin;
+
+-- Helper function to check team membership (bypasses RLS)
+create or replace function public.is_team_member(p_team_id uuid, p_user_id uuid)
+returns boolean
+language sql
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1
+    from public.team_memberships
+    where team_id = p_team_id
+      and user_id = p_user_id
+  );
+$$;
+
+revoke all on function public.is_team_member(uuid, uuid) from public;
+grant execute on function public.is_team_member(uuid, uuid) to authenticated;
+
 -- Helper function to check if user is a team owner or admin
 create or replace function public.is_team_owner_or_admin(p_team_id uuid, p_user_id uuid)
 returns boolean
@@ -91,3 +111,5 @@ $$;
 
 revoke all on function public.can_view_prototype(uuid, uuid) from public;
 grant execute on function public.can_view_prototype(uuid, uuid) to authenticated;
+
+commit;
