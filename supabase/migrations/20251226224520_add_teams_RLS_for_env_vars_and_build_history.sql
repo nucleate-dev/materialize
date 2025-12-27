@@ -108,7 +108,7 @@ with check (
   )
 );
 
--- DELETE: service_role OR users can delete from prototypes they can update (owner or TEAM member)
+-- DELETE: service_role OR owner OR team members (if TEAM visibility) OR team owners/admins
 drop policy if exists "prototype_env_vars_delete_policy" on public.prototype_env_vars;
 create policy "prototype_env_vars_delete_policy"
 on public.prototype_env_vars
@@ -117,21 +117,7 @@ to public
 using (
   (auth.role() = 'service_role')
   OR
-  exists (
-    select 1
-    from public.prototypes p
-    where p.id = prototype_env_vars.prototype_id
-      and (
-        -- Owner can delete
-        p.owner_id = auth.uid()
-        OR
-        -- Team members can delete if visibility is TEAM
-        (
-          p.visibility = 'TEAM'
-          and public.is_team_member(p.team_id, auth.uid())
-        )
-      )
-  )
+  public.can_delete_prototype_resource(prototype_env_vars.prototype_id, auth.uid())
 );
 
 -- ------------------------------------------------------------
@@ -253,7 +239,7 @@ with check (
   )
 );
 
--- DELETE: service_role OR owner OR team members if visibility is TEAM
+-- DELETE: service_role OR owner OR team members (if TEAM visibility) OR team owners/admins
 drop policy if exists "prototype_env_var_secrets_delete_policy" on public.prototype_env_var_secrets;
 create policy "prototype_env_var_secrets_delete_policy"
 on public.prototype_env_var_secrets
@@ -264,21 +250,9 @@ using (
   OR
   (
     auth.uid() is not null
-    and exists (
-      select 1
-      from public.prototype_env_vars pev
-      join public.prototypes p on p.id = pev.prototype_id
-      where pev.id = prototype_env_var_secrets.env_var_id
-        and (
-          -- Owner can delete
-          p.owner_id = auth.uid()
-          OR
-          -- Team members can delete if visibility is TEAM
-          (
-            p.visibility = 'TEAM'
-            and public.is_team_member(p.team_id, auth.uid())
-          )
-        )
+    and public.can_delete_prototype_resource(
+      (select pev.prototype_id from public.prototype_env_vars pev where pev.id = prototype_env_var_secrets.env_var_id),
+      auth.uid()
     )
   )
 );
@@ -376,28 +350,14 @@ with check (
   )
 );
 
--- DELETE: owner OR team members if visibility is TEAM
+-- DELETE: owner OR team members (if TEAM visibility) OR team owners/admins
 drop policy if exists "prototype_build_history_delete_own" on public.prototype_build_history;
 create policy "prototype_build_history_delete_own"
 on public.prototype_build_history
 for delete
 to public
 using (
-  exists (
-    select 1
-    from public.prototypes p
-    where p.id = prototype_build_history.prototype_id
-      and (
-        -- Owner can delete
-        p.owner_id = auth.uid()
-        OR
-        -- Team members can delete if visibility is TEAM
-        (
-          p.visibility = 'TEAM'
-          and public.is_team_member(p.team_id, auth.uid())
-        )
-      )
-  )
+  public.can_delete_prototype_resource(prototype_build_history.prototype_id, auth.uid())
 );
 
 commit;

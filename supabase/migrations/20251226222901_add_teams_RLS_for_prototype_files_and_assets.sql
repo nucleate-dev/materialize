@@ -1,7 +1,9 @@
 -- Add RLS policies for prototype_files and prototype_assets tables to support team-based access
 -- Both tables follow the same pattern:
 --   SELECT: users can view from prototypes they can view (owner, PUBLIC, or TEAM member)
---   INSERT/UPDATE/DELETE: users can modify prototypes they can update (owner or TEAM member if visibility is TEAM)
+--   INSERT/UPDATE: users can modify prototypes they can update (owner or TEAM member if visibility is TEAM)
+--   DELETE: owner, TEAM members if visibility is TEAM, or team owners/admins can always delete
+-- Note: Uses can_delete_prototype_resource() helper function defined in earlier migration
 
 begin;
 
@@ -101,28 +103,14 @@ with check (
   )
 );
 
--- DELETE: users can delete files from prototypes they can update
+-- DELETE: owner, team members (if TEAM visibility), or team owners/admins can delete
 drop policy if exists "Only prototype owners can delete files" on public.prototype_files;
 create policy "prototype_files_delete_updatable_prototypes"
 on public.prototype_files
 for delete
 to authenticated
 using (
-  exists (
-    select 1
-    from public.prototypes p
-    where p.id = prototype_files.prototype_id
-      and (
-        -- Owner can delete
-        p.owner_id = auth.uid()
-        OR
-        -- Team members can delete if visibility is TEAM
-        (
-          p.visibility = 'TEAM'
-          and public.is_team_member(p.team_id, auth.uid())
-        )
-      )
-  )
+  public.can_delete_prototype_resource(prototype_files.prototype_id, auth.uid())
 );
 
 -- ------------------------------------------------------------
@@ -221,28 +209,14 @@ with check (
   )
 );
 
--- DELETE: users can delete assets from prototypes they can update
+-- DELETE: owner, team members (if TEAM visibility), or team owners/admins can delete
 drop policy if exists "Only prototype owners can delete assets" on public.prototype_assets;
 create policy "prototype_assets_delete_updatable_prototypes"
 on public.prototype_assets
 for delete
 to authenticated
 using (
-  exists (
-    select 1
-    from public.prototypes p
-    where p.id = prototype_assets.prototype_id
-      and (
-        -- Owner can delete
-        p.owner_id = auth.uid()
-        OR
-        -- Team members can delete if visibility is TEAM
-        (
-          p.visibility = 'TEAM'
-          and public.is_team_member(p.team_id, auth.uid())
-        )
-      )
-  )
+  public.can_delete_prototype_resource(prototype_assets.prototype_id, auth.uid())
 );
 
 commit;
