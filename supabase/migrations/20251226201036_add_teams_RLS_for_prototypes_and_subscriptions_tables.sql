@@ -120,7 +120,16 @@ on public.prototypes
 for delete
 to authenticated
 using (
-  public.can_edit_prototype(prototypes.id, auth.uid())
+  owner_id = auth.uid()
+  OR
+  -- Team members can edit if visibility is TEAM
+  (
+    visibility = 'TEAM'
+    and public.is_team_member(team_id, auth.uid())
+  )
+  OR
+  -- Team owners/admins can always edit
+  public.is_team_owner_or_admin(team_id, auth.uid())
 );
 
 -- UPDATE: owner can always update, team members can update if visibility is TEAM
@@ -130,23 +139,29 @@ on public.prototypes
 for update
 to authenticated
 using (
-  -- Owner can always update
-  (auth.uid() = owner_id)
+ owner_id = auth.uid()
   OR
-  -- Team members can update if visibility is TEAM
+  -- Team members can edit if visibility is TEAM
   (
     visibility = 'TEAM'
     and public.is_team_member(team_id, auth.uid())
   )
+  OR
+  -- Team owners/admins can always edit
+  public.is_team_owner_or_admin(team_id, auth.uid())
 )
 with check (
   -- Same rules for the updated row
-  (auth.uid() = owner_id)
+  owner_id = auth.uid()
   OR
+  -- Team members can edit if visibility is TEAM
   (
     visibility = 'TEAM'
     and public.is_team_member(team_id, auth.uid())
   )
+  OR
+  -- Team owners/admins can always edit
+  public.is_team_owner_or_admin(team_id, auth.uid())
 );
 
 commit;
