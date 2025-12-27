@@ -18,29 +18,7 @@ on public.prototype_files
 for select
 to authenticated
 using (
-  exists (
-    select 1
-    from public.prototypes p
-    where p.id = prototype_files.prototype_id
-      and (
-        -- Owner can view
-        p.owner_id = auth.uid()
-        OR
-        -- Public prototypes
-        p.visibility = 'PUBLIC'
-        OR
-        -- Team prototypes where user is a team member
-        (
-          p.visibility = 'TEAM'
-          and public.is_team_member(p.team_id, auth.uid())
-        )
-        OR
-        (
-          -- Owners and admins can always view
-          public.is_team_owner_or_admin(p.team_id, auth.uid())
-        )
-      )
-  )
+  public.can_view_prototype(prototype_files.prototype_id, auth.uid())
 );
 
 -- INSERT: users can insert files to prototypes they can update
@@ -50,21 +28,7 @@ on public.prototype_files
 for insert
 to authenticated
 with check (
-  exists (
-    select 1
-    from public.prototypes p
-    where p.id = prototype_files.prototype_id
-      and (
-        -- Owner can insert
-        p.owner_id = auth.uid()
-        OR
-        -- Team members can insert if visibility is TEAM
-        (
-          p.visibility = 'TEAM'
-          and public.is_team_member(p.team_id, auth.uid())
-        )
-      )
-  )
+  public.can_edit_prototype(prototype_files.prototype_id, auth.uid())
 );
 
 -- UPDATE: users can update files from prototypes they can update
@@ -74,38 +38,10 @@ on public.prototype_files
 for update
 to authenticated
 using (
-  exists (
-    select 1
-    from public.prototypes p
-    where p.id = prototype_files.prototype_id
-      and (
-        -- Owner can update
-        p.owner_id = auth.uid()
-        OR
-        -- Team members can update if visibility is TEAM
-        (
-          p.visibility = 'TEAM'
-          and public.is_team_member(p.team_id, auth.uid())
-        )
-      )
-  )
+  public.can_edit_prototype(prototype_files.prototype_id, auth.uid())
 )
 with check (
-  exists (
-    select 1
-    from public.prototypes p
-    where p.id = prototype_files.prototype_id
-      and (
-        -- Owner can update
-        p.owner_id = auth.uid()
-        OR
-        -- Team members can update if visibility is TEAM
-        (
-          p.visibility = 'TEAM'
-          and public.is_team_member(p.team_id, auth.uid())
-        )
-      )
-  )
+  public.can_edit_prototype(prototype_files.prototype_id, auth.uid())
 );
 
 -- DELETE: owner, team members (if TEAM visibility), or team owners/admins can delete
@@ -129,24 +65,7 @@ on public.prototype_assets
 for select
 to authenticated
 using (
-  exists (
-    select 1
-    from public.prototypes p
-    where p.id = prototype_assets.prototype_id
-      and (
-        -- Owner can view
-        p.owner_id = auth.uid()
-        OR
-        -- Public prototypes
-        p.visibility = 'PUBLIC'
-        OR
-        -- Team prototypes where user is a team member
-        (
-          p.visibility = 'TEAM'
-          and public.is_team_member(p.team_id, auth.uid())
-        )
-      )
-  )
+  public.can_view_prototype(prototype_assets.prototype_id, auth.uid())
 );
 
 -- INSERT: users can insert assets to prototypes they can update
@@ -156,21 +75,7 @@ on public.prototype_assets
 for insert
 to authenticated
 with check (
-  exists (
-    select 1
-    from public.prototypes p
-    where p.id = prototype_assets.prototype_id
-      and (
-        -- Owner can insert
-        p.owner_id = auth.uid()
-        OR
-        -- Team members can insert if visibility is TEAM
-        (
-          p.visibility = 'TEAM'
-          and public.is_team_member(p.team_id, auth.uid())
-        )
-      )
-  )
+  public.can_edit_prototype(prototype_assets.prototype_id, auth.uid())
 );
 
 -- UPDATE: users can update assets from prototypes they can update
@@ -180,38 +85,10 @@ on public.prototype_assets
 for update
 to authenticated
 using (
-  exists (
-    select 1
-    from public.prototypes p
-    where p.id = prototype_assets.prototype_id
-      and (
-        -- Owner can update
-        p.owner_id = auth.uid()
-        OR
-        -- Team members can update if visibility is TEAM
-        (
-          p.visibility = 'TEAM'
-          and public.is_team_member(p.team_id, auth.uid())
-        )
-      )
-  )
+  public.can_edit_prototype(prototype_assets.prototype_id, auth.uid())
 )
 with check (
-  exists (
-    select 1
-    from public.prototypes p
-    where p.id = prototype_assets.prototype_id
-      and (
-        -- Owner can update
-        p.owner_id = auth.uid()
-        OR
-        -- Team members can update if visibility is TEAM
-        (
-          p.visibility = 'TEAM'
-          and public.is_team_member(p.team_id, auth.uid())
-        )
-      )
-  )
+  public.can_edit_prototype(prototype_assets.prototype_id, auth.uid())
 );
 
 -- DELETE: owner, team members (if TEAM visibility), or team owners/admins can delete

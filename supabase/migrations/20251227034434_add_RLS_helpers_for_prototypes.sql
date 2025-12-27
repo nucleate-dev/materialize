@@ -58,7 +58,7 @@ grant execute on function public.can_edit_prototype(uuid, uuid) to authenticated
 --   - User is the prototype owner
 --   - User is a team member and prototype visibility is TEAM
 --   - User is a team owner/admin (regardless of visibility)
-create or replace function can_view_prototype(p_prototype_id uuid, p_user_id uuid)
+create or replace function public.can_view_prototype(p_prototype_id uuid, p_user_id uuid)
 returns boolean
 language sql
 security definer
@@ -67,26 +67,27 @@ as $$
   select exists (
     select 1
     from public.prototypes p
-    where p.id = prototype_files.prototype_id
+    where p.id = p_prototype_id
       and (
-        -- Owner can view
-        p.owner_id = auth.uid()
-        OR
         -- Public prototypes
         p.visibility = 'PUBLIC'
+        OR
+        -- Owner can view
+        p.owner_id = p_user_id
         OR
         -- Team prototypes where user is a team member
         (
           p.visibility = 'TEAM'
-          and public.is_team_member(p.team_id, auth.uid())
+          and public.is_team_member(p.team_id, p_user_id)
         )
         OR
         (
           -- Owners and admins can always view
-          public.is_team_owner_or_admin(p.team_id, auth.uid())
+          public.is_team_owner_or_admin(p.team_id, p_user_id)
         )
       )
   );
 $$;
-revoke all on function public.can_edit_prototype(uuid, uuid) from public;
-grant execute on function public.can_edit_prototype(uuid, uuid) to authenticated;
+
+revoke all on function public.can_view_prototype(uuid, uuid) from public;
+grant execute on function public.can_view_prototype(uuid, uuid) to authenticated;

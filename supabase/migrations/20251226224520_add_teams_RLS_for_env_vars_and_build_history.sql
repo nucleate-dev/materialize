@@ -17,24 +17,7 @@ to public
 using (
   (auth.role() = 'service_role')
   OR
-  exists (
-    select 1
-    from public.prototypes p
-    where p.id = prototype_env_vars.prototype_id
-      and (
-        -- Owner can view
-        p.owner_id = auth.uid()
-        OR
-        -- Public prototypes
-        p.visibility = 'PUBLIC'
-        OR
-        -- Team prototypes where user is a team member
-        (
-          p.visibility = 'TEAM'
-          and public.is_team_member(p.team_id, auth.uid())
-        )
-      )
-  )
+  public.can_view_prototype(prototype_env_vars.prototype_id, auth.uid())
 );
 
 -- INSERT: service_role OR users can insert to prototypes they can update (owner or TEAM member)
@@ -46,21 +29,7 @@ to public
 with check (
   (auth.role() = 'service_role')
   OR
-  exists (
-    select 1
-    from public.prototypes p
-    where p.id = prototype_env_vars.prototype_id
-      and (
-        -- Owner can insert
-        p.owner_id = auth.uid()
-        OR
-        -- Team members can insert if visibility is TEAM
-        (
-          p.visibility = 'TEAM'
-          and public.is_team_member(p.team_id, auth.uid())
-        )
-      )
-  )
+  public.can_edit_prototype(prototype_env_vars.prototype_id, auth.uid())
 );
 
 -- UPDATE: service_role OR users can update from prototypes they can update (owner or TEAM member)
@@ -72,40 +41,12 @@ to public
 using (
   (auth.role() = 'service_role')
   OR
-  exists (
-    select 1
-    from public.prototypes p
-    where p.id = prototype_env_vars.prototype_id
-      and (
-        -- Owner can update
-        p.owner_id = auth.uid()
-        OR
-        -- Team members can update if visibility is TEAM
-        (
-          p.visibility = 'TEAM'
-          and public.is_team_member(p.team_id, auth.uid())
-        )
-      )
-  )
+  public.can_edit_prototype(prototype_env_vars.prototype_id, auth.uid())
 )
 with check (
   (auth.role() = 'service_role')
   OR
-  exists (
-    select 1
-    from public.prototypes p
-    where p.id = prototype_env_vars.prototype_id
-      and (
-        -- Owner can update
-        p.owner_id = auth.uid()
-        OR
-        -- Team members can update if visibility is TEAM
-        (
-          p.visibility = 'TEAM'
-          and public.is_team_member(p.team_id, auth.uid())
-        )
-      )
-  )
+  public.can_edit_prototype(prototype_env_vars.prototype_id, auth.uid())
 );
 
 -- DELETE: service_role OR owner OR team members (if TEAM visibility) OR team owners/admins
@@ -137,21 +78,9 @@ using (
   OR
   (
     auth.uid() is not null
-    and exists (
-      select 1
-      from public.prototype_env_vars pev
-      join public.prototypes p on p.id = pev.prototype_id
-      where pev.id = prototype_env_var_secrets.env_var_id
-        and (
-          -- Owner can view
-          p.owner_id = auth.uid()
-          OR
-          -- Team members can view if visibility is TEAM
-          (
-            p.visibility = 'TEAM'
-            and public.is_team_member(p.team_id, auth.uid())
-          )
-        )
+    and public.can_view_prototype(
+      (select pev.prototype_id from public.prototype_env_vars pev where pev.id = prototype_env_var_secrets.env_var_id),
+      auth.uid()
     )
   )
 );
@@ -167,21 +96,9 @@ with check (
   OR
   (
     auth.uid() is not null
-    and exists (
-      select 1
-      from public.prototype_env_vars pev
-      join public.prototypes p on p.id = pev.prototype_id
-      where pev.id = prototype_env_var_secrets.env_var_id
-        and (
-          -- Owner can insert
-          p.owner_id = auth.uid()
-          OR
-          -- Team members can insert if visibility is TEAM
-          (
-            p.visibility = 'TEAM'
-            and public.is_team_member(p.team_id, auth.uid())
-          )
-        )
+    and public.can_edit_prototype(
+      (select pev.prototype_id from public.prototype_env_vars pev where pev.id = prototype_env_var_secrets.env_var_id),
+      auth.uid()
     )
   )
 );
@@ -197,21 +114,9 @@ using (
   OR
   (
     auth.uid() is not null
-    and exists (
-      select 1
-      from public.prototype_env_vars pev
-      join public.prototypes p on p.id = pev.prototype_id
-      where pev.id = prototype_env_var_secrets.env_var_id
-        and (
-          -- Owner can update
-          p.owner_id = auth.uid()
-          OR
-          -- Team members can update if visibility is TEAM
-          (
-            p.visibility = 'TEAM'
-            and public.is_team_member(p.team_id, auth.uid())
-          )
-        )
+    and public.can_edit_prototype(
+      (select pev.prototype_id from public.prototype_env_vars pev where pev.id = prototype_env_var_secrets.env_var_id),
+      auth.uid()
     )
   )
 )
@@ -220,21 +125,9 @@ with check (
   OR
   (
     auth.uid() is not null
-    and exists (
-      select 1
-      from public.prototype_env_vars pev
-      join public.prototypes p on p.id = pev.prototype_id
-      where pev.id = prototype_env_var_secrets.env_var_id
-        and (
-          -- Owner can update
-          p.owner_id = auth.uid()
-          OR
-          -- Team members can update if visibility is TEAM
-          (
-            p.visibility = 'TEAM'
-            and public.is_team_member(p.team_id, auth.uid())
-          )
-        )
+    and public.can_edit_prototype(
+      (select pev.prototype_id from public.prototype_env_vars pev where pev.id = prototype_env_var_secrets.env_var_id),
+      auth.uid()
     )
   )
 );
@@ -268,21 +161,7 @@ on public.prototype_build_history
 for select
 to public
 using (
-  exists (
-    select 1
-    from public.prototypes p
-    where p.id = prototype_build_history.prototype_id
-      and (
-        -- Owner can view
-        p.owner_id = auth.uid()
-        OR
-        -- Team members can view if visibility is TEAM
-        (
-          p.visibility = 'TEAM'
-          and public.is_team_member(p.team_id, auth.uid())
-        )
-      )
-  )
+  public.can_view_prototype(prototype_build_history.prototype_id, auth.uid())
 );
 
 -- INSERT: owner OR team members if visibility is TEAM
@@ -292,21 +171,7 @@ on public.prototype_build_history
 for insert
 to public
 with check (
-  exists (
-    select 1
-    from public.prototypes p
-    where p.id = prototype_build_history.prototype_id
-      and (
-        -- Owner can insert
-        p.owner_id = auth.uid()
-        OR
-        -- Team members can insert if visibility is TEAM
-        (
-          p.visibility = 'TEAM'
-          and public.is_team_member(p.team_id, auth.uid())
-        )
-      )
-  )
+  public.can_edit_prototype(prototype_build_history.prototype_id, auth.uid())
 );
 
 -- UPDATE: owner OR team members if visibility is TEAM
@@ -316,38 +181,10 @@ on public.prototype_build_history
 for update
 to public
 using (
-  exists (
-    select 1
-    from public.prototypes p
-    where p.id = prototype_build_history.prototype_id
-      and (
-        -- Owner can update
-        p.owner_id = auth.uid()
-        OR
-        -- Team members can update if visibility is TEAM
-        (
-          p.visibility = 'TEAM'
-          and public.is_team_member(p.team_id, auth.uid())
-        )
-      )
-  )
+  public.can_edit_prototype(prototype_build_history.prototype_id, auth.uid())
 )
 with check (
-  exists (
-    select 1
-    from public.prototypes p
-    where p.id = prototype_build_history.prototype_id
-      and (
-        -- Owner can update
-        p.owner_id = auth.uid()
-        OR
-        -- Team members can update if visibility is TEAM
-        (
-          p.visibility = 'TEAM'
-          and public.is_team_member(p.team_id, auth.uid())
-        )
-      )
-  )
+  public.can_edit_prototype(prototype_build_history.prototype_id, auth.uid())
 );
 
 -- DELETE: owner OR team members (if TEAM visibility) OR team owners/admins
