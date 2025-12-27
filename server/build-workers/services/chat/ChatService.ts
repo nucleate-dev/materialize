@@ -33,11 +33,9 @@ import {
   ChatEngine,
   ChatEngineResult,
   ChatEngineSessionState,
-  CliAuthEnvironment,
   DesignAgentMetadata,
 } from "./chat-engines/chat-engine.js";
 import { ChatQueryHandler } from "./chat-engines/chat-query-handler.js";
-import { ClaudeCodeCliQueryHandler } from "./chat-engines/claude-code-cli-query-handler.js";
 import { persistChatMessage } from "./helpers/message-handlers.js";
 import { costFunctionV3 } from "./cost/cost-calculation.js";
 import { trackApiUsageBuildWorker } from "./cost/usage-tracking.js";
@@ -74,7 +72,6 @@ export class ChatService {
   private readonly fileSyncService: FileSyncService;
 
   private readonly chatQueryHandler: ChatEngine;
-  private readonly claudeCodeCliQueryHandler: ChatEngine;
   private readonly claudeTokenService: ClaudeTokenService;
   private sessionState: ChatEngineSessionState = {
     sessionId: null,
@@ -108,9 +105,6 @@ export class ChatService {
       terminalService,
     );
     this.claudeTokenService = new ClaudeTokenService(supabaseClientService);
-    this.claudeCodeCliQueryHandler = new ClaudeCodeCliQueryHandler(
-      supabaseClientService,
-    );
 
     baseLogger.consoleLogDevOnly("info", "ChatService initialized", {
       workDir: WORK_DIR,
@@ -419,71 +413,12 @@ export class ChatService {
       return;
     }
 
-    // 5. DETERMINE APPROPRIATE CHAT HANDLER FOR THE USER
-    // 5a. Check if the user has a claude subscription token to determine whether to use CLI mode
-    let useCliMode = false;
-    if (userId) {
-      try {
-        const isFeatureEnabled = await posthog.isFeatureEnabled(
-          "claude-code-cli-with-personal-token",
-          userId,
-        );
-        if (isFeatureEnabled) {
-          const userToken = await this.claudeTokenService.getUserToken(userId);
-          useCliMode = !!userToken;
-        }
-        logger.consoleLogDevOnly(
-          "info",
-          "Checked user Claude subscription token",
-          {
-            userId,
-            isFeatureEnabled,
-            hasToken: useCliMode,
-          },
-        );
-      } catch (error) {
-        logger.warn("Failed to check user Claude subscription token", {
-          error: error instanceof Error ? error.message : String(error),
-        });
-      }
-    }
-    // 5b. Delegate to appropriate handler based on provider and user subscription
-    let selectedChatEngine: ChatEngine;
-    let handlerName: string;
-    let cliAuthEnv: CliAuthEnvironment | null = null;
-    if (useCliMode && this.claudeCodeCliQueryHandler && userId) {
-      selectedChatEngine = this.claudeCodeCliQueryHandler;
-      handlerName = "claude-cli";
-      const cliResult = await this.buildClaudeCliAuthEnvironment(
-        userId,
-        logger,
-      );
-      if (!cliResult.success || !cliResult.authEnv) {
-        this.sendMessage(socket, {
-          type: ChatEvent.ERROR,
-          error: {
-            message: cliResult.errorMessage ??
-              "Claude CLI is not available for this account",
-            details: cliResult.errorDetails,
-          },
-        });
-        return;
-      }
-      cliAuthEnv = cliResult.authEnv;
-    } else {
-      selectedChatEngine = this.chatQueryHandler;
-      handlerName = "claude-sdk";
-    }
-
     // 5. PREPARE SESSION STATE
     this.prepareSessionStateForQuery(data, logger);
 
     // 6. PERFORM DESIGN INSPIRATION + CLASSIFICATION STEPS FOR USER FIRST MESSAGES
     let isFirstMessage = false;
-    if (
-      selectedChatEngine === this.chatQueryHandler &&
-      this.sessionState.prototypeChatSessionId
-    ) {
+    if (this.sessionState.prototypeChatSessionId) {
       isFirstMessage = await this.isFirstMessageForPrototype(
         prototypeId,
         this.sessionState.prototypeChatSessionId,
@@ -491,20 +426,13 @@ export class ChatService {
       );
     }
 
-    let designPreparation: {
-      designSpec: string | null;
-      designMetadata: DesignAgentMetadata | null;
-      designAgentCost?: number;
-    } | null = null;
-    if (selectedChatEngine === this.chatQueryHandler) {
-      designPreparation = await this.prepareFirstMessageDesignContext(
-        socket,
-        data,
-        prototypeId,
-        logger,
-        isFirstMessage,
-      );
-    }
+    const designPreparation = await this.prepareFirstMessageDesignContext(
+      socket,
+      data,
+      prototypeId,
+      logger,
+      isFirstMessage,
+    );
 
     if (
       designPreparation?.designSpec &&
@@ -554,23 +482,20 @@ export class ChatService {
       framework,
     );
 
-    // 8. DISPATCH REQUEST TO APPROPRIATE ENGINE
-    logger.consoleLogDevOnly("info", "Dispatching chat query to handler", {
+    // 8. DISPATCH REQUEST TO SDK ENGINE
+    logger.consoleLogDevOnly("info", "Dispatching chat query to SDK handler", {
       prototypeId,
-      handler: handlerName,
-      useCliMode,
       hasPrototypeChatSessionId: !!this.sessionState.prototypeChatSessionId,
       sessionId: this.sessionState.sessionId,
     });
     let handlerResult: ChatEngineResult | void = undefined;
     const designAgentCost = designPreparation?.designAgentCost;
     try {
-      handlerResult = await selectedChatEngine.handleQuery({
+      handlerResult = await this.chatQueryHandler.handleQuery({
         socket,
         data,
         sessionState: this.sessionState,
         validAiChatSessionIds: this.validAiChatSessionIds,
-        cliAuthEnv,
         systemPrompt,
         getRelativePath: this.getRelativePath.bind(this),
       });
@@ -750,51 +675,6 @@ export class ChatService {
     }
 
     return { valid: true };
-  }
-
-  private async buildClaudeCliAuthEnvironment(
-    userId: string,
-    logger: SystemLogger,
-  ): Promise<{
-    success: boolean;
-    authEnv?: CliAuthEnvironment;
-    errorMessage?: string;
-    errorDetails?: string;
-  }> {
-    try {
-      const userToken = await this.claudeTokenService.getUserToken(userId);
-
-      if (!userToken) {
-        return {
-          success: false,
-          errorMessage:
-            "No Claude subscription connected. Please connect your Claude Pro or Max subscription in Settings to use AI chat.",
-        };
-      }
-
-      const env = { ...process.env };
-      env.CLAUDE_CODE_OAUTH_TOKEN = userToken;
-      delete env.ANTHROPIC_API_KEY;
-
-      return {
-        success: true,
-        authEnv: {
-          env,
-          authMethod: "user_token",
-        },
-      };
-    } catch (error) {
-      logger.error(
-        error instanceof Error ? error : new Error(String(error)),
-        "Failed to prepare Claude CLI authentication environment",
-        { userId },
-      );
-      return {
-        success: false,
-        errorMessage: "Failed to prepare Claude CLI authentication",
-        errorDetails: error instanceof Error ? error.message : String(error),
-      };
-    }
   }
 
   private prepareSessionStateForQuery(

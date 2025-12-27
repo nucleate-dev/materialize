@@ -1,11 +1,6 @@
 import WebSocket from "ws";
 import { ChatQueryData } from "../../../types/ChatTypes.js";
 
-export interface CliAuthEnvironment {
-  env: NodeJS.ProcessEnv;
-  authMethod: "user_token";
-}
-
 export interface ChatEngineSessionState {
   sessionId: string | null;
   prototypeChatSessionId: string | null;
@@ -24,7 +19,6 @@ export interface ChatEngineContext {
   data: ChatQueryData;
   sessionState: ChatEngineSessionState;
   validAiChatSessionIds: Set<string>;
-  cliAuthEnv?: CliAuthEnvironment | null;
   getRelativePath: (absolutePath: string) => string;
   systemPrompt: string;
 }
