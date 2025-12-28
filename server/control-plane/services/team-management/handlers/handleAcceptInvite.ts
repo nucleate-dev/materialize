@@ -58,6 +58,7 @@ export default async function handleAcceptInviteImpl(
     inviteId: invite_id,
   });
 
+  // User-authenticated client for reading invites (respects RLS)
   const supabaseClient = createClient<Database>(
     process.env.SUPABASE_URL!,
     process.env.SUPABASE_ANON_KEY!,
@@ -68,6 +69,12 @@ export default async function handleAcceptInviteImpl(
         },
       },
     },
+  );
+
+  // Service role client for inserting membership (bypasses RLS)
+  const supabaseServiceClient = createClient<Database>(
+    process.env.SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
   );
 
   try {
@@ -179,21 +186,31 @@ export default async function handleAcceptInviteImpl(
     }
 
     // Update invite to mark as accepted
+    // Note: We only update accepted_at. The trigger prevents invitees from changing
+    // invited_user_id, so we don't attempt to set it here.
     const { error: updateError } = await supabaseClient
       .from("team_invites")
       .update({
         accepted_at: new Date().toISOString(),
-        invited_user_id: user.id, // Ensure invited_user_id is set
       })
       .eq("id", invite_id);
 
     if (updateError) {
       request.log2.error(updateError, "Failed to update invite status");
       // Don't fail the request since membership was created successfully
+      reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR);
+      return {
+        data: null,
+        error: {
+          error: "Membership team invitation acceptance failed",
+          message: "Failed to accept the team invite",
+        },
+      };
     }
 
-    // Create team membership
-    const { error: membershipError } = await supabaseClient
+    // Create team membership using service role (bypasses RLS)
+    // This is necessary because the user is not yet a team member and cannot insert themselves
+    const { error: membershipError } = await supabaseServiceClient
       .from("team_memberships")
       .insert({
         team_id: invite.team_id,
@@ -209,7 +226,7 @@ export default async function handleAcceptInviteImpl(
         data: null,
         error: {
           error: "Membership creation failed",
-          message: "Accepted invite, but failed to create team membership",
+          message: "Failed to create team membership",
         },
       };
     }
