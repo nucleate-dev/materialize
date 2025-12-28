@@ -6,6 +6,7 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
 import { cn } from "@/lib/classNames";
+import { usePersonalTeam } from "@/hooks/usePersonalTeam";
 import { ChevronDown } from "lucide-react";
 import { useState } from "react";
 import { TeamSelectorDialog } from "./TeamSelectorDialog";
@@ -16,6 +17,7 @@ interface TeamSelectorProps {
 
 export function TeamSelector({ isCollapsed = false }: TeamSelectorProps) {
   const [dialogOpen, setDialogOpen] = useState(false);
+  const { team } = usePersonalTeam();
 
   // Get initials for avatar
   const getInitials = (name: string) => {
@@ -27,7 +29,7 @@ export function TeamSelector({ isCollapsed = false }: TeamSelectorProps) {
       .slice(0, 2);
   };
 
-  const teamName = "Personal"; // For now, we'll use a default name
+  const teamName = team?.name || "Team";
   const teamInitials = getInitials(teamName);
 
   return (

@@ -14,7 +14,14 @@ import { usePersonalTeam } from "@/hooks/usePersonalTeam";
 import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import { handleCheckout } from "@/lib/utils/payments/CheckoutUtils";
-import { Check, ChevronRight, Plus, Settings, UserPlus, Zap } from "lucide-react";
+import {
+  Check,
+  ChevronRight,
+  Plus,
+  Settings,
+  UserPlus,
+  Zap,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
 
 interface TeamSelectorDialogProps {
@@ -37,9 +44,11 @@ export function TeamSelectorDialog({
   } = useCreditUsage();
 
   const isFree = userPlan === "free";
-  const usagePercentage = totalAvailableCredits > 0
-    ? ((totalAvailableCredits - creditsRemaining) / totalAvailableCredits) * 100
-    : 0;
+  const usagePercentage =
+    totalAvailableCredits > 0
+      ? ((totalAvailableCredits - creditsRemaining) / totalAvailableCredits) *
+        100
+      : 0;
 
   // Get initials for avatar
   const getInitials = (name: string) => {
@@ -51,7 +60,7 @@ export function TeamSelectorDialog({
       .slice(0, 2);
   };
 
-  const teamName = "Personal"; // For now, we'll use a default name
+  const teamName = team?.name || "Team";
   const teamInitials = getInitials(teamName);
 
   const handleUpgrade = () => {
