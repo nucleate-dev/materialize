@@ -16,6 +16,7 @@ import {
 import { SHOW_WHITEBOARDS } from "@/GlobalConstants";
 import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import { sidebarOpenAtom } from "@/lib/atoms/sidebar";
+import { cn } from "@/lib/classNames";
 import { logout } from "@/lib/utils/auth/SupabaseAuthUtils";
 import { handleCheckout } from "@/lib/utils/payments/CheckoutUtils";
 import { IsUserPlanSubscribed } from "@/lib/utils/payments/SubscriptionManagementUtils";
@@ -142,7 +143,7 @@ const DashboardSidebarContent = () => {
 
       {/* Team Selector */}
       {isTeamsUIEnabled && (
-        <div className="px-2 py-1">
+        <div className={cn("py-1", "px-2")}>
           <TeamSelector isCollapsed={isCollapsed} />
         </div>
       )}

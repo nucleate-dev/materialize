@@ -108,23 +108,31 @@ export function TeamSelector({ isCollapsed = false }: TeamSelectorProps) {
               tooltip={isCollapsed ? teamName : undefined}
               className={cn(
                 "h-auto border border-sidebar-border bg-sidebar-accent/50 hover:bg-sidebar-accent",
-                isCollapsed ? "justify-center py-1" : "justify-between py-1.5",
+                isCollapsed
+                  ? "justify-center py-1 px-0"
+                  : "justify-between py-1.5",
               )}
             >
-              <div className="flex items-center gap-2.5 min-w-0">
-                <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+              {isCollapsed ? (
+                <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
                   <span className="text-sm font-bold text-primary">
                     {teamInitials}
                   </span>
                 </div>
-                {!isCollapsed && (
-                  <span className="text-sm font-medium truncate">
-                    {teamName}
-                  </span>
-                )}
-              </div>
-              {!isCollapsed && (
-                <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" />
+              ) : (
+                <>
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                      <span className="text-sm font-bold text-primary">
+                        {teamInitials}
+                      </span>
+                    </div>
+                    <span className="text-sm font-medium truncate">
+                      {teamName}
+                    </span>
+                  </div>
+                  <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" />
+                </>
               )}
             </SidebarMenuButton>
           </DropdownMenuTrigger>
