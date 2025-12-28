@@ -1,6 +1,9 @@
 "use client";
 
 import { usePersonalTeam } from "@/hooks/usePersonalTeam";
+import { useCurrentUserMembership } from "@/hooks/useCurrentUserMembership";
+import { useTeamMembers } from "@/hooks/useTeamMembers";
+import { useTeamInvites } from "@/hooks/useTeamInvites";
 import { Database } from "@/lib/types/supabase";
 import {
   createContext,
@@ -11,11 +14,19 @@ import {
 } from "react";
 
 type Team = Database["public"]["Tables"]["teams"]["Row"];
+type TeamMembership = Database["public"]["Tables"]["team_memberships"]["Row"];
+type TeamInvite = Database["public"]["Tables"]["team_invites"]["Row"];
 
 interface TeamContextValue {
   activeTeam: Team | null;
   setActiveTeam: (team: Team | null) => void;
   isLoading: boolean;
+  currentUserMembership: TeamMembership | null;
+  teamMembers: TeamMembership[];
+  teamInvites: TeamInvite[];
+  isLoadingMembership: boolean;
+  isLoadingMembers: boolean;
+  isLoadingInvites: boolean;
 }
 
 const TeamContext = createContext<TeamContextValue | undefined>(undefined);
@@ -24,6 +35,16 @@ export function TeamProvider({ children }: { children: ReactNode }) {
   const { team: personalTeam, isLoading: personalTeamLoading } =
     usePersonalTeam();
   const [activeTeam, setActiveTeam] = useState<Team | null>(null);
+
+  // Fetch team-related data based on active team
+  const { membership: currentUserMembership, isLoading: isLoadingMembership } =
+    useCurrentUserMembership(activeTeam?.id);
+  const { members: teamMembers, isLoading: isLoadingMembers } = useTeamMembers(
+    activeTeam?.id
+  );
+  const { invites: teamInvites, isLoading: isLoadingInvites } = useTeamInvites(
+    activeTeam?.id
+  );
 
   // Initialize with personal team when it loads
   useEffect(() => {
@@ -38,6 +59,12 @@ export function TeamProvider({ children }: { children: ReactNode }) {
         activeTeam,
         setActiveTeam,
         isLoading: personalTeamLoading,
+        currentUserMembership,
+        teamMembers,
+        teamInvites,
+        isLoadingMembership,
+        isLoadingMembers,
+        isLoadingInvites,
       }}
     >
       {children}
