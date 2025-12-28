@@ -255,7 +255,8 @@ using (
   OR
   -- invitee by email (match against your public.users table)
   (
-    team_invites.email is not null
+    team_invites.invited_user_id is null
+    and team_invites.email is not null
     and exists (
       select 1
       from public.users u
@@ -291,7 +292,8 @@ using (
   OR
   -- invitee by email
   (
-    team_invites.email is not null
+    team_invites.invited_user_id is null
+    and team_invites.email is not null
     and exists (
       select 1
       from public.users u
