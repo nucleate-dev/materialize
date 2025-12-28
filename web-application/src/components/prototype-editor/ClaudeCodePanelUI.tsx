@@ -139,6 +139,7 @@ interface ClaudeCodePanelUIProps {
   activeView: ClaudeCodePanelActiveView;
   onActiveViewChange: (view: ClaudeCodePanelActiveView) => void;
   fileSystem?: UseFileSystemReturn;
+  isProjectContextEnabled: boolean;
 }
 
 function CopyMessageButton({ content }: { content: string; }) {
@@ -228,6 +229,7 @@ export default function ClaudeCodePanelUI({
   activeView,
   onActiveViewChange,
   fileSystem,
+  isProjectContextEnabled,
 }: ClaudeCodePanelUIProps) {
   const [showCreditLimitModal, setShowCreditLimitModal] = useState(false);
   const hasShownModalRef = useRef(false);
@@ -302,7 +304,7 @@ export default function ClaudeCodePanelUI({
           </div>
 
           {/* View Toggle - Chat / Context */}
-          {fileSystem && (
+          {fileSystem && isProjectContextEnabled && (
             <div className="bg-accent p-0.5 rounded-lg border border-border flex items-center gap-0.5">
               <Button
                 variant="ghost"
@@ -451,7 +453,7 @@ export default function ClaudeCodePanelUI({
       </div>
 
       {/* Context Editor View */}
-      {activeView === "context" && fileSystem && (
+      {activeView === "context" && fileSystem && isProjectContextEnabled && (
         <div className="flex-1 min-h-0">
           <ProjectContextEditor
             fileSystem={fileSystem}
