@@ -36,7 +36,7 @@ import {
   type PrototypeVisibility,
 } from "@/lib/types/prototypes";
 import { IsUserPlanSubscribed } from "@/lib/utils/payments/SubscriptionManagementUtils";
-import { fetchPersonalTeamId } from "@/lib/utils/payments/CheckoutUtils";
+import { useActiveTeam } from "@/contexts/TeamContext";
 import {
   Check,
   Copy,
@@ -71,6 +71,7 @@ export default function PublicPrototypeHeader({
   const router = useRouter();
   const logger = useProductLogger();
   const { userPlan } = useSubscriptionAccess();
+  const { activeTeam } = useActiveTeam();
 
   const [isEditing, setIsEditing] = useState(false);
   const [editedName, setEditedName] = useState("");
@@ -262,18 +263,10 @@ export default function PublicPrototypeHeader({
           ? prototype.description
           : undefined;
 
-      const userId = session.data.session?.user.id;
-      if (!userId) {
-        setIsCloning(false);
-        return;
-      }
-
-      const teamId = await fetchPersonalTeamId(userId);
+      const teamId = activeTeam?.id;
       if (!teamId) {
         setIsCloning(false);
-        logger.debug("error", "Unable to locate personal team for clone", {
-          userId,
-        });
+        logger.debug("error", "Unable to locate active team for clone");
         return;
       }
 

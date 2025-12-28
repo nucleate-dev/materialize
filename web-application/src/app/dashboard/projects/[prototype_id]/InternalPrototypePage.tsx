@@ -61,8 +61,8 @@ import {
   type StartDevServerSuccessResponse,
 } from "@/lib/types/serverAPITypes";
 import { Database } from "@/lib/types/supabase";
-import { fetchPersonalTeamId } from "@/lib/utils/payments/CheckoutUtils";
 import { IsUserPlanSubscribed } from "@/lib/utils/payments/SubscriptionManagementUtils";
+import { useActiveTeam } from "@/contexts/TeamContext";
 import { useSetAtom } from "jotai";
 import {
   AlertTriangle,
@@ -113,6 +113,7 @@ export default function InternalPrototypePage() {
   const router = useRouter();
   const { user, userIsLoading } = useUser();
   const { userPlan } = useSubscriptionAccess();
+  const { activeTeam } = useActiveTeam();
   const params = useParams<{ prototype_id: string }>();
   const prototypeId = params?.prototype_id;
   const logger = useProductLogger();
@@ -777,17 +778,9 @@ export default function InternalPrototypePage() {
           ? prototype.description
           : undefined;
 
-      const userId = session.data.session?.user.id;
-      if (!userId) {
-        setIsCloningPrototype(false);
-        return;
-      }
-
-      const teamId = await fetchPersonalTeamId(userId);
+      const teamId = activeTeam?.id;
       if (!teamId) {
-        logger.debug("error", "Unable to locate personal team for clone", {
-          userId,
-        });
+        logger.debug("error", "Unable to locate active team for clone");
         setIsCloningPrototype(false);
         return;
       }

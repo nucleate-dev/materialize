@@ -1,10 +1,10 @@
 import { supabase } from "@/ClientConstants";
 import { SubscriptionStatuses } from "@/GlobalConstants";
+import { useActiveTeam } from "@/contexts/TeamContext";
 import { useUser } from "@/hooks/useUser";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import { subscriptionAccessQueryKey } from "@/lib/react-query/queryKeys";
 import { Database } from "@/lib/types/supabase";
-import { usePersonalTeam } from "@/hooks/usePersonalTeam";
 import { useQuery } from "@tanstack/react-query";
 
 type SubscriptionPlanType =
@@ -150,10 +150,10 @@ async function fetchSubscriptionAccess(
  */
 export function useSubscriptionAccess() {
   const userState = useUser();
-  const { team, isLoading: teamLoading } = usePersonalTeam();
+  const { activeTeam, isLoading: teamLoading } = useActiveTeam();
   const logger = useProductLogger();
   const userId = userState.user?.id;
-  const teamId = team?.id;
+  const teamId = activeTeam?.id;
   const queryEnabled =
     Boolean(userId && teamId) &&
     userState.userIsLoading === false &&

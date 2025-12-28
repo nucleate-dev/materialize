@@ -10,14 +10,12 @@ import { cn } from "@/lib/classNames";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import { formatGrantType } from "@/lib/utils/credits/CreditUtils";
 import { usePostHog } from "posthog-js/react";
-import {
-  fetchPersonalTeamId,
-  handleCheckout,
-} from "@/lib/utils/payments/CheckoutUtils";
+import { handleCheckout } from "@/lib/utils/payments/CheckoutUtils";
 import {
   handleRedirectToStripeCustomerPortal,
   IsUserPlanSubscribed,
 } from "@/lib/utils/payments/SubscriptionManagementUtils";
+import { useActiveTeam } from "@/contexts/TeamContext";
 import {
   AlertCircle,
   Calendar,
@@ -85,6 +83,7 @@ function AccountSettings() {
   const router = useRouter();
   const posthog = usePostHog();
   const { userPlan, currentPeriodEnd } = useSubscriptionAccess();
+  const { activeTeam } = useActiveTeam();
 
   // Use the new credit usage hook
   const creditUsage = useCreditUsage();
@@ -154,7 +153,9 @@ function AccountSettings() {
           plan: targetPlan,
         },
       });
-      await handleCheckout(targetPlan, router);
+      if (activeTeam?.id) {
+        await handleCheckout(targetPlan, router, activeTeam.id);
+      }
       setTimeout(() => setIsProcessingUpgrade(false), 2000);
     } catch (error) {
       logger.debug("error", "Error starting checkout:", {
@@ -165,19 +166,15 @@ function AccountSettings() {
   };
 
   const handleManageBillingClick = async () => {
-    if (!user.user?.id) {
+    if (!activeTeam?.id) {
+      alert(
+        "We couldn't find your active team. Please refresh and try again.",
+      );
       return;
     }
     try {
       setIsManagingBilling(true);
-      const teamId = await fetchPersonalTeamId(user.user.id);
-      if (!teamId) {
-        alert(
-          "We couldn't find your personal team. Please refresh and try again.",
-        );
-        return;
-      }
-      await handleRedirectToStripeCustomerPortal(teamId, router);
+      await handleRedirectToStripeCustomerPortal(activeTeam.id, router);
     } catch (error) {
       logger.debug("error", "Error opening billing portal:", {
         error: error instanceof Error ? error.message : String(error),

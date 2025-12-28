@@ -9,21 +9,20 @@ import type {
   CreatePrototypeRequestBody,
   CreatePrototypeSuccessResponse,
 } from "@/lib/types/serverAPITypes";
-import {
-  fetchPersonalTeamId,
-  handleRedirectToPaymentsPage,
-} from "@/lib/utils/payments/CheckoutUtils";
+import { handleRedirectToPaymentsPage } from "@/lib/utils/payments/CheckoutUtils";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { useMetaPixel } from "@/hooks/useMetaPixel";
 import { usePostHog } from "posthog-js/react";
 import RegistrationAccountCreatedEmailVerificationPending from "../../../(auth)/register/RegistrationAccountCreatedEmailVerificationPending";
+import { useActiveTeam } from "@/contexts/TeamContext";
 
 export default function AuthCallback() {
   const [showEmailVerificationRequired, setShowEmailVerificationRequired] =
     useState<boolean>(false);
   const router = useRouter();
   const { userPlan } = useSubscriptionAccess();
+  const { activeTeam } = useActiveTeam();
   const logger = useProductLogger();
   const { trackEvent } = useMetaPixel();
   const posthog = usePostHog();
@@ -133,11 +132,9 @@ export default function AuthCallback() {
         // User is logged in and there is a checkout_intent with a product ID, proceed to checkout
         // Leave any chat intent in local storage so it can be handled after returning from checkout
         localStorage.removeItem("checkout_intent");
-        const teamId = await fetchPersonalTeamId(data.session.user.id);
+        const teamId = activeTeam?.id;
         if (!teamId) {
-          logger.debug("error", "Unable to locate personal team for checkout", {
-            user_id: data.session.user.id,
-          });
+          logger.debug("error", "Unable to locate active team for checkout");
           router.push("/dashboard");
           return;
         }
@@ -151,11 +148,9 @@ export default function AuthCallback() {
           let prototypeId = chatIntent.prototype_id;
           if (!prototypeId) {
             try {
-          const teamId = await fetchPersonalTeamId(data.session.user.id);
+          const teamId = activeTeam?.id;
           if (!teamId) {
-            logger.debug("error", "Unable to determine personal team", {
-              user_id: data.session.user.id,
-            });
+            logger.debug("error", "Unable to determine active team");
             router.push("/dashboard");
             return;
           }

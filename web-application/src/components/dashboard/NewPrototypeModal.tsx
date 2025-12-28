@@ -34,11 +34,9 @@ import type {
   CreatePrototypeSuccessResponse,
 } from "@/lib/types/serverAPITypes";
 import { Database } from "@/lib/types/supabase";
-import {
-  fetchPersonalTeamId,
-  handleCheckout,
-} from "@/lib/utils/payments/CheckoutUtils";
+import { handleCheckout } from "@/lib/utils/payments/CheckoutUtils";
 import { IsUserPlanSubscribed } from "@/lib/utils/payments/SubscriptionManagementUtils";
+import { useActiveTeam } from "@/contexts/TeamContext";
 import { User } from "@supabase/supabase-js";
 import {
   AlertTriangle,
@@ -110,6 +108,7 @@ export default function NewPrototypeModal({
   const router = useRouter();
   const logger = useProductLogger();
   const posthog = usePostHog();
+  const { activeTeam } = useActiveTeam();
 
   const [name, setName] = useState("");
   const [touched, setTouched] = useState(false);
@@ -402,11 +401,9 @@ export default function NewPrototypeModal({
       const serverEndpoint = process.env.NEXT_PUBLIC_SERVER_ENDPOINT;
       if (!serverEndpoint) return;
 
-      const userId = session.data.session?.user.id;
-      if (!userId) return;
-
-      const teamId = await fetchPersonalTeamId(userId);
+      const teamId = activeTeam?.id;
       if (!teamId) {
+        logger.debug("error", "No active team available for prototype creation");
         return;
       }
 
@@ -539,7 +536,9 @@ export default function NewPrototypeModal({
                           plan: "plus",
                         },
                       });
-                      void handleCheckout("plus", router);
+                      if (activeTeam?.id) {
+                        void handleCheckout("plus", router, activeTeam.id);
+                      }
                     }}
                   >
                     Upgrade Now

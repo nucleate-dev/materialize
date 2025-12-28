@@ -14,13 +14,12 @@ import { AppRouterInstance } from "next/dist/shared/lib/app-router-context.share
  *
  * @param {string} productID - The ID of the product the user is trying to purchase.
  * @param {AppRouterInstance} router - The Next.js router instance for handling navigation.
- * @param {string} [teamId] - Optional team ID to charge; defaults to the user's personal team.
+ * @param {string} teamId - The team ID to charge for this purchase.
  *
  * Workflow:
  *  1. Checks if the user is authenticated by fetching the user object from Supabase.
  *  2. If the user is logged in:
- *     - Finds the user's personal team and calls `handleRedirectToPaymentsPage`
- *       with the `productID`, access token, and `teamId` to initiate the checkout process.
+ *     - Calls `handleRedirectToPaymentsPage` with the `productID`, access token, and `teamId` to initiate the checkout process.
  *  3. If the user is not logged in:
  *     - Stores the `productID` in `localStorage` under the key `"checkout_intent"` to remember the user's intent.
  *     - Redirects the user to the login page using the Next.js `router.push("/login")`.
@@ -31,13 +30,16 @@ import { AppRouterInstance } from "next/dist/shared/lib/app-router-context.share
  *
  * @example
  * // Example usage of handleCheckout in a component
+ * const { activeTeam } = useActiveTeam();
  * const productID = "prod_123";
- * handleCheckout(productID, router);
+ * if (activeTeam?.id) {
+ *   handleCheckout(productID, router, activeTeam.id);
+ * }
  */
 export async function handleCheckout(
   productID: string,
   router: AppRouterInstance,
-  teamId?: string,
+  teamId: string,
 ) {
   const { data: session } = await supabase.auth.getSession();
 
@@ -48,18 +50,10 @@ export async function handleCheckout(
       return;
     }
 
-    let checkoutTeamId = teamId ?? null;
-    if (!checkoutTeamId) {
-      checkoutTeamId = await fetchPersonalTeamId(session.session.user.id);
-    }
-    if (!checkoutTeamId) {
-      throw new Error("Could not determine personal team for checkout");
-    }
-
     await handleRedirectToPaymentsPage(
       productID,
       session.session.access_token,
-      checkoutTeamId,
+      teamId,
     );
   } else {
     // Store product ID in local storage or URL and redirect to login
@@ -140,22 +134,8 @@ export async function handleRedirectToPaymentsPage(
   }
 }
 
-export async function fetchPersonalTeamId(
-  userId: string,
-): Promise<string | null> {
-  const { data, error } = await supabase
-    .from("teams")
-    .select("id")
-    .eq("personal_owner_user_id", userId)
-    .maybeSingle();
-
-  if (error) {
-    return null;
-  }
-
-  return data?.id ?? null;
-}
-
+// Note: fetchPersonalTeam is kept for potential backward compatibility or utility use
+// All direct usage in components should use activeTeam from TeamProvider instead
 export async function fetchPersonalTeam(userId: string) {
   const { data, error } = await supabase
     .from("teams")
