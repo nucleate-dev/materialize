@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useActiveTeam } from "@/contexts/TeamContext";
 import { useUser } from "@/hooks/useUser";
 import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
-import { useTeamMemberUsage } from "@/hooks/useTeamMemberUsage";
+import { supabase } from "@/ClientConstants";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -20,15 +20,16 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/classNames";
 
+interface UserUsage {
+  user_id: string;
+  current_period_usage: number;
+  total_usage: number;
+}
+
 export function PeopleTab() {
   const { activeTeam, teamMembers, teamInvites } = useActiveTeam();
   const { user } = useUser();
   const { currentPeriodStart, currentPeriodEnd } = useSubscriptionAccess();
-  const { usageData, isLoading: usageLoading } = useTeamMemberUsage(
-    activeTeam?.id,
-    currentPeriodStart,
-    currentPeriodEnd
-  );
   const [inviteEmails, setInviteEmails] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [activeFilter, setActiveFilter] = useState<"all" | "active" | "pending">("all");
@@ -39,6 +40,8 @@ export function PeopleTab() {
     viewer: true,
     collaborator: true,
   });
+  const [usageData, setUsageData] = useState<UserUsage[]>([]);
+  const [usageLoading, setUsageLoading] = useState(false);
 
   const getInitials = (name: string) => {
     return name
@@ -53,6 +56,65 @@ export function PeopleTab() {
     // TODO: Implement invite functionality
     console.log("Inviting:", inviteEmails);
   };
+
+  // Fetch usage data on mount
+  useEffect(() => {
+    async function fetchUsageData() {
+      if (!activeTeam?.id) return;
+
+      setUsageLoading(true);
+      try {
+        const { data: allUsage, error } = await supabase
+          .from("api_usage")
+          .select("user_id, credits_used, created_at")
+          .eq("team_id", activeTeam.id);
+
+        if (error) {
+          console.error("Error fetching team member usage:", error);
+          setUsageData([]);
+          return;
+        }
+
+        if (!allUsage || allUsage.length === 0) {
+          setUsageData([]);
+          return;
+        }
+
+        // Aggregate by user_id
+        const usageByUser = new Map<string, UserUsage>();
+
+        allUsage.forEach((usage) => {
+          const existing = usageByUser.get(usage.user_id) || {
+            user_id: usage.user_id,
+            current_period_usage: 0,
+            total_usage: 0,
+          };
+
+          // Add to total usage
+          existing.total_usage += usage.credits_used;
+
+          // Add to current period usage if within the period
+          if (currentPeriodStart && currentPeriodEnd && usage.created_at) {
+            const usageDate = new Date(usage.created_at);
+            if (usageDate >= currentPeriodStart && usageDate <= currentPeriodEnd) {
+              existing.current_period_usage += usage.credits_used;
+            }
+          }
+
+          usageByUser.set(usage.user_id, existing);
+        });
+
+        setUsageData(Array.from(usageByUser.values()));
+      } catch (error) {
+        console.error("Error fetching usage data:", error);
+        setUsageData([]);
+      } finally {
+        setUsageLoading(false);
+      }
+    }
+
+    fetchUsageData();
+  }, [activeTeam?.id, currentPeriodStart, currentPeriodEnd]);
 
   const toggleRoleFilter = (role: keyof typeof roleFilters) => {
     setRoleFilters((prev) => ({ ...prev, [role]: !prev[role] }));

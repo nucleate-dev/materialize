@@ -43,16 +43,3 @@ export const teamInvitesQueryKey = (teamId?: string | null) => [
   TEAM_INVITES_QUERY_KEY,
   teamId ?? "no-team",
 ];
-
-export const TEAM_MEMBER_USAGE_QUERY_KEY = "team-member-usage";
-
-export const teamMemberUsageQueryKey = (
-  teamId?: string | null,
-  periodStart?: string | null,
-  periodEnd?: string | null
-) => [
-  TEAM_MEMBER_USAGE_QUERY_KEY,
-  teamId ?? "no-team",
-  periodStart ?? "no-start",
-  periodEnd ?? "no-end",
-];
