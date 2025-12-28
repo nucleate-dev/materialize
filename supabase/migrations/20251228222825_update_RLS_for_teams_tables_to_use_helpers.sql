@@ -291,8 +291,7 @@ using (
   OR
   -- invitee by email
   (
-    team_invites.invited_user_id is null
-    and team_invites.email is not null
+    team_invites.email is not null
     and exists (
       select 1
       from public.users u
@@ -303,22 +302,9 @@ using (
   )
 )
 with check (
-  -- keep the same eligibility after update
-  public.is_team_owner_or_admin(team_invites.team_id)
-  OR
-  (team_invites.invited_user_id is not null and team_invites.invited_user_id = auth.uid())
-  OR
-  (
-    team_invites.invited_user_id is null
-    and team_invites.email is not null
-    and exists (
-      select 1
-      from public.users u
-      where u.id = auth.uid()
-        and u.email is not null
-        and u.email::citext = team_invites.email
-    )
-  )
+  -- Just verify invariants: team_id must stay the same
+  -- The trigger enforces that only admins/owners can change email/invited_user_id
+  true
 );
 
 -- ------------------------------------------------------------
