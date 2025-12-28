@@ -4,6 +4,11 @@ import { supabase } from "@/ClientConstants";
 import { teamMembersQueryKey } from "@/lib/react-query/queryKeys";
 
 type TeamMembership = Database["public"]["Tables"]["team_memberships"]["Row"];
+type User = Database["public"]["Tables"]["users"]["Row"];
+
+export type TeamMemberWithUser = TeamMembership & {
+  user: User;
+};
 
 export function useTeamMembers(teamId: string | null | undefined) {
   const query = useQuery({
@@ -13,7 +18,10 @@ export function useTeamMembers(teamId: string | null | undefined) {
 
       const { data, error } = await supabase
         .from("team_memberships")
-        .select("*")
+        .select(`
+          *,
+          user:users!team_memberships_user_id_fkey(*)
+        `)
         .eq("team_id", teamId);
 
       if (error) {
@@ -21,7 +29,7 @@ export function useTeamMembers(teamId: string | null | undefined) {
         return [];
       }
 
-      return data ?? [];
+      return (data ?? []) as TeamMemberWithUser[];
     },
     enabled: Boolean(teamId),
     staleTime: 5 * 60 * 1000,

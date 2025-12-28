@@ -187,9 +187,8 @@ export function PeopleTab() {
             <div className="divide-y divide-border">
               {teamMembers.map((member) => {
                 const isCurrentUser = member.user_id === user?.id;
-                // TODO: Fetch actual user data - for now using placeholder
-                const memberName = isCurrentUser ? "You" : "Team Member";
-                const memberEmail = "user@example.com";
+                const memberName = member.user.name || "Unknown User";
+                const memberEmail = member.user.email || "No email";
                 const memberInitials = getInitials(memberName);
 
                 return (

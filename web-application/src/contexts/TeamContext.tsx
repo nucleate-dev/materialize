@@ -2,7 +2,7 @@
 
 import { usePersonalTeam } from "@/hooks/usePersonalTeam";
 import { useCurrentUserMembership } from "@/hooks/useCurrentUserMembership";
-import { useTeamMembers } from "@/hooks/useTeamMembers";
+import { useTeamMembers, type TeamMemberWithUser } from "@/hooks/useTeamMembers";
 import { useTeamInvites } from "@/hooks/useTeamInvites";
 import { Database } from "@/lib/types/supabase";
 import {
@@ -22,7 +22,7 @@ interface TeamContextValue {
   setActiveTeam: (team: Team | null) => void;
   isLoading: boolean;
   currentUserMembership: TeamMembership | null;
-  teamMembers: TeamMembership[];
+  teamMembers: TeamMemberWithUser[];
   teamInvites: TeamInvite[];
   isLoadingMembership: boolean;
   isLoadingMembers: boolean;
