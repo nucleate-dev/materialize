@@ -33,7 +33,6 @@ import {
   Key,
   Zap,
 } from "lucide-react";
-import AccountSettings from "@/app/dashboard/account/page";
 import { useCustomUserRow } from "@/hooks/useCustomUserRow";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useUser } from "@/hooks/useUser";
@@ -49,7 +48,7 @@ import { formatGrantType } from "@/lib/utils/credits/CreditUtils";
 import { cn } from "@/lib/classNames";
 import { supabase } from "@/ClientConstants";
 
-type SettingsTab = "profile" | "credits" | "claude" | "account";
+type SettingsTab = "profile" | "credits" | "claude";
 
 interface SettingsDialogProps {
   open: boolean;
@@ -810,7 +809,6 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
     ...(isClaudeConnectionEnabled
       ? [{ id: "claude" as const, label: "Claude connection", icon: Key }]
       : []),
-    { id: "account", label: "Account", icon: Settings },
   ];
 
   return (
@@ -863,7 +861,6 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
               {activeTab === "profile" && <ProfileTab />}
               {activeTab === "credits" && <CreditsAndSubscriptionsTab />}
               {activeTab === "claude" && <ClaudeConnectionTab />}
-              {activeTab === "account" && <AccountSettings />}
             </div>
           </div>
         </DialogContent>
