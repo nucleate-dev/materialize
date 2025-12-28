@@ -25,7 +25,6 @@ export function useCustomUserRow() {
         .single();
 
       if (error) {
-        console.error("Error fetching user row:", error);
         return null;
       }
 
