@@ -1,8 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useActiveTeam } from "@/contexts/TeamContext";
 import { useUser } from "@/hooks/useUser";
+import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
+import { useTeamMemberUsage } from "@/hooks/useTeamMemberUsage";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -21,6 +23,12 @@ import { cn } from "@/lib/classNames";
 export function PeopleTab() {
   const { activeTeam, teamMembers, teamInvites } = useActiveTeam();
   const { user } = useUser();
+  const { currentPeriodStart, currentPeriodEnd } = useSubscriptionAccess();
+  const { usageData, isLoading: usageLoading } = useTeamMemberUsage(
+    activeTeam?.id,
+    currentPeriodStart,
+    currentPeriodEnd
+  );
   const [inviteEmails, setInviteEmails] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [activeFilter, setActiveFilter] = useState<"all" | "active" | "pending">("all");
@@ -48,6 +56,19 @@ export function PeopleTab() {
 
   const toggleRoleFilter = (role: keyof typeof roleFilters) => {
     setRoleFilters((prev) => ({ ...prev, [role]: !prev[role] }));
+  };
+
+  // Create a map of user usage for quick lookup
+  const usageByUserId = useMemo(() => {
+    const map = new Map();
+    usageData.forEach((usage) => {
+      map.set(usage.user_id, usage);
+    });
+    return map;
+  }, [usageData]);
+
+  const formatCredits = (credits: number) => {
+    return credits > 0 ? `${credits.toFixed(2)} credits` : "-";
   };
 
   return (
@@ -168,11 +189,11 @@ export function PeopleTab() {
                 </div>
                 <div className="col-span-1">Status</div>
                 <div className="col-span-2 flex items-center gap-1">
-                  Doc usage
+                  Current period usage
                   <ArrowUpDown className="w-3 h-3" />
                 </div>
                 <div className="col-span-2 flex items-center gap-1">
-                  Total usage
+                  All-time usage
                   <ArrowUpDown className="w-3 h-3" />
                 </div>
                 <div className="col-span-1 flex items-center gap-1">
@@ -190,6 +211,7 @@ export function PeopleTab() {
                 const memberName = member.user.name || "Unknown User";
                 const memberEmail = member.user.email || "No email";
                 const memberInitials = getInitials(memberName);
+                const usage = usageByUserId.get(member.user_id);
 
                 return (
                   <div
@@ -234,14 +256,22 @@ export function PeopleTab() {
                       </Badge>
                     </div>
 
-                    {/* Doc usage */}
+                    {/* Current period usage */}
                     <div className="col-span-2 flex items-center text-muted-foreground">
-                      -
+                      {usageLoading ? (
+                        <span className="text-xs">Loading...</span>
+                      ) : (
+                        formatCredits(usage?.current_period_usage || 0)
+                      )}
                     </div>
 
-                    {/* Total usage */}
+                    {/* All-time usage */}
                     <div className="col-span-2 flex items-center text-muted-foreground">
-                      -
+                      {usageLoading ? (
+                        <span className="text-xs">Loading...</span>
+                      ) : (
+                        formatCredits(usage?.total_usage || 0)
+                      )}
                     </div>
 
                     {/* Date joined */}
