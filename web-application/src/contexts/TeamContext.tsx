@@ -40,10 +40,10 @@ export function TeamProvider({ children }: { children: ReactNode }) {
   const { membership: currentUserMembership, isLoading: isLoadingMembership } =
     useCurrentUserMembership(activeTeam?.id);
   const { members: teamMembers, isLoading: isLoadingMembers } = useTeamMembers(
-    activeTeam?.id
+    activeTeam?.id,
   );
   const { invites: teamInvites, isLoading: isLoadingInvites } = useTeamInvites(
-    activeTeam?.id
+    activeTeam?.id,
   );
 
   // Initialize with personal team when it loads
