@@ -13,9 +13,9 @@ import {
   setAcceptInviteIntent,
 } from "@/lib/utils/acceptInviteIntentUtils";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, Suspense } from "react";
 
-export default function TeamInvitePage() {
+function TeamInviteContent() {
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -130,5 +130,19 @@ export default function TeamInvitePage() {
     <div className="justify-self-center self-center justify-center">
       Processing invite...
     </div>
+  );
+}
+
+export default function TeamInvitePage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="justify-self-center self-center justify-center">
+          Loading...
+        </div>
+      }
+    >
+      <TeamInviteContent />
+    </Suspense>
   );
 }
