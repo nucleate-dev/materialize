@@ -13,7 +13,6 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Search,
-  Download,
   HelpCircle,
   ChevronDown,
   ArrowUpDown,
@@ -38,7 +37,6 @@ export function PeopleTab() {
     admin: true,
     editor: true,
     viewer: true,
-    collaborator: true,
   });
   const [usageData, setUsageData] = useState<UserUsage[]>([]);
   const [usageLoading, setUsageLoading] = useState(false);
@@ -129,27 +127,59 @@ export function PeopleTab() {
     return map;
   }, [usageData]);
 
-  // Combine and filter members and invites based on active filter
+  // Combine and filter members and invites based on active filter, role filters, and search query
   const filteredItems = useMemo(() => {
     const items: Array<
       | { type: "member"; data: (typeof teamMembers)[0] }
       | { type: "invite"; data: (typeof teamInvites)[0] }
     > = [];
 
+    const searchLower = searchQuery.toLowerCase().trim();
+
     if (activeFilter === "all" || activeFilter === "active") {
       teamMembers.forEach((member) => {
+        // Apply role filter
+        if (!roleFilters[member.role as keyof typeof roleFilters]) {
+          return;
+        }
+
+        // Apply search filter
+        if (searchLower) {
+          const memberName = (member.user.name || "").toLowerCase();
+          const memberEmail = (member.user.email || "").toLowerCase();
+          if (
+            !memberName.includes(searchLower) &&
+            !memberEmail.includes(searchLower)
+          ) {
+            return;
+          }
+        }
+
         items.push({ type: "member", data: member });
       });
     }
 
     if (activeFilter === "all" || activeFilter === "pending") {
       teamInvites.forEach((invite) => {
+        // Apply role filter
+        if (!roleFilters[invite.role as keyof typeof roleFilters]) {
+          return;
+        }
+
+        // Apply search filter
+        if (searchLower) {
+          const inviteEmail = (invite.email || "").toLowerCase();
+          if (!inviteEmail.includes(searchLower)) {
+            return;
+          }
+        }
+
         items.push({ type: "invite", data: invite });
       });
     }
 
     return items;
-  }, [activeFilter, teamMembers, teamInvites]);
+  }, [activeFilter, teamMembers, teamInvites, roleFilters, searchQuery]);
 
   const formatCredits = (credits: number) => {
     return credits > 0 ? `${credits.toFixed(2)} credits` : "-";
@@ -202,14 +232,10 @@ export function PeopleTab() {
 
         {/* Members Section */}
         <div>
-          <div className="flex items-center justify-between mb-4">
+          <div className="mb-4">
             <h2 className="text-base font-medium text-gray-900 dark:text-white">
               Members
             </h2>
-            <Button variant="outline" size="sm" className="gap-2">
-              <Download className="w-4 h-4" />
-              Export
-            </Button>
           </div>
 
           {/* Search */}
