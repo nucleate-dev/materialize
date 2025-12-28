@@ -16,6 +16,9 @@ import {
   SidebarMenu,
   SidebarMenuItem,
   SidebarMenuButton,
+  SidebarGroup,
+  SidebarGroupLabel,
+  SidebarGroupContent,
 } from "@/components/ui/sidebar";
 import {
   X,
@@ -823,22 +826,27 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
           <div className="w-64 border-r border-border bg-muted/30 flex flex-col">
             {/* Tabs */}
             <div className="flex-1 p-2">
-              <SidebarMenu>
-                {tabs.map((tab) => {
-                  const Icon = tab.icon;
-                  return (
-                    <SidebarMenuItem key={tab.id}>
-                      <SidebarMenuButton
-                        isActive={activeTab === tab.id}
-                        onClick={() => setActiveTab(tab.id)}
-                      >
-                        <Icon />
-                        <span>{tab.label}</span>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  );
-                })}
-              </SidebarMenu>
+              <SidebarGroup>
+                <SidebarGroupLabel>Account</SidebarGroupLabel>
+                <SidebarGroupContent>
+                  <SidebarMenu>
+                    {tabs.map((tab) => {
+                      const Icon = tab.icon;
+                      return (
+                        <SidebarMenuItem key={tab.id}>
+                          <SidebarMenuButton
+                            isActive={activeTab === tab.id}
+                            onClick={() => setActiveTab(tab.id)}
+                          >
+                            <Icon />
+                            <span>{tab.label}</span>
+                          </SidebarMenuButton>
+                        </SidebarMenuItem>
+                      );
+                    })}
+                  </SidebarMenu>
+                </SidebarGroupContent>
+              </SidebarGroup>
             </div>
           </div>
 
