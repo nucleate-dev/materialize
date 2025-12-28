@@ -37,6 +37,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import { TeamSelector } from "./TeamSelector";
 import { useFeatureFlagEnabled } from "posthog-js/react";
+import { useActiveTeam } from "@/contexts/TeamContext";
 
 const DashboardSidebarContent = () => {
   const pathname = usePathname();
@@ -48,6 +49,7 @@ const DashboardSidebarContent = () => {
   const isPaidUser = IsUserPlanSubscribed(userPlan);
   const logger = useProductLogger();
   const isTeamsUIEnabled = useFeatureFlagEnabled("teams-ui") ?? false;
+  const { activeTeam } = useActiveTeam();
 
   const logSidebarItemClick = (
     item: string,
@@ -228,7 +230,8 @@ const DashboardSidebarContent = () => {
                     action: "checkout",
                     plan: "plus",
                   });
-                  void handleCheckout("plus", router);
+                  if (!activeTeam?.id) return;
+                  void handleCheckout("plus", router, activeTeam?.id);
                 }}
                 tooltip={isCollapsed ? "Upgrade" : undefined}
                 className={isCollapsed ? "justify-center" : ""}

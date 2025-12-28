@@ -81,7 +81,8 @@ export function TeamSelector({ isCollapsed = false }: TeamSelectorProps) {
         target_plan: "plus",
       },
     });
-    void handleCheckout("plus", router);
+    if (!activeTeam?.id) return;
+    void handleCheckout("plus", router, activeTeam?.id);
   };
 
   const handleSettings = () => {
@@ -270,9 +271,7 @@ export function TeamSelector({ isCollapsed = false }: TeamSelectorProps) {
                             )}
                           </div>
                         </div>
-                        {isActive && (
-                          <Check className="w-4 h-4 text-primary" />
-                        )}
+                        {isActive && <Check className="w-4 h-4 text-primary" />}
                       </button>
                     );
                   })}

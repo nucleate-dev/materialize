@@ -133,19 +133,3 @@ export async function handleRedirectToPaymentsPage(
     );
   }
 }
-
-// Note: fetchPersonalTeam is kept for potential backward compatibility or utility use
-// All direct usage in components should use activeTeam from TeamProvider instead
-export async function fetchPersonalTeam(userId: string) {
-  const { data, error } = await supabase
-    .from("teams")
-    .select("*")
-    .eq("personal_owner_user_id", userId)
-    .maybeSingle();
-
-  if (error) {
-    return null;
-  }
-
-  return data;
-}

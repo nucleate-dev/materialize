@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
-import { fetchPersonalTeam } from "@/lib/utils/payments/CheckoutUtils";
 import { useUser } from "@/hooks/useUser";
 import { Database } from "@/lib/types/supabase";
+import { supabase } from "@/ClientConstants";
 
 type Team = Database["public"]["Tables"]["teams"]["Row"];
 
@@ -24,4 +24,20 @@ export function usePersonalTeam() {
     team: query.data ?? null,
     isLoading: query.isFetching || query.isLoading || userIsLoading,
   };
+}
+
+// Note: fetchPersonalTeam is kept for potential backward compatibility or utility use
+// All direct usage in components should use activeTeam from TeamProvider instead
+async function fetchPersonalTeam(userId: string) {
+  const { data, error } = await supabase
+    .from("teams")
+    .select("*")
+    .eq("personal_owner_user_id", userId)
+    .maybeSingle();
+
+  if (error) {
+    return null;
+  }
+
+  return data;
 }
