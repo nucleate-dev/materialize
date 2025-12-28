@@ -25,7 +25,6 @@ export function useTeamMembers(teamId: string | null | undefined) {
         .eq("team_id", teamId);
 
       if (error) {
-        console.error("Error fetching team members:", error);
         return [];
       }
 

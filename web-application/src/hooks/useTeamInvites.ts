@@ -19,7 +19,6 @@ export function useTeamInvites(teamId: string | null | undefined) {
         .order("created_at", { ascending: false });
 
       if (error) {
-        console.error("Error fetching team invites:", error);
         return [];
       }
 

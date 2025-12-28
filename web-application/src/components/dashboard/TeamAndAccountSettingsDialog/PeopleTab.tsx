@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Search, HelpCircle, ChevronDown, ArrowUpDown } from "lucide-react";
 import { Database } from "@/lib/types/supabase";
+import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 
 type TeamRole = Database["public"]["Enums"]["team_role"];
 
@@ -33,6 +34,7 @@ export function PeopleTab() {
     useActiveTeam();
   const { user } = useUser();
   const { currentPeriodStart, currentPeriodEnd } = useSubscriptionAccess();
+  const logger = useProductLogger();
   const [inviteEmails, setInviteEmails] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [activeFilter, setActiveFilter] = useState<
@@ -63,7 +65,7 @@ export function PeopleTab() {
 
   const handleInvite = () => {
     // TODO: Implement invite functionality
-    console.log("Inviting:", inviteEmails);
+    logger.debug("log", "Inviting users", { emails: inviteEmails });
   };
 
   const handleRoleChange = async (
@@ -90,7 +92,8 @@ export function PeopleTab() {
         alert("Failed to update role: " + error.message);
       }
       // The TeamContext will automatically refetch and update
-    } catch (error) {
+    } catch (err) {
+      logger.debug("error", "Failed to update role", { error: err });
       alert("Failed to update role. Please try again.");
     }
   };
@@ -108,7 +111,7 @@ export function PeopleTab() {
           .eq("team_id", activeTeam.id);
 
         if (error) {
-          console.error("Error fetching team member usage:", error);
+          logger.debug("error", "Error fetching team member usage", { error });
           setUsageData([]);
           return;
         }
@@ -146,8 +149,8 @@ export function PeopleTab() {
         });
 
         setUsageData(Array.from(usageByUser.values()));
-      } catch (error) {
-        console.error("Error fetching usage data:", error);
+      } catch (err) {
+        logger.debug("error", "Error fetching usage data", { error: err });
         setUsageData([]);
       } finally {
         setUsageLoading(false);
@@ -155,7 +158,7 @@ export function PeopleTab() {
     }
 
     fetchUsageData();
-  }, [activeTeam?.id, currentPeriodStart, currentPeriodEnd]);
+  }, [activeTeam?.id, currentPeriodStart, currentPeriodEnd, logger]);
 
   const toggleRoleFilter = (role: keyof typeof roleFilters) => {
     setRoleFilters((prev) => ({ ...prev, [role]: !prev[role] }));
@@ -302,7 +305,9 @@ export function PeopleTab() {
           <div className="flex items-center justify-between mb-6">
             <Tabs
               value={activeFilter}
-              onValueChange={(v) => setActiveFilter(v as any)}
+              onValueChange={(v) =>
+                setActiveFilter(v as "all" | "active" | "pending")
+              }
             >
               <TabsList>
                 <TabsTrigger value="all">All</TabsTrigger>
@@ -559,9 +564,10 @@ export function PeopleTab() {
                                     .update({ role: "owner" })
                                     .eq("id", invite.id);
                                   if (error) {
-                                    console.error(
-                                      "Error updating invite role:",
-                                      error,
+                                    logger.debug(
+                                      "error",
+                                      "Error updating invite role",
+                                      { error },
                                     );
                                     alert(
                                       "Failed to update role. Please try again.",
@@ -579,9 +585,10 @@ export function PeopleTab() {
                                     .update({ role: "admin" })
                                     .eq("id", invite.id);
                                   if (error) {
-                                    console.error(
-                                      "Error updating invite role:",
-                                      error,
+                                    logger.debug(
+                                      "error",
+                                      "Error updating invite role",
+                                      { error },
                                     );
                                     alert(
                                       "Failed to update role. Please try again.",
@@ -599,9 +606,10 @@ export function PeopleTab() {
                                     .update({ role: "editor" })
                                     .eq("id", invite.id);
                                   if (error) {
-                                    console.error(
-                                      "Error updating invite role:",
-                                      error,
+                                    logger.debug(
+                                      "error",
+                                      "Error updating invite role",
+                                      { error },
                                     );
                                     alert(
                                       "Failed to update role. Please try again.",
@@ -619,9 +627,10 @@ export function PeopleTab() {
                                     .update({ role: "viewer" })
                                     .eq("id", invite.id);
                                   if (error) {
-                                    console.error(
-                                      "Error updating invite role:",
-                                      error,
+                                    logger.debug(
+                                      "error",
+                                      "Error updating invite role",
+                                      { error },
                                     );
                                     alert(
                                       "Failed to update role. Please try again.",

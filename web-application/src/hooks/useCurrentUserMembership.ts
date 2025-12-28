@@ -22,7 +22,6 @@ export function useCurrentUserMembership(teamId: string | null | undefined) {
         .maybeSingle();
 
       if (error) {
-        console.error("Error fetching current user membership:", error);
         return null;
       }
 
