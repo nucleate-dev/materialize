@@ -16,6 +16,7 @@ import { SystemLogger, genRequestIds } from './loggers/SystemLogger.js';
 import { CleanupService } from './services/cleanup/CleanupService.js';
 import { DevelopmentServerService } from './services/DevelopmentServerService.js';
 import { StripeManagementService } from './services/StripeManagementService.js';
+import { TeamManagementService } from './services/TeamManagementService.js';
 import { PrototypeDeploymentService } from './services/prototype-management/PrototypeDeploymentService.js';
 import { DispatcherService } from './services/dispatcher/DispatcherService.js';
 import { IdleContainerAllocationSystemService } from './services/idle-container-allocation-system/IdleContainerAllocationSystemService.js';
@@ -156,6 +157,7 @@ let dispatcherService: DispatcherService;
 let cleanupService: CleanupService;
 let idleContainerAllocationSystemService: IdleContainerAllocationSystemService;
 let stripeManagementService: StripeManagementService;
+let teamManagementService: TeamManagementService;
 let deploymentService: PrototypeDeploymentService;
 let prototypeManagementService: PrototypeManagementService;
 let developmentServerService: DevelopmentServerService;
@@ -226,6 +228,10 @@ const start = async (): Promise<void> => {
     // Create stripe management service and register routes
     stripeManagementService = new StripeManagementService();
     stripeManagementService.registerRoutes(fastify);
+
+    // Create team management service and register routes
+    teamManagementService = new TeamManagementService();
+    teamManagementService.registerRoutes(fastify);
 
     // Create deployment service and register routes
     deploymentService = new PrototypeDeploymentService(s3Client);

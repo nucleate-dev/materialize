@@ -354,6 +354,25 @@ export interface EndChatResponse {
 }
 
 // ============================================================================
+// /teams/accept-invite ENDPOINT
+// ============================================================================
+
+export interface AcceptTeamInviteRequestBody {
+  invite_id: string;
+}
+
+export interface AcceptTeamInviteSuccessResponse {
+  success: true;
+  team_id: string;
+  role: string;
+}
+
+export interface AcceptTeamInviteErrorResponse {
+  error: string;
+  message: string;
+}
+
+// ============================================================================
 // TYPE GUARDS
 // ============================================================================
 
