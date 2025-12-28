@@ -9,7 +9,6 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarSeparator,
   SidebarTrigger,
   useSidebar,
 } from "@/components/ui/sidebar";
@@ -104,33 +103,33 @@ const DashboardSidebarContent = () => {
           <div className="flex flex-col items-center gap-2 py-2">
             <Link
               href="/dashboard"
-              className="p-2"
+              className="p-1.5"
               onClick={handleMobileLinkClick}
             >
-              <Atom className="w-6 h-6 text-primary" />
+              <Atom className="w-5 h-5 text-primary" />
             </Link>
             <SidebarTrigger
-              className="h-6 w-6"
+              className="h-5 w-5"
               onClick={() => setSidebarOpen(!sidebarOpen)}
             />
           </div>
         ) : (
-          <div className="flex items-center justify-between gap-3 px-2 py-2">
+          <div className="flex items-center justify-between gap-2 px-3 py-2">
             <Link
               href="/dashboard"
               className="group flex-1 min-w-0"
               onClick={handleMobileLinkClick}
             >
-              <div className="relative flex items-center gap-3 px-3 py-2">
-                <div className="absolute inset-0 bg-gradient-to-r from-primary/20 to-secondary/20 dark:from-primary/30 dark:to-secondary/30 rounded-xl blur-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                <Atom className="relative w-6 h-6 text-primary transition-transform duration-300 group-hover:scale-110 flex-shrink-0" />
-                <span className="relative text-xl font-bold text-gray-900 dark:text-foreground transition-transform duration-300 group-hover:scale-105">
+              <div className="relative flex items-center gap-2">
+                <div className="absolute inset-0 bg-gradient-to-r from-primary/20 to-secondary/20 dark:from-primary/30 dark:to-secondary/30 rounded-lg blur-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                <Atom className="relative w-5 h-5 text-primary transition-transform duration-300 group-hover:scale-110 flex-shrink-0" />
+                <span className="relative text-base font-bold text-gray-900 dark:text-foreground transition-transform duration-300 group-hover:scale-105">
                   Nucleate
                 </span>
               </div>
             </Link>
             <SidebarTrigger
-              className="-mr-1"
+              className="h-5 w-5"
               onClick={() => setSidebarOpen(!sidebarOpen)}
             />
           </div>
@@ -144,7 +143,6 @@ const DashboardSidebarContent = () => {
                 <SidebarMenuButton
                   asChild
                   isActive={pathname === "/dashboard"}
-                  size="lg"
                   tooltip={isCollapsed ? "New chat +" : undefined}
                   className={isCollapsed ? "justify-center" : ""}
                 >
@@ -157,7 +155,7 @@ const DashboardSidebarContent = () => {
                       handleMobileLinkClick();
                     }}
                   >
-                    <Sparkles className="w-5 h-5" />
+                    <Sparkles className="w-4 h-4" />
                     {!isCollapsed && (
                       <span className="text-sidebar-foreground">
                         New chat +
@@ -169,8 +167,12 @@ const DashboardSidebarContent = () => {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
-        <SidebarSeparator />
         <SidebarGroup>
+          {!isCollapsed && (
+            <div className="px-3 py-1.5 text-xs font-semibold text-sidebar-foreground/70 uppercase tracking-wider">
+              Projects
+            </div>
+          )}
           <SidebarGroupContent>
             <SidebarMenu>
               {menuItems.map((item) => (
@@ -178,7 +180,6 @@ const DashboardSidebarContent = () => {
                   <SidebarMenuButton
                     asChild
                     isActive={item.active}
-                    size="lg"
                     tooltip={isCollapsed ? item.label : undefined}
                     className={isCollapsed ? "justify-center" : ""}
                   >
@@ -191,7 +192,7 @@ const DashboardSidebarContent = () => {
                         handleMobileLinkClick();
                       }}
                     >
-                      <item.icon className="w-5 h-5" />
+                      <item.icon className="w-4 h-4" />
                       {!isCollapsed && (
                         <span className="text-sidebar-foreground">
                           {item.label}
@@ -220,11 +221,10 @@ const DashboardSidebarContent = () => {
                   });
                   void handleCheckout("plus", router);
                 }}
-                size="lg"
                 tooltip={isCollapsed ? "Upgrade" : undefined}
                 className={isCollapsed ? "justify-center" : ""}
               >
-                <Zap className="w-5 h-5 text-amber-500" />
+                <Zap className="w-4 h-4 text-amber-500" />
                 {!isCollapsed && (
                   <span className="text-sidebar-foreground">Upgrade</span>
                 )}
@@ -235,7 +235,6 @@ const DashboardSidebarContent = () => {
             <SidebarMenuButton
               asChild
               isActive={pathname?.includes("account")}
-              size="lg"
               tooltip={isCollapsed ? "Account" : undefined}
               className={isCollapsed ? "justify-center" : ""}
             >
@@ -248,7 +247,7 @@ const DashboardSidebarContent = () => {
                   handleMobileLinkClick();
                 }}
               >
-                <User className="w-5 h-5" />
+                <User className="w-4 h-4" />
                 {!isCollapsed && (
                   <span className="text-sidebar-foreground">Account</span>
                 )}
@@ -261,11 +260,10 @@ const DashboardSidebarContent = () => {
                 logSidebarItemClick("logout");
                 logout();
               }}
-              size="lg"
               tooltip={isCollapsed ? "Logout" : undefined}
               className={isCollapsed ? "justify-center" : ""}
             >
-              <LogOut className="w-5 h-5" />
+              <LogOut className="w-4 h-4" />
               {!isCollapsed && (
                 <span className="text-sidebar-foreground">Logout</span>
               )}

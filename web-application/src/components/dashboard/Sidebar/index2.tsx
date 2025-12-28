@@ -103,7 +103,7 @@ const DashboardSidebarContent = () => {
       </SidebarHeader>
 
       {/* --- Main Content --- */}
-      <SidebarContent className="bg-white dark:bg-[#0B0C0E] px-2 py-4 gap-4">
+      <SidebarContent className="bg-white dark:bg-[#0B0C0E] px-2 py-4">
         {/* Primary Action: New Chat */}
         <SidebarGroup className="p-0">
           <SidebarGroupContent>
@@ -142,11 +142,11 @@ const DashboardSidebarContent = () => {
         </SidebarGroup>
 
         {/* Navigation Links */}
-        <SidebarGroup className="p-0 mt-2">
+        <SidebarGroup className="p-0 mt-4">
           {/* Optional Label for Expanded State */}
           {!isCollapsed && (
             <div className="px-2 mb-2 text-[11px] font-medium uppercase tracking-wider text-gray-500 dark:text-[#8A8F98]/50">
-              Workspace
+              Projects
             </div>
           )}
           <SidebarGroupContent>
