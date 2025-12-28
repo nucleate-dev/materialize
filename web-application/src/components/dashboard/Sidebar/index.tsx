@@ -258,7 +258,9 @@ const DashboardSidebarContent = () => {
               asChild
               isActive={pathname?.includes("account")}
               tooltip={isCollapsed ? "Account" : undefined}
-              className={isCollapsed ? "justify-center" : ""}
+              className={cn(
+                isCollapsed ? "justify-center" : "h-auto py-3",
+              )}
             >
               <Link
                 href="/dashboard/account"
@@ -279,17 +281,24 @@ const DashboardSidebarContent = () => {
                     </AvatarFallback>
                   </Avatar>
                 ) : (
-                  <>
-                    <Avatar className="h-4 w-4">
+                  <div className="flex items-center gap-3 w-full">
+                    <Avatar className="h-8 w-8">
                       {userRow?.avatar_url && (
                         <AvatarImage src={userRow.avatar_url} alt={userRow.name || "User"} />
                       )}
-                      <AvatarFallback className="text-[10px]">
+                      <AvatarFallback className="text-xs">
                         {getInitials(userRow?.name || null)}
                       </AvatarFallback>
                     </Avatar>
-                    <span className="text-sidebar-foreground">Account</span>
-                  </>
+                    <div className="flex flex-col items-start overflow-hidden">
+                      <span className="text-sm font-medium text-sidebar-foreground truncate w-full">
+                        {userRow?.name || "User"}
+                      </span>
+                      <span className="text-xs text-sidebar-foreground/60 truncate w-full">
+                        {userRow?.email || ""}
+                      </span>
+                    </div>
+                  </div>
                 )}
               </Link>
             </SidebarMenuButton>
