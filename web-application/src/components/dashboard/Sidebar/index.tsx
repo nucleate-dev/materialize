@@ -37,6 +37,8 @@ import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import { TeamSelector } from "./TeamSelector";
 import { useFeatureFlagEnabled } from "posthog-js/react";
 import { useActiveTeam } from "@/contexts/TeamContext";
+import { SettingsDialog } from "@/components/dashboard/SettingsDialog";
+import { useState } from "react";
 
 const DashboardSidebarContent = () => {
   const pathname = usePathname();
@@ -50,6 +52,7 @@ const DashboardSidebarContent = () => {
   const logger = useProductLogger();
   const isTeamsUIEnabled = useFeatureFlagEnabled("teams-ui") ?? false;
   const { activeTeam } = useActiveTeam();
+  const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);
 
   const getInitials = (name: string | null) => {
     if (!name) return "U";
@@ -255,56 +258,58 @@ const DashboardSidebarContent = () => {
           )}
           <SidebarMenuItem>
             <SidebarMenuButton
-              asChild
-              isActive={pathname?.includes("account")}
+              isActive={settingsDialogOpen}
               tooltip={isCollapsed ? "Account" : undefined}
               className={cn(
                 isCollapsed ? "justify-center" : "h-auto py-3",
               )}
+              onClick={() => {
+                logSidebarItemClick("settings", {
+                  action: "open_dialog",
+                });
+                setSettingsDialogOpen(true);
+                handleMobileLinkClick();
+              }}
             >
-              <Link
-                href="/dashboard/account"
-                onClick={() => {
-                  logSidebarItemClick("settings", {
-                    href: "/dashboard/account",
-                  });
-                  handleMobileLinkClick();
-                }}
-              >
-                {isCollapsed ? (
-                  <Avatar className="h-4 w-4">
+              {isCollapsed ? (
+                <Avatar className="h-4 w-4">
+                  {userRow?.avatar_url && (
+                    <AvatarImage src={userRow.avatar_url} alt={userRow.name || "User"} />
+                  )}
+                  <AvatarFallback className="text-[10px]">
+                    {getInitials(userRow?.name || null)}
+                  </AvatarFallback>
+                </Avatar>
+              ) : (
+                <div className="flex items-center gap-3 w-full">
+                  <Avatar className="h-8 w-8">
                     {userRow?.avatar_url && (
                       <AvatarImage src={userRow.avatar_url} alt={userRow.name || "User"} />
                     )}
-                    <AvatarFallback className="text-[10px]">
+                    <AvatarFallback className="text-xs">
                       {getInitials(userRow?.name || null)}
                     </AvatarFallback>
                   </Avatar>
-                ) : (
-                  <div className="flex items-center gap-3 w-full">
-                    <Avatar className="h-8 w-8">
-                      {userRow?.avatar_url && (
-                        <AvatarImage src={userRow.avatar_url} alt={userRow.name || "User"} />
-                      )}
-                      <AvatarFallback className="text-xs">
-                        {getInitials(userRow?.name || null)}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex flex-col items-start overflow-hidden">
-                      <span className="text-sm font-medium text-sidebar-foreground truncate w-full">
-                        {userRow?.name || "User"}
-                      </span>
-                      <span className="text-xs text-sidebar-foreground/60 truncate w-full">
-                        {userRow?.email || ""}
-                      </span>
-                    </div>
+                  <div className="flex flex-col items-start overflow-hidden">
+                    <span className="text-sm font-medium text-sidebar-foreground truncate w-full">
+                      {userRow?.name || "User"}
+                    </span>
+                    <span className="text-xs text-sidebar-foreground/60 truncate w-full">
+                      {userRow?.email || ""}
+                    </span>
                   </div>
-                )}
-              </Link>
+                </div>
+              )}
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarFooter>
+
+      {/* Settings Dialog */}
+      <SettingsDialog
+        open={settingsDialogOpen}
+        onOpenChange={setSettingsDialogOpen}
+      />
     </>
   );
 };
