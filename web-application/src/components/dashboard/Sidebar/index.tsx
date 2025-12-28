@@ -34,6 +34,7 @@ import {
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
+import { TeamSelector } from "./TeamSelector";
 
 const DashboardSidebarContent = () => {
   const pathname = usePathname();
@@ -136,6 +137,12 @@ const DashboardSidebarContent = () => {
           </div>
         )}
       </SidebarHeader>
+
+      {/* Team Selector */}
+      <div className="px-2 py-3 border-b border-gray-200 dark:border-sidebar-border">
+        <TeamSelector isCollapsed={isCollapsed} />
+      </div>
+
       <SidebarContent>
         <SidebarGroup>
           <SidebarGroupContent>
