@@ -29,7 +29,7 @@ export function TeamSelectorDialog({
   const router = useRouter();
   const logger = useProductLogger();
   const { userPlan, loadingSubscriptionData } = useSubscriptionAccess();
-  const { teamId } = usePersonalTeam();
+  const { team } = usePersonalTeam();
   const {
     creditsRemaining,
     totalAvailableCredits,

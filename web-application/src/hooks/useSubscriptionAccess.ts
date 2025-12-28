@@ -150,9 +150,10 @@ async function fetchSubscriptionAccess(
  */
 export function useSubscriptionAccess() {
   const userState = useUser();
-  const { teamId, isLoading: teamLoading } = usePersonalTeam();
+  const { team, isLoading: teamLoading } = usePersonalTeam();
   const logger = useProductLogger();
   const userId = userState.user?.id;
+  const teamId = team?.id;
   const queryEnabled =
     Boolean(userId && teamId) &&
     userState.userIsLoading === false &&

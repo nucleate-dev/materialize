@@ -155,3 +155,17 @@ export async function fetchPersonalTeamId(
 
   return data?.id ?? null;
 }
+
+export async function fetchPersonalTeam(userId: string) {
+  const { data, error } = await supabase
+    .from("teams")
+    .select("*")
+    .eq("personal_owner_user_id", userId)
+    .maybeSingle();
+
+  if (error) {
+    return null;
+  }
+
+  return data;
+}
