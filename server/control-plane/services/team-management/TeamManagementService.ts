@@ -4,8 +4,12 @@ import {
   type AcceptTeamInviteRequestBody,
   type AcceptTeamInviteSuccessResponse,
   type APIResponse,
+  type SendTeamInviteErrorResponse,
+  type SendTeamInviteRequestBody,
+  type SendTeamInviteSuccessResponse,
 } from "../../types/PublicAPITypes.js";
 import handleAcceptInviteImpl from "./handlers/handleAcceptInvite.js";
+import handleSendInviteImpl from "./handlers/handleSendInvite.js";
 
 /**
  * TeamManagementService handles team invitation and membership management operations.
@@ -18,6 +22,33 @@ export class TeamManagementService {
    * Register routes with Fastify
    */
   public registerRoutes(app: FastifyInstance): void {
+    // POST /teams/send-invite
+    app.post<{ Body: SendTeamInviteRequestBody }>(
+      "/teams/send-invite",
+      {
+        schema: {
+          body: {
+            type: "object",
+            required: ["email", "team_id", "role"],
+            properties: {
+              email: {
+                type: "string",
+                format: "email",
+              },
+              team_id: {
+                type: "string",
+              },
+              role: {
+                type: "string",
+                enum: ["owner", "admin", "member"],
+              },
+            },
+          },
+        },
+      },
+      this.handleSendInvite.bind(this),
+    );
+
     // POST /teams/accept-invite
     app.post<{ Body: AcceptTeamInviteRequestBody }>(
       "/teams/accept-invite",
@@ -36,6 +67,18 @@ export class TeamManagementService {
       },
       this.handleAcceptInvite.bind(this),
     );
+  }
+
+  /**
+   * API Route Handler for sending a team invite.
+   */
+  private async handleSendInvite(
+    request: FastifyRequest<{ Body: SendTeamInviteRequestBody }>,
+    reply: FastifyReply,
+  ): Promise<
+    APIResponse<SendTeamInviteSuccessResponse, SendTeamInviteErrorResponse>
+  > {
+    return await handleSendInviteImpl(request, reply);
   }
 
   /**

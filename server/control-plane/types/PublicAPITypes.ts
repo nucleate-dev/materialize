@@ -1,6 +1,6 @@
 // Public API types for the Control Plane Server
 // These types define the request and response schemas for all public endpoints
-import type { Database } from '../types/supabase.js';
+import type { Database } from "../types/supabase.js";
 
 // ============================================================================
 // PRODUCT AND SUBSCRIPTION CONSTANTS
@@ -36,22 +36,22 @@ export type APIResponse<TData = any, TError = any> =
 // ============================================================================
 
 export type PrototypeFileInput =
-  Database['public']['Tables']['prototype_files']['Row'];
+  Database["public"]["Tables"]["prototype_files"]["Row"];
 export type PrototypeAssetInput =
-  Database['public']['Tables']['prototype_assets']['Row'];
+  Database["public"]["Tables"]["prototype_assets"]["Row"];
 
 export type PrototypeAssetInputWithContent = PrototypeAssetInput & {
   contents: string; // base64 encoded string
 };
 
 export type BuildStatus =
-  | 'creating'
-  | 'chatting'
-  | 'updating'
-  | 'error'
-  | 'stable'
-  | 'cleaning'
-  | 'building';
+  | "creating"
+  | "chatting"
+  | "updating"
+  | "error"
+  | "stable"
+  | "cleaning"
+  | "building";
 
 // ============================================================================
 // STANDARD ERROR RESPONSE
@@ -67,7 +67,7 @@ export interface StandardErrorResponse {
 // ============================================================================
 
 export interface HealthSuccessResponse {
-  status: 'healthy';
+  status: "healthy";
   timestamp: string;
 }
 
@@ -79,7 +79,7 @@ export type HealthResponse = HealthSuccessResponse | StandardErrorResponse;
 
 export interface DispatchRequestBody {
   prototype_id: string;
-  file_scope: 'updates' | 'complete';
+  file_scope: "updates" | "complete";
 }
 
 export interface DispatchSuccessResponse {
@@ -121,13 +121,13 @@ export type CacheClearResponse =
 
 export interface CheckoutRequestBody {
   productID:
-    | 'free'
-    | 'plus'
-    | 'pro'
-    | 'max'
-    | 'credit_pack_100'
-    | 'credit_pack_500'
-    | 'credit_pack_1000';
+    | "free"
+    | "plus"
+    | "pro"
+    | "max"
+    | "credit_pack_100"
+    | "credit_pack_500"
+    | "credit_pack_1000";
   teamId: string;
 }
 
@@ -224,12 +224,12 @@ export const HTTP_STATUS = {
 
 export interface FetchViewingUrlRequestBody {
   prototype_id: string;
-  current_page?: 'view' | 'edit' | null;
+  current_page?: "view" | "edit" | null;
 }
 
 export interface FetchViewingUrlSuccessResponse {
   viewing_url: string;
-  source: 'editable_instance' | 'static_build';
+  source: "editable_instance" | "static_build";
   status: BuildStatus | null;
   terminal_url: string | null;
 }
@@ -239,13 +239,13 @@ export interface FetchViewingUrlSuccessResponse {
 // ============================================================================
 
 export const PROTOTYPE_CREATION_SOURCES = [
-  'landing_prompt',
-  'dashboard_prompt',
-  'dashboard_modal',
-  'public_prototype_clone',
-  'prototype_editor_clone',
-  'auth_callback_chat_intent',
-  'unknown',
+  "landing_prompt",
+  "dashboard_prompt",
+  "dashboard_modal",
+  "public_prototype_clone",
+  "prototype_editor_clone",
+  "auth_callback_chat_intent",
+  "unknown",
 ] as const;
 
 export type PrototypeCreationSource =
@@ -258,10 +258,10 @@ export interface CreatePrototypeRequestBody {
   team_id: string;
   folder_id?: string;
   prototype_id?: string; // For forking an existing prototype
-  visibility?: 'PUBLIC' | 'SELF';
-  design_style?: Database['public']['Enums']['design_style'];
+  visibility?: "PUBLIC" | "SELF";
+  design_style?: Database["public"]["Enums"]["design_style"];
   custom_design_system?: string | null;
-  framework?: Database['public']['Enums']['prototype_framework'];
+  framework?: Database["public"]["Enums"]["prototype_framework"];
 }
 
 export interface CreatePrototypeSuccessResponse {
@@ -271,11 +271,11 @@ export interface CreatePrototypeSuccessResponse {
 
 export interface CreatePrototypeErrorResponse {
   error:
-    | 'UNAUTHORIZED'
-    | 'PROTOTYPE_LIMIT_REACHED'
-    | 'DATABASE_ERROR'
-    | 'S3_ERROR'
-    | 'INVALID_REQUEST';
+    | "UNAUTHORIZED"
+    | "PROTOTYPE_LIMIT_REACHED"
+    | "DATABASE_ERROR"
+    | "S3_ERROR"
+    | "INVALID_REQUEST";
   message: string;
 }
 
@@ -290,7 +290,7 @@ export interface DeletePrototypeSuccessResponse {
 
 export interface DeletePrototypeErrorResponse {
   success: false;
-  error: 'UNAUTHORIZED' | 'NOT_FOUND' | 'DATABASE_ERROR' | 'S3_ERROR';
+  error: "UNAUTHORIZED" | "NOT_FOUND" | "DATABASE_ERROR" | "S3_ERROR";
   message: string;
 }
 
@@ -304,7 +304,7 @@ export interface StartDevServerRequestBody {
 
 export interface StartDevServerSuccessResponse {
   success: true;
-  status: 'success' | 'error';
+  status: "success" | "error";
   viewing_url: string;
   message: string;
   terminal_url: string | null;
@@ -373,6 +373,27 @@ export interface AcceptTeamInviteErrorResponse {
 }
 
 // ============================================================================
+// /teams/send-invite ENDPOINT
+// ============================================================================
+
+export interface SendTeamInviteRequestBody {
+  email: string;
+  team_id: string;
+  role: Database["public"]["Enums"]["team_role"];
+}
+
+export interface SendTeamInviteSuccessResponse {
+  success: true;
+  invite_id: string;
+  message: string;
+}
+
+export interface SendTeamInviteErrorResponse {
+  error: string;
+  message: string;
+}
+
+// ============================================================================
 // TYPE GUARDS
 // ============================================================================
 
@@ -380,9 +401,9 @@ export function isStandardErrorResponse(
   response: unknown,
 ): response is StandardErrorResponse {
   return (
-    typeof response === 'object' &&
+    typeof response === "object" &&
     response !== null &&
-    'error' in response &&
-    'message' in response
+    "error" in response &&
+    "message" in response
   );
 }

@@ -243,7 +243,6 @@ export type Database = {
           id: string
           subscription_id: string | null
           team_id: string
-          user_id: string
         }
         Insert: {
           billing_period_end?: string | null
@@ -256,7 +255,6 @@ export type Database = {
           id?: string
           subscription_id?: string | null
           team_id: string
-          user_id: string
         }
         Update: {
           billing_period_end?: string | null
@@ -269,7 +267,6 @@ export type Database = {
           id?: string
           subscription_id?: string | null
           team_id?: string
-          user_id?: string
         }
         Relationships: [
           {
@@ -284,13 +281,6 @@ export type Database = {
             columns: ["team_id"]
             isOneToOne: false
             referencedRelation: "teams"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "credit_grants_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
             referencedColumns: ["id"]
           },
         ]
@@ -849,7 +839,6 @@ export type Database = {
           stripe_customer_id: string | null
           team_id: string | null
           updated_at: string | null
-          user_id: string | null
         }
         Insert: {
           created_at?: string
@@ -863,7 +852,6 @@ export type Database = {
           stripe_customer_id?: string | null
           team_id?: string | null
           updated_at?: string | null
-          user_id?: string | null
         }
         Update: {
           created_at?: string
@@ -877,7 +865,6 @@ export type Database = {
           stripe_customer_id?: string | null
           team_id?: string | null
           updated_at?: string | null
-          user_id?: string | null
         }
         Relationships: [
           {
@@ -887,13 +874,6 @@ export type Database = {
             referencedRelation: "teams"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "subscriptions_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
         ]
       }
       team_invites: {
@@ -901,37 +881,34 @@ export type Database = {
           accepted_at: string | null
           created_at: string
           email: string | null
-          expires_at: string
+          expires_at: string | null
           id: string
           invited_by: string | null
           invited_user_id: string | null
           role: Database["public"]["Enums"]["team_role"]
           team_id: string
-          token: string
         }
         Insert: {
           accepted_at?: string | null
           created_at?: string
           email?: string | null
-          expires_at: string
+          expires_at?: string | null
           id?: string
           invited_by?: string | null
           invited_user_id?: string | null
           role?: Database["public"]["Enums"]["team_role"]
           team_id: string
-          token: string
         }
         Update: {
           accepted_at?: string | null
           created_at?: string
           email?: string | null
-          expires_at?: string
+          expires_at?: string | null
           id?: string
           invited_by?: string | null
           invited_user_id?: string | null
           role?: Database["public"]["Enums"]["team_role"]
           team_id?: string
-          token?: string
         }
         Relationships: [
           {
@@ -1198,7 +1175,6 @@ export type Database = {
           id: string | null
           subscription_id: string | null
           team_id: string | null
-          user_id: string | null
         }
         Relationships: [
           {
@@ -1213,13 +1189,6 @@ export type Database = {
             columns: ["team_id"]
             isOneToOne: false
             referencedRelation: "teams"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "credit_grants_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
             referencedColumns: ["id"]
           },
         ]

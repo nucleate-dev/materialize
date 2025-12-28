@@ -11,7 +11,8 @@
     "allowSyntheticDefaultImports": true,
     "forceConsistentCasingInFileNames": true,
     "incremental": true,
-    "noEmitOnError": false
+    "noEmitOnError": false,
+    "jsx": "react"
   },
   "include": [
     "server.ts",
@@ -20,7 +21,8 @@
     "loggers/**/*.ts",
     "internal-services/**/*.ts",
     "services/**/*.ts",
-    "utils/**/*.ts"
+    "utils/**/*.ts",
+    "emails/**/*.tsx"
   ],
   "exclude": ["node_modules", "dist", "**/*.test.ts", "**/*.spec.ts"]
 }

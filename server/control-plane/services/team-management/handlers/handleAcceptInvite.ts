@@ -114,8 +114,10 @@ export default async function handleAcceptInviteImpl(
 
     // Check if invite has expired
     const now = new Date();
-    const expiresAt = new Date(invite.expires_at);
-    if (invite.expires_at !== null && now > expiresAt) {
+    const expiresAt = invite.expires_at !== null
+      ? new Date(invite.expires_at)
+      : null;
+    if (expiresAt && now > expiresAt) {
       request.log2.warn("Invite expired", {
         invite_id,
         expires_at: invite.expires_at,
