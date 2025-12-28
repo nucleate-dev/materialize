@@ -35,6 +35,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import { TeamSelector } from "./TeamSelector";
+import { useFeatureFlagEnabled } from "posthog-js/react";
 
 const DashboardSidebarContent = () => {
   const pathname = usePathname();
@@ -45,6 +46,7 @@ const DashboardSidebarContent = () => {
   const isCollapsed = state === "collapsed";
   const isPaidUser = IsUserPlanSubscribed(userPlan);
   const logger = useProductLogger();
+  const isTeamsUIEnabled = useFeatureFlagEnabled("teams-ui") ?? false;
 
   const logSidebarItemClick = (
     item: string,
@@ -139,9 +141,11 @@ const DashboardSidebarContent = () => {
       </SidebarHeader>
 
       {/* Team Selector */}
-      <div className="px-2 py-3">
-        <TeamSelector isCollapsed={isCollapsed} />
-      </div>
+      {isTeamsUIEnabled && (
+        <div className="px-2 py-1">
+          <TeamSelector isCollapsed={isCollapsed} />
+        </div>
+      )}
 
       <SidebarContent>
         <SidebarGroup>
