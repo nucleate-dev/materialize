@@ -52,13 +52,14 @@ export default async function handleSendInviteImpl(
     };
   }
 
-  const { email, team_id, role } = request.body;
+  const { emails, team_id, role } = request.body;
 
   // Update logger context
   request.log2 = request.log2.child({
     userId: user.id,
     teamId: team_id,
-    inviteeEmail: email,
+    inviteeEmails: emails,
+    emailCount: emails.length,
   });
 
   const supabaseClient = createClient<Database>(
@@ -116,132 +117,122 @@ export default async function handleSendInviteImpl(
       };
     }
 
-    // Check if user is already a member of the team
-    const { data: existingMembership } = await supabaseClient
-      .from("team_memberships")
-      .select("*")
-      .eq("team_id", team_id)
-      .eq("user_id", user.id)
-      .single();
+    // Process each email
+    const inviteIds: string[] = [];
+    const failedEmails: string[] = [];
+    const resend = new Resend(process.env.RESEND_API_KEY);
 
-    if (existingMembership) {
-      request.log2.warn("User is already a member of the team", {
-        team_id,
-        email,
-      });
-      reply.status(HTTP_STATUS.BAD_REQUEST);
-      return {
-        data: null,
-        error: {
-          error: "Already a member",
-          message: "This user is already a member of this team",
-        },
-      };
-    }
+    for (const email of emails) {
+      try {
+        // Check for existing pending invites
+        const { data: existingInvites } = await supabaseClient
+          .from("team_invites")
+          .select("*")
+          .eq("team_id", team_id)
+          .eq("email", email)
+          .is("accepted_at", null);
 
-    // Check for existing pending invites
-    const { data: existingInvites, error: inviteCheckError } =
-      await supabaseClient
-        .from("team_invites")
-        .select("*")
-        .eq("team_id", team_id)
-        .eq("email", email)
-        .is("accepted_at", null)
-        .gt("expires_at", new Date().toISOString());
+        if (existingInvites && existingInvites.length > 0) {
+          request.log2.warn("Pending invite already exists", {
+            team_id,
+            email,
+            existing_invite_id: existingInvites[0].id,
+          });
+          failedEmails.push(email);
+          continue;
+        }
 
-    if (inviteCheckError) {
-      request.log2.error(
-        inviteCheckError,
-        "Failed to check for existing invites",
-      );
-      // Continue anyway - we'll try to create the invite
-    }
+        // Check if email is already a team member
+        const { data: existingMember } = await supabaseClient
+          .from("team_memberships")
+          .select("user_id")
+          .eq("team_id", team_id)
+          .eq("user_id", user.id)
+          .single();
 
-    if (existingInvites && existingInvites.length > 0) {
-      request.log2.warn("Pending invite already exists", {
-        team_id,
-        email,
-        existing_invite_id: existingInvites[0].id,
-      });
-      reply.status(HTTP_STATUS.CONFLICT);
-      return {
-        data: null,
-        error: {
-          error: "Invite already exists",
-          message: "A pending invite for this email already exists",
-        },
-      };
-    }
+        if (existingMember) {
+          request.log2.warn("User is already a member", {
+            team_id,
+            email,
+          });
+          failedEmails.push(email);
+          continue;
+        }
 
-    // Create the invite (does not expire for now)
-    const { data: invite, error: createError } = await supabaseClient
-      .from("team_invites")
-      .insert({
-        team_id,
-        email,
-        role,
-        invited_by: user.id,
-      })
-      .select()
-      .single();
+        // Create the invite (does not expire for now)
+        const { data: invite, error: createError } = await supabaseClient
+          .from("team_invites")
+          .insert({
+            team_id,
+            email,
+            role,
+            invited_by: user.id,
+          })
+          .select()
+          .single();
 
-    if (createError || !invite) {
-      request.log2.error(createError, "Failed to create team invite");
-      reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR);
-      return {
-        data: null,
-        error: {
-          error: "Invite creation failed",
-          message: "Failed to create the team invite",
-        },
-      };
-    }
+        if (createError || !invite) {
+          request.log2.error(createError, "Failed to create team invite", {
+            email,
+          });
+          failedEmails.push(email);
+          continue;
+        }
 
-    // Generate invite URL
-    const inviteUrl = `${
-      process.env.WEB_APP_URL || "https://nucleate.dev"
-    }/teams/accept-invite?invite_id=${invite.id}`;
+        inviteIds.push(invite.id);
 
-    // Send email via Resend
-    try {
-      const resend = new Resend(process.env.RESEND_API_KEY);
+        // Generate invite URL
+        const inviteUrl = `${
+          process.env.WEB_APP_URL || "https://nucleate.dev"
+        }/teams/accept-invite?invite_id=${invite.id}`;
 
-      const emailHtml = await render(
-        TeamInviteEmail({
-          inviterName: user.user_metadata?.name || user.email ||
-            "A team member",
-          teamName: team.name,
-          inviteUrl,
-        }),
-      );
+        // Send email via Resend
+        try {
+          const emailHtml = await render(
+            TeamInviteEmail({
+              inviterName:
+                user.user_metadata?.name || user.email || "A team member",
+              teamName: team.name,
+              inviteUrl,
+            }),
+          );
 
-      const { error: emailError } = await resend.emails.send({
-        from: "Nucleate <noreply@nucleate.dev>",
-        to: [email],
-        subject: `You've been invited to join ${team.name} on Nucleate`,
-        html: emailHtml,
-      });
+          const { error: emailError } = await resend.emails.send({
+            from: "Nucleate <noreply@nucleate.dev>",
+            to: [email],
+            subject: `You've been invited to join ${team.name} on Nucleate`,
+            html: emailHtml,
+          });
 
-      if (emailError) {
-        request.log2.error(emailError, "Failed to send invite email");
-        // Don't fail the request - the invite was created successfully
-        // The user can still be invited manually
-      } else {
-        request.log2.consoleLogDevOnly("info", "Team invite email sent", {
-          invite_id: invite.id,
-          team_id,
-          email,
-        });
+          if (emailError) {
+            request.log2.error(emailError, "Failed to send invite email", {
+              email,
+            });
+            // Don't fail the invite - it was created successfully
+          } else {
+            request.log2.consoleLogDevOnly("info", "Team invite email sent", {
+              invite_id: invite.id,
+              team_id,
+              email,
+            });
+          }
+        } catch (emailError) {
+          request.log2.error(emailError, "Exception sending invite email", {
+            email,
+          });
+          // Continue - the invite was created successfully
+        }
+      } catch (error) {
+        request.log2.error(error, "Exception processing email", { email });
+        failedEmails.push(email);
       }
-    } catch (emailError) {
-      request.log2.error(emailError, "Exception sending invite email");
-      // Continue - the invite was created successfully
     }
 
-    request.log2.consoleLogDevOnly("info", "Team invite created successfully", {
-      invite_id: invite.id,
+    request.log2.consoleLogDevOnly("info", "Team invites processed", {
       team_id,
-      email,
+      total_emails: emails.length,
+      successful: inviteIds.length,
+      failed: failedEmails.length,
       role,
     });
 
@@ -249,8 +240,13 @@ export default async function handleSendInviteImpl(
     return {
       data: {
         success: true,
-        invite_id: invite.id,
-        message: "Team invite sent successfully",
+        invite_ids: inviteIds,
+        message: `Successfully sent ${inviteIds.length} invite(s)${
+          failedEmails.length > 0
+            ? `, ${failedEmails.length} failed`
+            : ""
+        }`,
+        ...(failedEmails.length > 0 && { failed_emails: failedEmails }),
       },
       error: null,
     };

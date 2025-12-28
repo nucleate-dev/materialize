@@ -63,9 +63,75 @@ export function PeopleTab() {
     currentUserMembership?.role === "owner" ||
     currentUserMembership?.role === "admin";
 
-  const handleInvite = () => {
-    // TODO: Implement invite functionality
-    logger.debug("log", "Inviting users", { emails: inviteEmails });
+  const handleInvite = async () => {
+    if (!activeTeam?.id || !inviteEmails.trim()) return;
+
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (!sessionData.session?.access_token) {
+        alert("You must be logged in to send invites");
+        return;
+      }
+
+      // Parse emails (comma or space separated)
+      const emails = inviteEmails
+        .split(/[,\s]+/)
+        .map((e) => e.trim())
+        .filter((e) => e.length > 0);
+
+      if (emails.length === 0) {
+        alert("Please enter at least one email address");
+        return;
+      }
+
+      // Send all invites in a single API call
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_SERVER_ENDPOINT!}/teams/send-invite`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${sessionData.session.access_token}`,
+          },
+          body: JSON.stringify({
+            emails,
+            team_id: activeTeam.id,
+            role: "editor", // Default role for new invites
+          }),
+        },
+      );
+
+      const result = await response.json();
+      if (!response.ok || result.error) {
+        alert(
+          "Failed to send invites: " + (result.error?.message || "Unknown error"),
+        );
+        return;
+      }
+
+      // Clear input on success
+      setInviteEmails("");
+
+      const successCount = result.data?.invite_ids?.length || 0;
+      const failedEmails = result.data?.failed_emails || [];
+
+      logger.debug("log", "Invites sent", {
+        successful: successCount,
+        failed: failedEmails.length,
+        emails,
+      });
+
+      if (failedEmails.length > 0) {
+        alert(
+          `Successfully sent ${successCount} invite(s). Failed to send to: ${failedEmails.join(", ")}`,
+        );
+      } else {
+        alert(`Successfully sent ${successCount} invite(s)`);
+      }
+    } catch (err) {
+      logger.debug("error", "Error sending invites", { error: err });
+      alert("Failed to send invites. Please try again.");
+    }
   };
 
   const handleRoleChange = async (
@@ -82,15 +148,41 @@ export function PeopleTab() {
     }
 
     try {
-      const { error } = await supabase
-        .from("team_memberships")
-        .update({ role: newRole })
-        .eq("team_id", activeTeam.id)
-        .eq("user_id", userId);
-
-      if (error) {
-        alert("Failed to update role: " + error.message);
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (!sessionData.session?.access_token) {
+        alert("You must be logged in to update roles");
+        return;
       }
+
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_SERVER_ENDPOINT!}/teams/update-member-role`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${sessionData.session.access_token}`,
+          },
+          body: JSON.stringify({
+            team_id: activeTeam.id,
+            user_id: userId,
+            role: newRole,
+          }),
+        },
+      );
+
+      const result = await response.json();
+      if (!response.ok || result.error) {
+        alert(
+          "Failed to update role: " + (result.error?.message || "Unknown error"),
+        );
+        return;
+      }
+
+      logger.debug("log", "Role updated successfully", {
+        user_id: userId,
+        old_role: currentRole,
+        new_role: newRole,
+      });
       // The TeamContext will automatically refetch and update
     } catch (err) {
       logger.debug("error", "Failed to update role", { error: err });

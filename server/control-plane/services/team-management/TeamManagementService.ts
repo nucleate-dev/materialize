@@ -33,11 +33,15 @@ export class TeamManagementService {
         schema: {
           body: {
             type: "object",
-            required: ["email", "team_id", "role"],
+            required: ["emails", "team_id", "role"],
             properties: {
-              email: {
-                type: "string",
-                format: "email",
+              emails: {
+                type: "array",
+                items: {
+                  type: "string",
+                  format: "email",
+                },
+                minItems: 1,
               },
               team_id: {
                 type: "string",

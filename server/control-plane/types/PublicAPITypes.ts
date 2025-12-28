@@ -377,15 +377,16 @@ export interface AcceptTeamInviteErrorResponse {
 // ============================================================================
 
 export interface SendTeamInviteRequestBody {
-  email: string;
+  emails: string[];
   team_id: string;
   role: Database["public"]["Enums"]["team_role"];
 }
 
 export interface SendTeamInviteSuccessResponse {
   success: true;
-  invite_id: string;
+  invite_ids: string[];
   message: string;
+  failed_emails?: string[];
 }
 
 export interface SendTeamInviteErrorResponse {
