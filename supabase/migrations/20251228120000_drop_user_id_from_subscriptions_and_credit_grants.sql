@@ -1,5 +1,8 @@
 begin;
 
+-- Drop the view first before dropping columns it depends on
+drop view if exists public.credit_grant_balances;
+
 -- Drop user_id column from subscriptions table
 -- All subscriptions are now tied to teams only
 alter table public.subscriptions
@@ -11,7 +14,6 @@ alter table public.credit_grants
 drop column if exists user_id;
 
 -- Recreate credit_grant_balances view without user_id column
-drop view if exists public.credit_grant_balances;
 
 create view public.credit_grant_balances as
 select
