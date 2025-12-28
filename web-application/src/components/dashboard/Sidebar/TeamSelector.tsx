@@ -34,9 +34,10 @@ import { useRouter } from "next/navigation";
 
 interface TeamSelectorProps {
   isCollapsed?: boolean;
+  onOpenSettings?: () => void;
 }
 
-export function TeamSelector({ isCollapsed = false }: TeamSelectorProps) {
+export function TeamSelector({ isCollapsed = false, onOpenSettings }: TeamSelectorProps) {
   const router = useRouter();
   const logger = useProductLogger();
   const { activeTeam, setActiveTeam } = useActiveTeam();
@@ -92,7 +93,7 @@ export function TeamSelector({ isCollapsed = false }: TeamSelectorProps) {
         component: "TeamSelector",
       },
     });
-    router.push("/dashboard/account");
+    onOpenSettings?.();
   };
 
   const handleInviteMembers = () => {
@@ -103,7 +104,7 @@ export function TeamSelector({ isCollapsed = false }: TeamSelectorProps) {
         item: "invite_members",
       },
     });
-    router.push("/dashboard/account");
+    onOpenSettings?.();
   };
 
   return (

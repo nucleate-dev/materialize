@@ -159,7 +159,10 @@ const DashboardSidebarContent = () => {
       {/* Team Selector */}
       {isTeamsUIEnabled && (
         <div className={cn("py-1", "px-2")}>
-          <TeamSelector isCollapsed={isCollapsed} />
+          <TeamSelector
+            isCollapsed={isCollapsed}
+            onOpenSettings={() => setSettingsDialogOpen(true)}
+          />
         </div>
       )}
 
