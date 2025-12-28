@@ -194,8 +194,8 @@ export default async function handleSendInviteImpl(
 
         // Generate invite URL
         const inviteUrl = `${
-          process.env.WEB_APP_URL || "https://nucleate.dev"
-        }/teams/accept-invite?invite_id=${invite.id}`;
+          process.env.SITE_BASE_URL || "https://nucleate.dev"
+        }/teams/invites?invite_id=${invite.id}`;
 
         // Send email via Resend
         try {
