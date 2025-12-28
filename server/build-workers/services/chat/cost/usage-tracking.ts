@@ -31,18 +31,15 @@ async function fetchUserPlan(
   teamId?: string,
 ): Promise<string> {
   const nowInSeconds = Math.floor(Date.now() / 1000);
-  const planQuery = supabase
+  const { data, error } = await supabase
     .from("subscriptions")
     .select("plan_id, current_period_start, current_period_end")
+    .eq("team_id", teamId)
     .eq("status", "active")
     .lte("current_period_start", nowInSeconds)
     .gte("current_period_end", nowInSeconds)
     .order("updated_at", { ascending: false })
     .limit(1);
-  const { data, error } =
-    await (teamId
-      ? planQuery.eq("team_id", teamId)
-      : planQuery.eq("user_id", userId));
 
   if (error) {
     log2.error(error, "Failed to fetch user plan for usage tracking", {
@@ -102,16 +99,13 @@ async function trackFreeTierUsage(
     };
   }
 
-  const usageQuery = supabase
+  const { data: usageRows, error: usageError } = await supabase
     .from("api_usage")
     .select("credits_used")
+    .eq("team_id", teamId)
     .eq("is_free_tier", true)
     .gte("created_at", periodStart)
     .lte("created_at", periodEnd);
-  const { data: usageRows, error: usageError } =
-    await (teamId
-      ? usageQuery.eq("team_id", teamId)
-      : usageQuery.eq("user_id", userId));
 
   if (usageError) {
     log2.error(usageError, "Failed to fetch free-tier usage totals", {

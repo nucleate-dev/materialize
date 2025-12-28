@@ -57,18 +57,15 @@ export async function fetchUserPlan(
   teamId?: string,
 ): Promise<string> {
   const nowInSeconds = Math.floor(Date.now() / 1000);
-  const planQuery = supabase
+  const { data, error } = await supabase
     .from("subscriptions")
     .select("plan_id, current_period_start, current_period_end")
+    .eq("team_id", teamId)
     .eq("status", "active")
     .lte("current_period_start", nowInSeconds)
     .gte("current_period_end", nowInSeconds)
     .order("updated_at", { ascending: false })
     .limit(1);
-
-  const { data, error } = await (teamId
-    ? planQuery.eq("team_id", teamId)
-    : planQuery.eq("user_id", userId));
 
   if (error) {
     log2.error(error, "Failed to fetch user plan for credit check", {
@@ -109,15 +106,13 @@ async function calculateFreeTierCreditInfo(
   const periodStart = startOfMonth.toISOString();
   const periodEnd = endOfMonth.toISOString();
 
-  const baseQuery = supabase
+  const { data: usageRows, error } = await supabase
     .from("api_usage")
     .select("credits_used")
+    .eq("team_id", teamId)
     .eq("is_free_tier", true)
     .gte("created_at", periodStart)
     .lte("created_at", periodEnd);
-  const { data: usageRows, error } = await (teamId
-    ? baseQuery.eq("team_id", teamId)
-    : baseQuery.eq("user_id", userId));
 
   if (error) {
     log2.error(error, "Error fetching free-tier usage", {
@@ -145,12 +140,13 @@ async function calculatePaidUserCreditInfo(
   supabase: SupabaseClient<Database>,
   userId: string,
   log2: SystemLogger,
+  teamId: string,
 ): Promise<{ remaining: number; granted: number; used: number }> {
   const nowIso = new Date().toISOString();
   const { data: balances, error: balancesError } = await supabase
     .from("credit_grant_balances")
     .select("credits_granted, credits_remaining")
-    .eq("user_id", userId)
+    .eq("team_id", teamId)
     .gt("expires_at", nowIso);
 
   if (balancesError) {
@@ -218,6 +214,7 @@ export async function hasRemainingCredits(
       supabase,
       userId,
       log2,
+      teamId!,
     );
 
     return {

@@ -76,21 +76,16 @@ export async function getSubscriptionInfo(
     },
   );
   try {
-    let query = supabaseClient
+    const query = supabaseClient
       .from("subscriptions")
       .select("*")
+      .eq("team_id", teamId)
       .eq("status", "active")
       .lte("current_period_start", nowInSeconds)
       .gte("current_period_end", nowInSeconds)
       .order("updated_at", {
         ascending: false,
       });
-
-    if (teamId) {
-      query = query.eq("team_id", teamId);
-    } else {
-      query = query.eq("user_id", userId);
-    }
 
     const { data, error } = await query;
 
@@ -366,7 +361,7 @@ export async function getRemainingCredits(
     const { data: balances, error: balancesError } = await supabaseClient
       .from("credit_grant_balances")
       .select("credits_granted, credits_remaining")
-      .eq("user_id", userId)
+      .eq("team_id", resolvedTeamId)
       .gt("expires_at", nowIso);
 
     if (balancesError) {
