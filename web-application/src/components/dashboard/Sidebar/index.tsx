@@ -5,6 +5,7 @@ import {
   SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
+  SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
@@ -168,11 +169,7 @@ const DashboardSidebarContent = () => {
           </SidebarGroupContent>
         </SidebarGroup>
         <SidebarGroup>
-          {!isCollapsed && (
-            <div className="px-3 py-1.5 text-xs font-semibold text-sidebar-foreground/70 uppercase tracking-wider">
-              Projects
-            </div>
-          )}
+          <SidebarGroupLabel>Projects</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {menuItems.map((item) => (
