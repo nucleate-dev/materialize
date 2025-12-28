@@ -154,24 +154,21 @@ export function useSubscriptionAccess() {
   const logger = useProductLogger();
   const userId = userState.user?.id;
   const teamId = activeTeam?.id;
-  const queryEnabled =
-    Boolean(userId && teamId) &&
+  const queryEnabled = Boolean(userId && teamId) &&
     userState.userIsLoading === false &&
     teamLoading === false;
 
   const subscriptionQuery = useQuery({
     queryKey: subscriptionAccessQueryKey(
-      userId ? `${userId}:${teamId ?? "no-team"}` : undefined,
+      teamId,
     ),
     queryFn: () => fetchSubscriptionAccess(teamId as string, logger),
     enabled: queryEnabled,
     staleTime: 1000 * 60 * 5,
   });
 
-  const subscriptionData =
-    subscriptionQuery.data ?? getFreeTierAccess();
-  const loadingSubscriptionData =
-    userState.userIsLoading ||
+  const subscriptionData = subscriptionQuery.data ?? getFreeTierAccess();
+  const loadingSubscriptionData = userState.userIsLoading ||
     teamLoading ||
     (queryEnabled ? subscriptionQuery.isPending : false);
 

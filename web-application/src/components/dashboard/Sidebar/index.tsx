@@ -13,23 +13,22 @@ import {
   SidebarTrigger,
   useSidebar,
 } from "@/components/ui/sidebar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { SHOW_WHITEBOARDS } from "@/GlobalConstants";
 import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
+import { useCustomUserRow } from "@/hooks/useCustomUserRow";
 import { sidebarOpenAtom } from "@/lib/atoms/sidebar";
 import { cn } from "@/lib/classNames";
-import { logout } from "@/lib/utils/auth/SupabaseAuthUtils";
 import { handleCheckout } from "@/lib/utils/payments/CheckoutUtils";
 import { IsUserPlanSubscribed } from "@/lib/utils/payments/SubscriptionManagementUtils";
 import { useAtom } from "jotai";
 import {
   Atom,
   Folder,
-  LogOut,
   Palette,
   Rocket,
   Sparkles,
   SquareStack,
-  User,
   Zap,
 } from "lucide-react";
 import Link from "next/link";
@@ -45,11 +44,22 @@ const DashboardSidebarContent = () => {
   const [sidebarOpen, setSidebarOpen] = useAtom(sidebarOpenAtom);
   const { state, isMobile, setOpenMobile } = useSidebar();
   const { userPlan } = useSubscriptionAccess();
+  const { userRow } = useCustomUserRow();
   const isCollapsed = state === "collapsed";
   const isPaidUser = IsUserPlanSubscribed(userPlan);
   const logger = useProductLogger();
   const isTeamsUIEnabled = useFeatureFlagEnabled("teams-ui") ?? false;
   const { activeTeam } = useActiveTeam();
+
+  const getInitials = (name: string | null) => {
+    if (!name) return "U";
+    return name
+      .split(" ")
+      .map((n) => n[0])
+      .join("")
+      .toUpperCase()
+      .slice(0, 2);
+  };
 
   const logSidebarItemClick = (
     item: string,
@@ -259,26 +269,29 @@ const DashboardSidebarContent = () => {
                   handleMobileLinkClick();
                 }}
               >
-                <User className="w-4 h-4" />
-                {!isCollapsed && (
-                  <span className="text-sidebar-foreground">Account</span>
+                {isCollapsed ? (
+                  <Avatar className="h-4 w-4">
+                    {userRow?.avatar_url && (
+                      <AvatarImage src={userRow.avatar_url} alt={userRow.name || "User"} />
+                    )}
+                    <AvatarFallback className="text-[10px]">
+                      {getInitials(userRow?.name || null)}
+                    </AvatarFallback>
+                  </Avatar>
+                ) : (
+                  <>
+                    <Avatar className="h-4 w-4">
+                      {userRow?.avatar_url && (
+                        <AvatarImage src={userRow.avatar_url} alt={userRow.name || "User"} />
+                      )}
+                      <AvatarFallback className="text-[10px]">
+                        {getInitials(userRow?.name || null)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <span className="text-sidebar-foreground">Account</span>
+                  </>
                 )}
               </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              onClick={() => {
-                logSidebarItemClick("logout");
-                logout();
-              }}
-              tooltip={isCollapsed ? "Logout" : undefined}
-              className={isCollapsed ? "justify-center" : ""}
-            >
-              <LogOut className="w-4 h-4" />
-              {!isCollapsed && (
-                <span className="text-sidebar-foreground">Logout</span>
-              )}
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>

@@ -16,6 +16,7 @@ import {
   IsUserPlanSubscribed,
 } from "@/lib/utils/payments/SubscriptionManagementUtils";
 import { useActiveTeam } from "@/contexts/TeamContext";
+import { logout } from "@/lib/utils/auth/SupabaseAuthUtils";
 import {
   AlertCircle,
   Calendar,
@@ -25,6 +26,7 @@ import {
   ExternalLink,
   Key,
   Loader2,
+  LogOut,
   MessageSquare,
   Settings,
   Sparkles,
@@ -681,6 +683,24 @@ function AccountSettings() {
                   )}
               </div>
             </SectionCard>
+
+            {/* Logout Button */}
+            <Button
+              onClick={() => {
+                logger.log({
+                  event: "client_dashboard_logout_clicked",
+                  properties: {
+                    source: "account_page",
+                  },
+                });
+                logout();
+              }}
+              variant="outline"
+              className="w-full border-red-200 dark:border-red-900 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950"
+            >
+              <LogOut className="w-4 h-4 mr-2" />
+              Sign Out
+            </Button>
           </div>
 
           {/* Right Column: Top Ups (Only Paid) */}
