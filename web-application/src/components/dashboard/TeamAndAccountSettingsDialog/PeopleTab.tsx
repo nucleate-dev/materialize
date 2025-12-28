@@ -20,6 +20,8 @@ import {
 import { Search, HelpCircle, ChevronDown, ArrowUpDown } from "lucide-react";
 import { Database } from "@/lib/types/supabase";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
+import { useQueryClient } from "@tanstack/react-query";
+import { teamInvitesQueryKey } from "@/lib/react-query/queryKeys";
 
 type TeamRole = Database["public"]["Enums"]["team_role"];
 
@@ -35,6 +37,7 @@ export function PeopleTab() {
   const { user } = useUser();
   const { currentPeriodStart, currentPeriodEnd } = useSubscriptionAccess();
   const logger = useProductLogger();
+  const queryClient = useQueryClient();
   const [inviteEmails, setInviteEmails] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [activeFilter, setActiveFilter] = useState<
@@ -119,6 +122,11 @@ export function PeopleTab() {
         successful: successCount,
         failed: failedEmails.length,
         emails,
+      });
+
+      // Invalidate team invites query to refetch the updated list
+      queryClient.invalidateQueries({
+        queryKey: teamInvitesQueryKey(activeTeam.id),
       });
 
       if (failedEmails.length > 0) {
