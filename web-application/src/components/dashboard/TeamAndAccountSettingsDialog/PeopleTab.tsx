@@ -66,8 +66,18 @@ export function PeopleTab() {
     console.log("Inviting:", inviteEmails);
   };
 
-  const handleRoleChange = async (userId: string, newRole: TeamRole) => {
+  const handleRoleChange = async (
+    userId: string,
+    currentRole: TeamRole,
+    newRole: TeamRole,
+  ) => {
     if (!activeTeam?.id) return;
+
+    // Only owners can change the role of other owners
+    if (currentRole === "owner" && currentUserMembership?.role !== "owner") {
+      alert("Only owners can change the role of other owners.");
+      return;
+    }
 
     try {
       const { error } = await supabase
@@ -77,10 +87,7 @@ export function PeopleTab() {
         .eq("user_id", userId);
 
       if (error) {
-        alert(
-          "Failed to update role. Please try again later. Error: " +
-            error.message,
-        );
+        alert("Failed to update role: " + error.message);
       }
       // The TeamContext will automatically refetch and update
     } catch (error) {
@@ -410,28 +417,44 @@ export function PeopleTab() {
                             <DropdownMenuContent align="start">
                               <DropdownMenuItem
                                 onClick={() =>
-                                  handleRoleChange(member.user_id, "owner")
+                                  handleRoleChange(
+                                    member.user_id,
+                                    member.role,
+                                    "owner",
+                                  )
                                 }
                               >
                                 Owner
                               </DropdownMenuItem>
                               <DropdownMenuItem
                                 onClick={() =>
-                                  handleRoleChange(member.user_id, "admin")
+                                  handleRoleChange(
+                                    member.user_id,
+                                    member.role,
+                                    "admin",
+                                  )
                                 }
                               >
                                 Admin
                               </DropdownMenuItem>
                               <DropdownMenuItem
                                 onClick={() =>
-                                  handleRoleChange(member.user_id, "editor")
+                                  handleRoleChange(
+                                    member.user_id,
+                                    member.role,
+                                    "editor",
+                                  )
                                 }
                               >
                                 Editor
                               </DropdownMenuItem>
                               <DropdownMenuItem
                                 onClick={() =>
-                                  handleRoleChange(member.user_id, "viewer")
+                                  handleRoleChange(
+                                    member.user_id,
+                                    member.role,
+                                    "viewer",
+                                  )
                                 }
                               >
                                 Viewer
