@@ -15,7 +15,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/classNames";
-import { usePersonalTeam } from "@/hooks/usePersonalTeam";
+import { useActiveTeam } from "@/contexts/TeamContext";
+import { useUserTeams } from "@/hooks/useUserTeams";
 import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import { useCreditUsage } from "@/hooks/useCreditUsage";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
@@ -38,7 +39,8 @@ interface TeamSelectorProps {
 export function TeamSelector({ isCollapsed = false }: TeamSelectorProps) {
   const router = useRouter();
   const logger = useProductLogger();
-  const { team } = usePersonalTeam();
+  const { activeTeam, setActiveTeam } = useActiveTeam();
+  const { teams, isLoading: teamsLoading } = useUserTeams();
   const { userPlan, loadingSubscriptionData } = useSubscriptionAccess();
   const {
     creditsRemaining,
@@ -63,8 +65,11 @@ export function TeamSelector({ isCollapsed = false }: TeamSelectorProps) {
       .slice(0, 2);
   };
 
-  const teamName = team?.name || "Team";
+  const teamName = activeTeam?.name || "Team";
   const teamInitials = getInitials(teamName);
+
+  // Check if active team is a personal team
+  const isPersonalTeam = activeTeam?.personal_owner_user_id !== null;
 
   const handleUpgrade = () => {
     logger.log({
@@ -226,29 +231,51 @@ export function TeamSelector({ isCollapsed = false }: TeamSelectorProps) {
                   All workspaces
                 </h3>
                 <div className="space-y-1">
-                  <button
-                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-accent/50 transition-colors"
-                    onClick={() => {
-                      // Current workspace - do nothing
-                    }}
-                  >
-                    <Avatar className="w-8 h-8 rounded-lg shrink-0">
-                      <AvatarFallback className="rounded-lg bg-primary/10 text-sm font-bold text-primary">
-                        {teamInitials}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1 text-left">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium">{teamName}</span>
-                        {isFree && (
-                          <Badge variant="secondary" className="text-xs">
-                            FREE
-                          </Badge>
+                  {teams.map((team) => {
+                    const isActive = activeTeam?.id === team.id;
+                    const teamInitialsLocal = getInitials(team.name);
+                    const isPersonal = team.personal_owner_user_id !== null;
+
+                    return (
+                      <button
+                        key={team.id}
+                        className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-accent/50 transition-colors"
+                        onClick={() => {
+                          logger.log({
+                            event: "client_dashboard_sidebar_item_clicked",
+                            properties: {
+                              component: "TeamSelector",
+                              item: "switch_team",
+                              team_id: team.id,
+                              is_personal: isPersonal,
+                            },
+                          });
+                          setActiveTeam(team);
+                        }}
+                      >
+                        <Avatar className="w-8 h-8 rounded-lg shrink-0">
+                          <AvatarFallback className="rounded-lg bg-primary/10 text-sm font-bold text-primary">
+                            {teamInitialsLocal}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 text-left">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-medium">
+                              {team.name}
+                            </span>
+                            {isPersonal && isFree && (
+                              <Badge variant="secondary" className="text-xs">
+                                FREE
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                        {isActive && (
+                          <Check className="w-4 h-4 text-primary" />
                         )}
-                      </div>
-                    </div>
-                    <Check className="w-4 h-4 text-primary" />
-                  </button>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
