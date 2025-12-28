@@ -5,10 +5,13 @@
 // To update these shared files, modify the source file and run:
 // npm run sync-types (in the control-plane directory)
 //
-// Last synced: 2025-12-23T10:06:15.035Z
+// Last synced: 2025-12-28T13:27:57.094Z
 
 export type PostHogEvent =
   | 'client_auth_callback_login_completed'
+  | 'client_team_invite_redirect_to_login'
+  | 'client_team_invite_accepting'
+  | 'client_team_invite_accepted'
   | 'client_dashboard_logout_clicked'
   | 'client_dashboard_new_chat_clicked'
   | 'client_dashboard_prompt_submitted'
@@ -75,6 +78,9 @@ export type PostHogEvent =
 
 export const PostHogEvents: Record<PostHogEvent, PostHogEvent> = Object.freeze({
   client_auth_callback_login_completed: 'client_auth_callback_login_completed',
+  client_team_invite_redirect_to_login: 'client_team_invite_redirect_to_login',
+  client_team_invite_accepting: 'client_team_invite_accepting',
+  client_team_invite_accepted: 'client_team_invite_accepted',
   client_checkout_payment_completed: 'client_checkout_payment_completed',
   client_dashboard_logout_clicked: 'client_dashboard_logout_clicked',
   client_dashboard_new_chat_clicked: 'client_dashboard_new_chat_clicked',

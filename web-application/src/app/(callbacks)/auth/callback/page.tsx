@@ -16,6 +16,10 @@ import { useMetaPixel } from "@/hooks/useMetaPixel";
 import { usePostHog } from "posthog-js/react";
 import RegistrationAccountCreatedEmailVerificationPending from "../../../(auth)/register/RegistrationAccountCreatedEmailVerificationPending";
 import { useActiveTeam } from "@/contexts/TeamContext";
+import {
+  clearAcceptInviteIntent,
+  getAcceptInviteIntent,
+} from "@/lib/utils/acceptInviteIntentUtils";
 
 export default function AuthCallback() {
   const [showEmailVerificationRequired, setShowEmailVerificationRequired] =
@@ -35,22 +39,26 @@ export default function AuthCallback() {
       // Read intents from localStorage inside useEffect to ensure they're available
       let productId: string | null = null;
       let chatIntent: { message: string; prototype_id?: string } | null = null;
+      let acceptInviteIntent: { invite_id: string } | null = null;
 
       if (typeof window !== "undefined") {
         productId = localStorage?.getItem("checkout_intent");
         if (!productId) {
-          const storedIntent = localStorage.getItem("chat_intent");
-          if (storedIntent) {
-            try {
-              chatIntent = JSON.parse(storedIntent) as {
-                message: string;
-                prototype_id?: string;
-              };
-            } catch (e) {
-              logger.debug("error", "Failed to parse chat_intent", {
-                error: e instanceof Error ? e.message : String(e),
-                stack: e instanceof Error ? e.stack : undefined,
-              });
+          acceptInviteIntent = getAcceptInviteIntent();
+          if (!acceptInviteIntent) {
+            const storedIntent = localStorage.getItem("chat_intent");
+            if (storedIntent) {
+              try {
+                chatIntent = JSON.parse(storedIntent) as {
+                  message: string;
+                  prototype_id?: string;
+                };
+              } catch (e) {
+                logger.debug("error", "Failed to parse chat_intent", {
+                  error: e instanceof Error ? e.message : String(e),
+                  stack: e instanceof Error ? e.stack : undefined,
+                });
+              }
             }
           }
         }
@@ -63,6 +71,7 @@ export default function AuthCallback() {
             properties: {
               has_checkout_intent: Boolean(productId),
               has_chat_intent: Boolean(chatIntent?.message),
+              has_accept_invite_intent: Boolean(acceptInviteIntent?.invite_id),
               user_plan: userPlan,
             },
           });
@@ -143,6 +152,10 @@ export default function AuthCallback() {
           data.session.access_token,
           teamId,
         );
+      } else if (data.session.user && acceptInviteIntent?.invite_id) {
+        // User is logged in and there is an accept_invite_intent, redirect to invite acceptance page
+        clearAcceptInviteIntent();
+        router.push(`/teams/invites?invite_id=${acceptInviteIntent.invite_id}`);
       } else if (data.session.user && chatIntent?.message) {
         try {
           let prototypeId = chatIntent.prototype_id;
