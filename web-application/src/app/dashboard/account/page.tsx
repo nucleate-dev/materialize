@@ -320,49 +320,8 @@ function AccountSettings() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Left Column: Profile & Plan */}
+          {/* Left Column: Plan & Settings */}
           <div className="space-y-8 lg:col-span-2">
-            {/* Profile Section */}
-            <SectionCard>
-              <div className="p-6 flex items-center gap-6">
-                <Avatar className="h-16 w-16 border border-black/10 dark:border-white/10">
-                  <AvatarFallback className="bg-gray-100 dark:bg-[#1A1B1E] text-gray-900 dark:text-white font-medium text-lg">
-                    {getInitials(name || "U")}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="space-y-1 flex-1">
-                  <div className="flex items-center gap-3">
-                    <h2 className="text-xl font-medium text-gray-900 dark:text-white">
-                      {name || "User"}
-                    </h2>
-                    <div
-                      className={cn(
-                        "px-2 py-0.5 rounded-full text-[10px] font-medium border uppercase tracking-wider flex items-center gap-1",
-                        getPlanBadgeColor(currentSubscription),
-                      )}
-                    >
-                      {IsUserPlanSubscribed(currentSubscription) && (
-                        <Crown className="w-3 h-3" />
-                      )}
-                      {currentSubscription}
-                    </div>
-                  </div>
-                  <p className="text-gray-600 dark:text-[#8A8F98] text-sm">
-                    {email}
-                  </p>
-                </div>
-              </div>
-              <div className="bg-gray-50 dark:bg-[#1A1B1E]/50 px-6 py-3 border-t border-black/5 dark:border-white/5 flex items-center text-xs text-gray-600 dark:text-[#8A8F98]">
-                <Calendar className="w-3.5 h-3.5 mr-2 opacity-70" />
-                Member since{" "}
-                {memberSince?.toLocaleDateString("en-US", {
-                  year: "numeric",
-                  month: "long",
-                  day: "numeric",
-                })}
-              </div>
-            </SectionCard>
-
             {/* Subscription Management */}
             <SectionCard>
               <SectionHeader
