@@ -100,7 +100,7 @@ const DashboardSidebarContent = () => {
 
   return (
     <>
-      <SidebarHeader className="border-b border-gray-200 dark:border-sidebar-border">
+      <SidebarHeader>
         {isCollapsed ? (
           <div className="flex flex-col items-center gap-2 py-2">
             <Link
@@ -139,7 +139,7 @@ const DashboardSidebarContent = () => {
       </SidebarHeader>
 
       {/* Team Selector */}
-      <div className="px-2 py-3 border-b border-gray-200 dark:border-sidebar-border">
+      <div className="px-2 py-3">
         <TeamSelector isCollapsed={isCollapsed} />
       </div>
 
