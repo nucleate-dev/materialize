@@ -12,12 +12,15 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  Search,
-  HelpCircle,
-  ChevronDown,
-  ArrowUpDown,
-} from "lucide-react";
-import { cn } from "@/lib/classNames";
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Search, HelpCircle, ChevronDown, ArrowUpDown } from "lucide-react";
+import { Database } from "@/lib/types/supabase";
+
+type TeamRole = Database["public"]["Enums"]["team_role"];
 
 interface UserUsage {
   user_id: string;
@@ -26,12 +29,15 @@ interface UserUsage {
 }
 
 export function PeopleTab() {
-  const { activeTeam, teamMembers, teamInvites } = useActiveTeam();
+  const { activeTeam, teamMembers, teamInvites, currentUserMembership } =
+    useActiveTeam();
   const { user } = useUser();
   const { currentPeriodStart, currentPeriodEnd } = useSubscriptionAccess();
   const [inviteEmails, setInviteEmails] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
-  const [activeFilter, setActiveFilter] = useState<"all" | "active" | "pending">("all");
+  const [activeFilter, setActiveFilter] = useState<
+    "all" | "active" | "pending"
+  >("all");
   const [roleFilters, setRoleFilters] = useState({
     owner: true,
     admin: true,
@@ -50,9 +56,36 @@ export function PeopleTab() {
       .slice(0, 2);
   };
 
+  // Check if current user is owner or admin
+  const isOwnerOrAdmin =
+    currentUserMembership?.role === "owner" ||
+    currentUserMembership?.role === "admin";
+
   const handleInvite = () => {
     // TODO: Implement invite functionality
     console.log("Inviting:", inviteEmails);
+  };
+
+  const handleRoleChange = async (userId: string, newRole: TeamRole) => {
+    if (!activeTeam?.id) return;
+
+    try {
+      const { error } = await supabase
+        .from("team_memberships")
+        .update({ role: newRole })
+        .eq("team_id", activeTeam.id)
+        .eq("user_id", userId);
+
+      if (error) {
+        alert(
+          "Failed to update role. Please try again later. Error: " +
+            error.message,
+        );
+      }
+      // The TeamContext will automatically refetch and update
+    } catch (error) {
+      alert("Failed to update role. Please try again.");
+    }
   };
 
   // Fetch usage data on mount
@@ -94,7 +127,10 @@ export function PeopleTab() {
           // Add to current period usage if within the period
           if (currentPeriodStart && currentPeriodEnd && usage.created_at) {
             const usageDate = new Date(usage.created_at);
-            if (usageDate >= currentPeriodStart && usageDate <= currentPeriodEnd) {
+            if (
+              usageDate >= currentPeriodStart &&
+              usageDate <= currentPeriodEnd
+            ) {
               existing.current_period_usage += usage.credits_used;
             }
           }
@@ -201,7 +237,8 @@ export function PeopleTab() {
               </span>{" "}
               gives access to workspace shared projects and credits. You have{" "}
               <span className="font-medium text-gray-900 dark:text-white">
-                {teamMembers.length} builder{teamMembers.length !== 1 ? "s" : ""}
+                {teamMembers.length} builder
+                {teamMembers.length !== 1 ? "s" : ""}
               </span>{" "}
               in this workspace.
             </p>
@@ -223,8 +260,13 @@ export function PeopleTab() {
               value={inviteEmails}
               onChange={(e) => setInviteEmails(e.target.value)}
               className="flex-1 bg-background border-border"
+              disabled={!isOwnerOrAdmin}
             />
-            <Button onClick={handleInvite} className="bg-blue-600 hover:bg-blue-700">
+            <Button
+              onClick={handleInvite}
+              className="bg-blue-600 hover:bg-blue-700"
+              disabled={!isOwnerOrAdmin}
+            >
               Invite
             </Button>
           </div>
@@ -251,7 +293,10 @@ export function PeopleTab() {
 
           {/* Filters */}
           <div className="flex items-center justify-between mb-6">
-            <Tabs value={activeFilter} onValueChange={(v) => setActiveFilter(v as any)}>
+            <Tabs
+              value={activeFilter}
+              onValueChange={(v) => setActiveFilter(v as any)}
+            >
               <TabsList>
                 <TabsTrigger value="all">All</TabsTrigger>
                 <TabsTrigger value="active">Active</TabsTrigger>
@@ -261,22 +306,22 @@ export function PeopleTab() {
 
             <div className="flex items-center gap-4 text-sm">
               <span className="text-muted-foreground">Filter by role</span>
-              {(Object.keys(roleFilters) as Array<keyof typeof roleFilters>).map(
-                (role) => (
-                  <label
-                    key={role}
-                    className="flex items-center gap-2 cursor-pointer"
-                  >
-                    <Checkbox
-                      checked={roleFilters[role]}
-                      onCheckedChange={() => toggleRoleFilter(role)}
-                    />
-                    <span className="capitalize text-gray-900 dark:text-white">
-                      {role}
-                    </span>
-                  </label>
-                ),
-              )}
+              {(
+                Object.keys(roleFilters) as Array<keyof typeof roleFilters>
+              ).map((role) => (
+                <label
+                  key={role}
+                  className="flex items-center gap-2 cursor-pointer"
+                >
+                  <Checkbox
+                    checked={roleFilters[role]}
+                    onCheckedChange={() => toggleRoleFilter(role)}
+                  />
+                  <span className="capitalize text-gray-900 dark:text-white">
+                    {role}
+                  </span>
+                </label>
+              ))}
             </div>
           </div>
 
@@ -340,7 +385,9 @@ export function PeopleTab() {
                         <span className="font-medium">
                           {memberName}
                           {isCurrentUser && (
-                            <span className="text-muted-foreground ml-1">(you)</span>
+                            <span className="text-muted-foreground ml-1">
+                              (you)
+                            </span>
                           )}
                         </span>
                       </div>
@@ -352,10 +399,48 @@ export function PeopleTab() {
 
                       {/* Role */}
                       <div className="col-span-1 flex items-center">
-                        <button className="flex items-center gap-1 capitalize hover:text-foreground transition-colors">
-                          {member.role}
-                          <ChevronDown className="w-3 h-3" />
-                        </button>
+                        {isOwnerOrAdmin ? (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <button className="flex items-center gap-1 capitalize hover:text-foreground transition-colors">
+                                {member.role}
+                                <ChevronDown className="w-3 h-3" />
+                              </button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="start">
+                              <DropdownMenuItem
+                                onClick={() =>
+                                  handleRoleChange(member.user_id, "owner")
+                                }
+                              >
+                                Owner
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() =>
+                                  handleRoleChange(member.user_id, "admin")
+                                }
+                              >
+                                Admin
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() =>
+                                  handleRoleChange(member.user_id, "editor")
+                                }
+                              >
+                                Editor
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() =>
+                                  handleRoleChange(member.user_id, "viewer")
+                                }
+                              >
+                                Viewer
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        ) : (
+                          <span className="capitalize">{member.role}</span>
+                        )}
                       </div>
 
                       {/* Status */}
@@ -388,11 +473,14 @@ export function PeopleTab() {
 
                       {/* Date joined */}
                       <div className="col-span-1 flex items-center text-muted-foreground">
-                        {new Date(member.created_at).toLocaleDateString("en-US", {
-                          month: "short",
-                          day: "numeric",
-                          year: "numeric",
-                        })}
+                        {new Date(member.created_at).toLocaleDateString(
+                          "en-US",
+                          {
+                            month: "short",
+                            day: "numeric",
+                            year: "numeric",
+                          },
+                        )}
                       </div>
 
                       {/* Limits */}
@@ -431,9 +519,102 @@ export function PeopleTab() {
 
                       {/* Role */}
                       <div className="col-span-1 flex items-center">
-                        <span className="capitalize text-muted-foreground">
-                          {invite.role}
-                        </span>
+                        {isOwnerOrAdmin ? (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <button className="flex items-center gap-1 capitalize text-muted-foreground hover:text-foreground transition-colors">
+                                {invite.role}
+                                <ChevronDown className="w-3 h-3" />
+                              </button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="start">
+                              <DropdownMenuItem
+                                onClick={async () => {
+                                  if (!activeTeam?.id) return;
+                                  const { error } = await supabase
+                                    .from("team_invites")
+                                    .update({ role: "owner" })
+                                    .eq("id", invite.id);
+                                  if (error) {
+                                    console.error(
+                                      "Error updating invite role:",
+                                      error,
+                                    );
+                                    alert(
+                                      "Failed to update role. Please try again.",
+                                    );
+                                  }
+                                }}
+                              >
+                                Owner
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={async () => {
+                                  if (!activeTeam?.id) return;
+                                  const { error } = await supabase
+                                    .from("team_invites")
+                                    .update({ role: "admin" })
+                                    .eq("id", invite.id);
+                                  if (error) {
+                                    console.error(
+                                      "Error updating invite role:",
+                                      error,
+                                    );
+                                    alert(
+                                      "Failed to update role. Please try again.",
+                                    );
+                                  }
+                                }}
+                              >
+                                Admin
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={async () => {
+                                  if (!activeTeam?.id) return;
+                                  const { error } = await supabase
+                                    .from("team_invites")
+                                    .update({ role: "editor" })
+                                    .eq("id", invite.id);
+                                  if (error) {
+                                    console.error(
+                                      "Error updating invite role:",
+                                      error,
+                                    );
+                                    alert(
+                                      "Failed to update role. Please try again.",
+                                    );
+                                  }
+                                }}
+                              >
+                                Editor
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={async () => {
+                                  if (!activeTeam?.id) return;
+                                  const { error } = await supabase
+                                    .from("team_invites")
+                                    .update({ role: "viewer" })
+                                    .eq("id", invite.id);
+                                  if (error) {
+                                    console.error(
+                                      "Error updating invite role:",
+                                      error,
+                                    );
+                                    alert(
+                                      "Failed to update role. Please try again.",
+                                    );
+                                  }
+                                }}
+                              >
+                                Viewer
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        ) : (
+                          <span className="capitalize text-muted-foreground">
+                            {invite.role}
+                          </span>
+                        )}
                       </div>
 
                       {/* Status */}
@@ -458,11 +639,14 @@ export function PeopleTab() {
 
                       {/* Date invited */}
                       <div className="col-span-1 flex items-center text-muted-foreground">
-                        {new Date(invite.created_at).toLocaleDateString("en-US", {
-                          month: "short",
-                          day: "numeric",
-                          year: "numeric",
-                        })}
+                        {new Date(invite.created_at).toLocaleDateString(
+                          "en-US",
+                          {
+                            month: "short",
+                            day: "numeric",
+                            year: "numeric",
+                          },
+                        )}
                       </div>
 
                       {/* Limits */}
