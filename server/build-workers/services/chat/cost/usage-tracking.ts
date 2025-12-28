@@ -28,7 +28,7 @@ async function fetchUserPlan(
   supabase: SupabaseClient<Database>,
   userId: string,
   log2: SystemLogger,
-  teamId?: string,
+  teamId: string,
 ): Promise<string> {
   const nowInSeconds = Math.floor(Date.now() / 1000);
   const { data, error } = await supabase
@@ -73,7 +73,7 @@ async function trackFreeTierUsage(
   prototypeId: string | null,
   creditsUsed: number,
   log2: SystemLogger,
-  teamId?: string,
+  teamId: string,
 ): Promise<UsageTrackingResult> {
   const { startOfMonth, endOfMonth } = getCurrentMonthPeriod();
   const periodStart = startOfMonth.toISOString();
@@ -85,7 +85,7 @@ async function trackFreeTierUsage(
     credits_used: creditsUsed,
     credit_grant_id: null,
     is_free_tier: true,
-    team_id: teamId ?? null,
+    team_id: teamId,
   });
 
   if (insertError) {
@@ -135,7 +135,7 @@ export async function trackApiUsageBuildWorker(
   prototypeId: string,
   log2: SystemLogger,
   creditsUsed: number = 1.0,
-  teamId?: string,
+  teamId: string,
 ): Promise<UsageTrackingResult> {
   log2 = log2.child({
     function: "trackCodeUsage",
@@ -148,7 +148,7 @@ export async function trackApiUsageBuildWorker(
       credits_used: creditsUsed,
       credit_grant_id: null,
       is_free_tier: false,
-      team_id: teamId ?? null,
+      team_id: teamId,
     });
 
     if (insertError) {
@@ -160,20 +160,6 @@ export async function trackApiUsageBuildWorker(
     }
   };
 
-  if (!teamId) {
-    log2.error(
-      new Error("Missing teamId for consume_credits_teams"),
-      "Cannot track paid usage without team context",
-      {
-        userId,
-        prototypeId,
-      },
-    );
-    await insertFallbackUsage();
-    return {
-      totalRemainingCredits: 0,
-    };
-  }
 
   const userPlan = await fetchUserPlan(supabase, userId, log2, teamId);
   if (userPlan === "free") {

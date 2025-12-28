@@ -54,7 +54,7 @@ export async function fetchUserPlan(
   supabase: SupabaseClient<Database>,
   userId: string,
   log2: SystemLogger,
-  teamId?: string,
+  teamId: string,
 ): Promise<string> {
   const nowInSeconds = Math.floor(Date.now() / 1000);
   const { data, error } = await supabase
@@ -100,7 +100,7 @@ async function calculateFreeTierCreditInfo(
   supabase: SupabaseClient<Database>,
   userId: string,
   log2: SystemLogger,
-  teamId?: string,
+  teamId: string,
 ): Promise<{ remaining: number; granted: number; used: number }> {
   const { startOfMonth, endOfMonth } = getCurrentMonthPeriod();
   const periodStart = startOfMonth.toISOString();
@@ -181,7 +181,7 @@ async function calculatePaidUserCreditInfo(
 export async function hasRemainingCredits(
   supabase: SupabaseClient<Database>,
   userId: string,
-  teamId: string | undefined,
+  teamId: string,
   log2: SystemLogger,
 ): Promise<{
   hasCredits: boolean;
