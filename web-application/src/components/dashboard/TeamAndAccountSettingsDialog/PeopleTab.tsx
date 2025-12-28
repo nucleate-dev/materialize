@@ -129,6 +129,28 @@ export function PeopleTab() {
     return map;
   }, [usageData]);
 
+  // Combine and filter members and invites based on active filter
+  const filteredItems = useMemo(() => {
+    const items: Array<
+      | { type: "member"; data: (typeof teamMembers)[0] }
+      | { type: "invite"; data: (typeof teamInvites)[0] }
+    > = [];
+
+    if (activeFilter === "all" || activeFilter === "active") {
+      teamMembers.forEach((member) => {
+        items.push({ type: "member", data: member });
+      });
+    }
+
+    if (activeFilter === "all" || activeFilter === "pending") {
+      teamInvites.forEach((invite) => {
+        items.push({ type: "invite", data: invite });
+      });
+    }
+
+    return items;
+  }, [activeFilter, teamMembers, teamInvites]);
+
   const formatCredits = (credits: number) => {
     return credits > 0 ? `${credits.toFixed(2)} credits` : "-";
   };
@@ -268,94 +290,169 @@ export function PeopleTab() {
 
             {/* Table Body */}
             <div className="divide-y divide-border">
-              {teamMembers.map((member) => {
-                const isCurrentUser = member.user_id === user?.id;
-                const memberName = member.user.name || "Unknown User";
-                const memberEmail = member.user.email || "No email";
-                const memberInitials = getInitials(memberName);
-                const usage = usageByUserId.get(member.user_id);
+              {filteredItems.map((item) => {
+                if (item.type === "member") {
+                  const member = item.data;
+                  const isCurrentUser = member.user_id === user?.id;
+                  const memberName = member.user.name || "Unknown User";
+                  const memberEmail = member.user.email || "No email";
+                  const memberInitials = getInitials(memberName);
+                  const usage = usageByUserId.get(member.user_id);
 
-                return (
-                  <div
-                    key={member.user_id}
-                    className="grid grid-cols-12 gap-4 px-4 py-3 text-sm hover:bg-muted/50 transition-colors"
-                  >
-                    {/* Member */}
-                    <div className="col-span-2 flex items-center gap-2">
-                      <Avatar className="w-6 h-6 rounded-full">
-                        <AvatarFallback className="text-xs bg-primary/10 text-primary">
-                          {memberInitials}
-                        </AvatarFallback>
-                      </Avatar>
-                      <span className="font-medium">
-                        {memberName}
-                        {isCurrentUser && (
-                          <span className="text-muted-foreground ml-1">(you)</span>
+                  return (
+                    <div
+                      key={`member-${member.user_id}`}
+                      className="grid grid-cols-12 gap-4 px-4 py-3 text-sm hover:bg-muted/50 transition-colors"
+                    >
+                      {/* Member */}
+                      <div className="col-span-2 flex items-center gap-2">
+                        <Avatar className="w-6 h-6 rounded-full">
+                          <AvatarFallback className="text-xs bg-primary/10 text-primary">
+                            {memberInitials}
+                          </AvatarFallback>
+                        </Avatar>
+                        <span className="font-medium">
+                          {memberName}
+                          {isCurrentUser && (
+                            <span className="text-muted-foreground ml-1">(you)</span>
+                          )}
+                        </span>
+                      </div>
+
+                      {/* Email */}
+                      <div className="col-span-2 flex items-center text-muted-foreground">
+                        {memberEmail}
+                      </div>
+
+                      {/* Role */}
+                      <div className="col-span-1 flex items-center">
+                        <button className="flex items-center gap-1 capitalize hover:text-foreground transition-colors">
+                          {member.role}
+                          <ChevronDown className="w-3 h-3" />
+                        </button>
+                      </div>
+
+                      {/* Status */}
+                      <div className="col-span-1 flex items-center">
+                        <Badge
+                          variant="secondary"
+                          className="bg-background border border-border text-foreground"
+                        >
+                          Active
+                        </Badge>
+                      </div>
+
+                      {/* Current period usage */}
+                      <div className="col-span-2 flex items-center text-muted-foreground">
+                        {usageLoading ? (
+                          <span className="text-xs">Loading...</span>
+                        ) : (
+                          formatCredits(usage?.current_period_usage || 0)
                         )}
-                      </span>
-                    </div>
+                      </div>
 
-                    {/* Email */}
-                    <div className="col-span-2 flex items-center text-muted-foreground">
-                      {memberEmail}
-                    </div>
+                      {/* All-time usage */}
+                      <div className="col-span-2 flex items-center text-muted-foreground">
+                        {usageLoading ? (
+                          <span className="text-xs">Loading...</span>
+                        ) : (
+                          formatCredits(usage?.total_usage || 0)
+                        )}
+                      </div>
 
-                    {/* Role */}
-                    <div className="col-span-1 flex items-center">
-                      <button className="flex items-center gap-1 capitalize hover:text-foreground transition-colors">
-                        {member.role}
-                        <ChevronDown className="w-3 h-3" />
-                      </button>
-                    </div>
+                      {/* Date joined */}
+                      <div className="col-span-1 flex items-center text-muted-foreground">
+                        {new Date(member.created_at).toLocaleDateString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                          year: "numeric",
+                        })}
+                      </div>
 
-                    {/* Status */}
-                    <div className="col-span-1 flex items-center">
-                      <Badge
-                        variant="secondary"
-                        className="bg-background border border-border text-foreground"
-                      >
-                        Active
-                      </Badge>
+                      {/* Limits */}
+                      <div className="col-span-1 flex items-center text-muted-foreground">
+                        -
+                      </div>
                     </div>
+                  );
+                } else {
+                  // Invite
+                  const invite = item.data;
+                  const inviteEmail = invite.email || "No email";
+                  const inviteInitials = getInitials(inviteEmail);
 
-                    {/* Current period usage */}
-                    <div className="col-span-2 flex items-center text-muted-foreground">
-                      {usageLoading ? (
-                        <span className="text-xs">Loading...</span>
-                      ) : (
-                        formatCredits(usage?.current_period_usage || 0)
-                      )}
-                    </div>
+                  return (
+                    <div
+                      key={`invite-${invite.id}`}
+                      className="grid grid-cols-12 gap-4 px-4 py-3 text-sm hover:bg-muted/50 transition-colors"
+                    >
+                      {/* Member (using email) */}
+                      <div className="col-span-2 flex items-center gap-2">
+                        <Avatar className="w-6 h-6 rounded-full">
+                          <AvatarFallback className="text-xs bg-orange-500/10 text-orange-600 dark:text-orange-400">
+                            {inviteInitials}
+                          </AvatarFallback>
+                        </Avatar>
+                        <span className="font-medium text-muted-foreground">
+                          {inviteEmail}
+                        </span>
+                      </div>
 
-                    {/* All-time usage */}
-                    <div className="col-span-2 flex items-center text-muted-foreground">
-                      {usageLoading ? (
-                        <span className="text-xs">Loading...</span>
-                      ) : (
-                        formatCredits(usage?.total_usage || 0)
-                      )}
-                    </div>
+                      {/* Email */}
+                      <div className="col-span-2 flex items-center text-muted-foreground">
+                        {inviteEmail}
+                      </div>
 
-                    {/* Date joined */}
-                    <div className="col-span-1 flex items-center text-muted-foreground">
-                      {new Date(member.created_at).toLocaleDateString("en-US", {
-                        month: "short",
-                        day: "numeric",
-                        year: "numeric",
-                      })}
-                    </div>
+                      {/* Role */}
+                      <div className="col-span-1 flex items-center">
+                        <span className="capitalize text-muted-foreground">
+                          {invite.role}
+                        </span>
+                      </div>
 
-                    {/* Limits */}
-                    <div className="col-span-1 flex items-center text-muted-foreground">
-                      -
+                      {/* Status */}
+                      <div className="col-span-1 flex items-center">
+                        <Badge
+                          variant="secondary"
+                          className="bg-orange-500/10 border border-orange-500/20 text-orange-600 dark:text-orange-400"
+                        >
+                          Pending
+                        </Badge>
+                      </div>
+
+                      {/* Current period usage */}
+                      <div className="col-span-2 flex items-center text-muted-foreground">
+                        -
+                      </div>
+
+                      {/* All-time usage */}
+                      <div className="col-span-2 flex items-center text-muted-foreground">
+                        -
+                      </div>
+
+                      {/* Date invited */}
+                      <div className="col-span-1 flex items-center text-muted-foreground">
+                        {new Date(invite.created_at).toLocaleDateString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                          year: "numeric",
+                        })}
+                      </div>
+
+                      {/* Limits */}
+                      <div className="col-span-1 flex items-center text-muted-foreground">
+                        -
+                      </div>
                     </div>
-                  </div>
-                );
+                  );
+                }
               })}
 
-              {teamMembers.length === 0 && (
+              {filteredItems.length === 0 && (
                 <div className="px-4 py-12 text-center text-muted-foreground">
-                  No members found
+                  {activeFilter === "active" && "No active members found"}
+                  {activeFilter === "pending" && "No pending invites found"}
+                  {activeFilter === "all" && "No members or invites found"}
                 </div>
               )}
             </div>
