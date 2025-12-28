@@ -71,13 +71,14 @@ export class TeamManagementService {
     const { user } = await validateJWTToken(token, request.log2);
     if (!user) {
       request.log2.warn("Unauthorized user");
-      return reply.status(HTTP_STATUS.UNAUTHORIZED).send({
+      reply.status(HTTP_STATUS.UNAUTHORIZED);
+      return {
         data: null,
         error: {
           error: "Unauthorized",
           message: "Invalid token",
         },
-      });
+      };
     }
 
     // Update logger context
@@ -112,25 +113,27 @@ export class TeamManagementService {
           invite_id,
           error: inviteError,
         });
-        return reply.status(HTTP_STATUS.NOT_FOUND).send({
+        reply.status(HTTP_STATUS.NOT_FOUND);
+        return {
           data: null,
           error: {
             error: "Invite not found",
             message: "The specified invite does not exist",
           },
-        });
+        };
       }
 
       // Check if invite has already been accepted
       if (invite.accepted_at) {
         request.log2.warn("Invite already accepted", { invite_id });
-        return reply.status(HTTP_STATUS.BAD_REQUEST).send({
+        reply.status(HTTP_STATUS.BAD_REQUEST);
+        return {
           data: null,
           error: {
             error: "Invite already accepted",
             message: "This invite has already been accepted",
           },
-        });
+        };
       }
 
       // Check if invite has expired
@@ -141,13 +144,14 @@ export class TeamManagementService {
           invite_id,
           expires_at: invite.expires_at,
         });
-        return reply.status(HTTP_STATUS.BAD_REQUEST).send({
+        reply.status(HTTP_STATUS.BAD_REQUEST);
+        return {
           data: null,
           error: {
             error: "Invite expired",
             message: "This invite has expired",
           },
-        });
+        };
       }
 
       // Verify user is the intended recipient
@@ -162,13 +166,14 @@ export class TeamManagementService {
           user_email: user.email,
           invited_email: invite.email,
         });
-        return reply.status(HTTP_STATUS.FORBIDDEN).send({
+        reply.status(HTTP_STATUS.FORBIDDEN);
+        return {
           data: null,
           error: {
             error: "Forbidden",
             message: "You are not authorized to accept this invite",
           },
-        });
+        };
       }
 
       // Check if user is already a member of the team
@@ -185,13 +190,14 @@ export class TeamManagementService {
           team_id: invite.team_id,
           user_id: user.id,
         });
-        return reply.status(HTTP_STATUS.BAD_REQUEST).send({
+        reply.status(HTTP_STATUS.BAD_REQUEST);
+        return {
           data: null,
           error: {
             error: "Already a member",
             message: "You are already a member of this team",
           },
-        });
+        };
       }
 
       // Update invite to mark as accepted
@@ -220,13 +226,14 @@ export class TeamManagementService {
 
       if (membershipError) {
         request.log2.error(membershipError, "Failed to create team membership");
-        return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
+        reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR);
+        return {
           data: null,
           error: {
             error: "Membership creation failed",
             message: "Accepted invite, but failed to create team membership",
           },
-        });
+        };
       }
 
       request.log2.consoleLogDevOnly(
@@ -240,23 +247,25 @@ export class TeamManagementService {
         },
       );
 
-      return reply.status(HTTP_STATUS.OK).send({
+      reply.status(HTTP_STATUS.OK);
+      return {
         data: {
           success: true,
           team_id: invite.team_id,
           role: invite.role,
         },
         error: null,
-      });
+      };
     } catch (error) {
       request.log2.error(error, "Exception accepting team invite");
-      return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
+      reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR);
+      return {
         data: null,
         error: {
           error: "Internal server error",
           message: error instanceof Error ? error.message : "Unknown error",
         },
-      });
+      };
     }
   }
 }
