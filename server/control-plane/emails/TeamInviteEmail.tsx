@@ -1,3 +1,4 @@
+import React from 'react';
 import {
   Html,
   Head,
@@ -7,7 +8,7 @@ import {
   Heading,
   Text,
   Button,
-  Img,
+  Hr,
 } from '@react-email/components';
 
 interface TeamInviteEmailProps {
@@ -27,20 +28,12 @@ export default function TeamInviteEmail({
       <Preview>You have been invited to a team in Nucleate!</Preview>
       <Body style={main}>
         <Container style={container}>
-          <div style={logoContainer}>
-            <Img
-              src="https://nucleate.dev/logo.png"
-              alt="Nucleate Logo"
-              width="60"
-              height="60"
-              style={logo}
-            />
-          </div>
+          <Text style={brandText}>Nucleate</Text>
           <Heading style={heading}>
             You have been invited to a team in Nucleate!
           </Heading>
           <Text style={paragraph}>
-            {inviterName} has invited you to collaboratein Nucleate. Click this
+            {inviterName} has invited you to collaborate in Nucleate. Click this
             link to join {teamName}.
           </Text>
           <div style={buttonContainer}>
@@ -48,7 +41,14 @@ export default function TeamInviteEmail({
               Join Team
             </Button>
           </div>
+          <Hr style={divider} />
+          <Text style={footerText}>
+            If you didn't expect this invitation, you can safely ignore this
+            email.
+          </Text>
+          <Text style={copyright}>© 2025 Nucleate</Text>
         </Container>
+        <Text style={tagline}>Powering next-gen builders</Text>
       </Body>
     </Html>
   );
@@ -56,59 +56,85 @@ export default function TeamInviteEmail({
 
 // Styles for the email components
 const main = {
-  backgroundColor: '#f6f9fc',
+  backgroundColor: '#0a0a0a',
   padding: '40px 20px',
   fontFamily:
     '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
 };
 
 const container = {
-  backgroundColor: '#ffffff',
-  padding: '40px',
+  backgroundColor: '#1a1a1a',
+  border: '1px solid #2a2a2a',
+  padding: '48px',
   borderRadius: '8px',
-  boxShadow: '0 2px 8px rgba(0, 0, 0, 0.05)',
-  maxWidth: '560px',
+  maxWidth: '600px',
   margin: '0 auto',
 };
 
-const logoContainer = {
-  textAlign: 'center' as const,
+const brandText = {
+  color: '#ffffff',
+  fontSize: '20px',
+  fontWeight: '700',
   marginBottom: '32px',
-};
-
-const logo = {
-  borderRadius: '12px',
+  marginTop: '0',
 };
 
 const heading = {
-  color: '#1a1a1a',
-  fontSize: '28px',
+  color: '#ffffff',
+  fontSize: '32px',
   fontWeight: '700',
-  lineHeight: '1.3',
+  lineHeight: '1.2',
   marginBottom: '24px',
-  textAlign: 'center' as const,
+  marginTop: '0',
 };
 
 const paragraph = {
-  color: '#525252',
+  color: '#a0a0a0',
   fontSize: '16px',
   lineHeight: '1.6',
   marginBottom: '32px',
-  textAlign: 'center' as const,
+  marginTop: '0',
 };
 
 const buttonContainer = {
-  textAlign: 'center' as const,
-  marginTop: '32px',
+  marginBottom: '32px',
 };
 
 const button = {
-  backgroundColor: '#000000',
+  backgroundColor: '#6366f1',
   color: '#ffffff',
   fontSize: '16px',
   fontWeight: '600',
-  borderRadius: '6px',
-  padding: '12px 32px',
+  borderRadius: '8px',
+  padding: '14px 32px',
   textDecoration: 'none',
   display: 'inline-block',
+};
+
+const divider = {
+  borderColor: '#2a2a2a',
+  marginTop: '32px',
+  marginBottom: '32px',
+};
+
+const footerText = {
+  color: '#666666',
+  fontSize: '14px',
+  lineHeight: '1.5',
+  marginBottom: '16px',
+  marginTop: '0',
+};
+
+const copyright = {
+  color: '#666666',
+  fontSize: '14px',
+  marginTop: '0',
+  marginBottom: '0',
+};
+
+const tagline = {
+  color: '#666666',
+  fontSize: '14px',
+  textAlign: 'center' as const,
+  marginTop: '24px',
 };
