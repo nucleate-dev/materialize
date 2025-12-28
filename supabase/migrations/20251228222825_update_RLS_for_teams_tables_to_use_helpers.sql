@@ -236,4 +236,131 @@ using (
   public.is_team_owner_or_admin(team_memberships.team_id)
 );
 
+-- ------------------------------------------------------------
+-- Update TEAM_INVITES RLS policies to use helper functions
+-- ------------------------------------------------------------
+
+-- SELECT: team member OR invitee
+drop policy if exists "team_invites_select_team_member_or_invitee" on public.team_invites;
+create policy "team_invites_select_team_member_or_invitee"
+on public.team_invites
+for select
+to authenticated
+using (
+  -- any team member
+  public.is_team_member(team_invites.team_id)
+  OR
+  -- invitee by user_id
+  (team_invites.invited_user_id is not null and team_invites.invited_user_id = auth.uid())
+  OR
+  -- invitee by email (match against your public.users table)
+  (
+    team_invites.email is not null
+    and exists (
+      select 1
+      from public.users u
+      where u.id = auth.uid()
+        and u.email is not null
+        and u.email::citext = team_invites.email
+    )
+  )
+);
+
+-- INSERT: only admins/owners
+drop policy if exists "team_invites_insert_admin_or_owner" on public.team_invites;
+create policy "team_invites_insert_admin_or_owner"
+on public.team_invites
+for insert
+to authenticated
+with check (
+  public.is_team_owner_or_admin(team_invites.team_id)
+);
+
+-- UPDATE: admins/owners OR invitee
+drop policy if exists "team_invites_update_admin_owner_or_invitee" on public.team_invites;
+create policy "team_invites_update_admin_owner_or_invitee"
+on public.team_invites
+for update
+to authenticated
+using (
+  -- admins/owners
+  public.is_team_owner_or_admin(team_invites.team_id)
+  OR
+  -- invitee by user_id
+  (team_invites.invited_user_id is not null and team_invites.invited_user_id = auth.uid())
+  OR
+  -- invitee by email
+  (
+    team_invites.invited_user_id is null
+    and team_invites.email is not null
+    and exists (
+      select 1
+      from public.users u
+      where u.id = auth.uid()
+        and u.email is not null
+        and u.email::citext = team_invites.email
+    )
+  )
+)
+with check (
+  -- keep the same eligibility after update
+  public.is_team_owner_or_admin(team_invites.team_id)
+  OR
+  (team_invites.invited_user_id is not null and team_invites.invited_user_id = auth.uid())
+  OR
+  (
+    team_invites.invited_user_id is null
+    and team_invites.email is not null
+    and exists (
+      select 1
+      from public.users u
+      where u.id = auth.uid()
+        and u.email is not null
+        and u.email::citext = team_invites.email
+    )
+  )
+);
+
+-- ------------------------------------------------------------
+-- Update enforce_team_invites_update_rules trigger to use helpers
+-- ------------------------------------------------------------
+create or replace function public.enforce_team_invites_update_rules()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  is_admin_owner boolean;
+begin
+  -- Always immutable
+  if new.team_id is distinct from old.team_id then
+    raise exception 'team_id cannot be changed for team_invites';
+  end if;
+
+  -- Is the actor an owner/admin of this team? Use helper function
+  is_admin_owner := public.is_team_owner_or_admin(old.team_id);
+
+  -- Only admins/owners can change invite target fields
+  if not is_admin_owner then
+    if new.email is distinct from old.email then
+      raise exception 'only team owners/admins can change email on team_invites';
+    end if;
+
+    if new.invited_user_id is distinct from old.invited_user_id then
+      raise exception 'only team owners/admins can change invited_user_id on team_invites';
+    end if;
+  end if;
+
+  -- Still must satisfy basic invariant
+  if new.email is null and new.invited_user_id is null then
+    raise exception 'team_invites must have email or invited_user_id';
+  end if;
+
+  return new;
+end;
+$$;
+
+revoke all on function public.enforce_team_invites_update_rules() from public;
+
 commit;
