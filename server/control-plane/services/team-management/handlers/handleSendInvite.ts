@@ -142,21 +142,32 @@ export default async function handleSendInviteImpl(
           continue;
         }
 
-        // Check if email is already a team member
-        const { data: existingMember } = await supabaseClient
-          .from("team_memberships")
-          .select("user_id")
-          .eq("team_id", team_id)
-          .eq("user_id", user.id)
-          .single();
+        // Check if email corresponds to an existing user who is already a team member
+        // note: this query RLS will pass only if they are already a team member, we will get null otherwise
+        const { data: existingUser } = await supabaseClient
+          .from("users")
+          .select("id")
+          .eq("email", email)
+          .maybeSingle();
 
-        if (existingMember) {
-          request.log2.warn("User is already a member", {
-            team_id,
-            email,
-          });
-          failedEmails.push(email);
-          continue;
+        if (existingUser) {
+          // User exists, check if they're already a member
+          const { data: existingMembership } = await supabaseClient
+            .from("team_memberships")
+            .select("user_id")
+            .eq("team_id", team_id)
+            .eq("user_id", existingUser.id)
+            .single();
+
+          if (existingMembership) {
+            request.log2.warn("User is already a member", {
+              team_id,
+              email,
+              user_id: existingUser.id,
+            });
+            failedEmails.push(email);
+            continue;
+          }
         }
 
         // Create the invite (does not expire for now)
@@ -190,15 +201,15 @@ export default async function handleSendInviteImpl(
         try {
           const emailHtml = await render(
             TeamInviteEmail({
-              inviterName:
-                user.user_metadata?.name || user.email || "A team member",
+              inviterName: user.user_metadata?.name || user.email ||
+                "A team member",
               teamName: team.name,
               inviteUrl,
             }),
           );
 
           const { error: emailError } = await resend.emails.send({
-            from: "Nucleate <noreply@nucleate.dev>",
+            from: "Nucleate <noreply@mail.nucleate.dev>",
             to: [email],
             subject: `You've been invited to join ${team.name} on Nucleate`,
             html: emailHtml,
@@ -242,9 +253,7 @@ export default async function handleSendInviteImpl(
         success: true,
         invite_ids: inviteIds,
         message: `Successfully sent ${inviteIds.length} invite(s)${
-          failedEmails.length > 0
-            ? `, ${failedEmails.length} failed`
-            : ""
+          failedEmails.length > 0 ? `, ${failedEmails.length} failed` : ""
         }`,
         ...(failedEmails.length > 0 && { failed_emails: failedEmails }),
       },
