@@ -10,6 +10,7 @@ import {
   DropdownMenuContent,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -114,19 +115,19 @@ export function TeamSelector({ isCollapsed = false }: TeamSelectorProps) {
               )}
             >
               {isCollapsed ? (
-                <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
-                  <span className="text-sm font-bold text-primary">
+                <Avatar className="w-8 h-8 rounded-lg">
+                  <AvatarFallback className="rounded-lg bg-primary/10 text-sm font-bold text-primary">
                     {teamInitials}
-                  </span>
-                </div>
+                  </AvatarFallback>
+                </Avatar>
               ) : (
                 <>
                   <div className="flex items-center gap-2.5 min-w-0">
-                    <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                      <span className="text-sm font-bold text-primary">
+                    <Avatar className="w-8 h-8 rounded-lg shrink-0">
+                      <AvatarFallback className="rounded-lg bg-primary/10 text-sm font-bold text-primary">
                         {teamInitials}
-                      </span>
-                    </div>
+                      </AvatarFallback>
+                    </Avatar>
                     <span className="text-sm font-medium truncate">
                       {teamName}
                     </span>
@@ -145,11 +146,11 @@ export function TeamSelector({ isCollapsed = false }: TeamSelectorProps) {
             {/* Team Header */}
             <div className="px-6 pt-6 pb-4">
               <div className="flex items-center gap-3">
-                <div className="w-14 h-14 rounded-xl bg-primary/10 flex items-center justify-center">
-                  <span className="text-xl font-bold text-primary">
+                <Avatar className="w-14 h-14 rounded-xl">
+                  <AvatarFallback className="rounded-xl bg-primary/10 text-xl font-bold text-primary">
                     {teamInitials}
-                  </span>
-                </div>
+                  </AvatarFallback>
+                </Avatar>
                 <div className="flex-1">
                   <div className="text-lg font-semibold">{teamName}</div>
                   <p className="text-sm text-muted-foreground">
@@ -231,11 +232,11 @@ export function TeamSelector({ isCollapsed = false }: TeamSelectorProps) {
                       // Current workspace - do nothing
                     }}
                   >
-                    <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                      <span className="text-sm font-bold text-primary">
+                    <Avatar className="w-8 h-8 rounded-lg shrink-0">
+                      <AvatarFallback className="rounded-lg bg-primary/10 text-sm font-bold text-primary">
                         {teamInitials}
-                      </span>
-                    </div>
+                      </AvatarFallback>
+                    </Avatar>
                     <div className="flex-1 text-left">
                       <div className="flex items-center gap-2">
                         <span className="text-sm font-medium">{teamName}</span>
