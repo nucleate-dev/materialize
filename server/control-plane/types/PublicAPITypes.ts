@@ -394,6 +394,28 @@ export interface SendTeamInviteErrorResponse {
 }
 
 // ============================================================================
+// /teams/update-member-role ENDPOINT
+// ============================================================================
+
+export interface UpdateTeamMemberRoleRequestBody {
+  team_id: string;
+  user_id: string;
+  role: Database["public"]["Enums"]["team_role"];
+}
+
+export interface UpdateTeamMemberRoleSuccessResponse {
+  success: true;
+  message: string;
+  old_role: string;
+  new_role: string;
+}
+
+export interface UpdateTeamMemberRoleErrorResponse {
+  error: string;
+  message: string;
+}
+
+// ============================================================================
 // TYPE GUARDS
 // ============================================================================
 

@@ -7,9 +7,13 @@ import {
   type SendTeamInviteErrorResponse,
   type SendTeamInviteRequestBody,
   type SendTeamInviteSuccessResponse,
+  type UpdateTeamMemberRoleErrorResponse,
+  type UpdateTeamMemberRoleRequestBody,
+  type UpdateTeamMemberRoleSuccessResponse,
 } from "../../types/PublicAPITypes.js";
 import handleAcceptInviteImpl from "./handlers/handleAcceptInvite.js";
 import handleSendInviteImpl from "./handlers/handleSendInvite.js";
+import handleUpdateMemberRoleImpl from "./handlers/handleUpdateMemberRole.js";
 
 /**
  * TeamManagementService handles team invitation and membership management operations.
@@ -40,7 +44,7 @@ export class TeamManagementService {
               },
               role: {
                 type: "string",
-                enum: ["owner", "admin", "member"],
+                enum: ["owner", "admin", "viewer", "editor"],
               },
             },
           },
@@ -67,6 +71,32 @@ export class TeamManagementService {
       },
       this.handleAcceptInvite.bind(this),
     );
+
+    // POST /teams/update-member-role
+    app.post<{ Body: UpdateTeamMemberRoleRequestBody }>(
+      "/teams/update-member-role",
+      {
+        schema: {
+          body: {
+            type: "object",
+            required: ["team_id", "user_id", "role"],
+            properties: {
+              team_id: {
+                type: "string",
+              },
+              user_id: {
+                type: "string",
+              },
+              role: {
+                type: "string",
+                enum: ["owner", "admin", "viewer", "editor"],
+              },
+            },
+          },
+        },
+      },
+      this.handleUpdateMemberRole.bind(this),
+    );
   }
 
   /**
@@ -91,5 +121,20 @@ export class TeamManagementService {
     APIResponse<AcceptTeamInviteSuccessResponse, AcceptTeamInviteErrorResponse>
   > {
     return await handleAcceptInviteImpl(request, reply);
+  }
+
+  /**
+   * API Route Handler for updating a team member's role.
+   */
+  private async handleUpdateMemberRole(
+    request: FastifyRequest<{ Body: UpdateTeamMemberRoleRequestBody }>,
+    reply: FastifyReply,
+  ): Promise<
+    APIResponse<
+      UpdateTeamMemberRoleSuccessResponse,
+      UpdateTeamMemberRoleErrorResponse
+    >
+  > {
+    return await handleUpdateMemberRoleImpl(request, reply);
   }
 }
