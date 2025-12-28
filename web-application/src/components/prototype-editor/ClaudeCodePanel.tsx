@@ -123,6 +123,9 @@ export default function ClaudeCodePanel({
   const isProjectContextEnabled =
     useFeatureFlagEnabled("project-context") ?? false;
 
+  // Check if teams UI feature is enabled
+  const isTeamsUIEnabled = useFeatureFlagEnabled("teams-ui") ?? false;
+
   // Active view state (chat or context editor)
   const [activeView, setActiveView] =
     useState<ClaudeCodePanelActiveView>("chat");
@@ -2226,6 +2229,7 @@ export default function ClaudeCodePanel({
       onActiveViewChange={setActiveView}
       fileSystem={fileSystem}
       isProjectContextEnabled={isProjectContextEnabled}
+      isTeamsUIEnabled={isTeamsUIEnabled}
     />
   );
 }

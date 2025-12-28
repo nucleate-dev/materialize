@@ -140,6 +140,7 @@ interface ClaudeCodePanelUIProps {
   onActiveViewChange: (view: ClaudeCodePanelActiveView) => void;
   fileSystem?: UseFileSystemReturn;
   isProjectContextEnabled: boolean;
+  isTeamsUIEnabled: boolean;
 }
 
 function CopyMessageButton({ content }: { content: string; }) {
@@ -230,6 +231,7 @@ export default function ClaudeCodePanelUI({
   onActiveViewChange,
   fileSystem,
   isProjectContextEnabled,
+  isTeamsUIEnabled,
 }: ClaudeCodePanelUIProps) {
   const [showCreditLimitModal, setShowCreditLimitModal] = useState(false);
   const hasShownModalRef = useRef(false);
@@ -420,20 +422,22 @@ export default function ClaudeCodePanelUI({
           </TooltipProvider>
 
           {/* Credits Indicator */}
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div className="flex items-center justify-center h-7 w-7 rounded-md hover:bg-accent cursor-default">
-                  <Sparkles className="w-3.5 h-3.5 text-muted-foreground" />
-                </div>
-              </TooltipTrigger>
-              <TooltipContent side="bottom">
-                <span className="text-xs">
-                  {creditsUsed} / {totalAvailableCredits} credits used
-                </span>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
+          {!isTeamsUIEnabled && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="flex items-center justify-center h-7 w-7 rounded-md hover:bg-accent cursor-default">
+                    <Sparkles className="w-3.5 h-3.5 text-muted-foreground" />
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">
+                  <span className="text-xs">
+                    {creditsUsed} / {totalAvailableCredits} credits used
+                  </span>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
 
           {/* Reconnect Button */}
           {/* {!isConnected &&
