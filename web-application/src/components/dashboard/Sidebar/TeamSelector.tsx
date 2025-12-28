@@ -263,7 +263,7 @@ export function TeamSelector({ isCollapsed = false }: TeamSelectorProps) {
                       event: "client_dashboard_sidebar_item_clicked",
                       properties: {
                         component: "TeamSelector",
-                        item: "create_workspace",
+                        item: "create_team",
                       },
                     });
                     // TODO: Implement create workspace functionality
@@ -271,7 +271,7 @@ export function TeamSelector({ isCollapsed = false }: TeamSelectorProps) {
                 }}
               >
                 <Plus className="w-4 h-4 mr-2" />
-                Create new workspace
+                Create new team
                 {isFree && (
                   <Badge variant="secondary" className="ml-auto text-xs">
                     PLUS
