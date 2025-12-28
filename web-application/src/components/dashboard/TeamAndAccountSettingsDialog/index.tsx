@@ -31,7 +31,10 @@ interface SettingsDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
-export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
+export function TeamAndAccountsSettingsDialog({
+  open,
+  onOpenChange,
+}: SettingsDialogProps) {
   const { userRow } = useCustomUserRow();
   const posthog = usePostHog();
   const [activeTab, setActiveTab] = useState<SettingsTab>("profile");

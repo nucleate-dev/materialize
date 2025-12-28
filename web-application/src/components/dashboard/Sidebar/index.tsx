@@ -37,7 +37,7 @@ import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import { TeamSelector } from "./TeamSelector";
 import { useFeatureFlagEnabled } from "posthog-js/react";
 import { useActiveTeam } from "@/contexts/TeamContext";
-import { SettingsDialog } from "@/components/dashboard/SettingsDialog";
+import { TeamAndAccountsSettingsDialog } from "@/components/dashboard/TeamAndAccountSettingsDialog";
 import { useState } from "react";
 
 const DashboardSidebarContent = () => {
@@ -263,9 +263,7 @@ const DashboardSidebarContent = () => {
             <SidebarMenuButton
               isActive={settingsDialogOpen}
               tooltip={isCollapsed ? "Account" : undefined}
-              className={cn(
-                isCollapsed ? "justify-center" : "h-auto py-3",
-              )}
+              className={cn(isCollapsed ? "justify-center" : "h-auto py-3")}
               onClick={() => {
                 logSidebarItemClick("settings", {
                   action: "open_dialog",
@@ -277,7 +275,10 @@ const DashboardSidebarContent = () => {
               {isCollapsed ? (
                 <Avatar className="h-4 w-4">
                   {userRow?.avatar_url && (
-                    <AvatarImage src={userRow.avatar_url} alt={userRow.name || "User"} />
+                    <AvatarImage
+                      src={userRow.avatar_url}
+                      alt={userRow.name || "User"}
+                    />
                   )}
                   <AvatarFallback className="text-[10px]">
                     {getInitials(userRow?.name || null)}
@@ -287,7 +288,10 @@ const DashboardSidebarContent = () => {
                 <div className="flex items-center gap-3 w-full">
                   <Avatar className="h-8 w-8">
                     {userRow?.avatar_url && (
-                      <AvatarImage src={userRow.avatar_url} alt={userRow.name || "User"} />
+                      <AvatarImage
+                        src={userRow.avatar_url}
+                        alt={userRow.name || "User"}
+                      />
                     )}
                     <AvatarFallback className="text-xs">
                       {getInitials(userRow?.name || null)}
@@ -309,7 +313,7 @@ const DashboardSidebarContent = () => {
       </SidebarFooter>
 
       {/* Settings Dialog */}
-      <SettingsDialog
+      <TeamAndAccountsSettingsDialog
         open={settingsDialogOpen}
         onOpenChange={setSettingsDialogOpen}
       />
