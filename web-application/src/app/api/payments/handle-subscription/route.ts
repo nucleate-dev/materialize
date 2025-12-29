@@ -448,19 +448,8 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
 
   let grantRows;
   let creditGrantError;
-  let isDowngrade = false;
 
   if (existingGrant) {
-    // First, get the old credits_granted value to detect downgrades
-    const { data: oldGrantData } = await supabase
-      .from("credit_grants")
-      .select("credits_granted")
-      .eq("id", existingGrant.id)
-      .single();
-
-    const oldCreditsGranted = oldGrantData?.credits_granted || 0;
-    isDowngrade = creditsToGrant < oldCreditsGranted;
-
     // Update existing grant
     const { data: updatedGrant, error: updateError } = await supabase
       .from("credit_grants")
@@ -477,16 +466,6 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
 
     grantRows = updatedGrant;
     creditGrantError = updateError;
-
-    // If this is a downgrade, reconcile usage that exceeds the new limit
-    if (isDowngrade && !updateError && grantRows && grantRows.length > 0) {
-      await reconcileCreditUsageForDowngrade(
-        userId,
-        existingGrant.id,
-        creditsToGrant,
-        teamId,
-      );
-    }
   } else {
     // Create new grant
     const { data: newGrant, error: insertError } = await supabase
@@ -521,8 +500,7 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
     const newGrant = grantRows[0];
     let remainingCredits = newGrant.credits_granted;
 
-    // Skip overage reconciliation if this was a downgrade - we want those overages to remain unpaid
-    if (remainingCredits > 0 && !isDowngrade) {
+    if (remainingCredits > 0) {
       const { data: overageRows, error: overageFetchError } = await supabase
         .from("api_usage")
         .select("id, credits_used, prototype_id")
@@ -856,7 +834,6 @@ async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
  *     - `current_period_start` and `current_period_end`
  *     - `price_id` and the associated `plan_id` based on the price ID.
  *  3. If the subscription update fails, logs the error using PostHog for analytics and debugging.
- *  4. If the user is downgrading, reconciles credit usage to nullify credit_grant_id for any usage exceeding the new limit.
  *
  * Error Handling:
  *  - If the database update fails, captures the error in PostHog and stops further execution.
@@ -902,146 +879,6 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
       },
     });
     return;
-  }
-}
-
-/**
- * Reconciles credit usage when a user downgrades their plan.
- * If the user has used more than the new credit limit, this function nullifies the credit_grant_id
- * for any usage exceeding the new amount, splitting rows if necessary.
- *
- * This function is called AFTER the credit grant has already been updated with the new lower limit.
- *
- * @param {string} userId - The user ID
- * @param {string} grantId - The credit grant ID that was just downgraded
- * @param {number} newCreditLimit - The new (lower) credit limit for the downgraded plan
- */
-async function reconcileCreditUsageForDowngrade(
-  userId: string,
-  grantId: string,
-  newCreditLimit: number,
-  teamId: string,
-) {
-  // Get all api_usage rows for this grant, ordered by creation time
-  const { data: usageRows, error: usageError } = await supabase
-    .from("api_usage")
-    .select("id, credits_used, prototype_id, created_at")
-    .eq("credit_grant_id", grantId)
-    .eq("team_id", teamId)
-    .order("created_at", { ascending: true });
-
-  if (usageError) {
-    posthog.capture({
-      distinctId: userId,
-      event: ExceptionEvents.CREDIT_GRANT_ERROR,
-      properties: {
-        source: LoggingEventSource.API_PAYMENTS_HANDLE_SUBSCRIPTION,
-        error: usageError,
-        context: "reconcile_downgrade_fetch_usage",
-        team_id: teamId,
-      },
-    });
-    console.error(
-      "Error fetching usage for downgrade reconciliation:",
-      usageError,
-    );
-    return;
-  }
-
-  if (!usageRows || usageRows.length === 0) {
-    // No usage to reconcile
-    return;
-  }
-
-  // Calculate total usage and determine which rows need to be nullified or split
-  let accumulatedCredits = 0;
-
-  for (const usageRow of usageRows) {
-    const usageCredits = Math.max(usageRow.credits_used || 0, 0);
-    const previousAccumulated = accumulatedCredits;
-    accumulatedCredits += usageCredits;
-
-    if (previousAccumulated >= newCreditLimit) {
-      // This entire row is beyond the limit, nullify its credit_grant_id
-      const { error: nullifyError } = await supabase
-        .from("api_usage")
-        .update({ credit_grant_id: null })
-        .eq("id", usageRow.id);
-
-      if (nullifyError) {
-        posthog.capture({
-          distinctId: userId,
-          event: ExceptionEvents.CREDIT_GRANT_ERROR,
-          properties: {
-            source: LoggingEventSource.API_PAYMENTS_HANDLE_SUBSCRIPTION,
-            error: nullifyError,
-            context: "reconcile_downgrade_nullify_row",
-            team_id: teamId,
-          },
-        });
-        console.error(
-          "Error nullifying usage row for downgrade:",
-          nullifyError,
-        );
-      }
-    } else if (accumulatedCredits > newCreditLimit) {
-      // This row straddles the limit, need to split it
-      const creditsWithinLimit = newCreditLimit - previousAccumulated;
-      const creditsBeyondLimit = usageCredits - creditsWithinLimit;
-
-      // Update the existing row to only contain credits within the limit
-      const { error: updateError } = await supabase
-        .from("api_usage")
-        .update({ credits_used: creditsWithinLimit })
-        .eq("id", usageRow.id);
-
-      if (updateError) {
-        posthog.capture({
-          distinctId: userId,
-          event: ExceptionEvents.CREDIT_GRANT_ERROR,
-          properties: {
-            source: LoggingEventSource.API_PAYMENTS_HANDLE_SUBSCRIPTION,
-            error: updateError,
-            context: "reconcile_downgrade_split_update",
-            team_id: teamId,
-          },
-        });
-        console.error(
-          "Error updating split usage row for downgrade:",
-          updateError,
-        );
-        continue;
-      }
-
-      // Insert a new row for the credits beyond the limit (with null credit_grant_id)
-      const { error: insertError } = await supabase.from("api_usage").insert({
-        user_id: userId,
-        team_id: teamId,
-        prototype_id: usageRow.prototype_id,
-        credits_used: creditsBeyondLimit,
-        credit_grant_id: null,
-        is_free_tier: false,
-        created_at: usageRow.created_at, // Preserve the original creation time
-      });
-
-      if (insertError) {
-        posthog.capture({
-          distinctId: userId,
-          event: ExceptionEvents.CREDIT_GRANT_ERROR,
-          properties: {
-            source: LoggingEventSource.API_PAYMENTS_HANDLE_SUBSCRIPTION,
-            error: insertError,
-            context: "reconcile_downgrade_split_insert",
-            team_id: teamId,
-          },
-        });
-        console.error(
-          "Error inserting split usage row for downgrade:",
-          insertError,
-        );
-      }
-    }
-    // If accumulatedCredits <= newCreditLimit, the row is fine as-is
   }
 }
 
