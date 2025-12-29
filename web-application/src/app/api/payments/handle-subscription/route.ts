@@ -447,8 +447,13 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
     creditsToGrant = calculateUpgradeCredits(invoice.amount_paid);
     grantReason = "subscription_upgrade";
   } else {
-    creditsToGrant = calculateDowngradeOrRenewalCredits(newPlanKey, seatQuantity);
-    grantReason = changeType === "downgrade" ? "subscription_downgrade" : "subscription_renewal";
+    creditsToGrant = calculateDowngradeOrRenewalCredits(
+      newPlanKey,
+      seatQuantity,
+    );
+    grantReason = changeType === "downgrade"
+      ? "subscription_downgrade"
+      : "subscription_renewal";
 
     // Handle downgrade reconciliation (e.g., remove excess team members, update limits)
     if (changeType === "downgrade" && existingSubscription) {
@@ -1214,21 +1219,168 @@ async function reconcileTeamOnDowngrade(
   oldSeatQuantity: number,
   newSeatQuantity: number,
 ): Promise<void> {
-  // TODO: Implement downgrade reconciliation logic
-  // Examples:
-  // - If seat quantity decreased, remove excess team members
-  // - Update team limits based on new plan
-  // - Send notifications to affected users
-  // - Clean up resources no longer available in downgraded plan
+  // Determine how many non-viewer members are allowed in the new plan
+  let allowedNonViewerSeats: number;
 
-  console.log("Downgrade detected - reconciliation needed:", {
-    userId,
-    teamId,
-    oldPlanKey,
-    newPlanKey,
-    oldSeatQuantity,
-    newSeatQuantity,
+  if (newPlanKey === "free") {
+    allowedNonViewerSeats = 1; // Only owner
+  } else if (newPlanKey === "plus") {
+    allowedNonViewerSeats = 2; // Owner + 1 other
+  } else if (newPlanKey === "team") {
+    allowedNonViewerSeats = newSeatQuantity; // Based on seat quantity
+  } else {
+    // For PRO and MAX plans, use seat quantity
+    allowedNonViewerSeats = newSeatQuantity;
+  }
+
+  // Get team details to determine priority users
+  const { data: team, error: teamFetchError } = await supabase
+    .from("teams")
+    .select("personal_owner_user_id, created_by")
+    .eq("id", teamId)
+    .single();
+
+  if (teamFetchError || !team) {
+    console.error(
+      "Error fetching team for downgrade reconciliation:",
+      teamFetchError,
+    );
+    posthog.capture({
+      distinctId: userId,
+      event: ExceptionEvents.SUSBCRIPTION_UPDATE_ERROR,
+      properties: {
+        source: LoggingEventSource.API_PAYMENTS_HANDLE_SUBSCRIPTION,
+        error: teamFetchError,
+        context: "reconcileTeamOnDowngrade_fetch_team",
+        team_id: teamId,
+      },
+    });
+    return;
+  }
+
+  // Get all team memberships, ordered by most recent first
+  const { data: memberships, error: membershipsError } = await supabase
+    .from("team_memberships")
+    .select("user_id, role, created_at")
+    .eq("team_id", teamId)
+    .order("created_at", { ascending: false });
+
+  if (membershipsError || !memberships) {
+    posthog.capture({
+      distinctId: userId,
+      event: ExceptionEvents.SUSBCRIPTION_UPDATE_ERROR,
+      properties: {
+        source: LoggingEventSource.API_PAYMENTS_HANDLE_SUBSCRIPTION,
+        error: membershipsError,
+        context: "reconcileTeamOnDowngrade_fetch_memberships",
+        team_id: teamId,
+      },
+    });
+    return;
+  }
+
+  // Build priority list (exclude existing viewers)
+  const priorityList: Array<{
+    user_id: string;
+    role: string;
+    priority: number;
+    created_at: string;
+  }> = [];
+
+  for (const membership of memberships) {
+    // Skip members who are already viewers
+    if (membership.role === "viewer") {
+      continue;
+    }
+
+    let priority = 0;
+
+    // Priority 1 (highest): personal_owner_user_id
+    if (membership.user_id === team.personal_owner_user_id) {
+      priority = 1000;
+    } // Priority 2: created_by user if they are still an owner
+    else if (
+      membership.user_id === team.created_by &&
+      membership.role === "owner"
+    ) {
+      priority = 900;
+    } // Priority 3: Other owners
+    else if (membership.role === "owner") {
+      priority = 800;
+    } // Priority 4: Admins
+    else if (membership.role === "admin") {
+      priority = 700;
+    } // Priority 5 (lowest): Editors
+    else if (membership.role === "editor") {
+      priority = 600;
+    }
+
+    priorityList.push({
+      user_id: membership.user_id,
+      role: membership.role,
+      priority: priority,
+      created_at: membership.created_at,
+    });
+  }
+
+  // Sort by priority (descending), then by created_at (ascending = keep older members first)
+  // When demoting, we pick the most recent people first (those with later created_at dates)
+  priorityList.sort((a, b) => {
+    if (b.priority !== a.priority) {
+      return b.priority - a.priority; // Higher priority first
+    }
+    // For same priority, older members come first (we want to keep them)
+    return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
   });
+
+  // Determine which members to keep and which to demote
+  const membersToKeep = priorityList.slice(0, allowedNonViewerSeats);
+  const membersToDemote = priorityList.slice(allowedNonViewerSeats);
+
+  // Update memberships to viewer for those who need to be demoted
+  if (membersToDemote.length <= 0) {
+    return;
+  }
+  const userIdsToDemote = membersToDemote.map((m) => m.user_id);
+
+  const { error: updateError } = await supabase
+    .from("team_memberships")
+    .update({ role: "viewer" })
+    .eq("team_id", teamId)
+    .in("user_id", userIdsToDemote);
+
+  if (updateError) {
+    console.error("Error demoting team members to viewer:", updateError);
+    posthog.capture({
+      distinctId: userId,
+      event: ExceptionEvents.SUSBCRIPTION_UPDATE_ERROR,
+      properties: {
+        source: LoggingEventSource.API_PAYMENTS_HANDLE_SUBSCRIPTION,
+        error: updateError,
+        context: "reconcileTeamOnDowngrade_demote_members",
+        team_id: teamId,
+        demoted_count: membersToDemote.length,
+      },
+    });
+  } else {
+    // Log successful reconciliation
+    posthog.capture({
+      distinctId: userId,
+      event: SuccessEvents.HANDLED_STRIPE_SUBSCRIPTION_INVOICE_PAID,
+      properties: {
+        source: LoggingEventSource.API_PAYMENTS_HANDLE_SUBSCRIPTION,
+        context: "reconcileTeamOnDowngrade_success",
+        team_id: teamId,
+        old_plan: oldPlanKey,
+        new_plan: newPlanKey,
+        old_seats: oldSeatQuantity,
+        new_seats: newSeatQuantity,
+        allowed_seats: allowedNonViewerSeats,
+        kept_members: membersToKeep.length,
+        demoted_members: membersToDemote.length,
+      },
+    });
+  }
 }
 
 /**
