@@ -10,6 +10,7 @@ import {
   Folder,
   Layout,
   Loader2,
+  Monitor,
   MoreHorizontal,
   Pencil,
   Smartphone,
@@ -21,6 +22,7 @@ export interface ThumbnailCardProps {
   thumbnailUrl: string | null;
   lastModified?: string;
   type: "folder" | "prototype" | "canvas";
+  framework?: string | null;
   onClick?: () => void;
   onView?: () => void;
   onEdit?: () => void;
@@ -33,6 +35,7 @@ const ThumbnailCard: React.FC<ThumbnailCardProps> = ({
   thumbnailUrl,
   lastModified,
   type,
+  framework,
   onClick,
   onView,
   onEdit,
@@ -53,9 +56,11 @@ const ThumbnailCard: React.FC<ThumbnailCardProps> = ({
           bg: "bg-blue-400/10",
         };
       case "prototype":
+        // Determine icon based on framework
+        const isMobile = framework?.startsWith("mobile_");
         return {
           label: "Project",
-          icon: Smartphone,
+          icon: isMobile ? Smartphone : Monitor,
           color: "text-emerald-400",
           bg: "bg-emerald-400/10",
         };

@@ -8,6 +8,7 @@ import { useActiveTeam } from "@/contexts/TeamContext";
 export interface PrototypeThumbnailProps {
   prototypeName: string;
   prototypeId: string;
+  framework: string | null;
   lastModified?: string;
   onView?: () => void;
   onEdit?: () => void;
@@ -17,6 +18,7 @@ export interface PrototypeThumbnailProps {
 const PrototypeThumbnail: React.FC<PrototypeThumbnailProps> = ({
   prototypeName,
   prototypeId,
+  framework,
   lastModified,
   onView,
   onEdit,
@@ -67,6 +69,7 @@ const PrototypeThumbnail: React.FC<PrototypeThumbnailProps> = ({
       thumbnailUrl={finalThumbnailUrl}
       lastModified={lastModified}
       type="prototype"
+      framework={framework}
       onView={onView}
       onEdit={isViewer ? undefined : onEdit}
       onSettings={onSettings}

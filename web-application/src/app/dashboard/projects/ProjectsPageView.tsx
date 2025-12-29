@@ -108,6 +108,7 @@ export default function ProjectsPageView({
                 key={prototype.id}
                 prototypeName={prototype.name}
                 prototypeId={prototype.id}
+                framework={prototype.framework}
                 lastModified={
                   formatDate(prototype.updated_at) ||
                   formatDate(prototype.created_at)
