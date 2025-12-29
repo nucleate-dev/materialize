@@ -15,6 +15,7 @@ import { AppRouterInstance } from "next/dist/shared/lib/app-router-context.share
  * @param {string} productID - The ID of the product the user is trying to purchase.
  * @param {AppRouterInstance} router - The Next.js router instance for handling navigation.
  * @param {string} teamId - The team ID to charge for this purchase.
+ * @param {number} [seatQuantity] - Optional number of seats when purchasing the team plan.
  *
  * Workflow:
  *  1. Checks if the user is authenticated by fetching the user object from Supabase.
@@ -40,6 +41,7 @@ export async function handleCheckout(
   productID: string,
   router: AppRouterInstance,
   teamId: string,
+  seatQuantity?: number,
 ) {
   const { data: session } = await supabase.auth.getSession();
 
@@ -54,6 +56,7 @@ export async function handleCheckout(
       productID,
       session.session.access_token,
       teamId,
+      seatQuantity,
     );
   } else {
     // Store product ID in local storage or URL and redirect to login
@@ -70,6 +73,7 @@ export async function handleCheckout(
  * @param {string} productID - The ID of the product the user is purchasing.
  * @param {string} accessToken - The JWT access token of the authenticated user.
  * @param {string} teamId - The team ID that will own the subscription/credits.
+ * @param {number} [seatQuantity] - Optional number of seats when purchasing the team plan.
  *
  * Workflow:
  *  1. Loads the Stripe library using the publishable key from environment variables.
@@ -86,22 +90,20 @@ export async function handleRedirectToPaymentsPage(
   productID: string,
   accessToken: string,
   teamId: string,
+  seatQuantity?: number,
 ): Promise<void> {
   const stripe = await loadStripe(
     process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY as string,
   );
 
   const requestBody: CheckoutRequestBody = {
-    productID: productID as
-      | "free"
-      | "plus"
-      | "pro"
-      | "max"
-      | "credit_pack_100"
-      | "credit_pack_500"
-      | "credit_pack_1000",
+    productID: productID as CheckoutRequestBody["productID"],
     teamId,
   };
+
+  if (productID === "team") {
+    requestBody.seatQuantity = Math.max(1, seatQuantity ?? 1);
+  }
 
   const checkoutEndpoint =
     `${process.env.NEXT_PUBLIC_SERVER_ENDPOINT}/payments/checkout`;

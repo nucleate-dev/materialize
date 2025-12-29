@@ -134,10 +134,12 @@ export interface CheckoutRequestBody {
     | "plus"
     | "pro"
     | "max"
+    | "team"
     | "credit_pack_100"
     | "credit_pack_500"
     | "credit_pack_1000";
   teamId: string;
+  seatQuantity?: number;
 }
 
 export interface CheckoutSuccessResponse {

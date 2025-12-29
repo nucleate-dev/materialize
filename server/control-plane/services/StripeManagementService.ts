@@ -45,10 +45,16 @@ export class StripeManagementService {
                   "plus",
                   "pro",
                   "max",
+                  "team",
                   "credit_pack_100",
                   "credit_pack_500",
                   "credit_pack_1000",
                 ],
+              },
+              seatQuantity: {
+                type: "integer",
+                minimum: 1,
+                nullable: true,
               },
             },
           },
@@ -138,7 +144,7 @@ export class StripeManagementService {
       userId: user.id,
     });
 
-    const { productID, teamId } = request.body;
+    const { productID, teamId, seatQuantity } = request.body;
 
     const supabaseClient = createClient<Database>(
       process.env.SUPABASE_URL!,
@@ -203,6 +209,8 @@ export class StripeManagementService {
       priceID = process.env.STRIPE_PRO_PRICE_ID as string;
     } else if (productID === "max") {
       priceID = process.env.STRIPE_MAX_PRICE_ID as string;
+    } else if (productID === "team") {
+      priceID = process.env.STRIPE_TEAM_PRICE_ID as string;
     } else if (productID === "credit_pack_100") {
       priceID = process.env.STRIPE_CREDIT_PACK_100_PRICE_ID as string;
       mode = "payment";
@@ -221,9 +229,15 @@ export class StripeManagementService {
         user.id,
         PostHogEvents.server_stripe_checkout_session_creation,
         async () => {
+          const normalizedSeatQuantity =
+            productID === "team" ? Math.max(1, seatQuantity ?? 1) : 1;
+
           const sessionMetadata: Stripe.MetadataParam = {
             user_id: user.id,
             team_id: teamId,
+            ...(productID === "team"
+              ? { seat_quantity: normalizedSeatQuantity.toString() }
+              : {}),
           };
 
           const sessionConfig: Stripe.Checkout.SessionCreateParams = {
@@ -231,7 +245,7 @@ export class StripeManagementService {
             line_items: [
               {
                 price: priceID,
-                quantity: 1,
+                quantity: normalizedSeatQuantity,
               },
             ],
             mode,
