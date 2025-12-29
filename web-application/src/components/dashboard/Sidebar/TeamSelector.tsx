@@ -31,6 +31,9 @@ import {
   Plus,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { supabase } from "@/ClientConstants";
+import { SubscriptionStatuses } from "@/GlobalConstants";
 
 interface TeamSelectorProps {
   isCollapsed?: boolean;
@@ -40,7 +43,7 @@ interface TeamSelectorProps {
 export function TeamSelector({ isCollapsed = false, onOpenSettings }: TeamSelectorProps) {
   const router = useRouter();
   const logger = useProductLogger();
-  const { activeTeam, setActiveTeam } = useActiveTeam();
+  const { activeTeam, setActiveTeam, teamMembers } = useActiveTeam();
   const { teams, isLoading: teamsLoading } = useUserTeams();
   const { userPlan, loadingSubscriptionData } = useSubscriptionAccess();
   const {
@@ -50,6 +53,45 @@ export function TeamSelector({ isCollapsed = false, onOpenSettings }: TeamSelect
   } = useCreditUsage();
 
   const isFree = userPlan === "free";
+  const [teamSubscriptions, setTeamSubscriptions] = useState<Record<string, string>>({});
+
+  // Fetch subscriptions for all teams
+  useEffect(() => {
+    async function fetchTeamSubscriptions() {
+      if (teams.length === 0) return;
+
+      const teamIds = teams.map(team => team.id);
+      const nowInSeconds = Math.floor(Date.now() / 1000);
+
+      const { data: subscriptions } = await supabase
+        .from("subscriptions")
+        .select("team_id, plan_id, current_period_start, current_period_end")
+        .in("team_id", teamIds)
+        .eq("status", SubscriptionStatuses.ACTIVE)
+        .lte("current_period_start", nowInSeconds)
+        .gte("current_period_end", nowInSeconds);
+
+      const subscriptionMap: Record<string, string> = {};
+
+      // Process subscriptions and validate they're currently active
+      subscriptions?.forEach(sub => {
+        if (sub.plan_id) {
+          subscriptionMap[sub.team_id] = sub.plan_id;
+        }
+      });
+
+      // Set free plan for teams without active subscriptions
+      teams.forEach(team => {
+        if (!subscriptionMap[team.id]) {
+          subscriptionMap[team.id] = "free";
+        }
+      });
+
+      setTeamSubscriptions(subscriptionMap);
+    }
+
+    fetchTeamSubscriptions();
+  }, [teams]);
   const usagePercentage =
     totalAvailableCredits > 0
       ? ((totalAvailableCredits - creditsRemaining) / totalAvailableCredits) *
@@ -161,7 +203,7 @@ export function TeamSelector({ isCollapsed = false, onOpenSettings }: TeamSelect
                 <div className="flex-1">
                   <div className="text-lg font-semibold">{teamName}</div>
                   <p className="text-sm text-muted-foreground">
-                    {isFree ? "Free Plan" : `${userPlan} Plan`} • 1 member
+                    {isFree ? "Free Plan" : `${userPlan} Plan`} • {teamMembers.length} {teamMembers.length === 1 ? "member" : "members"}
                   </p>
                 </div>
               </div>
@@ -237,6 +279,8 @@ export function TeamSelector({ isCollapsed = false, onOpenSettings }: TeamSelect
                     const isActive = activeTeam?.id === team.id;
                     const teamInitialsLocal = getInitials(team.name);
                     const isPersonal = team.personal_owner_user_id !== null;
+                    const teamPlan = teamSubscriptions[team.id] || "free";
+                    const teamIsFree = teamPlan === "free";
 
                     return (
                       <button
@@ -265,9 +309,14 @@ export function TeamSelector({ isCollapsed = false, onOpenSettings }: TeamSelect
                             <span className="text-sm font-medium">
                               {team.name}
                             </span>
-                            {isPersonal && isFree && (
+                            {teamIsFree && (
                               <Badge variant="secondary" className="text-xs">
                                 FREE
+                              </Badge>
+                            )}
+                            {!teamIsFree && (
+                              <Badge variant="secondary" className="text-xs uppercase">
+                                {teamPlan}
                               </Badge>
                             )}
                           </div>
