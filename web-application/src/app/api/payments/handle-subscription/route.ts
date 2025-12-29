@@ -449,6 +449,18 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
   } else {
     creditsToGrant = calculateDowngradeOrRenewalCredits(newPlanKey, seatQuantity);
     grantReason = changeType === "downgrade" ? "subscription_downgrade" : "subscription_renewal";
+
+    // Handle downgrade reconciliation (e.g., remove excess team members, update limits)
+    if (changeType === "downgrade" && existingSubscription) {
+      await reconcileTeamOnDowngrade(
+        userId,
+        teamId,
+        existingSubscription.plan_id,
+        newPlanKey,
+        existingSubscription.seat_quantity,
+        seatQuantity,
+      );
+    }
   }
   const billingPeriodStart = new Date(
     subscriptionItem.current_period_start * 1000,
@@ -1174,6 +1186,49 @@ function getCreditsForPlan(
     case "team":
       return CreditLimits.TEAM;
   }
+}
+
+/**
+ * Reconciles team data when a subscription downgrade occurs.
+ * This function is called when a user downgrades their plan (e.g., team → plus, or reduces seat quantity).
+ *
+ * Use this function to:
+ * - Remove excess team members if seat quantity decreased
+ * - Update team permissions or limits based on new plan
+ * - Clean up team resources that are no longer available in the downgraded plan
+ * - Send notifications to affected team members
+ *
+ * @param userId - The user ID who owns the subscription
+ * @param teamId - The team ID affected by the downgrade
+ * @param oldPlanKey - The previous plan type
+ * @param newPlanKey - The new (downgraded) plan type
+ * @param oldSeatQuantity - The previous number of seats
+ * @param newSeatQuantity - The new (reduced or same) number of seats
+ * @returns Promise<void>
+ */
+async function reconcileTeamOnDowngrade(
+  userId: string,
+  teamId: string,
+  oldPlanKey: Database["public"]["Enums"]["subscription_plan_type"],
+  newPlanKey: Database["public"]["Enums"]["subscription_plan_type"],
+  oldSeatQuantity: number,
+  newSeatQuantity: number,
+): Promise<void> {
+  // TODO: Implement downgrade reconciliation logic
+  // Examples:
+  // - If seat quantity decreased, remove excess team members
+  // - Update team limits based on new plan
+  // - Send notifications to affected users
+  // - Clean up resources no longer available in downgraded plan
+
+  console.log("Downgrade detected - reconciliation needed:", {
+    userId,
+    teamId,
+    oldPlanKey,
+    newPlanKey,
+    oldSeatQuantity,
+    newSeatQuantity,
+  });
 }
 
 /**
