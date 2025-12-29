@@ -24,6 +24,14 @@ import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import { Database } from "@/lib/types/supabase";
 import { setChatIntent } from "@/lib/utils/chatIntentUtils";
 import { checkSurveyCompleted } from "@/lib/utils/survey/SurveyUtils";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { VIEWER_ROLE_RESTRICTION_MESSAGE } from "@/GlobalConstants";
+import { useActiveTeam } from "@/contexts/TeamContext";
 import { SwatchIcon } from "@heroicons/react/24/outline"; // Kept Heroicons
 import { PaintBrushIcon } from "@heroicons/react/24/solid";
 import { useAtom } from "jotai";
@@ -79,6 +87,7 @@ export default function DashboardPage() {
   const [showUpsellModal, setShowUpsellModal] = useState(false);
   const router = useRouter();
   const { user } = useUser();
+  const { currentUserMembership } = useActiveTeam();
   const [redirectAfterLogin, setRedirectAfterLogin] = useAtom(
     redirectAfterLoginAtom,
   );
@@ -108,6 +117,9 @@ export default function DashboardPage() {
     }
     return DESIGN_STYLE_LABELS[style] ?? style;
   };
+
+  // Check if user is a viewer (no edit privileges)
+  const isViewer = currentUserMembership?.role === "viewer";
 
   // Check if user has completed survey (Scenario 2)
   useEffect(() => {
@@ -554,23 +566,36 @@ export default function DashboardPage() {
                   <span>ENTER</span>
                 </div>
 
-                <Button
-                  onClick={() => handleSubmit()}
-                  disabled={!prompt.trim() || isLoading}
-                  className="w-full md:w-auto h-8 px-4 rounded-md bg-black dark:bg-white text-white dark:text-black hover:bg-black/90 dark:hover:bg-white/90 disabled:opacity-50 disabled:cursor-not-allowed text-xs font-bold tracking-wide shadow-[0_0_20px_-5px_rgba(0,0,0,0.3)] dark:shadow-[0_0_20px_-5px_rgba(255,255,255,0.3)] transition-all"
-                >
-                  {isLoading ? (
-                    <>
-                      <Loader2 className="mr-2 h-3 w-3 animate-spin" />
-                      BUILDING...
-                    </>
-                  ) : (
-                    <>
-                      <Wand2 className="mr-2 h-3 w-3" />
-                      GENERATE
-                    </>
-                  )}
-                </Button>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="w-full md:w-auto">
+                        <Button
+                          onClick={() => handleSubmit()}
+                          disabled={!prompt.trim() || isLoading || isViewer}
+                          className="w-full md:w-auto h-8 px-4 rounded-md bg-black dark:bg-white text-white dark:text-black hover:bg-black/90 dark:hover:bg-white/90 disabled:opacity-50 disabled:cursor-not-allowed text-xs font-bold tracking-wide shadow-[0_0_20px_-5px_rgba(0,0,0,0.3)] dark:shadow-[0_0_20px_-5px_rgba(255,255,255,0.3)] transition-all"
+                        >
+                          {isLoading ? (
+                            <>
+                              <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+                              BUILDING...
+                            </>
+                          ) : (
+                            <>
+                              <Wand2 className="mr-2 h-3 w-3" />
+                              GENERATE
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    </TooltipTrigger>
+                    {isViewer && (
+                      <TooltipContent>
+                        <p>{VIEWER_ROLE_RESTRICTION_MESSAGE}</p>
+                      </TooltipContent>
+                    )}
+                  </Tooltip>
+                </TooltipProvider>
               </div>
             </div>
           </div>
