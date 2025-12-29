@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import ThumbnailCard from "./ThumbnailCard";
 import { supabase } from "@/ClientConstants";
+import { useActiveTeam } from "@/contexts/TeamContext";
 
 export interface PrototypeThumbnailProps {
   prototypeName: string;
@@ -21,8 +22,12 @@ const PrototypeThumbnail: React.FC<PrototypeThumbnailProps> = ({
   onEdit,
   onSettings,
 }) => {
+  const { currentUserMembership } = useActiveTeam();
   const [signedUrl, setSignedUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Check if current user is a viewer
+  const isViewer = currentUserMembership?.role === "viewer";
 
   useEffect(() => {
     const generateSignedUrl = async () => {
@@ -63,7 +68,7 @@ const PrototypeThumbnail: React.FC<PrototypeThumbnailProps> = ({
       lastModified={lastModified}
       type="prototype"
       onView={onView}
-      onEdit={onEdit}
+      onEdit={isViewer ? undefined : onEdit}
       onSettings={onSettings}
       loading={loading}
     />

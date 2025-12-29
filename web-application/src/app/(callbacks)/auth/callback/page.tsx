@@ -161,18 +161,18 @@ export default function AuthCallback() {
           let prototypeId = chatIntent.prototype_id;
           if (!prototypeId) {
             try {
-          const teamId = activeTeam?.id;
-          if (!teamId) {
-            logger.debug("error", "Unable to determine active team");
-            router.push("/dashboard");
-            return;
-          }
+              const teamId = activeTeam?.id;
+              if (!teamId) {
+                logger.debug("error", "Unable to determine active team");
+                router.push("/dashboard");
+                return;
+              }
 
-          const payload: CreatePrototypeRequestBody = {
-            name: "New Prototype",
-            creation_source: "auth_callback_chat_intent",
-            team_id: teamId,
-          };
+              const payload: CreatePrototypeRequestBody = {
+                name: "New Prototype",
+                creation_source: "auth_callback_chat_intent",
+                team_id: teamId,
+              };
 
               const response = await fetch(
                 `${process.env.NEXT_PUBLIC_SERVER_ENDPOINT!}/prototype/create`,
@@ -235,7 +235,7 @@ export default function AuthCallback() {
     };
 
     checkAuth();
-  }, [router, userPlan, logger, trackEvent, posthog]);
+  }, [router, userPlan, logger, trackEvent, posthog, activeTeam?.id]);
 
   if (showEmailVerificationRequired) {
     return <RegistrationAccountCreatedEmailVerificationPending />;

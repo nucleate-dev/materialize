@@ -76,7 +76,6 @@ export function TeamAndAccountsSettingsDialog({
   const handleLogout = async () => {
     const error = await logout();
     if (error) {
-      console.error("Logout failed:", error.message);
       alert("Failed to log out. Please try again.");
     } else {
       onOpenChange(false);
@@ -86,7 +85,12 @@ export function TeamAndAccountsSettingsDialog({
 
   interface TabGroup {
     label: string;
-    tabs: { id: SettingsTab; label: string; icon: typeof User; isTeamTab?: boolean }[];
+    tabs: {
+      id: SettingsTab;
+      label: string;
+      icon: typeof User;
+      isTeamTab?: boolean;
+    }[];
   }
 
   const tabGroups: TabGroup[] = isTeamsUIEnabled
@@ -95,7 +99,11 @@ export function TeamAndAccountsSettingsDialog({
           label: "Team",
           tabs: [
             { id: "team", label: teamName, icon: User, isTeamTab: true },
-            { id: "credits", label: "Credits and subscriptions", icon: CreditCard },
+            {
+              id: "credits",
+              label: "Credits and subscriptions",
+              icon: CreditCard,
+            },
             { id: "people", label: "People", icon: Users },
           ],
         },
@@ -104,7 +112,13 @@ export function TeamAndAccountsSettingsDialog({
           tabs: [
             { id: "profile", label: userRow?.name || "Profile", icon: User },
             ...(isClaudeConnectionEnabled
-              ? [{ id: "claude" as const, label: "Claude connection", icon: Key }]
+              ? [
+                  {
+                    id: "claude" as const,
+                    label: "Claude connection",
+                    icon: Key,
+                  },
+                ]
               : []),
           ],
         },
@@ -114,9 +128,19 @@ export function TeamAndAccountsSettingsDialog({
           label: "Account",
           tabs: [
             { id: "profile", label: userRow?.name || "Profile", icon: User },
-            { id: "credits", label: "Credits and subscriptions", icon: CreditCard },
+            {
+              id: "credits",
+              label: "Credits and subscriptions",
+              icon: CreditCard,
+            },
             ...(isClaudeConnectionEnabled
-              ? [{ id: "claude" as const, label: "Claude connection", icon: Key }]
+              ? [
+                  {
+                    id: "claude" as const,
+                    label: "Claude connection",
+                    icon: Key,
+                  },
+                ]
               : []),
           ],
         },

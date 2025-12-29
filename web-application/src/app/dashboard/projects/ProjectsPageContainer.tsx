@@ -173,6 +173,7 @@ export default function ProjectsPageContainer() {
       settingsOpen={settingsOpen}
       activePrototype={activePrototype}
       user={user}
+      teamName={activeTeam?.name ?? null}
       onOpenModal={handleOpenModal}
       onCloseModal={handleCloseModal}
       onPrototypeCreated={handlePrototypeCreated}

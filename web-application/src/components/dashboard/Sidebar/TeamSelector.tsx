@@ -37,10 +37,15 @@ import { SubscriptionStatuses } from "@/GlobalConstants";
 
 interface TeamSelectorProps {
   isCollapsed?: boolean;
-  onOpenSettings?: (tab: "profile" | "credits" | "claude" | "team" | "people") => void;
+  onOpenSettings?: (
+    tab: "profile" | "credits" | "claude" | "team" | "people",
+  ) => void;
 }
 
-export function TeamSelector({ isCollapsed = false, onOpenSettings }: TeamSelectorProps) {
+export function TeamSelector({
+  isCollapsed = false,
+  onOpenSettings,
+}: TeamSelectorProps) {
   const router = useRouter();
   const logger = useProductLogger();
   const { activeTeam, setActiveTeam, teamMembers } = useActiveTeam();
@@ -53,14 +58,16 @@ export function TeamSelector({ isCollapsed = false, onOpenSettings }: TeamSelect
   } = useCreditUsage();
 
   const isFree = userPlan === "free";
-  const [teamSubscriptions, setTeamSubscriptions] = useState<Record<string, string>>({});
+  const [teamSubscriptions, setTeamSubscriptions] = useState<
+    Record<string, string>
+  >({});
 
   // Fetch subscriptions for all teams
   useEffect(() => {
     async function fetchTeamSubscriptions() {
       if (teams.length === 0) return;
 
-      const teamIds = teams.map(team => team.id);
+      const teamIds = teams.map((team) => team.id);
       const nowInSeconds = Math.floor(Date.now() / 1000);
 
       const { data: subscriptions } = await supabase
@@ -74,14 +81,14 @@ export function TeamSelector({ isCollapsed = false, onOpenSettings }: TeamSelect
       const subscriptionMap: Record<string, string> = {};
 
       // Process subscriptions and validate they're currently active
-      subscriptions?.forEach(sub => {
-        if (sub.plan_id) {
+      subscriptions?.forEach((sub) => {
+        if (sub.plan_id && sub.team_id) {
           subscriptionMap[sub.team_id] = sub.plan_id;
         }
       });
 
       // Set free plan for teams without active subscriptions
-      teams.forEach(team => {
+      teams.forEach((team) => {
         if (!subscriptionMap[team.id]) {
           subscriptionMap[team.id] = "free";
         }
@@ -203,7 +210,9 @@ export function TeamSelector({ isCollapsed = false, onOpenSettings }: TeamSelect
                 <div className="flex-1">
                   <div className="text-lg font-semibold">{teamName}</div>
                   <p className="text-sm text-muted-foreground">
-                    {isFree ? "Free Plan" : `${userPlan} Plan`} • {teamMembers.length} {teamMembers.length === 1 ? "member" : "members"}
+                    {isFree ? "Free Plan" : `${userPlan} Plan`} •{" "}
+                    {teamMembers.length}{" "}
+                    {teamMembers.length === 1 ? "member" : "members"}
                   </p>
                 </div>
               </div>
@@ -315,7 +324,10 @@ export function TeamSelector({ isCollapsed = false, onOpenSettings }: TeamSelect
                               </Badge>
                             )}
                             {!teamIsFree && (
-                              <Badge variant="secondary" className="text-xs uppercase">
+                              <Badge
+                                variant="secondary"
+                                className="text-xs uppercase"
+                              >
                                 {teamPlan}
                               </Badge>
                             )}
