@@ -39,6 +39,7 @@ export function PeopleTab() {
   const logger = useProductLogger();
   const queryClient = useQueryClient();
   const [inviteEmails, setInviteEmails] = useState("");
+  const [inviteRole, setInviteRole] = useState<TeamRole>("editor");
   const [searchQuery, setSearchQuery] = useState("");
   const [activeFilter, setActiveFilter] = useState<
     "all" | "active" | "pending"
@@ -99,7 +100,7 @@ export function PeopleTab() {
           body: JSON.stringify({
             emails,
             team_id: activeTeam.id,
-            role: "editor", // Default role for new invites
+            role: inviteRole,
           }),
         },
       );
@@ -107,7 +108,8 @@ export function PeopleTab() {
       const result = await response.json();
       if (!response.ok || result.error) {
         alert(
-          "Failed to send invites: " + (result.error?.message || "Unknown error"),
+          "Failed to send invites: " +
+            (result.error?.message || "Unknown error"),
         );
         return;
       }
@@ -181,7 +183,8 @@ export function PeopleTab() {
       const result = await response.json();
       if (!response.ok || result.error) {
         alert(
-          "Failed to update role: " + (result.error?.message || "Unknown error"),
+          "Failed to update role: " +
+            (result.error?.message || "Unknown error"),
         );
         return;
       }
@@ -345,12 +348,12 @@ export function PeopleTab() {
               <span className="font-medium text-gray-900 dark:text-white">
                 {activeTeam?.name}
               </span>{" "}
-              gives access to workspace shared projects and credits. You have{" "}
+              gives access to shared projects and credits. You have{" "}
               <span className="font-medium text-gray-900 dark:text-white">
                 {teamMembers.length} builder
                 {teamMembers.length !== 1 ? "s" : ""}
               </span>{" "}
-              in this workspace.
+              in this team.
             </p>
           </div>
           <Button variant="ghost" size="sm" className="gap-2">
@@ -372,6 +375,32 @@ export function PeopleTab() {
               className="flex-1 bg-background border-border"
               disabled={!isOwnerOrAdmin}
             />
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="outline"
+                  className="min-w-[120px] justify-between"
+                  disabled={!isOwnerOrAdmin}
+                >
+                  <span className="capitalize">{inviteRole}</span>
+                  <ChevronDown className="w-4 h-4 ml-2" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => setInviteRole("owner")}>
+                  Owner
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setInviteRole("admin")}>
+                  Admin
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setInviteRole("editor")}>
+                  Editor
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setInviteRole("viewer")}>
+                  Viewer
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             <Button
               onClick={handleInvite}
               className="bg-blue-600 hover:bg-blue-700"
