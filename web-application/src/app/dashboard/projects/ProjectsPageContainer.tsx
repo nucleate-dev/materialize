@@ -2,6 +2,7 @@
 
 import { supabase } from "@/ClientConstants";
 import { useUser } from "@/hooks/useUser";
+import { useActiveTeam } from "@/contexts/TeamContext";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -12,6 +13,7 @@ const PAGE_SIZE = 12;
 
 export default function ProjectsPageContainer() {
   const { user } = useUser();
+  const { activeTeam } = useActiveTeam();
   const router = useRouter();
   const logger = useProductLogger();
   const [modalOpen, setModalOpen] = useState(false);
@@ -31,7 +33,7 @@ export default function ProjectsPageContainer() {
       offset: start = 0,
       append = false,
     }: { offset?: number; append?: boolean } = {}) => {
-      if (!user?.id) {
+      if (!activeTeam?.id) {
         setPrototypes([]);
         setHasMore(false);
         setIsLoading(false);
@@ -55,7 +57,7 @@ export default function ProjectsPageContainer() {
         const { data, error } = await supabase
           .from("prototypes")
           .select("*")
-          .eq("owner_id", user.id)
+          .eq("team_id", activeTeam.id)
           .order("updated_at", { ascending: false })
           .range(from, to);
 
@@ -85,7 +87,7 @@ export default function ProjectsPageContainer() {
         }
       }
     },
-    [user?.id, logger],
+    [activeTeam?.id, logger],
   );
 
   useEffect(() => {
