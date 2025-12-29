@@ -422,7 +422,8 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
 
   // Grant credits to the user with expiration date
   const planKey = getPlanKey(subscriptionItem.price.id);
-  const creditsToGrant = getCreditsForPlan(planKey);
+  const creditsPerSeat = getCreditsForPlan(planKey);
+  const creditsToGrant = creditsPerSeat * seatQuantity;
   const billingPeriodStart = new Date(
     subscriptionItem.current_period_start * 1000,
   ).toISOString();
