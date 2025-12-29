@@ -21,7 +21,10 @@ import { Search, HelpCircle, ChevronDown, ArrowUpDown } from "lucide-react";
 import { Database } from "@/lib/types/supabase";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import { useQueryClient } from "@tanstack/react-query";
-import { teamInvitesQueryKey } from "@/lib/react-query/queryKeys";
+import {
+  teamInvitesQueryKey,
+  teamMembersQueryKey,
+} from "@/lib/react-query/queryKeys";
 
 type TeamRole = Database["public"]["Enums"]["team_role"];
 
@@ -194,7 +197,11 @@ export function PeopleTab() {
         old_role: currentRole,
         new_role: newRole,
       });
-      // The TeamContext will automatically refetch and update
+
+      // Invalidate team members query to refetch the updated list
+      queryClient.invalidateQueries({
+        queryKey: teamMembersQueryKey(activeTeam.id),
+      });
     } catch (err) {
       logger.debug("error", "Failed to update role", { error: err });
       alert("Failed to update role. Please try again.");
