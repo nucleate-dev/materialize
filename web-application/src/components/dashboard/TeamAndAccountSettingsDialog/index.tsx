@@ -17,10 +17,12 @@ import {
   SidebarGroupLabel,
   SidebarGroupContent,
 } from "@/components/ui/sidebar";
-import { X, User, CreditCard, Key, Users } from "lucide-react";
+import { X, User, CreditCard, Key, Users, LogOut } from "lucide-react";
 import { useCustomUserRow } from "@/hooks/useCustomUserRow";
 import { usePostHog } from "posthog-js/react";
 import { useActiveTeam } from "@/contexts/TeamContext";
+import { logout } from "@/lib/utils/auth/SupabaseAuthUtils";
+import { useRouter } from "next/navigation";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ProfileTab } from "./ProfileTab";
 import { ClaudeConnectionTab } from "./ClaudeConnectionTab";
@@ -44,6 +46,7 @@ export function TeamAndAccountsSettingsDialog({
   const { userRow } = useCustomUserRow();
   const { activeTeam } = useActiveTeam();
   const posthog = usePostHog();
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<SettingsTab>(defaultTab);
 
   const isClaudeConnectionEnabled =
@@ -69,6 +72,17 @@ export function TeamAndAccountsSettingsDialog({
       setActiveTab(defaultTab);
     }
   }, [open, defaultTab]);
+
+  const handleLogout = async () => {
+    const error = await logout();
+    if (error) {
+      console.error("Logout failed:", error.message);
+      alert("Failed to log out. Please try again.");
+    } else {
+      onOpenChange(false);
+      router.push("/");
+    }
+  };
 
   interface TabGroup {
     label: string;
@@ -156,6 +170,18 @@ export function TeamAndAccountsSettingsDialog({
                   </SidebarGroupContent>
                 </SidebarGroup>
               ))}
+            </div>
+
+            {/* Logout Button */}
+            <div className="p-2 border-t border-border">
+              <Button
+                variant="ghost"
+                className="w-full justify-start text-destructive hover:text-destructive hover:bg-destructive/10"
+                onClick={handleLogout}
+              >
+                <LogOut className="w-4 h-4 mr-2" />
+                Log out
+              </Button>
             </div>
           </div>
 
