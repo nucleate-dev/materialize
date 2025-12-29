@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -33,16 +33,18 @@ type SettingsTab = "profile" | "credits" | "claude" | "team" | "people";
 interface SettingsDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  defaultTab?: SettingsTab;
 }
 
 export function TeamAndAccountsSettingsDialog({
   open,
   onOpenChange,
+  defaultTab = "profile",
 }: SettingsDialogProps) {
   const { userRow } = useCustomUserRow();
   const { activeTeam } = useActiveTeam();
   const posthog = usePostHog();
-  const [activeTab, setActiveTab] = useState<SettingsTab>("profile");
+  const [activeTab, setActiveTab] = useState<SettingsTab>(defaultTab);
 
   const isClaudeConnectionEnabled =
     posthog?.isFeatureEnabled("claude-code-cli-with-personal-token") ?? false;
@@ -60,6 +62,13 @@ export function TeamAndAccountsSettingsDialog({
 
   const teamName = activeTeam?.name || "Team";
   const teamInitials = getInitials(teamName);
+
+  // Update active tab when dialog opens with a new defaultTab
+  useEffect(() => {
+    if (open) {
+      setActiveTab(defaultTab);
+    }
+  }, [open, defaultTab]);
 
   interface TabGroup {
     label: string;

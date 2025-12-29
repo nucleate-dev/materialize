@@ -53,6 +53,9 @@ const DashboardSidebarContent = () => {
   const isTeamsUIEnabled = useFeatureFlagEnabled("teams-ui") ?? false;
   const { activeTeam } = useActiveTeam();
   const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);
+  const [settingsDefaultTab, setSettingsDefaultTab] = useState<
+    "profile" | "credits" | "claude" | "team" | "people"
+  >("profile");
 
   const getInitials = (name: string | null) => {
     if (!name) return "U";
@@ -161,7 +164,10 @@ const DashboardSidebarContent = () => {
         <div className={cn("py-1", "px-2")}>
           <TeamSelector
             isCollapsed={isCollapsed}
-            onOpenSettings={() => setSettingsDialogOpen(true)}
+            onOpenSettings={(tab) => {
+              setSettingsDefaultTab(tab);
+              setSettingsDialogOpen(true);
+            }}
           />
         </div>
       )}
@@ -268,6 +274,7 @@ const DashboardSidebarContent = () => {
                 logSidebarItemClick("settings", {
                   action: "open_dialog",
                 });
+                setSettingsDefaultTab("profile");
                 setSettingsDialogOpen(true);
                 handleMobileLinkClick();
               }}
@@ -316,6 +323,7 @@ const DashboardSidebarContent = () => {
       <TeamAndAccountsSettingsDialog
         open={settingsDialogOpen}
         onOpenChange={setSettingsDialogOpen}
+        defaultTab={settingsDefaultTab}
       />
     </>
   );
