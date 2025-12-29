@@ -32,6 +32,7 @@ import {
 } from "@/components/ui/tooltip";
 import { VIEWER_ROLE_RESTRICTION_MESSAGE } from "@/GlobalConstants";
 import { useActiveTeam } from "@/contexts/TeamContext";
+import { type PrototypeVisibility } from "@/lib/types/prototypes";
 import { SwatchIcon } from "@heroicons/react/24/outline"; // Kept Heroicons
 import { PaintBrushIcon } from "@heroicons/react/24/solid";
 import { useAtom } from "jotai";
@@ -43,6 +44,7 @@ import {
   LayoutTemplate,
   Loader2,
   Rocket,
+  Share2,
   Sparkles,
   Wand2,
 } from "lucide-react"; // Kept Lucide
@@ -87,7 +89,7 @@ export default function DashboardPage() {
   const [showUpsellModal, setShowUpsellModal] = useState(false);
   const router = useRouter();
   const { user } = useUser();
-  const { currentUserMembership } = useActiveTeam();
+  const { activeTeam, currentUserMembership } = useActiveTeam();
   const [redirectAfterLogin, setRedirectAfterLogin] = useAtom(
     redirectAfterLoginAtom,
   );
@@ -99,12 +101,14 @@ export default function DashboardPage() {
   const [designStyle, setDesignStyle] = useState<DesignStyle>("stylesheets");
   const [framework, setFramework] =
     useState<PrototypeFramework>(DEFAULT_FRAMEWORK);
+  const [visibility, setVisibility] = useState<PrototypeVisibility>("PUBLIC");
   const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
   const [isSurveyChecking, setIsSurveyChecking] = useState(true);
   const [hasCheckedIntent, setHasCheckedIntent] = useState(false);
 
   const isWebPrototypeEnabled =
     posthog?.isFeatureEnabled("web-prototype-support") ?? false;
+  const isTeamsUIEnabled = posthog?.isFeatureEnabled("teams-ui") ?? false;
   const isWebFrameworkSelected = framework === "web_nextjs_react";
   const availableDesignStyles = isWebFrameworkSelected
     ? WEB_DESIGN_STYLE_OPTIONS
@@ -249,7 +253,7 @@ export default function DashboardPage() {
       const result = await createPrototype({
         design_style: designStyle,
         custom_design_system: customDesignSystemId ?? undefined,
-        visibility: "PUBLIC",
+        visibility,
         framework,
         creation_source: "dashboard_prompt",
       });
@@ -445,6 +449,42 @@ export default function DashboardPage() {
                     </SelectContent>
                   </Select>
                 )}
+
+                {/* Visibility Selector */}
+                <Select
+                  value={visibility}
+                  onValueChange={(value) =>
+                    setVisibility(value as PrototypeVisibility)
+                  }
+                  disabled={isLoading}
+                >
+                  <SelectTrigger className="h-8 border-0 bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 text-black/70 dark:text-white/70 hover:text-black dark:hover:text-white text-xs font-medium rounded-md transition-colors gap-2 w-auto min-w-[120px] focus:ring-0">
+                    <Share2 className="w-3.5 h-3.5" />
+                    <SelectValue placeholder="Visibility" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-white dark:bg-[#1A1B1E] border-black/10 dark:border-white/10 text-black dark:text-white">
+                    <SelectItem
+                      value="PUBLIC"
+                      className="focus:bg-black/10 dark:focus:bg-white/10 focus:text-black dark:focus:text-white text-black/70 dark:text-white/70 cursor-pointer text-xs py-2"
+                    >
+                      Public
+                    </SelectItem>
+                    {isTeamsUIEnabled && activeTeam && (
+                      <SelectItem
+                        value="TEAM"
+                        className="focus:bg-black/10 dark:focus:bg-white/10 focus:text-black dark:focus:text-white text-black/70 dark:text-white/70 cursor-pointer text-xs py-2"
+                      >
+                        {activeTeam.name}
+                      </SelectItem>
+                    )}
+                    <SelectItem
+                      value="SELF"
+                      className="focus:bg-black/10 dark:focus:bg-white/10 focus:text-black dark:focus:text-white text-black/70 dark:text-white/70 cursor-pointer text-xs py-2"
+                    >
+                      Private
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
               {/* Left: Mobile Collapsible Tools */}
@@ -554,6 +594,44 @@ export default function DashboardPage() {
                           </SelectContent>
                         </Select>
                       )}
+
+                      {/* Visibility Selector */}
+                      <Select
+                        value={visibility}
+                        onValueChange={(v) =>
+                          setVisibility(v as PrototypeVisibility)
+                        }
+                        disabled={isLoading}
+                      >
+                        <SelectTrigger className="h-9 border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/5 text-black dark:text-white text-xs w-full">
+                          <div className="flex items-center gap-2">
+                            <Share2 className="w-3.5 h-3.5" />
+                            <SelectValue placeholder="Visibility" />
+                          </div>
+                        </SelectTrigger>
+                        <SelectContent className="bg-white dark:bg-[#1A1B1E] border-black/10 dark:border-white/10 text-black dark:text-white">
+                          <SelectItem
+                            value="PUBLIC"
+                            className="focus:bg-black/10 dark:focus:bg-white/10 text-black/80 dark:text-white/80 text-xs"
+                          >
+                            Public
+                          </SelectItem>
+                          {isTeamsUIEnabled && activeTeam && (
+                            <SelectItem
+                              value="TEAM"
+                              className="focus:bg-black/10 dark:focus:bg-white/10 text-black/80 dark:text-white/80 text-xs"
+                            >
+                              {activeTeam.name}
+                            </SelectItem>
+                          )}
+                          <SelectItem
+                            value="SELF"
+                            className="focus:bg-black/10 dark:focus:bg-white/10 text-black/80 dark:text-white/80 text-xs"
+                          >
+                            Private
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                   </CollapsibleContent>
                 </Collapsible>

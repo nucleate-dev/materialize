@@ -144,6 +144,7 @@ export default function NewPrototypeModal({
 
   const isWebPrototypeEnabled =
     posthog?.isFeatureEnabled("web-prototype-support") ?? false;
+  const isTeamsUIEnabled = posthog?.isFeatureEnabled("teams-ui") ?? false;
   const isWebFrameworkSelected = framework === "web_nextjs_react";
   const availableDesignStyles = isWebFrameworkSelected
     ? WEB_DESIGN_STYLE_OPTIONS
@@ -682,6 +683,14 @@ export default function NewPrototypeModal({
                   >
                     Public
                   </SelectItem>
+                  {isTeamsUIEnabled && activeTeam && (
+                    <SelectItem
+                      value="TEAM"
+                      className="focus:bg-zinc-100 dark:focus:bg-white/10 focus:text-zinc-900 dark:focus:text-white cursor-pointer"
+                    >
+                      {activeTeam.name}
+                    </SelectItem>
+                  )}
                   <SelectItem
                     value="SELF"
                     className="focus:bg-zinc-100 dark:focus:bg-white/10 focus:text-zinc-900 dark:focus:text-white cursor-pointer"
