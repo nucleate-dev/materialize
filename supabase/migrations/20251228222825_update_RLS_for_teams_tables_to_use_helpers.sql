@@ -40,6 +40,16 @@ declare
 begin
   target_team_id := coalesce(old.team_id, new.team_id);
 
+  -- ✅ Service role / backend / system context bypass
+  -- (auth.uid() is NULL when request is made with the service role key or from system jobs)
+  if auth.uid() is null then
+    if tg_op = 'DELETE' then
+      return old;
+    else
+      return new;
+    end if;
+  end if;
+
   -- Membership identity immutable
   if (tg_op = 'UPDATE') then
     if new.team_id is distinct from old.team_id then
@@ -321,6 +331,11 @@ as $$
 declare
   is_admin_owner boolean;
 begin
+  -- ✅ Service role / backend / system context bypass
+  if auth.uid() is null then
+    return new;
+  end if;
+
   -- Always immutable
   if new.team_id is distinct from old.team_id then
     raise exception 'team_id cannot be changed for team_invites';
