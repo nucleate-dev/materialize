@@ -21,6 +21,7 @@ type RecentItem = {
   updated_at: string | null;
   created_at: string | null;
   type: "prototype" | "canvas";
+  framework?: string | null;
 };
 
 // Utility to format date as relative time
@@ -101,6 +102,7 @@ export default function ProjectPage() {
           updated_at: p.updated_at,
           created_at: p.created_at,
           type: "prototype" as const,
+          framework: p.framework,
         }),
       );
 
@@ -214,6 +216,7 @@ export default function ProjectPage() {
                     key={`${item.type}-${item.id}`}
                     prototypeName={item.name}
                     prototypeId={item.id}
+                    framework={item.framework ?? null}
                     lastModified={formatRelativeTime(
                       item.updated_at || item.created_at,
                     )}

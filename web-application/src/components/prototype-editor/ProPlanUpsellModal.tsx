@@ -14,7 +14,8 @@ import { useEffect, useState } from "react";
 
 type UpsellReason =
   | "free_message_limit_reached"
-  | "prototype_creation_limit_reached";
+  | "prototype_creation_limit_reached"
+  | "visibility_restriction";
 
 interface ProPlanUpsellModalProps {
   open: boolean;
@@ -75,6 +76,18 @@ export default function ProPlanUpsellModal({
             "Unlimited projects",
             `${nextTierCredits} credits per month`,
             "Advanced prototyping features",
+            "Priority support",
+          ],
+        };
+      case "visibility_restriction":
+        return {
+          limitText: "Team feature",
+          title: `Share with your team using ${suggestedUpgrade.name}`,
+          description: `Upgrade to ${suggestedUpgrade.name} to share projects with your team and collaborate together.`,
+          features: [
+            "Team collaboration",
+            "Share projects with team members",
+            `${nextTierCredits} credits per month`,
             "Priority support",
           ],
         };
