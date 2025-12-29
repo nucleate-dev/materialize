@@ -380,23 +380,30 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
   const { userId, teamId } = metadataIds;
   const posthogBaseProps = {
     source: LoggingEventSource.API_PAYMENTS_HANDLE_SUBSCRIPTION,
+    user_id: userId,
     team_id: teamId,
   };
 
   // update the database with the new subscription info and record the payment for access later
+  const subscriptionItem = subscription.items.data[0];
+  const seatQuantity = Math.max(1, subscriptionItem.quantity ?? 1);
+
   const { error: subscriptionUpdateError } = await supabase
     .from("subscriptions")
-    .upsert({
-      id: subscription.id, // primary key
-      team_id: teamId,
-      stripe_customer_id: getCustomerIdFromInvoice(invoice),
-      status: SubscriptionStatuses.ACTIVE,
-      current_period_start: subscription.items.data[0].current_period_start,
-      current_period_end: subscription.items.data[0].current_period_end,
-      price_id: subscription.items.data[0].price.id,
-      plan_id: getPlanKey(subscription.items.data[0].price.id),
-      stripe_subscription_item_id: subscription.items.data[0].id,
-    } as Database["public"]["Tables"]["subscriptions"]["Insert"]);
+    .upsert(
+      {
+        id: subscription.id, // primary key
+        team_id: teamId,
+        stripe_customer_id: getCustomerIdFromInvoice(invoice),
+        status: SubscriptionStatuses.ACTIVE,
+        current_period_start: subscriptionItem.current_period_start,
+        current_period_end: subscriptionItem.current_period_end,
+        price_id: subscriptionItem.price.id,
+        plan_id: getPlanKey(subscriptionItem.price.id),
+        stripe_subscription_item_id: subscriptionItem.id,
+        seat_quantity: seatQuantity,
+      } as Database["public"]["Tables"]["subscriptions"]["Insert"],
+    );
   if (subscriptionUpdateError) {
     posthog.capture({
       distinctId: userId,
@@ -414,13 +421,13 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
   }
 
   // Grant credits to the user with expiration date
-  const planKey = getPlanKey(subscription.items.data[0].price.id);
+  const planKey = getPlanKey(subscriptionItem.price.id);
   const creditsToGrant = getCreditsForPlan(planKey);
   const billingPeriodStart = new Date(
-    subscription.items.data[0].current_period_start * 1000,
+    subscriptionItem.current_period_start * 1000,
   ).toISOString();
   const billingPeriodEnd = new Date(
-    subscription.items.data[0].current_period_end * 1000,
+    subscriptionItem.current_period_end * 1000,
   ).toISOString();
   const expiresAt = billingPeriodEnd;
 
@@ -853,19 +860,24 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
   }
   const { userId, teamId } = metadataIds;
 
-  const newPlanKey = getPlanKey(subscription.items.data[0].price.id);
+  const subscriptionItem = subscription.items.data[0];
+  const seatQuantity = Math.max(1, subscriptionItem.quantity ?? 1);
+  const newPlanKey = getPlanKey(subscriptionItem.price.id);
 
   // update the database with the new subscription info. The handleInvoicePayment function should handle recording the payment
   const { error: subscriptionUpdateError } = await supabase
     .from("subscriptions")
-    .update({
-      current_period_start: subscription.items.data[0].current_period_start,
-      current_period_end: subscription.items.data[0].current_period_end,
-      price_id: subscription.items.data[0].price.id,
-      plan_id: newPlanKey,
-      scheduled_for_cancellation: subscription.cancel_at_period_end,
-      stripe_subscription_item_id: subscription.items.data[0].id,
-    } as Database["public"]["Tables"]["subscriptions"]["Update"])
+    .update(
+      {
+        current_period_start: subscriptionItem.current_period_start,
+        current_period_end: subscriptionItem.current_period_end,
+        price_id: subscriptionItem.price.id,
+        plan_id: newPlanKey,
+        scheduled_for_cancellation: subscription.cancel_at_period_end,
+        stripe_subscription_item_id: subscriptionItem.id,
+        seat_quantity: seatQuantity,
+      } as Database["public"]["Tables"]["subscriptions"]["Update"],
+    )
     .eq("id", subscription.id);
   if (subscriptionUpdateError) {
     posthog.capture({
