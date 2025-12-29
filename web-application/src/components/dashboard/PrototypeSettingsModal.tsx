@@ -63,6 +63,8 @@ import {
 } from "@/components/ui/tooltip";
 import { VIEWER_ROLE_RESTRICTION_MESSAGE } from "@/GlobalConstants";
 import { useActiveTeam } from "@/contexts/TeamContext";
+import { usePostHog } from "posthog-js/react";
+import ProPlanUpsellModal from "@/components/prototype-editor/ProPlanUpsellModal";
 
 interface PrototypeSettingsModalProps {
   open: boolean;
@@ -82,16 +84,24 @@ export default function PrototypeSettingsModal({
   onDeleted,
 }: PrototypeSettingsModalProps) {
   const logger = useProductLogger();
-  const { currentUserMembership } = useActiveTeam();
+  const posthog = usePostHog();
+  const { activeTeam, currentUserMembership } = useActiveTeam();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [visibility, setVisibility] = useState<PrototypeVisibility>("SELF");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showUpsellModal, setShowUpsellModal] = useState(false);
   const { userPlan } = useSubscriptionAccess();
 
   // Check if user is a viewer (no edit privileges)
   const isViewer = currentUserMembership?.role === "viewer";
+
+  // Check if teams UI is enabled
+  const isTeamsUIEnabled = posthog?.isFeatureEnabled("teams-ui") ?? false;
+
+  // Check if team is on free plan
+  const isFreePlan = userPlan === "free";
 
   useEffect(() => {
     if (prototype) {
@@ -268,25 +278,28 @@ export default function PrototypeSettingsModal({
                     <Globe className="w-3.5 h-3.5" /> Visibility
                   </Label>
 
-                  <div
-                    className={cn(
-                      "relative rounded-lg transition-opacity",
-                      IsUserPlanSubscribed(userPlan) ? "opacity-100" : "",
-                    )}
-                  >
+                  <div className="relative rounded-lg transition-opacity">
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <div>
                           <Select
                             value={visibility}
-                            onValueChange={(v) =>
-                              setVisibility(v as PrototypeVisibility)
-                            }
-                            disabled={
-                              isSubmitting ||
-                              !IsUserPlanSubscribed(userPlan) ||
-                              isViewer
-                            }
+                            onValueChange={(v) => {
+                              const nextVisibility = v as PrototypeVisibility;
+
+                              // Check if trying to select a locked option
+                              if (
+                                isFreePlan &&
+                                (nextVisibility === "SELF" ||
+                                  nextVisibility === "TEAM")
+                              ) {
+                                setShowUpsellModal(true);
+                                return;
+                              }
+
+                              setVisibility(nextVisibility);
+                            }}
+                            disabled={isSubmitting || isViewer}
                           >
                             <SelectTrigger
                               id="prototype-visibility"
@@ -296,21 +309,38 @@ export default function PrototypeSettingsModal({
                             </SelectTrigger>
                             <SelectContent className="bg-white dark:bg-[#141517] border-gray-200 dark:border-white/10 text-gray-900 dark:text-white">
                               <SelectItem
-                                value="SELF"
-                                className="cursor-pointer focus:bg-gray-100 dark:focus:bg-white/10"
-                              >
-                                <div className="flex items-center gap-2">
-                                  <Lock className="w-4 h-4 text-gray-500 dark:text-gray-400" />
-                                  <span>Private</span>
-                                </div>
-                              </SelectItem>
-                              <SelectItem
                                 value="PUBLIC"
                                 className="cursor-pointer focus:bg-gray-100 dark:focus:bg-white/10"
                               >
                                 <div className="flex items-center gap-2">
                                   <Globe className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
                                   <span>Public</span>
+                                </div>
+                              </SelectItem>
+                              {isTeamsUIEnabled && activeTeam && (
+                                <SelectItem
+                                  value="TEAM"
+                                  className="cursor-pointer focus:bg-gray-100 dark:focus:bg-white/10"
+                                >
+                                  <div className="flex items-center gap-2">
+                                    <Share2 className="w-4 h-4 text-blue-500 dark:text-blue-400" />
+                                    <span>{activeTeam.name}</span>
+                                    {isFreePlan && (
+                                      <Lock className="w-3.5 h-3.5 text-gray-400 ml-auto" />
+                                    )}
+                                  </div>
+                                </SelectItem>
+                              )}
+                              <SelectItem
+                                value="SELF"
+                                className="cursor-pointer focus:bg-gray-100 dark:focus:bg-white/10"
+                              >
+                                <div className="flex items-center gap-2">
+                                  <Lock className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+                                  <span>Private</span>
+                                  {isFreePlan && (
+                                    <Lock className="w-3.5 h-3.5 text-gray-400 ml-auto" />
+                                  )}
                                 </div>
                               </SelectItem>
                             </SelectContent>
@@ -324,13 +354,13 @@ export default function PrototypeSettingsModal({
                       )}
                     </Tooltip>
 
-                    {/* Pro Plan Lock Overlay / Message */}
-                    {!IsUserPlanSubscribed(userPlan) && !isViewer && (
+                    {/* Pro Plan Message */}
+                    {isFreePlan && !isViewer && (
                       <div className="mt-2 flex items-start gap-2 p-2 rounded bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-500/20 text-amber-800 dark:text-amber-400">
                         <Sparkles className="w-4 h-4 mt-0.5 flex-shrink-0" />
                         <p className="text-xs leading-relaxed">
-                          Upgrade to <span className="font-semibold">Pro</span>{" "}
-                          to make projects public and share them with the world.
+                          Upgrade to <span className="font-semibold">Plus</span>{" "}
+                          for private and team visibility options.
                         </p>
                       </div>
                     )}
@@ -432,6 +462,13 @@ export default function PrototypeSettingsModal({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Upsell Modal */}
+      <ProPlanUpsellModal
+        open={showUpsellModal}
+        onOpenChange={setShowUpsellModal}
+        reason="visibility_restriction"
+      />
     </Dialog>
   );
 }

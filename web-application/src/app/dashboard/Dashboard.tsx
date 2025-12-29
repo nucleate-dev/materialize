@@ -33,6 +33,7 @@ import {
 import { VIEWER_ROLE_RESTRICTION_MESSAGE } from "@/GlobalConstants";
 import { useActiveTeam } from "@/contexts/TeamContext";
 import { type PrototypeVisibility } from "@/lib/types/prototypes";
+import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import { SwatchIcon } from "@heroicons/react/24/outline"; // Kept Heroicons
 import { PaintBrushIcon } from "@heroicons/react/24/solid";
 import { useAtom } from "jotai";
@@ -40,9 +41,11 @@ import {
   ChevronDown,
   Command,
   Cpu,
+  Globe,
   Layers,
   LayoutTemplate,
   Loader2,
+  Lock,
   Rocket,
   Share2,
   Sparkles,
@@ -86,10 +89,10 @@ export default function DashboardPage() {
   const { createPrototype } = useCreatePrototype();
   const [prompt, setPrompt] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [showUpsellModal, setShowUpsellModal] = useState(false);
   const router = useRouter();
   const { user } = useUser();
   const { activeTeam, currentUserMembership } = useActiveTeam();
+  const { userPlan } = useSubscriptionAccess();
   const [redirectAfterLogin, setRedirectAfterLogin] = useAtom(
     redirectAfterLoginAtom,
   );
@@ -103,6 +106,7 @@ export default function DashboardPage() {
     useState<PrototypeFramework>(DEFAULT_FRAMEWORK);
   const [visibility, setVisibility] = useState<PrototypeVisibility>("PUBLIC");
   const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
+  const [showUpsellModal, setShowUpsellModal] = useState(false);
   const [isSurveyChecking, setIsSurveyChecking] = useState(true);
   const [hasCheckedIntent, setHasCheckedIntent] = useState(false);
 
@@ -110,6 +114,9 @@ export default function DashboardPage() {
     posthog?.isFeatureEnabled("web-prototype-support") ?? false;
   const isTeamsUIEnabled = posthog?.isFeatureEnabled("teams-ui") ?? false;
   const isWebFrameworkSelected = framework === "web_nextjs_react";
+
+  // Check if team is on free plan
+  const isFreePlan = userPlan === "free";
   const availableDesignStyles = isWebFrameworkSelected
     ? WEB_DESIGN_STYLE_OPTIONS
     : DESIGN_STYLE_OPTIONS;
@@ -453,9 +460,20 @@ export default function DashboardPage() {
                 {/* Visibility Selector */}
                 <Select
                   value={visibility}
-                  onValueChange={(value) =>
-                    setVisibility(value as PrototypeVisibility)
-                  }
+                  onValueChange={(value) => {
+                    const nextVisibility = value as PrototypeVisibility;
+
+                    // Check if trying to select a locked option
+                    if (
+                      isFreePlan &&
+                      (nextVisibility === "SELF" || nextVisibility === "TEAM")
+                    ) {
+                      setShowUpsellModal(true);
+                      return;
+                    }
+
+                    setVisibility(nextVisibility);
+                  }}
                   disabled={isLoading}
                 >
                   <SelectTrigger className="h-8 border-0 bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 text-black/70 dark:text-white/70 hover:text-black dark:hover:text-white text-xs font-medium rounded-md transition-colors gap-2 w-auto min-w-[120px] focus:ring-0">
@@ -467,21 +485,36 @@ export default function DashboardPage() {
                       value="PUBLIC"
                       className="focus:bg-black/10 dark:focus:bg-white/10 focus:text-black dark:focus:text-white text-black/70 dark:text-white/70 cursor-pointer text-xs py-2"
                     >
-                      Public
+                      <div className="flex items-center gap-2">
+                        <Globe className="w-3.5 h-3.5" />
+                        <span>Public</span>
+                      </div>
                     </SelectItem>
                     {isTeamsUIEnabled && activeTeam && (
                       <SelectItem
                         value="TEAM"
                         className="focus:bg-black/10 dark:focus:bg-white/10 focus:text-black dark:focus:text-white text-black/70 dark:text-white/70 cursor-pointer text-xs py-2"
                       >
-                        {activeTeam.name}
+                        <div className="flex items-center gap-2">
+                          <Share2 className="w-3.5 h-3.5" />
+                          <span>{activeTeam.name}</span>
+                          {isFreePlan && (
+                            <Lock className="w-3 h-3 text-black/40 dark:text-white/40 ml-auto" />
+                          )}
+                        </div>
                       </SelectItem>
                     )}
                     <SelectItem
                       value="SELF"
                       className="focus:bg-black/10 dark:focus:bg-white/10 focus:text-black dark:focus:text-white text-black/70 dark:text-white/70 cursor-pointer text-xs py-2"
                     >
-                      Private
+                      <div className="flex items-center gap-2">
+                        <Lock className="w-3.5 h-3.5" />
+                        <span>Private</span>
+                        {isFreePlan && (
+                          <Lock className="w-3 h-3 text-black/40 dark:text-white/40 ml-auto" />
+                        )}
+                      </div>
                     </SelectItem>
                   </SelectContent>
                 </Select>
@@ -598,9 +631,21 @@ export default function DashboardPage() {
                       {/* Visibility Selector */}
                       <Select
                         value={visibility}
-                        onValueChange={(v) =>
-                          setVisibility(v as PrototypeVisibility)
-                        }
+                        onValueChange={(v) => {
+                          const nextVisibility = v as PrototypeVisibility;
+
+                          // Check if trying to select a locked option
+                          if (
+                            isFreePlan &&
+                            (nextVisibility === "SELF" ||
+                              nextVisibility === "TEAM")
+                          ) {
+                            setShowUpsellModal(true);
+                            return;
+                          }
+
+                          setVisibility(nextVisibility);
+                        }}
                         disabled={isLoading}
                       >
                         <SelectTrigger className="h-9 border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/5 text-black dark:text-white text-xs w-full">
@@ -614,21 +659,36 @@ export default function DashboardPage() {
                             value="PUBLIC"
                             className="focus:bg-black/10 dark:focus:bg-white/10 text-black/80 dark:text-white/80 text-xs"
                           >
-                            Public
+                            <div className="flex items-center gap-2">
+                              <Globe className="w-3.5 h-3.5" />
+                              <span>Public</span>
+                            </div>
                           </SelectItem>
                           {isTeamsUIEnabled && activeTeam && (
                             <SelectItem
                               value="TEAM"
                               className="focus:bg-black/10 dark:focus:bg-white/10 text-black/80 dark:text-white/80 text-xs"
                             >
-                              {activeTeam.name}
+                              <div className="flex items-center gap-2">
+                                <Share2 className="w-3.5 h-3.5" />
+                                <span>{activeTeam.name}</span>
+                                {isFreePlan && (
+                                  <Lock className="w-3 h-3 text-black/40 dark:text-white/40 ml-auto" />
+                                )}
+                              </div>
                             </SelectItem>
                           )}
                           <SelectItem
                             value="SELF"
                             className="focus:bg-black/10 dark:focus:bg-white/10 text-black/80 dark:text-white/80 text-xs"
                           >
-                            Private
+                            <div className="flex items-center gap-2">
+                              <Lock className="w-3.5 h-3.5" />
+                              <span>Private</span>
+                              {isFreePlan && (
+                                <Lock className="w-3 h-3 text-black/40 dark:text-white/40 ml-auto" />
+                              )}
+                            </div>
                           </SelectItem>
                         </SelectContent>
                       </Select>
@@ -699,7 +759,7 @@ export default function DashboardPage() {
       <ProPlanUpsellModal
         open={showUpsellModal}
         onOpenChange={setShowUpsellModal}
-        reason="prototype_creation_limit_reached"
+        reason="visibility_restriction"
       />
     </div>
   );

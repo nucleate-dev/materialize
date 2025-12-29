@@ -42,9 +42,12 @@ import {
   AlertTriangle,
   ChevronDown,
   Folder,
+  Globe,
   Loader2,
+  Lock,
   Palette,
   Rocket,
+  Share2,
   Sparkles,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -146,6 +149,9 @@ export default function NewPrototypeModal({
     posthog?.isFeatureEnabled("web-prototype-support") ?? false;
   const isTeamsUIEnabled = posthog?.isFeatureEnabled("teams-ui") ?? false;
   const isWebFrameworkSelected = framework === "web_nextjs_react";
+
+  // Check if team is on free plan
+  const isFreePlan = userPlan === "free";
   const availableDesignStyles = isWebFrameworkSelected
     ? WEB_DESIGN_STYLE_OPTIONS
     : DESIGN_STYLE_OPTIONS;
@@ -658,13 +664,16 @@ export default function NewPrototypeModal({
                 onValueChange={(value) =>
                   setVisibility(() => {
                     const nextVisibility = value as PrototypeVisibility;
+
+                    // Check if trying to select a locked option
                     if (
-                      !IsUserPlanSubscribed(userPlan) &&
-                      nextVisibility === "SELF"
+                      isFreePlan &&
+                      (nextVisibility === "SELF" || nextVisibility === "TEAM")
                     ) {
                       setShowUpsellModal(true);
-                      return "PUBLIC";
+                      return visibility; // Keep current value
                     }
+
                     return nextVisibility;
                   })
                 }
@@ -681,21 +690,36 @@ export default function NewPrototypeModal({
                     value="PUBLIC"
                     className="focus:bg-zinc-100 dark:focus:bg-white/10 focus:text-zinc-900 dark:focus:text-white cursor-pointer"
                   >
-                    Public
+                    <div className="flex items-center gap-2">
+                      <Globe className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
+                      <span>Public</span>
+                    </div>
                   </SelectItem>
                   {isTeamsUIEnabled && activeTeam && (
                     <SelectItem
                       value="TEAM"
                       className="focus:bg-zinc-100 dark:focus:bg-white/10 focus:text-zinc-900 dark:focus:text-white cursor-pointer"
                     >
-                      {activeTeam.name}
+                      <div className="flex items-center gap-2">
+                        <Share2 className="w-4 h-4 text-blue-500 dark:text-blue-400" />
+                        <span>{activeTeam.name}</span>
+                        {isFreePlan && (
+                          <Lock className="w-3.5 h-3.5 text-gray-400 ml-auto" />
+                        )}
+                      </div>
                     </SelectItem>
                   )}
                   <SelectItem
                     value="SELF"
                     className="focus:bg-zinc-100 dark:focus:bg-white/10 focus:text-zinc-900 dark:focus:text-white cursor-pointer"
                   >
-                    Private
+                    <div className="flex items-center gap-2">
+                      <Lock className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+                      <span>Private</span>
+                      {isFreePlan && (
+                        <Lock className="w-3.5 h-3.5 text-gray-400 ml-auto" />
+                      )}
+                    </div>
                   </SelectItem>
                 </SelectContent>
               </Select>
