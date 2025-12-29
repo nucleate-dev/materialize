@@ -4,6 +4,12 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
   CreditCard,
   Crown,
   Loader2,
@@ -27,8 +33,13 @@ export function CreditsAndSubscriptionsTab() {
   const router = useRouter();
   const logger = useProductLogger();
   const { userPlan, currentPeriodEnd } = useSubscriptionAccess();
-  const { activeTeam } = useActiveTeam();
+  const { activeTeam, currentUserMembership } = useActiveTeam();
   const creditUsage = useCreditUsage();
+
+  // Check if current user is owner or admin
+  const isOwnerOrAdmin =
+    currentUserMembership?.role === "owner" ||
+    currentUserMembership?.role === "admin";
 
   const [isProcessingUpgrade, setIsProcessingUpgrade] =
     useState<boolean>(false);
@@ -157,34 +168,60 @@ export function CreditsAndSubscriptionsTab() {
 
                 <div className="flex gap-3 pt-2">
                   {upgradeOption && (
-                    <Button
-                      onClick={() => handleUpgradeClick(upgradeOption.tier)}
-                      className="flex-1 bg-black dark:bg-white text-white dark:text-black hover:bg-black/90 dark:hover:bg-white/90"
-                      disabled={isProcessingUpgrade}
-                    >
-                      {isProcessingUpgrade ? (
-                        <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                      ) : (
-                        <Crown className="w-4 h-4 mr-2" />
-                      )}
-                      {upgradeOption.label}
-                    </Button>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div className="flex-1">
+                            <Button
+                              onClick={() => handleUpgradeClick(upgradeOption.tier)}
+                              className="w-full bg-black dark:bg-white text-white dark:text-black hover:bg-black/90 dark:hover:bg-white/90"
+                              disabled={isProcessingUpgrade || !isOwnerOrAdmin}
+                            >
+                              {isProcessingUpgrade ? (
+                                <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                              ) : (
+                                <Crown className="w-4 h-4 mr-2" />
+                              )}
+                              {upgradeOption.label}
+                            </Button>
+                          </div>
+                        </TooltipTrigger>
+                        {!isOwnerOrAdmin && (
+                          <TooltipContent>
+                            <p>Only owners and admins can purchase</p>
+                          </TooltipContent>
+                        )}
+                      </Tooltip>
+                    </TooltipProvider>
                   )}
 
                   {currentSubscription !== "free" && (
-                    <Button
-                      onClick={handleManageBillingClick}
-                      variant="outline"
-                      disabled={isManagingBilling}
-                      className="flex-1 border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 text-gray-900 dark:text-white"
-                    >
-                      {isManagingBilling ? (
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      ) : (
-                        <Settings className="w-4 h-4 mr-2" />
-                      )}
-                      Manage Billing
-                    </Button>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div className="flex-1">
+                            <Button
+                              onClick={handleManageBillingClick}
+                              variant="outline"
+                              disabled={isManagingBilling || !isOwnerOrAdmin}
+                              className="w-full border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 text-gray-900 dark:text-white"
+                            >
+                              {isManagingBilling ? (
+                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                              ) : (
+                                <Settings className="w-4 h-4 mr-2" />
+                              )}
+                              Manage Billing
+                            </Button>
+                          </div>
+                        </TooltipTrigger>
+                        {!isOwnerOrAdmin && (
+                          <TooltipContent>
+                            <p>Only owners and admins can manage billing</p>
+                          </TooltipContent>
+                        )}
+                      </Tooltip>
+                    </TooltipProvider>
                   )}
                 </div>
               </div>
@@ -288,12 +325,11 @@ export function CreditsAndSubscriptionsTab() {
                     <div
                       key={pack.id}
                       className={cn(
-                        "relative p-5 rounded-xl border transition-all duration-200 group cursor-pointer",
+                        "relative p-5 rounded-xl border transition-all duration-200 group",
                         pack.bestValue
                           ? "bg-white dark:bg-[#1A1B1E] border-purple-500/50 shadow-[0_0_20px_-5px_rgba(168,85,247,0.15)]"
                           : "bg-white dark:bg-[#141517] border-black/10 dark:border-white/10 hover:border-black/20 dark:hover:border-white/20 shadow-sm dark:shadow-none",
                       )}
-                      onClick={() => handleUpgradeClick(pack.id)}
                     >
                       {pack.bestValue && (
                         <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 bg-purple-500 text-white text-[10px] font-bold uppercase tracking-wider rounded-full border border-purple-400">
@@ -314,21 +350,35 @@ export function CreditsAndSubscriptionsTab() {
                           ${(pack.price / pack.credits).toFixed(2)} / credit
                         </span>
                       </div>
-                      <Button
-                        className={cn(
-                          "w-full h-8 text-xs",
-                          pack.bestValue
-                            ? "bg-black dark:bg-white text-white dark:text-black hover:bg-black/90 dark:hover:bg-white/90"
-                            : "bg-black/5 dark:bg-white/5 text-gray-900 dark:text-white hover:bg-black/10 dark:hover:bg-white/10 border border-black/10 dark:border-white/10",
-                        )}
-                        disabled={isProcessingUpgrade}
-                      >
-                        {isProcessingUpgrade ? (
-                          <Loader2 className="w-3 h-3 animate-spin" />
-                        ) : (
-                          "Purchase"
-                        )}
-                      </Button>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <div>
+                              <Button
+                                onClick={() => handleUpgradeClick(pack.id)}
+                                className={cn(
+                                  "w-full h-8 text-xs",
+                                  pack.bestValue
+                                    ? "bg-black dark:bg-white text-white dark:text-black hover:bg-black/90 dark:hover:bg-white/90"
+                                    : "bg-black/5 dark:bg-white/5 text-gray-900 dark:text-white hover:bg-black/10 dark:hover:bg-white/10 border border-black/10 dark:border-white/10",
+                                )}
+                                disabled={isProcessingUpgrade || !isOwnerOrAdmin}
+                              >
+                                {isProcessingUpgrade ? (
+                                  <Loader2 className="w-3 h-3 animate-spin" />
+                                ) : (
+                                  "Purchase"
+                                )}
+                              </Button>
+                            </div>
+                          </TooltipTrigger>
+                          {!isOwnerOrAdmin && (
+                            <TooltipContent>
+                              <p>Only owners and admins can purchase</p>
+                            </TooltipContent>
+                          )}
+                        </Tooltip>
+                      </TooltipProvider>
                     </div>
                   ))}
                 </div>
