@@ -57,13 +57,12 @@ begin
   -- Bootstrap insert: allow team creator to insert the first membership as owner
   is_bootstrap_owner_insert := false;
   if tg_op = 'INSERT' then
-    if new.user_id = auth.uid()
-       and new.role = 'owner'
+    if new.role = 'owner'
        and exists (
          select 1
          from public.teams t
          where t.id = new.team_id
-           and t.created_by = auth.uid()
+           and t.created_by = new.user_id
        )
        and not exists (
          select 1
@@ -71,6 +70,7 @@ begin
          where existing.team_id = new.team_id
        )
     then
+      -- Allow first owner insert even if auth.uid() is null (e.g., system triggers)
       is_bootstrap_owner_insert := true;
     end if;
   end if;
