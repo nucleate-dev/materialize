@@ -50,6 +50,13 @@ import {
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { usePostHog } from "posthog-js/react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { VIEWER_ROLE_RESTRICTION_MESSAGE } from "@/GlobalConstants";
 
 interface NewPrototypeModalProps {
   open: boolean;
@@ -108,7 +115,7 @@ export default function NewPrototypeModal({
   const router = useRouter();
   const logger = useProductLogger();
   const posthog = usePostHog();
-  const { activeTeam } = useActiveTeam();
+  const { activeTeam, currentUserMembership } = useActiveTeam();
 
   const [name, setName] = useState("");
   const [touched, setTouched] = useState(false);
@@ -149,6 +156,9 @@ export default function NewPrototypeModal({
     }
     return DESIGN_STYLE_LABELS[style] ?? style;
   };
+
+  // Check if user is a viewer (no edit privileges)
+  const isViewer = currentUserMembership?.role === "viewer";
 
   // Fetch user's projects and prototype count
   useEffect(() => {
@@ -842,27 +852,41 @@ export default function NewPrototypeModal({
               </CollapsibleContent>
             </Collapsible>
 
-            <Button
-              type="submit"
-              disabled={
-                isCreating ||
-                !name.trim() ||
-                (userPlan === "free" && prototypeCount >= 5)
-              }
-              className="w-full h-11 bg-zinc-900 text-white hover:bg-zinc-800 dark:bg-white dark:text-black dark:hover:bg-white/90 font-medium rounded-lg"
-            >
-              {isCreating ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                  Creating...
-                </>
-              ) : (
-                <>
-                  <Rocket className="w-4 h-4 mr-2" />
-                  Create Project
-                </>
-              )}
-            </Button>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="w-full">
+                    <Button
+                      type="submit"
+                      disabled={
+                        isCreating ||
+                        !name.trim() ||
+                        (userPlan === "free" && prototypeCount >= 5) ||
+                        isViewer
+                      }
+                      className="w-full h-11 bg-zinc-900 text-white hover:bg-zinc-800 dark:bg-white dark:text-black dark:hover:bg-white/90 font-medium rounded-lg"
+                    >
+                      {isCreating ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                          Creating...
+                        </>
+                      ) : (
+                        <>
+                          <Rocket className="w-4 h-4 mr-2" />
+                          Create Project
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </TooltipTrigger>
+                {isViewer && (
+                  <TooltipContent>
+                    <p>{VIEWER_ROLE_RESTRICTION_MESSAGE}</p>
+                  </TooltipContent>
+                )}
+              </Tooltip>
+            </TooltipProvider>
           </form>
         </DialogContent>
       </Dialog>
