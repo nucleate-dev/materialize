@@ -113,6 +113,7 @@ export async function POST(req: NextRequest) {
     case "customer.subscription.updated":
       // Though there is no harm, this does not need to be handled if the prorated amount is charged immediately.
       // in this case, the invoice.paid event will trigger and handle database updates.
+      // For downgrades scheduled at period end, this event fires but credit granting happens in invoice.paid.
       await handleSubscriptionUpdated(event.data.object);
       break;
     case "customer.subscription.trial_will_end":
