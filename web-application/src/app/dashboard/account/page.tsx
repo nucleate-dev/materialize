@@ -10,14 +10,13 @@ import { cn } from "@/lib/classNames";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import { formatGrantType } from "@/lib/utils/credits/CreditUtils";
 import { usePostHog } from "posthog-js/react";
-import {
-  fetchPersonalTeamId,
-  handleCheckout,
-} from "@/lib/utils/payments/CheckoutUtils";
+import { handleCheckout } from "@/lib/utils/payments/CheckoutUtils";
 import {
   handleRedirectToStripeCustomerPortal,
   IsUserPlanSubscribed,
 } from "@/lib/utils/payments/SubscriptionManagementUtils";
+import { useActiveTeam } from "@/contexts/TeamContext";
+import { logout } from "@/lib/utils/auth/SupabaseAuthUtils";
 import {
   AlertCircle,
   Calendar,
@@ -27,6 +26,7 @@ import {
   ExternalLink,
   Key,
   Loader2,
+  LogOut,
   MessageSquare,
   Settings,
   Sparkles,
@@ -85,6 +85,7 @@ function AccountSettings() {
   const router = useRouter();
   const posthog = usePostHog();
   const { userPlan, currentPeriodEnd } = useSubscriptionAccess();
+  const { activeTeam } = useActiveTeam();
 
   // Use the new credit usage hook
   const creditUsage = useCreditUsage();
@@ -154,7 +155,9 @@ function AccountSettings() {
           plan: targetPlan,
         },
       });
-      await handleCheckout(targetPlan, router);
+      if (activeTeam?.id) {
+        await handleCheckout(targetPlan, router, activeTeam.id);
+      }
       setTimeout(() => setIsProcessingUpgrade(false), 2000);
     } catch (error) {
       logger.debug("error", "Error starting checkout:", {
@@ -165,19 +168,15 @@ function AccountSettings() {
   };
 
   const handleManageBillingClick = async () => {
-    if (!user.user?.id) {
+    if (!activeTeam?.id) {
+      alert(
+        "We couldn't find your active team. Please refresh and try again.",
+      );
       return;
     }
     try {
       setIsManagingBilling(true);
-      const teamId = await fetchPersonalTeamId(user.user.id);
-      if (!teamId) {
-        alert(
-          "We couldn't find your personal team. Please refresh and try again.",
-        );
-        return;
-      }
-      await handleRedirectToStripeCustomerPortal(teamId, router);
+      await handleRedirectToStripeCustomerPortal(activeTeam.id, router);
     } catch (error) {
       logger.debug("error", "Error opening billing portal:", {
         error: error instanceof Error ? error.message : String(error),
@@ -321,49 +320,8 @@ function AccountSettings() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Left Column: Profile & Plan */}
+          {/* Left Column: Plan & Settings */}
           <div className="space-y-8 lg:col-span-2">
-            {/* Profile Section */}
-            <SectionCard>
-              <div className="p-6 flex items-center gap-6">
-                <Avatar className="h-16 w-16 border border-black/10 dark:border-white/10">
-                  <AvatarFallback className="bg-gray-100 dark:bg-[#1A1B1E] text-gray-900 dark:text-white font-medium text-lg">
-                    {getInitials(name || "U")}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="space-y-1 flex-1">
-                  <div className="flex items-center gap-3">
-                    <h2 className="text-xl font-medium text-gray-900 dark:text-white">
-                      {name || "User"}
-                    </h2>
-                    <div
-                      className={cn(
-                        "px-2 py-0.5 rounded-full text-[10px] font-medium border uppercase tracking-wider flex items-center gap-1",
-                        getPlanBadgeColor(currentSubscription),
-                      )}
-                    >
-                      {IsUserPlanSubscribed(currentSubscription) && (
-                        <Crown className="w-3 h-3" />
-                      )}
-                      {currentSubscription}
-                    </div>
-                  </div>
-                  <p className="text-gray-600 dark:text-[#8A8F98] text-sm">
-                    {email}
-                  </p>
-                </div>
-              </div>
-              <div className="bg-gray-50 dark:bg-[#1A1B1E]/50 px-6 py-3 border-t border-black/5 dark:border-white/5 flex items-center text-xs text-gray-600 dark:text-[#8A8F98]">
-                <Calendar className="w-3.5 h-3.5 mr-2 opacity-70" />
-                Member since{" "}
-                {memberSince?.toLocaleDateString("en-US", {
-                  year: "numeric",
-                  month: "long",
-                  day: "numeric",
-                })}
-              </div>
-            </SectionCard>
-
             {/* Subscription Management */}
             <SectionCard>
               <SectionHeader
@@ -684,6 +642,24 @@ function AccountSettings() {
                   )}
               </div>
             </SectionCard>
+
+            {/* Logout Button */}
+            <Button
+              onClick={() => {
+                logger.log({
+                  event: "client_dashboard_logout_clicked",
+                  properties: {
+                    source: "account_page",
+                  },
+                });
+                logout();
+              }}
+              variant="outline"
+              className="w-full border-red-200 dark:border-red-900 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950"
+            >
+              <LogOut className="w-4 h-4 mr-2" />
+              Sign Out
+            </Button>
           </div>
 
           {/* Right Column: Top Ups (Only Paid) */}

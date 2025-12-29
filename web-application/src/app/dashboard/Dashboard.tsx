@@ -24,6 +24,16 @@ import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import { Database } from "@/lib/types/supabase";
 import { setChatIntent } from "@/lib/utils/chatIntentUtils";
 import { checkSurveyCompleted } from "@/lib/utils/survey/SurveyUtils";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { VIEWER_ROLE_RESTRICTION_MESSAGE } from "@/GlobalConstants";
+import { useActiveTeam } from "@/contexts/TeamContext";
+import { type PrototypeVisibility } from "@/lib/types/prototypes";
+import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import { SwatchIcon } from "@heroicons/react/24/outline"; // Kept Heroicons
 import { PaintBrushIcon } from "@heroicons/react/24/solid";
 import { useAtom } from "jotai";
@@ -31,10 +41,13 @@ import {
   ChevronDown,
   Command,
   Cpu,
+  Globe,
   Layers,
   LayoutTemplate,
   Loader2,
+  Lock,
   Rocket,
+  Share2,
   Sparkles,
   Wand2,
 } from "lucide-react"; // Kept Lucide
@@ -76,9 +89,10 @@ export default function DashboardPage() {
   const { createPrototype } = useCreatePrototype();
   const [prompt, setPrompt] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [showUpsellModal, setShowUpsellModal] = useState(false);
   const router = useRouter();
   const { user } = useUser();
+  const { activeTeam, currentUserMembership } = useActiveTeam();
+  const { userPlan } = useSubscriptionAccess();
   const [redirectAfterLogin, setRedirectAfterLogin] = useAtom(
     redirectAfterLoginAtom,
   );
@@ -90,13 +104,19 @@ export default function DashboardPage() {
   const [designStyle, setDesignStyle] = useState<DesignStyle>("stylesheets");
   const [framework, setFramework] =
     useState<PrototypeFramework>(DEFAULT_FRAMEWORK);
+  const [visibility, setVisibility] = useState<PrototypeVisibility>("PUBLIC");
   const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
+  const [showUpsellModal, setShowUpsellModal] = useState(false);
   const [isSurveyChecking, setIsSurveyChecking] = useState(true);
   const [hasCheckedIntent, setHasCheckedIntent] = useState(false);
 
   const isWebPrototypeEnabled =
     posthog?.isFeatureEnabled("web-prototype-support") ?? false;
+  const isTeamsUIEnabled = posthog?.isFeatureEnabled("teams-ui") ?? false;
   const isWebFrameworkSelected = framework === "web_nextjs_react";
+
+  // Check if team is on free plan
+  const isFreePlan = userPlan === "free";
   const availableDesignStyles = isWebFrameworkSelected
     ? WEB_DESIGN_STYLE_OPTIONS
     : DESIGN_STYLE_OPTIONS;
@@ -108,6 +128,9 @@ export default function DashboardPage() {
     }
     return DESIGN_STYLE_LABELS[style] ?? style;
   };
+
+  // Check if user is a viewer (no edit privileges)
+  const isViewer = currentUserMembership?.role === "viewer";
 
   // Check if user has completed survey (Scenario 2)
   useEffect(() => {
@@ -237,7 +260,7 @@ export default function DashboardPage() {
       const result = await createPrototype({
         design_style: designStyle,
         custom_design_system: customDesignSystemId ?? undefined,
-        visibility: "PUBLIC",
+        visibility,
         framework,
         creation_source: "dashboard_prompt",
       });
@@ -433,6 +456,68 @@ export default function DashboardPage() {
                     </SelectContent>
                   </Select>
                 )}
+
+                {/* Visibility Selector */}
+                <Select
+                  value={visibility}
+                  onValueChange={(value) => {
+                    const nextVisibility = value as PrototypeVisibility;
+
+                    // Check if trying to select a locked option
+                    if (
+                      isFreePlan &&
+                      (nextVisibility === "SELF" || nextVisibility === "TEAM")
+                    ) {
+                      setShowUpsellModal(true);
+                      return;
+                    }
+
+                    setVisibility(nextVisibility);
+                  }}
+                  disabled={isLoading}
+                >
+                  <SelectTrigger className="h-8 border-0 bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 text-black/70 dark:text-white/70 hover:text-black dark:hover:text-white text-xs font-medium rounded-md transition-colors gap-2 w-auto min-w-[120px] focus:ring-0">
+                    <Share2 className="w-3.5 h-3.5" />
+                    <SelectValue placeholder="Visibility" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-white dark:bg-[#1A1B1E] border-black/10 dark:border-white/10 text-black dark:text-white">
+                    <SelectItem
+                      value="PUBLIC"
+                      className="focus:bg-black/10 dark:focus:bg-white/10 focus:text-black dark:focus:text-white text-black/70 dark:text-white/70 cursor-pointer text-xs py-2"
+                    >
+                      <div className="flex items-center gap-2">
+                        <Globe className="w-3.5 h-3.5" />
+                        <span>Public</span>
+                      </div>
+                    </SelectItem>
+                    {isTeamsUIEnabled && activeTeam && (
+                      <SelectItem
+                        value="TEAM"
+                        className="focus:bg-black/10 dark:focus:bg-white/10 focus:text-black dark:focus:text-white text-black/70 dark:text-white/70 cursor-pointer text-xs py-2"
+                      >
+                        <div className="flex items-center gap-2">
+                          <Share2 className="w-3.5 h-3.5" />
+                          <span>{activeTeam.name}</span>
+                          {isFreePlan && (
+                            <Lock className="w-3 h-3 text-black/40 dark:text-white/40 ml-auto" />
+                          )}
+                        </div>
+                      </SelectItem>
+                    )}
+                    <SelectItem
+                      value="SELF"
+                      className="focus:bg-black/10 dark:focus:bg-white/10 focus:text-black dark:focus:text-white text-black/70 dark:text-white/70 cursor-pointer text-xs py-2"
+                    >
+                      <div className="flex items-center gap-2">
+                        <Lock className="w-3.5 h-3.5" />
+                        <span>Private</span>
+                        {isFreePlan && (
+                          <Lock className="w-3 h-3 text-black/40 dark:text-white/40 ml-auto" />
+                        )}
+                      </div>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
               {/* Left: Mobile Collapsible Tools */}
@@ -542,6 +627,71 @@ export default function DashboardPage() {
                           </SelectContent>
                         </Select>
                       )}
+
+                      {/* Visibility Selector */}
+                      <Select
+                        value={visibility}
+                        onValueChange={(v) => {
+                          const nextVisibility = v as PrototypeVisibility;
+
+                          // Check if trying to select a locked option
+                          if (
+                            isFreePlan &&
+                            (nextVisibility === "SELF" ||
+                              nextVisibility === "TEAM")
+                          ) {
+                            setShowUpsellModal(true);
+                            return;
+                          }
+
+                          setVisibility(nextVisibility);
+                        }}
+                        disabled={isLoading}
+                      >
+                        <SelectTrigger className="h-9 border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/5 text-black dark:text-white text-xs w-full">
+                          <div className="flex items-center gap-2">
+                            <Share2 className="w-3.5 h-3.5" />
+                            <SelectValue placeholder="Visibility" />
+                          </div>
+                        </SelectTrigger>
+                        <SelectContent className="bg-white dark:bg-[#1A1B1E] border-black/10 dark:border-white/10 text-black dark:text-white">
+                          <SelectItem
+                            value="PUBLIC"
+                            className="focus:bg-black/10 dark:focus:bg-white/10 text-black/80 dark:text-white/80 text-xs"
+                          >
+                            <div className="flex items-center gap-2">
+                              <Globe className="w-3.5 h-3.5" />
+                              <span>Public</span>
+                            </div>
+                          </SelectItem>
+                          {isTeamsUIEnabled && activeTeam && (
+                            <SelectItem
+                              value="TEAM"
+                              className="focus:bg-black/10 dark:focus:bg-white/10 text-black/80 dark:text-white/80 text-xs"
+                            >
+                              <div className="flex items-center gap-2">
+                                <Share2 className="w-3.5 h-3.5" />
+                                <span>{activeTeam.name}</span>
+                                {isFreePlan && (
+                                  <Lock className="w-3 h-3 text-black/40 dark:text-white/40 ml-auto" />
+                                )}
+                              </div>
+                            </SelectItem>
+                          )}
+                          <SelectItem
+                            value="SELF"
+                            className="focus:bg-black/10 dark:focus:bg-white/10 text-black/80 dark:text-white/80 text-xs"
+                          >
+                            <div className="flex items-center gap-2">
+                              <Lock className="w-3.5 h-3.5" />
+                              <span>Private</span>
+                              {isFreePlan && (
+                                <Lock className="w-3 h-3 text-black/40 dark:text-white/40 ml-auto" />
+                              )}
+                            </div>
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                   </CollapsibleContent>
                 </Collapsible>
@@ -554,23 +704,36 @@ export default function DashboardPage() {
                   <span>ENTER</span>
                 </div>
 
-                <Button
-                  onClick={() => handleSubmit()}
-                  disabled={!prompt.trim() || isLoading}
-                  className="w-full md:w-auto h-8 px-4 rounded-md bg-black dark:bg-white text-white dark:text-black hover:bg-black/90 dark:hover:bg-white/90 disabled:opacity-50 disabled:cursor-not-allowed text-xs font-bold tracking-wide shadow-[0_0_20px_-5px_rgba(0,0,0,0.3)] dark:shadow-[0_0_20px_-5px_rgba(255,255,255,0.3)] transition-all"
-                >
-                  {isLoading ? (
-                    <>
-                      <Loader2 className="mr-2 h-3 w-3 animate-spin" />
-                      BUILDING...
-                    </>
-                  ) : (
-                    <>
-                      <Wand2 className="mr-2 h-3 w-3" />
-                      GENERATE
-                    </>
-                  )}
-                </Button>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="w-full md:w-auto">
+                        <Button
+                          onClick={() => handleSubmit()}
+                          disabled={!prompt.trim() || isLoading || isViewer}
+                          className="w-full md:w-auto h-8 px-4 rounded-md bg-black dark:bg-white text-white dark:text-black hover:bg-black/90 dark:hover:bg-white/90 disabled:opacity-50 disabled:cursor-not-allowed text-xs font-bold tracking-wide shadow-[0_0_20px_-5px_rgba(0,0,0,0.3)] dark:shadow-[0_0_20px_-5px_rgba(255,255,255,0.3)] transition-all"
+                        >
+                          {isLoading ? (
+                            <>
+                              <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+                              BUILDING...
+                            </>
+                          ) : (
+                            <>
+                              <Wand2 className="mr-2 h-3 w-3" />
+                              GENERATE
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    </TooltipTrigger>
+                    {isViewer && (
+                      <TooltipContent>
+                        <p>{VIEWER_ROLE_RESTRICTION_MESSAGE}</p>
+                      </TooltipContent>
+                    )}
+                  </Tooltip>
+                </TooltipProvider>
               </div>
             </div>
           </div>
@@ -596,7 +759,7 @@ export default function DashboardPage() {
       <ProPlanUpsellModal
         open={showUpsellModal}
         onOpenChange={setShowUpsellModal}
-        reason="prototype_creation_limit_reached"
+        reason="visibility_restriction"
       />
     </div>
   );

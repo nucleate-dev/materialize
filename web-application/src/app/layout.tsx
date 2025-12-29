@@ -1,5 +1,6 @@
 import { MetaPixelPageView } from "@/components/MetaPixelPageView";
 import { ThemeProvider } from "@/components/theme-provider";
+import { TeamProvider } from "@/contexts/TeamContext";
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import Script from "next/script";
@@ -95,16 +96,18 @@ export default function RootLayout({
       <body className={inter.className}>
         <CSPostHogProvider>
           <QueryProvider>
-            <ThemeProvider
-              attribute="class"
-              defaultTheme="light"
-              enableSystem
-              disableTransitionOnChange
-              storageKey="materialize-theme"
-            >
-              <MetaPixelPageView />
-              {children}
-            </ThemeProvider>
+            <TeamProvider>
+              <ThemeProvider
+                attribute="class"
+                defaultTheme="light"
+                enableSystem
+                disableTransitionOnChange
+                storageKey="materialize-theme"
+              >
+                <MetaPixelPageView />
+                {children}
+              </ThemeProvider>
+            </TeamProvider>
           </QueryProvider>
         </CSPostHogProvider>
       </body>

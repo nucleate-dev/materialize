@@ -23,45 +23,11 @@ function getCurrentMonthPeriod(): { startOfMonth: Date; endOfMonth: Date } {
   return { startOfMonth, endOfMonth };
 }
 
-async function getPersonalTeamId(
-  jwtToken: string,
-  userId: string,
-  log2: SystemLogger,
-): Promise<string | null> {
-  const supabaseClient = createClient<Database>(
-    process.env.SUPABASE_URL!,
-    process.env.SUPABASE_ANON_KEY!,
-    {
-      global: {
-        headers: {
-          Authorization: `Bearer ${jwtToken}`,
-        },
-      },
-    },
-  );
-
-  const { data, error } = await supabaseClient
-    .from("teams")
-    .select("id")
-    .eq("personal_owner_user_id", userId)
-    .maybeSingle();
-
-  if (error) {
-    log2.error(error, "Error fetching personal team for user", {
-      functionName: "getPersonalTeamId",
-      userId,
-    });
-    return null;
-  }
-
-  return data?.id ?? null;
-}
-
 export async function getSubscriptionInfo(
   jwtToken: string,
   userId: string,
   log2: SystemLogger,
-  teamId?: string,
+  teamId: string,
 ): Promise<SubscriptionInfo> {
   const nowInSeconds = Math.floor(Date.now() / 1000);
   const supabaseClient = createClient<Database>(
@@ -76,21 +42,16 @@ export async function getSubscriptionInfo(
     },
   );
   try {
-    let query = supabaseClient
+    const query = supabaseClient
       .from("subscriptions")
       .select("*")
+      .eq("team_id", teamId)
       .eq("status", "active")
       .lte("current_period_start", nowInSeconds)
       .gte("current_period_end", nowInSeconds)
       .order("updated_at", {
         ascending: false,
       });
-
-    if (teamId) {
-      query = query.eq("team_id", teamId);
-    } else {
-      query = query.eq("user_id", userId);
-    }
 
     const { data, error } = await query;
 
@@ -295,7 +256,7 @@ export async function getRemainingCredits(
   jwtToken: string,
   userId: string,
   log2: SystemLogger,
-  teamId?: string,
+  teamId: string,
 ): Promise<{
   remaining: number;
   granted: number;
@@ -319,35 +280,17 @@ export async function getRemainingCredits(
   );
 
   try {
-    const resolvedTeamId = teamId ??
-      (await getPersonalTeamId(jwtToken, userId, log2));
     const subscriptionInfo = await getSubscriptionInfo(
       jwtToken,
       userId,
       log2,
-      resolvedTeamId ?? undefined,
+      teamId,
     );
 
     if (subscriptionInfo.userPlan === "free") {
-      if (!resolvedTeamId) {
-        log2.warn(
-          "Unable to determine team for free-tier credit calculation; defaulting to zero",
-          { userId },
-        );
-        return {
-          remaining: 0,
-          granted: CreditLimits.FREE,
-          used: 0,
-          limit: CreditLimits.FREE,
-          plan: subscriptionInfo.userPlan,
-          currentPeriodStart: subscriptionInfo.currentPeriodStart,
-          currentPeriodEnd: subscriptionInfo.currentPeriodEnd,
-          stripeCustomerId: subscriptionInfo.stripeCustomerId,
-        };
-      }
       const freeCreditInfo = await calculateFreeTierCreditInfo(
         supabaseClient,
-        resolvedTeamId,
+        teamId,
         log2,
       );
       return {
@@ -366,7 +309,7 @@ export async function getRemainingCredits(
     const { data: balances, error: balancesError } = await supabaseClient
       .from("credit_grant_balances")
       .select("credits_granted, credits_remaining")
-      .eq("user_id", userId)
+      .eq("team_id", teamId)
       .gt("expires_at", nowIso);
 
     if (balancesError) {
@@ -448,6 +391,7 @@ export async function hasExceededCreditLimit(
   jwtToken: string,
   userId: string,
   log2: SystemLogger,
+  teamId: string,
 ): Promise<{
   exceeded: boolean;
   remaining: number;
@@ -460,7 +404,12 @@ export async function hasExceededCreditLimit(
   stripeCustomerId: string;
 }> {
   try {
-    const creditInfo = await getRemainingCredits(jwtToken, userId, log2);
+    const creditInfo = await getRemainingCredits(
+      jwtToken,
+      userId,
+      log2,
+      teamId,
+    );
 
     return {
       exceeded: creditInfo.remaining <= 0,

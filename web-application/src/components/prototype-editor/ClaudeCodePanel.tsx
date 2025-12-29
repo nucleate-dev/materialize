@@ -16,6 +16,7 @@ import { Database } from "@/lib/types/supabase";
 import { clearChatIntent, getChatIntent } from "@/lib/utils/chatIntentUtils";
 import type React from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useFeatureFlagEnabled } from "posthog-js/react";
 import ClaudeCodePanelUI from "./ClaudeCodePanelUI";
 
 type Prototype = Database["public"]["Tables"]["prototypes"]["Row"];
@@ -64,14 +65,14 @@ interface ClaudeCodePanelProps {
 export interface Message {
   id: string;
   type:
-  | "user"
-  | "assistant"
-  | "system"
-  | "error"
-  | "tool"
-  | "thinking"
-  | "usage"
-  | "design_spec";
+    | "user"
+    | "assistant"
+    | "system"
+    | "error"
+    | "tool"
+    | "thinking"
+    | "usage"
+    | "design_spec";
   content: string;
   timestamp: number;
   toolName?: string;
@@ -119,6 +120,13 @@ export default function ClaudeCodePanel({
   onStartDevServer,
 }: ClaudeCodePanelProps) {
   const logger = useProductLogger();
+
+  // Check if project context feature is enabled
+  const isProjectContextEnabled =
+    useFeatureFlagEnabled("project-context") ?? false;
+
+  // Check if teams UI feature is enabled
+  const isTeamsUIEnabled = useFeatureFlagEnabled("teams-ui") ?? false;
 
   // Active view state (chat or context editor)
   const [activeView, setActiveView] =
@@ -1232,7 +1240,7 @@ export default function ClaudeCodePanel({
       }
 
       default: {
-        const unknownMessage = message as { type: string; };
+        const unknownMessage = message as { type: string };
         logger.debug("log", "Unknown message type", {
           messageType: unknownMessage.type,
         });
@@ -1860,7 +1868,7 @@ export default function ClaudeCodePanel({
       const content: Array<{
         type: string;
         text?: string;
-        source?: { type: string; url: string; };
+        source?: { type: string; url: string };
       }> = [];
 
       // Add text if present
@@ -2229,6 +2237,8 @@ export default function ClaudeCodePanel({
       activeView={activeView}
       onActiveViewChange={setActiveView}
       fileSystem={fileSystem}
+      isProjectContextEnabled={isProjectContextEnabled}
+      isTeamsUIEnabled={isTeamsUIEnabled}
     />
   );
 }

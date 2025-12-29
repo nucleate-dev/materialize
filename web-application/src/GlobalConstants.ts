@@ -16,3 +16,8 @@ export const SHOW_WHITEBOARDS = false;
 export const WAITLIST_MODE = false;
 export const DEBUG_MODE = false;
 export const ENABLE_ASSET_UPLOAD = true;
+
+// MESSAGES
+
+export const VIEWER_ROLE_RESTRICTION_MESSAGE =
+  "You do not have edit privileges. Contact your team admin to upgrade your role.";

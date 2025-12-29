@@ -22,7 +22,7 @@ export type Database = {
           id: number
           is_free_tier: boolean
           prototype_id: string | null
-          team_id: string | null
+          team_id: string
           user_id: string
         }
         Insert: {
@@ -32,7 +32,7 @@ export type Database = {
           id?: never
           is_free_tier?: boolean
           prototype_id?: string | null
-          team_id?: string | null
+          team_id: string
           user_id: string
         }
         Update: {
@@ -42,7 +42,7 @@ export type Database = {
           id?: never
           is_free_tier?: boolean
           prototype_id?: string | null
-          team_id?: string | null
+          team_id?: string
           user_id?: string
         }
         Relationships: [
@@ -242,8 +242,7 @@ export type Database = {
           grant_type: string
           id: string
           subscription_id: string | null
-          team_id: string | null
-          user_id: string
+          team_id: string
         }
         Insert: {
           billing_period_end?: string | null
@@ -255,8 +254,7 @@ export type Database = {
           grant_type?: string
           id?: string
           subscription_id?: string | null
-          team_id?: string | null
-          user_id: string
+          team_id: string
         }
         Update: {
           billing_period_end?: string | null
@@ -268,8 +266,7 @@ export type Database = {
           grant_type?: string
           id?: string
           subscription_id?: string | null
-          team_id?: string | null
-          user_id?: string
+          team_id?: string
         }
         Relationships: [
           {
@@ -284,13 +281,6 @@ export type Database = {
             columns: ["team_id"]
             isOneToOne: false
             referencedRelation: "teams"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "credit_grants_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
             referencedColumns: ["id"]
           },
         ]
@@ -849,7 +839,6 @@ export type Database = {
           stripe_customer_id: string | null
           team_id: string | null
           updated_at: string | null
-          user_id: string | null
         }
         Insert: {
           created_at?: string
@@ -863,7 +852,6 @@ export type Database = {
           stripe_customer_id?: string | null
           team_id?: string | null
           updated_at?: string | null
-          user_id?: string | null
         }
         Update: {
           created_at?: string
@@ -877,7 +865,6 @@ export type Database = {
           stripe_customer_id?: string | null
           team_id?: string | null
           updated_at?: string | null
-          user_id?: string | null
         }
         Relationships: [
           {
@@ -887,13 +874,6 @@ export type Database = {
             referencedRelation: "teams"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "subscriptions_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
         ]
       }
       team_invites: {
@@ -901,37 +881,34 @@ export type Database = {
           accepted_at: string | null
           created_at: string
           email: string | null
-          expires_at: string
+          expires_at: string | null
           id: string
           invited_by: string | null
           invited_user_id: string | null
           role: Database["public"]["Enums"]["team_role"]
           team_id: string
-          token: string
         }
         Insert: {
           accepted_at?: string | null
           created_at?: string
           email?: string | null
-          expires_at: string
+          expires_at?: string | null
           id?: string
           invited_by?: string | null
           invited_user_id?: string | null
           role?: Database["public"]["Enums"]["team_role"]
           team_id: string
-          token: string
         }
         Update: {
           accepted_at?: string | null
           created_at?: string
           email?: string | null
-          expires_at?: string
+          expires_at?: string | null
           id?: string
           invited_by?: string | null
           invited_user_id?: string | null
           role?: Database["public"]["Enums"]["team_role"]
           team_id?: string
-          token?: string
         }
         Relationships: [
           {
@@ -1198,7 +1175,6 @@ export type Database = {
           id: string | null
           subscription_id: string | null
           team_id: string | null
-          user_id: string | null
         }
         Relationships: [
           {
@@ -1213,13 +1189,6 @@ export type Database = {
             columns: ["team_id"]
             isOneToOne: false
             referencedRelation: "teams"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "credit_grants_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
             referencedColumns: ["id"]
           },
         ]
@@ -1246,6 +1215,8 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      can_edit_prototype: { Args: { p_prototype_id: string }; Returns: boolean }
+      can_view_prototype: { Args: { p_prototype_id: string }; Returns: boolean }
       consume_credits: {
         Args: { p_credits: number; p_prototype_id: string; p_user_id: string }
         Returns: {
@@ -1266,10 +1237,8 @@ export type Database = {
           total_remaining: number
         }[]
       }
-      is_team_member: {
-        Args: { p_team_id: string; p_user_id: string }
-        Returns: boolean
-      }
+      is_team_member: { Args: { p_team_id: string }; Returns: boolean }
+      is_team_owner_or_admin: { Args: { p_team_id: string }; Returns: boolean }
     }
     Enums: {
       chat_role: "user" | "assistant" | "system"
@@ -1278,7 +1247,7 @@ export type Database = {
       prototype_framework: "mobile_expo_react_native" | "web_nextjs_react"
       subscription_plan_type: "free" | "team" | "pro" | "plus" | "max"
       subscription_status: "active" | "past_due" | "canceled"
-      team_role: "owner" | "admin" | "member"
+      team_role: "owner" | "admin" | "editor" | "viewer"
       tunnel_status: "creating" | "idle" | "allocated"
       visibility_level: "SELF" | "TEAM_SUBSET" | "TEAM" | "PUBLIC"
     }
@@ -1414,7 +1383,7 @@ export const Constants = {
       prototype_framework: ["mobile_expo_react_native", "web_nextjs_react"],
       subscription_plan_type: ["free", "team", "pro", "plus", "max"],
       subscription_status: ["active", "past_due", "canceled"],
-      team_role: ["owner", "admin", "member"],
+      team_role: ["owner", "admin", "editor", "viewer"],
       tunnel_status: ["creating", "idle", "allocated"],
       visibility_level: ["SELF", "TEAM_SUBSET", "TEAM", "PUBLIC"],
     },

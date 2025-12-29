@@ -13,6 +13,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { useActiveTeam } from "@/contexts/TeamContext";
 import { useCreatePrototype } from "@/hooks/useCreatePrototype";
 import { useUser } from "@/hooks/useUser";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
@@ -576,6 +577,7 @@ function GallerySection() {
 function PricingSection() {
   const router = useRouter();
   const logger = useProductLogger();
+  const { activeTeam } = useActiveTeam();
 
   const handleGetStarted = (productKey: string) => {
     if (productKey !== "free") {
@@ -587,7 +589,9 @@ function PricingSection() {
         },
       });
     }
-    handleCheckout(productKey, router);
+    if (activeTeam?.id) {
+      handleCheckout(productKey, router, activeTeam.id);
+    }
   };
 
   const [copiedCode, setCopiedCode] = useState(false);

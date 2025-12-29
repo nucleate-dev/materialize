@@ -272,7 +272,6 @@ async function handleCreditPackPurchase(
   const { error: creditGrantError } = await supabase
     .from("credit_grants")
     .insert({
-      user_id: userId,
       team_id: teamId,
       credits_granted: creditAmount,
       subscription_id: null,
@@ -389,7 +388,6 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
     .from("subscriptions")
     .upsert({
       id: subscription.id, // primary key
-      user_id: userId,
       team_id: teamId,
       stripe_customer_id: getCustomerIdFromInvoice(invoice),
       status: SubscriptionStatuses.ACTIVE,
@@ -493,7 +491,6 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
     const { data: newGrant, error: insertError } = await supabase
       .from("credit_grants")
       .insert({
-        user_id: userId,
         team_id: teamId,
         credits_granted: creditsToGrant,
         subscription_id: subscription.id,

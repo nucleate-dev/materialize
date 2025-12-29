@@ -739,10 +739,19 @@ export class ChatService {
         };
       }
       if (!teamId) {
-        logger.warn("Team ID missing in worker context for credit check", {
-          prototypeId,
-          userId: user.id,
-        });
+        logger.error(
+          new Error("Team ID missing in worker context"),
+          "Team ID required for credit check",
+          {
+            prototypeId,
+            userId: user.id,
+          },
+        );
+        return {
+          valid: false,
+          errorMessage: "Team context required",
+          errorDetails: "Unable to verify team membership for credit check",
+        };
       }
 
       const creditCheck = await hasRemainingCredits(
@@ -1377,30 +1386,42 @@ export class ChatService {
         });
 
         const { teamId } = getWorkerContext();
-        const { totalRemainingCredits } = await trackApiUsageBuildWorker(
-          this.supabaseClientService.getClient(),
-          user.id,
-          prototypeId,
-          logger,
-          creditsUsed,
-          teamId,
-        );
-
-        this.sendMessage(socket, {
-          type: ChatEvent.USAGE_UPDATE,
-          data: {
+        if (!teamId) {
+          logger.error(
+            new Error("Team ID missing in worker context"),
+            "Cannot track usage without team context",
+            {
+              userId: user.id,
+              prototypeId,
+            },
+          );
+          // Continue without tracking usage rather than failing the entire request
+        } else {
+          const { totalRemainingCredits } = await trackApiUsageBuildWorker(
+            this.supabaseClientService.getClient(),
+            user.id,
+            prototypeId,
+            logger,
             creditsUsed,
-            creditsRemaining: totalRemainingCredits,
-          },
-        });
+            teamId,
+          );
 
-        logger.consoleLogDevOnly("info", "API usage tracked successfully", {
-          userId: user.id,
-          prototypeId,
-          totalCostUsd,
-          creditsUsed,
-          totalRemainingCredits,
-        });
+          this.sendMessage(socket, {
+            type: ChatEvent.USAGE_UPDATE,
+            data: {
+              creditsUsed,
+              creditsRemaining: totalRemainingCredits,
+            },
+          });
+
+          logger.consoleLogDevOnly("info", "API usage tracked successfully", {
+            userId: user.id,
+            prototypeId,
+            totalCostUsd,
+            creditsUsed,
+            totalRemainingCredits,
+          });
+        }
       }
     } catch (usageError) {
       logger.error(

@@ -33,6 +33,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { ENABLE_ASSET_UPLOAD } from "@/GlobalConstants";
+import { useActiveTeam } from "@/contexts/TeamContext";
 import { UseFileSystemReturn } from "@/hooks/useFileSystem";
 import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import { cn } from "@/lib/classNames";
@@ -193,6 +194,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
   );
   const router = useRouter();
   const { userPlan } = useSubscriptionAccess();
+  const { activeTeam } = useActiveTeam();
 
   const availableFiles = Object.keys(fileSystem.state.files);
   const canDelete = availableFiles.length > 1;
@@ -1574,7 +1576,9 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
                       plan: "plus",
                     },
                   });
-                  void handleCheckout("plus", router);
+                  if (activeTeam?.id) {
+                    void handleCheckout("plus", router, activeTeam.id);
+                  }
                 }}
               >
                 Upgrade Plan

@@ -71,6 +71,24 @@ export async function handleUpdateFilesImpl(
 
     // Step 3: Paywall check - ensure user is NOT on free plan
     const { teamId } = getWorkerContext();
+    if (!teamId) {
+      request.log2.error(
+        new Error("Team ID missing in worker context"),
+        "Team ID required for paywall check",
+        {
+          userId: authResult.user.id,
+          prototypeId: prototype_id,
+        },
+      );
+      reply.code(500);
+      return {
+        data: null,
+        error: {
+          error: "TEAM_CONTEXT_REQUIRED",
+          message: "Team context required",
+        },
+      };
+    }
     const userPlan = await fetchUserPlan(
       developmentServerService.supabaseClientService.getClient(),
       authResult.user.id,

@@ -8,7 +8,7 @@ import {
   fetchOverageCredits,
   fetchUserCreditGrantBalances,
 } from "@/lib/utils/credits/CreditUtils";
-import { fetchPersonalTeamId } from "@/lib/utils/payments/CheckoutUtils";
+import { useActiveTeam } from "@/contexts/TeamContext";
 
 interface CreditUsageState {
   creditsUsed: number;
@@ -39,6 +39,7 @@ export function useCreditUsage(): CreditUsageHook {
   const logger = useProductLogger();
   const { user, userIsLoading, userPlan, loadingSubscriptionData } =
     useSubscriptionAccess();
+  const { activeTeam, isLoading: teamLoading } = useActiveTeam();
 
   const [state, setState] = useState<CreditUsageState>({
     creditsUsed: 0,
@@ -52,36 +53,7 @@ export function useCreditUsage(): CreditUsageHook {
     hasReachedLimit: false,
   });
 
-  const [teamId, setTeamId] = useState<string | null>(null);
-  const [teamLoading, setTeamLoading] = useState<boolean>(true);
-
-  useEffect(() => {
-    let isMounted = true;
-    async function resolveTeam() {
-      if (!user?.id) {
-        if (isMounted) {
-          setTeamId(null);
-          setTeamLoading(false);
-        }
-        return;
-      }
-      setTeamLoading(true);
-      try {
-        const personalTeamId = await fetchPersonalTeamId(user.id);
-        if (isMounted) {
-          setTeamId(personalTeamId);
-        }
-      } finally {
-        if (isMounted) {
-          setTeamLoading(false);
-        }
-      }
-    }
-    resolveTeam();
-    return () => {
-      isMounted = false;
-    };
-  }, [user?.id]);
+  const teamId = activeTeam?.id ?? null;
 
   /**
    * Calculate credit limit based on user plan

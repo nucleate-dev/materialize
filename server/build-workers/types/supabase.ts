@@ -22,7 +22,7 @@ export type Database = {
           id: number
           is_free_tier: boolean
           prototype_id: string | null
-          team_id: string | null
+          team_id: string
           user_id: string
         }
         Insert: {
@@ -32,7 +32,7 @@ export type Database = {
           id?: never
           is_free_tier?: boolean
           prototype_id?: string | null
-          team_id?: string | null
+          team_id: string
           user_id: string
         }
         Update: {
@@ -42,7 +42,7 @@ export type Database = {
           id?: never
           is_free_tier?: boolean
           prototype_id?: string | null
-          team_id?: string | null
+          team_id?: string
           user_id?: string
         }
         Relationships: [
@@ -242,7 +242,7 @@ export type Database = {
           grant_type: string
           id: string
           subscription_id: string | null
-          team_id: string | null
+          team_id: string
           user_id: string
         }
         Insert: {
@@ -255,7 +255,7 @@ export type Database = {
           grant_type?: string
           id?: string
           subscription_id?: string | null
-          team_id?: string | null
+          team_id: string
           user_id: string
         }
         Update: {
@@ -268,7 +268,7 @@ export type Database = {
           grant_type?: string
           id?: string
           subscription_id?: string | null
-          team_id?: string | null
+          team_id?: string
           user_id?: string
         }
         Relationships: [
@@ -1246,6 +1246,8 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      can_edit_prototype: { Args: { p_prototype_id: string }; Returns: boolean }
+      can_view_prototype: { Args: { p_prototype_id: string }; Returns: boolean }
       consume_credits: {
         Args: { p_credits: number; p_prototype_id: string; p_user_id: string }
         Returns: {
@@ -1266,10 +1268,8 @@ export type Database = {
           total_remaining: number
         }[]
       }
-      is_team_member: {
-        Args: { p_team_id: string; p_user_id: string }
-        Returns: boolean
-      }
+      is_team_member: { Args: { p_team_id: string }; Returns: boolean }
+      is_team_owner_or_admin: { Args: { p_team_id: string }; Returns: boolean }
     }
     Enums: {
       chat_role: "user" | "assistant" | "system"
@@ -1278,7 +1278,7 @@ export type Database = {
       prototype_framework: "mobile_expo_react_native" | "web_nextjs_react"
       subscription_plan_type: "free" | "team" | "pro" | "plus" | "max"
       subscription_status: "active" | "past_due" | "canceled"
-      team_role: "owner" | "admin" | "member"
+      team_role: "owner" | "admin" | "editor" | "viewer"
       tunnel_status: "creating" | "idle" | "allocated"
       visibility_level: "SELF" | "TEAM_SUBSET" | "TEAM" | "PUBLIC"
     }
@@ -1414,7 +1414,7 @@ export const Constants = {
       prototype_framework: ["mobile_expo_react_native", "web_nextjs_react"],
       subscription_plan_type: ["free", "team", "pro", "plus", "max"],
       subscription_status: ["active", "past_due", "canceled"],
-      team_role: ["owner", "admin", "member"],
+      team_role: ["owner", "admin", "editor", "viewer"],
       tunnel_status: ["creating", "idle", "allocated"],
       visibility_level: ["SELF", "TEAM_SUBSET", "TEAM", "PUBLIC"],
     },

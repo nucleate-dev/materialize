@@ -1,5 +1,6 @@
 "use client";
 
+import { useActiveTeam } from "@/contexts/TeamContext";
 import { handleCheckout } from "@/lib/utils/payments/CheckoutUtils";
 import { CheckIcon } from "@heroicons/react/24/outline";
 import { useRouter } from "next/navigation";
@@ -36,6 +37,7 @@ export function PricingCard({
 }: PricingCardProps) {
   const router = useRouter();
   const logger = useProductLogger();
+  const { activeTeam } = useActiveTeam();
   const cardTitle = title || name || "";
   const productId = productKey || productID || "";
 
@@ -49,7 +51,9 @@ export function PricingCard({
         cardTitle,
       },
     });
-    void handleCheckout(productId, router);
+    if (activeTeam?.id) {
+      void handleCheckout(productId, router, activeTeam.id);
+    }
   };
 
   if (theme === "dark") {

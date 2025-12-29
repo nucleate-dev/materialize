@@ -6,7 +6,7 @@ import type {
   CreatePrototypeRequestBody,
   CreatePrototypeSuccessResponse,
 } from "@/lib/types/serverAPITypes";
-import { fetchPersonalTeamId } from "@/lib/utils/payments/CheckoutUtils";
+import { useActiveTeam } from "@/contexts/TeamContext";
 
 type CreatePrototypeOptions = {
   name?: string;
@@ -21,6 +21,7 @@ type CreatePrototypeOptions = {
 
 export function useCreatePrototype() {
   const logger = useProductLogger();
+  const { activeTeam } = useActiveTeam();
 
   const createPrototype = async (
     options: CreatePrototypeOptions,
@@ -66,17 +67,17 @@ export function useCreatePrototype() {
         };
       }
 
-      const teamId = await fetchPersonalTeamId(userId);
+      const teamId = activeTeam?.id;
       if (!teamId) {
         logger.debug(
           "error",
-          "Unable to determine personal team for prototype creation",
+          "Unable to determine active team for prototype creation",
         );
         return {
           data: null,
           error: {
             error: "INVALID_REQUEST",
-            message: "No personal team found for user",
+            message: "No active team found",
           },
         };
       }

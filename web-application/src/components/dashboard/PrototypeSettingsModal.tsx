@@ -55,6 +55,16 @@ import {
   Type,
 } from "lucide-react";
 import { useEffect, useState } from "react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { VIEWER_ROLE_RESTRICTION_MESSAGE } from "@/GlobalConstants";
+import { useActiveTeam } from "@/contexts/TeamContext";
+import { usePostHog } from "posthog-js/react";
+import ProPlanUpsellModal from "@/components/prototype-editor/ProPlanUpsellModal";
 
 interface PrototypeSettingsModalProps {
   open: boolean;
@@ -74,12 +84,24 @@ export default function PrototypeSettingsModal({
   onDeleted,
 }: PrototypeSettingsModalProps) {
   const logger = useProductLogger();
+  const posthog = usePostHog();
+  const { activeTeam, currentUserMembership } = useActiveTeam();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [visibility, setVisibility] = useState<PrototypeVisibility>("SELF");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showUpsellModal, setShowUpsellModal] = useState(false);
   const { userPlan } = useSubscriptionAccess();
+
+  // Check if user is a viewer (no edit privileges)
+  const isViewer = currentUserMembership?.role === "viewer";
+
+  // Check if teams UI is enabled
+  const isTeamsUIEnabled = posthog?.isFeatureEnabled("teams-ui") ?? false;
+
+  // Check if team is on free plan
+  const isFreePlan = userPlan === "free";
 
   useEffect(() => {
     if (prototype) {
@@ -187,138 +209,219 @@ export default function PrototypeSettingsModal({
 
         {prototype && (
           <form onSubmit={handleSave}>
-            <div className="p-6 space-y-6">
-              {/* Name Input */}
-              <div className="space-y-2">
-                <Label
-                  htmlFor="prototype-name"
-                  className="text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-white/40 flex items-center gap-2"
-                >
-                  <Type className="w-3.5 h-3.5" /> Project Name
-                </Label>
-                <Input
-                  id="prototype-name"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  disabled={isSubmitting}
-                  className="bg-gray-50 dark:bg-[#0B0C0E] border-gray-200 dark:border-white/10 text-gray-900 dark:text-white focus-visible:ring-indigo-500/20 focus-visible:border-indigo-500"
-                  placeholder="e.g. My Awesome App"
-                />
-              </div>
-
-              {/* Description Input */}
-              <div className="space-y-2">
-                <Label
-                  htmlFor="prototype-description"
-                  className="text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-white/40 flex items-center gap-2"
-                >
-                  <FileText className="w-3.5 h-3.5" /> Description
-                </Label>
-                <Textarea
-                  id="prototype-description"
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  disabled={isSubmitting}
-                  className="min-h-[100px] resize-none bg-gray-50 dark:bg-[#0B0C0E] border-gray-200 dark:border-white/10 text-gray-900 dark:text-white focus-visible:ring-indigo-500/20 focus-visible:border-indigo-500"
-                  placeholder="Describe what this project does..."
-                />
-              </div>
-
-              {/* Visibility Select */}
-              <div className="space-y-3">
-                <Label
-                  htmlFor="prototype-visibility"
-                  className="text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-white/40 flex items-center gap-2"
-                >
-                  <Globe className="w-3.5 h-3.5" /> Visibility
-                </Label>
-
-                <div
-                  className={cn(
-                    "relative rounded-lg transition-opacity",
-                    IsUserPlanSubscribed(userPlan) ? "opacity-100" : "",
-                  )}
-                >
-                  <Select
-                    value={visibility}
-                    onValueChange={(v) =>
-                      setVisibility(v as PrototypeVisibility)
-                    }
-                    disabled={isSubmitting || !IsUserPlanSubscribed(userPlan)}
+            <TooltipProvider>
+              <div className="p-6 space-y-6">
+                {/* Name Input */}
+                <div className="space-y-2">
+                  <Label
+                    htmlFor="prototype-name"
+                    className="text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-white/40 flex items-center gap-2"
                   >
-                    <SelectTrigger
-                      id="prototype-visibility"
-                      className="bg-gray-50 dark:bg-[#0B0C0E] border-gray-200 dark:border-white/10 text-gray-900 dark:text-white focus:ring-indigo-500/20"
-                    >
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent className="bg-white dark:bg-[#141517] border-gray-200 dark:border-white/10 text-gray-900 dark:text-white">
-                      <SelectItem
-                        value="SELF"
-                        className="cursor-pointer focus:bg-gray-100 dark:focus:bg-white/10"
-                      >
-                        <div className="flex items-center gap-2">
-                          <Lock className="w-4 h-4 text-gray-500 dark:text-gray-400" />
-                          <span>Private</span>
-                        </div>
-                      </SelectItem>
-                      <SelectItem
-                        value="PUBLIC"
-                        className="cursor-pointer focus:bg-gray-100 dark:focus:bg-white/10"
-                      >
-                        <div className="flex items-center gap-2">
-                          <Globe className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
-                          <span>Public</span>
-                        </div>
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
+                    <Type className="w-3.5 h-3.5" /> Project Name
+                  </Label>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div>
+                        <Input
+                          id="prototype-name"
+                          value={name}
+                          onChange={(e) => setName(e.target.value)}
+                          disabled={isSubmitting || isViewer}
+                          className="bg-gray-50 dark:bg-[#0B0C0E] border-gray-200 dark:border-white/10 text-gray-900 dark:text-white focus-visible:ring-indigo-500/20 focus-visible:border-indigo-500"
+                          placeholder="e.g. My Awesome App"
+                        />
+                      </div>
+                    </TooltipTrigger>
+                    {isViewer && (
+                      <TooltipContent>
+                        <p>{VIEWER_ROLE_RESTRICTION_MESSAGE}</p>
+                      </TooltipContent>
+                    )}
+                  </Tooltip>
+                </div>
 
-                  {/* Pro Plan Lock Overlay / Message */}
-                  {!IsUserPlanSubscribed(userPlan) && (
-                    <div className="mt-2 flex items-start gap-2 p-2 rounded bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-500/20 text-amber-800 dark:text-amber-400">
-                      <Sparkles className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                      <p className="text-xs leading-relaxed">
-                        Upgrade to <span className="font-semibold">Pro</span> to
-                        make projects public and share them with the world.
-                      </p>
-                    </div>
-                  )}
+                {/* Description Input */}
+                <div className="space-y-2">
+                  <Label
+                    htmlFor="prototype-description"
+                    className="text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-white/40 flex items-center gap-2"
+                  >
+                    <FileText className="w-3.5 h-3.5" /> Description
+                  </Label>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div>
+                        <Textarea
+                          id="prototype-description"
+                          value={description}
+                          onChange={(e) => setDescription(e.target.value)}
+                          disabled={isSubmitting || isViewer}
+                          className="min-h-[100px] resize-none bg-gray-50 dark:bg-[#0B0C0E] border-gray-200 dark:border-white/10 text-gray-900 dark:text-white focus-visible:ring-indigo-500/20 focus-visible:border-indigo-500"
+                          placeholder="Describe what this project does..."
+                        />
+                      </div>
+                    </TooltipTrigger>
+                    {isViewer && (
+                      <TooltipContent>
+                        <p>{VIEWER_ROLE_RESTRICTION_MESSAGE}</p>
+                      </TooltipContent>
+                    )}
+                  </Tooltip>
+                </div>
+
+                {/* Visibility Select */}
+                <div className="space-y-3">
+                  <Label
+                    htmlFor="prototype-visibility"
+                    className="text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-white/40 flex items-center gap-2"
+                  >
+                    <Globe className="w-3.5 h-3.5" /> Visibility
+                  </Label>
+
+                  <div className="relative rounded-lg transition-opacity">
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div>
+                          <Select
+                            value={visibility}
+                            onValueChange={(v) => {
+                              const nextVisibility = v as PrototypeVisibility;
+
+                              // Check if trying to select a locked option
+                              if (
+                                isFreePlan &&
+                                (nextVisibility === "SELF" ||
+                                  nextVisibility === "TEAM")
+                              ) {
+                                setShowUpsellModal(true);
+                                return;
+                              }
+
+                              setVisibility(nextVisibility);
+                            }}
+                            disabled={isSubmitting || isViewer}
+                          >
+                            <SelectTrigger
+                              id="prototype-visibility"
+                              className="bg-gray-50 dark:bg-[#0B0C0E] border-gray-200 dark:border-white/10 text-gray-900 dark:text-white focus:ring-indigo-500/20"
+                            >
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent className="bg-white dark:bg-[#141517] border-gray-200 dark:border-white/10 text-gray-900 dark:text-white">
+                              <SelectItem
+                                value="PUBLIC"
+                                className="cursor-pointer focus:bg-gray-100 dark:focus:bg-white/10"
+                              >
+                                <div className="flex items-center gap-2">
+                                  <Globe className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
+                                  <span>Public</span>
+                                </div>
+                              </SelectItem>
+                              {isTeamsUIEnabled && activeTeam && (
+                                <SelectItem
+                                  value="TEAM"
+                                  className="cursor-pointer focus:bg-gray-100 dark:focus:bg-white/10"
+                                >
+                                  <div className="flex items-center gap-2">
+                                    <Share2 className="w-4 h-4 text-blue-500 dark:text-blue-400" />
+                                    <span>{activeTeam.name}</span>
+                                    {isFreePlan && (
+                                      <Lock className="w-3.5 h-3.5 text-gray-400 ml-auto" />
+                                    )}
+                                  </div>
+                                </SelectItem>
+                              )}
+                              <SelectItem
+                                value="SELF"
+                                className="cursor-pointer focus:bg-gray-100 dark:focus:bg-white/10"
+                              >
+                                <div className="flex items-center gap-2">
+                                  <Lock className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+                                  <span>Private</span>
+                                  {isFreePlan && (
+                                    <Lock className="w-3.5 h-3.5 text-gray-400 ml-auto" />
+                                  )}
+                                </div>
+                              </SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </TooltipTrigger>
+                      {isViewer && (
+                        <TooltipContent>
+                          <p>{VIEWER_ROLE_RESTRICTION_MESSAGE}</p>
+                        </TooltipContent>
+                      )}
+                    </Tooltip>
+
+                    {/* Pro Plan Message */}
+                    {isFreePlan && !isViewer && (
+                      <div className="mt-2 flex items-start gap-2 p-2 rounded bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-500/20 text-amber-800 dark:text-amber-400">
+                        <Sparkles className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                        <p className="text-xs leading-relaxed">
+                          Upgrade to <span className="font-semibold">Plus</span>{" "}
+                          for private and team visibility options.
+                        </p>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
 
-            {/* Footer Actions */}
-            <DialogFooter className="p-6 border-t border-gray-200 dark:border-white/5 bg-gray-50 dark:bg-white/[0.02] flex items-center justify-between gap-4">
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={() => setShowDeleteDialog(true)}
-                disabled={isSubmitting}
-                className="text-red-600 dark:text-red-500 hover:text-red-700 dark:hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
-              >
-                <Trash2 className="w-4 h-4 mr-2" />
-                Delete Project
-              </Button>
-              <div className="flex gap-3">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={onClose}
-                  disabled={isSubmitting}
-                  className="border-gray-200 dark:border-white/10 text-gray-700 dark:text-white hover:bg-gray-100 dark:hover:bg-white/5"
-                >
-                  Cancel
-                </Button>
-                <Button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="bg-black dark:bg-white text-white dark:text-black hover:bg-black/90 dark:hover:bg-white/90 shadow-lg font-medium"
-                >
-                  {isSubmitting ? "Saving..." : "Save Changes"}
-                </Button>
-              </div>
-            </DialogFooter>
+              {/* Footer Actions */}
+              <DialogFooter className="p-6 border-t border-gray-200 dark:border-white/5 bg-gray-50 dark:bg-white/[0.02] flex items-center justify-between gap-4">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        onClick={() => setShowDeleteDialog(true)}
+                        disabled={isSubmitting || isViewer}
+                        className="text-red-600 dark:text-red-500 hover:text-red-700 dark:hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
+                      >
+                        <Trash2 className="w-4 h-4 mr-2" />
+                        Delete Project
+                      </Button>
+                    </div>
+                  </TooltipTrigger>
+                  {isViewer && (
+                    <TooltipContent>
+                      <p>{VIEWER_ROLE_RESTRICTION_MESSAGE}</p>
+                    </TooltipContent>
+                  )}
+                </Tooltip>
+                <div className="flex gap-3">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={onClose}
+                    disabled={isSubmitting}
+                    className="border-gray-200 dark:border-white/10 text-gray-700 dark:text-white hover:bg-gray-100 dark:hover:bg-white/5"
+                  >
+                    Cancel
+                  </Button>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div>
+                        <Button
+                          type="submit"
+                          disabled={isSubmitting || isViewer}
+                          className="bg-black dark:bg-white text-white dark:text-black hover:bg-black/90 dark:hover:bg-white/90 shadow-lg font-medium"
+                        >
+                          {isSubmitting ? "Saving..." : "Save Changes"}
+                        </Button>
+                      </div>
+                    </TooltipTrigger>
+                    {isViewer && (
+                      <TooltipContent>
+                        <p>{VIEWER_ROLE_RESTRICTION_MESSAGE}</p>
+                      </TooltipContent>
+                    )}
+                  </Tooltip>
+                </div>
+              </DialogFooter>
+            </TooltipProvider>
           </form>
         )}
       </DialogContent>
@@ -359,6 +462,13 @@ export default function PrototypeSettingsModal({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Upsell Modal */}
+      <ProPlanUpsellModal
+        open={showUpsellModal}
+        onOpenChange={setShowUpsellModal}
+        reason="visibility_restriction"
+      />
     </Dialog>
   );
 }

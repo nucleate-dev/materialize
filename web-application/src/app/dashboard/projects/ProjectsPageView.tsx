@@ -1,5 +1,3 @@
-"use client";
-
 import EmptyState from "@/components/dashboard/EmptyState";
 import NewPrototypeModal from "@/components/dashboard/NewPrototypeModal";
 import PrototypeSettingsModal from "@/components/dashboard/PrototypeSettingsModal";
@@ -21,6 +19,7 @@ type ProjectsPageViewProps = {
   settingsOpen: boolean;
   activePrototype: Prototype | null;
   user: User | null;
+  teamName: string | null;
   onOpenModal: () => void;
   onCloseModal: () => void;
   onPrototypeCreated: (id: string) => void;
@@ -51,6 +50,7 @@ export default function ProjectsPageView({
   settingsOpen,
   activePrototype,
   user,
+  teamName,
   onOpenModal,
   onCloseModal,
   onPrototypeCreated,
@@ -71,7 +71,7 @@ export default function ProjectsPageView({
               All Projects
             </h1>
             <p className="text-muted-foreground text-lg max-w-2xl">
-              Manage and organize your projects from across all your folders.
+              See all projects in {teamName || "your team"}.
             </p>
           </div>
 
@@ -108,6 +108,7 @@ export default function ProjectsPageView({
                 key={prototype.id}
                 prototypeName={prototype.name}
                 prototypeId={prototype.id}
+                framework={prototype.framework}
                 lastModified={
                   formatDate(prototype.updated_at) ||
                   formatDate(prototype.created_at)

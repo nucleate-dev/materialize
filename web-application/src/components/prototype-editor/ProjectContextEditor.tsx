@@ -1,6 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
+import { useActiveTeam } from "@/contexts/TeamContext";
 import { UseFileSystemReturn } from "@/hooks/useFileSystem";
 import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import { cn } from "@/lib/classNames";
@@ -38,6 +39,7 @@ const ProjectContextEditor: React.FC<ProjectContextEditorProps> = ({
   const logger = useProductLogger();
   const router = useRouter();
   const { userPlan } = useSubscriptionAccess();
+  const { activeTeam } = useActiveTeam();
 
   const [isCreating, setIsCreating] = useState(false);
   const [isEditorReady, setIsEditorReady] = useState(false);
@@ -262,7 +264,11 @@ const ProjectContextEditor: React.FC<ProjectContextEditorProps> = ({
             size="sm"
             variant="ghost"
             className="h-6 px-2 text-[10px] bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 border border-amber-500/20 rounded-full"
-            onClick={() => handleCheckout("plus", router)}
+            onClick={() => {
+              if (activeTeam?.id) {
+                handleCheckout("plus", router, activeTeam.id);
+              }
+            }}
           >
             Upgrade Plan
           </Button>

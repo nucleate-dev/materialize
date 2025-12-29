@@ -34,24 +34,32 @@ import type {
   CreatePrototypeSuccessResponse,
 } from "@/lib/types/serverAPITypes";
 import { Database } from "@/lib/types/supabase";
-import {
-  fetchPersonalTeamId,
-  handleCheckout,
-} from "@/lib/utils/payments/CheckoutUtils";
+import { handleCheckout } from "@/lib/utils/payments/CheckoutUtils";
 import { IsUserPlanSubscribed } from "@/lib/utils/payments/SubscriptionManagementUtils";
+import { useActiveTeam } from "@/contexts/TeamContext";
 import { User } from "@supabase/supabase-js";
 import {
   AlertTriangle,
   ChevronDown,
   Folder,
+  Globe,
   Loader2,
+  Lock,
   Palette,
   Rocket,
+  Share2,
   Sparkles,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { usePostHog } from "posthog-js/react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { VIEWER_ROLE_RESTRICTION_MESSAGE } from "@/GlobalConstants";
 
 interface NewPrototypeModalProps {
   open: boolean;
@@ -110,6 +118,7 @@ export default function NewPrototypeModal({
   const router = useRouter();
   const logger = useProductLogger();
   const posthog = usePostHog();
+  const { activeTeam, currentUserMembership } = useActiveTeam();
 
   const [name, setName] = useState("");
   const [touched, setTouched] = useState(false);
@@ -138,7 +147,11 @@ export default function NewPrototypeModal({
 
   const isWebPrototypeEnabled =
     posthog?.isFeatureEnabled("web-prototype-support") ?? false;
+  const isTeamsUIEnabled = posthog?.isFeatureEnabled("teams-ui") ?? false;
   const isWebFrameworkSelected = framework === "web_nextjs_react";
+
+  // Check if team is on free plan
+  const isFreePlan = userPlan === "free";
   const availableDesignStyles = isWebFrameworkSelected
     ? WEB_DESIGN_STYLE_OPTIONS
     : DESIGN_STYLE_OPTIONS;
@@ -150,6 +163,9 @@ export default function NewPrototypeModal({
     }
     return DESIGN_STYLE_LABELS[style] ?? style;
   };
+
+  // Check if user is a viewer (no edit privileges)
+  const isViewer = currentUserMembership?.role === "viewer";
 
   // Fetch user's projects and prototype count
   useEffect(() => {
@@ -402,11 +418,9 @@ export default function NewPrototypeModal({
       const serverEndpoint = process.env.NEXT_PUBLIC_SERVER_ENDPOINT;
       if (!serverEndpoint) return;
 
-      const userId = session.data.session?.user.id;
-      if (!userId) return;
-
-      const teamId = await fetchPersonalTeamId(userId);
+      const teamId = activeTeam?.id;
       if (!teamId) {
+        logger.debug("error", "No active team available for prototype creation");
         return;
       }
 
@@ -539,7 +553,9 @@ export default function NewPrototypeModal({
                           plan: "plus",
                         },
                       });
-                      void handleCheckout("plus", router);
+                      if (activeTeam?.id) {
+                        void handleCheckout("plus", router, activeTeam.id);
+                      }
                     }}
                   >
                     Upgrade Now
@@ -648,13 +664,16 @@ export default function NewPrototypeModal({
                 onValueChange={(value) =>
                   setVisibility(() => {
                     const nextVisibility = value as PrototypeVisibility;
+
+                    // Check if trying to select a locked option
                     if (
-                      !IsUserPlanSubscribed(userPlan) &&
-                      nextVisibility === "SELF"
+                      isFreePlan &&
+                      (nextVisibility === "SELF" || nextVisibility === "TEAM")
                     ) {
                       setShowUpsellModal(true);
-                      return "PUBLIC";
+                      return visibility; // Keep current value
                     }
+
                     return nextVisibility;
                   })
                 }
@@ -671,13 +690,36 @@ export default function NewPrototypeModal({
                     value="PUBLIC"
                     className="focus:bg-zinc-100 dark:focus:bg-white/10 focus:text-zinc-900 dark:focus:text-white cursor-pointer"
                   >
-                    Public
+                    <div className="flex items-center gap-2">
+                      <Globe className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
+                      <span>Public</span>
+                    </div>
                   </SelectItem>
+                  {isTeamsUIEnabled && activeTeam && (
+                    <SelectItem
+                      value="TEAM"
+                      className="focus:bg-zinc-100 dark:focus:bg-white/10 focus:text-zinc-900 dark:focus:text-white cursor-pointer"
+                    >
+                      <div className="flex items-center gap-2">
+                        <Share2 className="w-4 h-4 text-blue-500 dark:text-blue-400" />
+                        <span>{activeTeam.name}</span>
+                        {isFreePlan && (
+                          <Lock className="w-3.5 h-3.5 text-gray-400 ml-auto" />
+                        )}
+                      </div>
+                    </SelectItem>
+                  )}
                   <SelectItem
                     value="SELF"
                     className="focus:bg-zinc-100 dark:focus:bg-white/10 focus:text-zinc-900 dark:focus:text-white cursor-pointer"
                   >
-                    Private
+                    <div className="flex items-center gap-2">
+                      <Lock className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+                      <span>Private</span>
+                      {isFreePlan && (
+                        <Lock className="w-3.5 h-3.5 text-gray-400 ml-auto" />
+                      )}
+                    </div>
                   </SelectItem>
                 </SelectContent>
               </Select>
@@ -843,27 +885,41 @@ export default function NewPrototypeModal({
               </CollapsibleContent>
             </Collapsible>
 
-            <Button
-              type="submit"
-              disabled={
-                isCreating ||
-                !name.trim() ||
-                (userPlan === "free" && prototypeCount >= 5)
-              }
-              className="w-full h-11 bg-zinc-900 text-white hover:bg-zinc-800 dark:bg-white dark:text-black dark:hover:bg-white/90 font-medium rounded-lg"
-            >
-              {isCreating ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                  Creating...
-                </>
-              ) : (
-                <>
-                  <Rocket className="w-4 h-4 mr-2" />
-                  Create Project
-                </>
-              )}
-            </Button>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="w-full">
+                    <Button
+                      type="submit"
+                      disabled={
+                        isCreating ||
+                        !name.trim() ||
+                        (userPlan === "free" && prototypeCount >= 5) ||
+                        isViewer
+                      }
+                      className="w-full h-11 bg-zinc-900 text-white hover:bg-zinc-800 dark:bg-white dark:text-black dark:hover:bg-white/90 font-medium rounded-lg"
+                    >
+                      {isCreating ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                          Creating...
+                        </>
+                      ) : (
+                        <>
+                          <Rocket className="w-4 h-4 mr-2" />
+                          Create Project
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </TooltipTrigger>
+                {isViewer && (
+                  <TooltipContent>
+                    <p>{VIEWER_ROLE_RESTRICTION_MESSAGE}</p>
+                  </TooltipContent>
+                )}
+              </Tooltip>
+            </TooltipProvider>
           </form>
         </DialogContent>
       </Dialog>

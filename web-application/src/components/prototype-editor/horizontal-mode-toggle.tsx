@@ -1,9 +1,16 @@
 "use client";
 
 import { MoonIcon, SunIcon } from "@heroicons/react/24/outline";
+import { ChevronDown, Monitor } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
 
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { SidebarMenuButton } from "@/components/ui/sidebar";
 import { cn } from "@/lib/classNames";
 
@@ -21,32 +28,32 @@ export function HorizontalModeToggle({
     setMounted(true);
   }, []);
 
-  const toggleTheme = () => {
-    if (theme === "light") {
-      setTheme("dark");
-    } else if (theme === "dark") {
-      setTheme("system");
-    } else {
-      setTheme("light");
-    }
-  };
-
   // Don't render theme-specific content until mounted to avoid hydration mismatch
   if (!mounted) {
     return (
       <SidebarMenuButton
-        size="lg"
         className={cn(
-          "w-full justify-start gap-3",
+          "w-full justify-start",
           !sidebarExpanded && "justify-center",
         )}
         disabled
       >
-        <SunIcon className="h-[1.2rem] w-[1.2rem]" />
-        {sidebarExpanded && <span>System</span>}
+        <SunIcon className="h-4 w-4" />
+        {sidebarExpanded && <span>Theme</span>}
       </SidebarMenuButton>
     );
   }
+
+  const getThemeIcon = () => {
+    switch (theme) {
+      case "light":
+        return <SunIcon className="h-4 w-4" />;
+      case "dark":
+        return <MoonIcon className="h-4 w-4" />;
+      default:
+        return <Monitor className="h-4 w-4" />;
+    }
+  };
 
   const getThemeLabel = () => {
     switch (theme) {
@@ -60,17 +67,38 @@ export function HorizontalModeToggle({
   };
 
   return (
-    <SidebarMenuButton
-      onClick={toggleTheme}
-      size="lg"
-      className={cn(
-        "w-full justify-start gap-3",
-        !sidebarExpanded && "justify-center",
-      )}
-    >
-      <SunIcon className="h-[1.2rem] w-[1.2rem] rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
-      <MoonIcon className="absolute h-[1.2rem] w-[1.2rem] rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
-      {sidebarExpanded && <span>{getThemeLabel()}</span>}
-    </SidebarMenuButton>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <SidebarMenuButton
+          tooltip={!sidebarExpanded ? "Theme" : undefined}
+          className={cn(
+            "w-full",
+            sidebarExpanded ? "justify-between" : "justify-center",
+          )}
+        >
+          <div className="flex items-center gap-2">
+            {getThemeIcon()}
+            {sidebarExpanded && <span>{getThemeLabel()}</span>}
+          </div>
+          {sidebarExpanded && (
+            <ChevronDown className="h-3.5 w-3.5 text-sidebar-foreground/50" />
+          )}
+        </SidebarMenuButton>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-32">
+        <DropdownMenuItem onClick={() => setTheme("light")}>
+          <SunIcon className="h-4 w-4 mr-2" />
+          <span>Light</span>
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => setTheme("dark")}>
+          <MoonIcon className="h-4 w-4 mr-2" />
+          <span>Dark</span>
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => setTheme("system")}>
+          <Monitor className="h-4 w-4 mr-2" />
+          <span>System</span>
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

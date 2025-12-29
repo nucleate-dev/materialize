@@ -1,10 +1,10 @@
 import { supabase } from "@/ClientConstants";
 import { SubscriptionStatuses } from "@/GlobalConstants";
+import { useActiveTeam } from "@/contexts/TeamContext";
 import { useUser } from "@/hooks/useUser";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import { subscriptionAccessQueryKey } from "@/lib/react-query/queryKeys";
 import { Database } from "@/lib/types/supabase";
-import { usePersonalTeam } from "@/hooks/usePersonalTeam";
 import { useQuery } from "@tanstack/react-query";
 
 type SubscriptionPlanType =
@@ -150,27 +150,25 @@ async function fetchSubscriptionAccess(
  */
 export function useSubscriptionAccess() {
   const userState = useUser();
-  const { teamId, isLoading: teamLoading } = usePersonalTeam();
+  const { activeTeam, isLoading: teamLoading } = useActiveTeam();
   const logger = useProductLogger();
   const userId = userState.user?.id;
-  const queryEnabled =
-    Boolean(userId && teamId) &&
+  const teamId = activeTeam?.id;
+  const queryEnabled = Boolean(userId && teamId) &&
     userState.userIsLoading === false &&
     teamLoading === false;
 
   const subscriptionQuery = useQuery({
     queryKey: subscriptionAccessQueryKey(
-      userId ? `${userId}:${teamId ?? "no-team"}` : undefined,
+      teamId,
     ),
     queryFn: () => fetchSubscriptionAccess(teamId as string, logger),
     enabled: queryEnabled,
     staleTime: 1000 * 60 * 5,
   });
 
-  const subscriptionData =
-    subscriptionQuery.data ?? getFreeTierAccess();
-  const loadingSubscriptionData =
-    userState.userIsLoading ||
+  const subscriptionData = subscriptionQuery.data ?? getFreeTierAccess();
+  const loadingSubscriptionData = userState.userIsLoading ||
     teamLoading ||
     (queryEnabled ? subscriptionQuery.isPending : false);
 

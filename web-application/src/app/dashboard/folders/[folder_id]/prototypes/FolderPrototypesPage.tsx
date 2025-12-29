@@ -202,6 +202,7 @@ export default function FolderPrototypesPage() {
             key={prototype.id}
             prototypeName={prototype.name}
             prototypeId={prototype.id}
+            framework={prototype.framework}
             lastModified={formatRelativeTime(
               prototype.updated_at || prototype.created_at,
             )}
