@@ -192,7 +192,7 @@ const ThumbnailCard: React.FC<ThumbnailCardProps> = ({
               typeColor,
             )}
           >
-            <TypeIcon className="w-3 h-3" />
+            <TypeIcon className="w-4 h-4" />
             <span className="hidden xs:inline">{typeLabel}</span>
           </div>
         </div>
