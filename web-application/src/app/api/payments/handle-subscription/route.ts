@@ -387,6 +387,22 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
   // update the database with the new subscription info and record the payment for access later
   const subscriptionItem = subscription.items.data[0];
   const seatQuantity = Math.max(1, subscriptionItem.quantity ?? 1);
+  const newPlanKey = getPlanKey(subscriptionItem.price.id);
+
+  // Query existing subscription to detect plan changes (upgrade vs downgrade vs renewal)
+  const { data: existingSubscription } = await supabase
+    .from("subscriptions")
+    .select("plan_id, seat_quantity")
+    .eq("id", subscription.id)
+    .maybeSingle();
+
+  // Determine if this is an upgrade, downgrade, or renewal
+  const changeType = getSubscriptionChangeType(
+    existingSubscription?.plan_id ?? null,
+    existingSubscription?.seat_quantity ?? null,
+    newPlanKey,
+    seatQuantity,
+  );
 
   const { error: subscriptionUpdateError } = await supabase
     .from("subscriptions")
@@ -399,7 +415,7 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
         current_period_start: subscriptionItem.current_period_start,
         current_period_end: subscriptionItem.current_period_end,
         price_id: subscriptionItem.price.id,
-        plan_id: getPlanKey(subscriptionItem.price.id),
+        plan_id: newPlanKey,
         stripe_subscription_item_id: subscriptionItem.id,
         seat_quantity: seatQuantity,
       } as Database["public"]["Tables"]["subscriptions"]["Insert"],
@@ -420,10 +436,19 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
     return;
   }
 
-  // Grant credits to the user with expiration date
-  const planKey = getPlanKey(subscriptionItem.price.id);
-  const creditsPerSeat = getCreditsForPlan(planKey);
-  const creditsToGrant = creditsPerSeat * seatQuantity;
+  // Calculate credits based on change type
+  // - Upgrades: Use amount-based calculation (prorated)
+  // - Downgrades/Renewals: Use plan-based calculation (full period)
+  let creditsToGrant: number;
+  let grantReason: string;
+
+  if (changeType === "upgrade") {
+    creditsToGrant = calculateUpgradeCredits(invoice.amount_paid);
+    grantReason = "subscription_upgrade";
+  } else {
+    creditsToGrant = calculateDowngradeOrRenewalCredits(newPlanKey, seatQuantity);
+    grantReason = changeType === "downgrade" ? "subscription_downgrade" : "subscription_renewal";
+  }
   const billingPeriodStart = new Date(
     subscriptionItem.current_period_start * 1000,
   ).toISOString();
@@ -463,7 +488,7 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
       .from("credit_grants")
       .update({
         credits_granted: creditsToGrant,
-        grant_reason: "subscription_renewal",
+        grant_reason: grantReason,
         grant_type: "subscription",
         billing_period_end: billingPeriodEnd,
         expires_at: expiresAt,
@@ -482,7 +507,7 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
         team_id: teamId,
         credits_granted: creditsToGrant,
         subscription_id: subscription.id,
-        grant_reason: "subscription_renewal",
+        grant_reason: grantReason,
         grant_type: "subscription",
         billing_period_start: billingPeriodStart,
         billing_period_end: billingPeriodEnd,
@@ -671,9 +696,14 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
     properties: {
       ...posthogBaseProps,
       subscription_id: subscription.id,
-      plan_key: planKey,
+      plan_key: newPlanKey,
       amount_total: invoice.amount_paid,
       currency: invoice.currency,
+      change_type: changeType,
+      credits_granted: creditsToGrant,
+      old_plan_key: existingSubscription?.plan_id ?? null,
+      old_seat_quantity: existingSubscription?.seat_quantity ?? null,
+      new_seat_quantity: seatQuantity,
     },
   });
 
@@ -1143,6 +1173,81 @@ function getCreditsForPlan(
     case "team":
       return CreditLimits.TEAM;
   }
+}
+
+/**
+ * Determines if a subscription change is an upgrade, downgrade, or renewal.
+ *
+ * - Upgrade: Total credits (plan credits * seats) increased - takes effect immediately with prorated billing
+ * - Downgrade: Total credits decreased - takes effect at next billing cycle with full period billing
+ * - Renewal: No change in credits - regular renewal with full period billing
+ *
+ * @param oldPlanKey - The previous plan type (null if new subscription)
+ * @param oldSeatQuantity - The previous number of seats (null if new subscription)
+ * @param newPlanKey - The new plan type
+ * @param newSeatQuantity - The new number of seats
+ * @returns 'upgrade', 'downgrade', or 'renewal'
+ */
+function getSubscriptionChangeType(
+  oldPlanKey: Database["public"]["Enums"]["subscription_plan_type"] | null,
+  oldSeatQuantity: number | null,
+  newPlanKey: Database["public"]["Enums"]["subscription_plan_type"],
+  newSeatQuantity: number,
+): "upgrade" | "downgrade" | "renewal" {
+  // If no old subscription, this is a new subscription (treat as renewal)
+  if (!oldPlanKey || oldSeatQuantity === null) {
+    return "renewal";
+  }
+
+  const oldCredits = getCreditsForPlan(oldPlanKey) * oldSeatQuantity;
+  const newCredits = getCreditsForPlan(newPlanKey) * newSeatQuantity;
+
+  if (newCredits > oldCredits) {
+    return "upgrade";
+  } else if (newCredits < oldCredits) {
+    return "downgrade";
+  } else {
+    return "renewal";
+  }
+}
+
+/**
+ * Calculates credits for subscription upgrades.
+ *
+ * Upgrades take effect immediately with prorated billing. Credits are calculated
+ * based on the actual amount paid to ensure fair prorated credit allocation.
+ *
+ * Formula: credits = (amount_paid_in_dollars) / 0.25
+ * Example: $25 paid → 25 / 0.25 = 100 credits
+ * Example: $20 prorated → 20 / 0.25 = 80 credits
+ *
+ * @param amountPaidInCents - The amount paid in cents from the Stripe invoice
+ * @returns The number of credits to grant, rounded to nearest whole number
+ */
+function calculateUpgradeCredits(amountPaidInCents: number): number {
+  // Convert cents to dollars, divide by $0.25 per credit, round to nearest whole number
+  // amountPaidInCents / 100 / 0.25 = amountPaidInCents / 25
+  const credits = Math.round(amountPaidInCents / 25);
+  return credits;
+}
+
+/**
+ * Calculates credits for subscription downgrades and renewals.
+ *
+ * Downgrades take effect at the next billing cycle with full period billing.
+ * Renewals continue with the same plan at full period billing.
+ * Credits are based on the plan's standard credit allocation per seat.
+ *
+ * @param planKey - The subscription plan key
+ * @param seatQuantity - The number of seats in the subscription
+ * @returns The number of credits to grant based on plan allocation
+ */
+function calculateDowngradeOrRenewalCredits(
+  planKey: Database["public"]["Enums"]["subscription_plan_type"],
+  seatQuantity: number,
+): number {
+  const creditsPerSeat = getCreditsForPlan(planKey);
+  return creditsPerSeat * seatQuantity;
 }
 
 /**
