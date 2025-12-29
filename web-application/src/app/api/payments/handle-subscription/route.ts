@@ -395,7 +395,8 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
       current_period_end: subscription.items.data[0].current_period_end,
       price_id: subscription.items.data[0].price.id,
       plan_id: getPlanKey(subscription.items.data[0].price.id),
-    });
+      stripe_subscription_item_id: subscription.items.data[0].id,
+    } as Database["public"]["Tables"]["subscriptions"]["Insert"]);
   if (subscriptionUpdateError) {
     posthog.capture({
       distinctId: userId,
@@ -886,7 +887,8 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
       price_id: subscription.items.data[0].price.id,
       plan_id: newPlanKey,
       scheduled_for_cancellation: subscription.cancel_at_period_end,
-    })
+      stripe_subscription_item_id: subscription.items.data[0].id,
+    } as Database["public"]["Tables"]["subscriptions"]["Update"])
     .eq("id", subscription.id);
   if (subscriptionUpdateError) {
     posthog.capture({
