@@ -152,6 +152,36 @@ async function calculateFreeTierCreditInfo(
   teamId: string,
   log2: SystemLogger,
 ): Promise<{ remaining: number; granted: number; used: number }> {
+  // Check if this is a personal team (only personal teams get free credits)
+  const { data: team, error: teamError } = await supabaseClient
+    .from("teams")
+    .select("personal_owner_user_id")
+    .eq("id", teamId)
+    .single();
+
+  if (teamError) {
+    log2.error(teamError, "Error fetching team for free-tier check:", {
+      functionName: "calculateFreeTierCreditInfo",
+      teamId,
+    });
+    // On error, deny credits to be safe
+    return {
+      remaining: 0,
+      granted: 0,
+      used: 0,
+    };
+  }
+
+  // Non-personal teams don't get free credits
+  if (!team?.personal_owner_user_id) {
+    return {
+      remaining: 0,
+      granted: 0,
+      used: 0,
+    };
+  }
+
+  // Personal team - calculate free tier credits
   const { startOfMonth, endOfMonth } = getCurrentMonthPeriod();
   const periodStart = startOfMonth.toISOString();
   const periodEnd = endOfMonth.toISOString();
