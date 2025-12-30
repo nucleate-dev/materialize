@@ -177,35 +177,31 @@ export function canChangeRole(params: RoleChangeCheckParams): boolean {
   }
 
   // If both current and new roles are non-viewer, allow (just changing between collaborator roles)
-  if (currentRole !== "viewer" && newRole !== "viewer") {
+  if (currentRole !== "viewer") {
     return true;
   }
 
   // Changing FROM viewer TO collaborator role - check capacity
-  if (currentRole === "viewer" && newRole !== "viewer") {
-    if (seatQuantity === null) {
-      // If seat quantity is not set, allow (shouldn't happen but handle gracefully)
-      return true;
-    }
-
-    // Filter out canceled invites
-    const activeInvites = teamInvites.filter(
-      (invite) => invite.invite_status !== "canceled",
-    );
-
-    // Count non-viewer members and pending invites
-    const nonViewerMembers = teamMembers.filter(
-      (member) => member.role !== "viewer",
-    );
-    const nonViewerInvites = activeInvites.filter(
-      (invite) => invite.role !== "viewer",
-    );
-    const totalNonViewers = nonViewerMembers.length + nonViewerInvites.length;
-
-    // Allow if we have capacity (the person being promoted is already counted as a viewer)
-    return totalNonViewers < seatQuantity;
+  // At this point we know: currentRole === "viewer" && newRole !== "viewer"
+  if (seatQuantity === null) {
+    // If seat quantity is not set, allow (shouldn't happen but handle gracefully)
+    return true;
   }
 
-  // Default: allow
-  return true;
+  // Filter out canceled invites
+  const activeInvites = teamInvites.filter(
+    (invite) => invite.invite_status !== "canceled",
+  );
+
+  // Count non-viewer members and pending invites
+  const nonViewerMembers = teamMembers.filter(
+    (member) => member.role !== "viewer",
+  );
+  const nonViewerInvites = activeInvites.filter(
+    (invite) => invite.role !== "viewer",
+  );
+  const totalNonViewers = nonViewerMembers.length + nonViewerInvites.length;
+
+  // Allow if we have capacity (the person being promoted is already counted as a viewer)
+  return totalNonViewers < seatQuantity;
 }
