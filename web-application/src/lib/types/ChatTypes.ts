@@ -5,7 +5,7 @@
 // To update these shared files, modify the source file and run:
 // npm run sync-types (in the control-plane directory)
 //
-// Last synced: 2025-12-28T13:34:38.127Z
+// Last synced: 2025-12-30T22:50:52.010Z
 
 export enum ChatEvent {
   AUTHENTICATED = "authenticated",
@@ -107,6 +107,7 @@ export interface SystemConnectionMessage {
     connectionId: string;
     prototypeId: string;
     sessionId: string | null;
+    isUsingOAuthToken: boolean;
   };
 }
 

@@ -98,6 +98,7 @@ export interface SystemConnectionMessage {
     connectionId: string;
     prototypeId: string;
     sessionId: string | null;
+    isUsingOAuthToken: boolean;
   };
 }
 

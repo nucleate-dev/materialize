@@ -247,6 +247,7 @@ export class ChatService {
         connectionId,
         prototypeId,
         sessionId: this.sessionState.sessionId,
+        isUsingOAuthToken: this.hasUserOAuthToken(),
       },
     });
 
