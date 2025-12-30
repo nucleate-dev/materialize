@@ -108,6 +108,14 @@ export function PeopleTab() {
       .slice(0, 2);
   };
 
+  const getNonViewerInviteCount = () => {
+    if (!teamInvites || teamInvites.length === 0) {
+      return 0;
+    }
+    const nonViewerInvites = teamInvites.filter((invite) => invite.role !== "viewer");
+    return nonViewerInvites.length;
+  };
+
   // Check if current user is owner or admin
   const isOwnerOrAdmin =
     currentUserMembership?.role === "owner" ||
@@ -609,8 +617,10 @@ export function PeopleTab() {
                   <div>
                     <p className="text-sm text-amber-900 dark:text-amber-200">
                       <strong>Seat limit reached.</strong> You're currently
-                      using {currentNonViewerCount} of {seatQuantity} seat
-                      {seatQuantity !== 1 ? "s" : ""}.
+                      using {currentNonViewerCount + getNonViewerInviteCount()} of {seatQuantity} seat
+                      {seatQuantity !== 1 ? "s" : ""} ({currentNonViewerCount} active member
+                      {currentNonViewerCount !== 1 ? "s" : ""}
+                      {getNonViewerInviteCount() > 0 ? `, ${getNonViewerInviteCount()} pending invite${getNonViewerInviteCount() !== 1 ? "s" : ""}` : ""}).
                     </p>
                     <p className="text-sm text-amber-800 dark:text-amber-300 mt-1">
                       Purchase more seats to add collaborators with Owner,
@@ -644,14 +654,14 @@ export function PeopleTab() {
               value={inviteEmails}
               onChange={(e) => setInviteEmails(e.target.value)}
               className="flex-1 bg-background border-border"
-              disabled={!isOwnerOrAdmin || !capacityCheck.canInvite}
+              disabled={!isOwnerOrAdmin || (!capacityCheck.canInvite && !isTeamPlan)}
             />
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
                   variant="outline"
                   className="min-w-[120px] justify-between"
-                  disabled={!isOwnerOrAdmin || !capacityCheck.canInvite}
+                  disabled={!isOwnerOrAdmin || (!capacityCheck.canInvite && !isTeamPlan)}
                 >
                   <span className="capitalize">{inviteRole}</span>
                   <ChevronDown className="w-4 h-4 ml-2" />
@@ -675,7 +685,7 @@ export function PeopleTab() {
             <Button
               onClick={handleInvite}
               className="bg-blue-600 hover:bg-blue-700"
-              disabled={!isOwnerOrAdmin || !capacityCheck.canInvite}
+              disabled={!isOwnerOrAdmin || (!capacityCheck.canInvite && (!isTeamPlan || inviteRole !== "viewer"))}
             >
               Invite
             </Button>
@@ -1084,10 +1094,10 @@ export function PeopleTab() {
                                 onClick={async () => {
                                   if (!activeTeam?.id) return;
 
-                                  // Set invite_status to "canceled"
+                                  // Set invite_status to "cancelled"
                                   const { error } = await supabase
                                     .from("team_invites")
-                                    .update({ invite_status: "canceled" })
+                                    .update({ invite_status: "cancelled" })
                                     .eq("id", invite.id);
 
                                   if (error) {
