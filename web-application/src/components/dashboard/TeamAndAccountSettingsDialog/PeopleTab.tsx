@@ -46,6 +46,8 @@ export function PeopleTab() {
   const logger = useProductLogger();
   const queryClient = useQueryClient();
   const isFreeTier = userPlan === "free";
+  const isPlusWithMultipleMembers = userPlan === "plus" && (teamMembers?.length ?? 0) >= 2;
+  const shouldShowUpsell = isFreeTier || isPlusWithMultipleMembers;
   const [inviteEmails, setInviteEmails] = useState("");
   const [inviteRole, setInviteRole] = useState<TeamRole>("editor");
   const [searchQuery, setSearchQuery] = useState("");
@@ -390,24 +392,29 @@ export function PeopleTab() {
           </Button>
         </div>
 
-        {/* Free Tier Upsell Banner */}
-        {isFreeTier && (
+        {/* Upsell Banner */}
+        {shouldShowUpsell && (
           <div className="mb-6 p-4 rounded-lg border border-border bg-muted/30">
             <div className="flex items-start gap-3 mb-3">
               <Users className="w-5 h-5 text-muted-foreground mt-0.5" />
               <div className="flex-1">
                 <h3 className="text-sm font-medium text-foreground mb-1">
-                  Upgrade to add team members
+                  {isPlusWithMultipleMembers
+                    ? "Upgrade to Team for more collaborators"
+                    : "Upgrade to add team members"}
                 </h3>
                 <p className="text-sm text-muted-foreground">
-                  Choose a plan to invite collaborators to your team
+                  {isPlusWithMultipleMembers
+                    ? "Get unlimited viewers and multiple collaborators with the Team plan"
+                    : "Choose a plan to invite collaborators to your team"}
                 </p>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
-              {/* Plus Plan */}
-              <div className="p-3 rounded-lg bg-background border border-border">
+            <div className={`grid grid-cols-1 ${isFreeTier ? "sm:grid-cols-2" : ""} gap-3 mt-3`}>
+              {/* Plus Plan - only show for free tier */}
+              {isFreeTier && (
+                <div className="p-3 rounded-lg bg-background border border-border">
                 <div className="flex items-start justify-between mb-2">
                   <div className="font-medium text-sm text-foreground">Plus</div>
                   <div className="text-xs text-muted-foreground">$25/mo</div>
@@ -428,7 +435,8 @@ export function PeopleTab() {
                 >
                   Upgrade to Plus
                 </Button>
-              </div>
+                </div>
+              )}
 
               {/* Team Plan */}
               <div className="p-3 rounded-lg bg-background border border-border">
