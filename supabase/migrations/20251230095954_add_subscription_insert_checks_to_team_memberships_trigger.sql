@@ -131,6 +131,13 @@ declare
   is_bootstrap_owner_insert boolean;
   is_personal_team_owner boolean;
   has_recent_accepted_invite boolean;
+  -- Seat capacity check variables
+  subscription_plan text;
+  subscription_seats int;
+  total_members int;
+  total_pending_invites int;
+  total_edit_members int;
+  total_edit_pending_invites int;
 begin
   target_team_id := coalesce(old.team_id, new.team_id);
 
@@ -182,6 +189,81 @@ begin
   -- Allow bootstrap insert even though actor isn't yet owner/admin
   if is_bootstrap_owner_insert then
     return new;
+  end if;
+
+  -- SEAT CAPACITY CHECK: Verify team has available seats for new member
+  -- This check happens after bootstrap but before accepted invite check
+  if tg_op = 'INSERT' then
+    -- Get subscription info for this team
+    select s.plan_id, s.seat_quantity
+    into subscription_plan, subscription_seats
+    from public.subscriptions s
+    where s.team_id = new.team_id
+      and s.status = 'active';
+
+    -- If no active subscription, treat as free plan
+    if subscription_plan is null then
+      subscription_plan := 'free';
+    end if;
+
+    -- Apply plan-specific seat limits
+    if subscription_plan = 'free' then
+      -- Free plans: only bootstrap insert allowed (already handled above)
+      raise exception 'free plan teams cannot add more members';
+
+    elsif subscription_plan = 'plus' then
+      -- Plus plans: max 2 total (members + pending invites), any role
+      -- Optimize: limit to 3 since we only need to check if >= 2
+      select count(*) into total_members
+      from (
+        select 1 from public.team_memberships
+        where team_id = new.team_id
+        limit 3
+      ) as limited;
+
+      select count(*) into total_pending_invites
+      from (
+        select 1 from public.team_invites
+        where team_id = new.team_id
+          and invite_status = 'pending'
+        limit 3
+      ) as limited;
+
+      if (total_members + total_pending_invites) >= 2 then
+        raise exception 'plus plan teams are limited to 2 total members';
+      end if;
+
+    elsif subscription_plan = 'team' then
+      -- Team plans: viewers always allowed, editor roles need seat check
+      if new.role in ('owner', 'admin', 'editor') then
+        -- Optimize: limit to subscription_seats + 1 since we only need to check if >= subscription_seats
+        select count(*) into total_edit_members
+        from (
+          select 1 from public.team_memberships
+          where team_id = new.team_id
+            and role in ('owner', 'admin', 'editor')
+          limit subscription_seats + 1
+        ) as limited;
+
+        select count(*) into total_edit_pending_invites
+        from (
+          select 1 from public.team_invites
+          where team_id = new.team_id
+            and invite_status = 'pending'
+            and role in ('owner', 'admin', 'editor')
+          limit subscription_seats + 1
+        ) as limited;
+
+        if (total_edit_members + total_edit_pending_invites) >= subscription_seats then
+          raise exception 'team plan has no available seats for owner/admin/editor roles';
+        end if;
+      end if;
+      -- Viewer role is always allowed for team plans
+
+    else
+      -- Any other plan type (pro, max, etc.)
+      raise exception 'cannot add members with this subscription plan type';
+    end if;
   end if;
 
   -- NEW REQUIREMENT 2: Check if user has a recently accepted invite (within 1 hour)
