@@ -30,12 +30,14 @@ import { SandboxService } from "../SandboxService.js";
 import { SupabaseClientService } from "../SupabaseClientService.js";
 import { TerminalService } from "../terminals/TerminalService.js";
 import {
+  ChatConnection,
   ChatEngine,
   ChatEngineResult,
   ChatEngineSessionState,
   CliAuthEnvironment,
   DesignAgentMetadata,
 } from "./chat-engines/chat-engine.js";
+import { broadcastToConnections } from "./websocket-broadcast.js";
 import { ChatQueryHandler } from "./chat-engines/chat-query-handler.js";
 import { ClaudeCodeCliQueryHandler } from "./chat-engines/claude-code-cli-query-handler.js";
 import { persistChatMessage } from "./helpers/message-handlers.js";
@@ -54,12 +56,6 @@ import { getSystemPromptForDesignStyle } from "./prompts/ClaudeCodePrompts.js";
 
 export const ALLOWED_ROOT = "/tmp/materialize-dev-server";
 const CHAT_HEARTBEAT_INTERVAL_MS = 15000;
-
-interface ChatConnection {
-  socket: WebSocket;
-  heartbeat?: NodeJS.Timeout;
-  logger: SystemLogger;
-}
 
 interface ChatQueryValidationResult {
   valid: boolean;
@@ -248,13 +244,17 @@ export class ChatService {
           "Failed to process WebSocket message",
           { connectionId },
         );
-        this.sendMessage(socket, {
-          type: ChatEvent.ERROR,
-          error: {
-            message: "Failed to process message",
-            details: error instanceof Error ? error.message : String(error),
+        broadcastToConnections(
+          this.activeConnections,
+          {
+            type: ChatEvent.ERROR,
+            error: {
+              message: "Failed to process message",
+              details: error instanceof Error ? error.message : String(error),
+            },
           },
-        });
+          baseLogger,
+        );
       }
     });
 
@@ -369,36 +369,48 @@ export class ChatService {
     // 2. VALIDATE USER QUERY
     const validationResult = this.validateChatQuery(data);
     if (!validationResult.valid) {
-      this.sendMessage(socket, {
-        type: ChatEvent.ERROR,
-        error: {
-          message: validationResult.errorMessage ?? "Invalid chat query",
-          details: validationResult.errorDetails,
+      broadcastToConnections(
+        this.activeConnections,
+        {
+          type: ChatEvent.ERROR,
+          error: {
+            message: validationResult.errorMessage ?? "Invalid chat query",
+            details: validationResult.errorDetails,
+          },
         },
-      });
+        logger,
+      );
       return;
     }
     const { userId, prototypeId } = getWorkerContext();
     if (!prototypeId) {
-      this.sendMessage(socket, {
-        type: ChatEvent.ERROR,
-        error: {
-          message: "Sandbox is missing the project ID",
-          details: "project ID is required. Please get a new sandbox.",
+      broadcastToConnections(
+        this.activeConnections,
+        {
+          type: ChatEvent.ERROR,
+          error: {
+            message: "Sandbox is missing the project ID",
+            details: "project ID is required. Please get a new sandbox.",
+          },
         },
-      });
+        logger,
+      );
       return;
     }
     // 3. PAYWALL CHECK THE USER
     const creditResult = await this.ensureCreditsAvailable(prototypeId, logger);
     if (!creditResult.valid) {
-      this.sendMessage(socket, {
-        type: ChatEvent.ERROR,
-        error: {
-          message: creditResult.errorMessage ?? "Credit check failed",
-          details: creditResult.errorDetails,
+      broadcastToConnections(
+        this.activeConnections,
+        {
+          type: ChatEvent.ERROR,
+          error: {
+            message: creditResult.errorMessage ?? "Credit check failed",
+            details: creditResult.errorDetails,
+          },
         },
-      });
+        logger,
+      );
       return;
     }
 
@@ -410,12 +422,16 @@ export class ChatService {
       logger.error(err, "Failed to notify orchestration start chat", {
         prototypeId,
       });
-      this.sendMessage(socket, {
-        type: ChatEvent.ERROR,
-        error: {
-          message: "Failed to start chat session",
+      broadcastToConnections(
+        this.activeConnections,
+        {
+          type: ChatEvent.ERROR,
+          error: {
+            message: "Failed to start chat session",
+          },
         },
-      });
+        logger,
+      );
       return;
     }
 
@@ -459,14 +475,18 @@ export class ChatService {
         logger,
       );
       if (!cliResult.success || !cliResult.authEnv) {
-        this.sendMessage(socket, {
-          type: ChatEvent.ERROR,
-          error: {
-            message: cliResult.errorMessage ??
-              "Claude CLI is not available for this account",
-            details: cliResult.errorDetails,
+        broadcastToConnections(
+          this.activeConnections,
+          {
+            type: ChatEvent.ERROR,
+            error: {
+              message: cliResult.errorMessage ??
+                "Claude CLI is not available for this account",
+              details: cliResult.errorDetails,
+            },
           },
-        });
+          logger,
+        );
         return;
       }
       cliAuthEnv = cliResult.authEnv;
@@ -530,19 +550,23 @@ export class ChatService {
         null,
       );
 
-      this.sendMessage(socket, {
-        type: ChatEvent.DESIGN_GENERATION,
-        data: {
-          status: "completed",
-          message: "Design specification generated",
-          designSpec,
-          runDesignAgent: true,
-          isAppLevel,
-          isNarrowBuild,
-          persistToProjectContext: true,
-          scope,
+      broadcastToConnections(
+        this.activeConnections,
+        {
+          type: ChatEvent.DESIGN_GENERATION,
+          data: {
+            status: "completed",
+            message: "Design specification generated",
+            designSpec,
+            runDesignAgent: true,
+            isAppLevel,
+            isNarrowBuild,
+            persistToProjectContext: true,
+            scope,
+          },
         },
-      });
+        logger,
+      );
     }
 
     // 7. CONSTRUCT DYNAMIC SYSTEM PROMPT (based on user design system + prototype framework)
@@ -567,6 +591,7 @@ export class ChatService {
     try {
       handlerResult = await selectedChatEngine.handleQuery({
         socket,
+        activeConnections: this.activeConnections,
         data,
         sessionState: this.sessionState,
         validAiChatSessionIds: this.validAiChatSessionIds,
@@ -686,32 +711,44 @@ export class ChatService {
           );
         }
 
-        this.sendMessage(socket, {
-          type: ChatEvent.INTERRUPTED,
-          data: {
-            message: "Query has been interrupted",
-            sessionId: this.sessionState.sessionId,
+        broadcastToConnections(
+          this.activeConnections,
+          {
+            type: ChatEvent.INTERRUPTED,
+            data: {
+              message: "Query has been interrupted",
+              sessionId: this.sessionState.sessionId,
+            },
           },
-        });
+          baseLogger,
+        );
       } catch (error) {
         baseLogger.error(
           error instanceof Error ? error : new Error(String(error)),
           "Failed to interrupt query",
         );
 
-        this.sendMessage(socket, {
-          type: ChatEvent.ERROR,
-          error: {
-            message: "Failed to interrupt query",
-            details: error instanceof Error ? error.message : String(error),
+        broadcastToConnections(
+          this.activeConnections,
+          {
+            type: ChatEvent.ERROR,
+            error: {
+              message: "Failed to interrupt query",
+              details: error instanceof Error ? error.message : String(error),
+            },
           },
-        });
+          baseLogger,
+        );
       }
     } else {
-      this.sendMessage(socket, {
-        type: ChatEvent.INFO,
-        message: "No active query to interrupt",
-      });
+      broadcastToConnections(
+        this.activeConnections,
+        {
+          type: ChatEvent.INFO,
+          message: "No active query to interrupt",
+        },
+        baseLogger,
+      );
     }
   }
 
@@ -1023,14 +1060,18 @@ export class ChatService {
     let designMetadata: DesignAgentMetadata | null = null;
 
     if (classificationResult.shouldGenerateDesignSpec) {
-      this.sendMessage(socket, {
-        type: ChatEvent.DESIGN_GENERATION,
-        data: {
-          status: "started",
-          message: "Generating design specification...",
-          runDesignAgent: true,
+      broadcastToConnections(
+        this.activeConnections,
+        {
+          type: ChatEvent.DESIGN_GENERATION,
+          data: {
+            status: "started",
+            message: "Generating design specification...",
+            runDesignAgent: true,
+          },
         },
-      });
+        logger,
+      );
 
       logger.debug("Calling design agent", {
         prototypeId,
@@ -1377,7 +1418,6 @@ export class ChatService {
 
     await this.syncFilesAndTrackUsage(
       prototypeId,
-      socket,
       totalCostUsd,
       logger,
     );
@@ -1440,7 +1480,6 @@ export class ChatService {
 
   private async syncFilesAndTrackUsage(
     prototypeId: string,
-    socket: WebSocket,
     totalCostUsd: number | undefined,
     logger: SystemLogger,
   ): Promise<void> {
@@ -1526,13 +1565,17 @@ export class ChatService {
             teamId,
           );
 
-          this.sendMessage(socket, {
-            type: ChatEvent.USAGE_UPDATE,
-            data: {
-              creditsUsed,
-              creditsRemaining: totalRemainingCredits,
+          broadcastToConnections(
+            this.activeConnections,
+            {
+              type: ChatEvent.USAGE_UPDATE,
+              data: {
+                creditsUsed,
+                creditsRemaining: totalRemainingCredits,
+              },
             },
-          });
+            logger,
+          );
 
           logger.consoleLogDevOnly("info", "API usage tracked successfully", {
             userId: user.id,

@@ -41,6 +41,7 @@ import {
   getClaudeCodeDesignSubagentPrompt,
   getSystemPromptForDesignStyle,
 } from "../prompts/ClaudeCodePrompts.js";
+import { broadcastToConnections } from "../websocket-broadcast.js";
 import {
   ChatEngine,
   ChatEngineContext,
@@ -134,7 +135,7 @@ export class ChatQueryHandler implements ChatEngine {
   public async handleQuery(
     context: ChatEngineContext,
   ): Promise<ChatEngineResult | void> {
-    const { data } = context;
+    const { data, activeConnections, socket } = context;
     const workerContext = getWorkerContext();
     const prototypeId = workerContext.prototypeId || "unknown";
     const { prompt, content, token, ai_chat_session_id } = data;
@@ -248,6 +249,7 @@ export class ChatQueryHandler implements ChatEngine {
         options,
         abortController,
         socket,
+        activeConnections,
         sessionState,
         flushAssistantBuffer,
         framework,
@@ -327,12 +329,16 @@ export class ChatQueryHandler implements ChatEngine {
       sessionState.abortController = null;
 
       // Send completion message
-      this.sendMessage(socket, {
-        type: ChatEvent.QUERY_COMPLETE,
-        data: {
-          sessionId: sessionState.sessionId,
+      broadcastToConnections(
+        activeConnections,
+        {
+          type: ChatEvent.QUERY_COMPLETE,
+          data: {
+            sessionId: sessionState.sessionId,
+          },
         },
-      });
+        baseLogger,
+      );
 
       return totalCostUsd;
     } catch (error) {
@@ -362,13 +368,17 @@ export class ChatQueryHandler implements ChatEngine {
         },
       );
 
-      this.sendMessage(socket, {
-        type: ChatEvent.ERROR,
-        error: {
-          message: "Query failed",
-          details: errorMessage,
+      broadcastToConnections(
+        activeConnections,
+        {
+          type: ChatEvent.ERROR,
+          error: {
+            message: "Query failed",
+            details: errorMessage,
+          },
         },
-      });
+        baseLogger,
+      );
 
       return undefined;
     }
@@ -470,6 +480,7 @@ export class ChatQueryHandler implements ChatEngine {
     options: Options,
     abortController: AbortController,
     socket: WebSocket,
+    activeConnections: Map<string, { socket: WebSocket; heartbeat?: NodeJS.Timeout; logger: any }>,
     sessionState: ChatEngineSessionState,
     flushAssistantBuffer: () => Promise<void>,
     framework: Database["public"]["Enums"]["prototype_framework"],
@@ -814,14 +825,18 @@ export class ChatQueryHandler implements ChatEngine {
         }
 
         // Send tool start event to WebSocket client
-        this.sendMessage(socket, {
-          type: ChatEvent.TOOL_START,
-          data: {
-            tool_name: input.tool_name,
-            tool_input: normalizedToolInput,
-            tool_call_id: toolUseID,
+        broadcastToConnections(
+          activeConnections,
+          {
+            type: ChatEvent.TOOL_START,
+            data: {
+              tool_name: input.tool_name,
+              tool_input: normalizedToolInput,
+              tool_call_id: toolUseID,
+            },
           },
-        });
+          baseLogger,
+        );
 
         // Persist tool start to database with friendly display name
         const displayName = getToolDisplayName(
@@ -866,15 +881,19 @@ export class ChatQueryHandler implements ChatEngine {
 
       if (input.hook_event_name === "PostToolUse") {
         // Send tool complete event to WebSocket client
-        this.sendMessage(socket, {
-          type: ChatEvent.TOOL_COMPLETE,
-          data: {
-            tool_name: input.tool_name,
-            tool_input: input.tool_input as Record<string, unknown>,
-            tool_response: input.tool_response,
-            tool_call_id: toolUseID,
+        broadcastToConnections(
+          activeConnections,
+          {
+            type: ChatEvent.TOOL_COMPLETE,
+            data: {
+              tool_name: input.tool_name,
+              tool_input: input.tool_input as Record<string, unknown>,
+              tool_response: input.tool_response,
+              tool_call_id: toolUseID,
+            },
           },
-        });
+          baseLogger,
+        );
 
         // Persist tool completion to database
         await persistChatMessage(
@@ -1126,10 +1145,14 @@ export class ChatQueryHandler implements ChatEngine {
       }
 
       // Forward message to client
-      this.sendMessage(socket, {
-        type: ChatEvent.AGENT_MESSAGE,
-        data: msg,
-      });
+      broadcastToConnections(
+        activeConnections,
+        {
+          type: ChatEvent.AGENT_MESSAGE,
+          data: msg,
+        },
+        baseLogger,
+      );
     }
 
     // Persist any remaining accumulated assistant message if there is any

@@ -9,6 +9,7 @@ import {
 } from "../helpers/message-handlers.js";
 import { evaluateToolPermission } from "../helpers/tool-permission-service.js";
 import { baseLogger, WORK_DIR } from "../../../worker.js";
+import { broadcastToConnections } from "../websocket-broadcast.js";
 import {
   ChatEngine,
   ChatEngineContext,
@@ -87,15 +88,19 @@ export class ClaudeCodeCliQueryHandler implements ChatEngine {
   async handleQuery(
     context: ChatEngineContext,
   ): Promise<ChatEngineResult | void> {
-    const { socket, data, sessionState, cliAuthEnv, systemPrompt } = context;
+    const { socket, activeConnections, data, sessionState, cliAuthEnv, systemPrompt } = context;
     const logger = baseLogger;
     if (!cliAuthEnv) {
-      this.sendMessage(socket, {
-        type: ChatEvent.ERROR,
-        error: {
-          message: "Missing CLI authentication context",
+      broadcastToConnections(
+        activeConnections,
+        {
+          type: ChatEvent.ERROR,
+          error: {
+            message: "Missing CLI authentication context",
+          },
         },
-      });
+        logger,
+      );
       return;
     }
 
@@ -151,13 +156,17 @@ export class ClaudeCodeCliQueryHandler implements ChatEngine {
         "Failed to execute CLI query",
       );
 
-      this.sendMessage(socket, {
-        type: ChatEvent.ERROR,
-        error: {
-          message: "Failed to execute query",
-          details: error instanceof Error ? error.message : String(error),
+      broadcastToConnections(
+        activeConnections,
+        {
+          type: ChatEvent.ERROR,
+          error: {
+            message: "Failed to execute query",
+            details: error instanceof Error ? error.message : String(error),
+          },
         },
-      });
+        logger,
+      );
     } finally {
       // Clear abort controller
       sessionState.abortController = null;
@@ -283,18 +292,20 @@ export class ClaudeCodeCliQueryHandler implements ChatEngine {
     socket: WebSocket,
     context: ChatEngineContext,
   ): Promise<void> {
+    const { activeConnections } = context;
     const prototypeChatSessionId = this.getPrototypeChatSessionId(context);
     switch (cliMessage.type) {
       case "assistant":
         await this.handleAssistantMessage(
           cliMessage,
           socket,
+          activeConnections,
           prototypeChatSessionId,
         );
         break;
 
       case "tool_result":
-        await this.handleToolResult(cliMessage, socket, prototypeChatSessionId);
+        await this.handleToolResult(cliMessage, socket, activeConnections, prototypeChatSessionId);
         break;
 
       case "result":
@@ -305,20 +316,28 @@ export class ClaudeCodeCliQueryHandler implements ChatEngine {
         if (cliMessage.subtype === "init") {
           await this.handleSystemInitMessage(cliMessage, context);
         } else {
-          this.sendMessage(socket, {
-            type: ChatEvent.INFO,
-            message: String(cliMessage.message || "System message"),
-          });
+          broadcastToConnections(
+            activeConnections,
+            {
+              type: ChatEvent.INFO,
+              message: String(cliMessage.message || "System message"),
+            },
+            baseLogger,
+          );
         }
         break;
 
       case "error":
-        this.sendMessage(socket, {
-          type: ChatEvent.ERROR,
-          error: {
-            message: cliMessage.message?.content?.[0]?.text || "Unknown error",
+        broadcastToConnections(
+          activeConnections,
+          {
+            type: ChatEvent.ERROR,
+            error: {
+              message: cliMessage.message?.content?.[0]?.text || "Unknown error",
+            },
           },
-        });
+          baseLogger,
+        );
         break;
 
       default:
@@ -332,15 +351,20 @@ export class ClaudeCodeCliQueryHandler implements ChatEngine {
   private async handleAssistantMessage(
     message: ClaudeCodeMessage,
     socket: WebSocket,
+    activeConnections: Map<string, { socket: WebSocket; heartbeat?: NodeJS.Timeout; logger: any }>,
     prototypeChatSessionId: string,
   ): Promise<void> {
     const content = message.message?.content || [];
 
     // Forward the entire CLI message to frontend (it expects this exact structure)
-    this.sendMessage(socket, {
-      type: ChatEvent.AGENT_MESSAGE,
-      data: message, // Send the whole message - frontend expects type:"assistant" and message.content
-    });
+    broadcastToConnections(
+      activeConnections,
+      {
+        type: ChatEvent.AGENT_MESSAGE,
+        data: message, // Send the whole message - frontend expects type:"assistant" and message.content
+      },
+      baseLogger,
+    );
 
     // Extract and persist text content to database
     const textParts = content
@@ -365,7 +389,7 @@ export class ClaudeCodeCliQueryHandler implements ChatEngine {
     );
 
     for (const toolUse of toolUses) {
-      await this.handlePreToolUse(toolUse, socket, prototypeChatSessionId);
+      await this.handlePreToolUse(toolUse, socket, activeConnections, prototypeChatSessionId);
     }
   }
 
@@ -376,6 +400,7 @@ export class ClaudeCodeCliQueryHandler implements ChatEngine {
   private async handlePreToolUse(
     toolUse: ToolUseBlock,
     socket: WebSocket,
+    activeConnections: Map<string, { socket: WebSocket; heartbeat?: NodeJS.Timeout; logger: any }>,
     prototypeChatSessionId: string,
   ): Promise<void> {
     const { id: toolUseId, name: toolName, input: toolInput } = toolUse;
@@ -395,10 +420,14 @@ export class ClaudeCodeCliQueryHandler implements ChatEngine {
 
       // Send denial notification (can't actually block in CLI mode)
       // Use INFO event since TOOL_DENIED doesn't exist in ChatEvent enum
-      this.sendMessage(socket, {
-        type: ChatEvent.INFO,
-        message: `Tool ${toolName} denied by policy: ${message}`,
-      });
+      broadcastToConnections(
+        activeConnections,
+        {
+          type: ChatEvent.INFO,
+          message: `Tool ${toolName} denied by policy: ${message}`,
+        },
+        baseLogger,
+      );
     }
 
     // 2. Normalize tool input
@@ -412,14 +441,18 @@ export class ClaudeCodeCliQueryHandler implements ChatEngine {
     });
 
     // 4. Send TOOL_START event to WebSocket
-    this.sendMessage(socket, {
-      type: ChatEvent.TOOL_START,
-      data: {
-        tool_name: toolName,
-        tool_input: normalizedInput,
-        tool_call_id: toolUseId,
+    broadcastToConnections(
+      activeConnections,
+      {
+        type: ChatEvent.TOOL_START,
+        data: {
+          tool_name: toolName,
+          tool_input: normalizedInput,
+          tool_call_id: toolUseId,
+        },
       },
-    });
+      baseLogger,
+    );
 
     // 5. Persist tool start to database
     const displayName = getToolDisplayName(
@@ -447,6 +480,7 @@ export class ClaudeCodeCliQueryHandler implements ChatEngine {
   private async handleToolResult(
     result: ClaudeCodeMessage,
     socket: WebSocket,
+    activeConnections: Map<string, { socket: WebSocket; heartbeat?: NodeJS.Timeout; logger: any }>,
     prototypeChatSessionId: string,
   ): Promise<void> {
     const toolUseId = result.tool_use_id;
@@ -470,15 +504,19 @@ export class ClaudeCodeCliQueryHandler implements ChatEngine {
     baseLogger.debug(`PostToolUse: ${toolName}`, { toolUseId, isError });
 
     // 1. Send TOOL_COMPLETE event to WebSocket
-    this.sendMessage(socket, {
-      type: ChatEvent.TOOL_COMPLETE,
-      data: {
-        tool_name: toolName,
-        tool_input: toolInput,
-        tool_response: content,
-        tool_call_id: toolUseId,
+    broadcastToConnections(
+      activeConnections,
+      {
+        type: ChatEvent.TOOL_COMPLETE,
+        data: {
+          tool_name: toolName,
+          tool_input: toolInput,
+          tool_response: content,
+          tool_call_id: toolUseId,
+        },
       },
-    });
+      baseLogger,
+    );
 
     // 2. Persist tool completion to database
     await persistChatMessage(
@@ -509,7 +547,7 @@ export class ClaudeCodeCliQueryHandler implements ChatEngine {
     socket: WebSocket,
     context: ChatEngineContext,
   ): void {
-    const { sessionState } = context;
+    const { sessionState, activeConnections } = context;
 
     // Update session ID from CLI output
     if (message.session_id) {
@@ -517,12 +555,16 @@ export class ClaudeCodeCliQueryHandler implements ChatEngine {
     }
 
     // Send query complete event
-    this.sendMessage(socket, {
-      type: ChatEvent.QUERY_COMPLETE,
-      data: {
-        sessionId: message.session_id || null,
+    broadcastToConnections(
+      activeConnections,
+      {
+        type: ChatEvent.QUERY_COMPLETE,
+        data: {
+          sessionId: message.session_id || null,
+        },
       },
-    });
+      baseLogger,
+    );
 
     // Reset session state for next query
     this.sessionState.pendingToolCalls.clear();
