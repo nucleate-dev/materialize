@@ -54,7 +54,21 @@ export function CreditsAndSubscriptionsTab() {
   const currentSubscription = (userPlan as string) || "free";
 
   const handleUpgradeClick = async (targetPlan: string) => {
-    // If upgrading to team plan, show modal to select seats
+    // If PLUS user upgrading to TEAM, redirect to Stripe billing portal
+    if (targetPlan === "team" && currentSubscription === "plus") {
+      logger.log({
+        event: "client_upgrade_to_team_from_plus_clicked",
+        properties: {
+          source: "settings_dialog",
+          current_plan: currentSubscription,
+          target_plan: targetPlan,
+        },
+      });
+      await handleManageBillingClick();
+      return;
+    }
+
+    // If FREE user upgrading to TEAM, show modal to select seats
     if (targetPlan === "team") {
       setIsTeamModalOpen(true);
       return;
@@ -135,6 +149,10 @@ export function CreditsAndSubscriptionsTab() {
         }
         break;
       case "plus":
+        if (isTeamsUIEnabled) {
+          options.push({ tier: "team", label: "Upgrade to Team" });
+        }
+        break;
       case "pro":
       default:
         break;
