@@ -28,6 +28,8 @@ import { handleRedirectToStripeCustomerPortal } from "@/lib/utils/payments/Subsc
 import { formatGrantType } from "@/lib/utils/credits/CreditUtils";
 import { cn } from "@/lib/classNames";
 import { SectionCard, SectionHeader } from "./SettingsHelpers";
+import { useFeatureFlagEnabled } from "posthog-js/react";
+import { TeamUpgradeModal } from "@/components/dashboard/TeamUpgradeModal";
 
 export function CreditsAndSubscriptionsTab() {
   const router = useRouter();
@@ -35,6 +37,9 @@ export function CreditsAndSubscriptionsTab() {
   const { userPlan, currentPeriodEnd } = useSubscriptionAccess();
   const { activeTeam, currentUserMembership } = useActiveTeam();
   const creditUsage = useCreditUsage();
+
+  // Check PostHog feature flag for teams UI
+  const isTeamsUIEnabled = useFeatureFlagEnabled("teams-ui");
 
   // Check if current user is owner or admin
   const isOwnerOrAdmin =
@@ -44,10 +49,18 @@ export function CreditsAndSubscriptionsTab() {
   const [isProcessingUpgrade, setIsProcessingUpgrade] =
     useState<boolean>(false);
   const [isManagingBilling, setIsManagingBilling] = useState<boolean>(false);
+  const [isTeamModalOpen, setIsTeamModalOpen] = useState<boolean>(false);
 
   const currentSubscription = (userPlan as string) || "free";
 
   const handleUpgradeClick = async (targetPlan: string) => {
+    // If upgrading to team plan, show modal to select seats
+    if (targetPlan === "team") {
+      setIsTeamModalOpen(true);
+      return;
+    }
+
+    // For other plans, proceed directly to checkout
     try {
       setIsProcessingUpgrade(true);
       logger.log({
@@ -63,6 +76,30 @@ export function CreditsAndSubscriptionsTab() {
       setTimeout(() => setIsProcessingUpgrade(false), 2000);
     } catch (error) {
       logger.debug("error", "Error starting checkout:", {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      setIsProcessingUpgrade(false);
+    }
+  };
+
+  const handleTeamUpgradeConfirm = async (seatQuantity: number) => {
+    try {
+      setIsProcessingUpgrade(true);
+      logger.log({
+        event: "client_upgrade_checkout_clicked",
+        properties: {
+          source: "settings_dialog",
+          plan: "team",
+          seat_quantity: seatQuantity,
+        },
+      });
+      if (activeTeam?.id) {
+        await handleCheckout("team", router, activeTeam.id, seatQuantity);
+      }
+      setIsTeamModalOpen(false);
+      setTimeout(() => setIsProcessingUpgrade(false), 2000);
+    } catch (error) {
+      logger.debug("error", "Error starting team checkout:", {
         error: error instanceof Error ? error.message : String(error),
       });
       setIsProcessingUpgrade(false);
@@ -87,18 +124,26 @@ export function CreditsAndSubscriptionsTab() {
     }
   };
 
-  const getUpgradeOption = () => {
+  const getUpgradeOptions = () => {
+    const options = [];
+
     switch (currentSubscription) {
       case "free":
-        return { tier: "plus", label: "Upgrade to Plus" };
+        options.push({ tier: "plus", label: "Upgrade to Plus" });
+        if (isTeamsUIEnabled) {
+          options.push({ tier: "team", label: "Upgrade to Team" });
+        }
+        break;
       case "plus":
       case "pro":
       default:
-        return null;
+        break;
     }
+
+    return options;
   };
 
-  const upgradeOption = getUpgradeOption();
+  const upgradeOptions = getUpgradeOptions();
 
   return (
     <div className="relative min-h-screen text-gray-900 dark:text-white font-sans">
@@ -167,13 +212,13 @@ export function CreditsAndSubscriptionsTab() {
                 )}
 
                 <div className="flex gap-3 pt-2">
-                  {upgradeOption && (
-                    <TooltipProvider>
+                  {upgradeOptions.map((option) => (
+                    <TooltipProvider key={option.tier}>
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <div className="flex-1">
                             <Button
-                              onClick={() => handleUpgradeClick(upgradeOption.tier)}
+                              onClick={() => handleUpgradeClick(option.tier)}
                               className="w-full bg-black dark:bg-white text-white dark:text-black hover:bg-black/90 dark:hover:bg-white/90"
                               disabled={isProcessingUpgrade || !isOwnerOrAdmin}
                             >
@@ -182,7 +227,7 @@ export function CreditsAndSubscriptionsTab() {
                               ) : (
                                 <Crown className="w-4 h-4 mr-2" />
                               )}
-                              {upgradeOption.label}
+                              {option.label}
                             </Button>
                           </div>
                         </TooltipTrigger>
@@ -193,7 +238,7 @@ export function CreditsAndSubscriptionsTab() {
                         )}
                       </Tooltip>
                     </TooltipProvider>
-                  )}
+                  ))}
 
                   {currentSubscription !== "free" && (
                     <TooltipProvider>
@@ -386,6 +431,13 @@ export function CreditsAndSubscriptionsTab() {
             </div>
           )}
         </div>
+
+        {/* Team Upgrade Modal */}
+        <TeamUpgradeModal
+          isOpen={isTeamModalOpen}
+          onClose={() => setIsTeamModalOpen(false)}
+          onConfirm={handleTeamUpgradeConfirm}
+        />
       </div>
     </div>
   );
