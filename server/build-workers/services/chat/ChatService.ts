@@ -37,7 +37,15 @@ import {
 } from "./chat-engines/chat-engine.js";
 import { ChatQueryHandler } from "./chat-engines/chat-query-handler.js";
 import { persistChatMessage } from "./helpers/message-handlers.js";
-import { costFunctionV3 } from "./cost/cost-calculation.js";
+import {
+  costFunctionV3,
+  CURRENT_COST_FUNCTION_NAME,
+} from "./cost/cost-calculation.js";
+import {
+  calculateOAuthCredits,
+  getPromptLengthFromQueryData,
+  OAUTH_COST_FUNCTION_NAME,
+} from "./cost/oauth-credit-calculation.js";
 import { trackApiUsageBuildWorker } from "./cost/usage-tracking.js";
 import { hasRemainingCredits } from "../../utils/credit-checks.js";
 import { buildDesignAgentUserContent } from "./classifiers-and-subagents/design-classifier-utils.js";
@@ -84,6 +92,7 @@ export class ChatService {
   private activeConnections = new Map<string, ChatConnection>();
   private orchestrationToken: string | null = null;
   private aak: string | null = null;
+  private userOAuthToken: string | null = null; // User's Claude subscription OAuth token
   private validAiChatSessionIds = new Set<string>(); // Track valid session IDs created during this CodeService instance's lifetime
 
   constructor(
@@ -124,6 +133,30 @@ export class ChatService {
   public setAak(key: string): void {
     this.aak = key;
     baseLogger.consoleLogDevOnly("info", "Anthropic API key set");
+  }
+
+  /**
+   * Set the user's OAuth token for Claude subscription authentication.
+   * Called during worker allocation if user has connected their Claude Pro/Max subscription.
+   */
+  public setUserOAuthToken(token: string): void {
+    this.userOAuthToken = token;
+    baseLogger.consoleLogDevOnly("info", "User OAuth token set for ChatService");
+  }
+
+  /**
+   * Check if the user has an OAuth token configured.
+   */
+  public hasUserOAuthToken(): boolean {
+    return this.userOAuthToken !== null;
+  }
+
+  /**
+   * Clear the user's OAuth token.
+   */
+  public clearUserOAuthToken(): void {
+    this.userOAuthToken = null;
+    baseLogger.consoleLogDevOnly("info", "User OAuth token cleared");
   }
 
   /**
@@ -307,6 +340,7 @@ export class ChatService {
 
     this.activeConnections.clear();
     this.validAiChatSessionIds.clear(); // Clear valid session IDs on shutdown
+    this.userOAuthToken = null; // Clear OAuth token on shutdown
     this.sessionState = {
       sessionId: null,
       prototypeChatSessionId: null,
@@ -1258,6 +1292,7 @@ export class ChatService {
     await this.syncFilesAndTrackUsage(
       prototypeId,
       socket,
+      data,
       totalCostUsd,
       logger,
     );
@@ -1321,6 +1356,7 @@ export class ChatService {
   private async syncFilesAndTrackUsage(
     prototypeId: string,
     socket: WebSocket,
+    data: ChatQueryData,
     totalCostUsd: number | undefined,
     logger: SystemLogger,
   ): Promise<void> {
@@ -1376,13 +1412,28 @@ export class ChatService {
           error: userError,
         });
       } else {
-        const creditsUsed = costFunctionV3(totalCostUsd) ?? 1.0;
+        // Calculate credits based on auth method
+        let creditsUsed: number;
+        let costFunction: string;
+
+        if (this.hasUserOAuthToken()) {
+          // OAuth user: flat fee based on prompt length
+          const promptLength = getPromptLengthFromQueryData(data);
+          creditsUsed = calculateOAuthCredits(promptLength, logger);
+          costFunction = OAUTH_COST_FUNCTION_NAME;
+        } else {
+          // API key user: token-based pricing
+          creditsUsed = costFunctionV3(totalCostUsd) ?? 1.0;
+          costFunction = CURRENT_COST_FUNCTION_NAME;
+        }
 
         logger.consoleLogDevOnly("info", "Tracking API usage", {
           userId: user.id,
           prototypeId,
           totalCostUsd,
           creditsUsed,
+          costFunction,
+          isOAuthUser: this.hasUserOAuthToken(),
         });
 
         const { teamId } = getWorkerContext();
@@ -1419,6 +1470,7 @@ export class ChatService {
             prototypeId,
             totalCostUsd,
             creditsUsed,
+            costFunction,
             totalRemainingCredits,
           });
         }
