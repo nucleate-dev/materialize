@@ -22,9 +22,8 @@ export function TeamTab() {
   const queryClient = useQueryClient();
 
   const [teamName, setTeamName] = useState(activeTeam?.name || "");
-  const [teamDescription, setTeamDescription] = useState("");
-  const [isEditingName, setIsEditingName] = useState(false);
-  const [isSavingName, setIsSavingName] = useState(false);
+  const [teamDescription, setTeamDescription] = useState(activeTeam?.description || "");
+  const [isSaving, setIsSaving] = useState(false);
   const [isLeavingTeam, setIsLeavingTeam] = useState(false);
 
   // Check if current user is owner or admin
@@ -43,24 +42,32 @@ export function TeamTab() {
   // Disable leave team if user is last owner or personal owner
   const canLeaveTeam = !isLastOwner && !isPersonalOwner;
 
-  const handleSaveTeamName = async () => {
+  // Track if there are unsaved changes
+  const hasUnsavedChanges =
+    teamName.trim() !== (activeTeam?.name || "") ||
+    teamDescription.trim() !== (activeTeam?.description || "");
+
+  const handleSaveChanges = async () => {
     if (!activeTeam?.id || !teamName.trim()) return;
 
     try {
-      setIsSavingName(true);
+      setIsSaving(true);
 
       const { error } = await supabase
         .from("teams")
-        .update({ name: teamName.trim() })
+        .update({
+          name: teamName.trim(),
+          description: teamDescription.trim() || null
+        })
         .eq("id", activeTeam.id);
 
       if (error) {
-        logger.debug("error", "Error updating team name", { error });
-        alert("Failed to update team name. Please try again.");
+        logger.debug("error", "Error updating team settings", { error });
+        alert("Failed to update team settings. Please try again.");
         return;
       }
 
-      logger.debug("log", "Team name updated successfully");
+      logger.debug("log", "Team settings updated successfully");
 
       // Invalidate personal team query to refresh team data
       // Note: TeamContext only uses personalTeamQueryKey to fetch team data
@@ -69,13 +76,11 @@ export function TeamTab() {
           queryKey: personalTeamQueryKey(user.id),
         });
       }
-
-      setIsEditingName(false);
     } catch (err) {
-      logger.debug("error", "Failed to update team name", { error: err });
-      alert("Failed to update team name. Please try again.");
+      logger.debug("error", "Failed to update team settings", { error: err });
+      alert("Failed to update team settings. Please try again.");
     } finally {
-      setIsSavingName(false);
+      setIsSaving(false);
     }
   };
 
@@ -128,13 +133,31 @@ export function TeamTab() {
     <div className="relative min-h-screen text-gray-900 dark:text-white font-sans">
       <div className="container mx-auto px-6 py-12 max-w-4xl">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-2xl font-semibold tracking-tight text-foreground mb-2">
-            Team Settings
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Teams allow you to collaborate on projects in real time
-          </p>
+        <div className="mb-8 flex items-start justify-between">
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight text-foreground mb-2">
+              Team Settings
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              Teams allow you to collaborate on projects in real time
+            </p>
+          </div>
+          {isOwnerOrAdmin && (
+            <Button
+              onClick={handleSaveChanges}
+              disabled={!hasUnsavedChanges || isSaving}
+              size="sm"
+            >
+              {isSaving ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                "Save Changes"
+              )}
+            </Button>
+          )}
         </div>
 
         <div className="space-y-0">
@@ -174,48 +197,14 @@ export function TeamTab() {
               <h3 className="text-sm font-medium text-foreground">Team Name</h3>
             </div>
             <div className="flex-1">
-              <div className="flex gap-2 items-start">
-                <Input
-                  id="team-name"
-                  value={teamName}
-                  onChange={(e) => {
-                    setTeamName(e.target.value);
-                    setIsEditingName(true);
-                  }}
-                  placeholder="Enter team name"
-                  disabled={!isOwnerOrAdmin}
-                  className="flex-1 max-w-md"
-                />
-                {isEditingName && isOwnerOrAdmin && (
-                  <div className="flex gap-2">
-                    <Button
-                      onClick={handleSaveTeamName}
-                      disabled={isSavingName || !teamName.trim()}
-                      size="sm"
-                    >
-                      {isSavingName ? (
-                        <>
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                          Saving...
-                        </>
-                      ) : (
-                        "Save"
-                      )}
-                    </Button>
-                    <Button
-                      variant="outline"
-                      onClick={() => {
-                        setTeamName(activeTeam?.name || "");
-                        setIsEditingName(false);
-                      }}
-                      disabled={isSavingName}
-                      size="sm"
-                    >
-                      Cancel
-                    </Button>
-                  </div>
-                )}
-              </div>
+              <Input
+                id="team-name"
+                value={teamName}
+                onChange={(e) => setTeamName(e.target.value)}
+                placeholder="Enter team name"
+                disabled={!isOwnerOrAdmin}
+                className="max-w-md"
+              />
               {!isOwnerOrAdmin && (
                 <p className="text-xs text-muted-foreground mt-2">
                   Only owners and admins can change the team name
@@ -241,11 +230,13 @@ export function TeamTab() {
                 placeholder="Add a description for your team"
                 className="max-w-md"
                 rows={4}
-                disabled
+                disabled={!isOwnerOrAdmin}
               />
-              <p className="text-xs text-muted-foreground mt-2">
-                Coming soon: Team descriptions
-              </p>
+              {!isOwnerOrAdmin && (
+                <p className="text-xs text-muted-foreground mt-2">
+                  Only owners and admins can change the team description
+                </p>
+              )}
             </div>
           </div>
 
