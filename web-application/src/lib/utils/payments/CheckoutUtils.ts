@@ -127,7 +127,14 @@ export async function handleRedirectToPaymentsPage(
 
   // Handle successful response
   if (result.data) {
-    await stripe?.redirectToCheckout({ sessionId: result.data.id });
+    // If the response includes a URL, it's a billing portal session
+    // Redirect directly to the URL instead of using Stripe checkout
+    if (result.data.url) {
+      window.location.href = result.data.url;
+    } else {
+      // Otherwise, it's a checkout session - use Stripe's redirectToCheckout
+      await stripe?.redirectToCheckout({ sessionId: result.data.id });
+    }
   } else if (result.error) {
     // Handle error response
     throw new Error(

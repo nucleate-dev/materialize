@@ -134,7 +134,8 @@ export interface CheckoutRequestBody {
 }
 
 export interface CheckoutSuccessResponse {
-  id: string; // Stripe session ID
+  id: string; // Stripe session ID or billing portal session ID
+  url?: string; // Optional billing portal URL (when user has existing subscription)
 }
 
 export interface CheckoutErrorResponse {
