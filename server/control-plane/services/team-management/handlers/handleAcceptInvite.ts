@@ -117,6 +117,16 @@ export default async function handleAcceptInviteImpl(
           message: "This invite has already been accepted",
         },
       };
+    } else if (invite.invite_status === "cancelled") {
+      request.log2.warn("Invite has been cancelled", { invite_id });
+      reply.status(HTTP_STATUS.BAD_REQUEST);
+      return {
+        data: null,
+        error: {
+          error: "Invite cancelled",
+          message: "This invite has been cancelled",
+        },
+      };
     }
 
     // Check if invite has expired

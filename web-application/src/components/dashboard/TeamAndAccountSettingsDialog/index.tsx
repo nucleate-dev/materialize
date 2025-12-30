@@ -24,6 +24,7 @@ import { useActiveTeam } from "@/contexts/TeamContext";
 import { logout } from "@/lib/utils/auth/SupabaseAuthUtils";
 import { useRouter } from "next/navigation";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import { ProfileTab } from "./ProfileTab";
 import { ClaudeConnectionTab } from "./ClaudeConnectionTab";
 import { CreditsAndSubscriptionsTab } from "./CreditsAndSubscriptionsTab";
@@ -179,6 +180,14 @@ export function TeamAndAccountsSettingsDialog({
                                     </AvatarFallback>
                                   </Avatar>
                                   <span>{tab.label}</span>
+                                  {activeTeam?.personal_owner_user_id && (
+                                    <Badge
+                                      variant="secondary"
+                                      className="ml-auto text-[10px] px-1.5 py-0"
+                                    >
+                                      Personal
+                                    </Badge>
+                                  )}
                                 </>
                               ) : (
                                 <>
