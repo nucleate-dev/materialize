@@ -991,24 +991,30 @@ export type Database = {
       }
       teams: {
         Row: {
+          avatar_url: string | null
           created_at: string
           created_by: string | null
+          description: string | null
           id: string
           name: string
           personal_owner_user_id: string | null
           slug: string | null
         }
         Insert: {
+          avatar_url?: string | null
           created_at?: string
           created_by?: string | null
+          description?: string | null
           id?: string
           name: string
           personal_owner_user_id?: string | null
           slug?: string | null
         }
         Update: {
+          avatar_url?: string | null
           created_at?: string
           created_by?: string | null
+          description?: string | null
           id?: string
           name?: string
           personal_owner_user_id?: string | null

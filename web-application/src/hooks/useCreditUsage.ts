@@ -102,6 +102,24 @@ export function useCreditUsage(): CreditUsageHook {
 
       // FREE TIER: Query api_usage table for current month
       if (userPlan === "free") {
+        // Check if this is a personal team (only personal teams get free credits)
+        if (!activeTeam?.personal_owner_user_id) {
+          // Non-personal teams don't get free credits
+          setState({
+            creditsUsed: 0,
+            creditLimit: 0,
+            totalAvailableCredits: 0,
+            creditsRemaining: 0,
+            usagePercentage: 0,
+            creditGrants: [],
+            overageCredits: 0,
+            loading: false,
+            hasReachedLimit: true,
+          });
+          return;
+        }
+
+        // Personal team - calculate free tier credits
         const now = new Date();
         const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
         const endOfMonth = new Date(
@@ -220,6 +238,7 @@ export function useCreditUsage(): CreditUsageHook {
     loadingSubscriptionData,
     teamLoading,
     teamId,
+    activeTeam,
     logger,
     getCreditLimit,
   ]);

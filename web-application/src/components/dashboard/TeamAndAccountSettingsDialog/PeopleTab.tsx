@@ -627,7 +627,7 @@ export function PeopleTab() {
                   <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-500 mt-0.5" />
                   <div>
                     <p className="text-sm text-amber-900 dark:text-amber-200">
-                      <strong>Seat limit reached.</strong> You're currently
+                      <strong>Seat limit reached.</strong> You&apos;re currently
                       using {currentNonViewerCount + getNonViewerInviteCount()}{" "}
                       of {seatQuantity} seat
                       {seatQuantity !== 1 ? "s" : ""} ({currentNonViewerCount}{" "}

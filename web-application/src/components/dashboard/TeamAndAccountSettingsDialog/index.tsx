@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import {
+  Sidebar,
   SidebarMenu,
   SidebarMenuItem,
   SidebarMenuButton,

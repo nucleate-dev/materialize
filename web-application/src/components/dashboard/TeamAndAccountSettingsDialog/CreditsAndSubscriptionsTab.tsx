@@ -57,7 +57,7 @@ export function CreditsAndSubscriptionsTab() {
     // If PLUS user upgrading to TEAM, redirect to Stripe billing portal
     if (targetPlan === "team" && currentSubscription === "plus") {
       logger.log({
-        event: "client_upgrade_to_team_from_plus_clicked",
+        event: "client_upgrade_checkout_clicked",
         properties: {
           source: "settings_dialog",
           current_plan: currentSubscription,
