@@ -545,10 +545,7 @@ export function PeopleTab() {
                       </div>
                     </div>
                   </div>
-                ) : (
-                  /* Spacer for plus users to maintain alignment */
-                  <div className="mb-3 h-7" />
-                )}
+                ) : null}
 
                 <Button
                   size="sm"
