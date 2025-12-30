@@ -15,7 +15,7 @@ export function useTeamInvites(teamId: string | null | undefined) {
         .from("team_invites")
         .select("*")
         .eq("team_id", teamId)
-        .is("accepted_at", null) // Only fetch pending invites
+        .eq("invite_status", "pending") // Only fetch pending invites
         .order("created_at", { ascending: false });
 
       if (error) {

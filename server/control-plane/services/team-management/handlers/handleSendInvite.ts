@@ -171,7 +171,7 @@ export default async function handleSendInviteImpl(
           .select("*")
           .eq("team_id", team_id)
           .eq("email", email)
-          .is("accepted_at", null);
+          .eq("invite_status", "pending");
 
         if (existingInvites && existingInvites.length > 0) {
           request.log2.warn("Pending invite already exists", {

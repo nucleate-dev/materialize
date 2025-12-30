@@ -523,7 +523,7 @@ export async function getRemainingSeats(
         .from("team_invites")
         .select("*", { count: "exact", head: true })
         .eq("team_id", teamId)
-        .is("accepted_at", null);
+        .eq("invite_status", "pending");
 
       if (inviteError) {
         log2.error(inviteError, "Error counting pending invites", {
@@ -597,7 +597,7 @@ export async function getRemainingSeats(
           .select("*", { count: "exact", head: true })
           .eq("team_id", teamId)
           .in("role", ["owner", "admin", "editor"])
-          .is("accepted_at", null);
+          .eq("invite_status", "pending");
 
       if (inviteError) {
         log2.error(inviteError, "Error counting pending invites", {
@@ -623,7 +623,7 @@ export async function getRemainingSeats(
         .select("*", { count: "exact", head: true })
         .eq("team_id", teamId)
         .eq("role", "viewer")
-        .is("accepted_at", null);
+        .eq("invite_status", "pending");
 
       const viewerUsed = (viewerMemberCount || 0) + (viewerInviteCount || 0);
 
