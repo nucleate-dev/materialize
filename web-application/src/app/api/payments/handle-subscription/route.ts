@@ -113,6 +113,7 @@ export async function POST(req: NextRequest) {
     case "customer.subscription.updated":
       // Though there is no harm, this does not need to be handled if the prorated amount is charged immediately.
       // in this case, the invoice.paid event will trigger and handle database updates.
+      // For downgrades scheduled at period end, this event fires but credit granting happens in invoice.paid.
       await handleSubscriptionUpdated(event.data.object);
       break;
     case "customer.subscription.trial_will_end":
@@ -380,22 +381,46 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
   const { userId, teamId } = metadataIds;
   const posthogBaseProps = {
     source: LoggingEventSource.API_PAYMENTS_HANDLE_SUBSCRIPTION,
+    user_id: userId,
     team_id: teamId,
   };
 
   // update the database with the new subscription info and record the payment for access later
+  const subscriptionItem = subscription.items.data[0];
+  const seatQuantity = Math.max(1, subscriptionItem.quantity ?? 1);
+  const newPlanKey = getPlanKey(subscriptionItem.price.id);
+
+  // Query existing subscription to detect plan changes (upgrade vs downgrade vs renewal)
+  const { data: existingSubscription } = await supabase
+    .from("subscriptions")
+    .select("plan_id, seat_quantity")
+    .eq("id", subscription.id)
+    .maybeSingle();
+
+  // Determine if this is an upgrade, downgrade, or renewal
+  const changeType = getSubscriptionChangeType(
+    existingSubscription?.plan_id ?? null,
+    existingSubscription?.seat_quantity ?? null,
+    newPlanKey,
+    seatQuantity,
+  );
+
   const { error: subscriptionUpdateError } = await supabase
     .from("subscriptions")
-    .upsert({
-      id: subscription.id, // primary key
-      team_id: teamId,
-      stripe_customer_id: getCustomerIdFromInvoice(invoice),
-      status: SubscriptionStatuses.ACTIVE,
-      current_period_start: subscription.items.data[0].current_period_start,
-      current_period_end: subscription.items.data[0].current_period_end,
-      price_id: subscription.items.data[0].price.id,
-      plan_id: getPlanKey(subscription.items.data[0].price.id),
-    });
+    .upsert(
+      {
+        id: subscription.id, // primary key
+        team_id: teamId,
+        stripe_customer_id: getCustomerIdFromInvoice(invoice),
+        status: SubscriptionStatuses.ACTIVE,
+        current_period_start: subscriptionItem.current_period_start,
+        current_period_end: subscriptionItem.current_period_end,
+        price_id: subscriptionItem.price.id,
+        plan_id: newPlanKey,
+        stripe_subscription_item_id: subscriptionItem.id,
+        seat_quantity: seatQuantity,
+      } as Database["public"]["Tables"]["subscriptions"]["Insert"],
+    );
   if (subscriptionUpdateError) {
     posthog.capture({
       distinctId: userId,
@@ -412,14 +437,41 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
     return;
   }
 
-  // Grant credits to the user with expiration date
-  const planKey = getPlanKey(subscription.items.data[0].price.id);
-  const creditsToGrant = getCreditsForPlan(planKey);
+  // Calculate credits based on change type
+  // - Upgrades: Use amount-based calculation (prorated)
+  // - Downgrades/Renewals: Use plan-based calculation (full period)
+  let creditsToGrant: number;
+  let grantReason: string;
+
+  if (changeType === "upgrade") {
+    creditsToGrant = calculateUpgradeCredits(invoice.amount_paid);
+    grantReason = "subscription_upgrade";
+  } else {
+    creditsToGrant = calculateDowngradeOrRenewalCredits(
+      newPlanKey,
+      seatQuantity,
+    );
+    grantReason = changeType === "downgrade"
+      ? "subscription_downgrade"
+      : "subscription_renewal";
+
+    // Handle downgrade reconciliation (e.g., remove excess team members, update limits)
+    if (changeType === "downgrade" && existingSubscription) {
+      await reconcileTeamOnDowngrade(
+        userId,
+        teamId,
+        existingSubscription.plan_id,
+        newPlanKey,
+        existingSubscription.seat_quantity,
+        seatQuantity,
+      );
+    }
+  }
   const billingPeriodStart = new Date(
-    subscription.items.data[0].current_period_start * 1000,
+    subscriptionItem.current_period_start * 1000,
   ).toISOString();
   const billingPeriodEnd = new Date(
-    subscription.items.data[0].current_period_end * 1000,
+    subscriptionItem.current_period_end * 1000,
   ).toISOString();
   const expiresAt = billingPeriodEnd;
 
@@ -447,25 +499,14 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
 
   let grantRows;
   let creditGrantError;
-  let isDowngrade = false;
 
   if (existingGrant) {
-    // First, get the old credits_granted value to detect downgrades
-    const { data: oldGrantData } = await supabase
-      .from("credit_grants")
-      .select("credits_granted")
-      .eq("id", existingGrant.id)
-      .single();
-
-    const oldCreditsGranted = oldGrantData?.credits_granted || 0;
-    isDowngrade = creditsToGrant < oldCreditsGranted;
-
     // Update existing grant
     const { data: updatedGrant, error: updateError } = await supabase
       .from("credit_grants")
       .update({
         credits_granted: creditsToGrant,
-        grant_reason: "subscription_renewal",
+        grant_reason: grantReason,
         grant_type: "subscription",
         billing_period_end: billingPeriodEnd,
         expires_at: expiresAt,
@@ -476,16 +517,6 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
 
     grantRows = updatedGrant;
     creditGrantError = updateError;
-
-    // If this is a downgrade, reconcile usage that exceeds the new limit
-    if (isDowngrade && !updateError && grantRows && grantRows.length > 0) {
-      await reconcileCreditUsageForDowngrade(
-        userId,
-        existingGrant.id,
-        creditsToGrant,
-        teamId,
-      );
-    }
   } else {
     // Create new grant
     const { data: newGrant, error: insertError } = await supabase
@@ -494,7 +525,7 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
         team_id: teamId,
         credits_granted: creditsToGrant,
         subscription_id: subscription.id,
-        grant_reason: "subscription_renewal",
+        grant_reason: grantReason,
         grant_type: "subscription",
         billing_period_start: billingPeriodStart,
         billing_period_end: billingPeriodEnd,
@@ -520,8 +551,7 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
     const newGrant = grantRows[0];
     let remainingCredits = newGrant.credits_granted;
 
-    // Skip overage reconciliation if this was a downgrade - we want those overages to remain unpaid
-    if (remainingCredits > 0 && !isDowngrade) {
+    if (remainingCredits > 0) {
       const { data: overageRows, error: overageFetchError } = await supabase
         .from("api_usage")
         .select("id, credits_used, prototype_id")
@@ -684,9 +714,14 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
     properties: {
       ...posthogBaseProps,
       subscription_id: subscription.id,
-      plan_key: planKey,
+      plan_key: newPlanKey,
       amount_total: invoice.amount_paid,
       currency: invoice.currency,
+      change_type: changeType,
+      credits_granted: creditsToGrant,
+      old_plan_key: existingSubscription?.plan_id ?? null,
+      old_seat_quantity: existingSubscription?.seat_quantity ?? null,
+      new_seat_quantity: seatQuantity,
     },
   });
 
@@ -855,7 +890,6 @@ async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
  *     - `current_period_start` and `current_period_end`
  *     - `price_id` and the associated `plan_id` based on the price ID.
  *  3. If the subscription update fails, logs the error using PostHog for analytics and debugging.
- *  4. If the user is downgrading, reconciles credit usage to nullify credit_grant_id for any usage exceeding the new limit.
  *
  * Error Handling:
  *  - If the database update fails, captures the error in PostHog and stops further execution.
@@ -875,18 +909,24 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
   }
   const { userId, teamId } = metadataIds;
 
-  const newPlanKey = getPlanKey(subscription.items.data[0].price.id);
+  const subscriptionItem = subscription.items.data[0];
+  const seatQuantity = Math.max(1, subscriptionItem.quantity ?? 1);
+  const newPlanKey = getPlanKey(subscriptionItem.price.id);
 
   // update the database with the new subscription info. The handleInvoicePayment function should handle recording the payment
   const { error: subscriptionUpdateError } = await supabase
     .from("subscriptions")
-    .update({
-      current_period_start: subscription.items.data[0].current_period_start,
-      current_period_end: subscription.items.data[0].current_period_end,
-      price_id: subscription.items.data[0].price.id,
-      plan_id: newPlanKey,
-      scheduled_for_cancellation: subscription.cancel_at_period_end,
-    })
+    .update(
+      {
+        current_period_start: subscriptionItem.current_period_start,
+        current_period_end: subscriptionItem.current_period_end,
+        price_id: subscriptionItem.price.id,
+        plan_id: newPlanKey,
+        scheduled_for_cancellation: subscription.cancel_at_period_end,
+        stripe_subscription_item_id: subscriptionItem.id,
+        seat_quantity: seatQuantity,
+      } as Database["public"]["Tables"]["subscriptions"]["Update"],
+    )
     .eq("id", subscription.id);
   if (subscriptionUpdateError) {
     posthog.capture({
@@ -900,146 +940,6 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
       },
     });
     return;
-  }
-}
-
-/**
- * Reconciles credit usage when a user downgrades their plan.
- * If the user has used more than the new credit limit, this function nullifies the credit_grant_id
- * for any usage exceeding the new amount, splitting rows if necessary.
- *
- * This function is called AFTER the credit grant has already been updated with the new lower limit.
- *
- * @param {string} userId - The user ID
- * @param {string} grantId - The credit grant ID that was just downgraded
- * @param {number} newCreditLimit - The new (lower) credit limit for the downgraded plan
- */
-async function reconcileCreditUsageForDowngrade(
-  userId: string,
-  grantId: string,
-  newCreditLimit: number,
-  teamId: string,
-) {
-  // Get all api_usage rows for this grant, ordered by creation time
-  const { data: usageRows, error: usageError } = await supabase
-    .from("api_usage")
-    .select("id, credits_used, prototype_id, created_at")
-    .eq("credit_grant_id", grantId)
-    .eq("team_id", teamId)
-    .order("created_at", { ascending: true });
-
-  if (usageError) {
-    posthog.capture({
-      distinctId: userId,
-      event: ExceptionEvents.CREDIT_GRANT_ERROR,
-      properties: {
-        source: LoggingEventSource.API_PAYMENTS_HANDLE_SUBSCRIPTION,
-        error: usageError,
-        context: "reconcile_downgrade_fetch_usage",
-        team_id: teamId,
-      },
-    });
-    console.error(
-      "Error fetching usage for downgrade reconciliation:",
-      usageError,
-    );
-    return;
-  }
-
-  if (!usageRows || usageRows.length === 0) {
-    // No usage to reconcile
-    return;
-  }
-
-  // Calculate total usage and determine which rows need to be nullified or split
-  let accumulatedCredits = 0;
-
-  for (const usageRow of usageRows) {
-    const usageCredits = Math.max(usageRow.credits_used || 0, 0);
-    const previousAccumulated = accumulatedCredits;
-    accumulatedCredits += usageCredits;
-
-    if (previousAccumulated >= newCreditLimit) {
-      // This entire row is beyond the limit, nullify its credit_grant_id
-      const { error: nullifyError } = await supabase
-        .from("api_usage")
-        .update({ credit_grant_id: null })
-        .eq("id", usageRow.id);
-
-      if (nullifyError) {
-        posthog.capture({
-          distinctId: userId,
-          event: ExceptionEvents.CREDIT_GRANT_ERROR,
-          properties: {
-            source: LoggingEventSource.API_PAYMENTS_HANDLE_SUBSCRIPTION,
-            error: nullifyError,
-            context: "reconcile_downgrade_nullify_row",
-            team_id: teamId,
-          },
-        });
-        console.error(
-          "Error nullifying usage row for downgrade:",
-          nullifyError,
-        );
-      }
-    } else if (accumulatedCredits > newCreditLimit) {
-      // This row straddles the limit, need to split it
-      const creditsWithinLimit = newCreditLimit - previousAccumulated;
-      const creditsBeyondLimit = usageCredits - creditsWithinLimit;
-
-      // Update the existing row to only contain credits within the limit
-      const { error: updateError } = await supabase
-        .from("api_usage")
-        .update({ credits_used: creditsWithinLimit })
-        .eq("id", usageRow.id);
-
-      if (updateError) {
-        posthog.capture({
-          distinctId: userId,
-          event: ExceptionEvents.CREDIT_GRANT_ERROR,
-          properties: {
-            source: LoggingEventSource.API_PAYMENTS_HANDLE_SUBSCRIPTION,
-            error: updateError,
-            context: "reconcile_downgrade_split_update",
-            team_id: teamId,
-          },
-        });
-        console.error(
-          "Error updating split usage row for downgrade:",
-          updateError,
-        );
-        continue;
-      }
-
-      // Insert a new row for the credits beyond the limit (with null credit_grant_id)
-      const { error: insertError } = await supabase.from("api_usage").insert({
-        user_id: userId,
-        team_id: teamId,
-        prototype_id: usageRow.prototype_id,
-        credits_used: creditsBeyondLimit,
-        credit_grant_id: null,
-        is_free_tier: false,
-        created_at: usageRow.created_at, // Preserve the original creation time
-      });
-
-      if (insertError) {
-        posthog.capture({
-          distinctId: userId,
-          event: ExceptionEvents.CREDIT_GRANT_ERROR,
-          properties: {
-            source: LoggingEventSource.API_PAYMENTS_HANDLE_SUBSCRIPTION,
-            error: insertError,
-            context: "reconcile_downgrade_split_insert",
-            team_id: teamId,
-          },
-        });
-        console.error(
-          "Error inserting split usage row for downgrade:",
-          insertError,
-        );
-      }
-    }
-    // If accumulatedCredits <= newCreditLimit, the row is fine as-is
   }
 }
 
@@ -1291,6 +1191,271 @@ function getCreditsForPlan(
     case "team":
       return CreditLimits.TEAM;
   }
+}
+
+/**
+ * Reconciles team data when a subscription downgrade occurs.
+ * This function is called when a user downgrades their plan (e.g., team → plus, or reduces seat quantity).
+ *
+ * Use this function to:
+ * - Remove excess team members if seat quantity decreased
+ * - Update team permissions or limits based on new plan
+ * - Clean up team resources that are no longer available in the downgraded plan
+ * - Send notifications to affected team members
+ *
+ * @param userId - The user ID who owns the subscription
+ * @param teamId - The team ID affected by the downgrade
+ * @param oldPlanKey - The previous plan type
+ * @param newPlanKey - The new (downgraded) plan type
+ * @param oldSeatQuantity - The previous number of seats
+ * @param newSeatQuantity - The new (reduced or same) number of seats
+ * @returns Promise<void>
+ */
+async function reconcileTeamOnDowngrade(
+  userId: string,
+  teamId: string,
+  oldPlanKey: Database["public"]["Enums"]["subscription_plan_type"],
+  newPlanKey: Database["public"]["Enums"]["subscription_plan_type"],
+  oldSeatQuantity: number,
+  newSeatQuantity: number,
+): Promise<void> {
+  // Determine how many non-viewer members are allowed in the new plan
+  let allowedNonViewerSeats: number;
+
+  if (newPlanKey === "free") {
+    allowedNonViewerSeats = 1; // Only owner
+  } else if (newPlanKey === "plus") {
+    allowedNonViewerSeats = 2; // Owner + 1 other
+  } else if (newPlanKey === "team") {
+    allowedNonViewerSeats = newSeatQuantity; // Based on seat quantity
+  } else {
+    // For PRO and MAX plans, use seat quantity
+    allowedNonViewerSeats = newSeatQuantity;
+  }
+
+  // Get team details to determine priority users
+  const { data: team, error: teamFetchError } = await supabase
+    .from("teams")
+    .select("personal_owner_user_id, created_by")
+    .eq("id", teamId)
+    .single();
+
+  if (teamFetchError || !team) {
+    console.error(
+      "Error fetching team for downgrade reconciliation:",
+      teamFetchError,
+    );
+    posthog.capture({
+      distinctId: userId,
+      event: ExceptionEvents.SUSBCRIPTION_UPDATE_ERROR,
+      properties: {
+        source: LoggingEventSource.API_PAYMENTS_HANDLE_SUBSCRIPTION,
+        error: teamFetchError,
+        context: "reconcileTeamOnDowngrade_fetch_team",
+        team_id: teamId,
+      },
+    });
+    return;
+  }
+
+  // Get all team memberships, ordered by most recent first
+  const { data: memberships, error: membershipsError } = await supabase
+    .from("team_memberships")
+    .select("user_id, role, created_at")
+    .eq("team_id", teamId)
+    .order("created_at", { ascending: false });
+
+  if (membershipsError || !memberships) {
+    posthog.capture({
+      distinctId: userId,
+      event: ExceptionEvents.SUSBCRIPTION_UPDATE_ERROR,
+      properties: {
+        source: LoggingEventSource.API_PAYMENTS_HANDLE_SUBSCRIPTION,
+        error: membershipsError,
+        context: "reconcileTeamOnDowngrade_fetch_memberships",
+        team_id: teamId,
+      },
+    });
+    return;
+  }
+
+  // Build priority list (exclude existing viewers)
+  const priorityList: Array<{
+    user_id: string;
+    role: string;
+    priority: number;
+    created_at: string;
+  }> = [];
+
+  for (const membership of memberships) {
+    // Skip members who are already viewers
+    if (membership.role === "viewer") {
+      continue;
+    }
+
+    let priority = 0;
+
+    // Priority 1 (highest): personal_owner_user_id
+    if (membership.user_id === team.personal_owner_user_id) {
+      priority = 1000;
+    } // Priority 2: created_by user if they are still an owner
+    else if (
+      membership.user_id === team.created_by &&
+      membership.role === "owner"
+    ) {
+      priority = 900;
+    } // Priority 3: Other owners
+    else if (membership.role === "owner") {
+      priority = 800;
+    } // Priority 4: Admins
+    else if (membership.role === "admin") {
+      priority = 700;
+    } // Priority 5 (lowest): Editors
+    else if (membership.role === "editor") {
+      priority = 600;
+    }
+
+    priorityList.push({
+      user_id: membership.user_id,
+      role: membership.role,
+      priority: priority,
+      created_at: membership.created_at,
+    });
+  }
+
+  // Sort by priority (descending), then by created_at (ascending = keep older members first)
+  // When demoting, we pick the most recent people first (those with later created_at dates)
+  priorityList.sort((a, b) => {
+    if (b.priority !== a.priority) {
+      return b.priority - a.priority; // Higher priority first
+    }
+    // For same priority, older members come first (we want to keep them)
+    return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+  });
+
+  // Determine which members to keep and which to demote
+  const membersToKeep = priorityList.slice(0, allowedNonViewerSeats);
+  const membersToDemote = priorityList.slice(allowedNonViewerSeats);
+
+  // Update memberships to viewer for those who need to be demoted
+  if (membersToDemote.length <= 0) {
+    return;
+  }
+  const userIdsToDemote = membersToDemote.map((m) => m.user_id);
+
+  const { error: updateError } = await supabase
+    .from("team_memberships")
+    .update({ role: "viewer" })
+    .eq("team_id", teamId)
+    .in("user_id", userIdsToDemote);
+
+  if (updateError) {
+    console.error("Error demoting team members to viewer:", updateError);
+    posthog.capture({
+      distinctId: userId,
+      event: ExceptionEvents.SUSBCRIPTION_UPDATE_ERROR,
+      properties: {
+        source: LoggingEventSource.API_PAYMENTS_HANDLE_SUBSCRIPTION,
+        error: updateError,
+        context: "reconcileTeamOnDowngrade_demote_members",
+        team_id: teamId,
+        demoted_count: membersToDemote.length,
+      },
+    });
+  } else {
+    // Log successful reconciliation
+    posthog.capture({
+      distinctId: userId,
+      event: SuccessEvents.HANDLED_STRIPE_SUBSCRIPTION_INVOICE_PAID,
+      properties: {
+        source: LoggingEventSource.API_PAYMENTS_HANDLE_SUBSCRIPTION,
+        context: "reconcileTeamOnDowngrade_success",
+        team_id: teamId,
+        old_plan: oldPlanKey,
+        new_plan: newPlanKey,
+        old_seats: oldSeatQuantity,
+        new_seats: newSeatQuantity,
+        allowed_seats: allowedNonViewerSeats,
+        kept_members: membersToKeep.length,
+        demoted_members: membersToDemote.length,
+      },
+    });
+  }
+}
+
+/**
+ * Determines if a subscription change is an upgrade, downgrade, or renewal.
+ *
+ * - Upgrade: Total credits (plan credits * seats) increased - takes effect immediately with prorated billing
+ * - Downgrade: Total credits decreased - takes effect at next billing cycle with full period billing
+ * - Renewal: No change in credits - regular renewal with full period billing
+ *
+ * @param oldPlanKey - The previous plan type (null if new subscription)
+ * @param oldSeatQuantity - The previous number of seats (null if new subscription)
+ * @param newPlanKey - The new plan type
+ * @param newSeatQuantity - The new number of seats
+ * @returns 'upgrade', 'downgrade', or 'renewal'
+ */
+function getSubscriptionChangeType(
+  oldPlanKey: Database["public"]["Enums"]["subscription_plan_type"] | null,
+  oldSeatQuantity: number | null,
+  newPlanKey: Database["public"]["Enums"]["subscription_plan_type"],
+  newSeatQuantity: number,
+): "upgrade" | "downgrade" | "renewal" {
+  // If no old subscription, this is a new subscription (treat as renewal)
+  if (!oldPlanKey || oldSeatQuantity === null) {
+    return "renewal";
+  }
+
+  const oldCredits = getCreditsForPlan(oldPlanKey) * oldSeatQuantity;
+  const newCredits = getCreditsForPlan(newPlanKey) * newSeatQuantity;
+
+  if (newCredits > oldCredits) {
+    return "upgrade";
+  } else if (newCredits < oldCredits) {
+    return "downgrade";
+  } else {
+    return "renewal";
+  }
+}
+
+/**
+ * Calculates credits for subscription upgrades.
+ *
+ * Upgrades take effect immediately with prorated billing. Credits are calculated
+ * based on the actual amount paid to ensure fair prorated credit allocation.
+ *
+ * Formula: credits = (amount_paid_in_dollars) / 0.25
+ * Example: $25 paid → 25 / 0.25 = 100 credits
+ * Example: $20 prorated → 20 / 0.25 = 80 credits
+ *
+ * @param amountPaidInCents - The amount paid in cents from the Stripe invoice
+ * @returns The number of credits to grant, rounded to nearest whole number
+ */
+function calculateUpgradeCredits(amountPaidInCents: number): number {
+  // Convert cents to dollars, divide by $0.25 per credit, round to nearest whole number
+  // amountPaidInCents / 100 / 0.25 = amountPaidInCents / 25
+  const credits = Math.round(amountPaidInCents / 25);
+  return credits;
+}
+
+/**
+ * Calculates credits for subscription downgrades and renewals.
+ *
+ * Downgrades take effect at the next billing cycle with full period billing.
+ * Renewals continue with the same plan at full period billing.
+ * Credits are based on the plan's standard credit allocation per seat.
+ *
+ * @param planKey - The subscription plan key
+ * @param seatQuantity - The number of seats in the subscription
+ * @returns The number of credits to grant based on plan allocation
+ */
+function calculateDowngradeOrRenewalCredits(
+  planKey: Database["public"]["Enums"]["subscription_plan_type"],
+  seatQuantity: number,
+): number {
+  const creditsPerSeat = getCreditsForPlan(planKey);
+  return creditsPerSeat * seatQuantity;
 }
 
 /**

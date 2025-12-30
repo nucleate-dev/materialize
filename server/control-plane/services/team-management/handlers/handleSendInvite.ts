@@ -12,6 +12,7 @@ import { Database } from "../../../types/supabase.js";
 import { Resend } from "resend";
 import { render } from "@react-email/render";
 import TeamInviteEmail from "../../../emails/TeamInviteEmail.js";
+import { getRemainingSeats } from "../../../utils/subscriptionChecks.js";
 
 /**
  * Implementation for sending a team invite.
@@ -117,6 +118,46 @@ export default async function handleSendInviteImpl(
       };
     }
 
+    // Check if team has remaining seats for this role
+    const seatInfo = await getRemainingSeats(
+      token,
+      user.id,
+      team_id,
+      request.log2,
+    );
+
+    // Determine which seat type to check based on role
+    const isViewerRole = role === "viewer";
+    const relevantSeats = isViewerRole
+      ? seatInfo.viewerSeats
+      : seatInfo.collaboratorSeats;
+    const seatType = isViewerRole ? "viewer" : "collaborator";
+
+    if (!relevantSeats.hasSeats) {
+      reply.status(HTTP_STATUS.FORBIDDEN);
+      return {
+        data: null,
+        error: {
+          error: "No remaining seats",
+          message:
+            `Your ${seatInfo.plan} plan has no remaining ${seatType} seats. You have ${relevantSeats.used} of ${relevantSeats.total} seats used. Please upgrade your plan or remove existing members to send more invites.`,
+        },
+      };
+    }
+
+    // Check if we have enough seats for all the emails being invited
+    if (relevantSeats.remaining < emails.length) {
+      reply.status(HTTP_STATUS.FORBIDDEN);
+      return {
+        data: null,
+        error: {
+          error: "Not enough seats",
+          message:
+            `Your ${seatInfo.plan} plan has only ${relevantSeats.remaining} remaining ${seatType} seat(s), but you're trying to invite ${emails.length} member(s). Please upgrade your plan or reduce the number of invites.`,
+        },
+      };
+    }
+
     // Process each email
     const inviteIds: string[] = [];
     const failedEmails: string[] = [];
@@ -130,7 +171,7 @@ export default async function handleSendInviteImpl(
           .select("*")
           .eq("team_id", team_id)
           .eq("email", email)
-          .is("accepted_at", null);
+          .eq("invite_status", "pending");
 
         if (existingInvites && existingInvites.length > 0) {
           request.log2.warn("Pending invite already exists", {

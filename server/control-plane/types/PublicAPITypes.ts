@@ -13,9 +13,9 @@ import type { Database } from "../types/supabase.js";
 export const CreditLimits = Object.freeze({
   FREE: 15,
   PLUS: 100,
+  TEAM: 140,
   PRO: 250,
   MAX: 1000,
-  TEAM: 10000,
 });
 
 // ============================================================================
@@ -125,14 +125,17 @@ export interface CheckoutRequestBody {
     | "plus"
     | "pro"
     | "max"
+    | "team"
     | "credit_pack_100"
     | "credit_pack_500"
     | "credit_pack_1000";
   teamId: string;
+  seatQuantity?: number;
 }
 
 export interface CheckoutSuccessResponse {
-  id: string; // Stripe session ID
+  id: string; // Stripe session ID or billing portal session ID
+  url?: string; // Optional billing portal URL (when user has existing subscription)
 }
 
 export interface CheckoutErrorResponse {

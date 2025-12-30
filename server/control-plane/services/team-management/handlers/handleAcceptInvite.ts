@@ -107,7 +107,7 @@ export default async function handleAcceptInviteImpl(
     });
 
     // Check if invite has already been accepted
-    if (invite.accepted_at) {
+    if (invite.invite_status === "accepted") {
       request.log2.warn("Invite already accepted", { invite_id });
       reply.status(HTTP_STATUS.BAD_REQUEST);
       return {
@@ -186,11 +186,12 @@ export default async function handleAcceptInviteImpl(
     }
 
     // Update invite to mark as accepted
-    // Note: We only update accepted_at. The trigger prevents invitees from changing
+    // Note: We update both invite_status and accepted_at. The trigger prevents invitees from changing
     // invited_user_id, so we don't attempt to set it here.
     const { error: updateError } = await supabaseClient
       .from("team_invites")
       .update({
+        invite_status: "accepted",
         accepted_at: new Date().toISOString(),
       })
       .eq("id", invite_id);

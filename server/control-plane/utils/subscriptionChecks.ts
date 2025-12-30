@@ -433,3 +433,253 @@ export async function hasExceededCreditLimit(
     };
   }
 }
+
+/**
+ * Get the remaining seats available for a team based on their subscription plan
+ * Returns separate information for collaborator seats (owner/admin/editor) and viewer seats
+ *
+ * @param jwtToken - JWT token for authentication
+ * @param userId - The user ID making the request
+ * @param teamId - The team ID to check
+ * @param log2 - Logger instance
+ * @returns Promise with seat availability information for both collaborators and viewers
+ */
+export async function getRemainingSeats(
+  jwtToken: string,
+  userId: string,
+  teamId: string,
+  log2: SystemLogger,
+): Promise<{
+  collaboratorSeats: {
+    hasSeats: boolean;
+    remaining: number;
+    total: number;
+    used: number;
+  };
+  viewerSeats: {
+    hasSeats: boolean;
+    remaining: number;
+    total: number;
+    used: number;
+  };
+  plan: string;
+}> {
+  const supabaseClient = createClient<Database>(
+    process.env.SUPABASE_URL!,
+    process.env.SUPABASE_ANON_KEY!,
+    {
+      global: {
+        headers: {
+          Authorization: `Bearer ${jwtToken}`,
+        },
+      },
+    },
+  );
+
+  try {
+    const subscriptionInfo = await getSubscriptionInfo(
+      jwtToken,
+      userId,
+      log2,
+      teamId,
+    );
+
+    const plan = subscriptionInfo.userPlan;
+
+    // Free plan: always 0 seats for both
+    if (plan === "free") {
+      return {
+        collaboratorSeats: {
+          hasSeats: false,
+          remaining: 0,
+          total: 1,
+          used: 1,
+        },
+        viewerSeats: {
+          hasSeats: false,
+          remaining: 0,
+          total: 0,
+          used: 0,
+        },
+        plan,
+      };
+    } else if (plan === "plus") { // Plus plan: max 2 total members across all roles, Both collaborator and viewer seats use the same pool
+      // Count all current team members (all roles)
+      const { count: memberCount, error: memberError } = await supabaseClient
+        .from("team_memberships")
+        .select("*", { count: "exact", head: true })
+        .eq("team_id", teamId);
+
+      if (memberError) {
+        log2.error(memberError, "Error counting team members", {
+          functionName: "getRemainingSeats",
+          teamId,
+        });
+        throw memberError;
+      }
+
+      // Count all pending invites (all roles)
+      const { count: inviteCount, error: inviteError } = await supabaseClient
+        .from("team_invites")
+        .select("*", { count: "exact", head: true })
+        .eq("team_id", teamId)
+        .eq("invite_status", "pending");
+
+      if (inviteError) {
+        log2.error(inviteError, "Error counting pending invites", {
+          functionName: "getRemainingSeats",
+          teamId,
+        });
+        throw inviteError;
+      }
+
+      const totalUsed = (memberCount || 0) + (inviteCount || 0);
+      const totalSeats = 2;
+      const remaining = Math.max(totalSeats - totalUsed, 0);
+
+      // Same values for both since they share the same pool
+      const seatInfo = {
+        hasSeats: remaining > 0,
+        remaining,
+        total: totalSeats,
+        used: totalUsed,
+      };
+
+      return {
+        collaboratorSeats: seatInfo,
+        viewerSeats: seatInfo,
+        plan,
+      };
+    } else if (plan === "team") { // Team plan: collaborator seats limited by subscription, unlimited viewer seats
+      // Get the number of seats from the subscription
+      const nowInSeconds = Math.floor(Date.now() / 1000);
+      const { data: subscription, error: subError } = await supabaseClient
+        .from("subscriptions")
+        .select("seat_quantity")
+        .eq("team_id", teamId)
+        .eq("status", "active")
+        .lte("current_period_start", nowInSeconds)
+        .gte("current_period_end", nowInSeconds)
+        .order("updated_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (subError) {
+        log2.error(subError, "Error fetching subscription", {
+          functionName: "getRemainingSeats",
+          teamId,
+        });
+        throw subError;
+      }
+
+      const totalSeats = subscription?.seat_quantity || 1; // Default to 1 if not found
+
+      // Count current members with owner, admin, or editor roles
+      const { count: collaboratorMemberCount, error: memberError } =
+        await supabaseClient
+          .from("team_memberships")
+          .select("*", { count: "exact", head: true })
+          .eq("team_id", teamId)
+          .in("role", ["owner", "admin", "editor"]);
+
+      if (memberError) {
+        log2.error(memberError, "Error counting team members", {
+          functionName: "getRemainingSeats",
+          teamId,
+        });
+        throw memberError;
+      }
+
+      // Count pending invites for owner, admin, or editor roles
+      const { count: collaboratorInviteCount, error: inviteError } =
+        await supabaseClient
+          .from("team_invites")
+          .select("*", { count: "exact", head: true })
+          .eq("team_id", teamId)
+          .in("role", ["owner", "admin", "editor"])
+          .eq("invite_status", "pending");
+
+      if (inviteError) {
+        log2.error(inviteError, "Error counting pending invites", {
+          functionName: "getRemainingSeats",
+          teamId,
+        });
+        throw inviteError;
+      }
+
+      const collaboratorUsed = (collaboratorMemberCount || 0) +
+        (collaboratorInviteCount || 0);
+      const collaboratorRemaining = Math.max(totalSeats - collaboratorUsed, 0);
+
+      // Count viewer members for reporting purposes
+      const { count: viewerMemberCount } = await supabaseClient
+        .from("team_memberships")
+        .select("*", { count: "exact", head: true })
+        .eq("team_id", teamId)
+        .eq("role", "viewer");
+
+      const { count: viewerInviteCount } = await supabaseClient
+        .from("team_invites")
+        .select("*", { count: "exact", head: true })
+        .eq("team_id", teamId)
+        .eq("role", "viewer")
+        .eq("invite_status", "pending");
+
+      const viewerUsed = (viewerMemberCount || 0) + (viewerInviteCount || 0);
+
+      return {
+        collaboratorSeats: {
+          hasSeats: collaboratorRemaining > 0,
+          remaining: collaboratorRemaining,
+          total: totalSeats,
+          used: collaboratorUsed,
+        },
+        viewerSeats: {
+          hasSeats: true,
+          remaining: Infinity,
+          total: Infinity,
+          used: viewerUsed,
+        },
+        plan,
+      };
+    }
+
+    // For any other plans (pro, max), assume unlimited seats
+    return {
+      collaboratorSeats: {
+        hasSeats: true,
+        remaining: Infinity,
+        total: Infinity,
+        used: 0,
+      },
+      viewerSeats: {
+        hasSeats: true,
+        remaining: Infinity,
+        total: Infinity,
+        used: 0,
+      },
+      plan,
+    };
+  } catch (error) {
+    log2.error(error, "Error in getRemainingSeats", {
+      functionName: "getRemainingSeats",
+      teamId,
+    });
+    // On error, default to no seats available to be safe
+    return {
+      collaboratorSeats: {
+        hasSeats: false,
+        remaining: 0,
+        total: 0,
+        used: 0,
+      },
+      viewerSeats: {
+        hasSeats: false,
+        remaining: 0,
+        total: 0,
+        used: 0,
+      },
+      plan: "unknown",
+    };
+  }
+}

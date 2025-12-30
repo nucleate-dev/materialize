@@ -243,7 +243,6 @@ export type Database = {
           id: string
           subscription_id: string | null
           team_id: string
-          user_id: string
         }
         Insert: {
           billing_period_end?: string | null
@@ -256,7 +255,6 @@ export type Database = {
           id?: string
           subscription_id?: string | null
           team_id: string
-          user_id: string
         }
         Update: {
           billing_period_end?: string | null
@@ -269,7 +267,6 @@ export type Database = {
           id?: string
           subscription_id?: string | null
           team_id?: string
-          user_id?: string
         }
         Relationships: [
           {
@@ -284,13 +281,6 @@ export type Database = {
             columns: ["team_id"]
             isOneToOne: false
             referencedRelation: "teams"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "credit_grants_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
             referencedColumns: ["id"]
           },
         ]
@@ -845,11 +835,12 @@ export type Database = {
           plan_id: Database["public"]["Enums"]["subscription_plan_type"]
           price_id: string | null
           scheduled_for_cancellation: boolean | null
+          seat_quantity: number
           status: Database["public"]["Enums"]["subscription_status"] | null
           stripe_customer_id: string | null
+          stripe_subscription_item_id: string
           team_id: string | null
           updated_at: string | null
-          user_id: string | null
         }
         Insert: {
           created_at?: string
@@ -859,11 +850,12 @@ export type Database = {
           plan_id?: Database["public"]["Enums"]["subscription_plan_type"]
           price_id?: string | null
           scheduled_for_cancellation?: boolean | null
+          seat_quantity?: number
           status?: Database["public"]["Enums"]["subscription_status"] | null
           stripe_customer_id?: string | null
+          stripe_subscription_item_id?: string
           team_id?: string | null
           updated_at?: string | null
-          user_id?: string | null
         }
         Update: {
           created_at?: string
@@ -873,11 +865,12 @@ export type Database = {
           plan_id?: Database["public"]["Enums"]["subscription_plan_type"]
           price_id?: string | null
           scheduled_for_cancellation?: boolean | null
+          seat_quantity?: number
           status?: Database["public"]["Enums"]["subscription_status"] | null
           stripe_customer_id?: string | null
+          stripe_subscription_item_id?: string
           team_id?: string | null
           updated_at?: string | null
-          user_id?: string | null
         }
         Relationships: [
           {
@@ -887,13 +880,6 @@ export type Database = {
             referencedRelation: "teams"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "subscriptions_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
         ]
       }
       team_invites: {
@@ -901,37 +887,37 @@ export type Database = {
           accepted_at: string | null
           created_at: string
           email: string | null
-          expires_at: string
+          expires_at: string | null
           id: string
+          invite_status: Database["public"]["Enums"]["team_invite_status"]
           invited_by: string | null
           invited_user_id: string | null
           role: Database["public"]["Enums"]["team_role"]
           team_id: string
-          token: string
         }
         Insert: {
           accepted_at?: string | null
           created_at?: string
           email?: string | null
-          expires_at: string
+          expires_at?: string | null
           id?: string
+          invite_status?: Database["public"]["Enums"]["team_invite_status"]
           invited_by?: string | null
           invited_user_id?: string | null
           role?: Database["public"]["Enums"]["team_role"]
           team_id: string
-          token: string
         }
         Update: {
           accepted_at?: string | null
           created_at?: string
           email?: string | null
-          expires_at?: string
+          expires_at?: string | null
           id?: string
+          invite_status?: Database["public"]["Enums"]["team_invite_status"]
           invited_by?: string | null
           invited_user_id?: string | null
           role?: Database["public"]["Enums"]["team_role"]
           team_id?: string
-          token?: string
         }
         Relationships: [
           {
@@ -1006,7 +992,7 @@ export type Database = {
       teams: {
         Row: {
           created_at: string
-          created_by: string
+          created_by: string | null
           id: string
           name: string
           personal_owner_user_id: string | null
@@ -1014,7 +1000,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
-          created_by: string
+          created_by?: string | null
           id?: string
           name: string
           personal_owner_user_id?: string | null
@@ -1022,7 +1008,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
-          created_by?: string
+          created_by?: string | null
           id?: string
           name?: string
           personal_owner_user_id?: string | null
@@ -1198,7 +1184,6 @@ export type Database = {
           id: string | null
           subscription_id: string | null
           team_id: string | null
-          user_id: string | null
         }
         Relationships: [
           {
@@ -1213,13 +1198,6 @@ export type Database = {
             columns: ["team_id"]
             isOneToOne: false
             referencedRelation: "teams"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "credit_grants_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
             referencedColumns: ["id"]
           },
         ]
@@ -1269,6 +1247,11 @@ export type Database = {
         }[]
       }
       is_team_member: { Args: { p_team_id: string }; Returns: boolean }
+      is_team_member_with_edit_privileges: {
+        Args: { p_team_id: string }
+        Returns: boolean
+      }
+      is_team_owner: { Args: { p_team_id: string }; Returns: boolean }
       is_team_owner_or_admin: { Args: { p_team_id: string }; Returns: boolean }
     }
     Enums: {
@@ -1278,6 +1261,7 @@ export type Database = {
       prototype_framework: "mobile_expo_react_native" | "web_nextjs_react"
       subscription_plan_type: "free" | "team" | "pro" | "plus" | "max"
       subscription_status: "active" | "past_due" | "canceled"
+      team_invite_status: "pending" | "accepted" | "cancelled"
       team_role: "owner" | "admin" | "editor" | "viewer"
       tunnel_status: "creating" | "idle" | "allocated"
       visibility_level: "SELF" | "TEAM_SUBSET" | "TEAM" | "PUBLIC"
@@ -1414,6 +1398,7 @@ export const Constants = {
       prototype_framework: ["mobile_expo_react_native", "web_nextjs_react"],
       subscription_plan_type: ["free", "team", "pro", "plus", "max"],
       subscription_status: ["active", "past_due", "canceled"],
+      team_invite_status: ["pending", "accepted", "cancelled"],
       team_role: ["owner", "admin", "editor", "viewer"],
       tunnel_status: ["creating", "idle", "allocated"],
       visibility_level: ["SELF", "TEAM_SUBSET", "TEAM", "PUBLIC"],

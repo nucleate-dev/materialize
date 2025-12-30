@@ -45,10 +45,16 @@ export class StripeManagementService {
                   "plus",
                   "pro",
                   "max",
+                  "team",
                   "credit_pack_100",
                   "credit_pack_500",
                   "credit_pack_1000",
                 ],
+              },
+              seatQuantity: {
+                type: "integer",
+                minimum: 1,
+                nullable: true,
               },
             },
           },
@@ -138,7 +144,7 @@ export class StripeManagementService {
       userId: user.id,
     });
 
-    const { productID, teamId } = request.body;
+    const { productID, teamId, seatQuantity } = request.body;
 
     const supabaseClient = createClient<Database>(
       process.env.SUPABASE_URL!,
@@ -193,6 +199,14 @@ export class StripeManagementService {
       });
     }
 
+    // Check if user has an existing subscription
+    const subscriptionInfo = await getSubscriptionInfo(
+      token,
+      user.id,
+      request.log2,
+      teamId,
+    );
+
     // Determine price ID based on product
     let priceID: string;
     let mode: "subscription" | "payment" = "subscription";
@@ -203,6 +217,8 @@ export class StripeManagementService {
       priceID = process.env.STRIPE_PRO_PRICE_ID as string;
     } else if (productID === "max") {
       priceID = process.env.STRIPE_MAX_PRICE_ID as string;
+    } else if (productID === "team") {
+      priceID = process.env.STRIPE_TEAM_PRICE_ID as string;
     } else if (productID === "credit_pack_100") {
       priceID = process.env.STRIPE_CREDIT_PACK_100_PRICE_ID as string;
       mode = "payment";
@@ -216,14 +232,82 @@ export class StripeManagementService {
       throw new Error("Invalid product ID");
     }
 
+    // If user has an existing subscription and is trying to purchase a subscription product,
+    // redirect them to the billing portal instead of creating a new checkout session
+    if (subscriptionInfo.stripeCustomerId && mode === "subscription") {
+      request.log2.info(
+        "User has existing subscription, redirecting to billing portal",
+        {
+          stripeCustomerId: subscriptionInfo.stripeCustomerId,
+          currentPlan: subscriptionInfo.userPlan,
+          requestedProduct: productID,
+        },
+      );
+
+      try {
+        // Create Stripe billing portal session
+        const session = await stripe.billingPortal.sessions.create({
+          customer: subscriptionInfo.stripeCustomerId,
+          return_url: `${process.env.SITE_BASE_URL}/dashboard/account`,
+        });
+
+        // Return the billing portal URL in the same format as checkout session
+        // This allows the frontend to handle both cases uniformly
+        return reply.status(HTTP_STATUS.OK).send({
+          data: {
+            id: session.id,
+            url: session.url,
+          },
+          error: null,
+        });
+      } catch (error) {
+        request.log2.error(
+          error,
+          "Failed to create billing portal session, falling back to checkout",
+        );
+        // Fall through to create checkout session if billing portal fails
+      }
+    }
+
+    // Check for any existing Stripe customer ID (including from canceled subscriptions)
+    // to reuse it when creating the checkout session
+    let existingStripeCustomerId: string | null = null;
+    try {
+      const { data: previousSubscriptions } = await supabaseClient
+        .from("subscriptions")
+        .select("stripe_customer_id")
+        .eq("team_id", teamId)
+        .not("stripe_customer_id", "is", null)
+        .order("created_at", { ascending: false })
+        .limit(1);
+
+      if (previousSubscriptions && previousSubscriptions.length > 0) {
+        existingStripeCustomerId = previousSubscriptions[0].stripe_customer_id;
+        request.log2.info("Found existing Stripe customer ID from previous subscription", {
+          stripeCustomerId: existingStripeCustomerId,
+        });
+      }
+    } catch (error) {
+      request.log2.warn("Failed to check for existing Stripe customer ID", {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      // Continue without customer ID - Stripe will create a new one
+    }
+
     try {
       const result = await posthogLogger.timeAndRecord(
         user.id,
         PostHogEvents.server_stripe_checkout_session_creation,
         async () => {
+          const normalizedSeatQuantity =
+            productID === "team" ? Math.max(1, seatQuantity ?? 1) : 1;
+
           const sessionMetadata: Stripe.MetadataParam = {
             user_id: user.id,
             team_id: teamId,
+            ...(productID === "team"
+              ? { seat_quantity: normalizedSeatQuantity.toString() }
+              : {}),
           };
 
           const sessionConfig: Stripe.Checkout.SessionCreateParams = {
@@ -231,7 +315,7 @@ export class StripeManagementService {
             line_items: [
               {
                 price: priceID,
-                quantity: 1,
+                quantity: normalizedSeatQuantity,
               },
             ],
             mode,
@@ -246,6 +330,11 @@ export class StripeManagementService {
             sessionConfig.subscription_data = {
               metadata: sessionMetadata,
             };
+          }
+
+          // If we found an existing Stripe customer ID, reuse it to prevent duplicates
+          if (existingStripeCustomerId) {
+            sessionConfig.customer = existingStripeCustomerId;
           }
 
           const session = await stripe.checkout.sessions.create(sessionConfig);
