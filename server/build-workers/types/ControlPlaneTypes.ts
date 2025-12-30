@@ -5,7 +5,7 @@
 // To update these shared files, modify the source file and run:
 // npm run sync-types (in the control-plane directory)
 //
-// Last synced: 2025-12-28T13:34:38.128Z
+// Last synced: 2025-12-30T12:36:02.524Z
 
 // Public API types for the Control Plane Server
 // These types define the request and response schemas for all public endpoints
@@ -22,9 +22,9 @@ import type { Database } from "../types/supabase.js";
 export const CreditLimits = Object.freeze({
   FREE: 15,
   PLUS: 100,
+  TEAM: 140,
   PRO: 250,
   MAX: 1000,
-  TEAM: 10000,
 });
 
 // ============================================================================
@@ -134,14 +134,17 @@ export interface CheckoutRequestBody {
     | "plus"
     | "pro"
     | "max"
+    | "team"
     | "credit_pack_100"
     | "credit_pack_500"
     | "credit_pack_1000";
   teamId: string;
+  seatQuantity?: number;
 }
 
 export interface CheckoutSuccessResponse {
-  id: string; // Stripe session ID
+  id: string; // Stripe session ID or billing portal session ID
+  url?: string; // Optional billing portal URL (when user has existing subscription)
 }
 
 export interface CheckoutErrorResponse {

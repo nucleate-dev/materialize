@@ -12,6 +12,14 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -112,7 +120,9 @@ export function PeopleTab() {
     if (!teamInvites || teamInvites.length === 0) {
       return 0;
     }
-    const nonViewerInvites = teamInvites.filter((invite) => invite.role !== "viewer");
+    const nonViewerInvites = teamInvites.filter(
+      (invite) => invite.role !== "viewer",
+    );
     return nonViewerInvites.length;
   };
 
@@ -132,7 +142,8 @@ export function PeopleTab() {
 
   // Legacy variable for backward compatibility
   const currentNonViewerCount = getNonViewerCount();
-  const isAtCapacity = !capacityCheck.canInvite && capacityCheck.shouldShowCapacityAlert;
+  const isAtCapacity =
+    !capacityCheck.canInvite && capacityCheck.shouldShowCapacityAlert;
 
   const handleManageBillingClick = async () => {
     if (!activeTeam?.id) {
@@ -617,10 +628,15 @@ export function PeopleTab() {
                   <div>
                     <p className="text-sm text-amber-900 dark:text-amber-200">
                       <strong>Seat limit reached.</strong> You're currently
-                      using {currentNonViewerCount + getNonViewerInviteCount()} of {seatQuantity} seat
-                      {seatQuantity !== 1 ? "s" : ""} ({currentNonViewerCount} active member
+                      using {currentNonViewerCount + getNonViewerInviteCount()}{" "}
+                      of {seatQuantity} seat
+                      {seatQuantity !== 1 ? "s" : ""} ({currentNonViewerCount}{" "}
+                      active member
                       {currentNonViewerCount !== 1 ? "s" : ""}
-                      {getNonViewerInviteCount() > 0 ? `, ${getNonViewerInviteCount()} pending invite${getNonViewerInviteCount() !== 1 ? "s" : ""}` : ""}).
+                      {getNonViewerInviteCount() > 0
+                        ? `, ${getNonViewerInviteCount()} pending invite${getNonViewerInviteCount() !== 1 ? "s" : ""}`
+                        : ""}
+                      ).
                     </p>
                     <p className="text-sm text-amber-800 dark:text-amber-300 mt-1">
                       Purchase more seats to add collaborators with Owner,
@@ -654,14 +670,18 @@ export function PeopleTab() {
               value={inviteEmails}
               onChange={(e) => setInviteEmails(e.target.value)}
               className="flex-1 bg-background border-border"
-              disabled={!isOwnerOrAdmin || (!capacityCheck.canInvite && !isTeamPlan)}
+              disabled={
+                !isOwnerOrAdmin || (!capacityCheck.canInvite && !isTeamPlan)
+              }
             />
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
                   variant="outline"
                   className="min-w-[120px] justify-between"
-                  disabled={!isOwnerOrAdmin || (!capacityCheck.canInvite && !isTeamPlan)}
+                  disabled={
+                    !isOwnerOrAdmin || (!capacityCheck.canInvite && !isTeamPlan)
+                  }
                 >
                   <span className="capitalize">{inviteRole}</span>
                   <ChevronDown className="w-4 h-4 ml-2" />
@@ -685,7 +705,11 @@ export function PeopleTab() {
             <Button
               onClick={handleInvite}
               className="bg-blue-600 hover:bg-blue-700"
-              disabled={!isOwnerOrAdmin || (!capacityCheck.canInvite && (!isTeamPlan || inviteRole !== "viewer"))}
+              disabled={
+                !isOwnerOrAdmin ||
+                (!capacityCheck.canInvite &&
+                  (!isTeamPlan || inviteRole !== "viewer"))
+              }
             >
               Invite
             </Button>
@@ -749,389 +773,410 @@ export function PeopleTab() {
 
           {/* Table */}
           <div className="border border-border rounded-lg overflow-hidden">
-            {/* Table Header */}
-            <div className="bg-muted/50 border-b border-border">
-              <div className="grid grid-cols-12 gap-4 px-4 py-3 text-xs font-medium text-muted-foreground">
-                <div className="col-span-2 flex items-center gap-1">
-                  Member
-                  <ArrowUpDown className="w-3 h-3" />
-                </div>
-                <div className="col-span-2 flex items-center gap-1">
-                  Email
-                  <ArrowUpDown className="w-3 h-3" />
-                </div>
-                <div className="col-span-1 flex items-center gap-1">
-                  Role
-                  <ArrowUpDown className="w-3 h-3" />
-                </div>
-                <div className="col-span-1">Status</div>
-                <div className="col-span-2 flex items-center gap-1">
-                  Current period usage
-                  <ArrowUpDown className="w-3 h-3" />
-                </div>
-                <div className="col-span-2 flex items-center gap-1">
-                  All-time usage
-                  <ArrowUpDown className="w-3 h-3" />
-                </div>
-                <div className="col-span-1 flex items-center gap-1">
-                  Date joined
-                  <ArrowUpDown className="w-3 h-3" />
-                </div>
-                <div className="col-span-1"></div>
-              </div>
-            </div>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[200px]">
+                    <div className="flex items-center gap-1">
+                      Member
+                      <ArrowUpDown className="w-3 h-3" />
+                    </div>
+                  </TableHead>
+                  <TableHead className="w-[200px]">
+                    <div className="flex items-center gap-1">
+                      Email
+                      <ArrowUpDown className="w-3 h-3" />
+                    </div>
+                  </TableHead>
+                  <TableHead className="w-[100px]">
+                    <div className="flex items-center gap-1">
+                      Role
+                      <ArrowUpDown className="w-3 h-3" />
+                    </div>
+                  </TableHead>
+                  <TableHead className="w-[100px]">Status</TableHead>
+                  <TableHead className="w-[150px]">
+                    <div className="flex items-center gap-1">
+                      Current period usage
+                      <ArrowUpDown className="w-3 h-3" />
+                    </div>
+                  </TableHead>
+                  <TableHead className="w-[150px]">
+                    <div className="flex items-center gap-1">
+                      All-time usage
+                      <ArrowUpDown className="w-3 h-3" />
+                    </div>
+                  </TableHead>
+                  <TableHead className="w-[120px]">
+                    <div className="flex items-center gap-1">
+                      Date joined
+                      <ArrowUpDown className="w-3 h-3" />
+                    </div>
+                  </TableHead>
+                  <TableHead className="w-[50px]"></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredItems.map((item) => {
+                  if (item.type === "member") {
+                    const member = item.data;
+                    const isCurrentUser = member.user_id === user?.id;
+                    const memberName = member.user.name || "Unknown User";
+                    const memberEmail = member.user.email || "No email";
+                    const memberInitials = getInitials(memberName);
+                    const usage = usageByUserId.get(member.user_id);
 
-            {/* Table Body */}
-            <div className="divide-y divide-border">
-              {filteredItems.map((item) => {
-                if (item.type === "member") {
-                  const member = item.data;
-                  const isCurrentUser = member.user_id === user?.id;
-                  const memberName = member.user.name || "Unknown User";
-                  const memberEmail = member.user.email || "No email";
-                  const memberInitials = getInitials(memberName);
-                  const usage = usageByUserId.get(member.user_id);
-
-                  return (
-                    <div
-                      key={`member-${member.user_id}`}
-                      className="grid grid-cols-12 gap-4 px-4 py-3 text-sm hover:bg-muted/50 transition-colors"
-                    >
-                      {/* Member */}
-                      <div className="col-span-2 flex items-center gap-2">
-                        <Avatar className="w-6 h-6 rounded-full">
-                          <AvatarFallback className="text-xs bg-primary/10 text-primary">
-                            {memberInitials}
-                          </AvatarFallback>
-                        </Avatar>
-                        <span className="font-medium">
-                          {memberName}
-                          {isCurrentUser && (
-                            <span className="text-muted-foreground ml-1">
-                              (you)
+                    return (
+                      <TableRow key={`member-${member.user_id}`}>
+                        {/* Member */}
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <Avatar className="w-6 h-6 rounded-full">
+                              <AvatarFallback className="text-xs bg-primary/10 text-primary">
+                                {memberInitials}
+                              </AvatarFallback>
+                            </Avatar>
+                            <span className="font-medium">
+                              {memberName}
+                              {isCurrentUser && (
+                                <span className="text-muted-foreground ml-1">
+                                  (you)
+                                </span>
+                              )}
                             </span>
+                          </div>
+                        </TableCell>
+
+                        {/* Email */}
+                        <TableCell className="text-muted-foreground">
+                          {memberEmail}
+                        </TableCell>
+
+                        {/* Role */}
+                        <TableCell>
+                          {isOwnerOrAdmin && capacityCheck.canChangeRoles ? (
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <button className="flex items-center gap-1 capitalize hover:text-foreground transition-colors">
+                                  {member.role}
+                                  <ChevronDown className="w-3 h-3" />
+                                </button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="start">
+                                <DropdownMenuItem
+                                  disabled={
+                                    !canChangeRole({
+                                      plan: userPlan,
+                                      currentRole: member.role,
+                                      newRole: "owner",
+                                      teamMembers: teamMembers || [],
+                                      teamInvites: teamInvites || [],
+                                      seatQuantity,
+                                    })
+                                  }
+                                  onClick={() =>
+                                    handleRoleChange(
+                                      member.user_id,
+                                      member.role,
+                                      "owner",
+                                    )
+                                  }
+                                >
+                                  Owner
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  disabled={
+                                    !canChangeRole({
+                                      plan: userPlan,
+                                      currentRole: member.role,
+                                      newRole: "admin",
+                                      teamMembers: teamMembers || [],
+                                      teamInvites: teamInvites || [],
+                                      seatQuantity,
+                                    })
+                                  }
+                                  onClick={() =>
+                                    handleRoleChange(
+                                      member.user_id,
+                                      member.role,
+                                      "admin",
+                                    )
+                                  }
+                                >
+                                  Admin
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  disabled={
+                                    !canChangeRole({
+                                      plan: userPlan,
+                                      currentRole: member.role,
+                                      newRole: "editor",
+                                      teamMembers: teamMembers || [],
+                                      teamInvites: teamInvites || [],
+                                      seatQuantity,
+                                    })
+                                  }
+                                  onClick={() =>
+                                    handleRoleChange(
+                                      member.user_id,
+                                      member.role,
+                                      "editor",
+                                    )
+                                  }
+                                >
+                                  Editor
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  disabled={
+                                    !canChangeRole({
+                                      plan: userPlan,
+                                      currentRole: member.role,
+                                      newRole: "viewer",
+                                      teamMembers: teamMembers || [],
+                                      teamInvites: teamInvites || [],
+                                      seatQuantity,
+                                    })
+                                  }
+                                  onClick={() =>
+                                    handleRoleChange(
+                                      member.user_id,
+                                      member.role,
+                                      "viewer",
+                                    )
+                                  }
+                                >
+                                  Viewer
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          ) : (
+                            <span className="capitalize">{member.role}</span>
                           )}
-                        </span>
-                      </div>
+                        </TableCell>
 
-                      {/* Email */}
-                      <div className="col-span-2 flex items-center text-muted-foreground">
-                        {memberEmail}
-                      </div>
+                        {/* Status */}
+                        <TableCell>
+                          <Badge
+                            variant="secondary"
+                            className="bg-background border border-border text-foreground"
+                          >
+                            Active
+                          </Badge>
+                        </TableCell>
 
-                      {/* Role */}
-                      <div className="col-span-1 flex items-center">
-                        {isOwnerOrAdmin && capacityCheck.canChangeRoles ? (
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <button className="flex items-center gap-1 capitalize hover:text-foreground transition-colors">
-                                {member.role}
-                                <ChevronDown className="w-3 h-3" />
-                              </button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="start">
-                              <DropdownMenuItem
-                                disabled={
-                                  !canChangeRole({
-                                    plan: userPlan,
-                                    currentRole: member.role,
-                                    newRole: "owner",
-                                    teamMembers: teamMembers || [],
-                                    teamInvites: teamInvites || [],
-                                    seatQuantity,
-                                  })
-                                }
-                                onClick={() =>
-                                  handleRoleChange(
-                                    member.user_id,
-                                    member.role,
-                                    "owner",
-                                  )
-                                }
-                              >
-                                Owner
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                disabled={
-                                  !canChangeRole({
-                                    plan: userPlan,
-                                    currentRole: member.role,
-                                    newRole: "admin",
-                                    teamMembers: teamMembers || [],
-                                    teamInvites: teamInvites || [],
-                                    seatQuantity,
-                                  })
-                                }
-                                onClick={() =>
-                                  handleRoleChange(
-                                    member.user_id,
-                                    member.role,
-                                    "admin",
-                                  )
-                                }
-                              >
-                                Admin
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                disabled={
-                                  !canChangeRole({
-                                    plan: userPlan,
-                                    currentRole: member.role,
-                                    newRole: "editor",
-                                    teamMembers: teamMembers || [],
-                                    teamInvites: teamInvites || [],
-                                    seatQuantity,
-                                  })
-                                }
-                                onClick={() =>
-                                  handleRoleChange(
-                                    member.user_id,
-                                    member.role,
-                                    "editor",
-                                  )
-                                }
-                              >
-                                Editor
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                disabled={
-                                  !canChangeRole({
-                                    plan: userPlan,
-                                    currentRole: member.role,
-                                    newRole: "viewer",
-                                    teamMembers: teamMembers || [],
-                                    teamInvites: teamInvites || [],
-                                    seatQuantity,
-                                  })
-                                }
-                                onClick={() =>
-                                  handleRoleChange(
-                                    member.user_id,
-                                    member.role,
-                                    "viewer",
-                                  )
-                                }
-                              >
-                                Viewer
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        ) : (
-                          <span className="capitalize">{member.role}</span>
-                        )}
-                      </div>
+                        {/* Current period usage */}
+                        <TableCell className="text-muted-foreground">
+                          {usageLoading ? (
+                            <span className="text-xs">Loading...</span>
+                          ) : (
+                            formatCredits(usage?.current_period_usage || 0)
+                          )}
+                        </TableCell>
 
-                      {/* Status */}
-                      <div className="col-span-1 flex items-center">
-                        <Badge
-                          variant="secondary"
-                          className="bg-background border border-border text-foreground"
-                        >
-                          Active
-                        </Badge>
-                      </div>
+                        {/* All-time usage */}
+                        <TableCell className="text-muted-foreground">
+                          {usageLoading ? (
+                            <span className="text-xs">Loading...</span>
+                          ) : (
+                            formatCredits(usage?.total_usage || 0)
+                          )}
+                        </TableCell>
 
-                      {/* Current period usage */}
-                      <div className="col-span-2 flex items-center text-muted-foreground">
-                        {usageLoading ? (
-                          <span className="text-xs">Loading...</span>
-                        ) : (
-                          formatCredits(usage?.current_period_usage || 0)
-                        )}
-                      </div>
+                        {/* Date joined */}
+                        <TableCell className="text-muted-foreground">
+                          {new Date(member.created_at).toLocaleDateString(
+                            "en-US",
+                            {
+                              month: "short",
+                              day: "numeric",
+                              year: "numeric",
+                            },
+                          )}
+                        </TableCell>
 
-                      {/* All-time usage */}
-                      <div className="col-span-2 flex items-center text-muted-foreground">
-                        {usageLoading ? (
-                          <span className="text-xs">Loading...</span>
-                        ) : (
-                          formatCredits(usage?.total_usage || 0)
-                        )}
-                      </div>
+                        {/* Actions */}
+                        <TableCell className="text-right">
+                          {isOwnerOrAdmin && (
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <button className="p-1 hover:bg-muted rounded transition-colors">
+                                  <MoreVertical className="w-4 h-4 text-muted-foreground" />
+                                </button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem
+                                  className="text-destructive focus:text-destructive"
+                                  onClick={async () => {
+                                    if (!activeTeam?.id) return;
 
-                      {/* Date joined */}
-                      <div className="col-span-1 flex items-center text-muted-foreground">
-                        {new Date(member.created_at).toLocaleDateString(
-                          "en-US",
-                          {
-                            month: "short",
-                            day: "numeric",
-                            year: "numeric",
-                          },
-                        )}
-                      </div>
+                                    // Delete the member from team_memberships table
+                                    const { error } = await supabase
+                                      .from("team_memberships")
+                                      .delete()
+                                      .eq("user_id", member.user_id)
+                                      .eq("team_id", activeTeam.id);
 
-                      {/* Actions */}
-                      <div className="col-span-1 flex items-center justify-end">
-                        {isOwnerOrAdmin && (
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <button className="p-1 hover:bg-muted rounded transition-colors">
-                                <MoreVertical className="w-4 h-4 text-muted-foreground" />
-                              </button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem
-                                className="text-destructive focus:text-destructive"
-                                onClick={async () => {
-                                  if (!activeTeam?.id) return;
+                                    if (error) {
+                                      logger.debug(
+                                        "error",
+                                        "Error removing member",
+                                        {
+                                          error,
+                                        },
+                                      );
+                                      alert(
+                                        "Failed to remove member. Please try again.",
+                                      );
+                                    } else {
+                                      // Invalidate queries to refresh the member list
+                                      queryClient.invalidateQueries({
+                                        queryKey: teamMembersQueryKey(
+                                          activeTeam.id,
+                                        ),
+                                      });
+                                    }
+                                  }}
+                                >
+                                  Remove from team
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  } else {
+                    // Invite
+                    const invite = item.data;
+                    const inviteEmail = invite.email || "No email";
+                    const inviteInitials = getInitials(inviteEmail);
 
-                                  // Delete the member from team_memberships table
-                                  const { error } = await supabase
-                                    .from("team_memberships")
-                                    .delete()
-                                    .eq("user_id", member.user_id)
-                                    .eq("team_id", activeTeam.id);
+                    return (
+                      <TableRow key={`invite-${invite.id}`}>
+                        {/* Member (using email) */}
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <Avatar className="w-6 h-6 rounded-full">
+                              <AvatarFallback className="text-xs bg-orange-500/10 text-orange-600 dark:text-orange-400">
+                                {inviteInitials}
+                              </AvatarFallback>
+                            </Avatar>
+                            <span className="font-medium text-muted-foreground">
+                              {inviteEmail}
+                            </span>
+                          </div>
+                        </TableCell>
 
-                                  if (error) {
-                                    logger.debug(
-                                      "error",
-                                      "Error removing member",
-                                      {
-                                        error,
-                                      },
-                                    );
-                                    alert(
-                                      "Failed to remove member. Please try again.",
-                                    );
-                                  } else {
-                                    // Invalidate queries to refresh the member list
-                                    queryClient.invalidateQueries({
-                                      queryKey: teamMembersQueryKey(
-                                        activeTeam.id,
-                                      ),
-                                    });
-                                  }
-                                }}
-                              >
-                                Remove from team
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        )}
-                      </div>
-                    </div>
-                  );
-                } else {
-                  // Invite
-                  const invite = item.data;
-                  const inviteEmail = invite.email || "No email";
-                  const inviteInitials = getInitials(inviteEmail);
-
-                  return (
-                    <div
-                      key={`invite-${invite.id}`}
-                      className="grid grid-cols-12 gap-4 px-4 py-3 text-sm hover:bg-muted/50 transition-colors"
-                    >
-                      {/* Member (using email) */}
-                      <div className="col-span-2 flex items-center gap-2">
-                        <Avatar className="w-6 h-6 rounded-full">
-                          <AvatarFallback className="text-xs bg-orange-500/10 text-orange-600 dark:text-orange-400">
-                            {inviteInitials}
-                          </AvatarFallback>
-                        </Avatar>
-                        <span className="font-medium text-muted-foreground">
+                        {/* Email */}
+                        <TableCell className="text-muted-foreground">
                           {inviteEmail}
-                        </span>
-                      </div>
+                        </TableCell>
 
-                      {/* Email */}
-                      <div className="col-span-2 flex items-center text-muted-foreground">
-                        {inviteEmail}
-                      </div>
+                        {/* Role */}
+                        <TableCell>
+                          <span className="capitalize text-muted-foreground">
+                            {invite.role}
+                          </span>
+                        </TableCell>
 
-                      {/* Role */}
-                      <div className="col-span-1 flex items-center">
-                        <span className="capitalize text-muted-foreground">
-                          {invite.role}
-                        </span>
-                      </div>
+                        {/* Status */}
+                        <TableCell>
+                          <Badge
+                            variant="secondary"
+                            className="bg-orange-500/10 border border-orange-500/20 text-orange-600 dark:text-orange-400"
+                          >
+                            Pending
+                          </Badge>
+                        </TableCell>
 
-                      {/* Status */}
-                      <div className="col-span-1 flex items-center">
-                        <Badge
-                          variant="secondary"
-                          className="bg-orange-500/10 border border-orange-500/20 text-orange-600 dark:text-orange-400"
-                        >
-                          Pending
-                        </Badge>
-                      </div>
+                        {/* Current period usage */}
+                        <TableCell className="text-muted-foreground">
+                          -
+                        </TableCell>
 
-                      {/* Current period usage */}
-                      <div className="col-span-2 flex items-center text-muted-foreground">
-                        -
-                      </div>
+                        {/* All-time usage */}
+                        <TableCell className="text-muted-foreground">
+                          -
+                        </TableCell>
 
-                      {/* All-time usage */}
-                      <div className="col-span-2 flex items-center text-muted-foreground">
-                        -
-                      </div>
+                        {/* Date invited */}
+                        <TableCell className="text-muted-foreground">
+                          {new Date(invite.created_at).toLocaleDateString(
+                            "en-US",
+                            {
+                              month: "short",
+                              day: "numeric",
+                              year: "numeric",
+                            },
+                          )}
+                        </TableCell>
 
-                      {/* Date invited */}
-                      <div className="col-span-1 flex items-center text-muted-foreground">
-                        {new Date(invite.created_at).toLocaleDateString(
-                          "en-US",
-                          {
-                            month: "short",
-                            day: "numeric",
-                            year: "numeric",
-                          },
-                        )}
-                      </div>
+                        {/* Actions */}
+                        <TableCell className="text-right">
+                          {isOwnerOrAdmin && (
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <button className="p-1 hover:bg-muted rounded transition-colors">
+                                  <MoreVertical className="w-4 h-4 text-muted-foreground" />
+                                </button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem
+                                  className="text-destructive focus:text-destructive"
+                                  onClick={async () => {
+                                    if (!activeTeam?.id) return;
 
-                      {/* Actions */}
-                      <div className="col-span-1 flex items-center justify-end">
-                        {isOwnerOrAdmin && (
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <button className="p-1 hover:bg-muted rounded transition-colors">
-                                <MoreVertical className="w-4 h-4 text-muted-foreground" />
-                              </button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem
-                                className="text-destructive focus:text-destructive"
-                                onClick={async () => {
-                                  if (!activeTeam?.id) return;
+                                    // Set invite_status to "cancelled"
+                                    const { error } = await supabase
+                                      .from("team_invites")
+                                      .update({ invite_status: "cancelled" })
+                                      .eq("id", invite.id);
 
-                                  // Set invite_status to "cancelled"
-                                  const { error } = await supabase
-                                    .from("team_invites")
-                                    .update({ invite_status: "cancelled" })
-                                    .eq("id", invite.id);
-
-                                  if (error) {
-                                    logger.debug("error", "Error deleting invite", {
-                                      error,
-                                    });
-                                    alert("Failed to delete invite. Please try again.");
-                                  } else {
-                                    // Invalidate queries to refresh the invite list
-                                    queryClient.invalidateQueries({
-                                      queryKey: teamInvitesQueryKey(activeTeam.id),
-                                    });
-                                  }
-                                }}
-                              >
-                                Delete invite
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        )}
-                      </div>
-                    </div>
-                  );
-                }
-              })}
-
-              {filteredItems.length === 0 && (
-                <div className="px-4 py-12 text-center text-muted-foreground">
-                  {activeFilter === "active" && "No active members found"}
-                  {activeFilter === "pending" && "No pending invites found"}
-                  {activeFilter === "all" && "No members or invites found"}
-                </div>
-              )}
-            </div>
+                                    if (error) {
+                                      logger.debug(
+                                        "error",
+                                        "Error deleting invite",
+                                        {
+                                          error,
+                                        },
+                                      );
+                                      alert(
+                                        "Failed to delete invite. Please try again.",
+                                      );
+                                    } else {
+                                      // Invalidate queries to refresh the invite list
+                                      queryClient.invalidateQueries({
+                                        queryKey: teamInvitesQueryKey(
+                                          activeTeam.id,
+                                        ),
+                                      });
+                                    }
+                                  }}
+                                >
+                                  Delete invite
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  }
+                })}
+                {filteredItems.length === 0 && (
+                  <TableRow>
+                    <TableCell
+                      colSpan={8}
+                      className="h-24 text-center text-muted-foreground"
+                    >
+                      {activeFilter === "active" && "No active members found"}
+                      {activeFilter === "pending" && "No pending invites found"}
+                      {activeFilter === "all" && "No members or invites found"}
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
           </div>
         </div>
       </div>
