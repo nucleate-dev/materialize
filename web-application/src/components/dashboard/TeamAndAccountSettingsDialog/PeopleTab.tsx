@@ -22,6 +22,7 @@ import { Database } from "@/lib/types/supabase";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import { handleCheckout } from "@/lib/utils/payments/CheckoutUtils";
 import { useRouter } from "next/navigation";
+import { CreditLimits } from "@/lib/types/serverAPITypes";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   teamInvitesQueryKey,
@@ -59,6 +60,22 @@ export function PeopleTab() {
   });
   const [usageData, setUsageData] = useState<UserUsage[]>([]);
   const [usageLoading, setUsageLoading] = useState(false);
+
+  // Calculate default seat count based on non-viewer members
+  const getNonViewerCount = () => {
+    if (!teamMembers || teamMembers.length === 0) {
+      return 1; // Default minimum
+    }
+    const nonViewers = teamMembers.filter((member) => member.role !== "viewer");
+    return Math.max(1, nonViewers.length);
+  };
+
+  const [teamSeatQuantity, setTeamSeatQuantity] = useState(getNonViewerCount());
+
+  // Update seat quantity when team members change
+  useEffect(() => {
+    setTeamSeatQuantity(getNonViewerCount());
+  }, [teamMembers]);
 
   const getInitials = (name: string) => {
     return name
@@ -398,6 +415,10 @@ export function PeopleTab() {
                 <p className="text-xs text-muted-foreground mb-3">
                   1 free collaborator
                 </p>
+
+                {/* Spacer to align with Team card seat selector */}
+                <div className="mb-3 h-7" />
+
                 <Button
                   size="sm"
                   variant="outline"
@@ -421,9 +442,54 @@ export function PeopleTab() {
                 <p className="text-xs text-muted-foreground mb-3">
                   Unlimited viewers + multiple collaborators
                 </p>
+
+                {/* Seat Selector */}
+                <div className="mb-3">
+                  <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        onClick={() =>
+                          setTeamSeatQuantity(Math.max(1, teamSeatQuantity - 1))
+                        }
+                        disabled={teamSeatQuantity <= 1 || !isOwnerOrAdmin}
+                        className="h-7 w-7"
+                      >
+                        -
+                      </Button>
+                      <Input
+                        type="number"
+                        min={1}
+                        value={teamSeatQuantity}
+                        onChange={(e) => {
+                          const num = parseInt(e.target.value) || 1;
+                          setTeamSeatQuantity(Math.max(1, num));
+                        }}
+                        className="text-center h-7 w-14 text-sm"
+                        disabled={!isOwnerOrAdmin}
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        onClick={() => setTeamSeatQuantity(teamSeatQuantity + 1)}
+                        disabled={!isOwnerOrAdmin}
+                        className="h-7 w-7"
+                      >
+                        +
+                      </Button>
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {(teamSeatQuantity * CreditLimits.TEAM).toLocaleString()} credits/mo
+                    </div>
+                  </div>
+                </div>
+
                 <Button
                   size="sm"
-                  onClick={() => activeTeam?.id && handleCheckout("team", router, activeTeam.id)}
+                  onClick={() => activeTeam?.id && handleCheckout("team", router, activeTeam.id, teamSeatQuantity)}
                   className="w-full h-8 text-xs bg-blue-600 hover:bg-blue-700"
                   disabled={!isOwnerOrAdmin}
                 >
