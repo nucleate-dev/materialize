@@ -403,6 +403,7 @@ export function PeopleTab() {
                   variant="outline"
                   onClick={() => activeTeam?.id && handleCheckout("plus", router, activeTeam.id)}
                   className="w-full h-8 text-xs"
+                  disabled={!isOwnerOrAdmin}
                 >
                   Upgrade to Plus
                 </Button>
@@ -424,6 +425,7 @@ export function PeopleTab() {
                   size="sm"
                   onClick={() => activeTeam?.id && handleCheckout("team", router, activeTeam.id)}
                   className="w-full h-8 text-xs bg-blue-600 hover:bg-blue-700"
+                  disabled={!isOwnerOrAdmin}
                 >
                   Upgrade to Team
                 </Button>
