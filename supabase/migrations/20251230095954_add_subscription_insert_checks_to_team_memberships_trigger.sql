@@ -191,9 +191,10 @@ begin
     return new;
   end if;
 
-  -- SEAT CAPACITY CHECK: Verify team has available seats for new member
+  -- SEAT CAPACITY CHECK: Verify team has available seats for new member or role upgrade
   -- This check happens after bootstrap but before accepted invite check
-  if tg_op = 'INSERT' then
+  -- Applies to: INSERT (new member) or UPDATE (viewer -> non-viewer promotion)
+  if tg_op = 'INSERT' or (tg_op = 'UPDATE' and old.role = 'viewer' and new.role <> 'viewer') then
     -- Get subscription info for this team
     select s.plan_id, s.seat_quantity
     into subscription_plan, subscription_seats
@@ -208,29 +209,32 @@ begin
 
     -- Apply plan-specific seat limits
     if subscription_plan = 'free' then
-      -- Free plans: only bootstrap insert allowed (already handled above)
-      raise exception 'free plan teams cannot add more members';
+      -- Free plans: block both new members and viewer promotions
+      raise exception 'free plan teams cannot add more members or promote viewers';
 
     elsif subscription_plan = 'plus' then
       -- Plus plans: max 2 total (members + pending invites), any role
-      -- Optimize: limit to 3 since we only need to check if >= 2
-      select count(*) into total_members
-      from (
-        select 1 from public.team_memberships
-        where team_id = new.team_id
-        limit 3
-      ) as limited;
+      -- Only check INSERT operations (viewer promotions don't change total count)
+      if tg_op = 'INSERT' then
+        -- Optimize: limit to 3 since we only need to check if >= 2
+        select count(*) into total_members
+        from (
+          select 1 from public.team_memberships
+          where team_id = new.team_id
+          limit 3
+        ) as limited;
 
-      select count(*) into total_pending_invites
-      from (
-        select 1 from public.team_invites
-        where team_id = new.team_id
-          and invite_status = 'pending'
-        limit 3
-      ) as limited;
+        select count(*) into total_pending_invites
+        from (
+          select 1 from public.team_invites
+          where team_id = new.team_id
+            and invite_status = 'pending'
+          limit 3
+        ) as limited;
 
-      if (total_members + total_pending_invites) >= 2 then
-        raise exception 'plus plan teams are limited to 2 total members';
+        if (total_members + total_pending_invites) >= 2 then
+          raise exception 'plus plan teams are limited to 2 total members';
+        end if;
       end if;
 
     elsif subscription_plan = 'team' then
@@ -262,7 +266,8 @@ begin
 
     else
       -- Any other plan type (pro, max, etc.)
-      raise exception 'cannot add members with this subscription plan type';
+      -- Block both new members and viewer promotions
+      raise exception 'cannot add members or promote viewers with this subscription plan type';
     end if;
   end if;
 
