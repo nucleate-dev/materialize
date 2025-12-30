@@ -68,8 +68,7 @@ export function TeamUpgradeModal({
     setIsProcessing(true);
     try {
       await onConfirm(seatQuantity);
-    } catch (error) {
-      console.error("Error during team upgrade:", error);
+    } catch {
     } finally {
       setIsProcessing(false);
     }

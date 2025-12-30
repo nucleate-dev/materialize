@@ -10,7 +10,7 @@ import {
   DropdownMenuContent,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -48,7 +48,7 @@ export function TeamSelector({
 }: TeamSelectorProps) {
   const router = useRouter();
   const logger = useProductLogger();
-  const { activeTeam, setActiveTeam, teamMembers } = useActiveTeam();
+  const { activeTeam, setActiveTeam, teamMembers, signedAvatarUrl } = useActiveTeam();
   const { teams, isLoading: teamsLoading } = useUserTeams();
   const { userPlan, loadingSubscriptionData } = useSubscriptionAccess();
   const {
@@ -172,6 +172,7 @@ export function TeamSelector({
             >
               {isCollapsed ? (
                 <Avatar className="w-8 h-8 rounded-lg">
+                  <AvatarImage src={signedAvatarUrl || undefined} />
                   <AvatarFallback className="rounded-lg bg-primary/10 text-sm font-bold text-primary">
                     {teamInitials}
                   </AvatarFallback>
@@ -180,6 +181,7 @@ export function TeamSelector({
                 <>
                   <div className="flex items-center gap-2.5 min-w-0">
                     <Avatar className="w-8 h-8 rounded-lg shrink-0">
+                      <AvatarImage src={signedAvatarUrl || undefined} />
                       <AvatarFallback className="rounded-lg bg-primary/10 text-sm font-bold text-primary">
                         {teamInitials}
                       </AvatarFallback>
@@ -203,6 +205,7 @@ export function TeamSelector({
             <div className="px-6 pt-6 pb-4">
               <div className="flex items-center gap-3">
                 <Avatar className="w-14 h-14 rounded-xl">
+                  <AvatarImage src={signedAvatarUrl || undefined} />
                   <AvatarFallback className="rounded-xl bg-primary/10 text-xl font-bold text-primary">
                     {teamInitials}
                   </AvatarFallback>

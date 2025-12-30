@@ -17,7 +17,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { personalTeamQueryKey } from "@/lib/react-query/queryKeys";
 
 export function TeamTab() {
-  const { activeTeam, teamMembers, currentUserMembership, setActiveTeam } = useActiveTeam();
+  const { activeTeam, teamMembers, currentUserMembership, setActiveTeam, signedAvatarUrl } = useActiveTeam();
   const { user } = useUser();
   const { team: personalTeam } = usePersonalTeam();
   const logger = useProductLogger();
@@ -319,7 +319,7 @@ export function TeamTab() {
             </div>
             <div className="flex-1 flex items-center gap-4">
               <Avatar className="w-16 h-16">
-                <AvatarImage src={activeTeam?.avatar_url || undefined} />
+                <AvatarImage src={signedAvatarUrl || undefined} />
                 <AvatarFallback className="text-lg bg-primary/10 text-primary">
                   {activeTeam?.name ? getInitials(activeTeam.name) : "T"}
                 </AvatarFallback>
