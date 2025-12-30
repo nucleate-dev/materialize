@@ -425,7 +425,7 @@ export default function NewPrototypeModal({
       }
 
       const normalizedVisibility: CreatePrototypeRequestBody["visibility"] =
-        visibility === "SELF" ? "SELF" : "PUBLIC";
+        visibility === "TEAM" ? "TEAM" : visibility === "SELF" ? "SELF" : "PUBLIC";
 
       const folderId = selectedFolder ?? undefined;
 
