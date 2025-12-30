@@ -46,8 +46,8 @@ import {
   ChatConnection,
   ChatEngine,
   ChatEngineContext,
-  ChatEngineSessionState,
   ChatEngineResult,
+  ChatEngineSessionState,
 } from "./chat-engine.js";
 import { ALLOWED_ROOT } from "../ChatService.js";
 
@@ -74,6 +74,7 @@ interface StreamContext {
   sessionState: ChatEngineSessionState;
   validAiChatSessionIds: Set<string>;
   socket: WebSocket;
+  activeConnections: Map<string, ChatConnection>;
   bufferState: {
     assistantMessageBuffer: string;
     creditsUsed: number | undefined;
@@ -137,7 +138,7 @@ export class ChatQueryHandler implements ChatEngine {
   public async handleQuery(
     context: ChatEngineContext,
   ): Promise<ChatEngineResult | void> {
-    const { data, activeConnections, socket } = context;
+    const { data } = context;
     const workerContext = getWorkerContext();
     const prototypeId = workerContext.prototypeId || "unknown";
     const { prompt, content, token, ai_chat_session_id } = data;
@@ -185,7 +186,13 @@ export class ChatQueryHandler implements ChatEngine {
     framework: Database["public"]["Enums"]["prototype_framework"],
     systemPrompt: string,
   ): Promise<number | undefined> {
-    const { socket, activeConnections, data, sessionState, validAiChatSessionIds } = context;
+    const {
+      socket,
+      activeConnections,
+      data,
+      sessionState,
+      validAiChatSessionIds,
+    } = context;
     const workerContext = getWorkerContext();
     const prototypeId = workerContext.prototypeId || "unknown";
     const { prompt, content, ai_chat_session_id } = data;
@@ -261,8 +268,8 @@ export class ChatQueryHandler implements ChatEngine {
       );
 
       // Check if session is valid for resumption
-      const isValidSessionId =
-        ai_chat_session_id && validAiChatSessionIds.has(ai_chat_session_id);
+      const isValidSessionId = ai_chat_session_id &&
+        validAiChatSessionIds.has(ai_chat_session_id);
 
       // Handle invalid session ID
       if (
@@ -317,6 +324,7 @@ export class ChatQueryHandler implements ChatEngine {
         sessionState,
         validAiChatSessionIds,
         socket,
+        activeConnections,
         bufferState,
       };
       const totalCostUsd = await this.streamQueryResponse(
@@ -347,8 +355,9 @@ export class ChatQueryHandler implements ChatEngine {
       // Clear the abort controller on error
       sessionState.abortController = null;
 
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
+      const errorMessage = error instanceof Error
+        ? error.message
+        : String(error);
 
       baseLogger.error(
         error instanceof Error ? error : new Error(String(error)),
@@ -447,22 +456,24 @@ export class ChatQueryHandler implements ChatEngine {
     }>,
     prototypeChatSessionId: string,
   ): Promise<void> {
-    const userMessageText =
-      typeof messageContent === "string"
-        ? messageContent
-        : messageContent
-            .filter((block) => block.type === "text")
-            .map((block) => block.text || "")
-            .join("\n");
+    const userMessageText = typeof messageContent === "string"
+      ? messageContent
+      : messageContent
+        .filter((block) => block.type === "text")
+        .map((block) => block.text || "")
+        .join("\n");
 
     const hasImages = imagesFromContent.length > 0;
     const userMessageDisplay = hasImages
-      ? `${userMessageText} [with ${imagesFromContent.length} image${imagesFromContent.length > 1 ? "s" : ""}]`
+      ? `${userMessageText} [with ${imagesFromContent.length} image${
+        imagesFromContent.length > 1 ? "s" : ""
+      }]`
       : userMessageText;
 
     // Include image metadata in event_data if images were uploaded
-    const eventData =
-      imageMetadata.length > 0 ? { images: imageMetadata } : null;
+    const eventData = imageMetadata.length > 0
+      ? { images: imageMetadata }
+      : null;
 
     await persistChatMessage(
       this.supabaseClientService,
@@ -567,11 +578,10 @@ export class ChatQueryHandler implements ChatEngine {
     const { userId } = getWorkerContext();
     let designSubagentEnabled = false;
     if (userId) {
-      designSubagentEnabled =
-        (await posthog.getFeatureFlag(
-          "claude-code-sdk-design-subagent",
-          userId,
-        )) === "test";
+      designSubagentEnabled = (await posthog.getFeatureFlag(
+        "claude-code-sdk-design-subagent",
+        userId,
+      )) === "test";
     }
     baseLogger.info("design subagent flag checked: ", {
       designSubagentEnabled,
@@ -581,12 +591,16 @@ export class ChatQueryHandler implements ChatEngine {
       ...options,
       agents: designSubagentEnabled
         ? {
-            "ui-ux-designer": {
-              description: `Expert UI/UX designer for ${framework === "mobile_expo_react_native" ? "mobile react native" : "tailwindcss web Next.js"} applications. Use for design inspiration and planning great design implementation, any time the user requests a feature that has significant user interface changes.`,
-              prompt: getClaudeCodeDesignSubagentPrompt(framework),
-              tools: ["Read", "Glob", "Grep", "WebSearch", "WebFetch"],
-            },
-          }
+          "ui-ux-designer": {
+            description: `Expert UI/UX designer for ${
+              framework === "mobile_expo_react_native"
+                ? "mobile react native"
+                : "tailwindcss web Next.js"
+            } applications. Use for design inspiration and planning great design implementation, any time the user requests a feature that has significant user interface changes.`,
+            prompt: getClaudeCodeDesignSubagentPrompt(framework),
+            tools: ["Read", "Glob", "Grep", "WebSearch", "WebFetch"],
+          },
+        }
         : undefined,
       includePartialMessages: false,
       cwd: WORK_DIR,
@@ -597,8 +611,7 @@ export class ChatQueryHandler implements ChatEngine {
       systemPrompt: {
         type: "preset" as const,
         preset: "claude_code" as const,
-        append:
-          systemPromptOverride ??
+        append: systemPromptOverride ??
           getSystemPromptForDesignStyle(undefined, framework),
       },
       settingSources: [
@@ -684,8 +697,8 @@ export class ChatQueryHandler implements ChatEngine {
           normalizedCwd = path.join(WORK_DIR, cwd);
         }
       }
-      const { response: responseRaw } =
-        await this.sandboxService.runCommandInternal({
+      const { response: responseRaw } = await this.sandboxService
+        .runCommandInternal({
           command,
           args,
           cwd: normalizedCwd,
@@ -769,8 +782,9 @@ export class ChatQueryHandler implements ChatEngine {
         };
       }
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
+      const errorMessage = error instanceof Error
+        ? error.message
+        : String(error);
       baseLogger.error(
         error instanceof Error ? error : new Error(errorMessage),
         "MCP Write tool: failed to write file",
@@ -790,14 +804,21 @@ export class ChatQueryHandler implements ChatEngine {
     hookContext: HookContext,
     prototypeChatSessionId: string,
   ): Promise<HookJSONOutput> {
-    const { input, toolUseID, socket, activeConnections, flushAssistantBuffer } = hookContext;
+    const {
+      input,
+      toolUseID,
+      activeConnections,
+      flushAssistantBuffer,
+    } = hookContext;
 
     try {
       if (input.hook_event_name === "PreToolUse") {
         baseLogger.debug(
-          `PreToolUse Hook called for tool ${input.tool_name} with args: ${JSON.stringify(
-            input.tool_input,
-          )}`,
+          `PreToolUse Hook called for tool ${input.tool_name} with args: ${
+            JSON.stringify(
+              input.tool_input,
+            )
+          }`,
         );
         const permission = evaluateToolPermission(
           ALLOWED_ROOT,
@@ -878,7 +899,7 @@ export class ChatQueryHandler implements ChatEngine {
     hookContext: HookContext,
     prototypeChatSessionId: string,
   ): Promise<HookJSONOutput> {
-    const { input, toolUseID, socket, activeConnections } = hookContext;
+    const { input, toolUseID, activeConnections } = hookContext;
 
     try {
       baseLogger.consoleLogDevOnly("debug", JSON.stringify(input));
@@ -966,7 +987,7 @@ export class ChatQueryHandler implements ChatEngine {
       queryOptions,
       sessionState,
       validAiChatSessionIds,
-      socket,
+      activeConnections,
       bufferState,
     } = streamContext;
 
@@ -997,8 +1018,7 @@ export class ChatQueryHandler implements ChatEngine {
       // MCP stream fix: Keep input stream open until result message arrives
       // This prevents premature MCP server connection closure during multi-turn conversations
       if (ChatQueryHandler.ENABLE_MCP_STREAM_FIX) {
-        const maxChecks =
-          ChatQueryHandler.MCP_STREAM_MAX_WAIT_MS /
+        const maxChecks = ChatQueryHandler.MCP_STREAM_MAX_WAIT_MS /
           ChatQueryHandler.MCP_STREAM_POLL_INTERVAL_MS;
 
         for (let i = 0; i < maxChecks; i++) {
@@ -1008,7 +1028,7 @@ export class ChatQueryHandler implements ChatEngine {
           }
 
           await new Promise((resolve) =>
-            setTimeout(resolve, ChatQueryHandler.MCP_STREAM_POLL_INTERVAL_MS),
+            setTimeout(resolve, ChatQueryHandler.MCP_STREAM_POLL_INTERVAL_MS)
           );
 
           // Check if result message has arrived

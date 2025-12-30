@@ -348,7 +348,7 @@ export class ChatService {
         break;
 
       case ChatClientEvent.INTERRUPT:
-        await this.handleInterrupt(socket);
+        await this.handleInterrupt();
         break;
 
       case ChatClientEvent.HISTORY_RESPONSE:
@@ -679,7 +679,7 @@ export class ChatService {
     );
   }
 
-  private async handleInterrupt(socket: WebSocket): Promise<void> {
+  private async handleInterrupt(): Promise<void> {
     baseLogger.consoleLogDevOnly("info", "Interrupt requested", {
       sessionId: this.sessionState.sessionId,
       hasAbortController: !!this.sessionState.abortController,
