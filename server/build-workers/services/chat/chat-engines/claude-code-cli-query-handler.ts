@@ -11,6 +11,7 @@ import { evaluateToolPermission } from "../helpers/tool-permission-service.js";
 import { baseLogger, WORK_DIR } from "../../../worker.js";
 import { broadcastToConnections } from "../websocket-broadcast.js";
 import {
+  ChatConnection,
   ChatEngine,
   ChatEngineContext,
   ChatEngineSessionState,
@@ -351,7 +352,7 @@ export class ClaudeCodeCliQueryHandler implements ChatEngine {
   private async handleAssistantMessage(
     message: ClaudeCodeMessage,
     socket: WebSocket,
-    activeConnections: Map<string, { socket: WebSocket; heartbeat?: NodeJS.Timeout; logger: any }>,
+    activeConnections: Map<string, ChatConnection>,
     prototypeChatSessionId: string,
   ): Promise<void> {
     const content = message.message?.content || [];
@@ -400,7 +401,7 @@ export class ClaudeCodeCliQueryHandler implements ChatEngine {
   private async handlePreToolUse(
     toolUse: ToolUseBlock,
     socket: WebSocket,
-    activeConnections: Map<string, { socket: WebSocket; heartbeat?: NodeJS.Timeout; logger: any }>,
+    activeConnections: Map<string, ChatConnection>,
     prototypeChatSessionId: string,
   ): Promise<void> {
     const { id: toolUseId, name: toolName, input: toolInput } = toolUse;
@@ -480,7 +481,7 @@ export class ClaudeCodeCliQueryHandler implements ChatEngine {
   private async handleToolResult(
     result: ClaudeCodeMessage,
     socket: WebSocket,
-    activeConnections: Map<string, { socket: WebSocket; heartbeat?: NodeJS.Timeout; logger: any }>,
+    activeConnections: Map<string, ChatConnection>,
     prototypeChatSessionId: string,
   ): Promise<void> {
     const toolUseId = result.tool_use_id;

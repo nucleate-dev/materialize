@@ -43,6 +43,7 @@ import {
 } from "../prompts/ClaudeCodePrompts.js";
 import { broadcastToConnections } from "../websocket-broadcast.js";
 import {
+  ChatConnection,
   ChatEngine,
   ChatEngineContext,
   ChatEngineSessionState,
@@ -84,6 +85,7 @@ interface HookContext {
   input: HookInput;
   toolUseID: string | undefined;
   socket: WebSocket;
+  activeConnections: Map<string, ChatConnection>;
   sessionState?: ChatEngineSessionState;
   flushAssistantBuffer?: () => Promise<void>;
   getRelativePath?: (path: string) => string;
@@ -183,7 +185,7 @@ export class ChatQueryHandler implements ChatEngine {
     framework: Database["public"]["Enums"]["prototype_framework"],
     systemPrompt: string,
   ): Promise<number | undefined> {
-    const { socket, data, sessionState, validAiChatSessionIds } = context;
+    const { socket, activeConnections, data, sessionState, validAiChatSessionIds } = context;
     const workerContext = getWorkerContext();
     const prototypeId = workerContext.prototypeId || "unknown";
     const { prompt, content, ai_chat_session_id } = data;
@@ -480,7 +482,7 @@ export class ChatQueryHandler implements ChatEngine {
     options: Options,
     abortController: AbortController,
     socket: WebSocket,
-    activeConnections: Map<string, { socket: WebSocket; heartbeat?: NodeJS.Timeout; logger: any }>,
+    activeConnections: Map<string, ChatConnection>,
     sessionState: ChatEngineSessionState,
     flushAssistantBuffer: () => Promise<void>,
     framework: Database["public"]["Enums"]["prototype_framework"],
@@ -622,6 +624,7 @@ export class ChatQueryHandler implements ChatEngine {
                   input,
                   toolUseID,
                   socket,
+                  activeConnections,
                   flushAssistantBuffer,
                   getRelativePath: relativePathResolver,
                 };
@@ -645,6 +648,7 @@ export class ChatQueryHandler implements ChatEngine {
                   input,
                   toolUseID,
                   socket,
+                  activeConnections,
                   sessionState,
                   getRelativePath: relativePathResolver,
                 };
@@ -786,7 +790,7 @@ export class ChatQueryHandler implements ChatEngine {
     hookContext: HookContext,
     prototypeChatSessionId: string,
   ): Promise<HookJSONOutput> {
-    const { input, toolUseID, socket, flushAssistantBuffer } = hookContext;
+    const { input, toolUseID, socket, activeConnections, flushAssistantBuffer } = hookContext;
 
     try {
       if (input.hook_event_name === "PreToolUse") {
@@ -874,7 +878,7 @@ export class ChatQueryHandler implements ChatEngine {
     hookContext: HookContext,
     prototypeChatSessionId: string,
   ): Promise<HookJSONOutput> {
-    const { input, toolUseID, socket } = hookContext;
+    const { input, toolUseID, socket, activeConnections } = hookContext;
 
     try {
       baseLogger.consoleLogDevOnly("debug", JSON.stringify(input));
