@@ -1237,6 +1237,39 @@ export default function ClaudeCodePanel({
         break;
       }
 
+      case ChatEvent.COLLABORATOR_MESSAGE: {
+        // Another collaborator sent a message
+        const { userId, content, timestamp, imageCount } = message.data;
+
+        logger.debug("log", "Received collaborator message", {
+          userId,
+          contentLength: content.length,
+          imageCount,
+        });
+
+        // Extract text from content blocks
+        const messageText = content
+          .filter((block) => block.type === "text")
+          .map((block) => block.text || "")
+          .join("\n");
+
+        // Format display message with image count if present
+        const displayMessage =
+          messageText +
+          (imageCount && imageCount > 0
+            ? ` [${imageCount} image${imageCount > 1 ? "s" : ""}]`
+            : "");
+
+        // Add collaborator message to chat
+        addMessage("user", displayMessage);
+
+        logger.debug("log", "Added collaborator message to chat", {
+          userId,
+          messageLength: displayMessage.length,
+        });
+        break;
+      }
+
       default: {
         const unknownMessage = message as { type: string };
         logger.debug("log", "Unknown message type", {

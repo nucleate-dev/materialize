@@ -414,6 +414,29 @@ export class ChatService {
       return;
     }
 
+    // 3a. BROADCAST USER MESSAGE TO OTHER COLLABORATORS
+    // This allows other connected users to see messages in real-time
+    if (userId && data.content) {
+      const imageCount = Array.isArray(data.content)
+        ? data.content.filter((block) => block.type === "image").length
+        : 0;
+
+      broadcastToConnections(
+        this.activeConnections,
+        {
+          type: ChatEvent.COLLABORATOR_MESSAGE,
+          data: {
+            userId,
+            content: data.content,
+            timestamp: Date.now(),
+            imageCount,
+          },
+        },
+        logger,
+        socket, // Exclude the sender from receiving their own message
+      );
+    }
+
     // 4. TELL CONTROL PLANE THAT CHAT IS STARTING
     try {
       await this.notifyOrchestrationStartChat(prototypeId);

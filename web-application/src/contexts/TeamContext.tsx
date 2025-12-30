@@ -73,14 +73,12 @@ export function TeamProvider({ children }: { children: ReactNode }) {
           .createSignedUrl(activeTeam.id, 60 * 60); // 1 hour expiry
 
         if (error) {
-          console.error("Error generating signed URL:", error);
           setSignedAvatarUrl(null);
           return;
         }
 
         setSignedAvatarUrl(data.signedUrl);
       } catch (err) {
-        console.error("Failed to generate signed URL:", err);
         setSignedAvatarUrl(null);
       }
     };
