@@ -13,6 +13,7 @@ type SubscriptionAccessResult = {
   userPlan: SubscriptionPlanType;
   currentPeriodStart: Date;
   currentPeriodEnd: Date;
+  seatQuantity: number | null;
 };
 
 /**
@@ -40,6 +41,7 @@ function getFreeTierAccess(): SubscriptionAccessResult {
     userPlan: "free",
     currentPeriodStart: startOfMonth,
     currentPeriodEnd: endOfMonth,
+    seatQuantity: null,
   };
 }
 
@@ -74,6 +76,7 @@ async function fetchSubscriptionAccess(
 
     const latestSubscription = data[0];
     const plan = latestSubscription.plan_id as SubscriptionPlanType | null;
+    const seatQuantity = latestSubscription.seat_quantity ?? null;
 
     if (!plan) {
       return freeTierAccess;
@@ -92,6 +95,7 @@ async function fetchSubscriptionAccess(
           userPlan: plan,
           currentPeriodStart: new Date(periodStart),
           currentPeriodEnd: new Date(periodEnd),
+          seatQuantity,
         };
       }
 
@@ -103,6 +107,7 @@ async function fetchSubscriptionAccess(
       userPlan: plan,
       currentPeriodStart: startOfMonth,
       currentPeriodEnd: endOfMonth,
+      seatQuantity,
     };
   } catch (error) {
     logger.debug("error", "Error fetching subscription:", {
@@ -177,6 +182,7 @@ export function useSubscriptionAccess() {
     loadingSubscriptionData,
     currentPeriodStart: subscriptionData.currentPeriodStart,
     currentPeriodEnd: subscriptionData.currentPeriodEnd,
+    seatQuantity: subscriptionData.seatQuantity,
     user: userState.user,
     userIsLoading: userState.userIsLoading,
   };

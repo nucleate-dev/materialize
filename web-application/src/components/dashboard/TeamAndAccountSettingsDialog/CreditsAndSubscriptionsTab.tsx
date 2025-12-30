@@ -34,7 +34,7 @@ import { TeamUpgradeModal } from "@/components/dashboard/TeamUpgradeModal";
 export function CreditsAndSubscriptionsTab() {
   const router = useRouter();
   const logger = useProductLogger();
-  const { userPlan, currentPeriodEnd } = useSubscriptionAccess();
+  const { userPlan, currentPeriodEnd, seatQuantity } = useSubscriptionAccess();
   const { activeTeam, currentUserMembership } = useActiveTeam();
   const creditUsage = useCreditUsage();
 
@@ -197,6 +197,11 @@ export function CreditsAndSubscriptionsTab() {
                         ? "Free forever"
                         : `${creditUsage.creditLimit} credits / month`}
                     </p>
+                    {seatQuantity !== null && currentSubscription === "team" && (
+                      <p className="text-sm text-gray-600 dark:text-[#8A8F98]">
+                        {seatQuantity} seat{seatQuantity !== 1 ? "s" : ""}
+                      </p>
+                    )}
                   </div>
                   <div className="flex items-center gap-2 text-sm text-emerald-600 dark:text-emerald-400">
                     <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
