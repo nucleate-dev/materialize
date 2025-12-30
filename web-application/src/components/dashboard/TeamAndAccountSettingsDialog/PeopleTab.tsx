@@ -1038,8 +1038,6 @@ export function PeopleTab() {
                               <DropdownMenuItem
                                 className="text-destructive focus:text-destructive"
                                 onClick={async () => {
-                                  // TODO: Uncomment when invite_status column is added to team_invites table
-                                  /*
                                   if (!activeTeam?.id) return;
 
                                   // Set invite_status to "canceled"
@@ -1059,8 +1057,6 @@ export function PeopleTab() {
                                       queryKey: teamInvitesQueryKey(activeTeam.id),
                                     });
                                   }
-                                  */
-                                  console.log("Delete invite:", invite.id);
                                 }}
                               >
                                 Delete invite
