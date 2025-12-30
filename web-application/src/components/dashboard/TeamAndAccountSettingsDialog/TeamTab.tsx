@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useActiveTeam } from "@/contexts/TeamContext";
 import { useUser } from "@/hooks/useUser";
+import { usePersonalTeam } from "@/hooks/usePersonalTeam";
 import { supabase } from "@/ClientConstants";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,8 +17,9 @@ import { useQueryClient } from "@tanstack/react-query";
 import { personalTeamQueryKey } from "@/lib/react-query/queryKeys";
 
 export function TeamTab() {
-  const { activeTeam, teamMembers, currentUserMembership } = useActiveTeam();
+  const { activeTeam, teamMembers, currentUserMembership, setActiveTeam } = useActiveTeam();
   const { user } = useUser();
+  const { team: personalTeam } = usePersonalTeam();
   const logger = useProductLogger();
   const queryClient = useQueryClient();
 
@@ -25,6 +27,8 @@ export function TeamTab() {
   const [teamDescription, setTeamDescription] = useState(activeTeam?.description || "");
   const [isSaving, setIsSaving] = useState(false);
   const [isLeavingTeam, setIsLeavingTeam] = useState(false);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Check if current user is owner or admin
   const isOwnerOrAdmin =
@@ -46,6 +50,142 @@ export function TeamTab() {
   const hasUnsavedChanges =
     teamName.trim() !== (activeTeam?.name || "") ||
     teamDescription.trim() !== (activeTeam?.description || "");
+
+  // Compress image to reduce file size
+  const compressImage = async (file: File): Promise<Blob> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = (event) => {
+        const img = new Image();
+        img.src = event.target?.result as string;
+        img.onload = () => {
+          const canvas = document.createElement("canvas");
+          const ctx = canvas.getContext("2d");
+          if (!ctx) {
+            reject(new Error("Failed to get canvas context"));
+            return;
+          }
+
+          // Set max dimensions (e.g., 400x400 for avatars)
+          const MAX_WIDTH = 400;
+          const MAX_HEIGHT = 400;
+          let width = img.width;
+          let height = img.height;
+
+          // Calculate new dimensions while maintaining aspect ratio
+          if (width > height) {
+            if (width > MAX_WIDTH) {
+              height = (height * MAX_WIDTH) / width;
+              width = MAX_WIDTH;
+            }
+          } else {
+            if (height > MAX_HEIGHT) {
+              width = (width * MAX_HEIGHT) / height;
+              height = MAX_HEIGHT;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+
+          // Draw and compress
+          ctx.drawImage(img, 0, 0, width, height);
+          canvas.toBlob(
+            (blob) => {
+              if (blob) {
+                resolve(blob);
+              } else {
+                reject(new Error("Failed to compress image"));
+              }
+            },
+            "image/jpeg",
+            0.8, // 80% quality
+          );
+        };
+        img.onerror = () => reject(new Error("Failed to load image"));
+      };
+      reader.onerror = () => reject(new Error("Failed to read file"));
+    });
+  };
+
+  const handleAvatarUpload = async (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const file = event.target.files?.[0];
+    if (!file || !activeTeam?.id) return;
+
+    // Validate file type
+    if (!file.type.startsWith("image/")) {
+      alert("Please select an image file");
+      return;
+    }
+
+    // Validate file size (max 5MB before compression)
+    if (file.size > 5 * 1024 * 1024) {
+      alert("Image size must be less than 5MB");
+      return;
+    }
+
+    try {
+      setIsUploadingAvatar(true);
+
+      // Compress the image
+      const compressedBlob = await compressImage(file);
+
+      // Upload to Supabase storage
+      const fileName = activeTeam.id;
+      const { error: uploadError } = await supabase.storage
+        .from("team-avatars")
+        .upload(fileName, compressedBlob, {
+          contentType: "image/jpeg",
+          upsert: true, // Replace existing file if it exists
+        });
+
+      if (uploadError) {
+        logger.debug("error", "Error uploading avatar", { error: uploadError });
+        alert("Failed to upload avatar. Please try again.");
+        return;
+      }
+
+      // Get public URL
+      const {
+        data: { publicUrl },
+      } = supabase.storage.from("team-avatars").getPublicUrl(fileName);
+
+      // Update team table with new avatar URL
+      const { error: updateError } = await supabase
+        .from("teams")
+        .update({ avatar_url: publicUrl })
+        .eq("id", activeTeam.id);
+
+      if (updateError) {
+        logger.debug("error", "Error updating team avatar URL", {
+          error: updateError,
+        });
+        alert("Failed to update team avatar. Please try again.");
+        return;
+      }
+
+      logger.debug("log", "Team avatar updated successfully");
+
+      // Invalidate queries to refresh team data
+      if (user?.id) {
+        queryClient.invalidateQueries({
+          queryKey: personalTeamQueryKey(user.id),
+        });
+      }
+    } catch (err) {
+      logger.debug("error", "Failed to upload avatar", { error: err });
+      alert("Failed to upload avatar. Please try again.");
+    } finally {
+      setIsUploadingAvatar(false);
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }
+  };
 
   const handleSaveChanges = async () => {
     if (!activeTeam?.id || !teamName.trim()) return;
@@ -110,8 +250,17 @@ export function TeamTab() {
 
       logger.debug("log", "Left team successfully");
 
-      // Redirect or refresh - the team context will update automatically
-      window.location.reload();
+      // Switch to personal team
+      if (personalTeam) {
+        setActiveTeam(personalTeam);
+      }
+
+      // Invalidate queries to refresh team data
+      if (user?.id) {
+        queryClient.invalidateQueries({
+          queryKey: personalTeamQueryKey(user.id),
+        });
+      }
     } catch (err) {
       logger.debug("error", "Failed to leave team", { error: err });
       alert("Failed to leave team. Please try again.");
@@ -176,9 +325,30 @@ export function TeamTab() {
                 </AvatarFallback>
               </Avatar>
               <div className="flex flex-col gap-1">
-                <Button variant="outline" size="sm" disabled={!isOwnerOrAdmin}>
-                  <Upload className="w-4 h-4 mr-2" />
-                  Upload
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleAvatarUpload}
+                  className="hidden"
+                />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={!isOwnerOrAdmin || isUploadingAvatar}
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  {isUploadingAvatar ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Uploading...
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="w-4 h-4 mr-2" />
+                      Upload
+                    </>
+                  )}
                 </Button>
                 {!isOwnerOrAdmin && (
                   <p className="text-xs text-muted-foreground">
