@@ -17,9 +17,11 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Search, HelpCircle, ChevronDown, ArrowUpDown } from "lucide-react";
+import { Search, HelpCircle, ChevronDown, ArrowUpDown, Crown, Users } from "lucide-react";
 import { Database } from "@/lib/types/supabase";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
+import { handleCheckout } from "@/lib/utils/payments/CheckoutUtils";
+import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   teamInvitesQueryKey,
@@ -35,12 +37,14 @@ interface UserUsage {
 }
 
 export function PeopleTab() {
+  const router = useRouter();
   const { activeTeam, teamMembers, teamInvites, currentUserMembership } =
     useActiveTeam();
   const { user } = useUser();
-  const { currentPeriodStart, currentPeriodEnd } = useSubscriptionAccess();
+  const { currentPeriodStart, currentPeriodEnd, userPlan } = useSubscriptionAccess();
   const logger = useProductLogger();
   const queryClient = useQueryClient();
+  const isFreeTier = userPlan === "free";
   const [inviteEmails, setInviteEmails] = useState("");
   const [inviteRole, setInviteRole] = useState<TeamRole>("editor");
   const [searchQuery, setSearchQuery] = useState("");
@@ -369,6 +373,65 @@ export function PeopleTab() {
           </Button>
         </div>
 
+        {/* Free Tier Upsell Banner */}
+        {isFreeTier && (
+          <div className="mb-6 p-4 rounded-lg border border-border bg-muted/30">
+            <div className="flex items-start gap-3 mb-3">
+              <Users className="w-5 h-5 text-muted-foreground mt-0.5" />
+              <div className="flex-1">
+                <h3 className="text-sm font-medium text-foreground mb-1">
+                  Upgrade to add team members
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  Choose a plan to invite collaborators to your team
+                </p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
+              {/* Plus Plan */}
+              <div className="p-3 rounded-lg bg-background border border-border">
+                <div className="flex items-start justify-between mb-2">
+                  <div className="font-medium text-sm text-foreground">Plus</div>
+                  <div className="text-xs text-muted-foreground">$25/mo</div>
+                </div>
+                <p className="text-xs text-muted-foreground mb-3">
+                  1 free collaborator
+                </p>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => activeTeam?.id && handleCheckout("plus", router, activeTeam.id)}
+                  className="w-full h-8 text-xs"
+                >
+                  Upgrade to Plus
+                </Button>
+              </div>
+
+              {/* Team Plan */}
+              <div className="p-3 rounded-lg bg-background border border-border">
+                <div className="flex items-start justify-between mb-2">
+                  <div className="font-medium text-sm text-foreground flex items-center gap-1.5">
+                    Team
+                    <Crown className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                  </div>
+                  <div className="text-xs text-muted-foreground">$35/seat</div>
+                </div>
+                <p className="text-xs text-muted-foreground mb-3">
+                  Unlimited viewers + multiple collaborators
+                </p>
+                <Button
+                  size="sm"
+                  onClick={() => activeTeam?.id && handleCheckout("team", router, activeTeam.id)}
+                  className="w-full h-8 text-xs bg-blue-600 hover:bg-blue-700"
+                >
+                  Upgrade to Team
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Invite Section */}
         <div className="mb-8">
           <h2 className="text-base font-medium text-gray-900 dark:text-white mb-3">
@@ -380,14 +443,14 @@ export function PeopleTab() {
               value={inviteEmails}
               onChange={(e) => setInviteEmails(e.target.value)}
               className="flex-1 bg-background border-border"
-              disabled={!isOwnerOrAdmin}
+              disabled={!isOwnerOrAdmin || isFreeTier}
             />
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
                   variant="outline"
                   className="min-w-[120px] justify-between"
-                  disabled={!isOwnerOrAdmin}
+                  disabled={!isOwnerOrAdmin || isFreeTier}
                 >
                   <span className="capitalize">{inviteRole}</span>
                   <ChevronDown className="w-4 h-4 ml-2" />
@@ -411,7 +474,7 @@ export function PeopleTab() {
             <Button
               onClick={handleInvite}
               className="bg-blue-600 hover:bg-blue-700"
-              disabled={!isOwnerOrAdmin}
+              disabled={!isOwnerOrAdmin || isFreeTier}
             >
               Invite
             </Button>
