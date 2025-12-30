@@ -26,6 +26,7 @@ import {
   Users,
   AlertCircle,
   Loader2,
+  MoreVertical,
 } from "lucide-react";
 import { Database } from "@/lib/types/supabase";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
@@ -749,7 +750,7 @@ export function PeopleTab() {
                   Date joined
                   <ArrowUpDown className="w-3 h-3" />
                 </div>
-                <div className="col-span-1">Limits</div>
+                <div className="col-span-1"></div>
               </div>
             </div>
 
@@ -893,9 +894,46 @@ export function PeopleTab() {
                         )}
                       </div>
 
-                      {/* Limits */}
-                      <div className="col-span-1 flex items-center text-muted-foreground">
-                        -
+                      {/* Actions */}
+                      <div className="col-span-1 flex items-center justify-end">
+                        {isOwnerOrAdmin && (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <button className="p-1 hover:bg-muted rounded transition-colors">
+                                <MoreVertical className="w-4 h-4 text-muted-foreground" />
+                              </button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem
+                                className="text-destructive focus:text-destructive"
+                                onClick={async () => {
+                                  if (!activeTeam?.id) return;
+
+                                  // Delete the member from team_memberships table
+                                  const { error } = await supabase
+                                    .from("team_memberships")
+                                    .delete()
+                                    .eq("user_id", member.user_id)
+                                    .eq("team_id", activeTeam.id);
+
+                                  if (error) {
+                                    logger.debug("error", "Error removing member", {
+                                      error,
+                                    });
+                                    alert("Failed to remove member. Please try again.");
+                                  } else {
+                                    // Invalidate queries to refresh the member list
+                                    queryClient.invalidateQueries({
+                                      queryKey: teamMembersQueryKey(activeTeam.id),
+                                    });
+                                  }
+                                }}
+                              >
+                                Remove from team
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        )}
                       </div>
                     </div>
                   );
@@ -966,9 +1004,49 @@ export function PeopleTab() {
                         )}
                       </div>
 
-                      {/* Limits */}
-                      <div className="col-span-1 flex items-center text-muted-foreground">
-                        -
+                      {/* Actions */}
+                      <div className="col-span-1 flex items-center justify-end">
+                        {isOwnerOrAdmin && (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <button className="p-1 hover:bg-muted rounded transition-colors">
+                                <MoreVertical className="w-4 h-4 text-muted-foreground" />
+                              </button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem
+                                className="text-destructive focus:text-destructive"
+                                onClick={async () => {
+                                  // TODO: Uncomment when invite_status column is added to team_invites table
+                                  /*
+                                  if (!activeTeam?.id) return;
+
+                                  // Set invite_status to "canceled"
+                                  const { error } = await supabase
+                                    .from("team_invites")
+                                    .update({ invite_status: "canceled" })
+                                    .eq("id", invite.id);
+
+                                  if (error) {
+                                    logger.debug("error", "Error deleting invite", {
+                                      error,
+                                    });
+                                    alert("Failed to delete invite. Please try again.");
+                                  } else {
+                                    // Invalidate queries to refresh the invite list
+                                    queryClient.invalidateQueries({
+                                      queryKey: teamInvitesQueryKey(activeTeam.id),
+                                    });
+                                  }
+                                  */
+                                  console.log("Delete invite:", invite.id);
+                                }}
+                              >
+                                Delete invite
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        )}
                       </div>
                     </div>
                   );
