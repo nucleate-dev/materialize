@@ -111,7 +111,8 @@ export function PeopleTab() {
 
   // Check if team is at capacity for non-viewer seats
   const currentNonViewerCount = getNonViewerCount();
-  const isAtCapacity = isTeamPlan &&
+  const isAtCapacity =
+    isTeamPlan &&
     inviteRole !== "viewer" &&
     seatQuantity !== null &&
     currentNonViewerCount >= seatQuantity;
@@ -509,7 +510,9 @@ export function PeopleTab() {
                           variant="outline"
                           size="icon"
                           onClick={() =>
-                            setTeamSeatQuantity(Math.max(1, teamSeatQuantity - 1))
+                            setTeamSeatQuantity(
+                              Math.max(1, teamSeatQuantity - 1),
+                            )
                           }
                           disabled={teamSeatQuantity <= 1 || !isOwnerOrAdmin}
                           className="h-7 w-7"
@@ -541,7 +544,9 @@ export function PeopleTab() {
                         </Button>
                       </div>
                       <div className="text-xs text-muted-foreground">
-                        {(teamSeatQuantity * CreditLimits.TEAM).toLocaleString()}{" "}
+                        {(
+                          teamSeatQuantity * CreditLimits.TEAM
+                        ).toLocaleString()}{" "}
                         credits/mo
                       </div>
                     </div>
@@ -594,10 +599,13 @@ export function PeopleTab() {
                   <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-500 mt-0.5" />
                   <div>
                     <p className="text-sm text-amber-900 dark:text-amber-200">
-                      <strong>Seat limit reached.</strong> You're currently using {currentNonViewerCount} of {seatQuantity} seat{seatQuantity !== 1 ? "s" : ""}.
+                      <strong>Seat limit reached.</strong> You're currently
+                      using {currentNonViewerCount} of {seatQuantity} seat
+                      {seatQuantity !== 1 ? "s" : ""}.
                     </p>
                     <p className="text-sm text-amber-800 dark:text-amber-300 mt-1">
-                      Purchase more seats to add collaborators with Owner, Admin, or Editor roles.
+                      Purchase more seats to add collaborators with Owner,
+                      Admin, or Editor roles.
                     </p>
                   </div>
                 </div>
@@ -658,7 +666,12 @@ export function PeopleTab() {
             <Button
               onClick={handleInvite}
               className="bg-blue-600 hover:bg-blue-700"
-              disabled={!isOwnerOrAdmin || isFreeTier || isAtCapacity}
+              disabled={
+                !isOwnerOrAdmin ||
+                isFreeTier ||
+                isAtCapacity ||
+                isPlusWithMultipleMembers
+              }
             >
               Invite
             </Button>
@@ -917,14 +930,22 @@ export function PeopleTab() {
                                     .eq("team_id", activeTeam.id);
 
                                   if (error) {
-                                    logger.debug("error", "Error removing member", {
-                                      error,
-                                    });
-                                    alert("Failed to remove member. Please try again.");
+                                    logger.debug(
+                                      "error",
+                                      "Error removing member",
+                                      {
+                                        error,
+                                      },
+                                    );
+                                    alert(
+                                      "Failed to remove member. Please try again.",
+                                    );
                                   } else {
                                     // Invalidate queries to refresh the member list
                                     queryClient.invalidateQueries({
-                                      queryKey: teamMembersQueryKey(activeTeam.id),
+                                      queryKey: teamMembersQueryKey(
+                                        activeTeam.id,
+                                      ),
                                     });
                                   }
                                 }}
