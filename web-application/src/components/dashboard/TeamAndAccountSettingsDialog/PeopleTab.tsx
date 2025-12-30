@@ -35,6 +35,10 @@ import { handleRedirectToStripeCustomerPortal } from "@/lib/utils/payments/Subsc
 import { useRouter } from "next/navigation";
 import { CreditLimits } from "@/lib/types/serverAPITypes";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import {
+  checkTeamCapacity,
+  canChangeRole,
+} from "@/lib/utils/teams/TeamCapacityUtils";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   teamInvitesQueryKey,
@@ -109,13 +113,18 @@ export function PeopleTab() {
     currentUserMembership?.role === "owner" ||
     currentUserMembership?.role === "admin";
 
-  // Check if team is at capacity for non-viewer seats
+  // Check team capacity based on subscription plan
+  const capacityCheck = checkTeamCapacity({
+    plan: userPlan,
+    teamMembers: teamMembers || [],
+    teamInvites: teamInvites || [],
+    seatQuantity,
+    inviteRole,
+  });
+
+  // Legacy variable for backward compatibility
   const currentNonViewerCount = getNonViewerCount();
-  const isAtCapacity =
-    isTeamPlan &&
-    inviteRole !== "viewer" &&
-    seatQuantity !== null &&
-    currentNonViewerCount >= seatQuantity;
+  const isAtCapacity = !capacityCheck.canInvite && capacityCheck.shouldShowCapacityAlert;
 
   const handleManageBillingClick = async () => {
     if (!activeTeam?.id) {
@@ -435,7 +444,7 @@ export function PeopleTab() {
         </div>
 
         {/* Upsell Banner */}
-        {shouldShowUpsell && (
+        {capacityCheck.shouldShowUpsell && (
           <div className="mb-6 p-4 rounded-lg border border-border bg-muted/30">
             <div className="flex items-start gap-3 mb-3">
               <Users className="w-5 h-5 text-muted-foreground mt-0.5" />
@@ -635,14 +644,14 @@ export function PeopleTab() {
               value={inviteEmails}
               onChange={(e) => setInviteEmails(e.target.value)}
               className="flex-1 bg-background border-border"
-              disabled={!isOwnerOrAdmin || isFreeTier}
+              disabled={!isOwnerOrAdmin || !capacityCheck.canInvite}
             />
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
                   variant="outline"
                   className="min-w-[120px] justify-between"
-                  disabled={!isOwnerOrAdmin || isFreeTier}
+                  disabled={!isOwnerOrAdmin || !capacityCheck.canInvite}
                 >
                   <span className="capitalize">{inviteRole}</span>
                   <ChevronDown className="w-4 h-4 ml-2" />
@@ -666,12 +675,7 @@ export function PeopleTab() {
             <Button
               onClick={handleInvite}
               className="bg-blue-600 hover:bg-blue-700"
-              disabled={
-                !isOwnerOrAdmin ||
-                isFreeTier ||
-                isAtCapacity ||
-                isPlusWithMultipleMembers
-              }
+              disabled={!isOwnerOrAdmin || !capacityCheck.canInvite}
             >
               Invite
             </Button>
@@ -807,7 +811,7 @@ export function PeopleTab() {
 
                       {/* Role */}
                       <div className="col-span-1 flex items-center">
-                        {isOwnerOrAdmin ? (
+                        {isOwnerOrAdmin && capacityCheck.canChangeRoles ? (
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                               <button className="flex items-center gap-1 capitalize hover:text-foreground transition-colors">
@@ -817,6 +821,16 @@ export function PeopleTab() {
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="start">
                               <DropdownMenuItem
+                                disabled={
+                                  !canChangeRole({
+                                    plan: userPlan,
+                                    currentRole: member.role,
+                                    newRole: "owner",
+                                    teamMembers: teamMembers || [],
+                                    teamInvites: teamInvites || [],
+                                    seatQuantity,
+                                  })
+                                }
                                 onClick={() =>
                                   handleRoleChange(
                                     member.user_id,
@@ -828,6 +842,16 @@ export function PeopleTab() {
                                 Owner
                               </DropdownMenuItem>
                               <DropdownMenuItem
+                                disabled={
+                                  !canChangeRole({
+                                    plan: userPlan,
+                                    currentRole: member.role,
+                                    newRole: "admin",
+                                    teamMembers: teamMembers || [],
+                                    teamInvites: teamInvites || [],
+                                    seatQuantity,
+                                  })
+                                }
                                 onClick={() =>
                                   handleRoleChange(
                                     member.user_id,
@@ -839,6 +863,16 @@ export function PeopleTab() {
                                 Admin
                               </DropdownMenuItem>
                               <DropdownMenuItem
+                                disabled={
+                                  !canChangeRole({
+                                    plan: userPlan,
+                                    currentRole: member.role,
+                                    newRole: "editor",
+                                    teamMembers: teamMembers || [],
+                                    teamInvites: teamInvites || [],
+                                    seatQuantity,
+                                  })
+                                }
                                 onClick={() =>
                                   handleRoleChange(
                                     member.user_id,
@@ -850,6 +884,16 @@ export function PeopleTab() {
                                 Editor
                               </DropdownMenuItem>
                               <DropdownMenuItem
+                                disabled={
+                                  !canChangeRole({
+                                    plan: userPlan,
+                                    currentRole: member.role,
+                                    newRole: "viewer",
+                                    teamMembers: teamMembers || [],
+                                    teamInvites: teamInvites || [],
+                                    seatQuantity,
+                                  })
+                                }
                                 onClick={() =>
                                   handleRoleChange(
                                     member.user_id,
