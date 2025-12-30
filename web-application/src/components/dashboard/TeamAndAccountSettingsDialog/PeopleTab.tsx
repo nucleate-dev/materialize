@@ -17,7 +17,14 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Search, HelpCircle, ChevronDown, ArrowUpDown, Crown, Users } from "lucide-react";
+import {
+  Search,
+  HelpCircle,
+  ChevronDown,
+  ArrowUpDown,
+  Crown,
+  Users,
+} from "lucide-react";
 import { Database } from "@/lib/types/supabase";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import { handleCheckout } from "@/lib/utils/payments/CheckoutUtils";
@@ -42,11 +49,13 @@ export function PeopleTab() {
   const { activeTeam, teamMembers, teamInvites, currentUserMembership } =
     useActiveTeam();
   const { user } = useUser();
-  const { currentPeriodStart, currentPeriodEnd, userPlan } = useSubscriptionAccess();
+  const { currentPeriodStart, currentPeriodEnd, userPlan } =
+    useSubscriptionAccess();
   const logger = useProductLogger();
   const queryClient = useQueryClient();
   const isFreeTier = userPlan === "free";
-  const isPlusWithMultipleMembers = userPlan === "plus" && (teamMembers?.length ?? 0) >= 2;
+  const isPlusWithMultipleMembers =
+    userPlan === "plus" && (teamMembers?.length ?? 0) >= 2;
   const shouldShowUpsell = isFreeTier || isPlusWithMultipleMembers;
   const [inviteEmails, setInviteEmails] = useState("");
   const [inviteRole, setInviteRole] = useState<TeamRole>("editor");
@@ -380,7 +389,7 @@ export function PeopleTab() {
               </span>{" "}
               gives access to shared projects and credits. You have{" "}
               <span className="font-medium text-gray-900 dark:text-white">
-                {teamMembers.length} builder
+                {teamMembers.length} member
                 {teamMembers.length !== 1 ? "s" : ""}
               </span>{" "}
               in this team.
@@ -411,30 +420,37 @@ export function PeopleTab() {
               </div>
             </div>
 
-            <div className={`grid grid-cols-1 ${isFreeTier ? "sm:grid-cols-2" : ""} gap-3 mt-3`}>
+            <div
+              className={`grid grid-cols-1 ${isFreeTier ? "sm:grid-cols-2" : ""} gap-3 mt-3`}
+            >
               {/* Plus Plan - only show for free tier */}
               {isFreeTier && (
                 <div className="p-3 rounded-lg bg-background border border-border">
-                <div className="flex items-start justify-between mb-2">
-                  <div className="font-medium text-sm text-foreground">Plus</div>
-                  <div className="text-xs text-muted-foreground">$25/mo</div>
-                </div>
-                <p className="text-xs text-muted-foreground mb-3">
-                  1 free collaborator
-                </p>
+                  <div className="flex items-start justify-between mb-2">
+                    <div className="font-medium text-sm text-foreground">
+                      Plus
+                    </div>
+                    <div className="text-xs text-muted-foreground">$25/mo</div>
+                  </div>
+                  <p className="text-xs text-muted-foreground mb-3">
+                    1 free collaborator
+                  </p>
 
-                {/* Spacer to align with Team card seat selector */}
-                <div className="mb-3 h-7" />
+                  {/* Spacer to align with Team card seat selector */}
+                  <div className="mb-3 h-7" />
 
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => activeTeam?.id && handleCheckout("plus", router, activeTeam.id)}
-                  className="w-full h-8 text-xs"
-                  disabled={!isOwnerOrAdmin}
-                >
-                  Upgrade to Plus
-                </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() =>
+                      activeTeam?.id &&
+                      handleCheckout("plus", router, activeTeam.id)
+                    }
+                    className="w-full h-8 text-xs"
+                    disabled={!isOwnerOrAdmin}
+                  >
+                    Upgrade to Plus
+                  </Button>
                 </div>
               )}
 
@@ -482,7 +498,9 @@ export function PeopleTab() {
                         type="button"
                         variant="outline"
                         size="icon"
-                        onClick={() => setTeamSeatQuantity(teamSeatQuantity + 1)}
+                        onClick={() =>
+                          setTeamSeatQuantity(teamSeatQuantity + 1)
+                        }
                         disabled={!isOwnerOrAdmin}
                         className="h-7 w-7"
                       >
@@ -490,14 +508,23 @@ export function PeopleTab() {
                       </Button>
                     </div>
                     <div className="text-xs text-muted-foreground">
-                      {(teamSeatQuantity * CreditLimits.TEAM).toLocaleString()} credits/mo
+                      {(teamSeatQuantity * CreditLimits.TEAM).toLocaleString()}{" "}
+                      credits/mo
                     </div>
                   </div>
                 </div>
 
                 <Button
                   size="sm"
-                  onClick={() => activeTeam?.id && handleCheckout("team", router, activeTeam.id, teamSeatQuantity)}
+                  onClick={() =>
+                    activeTeam?.id &&
+                    handleCheckout(
+                      "team",
+                      router,
+                      activeTeam.id,
+                      teamSeatQuantity,
+                    )
+                  }
                   className="w-full h-8 text-xs bg-blue-600 hover:bg-blue-700"
                   disabled={!isOwnerOrAdmin}
                 >
