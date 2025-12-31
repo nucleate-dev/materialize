@@ -21,6 +21,7 @@ interface ProjectContextEditorProps {
 }
 
 const CLAUDE_MD_FILENAME = "CLAUDE.md";
+const AGENTS_MD_FILENAME = "AGENTS.md";
 
 const DEFAULT_TEMPLATE = `# Project Context
 
@@ -47,6 +48,7 @@ const ProjectContextEditor: React.FC<ProjectContextEditorProps> = ({
   const crepeRef = useRef<Crepe | null>(null);
   const initialContentRef = useRef<string>("");
   const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const autoSaveRef = useRef<(content: string) => Promise<void>>(async () => {});
 
   const claudeMdFile = fileSystem.state.files[CLAUDE_MD_FILENAME];
   const fileExists = Boolean(claudeMdFile);
@@ -71,7 +73,10 @@ const ProjectContextEditor: React.FC<ProjectContextEditorProps> = ({
 
     try {
       const result = await fileSystem.syncFilesAndAssets({
-        filesToUpsert: [{ name: CLAUDE_MD_FILENAME, content }],
+        filesToUpsert: [
+          { name: CLAUDE_MD_FILENAME, content },
+          { name: AGENTS_MD_FILENAME, content },
+        ],
       });
 
       if (result.success) {
@@ -84,6 +89,11 @@ const ProjectContextEditor: React.FC<ProjectContextEditorProps> = ({
       });
     }
   }, [prototypeId, fileExists, isReadOnly, fileSystem, logger]);
+
+  // Keep autoSaveRef updated with latest autoSave function
+  useEffect(() => {
+    autoSaveRef.current = autoSave;
+  }, [autoSave]);
 
   // Initialize Milkdown editor
   useEffect(() => {
@@ -130,7 +140,7 @@ const ProjectContextEditor: React.FC<ProjectContextEditorProps> = ({
                 clearTimeout(autoSaveTimeoutRef.current);
               }
               autoSaveTimeoutRef.current = setTimeout(() => {
-                autoSave(markdown);
+                autoSaveRef.current(markdown);
               }, 1000); // Auto-save after 1 second of no typing
             });
           });
@@ -150,7 +160,7 @@ const ProjectContextEditor: React.FC<ProjectContextEditorProps> = ({
       crepeRef.current = null;
       setIsEditorReady(false);
     };
-  }, [fileExists, claudeMdFile?.contents, isReadOnly, autoSave]);
+  }, [fileExists, claudeMdFile?.contents, isReadOnly]);
 
   // Sync content when file changes externally
   useEffect(() => {
@@ -174,7 +184,10 @@ const ProjectContextEditor: React.FC<ProjectContextEditorProps> = ({
     setIsCreating(true);
     try {
       const result = await fileSystem.syncFilesAndAssets({
-        filesToUpsert: [{ name: CLAUDE_MD_FILENAME, content: DEFAULT_TEMPLATE }],
+        filesToUpsert: [
+          { name: CLAUDE_MD_FILENAME, content: DEFAULT_TEMPLATE },
+          { name: AGENTS_MD_FILENAME, content: DEFAULT_TEMPLATE },
+        ],
       });
 
       if (result.success) {
@@ -203,8 +216,8 @@ const ProjectContextEditor: React.FC<ProjectContextEditorProps> = ({
                 No project context
               </h3>
               <p className="text-sm text-muted-foreground">
-                Create a CLAUDE.md file to provide AI instructions and project
-                context that guides code generation.
+                Add instructions and context for the AI to help guide code
+                generation for your project.
               </p>
             </div>
             <Button
@@ -220,7 +233,7 @@ const ProjectContextEditor: React.FC<ProjectContextEditorProps> = ({
               ) : (
                 <>
                   <Plus className="w-4 h-4 mr-2" />
-                  Create CLAUDE.md
+                  Add Project Context
                 </>
               )}
             </Button>
