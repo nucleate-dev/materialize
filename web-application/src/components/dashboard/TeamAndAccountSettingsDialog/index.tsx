@@ -18,14 +18,22 @@ import {
   SidebarGroupLabel,
   SidebarGroupContent,
 } from "@/components/ui/sidebar";
-import { X, User, CreditCard, Key, Users, LogOut } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { X, User, CreditCard, Key, Users, LogOut, ChevronDown, Check } from "lucide-react";
 import { useCustomUserRow } from "@/hooks/useCustomUserRow";
 import { usePostHog } from "posthog-js/react";
 import { useActiveTeam } from "@/contexts/TeamContext";
+import { useUserTeams } from "@/hooks/useUserTeams";
 import { logout } from "@/lib/utils/auth/SupabaseAuthUtils";
 import { useRouter } from "next/navigation";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { supabase } from "@/ClientConstants";
+import { SubscriptionStatuses } from "@/GlobalConstants";
 import { ProfileTab } from "./ProfileTab";
 import { ClaudeConnectionTab } from "./ClaudeConnectionTab";
 import { CreditsAndSubscriptionsTab } from "./CreditsAndSubscriptionsTab";
@@ -46,10 +54,14 @@ export function TeamAndAccountsSettingsDialog({
   defaultTab = "profile",
 }: SettingsDialogProps) {
   const { userRow } = useCustomUserRow();
-  const { activeTeam } = useActiveTeam();
+  const { activeTeam, setActiveTeam } = useActiveTeam();
+  const { teams } = useUserTeams();
   const posthog = usePostHog();
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<SettingsTab>(defaultTab);
+  const [teamSubscriptions, setTeamSubscriptions] = useState<
+    Record<string, string>
+  >({});
 
   const isClaudeConnectionEnabled =
     posthog?.isFeatureEnabled("claude-code-cli-with-personal-token") ?? false;
@@ -74,6 +86,44 @@ export function TeamAndAccountsSettingsDialog({
       setActiveTab(defaultTab);
     }
   }, [open, defaultTab]);
+
+  // Fetch subscriptions for all teams
+  useEffect(() => {
+    async function fetchTeamSubscriptions() {
+      if (teams.length === 0) return;
+
+      const teamIds = teams.map((team) => team.id);
+      const nowInSeconds = Math.floor(Date.now() / 1000);
+
+      const { data: subscriptions } = await supabase
+        .from("subscriptions")
+        .select("team_id, plan_id, current_period_start, current_period_end")
+        .in("team_id", teamIds)
+        .eq("status", SubscriptionStatuses.ACTIVE)
+        .lte("current_period_start", nowInSeconds)
+        .gte("current_period_end", nowInSeconds);
+
+      const subscriptionMap: Record<string, string> = {};
+
+      // Process subscriptions and validate they're currently active
+      subscriptions?.forEach((sub) => {
+        if (sub.plan_id && sub.team_id) {
+          subscriptionMap[sub.team_id] = sub.plan_id;
+        }
+      });
+
+      // Set free plan for teams without active subscriptions
+      teams.forEach((team) => {
+        if (!subscriptionMap[team.id]) {
+          subscriptionMap[team.id] = "free";
+        }
+      });
+
+      setTeamSubscriptions(subscriptionMap);
+    }
+
+    fetchTeamSubscriptions();
+  }, [teams]);
 
   const handleLogout = async () => {
     const error = await logout();
@@ -160,6 +210,81 @@ export function TeamAndAccountsSettingsDialog({
           <div className="w-64 border-r border-border bg-muted/30 flex flex-col">
             {/* Tabs */}
             <div className="flex-1 p-2 space-y-4">
+              {/* Team Selector Dropdown - only show if teams UI is enabled */}
+              {isTeamsUIEnabled && (
+                <div className="mb-2">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button className="w-full flex items-center gap-2 px-3 py-2 rounded-lg border border-sidebar-border bg-sidebar-accent/50 hover:bg-sidebar-accent transition-colors">
+                        <Avatar className="w-6 h-6 rounded-lg shrink-0">
+                          <AvatarFallback className="rounded-lg bg-primary/10 text-xs font-bold text-primary">
+                            {teamInitials}
+                          </AvatarFallback>
+                        </Avatar>
+                        <span className="flex-1 text-sm font-medium text-left truncate">
+                          {teamName}
+                        </span>
+                        <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent
+                      align="start"
+                      className="w-[240px] p-2"
+                    >
+                      <div className="space-y-1">
+                        {teams.map((team) => {
+                          const isActive = activeTeam?.id === team.id;
+                          const teamInitialsLocal = getInitials(team.name);
+                          const teamPlan = teamSubscriptions[team.id] || "free";
+                          const teamIsFree = teamPlan === "free";
+
+                          return (
+                            <button
+                              key={team.id}
+                              className="w-full flex items-center gap-2 px-2 py-2 rounded-md hover:bg-accent/50 transition-colors"
+                              onClick={() => {
+                                setActiveTeam(team);
+                              }}
+                            >
+                              <Avatar className="w-6 h-6 rounded-lg shrink-0">
+                                <AvatarFallback className="rounded-lg bg-primary/10 text-xs font-bold text-primary">
+                                  {teamInitialsLocal}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div className="flex-1 text-left min-w-0">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-sm font-medium truncate">
+                                    {team.name}
+                                  </span>
+                                  {teamIsFree ? (
+                                    <Badge
+                                      variant="secondary"
+                                      className="text-[10px] px-1 py-0 shrink-0"
+                                    >
+                                      FREE
+                                    </Badge>
+                                  ) : (
+                                    <Badge
+                                      variant="secondary"
+                                      className="text-[10px] px-1 py-0 uppercase shrink-0"
+                                    >
+                                      {teamPlan}
+                                    </Badge>
+                                  )}
+                                </div>
+                              </div>
+                              {isActive && (
+                                <Check className="w-4 h-4 text-primary shrink-0" />
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              )}
+
               {tabGroups.map((group) => (
                 <SidebarGroup key={group.label}>
                   <SidebarGroupLabel>{group.label}</SidebarGroupLabel>
