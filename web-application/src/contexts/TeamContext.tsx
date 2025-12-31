@@ -7,6 +7,7 @@ import {
   type TeamMemberWithUser,
 } from "@/hooks/useTeamMembers";
 import { useTeamInvites } from "@/hooks/useTeamInvites";
+import { useUserTeams } from "@/hooks/useUserTeams";
 import { Database } from "@/lib/types/supabase";
 import { supabase } from "@/ClientConstants";
 import {
@@ -16,6 +17,8 @@ import {
   useEffect,
   type ReactNode,
 } from "react";
+
+const LAST_ACTIVE_TEAM_KEY = "lastActiveTeamId";
 
 type Team = Database["public"]["Tables"]["teams"]["Row"];
 type TeamMembership = Database["public"]["Tables"]["team_memberships"]["Row"];
@@ -39,6 +42,7 @@ const TeamContext = createContext<TeamContextValue | undefined>(undefined);
 export function TeamProvider({ children }: { children: ReactNode }) {
   const { team: personalTeam, isLoading: personalTeamLoading } =
     usePersonalTeam();
+  const { teams: userTeams, isLoading: userTeamsLoading } = useUserTeams();
   const [activeTeam, setActiveTeam] = useState<Team | null>(null);
   const [signedAvatarUrl, setSignedAvatarUrl] = useState<string | null>(null);
 
@@ -52,12 +56,34 @@ export function TeamProvider({ children }: { children: ReactNode }) {
     activeTeam?.id,
   );
 
-  // Initialize with personal team when it loads
+  // Initialize with last active team from localStorage, or fall back to personal team
   useEffect(() => {
-    if (personalTeam && !activeTeam) {
+    if (!activeTeam && !userTeamsLoading && !personalTeamLoading && personalTeam) {
+      const lastActiveTeamId = localStorage.getItem(LAST_ACTIVE_TEAM_KEY);
+
+      if (lastActiveTeamId) {
+        // Check if the stored team ID is in the user's teams
+        const lastActiveTeam = userTeams.find(
+          (team) => team.id === lastActiveTeamId
+        );
+
+        if (lastActiveTeam) {
+          setActiveTeam(lastActiveTeam);
+          return;
+        }
+      }
+
+      // Fall back to personal team
       setActiveTeam(personalTeam);
     }
-  }, [personalTeam, activeTeam]);
+  }, [activeTeam, userTeamsLoading, personalTeamLoading, personalTeam, userTeams]);
+
+  // Save active team to localStorage when it changes
+  useEffect(() => {
+    if (activeTeam?.id) {
+      localStorage.setItem(LAST_ACTIVE_TEAM_KEY, activeTeam.id);
+    }
+  }, [activeTeam?.id]);
 
   // Generate signed URL for team avatar when active team changes
   useEffect(() => {

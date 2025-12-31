@@ -57,6 +57,7 @@ export type PostHogEvent =
   | "client_dashboard_prompt_submitted"
   | "client_dashboard_sidebar_item_clicked"
   | "client_user_email_registration_completed"
+  | "client_team_created"
   | "sandbox_chat_usage_generic"
   | "server_dispatch"
   | "server_dispatch_precheck"
@@ -154,6 +155,7 @@ export const PostHogEvents: Record<PostHogEvent, PostHogEvent> = Object.freeze({
     "client_prototype_editor_view_on_device_link_copied",
   client_prototype_editor_view_on_device_opened:
     "client_prototype_editor_view_on_device_opened",
+  client_team_created: "client_team_created",
   client_team_invite_accepted: "client_team_invite_accepted",
   client_team_invite_accepting: "client_team_invite_accepting",
   client_team_invite_redirect_to_login: "client_team_invite_redirect_to_login",

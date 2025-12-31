@@ -11,6 +11,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
+import { useActiveTeam } from "@/contexts/TeamContext";
 import { RocketLaunchIcon, SparklesIcon } from "@heroicons/react/24/outline";
 import { User } from "@supabase/supabase-js";
 import { useState } from "react";
@@ -29,6 +30,7 @@ export default function NewFolderModal({
   onCreated,
 }: NewFolderModalProps) {
   const logger = useProductLogger();
+  const { activeTeam } = useActiveTeam();
   const [name, setName] = useState("");
   const [touched, setTouched] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
@@ -36,7 +38,7 @@ export default function NewFolderModal({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setTouched(true);
-    if (!name.trim() || !user) return;
+    if (!name.trim() || !user || !activeTeam?.id) return;
     setIsCreating(true);
 
     try {
@@ -44,7 +46,7 @@ export default function NewFolderModal({
         .from("folders")
         .insert({
           name: name.trim(),
-          owner_id: user.id,
+          team_id: activeTeam.id,
           description: null,
           folder_context: null,
           thumbnail_url: null,

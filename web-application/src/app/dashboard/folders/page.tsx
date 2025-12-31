@@ -6,6 +6,7 @@ import FolderThumbnail from "@/components/dashboard/FolderThumbnail";
 import NewFolderModal from "@/components/dashboard/NewFolderModal";
 import { Button } from "@/components/ui/button";
 import { useUser } from "@/hooks/useUser";
+import { useActiveTeam } from "@/contexts/TeamContext";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import { Database } from "@/lib/types/supabase";
 import { Loader2, Plus, Search } from "lucide-react";
@@ -16,6 +17,7 @@ type FolderRow = Database["public"]["Tables"]["folders"]["Row"];
 
 export default function FoldersPage() {
   const { user } = useUser();
+  const { activeTeam } = useActiveTeam();
   const router = useRouter();
   const logger = useProductLogger();
   const [modalOpen, setModalOpen] = useState(false);
@@ -24,7 +26,7 @@ export default function FoldersPage() {
   const [searchQuery, setSearchQuery] = useState("");
 
   const fetchFolders = useCallback(async () => {
-    if (!user?.id) {
+    if (!activeTeam?.id) {
       setIsLoading(false);
       return;
     }
@@ -34,7 +36,7 @@ export default function FoldersPage() {
       const { data, error } = await supabase
         .from("folders")
         .select("*")
-        .eq("owner_id", user.id)
+        .eq("team_id", activeTeam.id)
         .order("updated_at", { ascending: false });
 
       if (error) {
@@ -53,7 +55,7 @@ export default function FoldersPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [user?.id, logger]);
+  }, [activeTeam?.id, logger]);
 
   useEffect(() => {
     fetchFolders();

@@ -198,14 +198,14 @@ export default function DashboardPage() {
   // Fetch design systems
   useEffect(() => {
     async function fetchDesignSystems() {
-      if (!user) return;
+      if (!activeTeam) return;
 
       setIsLoadingDesignSystems(true);
       try {
         const { data, error } = await supabase
           .from("design_systems")
           .select("id, name, description, design_rules, updated_at")
-          .eq("owner_id", user.id)
+          .eq("team_id", activeTeam.id)
           .order("updated_at", { ascending: false });
 
         if (error) {
@@ -223,10 +223,10 @@ export default function DashboardPage() {
       }
     }
 
-    if (user?.id) {
+    if (activeTeam?.id) {
       fetchDesignSystems();
     }
-  }, [user, logger]);
+  }, [activeTeam, logger]);
 
   useEffect(() => {
     if (framework === "web_nextjs_react" && designStyle !== "stylesheets") {
