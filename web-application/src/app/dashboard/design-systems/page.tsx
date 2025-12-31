@@ -32,7 +32,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
-import { useUser } from "@/hooks/useUser";
+import { useActiveTeam } from "@/contexts/TeamContext";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import { Database } from "@/lib/types/supabase";
 import {
@@ -48,7 +48,7 @@ import {
 type DesignSystemRow = Database["public"]["Tables"]["design_systems"]["Row"];
 
 export default function DesignSystemsPage() {
-  const { user } = useUser();
+  const { activeTeam } = useActiveTeam();
   const router = useRouter();
   const logger = useProductLogger();
 
@@ -71,8 +71,8 @@ export default function DesignSystemsPage() {
     design_rules: "",
   });
 
-  const userId = user?.id ?? null;
-  const canMutate = Boolean(userId);
+  const teamId = activeTeam?.id ?? null;
+  const canMutate = Boolean(teamId);
 
   const resetForm = () => {
     setFormValues({ name: "", description: "", design_rules: "" });
@@ -80,7 +80,7 @@ export default function DesignSystemsPage() {
   };
 
   const fetchDesignSystems = useCallback(async () => {
-    if (!userId) {
+    if (!teamId) {
       setDesignSystems([]);
       setIsLoading(false);
       return;
@@ -91,9 +91,9 @@ export default function DesignSystemsPage() {
       const { data, error } = await supabase
         .from("design_systems")
         .select(
-          "id, name, description, design_rules, updated_at, created_at, owner_id",
+          "id, name, description, design_rules, updated_at, created_at, team_id",
         )
-        .eq("owner_id", userId)
+        .eq("team_id", teamId)
         .order("updated_at", { ascending: false });
 
       if (error) {
@@ -114,7 +114,7 @@ export default function DesignSystemsPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [logger, userId]);
+  }, [logger, teamId]);
 
   useEffect(() => {
     fetchDesignSystems();
@@ -175,7 +175,7 @@ export default function DesignSystemsPage() {
 
   const handleCreateSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!userId) {
+    if (!teamId) {
       setFormError("You must be signed in to create a design system.");
       return;
     }
@@ -193,7 +193,7 @@ export default function DesignSystemsPage() {
         name: trimmedName,
         description: formValues.description.trim() || null,
         design_rules: formValues.design_rules.trim(),
-        owner_id: userId,
+        team_id: teamId,
       });
 
       if (error) {
