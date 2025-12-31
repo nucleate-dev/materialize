@@ -454,18 +454,20 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
     grantReason = changeType === "downgrade"
       ? "subscription_downgrade"
       : "subscription_renewal";
+  }
 
-    // Handle downgrade reconciliation (e.g., remove excess team members, update limits)
-    if (changeType === "downgrade" && existingSubscription) {
-      await reconcileTeamOnDowngrade(
-        userId,
-        teamId,
-        existingSubscription.plan_id,
-        newPlanKey,
-        existingSubscription.seat_quantity,
-        seatQuantity,
-      );
-    }
+  // Handle reconciliation for both downgrades and upgrades
+  // Downgrades: remove excess team members
+  // Upgrades: fix team state in case it was already in a bad state
+  if (existingSubscription) {
+    await reconcileTeamOnDowngrade(
+      userId,
+      teamId,
+      existingSubscription.plan_id,
+      newPlanKey,
+      existingSubscription.seat_quantity,
+      seatQuantity,
+    );
   }
   const billingPeriodStart = new Date(
     subscriptionItem.current_period_start * 1000,
@@ -1337,11 +1339,17 @@ async function reconcileTeamOnDowngrade(
   const membersToKeep = priorityList.slice(0, allowedNonViewerSeats);
   const membersToDemote = priorityList.slice(allowedNonViewerSeats);
 
+  // CRITICAL: Never demote the personal team owner, even if they somehow ended up in the demote list
+  // Filter out personal team owner from membersToDemote as an extra safety measure
+  const safeMembersToDemote = membersToDemote.filter(
+    (m) => m.user_id !== team.personal_owner_user_id,
+  );
+
   // Update memberships to viewer for those who need to be demoted
-  if (membersToDemote.length <= 0) {
+  if (safeMembersToDemote.length <= 0) {
     return;
   }
-  const userIdsToDemote = membersToDemote.map((m) => m.user_id);
+  const userIdsToDemote = safeMembersToDemote.map((m) => m.user_id);
 
   const { error: updateError } = await supabase
     .from("team_memberships")
@@ -1359,7 +1367,7 @@ async function reconcileTeamOnDowngrade(
         error: updateError,
         context: "reconcileTeamOnDowngrade_demote_members",
         team_id: teamId,
-        demoted_count: membersToDemote.length,
+        demoted_count: safeMembersToDemote.length,
       },
     });
   } else {
@@ -1377,7 +1385,7 @@ async function reconcileTeamOnDowngrade(
         new_seats: newSeatQuantity,
         allowed_seats: allowedNonViewerSeats,
         kept_members: membersToKeep.length,
-        demoted_members: membersToDemote.length,
+        demoted_members: safeMembersToDemote.length,
       },
     });
   }
