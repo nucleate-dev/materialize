@@ -111,7 +111,9 @@ function HomeContent() {
 
         <PricingSection />
         <FAQSection />
-        <Footer />
+        <div className="dark">
+          <Footer />
+        </div>
       </div>
     </main>
   );
