@@ -34,17 +34,19 @@ export default function CreateTeamPage() {
       // Generate UUID client-side so we know the team ID
       const teamId = crypto.randomUUID();
 
-      // Create the team with our generated UUID
-      const { error: teamError } = await supabase
+      // Create the team and select it back (works because creator can see empty teams)
+      const { data: team, error: teamError } = await supabase
         .from("teams")
         .insert({
           id: teamId,
           name: teamName.trim(),
           created_by: user.id,
           personal_owner_user_id: null, // NOT a personal team
-        });
+        })
+        .select()
+        .single();
 
-      if (teamError) {
+      if (teamError || !team) {
         logger.debug("error", "Failed to create team", { error: teamError });
         alert("Failed to create team. Please try again.");
         setIsCreating(false);
@@ -55,7 +57,7 @@ export default function CreateTeamPage() {
       const { error: membershipError } = await supabase
         .from("team_memberships")
         .insert({
-          team_id: teamId,
+          team_id: team.id,
           user_id: user.id,
           role: "owner",
         });
@@ -65,20 +67,6 @@ export default function CreateTeamPage() {
           error: membershipError,
         });
         alert("Failed to add you to the team. Please try again.");
-        setIsCreating(false);
-        return;
-      }
-
-      // Now we can safely SELECT the team since we're a member
-      const { data: team, error: selectError } = await supabase
-        .from("teams")
-        .select()
-        .eq("id", teamId)
-        .single();
-
-      if (selectError || !team) {
-        logger.debug("error", "Failed to fetch created team", { error: selectError });
-        alert("Team created but failed to load. Please refresh.");
         setIsCreating(false);
         return;
       }
