@@ -314,6 +314,7 @@ export type Database = {
           id: string
           name: string
           owner_id: string
+          team_id: string | null
           updated_at: string
         }
         Insert: {
@@ -323,6 +324,7 @@ export type Database = {
           id?: string
           name: string
           owner_id?: string
+          team_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -332,9 +334,17 @@ export type Database = {
           id?: string
           name?: string
           owner_id?: string
+          team_id?: string | null
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "design_systems_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "design_systems_user_owner_fkey"
             columns: ["owner_id"]
@@ -369,6 +379,7 @@ export type Database = {
           id: string
           name: string
           owner_id: string | null
+          team_id: string | null
           thumbnail_url: string | null
           updated_at: string | null
           visibility: Database["public"]["Enums"]["visibility_level"] | null
@@ -382,6 +393,7 @@ export type Database = {
           id?: string
           name?: string
           owner_id?: string | null
+          team_id?: string | null
           thumbnail_url?: string | null
           updated_at?: string | null
           visibility?: Database["public"]["Enums"]["visibility_level"] | null
@@ -395,11 +407,19 @@ export type Database = {
           id?: string
           name?: string
           owner_id?: string | null
+          team_id?: string | null
           thumbnail_url?: string | null
           updated_at?: string | null
           visibility?: Database["public"]["Enums"]["visibility_level"] | null
         }
         Relationships: [
+          {
+            foreignKeyName: "folders_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "projects_custom_design_system_fkey"
             columns: ["custom_design_system"]
@@ -889,6 +909,7 @@ export type Database = {
           email: string | null
           expires_at: string | null
           id: string
+          invite_status: Database["public"]["Enums"]["team_invite_status"]
           invited_by: string | null
           invited_user_id: string | null
           role: Database["public"]["Enums"]["team_role"]
@@ -900,6 +921,7 @@ export type Database = {
           email?: string | null
           expires_at?: string | null
           id?: string
+          invite_status?: Database["public"]["Enums"]["team_invite_status"]
           invited_by?: string | null
           invited_user_id?: string | null
           role?: Database["public"]["Enums"]["team_role"]
@@ -911,6 +933,7 @@ export type Database = {
           email?: string | null
           expires_at?: string | null
           id?: string
+          invite_status?: Database["public"]["Enums"]["team_invite_status"]
           invited_by?: string | null
           invited_user_id?: string | null
           role?: Database["public"]["Enums"]["team_role"]
@@ -988,24 +1011,30 @@ export type Database = {
       }
       teams: {
         Row: {
+          avatar_url: string | null
           created_at: string
           created_by: string | null
+          description: string | null
           id: string
           name: string
           personal_owner_user_id: string | null
           slug: string | null
         }
         Insert: {
+          avatar_url?: string | null
           created_at?: string
           created_by?: string | null
+          description?: string | null
           id?: string
           name: string
           personal_owner_user_id?: string | null
           slug?: string | null
         }
         Update: {
+          avatar_url?: string | null
           created_at?: string
           created_by?: string | null
+          description?: string | null
           id?: string
           name?: string
           personal_owner_user_id?: string | null
@@ -1258,6 +1287,7 @@ export type Database = {
       prototype_framework: "mobile_expo_react_native" | "web_nextjs_react"
       subscription_plan_type: "free" | "team" | "pro" | "plus" | "max"
       subscription_status: "active" | "past_due" | "canceled"
+      team_invite_status: "pending" | "accepted" | "cancelled"
       team_role: "owner" | "admin" | "editor" | "viewer"
       tunnel_status: "creating" | "idle" | "allocated"
       visibility_level: "SELF" | "TEAM_SUBSET" | "TEAM" | "PUBLIC"
@@ -1394,6 +1424,7 @@ export const Constants = {
       prototype_framework: ["mobile_expo_react_native", "web_nextjs_react"],
       subscription_plan_type: ["free", "team", "pro", "plus", "max"],
       subscription_status: ["active", "past_due", "canceled"],
+      team_invite_status: ["pending", "accepted", "cancelled"],
       team_role: ["owner", "admin", "editor", "viewer"],
       tunnel_status: ["creating", "idle", "allocated"],
       visibility_level: ["SELF", "TEAM_SUBSET", "TEAM", "PUBLIC"],
