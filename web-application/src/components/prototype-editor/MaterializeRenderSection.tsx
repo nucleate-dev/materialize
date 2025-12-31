@@ -827,7 +827,7 @@ const MaterializeRenderSection = forwardRef<
           logger.debug("error", "Failed to restart dev server:", {
             error: result.error?.message,
           });
-          onRenderStatusChange("Connected");
+          onRenderStatusChange("Error");
         }
       } catch (error) {
         logger.debug("error", "Error restarting dev server:", {
@@ -1104,8 +1104,10 @@ const MaterializeRenderSection = forwardRef<
       const isDevServer =
         viewing_url.includes("localhost") ||
         viewing_url.includes("127.0.0.1") ||
-        viewing_url.includes(".ngrok.") ||
-        viewing_url.includes("tunnel");
+        viewing_url.includes("ngrok") ||
+        viewing_url.includes("tunnel") ||
+        viewing_url.includes("19006") ||
+        viewing_url.includes("sandbox.nucleate.dev");
       if (isDevServer) onRenderStatusChange("Connected");
     }, [viewing_url, onRenderStatusChange]);
 
@@ -1122,8 +1124,10 @@ const MaterializeRenderSection = forwardRef<
       const isDevServer =
         viewing_url.includes("localhost") ||
         viewing_url.includes("127.0.0.1") ||
-        viewing_url.includes(".ngrok.") ||
-        viewing_url.includes("tunnel");
+        viewing_url.includes("ngrok") ||
+        viewing_url.includes("tunnel") ||
+        viewing_url.includes("19006") ||
+        viewing_url.includes("sandbox.nucleate.dev");
       if (isDevServer) {
         onRenderStatusChange("Connecting..");
       }

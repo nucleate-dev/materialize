@@ -415,7 +415,7 @@ export default function InternalPrototypePage() {
         data.visibility,
       );
       setPrototype(data);
-      setIsPublic(normalizedVisibility !== "SELF");
+      setIsPublic(normalizedVisibility === "PUBLIC");
       setDeployedUrl(
         data.latest_deploy_key && data.slug
           ? `${data.slug}.app.nucleate.dev`
@@ -544,7 +544,7 @@ export default function InternalPrototypePage() {
       // Set new debounced timer -- THIS IS NECESSARY TO PREVENT MULTIPLE REQUESTS FROM BEING SENT TO THE SERVER ON PAGE LOAD
       debounceTimer = setTimeout(() => {
         fetchPrototypeAndStartDevServer();
-      }, 500);
+      }, 300);
     }
 
     return () => {
