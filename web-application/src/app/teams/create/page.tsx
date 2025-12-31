@@ -235,14 +235,14 @@ export default function CreateTeamPage() {
                           <div className="flex items-center gap-3">
                             <Button
                               type="button"
-                              variant="outline"
+                              variant="ghost"
                               size="icon"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 setSeatQuantity(Math.max(1, seatQuantity - 1));
                               }}
                               disabled={seatQuantity <= 1 || isCreating}
-                              className="h-9 w-9 border-white/20 hover:bg-white/10"
+                              className="h-9 w-9 bg-white/5 hover:bg-white/10 border border-white/20 text-white disabled:opacity-30 disabled:cursor-not-allowed"
                             >
                               -
                             </Button>
@@ -255,19 +255,19 @@ export default function CreateTeamPage() {
                                 setSeatQuantity(Math.max(1, num));
                               }}
                               onClick={(e) => e.stopPropagation()}
-                              className="text-center h-9 w-20 text-sm bg-[#0B0C0E] border-white/10"
+                              className="text-center h-9 w-20 text-sm bg-[#0B0C0E] border-white/20 text-white"
                               disabled={isCreating}
                             />
                             <Button
                               type="button"
-                              variant="outline"
+                              variant="ghost"
                               size="icon"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 setSeatQuantity(seatQuantity + 1);
                               }}
                               disabled={isCreating}
-                              className="h-9 w-9 border-white/20 hover:bg-white/10"
+                              className="h-9 w-9 bg-white/5 hover:bg-white/10 border border-white/20 text-white disabled:opacity-30 disabled:cursor-not-allowed"
                             >
                               +
                             </Button>
