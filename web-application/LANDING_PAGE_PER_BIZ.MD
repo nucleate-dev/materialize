@@ -1,7 +1,9 @@
-# Nucleate System Framework  
-**Internal Reference Doc — v1**
+# Nucleate Website Builder Framework
+**Internal Reference Doc — v2**
 
-This document defines how Nucleate builds **client-facing business systems** and provides a **repeatable framework** for generating vertical-specific landing pages (lawyers, pharmacies, CPAs, trainers, etc.) using AI.
+This document defines how Nucleate builds **AI-powered business websites** and provides a **repeatable framework** for generating vertical-specific landing pages (lawyers, pharmacies, CPAs, trainers, etc.) using AI.
+
+**SEO Note:** Use "website" in SEO-facing elements (titles, H1s, meta, URLs). Differentiate in body copy by positioning as "more than a website."
 
 This is designed to be:
 - Dropped directly into the repo
@@ -13,17 +15,17 @@ This is designed to be:
 
 ## 1. What Nucleate Builds (Authoritative Definition)
 
-Nucleate does **not** build “just websites.”
+Nucleate builds **AI-powered websites** that go beyond static pages.
 
-Nucleate builds **front-of-business systems** that:
-- Present the business professionally
-- Educate visitors
-- Capture intent
-- Route real customer requests
-- Integrate with existing tools
-- Are editable and evolvable over time
+Every Nucleate website:
+- Presents the business professionally
+- Educates visitors
+- Captures intent through smart forms
+- Routes real customer requests
+- Integrates with existing tools
+- Is editable via AI chat—no code required
 
-These systems sit **in front of** execution software (CRMs, scheduling tools, POS, etc.).
+These websites sit **in front of** execution software (CRMs, scheduling tools, POS, etc.) and serve as the business's digital front door.
 
 ---
 
@@ -42,7 +44,10 @@ Nucleate **orchestrates** the interaction layer instead of owning execution.
 
 ## 3. Core Mental Model
 
-> **Nucleate is a system generator for the front door of a business.**
+> **Nucleate is an AI website builder for small businesses—websites you can edit by chatting.**
+
+**SEO headline:** "AI Website Builder for [Vertical]"
+**Differentiator:** "More than a website—a client-ready site you can update with AI"
 
 This framing must remain consistent across:
 - Homepage
@@ -53,9 +58,9 @@ This framing must remain consistent across:
 
 ---
 
-## 4. Universal System Primitives
+## 4. Universal Website Primitives
 
-All Nucleate systems are composed of the same primitives.  
+All Nucleate websites are composed of the same primitives.
 Verticals only change **language and defaults**, not structure.
 
 ---
@@ -181,16 +186,33 @@ Examples:
 
 ---
 
-## 5. What Makes This a “System” (Not a Website)
+### 4.9 AI Chat (Editing Interface)
 
-A Nucleate system:
-- Has structured entities
-- Captures user intent
-- Applies business logic
-- Routes outcomes
-- Evolves over time
+Every Nucleate website includes a conversational AI interface for editing.
 
-Static websites do not meet this definition.
+Owners can:
+- Update content by describing changes in plain English
+- Add new pages or offerings
+- Modify forms and logic
+- Regenerate copy with different tone or focus
+- Iterate without technical skills or hiring help
+
+This is what makes the website **evolvable**—not frozen at launch.
+
+**Key differentiator:** "Edit your website by chatting with AI"
+
+---
+
+## 5. What Makes This More Than a Static Website
+
+A Nucleate website:
+- Has structured, editable entities
+- Captures user intent through smart forms
+- Applies business logic (routing, conditionals)
+- Connects to external tools
+- Evolves over time via AI chat
+
+Static websites and DIY builders don't offer this.
 
 ---
 
@@ -236,20 +258,21 @@ Only **language, tone, and defaults** change per vertical.
 
 ### What Nucleate builds
 
-**System Components**
+**Website Components**
 - Pages: Home, Practice Areas, About, Contact
 - Offerings: Practice Areas
 - Forms: Consultation request
 - Logic: Practice-specific intake questions
 - Integrations: Email, optional scheduling link
+- AI Chat: Update case results, add practice areas, edit bios
 
-**System Outcome**
-> A client acquisition system for a law firm.
+**Outcome**
+> A professional, client-ready website that generates inquiries—editable via AI.
 
 ---
 
 ### Primary CTA
-> Build my law firm system
+> Build my law firm website
 
 ---
 
@@ -280,24 +303,57 @@ Only **language, tone, and defaults** change per vertical.
 
 ### What Nucleate builds
 
-**System Components**
+**Website Components**
 - Pages: Home, Menu, Location, Contact
 - Offerings: Menu Items
 - Forms: Catering or general inquiry
-- Logic: Highlight “Open now”, seasonal updates
+- Logic: Highlight "Open now", seasonal updates
 - Integrations: Google Maps, delivery platforms
+- AI Chat: Update menu items, change hours, add specials
 
-**System Outcome**
-> A living storefront system customers actually use.
+**Outcome**
+> A mobile-first website customers actually use—updated in seconds via AI.
 
 ---
 
 ### Primary CTA
-> Build my restaurant system
+> Build my restaurant website
 
 ---
 
-## 9. Landing Page Copy Creation Guide (For AI Agents)
+## 9. Target Verticals (25)
+
+| # | Vertical | Offerings Label | Primary Outcome | Example CTA |
+|---|----------|-----------------|-----------------|-------------|
+| 1 | Solo/Small Law Firms | Practice Areas | Get client inquiries | Build my law firm website |
+| 2 | CPAs / Accountants | Services | Capture leads | Build my accounting website |
+| 3 | Pharmacies | Services | Drive foot traffic | Build my pharmacy website |
+| 4 | Dentists | Services | Book appointments | Build my dental website |
+| 5 | Chiropractors | Services | Book consultations | Build my chiropractic website |
+| 6 | Physical Therapists | Programs | Request evaluation | Build my PT website |
+| 7 | Veterinarians | Services | Book visits | Build my vet clinic website |
+| 8 | Real Estate Agents | Listings / Services | Get buyer/seller leads | Build my real estate website |
+| 9 | Insurance Agents | Coverage Types | Get quote requests | Build my insurance website |
+| 10 | Financial Advisors | Services | Schedule consultations | Build my advisor website |
+| 11 | Personal Trainers / Gyms | Programs | Start free trial | Build my fitness website |
+| 12 | Yoga / Pilates Studios | Classes | Book first class | Build my studio website |
+| 13 | Salons / Barbershops | Services | Book appointments | Build my salon website |
+| 14 | Spas / Massage Therapists | Treatments | Book sessions | Build my spa website |
+| 15 | Photographers | Packages | Check availability | Build my photography website |
+| 16 | Wedding Planners | Packages | Request consultation | Build my wedding planner website |
+| 17 | Interior Designers | Services | Start a project | Build my design website |
+| 18 | Landscapers | Services | Get estimates | Build my landscaping website |
+| 19 | HVAC / Plumbers / Electricians | Services | Request service | Build my home services website |
+| 20 | Auto Repair Shops | Services | Schedule repairs | Build my auto shop website |
+| 21 | Restaurants / Cafés | Menu Items | View menu / Order | Build my restaurant website |
+| 22 | Bakeries | Products | Place orders | Build my bakery website |
+| 23 | Florists | Arrangements | Order flowers | Build my florist website |
+| 24 | Tutors / Music Teachers | Lessons | Book trial lesson | Build my tutoring website |
+| 25 | Therapists / Counselors | Specialties | Request appointment | Build my therapy website |
+
+---
+
+## 10. Landing Page Copy Creation Guide (For AI Agents)
 
 Use this guide whenever generating a new vertical landing page.
 
@@ -383,34 +439,37 @@ Examples:
 
 ---
 
-## 10. Vertical Prompt Template (Reusable)
+## 11. Vertical Prompt Template (Reusable)
 
 Use this prompt to generate demos or landing copy:
 
-> Build a professional, conversion-ready system for a **[business type]** in **[location]**.  
-> The system should help them **[primary outcome]** and include pages for **[pages]**, offerings for **[offerings]**, and a form that captures **[request type]**.
+> Build a professional, AI-powered website for a **[business type]** in **[location]**.
+> The website should help them **[primary outcome]** and include pages for **[pages]**, offerings for **[offerings]**, and a form that captures **[request type]**. Make it editable via AI chat.
 
 ---
 
-## 11. Language Rules (Must Follow)
+## 12. Language Rules (Must Follow)
 
-### Use
-- Business system
-- Client-facing
+### Use (SEO + Differentiation)
+- AI website builder
+- AI-powered website
+- Edit with AI / Chat to update
+- Client-ready
 - Conversion-ready
-- Editable workflows
-- Built for your industry
+- Built for [vertical]
+- More than a template
 
 ### Avoid
 - No-code / low-code jargon
 - Backend terminology
-- Overpromising execution systems
+- "System" in SEO-facing copy (use in body for differentiation)
+- Overpromising execution features
 - Infrastructure language
 
 ---
 
-## 12. Final Anchor (Do Not Change)
+## 13. Final Anchor (Do Not Change)
 
-> **Nucleate builds full-featured, client-facing business systems for the front door of a business.**
+> **Nucleate is an AI website builder for small businesses—professional, client-ready websites you can edit by chatting.**
 
 All verticals, landing pages, and AI outputs must align with this statement.
