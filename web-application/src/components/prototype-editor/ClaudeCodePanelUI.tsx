@@ -58,6 +58,7 @@ import type {
 } from "react";
 import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
+import { useFeatureFlagEnabled } from "posthog-js/react";
 import { toast } from "sonner";
 import type {
   ClaudeCodePanelActiveView, Message,
@@ -235,6 +236,8 @@ export default function ClaudeCodePanelUI({
   isTeamsUIEnabled,
   isUsingOAuthToken,
 }: ClaudeCodePanelUIProps) {
+  const isClaudeOAuthEnabled =
+    useFeatureFlagEnabled("claude-code-cli-with-personal-token") ?? false;
   const [showCreditLimitModal, setShowCreditLimitModal] = useState(false);
   const hasShownModalRef = useRef(false);
 
@@ -406,7 +409,7 @@ export default function ClaudeCodePanelUI({
 
         <div className="flex items-center gap-1">
           {/* OAuth Token Indicator */}
-          {isUsingOAuthToken && (
+          {isClaudeOAuthEnabled && isUsingOAuthToken && (
             <span className="text-[10px] text-muted-foreground whitespace-nowrap mr-1">
               Using your Claude subscription
             </span>
