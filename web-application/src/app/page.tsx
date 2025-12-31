@@ -98,16 +98,16 @@ function HomeContent() {
 
         <HeroSection />
 
-        {/* Section 1: Infrastructure & Scale */}
-        <InfrastructureSection />
-
-        {/* Section 2: Coding Agents & Design Systems */}
+        {/* Section 1: Coding Agents & Design Systems */}
         <AgentsSection />
 
         <VariantsSection />
 
-        {/* Section 3: Use Cases & Project Gallery */}
+        {/* Section 2: Use Cases & Project Gallery */}
         <UseCasesSection />
+
+        {/* Section 3: Infrastructure & Scale */}
+        <InfrastructureSection />
 
         <PricingSection />
         <FAQSection />
