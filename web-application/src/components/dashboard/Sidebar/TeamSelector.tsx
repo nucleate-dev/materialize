@@ -34,6 +34,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { supabase } from "@/ClientConstants";
 import { SubscriptionStatuses } from "@/GlobalConstants";
+import { CreateTeamFlow } from "@/components/dashboard/CreateTeamFlow/CreateTeamFlow";
 
 interface TeamSelectorProps {
   isCollapsed?: boolean;
@@ -61,6 +62,7 @@ export function TeamSelector({
   const [teamSubscriptions, setTeamSubscriptions] = useState<
     Record<string, string>
   >({});
+  const [showCreateTeamFlow, setShowCreateTeamFlow] = useState(false);
 
   // Fetch subscriptions for all teams
   useEffect(() => {
@@ -367,7 +369,7 @@ export function TeamSelector({
                       item: "create_team",
                     },
                   });
-                  // TODO: Implement create workspace functionality
+                  setShowCreateTeamFlow(true);
                 }}
               >
                 <Plus className="w-4 h-4 mr-2" />
@@ -377,6 +379,12 @@ export function TeamSelector({
           </DropdownMenuContent>
         </DropdownMenu>
       </SidebarMenuItem>
+
+      {/* Create Team Flow */}
+      <CreateTeamFlow
+        open={showCreateTeamFlow}
+        onOpenChange={setShowCreateTeamFlow}
+      />
     </SidebarMenu>
   );
 }
