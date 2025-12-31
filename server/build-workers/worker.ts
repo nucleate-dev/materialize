@@ -8,6 +8,7 @@ import { genRequestIds, SystemLogger } from "./loggers/SystemLogger.js";
 import { PostHogLogger } from "./loggers/PostHogLogger.js";
 import { ChatService } from "./services/chat/ChatService.js";
 import { CloudflareTunnelManagementService } from "./services/CloudflareTunnelManagementService.js";
+import { DesignSystemConstructorService } from "./services/agentic-design-system-construction/DesignSystemConstructorService.js";
 import { NucleateDevelopmentServerService } from "./services/dev-server/NucleateDevelopmentServerService.js";
 import { FileSyncService } from "./services/FileSyncService.js";
 import { SandboxService } from "./services/SandboxService.js";
@@ -131,6 +132,7 @@ const chatService = new ChatService(
   terminalService,
   fileSyncService,
 );
+const designSystemConstructorService = new DesignSystemConstructorService();
 
 // Now set the chatService reference in NucleateDevelopmentServerService
 nucleateDevelopmentServerService.chatService = chatService;
@@ -188,6 +190,7 @@ app.get("/health", async () => {
 
 // Register public API endpoints
 nucleateDevelopmentServerService.registerRoutes(app);
+designSystemConstructorService.registerRoutes(app);
 
 // Setup terminal WebSocket routes
 terminalService.registerRoutes(app);
