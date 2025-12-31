@@ -162,7 +162,7 @@ begin
           limit subscription_seats + 1
         ) as limited;
 
-        if (total_edit_members + total_edit_pending_invites) >= subscription_seats then
+        if (total_edit_members + total_edit_pending_invites) > subscription_seats then
           raise exception 'team plan has no available seats for owner/admin/editor invites';
         end if;
       end if;
