@@ -1,5 +1,12 @@
 import WebSocket from "ws";
 import { ChatQueryData } from "../../../types/ChatTypes.js";
+import { SystemLogger } from "../../../loggers/SystemLogger.js";
+
+export interface ChatConnection {
+  socket: WebSocket;
+  heartbeat?: NodeJS.Timeout;
+  logger: SystemLogger;
+}
 
 export interface ChatEngineSessionState {
   sessionId: string | null;
@@ -16,6 +23,7 @@ export interface DesignAgentMetadata {
 
 export interface ChatEngineContext {
   socket: WebSocket;
+  activeConnections: Map<string, ChatConnection>;
   data: ChatQueryData;
   sessionState: ChatEngineSessionState;
   validAiChatSessionIds: Set<string>;

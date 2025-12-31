@@ -22,6 +22,7 @@ import {
   StartChatResponse,
 } from "../../types/ControlPlaneTypes.js";
 import { Database } from "../../types/supabase.js";
+import { hasRemainingCredits } from "../../utils/credit-checks.js";
 import { getWorkerContext, WORK_DIR } from "../../worker.js";
 import { ClaudeTokenService } from "../auth/claude-token-service.js";
 import { NucleateDevelopmentServerService } from "../dev-server/NucleateDevelopmentServerService.js";
@@ -30,13 +31,21 @@ import { SandboxService } from "../SandboxService.js";
 import { SupabaseClientService } from "../SupabaseClientService.js";
 import { TerminalService } from "../terminals/TerminalService.js";
 import {
+  ChatConnection,
   ChatEngine,
   ChatEngineResult,
   ChatEngineSessionState,
   DesignAgentMetadata,
 } from "./chat-engines/chat-engine.js";
 import { ChatQueryHandler } from "./chat-engines/chat-query-handler.js";
-import { persistChatMessage } from "./helpers/message-handlers.js";
+import {
+  DEFAULT_DESIGN_AGENT_MODELS,
+  type DesignAgentProvider,
+  executeDesignAgent,
+  persistDesignSpecToFiles,
+} from "./classifiers-and-subagents/design-agent-service.js";
+import { buildDesignAgentUserContent } from "./classifiers-and-subagents/design-classifier-utils.js";
+import { classifyDesignIntent } from "./classifiers-and-subagents/design-intent-classifier.js";
 import {
   costFunctionV3,
   CURRENT_COST_FUNCTION_NAME,
@@ -47,25 +56,12 @@ import {
   OAUTH_COST_FUNCTION_NAME,
 } from "./cost/oauth-credit-calculation.js";
 import { trackApiUsageBuildWorker } from "./cost/usage-tracking.js";
-import { hasRemainingCredits } from "../../utils/credit-checks.js";
-import { buildDesignAgentUserContent } from "./classifiers-and-subagents/design-classifier-utils.js";
-import { classifyDesignIntent } from "./classifiers-and-subagents/design-intent-classifier.js";
-import {
-  DEFAULT_DESIGN_AGENT_MODELS,
-  type DesignAgentProvider,
-  executeDesignAgent,
-  persistDesignSpecToFiles,
-} from "./classifiers-and-subagents/design-agent-service.js";
+import { persistChatMessage } from "./helpers/message-handlers.js";
 import { getSystemPromptForDesignStyle } from "./prompts/ClaudeCodePrompts.js";
+import { broadcastToConnections } from "./websocket-broadcast.js";
 
 export const ALLOWED_ROOT = "/tmp/materialize-dev-server";
 const CHAT_HEARTBEAT_INTERVAL_MS = 15000;
-
-interface ChatConnection {
-  socket: WebSocket;
-  heartbeat?: NodeJS.Timeout;
-  logger: SystemLogger;
-}
 
 interface ChatQueryValidationResult {
   valid: boolean;
@@ -196,7 +192,7 @@ export class ChatService {
 
   private handleWebSocketConnection(
     socket: WebSocket,
-    req: FastifyRequest<{ Params: { prototypeId: string } }>,
+    req: FastifyRequest<{ Params: { prototypeId: string; }; }>,
   ): void {
     const { prototypeId } = req.params;
     const connectionId = `${prototypeId}-${Date.now()}`;
@@ -276,13 +272,17 @@ export class ChatService {
           "Failed to process WebSocket message",
           { connectionId },
         );
-        this.sendMessage(socket, {
-          type: ChatEvent.ERROR,
-          error: {
-            message: "Failed to process message",
-            details: error instanceof Error ? error.message : String(error),
+        broadcastToConnections(
+          this.activeConnections,
+          {
+            type: ChatEvent.ERROR,
+            error: {
+              message: "Failed to process message",
+              details: error instanceof Error ? error.message : String(error),
+            },
           },
-        });
+          baseLogger,
+        );
       }
     });
 
@@ -377,7 +377,7 @@ export class ChatService {
         break;
 
       case ChatClientEvent.INTERRUPT:
-        await this.handleInterrupt(socket);
+        await this.handleInterrupt();
         break;
 
       case ChatClientEvent.HISTORY_RESPONSE:
@@ -398,37 +398,72 @@ export class ChatService {
     // 2. VALIDATE USER QUERY
     const validationResult = this.validateChatQuery(data);
     if (!validationResult.valid) {
-      this.sendMessage(socket, {
-        type: ChatEvent.ERROR,
-        error: {
-          message: validationResult.errorMessage ?? "Invalid chat query",
-          details: validationResult.errorDetails,
+      broadcastToConnections(
+        this.activeConnections,
+        {
+          type: ChatEvent.ERROR,
+          error: {
+            message: validationResult.errorMessage ?? "Invalid chat query",
+            details: validationResult.errorDetails,
+          },
         },
-      });
+        logger,
+      );
       return;
     }
     const { userId, prototypeId } = getWorkerContext();
     if (!prototypeId) {
-      this.sendMessage(socket, {
-        type: ChatEvent.ERROR,
-        error: {
-          message: "Sandbox is missing the project ID",
-          details: "project ID is required. Please get a new sandbox.",
+      broadcastToConnections(
+        this.activeConnections,
+        {
+          type: ChatEvent.ERROR,
+          error: {
+            message: "Sandbox is missing the project ID",
+            details: "project ID is required. Please get a new sandbox.",
+          },
         },
-      });
+        logger,
+      );
       return;
     }
     // 3. PAYWALL CHECK THE USER
     const creditResult = await this.ensureCreditsAvailable(prototypeId, logger);
     if (!creditResult.valid) {
-      this.sendMessage(socket, {
-        type: ChatEvent.ERROR,
-        error: {
-          message: creditResult.errorMessage ?? "Credit check failed",
-          details: creditResult.errorDetails,
+      broadcastToConnections(
+        this.activeConnections,
+        {
+          type: ChatEvent.ERROR,
+          error: {
+            message: creditResult.errorMessage ?? "Credit check failed",
+            details: creditResult.errorDetails,
+          },
         },
-      });
+        logger,
+      );
       return;
+    }
+
+    // 3a. BROADCAST USER MESSAGE TO OTHER COLLABORATORS
+    // This allows other connected users to see messages in real-time
+    if (userId && data.content) {
+      const imageCount = Array.isArray(data.content)
+        ? data.content.filter((block) => block.type === "image").length
+        : 0;
+
+      broadcastToConnections(
+        this.activeConnections,
+        {
+          type: ChatEvent.COLLABORATOR_MESSAGE,
+          data: {
+            userId,
+            content: data.content,
+            timestamp: Date.now(),
+            imageCount,
+          },
+        },
+        logger,
+        socket, // Exclude the sender from receiving their own message
+      );
     }
 
     // 4. TELL CONTROL PLANE THAT CHAT IS STARTING
@@ -439,14 +474,52 @@ export class ChatService {
       logger.error(err, "Failed to notify orchestration start chat", {
         prototypeId,
       });
-      this.sendMessage(socket, {
-        type: ChatEvent.ERROR,
-        error: {
-          message: "Failed to start chat session",
+      broadcastToConnections(
+        this.activeConnections,
+        {
+          type: ChatEvent.ERROR,
+          error: {
+            message: "Failed to start chat session",
+          },
         },
-      });
+        logger,
+      );
       return;
     }
+
+    // 5. DETERMINE APPROPRIATE CHAT HANDLER FOR THE USER
+    // 5a. Check if the user has a claude subscription token to determine whether to use CLI mode
+    let useCliMode = false;
+    if (userId) {
+      try {
+        const isFeatureEnabled = await posthog.isFeatureEnabled(
+          "claude-code-cli-with-personal-token",
+          userId,
+        );
+        if (isFeatureEnabled) {
+          const userToken = await this.claudeTokenService.getUserToken(userId);
+          useCliMode = !!userToken;
+        }
+        logger.consoleLogDevOnly(
+          "info",
+          "Checked user Claude subscription token",
+          {
+            userId,
+            isFeatureEnabled,
+            hasToken: useCliMode,
+          },
+        );
+      } catch (error) {
+        logger.warn("Failed to check user Claude subscription token", {
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+    // 5b. Delegate to appropriate handler based on provider and user subscription
+    let selectedChatEngine: ChatEngine;
+    let handlerName: string;
+    selectedChatEngine = this.chatQueryHandler;
+    handlerName = "claude-sdk";
 
     // 5. PREPARE SESSION STATE
     this.prepareSessionStateForQuery(data, logger);
@@ -493,19 +566,23 @@ export class ChatService {
         null,
       );
 
-      this.sendMessage(socket, {
-        type: ChatEvent.DESIGN_GENERATION,
-        data: {
-          status: "completed",
-          message: "Design specification generated",
-          designSpec,
-          runDesignAgent: true,
-          isAppLevel,
-          isNarrowBuild,
-          persistToProjectContext: true,
-          scope,
+      broadcastToConnections(
+        this.activeConnections,
+        {
+          type: ChatEvent.DESIGN_GENERATION,
+          data: {
+            status: "completed",
+            message: "Design specification generated",
+            designSpec,
+            runDesignAgent: true,
+            isAppLevel,
+            isNarrowBuild,
+            persistToProjectContext: true,
+            scope,
+          },
         },
-      });
+        logger,
+      );
     }
 
     // 7. CONSTRUCT DYNAMIC SYSTEM PROMPT (based on user design system + prototype framework)
@@ -528,6 +605,7 @@ export class ChatService {
     try {
       handlerResult = await this.chatQueryHandler.handleQuery({
         socket,
+        activeConnections: this.activeConnections,
         data,
         sessionState: this.sessionState,
         validAiChatSessionIds: this.validAiChatSessionIds,
@@ -536,7 +614,7 @@ export class ChatService {
       });
     } finally {
       const combinedCost = designAgentCost === undefined &&
-          handlerResult?.totalCostUsd === undefined
+        handlerResult?.totalCostUsd === undefined
         ? undefined
         : (designAgentCost ?? 0) + (handlerResult?.totalCostUsd ?? 0);
       try {
@@ -580,7 +658,7 @@ export class ChatService {
     let historyContext = "";
     if (historical_messages.length > 0) {
       const formattedMessages = historical_messages
-        .map((msg: { role: string; content: string }) => {
+        .map((msg: { role: string; content: string; }) => {
           const role = msg.role === "user" ? "User" : "Assistant";
           return `${role}: ${msg.content}`;
         })
@@ -614,7 +692,7 @@ export class ChatService {
     );
   }
 
-  private async handleInterrupt(socket: WebSocket): Promise<void> {
+  private async handleInterrupt(): Promise<void> {
     baseLogger.consoleLogDevOnly("info", "Interrupt requested", {
       sessionId: this.sessionState.sessionId,
       hasAbortController: !!this.sessionState.abortController,
@@ -646,32 +724,44 @@ export class ChatService {
           );
         }
 
-        this.sendMessage(socket, {
-          type: ChatEvent.INTERRUPTED,
-          data: {
-            message: "Query has been interrupted",
-            sessionId: this.sessionState.sessionId,
+        broadcastToConnections(
+          this.activeConnections,
+          {
+            type: ChatEvent.INTERRUPTED,
+            data: {
+              message: "Query has been interrupted",
+              sessionId: this.sessionState.sessionId,
+            },
           },
-        });
+          baseLogger,
+        );
       } catch (error) {
         baseLogger.error(
           error instanceof Error ? error : new Error(String(error)),
           "Failed to interrupt query",
         );
 
-        this.sendMessage(socket, {
-          type: ChatEvent.ERROR,
-          error: {
-            message: "Failed to interrupt query",
-            details: error instanceof Error ? error.message : String(error),
+        broadcastToConnections(
+          this.activeConnections,
+          {
+            type: ChatEvent.ERROR,
+            error: {
+              message: "Failed to interrupt query",
+              details: error instanceof Error ? error.message : String(error),
+            },
           },
-        });
+          baseLogger,
+        );
       }
     } else {
-      this.sendMessage(socket, {
-        type: ChatEvent.INFO,
-        message: "No active query to interrupt",
-      });
+      broadcastToConnections(
+        this.activeConnections,
+        {
+          type: ChatEvent.INFO,
+          message: "No active query to interrupt",
+        },
+        baseLogger,
+      );
     }
   }
 
@@ -900,11 +990,11 @@ export class ChatService {
     const userMessageText = typeof content === "string"
       ? content
       : Array.isArray(content)
-      ? content
-        .filter((block) => block.type === "text")
-        .map((block) => block.text || "")
-        .join("\n")
-      : prompt || "";
+        ? content
+          .filter((block) => block.type === "text")
+          .map((block) => block.text || "")
+          .join("\n")
+        : prompt || "";
 
     const designAgentUserContent = buildDesignAgentUserContent(
       typeof content === "string" ? content : prompt,
@@ -938,14 +1028,18 @@ export class ChatService {
     let designMetadata: DesignAgentMetadata | null = null;
 
     if (classificationResult.shouldGenerateDesignSpec) {
-      this.sendMessage(socket, {
-        type: ChatEvent.DESIGN_GENERATION,
-        data: {
-          status: "started",
-          message: "Generating design specification...",
-          runDesignAgent: true,
+      broadcastToConnections(
+        this.activeConnections,
+        {
+          type: ChatEvent.DESIGN_GENERATION,
+          data: {
+            status: "started",
+            message: "Generating design specification...",
+            runDesignAgent: true,
+          },
         },
-      });
+        logger,
+      );
 
       logger.debug("Calling design agent", {
         prototypeId,
@@ -1058,7 +1152,7 @@ export class ChatService {
             this.sessionState.designSystemId = customDesignSystemId;
             this.sessionState.designSystemRules = (
               designSystem as Database["public"]["Tables"]["design_systems"][
-                "Row"
+              "Row"
               ]
             ).design_rules;
           } else {
@@ -1234,16 +1328,15 @@ export class ChatService {
       const axiosError = axios.isAxiosError(error) ? error : null;
       const derivedError = axiosError
         ? new Error(
-          `Failed to notify control plane of chat start (status ${
-            axiosError.response?.status ?? "unknown"
+          `Failed to notify control plane of chat start (status ${axiosError.response?.status ?? "unknown"
           })`,
         )
         : error instanceof Error
-        ? error
-        : new Error(String(error));
+          ? error
+          : new Error(String(error));
       const responseBody =
-        (error as { responseBody?: unknown })?.responseBody ??
-          axiosError?.response?.data;
+        (error as { responseBody?: unknown; })?.responseBody ??
+        axiosError?.response?.data;
 
       baseLogger.error(
         derivedError,
@@ -1458,13 +1551,17 @@ export class ChatService {
             teamId,
           );
 
-          this.sendMessage(socket, {
-            type: ChatEvent.USAGE_UPDATE,
-            data: {
-              creditsUsed,
-              creditsRemaining: totalRemainingCredits,
+          broadcastToConnections(
+            this.activeConnections,
+            {
+              type: ChatEvent.USAGE_UPDATE,
+              data: {
+                creditsUsed,
+                creditsRemaining: totalRemainingCredits,
+              },
             },
-          });
+            logger,
+          );
 
           logger.consoleLogDevOnly("info", "API usage tracked successfully", {
             userId: user.id,
@@ -1605,7 +1702,7 @@ export class ChatService {
           {
             prototypeId,
             statusCode: axiosError?.response?.status,
-            responseBody: (error as { responseBody?: unknown })?.responseBody ??
+            responseBody: (error as { responseBody?: unknown; })?.responseBody ??
               axiosError?.response?.data,
           },
         );
@@ -1642,7 +1739,7 @@ export class ChatService {
     userContent: UserContent,
     abortController: AbortController,
     logger: SystemLogger,
-  ): Promise<{ designSpec: string | null; costUsd: number | undefined }> {
+  ): Promise<{ designSpec: string | null; costUsd: number | undefined; }> {
     const provider: DesignAgentProvider = "google";
     const model = DEFAULT_DESIGN_AGENT_MODELS[provider];
 

@@ -41,11 +41,13 @@ import {
   getClaudeCodeDesignSubagentPrompt,
   getSystemPromptForDesignStyle,
 } from "../prompts/ClaudeCodePrompts.js";
+import { broadcastToConnections } from "../websocket-broadcast.js";
 import {
+  ChatConnection,
   ChatEngine,
   ChatEngineContext,
-  ChatEngineSessionState,
   ChatEngineResult,
+  ChatEngineSessionState,
 } from "./chat-engine.js";
 import { ALLOWED_ROOT } from "../ChatService.js";
 
@@ -72,6 +74,7 @@ interface StreamContext {
   sessionState: ChatEngineSessionState;
   validAiChatSessionIds: Set<string>;
   socket: WebSocket;
+  activeConnections: Map<string, ChatConnection>;
   bufferState: {
     assistantMessageBuffer: string;
     creditsUsed: number | undefined;
@@ -83,6 +86,7 @@ interface HookContext {
   input: HookInput;
   toolUseID: string | undefined;
   socket: WebSocket;
+  activeConnections: Map<string, ChatConnection>;
   sessionState?: ChatEngineSessionState;
   flushAssistantBuffer?: () => Promise<void>;
   getRelativePath?: (path: string) => string;
@@ -182,7 +186,13 @@ export class ChatQueryHandler implements ChatEngine {
     framework: Database["public"]["Enums"]["prototype_framework"],
     systemPrompt: string,
   ): Promise<number | undefined> {
-    const { socket, data, sessionState, validAiChatSessionIds } = context;
+    const {
+      socket,
+      activeConnections,
+      data,
+      sessionState,
+      validAiChatSessionIds,
+    } = context;
     const workerContext = getWorkerContext();
     const prototypeId = workerContext.prototypeId || "unknown";
     const { prompt, content, ai_chat_session_id } = data;
@@ -248,6 +258,7 @@ export class ChatQueryHandler implements ChatEngine {
         options,
         abortController,
         socket,
+        activeConnections,
         sessionState,
         flushAssistantBuffer,
         framework,
@@ -257,8 +268,8 @@ export class ChatQueryHandler implements ChatEngine {
       );
 
       // Check if session is valid for resumption
-      const isValidSessionId =
-        ai_chat_session_id && validAiChatSessionIds.has(ai_chat_session_id);
+      const isValidSessionId = ai_chat_session_id &&
+        validAiChatSessionIds.has(ai_chat_session_id);
 
       // Handle invalid session ID
       if (
@@ -313,6 +324,7 @@ export class ChatQueryHandler implements ChatEngine {
         sessionState,
         validAiChatSessionIds,
         socket,
+        activeConnections,
         bufferState,
       };
       const totalCostUsd = await this.streamQueryResponse(
@@ -327,20 +339,25 @@ export class ChatQueryHandler implements ChatEngine {
       sessionState.abortController = null;
 
       // Send completion message
-      this.sendMessage(socket, {
-        type: ChatEvent.QUERY_COMPLETE,
-        data: {
-          sessionId: sessionState.sessionId,
+      broadcastToConnections(
+        activeConnections,
+        {
+          type: ChatEvent.QUERY_COMPLETE,
+          data: {
+            sessionId: sessionState.sessionId,
+          },
         },
-      });
+        baseLogger,
+      );
 
       return totalCostUsd;
     } catch (error) {
       // Clear the abort controller on error
       sessionState.abortController = null;
 
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
+      const errorMessage = error instanceof Error
+        ? error.message
+        : String(error);
 
       baseLogger.error(
         error instanceof Error ? error : new Error(String(error)),
@@ -362,13 +379,17 @@ export class ChatQueryHandler implements ChatEngine {
         },
       );
 
-      this.sendMessage(socket, {
-        type: ChatEvent.ERROR,
-        error: {
-          message: "Query failed",
-          details: errorMessage,
+      broadcastToConnections(
+        activeConnections,
+        {
+          type: ChatEvent.ERROR,
+          error: {
+            message: "Query failed",
+            details: errorMessage,
+          },
         },
-      });
+        baseLogger,
+      );
 
       return undefined;
     }
@@ -435,22 +456,24 @@ export class ChatQueryHandler implements ChatEngine {
     }>,
     prototypeChatSessionId: string,
   ): Promise<void> {
-    const userMessageText =
-      typeof messageContent === "string"
-        ? messageContent
-        : messageContent
-            .filter((block) => block.type === "text")
-            .map((block) => block.text || "")
-            .join("\n");
+    const userMessageText = typeof messageContent === "string"
+      ? messageContent
+      : messageContent
+        .filter((block) => block.type === "text")
+        .map((block) => block.text || "")
+        .join("\n");
 
     const hasImages = imagesFromContent.length > 0;
     const userMessageDisplay = hasImages
-      ? `${userMessageText} [with ${imagesFromContent.length} image${imagesFromContent.length > 1 ? "s" : ""}]`
+      ? `${userMessageText} [with ${imagesFromContent.length} image${
+        imagesFromContent.length > 1 ? "s" : ""
+      }]`
       : userMessageText;
 
     // Include image metadata in event_data if images were uploaded
-    const eventData =
-      imageMetadata.length > 0 ? { images: imageMetadata } : null;
+    const eventData = imageMetadata.length > 0
+      ? { images: imageMetadata }
+      : null;
 
     await persistChatMessage(
       this.supabaseClientService,
@@ -470,6 +493,7 @@ export class ChatQueryHandler implements ChatEngine {
     options: Options,
     abortController: AbortController,
     socket: WebSocket,
+    activeConnections: Map<string, ChatConnection>,
     sessionState: ChatEngineSessionState,
     flushAssistantBuffer: () => Promise<void>,
     framework: Database["public"]["Enums"]["prototype_framework"],
@@ -554,11 +578,10 @@ export class ChatQueryHandler implements ChatEngine {
     const { userId } = getWorkerContext();
     let designSubagentEnabled = false;
     if (userId) {
-      designSubagentEnabled =
-        (await posthog.getFeatureFlag(
-          "claude-code-sdk-design-subagent",
-          userId,
-        )) === "test";
+      designSubagentEnabled = (await posthog.getFeatureFlag(
+        "claude-code-sdk-design-subagent",
+        userId,
+      )) === "test";
     }
     baseLogger.info("design subagent flag checked: ", {
       designSubagentEnabled,
@@ -568,12 +591,16 @@ export class ChatQueryHandler implements ChatEngine {
       ...options,
       agents: designSubagentEnabled
         ? {
-            "ui-ux-designer": {
-              description: `Expert UI/UX designer for ${framework === "mobile_expo_react_native" ? "mobile react native" : "tailwindcss web Next.js"} applications. Use for design inspiration and planning great design implementation, any time the user requests a feature that has significant user interface changes.`,
-              prompt: getClaudeCodeDesignSubagentPrompt(framework),
-              tools: ["Read", "Glob", "Grep", "WebSearch", "WebFetch"],
-            },
-          }
+          "ui-ux-designer": {
+            description: `Expert UI/UX designer for ${
+              framework === "mobile_expo_react_native"
+                ? "mobile react native"
+                : "tailwindcss web Next.js"
+            } applications. Use for design inspiration and planning great design implementation, any time the user requests a feature that has significant user interface changes.`,
+            prompt: getClaudeCodeDesignSubagentPrompt(framework),
+            tools: ["Read", "Glob", "Grep", "WebSearch", "WebFetch"],
+          },
+        }
         : undefined,
       includePartialMessages: false,
       cwd: WORK_DIR,
@@ -584,8 +611,7 @@ export class ChatQueryHandler implements ChatEngine {
       systemPrompt: {
         type: "preset" as const,
         preset: "claude_code" as const,
-        append:
-          systemPromptOverride ??
+        append: systemPromptOverride ??
           getSystemPromptForDesignStyle(undefined, framework),
       },
       settingSources: [
@@ -611,6 +637,7 @@ export class ChatQueryHandler implements ChatEngine {
                   input,
                   toolUseID,
                   socket,
+                  activeConnections,
                   flushAssistantBuffer,
                   getRelativePath: relativePathResolver,
                 };
@@ -634,6 +661,7 @@ export class ChatQueryHandler implements ChatEngine {
                   input,
                   toolUseID,
                   socket,
+                  activeConnections,
                   sessionState,
                   getRelativePath: relativePathResolver,
                 };
@@ -669,8 +697,8 @@ export class ChatQueryHandler implements ChatEngine {
           normalizedCwd = path.join(WORK_DIR, cwd);
         }
       }
-      const { response: responseRaw } =
-        await this.sandboxService.runCommandInternal({
+      const { response: responseRaw } = await this.sandboxService
+        .runCommandInternal({
           command,
           args,
           cwd: normalizedCwd,
@@ -754,8 +782,9 @@ export class ChatQueryHandler implements ChatEngine {
         };
       }
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
+      const errorMessage = error instanceof Error
+        ? error.message
+        : String(error);
       baseLogger.error(
         error instanceof Error ? error : new Error(errorMessage),
         "MCP Write tool: failed to write file",
@@ -775,14 +804,21 @@ export class ChatQueryHandler implements ChatEngine {
     hookContext: HookContext,
     prototypeChatSessionId: string,
   ): Promise<HookJSONOutput> {
-    const { input, toolUseID, socket, flushAssistantBuffer } = hookContext;
+    const {
+      input,
+      toolUseID,
+      activeConnections,
+      flushAssistantBuffer,
+    } = hookContext;
 
     try {
       if (input.hook_event_name === "PreToolUse") {
         baseLogger.debug(
-          `PreToolUse Hook called for tool ${input.tool_name} with args: ${JSON.stringify(
-            input.tool_input,
-          )}`,
+          `PreToolUse Hook called for tool ${input.tool_name} with args: ${
+            JSON.stringify(
+              input.tool_input,
+            )
+          }`,
         );
         const permission = evaluateToolPermission(
           ALLOWED_ROOT,
@@ -814,14 +850,18 @@ export class ChatQueryHandler implements ChatEngine {
         }
 
         // Send tool start event to WebSocket client
-        this.sendMessage(socket, {
-          type: ChatEvent.TOOL_START,
-          data: {
-            tool_name: input.tool_name,
-            tool_input: normalizedToolInput,
-            tool_call_id: toolUseID,
+        broadcastToConnections(
+          activeConnections,
+          {
+            type: ChatEvent.TOOL_START,
+            data: {
+              tool_name: input.tool_name,
+              tool_input: normalizedToolInput,
+              tool_call_id: toolUseID,
+            },
           },
-        });
+          baseLogger,
+        );
 
         // Persist tool start to database with friendly display name
         const displayName = getToolDisplayName(
@@ -859,22 +899,26 @@ export class ChatQueryHandler implements ChatEngine {
     hookContext: HookContext,
     prototypeChatSessionId: string,
   ): Promise<HookJSONOutput> {
-    const { input, toolUseID, socket } = hookContext;
+    const { input, toolUseID, activeConnections } = hookContext;
 
     try {
       baseLogger.consoleLogDevOnly("debug", JSON.stringify(input));
 
       if (input.hook_event_name === "PostToolUse") {
         // Send tool complete event to WebSocket client
-        this.sendMessage(socket, {
-          type: ChatEvent.TOOL_COMPLETE,
-          data: {
-            tool_name: input.tool_name,
-            tool_input: input.tool_input as Record<string, unknown>,
-            tool_response: input.tool_response,
-            tool_call_id: toolUseID,
+        broadcastToConnections(
+          activeConnections,
+          {
+            type: ChatEvent.TOOL_COMPLETE,
+            data: {
+              tool_name: input.tool_name,
+              tool_input: input.tool_input as Record<string, unknown>,
+              tool_response: input.tool_response,
+              tool_call_id: toolUseID,
+            },
           },
-        });
+          baseLogger,
+        );
 
         // Persist tool completion to database
         await persistChatMessage(
@@ -943,7 +987,7 @@ export class ChatQueryHandler implements ChatEngine {
       queryOptions,
       sessionState,
       validAiChatSessionIds,
-      socket,
+      activeConnections,
       bufferState,
     } = streamContext;
 
@@ -974,8 +1018,7 @@ export class ChatQueryHandler implements ChatEngine {
       // MCP stream fix: Keep input stream open until result message arrives
       // This prevents premature MCP server connection closure during multi-turn conversations
       if (ChatQueryHandler.ENABLE_MCP_STREAM_FIX) {
-        const maxChecks =
-          ChatQueryHandler.MCP_STREAM_MAX_WAIT_MS /
+        const maxChecks = ChatQueryHandler.MCP_STREAM_MAX_WAIT_MS /
           ChatQueryHandler.MCP_STREAM_POLL_INTERVAL_MS;
 
         for (let i = 0; i < maxChecks; i++) {
@@ -985,7 +1028,7 @@ export class ChatQueryHandler implements ChatEngine {
           }
 
           await new Promise((resolve) =>
-            setTimeout(resolve, ChatQueryHandler.MCP_STREAM_POLL_INTERVAL_MS),
+            setTimeout(resolve, ChatQueryHandler.MCP_STREAM_POLL_INTERVAL_MS)
           );
 
           // Check if result message has arrived
@@ -1126,10 +1169,14 @@ export class ChatQueryHandler implements ChatEngine {
       }
 
       // Forward message to client
-      this.sendMessage(socket, {
-        type: ChatEvent.AGENT_MESSAGE,
-        data: msg,
-      });
+      broadcastToConnections(
+        activeConnections,
+        {
+          type: ChatEvent.AGENT_MESSAGE,
+          data: msg,
+        },
+        baseLogger,
+      );
     }
 
     // Persist any remaining accumulated assistant message if there is any

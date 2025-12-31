@@ -261,7 +261,7 @@ export interface CreatePrototypeRequestBody {
   team_id: string;
   folder_id?: string;
   prototype_id?: string; // For forking an existing prototype
-  visibility?: "PUBLIC" | "SELF";
+  visibility?: Database["public"]["Enums"]["visibility_level"];
   design_style?: Database["public"]["Enums"]["design_style"];
   custom_design_system?: string | null;
   framework?: Database["public"]["Enums"]["prototype_framework"];

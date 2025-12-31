@@ -13,6 +13,7 @@ export enum ChatEvent {
   TOOL_COMPLETE = "tool_complete",
   HISTORY_REQUEST = "history_request",
   DESIGN_GENERATION = "design_generation",
+  COLLABORATOR_MESSAGE = "collaborator_message",
 }
 
 export enum ChatClientEvent {
@@ -204,6 +205,16 @@ export interface DesignGenerationMessage {
   };
 }
 
+export interface CollaboratorMessagePayload {
+  type: ChatEvent.COLLABORATOR_MESSAGE;
+  data: {
+    userId: string;
+    content: ChatContentBlock[];
+    timestamp: number;
+    imageCount?: number;
+  };
+}
+
 export type ChatServerMessage =
   | SystemConnectionMessage
   | ErrorMessage
@@ -218,4 +229,5 @@ export type ChatServerMessage =
   | MessageReceivedMessage
   | ReadyMessage
   | HistoryRequestMessage
-  | DesignGenerationMessage;
+  | DesignGenerationMessage
+  | CollaboratorMessagePayload;

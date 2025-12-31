@@ -172,19 +172,20 @@ export function TeamAndAccountsSettingsDialog({
                             <SidebarMenuButton
                               isActive={activeTab === tab.id}
                               onClick={() => setActiveTab(tab.id)}
+                              className={tab.isTeamTab ? "h-auto min-h-[2rem] py-2" : ""}
                             >
                               {tab.isTeamTab ? (
                                 <>
-                                  <Avatar className="w-4 h-4 rounded">
+                                  <Avatar className="w-4 h-4 rounded shrink-0">
                                     <AvatarFallback className="rounded bg-primary/10 text-[10px] font-bold text-primary">
                                       {teamInitials}
                                     </AvatarFallback>
                                   </Avatar>
-                                  <span>{tab.label}</span>
+                                  <span className="flex-1">{tab.label}</span>
                                   {activeTeam?.personal_owner_user_id && (
                                     <Badge
                                       variant="secondary"
-                                      className="ml-auto text-[10px] px-1.5 py-0"
+                                      className="ml-auto text-[10px] px-1.5 py-0 shrink-0"
                                     >
                                       Personal
                                     </Badge>
