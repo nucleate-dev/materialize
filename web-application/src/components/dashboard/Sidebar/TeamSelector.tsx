@@ -263,7 +263,19 @@ export function TeamSelector({
 
               {/* Credits section */}
               {!creditsLoading && (
-                <div className="bg-accent/50 rounded-lg p-4 space-y-3">
+                <button
+                  onClick={() => {
+                    logger.log({
+                      event: "client_dashboard_sidebar_item_clicked",
+                      properties: {
+                        component: "TeamSelector",
+                        item: "credits",
+                      },
+                    });
+                    onOpenSettings?.("credits");
+                  }}
+                  className="w-full bg-accent/50 rounded-lg p-4 space-y-3 hover:bg-accent/70 transition-colors cursor-pointer text-left"
+                >
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-medium">Credits</span>
                     <div className="flex items-center gap-1 text-sm">
@@ -278,7 +290,7 @@ export function TeamSelector({
                       Daily credits reset at midnight UTC
                     </p>
                   )}
-                </div>
+                </button>
               )}
 
               {/* All workspaces section */}

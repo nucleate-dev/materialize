@@ -1336,8 +1336,8 @@ async function reconcileTeamOnDowngrade(
   });
 
   // Determine which members to keep and which to demote
-  let membersToKeep = priorityList.slice(0, allowedNonViewerSeats);
-  let membersToDemote = priorityList.slice(allowedNonViewerSeats);
+  const membersToKeep = priorityList.slice(0, allowedNonViewerSeats);
+  const membersToDemote = priorityList.slice(allowedNonViewerSeats);
 
   // CRITICAL: Ensure at least one owner is always kept
   // Count owners in the membersToKeep list
