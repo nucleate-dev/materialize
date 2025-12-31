@@ -37,8 +37,7 @@ interface CreditUsageHook extends CreditUsageState {
  */
 export function useCreditUsage(): CreditUsageHook {
   const logger = useProductLogger();
-  const { user, userIsLoading, userPlan, loadingSubscriptionData } =
-    useSubscriptionAccess();
+  const { user, userPlan, loadingSubscriptionData } = useSubscriptionAccess();
   const { activeTeam, isLoading: teamLoading } = useActiveTeam();
 
   const [state, setState] = useState<CreditUsageState>({
@@ -158,14 +157,14 @@ export function useCreditUsage(): CreditUsageHook {
           return;
         }
 
-        const totalUsed =
-          freeUsageRows?.reduce(
-            (sum, row) => sum + (row.credits_used || 0),
-            0,
-          ) ?? 0;
+        const totalUsed = freeUsageRows?.reduce(
+          (sum, row) => sum + (row.credits_used || 0),
+          0,
+        ) ?? 0;
         const remaining = Math.max(creditLimit - totalUsed, 0);
-        const usagePercentage =
-          creditLimit > 0 ? (totalUsed / creditLimit) * 100 : 0;
+        const usagePercentage = creditLimit > 0
+          ? (totalUsed / creditLimit) * 100
+          : 0;
 
         setState({
           creditsUsed: totalUsed,
@@ -200,8 +199,9 @@ export function useCreditUsage(): CreditUsageHook {
       const totalAvailable = totalUsed + totalRemaining;
 
       // Usage percentage should be based on total available credits, not plan limit
-      const usagePercentage =
-        totalAvailable > 0 ? (totalUsed / totalAvailable) * 100 : 0;
+      const usagePercentage = totalAvailable > 0
+        ? (totalUsed / totalAvailable) * 100
+        : 0;
 
       setState({
         creditsUsed: totalUsed,
@@ -248,16 +248,22 @@ export function useCreditUsage(): CreditUsageHook {
    * Useful for WebSocket/SSE updates from backend
    */
   const updateRemainingBalance = useCallback((remaining: number) => {
-    setState((prev) => ({
-      ...prev,
-      creditsRemaining: remaining,
-      creditsUsed: prev.creditLimit - remaining,
-      usagePercentage:
-        prev.creditLimit > 0
-          ? ((prev.creditLimit - remaining) / prev.creditLimit) * 100
+    setState((prev) => {
+      // Use totalAvailableCredits for paid users with grants, creditLimit for free tier
+      const baseLimit = prev.totalAvailableCredits > 0
+        ? prev.totalAvailableCredits
+        : prev.creditLimit;
+
+      return {
+        ...prev,
+        creditsRemaining: remaining,
+        creditsUsed: baseLimit - remaining,
+        usagePercentage: baseLimit > 0
+          ? ((baseLimit - remaining) / baseLimit) * 100
           : 0,
-      hasReachedLimit: remaining <= 0,
-    }));
+        hasReachedLimit: remaining <= 0,
+      };
+    });
   }, []);
 
   /**
@@ -266,9 +272,15 @@ export function useCreditUsage(): CreditUsageHook {
    */
   const updateCreditsUsed = useCallback((used: number) => {
     setState((prev) => {
-      const remaining = Math.max(prev.creditLimit - used, 0);
-      const usagePercentage =
-        prev.creditLimit > 0 ? (used / prev.creditLimit) * 100 : 0;
+      // Use totalAvailableCredits for paid users with grants, creditLimit for free tier
+      const baseLimit = prev.totalAvailableCredits > 0
+        ? prev.totalAvailableCredits
+        : prev.creditLimit;
+
+      const remaining = Math.max(baseLimit - used, 0);
+      const usagePercentage = baseLimit > 0
+        ? (used / baseLimit) * 100
+        : 0;
 
       return {
         ...prev,
@@ -292,13 +304,17 @@ export function useCreditUsage(): CreditUsageHook {
         // Recalculate derived fields if needed
         if (
           updates.creditsUsed !== undefined ||
-          updates.creditLimit !== undefined
+          updates.creditLimit !== undefined ||
+          updates.totalAvailableCredits !== undefined
         ) {
           const used = updates.creditsUsed ?? newState.creditsUsed;
-          const limit = updates.creditLimit ?? newState.creditLimit;
+          // Use totalAvailableCredits for paid users with grants, creditLimit for free tier
+          const baseLimit = newState.totalAvailableCredits > 0
+            ? newState.totalAvailableCredits
+            : newState.creditLimit;
 
-          newState.creditsRemaining = Math.max(limit - used, 0);
-          newState.usagePercentage = limit > 0 ? (used / limit) * 100 : 0;
+          newState.creditsRemaining = Math.max(baseLimit - used, 0);
+          newState.usagePercentage = baseLimit > 0 ? (used / baseLimit) * 100 : 0;
           newState.hasReachedLimit = newState.creditsRemaining <= 0;
         }
 

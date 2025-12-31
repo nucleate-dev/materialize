@@ -22,6 +22,7 @@ import {
   StartChatResponse,
 } from "../../types/ControlPlaneTypes.js";
 import { Database } from "../../types/supabase.js";
+import { hasRemainingCredits } from "../../utils/credit-checks.js";
 import { getWorkerContext, WORK_DIR } from "../../worker.js";
 import { ClaudeTokenService } from "../auth/claude-token-service.js";
 import { NucleateDevelopmentServerService } from "../dev-server/NucleateDevelopmentServerService.js";
@@ -34,25 +35,30 @@ import {
   ChatEngine,
   ChatEngineResult,
   ChatEngineSessionState,
-  CliAuthEnvironment,
   DesignAgentMetadata,
 } from "./chat-engines/chat-engine.js";
-import { broadcastToConnections } from "./websocket-broadcast.js";
 import { ChatQueryHandler } from "./chat-engines/chat-query-handler.js";
-import { ClaudeCodeCliQueryHandler } from "./chat-engines/claude-code-cli-query-handler.js";
-import { persistChatMessage } from "./helpers/message-handlers.js";
-import { costFunctionV3 } from "./cost/cost-calculation.js";
-import { trackApiUsageBuildWorker } from "./cost/usage-tracking.js";
-import { hasRemainingCredits } from "../../utils/credit-checks.js";
-import { buildDesignAgentUserContent } from "./classifiers-and-subagents/design-classifier-utils.js";
-import { classifyDesignIntent } from "./classifiers-and-subagents/design-intent-classifier.js";
 import {
   DEFAULT_DESIGN_AGENT_MODELS,
   type DesignAgentProvider,
   executeDesignAgent,
   persistDesignSpecToFiles,
 } from "./classifiers-and-subagents/design-agent-service.js";
+import { buildDesignAgentUserContent } from "./classifiers-and-subagents/design-classifier-utils.js";
+import { classifyDesignIntent } from "./classifiers-and-subagents/design-intent-classifier.js";
+import {
+  costFunctionV3,
+  CURRENT_COST_FUNCTION_NAME,
+} from "./cost/cost-calculation.js";
+import {
+  calculateOAuthCredits,
+  getPromptLengthFromQueryData,
+  OAUTH_COST_FUNCTION_NAME,
+} from "./cost/oauth-credit-calculation.js";
+import { trackApiUsageBuildWorker } from "./cost/usage-tracking.js";
+import { persistChatMessage } from "./helpers/message-handlers.js";
 import { getSystemPromptForDesignStyle } from "./prompts/ClaudeCodePrompts.js";
+import { broadcastToConnections } from "./websocket-broadcast.js";
 
 export const ALLOWED_ROOT = "/tmp/materialize-dev-server";
 const CHAT_HEARTBEAT_INTERVAL_MS = 15000;
@@ -70,7 +76,6 @@ export class ChatService {
   private readonly fileSyncService: FileSyncService;
 
   private readonly chatQueryHandler: ChatEngine;
-  private readonly claudeCodeCliQueryHandler: ChatEngine;
   private readonly claudeTokenService: ClaudeTokenService;
   private sessionState: ChatEngineSessionState = {
     sessionId: null,
@@ -83,6 +88,7 @@ export class ChatService {
   private activeConnections = new Map<string, ChatConnection>();
   private orchestrationToken: string | null = null;
   private aak: string | null = null;
+  private userOAuthToken: string | null = null; // User's Claude subscription OAuth token
   private validAiChatSessionIds = new Set<string>(); // Track valid session IDs created during this CodeService instance's lifetime
 
   constructor(
@@ -104,9 +110,6 @@ export class ChatService {
       terminalService,
     );
     this.claudeTokenService = new ClaudeTokenService(supabaseClientService);
-    this.claudeCodeCliQueryHandler = new ClaudeCodeCliQueryHandler(
-      supabaseClientService,
-    );
 
     baseLogger.consoleLogDevOnly("info", "ChatService initialized", {
       workDir: WORK_DIR,
@@ -126,6 +129,30 @@ export class ChatService {
   public setAak(key: string): void {
     this.aak = key;
     baseLogger.consoleLogDevOnly("info", "Anthropic API key set");
+  }
+
+  /**
+   * Set the user's OAuth token for Claude subscription authentication.
+   * Called during worker allocation if user has connected their Claude Pro/Max subscription.
+   */
+  public setUserOAuthToken(token: string): void {
+    this.userOAuthToken = token;
+    baseLogger.consoleLogDevOnly("info", "User OAuth token set for ChatService");
+  }
+
+  /**
+   * Check if the user has an OAuth token configured.
+   */
+  public hasUserOAuthToken(): boolean {
+    return this.userOAuthToken !== null;
+  }
+
+  /**
+   * Clear the user's OAuth token.
+   */
+  public clearUserOAuthToken(): void {
+    this.userOAuthToken = null;
+    baseLogger.consoleLogDevOnly("info", "User OAuth token cleared");
   }
 
   /**
@@ -165,7 +192,7 @@ export class ChatService {
 
   private handleWebSocketConnection(
     socket: WebSocket,
-    req: FastifyRequest<{ Params: { prototypeId: string } }>,
+    req: FastifyRequest<{ Params: { prototypeId: string; }; }>,
   ): void {
     const { prototypeId } = req.params;
     const connectionId = `${prototypeId}-${Date.now()}`;
@@ -216,6 +243,7 @@ export class ChatService {
         connectionId,
         prototypeId,
         sessionId: this.sessionState.sessionId,
+        isUsingOAuthToken: this.hasUserOAuthToken(),
       },
     });
 
@@ -313,6 +341,7 @@ export class ChatService {
 
     this.activeConnections.clear();
     this.validAiChatSessionIds.clear(); // Clear valid session IDs on shutdown
+    this.userOAuthToken = null; // Clear OAuth token on shutdown
     this.sessionState = {
       sessionId: null,
       prototypeChatSessionId: null,
@@ -489,44 +518,15 @@ export class ChatService {
     // 5b. Delegate to appropriate handler based on provider and user subscription
     let selectedChatEngine: ChatEngine;
     let handlerName: string;
-    let cliAuthEnv: CliAuthEnvironment | null = null;
-    if (useCliMode && this.claudeCodeCliQueryHandler && userId) {
-      selectedChatEngine = this.claudeCodeCliQueryHandler;
-      handlerName = "claude-cli";
-      const cliResult = await this.buildClaudeCliAuthEnvironment(
-        userId,
-        logger,
-      );
-      if (!cliResult.success || !cliResult.authEnv) {
-        broadcastToConnections(
-          this.activeConnections,
-          {
-            type: ChatEvent.ERROR,
-            error: {
-              message: cliResult.errorMessage ??
-                "Claude CLI is not available for this account",
-              details: cliResult.errorDetails,
-            },
-          },
-          logger,
-        );
-        return;
-      }
-      cliAuthEnv = cliResult.authEnv;
-    } else {
-      selectedChatEngine = this.chatQueryHandler;
-      handlerName = "claude-sdk";
-    }
+    selectedChatEngine = this.chatQueryHandler;
+    handlerName = "claude-sdk";
 
     // 5. PREPARE SESSION STATE
     this.prepareSessionStateForQuery(data, logger);
 
     // 6. PERFORM DESIGN INSPIRATION + CLASSIFICATION STEPS FOR USER FIRST MESSAGES
     let isFirstMessage = false;
-    if (
-      selectedChatEngine === this.chatQueryHandler &&
-      this.sessionState.prototypeChatSessionId
-    ) {
+    if (this.sessionState.prototypeChatSessionId) {
       isFirstMessage = await this.isFirstMessageForPrototype(
         prototypeId,
         this.sessionState.prototypeChatSessionId,
@@ -534,20 +534,13 @@ export class ChatService {
       );
     }
 
-    let designPreparation: {
-      designSpec: string | null;
-      designMetadata: DesignAgentMetadata | null;
-      designAgentCost?: number;
-    } | null = null;
-    if (selectedChatEngine === this.chatQueryHandler) {
-      designPreparation = await this.prepareFirstMessageDesignContext(
-        socket,
-        data,
-        prototypeId,
-        logger,
-        isFirstMessage,
-      );
-    }
+    const designPreparation = await this.prepareFirstMessageDesignContext(
+      socket,
+      data,
+      prototypeId,
+      logger,
+      isFirstMessage,
+    );
 
     if (
       designPreparation?.designSpec &&
@@ -601,30 +594,27 @@ export class ChatService {
       framework,
     );
 
-    // 8. DISPATCH REQUEST TO APPROPRIATE ENGINE
-    logger.consoleLogDevOnly("info", "Dispatching chat query to handler", {
+    // 8. DISPATCH REQUEST TO SDK ENGINE
+    logger.consoleLogDevOnly("info", "Dispatching chat query to SDK handler", {
       prototypeId,
-      handler: handlerName,
-      useCliMode,
       hasPrototypeChatSessionId: !!this.sessionState.prototypeChatSessionId,
       sessionId: this.sessionState.sessionId,
     });
     let handlerResult: ChatEngineResult | void = undefined;
     const designAgentCost = designPreparation?.designAgentCost;
     try {
-      handlerResult = await selectedChatEngine.handleQuery({
+      handlerResult = await this.chatQueryHandler.handleQuery({
         socket,
         activeConnections: this.activeConnections,
         data,
         sessionState: this.sessionState,
         validAiChatSessionIds: this.validAiChatSessionIds,
-        cliAuthEnv,
         systemPrompt,
         getRelativePath: this.getRelativePath.bind(this),
       });
     } finally {
       const combinedCost = designAgentCost === undefined &&
-          handlerResult?.totalCostUsd === undefined
+        handlerResult?.totalCostUsd === undefined
         ? undefined
         : (designAgentCost ?? 0) + (handlerResult?.totalCostUsd ?? 0);
       try {
@@ -668,7 +658,7 @@ export class ChatService {
     let historyContext = "";
     if (historical_messages.length > 0) {
       const formattedMessages = historical_messages
-        .map((msg: { role: string; content: string }) => {
+        .map((msg: { role: string; content: string; }) => {
           const role = msg.role === "user" ? "User" : "Assistant";
           return `${role}: ${msg.content}`;
         })
@@ -810,51 +800,6 @@ export class ChatService {
     }
 
     return { valid: true };
-  }
-
-  private async buildClaudeCliAuthEnvironment(
-    userId: string,
-    logger: SystemLogger,
-  ): Promise<{
-    success: boolean;
-    authEnv?: CliAuthEnvironment;
-    errorMessage?: string;
-    errorDetails?: string;
-  }> {
-    try {
-      const userToken = await this.claudeTokenService.getUserToken(userId);
-
-      if (!userToken) {
-        return {
-          success: false,
-          errorMessage:
-            "No Claude subscription connected. Please connect your Claude Pro or Max subscription in Settings to use AI chat.",
-        };
-      }
-
-      const env = { ...process.env };
-      env.CLAUDE_CODE_OAUTH_TOKEN = userToken;
-      delete env.ANTHROPIC_API_KEY;
-
-      return {
-        success: true,
-        authEnv: {
-          env,
-          authMethod: "user_token",
-        },
-      };
-    } catch (error) {
-      logger.error(
-        error instanceof Error ? error : new Error(String(error)),
-        "Failed to prepare Claude CLI authentication environment",
-        { userId },
-      );
-      return {
-        success: false,
-        errorMessage: "Failed to prepare Claude CLI authentication",
-        errorDetails: error instanceof Error ? error.message : String(error),
-      };
-    }
   }
 
   private prepareSessionStateForQuery(
@@ -1045,11 +990,11 @@ export class ChatService {
     const userMessageText = typeof content === "string"
       ? content
       : Array.isArray(content)
-      ? content
-        .filter((block) => block.type === "text")
-        .map((block) => block.text || "")
-        .join("\n")
-      : prompt || "";
+        ? content
+          .filter((block) => block.type === "text")
+          .map((block) => block.text || "")
+          .join("\n")
+        : prompt || "";
 
     const designAgentUserContent = buildDesignAgentUserContent(
       typeof content === "string" ? content : prompt,
@@ -1207,7 +1152,7 @@ export class ChatService {
             this.sessionState.designSystemId = customDesignSystemId;
             this.sessionState.designSystemRules = (
               designSystem as Database["public"]["Tables"]["design_systems"][
-                "Row"
+              "Row"
               ]
             ).design_rules;
           } else {
@@ -1383,16 +1328,15 @@ export class ChatService {
       const axiosError = axios.isAxiosError(error) ? error : null;
       const derivedError = axiosError
         ? new Error(
-          `Failed to notify control plane of chat start (status ${
-            axiosError.response?.status ?? "unknown"
+          `Failed to notify control plane of chat start (status ${axiosError.response?.status ?? "unknown"
           })`,
         )
         : error instanceof Error
-        ? error
-        : new Error(String(error));
+          ? error
+          : new Error(String(error));
       const responseBody =
-        (error as { responseBody?: unknown })?.responseBody ??
-          axiosError?.response?.data;
+        (error as { responseBody?: unknown; })?.responseBody ??
+        axiosError?.response?.data;
 
       baseLogger.error(
         derivedError,
@@ -1441,6 +1385,8 @@ export class ChatService {
 
     await this.syncFilesAndTrackUsage(
       prototypeId,
+      socket,
+      data,
       totalCostUsd,
       logger,
     );
@@ -1503,6 +1449,8 @@ export class ChatService {
 
   private async syncFilesAndTrackUsage(
     prototypeId: string,
+    socket: WebSocket,
+    data: ChatQueryData,
     totalCostUsd: number | undefined,
     logger: SystemLogger,
   ): Promise<void> {
@@ -1558,13 +1506,28 @@ export class ChatService {
           error: userError,
         });
       } else {
-        const creditsUsed = costFunctionV3(totalCostUsd) ?? 1.0;
+        // Calculate credits based on auth method
+        let creditsUsed: number;
+        let costFunction: string;
+
+        if (this.hasUserOAuthToken()) {
+          // OAuth user: flat fee based on prompt length
+          const promptLength = getPromptLengthFromQueryData(data);
+          creditsUsed = calculateOAuthCredits(promptLength, logger);
+          costFunction = OAUTH_COST_FUNCTION_NAME;
+        } else {
+          // API key user: token-based pricing
+          creditsUsed = costFunctionV3(totalCostUsd) ?? 1.0;
+          costFunction = CURRENT_COST_FUNCTION_NAME;
+        }
 
         logger.consoleLogDevOnly("info", "Tracking API usage", {
           userId: user.id,
           prototypeId,
           totalCostUsd,
           creditsUsed,
+          costFunction,
+          isOAuthUser: this.hasUserOAuthToken(),
         });
 
         const { teamId } = getWorkerContext();
@@ -1605,6 +1568,7 @@ export class ChatService {
             prototypeId,
             totalCostUsd,
             creditsUsed,
+            costFunction,
             totalRemainingCredits,
           });
         }
@@ -1738,7 +1702,7 @@ export class ChatService {
           {
             prototypeId,
             statusCode: axiosError?.response?.status,
-            responseBody: (error as { responseBody?: unknown })?.responseBody ??
+            responseBody: (error as { responseBody?: unknown; })?.responseBody ??
               axiosError?.response?.data,
           },
         );
@@ -1775,7 +1739,7 @@ export class ChatService {
     userContent: UserContent,
     abortController: AbortController,
     logger: SystemLogger,
-  ): Promise<{ designSpec: string | null; costUsd: number | undefined }> {
+  ): Promise<{ designSpec: string | null; costUsd: number | undefined; }> {
     const provider: DesignAgentProvider = "google";
     const model = DEFAULT_DESIGN_AGENT_MODELS[provider];
 

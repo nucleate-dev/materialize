@@ -59,6 +59,7 @@ interface ClaudeCodePanelProps {
   ) => void;
   onUnregisterMessageHandler: (id: string) => void;
   onRestartDevServerComplete?: () => void;
+  onStartDevServer?: () => void;
 }
 
 export interface Message {
@@ -116,6 +117,7 @@ export default function ClaudeCodePanel({
   onRegisterMessageHandler,
   onUnregisterMessageHandler,
   onRestartDevServerComplete,
+  onStartDevServer,
 }: ClaudeCodePanelProps) {
   const logger = useProductLogger();
 
@@ -184,6 +186,7 @@ export default function ClaudeCodePanel({
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editedTitle, setEditedTitle] = useState("");
   const [isUpdatingTitle, setIsUpdatingTitle] = useState(false);
+  const [isUsingOAuthToken, setIsUsingOAuthToken] = useState(false);
   const [modelProvider, setModelProvider] = useState<"claude" | "vercel">(
     "claude",
   );
@@ -973,7 +976,13 @@ export default function ClaudeCodePanel({
 
       case ChatEvent.SYSTEM:
         if (message.subtype === ChatSystemEventSubtype.CONNECTION) {
-          // Connection established - nothing to show in chat
+          // Connection established - capture OAuth token status
+          const connectionData = message.data as {
+            isUsingOAuthToken?: boolean;
+          };
+          if (connectionData.isUsingOAuthToken !== undefined) {
+            setIsUsingOAuthToken(connectionData.isUsingOAuthToken);
+          }
         }
         break;
 
@@ -1846,6 +1855,13 @@ export default function ClaudeCodePanel({
           dev_server_ready: isDevServerReady,
         },
       });
+
+      // If dev server is in Static build mode, trigger it to start
+      if (currentRenderStatus === "Static build" && onStartDevServer) {
+        logger.debug("log", "Triggering dev server start for queued message");
+        onStartDevServer();
+      }
+
       return;
     }
 
@@ -2263,6 +2279,7 @@ export default function ClaudeCodePanel({
       fileSystem={fileSystem}
       isProjectContextEnabled={isProjectContextEnabled}
       isTeamsUIEnabled={isTeamsUIEnabled}
+      isUsingOAuthToken={isUsingOAuthToken}
     />
   );
 }

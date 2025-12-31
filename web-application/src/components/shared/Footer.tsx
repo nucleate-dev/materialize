@@ -6,14 +6,14 @@ export default function Footer() {
   const router = useRouter();
 
   return (
-    <footer className="py-12 border-t border-white/5 bg-[#0B0C0E] text-sm">
-      <div className="container mx-auto px-6 max-w-6xl flex flex-col md:flex-row justify-between items-center text-[#8A8F98] gap-6">
+    <footer className="py-12 border-t border-border bg-background text-sm">
+      <div className="container mx-auto px-6 max-w-6xl flex flex-col md:flex-row justify-between items-center text-muted-foreground gap-6">
         <div className="flex gap-6">
           <a
             href="https://twitter.com/nucleate_dev"
             target="_blank"
             rel="noopener noreferrer"
-            className="hover:text-white cursor-pointer transition-colors"
+            className="hover:text-foreground cursor-pointer transition-colors"
           >
             Twitter
           </a>
@@ -21,7 +21,7 @@ export default function Footer() {
             href="https://github.com/nucleate-dev"
             target="_blank"
             rel="noopener noreferrer"
-            className="hover:text-white cursor-pointer transition-colors"
+            className="hover:text-foreground cursor-pointer transition-colors"
           >
             GitHub
           </a>
@@ -29,7 +29,7 @@ export default function Footer() {
             href="https://instagram.com/nucleate.dev"
             target="_blank"
             rel="noopener noreferrer"
-            className="hover:text-white cursor-pointer transition-colors"
+            className="hover:text-foreground cursor-pointer transition-colors"
           >
             Instagram
           </a>
@@ -37,25 +37,25 @@ export default function Footer() {
         <div className="flex gap-6">
           <a
             href="mailto:team@nucleate.dev"
-            className="hover:text-white cursor-pointer transition-colors"
+            className="hover:text-foreground cursor-pointer transition-colors"
           >
             Contact Us
           </a>
           <span
             onClick={() => router.push("/faqs")}
-            className="hover:text-white cursor-pointer transition-colors"
+            className="hover:text-foreground cursor-pointer transition-colors"
           >
             FAQs
           </span>
           <span
             onClick={() => router.push("/privacy-policy")}
-            className="hover:text-white cursor-pointer transition-colors"
+            className="hover:text-foreground cursor-pointer transition-colors"
           >
             Privacy
           </span>
           <span
             onClick={() => router.push("/terms-and-conditions")}
-            className="hover:text-white cursor-pointer transition-colors"
+            className="hover:text-foreground cursor-pointer transition-colors"
           >
             Terms
           </span>

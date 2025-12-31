@@ -58,6 +58,7 @@ import type {
 } from "react";
 import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
+import { useFeatureFlagEnabled } from "posthog-js/react";
 import { toast } from "sonner";
 import type {
   ClaudeCodePanelActiveView, Message,
@@ -141,6 +142,7 @@ interface ClaudeCodePanelUIProps {
   fileSystem?: UseFileSystemReturn;
   isProjectContextEnabled: boolean;
   isTeamsUIEnabled: boolean;
+  isUsingOAuthToken: boolean;
 }
 
 function CopyMessageButton({ content }: { content: string; }) {
@@ -232,7 +234,10 @@ export default function ClaudeCodePanelUI({
   fileSystem,
   isProjectContextEnabled,
   isTeamsUIEnabled,
+  isUsingOAuthToken,
 }: ClaudeCodePanelUIProps) {
+  const isClaudeOAuthEnabled =
+    useFeatureFlagEnabled("claude-code-cli-with-personal-token") ?? false;
   const [showCreditLimitModal, setShowCreditLimitModal] = useState(false);
   const hasShownModalRef = useRef(false);
 
@@ -403,6 +408,13 @@ export default function ClaudeCodePanelUI({
         </div>
 
         <div className="flex items-center gap-1">
+          {/* OAuth Token Indicator */}
+          {isClaudeOAuthEnabled && isUsingOAuthToken && (
+            <span className="text-[10px] text-muted-foreground whitespace-nowrap mr-1">
+              Using your Claude subscription
+            </span>
+          )}
+
           {/* Undo Button */}
           <TooltipProvider>
             <Tooltip>
