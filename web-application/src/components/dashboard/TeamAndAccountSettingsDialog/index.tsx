@@ -39,7 +39,6 @@ import { ClaudeConnectionTab } from "./ClaudeConnectionTab";
 import { CreditsAndSubscriptionsTab } from "./CreditsAndSubscriptionsTab";
 import { TeamTab } from "./TeamTab";
 import { PeopleTab } from "./PeopleTab";
-import { CreateTeamFlow } from "@/components/dashboard/CreateTeamFlow/CreateTeamFlow";
 
 type SettingsTab = "profile" | "credits" | "claude" | "team" | "people";
 
@@ -63,7 +62,6 @@ export function TeamAndAccountsSettingsDialog({
   const [teamSubscriptions, setTeamSubscriptions] = useState<
     Record<string, string>
   >({});
-  const [showCreateTeamFlow, setShowCreateTeamFlow] = useState(false);
 
   const isClaudeConnectionEnabled =
     posthog?.isFeatureEnabled("claude-code-cli-with-personal-token") ?? false;
@@ -289,7 +287,7 @@ export function TeamAndAccountsSettingsDialog({
                           variant="ghost"
                           className="w-full justify-start text-sm"
                           onClick={() => {
-                            setShowCreateTeamFlow(true);
+                            router.push("/teams/create");
                           }}
                         >
                           <Plus className="w-4 h-4 mr-2" />
@@ -386,12 +384,6 @@ export function TeamAndAccountsSettingsDialog({
           </div>
         </DialogContent>
       </DialogPortal>
-
-      {/* Create Team Flow */}
-      <CreateTeamFlow
-        open={showCreateTeamFlow}
-        onOpenChange={setShowCreateTeamFlow}
-      />
     </Dialog>
   );
 }

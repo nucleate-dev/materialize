@@ -15,12 +15,7 @@ import { CreditLimits } from "@/lib/types/serverAPITypes";
 
 type PlanType = "plus" | "team";
 
-interface CreateTeamFlowProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-}
-
-export function CreateTeamFlow({ open, onOpenChange }: CreateTeamFlowProps) {
+export default function CreateTeamPage() {
   const router = useRouter();
   const logger = useProductLogger();
   const { setActiveTeam } = useActiveTeam();
@@ -29,8 +24,6 @@ export function CreateTeamFlow({ open, onOpenChange }: CreateTeamFlowProps) {
   const [selectedPlan, setSelectedPlan] = useState<PlanType | null>(null);
   const [seatQuantity, setSeatQuantity] = useState(1);
   const [isCreating, setIsCreating] = useState(false);
-
-  if (!open) return null;
 
   const handleCreateTeam = async () => {
     if (!teamName.trim() || !selectedPlan || !user?.id) return;
@@ -88,9 +81,6 @@ export function CreateTeamFlow({ open, onOpenChange }: CreateTeamFlowProps) {
         },
       });
 
-      // Close the modal
-      onOpenChange(false);
-
       // Initiate checkout
       await handleCheckout(
         selectedPlan,
@@ -144,19 +134,14 @@ export function CreateTeamFlow({ open, onOpenChange }: CreateTeamFlowProps) {
   ];
 
   return (
-    <div className="fixed inset-0 z-[1000] bg-[#0B0C0E] text-white selection:bg-indigo-500/30 overflow-hidden font-sans">
-      <div className="absolute inset-0 bg-[#0B0C0E]" />
+    <div className="relative min-h-screen bg-[#0B0C0E] text-white selection:bg-indigo-500/30 overflow-hidden font-sans">
       <GridBackground forceDarkMode />
 
       <div className="relative z-10 min-h-screen flex flex-col items-center justify-center px-4 py-12">
         {/* Close button */}
         <button
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            onOpenChange(false);
-          }}
-          className="absolute top-6 right-6 p-2 hover:bg-white/10 rounded-lg transition-colors z-50"
+          onClick={() => router.push("/dashboard")}
+          className="absolute top-6 right-6 p-2 hover:bg-white/10 rounded-lg transition-colors"
           disabled={isCreating}
         >
           <X className="w-5 h-5" />
@@ -236,59 +221,58 @@ export function CreateTeamFlow({ open, onOpenChange }: CreateTeamFlowProps) {
                     </div>
 
                     {/* Seat Selector for Team plan */}
-                    {plan.productKey === "team" && selectedPlan === "team" && (
-                      <div className="mb-6 p-4 bg-white/5 rounded-lg border border-white/10">
-                        <div className="text-sm font-medium text-white mb-3">
-                          Number of seats
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="icon"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSeatQuantity(Math.max(1, seatQuantity - 1));
-                            }}
-                            disabled={seatQuantity <= 1 || isCreating}
-                            className="h-9 w-9 border-white/20 hover:bg-white/10"
-                          >
-                            -
-                          </Button>
-                          <Input
-                            type="number"
-                            min={1}
-                            value={seatQuantity}
-                            onChange={(e) => {
-                              const num = parseInt(e.target.value) || 1;
-                              setSeatQuantity(Math.max(1, num));
-                            }}
-                            onClick={(e) => e.stopPropagation()}
-                            className="text-center h-9 w-20 text-sm bg-[#0B0C0E] border-white/10"
-                            disabled={isCreating}
-                          />
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="icon"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSeatQuantity(seatQuantity + 1);
-                            }}
-                            disabled={isCreating}
-                            className="h-9 w-9 border-white/20 hover:bg-white/10"
-                          >
-                            +
-                          </Button>
-                          <div className="text-xs text-muted-foreground ml-2">
-                            {(
-                              seatQuantity * CreditLimits.TEAM
-                            ).toLocaleString()}{" "}
-                            credits/mo
+                    {plan.productKey === "team" &&
+                      selectedPlan === "team" && (
+                        <div className="mb-6 p-4 bg-white/5 rounded-lg border border-white/10">
+                          <div className="text-sm font-medium text-white mb-3">
+                            Number of seats
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="icon"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSeatQuantity(Math.max(1, seatQuantity - 1));
+                              }}
+                              disabled={seatQuantity <= 1 || isCreating}
+                              className="h-9 w-9 border-white/20 hover:bg-white/10"
+                            >
+                              -
+                            </Button>
+                            <Input
+                              type="number"
+                              min={1}
+                              value={seatQuantity}
+                              onChange={(e) => {
+                                const num = parseInt(e.target.value) || 1;
+                                setSeatQuantity(Math.max(1, num));
+                              }}
+                              onClick={(e) => e.stopPropagation()}
+                              className="text-center h-9 w-20 text-sm bg-[#0B0C0E] border-white/10"
+                              disabled={isCreating}
+                            />
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="icon"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSeatQuantity(seatQuantity + 1);
+                              }}
+                              disabled={isCreating}
+                              className="h-9 w-9 border-white/20 hover:bg-white/10"
+                            >
+                              +
+                            </Button>
+                            <div className="text-xs text-muted-foreground ml-2">
+                              {(seatQuantity * CreditLimits.TEAM).toLocaleString()}{" "}
+                              credits/mo
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    )}
+                      )}
 
                     <div className="space-y-3 mt-auto">
                       {plan.features.map((feature, i) => (
