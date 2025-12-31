@@ -359,27 +359,19 @@ export function TeamSelector({
               <Button
                 variant="outline"
                 className="w-full justify-start"
-                disabled={isFree}
                 onClick={() => {
-                  if (!isFree) {
-                    logger.log({
-                      event: "client_dashboard_sidebar_item_clicked",
-                      properties: {
-                        component: "TeamSelector",
-                        item: "create_team",
-                      },
-                    });
-                    // TODO: Implement create workspace functionality
-                  }
+                  logger.log({
+                    event: "client_dashboard_sidebar_item_clicked",
+                    properties: {
+                      component: "TeamSelector",
+                      item: "create_team",
+                    },
+                  });
+                  // TODO: Implement create workspace functionality
                 }}
               >
                 <Plus className="w-4 h-4 mr-2" />
                 Create new team
-                {isFree && (
-                  <Badge variant="secondary" className="ml-auto text-xs">
-                    PLUS
-                  </Badge>
-                )}
               </Button>
             </div>
           </DropdownMenuContent>
