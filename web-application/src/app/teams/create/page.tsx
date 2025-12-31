@@ -137,15 +137,16 @@ export default function CreateTeamPage() {
     <div className="relative min-h-screen bg-[#0B0C0E] text-white selection:bg-indigo-500/30 overflow-hidden font-sans">
       <GridBackground forceDarkMode />
 
+      {/* Close button - outside main content container */}
+      <button
+        onClick={() => router.back()}
+        className="fixed top-6 right-6 z-50 p-2 hover:bg-white/10 rounded-lg transition-colors"
+        disabled={isCreating}
+      >
+        <X className="w-5 h-5" />
+      </button>
+
       <div className="relative z-10 min-h-screen flex flex-col items-center justify-center px-4 py-12">
-        {/* Close button */}
-        <button
-          onClick={() => router.push("/dashboard")}
-          className="absolute top-6 right-6 p-2 hover:bg-white/10 rounded-lg transition-colors"
-          disabled={isCreating}
-        >
-          <X className="w-5 h-5" />
-        </button>
 
         {/* Header */}
         <div className="text-center mb-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
