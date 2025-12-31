@@ -1336,8 +1336,41 @@ async function reconcileTeamOnDowngrade(
   });
 
   // Determine which members to keep and which to demote
-  const membersToKeep = priorityList.slice(0, allowedNonViewerSeats);
-  const membersToDemote = priorityList.slice(allowedNonViewerSeats);
+  let membersToKeep = priorityList.slice(0, allowedNonViewerSeats);
+  let membersToDemote = priorityList.slice(allowedNonViewerSeats);
+
+  // CRITICAL: Ensure at least one owner is always kept
+  // Count owners in the membersToKeep list
+  const ownersToKeep = membersToKeep.filter((m) => m.role === "owner");
+
+  if (ownersToKeep.length === 0 && membersToDemote.length > 0) {
+    // No owners in keep list - find the highest priority owner from demote list
+    const ownerToDemoteIndex = membersToDemote.findIndex(
+      (m) => m.role === "owner",
+    );
+
+    if (ownerToDemoteIndex !== -1) {
+      // Move this owner from demote list to keep list
+      const ownerToPreserve = membersToDemote[ownerToDemoteIndex];
+      membersToDemote.splice(ownerToDemoteIndex, 1);
+
+      // If membersToKeep is at capacity, demote the lowest priority non-owner
+      if (membersToKeep.length >= allowedNonViewerSeats) {
+        // Find the lowest priority non-owner in keep list
+        for (let i = membersToKeep.length - 1; i >= 0; i--) {
+          if (membersToKeep[i].role !== "owner") {
+            // Move this member to demote list
+            membersToDemote.unshift(membersToKeep[i]);
+            membersToKeep.splice(i, 1);
+            break;
+          }
+        }
+      }
+
+      // Add the owner to keep list
+      membersToKeep.push(ownerToPreserve);
+    }
+  }
 
   // CRITICAL: Never demote the personal team owner, even if they somehow ended up in the demote list
   // Filter out personal team owner from membersToDemote as an extra safety measure

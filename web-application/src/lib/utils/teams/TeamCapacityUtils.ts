@@ -148,6 +148,7 @@ interface RoleChangeCheckParams {
   teamMembers: TeamMember[];
   teamInvites: TeamInvite[];
   seatQuantity: number | null;
+  userId?: string; // Optional: user ID of the member being changed (to check if last owner)
 }
 
 /**
@@ -157,8 +158,26 @@ interface RoleChangeCheckParams {
  * @returns boolean indicating if the role change is allowed
  */
 export function canChangeRole(params: RoleChangeCheckParams): boolean {
-  const { plan, currentRole, newRole, teamMembers, teamInvites, seatQuantity } =
-    params;
+  const {
+    plan,
+    currentRole,
+    newRole,
+    teamMembers,
+    teamInvites,
+    seatQuantity,
+    userId,
+  } = params;
+
+  // Prevent demoting the last owner
+  if (currentRole === "owner" && newRole !== "owner") {
+    const ownerCount = teamMembers.filter(
+      (member) => member.role === "owner",
+    ).length;
+
+    if (ownerCount === 1) {
+      return false; // Cannot demote the last owner
+    }
+  }
 
   // FREE PLAN: No role changes allowed
   if (plan === "free") {

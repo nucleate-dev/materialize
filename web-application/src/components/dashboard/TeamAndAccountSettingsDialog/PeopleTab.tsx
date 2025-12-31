@@ -253,6 +253,20 @@ export function PeopleTab() {
       return;
     }
 
+    // Prevent demoting the last owner
+    if (currentRole === "owner" && newRole !== "owner") {
+      const ownerCount = teamMembers.filter(
+        (member) => member.role === "owner",
+      ).length;
+
+      if (ownerCount === 1) {
+        alert(
+          "Cannot demote the last owner of the team. Please promote another member to owner first.",
+        );
+        return;
+      }
+    }
+
     try {
       const { data: sessionData } = await supabase.auth.getSession();
       if (!sessionData.session?.access_token) {
@@ -1008,6 +1022,20 @@ export function PeopleTab() {
                                   className="text-destructive focus:text-destructive"
                                   onClick={async () => {
                                     if (!activeTeam?.id) return;
+
+                                    // Prevent removing the last owner
+                                    if (member.role === "owner") {
+                                      const ownerCount = teamMembers.filter(
+                                        (m) => m.role === "owner",
+                                      ).length;
+
+                                      if (ownerCount === 1) {
+                                        alert(
+                                          "Cannot remove the last owner of the team. Please promote another member to owner first.",
+                                        );
+                                        return;
+                                      }
+                                    }
 
                                     // Delete the member from team_memberships table
                                     const { error } = await supabase
