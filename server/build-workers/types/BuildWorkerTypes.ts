@@ -66,6 +66,14 @@ export enum DevServerStatus {
   RESTARTING = "restarting",
 }
 
+export enum DesignSystemConstructionState {
+  IDLE = "idle",
+  STARTING = "starting",
+  CONSTRUCTING = "constructing",
+  COMPLETE = "complete",
+  ERROR = "error",
+}
+
 export interface BuildAndDeployResponse {
   message: string;
 }
@@ -123,6 +131,18 @@ export interface PublicDevServerRefetchEnvRequest {
 export interface PublicDevServerRefetchEnvSuccessResponse {
   message: string;
   env_var_count: number;
+}
+
+export interface DesignSystemConstructorAllocateSuccessResponse {
+  allocated: boolean;
+}
+
+export interface DesignSystemConstructorStatusSuccessResponse {
+  state: DesignSystemConstructionState;
+}
+
+export interface DesignSystemConstructorConstructSuccessResponse {
+  started: boolean;
 }
 
 // Dev Server Response Types
