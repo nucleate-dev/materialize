@@ -82,7 +82,7 @@ function HeroSection() {
         router.push(`/dashboard/projects/${result.data.prototype_id}`);
       }
     } catch (err) {
-      console.error(err);
+      logger.error(err instanceof Error ? err : new Error(String(err)));
     } finally {
       setIsLoading(false);
     }
@@ -489,7 +489,7 @@ function CTASection() {
         router.push(`/dashboard/projects/${result.data.prototype_id}`);
       }
     } catch (err) {
-      console.error(err);
+      logger.error(err instanceof Error ? err : new Error(String(err)));
     } finally {
       setIsLoading(false);
     }
