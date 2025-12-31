@@ -14,6 +14,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { useActiveTeam } from "@/contexts/TeamContext";
 import { useUser } from "@/hooks/useUser";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import { Database } from "@/lib/types/supabase";
@@ -52,9 +53,11 @@ export default function DesignSystemDetailPage({
   const [editedDesignRules, setEditedDesignRules] = useState("");
 
   const userId = user?.id ?? null;
+  const { activeTeam } = useActiveTeam();
+  const teamId = activeTeam?.id ?? null;
 
   const fetchDesignSystem = useCallback(async () => {
-    if (!userId) {
+    if (!teamId) {
       setIsLoading(false);
       return;
     }
@@ -65,7 +68,7 @@ export default function DesignSystemDetailPage({
         .from("design_systems")
         .select("*")
         .eq("id", designSystemId)
-        .eq("owner_id", userId)
+        .eq("team_id", teamId)
         .single();
 
       if (error) {
@@ -92,7 +95,7 @@ export default function DesignSystemDetailPage({
     } finally {
       setIsLoading(false);
     }
-  }, [logger, userId, designSystemId, router]);
+  }, [logger, teamId, designSystemId, router]);
 
   useEffect(() => {
     fetchDesignSystem();

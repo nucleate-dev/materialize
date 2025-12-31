@@ -231,14 +231,14 @@ export default function NewPrototypeModal({
     }
 
     async function fetchDesignSystems() {
-      if (!user) return;
+      if (!activeTeam?.id) return;
 
       setIsLoadingDesignSystems(true);
       try {
         const { data, error } = await supabase
           .from("design_systems")
           .select("id, name, description, design_rules, updated_at")
-          .eq("owner_id", user.id)
+          .eq("team_id", activeTeam.id)
           .order("updated_at", { ascending: false });
 
         if (error) {
@@ -263,7 +263,7 @@ export default function NewPrototypeModal({
       fetchPrototypeCount();
       fetchDesignSystems();
     }
-  }, [open, user, logger]);
+  }, [open, user, activeTeam?.id, logger]);
 
   // Set initial project selection
   useEffect(() => {

@@ -264,14 +264,14 @@ export default function InternalPrototypePage() {
     }
 
     async function loadDesignSystems() {
-      if (!user) return;
+      if (!activeTeam?.id) return;
 
       setIsLoadingDesignSystems(true);
       try {
         const { data, error } = await supabase
           .from("design_systems")
           .select("*")
-          .eq("owner_id", user.id);
+          .eq("team_id", activeTeam.id);
 
         if (error) {
           logger.debug("error", "Failed to load design systems:", { error });
@@ -293,7 +293,7 @@ export default function InternalPrototypePage() {
     }
   }, [
     isDesignSystemDialogOpen,
-    user,
+    activeTeam?.id,
     logger,
     designSystems.length,
     isLoadingDesignSystems,
