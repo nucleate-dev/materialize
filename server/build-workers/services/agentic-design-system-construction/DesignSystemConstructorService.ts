@@ -1,6 +1,7 @@
 import { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import {
   DesignSystemConstructionState,
+  DesignSystemConstructorGithubCredentials,
   DesignSystemConstructorAllocateSuccessResponse,
   DesignSystemConstructorConstructSuccessResponse,
   DesignSystemConstructorStatusSuccessResponse,
@@ -18,12 +19,19 @@ export class DesignSystemConstructorService {
   public readonly designSystemConstructionState: {
     state: DesignSystemConstructionState;
   };
+  public githubCredentials?: DesignSystemConstructorGithubCredentials;
 
   constructor() {
     this.designSystemConstructorAgent = new ClaudeAgentSDKConstructor();
     this.designSystemConstructionState = {
       state: DesignSystemConstructionState.IDLE,
     };
+  }
+
+  public setGithubCredentials(
+    githubCredentials: DesignSystemConstructorGithubCredentials,
+  ): void {
+    this.githubCredentials = githubCredentials;
   }
 
   public registerRoutes(app: FastifyInstance): void {
