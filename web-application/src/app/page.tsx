@@ -161,7 +161,7 @@ function HeroSection() {
         setShowUpsellModal(true);
       }
     } catch (err) {
-      console.error(err);
+      logger.debug("Error creating prototype", { error: err });
     } finally {
       setIsLoading(false);
     }
@@ -1285,7 +1285,7 @@ function AgentsSection() {
               <div className="relative z-10 mb-8">
                 <h3 className="text-lg font-bold text-white mb-3">Build big without breaking</h3>
                 <p className="text-sm text-white/70 leading-relaxed">
-                  Nucleate handles projects 1,000 times larger than before. It's improved built-in context management can handle complexity and keep your projects running smoothly.
+                  Nucleate handles projects 1,000 times larger than before. Its improved built-in context management can handle complexity and keep your projects running smoothly.
                 </p>
               </div>
 
@@ -1607,7 +1607,7 @@ function UseCasesSection() {
                       transition={{ delay: 0.2 }}
                       className="pl-4 text-zinc-400"
                     >
-                          // Turn this homework into a startup
+                      {/* // Turn this homework into a startup */}
                     </motion.div>
                     <motion.div
                       initial={{ opacity: 0 }}
