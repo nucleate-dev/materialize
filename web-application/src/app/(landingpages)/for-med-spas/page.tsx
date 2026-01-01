@@ -197,21 +197,25 @@ function PainPointsSection() {
       icon: <Clock className="w-6 h-6" />,
       title: "Your website doesn't convert",
       description: "Visitors browse but don't book. Your site looks like a brochure, not a lead machine.",
+      solution: "Nucleate builds conversion-focused sites with prominent booking CTAs and treatment pages that sell.",
     },
     {
       icon: <DollarSign className="w-6 h-6" />,
       title: "Marketing agencies are expensive",
       description: "$5,000-$15,000 for a custom site. Then monthly retainers for every little change.",
+      solution: "Get a premium website in minutes, free to start. Make unlimited updates yourself.",
     },
     {
       icon: <X className="w-6 h-6" />,
       title: "Standing out is harder than ever",
       description: "The industry grew from 1,600 to 10,000+ med spas. Competition is fierce.",
+      solution: "AI generates a unique, custom site for your brand—not a generic template everyone else uses.",
     },
     {
       icon: <PenLine className="w-6 h-6" />,
       title: "Adding new treatments is a pain",
       description: "Every time you add a service or update pricing, you're waiting on your web person.",
+      solution: "Just chat to update. Add treatments, change pricing, update photos—instantly, anytime.",
     },
   ];
 
@@ -234,13 +238,17 @@ function PainPointsSection() {
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.1 }}
-              className="bg-card border border-border rounded-2xl p-6 hover:border-red-500/30 transition-all group"
+              className="bg-card border border-border rounded-2xl p-6 hover:border-rose-500/30 transition-all group"
             >
               <div className="w-12 h-12 bg-red-500/10 rounded-xl flex items-center justify-center mb-4 text-red-500 dark:text-red-400 group-hover:bg-red-500/20 transition-colors">
                 {point.icon}
               </div>
               <h3 className="text-xl font-medium text-foreground mb-2">{point.title}</h3>
-              <p className="text-muted-foreground leading-relaxed">{point.description}</p>
+              <p className="text-muted-foreground leading-relaxed mb-4">{point.description}</p>
+              <div className="flex items-start gap-2 pt-4 border-t border-border">
+                <CheckCircle2 className="w-5 h-5 text-emerald-500 mt-0.5 flex-shrink-0" />
+                <p className="text-sm text-emerald-600 dark:text-emerald-400">{point.solution}</p>
+              </div>
             </motion.div>
           ))}
         </div>

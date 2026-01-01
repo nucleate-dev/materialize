@@ -101,6 +101,9 @@ function HomeContent() {
         {/* Section 1: Coding Agents & Design Systems */}
         <AgentsSection />
 
+        {/* Teams Features */}
+        <TeamsSection />
+
         <VariantsSection />
 
         {/* Section 2: Use Cases & Project Gallery */}
@@ -171,11 +174,29 @@ function HeroSection() {
     <section className="relative min-h-[80vh] flex flex-col justify-center px-6 py-20">
       <div className="container mx-auto max-w-5xl w-full text-center">
         <h1 className="text-5xl md:text-7xl lg:text-8xl font-medium tracking-tight text-transparent bg-clip-text bg-gradient-to-b from-white via-white to-white/60 pb-2 mb-6">
-          Build beautiful <br className="hidden md:block" /> apps fast
+          Build your ideas <br className="hidden md:block" /> fast
         </h1>
-        <p className="text-lg md:text-xl text-[#8A8F98] max-w-2xl mx-auto mb-12">
-          Build beautifully designed apps, prototypes, flows, and screens fast.
+        <p className="text-lg md:text-xl text-[#8A8F98] max-w-2xl mx-auto mb-8">
+          Go from prompt to production-ready web and mobile apps in minutes.
         </p>
+
+        {/* Cross-platform visual */}
+        <div className="flex items-center justify-center gap-6 mb-12">
+          <div className="flex items-center gap-2 text-sm text-white/50">
+            <Smartphone className="w-4 h-4" />
+            <span>Mobile</span>
+          </div>
+          <div className="h-4 w-px bg-white/20" />
+          <div className="flex items-center gap-2 text-sm text-white/50">
+            <Layout className="w-4 h-4" />
+            <span>Web</span>
+          </div>
+          <div className="h-4 w-px bg-white/20" />
+          <div className="flex items-center gap-2 text-sm text-white/50">
+            <Palette className="w-4 h-4" />
+            <span>Shared Design Systems</span>
+          </div>
+        </div>
 
         <div className="max-w-3xl mx-auto relative group">
           <div className="absolute -inset-0.5 bg-gradient-to-r from-indigo-500/30 to-blue-500/30 rounded-2xl blur opacity-20 group-hover:opacity-40 transition duration-500"></div>
@@ -1350,6 +1371,163 @@ function AgentsSection() {
 }
 
 /**
+ * TEAMS SECTION
+ */
+function TeamsSection() {
+  return (
+    <section className="py-24 px-6 bg-[#0B0C0E] border-t border-white/5">
+      <div className="container mx-auto max-w-6xl">
+        <div className="text-center mb-16">
+          <div className="inline-flex items-center gap-2 mb-6 px-3 py-1.5 bg-white/5 border border-white/10 rounded-full">
+            <Users className="w-3.5 h-3.5 text-indigo-400" />
+            <span className="text-xs font-medium text-white/70 uppercase tracking-widest">Built for Teams</span>
+          </div>
+          <h2 className="text-4xl md:text-6xl font-medium tracking-tight mb-4">
+            Build together <span className="text-white/40">in real-time</span>
+          </h2>
+          <p className="text-[#8A8F98] max-w-2xl mx-auto">
+            Live collaboration, shared design systems, and internal tools for teams of any size.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Live Collaboration Card */}
+          <div className="bg-[#141517] border border-white/10 rounded-3xl p-8 relative overflow-hidden group hover:border-indigo-500/30 transition-colors">
+            <div className="relative z-10 mb-8">
+              <h3 className="text-lg font-bold text-white mb-3">Real-time collaboration</h3>
+              <p className="text-sm text-white/70 leading-relaxed">
+                See teammates&apos; cursors, chat in-context, and build together simultaneously.
+              </p>
+            </div>
+            {/* Visual: Multiple cursors with avatars */}
+            <div className="relative h-32">
+              <div className="absolute left-8 top-4 flex items-center gap-1">
+                <div className="w-5 h-5 rounded-full bg-indigo-500 flex items-center justify-center text-[10px] font-bold text-white">S</div>
+                <div className="w-0 h-0 border-l-[6px] border-l-indigo-500 border-y-[4px] border-y-transparent"></div>
+              </div>
+              <div className="absolute right-12 top-12 flex items-center gap-1">
+                <div className="w-5 h-5 rounded-full bg-pink-500 flex items-center justify-center text-[10px] font-bold text-white">A</div>
+                <div className="w-0 h-0 border-l-[6px] border-l-pink-500 border-y-[4px] border-y-transparent"></div>
+              </div>
+              <div className="absolute left-1/3 bottom-4 flex items-center gap-1">
+                <div className="w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center text-[10px] font-bold text-white">M</div>
+                <div className="w-0 h-0 border-l-[6px] border-l-emerald-500 border-y-[4px] border-y-transparent"></div>
+              </div>
+              {/* Chat bubble */}
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3 }}
+                className="absolute right-4 bottom-8 bg-white/10 backdrop-blur rounded-lg px-3 py-2 text-xs text-white/80"
+              >
+                Looks great!
+              </motion.div>
+            </div>
+          </div>
+
+          {/* Shared Design Systems Card */}
+          <div className="bg-[#141517] border border-white/10 rounded-3xl p-8 relative overflow-hidden group hover:border-purple-500/30 transition-colors">
+            <div className="relative z-10 mb-8">
+              <h3 className="text-lg font-bold text-white mb-3">One design system, every project</h3>
+              <p className="text-sm text-white/70 leading-relaxed">
+                Create and share component libraries, color palettes, and typography across your team&apos;s projects.
+              </p>
+            </div>
+            {/* Visual: Design system components */}
+            <div className="flex flex-wrap gap-3">
+              <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-lg px-3 py-2">
+                <div className="w-4 h-4 rounded bg-indigo-500"></div>
+                <span className="text-xs text-white/60">Primary</span>
+              </div>
+              <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-lg px-3 py-2">
+                <div className="w-4 h-4 rounded bg-pink-500"></div>
+                <span className="text-xs text-white/60">Accent</span>
+              </div>
+              <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-lg px-3 py-2">
+                <Box className="w-4 h-4 text-white/40" />
+                <span className="text-xs text-white/60">Button</span>
+              </div>
+              <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-lg px-3 py-2">
+                <Layout className="w-4 h-4 text-white/40" />
+                <span className="text-xs text-white/60">Card</span>
+              </div>
+              <div className="mt-4 w-full text-center">
+                <span className="text-xs text-white/40">Shared across 12 projects</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Internal Tools Card */}
+          <div className="bg-[#141517] border border-white/10 rounded-3xl p-8 relative overflow-hidden group hover:border-emerald-500/30 transition-colors">
+            <div className="relative z-10 mb-8">
+              <h3 className="text-lg font-bold text-white mb-3">Internal tools in minutes</h3>
+              <p className="text-sm text-white/70 leading-relaxed">
+                Build dashboards, admin panels, and workflows for your team without engineering sprints.
+              </p>
+            </div>
+            {/* Visual: Admin dashboard mockup */}
+            <div className="bg-black/40 border border-white/10 rounded-xl p-4">
+              <div className="flex items-center gap-2 mb-4">
+                <div className="px-2 py-0.5 bg-emerald-500/20 text-emerald-400 text-[10px] font-bold rounded">INTERNAL</div>
+                <span className="text-xs text-white/40">Team Dashboard</span>
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                <div className="bg-white/5 rounded p-2">
+                  <div className="text-lg font-bold text-white">248</div>
+                  <div className="text-[10px] text-white/40">Active users</div>
+                </div>
+                <div className="bg-white/5 rounded p-2">
+                  <div className="text-lg font-bold text-white">12</div>
+                  <div className="text-[10px] text-white/40">Projects</div>
+                </div>
+                <div className="bg-white/5 rounded p-2">
+                  <div className="text-lg font-bold text-white">99%</div>
+                  <div className="text-[10px] text-white/40">Uptime</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Team Management Card */}
+          <div className="bg-[#141517] border border-white/10 rounded-3xl p-8 relative overflow-hidden group hover:border-blue-500/30 transition-colors">
+            <div className="relative z-10 mb-8">
+              <h3 className="text-lg font-bold text-white mb-3">Scale from 2 to 200</h3>
+              <p className="text-sm text-white/70 leading-relaxed">
+                Workspaces, permissions, SSO, and audit logs. Enterprise-ready from day one.
+              </p>
+            </div>
+            {/* Visual: Team members with roles */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-3 bg-white/5 border border-white/10 rounded-lg p-3">
+                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center text-xs font-bold text-white">JD</div>
+                <div className="flex-1">
+                  <div className="text-sm text-white">Jane Doe</div>
+                  <div className="text-[10px] text-white/40">Owner</div>
+                </div>
+                <ShieldCheck className="w-4 h-4 text-indigo-400" />
+              </div>
+              <div className="flex items-center gap-3 bg-white/5 border border-white/10 rounded-lg p-3">
+                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-pink-500 to-orange-500 flex items-center justify-center text-xs font-bold text-white">AS</div>
+                <div className="flex-1">
+                  <div className="text-sm text-white">Alex Smith</div>
+                  <div className="text-[10px] text-white/40">Admin</div>
+                </div>
+              </div>
+              <div className="flex items-center gap-3 bg-white/5 border border-white/10 rounded-lg p-3 opacity-60">
+                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center text-xs font-bold text-white">+5</div>
+                <div className="flex-1">
+                  <div className="text-sm text-white/60">5 more members...</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/**
  * SECTION 3: USE CASES (Roles & Gallery)
  */
 /**
@@ -1694,18 +1872,19 @@ function PricingSection() {
 
   const pricingPlans = [
     { name: "Free", price: "$0", period: "forever", description: "For trying out Nucleate", features: ["5 free projects", "15 free messages", "Fork projects for free"], cta: "Get Started", highlighted: false, productKey: "free" },
-    { name: "Plus", price: "$25", period: "per month", description: "For everyone", features: ["Everything in Free", "100 credits included", "Unlimited projects", "Export code"], cta: "Upgrade to Plus", highlighted: true, productKey: "plus" },
-    { name: "Enterprise", price: "Custom", period: "", description: "For large teams", features: ["Dedicated support", "Team collaboration", "SSO & Security", "Custom SLA"], cta: "Contact Sales", highlighted: false, productKey: "max" },
+    { name: "Plus", price: "$25", period: "per month", description: "For individuals", features: ["Everything in Free", "100 credits included", "Unlimited projects", "Export code", "1 free collaborator"], cta: "Upgrade to Plus", highlighted: false, productKey: "plus" },
+    { name: "Teams", price: "$35", period: "per seat/month", description: "For growing teams", features: ["Everything in Plus", "Shared design systems", "Live collaboration", "Internal tools", "Enterprise security"], cta: "Start with Teams", highlighted: true, productKey: "teams" },
+    { name: "Enterprise", price: "Custom", period: "", description: "For large organizations", features: ["Everything in Teams", "SSO & SAML", "Dedicated support", "Custom SLA", "Audit logs"], cta: "Contact Sales", highlighted: false, productKey: "max" },
   ];
 
   return (
     <section className="py-32 bg-[#0B0C0E] border-t border-white/5">
-      <div className="container mx-auto px-6 max-w-5xl">
+      <div className="container mx-auto px-6 max-w-6xl">
         <div className="text-center mb-12">
           <h2 className="text-4xl font-medium text-white mb-4">Simple pricing</h2>
           <p className="text-[#8A8F98]">Start for free, scale as you grow.</p>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {pricingPlans.map((plan, index) => (
             <div key={index} className={`relative p-8 rounded-3xl flex flex-col ${plan.highlighted ? "bg-[#141517] border border-indigo-500/50 shadow-2xl" : "border border-white/10"}`}>
               <div className="mb-8">

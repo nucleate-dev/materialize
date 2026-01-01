@@ -200,21 +200,25 @@ function PainPointsSection() {
       icon: <X className="w-6 h-6" />,
       title: "Competing with the big chains",
       description: "CVS and Walgreens have massive online presence. Your outdated site makes it hard to compete.",
+      solution: "Get a professional website that highlights what chains can't offer—personal service and community trust.",
     },
     {
       icon: <Clock className="w-6 h-6" />,
       title: "Customers don't know what you offer",
       description: "You do immunizations, compounding, delivery—but your website doesn't show it.",
+      solution: "Showcase all your services front and center. Customers see exactly what makes you special.",
     },
     {
       icon: <DollarSign className="w-6 h-6" />,
       title: "No budget for a web agency",
       description: "Margins are tight. You can't justify $5,000+ for a website when reimbursements keep shrinking.",
+      solution: "Free to start, no agency needed. Build a complete website in minutes, not weeks.",
     },
     {
       icon: <PenLine className="w-6 h-6" />,
       title: "Updates take forever",
       description: "Flu season? New hours? Adding a service? Every change means calling someone or figuring it out yourself.",
+      solution: "Just chat to update. Add flu shot info, change hours, promote new services—instantly.",
     },
   ];
 
@@ -237,13 +241,17 @@ function PainPointsSection() {
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.1 }}
-              className="bg-card border border-border rounded-2xl p-6 hover:border-red-500/30 transition-all group"
+              className="bg-card border border-border rounded-2xl p-6 hover:border-blue-500/30 transition-all group"
             >
               <div className="w-12 h-12 bg-red-500/10 rounded-xl flex items-center justify-center mb-4 text-red-500 dark:text-red-400 group-hover:bg-red-500/20 transition-colors">
                 {point.icon}
               </div>
               <h3 className="text-xl font-medium text-foreground mb-2">{point.title}</h3>
-              <p className="text-muted-foreground leading-relaxed">{point.description}</p>
+              <p className="text-muted-foreground leading-relaxed mb-4">{point.description}</p>
+              <div className="flex items-start gap-2 pt-4 border-t border-border">
+                <CheckCircle2 className="w-5 h-5 text-emerald-500 mt-0.5 flex-shrink-0" />
+                <p className="text-sm text-emerald-600 dark:text-emerald-400">{point.solution}</p>
+              </div>
             </motion.div>
           ))}
         </div>
