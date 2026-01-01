@@ -1,7 +1,9 @@
 import { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import {
   DesignSystemConstructionState,
+  DesignSystemConstructorGithubCredentials,
   DesignSystemConstructorAllocateSuccessResponse,
+  DesignSystemConstructorAllocateRequest,
   DesignSystemConstructorConstructSuccessResponse,
   DesignSystemConstructorStatusSuccessResponse,
   SandboxAPIResponse,
@@ -18,6 +20,7 @@ export class DesignSystemConstructorService {
   public readonly designSystemConstructionState: {
     state: DesignSystemConstructionState;
   };
+  public githubCredentials?: DesignSystemConstructorGithubCredentials;
 
   constructor() {
     this.designSystemConstructorAgent = new ClaudeAgentSDKConstructor();
@@ -26,9 +29,40 @@ export class DesignSystemConstructorService {
     };
   }
 
+  public setGithubCredentials(
+    githubCredentials: DesignSystemConstructorGithubCredentials,
+  ): void {
+    this.githubCredentials = githubCredentials;
+  }
+
   public registerRoutes(app: FastifyInstance): void {
-    app.post(
+    app.post<{ Body: DesignSystemConstructorAllocateRequest }>(
       "/design-system-constructor/allocate",
+      {
+        schema: {
+          body: {
+            type: "object",
+            required: ["user_credentials", "github_credentials"],
+            properties: {
+              user_credentials: {
+                type: "object",
+                required: ["user_id", "team_id"],
+                properties: {
+                  user_id: { type: "string" },
+                  team_id: { type: "string" },
+                },
+              },
+              github_credentials: {
+                type: "object",
+                required: ["token"],
+                properties: {
+                  token: { type: "string" },
+                },
+              },
+            },
+          },
+        },
+      },
       this.allocate.bind(this),
     );
     app.post(
