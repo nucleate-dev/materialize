@@ -98,6 +98,9 @@ function HomeContent() {
 
         <HeroSection />
 
+        {/* Bring Your Own Claude Code */}
+        <BringYourOwnSection />
+
         {/* Section 1: Coding Agents & Design Systems */}
         <AgentsSection />
 
@@ -235,6 +238,57 @@ function HeroSection() {
         </div>
       </div>
       <ProPlanUpsellModal open={showUpsellModal} onOpenChange={setShowUpsellModal} reason="prototype_creation_limit_reached" />
+    </section>
+  );
+}
+
+/**
+ * BRING YOUR OWN CLAUDE CODE SECTION
+ */
+function BringYourOwnSection() {
+  return (
+    <section className="py-16 px-6 bg-gradient-to-b from-[#0B0C0E] to-[#0B0C0E] border-t border-white/5">
+      <div className="container mx-auto max-w-4xl">
+        <div className="relative bg-gradient-to-br from-[#D97757]/10 via-[#141517] to-[#141517] border border-[#D97757]/20 rounded-3xl p-8 md:p-12 overflow-hidden">
+          {/* Subtle glow effect */}
+          <div className="absolute top-0 right-0 w-64 h-64 bg-[#D97757]/10 blur-[100px] rounded-full"></div>
+
+          <div className="relative z-10 flex flex-col md:flex-row items-center gap-8">
+            {/* Claude Code logo */}
+            <div className="flex-shrink-0">
+              <div className="w-16 h-16 bg-[#D97757]/20 rounded-2xl flex items-center justify-center">
+                <svg viewBox="0 0 24 24" fill="none" className="w-8 h-8 text-[#D97757]" xmlns="http://www.w3.org/2000/svg">
+                  <path fillRule="evenodd" clipRule="evenodd" d="M19.16 4.38H4.84V19.62H19.16V4.38ZM17.72 17.9L12 14.5L6.28 17.9V6.1H17.72V17.9Z" fill="currentColor" />
+                </svg>
+              </div>
+            </div>
+
+            <div className="flex-1 text-center md:text-left">
+              <h3 className="text-2xl md:text-3xl font-medium text-white mb-3">
+                Bring your own Claude Code
+              </h3>
+              <p className="text-[#8A8F98] leading-relaxed mb-4">
+                Already have a Claude Code subscription? Connect it to Nucleate and get 1000x more usage
+                than Replit, Bolt, or Lovable—at a fraction of the cost. Your subscription, your savings.
+              </p>
+              <div className="flex flex-wrap items-center justify-center md:justify-start gap-4 text-sm">
+                <div className="flex items-center gap-2 text-white/60">
+                  <CheckCircle2 className="w-4 h-4 text-[#D97757]" />
+                  <span>Use your subscription</span>
+                </div>
+                <div className="flex items-center gap-2 text-white/60">
+                  <CheckCircle2 className="w-4 h-4 text-[#D97757]" />
+                  <span>Or use ours</span>
+                </div>
+                <div className="flex items-center gap-2 text-white/60">
+                  <CheckCircle2 className="w-4 h-4 text-[#D97757]" />
+                  <span>1000x more than competitors</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </section>
   );
 }
