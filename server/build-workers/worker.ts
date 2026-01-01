@@ -42,7 +42,7 @@ let workerContext: {
 
 export function setWorkerContext(
   userId: string,
-  prototypeId: string,
+  prototypeId?: string,
   teamId?: string,
 ): void {
   workerContext = { userId, prototypeId, teamId };
