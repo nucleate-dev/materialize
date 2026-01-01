@@ -137,6 +137,20 @@ export interface DesignSystemConstructorAllocateSuccessResponse {
   allocated: boolean;
 }
 
+export interface DesignSystemConstructorGithubCredentials {
+  token: string;
+}
+
+export interface DesignSystemConstructorUserCredentials {
+  user_id: string;
+  team_id: string;
+}
+
+export interface DesignSystemConstructorAllocateRequest {
+  user_credentials: DesignSystemConstructorUserCredentials;
+  github_credentials: DesignSystemConstructorGithubCredentials;
+}
+
 export interface DesignSystemConstructorStatusSuccessResponse {
   state: DesignSystemConstructionState;
 }
