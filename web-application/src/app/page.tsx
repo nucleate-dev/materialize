@@ -107,13 +107,13 @@ function HomeContent() {
         {/* Teams Features */}
         <TeamsSection />
 
-        <VariantsSection />
-
         {/* Section 2: Use Cases & Project Gallery */}
         <UseCasesSection />
 
         {/* Section 3: Infrastructure & Scale */}
         <InfrastructureSection />
+
+        <VariantsSection />
 
         <PricingSection />
         <FAQSection />
@@ -341,7 +341,7 @@ function VariantsSection() {
     { id: "paywalls", label: "Paywalls", icon: <Lock className="w-4 h-4" /> },
     {
       id: "onboarding",
-      label: "Onboarding",
+      label: "User Flows",
       icon: <Smartphone className="w-4 h-4" />,
     },
   ];
