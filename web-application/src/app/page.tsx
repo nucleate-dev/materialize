@@ -111,7 +111,7 @@ function HomeContent() {
         <UseCasesSection />
 
         {/* Section 3: Infrastructure & Scale */}
-        <InfrastructureSection />
+        {/* <InfrastructureSection /> */}
 
         <VariantsSection />
 
