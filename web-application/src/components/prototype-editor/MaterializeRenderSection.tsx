@@ -189,6 +189,9 @@ interface MaterializeRenderSectionProps {
   // Public display config - for configuring multi-screen layouts
   initialScreens?: PublicDisplayConfigScreen[];
   onScreensChange?: (screens: MobileScreenConfig[]) => void;
+  // Web multi-screen config
+  initialWebScreens?: PublicDisplayConfigScreen[];
+  onWebScreensChange?: (screens: MobileScreenConfig[]) => void;
 }
 
 export interface MaterializeRenderSectionRef {
@@ -233,6 +236,8 @@ const MaterializeRenderSection = forwardRef<
       onStartDevServer,
       initialScreens,
       onScreensChange,
+      initialWebScreens,
+      onWebScreensChange,
     },
     ref,
   ) => {
@@ -340,13 +345,41 @@ const MaterializeRenderSection = forwardRef<
       };
     }, [isMultiScreenEnabled, mobileScreens.length, mobileSize]);
 
+    // Web screens state for multi-screen web view
+    const [webScreens, setWebScreens] = useState<MobileScreenConfig[]>(() => {
+      if (initialWebScreens?.length) {
+        return initialWebScreens.map((s) => ({ id: s.id, path: s.path }));
+      }
+      return viewing_url ? [{ id: 0, path: extractInitialPath(viewing_url) }] : [];
+    });
+    const nextWebScreenId = useRef(1);
+    const webIframeRefs = useRef<Map<number, HTMLIFrameElement>>(new Map());
+
+    // Web frame sizing
+    const DEFAULT_WEB_FRAME_HEIGHT = 500;
+    const [webFrameHeight, setWebFrameHeight] = useState(DEFAULT_WEB_FRAME_HEIGHT);
+    const [isResizingWebFrame, setIsResizingWebFrame] = useState(false);
+
+    // Responsive viewport detection for web grid
+    const [isNarrowViewport, setIsNarrowViewport] = useState(false);
+
+    // Web grid layout calculation
+    const webGridLayout = React.useMemo(() => {
+      const count = webScreens.length;
+      if (count <= 1) return { gridTemplate: "1fr", showAddButton: true };
+      if (count === 2) return { gridTemplate: "repeat(2, 1fr)", showAddButton: true };
+      if (count === 3) return { gridTemplate: "repeat(2, 1fr)", showAddButton: true };
+      return { gridTemplate: "repeat(2, 1fr)", showAddButton: false }; // Max 4
+    }, [webScreens.length]);
+
     const [editingScreenId, setEditingScreenId] = useState<number | null>(null);
+    const [editingWebScreenId, setEditingWebScreenId] = useState<number | null>(null);
     const [tempPath, setTempPath] = useState<string>("");
     const [routeSuggestions, setRouteSuggestions] = useState<
       Array<{ route: string; group?: string; }>
     >([]);
-    // Allow screen editing in public view if onScreensChange is provided (owner/team member)
-    const canEditScreensInPublicView = publicView && !!onScreensChange;
+    // Allow screen editing in public view if onScreensChange or onWebScreensChange is provided
+    const canEditScreensInPublicView = publicView && (!!onScreensChange || !!onWebScreensChange);
     const isReadOnlyView = (publicView && !canEditScreensInPublicView) || deployedView;
 
     // Terminal state
@@ -453,6 +486,41 @@ const MaterializeRenderSection = forwardRef<
     useEffect(() => {
       onScreensChange?.(mobileScreens);
     }, [mobileScreens, onScreensChange]);
+
+    // Notify parent when web screens change
+    useEffect(() => {
+      onWebScreensChange?.(webScreens);
+    }, [webScreens, onWebScreensChange]);
+
+    // Viewport resize listener for web grid responsive layout
+    useEffect(() => {
+      const checkViewport = () => {
+        setIsNarrowViewport(window.innerWidth < 768);
+      };
+      checkViewport();
+      window.addEventListener("resize", checkViewport);
+      return () => window.removeEventListener("resize", checkViewport);
+    }, []);
+
+    // Initialize web screens from viewing_url when it changes
+    useEffect(() => {
+      if (!viewing_url) {
+        setWebScreens([]);
+        nextWebScreenId.current = 1;
+        return;
+      }
+
+      // If initialWebScreens is provided, don't reset on URL change
+      if (initialWebScreens?.length) {
+        const maxId = Math.max(...initialWebScreens.map((s) => s.id));
+        nextWebScreenId.current = maxId + 1;
+        return;
+      }
+
+      const initialPath = extractInitialPath(viewing_url);
+      setWebScreens([{ id: 0, path: initialPath }]);
+      nextWebScreenId.current = 1;
+    }, [viewing_url, initialWebScreens]);
 
     // Monitor iframe navigation to sync the path display
     useEffect(() => {
@@ -582,6 +650,108 @@ const MaterializeRenderSection = forwardRef<
         return prev.filter((screen) => screen.id !== id);
       });
     };
+
+    // Web screen handlers
+    const handleAddWebScreen = useCallback(() => {
+      if (!viewing_url) return;
+
+      const currentCount = webScreens.length;
+      if (currentCount >= 4) {
+        toast.warning("Maximum screens reached", {
+          description: "Web view supports up to 4 screens.",
+        });
+        return;
+      }
+
+      if (currentCount >= 3) {
+        toast.warning("Performance note", {
+          description: "Having many screens open may slow down your browser.",
+        });
+      }
+
+      setWebScreens((prev) => [
+        ...prev,
+        { id: nextWebScreenId.current++, path: "/" },
+      ]);
+      setIsIframeLoading(true);
+      setIframeError(false);
+    }, [viewing_url, webScreens.length]);
+
+    const handleRemoveWebScreen = useCallback((id: number) => {
+      setWebScreens((prev) => {
+        if (prev.length <= 1) return prev;
+        return prev.filter((screen) => screen.id !== id);
+      });
+    }, []);
+
+    const refreshWebScreen = useCallback((screenId: number) => {
+      const iframe = webIframeRefs.current.get(screenId);
+      if (iframe) {
+        const currentSrc = iframe.src;
+        iframe.src = "about:blank";
+        setTimeout(() => {
+          iframe.src = currentSrc;
+        }, 100);
+      }
+    }, []);
+
+    // Web frame resize handler
+    const handleWebFrameResizeStart = useCallback((e: React.MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setIsResizingWebFrame(true);
+
+      const startY = e.clientY;
+      const startHeight = webFrameHeight;
+
+      const handleMouseMove = (moveEvent: MouseEvent) => {
+        const deltaY = moveEvent.clientY - startY;
+        const newHeight = Math.max(300, Math.min(900, startHeight + deltaY));
+        setWebFrameHeight(newHeight);
+      };
+
+      const handleMouseUp = () => {
+        setIsResizingWebFrame(false);
+        document.removeEventListener("mousemove", handleMouseMove);
+        document.removeEventListener("mouseup", handleMouseUp);
+        document.body.style.cursor = "";
+        document.body.style.userSelect = "";
+      };
+
+      document.addEventListener("mousemove", handleMouseMove);
+      document.addEventListener("mouseup", handleMouseUp);
+      document.body.style.cursor = "ns-resize";
+      document.body.style.userSelect = "none";
+    }, [webFrameHeight]);
+
+    // Web screen path editing handlers
+    const handleWebBadgeClick = useCallback((id: number, currentPath: string) => {
+      setEditingWebScreenId(id);
+      setTempPath(currentPath);
+    }, []);
+
+    const handleConfirmWebPathChange = useCallback((id: number) => {
+      const normalized = normalizePath(tempPath);
+      setWebScreens((prev) =>
+        prev.map((screen) => {
+          if (screen.id === id && normalized !== screen.path) {
+            setIsIframeLoading(true);
+            setIframeError(false);
+            return { ...screen, path: normalized };
+          }
+          return screen;
+        })
+      );
+      setEditingWebScreenId(null);
+      setTempPath("");
+      setRouteSuggestions([]);
+    }, [tempPath]);
+
+    const handleCancelWebEdit = useCallback(() => {
+      setEditingWebScreenId(null);
+      setTempPath("");
+      setRouteSuggestions([]);
+    }, []);
 
     // Extract available routes from files
     const availableRoutes = React.useMemo(() => {
@@ -1529,43 +1699,216 @@ const MaterializeRenderSection = forwardRef<
         );
       }
 
+      // Helper to resolve iframe src with path
+      const resolveWebIframeSrc = (basePath: string) => {
+        if (!viewing_url) return "";
+        if (basePath === "/" || !basePath) return viewing_url;
+        try {
+          const url = new URL(viewing_url);
+          url.pathname = basePath;
+          return url.toString();
+        } catch {
+          return viewing_url;
+        }
+      };
+
+      const showWebMultiScreen = isMultiScreenEnabled && webScreens.length > 0;
+      const showWebControls = showWebMultiScreen && !isReadOnlyView;
+
       return (
-        <div className="w-full h-full px-4 pb-4 bg-background">
-          <div className="bg-accent rounded-xl border border-border overflow-hidden h-full shadow-sm flex flex-col">
-            {/* Browser Header */}
-            <div className="bg-accent border-b border-border px-4 py-2.5 flex items-center gap-4">
-              <div className="flex space-x-1.5">
-                <div className="w-2.5 h-2.5 rounded-full bg-red-500/20 border border-red-500/50"></div>
-                <div className="w-2.5 h-2.5 rounded-full bg-amber-500/20 border border-amber-500/50"></div>
-                <div className="w-2.5 h-2.5 rounded-full bg-emerald-500/20 border border-emerald-500/50"></div>
-              </div>
-              <div className="flex-1 flex justify-center">
-                <div className="h-6 px-4 rounded-md bg-background border border-border flex items-center justify-center min-w-[200px] max-w-[400px]">
-                  <span className="text-[10px] text-muted-foreground font-mono truncate opacity-60">
-                    {viewing_url}
+        <div className="w-full h-full overflow-auto bg-background p-4">
+          {/* Floating Add Screen Button */}
+          {showWebControls && webGridLayout.showAddButton && (
+            <div className="absolute top-3 right-3 z-20">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleAddWebScreen}
+                className="h-8 bg-accent border border-border text-muted-foreground hover:text-foreground hover:border-border/80 hover:bg-accent/80 transition-all"
+                title="Add another web screen"
+                disabled={!viewing_url}
+              >
+                <Plus className="h-3.5 w-3.5" />
+                <span className="hidden md:inline text-xs font-medium ml-1">
+                  Add Screen
+                </span>
+              </Button>
+            </div>
+          )}
+
+          {/* Web Screens Grid */}
+          <div
+            className={cn(
+              "gap-4 h-full",
+              !showWebMultiScreen || isNarrowViewport || webScreens.length === 1
+                ? "flex flex-col"
+                : "grid"
+            )}
+            style={{
+              gridTemplateColumns:
+                !showWebMultiScreen || isNarrowViewport ? "1fr" : webGridLayout.gridTemplate,
+            }}
+          >
+            {(showWebMultiScreen ? webScreens : [{ id: 0, path: "/" }]).map((screen) => {
+              const iframeSrc = resolveWebIframeSrc(screen.path);
+              const showScreenControls = showWebMultiScreen && webScreens.length > 1;
+
+              return (
+                <div
+                  key={`web-screen-${screen.id}`}
+                  className="bg-accent rounded-xl border border-border overflow-hidden shadow-sm flex flex-col"
+                  style={{ minHeight: showWebMultiScreen ? webFrameHeight : undefined, height: showWebMultiScreen ? undefined : "100%" }}
+                >
+                  {/* Browser Header */}
+                  <div className="bg-accent border-b border-border px-4 py-2.5 flex items-center gap-4">
+                    {/* Traffic Lights */}
+                    <div className="flex space-x-1.5">
+                      <div className="w-2.5 h-2.5 rounded-full bg-red-500/20 border border-red-500/50"></div>
+                      <div className="w-2.5 h-2.5 rounded-full bg-amber-500/20 border border-amber-500/50"></div>
+                      <div className="w-2.5 h-2.5 rounded-full bg-emerald-500/20 border border-emerald-500/50"></div>
+                    </div>
+
+                    {/* URL Bar */}
+                    <div className="flex-1 flex justify-center">
+                      {editingWebScreenId === screen.id && !isReadOnlyView ? (
+                        <div className="flex items-center gap-1 bg-background border border-border px-2 py-1 rounded-md">
+                          <Input
+                            value={tempPath}
+                            onChange={(e) => handlePathInputChange(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                handleConfirmWebPathChange(screen.id);
+                              } else if (e.key === "Escape") {
+                                handleCancelWebEdit();
+                              }
+                            }}
+                            className="h-6 w-48 text-xs border-0 bg-transparent focus-visible:ring-0"
+                            placeholder="/"
+                            autoFocus
+                          />
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-5 w-5"
+                            onClick={() => handleConfirmWebPathChange(screen.id)}
+                          >
+                            <Check className="w-3 h-3 text-emerald-500" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-5 w-5"
+                            onClick={handleCancelWebEdit}
+                          >
+                            <X className="w-3 h-3 text-red-400" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <div
+                          className={cn(
+                            "h-6 px-4 rounded-md bg-background border border-border flex items-center justify-center min-w-[200px] max-w-[400px]",
+                            showWebControls && showScreenControls && "cursor-pointer hover:border-muted-foreground/50"
+                          )}
+                          onClick={
+                            showWebControls && showScreenControls
+                              ? () => handleWebBadgeClick(screen.id, screen.path)
+                              : undefined
+                          }
+                        >
+                          <span className="text-[10px] text-muted-foreground font-mono truncate opacity-60">
+                            {screen.path === "/" ? viewing_url : `${viewing_url}${screen.path}`}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Screen Controls */}
+                    {showWebControls && showScreenControls ? (
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6"
+                          onClick={() => refreshWebScreen(screen.id)}
+                        >
+                          <RefreshCw className="w-3 h-3 text-muted-foreground" />
+                        </Button>
+                        {webScreens.length > 1 && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 hover:text-red-400"
+                            onClick={() => handleRemoveWebScreen(screen.id)}
+                          >
+                            <X className="w-3 h-3" />
+                          </Button>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="w-10"></div>
+                    )}
+                  </div>
+
+                  {/* Iframe Content */}
+                  <div
+                    className="relative w-full flex-1 bg-white"
+                    style={{ minHeight: showWebMultiScreen ? webFrameHeight - 60 : undefined }}
+                  >
+                    <iframe
+                      key={`web-${screen.id}-${refreshKey}`}
+                      ref={(c) => {
+                        if (showWebMultiScreen) {
+                          if (c) {
+                            webIframeRefs.current.set(screen.id, c);
+                          } else {
+                            webIframeRefs.current.delete(screen.id);
+                          }
+                        } else {
+                          webPreviewRef.current = c?.contentWindow ?? null;
+                        }
+                      }}
+                      className="w-full h-full"
+                      title={`Web Preview ${screen.path}`}
+                      src={iframeSrc}
+                      sandbox="allow-scripts allow-same-origin allow-forms allow-downloads allow-modals allow-popups allow-presentation"
+                      allow="microphone; camera;"
+                      onLoad={handleIframeLoad}
+                      onError={handleIframeError}
+                    />
+                    {isIframeLoading && <ConnectionLoadingOverlay mode="web" />}
+                    {iframeError && <ConnectionErrorOverlay mode="web" />}
+                  </div>
+
+                  {/* Resize Handle - only for multi-screen */}
+                  {showWebMultiScreen && !isReadOnlyView && (
+                    <div
+                      className="h-2 cursor-ns-resize bg-accent hover:bg-accent/80 flex items-center justify-center group"
+                      onMouseDown={handleWebFrameResizeStart}
+                    >
+                      <div className="w-8 h-1 rounded-full bg-border group-hover:bg-muted-foreground/50 transition-colors" />
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+
+            {/* Inline Add Button for Grid */}
+            {showWebControls && webScreens.length >= 2 && webScreens.length < 4 && (
+              <div
+                className="flex items-center justify-center border-2 border-dashed border-border rounded-xl hover:border-muted-foreground/50 bg-accent/30 hover:bg-accent/50 transition-all cursor-pointer"
+                style={{ minHeight: webFrameHeight }}
+                onClick={handleAddWebScreen}
+              >
+                <div className="flex flex-col items-center gap-3 p-8">
+                  <div className="w-12 h-12 rounded-full bg-accent border border-border flex items-center justify-center">
+                    <Plus className="w-5 h-5 text-muted-foreground" />
+                  </div>
+                  <span className="text-xs font-medium text-muted-foreground">
+                    Add Screen
                   </span>
                 </div>
               </div>
-              <div className="w-10"></div> {/* Spacer for balance */}
-            </div>
-
-            <div className="relative w-full h-full flex-1 bg-white">
-              <iframe
-                key={`web-${refreshKey}`}
-                ref={(c) => {
-                  webPreviewRef.current = c?.contentWindow ?? null;
-                }}
-                className="w-full h-full"
-                title="React Native Web Preview"
-                src={viewing_url}
-                sandbox="allow-scripts allow-same-origin allow-forms allow-downloads allow-modals allow-popups allow-presentation"
-                allow="microphone; camera;"
-                onLoad={handleIframeLoad}
-                onError={handleIframeError}
-              />
-              {isIframeLoading && <ConnectionLoadingOverlay mode="web" />}
-              {iframeError && <ConnectionErrorOverlay mode="web" />}
-            </div>
+            )}
           </div>
         </div>
       );

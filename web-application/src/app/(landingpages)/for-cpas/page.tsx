@@ -63,10 +63,6 @@ function HeroSection() {
     if (isLoading) return;
 
     setIsLoading(true);
-    logger.log({
-      event: "client_vertical_landing_cta_clicked",
-      properties: { vertical: "cpa", source: "hero" },
-    });
 
     try {
       if (!user?.id) {

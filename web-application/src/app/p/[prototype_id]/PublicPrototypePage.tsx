@@ -264,8 +264,12 @@ export default function PrototypePage() {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const { teams: userTeams } = useUserTeams();
 
-  // Public display config state
+  // Public display config state - mobile screens
   const [currentScreens, setCurrentScreens] = useState<MobileScreenConfig[]>(
+    [],
+  );
+  // Public display config state - web screens
+  const [currentWebScreens, setCurrentWebScreens] = useState<MobileScreenConfig[]>(
     [],
   );
   const [savedConfig, setSavedConfig] = useState<PublicDisplayConfig | null>(
@@ -283,34 +287,45 @@ export default function PrototypePage() {
     return isOwner || isMemberOfTeam;
   }, [currentUserId, prototype, userTeams]);
 
-  // Check if there are unsaved changes
+  // Helper to check if screens have changed
+  const screensChanged = useCallback(
+    (current: MobileScreenConfig[], saved: MobileScreenConfig[] | undefined) => {
+      const savedScreens = saved ?? [];
+      if (savedScreens.length === 0) {
+        if (current.length > 1) return true;
+        if (current.length === 1 && current[0].path !== "/") return true;
+        return false;
+      }
+      if (current.length !== savedScreens.length) return true;
+      for (let i = 0; i < current.length; i++) {
+        if (
+          current[i].id !== savedScreens[i].id ||
+          current[i].path !== savedScreens[i].path
+        ) {
+          return true;
+        }
+      }
+      return false;
+    },
+    [],
+  );
+
+  // Check if there are unsaved changes (mobile or web)
   const hasUnsavedChanges = useMemo(() => {
     if (!canEditPublicConfig) return false;
-    if (currentScreens.length === 0) return false;
 
-    const savedScreens = savedConfig?.screens ?? [];
-
-    // If no saved config and we have non-default screens, it's a change
-    if (savedScreens.length === 0) {
-      // Default is single screen at "/" - any deviation is a change
-      if (currentScreens.length > 1) return true;
-      if (currentScreens.length === 1 && currentScreens[0].path !== "/")
-        return true;
-      return false;
+    // Check mobile screens
+    if (currentScreens.length > 0) {
+      if (screensChanged(currentScreens, savedConfig?.screens)) return true;
     }
 
-    // Compare screen configs
-    if (currentScreens.length !== savedScreens.length) return true;
-    for (let i = 0; i < currentScreens.length; i++) {
-      if (
-        currentScreens[i].id !== savedScreens[i].id ||
-        currentScreens[i].path !== savedScreens[i].path
-      ) {
-        return true;
-      }
+    // Check web screens
+    if (currentWebScreens.length > 0) {
+      if (screensChanged(currentWebScreens, savedConfig?.webScreens)) return true;
     }
+
     return false;
-  }, [canEditPublicConfig, currentScreens, savedConfig]);
+  }, [canEditPublicConfig, currentScreens, currentWebScreens, savedConfig, screensChanged]);
 
   // Fetch current user
   useEffect(() => {
@@ -340,6 +355,16 @@ export default function PrototypePage() {
     [canEditPublicConfig],
   );
 
+  // Handle web screens change from MaterializeRenderSection
+  const handleWebScreensChange = useCallback(
+    (screens: MobileScreenConfig[]) => {
+      if (canEditPublicConfig) {
+        setCurrentWebScreens(screens);
+      }
+    },
+    [canEditPublicConfig],
+  );
+
   // Save public display config
   const handleSaveConfig = useCallback(async () => {
     if (!prototypeId || !canEditPublicConfig) return;
@@ -348,7 +373,8 @@ export default function PrototypePage() {
     try {
       const configToSave: PublicDisplayConfig = {
         screens: currentScreens.map((s) => ({ id: s.id, path: s.path })),
-        previewMode: "mobile", // Default for now
+        webScreens: currentWebScreens.map((s) => ({ id: s.id, path: s.path })),
+        previewMode: savedConfig?.previewMode ?? "mobile",
       };
 
       const { error: updateError } = await supabase
@@ -370,16 +396,21 @@ export default function PrototypePage() {
     } finally {
       setIsSaving(false);
     }
-  }, [prototypeId, canEditPublicConfig, currentScreens, logger]);
+  }, [prototypeId, canEditPublicConfig, currentScreens, currentWebScreens, savedConfig?.previewMode, logger]);
 
   // Discard unsaved changes
   const handleDiscardChanges = useCallback(() => {
+    // Reset mobile screens
     if (!savedConfig?.screens?.length) {
-      // Reset to default single screen
       setCurrentScreens([{ id: 0, path: "/" }]);
     } else {
-      // Restore saved screens
       setCurrentScreens(savedConfig.screens.map((s) => ({ id: s.id, path: s.path })));
+    }
+    // Reset web screens
+    if (!savedConfig?.webScreens?.length) {
+      setCurrentWebScreens([{ id: 0, path: "/" }]);
+    } else {
+      setCurrentWebScreens(savedConfig.webScreens.map((s) => ({ id: s.id, path: s.path })));
     }
     toast.info("Changes discarded");
   }, [savedConfig]);
@@ -402,6 +433,14 @@ export default function PrototypePage() {
   const initialScreens = useMemo((): PublicDisplayConfigScreen[] | undefined => {
     if (savedConfig?.screens?.length) {
       return savedConfig.screens;
+    }
+    return undefined;
+  }, [savedConfig]);
+
+  // Get initial web screens from saved config
+  const initialWebScreens = useMemo((): PublicDisplayConfigScreen[] | undefined => {
+    if (savedConfig?.webScreens?.length) {
+      return savedConfig.webScreens;
     }
     return undefined;
   }, [savedConfig]);
@@ -596,6 +635,10 @@ export default function PrototypePage() {
               initialScreens={initialScreens}
               onScreensChange={
                 canEditPublicConfig ? handleScreensChange : undefined
+              }
+              initialWebScreens={initialWebScreens}
+              onWebScreensChange={
+                canEditPublicConfig ? handleWebScreensChange : undefined
               }
               codeView={
                 <div className="flex h-full items-center justify-center text-sm text-gray-500 dark:text-[#8A8F98] bg-gray-50 dark:bg-[#0B0C0E]">

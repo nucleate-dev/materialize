@@ -12,6 +12,7 @@ export interface PublicDisplayConfigScreen {
 export interface PublicDisplayConfig {
   screens: PublicDisplayConfigScreen[];
   previewMode: "mobile" | "web";
+  webScreens?: PublicDisplayConfigScreen[];
 }
 
 export const normalizePrototypeVisibility = (
