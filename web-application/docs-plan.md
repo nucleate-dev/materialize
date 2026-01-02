@@ -10,7 +10,7 @@ Top-level navigation (final)
 ├─ Troubleshooting
 ├─ Reference
 
-Each section has a clear job-to-be-done.
+Each section has a clear job-to-be-done. 
 
 ⸻
 
