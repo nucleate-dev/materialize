@@ -752,6 +752,7 @@ export type Database = {
           owner_id: string | null
           project_context: string
           prototype_context: Json | null
+          public_display_config: Json | null
           slug: string | null
           team_id: string
           updated_at: string | null
@@ -771,6 +772,7 @@ export type Database = {
           owner_id?: string | null
           project_context?: string
           prototype_context?: Json | null
+          public_display_config?: Json | null
           slug?: string | null
           team_id: string
           updated_at?: string | null
@@ -790,6 +792,7 @@ export type Database = {
           owner_id?: string | null
           project_context?: string
           prototype_context?: Json | null
+          public_display_config?: Json | null
           slug?: string | null
           team_id?: string
           updated_at?: string | null

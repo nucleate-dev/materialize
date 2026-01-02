@@ -4,9 +4,15 @@ import { RenderStatus } from "@/app/dashboard/projects/[prototype_id]/InternalPr
 import { supabase } from "@/ClientConstants";
 import Loader from "@/components/dashboard/Loader";
 import { HorizontalModeToggle } from "@/components/prototype-editor/horizontal-mode-toggle";
-import MaterializeRenderSection from "@/components/prototype-editor/MaterializeRenderSection";
+import MaterializeRenderSection, {
+  type MaterializeRenderSectionRef,
+} from "@/components/prototype-editor/MaterializeRenderSection";
 import PublicPrototypeHeader from "@/components/prototype-editor/PublicPrototypeHeader";
 import { Button } from "@/components/ui/button";
+import type {
+  PublicDisplayConfig,
+  PublicDisplayConfigScreen,
+} from "@/lib/types/prototypes";
 import {
   Card,
   CardContent,
@@ -29,6 +35,7 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { SHOW_WHITEBOARDS } from "@/GlobalConstants";
+import { useUserTeams } from "@/hooks/useUserTeams";
 import { cn } from "@/lib/classNames";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import type {
@@ -43,15 +50,20 @@ import { EyeIcon, SparklesIcon } from "@heroicons/react/24/outline";
 import {
   Atom,
   Folder,
+  Loader2,
   LogOut,
+  Pencil,
   Rocket,
+  RotateCcw,
+  Save,
   Settings,
   Sparkles,
   SquareStack,
 } from "lucide-react";
 import Link from "next/link";
 import { useParams, usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { toast } from "sonner";
 
 type Prototype = Database["public"]["Tables"]["prototypes"]["Row"];
 
@@ -228,6 +240,13 @@ function AppSidebar() {
   );
 }
 
+// Interface matching MobileScreenConfig from MaterializeRenderSection
+interface MobileScreenConfig {
+  id: number;
+  path: string;
+  isEditing?: boolean;
+}
+
 export default function PrototypePage() {
   const params = useParams<{ prototype_id: string }>();
   const prototypeId = params?.prototype_id;
@@ -240,6 +259,152 @@ export default function PrototypePage() {
   const [renderStatus, setRenderStatus] =
     useState<RenderStatus>("Static build");
   const [isPreviewView, setIsPreviewView] = useState(true);
+
+  // Auth and edit permissions
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const { teams: userTeams } = useUserTeams();
+
+  // Public display config state
+  const [currentScreens, setCurrentScreens] = useState<MobileScreenConfig[]>(
+    [],
+  );
+  const [savedConfig, setSavedConfig] = useState<PublicDisplayConfig | null>(
+    null,
+  );
+  const [isSaving, setIsSaving] = useState(false);
+
+  const renderSectionRef = useRef<MaterializeRenderSectionRef>(null);
+
+  // Check if current user can edit the public display config (owner or team member)
+  const canEditPublicConfig = useMemo(() => {
+    if (!currentUserId || !prototype) return false;
+    const isOwner = currentUserId === prototype.owner_id;
+    const isMemberOfTeam = userTeams.some((team) => team.id === prototype.team_id);
+    return isOwner || isMemberOfTeam;
+  }, [currentUserId, prototype, userTeams]);
+
+  // Check if there are unsaved changes
+  const hasUnsavedChanges = useMemo(() => {
+    if (!canEditPublicConfig) return false;
+    if (currentScreens.length === 0) return false;
+
+    const savedScreens = savedConfig?.screens ?? [];
+
+    // If no saved config and we have non-default screens, it's a change
+    if (savedScreens.length === 0) {
+      // Default is single screen at "/" - any deviation is a change
+      if (currentScreens.length > 1) return true;
+      if (currentScreens.length === 1 && currentScreens[0].path !== "/")
+        return true;
+      return false;
+    }
+
+    // Compare screen configs
+    if (currentScreens.length !== savedScreens.length) return true;
+    for (let i = 0; i < currentScreens.length; i++) {
+      if (
+        currentScreens[i].id !== savedScreens[i].id ||
+        currentScreens[i].path !== savedScreens[i].path
+      ) {
+        return true;
+      }
+    }
+    return false;
+  }, [canEditPublicConfig, currentScreens, savedConfig]);
+
+  // Fetch current user
+  useEffect(() => {
+    async function fetchUserInfo() {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const userId = sessionData.session?.user?.id ?? null;
+      setCurrentUserId(userId);
+    }
+    fetchUserInfo();
+  }, []);
+
+  // Initialize saved config from prototype
+  useEffect(() => {
+    if (prototype?.public_display_config) {
+      const config = prototype.public_display_config as unknown as PublicDisplayConfig;
+      setSavedConfig(config);
+    }
+  }, [prototype]);
+
+  // Handle screens change from MaterializeRenderSection
+  const handleScreensChange = useCallback(
+    (screens: MobileScreenConfig[]) => {
+      if (canEditPublicConfig) {
+        setCurrentScreens(screens);
+      }
+    },
+    [canEditPublicConfig],
+  );
+
+  // Save public display config
+  const handleSaveConfig = useCallback(async () => {
+    if (!prototypeId || !canEditPublicConfig) return;
+
+    setIsSaving(true);
+    try {
+      const configToSave: PublicDisplayConfig = {
+        screens: currentScreens.map((s) => ({ id: s.id, path: s.path })),
+        previewMode: "mobile", // Default for now
+      };
+
+      const { error: updateError } = await supabase
+        .from("prototypes")
+        .update({ public_display_config: configToSave as unknown as Database["public"]["Tables"]["prototypes"]["Update"]["public_display_config"] })
+        .eq("id", prototypeId);
+
+      if (updateError) {
+        throw updateError;
+      }
+
+      setSavedConfig(configToSave);
+      toast.success("Public view configuration saved");
+    } catch (err) {
+      logger.debug("error", "Failed to save public display config:", {
+        error: err instanceof Error ? err.message : String(err),
+      });
+      toast.error("Failed to save configuration");
+    } finally {
+      setIsSaving(false);
+    }
+  }, [prototypeId, canEditPublicConfig, currentScreens, logger]);
+
+  // Discard unsaved changes
+  const handleDiscardChanges = useCallback(() => {
+    if (!savedConfig?.screens?.length) {
+      // Reset to default single screen
+      setCurrentScreens([{ id: 0, path: "/" }]);
+    } else {
+      // Restore saved screens
+      setCurrentScreens(savedConfig.screens.map((s) => ({ id: s.id, path: s.path })));
+    }
+    toast.info("Changes discarded");
+  }, [savedConfig]);
+
+  // Warn user before leaving with unsaved changes
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (hasUnsavedChanges) {
+        e.preventDefault();
+        e.returnValue = "";
+        return "";
+      }
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [hasUnsavedChanges]);
+
+  // Get initial screens from saved config
+  const initialScreens = useMemo((): PublicDisplayConfigScreen[] | undefined => {
+    if (savedConfig?.screens?.length) {
+      return savedConfig.screens;
+    }
+    return undefined;
+  }, [savedConfig]);
 
   useEffect(() => {
     async function fetchPrototypeData() {
@@ -419,6 +584,7 @@ export default function PrototypePage() {
           {/* Main Content - ExpoSnackViewer */}
           <div className="flex-1 relative">
             <MaterializeRenderSection
+              ref={renderSectionRef}
               viewing_url={viewingUrl ?? ""}
               prototypeId={prototypeId}
               currentRenderStatus={renderStatus}
@@ -427,12 +593,57 @@ export default function PrototypePage() {
               onPreviewViewChange={setIsPreviewView}
               publicView={true}
               framework={prototype?.framework ?? undefined}
+              initialScreens={initialScreens}
+              onScreensChange={
+                canEditPublicConfig ? handleScreensChange : undefined
+              }
               codeView={
                 <div className="flex h-full items-center justify-center text-sm text-gray-500 dark:text-[#8A8F98] bg-gray-50 dark:bg-[#0B0C0E]">
                   Code view is unavailable in the public prototype viewer.
                 </div>
               }
             />
+
+            {/* Edit Mode Indicator */}
+            {canEditPublicConfig && (
+              <div className="fixed top-20 right-6 z-50 animate-in fade-in slide-in-from-right-2 duration-300">
+                <div className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500/10 border border-amber-500/20 rounded-full text-amber-500 text-xs font-medium">
+                  <Pencil className="w-3 h-3" />
+                  Editing public view
+                </div>
+              </div>
+            )}
+
+            {/* Floating Save/Discard Buttons */}
+            {hasUnsavedChanges && canEditPublicConfig && (
+              <div className="fixed bottom-20 sm:bottom-6 right-6 z-50 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                <div className="flex items-center gap-2">
+                  <Button
+                    onClick={handleDiscardChanges}
+                    variant="outline"
+                    className="bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 shadow-lg px-3 py-2 rounded-lg flex items-center gap-2"
+                    aria-label="Discard unsaved changes to public view configuration"
+                  >
+                    <RotateCcw className="w-4 h-4" />
+                    <span className="hidden sm:inline">Discard</span>
+                  </Button>
+                  <Button
+                    onClick={handleSaveConfig}
+                    disabled={isSaving}
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg px-4 py-2 rounded-lg flex items-center gap-2"
+                    aria-label="Save public view configuration so visitors see this layout"
+                  >
+                    {isSaving ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Save className="w-4 h-4" />
+                    )}
+                    <span className="hidden sm:inline">Save public layout</span>
+                    <span className="sm:hidden">Save</span>
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
         </main>
       </div>

@@ -3,6 +3,17 @@ import { Database } from "./supabase";
 export type PrototypeVisibility =
   Database["public"]["Enums"]["visibility_level"];
 
+export interface PublicDisplayConfigScreen {
+  id: number;
+  path: string;
+  label?: string;
+}
+
+export interface PublicDisplayConfig {
+  screens: PublicDisplayConfigScreen[];
+  previewMode: "mobile" | "web";
+}
+
 export const normalizePrototypeVisibility = (
   visibility?: string | null,
 ): PrototypeVisibility => {

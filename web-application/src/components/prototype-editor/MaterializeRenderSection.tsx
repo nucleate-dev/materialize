@@ -23,6 +23,7 @@ import type {
   StartDevServerRequestBody,
   StartDevServerSuccessResponse,
 } from "@/lib/types/serverAPITypes";
+import { PublicDisplayConfigScreen } from "@/lib/types/prototypes";
 import { Database } from "@/lib/types/supabase";
 import { getBulkAssetSignedUrls } from "@/lib/utils/assetUtils";
 import { usePostHog } from "posthog-js/react";
@@ -185,6 +186,9 @@ interface MaterializeRenderSectionProps {
   framework?: string;
   // Callback to start dev server (consolidated in parent)
   onStartDevServer?: () => void;
+  // Public display config - for configuring multi-screen layouts
+  initialScreens?: PublicDisplayConfigScreen[];
+  onScreensChange?: (screens: MobileScreenConfig[]) => void;
 }
 
 export interface MaterializeRenderSectionRef {
@@ -227,6 +231,8 @@ const MaterializeRenderSection = forwardRef<
       publicView = false,
       framework,
       onStartDevServer,
+      initialScreens,
+      onScreensChange,
     },
     ref,
   ) => {
@@ -294,8 +300,13 @@ const MaterializeRenderSection = forwardRef<
     const [isBuilding, setIsBuilding] = useState(false);
     const [buildError, setBuildError] = useState<string | null>(null);
     const [mobileScreens, setMobileScreens] = useState<MobileScreenConfig[]>(
-      () =>
-        viewing_url ? [{ id: 0, path: extractInitialPath(viewing_url) }] : [],
+      () => {
+        // Use initialScreens if provided (from saved public display config)
+        if (initialScreens?.length) {
+          return initialScreens.map((s) => ({ id: s.id, path: s.path }));
+        }
+        return viewing_url ? [{ id: 0, path: extractInitialPath(viewing_url) }] : [];
+      },
     );
 
     // Calculate scaled mobile size based on number of screens when multi-screen is enabled
@@ -334,7 +345,9 @@ const MaterializeRenderSection = forwardRef<
     const [routeSuggestions, setRouteSuggestions] = useState<
       Array<{ route: string; group?: string; }>
     >([]);
-    const isReadOnlyView = publicView || deployedView;
+    // Allow screen editing in public view if onScreensChange is provided (owner/team member)
+    const canEditScreensInPublicView = publicView && !!onScreensChange;
+    const isReadOnlyView = (publicView && !canEditScreensInPublicView) || deployedView;
 
     // Terminal state
     const [isTerminalOpen, setIsTerminalOpen] = useState(false);
@@ -418,6 +431,14 @@ const MaterializeRenderSection = forwardRef<
         return;
       }
 
+      // If initialScreens is provided, don't reset to single screen on URL change
+      if (initialScreens?.length) {
+        // Update the nextMobileScreenId to be higher than any existing screen id
+        const maxId = Math.max(...initialScreens.map((s) => s.id));
+        nextMobileScreenId.current = maxId + 1;
+        return;
+      }
+
       const initialPath = extractInitialPath(viewing_url);
       setMobileScreens([{ id: 0, path: initialPath }]);
       nextMobileScreenId.current = 1;
@@ -426,7 +447,12 @@ const MaterializeRenderSection = forwardRef<
       if (onCurrentPathChange) {
         onCurrentPathChange(initialPath);
       }
-    }, [viewing_url, onCurrentPathChange]);
+    }, [viewing_url, onCurrentPathChange, initialScreens]);
+
+    // Notify parent when screens change (for saving public display config)
+    useEffect(() => {
+      onScreensChange?.(mobileScreens);
+    }, [mobileScreens, onScreensChange]);
 
     // Monitor iframe navigation to sync the path display
     useEffect(() => {
@@ -1280,7 +1306,7 @@ const MaterializeRenderSection = forwardRef<
                         {/* URL Bar / Controls - Show when multi-screen feature is enabled */}
                         {isMultiScreenEnabled && (
                           <div className="absolute -top-12 left-1/2 -translate-x-1/2 z-20">
-                            {editingScreenId === screen.id ? (
+                            {editingScreenId === screen.id && !isReadOnlyView ? (
                               <div className="flex flex-col items-center gap-1 animate-in fade-in slide-in-from-bottom-1 duration-200">
                                 <div className="flex items-center gap-1 bg-accent border border-border px-1.5 py-1 rounded-lg shadow-xl">
                                   <Input
@@ -1343,34 +1369,41 @@ const MaterializeRenderSection = forwardRef<
                             ) : (
                               <div className="flex items-center gap-1.5">
                                 <div
-                                  className="px-3 py-1.5 bg-accent border border-border rounded-full text-xs font-mono text-muted-foreground hover:text-foreground hover:border-border/80 cursor-pointer transition-all shadow-sm"
-                                  onClick={() =>
-                                    handleBadgeClick(screen.id, screen.path)
-                                  }
+                                  className={cn(
+                                    "px-3 py-1.5 rounded-full text-xs font-mono transition-all shadow-sm",
+                                    isReadOnlyView
+                                      ? "bg-accent/50 border border-border/50 text-muted-foreground/70"
+                                      : "bg-accent border border-border text-muted-foreground hover:text-foreground hover:border-border/80 cursor-pointer"
+                                  )}
+                                  onClick={!isReadOnlyView ? () => handleBadgeClick(screen.id, screen.path) : undefined}
                                 >
                                   {screen.path || "/"}
                                 </div>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-6 w-6 bg-accent border border-border rounded-full hover:bg-accent/80 text-muted-foreground"
-                                  onClick={() => refreshScreen(screen.id)}
-                                  aria-label="Refresh screen"
-                                >
-                                  <RefreshCw className="w-3 h-3" />
-                                </Button>
-                                {mobileScreens.length > 1 && (
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-6 w-6 bg-accent border border-border rounded-full hover:bg-red-500/10 hover:text-red-400 hover:border-red-500/20 text-muted-foreground"
-                                    onClick={() =>
-                                      handleRemoveMobileScreen(screen.id)
-                                    }
-                                    aria-label="Remove screen"
-                                  >
-                                    <X className="w-3 h-3" />
-                                  </Button>
+                                {!isReadOnlyView && (
+                                  <>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-6 w-6 bg-accent border border-border rounded-full hover:bg-accent/80 text-muted-foreground"
+                                      onClick={() => refreshScreen(screen.id)}
+                                      aria-label="Refresh screen"
+                                    >
+                                      <RefreshCw className="w-3 h-3" />
+                                    </Button>
+                                    {mobileScreens.length > 1 && (
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-6 w-6 bg-accent border border-border rounded-full hover:bg-red-500/10 hover:text-red-400 hover:border-red-500/20 text-muted-foreground"
+                                        onClick={() =>
+                                          handleRemoveMobileScreen(screen.id)
+                                        }
+                                        aria-label="Remove screen"
+                                      >
+                                        <X className="w-3 h-3" />
+                                      </Button>
+                                    )}
+                                  </>
                                 )}
                               </div>
                             )}
@@ -1464,8 +1497,8 @@ const MaterializeRenderSection = forwardRef<
                     </div>
                   );
                 })}
-                {/* Inline Add Screen button - only show when 2+ screens exist */}
-                {isMultiScreenEnabled && mobileScreens.length >= 2 && (
+                {/* Inline Add Screen button - only show when 2+ screens exist and can edit */}
+                {isMultiScreenEnabled && mobileScreens.length >= 2 && !isReadOnlyView && (
                   <div className="flex flex-col items-center justify-center gap-2 pt-2">
                     <div
                       className="relative mx-auto select-none flex items-center justify-center"
