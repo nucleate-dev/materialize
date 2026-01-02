@@ -98,8 +98,8 @@ function HomeContent() {
 
         <HeroSection />
 
-        {/* Bring Your Own Claude Code */}
-        <BringYourOwnSection />
+        {/* Build Your Own Way */}
+        <BuildYourOwnWaySection />
 
         {/* Section 1: Coding Agents & Design Systems */}
         <AgentsSection />
@@ -179,27 +179,9 @@ function HeroSection() {
         <h1 className="text-5xl md:text-7xl lg:text-8xl font-medium tracking-tight text-transparent bg-clip-text bg-gradient-to-b from-white via-white to-white/60 pb-2 mb-6">
           Build your ideas <br className="hidden md:block" /> fast
         </h1>
-        <p className="text-lg md:text-xl text-[#8A8F98] max-w-2xl mx-auto mb-8">
+        <p className="text-lg md:text-xl text-[#8A8F98] max-w-2xl mx-auto mb-12">
           Go from prompt to production-ready web and mobile apps in minutes.
         </p>
-
-        {/* Cross-platform visual */}
-        <div className="flex items-center justify-center gap-6 mb-12">
-          <div className="flex items-center gap-2 text-sm text-white/50">
-            <Smartphone className="w-4 h-4" />
-            <span>Mobile</span>
-          </div>
-          <div className="h-4 w-px bg-white/20" />
-          <div className="flex items-center gap-2 text-sm text-white/50">
-            <Layout className="w-4 h-4" />
-            <span>Web</span>
-          </div>
-          <div className="h-4 w-px bg-white/20" />
-          <div className="flex items-center gap-2 text-sm text-white/50">
-            <Palette className="w-4 h-4" />
-            <span>Shared Design Systems</span>
-          </div>
-        </div>
 
         <div className="max-w-3xl mx-auto relative group">
           <div className="absolute -inset-0.5 bg-gradient-to-r from-indigo-500/30 to-blue-500/30 rounded-2xl blur opacity-20 group-hover:opacity-40 transition duration-500"></div>
@@ -243,46 +225,96 @@ function HeroSection() {
 }
 
 /**
- * BRING YOUR OWN CLAUDE CODE SECTION
+ * BUILD YOUR OWN WAY SECTION
  */
-function BringYourOwnSection() {
+function BuildYourOwnWaySection() {
   return (
-    <section className="py-16 px-6 bg-gradient-to-b from-[#0B0C0E] to-[#0B0C0E] border-t border-white/5">
-      <div className="container mx-auto max-w-4xl">
-        <div className="relative bg-gradient-to-br from-[#D97757]/10 via-[#141517] to-[#141517] border border-[#D97757]/20 rounded-3xl p-8 md:p-12 overflow-hidden">
-          {/* Subtle glow effect */}
-          <div className="absolute top-0 right-0 w-64 h-64 bg-[#D97757]/10 blur-[100px] rounded-full"></div>
+    <section className="py-20 px-6 bg-[#0B0C0E]">
+      <div className="container mx-auto max-w-6xl">
+        <div className="text-center mb-12">
+          <h2 className="text-3xl md:text-5xl font-medium tracking-tight mb-4">
+            Build your own way
+          </h2>
+          <p className="text-[#8A8F98] max-w-xl mx-auto">
+            Choose your platform and bring your own tools for maximum flexibility.
+          </p>
+        </div>
 
-          <div className="relative z-10 flex flex-col md:flex-row items-center gap-8">
-            {/* Claude Code logo */}
-            <div className="flex-shrink-0">
-              <div className="w-16 h-16 bg-[#D97757]/20 rounded-2xl flex items-center justify-center">
-                <svg viewBox="0 0 24 24" fill="none" className="w-8 h-8 text-[#D97757]" xmlns="http://www.w3.org/2000/svg">
-                  <path fillRule="evenodd" clipRule="evenodd" d="M19.16 4.38H4.84V19.62H19.16V4.38ZM17.72 17.9L12 14.5L6.28 17.9V6.1H17.72V17.9Z" fill="currentColor" />
-                </svg>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+          {/* Web */}
+          <div className="bg-[#141517] border border-white/10 rounded-2xl p-6 hover:border-white/20 transition-all group">
+            <div className="w-12 h-12 bg-blue-500/10 rounded-xl flex items-center justify-center mb-4 border border-blue-500/20">
+              <Layout className="w-6 h-6 text-blue-400" />
+            </div>
+            <h3 className="text-lg font-medium mb-2">Web</h3>
+            <p className="text-sm text-[#8A8F98] leading-relaxed">
+              Build responsive web apps with Next.js, React, and modern frameworks.
+            </p>
+          </div>
+
+          {/* Mobile */}
+          <div className="bg-[#141517] border border-white/10 rounded-2xl p-6 hover:border-white/20 transition-all group">
+            <div className="w-12 h-12 bg-emerald-500/10 rounded-xl flex items-center justify-center mb-4 border border-emerald-500/20">
+              <Smartphone className="w-6 h-6 text-emerald-400" />
+            </div>
+            <h3 className="text-lg font-medium mb-2">Mobile</h3>
+            <p className="text-sm text-[#8A8F98] leading-relaxed">
+              Create native iOS and Android apps with Expo and React Native.
+            </p>
+          </div>
+
+          {/* Shared Design Systems */}
+          <div className="bg-[#141517] border border-white/10 rounded-2xl p-6 hover:border-white/20 transition-all group">
+            <div className="w-12 h-12 bg-purple-500/10 rounded-xl flex items-center justify-center mb-4 border border-purple-500/20">
+              <Palette className="w-6 h-6 text-purple-400" />
+            </div>
+            <h3 className="text-lg font-medium mb-2">Shared Design Systems</h3>
+            <p className="text-sm text-[#8A8F98] leading-relaxed">
+              Maintain consistent branding across all platforms with shared components.
+            </p>
+          </div>
+        </div>
+
+        {/* Bring Your Own Claude Code - Large Box */}
+        <div className="relative bg-gradient-to-br from-[#D97757]/10 via-[#141517] to-[#141517] border border-[#D97757]/20 rounded-2xl p-8 md:p-10 overflow-hidden hover:border-[#D97757]/40 transition-all">
+          {/* Subtle glow effect */}
+          <div className="absolute top-0 right-0 w-64 h-64 bg-[#D97757]/10 blur-[100px] rounded-full pointer-events-none"></div>
+
+          <div className="relative z-10 flex flex-col lg:flex-row items-start lg:items-center gap-8">
+            {/* Left side - Icon and content */}
+            <div className="flex items-start gap-6 flex-1">
+              <div className="flex-shrink-0">
+                <div className="w-14 h-14 bg-[#D97757]/20 rounded-xl flex items-center justify-center border border-[#D97757]/30">
+                  <svg viewBox="0 0 24 24" fill="none" className="w-7 h-7 text-[#D97757]" xmlns="http://www.w3.org/2000/svg">
+                    <path fillRule="evenodd" clipRule="evenodd" d="M19.16 4.38H4.84V19.62H19.16V4.38ZM17.72 17.9L12 14.5L6.28 17.9V6.1H17.72V17.9Z" fill="currentColor" />
+                  </svg>
+                </div>
+              </div>
+              <div>
+                <h3 className="text-xl md:text-2xl font-medium text-white mb-2">
+                  Bring your own Claude Code
+                </h3>
+                <p className="text-[#8A8F98] leading-relaxed max-w-xl">
+                  Already have a Claude Code subscription? Connect it to Nucleate for massive savings.
+                </p>
               </div>
             </div>
 
-            <div className="flex-1 text-center md:text-left">
-              <h3 className="text-2xl md:text-3xl font-medium text-white mb-3">
-                Bring your own Claude Code
-              </h3>
-              <p className="text-[#8A8F98] leading-relaxed mb-4">
-                Already have a Claude Code subscription? Connect it to Nucleate and get 1000x more usage
-                than Replit, Bolt, or Lovable—at a fraction of the cost. Your subscription, your savings.
-              </p>
-              <div className="flex flex-wrap items-center justify-center md:justify-start gap-4 text-sm">
-                <div className="flex items-center gap-2 text-white/60">
-                  <CheckCircle2 className="w-4 h-4 text-[#D97757]" />
-                  <span>Use your subscription</span>
+            {/* Right side - Stats and benefits */}
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6 lg:gap-8">
+              <div className="text-center sm:text-left">
+                <div className="text-3xl md:text-4xl font-bold text-[#D97757] mb-1">1000x</div>
+                <div className="text-xs text-white/50 uppercase tracking-wider">more usage</div>
+              </div>
+              <div className="hidden sm:block w-px h-12 bg-white/10"></div>
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-sm text-white/70">
+                  <CheckCircle2 className="w-4 h-4 text-[#D97757] flex-shrink-0" />
+                  <span>Use your subscription or ours</span>
                 </div>
-                <div className="flex items-center gap-2 text-white/60">
-                  <CheckCircle2 className="w-4 h-4 text-[#D97757]" />
-                  <span>Or use ours</span>
-                </div>
-                <div className="flex items-center gap-2 text-white/60">
-                  <CheckCircle2 className="w-4 h-4 text-[#D97757]" />
-                  <span>1000x more than competitors</span>
+                <div className="flex items-center gap-2 text-sm text-white/70">
+                  <CheckCircle2 className="w-4 h-4 text-[#D97757] flex-shrink-0" />
+                  <span>Fraction of the cost vs. competitors</span>
                 </div>
               </div>
             </div>
