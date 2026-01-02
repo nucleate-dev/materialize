@@ -5,10 +5,6 @@ import Footer from "@/components/shared/Footer";
 import { GridBackground } from "@/components/shared/GridComponent";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { useCreatePrototype } from "@/hooks/useCreatePrototype";
-import { useUser } from "@/hooks/useUser";
-import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
-import { setChatIntent } from "@/lib/utils/chatIntentUtils";
 import { motion } from "framer-motion";
 import {
   ArrowRight,
@@ -25,8 +21,6 @@ import {
   Users,
   X,
 } from "lucide-react";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
 
 export default function CPALandingPage() {
   return (
@@ -53,37 +47,6 @@ export default function CPALandingPage() {
  * HERO SECTION
  */
 function HeroSection() {
-  const logger = useProductLogger();
-  const { createPrototype } = useCreatePrototype();
-  const [isLoading, setIsLoading] = useState(false);
-  const router = useRouter();
-  const { user } = useUser();
-
-  const handleGetStarted = async () => {
-    if (isLoading) return;
-
-    setIsLoading(true);
-
-    try {
-      if (!user?.id) {
-        setChatIntent(undefined, "I need a professional website for my accounting firm", false);
-        router.push("/login");
-        return;
-      }
-
-      const result = await createPrototype({ framework: "web_nextjs_react", creation_source: "vertical_landing_cpa" });
-
-      if (result.data) {
-        setChatIntent(result.data.prototype_id, "I need a professional website for my accounting firm with pages for services, about us, and a contact form for client inquiries", false);
-        router.push(`/dashboard/projects/${result.data.prototype_id}`);
-      }
-    } catch (err) {
-      logger.error(err instanceof Error ? err : new Error(String(err)));
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   return (
     <section className="relative min-h-[85vh] flex flex-col justify-center px-6 py-24 pt-32">
       <div className="container mx-auto max-w-5xl w-full text-center">
@@ -103,15 +66,12 @@ function HeroSection() {
 
         <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-12">
           <Button
-            onClick={handleGetStarted}
-            disabled={isLoading}
             size="lg"
             className="bg-emerald-500 hover:bg-emerald-600 text-white px-8 py-6 text-lg rounded-full font-medium transition-all hover:scale-105"
           >
-            {isLoading ? "Creating..." : "Build my accounting website"}
+            Book a Call
             <ArrowRight className="ml-2 w-5 h-5" />
           </Button>
-          <span className="text-sm text-muted-foreground">Free to start</span>
         </div>
 
         {/* Website Preview */}
@@ -456,41 +416,6 @@ function FeaturesSection() {
  * CTA SECTION
  */
 function CTASection() {
-  const logger = useProductLogger();
-  const { createPrototype } = useCreatePrototype();
-  const [isLoading, setIsLoading] = useState(false);
-  const router = useRouter();
-  const { user } = useUser();
-
-  const handleGetStarted = async () => {
-    if (isLoading) return;
-
-    setIsLoading(true);
-    logger.log({
-      event: "client_vertical_landing_cta_clicked",
-      properties: { vertical: "cpa", source: "bottom_cta" },
-    });
-
-    try {
-      if (!user?.id) {
-        setChatIntent(undefined, "I need a professional website for my accounting firm", false);
-        router.push("/login");
-        return;
-      }
-
-      const result = await createPrototype({ framework: "web_nextjs_react", creation_source: "vertical_landing_cpa" });
-
-      if (result.data) {
-        setChatIntent(result.data.prototype_id, "I need a professional website for my accounting firm with pages for services, about us, and a contact form for client inquiries", false);
-        router.push(`/dashboard/projects/${result.data.prototype_id}`);
-      }
-    } catch (err) {
-      logger.error(err instanceof Error ? err : new Error(String(err)));
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   return (
     <section className="py-24 px-6 border-t border-border bg-background relative overflow-hidden">
       {/* Background gradient */}
@@ -505,18 +430,12 @@ function CTASection() {
         </p>
 
         <Button
-          onClick={handleGetStarted}
-          disabled={isLoading}
           size="lg"
           className="bg-emerald-500 hover:bg-emerald-600 text-white px-8 py-6 text-lg rounded-full font-medium transition-all hover:scale-105"
         >
-          {isLoading ? "Creating..." : "Build my accounting website"}
+          Book a Call
           <ArrowRight className="ml-2 w-5 h-5" />
         </Button>
-
-        <p className="mt-6 text-sm text-muted-foreground">
-          Free to start. No credit card required.
-        </p>
       </div>
     </section>
   );
