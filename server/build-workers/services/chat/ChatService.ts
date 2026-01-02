@@ -515,12 +515,6 @@ export class ChatService {
         });
       }
     }
-    // 5b. Delegate to appropriate handler based on provider and user subscription
-    let selectedChatEngine: ChatEngine;
-    let handlerName: string;
-    selectedChatEngine = this.chatQueryHandler;
-    handlerName = "claude-sdk";
-
     // 5. PREPARE SESSION STATE
     this.prepareSessionStateForQuery(data, logger);
 
