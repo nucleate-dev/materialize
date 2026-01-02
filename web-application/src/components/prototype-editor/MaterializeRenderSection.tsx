@@ -50,6 +50,7 @@ import {
   Monitor,
   MoreVertical,
   Palette,
+  Pencil,
   Plus,
   QrCode,
   RefreshCw,
@@ -464,11 +465,14 @@ const MaterializeRenderSection = forwardRef<
         return;
       }
 
-      // If initialScreens is provided, don't reset to single screen on URL change
+      // If initialScreens is provided, restore them from saved config
       if (initialScreens?.length) {
         // Update the nextMobileScreenId to be higher than any existing screen id
         const maxId = Math.max(...initialScreens.map((s) => s.id));
         nextMobileScreenId.current = maxId + 1;
+        // Set the mobile screens from the saved config
+        console.log("[MaterializeRenderSection] Restoring mobile screens from initialScreens:", initialScreens);
+        setMobileScreens(initialScreens.map((s) => ({ id: s.id, path: s.path })));
         return;
       }
 
@@ -510,10 +514,13 @@ const MaterializeRenderSection = forwardRef<
         return;
       }
 
-      // If initialWebScreens is provided, don't reset on URL change
+      // If initialWebScreens is provided, restore them from saved config
       if (initialWebScreens?.length) {
         const maxId = Math.max(...initialWebScreens.map((s) => s.id));
         nextWebScreenId.current = maxId + 1;
+        // Set the web screens from the saved config
+        console.log("[MaterializeRenderSection] Restoring web screens from initialWebScreens:", initialWebScreens);
+        setWebScreens(initialWebScreens.map((s) => ({ id: s.id, path: s.path })));
         return;
       }
 
@@ -1957,6 +1964,12 @@ const MaterializeRenderSection = forwardRef<
                     </span>
                   )}
                 </>
+              )}
+              {canEditScreensInPublicView && (
+                <div className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500/10 border border-amber-500/20 rounded-full text-amber-500 text-xs font-medium">
+                  <Pencil className="w-3 h-3" />
+                  Editing public view
+                </div>
               )}
             </div>
 

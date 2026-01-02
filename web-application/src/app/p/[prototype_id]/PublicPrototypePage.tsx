@@ -52,7 +52,6 @@ import {
   Folder,
   Loader2,
   LogOut,
-  Pencil,
   Rocket,
   RotateCcw,
   Save,
@@ -66,6 +65,35 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 type Prototype = Database["public"]["Tables"]["prototypes"]["Row"];
+
+// Validate a screen config array
+const isValidScreenArray = (arr: unknown): arr is PublicDisplayConfigScreen[] => {
+  if (!Array.isArray(arr)) return false;
+  return arr.every(
+    (item) =>
+      typeof item === "object" &&
+      item !== null &&
+      typeof item.id === "number" &&
+      typeof item.path === "string"
+  );
+};
+
+// Validate the public display config structure
+const isValidPublicDisplayConfig = (config: unknown): config is PublicDisplayConfig => {
+  if (typeof config !== "object" || config === null) return false;
+  const c = config as Record<string, unknown>;
+
+  // screens is optional, but if present must be valid
+  if (c.screens !== undefined && !isValidScreenArray(c.screens)) return false;
+
+  // webScreens is optional, but if present must be valid
+  if (c.webScreens !== undefined && !isValidScreenArray(c.webScreens)) return false;
+
+  // previewMode is optional, but if present must be "mobile" or "web"
+  if (c.previewMode !== undefined && c.previewMode !== "mobile" && c.previewMode !== "web") return false;
+
+  return true;
+};
 
 function AppSidebar() {
   const pathname = usePathname();
@@ -340,8 +368,18 @@ export default function PrototypePage() {
   // Initialize saved config from prototype
   useEffect(() => {
     if (prototype?.public_display_config) {
-      const config = prototype.public_display_config as unknown as PublicDisplayConfig;
-      setSavedConfig(config);
+      const rawConfig = prototype.public_display_config;
+
+      if (isValidPublicDisplayConfig(rawConfig)) {
+        console.log("[PublicPrototypePage] Loading saved public_display_config:", JSON.stringify(rawConfig, null, 2));
+        setSavedConfig(rawConfig);
+      } else {
+        console.warn("[PublicPrototypePage] Invalid public_display_config, resetting to default:", rawConfig);
+        // Reset to default by not setting savedConfig (will use component defaults)
+        setSavedConfig(null);
+      }
+    } else if (prototype) {
+      console.log("[PublicPrototypePage] No public_display_config found on prototype");
     }
   }, [prototype]);
 
@@ -376,6 +414,7 @@ export default function PrototypePage() {
         webScreens: currentWebScreens.map((s) => ({ id: s.id, path: s.path })),
         previewMode: savedConfig?.previewMode ?? "mobile",
       };
+      console.log("[PublicPrototypePage] Saving public_display_config:", JSON.stringify(configToSave, null, 2));
 
       const { error: updateError } = await supabase
         .from("prototypes")
@@ -646,16 +685,6 @@ export default function PrototypePage() {
                 </div>
               }
             />
-
-            {/* Edit Mode Indicator */}
-            {canEditPublicConfig && (
-              <div className="fixed top-20 right-6 z-50 animate-in fade-in slide-in-from-right-2 duration-300">
-                <div className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500/10 border border-amber-500/20 rounded-full text-amber-500 text-xs font-medium">
-                  <Pencil className="w-3 h-3" />
-                  Editing public view
-                </div>
-              </div>
-            )}
 
             {/* Floating Save/Discard Buttons */}
             {hasUnsavedChanges && canEditPublicConfig && (
