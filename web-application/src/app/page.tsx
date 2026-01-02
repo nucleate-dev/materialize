@@ -1966,6 +1966,34 @@ function PricingSection() {
   return (
     <section className="py-32 bg-[#0B0C0E] border-t border-white/5">
       <div className="container mx-auto px-6 max-w-6xl">
+        {/* New Year Sale Banner */}
+        <div className="mb-12 relative overflow-hidden rounded-2xl bg-gradient-to-r from-amber-500/20 via-yellow-500/20 to-amber-500/20 border border-yellow-500/30 p-6">
+          <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxIiBmaWxsPSJyZ2JhKDI1NSwyMTUsMCwwLjEpIi8+PC9zdmc+')] opacity-50"></div>
+          <div className="relative flex flex-col md:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <div className="text-4xl">🎉</div>
+              <div>
+                <h3 className="text-xl font-bold text-white">New Year Sale!</h3>
+                <p className="text-yellow-200/80 text-sm">Get 50% off your first month of Plus</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="bg-black/30 backdrop-blur-sm rounded-lg px-4 py-2 border border-yellow-500/20">
+                <span className="text-xs text-yellow-200/60 uppercase tracking-wide">Use code</span>
+                <p className="text-lg font-mono font-bold text-yellow-400">NEWYEAR</p>
+              </div>
+              <div className="text-center">
+                <p className="text-xs text-yellow-200/60">Plus Plan</p>
+                <div className="flex items-center gap-2">
+                  <span className="text-lg text-white/40 line-through">$25</span>
+                  <span className="text-2xl font-bold text-white">$12.50</span>
+                </div>
+                <p className="text-xs text-yellow-200/60">first month</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <div className="text-center mb-12">
           <h2 className="text-4xl font-medium text-white mb-4">Simple pricing</h2>
           <p className="text-[#8A8F98]">Start for free, scale as you grow.</p>
