@@ -167,7 +167,7 @@ function HeroSection() {
         setShowUpsellModal(true);
       }
     } catch (err) {
-      logger.debug("Error creating prototype", { error: err });
+      logger.debug("error", "Error creating prototype", { error: err });
     } finally {
       setIsLoading(false);
     }
