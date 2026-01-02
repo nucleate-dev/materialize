@@ -1777,7 +1777,7 @@ const MaterializeRenderSection = forwardRef<
                                 handleCancelWebEdit();
                               }
                             }}
-                            className="h-6 w-48 text-xs border-0 bg-transparent focus-visible:ring-0"
+                            className="h-6 w-48 text-xs border-0 bg-transparent focus-visible:ring-0 text-foreground"
                             placeholder="/"
                             autoFocus
                           />
