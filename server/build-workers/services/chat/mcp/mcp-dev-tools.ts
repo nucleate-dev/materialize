@@ -7,6 +7,7 @@ import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 import { stripAnsiSequences } from "../../terminals/TerminalAnsiUtils.js";
 import { WORK_DIR } from "../../../worker.js";
+import { ChatEvent, ScreenUpdateData } from "../../../types/ChatTypes.js";
 
 // Define the signature for the command runner callback
 export type CommandRunner = (
@@ -17,6 +18,12 @@ export type CommandRunner = (
 
 // Define the signature for the dev server restart callback
 export type DevServerRestartCallback = () => Promise<void>;
+
+// Define the signature for broadcasting screen update events
+export type ScreenUpdateBroadcaster = (data: ScreenUpdateData) => void;
+
+// Define the signature for getting current visible screens count
+export type GetVisibleScreensCount = () => number;
 
 // Define the signature for the file writer callback
 export type FileWriter = (
@@ -44,6 +51,8 @@ export function createDevelopmentToolsMcpServer(
   writeFile: FileWriter,
   terminalService: TerminalServiceInstance,
   restartDevServer: DevServerRestartCallback,
+  broadcastScreenUpdate?: ScreenUpdateBroadcaster,
+  getVisibleScreensCount?: GetVisibleScreensCount,
 ): McpSdkServerConfigWithInstance {
   return createSdkMcpServer({
     name: "devtools",
@@ -267,6 +276,131 @@ export function createDevelopmentToolsMcpServer(
           }
         },
       ),
+
+      // --- UpdatePreviewScreens Tool ---
+      // Only include this tool if the broadcast callback is provided
+      ...(broadcastScreenUpdate
+        ? [
+            tool(
+              "UpdatePreviewScreens",
+              "Add, remove, or set preview screens shown to the user. Use this to help users compare design variants side-by-side. PROACTIVELY use this when creating design variants (e.g., after creating /pricing-v1 and /pricing-v2, use this to show them side-by-side). Maximum 4 screens allowed.",
+              {
+                action: z
+                  .enum(["add", "remove", "set"])
+                  .describe(
+                    "Action: 'add' adds a new screen, 'remove' removes a screen by ID, 'set' replaces all screens with a new set",
+                  ),
+                path: z
+                  .string()
+                  .optional()
+                  .describe(
+                    "Path for 'add' action (e.g., '/pricing-v1'). Required when action is 'add'.",
+                  ),
+                screenId: z
+                  .number()
+                  .optional()
+                  .describe(
+                    "Screen ID for 'remove' action. Required when action is 'remove'.",
+                  ),
+                screens: z
+                  .array(z.object({ path: z.string() }))
+                  .max(4)
+                  .optional()
+                  .describe(
+                    "Array of screen paths for 'set' action (max 4 screens). Required when action is 'set'.",
+                  ),
+              },
+              async ({
+                action,
+                path,
+                screenId,
+                screens,
+              }: {
+                action: "add" | "remove" | "set";
+                path?: string;
+                screenId?: number;
+                screens?: Array<{ path: string }>;
+              }): Promise<CallToolResult> => {
+                // Validate action-specific parameters
+                if (action === "add" && !path) {
+                  return {
+                    isError: true,
+                    content: [
+                      {
+                        type: "text",
+                        text: "Path is required for 'add' action",
+                      },
+                    ],
+                  };
+                }
+                if (action === "remove" && screenId === undefined) {
+                  return {
+                    isError: true,
+                    content: [
+                      {
+                        type: "text",
+                        text: "screenId is required for 'remove' action",
+                      },
+                    ],
+                  };
+                }
+                if (action === "set" && (!screens || screens.length === 0)) {
+                  return {
+                    isError: true,
+                    content: [
+                      {
+                        type: "text",
+                        text: "screens array is required for 'set' action",
+                      },
+                    ],
+                  };
+                }
+
+                // Enforce max 4 screens for add action
+                if (action === "add" && getVisibleScreensCount) {
+                  const currentCount = getVisibleScreensCount();
+                  if (currentCount >= 4) {
+                    return {
+                      content: [
+                        {
+                          type: "text",
+                          text: "Cannot add screen: maximum of 4 screens allowed. Use 'set' action to replace screens or 'remove' to free up space.",
+                        },
+                      ],
+                    };
+                  }
+                }
+
+                // Broadcast screen update to client
+                const updateData: ScreenUpdateData = {
+                  action,
+                  path,
+                  screenId,
+                  screens,
+                };
+                broadcastScreenUpdate(updateData);
+
+                // Return success message based on action
+                let message: string;
+                switch (action) {
+                  case "add":
+                    message = `Screen added with path: ${path}`;
+                    break;
+                  case "remove":
+                    message = `Screen with ID ${screenId} removed`;
+                    break;
+                  case "set":
+                    message = `Screens set to: ${screens?.map((s) => s.path).join(", ")}`;
+                    break;
+                }
+
+                return {
+                  content: [{ type: "text", text: message }],
+                };
+              },
+            ),
+          ]
+        : []),
     ],
   });
 }

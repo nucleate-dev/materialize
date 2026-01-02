@@ -7,6 +7,7 @@ import CodeEditor from "@/components/prototype-editor/CodeEditor";
 import FileTree from "@/components/prototype-editor/FileTree";
 import MaterializeRenderSection, {
   MaterializeRenderSectionRef,
+  type MobileScreenConfig,
 } from "@/components/prototype-editor/MaterializeRenderSection";
 import ProPlanUpsellModal from "@/components/prototype-editor/ProPlanUpsellModal";
 import PrototypeDeployModal from "@/components/prototype-editor/PrototypeDeployModal";
@@ -44,7 +45,7 @@ import { usePostHog } from "posthog-js/react";
 import { sidebarOpenAtom } from "@/lib/atoms/sidebar";
 import { cn } from "@/lib/classNames";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
-import { type ChatServerMessage } from "@/lib/types/ChatTypes";
+import { type ChatServerMessage, type ScreenUpdateData } from "@/lib/types/ChatTypes";
 import {
   normalizePrototypeVisibility,
   type PrototypeVisibility,
@@ -173,6 +174,11 @@ export default function InternalPrototypePage() {
   // Current viewing path tracking
   const [currentViewingPath, setCurrentViewingPath] = useState<string>("/");
 
+  // Multi-screen state for LLM control
+  const [mobileScreensState, setMobileScreensState] = useState<MobileScreenConfig[]>([]);
+  const [webScreensState, setWebScreensState] = useState<MobileScreenConfig[]>([]);
+  const [previewMode, setPreviewMode] = useState<"mobile" | "web">("mobile");
+
   // Resizable divider state
   const [leftPanelWidth, setLeftPanelWidth] = useState(40); // percentage
   const [isDragging, setIsDragging] = useState(false);
@@ -231,6 +237,12 @@ export default function InternalPrototypePage() {
       "restart dev server completed, triggering preview refresh",
     );
     materializeRenderRef.current?.forceRefresh();
+  }, [logger]);
+
+  // Handle screen updates from LLM
+  const handleScreenUpdate = useCallback((data: ScreenUpdateData) => {
+    logger.debug("log", "LLM requested screen update", { data });
+    materializeRenderRef.current?.updateScreens(data);
   }, [logger]);
 
   const canEditDesignSystem = Boolean(
@@ -1202,6 +1214,9 @@ export default function InternalPrototypePage() {
               onPrototypeUpdate={setPrototype}
               currentRenderStatus={currentRenderStatus}
               currentViewingPath={currentViewingPath}
+              visibleScreens={previewMode === "mobile" ? mobileScreensState : webScreensState}
+              previewMode={previewMode}
+              onScreenUpdate={handleScreenUpdate}
               fileSystem={fileSystem}
               externalWS={claudeCodeWS}
               externalWSConnected={claudeCodeWSConnected}
@@ -1271,6 +1286,9 @@ export default function InternalPrototypePage() {
                 canEditDesignSystem ? handleOpenDesignSystemDialog : undefined
               }
               onCurrentPathChange={setCurrentViewingPath}
+              onScreensChange={setMobileScreensState}
+              onWebScreensChange={setWebScreensState}
+              onPreviewModeChange={setPreviewMode}
               isPreviewView={isPreviewView}
               onPreviewViewChange={setIsPreviewView}
               onDeploy={

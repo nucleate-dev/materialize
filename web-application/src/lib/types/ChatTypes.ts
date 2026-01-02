@@ -23,6 +23,7 @@ export enum ChatEvent {
   HISTORY_REQUEST = "history_request",
   DESIGN_GENERATION = "design_generation",
   COLLABORATOR_MESSAGE = "collaborator_message",
+  SCREEN_UPDATE = "screen_update",
 }
 
 export enum ChatClientEvent {
@@ -69,6 +70,8 @@ export interface ChatQueryData {
     media_type: string;
     name?: string;
   }>;
+  visible_screens?: Array<{ id: number; path: string }>; // All visible preview screens (for multi-screen mode)
+  preview_mode?: "mobile" | "web"; // Current preview mode
 }
 
 export interface QueryMessage {
@@ -224,6 +227,18 @@ export interface CollaboratorMessagePayload {
   };
 }
 
+export interface ScreenUpdateData {
+  action: "add" | "remove" | "set";
+  screens?: Array<{ path: string }>; // For "set" action
+  path?: string; // For "add" action
+  screenId?: number; // For "remove" action
+}
+
+export interface ScreenUpdateMessage {
+  type: ChatEvent.SCREEN_UPDATE;
+  data: ScreenUpdateData;
+}
+
 export type ChatServerMessage =
   | SystemConnectionMessage
   | ErrorMessage
@@ -239,4 +254,5 @@ export type ChatServerMessage =
   | ReadyMessage
   | HistoryRequestMessage
   | DesignGenerationMessage
-  | CollaboratorMessagePayload;
+  | CollaboratorMessagePayload
+  | ScreenUpdateMessage;

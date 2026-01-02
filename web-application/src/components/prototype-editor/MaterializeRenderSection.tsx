@@ -24,6 +24,7 @@ import type {
   StartDevServerSuccessResponse,
 } from "@/lib/types/serverAPITypes";
 import { PublicDisplayConfigScreen } from "@/lib/types/prototypes";
+import { type ScreenUpdateData } from "@/lib/types/ChatTypes";
 import { Database } from "@/lib/types/supabase";
 import { getBulkAssetSignedUrls } from "@/lib/utils/assetUtils";
 import { usePostHog } from "posthog-js/react";
@@ -85,7 +86,7 @@ import {
 } from "@/lib/types/SandboxAPITypes";
 import { ViewOnDeviceModal } from "./ViewOnDeviceModal";
 
-interface MobileScreenConfig {
+export interface MobileScreenConfig {
   id: number;
   path: string;
   isEditing?: boolean; // Track if the badge is in edit mode
@@ -193,10 +194,13 @@ interface MaterializeRenderSectionProps {
   // Web multi-screen config
   initialWebScreens?: PublicDisplayConfigScreen[];
   onWebScreensChange?: (screens: MobileScreenConfig[]) => void;
+  // Preview mode change callback
+  onPreviewModeChange?: (mode: "mobile" | "web") => void;
 }
 
 export interface MaterializeRenderSectionRef {
   forceRefresh: () => void;
+  updateScreens: (data: ScreenUpdateData) => void;
 }
 
 type PreviewMode = "web" | "mobile";
@@ -239,6 +243,7 @@ const MaterializeRenderSection = forwardRef<
       onScreensChange,
       initialWebScreens,
       onWebScreensChange,
+      onPreviewModeChange,
     },
     ref,
   ) => {
@@ -263,6 +268,11 @@ const MaterializeRenderSection = forwardRef<
         setPreviewMode("web");
       }
     }, [isWebFramework, previewMode]);
+
+    // Notify parent when preview mode changes
+    useEffect(() => {
+      onPreviewModeChange?.(previewMode);
+    }, [previewMode, onPreviewModeChange]);
     const [mobileSize, setMobileSize] = useState({ width: 320, height: 640 });
     const [hasManuallyResized, setHasManuallyResized] = useState(false);
 
@@ -913,13 +923,52 @@ const MaterializeRenderSection = forwardRef<
       }
     }, [viewing_url]);
 
-    // Expose forceRefresh method to parent
+    // Expose forceRefresh and updateScreens methods to parent
     useImperativeHandle(
       ref,
       () => ({
         forceRefresh,
+        updateScreens: (data: ScreenUpdateData) => {
+          const setScreens = previewMode === "mobile" ? setMobileScreens : setWebScreens;
+          const nextIdRef = previewMode === "mobile" ? nextMobileScreenId : nextWebScreenId;
+
+          switch (data.action) {
+            case "add":
+              if (data.path) {
+                // Enforce max 4 screens
+                const currentScreens = previewMode === "mobile" ? mobileScreens : webScreens;
+                if (currentScreens.length >= 4) {
+                  logger.debug("warn", "Cannot add screen: maximum of 4 screens allowed");
+                  return;
+                }
+                setScreens((prev) => [...prev, { id: nextIdRef.current++, path: data.path! }]);
+              }
+              break;
+            case "remove":
+              if (data.screenId !== undefined) {
+                setScreens((prev) => {
+                  // Don't allow removing the last screen
+                  if (prev.length <= 1) {
+                    logger.debug("warn", "Cannot remove last screen");
+                    return prev;
+                  }
+                  return prev.filter((s) => s.id !== data.screenId);
+                });
+              }
+              break;
+            case "set":
+              if (data.screens && data.screens.length > 0) {
+                // Enforce max 4 screens
+                const screensToSet = data.screens.slice(0, 4);
+                let idCounter = 0;
+                setScreens(screensToSet.map((s) => ({ id: idCounter++, path: s.path })));
+                nextIdRef.current = idCounter;
+              }
+              break;
+          }
+        },
       }),
-      [forceRefresh],
+      [forceRefresh, previewMode, mobileScreens, webScreens, logger],
     );
 
     const handleRestartDevServer = async () => {

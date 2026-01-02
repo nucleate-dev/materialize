@@ -545,13 +545,60 @@ CRITICAL: If you use a package, you should verify that it is installed; else, in
 `;
 
 /**
+ * Generates screen context for the system prompt when multi-screen mode is active
+ */
+function getScreenContextSection(
+  visibleScreens?: Array<{ id: number; path: string }>,
+  previewMode?: "mobile" | "web",
+): string {
+  if (!visibleScreens || visibleScreens.length === 0) {
+    return "";
+  }
+
+  const screensList = visibleScreens
+    .map((s) => `- Screen ${s.id}: ${s.path}`)
+    .join("\n");
+
+  return `
+<multi_screen_preview>
+## Current Preview Screens
+The user is viewing ${visibleScreens.length} screen(s) in ${previewMode || "mobile"} mode:
+${screensList}
+
+You have access to the UpdatePreviewScreens tool (mcp__devtools__UpdatePreviewScreens) to control what screens the user sees:
+- **add**: Add a new screen at a specific path (e.g., add "/pricing-v2" to show alongside current screens)
+- **remove**: Remove a screen by its ID
+- **set**: Replace all screens with a new set of screens (max 4)
+
+**Best Practices for Design Variants:**
+- When creating design variants (e.g., different pricing page designs), put them on DIFFERENT routes (e.g., /pricing-v1, /pricing-v2)
+- PROACTIVELY use the UpdatePreviewScreens tool to show variants side-by-side after creating them
+- This helps users compare and choose the best design
+- Keep screen count reasonable (2-4 screens for easy comparison)
+- Maximum of 4 screens allowed at once
+
+**Example workflow:**
+1. User asks: "Create two different hero section designs for me to compare"
+2. You create /hero-v1 and /hero-v2 with different designs
+3. You use UpdatePreviewScreens with action="set" and screens=[{path:"/hero-v1"}, {path:"/hero-v2"}]
+4. User can now see both designs side-by-side
+</multi_screen_preview>
+`;
+}
+
+/**
  * Returns the appropriate system prompt based on the design style
  * @param designStyle - The design style from the prototype (tamagui, nativewind, stylesheets, custom)
+ * @param framework - The prototype framework (mobile_expo_react_native, web_nextjs_react)
+ * @param visibleScreens - Currently visible screens in multi-screen mode
+ * @param previewMode - Current preview mode (mobile or web)
  * @returns The complete system prompt with design-specific instructions
  */
 export function getSystemPromptForDesignStyle(
   designStyle?: string | null,
   framework?: string | null,
+  visibleScreens?: Array<{ id: number; path: string }>,
+  previewMode?: "mobile" | "web",
 ): string {
   const isWebFramework = framework === "web_nextjs_react";
   let stackInfo: string;
@@ -575,7 +622,9 @@ export function getSystemPromptForDesignStyle(
     ? WEB_BASE_SYSTEM_PROMPT
     : MOBILE_BASE_SYSTEM_PROMPT;
 
-  return basePrompt + " " + stackInfo + " " + SHARED_SECTIONS;
+  const screenContext = getScreenContextSection(visibleScreens, previewMode);
+
+  return basePrompt + " " + stackInfo + " " + SHARED_SECTIONS + screenContext;
 }
 
 // ----------------------------------------------------------------------------------------------------

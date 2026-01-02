@@ -5,7 +5,7 @@ import { supabase } from "@/ClientConstants";
 import { useCreditUsage } from "@/hooks/useCreditUsage";
 import { UseFileSystemReturn } from "@/hooks/useFileSystem";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
-import type { ChatServerMessage } from "@/lib/types/ChatTypes";
+import type { ChatServerMessage, ScreenUpdateData } from "@/lib/types/ChatTypes";
 import {
   ChatClientEvent,
   ChatEvent,
@@ -46,6 +46,9 @@ interface ClaudeCodePanelProps {
   onPrototypeUpdate?: (updatedPrototype: Prototype) => void;
   currentRenderStatus?: RenderStatus;
   currentViewingPath?: string;
+  visibleScreens?: Array<{ id: number; path: string }>;
+  previewMode?: "mobile" | "web";
+  onScreenUpdate?: (data: ScreenUpdateData) => void;
   fileSystem?: UseFileSystemReturn;
   // External WebSocket management (required - InternalPrototypePage manages connection)
   externalWS: WebSocket | null;
@@ -110,6 +113,9 @@ export default function ClaudeCodePanel({
   onPrototypeUpdate,
   currentRenderStatus,
   currentViewingPath,
+  visibleScreens,
+  previewMode,
+  onScreenUpdate,
   fileSystem,
   externalWS,
   externalWSConnected,
@@ -851,6 +857,8 @@ export default function ClaudeCodePanel({
                 prototype_chat_session_id: prototypeChatSessionId,
                 custom_design_system_id: prototype?.custom_design_system,
                 current_viewing_path: currentViewingPath,
+                visible_screens: visibleScreens,
+                preview_mode: previewMode,
                 design_style: prototype?.design_style,
               },
             }),
@@ -866,6 +874,8 @@ export default function ClaudeCodePanel({
     ws,
     logger,
     prototypeChatSessionId,
+    visibleScreens,
+    previewMode,
     prototype,
     currentViewingPath,
     isCorruptedSession,
@@ -1276,6 +1286,19 @@ export default function ClaudeCodePanel({
           userId,
           messageLength: displayMessage.length,
         });
+        break;
+      }
+
+      case ChatEvent.SCREEN_UPDATE: {
+        // LLM is requesting to update preview screens
+        const screenData = message.data as ScreenUpdateData;
+        logger.debug("log", "Received screen update request", {
+          action: screenData.action,
+          path: screenData.path,
+          screenId: screenData.screenId,
+          screensCount: screenData.screens?.length,
+        });
+        onScreenUpdate?.(screenData);
         break;
       }
 
@@ -1994,6 +2017,8 @@ export default function ClaudeCodePanel({
               custom_design_system_id: prototype?.custom_design_system,
               design_style: prototype?.design_style,
               current_viewing_path: currentViewingPath,
+              visible_screens: visibleScreens,
+              preview_mode: previewMode,
               image_metadata: uploadedImageMetadata.map((img) => ({
                 storage_path: img.storage_path,
                 media_type: img.media_type,

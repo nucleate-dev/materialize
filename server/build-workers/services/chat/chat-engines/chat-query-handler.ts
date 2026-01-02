@@ -19,6 +19,7 @@ import {
   ChatContentBlock,
   ChatEvent,
   ChatServerMessage,
+  ScreenUpdateData,
 } from "../../../types/ChatTypes.js";
 import { Database } from "../../../types/supabase.js";
 import { baseLogger, getWorkerContext, WORK_DIR } from "../../../worker.js";
@@ -265,6 +266,7 @@ export class ChatQueryHandler implements ChatEngine {
         context.getRelativePath,
         systemPrompt,
         sessionState.prototypeChatSessionId,
+        data.visible_screens,
       );
 
       // Check if session is valid for resumption
@@ -500,6 +502,7 @@ export class ChatQueryHandler implements ChatEngine {
     relativePathResolver: (path: string) => string,
     systemPromptOverride: string,
     prototypeChatSessionId: string,
+    visibleScreens?: Array<{ id: number; path: string }>,
   ): Promise<Options & { resume?: string }> {
     const canUseTool: CanUseTool = async (
       toolName: ToolName,
@@ -527,6 +530,11 @@ export class ChatQueryHandler implements ChatEngine {
 
     if (this.enableDesignMcpTools) {
       allowedToolsDefault.push("mcp__design__GeminiDesignExpert");
+    }
+
+    // Add UpdatePreviewScreens tool if multi-screen is enabled (visibleScreens provided)
+    if (visibleScreens) {
+      allowedToolsDefault.push("mcp__devtools__UpdatePreviewScreens");
     }
 
     const mcpServers: Record<string, McpSdkServerConfigWithInstance> = {
@@ -568,6 +576,17 @@ export class ChatQueryHandler implements ChatEngine {
           this.devServerService.developmentServerState.devServerStatus =
             DevServerStatus.RUNNING;
         },
+        // Screen update broadcast callback (only enabled if visibleScreens is provided)
+        visibleScreens
+          ? (data: ScreenUpdateData) => {
+              broadcastToConnections(activeConnections, {
+                type: ChatEvent.SCREEN_UPDATE,
+                data,
+              });
+            }
+          : undefined,
+        // Get visible screens count callback
+        visibleScreens ? () => visibleScreens.length : undefined,
       ),
     };
 
@@ -612,7 +631,7 @@ export class ChatQueryHandler implements ChatEngine {
         type: "preset" as const,
         preset: "claude_code" as const,
         append: systemPromptOverride ??
-          getSystemPromptForDesignStyle(undefined, framework),
+          getSystemPromptForDesignStyle(undefined, framework, visibleScreens),
       },
       settingSources: [
         "project", // For Project CLAUDE.MD

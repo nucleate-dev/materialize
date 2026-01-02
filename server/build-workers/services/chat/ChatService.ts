@@ -586,6 +586,8 @@ export class ChatService {
       data.custom_design_system_id ?? null,
       data.design_style,
       framework,
+      data.visible_screens,
+      data.preview_mode,
     );
 
     // 8. DISPATCH REQUEST TO SDK ENGINE
@@ -1121,6 +1123,8 @@ export class ChatService {
     customDesignSystemId: string | null,
     designStyle: string | undefined,
     framework: Database["public"]["Enums"]["prototype_framework"] | null,
+    visibleScreens?: Array<{ id: number; path: string }>,
+    previewMode?: "mobile" | "web",
   ): Promise<string> {
     if (customDesignSystemId !== this.sessionState.designSystemId) {
       if (!customDesignSystemId) {
@@ -1171,6 +1175,8 @@ export class ChatService {
     let systemPromptAppend = getSystemPromptForDesignStyle(
       designStyle,
       framework ?? undefined,
+      visibleScreens,
+      previewMode,
     );
 
     if (this.sessionState.designSystemRules) {
