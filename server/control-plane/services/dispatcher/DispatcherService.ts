@@ -1,18 +1,18 @@
-import { GlideClient } from '@valkey/valkey-glide';
-import * as dotenv from 'dotenv';
+import { GlideClient } from "@valkey/valkey-glide";
+import * as dotenv from "dotenv";
 import {
   type APIResponse,
   type DispatchPrecheckRequestBody,
   type DispatchPrecheckSuccessResponse,
   type DispatchSuccessResponse,
   type StandardErrorResponse,
-} from '../../types/PublicAPITypes.js';
-import { IdleContainerAllocationSystemService } from '../idle-container-allocation-system/IdleContainerAllocationSystemService.js';
-import { handleDispatchImpl } from './handlers/handleDispatch.js';
-import { handleDispatchPrecheckImpl } from './handlers/handleDispatchPrecheck.js';
-import { SystemLogger } from '../../loggers/SystemLogger.js';
-import { PostHogLogger } from '../../loggers/PostHogLogger.js';
-import { PostHogEvents } from '../../loggers/PostHogEvents.js';
+} from "../../types/PublicAPITypes.js";
+import { IdleContainerAllocationSystemService } from "../idle-container-allocation-system/IdleContainerAllocationSystemService.js";
+import { handleDispatchImpl } from "./handlers/handleDispatch.js";
+import { handleDispatchPrecheckImpl } from "./handlers/handleDispatchPrecheck.js";
+import { SystemLogger } from "../../loggers/SystemLogger.js";
+import { PostHogLogger } from "../../loggers/PostHogLogger.js";
+import { PostHogEvents } from "../../loggers/PostHogEvents.js";
 
 dotenv.config();
 
@@ -29,7 +29,7 @@ export class DispatcherService {
     this.cache = cache;
     this.idleContainerAllocationSystem = idleContainerAllocationSystem;
     this.log2 = log2.child({
-      route: 'DispatcherService',
+      route: "DispatcherService",
     });
   }
 
@@ -42,11 +42,11 @@ export class DispatcherService {
     userId: string,
   ): Promise<APIResponse<DispatchSuccessResponse, StandardErrorResponse>> {
     const localLog = log2.child({
-      function: 'dispatch',
+      function: "dispatch",
     });
     posthogLogger = posthogLogger.child({
-      function: 'dispatch',
-      service: 'DispatcherService',
+      function: "dispatch",
+      service: "DispatcherService",
       prototype_id,
     });
     return await posthogLogger.timeAndRecord(
@@ -71,7 +71,7 @@ export class DispatcherService {
     APIResponse<DispatchPrecheckSuccessResponse, StandardErrorResponse>
   > {
     const localLog = log2.child({
-      function: 'dispatchPrecheck',
+      function: "dispatchPrecheck",
     });
     return handleDispatchPrecheckImpl(body, jwt, this.cache, localLog);
   }
