@@ -157,6 +157,9 @@ export interface DesignSystemConstructorStatusSuccessResponse {
 
 export interface DesignSystemConstructorConstructSuccessResponse {
   started: boolean;
+  total_cost_usd: number;
+  total_input_tokens: number;
+  total_output_tokens: number;
 }
 
 // Dev Server Response Types

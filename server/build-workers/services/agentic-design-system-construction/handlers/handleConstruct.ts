@@ -16,13 +16,17 @@ export async function handleDesignSystemConstructorConstruct(
     StandardErrorResponse
   >
 > {
-  await designSystemConstructorService.designSystemConstructorAgent
+  const constructionResult = await designSystemConstructorService
+    .designSystemConstructorAgent
     .constructDesignSystem();
 
   reply.status(200);
   return {
     data: {
       started: true,
+      total_cost_usd: constructionResult.totalCostUsd,
+      total_input_tokens: constructionResult.totalInputTokens,
+      total_output_tokens: constructionResult.totalOutputTokens,
     },
     error: null,
   };
