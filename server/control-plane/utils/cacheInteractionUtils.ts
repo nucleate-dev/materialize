@@ -1,5 +1,9 @@
 import { GlideClient } from '@valkey/valkey-glide';
-import { ActiveBuild, CACHE_KEYS } from '../types/InternalTypes.js';
+import {
+  ActiveBuild,
+  ActiveDesignSystemConstruction,
+  CACHE_KEYS,
+} from '../types/InternalTypes.js';
 import { SystemLogger } from '../loggers/SystemLogger.js';
 import { BuildStatus } from '../types/PublicAPITypes.js';
 
@@ -89,6 +93,48 @@ export function activeBuildToStringRecord(
     terminal_tunnel_hostname: build.terminal_tunnel_hostname,
     orchestration_token: build.orchestration_token,
     clean_attempts: build.clean_attempts.toString(),
+  };
+}
+
+export async function hgetallAsActiveDesignSystemConstruction(
+  cache: GlideClient,
+  key: string,
+): Promise<ActiveDesignSystemConstruction | null> {
+  const raw = await cache.hgetall(key);
+
+  if (!raw || raw.length === 0) return null;
+
+  const obj = Object.fromEntries(
+    raw.map(
+      (e: { field: { toString(): string }; value: { toString(): string } }) => [
+        e.field.toString(),
+        e.value.toString(),
+      ],
+    ),
+  ) as Record<string, string>;
+
+  if (!obj.state || !obj.last_touched) {
+    return null;
+  }
+
+  return {
+    fargate_task_arn: obj.fargate_task_arn || '',
+    fargate_private_ip: obj.fargate_private_ip || '',
+    state: obj.state as ActiveDesignSystemConstruction['state'],
+    last_touched: parseInt(obj.last_touched, 10),
+    team_id: obj.team_id || '',
+  };
+}
+
+export function activeDesignSystemConstructionToStringRecord(
+  construction: ActiveDesignSystemConstruction,
+): Record<string, string> {
+  return {
+    fargate_task_arn: construction.fargate_task_arn,
+    fargate_private_ip: construction.fargate_private_ip,
+    state: construction.state,
+    last_touched: construction.last_touched.toString(),
+    team_id: construction.team_id,
   };
 }
 

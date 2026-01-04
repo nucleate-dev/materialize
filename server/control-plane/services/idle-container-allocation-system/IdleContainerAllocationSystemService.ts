@@ -16,6 +16,9 @@ import axios from "axios";
 import { randomBytes } from "crypto";
 import type { SystemLogger } from "../../loggers/SystemLogger.js"; // adjust your path
 import {
+  DesignSystemConstructionState,
+  DesignSystemConstructorAllocateRequest,
+  DesignSystemConstructorAllocateSuccessResponse,
   PublicAllocateRequest,
   PublicAllocateSuccessResponse,
   SandboxAPIResponse,
@@ -23,6 +26,7 @@ import {
 } from "../../types/BuildWorkerTypes.js";
 import {
   ActiveBuild,
+  ActiveDesignSystemConstruction,
   BUILD_TIMEOUTS,
   CACHE_KEYS,
   FargateInstanceInfo,
@@ -30,7 +34,10 @@ import {
   IdleContainerStatus,
 } from "../../types/InternalTypes.js";
 import { Database } from "../../types/supabase.js";
-import { updateBuildTunnelInfo } from "../../utils/cacheInteractionUtils.js";
+import {
+  activeDesignSystemConstructionToStringRecord,
+  updateBuildTunnelInfo,
+} from "../../utils/cacheInteractionUtils.js";
 import { deleteCloudflareTunnel } from "../../utils/cloudflareTunnelManagementUtils.js";
 import { IdleCloudflareTunnelSystem } from "./IdleCloudflareTunnelSystem.js";
 
@@ -280,6 +287,167 @@ export class IdleContainerAllocationSystemService {
     }
   }
 
+  public async allocateFargateDesignSystemConstruction(
+    userId: string,
+    teamId: string,
+    githubToken: string,
+    jwt: string,
+  ): Promise<FargateInstanceInfo> {
+    const cacheKey = CACHE_KEYS.activeDesignSystemConstruction(userId);
+    const initialCacheData: ActiveDesignSystemConstruction = {
+      fargate_task_arn: "",
+      fargate_private_ip: "",
+      state: DesignSystemConstructionState.STARTING,
+      last_touched: Math.floor(Date.now() / 1000),
+      team_id: teamId,
+    };
+
+    await this.cache.hset(
+      cacheKey,
+      activeDesignSystemConstructionToStringRecord(initialCacheData),
+    );
+
+    try {
+      if (process.env.NODE_ENV === "development") {
+        return await this.launchFargateInstanceForDesignSystemConstructorDirectly(
+          cacheKey,
+          initialCacheData,
+          userId,
+          teamId,
+          githubToken,
+          jwt,
+        );
+      }
+
+      const taskArn = (await this.cache.rpop(CACHE_KEYS.idleBuildsListKey)) as
+        | string
+        | null;
+
+      if (!taskArn) {
+        this.log2.consoleLogDevOnly(
+          "info",
+          "[ContainerAlloc] No idle containers found for design system construction, falling back to direct launch",
+          { userId },
+        );
+        if (MAX_IDLE_FARGATE_BUILDS > 0) {
+          this.launchIdleContainer().catch((err) =>
+            this.log2.error(
+              err,
+              "[ContainerAlloc] Failed to replenish idle container",
+            )
+          );
+        }
+        return await this.launchFargateInstanceForDesignSystemConstructorDirectly(
+          cacheKey,
+          initialCacheData,
+          userId,
+          teamId,
+          githubToken,
+          jwt,
+        );
+      }
+
+      const idleKey = CACHE_KEYS.idleBuild(taskArn);
+      const taskData = await this.hgetallAsIdleBuild(idleKey);
+      await this.cache.del([idleKey]);
+      this.launchIdleContainer().catch((err) =>
+        this.log2.error(err, "[IdleAlloc] Failed to replenish idle container"),
+      );
+
+      if (!taskData || !taskData.fargate_task_arn) {
+        this.log2.warn(
+          `[ContainerAlloc] Idle container ${taskArn} missing metadata, falling back to direct launch for design system construction`,
+        );
+        this.terminateFargateTask(taskArn);
+        return await this.launchFargateInstanceForDesignSystemConstructorDirectly(
+          cacheKey,
+          initialCacheData,
+          userId,
+          teamId,
+          githubToken,
+          jwt,
+        );
+      }
+
+      let privateIp: string = "";
+      if (taskData.status === "creating") {
+        this.log2.consoleLogDevOnly(
+          "info",
+          `[ContainerAlloc] Waiting for idle container ${taskArn} to finish creating for design system construction`,
+        );
+        privateIp = await this.waitForFargateTaskToBeReadyAndGetPrivateIP(
+          taskArn,
+        );
+      } else if (taskData.status === "ready") {
+        privateIp = taskData.fargate_private_ip;
+      }
+
+      if (!privateIp) {
+        this.log2.error(
+          new Error("failed to get private IP for idle container"),
+          `[ContainerAlloc] Idle container ${taskArn} failed to get private IP for design system construction`,
+        );
+        this.terminateFargateTask(taskArn);
+        return this.launchFargateInstanceForDesignSystemConstructorDirectly(
+          cacheKey,
+          initialCacheData,
+          userId,
+          teamId,
+          githubToken,
+          jwt,
+        );
+      }
+
+      this.log2.consoleLogDevOnly(
+        "info",
+        "[ContainerAlloc] Allocating idle container to design system construction",
+        { taskArn, privateIp, userId },
+      );
+
+      const info: FargateInstanceInfo = {
+        taskArn,
+        privateIp,
+        terminalTunnelId: "",
+        terminalTunnelHostname: "",
+        orchestrationToken: "",
+      };
+
+      try {
+        await this.allocateDesignSystemConstructorOnWorker(
+          info,
+          userId,
+          teamId,
+          githubToken,
+          jwt,
+        );
+      } catch (error) {
+        this.log2.error(
+          error,
+          "Failed to allocate design system constructor on worker",
+        );
+        await this.terminateFargateTask(taskArn);
+        throw error;
+      }
+
+      const updatedCacheData: ActiveDesignSystemConstruction = {
+        ...initialCacheData,
+        fargate_task_arn: taskArn,
+        fargate_private_ip: privateIp,
+        state: DesignSystemConstructionState.IDLE,
+        last_touched: Math.floor(Date.now() / 1000),
+      };
+      await this.cache.hset(
+        cacheKey,
+        activeDesignSystemConstructionToStringRecord(updatedCacheData),
+      );
+
+      return info;
+    } catch (error) {
+      await this.cache.del([cacheKey]);
+      throw error;
+    }
+  }
+
   /** Launch one idle build (with PROTOTYPE_ID=idle) */
   private async launchIdleContainer(): Promise<void> {
     if (process.env.NODE_ENV === "development") return; // no idle containers in development mode
@@ -428,6 +596,65 @@ export class IdleContainerAllocationSystemService {
       log2.error(error, "Failed to launch Fargate task:");
       throw new Error(
         `Failed to launch Fargate instance: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
+      );
+    }
+  }
+
+  private async launchFargateInstanceForDesignSystemConstructorDirectly(
+    cacheKey: string,
+    initialCacheData: ActiveDesignSystemConstruction,
+    userId: string,
+    teamId: string,
+    githubToken: string,
+    jwt: string,
+  ): Promise<FargateInstanceInfo> {
+    let taskArn: string | null = null;
+    try {
+      taskArn = await this.launchFargateInstanceNotReady(this.log2);
+      const privateIp = await this.waitForFargateTaskToBeReadyAndGetPrivateIP(
+        taskArn,
+      );
+      if (!privateIp) {
+        throw new Error("Failed to get private IP for design system container");
+      }
+      const info: FargateInstanceInfo = {
+        taskArn,
+        privateIp,
+        terminalTunnelId: "",
+        terminalTunnelHostname: "",
+        orchestrationToken: "",
+      };
+      await this.allocateDesignSystemConstructorOnWorker(
+        info,
+        userId,
+        teamId,
+        githubToken,
+        jwt,
+      );
+      const updatedCacheData: ActiveDesignSystemConstruction = {
+        ...initialCacheData,
+        fargate_task_arn: taskArn,
+        fargate_private_ip: privateIp,
+        state: DesignSystemConstructionState.IDLE,
+        last_touched: Math.floor(Date.now() / 1000),
+      };
+      await this.cache.hset(
+        cacheKey,
+        activeDesignSystemConstructionToStringRecord(updatedCacheData),
+      );
+      return info;
+    } catch (error) {
+      this.log2.error(
+        error,
+        "Failed to launch Fargate task for design system construction",
+      );
+      if (taskArn) {
+        await this.terminateFargateTask(taskArn);
+      }
+      throw new Error(
+        `Failed to launch design system construction instance: ${
           error instanceof Error ? error.message : "Unknown error"
         }`,
       );
@@ -592,6 +819,77 @@ export class IdleContainerAllocationSystemService {
       fargate_private_ip: obj.fargate_private_ip,
       status: obj.status as IdleContainerStatus,
     };
+  }
+
+  private async allocateDesignSystemConstructorOnWorker(
+    info: FargateInstanceInfo,
+    userId: string,
+    teamId: string,
+    githubToken: string,
+    jwt: string,
+  ): Promise<void> {
+    const payload: DesignSystemConstructorAllocateRequest = {
+      user_credentials: {
+        user_id: userId,
+        team_id: teamId,
+      },
+      github_credentials: {
+        token: githubToken,
+      },
+    };
+
+    try {
+      const allocationResponse = await axios.post<
+        SandboxAPIResponse<
+          DesignSystemConstructorAllocateSuccessResponse,
+          BuildWorkerStandardErrorResponse
+        >
+      >(
+        `http://${info.privateIp}:3002/design-system-constructor/allocate`,
+        payload,
+        {
+          headers: {
+            "content-type": "application/json",
+            Authorization: `Bearer ${jwt}`,
+          },
+        },
+      );
+      if (allocationResponse.data.error) {
+        this.log2.error(
+          new Error(allocationResponse.data.error.error),
+          `Worker returned error status for design system allocation to ${info.privateIp}`,
+          {
+            workerIp: info.privateIp,
+            userId,
+            errorMessage: allocationResponse.data.error.message,
+          },
+        );
+        throw new Error(
+          `Worker design system allocation failed: ${
+            allocationResponse.data.error.message ||
+            "Unknown error from worker"
+          }`,
+        );
+      }
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        this.log2.error(
+          error,
+          "Axios request failed when allocating design system constructor to worker",
+          {
+            workerIp: info.privateIp,
+            userId,
+            statusCode: error.response?.status,
+            responseData: error.response?.data,
+            errorMessage: error.message,
+          },
+        );
+        throw new Error(
+          `Failed to connect to worker at ${info.privateIp}: ${error.message}`,
+        );
+      }
+      throw error;
+    }
   }
 
   /** Tell running idle container to switch to a real prototypeId */

@@ -1,3 +1,4 @@
+import type { DesignSystemConstructionState } from './BuildWorkerTypes.js';
 import type { BuildStatus, PrototypeFileInput } from './PublicAPITypes.js';
 import type { Database } from './supabase.js';
 
@@ -37,6 +38,14 @@ export interface ActiveBuild {
   terminal_tunnel_hostname: string;
   orchestration_token: string;
   clean_attempts: number;
+}
+
+export interface ActiveDesignSystemConstruction {
+  fargate_task_arn: string;
+  fargate_private_ip: string;
+  state: DesignSystemConstructionState;
+  last_touched: number;
+  team_id: string;
 }
 
 export interface IdleBuild {
@@ -242,6 +251,20 @@ export function isActiveBuildType(obj: unknown): obj is ActiveBuild {
   );
 }
 
+export function isActiveDesignSystemConstruction(
+  obj: unknown,
+): obj is ActiveDesignSystemConstruction {
+  return (
+    typeof obj === 'object' &&
+    obj !== null &&
+    'fargate_task_arn' in obj &&
+    'fargate_private_ip' in obj &&
+    'state' in obj &&
+    'last_touched' in obj &&
+    'team_id' in obj
+  );
+}
+
 // ============================================================================
 // CONSTANTS
 // ============================================================================
@@ -250,6 +273,8 @@ export const CACHE_KEYS = {
   protoCurrentBuild: (prototypeId: string) => `proto:${prototypeId}:current`,
   protoBuilds: (prototypeId: string) => `proto:${prototypeId}:builds`,
   activeBuild: (buildId: string) => `active_build:${buildId}`,
+  activeDesignSystemConstruction: (userId: string) =>
+    `design_system_construction:${userId}`,
   idleBuildsListKey: 'idle_builds:list',
   idleBuild: (taskArn: string) => `idle_builds:${taskArn}`,
   protoDev: (prototypeId: string) => `development:${prototypeId}`,
@@ -257,6 +282,7 @@ export const CACHE_KEYS = {
 
 export const CACHE_PATTERNS = {
   allActiveBuilds: 'active_build:*',
+  allDesignSystemConstruction: 'design_system_construction:*',
   protoBuilds: (prototypeId: string) => `proto:${prototypeId}:*`,
   allIdleBuilds: 'idle_builds:*',
 } as const;
