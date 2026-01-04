@@ -32,10 +32,7 @@ const ALLOWED_TOOLS = [
   "Glob",
   "Grep",
   "TodoWrite",
-  "mcp__devtools__SafeWrite",
   "mcp__devtools__SafeBash",
-  "mcp__devtools__checkTerminal",
-  "mcp__devtools__RestartDevServer",
 ];
 
 type DesignSystemConstructionResult = {
@@ -256,11 +253,7 @@ export class ClaudeAgentSDKConstructor implements DesignSystemConstructorAgent {
   }
 
   private isWriteTool(toolName: string): boolean {
-    return (
-      toolName === "Write" ||
-      toolName === "Edit" ||
-      toolName === "mcp__devtools__SafeWrite"
-    );
+    return toolName === "Write" || toolName === "Edit";
   }
 
   private isPathAllowed(
