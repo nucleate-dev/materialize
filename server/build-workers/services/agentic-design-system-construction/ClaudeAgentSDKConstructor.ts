@@ -1,5 +1,6 @@
 import {
   CanUseTool,
+  McpSdkServerConfigWithInstance,
   Options,
   PermissionMode,
   PermissionResult,
@@ -8,7 +9,9 @@ import {
 } from "@anthropic-ai/claude-agent-sdk";
 import fs from "fs/promises";
 import path from "path";
-import { WORK_DIR, baseLogger } from "../../worker.js";
+import { SandboxService } from "../SandboxService.js";
+import { createDevelopmentToolsMcpServer } from "../chat/mcp/mcp-dev-tools.js";
+import { WORK_DIR, baseLogger, terminalService } from "../../worker.js";
 import { DesignSystemConstructorAgent } from "./DesignSystemConstructorAgent.js";
 import { DESIGN_SYSTEM_CONSTRUCTOR_SYSTEM_PROMPT } from "./DesignSystemConstructorAgentPrompts.js";
 
@@ -20,7 +23,8 @@ const DESIGN_SYSTEM_OUTPUT_DIRS = [
   path.join(DESIGN_SYSTEM_OUTPUT_ROOT, "themes"),
 ];
 
-const ALLOWED_ROOTS = [WORK_DIR, DESIGN_SYSTEM_OUTPUT_ROOT];
+const READ_ONLY_ROOTS = [WORK_DIR, DESIGN_SYSTEM_OUTPUT_ROOT];
+const WRITE_ONLY_ROOTS = [DESIGN_SYSTEM_OUTPUT_ROOT];
 const ALLOWED_TOOLS = [
   "Read",
   "Write",
@@ -28,10 +32,14 @@ const ALLOWED_TOOLS = [
   "Glob",
   "Grep",
   "TodoWrite",
+  "mcp__devtools__SafeWrite",
+  "mcp__devtools__SafeBash",
+  "mcp__devtools__checkTerminal",
+  "mcp__devtools__RestartDevServer",
 ];
 
 type DesignSystemConstructionResult = {
-  totalCostUsd: number | null;
+  totalCostUsd: number;
   totalInputTokens: number;
   totalOutputTokens: number;
 };
@@ -57,12 +65,13 @@ export class ClaudeAgentSDKConstructor implements DesignSystemConstructorAgent {
       }
 
       const targetPaths = this.extractPaths(toolName, input);
+      const allowedRoots = this.getAllowedRootsForTool(toolName);
       for (const targetPath of targetPaths) {
         if (!targetPath) {
           continue;
         }
-        const resolvedPath = this.resolvePath(targetPath);
-        if (!this.isPathAllowed(resolvedPath)) {
+        const resolvedPath = this.resolvePath(toolName, targetPath);
+        if (!this.isPathAllowed(resolvedPath, allowedRoots)) {
           return {
             behavior: "deny",
             message: `Path ${resolvedPath} is outside allowed roots.`,
@@ -77,6 +86,62 @@ export class ClaudeAgentSDKConstructor implements DesignSystemConstructorAgent {
       };
     };
 
+    const sandboxService = new SandboxService(terminalService);
+    const mcpServers: Record<string, McpSdkServerConfigWithInstance> = {
+      devtools: createDevelopmentToolsMcpServer(
+        async (command: string, args: string[], cwd?: string) => {
+          const normalizedCwd = cwd
+            ? path.isAbsolute(cwd)
+              ? cwd
+              : path.join(WORK_DIR, cwd)
+            : WORK_DIR;
+          const { response } = await sandboxService.runCommandInternal({
+            command,
+            args,
+            cwd: normalizedCwd,
+            session_id: "design-system-constructor",
+            timeout_ms: 30000,
+            strip_ansi: true,
+          });
+          if (!response.data) {
+            return {
+              stdout: response.error?.message ?? "No response from sandbox.",
+              isError: true,
+            };
+          }
+          if (response.data.status === "success") {
+            return {
+              stdout: response.data.stdout || "Command executed successfully",
+              isError: false,
+            };
+          }
+          return {
+            stdout: response.data.stdout || response.data.error || "Error",
+            isError: true,
+          };
+        },
+        async (filePath: string, content: string) => {
+          const resolvedPath = this.resolvePath("Write", filePath);
+          if (!this.isPathAllowed(resolvedPath, WRITE_ONLY_ROOTS)) {
+            return {
+              success: false,
+              error: "Write path is outside the design system output directory.",
+            };
+          }
+          await fs.mkdir(path.dirname(resolvedPath), { recursive: true });
+          await fs.writeFile(resolvedPath, content, "utf-8");
+          return { success: true, bytesWritten: content.length };
+        },
+        terminalService,
+        async () => {
+          baseLogger.consoleLogDevOnly(
+            "info",
+            "RestartDevServer called during design system construction",
+          );
+        },
+      ),
+    };
+
     const options: Options = {
       cwd: WORK_DIR,
       additionalDirectories: [DESIGN_SYSTEM_OUTPUT_ROOT],
@@ -85,6 +150,7 @@ export class ClaudeAgentSDKConstructor implements DesignSystemConstructorAgent {
       disallowedTools: ["Bash", "BashOutput", "NotebookEdit"],
       permissionMode: "default" as PermissionMode,
       canUseTool,
+      mcpServers,
       systemPrompt: {
         type: "preset",
         preset: "claude_code",
@@ -104,13 +170,13 @@ export class ClaudeAgentSDKConstructor implements DesignSystemConstructorAgent {
       options,
     });
 
-    let totalCostUsd: number | null = null;
+    let totalCostUsd = 0;
     let totalInputTokens = 0;
     let totalOutputTokens = 0;
 
     for await (const message of response) {
       if (message.type === "result") {
-        totalCostUsd = message.total_cost_usd ?? null;
+        totalCostUsd = message.total_cost_usd ?? 0;
         const usage = message.usage;
         if (usage) {
           const inputTokens = usage.input_tokens ?? 0;
@@ -167,15 +233,41 @@ export class ClaudeAgentSDKConstructor implements DesignSystemConstructorAgent {
     }
   }
 
-  private resolvePath(targetPath: string): string {
+  private resolvePath(toolName: string, targetPath: string): string {
     if (path.isAbsolute(targetPath)) {
       return path.resolve(targetPath);
     }
-    return path.resolve(WORK_DIR, targetPath);
+    const baseDir = this.getBaseDirForTool(toolName);
+    return path.resolve(baseDir, targetPath);
   }
 
-  private isPathAllowed(resolvedPath: string): boolean {
-    return ALLOWED_ROOTS.some((root) => {
+  private getBaseDirForTool(toolName: string): string {
+    if (this.isWriteTool(toolName)) {
+      return DESIGN_SYSTEM_OUTPUT_ROOT;
+    }
+    return WORK_DIR;
+  }
+
+  private getAllowedRootsForTool(toolName: string): string[] {
+    if (this.isWriteTool(toolName)) {
+      return WRITE_ONLY_ROOTS;
+    }
+    return READ_ONLY_ROOTS;
+  }
+
+  private isWriteTool(toolName: string): boolean {
+    return (
+      toolName === "Write" ||
+      toolName === "Edit" ||
+      toolName === "mcp__devtools__SafeWrite"
+    );
+  }
+
+  private isPathAllowed(
+    resolvedPath: string,
+    allowedRoots: string[],
+  ): boolean {
+    return allowedRoots.some((root) => {
       const normalizedRoot = root.endsWith(path.sep)
         ? root
         : `${root}${path.sep}`;

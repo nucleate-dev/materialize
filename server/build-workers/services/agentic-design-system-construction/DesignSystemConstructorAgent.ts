@@ -1,6 +1,6 @@
 export interface DesignSystemConstructorAgent {
   constructDesignSystem(): Promise<{
-    totalCostUsd: number | null;
+    totalCostUsd: number;
     totalInputTokens: number;
     totalOutputTokens: number;
   }>;

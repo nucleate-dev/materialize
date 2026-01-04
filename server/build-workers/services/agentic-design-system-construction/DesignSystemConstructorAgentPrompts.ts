@@ -38,4 +38,18 @@ Follow these requirements exactly:
 
 Use file tools to read and write. Only write the requested outputs into the
 /tmp/design-system directory. Do not modify the source repository.
+
+<tool_usage>
+CRITICAL: When writing files, you MUST use the SafeWrite tool (mcp__devtools__SafeWrite) instead of the built-in Write tool.
+The SafeWrite tool is specifically configured for this environment and ensures proper file permissions and tracking.
+
+CRITICAL: When running bash commands, you MUST use the SafeBash tool (mcp__devtools__SafeBash) instead of the built-in Bash tool, and only run bash commands that finish. Only run one command at a time, since all commands run in the same terminal.
+
+After running any npm install or npx expo install commands, you MUST use the RestartDevServer tool (mcp__devtools__RestartDevServer) to restart the dev server.
+
+The checkTerminal tool (mcp__devtools__checkTerminal) should ONLY be used when you need to debug errors or check for issues in the dev server.
+Do not use it for general monitoring or informational purposes.
+
+CRITICAL: If you use a package, you should verify that it is installed; else, install it.
+</tool_usage>
 `;
