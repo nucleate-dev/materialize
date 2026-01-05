@@ -53,6 +53,22 @@ export type BuildStatus =
   | "cleaning"
   | "building";
 
+export const ISOLATED_AGENTIC_WORKFLOW_PURPOSES = [
+  "design-system-construction",
+] as const;
+
+export type IsolatedAgenticWorkflowPurpose =
+  (typeof ISOLATED_AGENTIC_WORKFLOW_PURPOSES)[number];
+
+export interface DesignSystemConstructionWorkflowData {
+  name: string;
+  description: string;
+  team_id: string;
+  github_id: string;
+}
+
+export type IsolatedAgenticWorkflowData = DesignSystemConstructionWorkflowData;
+
 // ============================================================================
 // STANDARD ERROR RESPONSE
 // ============================================================================
@@ -311,6 +327,20 @@ export interface StartDevServerSuccessResponse {
   viewing_url: string;
   message: string;
   terminal_url: string | null;
+}
+
+// ============================================================================
+// /isolated-agentic-workflows/trigger-workflow ENDPOINT
+// ============================================================================
+
+export interface TriggerIsolatedAgenticWorkflowRequestBody {
+  purpose: IsolatedAgenticWorkflowPurpose;
+  data: IsolatedAgenticWorkflowData;
+}
+
+export interface TriggerIsolatedAgenticWorkflowSuccessResponse {
+  success: true;
+  workflow_id: string;
 }
 
 // ============================================================================

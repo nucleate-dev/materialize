@@ -15,6 +15,7 @@ import { InternalProductionDeploymentService } from "./internal-services/Interna
 import { genRequestIds, SystemLogger } from "./loggers/SystemLogger.js";
 import { CleanupService } from "./services/cleanup/CleanupService.js";
 import { DevelopmentServerService } from "./services/DevelopmentServerService.js";
+import { IsolatedAgenticWorkflowService } from "./services/isolated-agentic-workflow/IsolatedAgenticWorkflowService.js";
 import { StripeManagementService } from "./services/StripeManagementService.js";
 import { TeamManagementService } from "./services/team-management/TeamManagementService.js";
 import { PrototypeDeploymentService } from "./services/prototype-management/PrototypeDeploymentService.js";
@@ -161,6 +162,7 @@ let teamManagementService: TeamManagementService;
 let deploymentService: PrototypeDeploymentService;
 let prototypeManagementService: PrototypeManagementService;
 let developmentServerService: DevelopmentServerService;
+let isolatedAgenticWorkflowService: IsolatedAgenticWorkflowService;
 let orchestrationService: OrchestrationService;
 let internalToolsService: InternalCacheManagementService;
 let internalDevServerManagementService: InternalControlPlaneDevelopmentService;
@@ -249,6 +251,13 @@ const start = async (): Promise<void> => {
     // Create development server service and register routes
     developmentServerService = new DevelopmentServerService(dispatcherService);
     developmentServerService.registerRoutes(fastify);
+
+    // Create isolated agentic workflow service and register routes
+    isolatedAgenticWorkflowService = new IsolatedAgenticWorkflowService(
+      cacheClient,
+      idleContainerAllocationSystemService,
+    );
+    isolatedAgenticWorkflowService.registerRoutes(fastify);
 
     // Create orchestration service and register routes
     orchestrationService = new OrchestrationService(cacheClient, baseLogger);

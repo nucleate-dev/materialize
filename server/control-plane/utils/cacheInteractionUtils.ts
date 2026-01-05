@@ -1,7 +1,7 @@
 import { GlideClient } from '@valkey/valkey-glide';
 import {
   ActiveBuild,
-  ActiveDesignSystemConstruction,
+  ActiveIsolatedAgenticWorkflow,
   CACHE_KEYS,
 } from '../types/InternalTypes.js';
 import { SystemLogger } from '../loggers/SystemLogger.js';
@@ -96,10 +96,10 @@ export function activeBuildToStringRecord(
   };
 }
 
-export async function hgetallAsActiveDesignSystemConstruction(
+export async function hgetallAsIsolatedAgenticWorkflow(
   cache: GlideClient,
   key: string,
-): Promise<ActiveDesignSystemConstruction | null> {
+): Promise<ActiveIsolatedAgenticWorkflow | null> {
   const raw = await cache.hgetall(key);
 
   if (!raw || raw.length === 0) return null;
@@ -113,28 +113,41 @@ export async function hgetallAsActiveDesignSystemConstruction(
     ),
   ) as Record<string, string>;
 
-  if (!obj.state || !obj.last_touched) {
+  if (!obj.state || !obj.last_touched || !obj.purpose || !obj.user_id) {
     return null;
+  }
+
+  let parsedData: ActiveIsolatedAgenticWorkflow['data'] = {};
+  try {
+    parsedData = obj.data ? JSON.parse(obj.data) : {};
+  } catch {
+    parsedData = {};
   }
 
   return {
     fargate_task_arn: obj.fargate_task_arn || '',
     fargate_private_ip: obj.fargate_private_ip || '',
-    state: obj.state as ActiveDesignSystemConstruction['state'],
+    state: obj.state as ActiveIsolatedAgenticWorkflow['state'],
     last_touched: parseInt(obj.last_touched, 10),
     team_id: obj.team_id || '',
+    purpose: obj.purpose as ActiveIsolatedAgenticWorkflow['purpose'],
+    user_id: obj.user_id || '',
+    data: parsedData,
   };
 }
 
-export function activeDesignSystemConstructionToStringRecord(
-  construction: ActiveDesignSystemConstruction,
+export function isolatedAgenticWorkflowToStringRecord(
+  workflow: ActiveIsolatedAgenticWorkflow,
 ): Record<string, string> {
   return {
-    fargate_task_arn: construction.fargate_task_arn,
-    fargate_private_ip: construction.fargate_private_ip,
-    state: construction.state,
-    last_touched: construction.last_touched.toString(),
-    team_id: construction.team_id,
+    fargate_task_arn: workflow.fargate_task_arn,
+    fargate_private_ip: workflow.fargate_private_ip,
+    state: workflow.state,
+    last_touched: workflow.last_touched.toString(),
+    team_id: workflow.team_id,
+    purpose: workflow.purpose,
+    user_id: workflow.user_id,
+    data: JSON.stringify(workflow.data),
   };
 }
 

@@ -57,6 +57,14 @@ export async function validateJWTToken(
   return { user, isServiceRole: false };
 }
 
+export async function verifyJWT(
+  token: string | undefined,
+  log2: SystemLogger,
+): Promise<User | null> {
+  const { user } = await validateJWTToken(token, log2);
+  return user;
+}
+
 /**
  * Check if user has viewing access to a prototype
  */
