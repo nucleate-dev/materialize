@@ -3,6 +3,7 @@ import axios from "axios";
 import { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import {
   DesignSystemConstructorConstructSuccessResponse,
+  DesignSystemConstructorStatusSuccessResponse,
   SandboxAPIResponse,
   StandardErrorResponse as BuildWorkerStandardErrorResponse,
   DesignSystemConstructionState,
@@ -178,6 +179,18 @@ export class IsolatedAgenticWorkflowService {
         state: DesignSystemConstructionState.CONSTRUCTING,
         last_touched: Math.floor(Date.now() / 1000).toString(),
       });
+      this.monitorWorkflowCompletion(
+        fargateInfo.privateIp,
+        purpose,
+        token,
+        cacheKey,
+        request.log2,
+      ).catch((error) => {
+        request.log2.error(
+          error,
+          "[handleTriggerWorkflow] Failed to monitor isolated workflow completion",
+        );
+      });
     } catch (error) {
       await this.cache.hset(cacheKey, {
         state: DesignSystemConstructionState.ERROR,
@@ -205,6 +218,73 @@ export class IsolatedAgenticWorkflowService {
       },
       error: null,
     };
+  }
+
+  private async monitorWorkflowCompletion(
+    privateIp: string,
+    purpose: IsolatedAgenticWorkflowPurpose,
+    jwt: string,
+    cacheKey: string,
+    log2: FastifyRequest["log2"],
+  ): Promise<void> {
+    const maxAttempts = 60;
+    const delayMs = 5000;
+
+    for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+      const state = await this.fetchWorkflowState(privateIp, purpose, jwt);
+      if (
+        state === DesignSystemConstructionState.COMPLETE ||
+        state === DesignSystemConstructionState.ERROR
+      ) {
+        await this.cache.hset(cacheKey, {
+          state,
+          last_touched: Math.floor(Date.now() / 1000).toString(),
+        });
+        return;
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+    }
+
+    log2.warn(
+      "[monitorWorkflowCompletion] Timed out waiting for workflow completion",
+      { cacheKey, purpose },
+    );
+    await this.cache.hset(cacheKey, {
+      state: DesignSystemConstructionState.ERROR,
+      last_touched: Math.floor(Date.now() / 1000).toString(),
+    });
+  }
+
+  private async fetchWorkflowState(
+    privateIp: string,
+    purpose: IsolatedAgenticWorkflowPurpose,
+    jwt: string,
+  ): Promise<DesignSystemConstructionState> {
+    switch (purpose) {
+      case "design-system-construction": {
+        const response = await axios.post<
+          SandboxAPIResponse<
+            DesignSystemConstructorStatusSuccessResponse,
+            BuildWorkerStandardErrorResponse
+          >
+        >(`http://${privateIp}:3002/design-system-constructor/status`, null, {
+          headers: {
+            "content-type": "application/json",
+            Authorization: `Bearer ${jwt}`,
+          },
+        });
+
+        if (response.data.error) {
+          throw new Error(
+            response.data.error.message ||
+              "Failed to fetch design system constructor status",
+          );
+        }
+
+        return response.data.data.state;
+      }
+    }
   }
 
   private async triggerWorkflowOnWorker(
