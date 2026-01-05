@@ -969,6 +969,19 @@ export class ChatService {
       return null;
     }
 
+    // Skip design agent if user provided images - let Claude work directly from screenshots
+    const hasImages = Array.isArray(data.content) &&
+      data.content.some(block => block.type === "image");
+
+    if (hasImages) {
+      const imageCount = data.content.filter(block => block.type === "image").length;
+      logger.consoleLogDevOnly("info", "Skipping design agent - user provided images", {
+        prototypeId,
+        imageCount,
+      });
+      return null;
+    }
+
     const canAttemptClassification = !!this.sessionState.prototypeChatSessionId;
     if (!canAttemptClassification) {
       logger.consoleLogDevOnly(
