@@ -519,6 +519,7 @@ const NEXTJS_STACK_INFO = `
 const SHARED_SECTIONS = `
 <project_compatibility>
 - React Native prototypes must run on both iOS/Android and web (Expo) — guard Platform-specific code with Platform.OS and provide fallbacks.
+- NEVER use Alert.alert() — it does not work on web and cannot be tested. Instead, create custom modal components or use toast notifications for user feedback.
 - Next.js prototypes must support SSR. Avoid referencing browser globals inside Server Components. Move DOM-dependent logic into Client Components and guard optional APIs.
 </project_compatibility>
 
