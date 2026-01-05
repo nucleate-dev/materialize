@@ -486,7 +486,7 @@ export default function ClaudeCodePanelUI({
             className="flex-1 px-4 relative bg-accent/20"
             ref={scrollAreaRef}
           >
-            <div className="py-4 space-y-3 max-w-3xl mx-auto">
+            <div className="py-4 space-y-3">
               {messages.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-[50vh] text-center opacity-0 animate-in fade-in duration-700">
                   <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-500/10 to-purple-500/10 flex items-center justify-center mb-4 border border-indigo-500/20">
