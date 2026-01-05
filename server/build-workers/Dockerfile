@@ -118,7 +118,11 @@ RUN mkdir -p /root/.claude && \
 }' > /root/.claude/settings.json
 
 RUN mkdir -p /root/.claude/skills/designing-react-native-uis && \
-    cp -R /app/skills/designing-react-native-uis/* /root/.claude/skills/designing-react-native-uis/
+    cp -R /app/skills/designing-react-native-uis/* /root/.claude/skills/designing-react-native-uis/ && \
+    mkdir -p /root/.claude/skills/creating-landing-pages && \
+    cp -R /app/skills/creating-landing-pages/* /root/.claude/skills/creating-landing-pages/ && \
+    mkdir -p /root/.claude/skills/react-native-variants && \
+    cp -R /app/skills/react-native-variants/* /root/.claude/skills/react-native-variants/
 
 ENV TERMINAL_USER=materialize-user
 
