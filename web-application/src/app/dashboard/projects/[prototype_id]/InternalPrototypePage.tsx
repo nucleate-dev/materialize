@@ -2,7 +2,9 @@
 
 import { supabase } from "@/ClientConstants";
 import Loader from "@/components/dashboard/Loader";
-import ClaudeCodePanel from "@/components/prototype-editor/ClaudeCodePanel";
+import ClaudeCodePanel, {
+  type ClaudeCodePanelRef,
+} from "@/components/prototype-editor/ClaudeCodePanel";
 import CodeEditor from "@/components/prototype-editor/CodeEditor";
 import FileTree from "@/components/prototype-editor/FileTree";
 import MaterializeRenderSection, {
@@ -186,6 +188,9 @@ export default function InternalPrototypePage() {
   // Ref to MaterializeRenderSection for triggering refreshes
   const materializeRenderRef = useRef<MaterializeRenderSectionRef>(null);
 
+  // Ref to ClaudeCodePanel for populating input
+  const claudeCodePanelRef = useRef<ClaudeCodePanelRef>(null);
+
   // Initialize FileSystem hook
   const defaultFile = "App.js"; // TODO update this for the new default app
   const fileSystem = useFileSystem(prototypeId, defaultFile);
@@ -244,6 +249,19 @@ export default function InternalPrototypePage() {
     logger.debug("log", "LLM requested screen update", { data });
     materializeRenderRef.current?.updateScreens(data);
   }, [logger]);
+
+  // Handle creating variants from the preview toolbar
+  const handleCreateVariants = useCallback(() => {
+    const message = `Create 2 design variants of the current screen at ${currentViewingPath}`;
+    claudeCodePanelRef.current?.populateInput(message);
+    logger.log({
+      event: "client_prototype_editor_create_variants_clicked",
+      properties: {
+        prototype_id: prototypeId,
+        current_path: currentViewingPath,
+      },
+    });
+  }, [currentViewingPath, logger, prototypeId]);
 
   const canEditDesignSystem = Boolean(
     prototype && user && prototype.owner_id === user.id,
@@ -1207,6 +1225,7 @@ export default function InternalPrototypePage() {
           {/* Content Area */}
           <div className="flex-1 min-h-0">
             <ClaudeCodePanel
+              ref={claudeCodePanelRef}
               prototypeId={prototypeId}
               baseTunnelUrl={baseTunnelUrl}
               prototype={prototype}
@@ -1301,6 +1320,7 @@ export default function InternalPrototypePage() {
               isCloningPrototype={isCloningPrototype}
               framework={prototype?.framework ?? undefined}
               onStartDevServer={handleTriggerFetchAndStartDevServer}
+              onCreateVariants={handleCreateVariants}
               codeView={
                 <div className={`flex h-full ${isMobile ? "flex-col" : ""}`}>
                   {isMobile ? (

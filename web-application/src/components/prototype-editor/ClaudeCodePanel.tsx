@@ -15,7 +15,15 @@ import { normalizePrototypeVisibility } from "@/lib/types/prototypes";
 import { Database } from "@/lib/types/supabase";
 import { clearChatIntent, getChatIntent } from "@/lib/utils/chatIntentUtils";
 import type React from "react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useFeatureFlagEnabled } from "posthog-js/react";
 import ClaudeCodePanelUI from "./ClaudeCodePanelUI";
 
@@ -105,7 +113,11 @@ export interface UploadedImage {
   name: string;
 }
 
-export default function ClaudeCodePanel({
+export interface ClaudeCodePanelRef {
+  populateInput: (message: string) => void;
+}
+
+const ClaudeCodePanel = forwardRef<ClaudeCodePanelRef, ClaudeCodePanelProps>(({
   prototypeId,
   baseTunnelUrl,
   prototype,
@@ -124,7 +136,7 @@ export default function ClaudeCodePanel({
   onUnregisterMessageHandler,
   onRestartDevServerComplete,
   onStartDevServer,
-}: ClaudeCodePanelProps) {
+}, ref) => {
   const logger = useProductLogger();
 
   // Check if project context feature is enabled
@@ -178,6 +190,17 @@ export default function ClaudeCodePanel({
   const [uploadProgress, setUploadProgress] = useState<{
     [key: string]: number;
   }>({});
+
+  // Expose populateInput method to parent via ref
+  useImperativeHandle(ref, () => ({
+    populateInput: (message: string) => {
+      setInputValue(message);
+      // Focus the textarea after populating
+      setTimeout(() => {
+        textareaRef.current?.focus();
+      }, 0);
+    },
+  }), []);
 
   // Helper to check if current session is the most recent
   const isCurrentSessionMostRecent =
@@ -2307,4 +2330,8 @@ export default function ClaudeCodePanel({
       isUsingOAuthToken={isUsingOAuthToken}
     />
   );
-}
+});
+
+ClaudeCodePanel.displayName = "ClaudeCodePanel";
+
+export default ClaudeCodePanel;

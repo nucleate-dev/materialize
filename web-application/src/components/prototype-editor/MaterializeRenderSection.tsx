@@ -47,6 +47,7 @@ import {
   Eye,
   Hammer,
   KeyRound,
+  Layers,
   Loader2,
   Monitor,
   MoreVertical,
@@ -188,6 +189,8 @@ interface MaterializeRenderSectionProps {
   framework?: string;
   // Callback to start dev server (consolidated in parent)
   onStartDevServer?: () => void;
+  // Callback to create design variants (populates chat with message)
+  onCreateVariants?: () => void;
   // Public display config - for configuring multi-screen layouts
   initialScreens?: PublicDisplayConfigScreen[];
   onScreensChange?: (screens: MobileScreenConfig[]) => void;
@@ -239,6 +242,7 @@ const MaterializeRenderSection = forwardRef<
       publicView = false,
       framework,
       onStartDevServer,
+      onCreateVariants,
       initialScreens,
       onScreensChange,
       initialWebScreens,
@@ -2024,6 +2028,29 @@ const MaterializeRenderSection = forwardRef<
 
             {/* Right: Actions */}
             <div className="flex items-center gap-2">
+              {/* Create Variants Button - only show in preview mode when callback is provided */}
+              {!isReadOnlyView && isPreviewView && onCreateVariants && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={onCreateVariants}
+                        className="hidden sm:flex h-8 bg-accent border border-border text-muted-foreground hover:text-foreground hover:border-border/80 hover:bg-accent/80 transition-all"
+                      >
+                        <Layers className="w-3.5 h-3.5" />
+                        <span className="ml-2 hidden md:inline text-xs font-medium">
+                          Variants
+                        </span>
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom">
+                      <p>Create design variants of current screen</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
               {!isReadOnlyView && !isPreviewView && (
                 <Button
                   variant="ghost"
