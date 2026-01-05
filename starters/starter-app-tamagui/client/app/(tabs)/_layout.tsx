@@ -1,4 +1,3 @@
-import { useClientOnlyValue } from '@/components/useClientOnlyValue';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
 import React from 'react';
@@ -19,7 +18,7 @@ export default function TabLayout() {
     <Tabs
       screenOptions={{
         tabBarActiveTintColor: tintColor,
-        headerShown: useClientOnlyValue(false, true),
+        headerShown: false,
       }}>
       <Tabs.Screen
         name="index"
