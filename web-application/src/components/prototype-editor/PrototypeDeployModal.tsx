@@ -13,14 +13,15 @@ import { Input } from "@/components/ui/input";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import { type PrototypeVisibility } from "@/lib/types/prototypes";
 import { Database } from "@/lib/types/supabase";
-import { SLUG_RULES, isValidSlug, normalizeSlug } from "@/lib/utils/slugUtils";
+import { SLUG_RULES, isValidSlug, normalizeSlug, normalizeSlugWhileTyping } from "@/lib/utils/slugUtils";
 import {
   AlertTriangle,
   Check,
-  Clock,
+  ChevronDown,
+  ChevronUp,
   Copy,
+  Info,
   Loader2,
-  PackageCheck,
   Rocket,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -71,6 +72,8 @@ export default function PrototypeDeployModal({
     }>
   >([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [showBuildInfo, setShowBuildInfo] = useState(false);
 
   // Check if latest build is deployed
   const isLatestBuildDeployed = useMemo(() => {
@@ -142,12 +145,7 @@ export default function PrototypeDeployModal({
     }
 
     const normalized = normalizeSlug(deploySlug);
-    if (deploySlug !== normalized) {
-      setDeploySlug(normalized);
-      return;
-    }
-
-    if (!isValidSlug(deploySlug)) {
+    if (!isValidSlug(normalized)) {
       setSlugError(
         `Slug must be ${SLUG_RULES.min}-${SLUG_RULES.max} characters using lowercase letters, numbers, or hyphens.`,
       );
@@ -173,7 +171,7 @@ export default function PrototypeDeployModal({
         }
 
         const response = await fetch(
-          `${process.env.NEXT_PUBLIC_SERVER_ENDPOINT}/deployments/check-slug?slug=${encodeURIComponent(deploySlug)}&exclude_prototype_id=${encodeURIComponent(prototype.id)}`,
+          `${process.env.NEXT_PUBLIC_SERVER_ENDPOINT}/deployments/check-slug?slug=${encodeURIComponent(normalized)}&exclude_prototype_id=${encodeURIComponent(prototype.id)}`,
           {
             signal: controller.signal,
             headers: {
@@ -353,9 +351,10 @@ export default function PrototypeDeployModal({
   const handleCopyUrl = useCallback(() => {
     if (!deploySlug) return;
 
-    const fullUrl = `https://${deploySlug}.app.nucleate.dev`;
+    const fullUrl = `https://${normalizeSlug(deploySlug)}.app.nucleate.dev`;
     navigator.clipboard.writeText(fullUrl);
-    toast.success("URL copied to clipboard!");
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
     logger.log({
       event: "client_prototype_editor_deployment_url_copied",
       properties: {
@@ -392,7 +391,7 @@ export default function PrototypeDeployModal({
                 <Input
                   value={deploySlug}
                   onChange={(e) => {
-                    setDeploySlug(e.target.value);
+                    setDeploySlug(normalizeSlugWhileTyping(e.target.value));
                     setSlugAvailable(null);
                     setSlugError(null);
                   }}
@@ -410,7 +409,7 @@ export default function PrototypeDeployModal({
                 disabled={!deploySlug}
                 className="h-10 pl-3 text-muted-foreground hover:text-foreground"
               >
-                <Copy className="w-4 h-4" />
+                {copied ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
               </Button>
               <div className="w-24 text-xs text-right">
                 {isCheckingSlug && (
@@ -436,13 +435,29 @@ export default function PrototypeDeployModal({
           {/* Build History Timeline */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <p className="text-xs uppercase tracking-wide text-muted-foreground">
-                Build History
-              </p>
+              <div className="flex items-center gap-2">
+                <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                  Build History
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setShowBuildInfo(!showBuildInfo)}
+                  className="text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  {showBuildInfo ? <ChevronUp className="w-3.5 h-3.5" /> : <Info className="w-3.5 h-3.5" />}
+                </button>
+              </div>
               {isLoadingHistory && (
                 <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />
               )}
             </div>
+
+            {showBuildInfo && (
+              <div className="text-xs text-muted-foreground bg-accent/50 rounded-md p-3 space-y-2">
+                <p>Each time you make changes to your app, we automatically create a <strong className="text-foreground">build</strong> — a snapshot of your app at that moment.</p>
+                <p>When you click <strong className="text-foreground">Save &amp; deploy</strong>, we publish your latest build so anyone with the link can use it.</p>
+              </div>
+            )}
 
             {buildHistory.length === 0 && !isLoadingHistory && (
               <p className="text-xs text-muted-foreground italic">

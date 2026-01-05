@@ -9,6 +9,13 @@ export const normalizeSlug = (slug: string) =>
     .replace(/-+/g, "-")
     .replace(/^-|-$/g, "");
 
+export const normalizeSlugWhileTyping = (slug: string) =>
+  slug
+    .toLowerCase()
+    .replace(/[^a-z0-9-]+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-/, "");
+
 export const isValidSlug = (slug: string) =>
   slug.length >= MIN_SLUG_LENGTH &&
   slug.length <= MAX_SLUG_LENGTH &&
