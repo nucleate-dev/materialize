@@ -287,24 +287,38 @@ export type Database = {
       }
       design_system_files: {
         Row: {
+          contents: Json
           created_at: string
-          file_contents: Json
-          file_name: string
-          id: number
+          design_system_id: string
+          file_type: Database["public"]["Enums"]["design_system_file_type"]
+          name: string
+          updated_at: string
         }
         Insert: {
+          contents: Json
           created_at?: string
-          file_contents: Json
-          file_name: string
-          id?: number
+          design_system_id: string
+          file_type: Database["public"]["Enums"]["design_system_file_type"]
+          name: string
+          updated_at?: string
         }
         Update: {
+          contents?: Json
           created_at?: string
-          file_contents?: Json
-          file_name?: string
-          id?: number
+          design_system_id?: string
+          file_type?: Database["public"]["Enums"]["design_system_file_type"]
+          name?: string
+          updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "design_system_files_design_system_id_fkey"
+            columns: ["design_system_id"]
+            isOneToOne: false
+            referencedRelation: "design_systems"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       design_systems: {
         Row: {
@@ -1262,6 +1276,11 @@ export type Database = {
     }
     Enums: {
       chat_role: "user" | "assistant" | "system"
+      design_system_file_type:
+        | "mobile_component"
+        | "web_component"
+        | "mobile_theme"
+        | "web_theme"
       design_style: "tamagui" | "stylesheets" | "nativewind" | "custom"
       file_type: "text" | "asset"
       prototype_framework: "mobile_expo_react_native" | "web_nextjs_react"
