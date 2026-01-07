@@ -420,6 +420,116 @@ export interface UpdateTeamMemberRoleErrorResponse {
 }
 
 // ============================================================================
+// /llm/completion ENDPOINT
+// ============================================================================
+
+export type LLMProvider = "anthropic" | "openai" | "google";
+
+export interface LLMTextBlock {
+  type: "text";
+  text: string;
+}
+
+export interface LLMImageBlock {
+  type: "image";
+  source: {
+    type: "base64" | "url";
+    media_type?: "image/jpeg" | "image/png" | "image/webp" | "image/gif";
+    data?: string; // base64 data if type is base64
+    url?: string; // URL if type is url
+  };
+}
+
+export type LLMMessageContent = string | Array<LLMTextBlock | LLMImageBlock>;
+
+export interface LLMMessage {
+  role: "user" | "assistant" | "system";
+  content: LLMMessageContent;
+}
+
+export interface LLMCompletionRequestBody {
+  provider: LLMProvider;
+  model: string;
+  messages: LLMMessage[];
+  team_id: string;
+  max_tokens?: number;
+  temperature?: number;
+  system_prompt?: string;
+}
+
+export interface LLMCompletionSuccessResponse {
+  content: string;
+  usage: {
+    input_tokens: number;
+    output_tokens: number;
+    total_tokens: number;
+  };
+  credits_used: number;
+  credits_remaining: number;
+  model: string;
+  provider: string;
+}
+
+export type LLMErrorCode =
+  | "UNAUTHORIZED"
+  | "INSUFFICIENT_CREDITS"
+  | "INVALID_PROVIDER"
+  | "INVALID_MODEL"
+  | "PROVIDER_ERROR"
+  | "RATE_LIMITED"
+  | "CONTENT_POLICY_VIOLATION"
+  | "VALIDATION_ERROR";
+
+export interface LLMCompletionErrorResponse {
+  error: LLMErrorCode;
+  message: string;
+  provider_error?: string;
+}
+
+// ============================================================================
+// /llm/image-generation ENDPOINT
+// ============================================================================
+
+export type LLMImageSize =
+  | "1024x1024"
+  | "1792x1024"
+  | "1024x1792"
+  | "512x512"
+  | "256x256";
+
+export type LLMImageQuality = "standard" | "hd";
+
+export interface LLMImageGenerationRequestBody {
+  provider: "openai"; // Currently only OpenAI DALL-E supports image generation
+  model: string; // e.g., "dall-e-3", "dall-e-2"
+  prompt: string;
+  team_id: string;
+  size?: LLMImageSize;
+  quality?: LLMImageQuality;
+  n?: number; // Number of images (1-10)
+}
+
+export interface LLMGeneratedImage {
+  url?: string;
+  base64?: string;
+  revised_prompt?: string;
+}
+
+export interface LLMImageGenerationSuccessResponse {
+  images: LLMGeneratedImage[];
+  credits_used: number;
+  credits_remaining: number;
+  model: string;
+  provider: string;
+}
+
+export interface LLMImageGenerationErrorResponse {
+  error: LLMErrorCode;
+  message: string;
+  provider_error?: string;
+}
+
+// ============================================================================
 // TYPE GUARDS
 // ============================================================================
 

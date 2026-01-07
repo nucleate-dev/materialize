@@ -22,6 +22,7 @@ import { DispatcherService } from "./services/dispatcher/DispatcherService.js";
 import { IdleContainerAllocationSystemService } from "./services/idle-container-allocation-system/IdleContainerAllocationSystemService.js";
 import { OrchestrationService } from "./services/orchestration/OrchestrationService.js";
 import { PrototypeManagementService } from "./services/prototype-management/PrototypeManagementService.js";
+import { LLMService } from "./services/llm/LLMService.js";
 import { PostHogLogger } from "./loggers/PostHogLogger.js";
 import { PostHog } from "posthog-node";
 
@@ -166,6 +167,7 @@ let internalToolsService: InternalCacheManagementService;
 let internalDevServerManagementService: InternalControlPlaneDevelopmentService;
 let internalProductionDeploymentService: InternalProductionDeploymentService;
 let internalCleanupServiceManagement: InternalCleanupServiceManagement;
+let llmService: LLMService;
 let cache: GlideClient;
 
 // Health check
@@ -278,6 +280,10 @@ const start = async (): Promise<void> => {
       cleanupService,
     );
     internalCleanupServiceManagement.registerRoutes(fastify);
+
+    // Create LLM service and register routes
+    llmService = new LLMService();
+    llmService.registerRoutes(fastify);
 
     await fastify.listen({
       port: 3000,
