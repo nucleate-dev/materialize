@@ -272,7 +272,7 @@ function VariantsSection() {
     { id: "paywalls", label: "Paywalls", icon: <Lock className="w-4 h-4" /> },
     {
       id: "onboarding",
-      label: "Onboarding",
+      label: "User Flows",
       icon: <Smartphone className="w-4 h-4" />,
     },
   ];

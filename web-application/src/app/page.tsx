@@ -1909,11 +1909,6 @@ function UseCasesSection() {
               </motion.div>
             ))}
           </div>
-          <div className="flex justify-center mt-12">
-            <Button variant="outline" className="border-white/10 bg-white/5 hover:bg-white/10 rounded-full px-8 py-6 text-sm">
-              See all community projects
-            </Button>
-          </div>
         </div>
       </div>
     </section>
