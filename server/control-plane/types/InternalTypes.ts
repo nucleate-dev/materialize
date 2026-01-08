@@ -1,4 +1,10 @@
-import type { BuildStatus, PrototypeFileInput } from './PublicAPITypes.js';
+import type { DesignSystemConstructionState } from './BuildWorkerTypes.js';
+import type {
+  BuildStatus,
+  IsolatedAgenticWorkflowData,
+  IsolatedAgenticWorkflowPurpose,
+  PrototypeFileInput,
+} from './PublicAPITypes.js';
 import type { Database } from './supabase.js';
 
 // ============================================================================
@@ -21,6 +27,8 @@ export type CodeWarningType =
   | 'performance'
   | 'unused';
 
+// Isolated agentic workflow types are defined in PublicAPITypes for consistency.
+
 // Note: FileInput, CodeError, and CodeWarning are imported from PublicServerAPITypes.ts
 
 // ============================================================================
@@ -37,6 +45,17 @@ export interface ActiveBuild {
   terminal_tunnel_hostname: string;
   orchestration_token: string;
   clean_attempts: number;
+}
+
+export interface ActiveIsolatedAgenticWorkflow {
+  fargate_task_arn: string;
+  fargate_private_ip: string;
+  state: DesignSystemConstructionState;
+  last_touched: number;
+  purpose: IsolatedAgenticWorkflowPurpose;
+  user_id: string;
+  team_id: string;
+  data: IsolatedAgenticWorkflowData;
 }
 
 export interface IdleBuild {
@@ -242,6 +261,23 @@ export function isActiveBuildType(obj: unknown): obj is ActiveBuild {
   );
 }
 
+export function isActiveIsolatedAgenticWorkflow(
+  obj: unknown,
+): obj is ActiveIsolatedAgenticWorkflow {
+  return (
+    typeof obj === 'object' &&
+    obj !== null &&
+    'fargate_task_arn' in obj &&
+    'fargate_private_ip' in obj &&
+    'state' in obj &&
+    'last_touched' in obj &&
+    'team_id' in obj &&
+    'purpose' in obj &&
+    'user_id' in obj &&
+    'data' in obj
+  );
+}
+
 // ============================================================================
 // CONSTANTS
 // ============================================================================
@@ -250,6 +286,10 @@ export const CACHE_KEYS = {
   protoCurrentBuild: (prototypeId: string) => `proto:${prototypeId}:current`,
   protoBuilds: (prototypeId: string) => `proto:${prototypeId}:builds`,
   activeBuild: (buildId: string) => `active_build:${buildId}`,
+  isolatedAgenticWorkflow: (
+    purpose: IsolatedAgenticWorkflowPurpose,
+    userId: string,
+  ) => `isolated_agentic_workflow:${purpose}:${userId}`,
   idleBuildsListKey: 'idle_builds:list',
   idleBuild: (taskArn: string) => `idle_builds:${taskArn}`,
   protoDev: (prototypeId: string) => `development:${prototypeId}`,
@@ -257,6 +297,7 @@ export const CACHE_KEYS = {
 
 export const CACHE_PATTERNS = {
   allActiveBuilds: 'active_build:*',
+  allIsolatedAgenticWorkflows: 'isolated_agentic_workflow:*',
   protoBuilds: (prototypeId: string) => `proto:${prototypeId}:*`,
   allIdleBuilds: 'idle_builds:*',
 } as const;

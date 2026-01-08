@@ -5,7 +5,7 @@
 // To update these types, modify the source file and run:
 // npm run sync-build-worker-types
 //
-// Last synced: 2025-12-31T19:38:38.605Z
+// Last synced: 2026-01-04T23:28:36.582Z
 
 import { Database } from "./supabase.js";
 
@@ -75,6 +75,14 @@ export enum DevServerStatus {
   RESTARTING = "restarting",
 }
 
+export enum DesignSystemConstructionState {
+  IDLE = "idle",
+  STARTING = "starting",
+  CONSTRUCTING = "constructing",
+  COMPLETE = "complete",
+  ERROR = "error",
+}
+
 export interface BuildAndDeployResponse {
   message: string;
 }
@@ -132,6 +140,32 @@ export interface PublicDevServerRefetchEnvRequest {
 export interface PublicDevServerRefetchEnvSuccessResponse {
   message: string;
   env_var_count: number;
+}
+
+export interface DesignSystemConstructorAllocateSuccessResponse {
+  allocated: boolean;
+}
+
+export interface DesignSystemConstructorGithubCredentials {
+  token: string;
+}
+
+export interface DesignSystemConstructorUserCredentials {
+  user_id: string;
+  team_id: string;
+}
+
+export interface DesignSystemConstructorAllocateRequest {
+  user_credentials: DesignSystemConstructorUserCredentials;
+  github_credentials: DesignSystemConstructorGithubCredentials;
+}
+
+export interface DesignSystemConstructorStatusSuccessResponse {
+  state: DesignSystemConstructionState;
+}
+
+export interface DesignSystemConstructorConstructSuccessResponse {
+  started: boolean;
 }
 
 // Dev Server Response Types

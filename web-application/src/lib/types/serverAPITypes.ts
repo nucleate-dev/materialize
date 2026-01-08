@@ -5,7 +5,7 @@
 // To update these shared files, modify the source file and run:
 // npm run sync-types (in the control-plane directory)
 //
-// Last synced: 2025-12-31T19:38:38.568Z
+// Last synced: 2026-01-04T23:28:36.428Z
 
 // Public API types for the Control Plane Server
 // These types define the request and response schemas for all public endpoints
@@ -61,6 +61,22 @@ export type BuildStatus =
   | "stable"
   | "cleaning"
   | "building";
+
+export const ISOLATED_AGENTIC_WORKFLOW_PURPOSES = [
+  "design-system-construction",
+] as const;
+
+export type IsolatedAgenticWorkflowPurpose =
+  (typeof ISOLATED_AGENTIC_WORKFLOW_PURPOSES)[number];
+
+export interface DesignSystemConstructionWorkflowData {
+  name: string;
+  description: string;
+  team_id: string;
+  github_id: string;
+}
+
+export type IsolatedAgenticWorkflowData = DesignSystemConstructionWorkflowData;
 
 // ============================================================================
 // STANDARD ERROR RESPONSE
@@ -320,6 +336,20 @@ export interface StartDevServerSuccessResponse {
   viewing_url: string;
   message: string;
   terminal_url: string | null;
+}
+
+// ============================================================================
+// /isolated-agentic-workflows/trigger-workflow ENDPOINT
+// ============================================================================
+
+export interface TriggerIsolatedAgenticWorkflowRequestBody {
+  purpose: IsolatedAgenticWorkflowPurpose;
+  data: IsolatedAgenticWorkflowData;
+}
+
+export interface TriggerIsolatedAgenticWorkflowSuccessResponse {
+  success: true;
+  workflow_id: string;
 }
 
 // ============================================================================

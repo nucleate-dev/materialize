@@ -111,6 +111,7 @@ export class InternalCacheManagementService {
                     prototypeBuilds: { type: 'number' },
                     currentBuilds: { type: 'number' },
                     idleBuilds: { type: 'number' },
+                    isolatedAgenticWorkflows: { type: 'number' },
                     developmentKeys: { type: 'number' },
                     keyBreakdown: {
                       type: 'object',
@@ -136,6 +137,10 @@ export class InternalCacheManagementService {
                           items: { type: 'string' },
                         },
                         idleBuild: {
+                          type: 'array',
+                          items: { type: 'string' },
+                        },
+                        isolatedAgenticWorkflow: {
                           type: 'array',
                           items: { type: 'string' },
                         },
@@ -472,6 +477,9 @@ export class InternalCacheManagementService {
           key.startsWith('idle_builds:') &&
           key !== CACHE_KEYS.idleBuildsListKey,
       );
+      const isolatedAgenticWorkflowKeys = allKeys.filter((key) =>
+        key.startsWith('isolated_agentic_workflow:'),
+      );
       const developmentKeys = allKeys.filter((key) =>
         key.startsWith('development:'),
       );
@@ -481,6 +489,7 @@ export class InternalCacheManagementService {
           !(key.includes(':builds') && key.startsWith('proto:')) &&
           !(key.includes(':current') && key.startsWith('proto:')) &&
           !key.startsWith('idle_builds:') &&
+          !key.startsWith('isolated_agentic_workflow:') &&
           !key.startsWith('development:'),
       );
 
@@ -490,12 +499,14 @@ export class InternalCacheManagementService {
         prototypeBuilds: prototypeBuildKeys.length,
         currentBuilds: currentBuildKeys.length,
         idleBuilds: idleBuildKeys.length,
+        isolatedAgenticWorkflows: isolatedAgenticWorkflowKeys.length,
         developmentKeys: developmentKeys.length,
         keyBreakdown: {
           'active_build:*': activeBuildKeys.length,
           'proto:*:builds': prototypeBuildKeys.length,
           'proto:*:current': currentBuildKeys.length,
           'idle_builds:*': idleBuildKeys.length,
+          'isolated_agentic_workflow:*': isolatedAgenticWorkflowKeys.length,
           'development:*': developmentKeys.length,
           other: otherKeys.length,
         },
@@ -504,6 +515,7 @@ export class InternalCacheManagementService {
           prototypeBuild: prototypeBuildKeys.slice(0, 5),
           currentBuild: currentBuildKeys.slice(0, 5),
           idleBuild: idleBuildKeys.slice(0, 5),
+          isolatedAgenticWorkflow: isolatedAgenticWorkflowKeys.slice(0, 5),
           development: developmentKeys.slice(0, 5),
           other: otherKeys.slice(0, 5),
         },

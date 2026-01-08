@@ -16,6 +16,9 @@ import axios from "axios";
 import { randomBytes } from "crypto";
 import type { SystemLogger } from "../../loggers/SystemLogger.js"; // adjust your path
 import {
+  DesignSystemConstructionState,
+  DesignSystemConstructorAllocateRequest,
+  DesignSystemConstructorAllocateSuccessResponse,
   PublicAllocateRequest,
   PublicAllocateSuccessResponse,
   SandboxAPIResponse,
@@ -25,12 +28,18 @@ import {
   ActiveBuild,
   BUILD_TIMEOUTS,
   CACHE_KEYS,
+  IsolatedAgenticWorkflowData,
+  IsolatedAgenticWorkflowPurpose,
+  ActiveIsolatedAgenticWorkflow,
   FargateInstanceInfo,
   IdleBuild,
   IdleContainerStatus,
 } from "../../types/InternalTypes.js";
 import { Database } from "../../types/supabase.js";
-import { updateBuildTunnelInfo } from "../../utils/cacheInteractionUtils.js";
+import {
+  isolatedAgenticWorkflowToStringRecord,
+  updateBuildTunnelInfo,
+} from "../../utils/cacheInteractionUtils.js";
 import { deleteCloudflareTunnel } from "../../utils/cloudflareTunnelManagementUtils.js";
 import { IdleCloudflareTunnelSystem } from "./IdleCloudflareTunnelSystem.js";
 
@@ -280,6 +289,165 @@ export class IdleContainerAllocationSystemService {
     }
   }
 
+  public async allocateFargateIsolatedAgenticWorkflow(
+    purpose: IsolatedAgenticWorkflowPurpose,
+    data: IsolatedAgenticWorkflowData,
+    jwt: string,
+    userId: string,
+  ): Promise<FargateInstanceInfo> {
+    const cacheKey = CACHE_KEYS.isolatedAgenticWorkflow(purpose, userId);
+    const initialCacheData: ActiveIsolatedAgenticWorkflow = {
+      fargate_task_arn: "",
+      fargate_private_ip: "",
+      state: DesignSystemConstructionState.STARTING,
+      last_touched: Math.floor(Date.now() / 1000),
+      purpose,
+      user_id: userId,
+      team_id: data.team_id,
+      data,
+    };
+
+    const existing = await this.cache.exists([cacheKey]);
+    if (existing) {
+      throw new Error(
+        `Isolated workflow already exists for user ${userId} and purpose ${purpose}`,
+      );
+    }
+
+    await this.cache.hset(
+      cacheKey,
+      isolatedAgenticWorkflowToStringRecord(initialCacheData),
+    );
+
+    try {
+      if (process.env.NODE_ENV === "development") {
+        return await this.launchFargateInstanceForIsolatedWorkflowDirectly(
+          cacheKey,
+          initialCacheData,
+          jwt,
+        );
+      }
+
+      const taskArn = (await this.cache.rpop(CACHE_KEYS.idleBuildsListKey)) as
+        | string
+        | null;
+
+      if (!taskArn) {
+        this.log2.consoleLogDevOnly(
+          "info",
+          "[ContainerAlloc] No idle containers found for isolated workflow, falling back to direct launch",
+          { userId, purpose },
+        );
+        if (MAX_IDLE_FARGATE_BUILDS > 0) {
+          this.launchIdleContainer().catch((err) =>
+            this.log2.error(
+              err,
+              "[ContainerAlloc] Failed to replenish idle container",
+            )
+          );
+        }
+        return await this.launchFargateInstanceForIsolatedWorkflowDirectly(
+          cacheKey,
+          initialCacheData,
+          jwt,
+        );
+      }
+
+      const idleKey = CACHE_KEYS.idleBuild(taskArn);
+      const taskData = await this.hgetallAsIdleBuild(idleKey);
+      await this.cache.del([idleKey]);
+      this.launchIdleContainer().catch((err) =>
+        this.log2.error(err, "[IdleAlloc] Failed to replenish idle container"),
+      );
+
+      if (!taskData || !taskData.fargate_task_arn) {
+        this.log2.warn(
+          `[ContainerAlloc] Idle container ${taskArn} missing metadata, falling back to direct launch for isolated workflow`,
+        );
+        this.terminateFargateTask(taskArn);
+        return await this.launchFargateInstanceForIsolatedWorkflowDirectly(
+          cacheKey,
+          initialCacheData,
+          jwt,
+        );
+      }
+
+      let privateIp: string = "";
+      if (taskData.status === "creating") {
+        this.log2.consoleLogDevOnly(
+          "info",
+          `[ContainerAlloc] Waiting for idle container ${taskArn} to finish creating for isolated workflow`,
+        );
+        privateIp = await this.waitForFargateTaskToBeReadyAndGetPrivateIP(
+          taskArn,
+        );
+      } else if (taskData.status === "ready") {
+        privateIp = taskData.fargate_private_ip;
+      }
+
+      if (!privateIp) {
+        this.log2.error(
+          new Error("failed to get private IP for idle container"),
+          `[ContainerAlloc] Idle container ${taskArn} failed to get private IP for isolated workflow`,
+        );
+        this.terminateFargateTask(taskArn);
+        return this.launchFargateInstanceForIsolatedWorkflowDirectly(
+          cacheKey,
+          initialCacheData,
+          jwt,
+        );
+      }
+
+      this.log2.consoleLogDevOnly(
+        "info",
+        "[ContainerAlloc] Allocating idle container to isolated workflow",
+        { taskArn, privateIp, userId, purpose },
+      );
+
+      const info: FargateInstanceInfo = {
+        taskArn,
+        privateIp,
+        terminalTunnelId: "",
+        terminalTunnelHostname: "",
+        orchestrationToken: "",
+      };
+
+      try {
+        await this.allocateIsolatedWorkflowOnWorker(
+          info,
+          purpose,
+          data,
+          jwt,
+          userId,
+        );
+      } catch (error) {
+        this.log2.error(
+          error,
+          "Failed to allocate isolated workflow on worker",
+        );
+        await this.terminateFargateTask(taskArn);
+        throw error;
+      }
+
+      const updatedCacheData: ActiveIsolatedAgenticWorkflow = {
+        ...initialCacheData,
+        fargate_task_arn: taskArn,
+        fargate_private_ip: privateIp,
+        state: DesignSystemConstructionState.IDLE,
+        last_touched: Math.floor(Date.now() / 1000),
+      };
+      await this.cache.hset(
+        cacheKey,
+        isolatedAgenticWorkflowToStringRecord(updatedCacheData),
+      );
+
+      return info;
+    } catch (error) {
+      await this.cache.del([cacheKey]);
+      throw error;
+    }
+  }
+
   /** Launch one idle build (with PROTOTYPE_ID=idle) */
   private async launchIdleContainer(): Promise<void> {
     if (process.env.NODE_ENV === "development") return; // no idle containers in development mode
@@ -428,6 +596,62 @@ export class IdleContainerAllocationSystemService {
       log2.error(error, "Failed to launch Fargate task:");
       throw new Error(
         `Failed to launch Fargate instance: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
+      );
+    }
+  }
+
+  private async launchFargateInstanceForIsolatedWorkflowDirectly(
+    cacheKey: string,
+    initialCacheData: ActiveIsolatedAgenticWorkflow,
+    jwt: string,
+  ): Promise<FargateInstanceInfo> {
+    let taskArn: string | null = null;
+    try {
+      taskArn = await this.launchFargateInstanceNotReady(this.log2);
+      const privateIp = await this.waitForFargateTaskToBeReadyAndGetPrivateIP(
+        taskArn,
+      );
+      if (!privateIp) {
+        throw new Error("Failed to get private IP for isolated workflow");
+      }
+      const info: FargateInstanceInfo = {
+        taskArn,
+        privateIp,
+        terminalTunnelId: "",
+        terminalTunnelHostname: "",
+        orchestrationToken: "",
+      };
+      await this.allocateIsolatedWorkflowOnWorker(
+        info,
+        initialCacheData.purpose,
+        initialCacheData.data,
+        jwt,
+        initialCacheData.user_id,
+      );
+      const updatedCacheData: ActiveIsolatedAgenticWorkflow = {
+        ...initialCacheData,
+        fargate_task_arn: taskArn,
+        fargate_private_ip: privateIp,
+        state: DesignSystemConstructionState.IDLE,
+        last_touched: Math.floor(Date.now() / 1000),
+      };
+      await this.cache.hset(
+        cacheKey,
+        isolatedAgenticWorkflowToStringRecord(updatedCacheData),
+      );
+      return info;
+    } catch (error) {
+      this.log2.error(
+        error,
+        "Failed to launch Fargate task for isolated workflow",
+      );
+      if (taskArn) {
+        await this.terminateFargateTask(taskArn);
+      }
+      throw new Error(
+        `Failed to launch isolated workflow instance: ${
           error instanceof Error ? error.message : "Unknown error"
         }`,
       );
@@ -592,6 +816,81 @@ export class IdleContainerAllocationSystemService {
       fargate_private_ip: obj.fargate_private_ip,
       status: obj.status as IdleContainerStatus,
     };
+  }
+
+  private async allocateIsolatedWorkflowOnWorker(
+    info: FargateInstanceInfo,
+    purpose: IsolatedAgenticWorkflowPurpose,
+    data: IsolatedAgenticWorkflowData,
+    jwt: string,
+    userId: string,
+  ): Promise<void> {
+    switch (purpose) {
+      case "design-system-construction": {
+        const payload: DesignSystemConstructorAllocateRequest = {
+          user_credentials: {
+            user_id: userId,
+            team_id: data.team_id,
+          },
+          github_credentials: {
+            token: data.github_id,
+          },
+        };
+
+        try {
+          const allocationResponse = await axios.post<
+            SandboxAPIResponse<
+              DesignSystemConstructorAllocateSuccessResponse,
+              BuildWorkerStandardErrorResponse
+            >
+          >(
+            `http://${info.privateIp}:3002/design-system-constructor/allocate`,
+            payload,
+            {
+              headers: {
+                "content-type": "application/json",
+                Authorization: `Bearer ${jwt}`,
+              },
+            },
+          );
+          if (allocationResponse.data.error) {
+            this.log2.error(
+              new Error(allocationResponse.data.error.error),
+              `Worker returned error status for design system allocation to ${info.privateIp}`,
+              {
+                workerIp: info.privateIp,
+                userId,
+                errorMessage: allocationResponse.data.error.message,
+              },
+            );
+            throw new Error(
+              `Worker design system allocation failed: ${
+                allocationResponse.data.error.message ||
+                "Unknown error from worker"
+              }`,
+            );
+          }
+        } catch (error) {
+          if (axios.isAxiosError(error)) {
+            this.log2.error(
+              error,
+              "Axios request failed when allocating design system constructor to worker",
+              {
+                workerIp: info.privateIp,
+                userId,
+                statusCode: error.response?.status,
+                responseData: error.response?.data,
+                errorMessage: error.message,
+              },
+            );
+            throw new Error(
+              `Failed to connect to worker at ${info.privateIp}: ${error.message}`,
+            );
+          }
+          throw error;
+        }
+      }
+    }
   }
 
   /** Tell running idle container to switch to a real prototypeId */
