@@ -44,3 +44,6 @@ next-env.d.ts
 supabase/
 
 .DS_Store
+
+!src/app/settings/supabase/
+!src/app/settings/supabase/**

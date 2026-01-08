@@ -989,6 +989,105 @@ export type Database = {
           },
         ]
       }
+      team_supabase_connections: {
+        Row: {
+          access_token: string
+          connected_by_user_id: string | null
+          created_at: string
+          expires_at: string | null
+          organization_id: string | null
+          organization_name: string | null
+          organization_slug: string | null
+          refresh_token: string | null
+          team_id: string
+          updated_at: string
+        }
+        Insert: {
+          access_token: string
+          connected_by_user_id?: string | null
+          created_at?: string
+          expires_at?: string | null
+          organization_id?: string | null
+          organization_name?: string | null
+          organization_slug?: string | null
+          refresh_token?: string | null
+          team_id: string
+          updated_at?: string
+        }
+        Update: {
+          access_token?: string
+          connected_by_user_id?: string | null
+          created_at?: string
+          expires_at?: string | null
+          organization_id?: string | null
+          organization_name?: string | null
+          organization_slug?: string | null
+          refresh_token?: string | null
+          team_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_supabase_connections_connected_by_user_id_fkey"
+            columns: ["connected_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "team_supabase_connections_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: true
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      team_supabase_oauth_states: {
+        Row: {
+          code_verifier: string | null
+          created_at: string
+          created_by_user_id: string
+          expires_at: string
+          id: string
+          state: string
+          team_id: string
+        }
+        Insert: {
+          code_verifier?: string | null
+          created_at?: string
+          created_by_user_id: string
+          expires_at: string
+          id?: string
+          state: string
+          team_id: string
+        }
+        Update: {
+          code_verifier?: string | null
+          created_at?: string
+          created_by_user_id?: string
+          expires_at?: string
+          id?: string
+          state?: string
+          team_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_supabase_oauth_states_created_by_user_id_fkey"
+            columns: ["created_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "team_supabase_oauth_states_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       teams: {
         Row: {
           avatar_url: string | null

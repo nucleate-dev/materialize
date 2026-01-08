@@ -32,13 +32,13 @@ import {
   Zap,
 } from "lucide-react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import { TeamSelector } from "./TeamSelector";
 import { useFeatureFlagEnabled } from "posthog-js/react";
 import { useActiveTeam } from "@/contexts/TeamContext";
 import { TeamAndAccountsSettingsDialog } from "@/components/dashboard/TeamAndAccountSettingsDialog";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 const DashboardSidebarContent = () => {
   const pathname = usePathname();
@@ -51,11 +51,16 @@ const DashboardSidebarContent = () => {
   const isPaidUser = IsUserPlanSubscribed(userPlan);
   const logger = useProductLogger();
   const isTeamsUIEnabled = useFeatureFlagEnabled("teams-ui") ?? false;
+  const isSupabaseBackendEnabled =
+    useFeatureFlagEnabled("supabase-backend") ?? false;
   const { activeTeam } = useActiveTeam();
+  const searchParams = useSearchParams();
   const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);
   const [settingsDefaultTab, setSettingsDefaultTab] = useState<
-    "profile" | "credits" | "claude" | "team" | "people"
+    "profile" | "credits" | "claude" | "team" | "people" | "supabase"
   >("profile");
+  const [hasOpenedSettingsFromQuery, setHasOpenedSettingsFromQuery] =
+    useState(false);
 
   const getInitials = (name: string | null) => {
     if (!name) return "U";
@@ -118,6 +123,26 @@ const DashboardSidebarContent = () => {
         ]
       : []),
   ];
+
+  useEffect(() => {
+    if (hasOpenedSettingsFromQuery) {
+      return;
+    }
+
+    const requestedTab = searchParams?.get("openSettings");
+    if (requestedTab === "supabase" && isSupabaseBackendEnabled) {
+      setSettingsDefaultTab("supabase");
+      setSettingsDialogOpen(true);
+      setHasOpenedSettingsFromQuery(true);
+      router.replace(pathname ?? "/dashboard");
+    }
+  }, [
+    hasOpenedSettingsFromQuery,
+    isSupabaseBackendEnabled,
+    pathname,
+    router,
+    searchParams,
+  ]);
 
   return (
     <>

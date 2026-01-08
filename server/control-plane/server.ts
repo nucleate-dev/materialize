@@ -3,6 +3,7 @@ import { EC2Client } from "@aws-sdk/client-ec2";
 import { ECSClient } from "@aws-sdk/client-ecs";
 import { S3Client } from "@aws-sdk/client-s3";
 import { STSClient } from "@aws-sdk/client-sts";
+import { createClient } from "@supabase/supabase-js";
 import cors from "@fastify/cors";
 import { GlideClient } from "@valkey/valkey-glide";
 import "dotenv/config";
@@ -25,6 +26,8 @@ import { OrchestrationService } from "./services/orchestration/OrchestrationServ
 import { PrototypeManagementService } from "./services/prototype-management/PrototypeManagementService.js";
 import { PostHogLogger } from "./loggers/PostHogLogger.js";
 import { PostHog } from "posthog-node";
+import { SupabaseOAuthService } from "./services/SupabaseOAuthService.js";
+import type { Database } from "./types/supabase.js";
 
 // Extend FastifyRequest to include our custom loggers
 declare module "fastify" {
@@ -168,6 +171,7 @@ let internalToolsService: InternalCacheManagementService;
 let internalDevServerManagementService: InternalControlPlaneDevelopmentService;
 let internalProductionDeploymentService: InternalProductionDeploymentService;
 let internalCleanupServiceManagement: InternalCleanupServiceManagement;
+let supabaseOAuthService: SupabaseOAuthService;
 let cache: GlideClient;
 
 // Health check
@@ -234,6 +238,28 @@ const start = async (): Promise<void> => {
     // Create team management service and register routes
     teamManagementService = new TeamManagementService();
     teamManagementService.registerRoutes(fastify);
+
+    const supabaseServiceClient = createClient<Database>(
+      process.env.SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    );
+
+    supabaseOAuthService = new SupabaseOAuthService({
+      logger: baseLogger,
+      serviceClient: supabaseServiceClient,
+      config: {
+        supabaseUrl: process.env.SUPABASE_URL!,
+        supabaseAnonKey: process.env.SUPABASE_ANON_KEY!,
+        oauthAuthorizeUrl: process.env.SUPABASE_OAUTH_AUTHORIZE_URL!,
+        oauthTokenUrl: process.env.SUPABASE_OAUTH_TOKEN_URL!,
+        oauthClientId: process.env.SUPABASE_OAUTH_CLIENT_ID!,
+        oauthClientSecret: process.env.SUPABASE_OAUTH_CLIENT_SECRET!,
+        oauthRedirectUrl: process.env.SUPABASE_OAUTH_REDIRECT_URL!,
+        oauthScopes: process.env.SUPABASE_OAUTH_SCOPES!,
+        managementApiUrl: process.env.SUPABASE_MANAGEMENT_API_URL!,
+      },
+    });
+    supabaseOAuthService.registerRoutes(fastify);
 
     // Create deployment service and register routes
     deploymentService = new PrototypeDeploymentService(s3Client);

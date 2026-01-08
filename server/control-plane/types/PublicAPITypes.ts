@@ -194,6 +194,52 @@ export interface ManageBillingRequestBody {
 }
 
 // ============================================================================
+// /supabase-oauth ENDPOINTS
+// ============================================================================
+
+export interface SupabaseOAuthAuthorizeUrlRequestBody {
+  teamId: string;
+}
+
+export interface SupabaseOAuthAuthorizeUrlSuccessResponse {
+  authorizeUrl: string;
+}
+
+export interface SupabaseOAuthFinalizeRequestBody {
+  teamId: string;
+  code: string;
+  state: string;
+}
+
+export interface SupabaseOAuthOrganization {
+  id?: string | null;
+  slug?: string | null;
+  name?: string | null;
+}
+
+export interface SupabaseOAuthFinalizeSuccessResponse {
+  connected: boolean;
+  organization?: SupabaseOAuthOrganization;
+  expiresAt?: string;
+}
+
+export interface SupabaseOAuthConnectionSuccessResponse {
+  connected: boolean;
+  organization?: SupabaseOAuthOrganization;
+  connectedAt?: string;
+  connectedByUserId?: string;
+  expiresAt?: string;
+}
+
+export interface SupabaseOAuthDisconnectRequestBody {
+  teamId: string;
+}
+
+export interface SupabaseOAuthDisconnectSuccessResponse {
+  disconnected: boolean;
+}
+
+// ============================================================================
 // /deployments/check-slug ENDPOINT (GET)
 // ============================================================================
 
