@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, Suspense } from "react";
+import { useEffect, useRef, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { CheckCircle, AlertCircle, Loader2 } from "lucide-react";
@@ -25,8 +25,14 @@ function SupabaseOAuthCallbackContent() {
     "loading",
   );
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const hasFinalizedRef = useRef(false);
 
   useEffect(() => {
+    if (hasFinalizedRef.current) {
+      return;
+    }
+    hasFinalizedRef.current = true;
+
     const finalizeConnection = async () => {
       const code = searchParams.get("code");
       const state = searchParams.get("state");
