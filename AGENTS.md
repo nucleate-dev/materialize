@@ -1,4 +1,4 @@
-This repository contains code for an application that allows users to create prototypes/applications using AI
+This repository contains code for an application that allows users to create prototypes/applications using AI.
 
 This is a monorepository. The directories are as follows:
 
