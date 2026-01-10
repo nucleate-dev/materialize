@@ -84,6 +84,26 @@ export default function RootLayout({
             `,
           }}
         />
+        <Script
+          id="apollo-tracker"
+          strategy="afterInteractive"
+          dangerouslySetInnerHTML={{
+            __html: `
+              function initApollo() {
+                var n = Math.random().toString(36).substring(7);
+                var o = document.createElement("script");
+                o.src = "https://assets.apollo.io/micro/website-tracker/tracker.iife.js?nocache=" + n;
+                o.async = true;
+                o.defer = true;
+                o.onload = function () {
+                  window.trackingFunctions.onLoad({ appId: "695f20a4e2cf9d00111693fe" });
+                };
+                document.head.appendChild(o);
+              }
+              initApollo();
+            `,
+          }}
+        />
         <noscript>
           <img
             height="1"

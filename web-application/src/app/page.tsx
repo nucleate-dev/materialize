@@ -98,6 +98,8 @@ function HomeContent() {
 
         <HeroSection />
 
+        <VariantsSection />
+
         {/* Build Your Own Way */}
         <BuildYourOwnWaySection />
 
@@ -112,8 +114,6 @@ function HomeContent() {
 
         {/* Section 3: Infrastructure & Scale */}
         {/* <InfrastructureSection /> */}
-
-        <VariantsSection />
 
         <PricingSection />
         <FAQSection />
@@ -177,7 +177,7 @@ function HeroSection() {
     <section className="relative min-h-[80vh] flex flex-col justify-center px-6 py-20">
       <div className="container mx-auto max-w-5xl w-full text-center">
         <h1 className="text-5xl md:text-7xl lg:text-8xl font-medium tracking-tight text-transparent bg-clip-text bg-gradient-to-b from-white via-white to-white/60 pb-2 mb-6">
-          Build your ideas <br className="hidden md:block" /> fast
+          AI for design exploration
         </h1>
         <p className="text-lg md:text-xl text-[#8A8F98] max-w-2xl mx-auto mb-12">
           Go from prompt to production-ready web and mobile apps in minutes.
