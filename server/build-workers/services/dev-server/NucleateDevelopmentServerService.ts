@@ -6,9 +6,9 @@ import {
   PublicAllocateRequest,
   PublicAllocateSuccessResponse,
   PublicConnectGitHubSuccessResponse,
-  PublicDevServerRestartSuccessResponse,
   PublicDevServerRefetchEnvRequest,
   PublicDevServerRefetchEnvSuccessResponse,
+  PublicDevServerRestartSuccessResponse,
   PublicDevServerStartSuccessResponse,
   PublicDevServerStopSuccessResponse,
   PublicStartDevServerRequest,
@@ -46,17 +46,20 @@ import { WORK_DIR } from "../../worker.js";
 
 export const S3_BUCKET = process.env.S3_BUCKET || "materialize-sites";
 export const DEV_SERVER_PORT = 19006;
-export const DEFAULT_PROTOTYPE_FRAMEWORK: Database["public"]["Enums"]["prototype_framework"] =
-  "mobile_expo_react_native";
+export const DEFAULT_PROTOTYPE_FRAMEWORK:
+  Database["public"]["Enums"]["prototype_framework"] =
+    "mobile_expo_react_native";
 
 export class NucleateDevelopmentServerService {
   public readonly sandboxService: SandboxService;
-  public readonly cloudflareTunnelManagementService: CloudflareTunnelManagementService;
+  public readonly cloudflareTunnelManagementService:
+    CloudflareTunnelManagementService;
   public chatService: ChatService;
   public readonly supabaseClientService: SupabaseClientService;
   public readonly fileSyncService: FileSyncService;
   public readonly terminalService: TerminalService;
-  public readonly sandboxOrchestrationInitiatorService: SandboxOrchestrationInitiatorService;
+  public readonly sandboxOrchestrationInitiatorService:
+    SandboxOrchestrationInitiatorService;
   public developmentServerAdapter: IDevelopmentServerAdapter;
   public s3Client: S3Client | undefined;
   public prototypeFramework: Database["public"]["Enums"]["prototype_framework"];
@@ -181,14 +184,15 @@ export class NucleateDevelopmentServerService {
           return;
         }
 
-        const tokenData =
-          await this.sandboxOrchestrationInitiatorService.refreshGitHubInstallationToken(
+        const tokenData = await this.sandboxOrchestrationInitiatorService
+          .refreshGitHubInstallationToken(
             prototypeId,
             userJwtToken,
           );
 
         if (this.githubRepository) {
-          this.githubRepository.installationToken = tokenData.installation_token;
+          this.githubRepository.installationToken =
+            tokenData.installation_token;
           this.githubRepository.tokenExpiresAt = tokenData.expires_at;
         }
 
@@ -226,7 +230,10 @@ export class NucleateDevelopmentServerService {
       this.githubTokenRefreshInterval = null;
 
       import("../../loggers/index.js").then(({ baseLogger }) => {
-        baseLogger.consoleLogDevOnly("info", "Stopped GitHub token refresh job");
+        baseLogger.consoleLogDevOnly(
+          "info",
+          "Stopped GitHub token refresh job",
+        );
       });
     }
   }
@@ -306,11 +313,15 @@ export class NucleateDevelopmentServerService {
 
     try {
       // Update the remote URL with the fresh installation token
-      const authenticatedUrl = `https://x-access-token:${this.githubRepository.installationToken}@github.com/${this.githubRepository.fullName}.git`;
+      const authenticatedUrl =
+        `https://x-access-token:${this.githubRepository.installationToken}@github.com/${this.githubRepository.fullName}.git`;
 
       const updateRemoteResult = await this.sandboxService.runCommandInternal({
         command: "sh",
-        args: ["-c", `cd ${WORK_DIR} && git remote set-url origin ${authenticatedUrl}`],
+        args: [
+          "-c",
+          `cd ${WORK_DIR} && git remote set-url origin ${authenticatedUrl}`,
+        ],
         cwd: WORK_DIR,
         session_id: "test",
         timeout_ms: 10000,
@@ -327,7 +338,12 @@ export class NucleateDevelopmentServerService {
       // Push to the default branch
       const pushResult = await this.sandboxService.runCommandInternal({
         command: "git",
-        args: ["push", "origin", this.githubRepository.defaultBranch],
+        args: [
+          "push",
+          "-u",
+          "origin",
+          `HEAD:${this.githubRepository.defaultBranch}`,
+        ],
         cwd: WORK_DIR,
         session_id: "test",
         timeout_ms: 60000,
@@ -371,10 +387,14 @@ export class NucleateDevelopmentServerService {
     }
 
     try {
-      const authenticatedUrl = `https://x-access-token:${this.githubRepository.installationToken}@github.com/${this.githubRepository.fullName}.git`;
+      const authenticatedUrl =
+        `https://x-access-token:${this.githubRepository.installationToken}@github.com/${this.githubRepository.fullName}.git`;
       const updateRemoteResult = await this.sandboxService.runCommandInternal({
         command: "sh",
-        args: ["-c", `cd ${WORK_DIR} && git remote set-url origin ${authenticatedUrl}`],
+        args: [
+          "-c",
+          `cd ${WORK_DIR} && git remote set-url origin ${authenticatedUrl}`,
+        ],
         cwd: WORK_DIR,
         session_id: "test",
         timeout_ms: 10000,
@@ -541,7 +561,10 @@ export class NucleateDevelopmentServerService {
     request: FastifyRequest,
     reply: FastifyReply,
   ): Promise<
-    SandboxAPIResponse<PublicConnectGitHubSuccessResponse, StandardErrorResponse>
+    SandboxAPIResponse<
+      PublicConnectGitHubSuccessResponse,
+      StandardErrorResponse
+    >
   > {
     return handleConnectGitHubImpl(request, reply, this);
   }

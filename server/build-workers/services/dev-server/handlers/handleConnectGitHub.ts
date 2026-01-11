@@ -108,14 +108,14 @@ export async function handleConnectGitHubImpl(
 
   // 3. Get a fresh installation token
   try {
-    const userJwtToken =
-      developmentServerService.supabaseClientService.getCurrentJwtToken();
+    const userJwtToken = developmentServerService.supabaseClientService
+      .getCurrentJwtToken();
     if (!userJwtToken) {
       throw new Error("User JWT token not available");
     }
 
-    const tokenData =
-      await developmentServerService.sandboxOrchestrationInitiatorService.refreshGitHubInstallationToken(
+    const tokenData = await developmentServerService
+      .sandboxOrchestrationInitiatorService.refreshGitHubInstallationToken(
         prototypeId,
         userJwtToken,
       );
@@ -138,17 +138,19 @@ export async function handleConnectGitHubImpl(
     });
 
     // 4. Set git remote origin and push to GitHub
-    const authenticatedUrl = `https://x-access-token:${tokenData.installation_token}@github.com/${githubRepo.full_name}.git`;
+    const authenticatedUrl =
+      `https://x-access-token:${tokenData.installation_token}@github.com/${githubRepo.full_name}.git`;
 
     // Check if remote already exists and update it, or add it if it doesn't
-    const setRemoteCommand = `cd ${WORK_DIR} && (git remote get-url origin > /dev/null 2>&1 && git remote set-url origin ${authenticatedUrl} || git remote add origin ${authenticatedUrl})`;
+    const setRemoteCommand =
+      `cd ${WORK_DIR} && (git remote get-url origin > /dev/null 2>&1 && git remote set-url origin ${authenticatedUrl} || git remote add origin ${authenticatedUrl})`;
 
-    const setRemoteResult =
-      await developmentServerService.sandboxService.runCommandInternal({
+    const setRemoteResult = await developmentServerService.sandboxService
+      .runCommandInternal({
         command: "sh",
         args: ["-c", setRemoteCommand],
         cwd: WORK_DIR,
-        session_id: "dev-server",
+        session_id: "test",
         timeout_ms: 10000,
         strip_ansi: true,
       });
@@ -176,12 +178,12 @@ export async function handleConnectGitHubImpl(
     const defaultBranch = githubRepo.default_branch || "main";
     const pushCommand = `cd ${WORK_DIR} && git push -u origin ${defaultBranch}`;
 
-    const pushResult =
-      await developmentServerService.sandboxService.runCommandInternal({
+    const pushResult = await developmentServerService.sandboxService
+      .runCommandInternal({
         command: "sh",
         args: ["-c", pushCommand],
         cwd: WORK_DIR,
-        session_id: "dev-server",
+        session_id: "test",
         timeout_ms: 60000, // 1 minute for push
         strip_ansi: true,
       });
@@ -234,10 +236,9 @@ export async function handleConnectGitHubImpl(
       data: null,
       error: {
         error: "Failed to connect to GitHub",
-        message:
-          error instanceof Error
-            ? error.message
-            : "An unexpected error occurred",
+        message: error instanceof Error
+          ? error.message
+          : "An unexpected error occurred",
       },
     };
   }

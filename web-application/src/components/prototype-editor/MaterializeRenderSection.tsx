@@ -1227,10 +1227,8 @@ const MaterializeRenderSection = forwardRef<
         toast.info("Creating GitHub repository...");
 
         // Step 1: Create the GitHub repository via control-plane
-        const siteBaseUrl =
-          process.env.NEXT_PUBLIC_SITE_BASE_URL || window.location.origin;
         const createRepoResponse = await fetch(
-          `${siteBaseUrl}/github/repo/create`,
+          `${process.env.NEXT_PUBLIC_SERVER_ENDPOINT!}/github/repo/create`,
           {
             method: "POST",
             headers: {
