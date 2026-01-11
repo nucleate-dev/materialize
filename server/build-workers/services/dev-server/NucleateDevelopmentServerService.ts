@@ -5,6 +5,7 @@ import {
   DevServerStatus,
   PublicAllocateRequest,
   PublicAllocateSuccessResponse,
+  PublicConnectGitHubSuccessResponse,
   PublicDevServerRestartSuccessResponse,
   PublicDevServerRefetchEnvRequest,
   PublicDevServerRefetchEnvSuccessResponse,
@@ -38,6 +39,7 @@ import { S3Client } from "@aws-sdk/client-s3";
 import { handleRefetchEnvImpl } from "./handlers/handleRefetchEnv.js";
 import type { Database } from "../../types/supabase.js";
 import { SandboxOrchestrationInitiatorService } from "../SandboxOrchestrationInitiatorService.js";
+import { handleConnectGitHubImpl } from "./handlers/handleConnectGitHub.js";
 
 export const S3_BUCKET = process.env.S3_BUCKET || "materialize-sites";
 export const DEV_SERVER_PORT = 19006;
@@ -127,6 +129,8 @@ export class NucleateDevelopmentServerService {
       "/dev-server/refetch-env",
       this.refetchEnvVars.bind(this),
     );
+
+    app.post("/dev-server/connect-github", this.connectGitHub.bind(this));
 
     app.delete("/cleanup", this.cleanup.bind(this));
 
@@ -300,6 +304,15 @@ export class NucleateDevelopmentServerService {
     >
   > {
     return handleRefetchEnvImpl(request, reply, this);
+  }
+
+  private async connectGitHub(
+    request: FastifyRequest,
+    reply: FastifyReply,
+  ): Promise<
+    SandboxAPIResponse<PublicConnectGitHubSuccessResponse, StandardErrorResponse>
+  > {
+    return handleConnectGitHubImpl(request, reply, this);
   }
 
   private async buildAndDeploy(
