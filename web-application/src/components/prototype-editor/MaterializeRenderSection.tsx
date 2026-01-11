@@ -2201,7 +2201,7 @@ const MaterializeRenderSection = forwardRef<
                        currentUserMembership?.role === "viewer" && (
                         <Alert className="border-amber-500/20 bg-amber-500/10">
                           <AlertDescription className="text-xs text-amber-600 dark:text-amber-400">
-                            You don't have permission to access this repository.
+                            You don&apos;t have permission to access this repository.
                           </AlertDescription>
                         </Alert>
                       )}
