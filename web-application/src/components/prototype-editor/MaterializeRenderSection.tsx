@@ -2208,7 +2208,7 @@ const MaterializeRenderSection = forwardRef<
                         ) : (
                           <Hammer className="w-4 h-4 mr-2 opacity-70" />
                         )}
-                        {isBuilding ? "Building..." : "Build & Deploy"}
+                        {isBuilding ? "Building..." : "Build"}
                       </DropdownMenuItem>
                     </>
                   )}
