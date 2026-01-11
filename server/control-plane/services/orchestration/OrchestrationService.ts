@@ -1,10 +1,14 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { GlideClient } from '@valkey/valkey-glide';
+import { createClient } from '@supabase/supabase-js';
 import {
   APIResponse,
   EndChatRequestBody,
   EndChatResponse,
   HTTP_STATUS,
+  RefreshGitHubInstallationTokenErrorResponse,
+  RefreshGitHubInstallationTokenRequestBody,
+  RefreshGitHubInstallationTokenSuccessResponse,
   StandardErrorResponse,
   StartChatRequestBody,
   StartChatResponse,
@@ -16,6 +20,9 @@ import {
 } from '../../utils/cacheInteractionUtils.js';
 import { SystemLogger } from '../../loggers/SystemLogger.js';
 import { isDevServerInShutdownStages } from '../../utils/prototypeDevServerStatusUtils.js';
+import { validateJWTToken } from '../../utils/prototypeAuth.js';
+import { createInstallationToken } from '../../utils/githubClient.js';
+import type { Database } from '../../types/supabase.js';
 
 export class OrchestrationService {
   private cache: GlideClient;
@@ -63,6 +70,25 @@ export class OrchestrationService {
         },
       },
       this.handleEndChat.bind(this),
+    );
+
+    // POST /orchestration/refresh-github-installation-token
+    app.post<{
+      Body: RefreshGitHubInstallationTokenRequestBody;
+    }>(
+      '/orchestration/refresh-github-installation-token',
+      {
+        schema: {
+          body: {
+            type: 'object',
+            required: ['prototype_id'],
+            properties: {
+              prototype_id: { type: 'string' },
+            },
+          },
+        },
+      },
+      this.handleRefreshGitHubInstallationToken.bind(this),
     );
   }
 
@@ -383,6 +409,188 @@ export class OrchestrationService {
       return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
         data: null,
         error: errorResponse,
+      });
+    }
+  }
+
+  private async handleRefreshGitHubInstallationToken(
+    request: FastifyRequest<{ Body: RefreshGitHubInstallationTokenRequestBody }>,
+    reply: FastifyReply,
+  ): Promise<
+    APIResponse<
+      RefreshGitHubInstallationTokenSuccessResponse,
+      RefreshGitHubInstallationTokenErrorResponse
+    >
+  > {
+    const { prototype_id } = request.body;
+
+    // Step 1: Validate orchestration token
+    const validation = await this.validateOrchestrationToken(
+      request,
+      prototype_id,
+    );
+
+    if (!validation.isValid) {
+      const statusCode =
+        validation.errorMessage === 'No active build found for this prototype'
+          ? HTTP_STATUS.NOT_FOUND
+          : HTTP_STATUS.UNAUTHORIZED;
+
+      const errorResponse: RefreshGitHubInstallationTokenErrorResponse = {
+        error:
+          statusCode === HTTP_STATUS.NOT_FOUND ? 'NOT_FOUND' : 'UNAUTHORIZED',
+        message: validation.errorMessage!,
+      };
+      return reply.status(statusCode).send({
+        data: null,
+        error: errorResponse,
+      });
+    }
+
+    // Step 2: Validate user JWT token
+    const authHeader = request.headers.authorization;
+    if (!authHeader) {
+      this.logger.warn('Missing authorization header', { prototypeId: prototype_id });
+      return reply.status(HTTP_STATUS.UNAUTHORIZED).send({
+        data: null,
+        error: {
+          error: 'UNAUTHORIZED',
+          message: 'Missing Authorization header',
+        },
+      });
+    }
+
+    const token = authHeader.split(' ')[1] ?? '';
+    const { user } = await validateJWTToken(token, this.logger);
+    if (!user) {
+      this.logger.warn('Invalid JWT token', { prototypeId: prototype_id });
+      return reply.status(HTTP_STATUS.UNAUTHORIZED).send({
+        data: null,
+        error: {
+          error: 'UNAUTHORIZED',
+          message: 'Invalid JWT token',
+        },
+      });
+    }
+
+    // Step 3: Create Supabase service client to fetch prototype and GitHub integration
+    const supabaseServiceClient = createClient<Database>(
+      process.env.SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    );
+
+    try {
+      // Step 4: Fetch prototype to get team_id
+      const { data: prototype, error: prototypeError } =
+        await supabaseServiceClient
+          .from('prototypes')
+          .select('team_id, github_repo_id')
+          .eq('id', prototype_id)
+          .single();
+
+      if (prototypeError || !prototype) {
+        this.logger.error(
+          prototypeError ?? new Error('Prototype not found'),
+          'Failed to fetch prototype',
+          { prototypeId: prototype_id },
+        );
+        return reply.status(HTTP_STATUS.NOT_FOUND).send({
+          data: null,
+          error: {
+            error: 'NOT_FOUND',
+            message: 'Prototype not found',
+          },
+        });
+      }
+
+      // Check if prototype has a GitHub repo
+      if (!prototype.github_repo_id) {
+        this.logger.warn('Prototype does not have a GitHub repository', {
+          prototypeId: prototype_id,
+        });
+        return reply.status(HTTP_STATUS.BAD_REQUEST).send({
+          data: null,
+          error: {
+            error: 'NO_GITHUB_REPO',
+            message: 'This prototype does not have a linked GitHub repository',
+          },
+        });
+      }
+
+      // Step 5: Fetch GitHub integration for the team
+      const { data: integration, error: integrationError } =
+        await supabaseServiceClient
+          .from('github_integrations')
+          .select('installation_id')
+          .eq('team_id', prototype.team_id)
+          .maybeSingle();
+
+      if (integrationError || !integration) {
+        this.logger.error(
+          integrationError ?? new Error('GitHub integration not found'),
+          'Failed to fetch GitHub integration',
+          { teamId: prototype.team_id, prototypeId: prototype_id },
+        );
+        return reply.status(HTTP_STATUS.NOT_FOUND).send({
+          data: null,
+          error: {
+            error: 'GITHUB_NOT_CONNECTED',
+            message: 'GitHub integration not found for this team',
+          },
+        });
+      }
+
+      // Step 6: Create installation token
+      try {
+        const installationToken = await createInstallationToken(
+          integration.installation_id,
+          this.logger,
+        );
+
+        this.logger.info('Created GitHub installation token', {
+          prototypeId: prototype_id,
+          teamId: prototype.team_id,
+          installationId: integration.installation_id,
+        });
+
+        return reply.status(HTTP_STATUS.OK).send({
+          data: {
+            installation_token: installationToken.token,
+            expires_at: installationToken.expires_at,
+          },
+          error: null,
+        });
+      } catch (tokenError) {
+        this.logger.error(
+          tokenError instanceof Error
+            ? tokenError
+            : new Error(String(tokenError)),
+          'Failed to create GitHub installation token',
+          {
+            installationId: integration.installation_id,
+            prototypeId: prototype_id,
+          },
+        );
+        return reply.status(HTTP_STATUS.BAD_GATEWAY).send({
+          data: null,
+          error: {
+            error: 'GITHUB_ERROR',
+            message: 'Failed to create GitHub installation token',
+          },
+        });
+      }
+    } catch (error) {
+      this.logger.error(
+        error instanceof Error ? error : new Error(String(error)),
+        'Exception in handleRefreshGitHubInstallationToken',
+        { prototypeId: prototype_id },
+      );
+      return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
+        data: null,
+        error: {
+          error: 'INTERNAL_SERVER_ERROR',
+          message: 'An unexpected error occurred',
+        },
       });
     }
   }

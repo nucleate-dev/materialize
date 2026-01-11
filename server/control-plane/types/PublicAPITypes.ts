@@ -356,6 +356,20 @@ export interface EndChatResponse {
   message?: string;
 }
 
+export interface RefreshGitHubInstallationTokenRequestBody {
+  prototype_id: string;
+}
+
+export interface RefreshGitHubInstallationTokenSuccessResponse {
+  installation_token: string;
+  expires_at: string;
+}
+
+export interface RefreshGitHubInstallationTokenErrorResponse {
+  error: string;
+  message: string;
+}
+
 // ============================================================================
 // /teams/accept-invite ENDPOINT
 // ============================================================================
