@@ -211,9 +211,9 @@ function HeroSection() {
             <div className="px-4 pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-t border-white/5 mt-2 pt-2 bg-white/[0.02]">
               <div className="flex gap-4 items-center">
                 <span className="text-[10px] text-white/30 uppercase tracking-widest font-bold">Try:</span>
-                <button onClick={() => setPrompt("Pricing paywall variant for iOS")} className="text-xs text-white/50 hover:text-white">Paywall variant</button>
-                <button onClick={() => setPrompt("Onboarding flow with 3 steps")} className="text-xs text-white/50 hover:text-white">Onboarding</button>
-                <button onClick={() => setPrompt("Settings screen with notifications")} className="text-xs text-white/50 hover:text-white">Settings</button>
+                <button onClick={() => setPrompt("Create a high-converting paywall screen for a mobile health app using a dark, modern theme. The layout should feature a compelling header image, followed by a toggle for Monthly vs Yearly billing. Highlight the Yearly plan with a 'Best Value' badge and animate the selection state. Below the plans, include a list of verified user reviews and a 'Restore Purchases' link in the footer.")} className="text-xs text-white/50 hover:text-white">Paywall variant</button>
+                <button onClick={() => setPrompt("Create a 3-step onboarding flow for a financial technology app. Step 1 should focus on trust, displaying certification logos and a secure animation. Step 2 should ask for the user's primary investment goals using large, selectable cards with icons. Step 3 needs to be a 'Connect Bank' screen with a search bar for institutions and a list of popular banks.")} className="text-xs text-white/50 hover:text-white">Onboarding</button>
+                <button onClick={() => setPrompt("Create a detailed user settings page for a project management dashboard. The layout should have a persistent sidebar on the left for navigation categories like Profile, Team, and Billing. In the Profile section, include form fields for name and email, plus an avatar uploader. The Billing section should show a usage graph, current plan details, and a table of past invoices with download buttons.")} className="text-xs text-white/50 hover:text-white">Settings</button>
               </div>
               <div className="flex items-center gap-2">
                 {isWebPrototypeEnabled && (
@@ -225,7 +225,7 @@ function HeroSection() {
                   </Select>
                 )}
                 <Button onClick={handleSend} disabled={!prompt.trim() || isLoading} size="sm" className="bg-indigo-600 text-white hover:bg-indigo-500 px-6">
-                  {isLoading ? "Analyzing Repo..." : "Connect & Generate"}
+                  {isLoading ? "Loading..." : "Generate"}
                 </Button>
               </div>
             </div>
