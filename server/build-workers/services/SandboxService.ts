@@ -479,6 +479,49 @@ export class SandboxService {
   }
 
   /**
+   * Write a binary file to the sandbox
+   * Auto-creates parent directories if they don't exist
+   * @param relativePath - Path relative to workDir
+   * @param filename - Name of the file to write
+   * @param contents - File contents (binary)
+   */
+  public async writeBinaryFile(
+    relativePath: string,
+    filename: string,
+    contents: Buffer,
+  ): Promise<WriteFileResult> {
+    try {
+      const fullRelativePath = path.join(relativePath, filename);
+
+      const resolvedPath = resolvePathWithinProject(WORK_DIR, fullRelativePath);
+
+      baseLogger.consoleLogDevOnly("info", "Writing binary file", {
+        path: fullRelativePath,
+        resolvedPath,
+        contentLength: contents.length,
+      });
+
+      const parentDir = path.dirname(resolvedPath);
+      await fs.mkdir(parentDir, { recursive: true });
+
+      await fs.writeFile(resolvedPath, contents);
+
+      baseLogger.consoleLogDevOnly("info", "Binary file written successfully", {
+        path: fullRelativePath,
+      });
+      return { success: true };
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      baseLogger.error(new Error(errorMessage), "Failed to write binary file", {
+        path: relativePath,
+        filename,
+      });
+      return { success: false, error: errorMessage };
+    }
+  }
+
+  /**
    * Clone a git repository into the sandbox
    * Security: Only allows HTTPS URLs, blocks private IPs
    * @param gitUrl - HTTPS git repository URL

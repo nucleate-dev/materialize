@@ -541,6 +541,8 @@ The checkTerminal tool (mcp__devtools__checkTerminal) should ONLY be used when y
 Do not use it for general monitoring or informational purposes.
 
 CRITICAL: If you use a package, you should verify that it is installed; else, install it.
+
+When the user requests a new image or asset, use the GenerateAsset tool (mcp__assets__GenerateAsset). Provide a clear file_path, preferably under client/assets, and then reference that asset in your code instead of pulling from the web.
 </tool_usage>
 `;
 

@@ -35,6 +35,7 @@ import {
   persistChatMessage,
 } from "../helpers/message-handlers.js";
 import { evaluateToolPermission } from "../helpers/tool-permission-service.js";
+import { createAssetToolsMcpServer } from "../mcp/mcp-asset-tools.js";
 import { createDesignToolsMcpServer } from "../mcp/mcp-design-tools.js";
 import { createDevelopmentToolsMcpServer } from "../mcp/mcp-dev-tools.js";
 import {
@@ -79,6 +80,7 @@ interface StreamContext {
     assistantMessageBuffer: string;
     creditsUsed: number | undefined;
     costFunction: string | undefined;
+    toolCostUsd: number;
   };
 }
 
@@ -90,6 +92,7 @@ interface HookContext {
   sessionState?: ChatEngineSessionState;
   flushAssistantBuffer?: () => Promise<void>;
   getRelativePath?: (path: string) => string;
+  recordToolCostUsd?: (costUsd: number) => void;
 }
 
 /**
@@ -237,6 +240,7 @@ export class ChatQueryHandler implements ChatEngine {
         assistantMessageBuffer: "",
         creditsUsed: undefined as number | undefined,
         costFunction: undefined as string | undefined,
+        toolCostUsd: 0,
       };
 
       // Create flush callback that will be passed to hooks
@@ -261,6 +265,9 @@ export class ChatQueryHandler implements ChatEngine {
         activeConnections,
         sessionState,
         flushAssistantBuffer,
+        (costUsd: number) => {
+          bufferState.toolCostUsd += costUsd;
+        },
         framework,
         context.getRelativePath,
         systemPrompt,
@@ -496,6 +503,7 @@ export class ChatQueryHandler implements ChatEngine {
     activeConnections: Map<string, ChatConnection>,
     sessionState: ChatEngineSessionState,
     flushAssistantBuffer: () => Promise<void>,
+    recordToolCostUsd: (costUsd: number) => void,
     framework: Database["public"]["Enums"]["prototype_framework"],
     relativePathResolver: (path: string) => string,
     systemPromptOverride: string,
@@ -523,6 +531,7 @@ export class ChatQueryHandler implements ChatEngine {
       "mcp__devtools__SafeBash",
       "mcp__devtools__checkTerminal",
       "mcp__devtools__RestartDevServer",
+      "mcp__assets__GenerateAsset",
     ];
 
     if (this.enableDesignMcpTools) {
@@ -567,6 +576,23 @@ export class ChatQueryHandler implements ChatEngine {
           );
           this.devServerService.developmentServerState.devServerStatus =
             DevServerStatus.RUNNING;
+        },
+      ),
+      assets: createAssetToolsMcpServer(
+        async (filePath: string, content: Buffer) => {
+          const writeFileResult = await this.handleMcpWriteBinaryFile(
+            filePath,
+            content,
+          );
+          baseLogger.consoleLogDevOnly(
+            "info",
+            "MCP asset tool: write file result",
+            {
+              filePath,
+              bytes: content.length,
+            },
+          );
+          return writeFileResult;
         },
       ),
     };
@@ -640,6 +666,7 @@ export class ChatQueryHandler implements ChatEngine {
                   activeConnections,
                   flushAssistantBuffer,
                   getRelativePath: relativePathResolver,
+                  recordToolCostUsd,
                 };
                 return this.handlePreToolUseHook(
                   hookContext,
@@ -664,6 +691,7 @@ export class ChatQueryHandler implements ChatEngine {
                   activeConnections,
                   sessionState,
                   getRelativePath: relativePathResolver,
+                  recordToolCostUsd,
                 };
                 return this.handlePostToolUseHook(
                   hookContext,
@@ -798,6 +826,55 @@ export class ChatQueryHandler implements ChatEngine {
   }
 
   /**
+   * Handles MCP binary write file requests
+   */
+  private async handleMcpWriteBinaryFile(
+    filePath: string,
+    content: Buffer,
+  ): Promise<{
+    success: boolean;
+    bytesWritten?: number;
+    error?: string;
+  }> {
+    try {
+      const resolvedPath = path.resolve(WORK_DIR, filePath);
+      const relativePath = path.relative(WORK_DIR, path.dirname(resolvedPath));
+      const filename = path.basename(resolvedPath);
+
+      const result = await this.sandboxService.writeBinaryFile(
+        relativePath,
+        filename,
+        content,
+      );
+
+      if (result.success) {
+        const bytesWritten = content.length;
+        return {
+          success: true,
+          bytesWritten,
+        };
+      }
+      return {
+        success: false,
+        error: result.error,
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error
+        ? error.message
+        : String(error);
+      baseLogger.error(
+        error instanceof Error ? error : new Error(errorMessage),
+        "MCP binary write tool: failed to write file",
+        { filePath },
+      );
+      return {
+        success: false,
+        error: errorMessage,
+      };
+    }
+  }
+
+  /**
    * Handles PreToolUse hook
    */
   private async handlePreToolUseHook(
@@ -905,6 +982,14 @@ export class ChatQueryHandler implements ChatEngine {
       baseLogger.consoleLogDevOnly("debug", JSON.stringify(input));
 
       if (input.hook_event_name === "PostToolUse") {
+        const toolCostUsd = this.parseToolCostUsd(
+          input.tool_name,
+          input.tool_response,
+        );
+        if (toolCostUsd && hookContext.recordToolCostUsd) {
+          hookContext.recordToolCostUsd(toolCostUsd);
+        }
+
         // Send tool complete event to WebSocket client
         broadcastToConnections(
           activeConnections,
@@ -944,6 +1029,37 @@ export class ChatQueryHandler implements ChatEngine {
       );
     }
     return { continue: true };
+  }
+
+  private parseToolCostUsd(
+    toolName: string,
+    toolResponse: unknown,
+  ): number | null {
+    if (toolName !== "mcp__assets__GenerateAsset") {
+      return null;
+    }
+
+    if (!toolResponse || typeof toolResponse !== "object") {
+      return null;
+    }
+
+    const response = toolResponse as { content?: Array<{ text?: string }> };
+    const text = response.content?.find((item) => typeof item.text === "string")
+      ?.text;
+    if (!text) {
+      return null;
+    }
+
+    try {
+      const parsed = JSON.parse(text) as { cost_usd?: number };
+      if (typeof parsed.cost_usd === "number") {
+        return parsed.cost_usd;
+      }
+    } catch {
+      return null;
+    }
+
+    return null;
   }
 
   /**
@@ -1181,6 +1297,12 @@ export class ChatQueryHandler implements ChatEngine {
 
     // Persist any remaining accumulated assistant message if there is any
     // This handles cases where the conversation ends with assistant text (no tools after)
+    const combinedCostUsd = (totalCostUsd ?? 0) + bufferState.toolCostUsd;
+    if (totalCostUsd !== undefined || bufferState.toolCostUsd > 0) {
+      bufferState.creditsUsed = costFunctionV3(combinedCostUsd);
+      bufferState.costFunction = CURRENT_COST_FUNCTION_NAME;
+    }
+
     if (bufferState.assistantMessageBuffer.trim()) {
       await this.persistAssistantMessageBuffer(
         bufferState.assistantMessageBuffer,
@@ -1190,7 +1312,10 @@ export class ChatQueryHandler implements ChatEngine {
       );
     }
 
-    return totalCostUsd;
+    if (totalCostUsd === undefined && bufferState.toolCostUsd === 0) {
+      return undefined;
+    }
+    return combinedCostUsd;
   }
 
   private sendMessage(socket: WebSocket, message: ChatServerMessage): void {
