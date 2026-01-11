@@ -9,6 +9,7 @@ import { baseLogger } from "../loggers/index.js";
 export class SupabaseClientService {
   private static instance: SupabaseClientService | null = null;
   private supabaseClient: SupabaseClient<Database>;
+  private currentJwtToken: string | null = null;
 
   private constructor() {
     const logger = baseLogger;
@@ -97,9 +98,18 @@ export class SupabaseClientService {
   public refreshClientWithToken(jwtToken: string): void {
     const authenticatedClient = this.createAuthenticatedClient(jwtToken);
     this.setClient(authenticatedClient);
+    this.currentJwtToken = jwtToken;
     baseLogger
       .child({ service: "SupabaseClientService" })
       .consoleLogDevOnly("info", "Refreshed Supabase client with JWT token");
+  }
+
+  /**
+   * Gets the current JWT token that was used to authenticate the Supabase client.
+   * Returns null if the client is not authenticated or no token has been set.
+   */
+  public getCurrentJwtToken(): string | null {
+    return this.currentJwtToken;
   }
 
   /**
@@ -110,6 +120,7 @@ export class SupabaseClientService {
     const supabaseAnonKey = process.env.SUPABASE_ANON_KEY!;
 
     this.supabaseClient = createClient<Database>(supabaseUrl, supabaseAnonKey);
+    this.currentJwtToken = null;
     baseLogger
       .child({ service: "SupabaseClientService" })
       .consoleLogDevOnly("info", "Reset Supabase client to anonymous");

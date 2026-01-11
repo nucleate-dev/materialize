@@ -163,9 +163,21 @@ export class NucleateDevelopmentServerService {
 
     this.githubTokenRefreshInterval = setInterval(async () => {
       try {
+        const userJwtToken = this.supabaseClientService.getCurrentJwtToken();
+        if (!userJwtToken) {
+          const { baseLogger } = await import("../../loggers/index.js");
+          baseLogger.error(
+            new Error("User JWT token not available"),
+            "Cannot refresh GitHub token without JWT",
+            { prototypeId },
+          );
+          return;
+        }
+
         const tokenData =
           await this.sandboxOrchestrationInitiatorService.refreshGitHubInstallationToken(
             prototypeId,
+            userJwtToken,
           );
 
         if (this.githubRepository) {

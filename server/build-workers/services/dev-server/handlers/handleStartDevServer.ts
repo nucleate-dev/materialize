@@ -135,9 +135,16 @@ export async function handleStartDevServerImpl(
 
     // Get a fresh installation token
     try {
+      const userJwtToken =
+        developmentServerService.supabaseClientService.getCurrentJwtToken();
+      if (!userJwtToken) {
+        throw new Error("User JWT token not available");
+      }
+
       const tokenData =
         await developmentServerService.sandboxOrchestrationInitiatorService.refreshGitHubInstallationToken(
           prototype_id,
+          userJwtToken,
         );
 
       // Store GitHub info in developmentServerService

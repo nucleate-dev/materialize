@@ -208,15 +208,10 @@ export async function handleAllocateImpl(
       request.log2.warn("No aak provided during allocation");
     }
 
-    // 8. SET ORCHESTRATION AND JWT TOKENS IN SandboxOrchestrationInitiatorService:
+    // 8. SET ORCHESTRATION TOKEN IN SandboxOrchestrationInitiatorService:
     materializeDevelopmentServerService.sandboxOrchestrationInitiatorService.setOrchestrationToken(
       keys.orchestration_token,
     );
-    if (jwtToken) {
-      materializeDevelopmentServerService.sandboxOrchestrationInitiatorService.setUserJwtToken(
-        jwtToken,
-      );
-    }
 
     reply.status(200);
     return {

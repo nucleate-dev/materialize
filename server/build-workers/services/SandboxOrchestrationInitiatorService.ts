@@ -25,7 +25,6 @@ interface RefreshGitHubInstallationTokenResponse {
  */
 export class SandboxOrchestrationInitiatorService {
   private orchestrationToken: string | null = null;
-  private userJwtToken: string | null = null;
   private logger: SystemLogger;
 
   constructor() {
@@ -44,15 +43,6 @@ export class SandboxOrchestrationInitiatorService {
   }
 
   /**
-   * Set the user JWT token for this sandbox.
-   * Called during allocation.
-   */
-  public setUserJwtToken(token: string): void {
-    this.userJwtToken = token;
-    this.logger.consoleLogDevOnly("info", "User JWT token set");
-  }
-
-  /**
    * Get the current orchestration token.
    */
   public getOrchestrationToken(): string | null {
@@ -60,30 +50,23 @@ export class SandboxOrchestrationInitiatorService {
   }
 
   /**
-   * Get the current user JWT token.
-   */
-  public getUserJwtToken(): string | null {
-    return this.userJwtToken;
-  }
-
-  /**
    * Refresh the GitHub installation token for the given prototype.
    * Makes a request to the control plane orchestration endpoint.
    *
    * @param prototypeId - The prototype ID to get a GitHub installation token for
+   * @param userJwtToken - The user's JWT token (get fresh token from SupabaseClientService)
    * @returns The installation token and expiration date
    * @throws Error if the request fails or tokens are not set
    */
-  public async refreshGitHubInstallationToken(prototypeId: string): Promise<{
+  public async refreshGitHubInstallationToken(
+    prototypeId: string,
+    userJwtToken: string,
+  ): Promise<{
     installation_token: string;
     expires_at: string;
   }> {
     if (!this.orchestrationToken) {
       throw new Error("Orchestration token not set");
-    }
-
-    if (!this.userJwtToken) {
-      throw new Error("User JWT token not set");
     }
 
     const serverEndpoint = process.env.NUCLEATE_SERVER_ENDPOINT;
@@ -100,7 +83,7 @@ export class SandboxOrchestrationInitiatorService {
         {
           headers: {
             "x-orchestration-token": this.orchestrationToken,
-            Authorization: `Bearer ${this.userJwtToken}`,
+            Authorization: `Bearer ${userJwtToken}`,
             "Content-Type": "application/json",
           },
           timeout: 10000, // 10 second timeout
