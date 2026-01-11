@@ -5,7 +5,7 @@
 // To update these shared files, modify the source file and run:
 // npm run sync-types (in the control-plane directory)
 //
-// Last synced: 2026-01-11T03:09:08.344Z
+// Last synced: 2026-01-11T03:53:39.968Z
 
 // Public API types for the Control Plane Server
 // These types define the request and response schemas for all public endpoints
@@ -485,6 +485,27 @@ export interface GitHubDisconnectSuccessResponse {
 }
 
 export interface GitHubDisconnectErrorResponse {
+  error: string;
+  message: string;
+}
+
+// POST /github/repo/create
+export interface GitHubRepoCreateRequestBody {
+  teamId: string;
+  prototype_id: string;
+  name: string;
+  private?: boolean;
+  description?: string;
+}
+
+export interface GitHubRepoCreateSuccessResponse {
+  owner: string;
+  name: string;
+  html_url: string;
+  default_branch: string;
+}
+
+export interface GitHubRepoCreateErrorResponse {
   error: string;
   message: string;
 }

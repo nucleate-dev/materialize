@@ -5,7 +5,7 @@
 // To update these shared files, modify the source file and run:
 // npm run sync-types (in the control-plane directory)
 //
-// Last synced: 2026-01-11T03:09:08.346Z
+// Last synced: 2026-01-11T03:53:39.969Z
 
 export type PostHogEvent =
   | "client_auth_callback_login_completed"
@@ -94,15 +94,15 @@ export const PostHogEvents: Record<PostHogEvent, PostHogEvent> = Object.freeze({
   client_dashboard_sidebar_item_clicked:
     "client_dashboard_sidebar_item_clicked",
   client_dashboard_sidebar_tab_clicked: "client_dashboard_sidebar_tab_clicked",
+  client_github_connect_started: "client_github_connect_started",
+  client_github_connect_success: "client_github_connect_success",
+  client_github_disconnect_started: "client_github_disconnect_started",
+  client_github_disconnect_success: "client_github_disconnect_success",
   client_landing_page_header_item_clicked:
     "client_landing_page_header_item_clicked",
   client_landing_preset_prompt_selected:
     "client_landing_preset_prompt_selected",
   client_landing_prompt_submitted: "client_landing_prompt_submitted",
-  client_github_connect_started: "client_github_connect_started",
-  client_github_connect_success: "client_github_connect_success",
-  client_github_disconnect_started: "client_github_disconnect_started",
-  client_github_disconnect_success: "client_github_disconnect_success",
   client_new_prototype_modal_creation_success:
     "client_new_prototype_modal_creation_success",
   client_new_prototype_modal_limit_hit: "client_new_prototype_modal_limit_hit",
