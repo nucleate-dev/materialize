@@ -893,8 +893,11 @@ export class GitHubIntegrationService {
     }
 
     const hmac = crypto.createHmac("sha256", webhookSecret);
+    const rawBodyBuffer = typeof request.rawBody === "string"
+      ? Buffer.from(request.rawBody, "utf8")
+      : request.rawBody;
     const expectedSignature = "sha256=" +
-      hmac.update(request.rawBody, "utf8").digest("hex");
+      hmac.update(rawBodyBuffer).digest("hex");
 
     if (!signature || signature !== expectedSignature) {
       request.log2.warn("Invalid webhook signature", {

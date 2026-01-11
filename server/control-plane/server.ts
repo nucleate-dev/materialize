@@ -32,6 +32,7 @@ declare module "fastify" {
   interface FastifyRequest {
     log2: SystemLogger;
     posthogLogger: PostHogLogger;
+    rawBody?: string | Buffer;
   }
 }
 
@@ -124,14 +125,6 @@ fastify.register(cors, {
   ],
 });
 
-// Register raw-body plugin for webhook signature verification
-fastify.register(rawBody, {
-  field: 'rawBody', // adds request.rawBody
-  global: false, // only for routes that set config.rawBody = true
-  encoding: 'utf8',
-  runFirst: true, // run before other onRequest hooks
-});
-
 fastify.addHook("onRequest", async (req) => {
   const { requestId, traceId } = genRequestIds(
     req.headers as Record<string, string | string[] | undefined>,
@@ -216,6 +209,14 @@ const start = async (): Promise<void> => {
     } = await initializeClients();
 
     cache = cacheClient;
+
+    await fastify.register(rawBody, {
+      field: "rawBody", // adds request.rawBody
+      global: false, // only for routes that set config.rawBody = true
+      encoding: "utf8",
+      runFirst: true, // run before other preParsing hooks
+      routes: ["/github/webhooks"],
+    });
 
     // Create cleanup service with cache and ECS client
     cleanupService = new CleanupService(cacheClient, ecsClient);
