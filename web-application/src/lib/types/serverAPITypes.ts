@@ -5,7 +5,7 @@
 // To update these shared files, modify the source file and run:
 // npm run sync-types (in the control-plane directory)
 //
-// Last synced: 2026-01-11T05:53:52.993Z
+// Last synced: 2026-01-11T20:47:57.331Z
 
 // Public API types for the Control Plane Server
 // These types define the request and response schemas for all public endpoints
@@ -363,6 +363,20 @@ export interface EndChatRequestBody {
 export interface EndChatResponse {
   success: boolean;
   message?: string;
+}
+
+export interface RefreshGitHubInstallationTokenRequestBody {
+  prototype_id: string;
+}
+
+export interface RefreshGitHubInstallationTokenSuccessResponse {
+  installation_token: string;
+  expires_at: string;
+}
+
+export interface RefreshGitHubInstallationTokenErrorResponse {
+  error: string;
+  message: string;
 }
 
 // ============================================================================

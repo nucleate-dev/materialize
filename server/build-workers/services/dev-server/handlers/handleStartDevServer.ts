@@ -38,6 +38,33 @@ export async function handleStartDevServerImpl(
   // Note: auth already happens by control-plane before calling this route
   const { userId } = getWorkerContext();
 
+  // Fetch prototype to check for GitHub repo
+  const { data: prototypeRow, error: prototypeError } =
+    await developmentServerService.supabaseClientService
+      .getClient()
+      .from("prototypes")
+      .select("github_repo_id, team_id")
+      .eq("id", prototype_id)
+      .single();
+
+  if (prototypeError) {
+    request.log2.error(
+      prototypeError,
+      "Failed to fetch prototype information",
+      { prototypeId: prototype_id },
+    );
+    reply.code(HTTP_STATUS.INTERNAL_SERVER_ERROR);
+    return {
+      data: null,
+      error: {
+        error: "Failed to fetch prototype information",
+        message: prototypeError.message,
+      },
+    };
+  }
+
+  const hasGitHubRepo = prototypeRow.github_repo_id !== null;
+
   // if web, set the adapter to the NextJsReactAdapter with the correct tunnel hostname
   const resolvedFramework =
     developmentServerService.prototypeFramework ?? DEFAULT_PROTOTYPE_FRAMEWORK;
@@ -79,24 +106,126 @@ export async function handleStartDevServerImpl(
     };
   }
 
-  // 0. Initialize git
-  await initializeGit(developmentServerService, userId, request.log2);
+  // 0. Initialize git or clone repository
+  if (hasGitHubRepo) {
+    // Fetch GitHub repository info
+    const { data: githubRepo, error: githubRepoError } =
+      await developmentServerService.supabaseClientService
+        .getClient()
+        .from("github_repositories")
+        .select("*")
+        .eq("github_repo_id", prototypeRow.github_repo_id!)
+        .single();
+
+    if (githubRepoError || !githubRepo) {
+      request.log2.error(
+        githubRepoError ?? new Error("GitHub repository not found"),
+        "Failed to fetch GitHub repository info",
+        { prototypeId: prototype_id, githubRepoId: prototypeRow.github_repo_id },
+      );
+      reply.code(HTTP_STATUS.INTERNAL_SERVER_ERROR);
+      return {
+        data: null,
+        error: {
+          error: "Failed to fetch GitHub repository information",
+          message: githubRepoError?.message ?? "Repository not found",
+        },
+      };
+    }
+
+    // Get a fresh installation token
+    try {
+      const userJwtToken =
+        developmentServerService.supabaseClientService.getCurrentJwtToken();
+      if (!userJwtToken) {
+        throw new Error("User JWT token not available");
+      }
+
+      const tokenData =
+        await developmentServerService.sandboxOrchestrationInitiatorService.refreshGitHubInstallationToken(
+          prototype_id,
+          userJwtToken,
+        );
+
+      // Store GitHub info in developmentServerService
+      developmentServerService.githubRepository = {
+        installationToken: tokenData.installation_token,
+        repositoryUrl: githubRepo.html_url,
+        repositoryOwner: githubRepo.owner_login,
+        repositoryName: githubRepo.repo_name,
+        defaultBranch: githubRepo.default_branch || "main",
+        fullName: githubRepo.full_name,
+        tokenExpiresAt: tokenData.expires_at,
+      };
+
+      request.log2.info("GitHub repository configured for prototype", {
+        prototypeId: prototype_id,
+        repositoryFullName: githubRepo.full_name,
+        defaultBranch: githubRepo.default_branch,
+      });
+
+      // Clone the repository instead of initializing git
+      await cloneGithubRepository(
+        developmentServerService,
+        userId,
+        request.log2,
+      );
+    } catch (tokenError) {
+      request.log2.error(
+        tokenError instanceof Error ? tokenError : new Error(String(tokenError)),
+        "Failed to get GitHub installation token",
+        { prototypeId: prototype_id },
+      );
+      reply.code(HTTP_STATUS.INTERNAL_SERVER_ERROR);
+      return {
+        data: null,
+        error: {
+          error: "Failed to authenticate with GitHub",
+          message:
+            tokenError instanceof Error
+              ? tokenError.message
+              : "Failed to get installation token",
+        },
+      };
+    }
+  } else {
+    // Initialize git normally (no GitHub repo)
+    await initializeGit(developmentServerService, userId, request.log2);
+  }
 
   // 1. Fetch necessary files (project files + assets, past claude sessions)
-  const { errors: fetchErrors } =
-    await developmentServerService.fileSyncService.fetchAllFilesAndAssetsFromSupabaseAndWriteToDisk(
-      prototype_id,
-    );
-  if (fetchErrors.length > 0) {
-    const errorMsg = fetchErrors.join("; ");
-    reply.code(HTTP_STATUS.INTERNAL_SERVER_ERROR);
-    return {
-      data: null,
-      error: {
-        error: "Failed to fetch files and assets from Supabase",
-        message: errorMsg,
-      },
-    };
+  if (hasGitHubRepo) {
+    // For GitHub repos, sync files from local disk to Supabase
+    // (the repository was just cloned, so disk has the latest)
+    const syncResult =
+      await developmentServerService.fileSyncService.syncFilesToSupabase(
+        prototype_id,
+        "all",
+      );
+    if (!syncResult.success || syncResult.errors.length > 0) {
+      request.log2.warn("File sync had errors after GitHub clone", {
+        prototypeId: prototype_id,
+        errors: syncResult.errors,
+      });
+      // Don't fail - continue with dev server start
+    }
+  } else {
+    // For non-GitHub prototypes, fetch from Supabase as usual
+    const { errors: fetchErrors } =
+      await developmentServerService.fileSyncService.fetchAllFilesAndAssetsFromSupabaseAndWriteToDisk(
+        prototype_id,
+      );
+    if (fetchErrors.length > 0) {
+      const errorMsg = fetchErrors.join("; ");
+      reply.code(HTTP_STATUS.INTERNAL_SERVER_ERROR);
+      return {
+        data: null,
+        error: {
+          error: "Failed to fetch files and assets from Supabase",
+          message: errorMsg,
+        },
+      };
+    }
   }
 
   const envSyncResult = await syncPrototypeEnvVarsToDisk({
@@ -178,7 +307,10 @@ export async function handleStartDevServerImpl(
     }
   }
 
-  await addAllFilesToFirstCommit(developmentServerService);
+  // Only create initial commit if not using GitHub (GitHub repo already has commits)
+  if (!hasGitHubRepo) {
+    await addAllFilesToFirstCommit(developmentServerService);
+  }
 
   // 3. Start the development server
   developmentServerService.developmentServerState.devServerStatus =
@@ -226,6 +358,11 @@ export async function handleStartDevServerImpl(
         tunnelUrl: startResult.data.tunnel_url,
       },
     );
+
+    // Start GitHub token refresh job if this prototype has a GitHub repo
+    if (hasGitHubRepo) {
+      developmentServerService.startGitHubTokenRefreshJob(prototype_id);
+    }
 
     reply.code(HTTP_STATUS.OK);
     return {
@@ -350,4 +487,50 @@ async function addAllFilesToFirstCommit(
     strip_ansi: true,
   });
   return;
+}
+
+async function cloneGithubRepository(
+  developmentServerService: NucleateDevelopmentServerService,
+  userId: string | undefined,
+  log2: SystemLogger,
+): Promise<void> {
+  const githubRepo = developmentServerService.githubRepository;
+  if (!githubRepo) {
+    throw new Error("GitHub repository info not set in developmentServerService");
+  }
+
+  // Fetch user info for git config
+  let userRow;
+  if (userId) {
+    const { data, error: userFetchError } =
+      await developmentServerService.supabaseClientService
+        .getClient()
+        .from("users")
+        .select("*")
+        .eq("id", userId)
+        .single();
+    if (userFetchError) {
+      log2.error(userFetchError, "Failed to fetch user from supabase", {
+        userId,
+      });
+    } else {
+      userRow = data;
+    }
+  }
+
+  // Construct the authenticated GitHub URL with the installation token
+  // Format: https://x-access-token:<token>@github.com/<owner>/<repo>.git
+  const authenticatedUrl = `https://x-access-token:${githubRepo.installationToken}@github.com/${githubRepo.fullName}.git`;
+
+  // Clone the repository into the client directory
+  const cloneCommand = `cd ${WORK_DIR} && rm -rf client && git clone ${authenticatedUrl} client && cd client && git config user.email "${userRow?.email ?? "noreply@nucleate.dev"}" && git config user.name "${userRow?.name ?? "Nucleate User"}"`;
+
+  developmentServerService.terminalService.sendInput("dev-server", cloneCommand, {
+    bypassValidation: true,
+  });
+
+  log2.info("Cloned GitHub repository", {
+    repositoryFullName: githubRepo.fullName,
+    defaultBranch: githubRepo.defaultBranch,
+  });
 }

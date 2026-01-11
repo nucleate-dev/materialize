@@ -125,6 +125,12 @@ export interface PublicDevServerRefetchEnvSuccessResponse {
   env_var_count: number;
 }
 
+export interface PublicConnectGitHubSuccessResponse {
+  message: string;
+  repository_url: string;
+  repository_full_name: string;
+}
+
 // Dev Server Response Types
 export interface DevServerStartResponse {
   success: boolean;

@@ -202,14 +202,16 @@ export async function handleAllocateImpl(
     }
 
     // 7. CREDENTIALS:
-    materializeDevelopmentServerService.chatService.setOrchestrationToken(
-      keys.orchestration_token,
-    );
     if (keys.aak) {
       materializeDevelopmentServerService.chatService.setAak(keys.aak);
     } else {
       request.log2.warn("No aak provided during allocation");
     }
+
+    // 8. SET ORCHESTRATION TOKEN IN SandboxOrchestrationInitiatorService:
+    materializeDevelopmentServerService.sandboxOrchestrationInitiatorService.setOrchestrationToken(
+      keys.orchestration_token,
+    );
 
     reply.status(200);
     return {

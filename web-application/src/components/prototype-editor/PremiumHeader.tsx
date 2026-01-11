@@ -76,6 +76,20 @@ export default function PremiumHeader({
             >
               Blog
             </Link>
+            <Link
+              href="/for-vibe-coding"
+              onClick={() =>
+                logHeaderClick("for_vibe_coding", {
+                  destination: "/for-vibe-coding",
+                })
+              }
+              className={`hidden md:block transition-all duration-200 text-sm font-medium ${forceDarkMode
+                ? "text-white/70 hover:text-white"
+                : "text-black/70 hover:text-black dark:text-white/70 dark:hover:text-white"
+                }`}
+            >
+              For Vibe Coding
+            </Link>
             {userIsLoading ? (
               <div
                 className={`px-4 py-2 rounded-full text-sm ${forceDarkMode

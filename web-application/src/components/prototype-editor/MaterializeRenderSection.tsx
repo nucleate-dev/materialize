@@ -247,10 +247,12 @@ const MaterializeRenderSection = forwardRef<
     const { activeTeam, currentUserMembership } = useActiveTeam();
 
     // Check if multi-screen feature is enabled
-    const isMultiScreenEnabled = posthog?.isFeatureEnabled("multiple-frames-view") ?? false;
+    const isMultiScreenEnabled =
+      posthog?.isFeatureEnabled("multiple-frames-view") ?? false;
 
     // Check if GitHub integration is enabled
-    const isGithubIntegrationEnabled = posthog?.isFeatureEnabled("github-integration") ?? false;
+    const isGithubIntegrationEnabled =
+      posthog?.isFeatureEnabled("github-integration") ?? false;
 
     // GitHub integration state
     const [githubIntegration, setGithubIntegration] = useState<{
@@ -280,7 +282,9 @@ const MaterializeRenderSection = forwardRef<
             .maybeSingle();
 
           if (error) {
-            logger.debug("error", "Failed to fetch GitHub integration", { error });
+            logger.debug("error", "Failed to fetch GitHub integration", {
+              error,
+            });
             setGithubIntegration({ connected: false, loading: false });
             return;
           }
@@ -313,7 +317,9 @@ const MaterializeRenderSection = forwardRef<
             .maybeSingle();
 
           if (error) {
-            logger.debug("error", "Failed to fetch GitHub repository", { error });
+            logger.debug("error", "Failed to fetch GitHub repository", {
+              error,
+            });
             setGithubRepository({ html_url: null, loading: false });
             return;
           }
@@ -393,7 +399,9 @@ const MaterializeRenderSection = forwardRef<
         if (initialScreens?.length) {
           return initialScreens.map((s) => ({ id: s.id, path: s.path }));
         }
-        return viewing_url ? [{ id: 0, path: extractInitialPath(viewing_url) }] : [];
+        return viewing_url
+          ? [{ id: 0, path: extractInitialPath(viewing_url) }]
+          : [];
       },
     );
 
@@ -404,13 +412,15 @@ const MaterializeRenderSection = forwardRef<
       }
 
       // Get available width (approximate viewport width minus padding)
-      const availableWidth = typeof window !== "undefined" ? window.innerWidth - 100 : 1200;
+      const availableWidth =
+        typeof window !== "undefined" ? window.innerWidth - 100 : 1200;
       const screenCount = mobileScreens.length;
       const gapBetweenScreens = 32; // gap-x-8 = 32px
       const addButtonWidth = mobileSize.width + 48; // Inline add button takes space too
 
       // Calculate how much width each screen can have
-      const totalGapSpace = (screenCount - 1) * gapBetweenScreens + addButtonWidth;
+      const totalGapSpace =
+        (screenCount - 1) * gapBetweenScreens + addButtonWidth;
       const availablePerScreen = (availableWidth - totalGapSpace) / screenCount;
 
       // Minimum width threshold (below this, use horizontal scroll)
@@ -418,7 +428,10 @@ const MaterializeRenderSection = forwardRef<
       const maxWidth = mobileSize.width + 16; // Original size + frame
 
       // Calculate scale factor
-      const targetWidth = Math.max(minWidth, Math.min(maxWidth, availablePerScreen));
+      const targetWidth = Math.max(
+        minWidth,
+        Math.min(maxWidth, availablePerScreen),
+      );
       const scaleFactor = targetWidth / (mobileSize.width + 16);
 
       // Apply scale to both dimensions to maintain aspect ratio
@@ -433,14 +446,18 @@ const MaterializeRenderSection = forwardRef<
       if (initialWebScreens?.length) {
         return initialWebScreens.map((s) => ({ id: s.id, path: s.path }));
       }
-      return viewing_url ? [{ id: 0, path: extractInitialPath(viewing_url) }] : [];
+      return viewing_url
+        ? [{ id: 0, path: extractInitialPath(viewing_url) }]
+        : [];
     });
     const nextWebScreenId = useRef(1);
     const webIframeRefs = useRef<Map<number, HTMLIFrameElement>>(new Map());
 
     // Web frame sizing
     const DEFAULT_WEB_FRAME_HEIGHT = 500;
-    const [webFrameHeight, setWebFrameHeight] = useState(DEFAULT_WEB_FRAME_HEIGHT);
+    const [webFrameHeight, setWebFrameHeight] = useState(
+      DEFAULT_WEB_FRAME_HEIGHT,
+    );
     const [, setIsResizingWebFrame] = useState(false);
 
     // Responsive viewport detection for web grid
@@ -450,20 +467,26 @@ const MaterializeRenderSection = forwardRef<
     const webGridLayout = React.useMemo(() => {
       const count = webScreens.length;
       if (count <= 1) return { gridTemplate: "1fr", showAddButton: true };
-      if (count === 2) return { gridTemplate: "repeat(2, 1fr)", showAddButton: true };
-      if (count === 3) return { gridTemplate: "repeat(2, 1fr)", showAddButton: true };
+      if (count === 2)
+        return { gridTemplate: "repeat(2, 1fr)", showAddButton: true };
+      if (count === 3)
+        return { gridTemplate: "repeat(2, 1fr)", showAddButton: true };
       return { gridTemplate: "repeat(2, 1fr)", showAddButton: false }; // Max 4
     }, [webScreens.length]);
 
     const [editingScreenId, setEditingScreenId] = useState<number | null>(null);
-    const [editingWebScreenId, setEditingWebScreenId] = useState<number | null>(null);
+    const [editingWebScreenId, setEditingWebScreenId] = useState<number | null>(
+      null,
+    );
     const [tempPath, setTempPath] = useState<string>("");
     const [routeSuggestions, setRouteSuggestions] = useState<
-      Array<{ route: string; group?: string; }>
+      Array<{ route: string; group?: string }>
     >([]);
     // Allow screen editing in public view if onScreensChange or onWebScreensChange is provided
-    const canEditScreensInPublicView = publicView && (!!onScreensChange || !!onWebScreensChange);
-    const isReadOnlyView = (publicView && !canEditScreensInPublicView) || deployedView;
+    const canEditScreensInPublicView =
+      publicView && (!!onScreensChange || !!onWebScreensChange);
+    const isReadOnlyView =
+      (publicView && !canEditScreensInPublicView) || deployedView;
 
     // Terminal state
     const [isTerminalOpen, setIsTerminalOpen] = useState(false);
@@ -559,7 +582,9 @@ const MaterializeRenderSection = forwardRef<
           "[MaterializeRenderSection] Restoring mobile screens from initialScreens:",
           { initialScreens },
         );
-        setMobileScreens(initialScreens.map((s) => ({ id: s.id, path: s.path })));
+        setMobileScreens(
+          initialScreens.map((s) => ({ id: s.id, path: s.path })),
+        );
         return;
       }
 
@@ -611,7 +636,9 @@ const MaterializeRenderSection = forwardRef<
           "[MaterializeRenderSection] Restoring web screens from initialWebScreens:",
           { initialWebScreens },
         );
-        setWebScreens(initialWebScreens.map((s) => ({ id: s.id, path: s.path })));
+        setWebScreens(
+          initialWebScreens.map((s) => ({ id: s.id, path: s.path })),
+        );
         return;
       }
 
@@ -715,7 +742,8 @@ const MaterializeRenderSection = forwardRef<
       const currentCount = mobileScreens.length;
       if (currentCount >= 4) {
         toast.warning("Performance note", {
-          description: "Having many screens open may slow down your browser. Consider closing unused screens.",
+          description:
+            "Having many screens open may slow down your browser. Consider closing unused screens.",
         });
       }
 
@@ -794,56 +822,65 @@ const MaterializeRenderSection = forwardRef<
     }, []);
 
     // Web frame resize handler
-    const handleWebFrameResizeStart = useCallback((e: React.MouseEvent) => {
-      e.preventDefault();
-      e.stopPropagation();
-      setIsResizingWebFrame(true);
+    const handleWebFrameResizeStart = useCallback(
+      (e: React.MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsResizingWebFrame(true);
 
-      const startY = e.clientY;
-      const startHeight = webFrameHeight;
+        const startY = e.clientY;
+        const startHeight = webFrameHeight;
 
-      const handleMouseMove = (moveEvent: MouseEvent) => {
-        const deltaY = moveEvent.clientY - startY;
-        const newHeight = Math.max(300, Math.min(900, startHeight + deltaY));
-        setWebFrameHeight(newHeight);
-      };
+        const handleMouseMove = (moveEvent: MouseEvent) => {
+          const deltaY = moveEvent.clientY - startY;
+          const newHeight = Math.max(300, Math.min(900, startHeight + deltaY));
+          setWebFrameHeight(newHeight);
+        };
 
-      const handleMouseUp = () => {
-        setIsResizingWebFrame(false);
-        document.removeEventListener("mousemove", handleMouseMove);
-        document.removeEventListener("mouseup", handleMouseUp);
-        document.body.style.cursor = "";
-        document.body.style.userSelect = "";
-      };
+        const handleMouseUp = () => {
+          setIsResizingWebFrame(false);
+          document.removeEventListener("mousemove", handleMouseMove);
+          document.removeEventListener("mouseup", handleMouseUp);
+          document.body.style.cursor = "";
+          document.body.style.userSelect = "";
+        };
 
-      document.addEventListener("mousemove", handleMouseMove);
-      document.addEventListener("mouseup", handleMouseUp);
-      document.body.style.cursor = "ns-resize";
-      document.body.style.userSelect = "none";
-    }, [webFrameHeight]);
+        document.addEventListener("mousemove", handleMouseMove);
+        document.addEventListener("mouseup", handleMouseUp);
+        document.body.style.cursor = "ns-resize";
+        document.body.style.userSelect = "none";
+      },
+      [webFrameHeight],
+    );
 
     // Web screen path editing handlers
-    const handleWebBadgeClick = useCallback((id: number, currentPath: string) => {
-      setEditingWebScreenId(id);
-      setTempPath(currentPath);
-    }, []);
+    const handleWebBadgeClick = useCallback(
+      (id: number, currentPath: string) => {
+        setEditingWebScreenId(id);
+        setTempPath(currentPath);
+      },
+      [],
+    );
 
-    const handleConfirmWebPathChange = useCallback((id: number) => {
-      const normalized = normalizePath(tempPath);
-      setWebScreens((prev) =>
-        prev.map((screen) => {
-          if (screen.id === id && normalized !== screen.path) {
-            setIsIframeLoading(true);
-            setIframeError(false);
-            return { ...screen, path: normalized };
-          }
-          return screen;
-        })
-      );
-      setEditingWebScreenId(null);
-      setTempPath("");
-      setRouteSuggestions([]);
-    }, [tempPath]);
+    const handleConfirmWebPathChange = useCallback(
+      (id: number) => {
+        const normalized = normalizePath(tempPath);
+        setWebScreens((prev) =>
+          prev.map((screen) => {
+            if (screen.id === id && normalized !== screen.path) {
+              setIsIframeLoading(true);
+              setIframeError(false);
+              return { ...screen, path: normalized };
+            }
+            return screen;
+          }),
+        );
+        setEditingWebScreenId(null);
+        setTempPath("");
+        setRouteSuggestions([]);
+      },
+      [tempPath],
+    );
 
     const handleCancelWebEdit = useCallback(() => {
       setEditingWebScreenId(null);
@@ -855,7 +892,7 @@ const MaterializeRenderSection = forwardRef<
     const availableRoutes = React.useMemo(() => {
       if (!files) return [];
 
-      const routes: Array<{ route: string; group?: string; }> = [];
+      const routes: Array<{ route: string; group?: string }> = [];
       Object.keys(files).forEach((filePath) => {
         // Look for files in app/ directory that could be routes
         if (filePath.startsWith("app/")) {
@@ -1148,6 +1185,149 @@ const MaterializeRenderSection = forwardRef<
       }
     };
 
+    const handleCreateGitHubRepository = async () => {
+      logPrototypeEvent("client_prototype_editor_create_github_repo_clicked", {
+        has_prototype: Boolean(prototypeId),
+        has_sandbox: Boolean(sandbox_url),
+      });
+
+      if (!prototypeId) {
+        logger.debug(
+          "error",
+          "Cannot create GitHub repository: missing prototype ID",
+        );
+        toast.error("Missing prototype ID");
+        return;
+      }
+
+      if (!sandbox_url) {
+        logger.debug(
+          "error",
+          "Cannot create GitHub repository: missing sandbox URL",
+        );
+        toast.error("Missing sandbox URL");
+        return;
+      }
+
+      // Set loading state
+      setGithubRepository({ html_url: null, loading: true });
+
+      try {
+        // Get authentication token
+        const session = await supabase.auth.getSession();
+        const token = session.data.session?.access_token;
+
+        if (!token) {
+          logger.debug("error", "No authentication token available");
+          toast.error("Authentication required");
+          setGithubRepository({ html_url: null, loading: false });
+          return;
+        }
+
+        toast.info("Creating GitHub repository...");
+
+        // Step 1: Create the GitHub repository via control-plane
+        const createRepoResponse = await fetch(
+          `${process.env.NEXT_PUBLIC_SERVER_ENDPOINT!}/github/repo/create`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({ prototype_id: prototypeId }),
+          },
+        );
+
+        const createRepoResult: APIResponse<
+          {
+            owner: string;
+            name: string;
+            html_url: string;
+            default_branch: string;
+          },
+          StandardErrorResponse
+        > = await createRepoResponse.json();
+
+        if (!createRepoResponse.ok || createRepoResult.error) {
+          const errorMessage =
+            createRepoResult.error?.message ??
+            "Failed to create GitHub repository";
+          logger.debug("error", "GitHub repository creation failed", {
+            error: errorMessage,
+          });
+          toast.error(`Failed to create repository: ${errorMessage}`);
+          setGithubRepository({ html_url: null, loading: false });
+          return;
+        }
+
+        const repositoryData = createRepoResult.data;
+        toast.success("Repository created! Connecting to sandbox...");
+
+        // Step 2: Connect the repository to the sandbox
+        const connectResponse = await fetch(
+          `${sandbox_url}/dev-server/connect-github`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({}),
+          },
+        );
+
+        const connectResult: APIResponse<
+          {
+            message: string;
+            repository_url: string;
+            repository_full_name: string;
+          },
+          StandardErrorResponse
+        > = await connectResponse.json();
+
+        if (!connectResponse.ok || connectResult.error) {
+          const errorMessage =
+            connectResult.error?.message ??
+            "Failed to connect repository to sandbox";
+          logger.debug("error", "GitHub repository connection failed", {
+            error: errorMessage,
+          });
+          toast.error(
+            `Repository created but connection failed: ${errorMessage}`,
+          );
+          // Still update the state with the repository URL since it was created
+          setGithubRepository({
+            html_url: repositoryData.html_url,
+            loading: false,
+          });
+          setIsGithubDropdownOpen(false);
+          return;
+        }
+
+        // Success! Update state and close dropdown
+        setGithubRepository({
+          html_url: repositoryData.html_url,
+          loading: false,
+        });
+        toast.success("GitHub repository connected successfully!");
+        setIsGithubDropdownOpen(false);
+
+        logger.debug("log", "GitHub repository created and connected", {
+          repository_url: repositoryData.html_url,
+        });
+      } catch (error) {
+        const errorMessage =
+          error instanceof Error ? error.message : String(error);
+        logger.debug("error", "Error creating GitHub repository", {
+          error: errorMessage,
+          stack: error instanceof Error ? error.stack : undefined,
+        });
+        toast.error(`Failed to create repository: ${errorMessage}`);
+        setGithubRepository({ html_url: null, loading: false });
+      }
+    };
+
     const handleRefresh = () => {
       logPrototypeEvent("client_prototype_editor_refresh_preview_clicked", {
         status: currentRenderStatus,
@@ -1251,7 +1431,15 @@ const MaterializeRenderSection = forwardRef<
       } finally {
         setIsExporting(false);
       }
-    }, [assets, files, loadingSubscriptionData, logPrototypeEvent, logger, prototypeId, userPlan]);
+    }, [
+      assets,
+      files,
+      loadingSubscriptionData,
+      logPrototypeEvent,
+      logger,
+      prototypeId,
+      userPlan,
+    ]);
 
     const handleModeChange = (mode: PreviewMode) => {
       logPrototypeEvent("client_prototype_editor_preview_mode_changed", {
@@ -1393,7 +1581,8 @@ const MaterializeRenderSection = forwardRef<
             };
           case "Starting Dev Server..":
             return {
-              className: "bg-amber-500/10 border border-amber-500/20 text-amber-500",
+              className:
+                "bg-amber-500/10 border border-amber-500/20 text-amber-500",
               dotClassName:
                 "w-2 h-2 bg-amber-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(245,158,11,0.6)]",
               text: "Starting Dev Server.. (~1m)",
@@ -1479,7 +1668,7 @@ const MaterializeRenderSection = forwardRef<
     };
 
     // Connection loading overlay for iframe
-    const ConnectionLoadingOverlay = ({ mode }: { mode: PreviewMode; }) => (
+    const ConnectionLoadingOverlay = ({ mode }: { mode: PreviewMode }) => (
       <div className="absolute inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm z-10">
         <div className="text-center bg-accent p-6 rounded-xl border border-border shadow-2xl">
           <Loader2 className="w-6 h-6 animate-spin mx-auto mb-3 text-muted-foreground" />
@@ -1496,7 +1685,7 @@ const MaterializeRenderSection = forwardRef<
     );
 
     // Error overlay for iframe
-    const ConnectionErrorOverlay = ({ mode }: { mode: PreviewMode; }) => (
+    const ConnectionErrorOverlay = ({ mode }: { mode: PreviewMode }) => (
       <div className="absolute inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm z-10">
         <div className="text-center bg-accent p-6 rounded-xl border border-red-500/20 shadow-2xl">
           <div className="w-8 h-8 mx-auto mb-3 text-red-400 bg-red-400/10 rounded-full flex items-center justify-center">
@@ -1551,10 +1740,12 @@ const MaterializeRenderSection = forwardRef<
         return (
           <div className="w-full h-full overflow-auto bg-background">
             <div className="min-h-full flex items-center justify-center">
-              <div className={cn(
-                "flex flex-wrap justify-center gap-x-8 gap-y-12 pb-8 relative",
-                isMultiScreenEnabled ? "pt-16" : "pt-8"
-              )}>
+              <div
+                className={cn(
+                  "flex flex-wrap justify-center gap-x-8 gap-y-12 pb-8 relative",
+                  isMultiScreenEnabled ? "pt-16" : "pt-8",
+                )}
+              >
                 {mobileScreens.map((screen, index) => {
                   const iframeSrc = resolveIframeSrc(viewing_url, screen.path);
                   const isPrimaryScreen = index === 0;
@@ -1574,7 +1765,8 @@ const MaterializeRenderSection = forwardRef<
                         {/* URL Bar / Controls - Show when multi-screen feature is enabled */}
                         {isMultiScreenEnabled && (
                           <div className="absolute -top-12 left-1/2 -translate-x-1/2 z-20">
-                            {editingScreenId === screen.id && !isReadOnlyView ? (
+                            {editingScreenId === screen.id &&
+                            !isReadOnlyView ? (
                               <div className="flex flex-col items-center gap-1 animate-in fade-in slide-in-from-bottom-1 duration-200">
                                 <div className="flex items-center gap-1 bg-accent border border-border px-1.5 py-1 rounded-lg shadow-xl">
                                   <Input
@@ -1641,9 +1833,17 @@ const MaterializeRenderSection = forwardRef<
                                     "px-3 py-1.5 rounded-full text-xs font-mono transition-all shadow-sm",
                                     isReadOnlyView
                                       ? "bg-accent/50 border border-border/50 text-muted-foreground/70"
-                                      : "bg-accent border border-border text-muted-foreground hover:text-foreground hover:border-border/80 cursor-pointer"
+                                      : "bg-accent border border-border text-muted-foreground hover:text-foreground hover:border-border/80 cursor-pointer",
                                   )}
-                                  onClick={!isReadOnlyView ? () => handleBadgeClick(screen.id, screen.path) : undefined}
+                                  onClick={
+                                    !isReadOnlyView
+                                      ? () =>
+                                          handleBadgeClick(
+                                            screen.id,
+                                            screen.path,
+                                          )
+                                      : undefined
+                                  }
                                 >
                                   {screen.path || "/"}
                                 </div>
@@ -1766,26 +1966,28 @@ const MaterializeRenderSection = forwardRef<
                   );
                 })}
                 {/* Inline Add Screen button - only show when 2+ screens exist and can edit */}
-                {isMultiScreenEnabled && mobileScreens.length >= 2 && !isReadOnlyView && (
-                  <div className="flex flex-col items-center justify-center gap-2 pt-2">
-                    <div
-                      className="relative mx-auto select-none flex items-center justify-center"
-                      style={{
-                        width: scaledMobileSize.width + 16,
-                        height: scaledMobileSize.height + 16,
-                      }}
-                    >
-                      <button
-                        onClick={handleAddMobileScreen}
-                        disabled={!viewing_url}
-                        className="w-10 h-10 rounded-full border border-dashed border-border hover:border-muted-foreground/50 bg-accent/30 hover:bg-accent/50 transition-all flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed group"
-                        aria-label="Add another screen"
+                {isMultiScreenEnabled &&
+                  mobileScreens.length >= 2 &&
+                  !isReadOnlyView && (
+                    <div className="flex flex-col items-center justify-center gap-2 pt-2">
+                      <div
+                        className="relative mx-auto select-none flex items-center justify-center"
+                        style={{
+                          width: scaledMobileSize.width + 16,
+                          height: scaledMobileSize.height + 16,
+                        }}
                       >
-                        <Plus className="w-5 h-5 text-muted-foreground group-hover:text-foreground transition-colors" />
-                      </button>
+                        <button
+                          onClick={handleAddMobileScreen}
+                          disabled={!viewing_url}
+                          className="w-10 h-10 rounded-full border border-dashed border-border hover:border-muted-foreground/50 bg-accent/30 hover:bg-accent/50 transition-all flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed group"
+                          aria-label="Add another screen"
+                        >
+                          <Plus className="w-5 h-5 text-muted-foreground group-hover:text-foreground transition-colors" />
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
               </div>
             </div>
           </div>
@@ -1835,171 +2037,198 @@ const MaterializeRenderSection = forwardRef<
               "gap-4 h-full",
               !showWebMultiScreen || isNarrowViewport || webScreens.length === 1
                 ? "flex flex-col"
-                : "grid"
+                : "grid",
             )}
             style={{
               gridTemplateColumns:
-                !showWebMultiScreen || isNarrowViewport ? "1fr" : webGridLayout.gridTemplate,
+                !showWebMultiScreen || isNarrowViewport
+                  ? "1fr"
+                  : webGridLayout.gridTemplate,
             }}
           >
-            {(showWebMultiScreen ? webScreens : [{ id: 0, path: "/" }]).map((screen) => {
-              const iframeSrc = resolveWebIframeSrc(screen.path);
-              const showScreenControls = showWebMultiScreen && webScreens.length > 1;
+            {(showWebMultiScreen ? webScreens : [{ id: 0, path: "/" }]).map(
+              (screen) => {
+                const iframeSrc = resolveWebIframeSrc(screen.path);
+                const showScreenControls =
+                  showWebMultiScreen && webScreens.length > 1;
 
-              return (
-                <div
-                  key={`web-screen-${screen.id}`}
-                  className="bg-accent rounded-xl border border-border overflow-hidden shadow-sm flex flex-col"
-                  style={{ minHeight: showWebMultiScreen ? webFrameHeight : undefined, height: showWebMultiScreen ? undefined : "100%" }}
-                >
-                  {/* Browser Header */}
-                  <div className="bg-accent border-b border-border px-4 py-2.5 flex items-center gap-4">
-                    {/* Traffic Lights */}
-                    <div className="flex space-x-1.5">
-                      <div className="w-2.5 h-2.5 rounded-full bg-red-500/20 border border-red-500/50"></div>
-                      <div className="w-2.5 h-2.5 rounded-full bg-amber-500/20 border border-amber-500/50"></div>
-                      <div className="w-2.5 h-2.5 rounded-full bg-emerald-500/20 border border-emerald-500/50"></div>
-                    </div>
+                return (
+                  <div
+                    key={`web-screen-${screen.id}`}
+                    className="bg-accent rounded-xl border border-border overflow-hidden shadow-sm flex flex-col"
+                    style={{
+                      minHeight: showWebMultiScreen
+                        ? webFrameHeight
+                        : undefined,
+                      height: showWebMultiScreen ? undefined : "100%",
+                    }}
+                  >
+                    {/* Browser Header */}
+                    <div className="bg-accent border-b border-border px-4 py-2.5 flex items-center gap-4">
+                      {/* Traffic Lights */}
+                      <div className="flex space-x-1.5">
+                        <div className="w-2.5 h-2.5 rounded-full bg-red-500/20 border border-red-500/50"></div>
+                        <div className="w-2.5 h-2.5 rounded-full bg-amber-500/20 border border-amber-500/50"></div>
+                        <div className="w-2.5 h-2.5 rounded-full bg-emerald-500/20 border border-emerald-500/50"></div>
+                      </div>
 
-                    {/* URL Bar */}
-                    <div className="flex-1 flex justify-center">
-                      {editingWebScreenId === screen.id && !isReadOnlyView ? (
-                        <div className="flex items-center gap-1 bg-background border border-border px-2 py-1 rounded-md">
-                          <Input
-                            value={tempPath}
-                            onChange={(e) => handlePathInputChange(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") {
-                                handleConfirmWebPathChange(screen.id);
-                              } else if (e.key === "Escape") {
-                                handleCancelWebEdit();
+                      {/* URL Bar */}
+                      <div className="flex-1 flex justify-center">
+                        {editingWebScreenId === screen.id && !isReadOnlyView ? (
+                          <div className="flex items-center gap-1 bg-background border border-border px-2 py-1 rounded-md">
+                            <Input
+                              value={tempPath}
+                              onChange={(e) =>
+                                handlePathInputChange(e.target.value)
                               }
-                            }}
-                            className="h-6 w-48 text-xs border-0 bg-transparent focus-visible:ring-0 text-foreground"
-                            placeholder="/"
-                            autoFocus
-                          />
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                  handleConfirmWebPathChange(screen.id);
+                                } else if (e.key === "Escape") {
+                                  handleCancelWebEdit();
+                                }
+                              }}
+                              className="h-6 w-48 text-xs border-0 bg-transparent focus-visible:ring-0 text-foreground"
+                              placeholder="/"
+                              autoFocus
+                            />
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-5 w-5"
+                              onClick={() =>
+                                handleConfirmWebPathChange(screen.id)
+                              }
+                            >
+                              <Check className="w-3 h-3 text-emerald-500" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-5 w-5"
+                              onClick={handleCancelWebEdit}
+                            >
+                              <X className="w-3 h-3 text-red-400" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <div
+                            className={cn(
+                              "h-6 px-4 rounded-md bg-background border border-border flex items-center justify-center min-w-[200px] max-w-[400px]",
+                              showWebControls &&
+                                showScreenControls &&
+                                "cursor-pointer hover:border-muted-foreground/50",
+                            )}
+                            onClick={
+                              showWebControls && showScreenControls
+                                ? () =>
+                                    handleWebBadgeClick(screen.id, screen.path)
+                                : undefined
+                            }
+                          >
+                            <span className="text-[10px] text-muted-foreground font-mono truncate opacity-60">
+                              {screen.path === "/"
+                                ? viewing_url
+                                : `${viewing_url}${screen.path}`}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Screen Controls */}
+                      {showWebControls && showScreenControls ? (
+                        <div className="flex items-center gap-1">
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-5 w-5"
-                            onClick={() => handleConfirmWebPathChange(screen.id)}
+                            className="h-6 w-6"
+                            onClick={() => refreshWebScreen(screen.id)}
                           >
-                            <Check className="w-3 h-3 text-emerald-500" />
+                            <RefreshCw className="w-3 h-3 text-muted-foreground" />
                           </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-5 w-5"
-                            onClick={handleCancelWebEdit}
-                          >
-                            <X className="w-3 h-3 text-red-400" />
-                          </Button>
+                          {webScreens.length > 1 && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6 hover:text-red-400"
+                              onClick={() => handleRemoveWebScreen(screen.id)}
+                            >
+                              <X className="w-3 h-3" />
+                            </Button>
+                          )}
                         </div>
                       ) : (
-                        <div
-                          className={cn(
-                            "h-6 px-4 rounded-md bg-background border border-border flex items-center justify-center min-w-[200px] max-w-[400px]",
-                            showWebControls && showScreenControls && "cursor-pointer hover:border-muted-foreground/50"
-                          )}
-                          onClick={
-                            showWebControls && showScreenControls
-                              ? () => handleWebBadgeClick(screen.id, screen.path)
-                              : undefined
-                          }
-                        >
-                          <span className="text-[10px] text-muted-foreground font-mono truncate opacity-60">
-                            {screen.path === "/" ? viewing_url : `${viewing_url}${screen.path}`}
-                          </span>
-                        </div>
+                        <div className="w-10"></div>
                       )}
                     </div>
 
-                    {/* Screen Controls */}
-                    {showWebControls && showScreenControls ? (
-                      <div className="flex items-center gap-1">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-6 w-6"
-                          onClick={() => refreshWebScreen(screen.id)}
-                        >
-                          <RefreshCw className="w-3 h-3 text-muted-foreground" />
-                        </Button>
-                        {webScreens.length > 1 && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6 hover:text-red-400"
-                            onClick={() => handleRemoveWebScreen(screen.id)}
-                          >
-                            <X className="w-3 h-3" />
-                          </Button>
-                        )}
+                    {/* Iframe Content */}
+                    <div
+                      className="relative w-full flex-1 bg-white"
+                      style={{
+                        minHeight: showWebMultiScreen
+                          ? webFrameHeight - 60
+                          : undefined,
+                      }}
+                    >
+                      <iframe
+                        key={`web-${screen.id}-${refreshKey}`}
+                        ref={(c) => {
+                          if (showWebMultiScreen) {
+                            if (c) {
+                              webIframeRefs.current.set(screen.id, c);
+                            } else {
+                              webIframeRefs.current.delete(screen.id);
+                            }
+                          } else {
+                            webPreviewRef.current = c?.contentWindow ?? null;
+                          }
+                        }}
+                        className="w-full h-full"
+                        title={`Web Preview ${screen.path}`}
+                        src={iframeSrc}
+                        sandbox="allow-scripts allow-same-origin allow-forms allow-downloads allow-modals allow-popups allow-presentation"
+                        allow="microphone; camera;"
+                        onLoad={handleIframeLoad}
+                        onError={handleIframeError}
+                      />
+                      {isIframeLoading && (
+                        <ConnectionLoadingOverlay mode="web" />
+                      )}
+                      {iframeError && <ConnectionErrorOverlay mode="web" />}
+                    </div>
+
+                    {/* Resize Handle - only for multi-screen */}
+                    {showWebMultiScreen && !isReadOnlyView && (
+                      <div
+                        className="h-2 cursor-ns-resize bg-accent hover:bg-accent/80 flex items-center justify-center group"
+                        onMouseDown={handleWebFrameResizeStart}
+                      >
+                        <div className="w-8 h-1 rounded-full bg-border group-hover:bg-muted-foreground/50 transition-colors" />
                       </div>
-                    ) : (
-                      <div className="w-10"></div>
                     )}
                   </div>
-
-                  {/* Iframe Content */}
-                  <div
-                    className="relative w-full flex-1 bg-white"
-                    style={{ minHeight: showWebMultiScreen ? webFrameHeight - 60 : undefined }}
-                  >
-                    <iframe
-                      key={`web-${screen.id}-${refreshKey}`}
-                      ref={(c) => {
-                        if (showWebMultiScreen) {
-                          if (c) {
-                            webIframeRefs.current.set(screen.id, c);
-                          } else {
-                            webIframeRefs.current.delete(screen.id);
-                          }
-                        } else {
-                          webPreviewRef.current = c?.contentWindow ?? null;
-                        }
-                      }}
-                      className="w-full h-full"
-                      title={`Web Preview ${screen.path}`}
-                      src={iframeSrc}
-                      sandbox="allow-scripts allow-same-origin allow-forms allow-downloads allow-modals allow-popups allow-presentation"
-                      allow="microphone; camera;"
-                      onLoad={handleIframeLoad}
-                      onError={handleIframeError}
-                    />
-                    {isIframeLoading && <ConnectionLoadingOverlay mode="web" />}
-                    {iframeError && <ConnectionErrorOverlay mode="web" />}
-                  </div>
-
-                  {/* Resize Handle - only for multi-screen */}
-                  {showWebMultiScreen && !isReadOnlyView && (
-                    <div
-                      className="h-2 cursor-ns-resize bg-accent hover:bg-accent/80 flex items-center justify-center group"
-                      onMouseDown={handleWebFrameResizeStart}
-                    >
-                      <div className="w-8 h-1 rounded-full bg-border group-hover:bg-muted-foreground/50 transition-colors" />
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+                );
+              },
+            )}
 
             {/* Inline Add Button for Grid */}
-            {showWebControls && webScreens.length >= 2 && webScreens.length < 4 && (
-              <div
-                className="flex items-center justify-center border border-dashed border-border rounded-xl hover:border-muted-foreground/50 bg-accent/30 hover:bg-accent/50 transition-all cursor-pointer"
-                style={{ minHeight: webFrameHeight }}
-                onClick={handleAddWebScreen}
-              >
-                <button
-                  className="w-10 h-10 rounded-full border border-dashed border-border hover:border-muted-foreground/50 bg-accent/50 hover:bg-accent/80 transition-all flex items-center justify-center group"
-                  aria-label="Add another screen"
+            {showWebControls &&
+              webScreens.length >= 2 &&
+              webScreens.length < 4 && (
+                <div
+                  className="flex items-center justify-center border border-dashed border-border rounded-xl hover:border-muted-foreground/50 bg-accent/30 hover:bg-accent/50 transition-all cursor-pointer"
+                  style={{ minHeight: webFrameHeight }}
+                  onClick={handleAddWebScreen}
                 >
-                  <Plus className="w-5 h-5 text-muted-foreground group-hover:text-foreground transition-colors" />
-                </button>
-              </div>
-            )}
+                  <button
+                    className="w-10 h-10 rounded-full border border-dashed border-border hover:border-muted-foreground/50 bg-accent/50 hover:bg-accent/80 transition-all flex items-center justify-center group"
+                    aria-label="Add another screen"
+                  >
+                    <Plus className="w-5 h-5 text-muted-foreground group-hover:text-foreground transition-colors" />
+                  </button>
+                </div>
+              )}
           </div>
         </div>
       );
@@ -2144,7 +2373,10 @@ const MaterializeRenderSection = forwardRef<
                 </Button>
               )}
               {!isReadOnlyView && isGithubIntegrationEnabled && (
-                <DropdownMenu open={isGithubDropdownOpen} onOpenChange={setIsGithubDropdownOpen}>
+                <DropdownMenu
+                  open={isGithubDropdownOpen}
+                  onOpenChange={setIsGithubDropdownOpen}
+                >
                   <DropdownMenuTrigger asChild>
                     <Button
                       variant="ghost"
@@ -2172,39 +2404,43 @@ const MaterializeRenderSection = forwardRef<
                         GitHub
                       </h3>
                       <p className="text-xs text-muted-foreground leading-relaxed">
-                        Sync your project 2-way with GitHub to collaborate at source.
+                        Sync your project 2-way with GitHub to collaborate at
+                        source.
                       </p>
 
                       {/* Show alert if user doesn't have permission */}
                       {!githubIntegration.connected &&
-                       !githubRepository.html_url &&
-                       currentUserMembership?.role !== "admin" &&
-                       currentUserMembership?.role !== "owner" && (
-                        <Alert className="border-amber-500/20 bg-amber-500/10">
-                          <AlertDescription className="text-xs text-amber-600 dark:text-amber-400">
-                            Please reach out to a team admin to connect a GitHub account first.
-                          </AlertDescription>
-                        </Alert>
-                      )}
+                        !githubRepository.html_url &&
+                        currentUserMembership?.role !== "admin" &&
+                        currentUserMembership?.role !== "owner" && (
+                          <Alert className="border-amber-500/20 bg-amber-500/10">
+                            <AlertDescription className="text-xs text-amber-600 dark:text-amber-400">
+                              Please reach out to a team admin to connect a
+                              GitHub account first.
+                            </AlertDescription>
+                          </Alert>
+                        )}
 
                       {githubIntegration.connected &&
-                       !githubRepository.html_url &&
-                       currentUserMembership?.role === "viewer" && (
-                        <Alert className="border-amber-500/20 bg-amber-500/10">
-                          <AlertDescription className="text-xs text-amber-600 dark:text-amber-400">
-                            You need edit permissions to create a GitHub repository for this project.
-                          </AlertDescription>
-                        </Alert>
-                      )}
+                        !githubRepository.html_url &&
+                        currentUserMembership?.role === "viewer" && (
+                          <Alert className="border-amber-500/20 bg-amber-500/10">
+                            <AlertDescription className="text-xs text-amber-600 dark:text-amber-400">
+                              You need edit permissions to create a GitHub
+                              repository for this project.
+                            </AlertDescription>
+                          </Alert>
+                        )}
 
                       {githubRepository.html_url &&
-                       currentUserMembership?.role === "viewer" && (
-                        <Alert className="border-amber-500/20 bg-amber-500/10">
-                          <AlertDescription className="text-xs text-amber-600 dark:text-amber-400">
-                            You don&apos;t have permission to access this repository.
-                          </AlertDescription>
-                        </Alert>
-                      )}
+                        currentUserMembership?.role === "viewer" && (
+                          <Alert className="border-amber-500/20 bg-amber-500/10">
+                            <AlertDescription className="text-xs text-amber-600 dark:text-amber-400">
+                              You don&apos;t have permission to access this
+                              repository.
+                            </AlertDescription>
+                          </Alert>
+                        )}
 
                       <Button
                         className="w-full bg-white text-black hover:bg-white/90 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
@@ -2213,21 +2449,39 @@ const MaterializeRenderSection = forwardRef<
                           githubIntegration.loading ||
                           githubRepository.loading ||
                           (!githubIntegration.connected &&
-                           currentUserMembership?.role !== "admin" &&
-                           currentUserMembership?.role !== "owner") ||
+                            currentUserMembership?.role !== "admin" &&
+                            currentUserMembership?.role !== "owner") ||
                           (githubIntegration.connected &&
-                           !githubRepository.html_url &&
-                           currentUserMembership?.role === "viewer") ||
+                            !githubRepository.html_url &&
+                            currentUserMembership?.role === "viewer") ||
                           (!!githubRepository.html_url &&
-                           currentUserMembership?.role === "viewer")
+                            currentUserMembership?.role === "viewer")
                         }
                         onClick={() => {
                           if (githubRepository.html_url) {
                             // Open GitHub repository in new tab
-                            window.open(githubRepository.html_url, "_blank", "noopener,noreferrer");
+                            window.open(
+                              githubRepository.html_url,
+                              "_blank",
+                              "noopener,noreferrer",
+                            );
                             setIsGithubDropdownOpen(false);
+                          } else if (
+                            githubIntegration.connected &&
+                            currentUserMembership?.role !== "viewer"
+                          ) {
+                            // Create GitHub repository and connect to sandbox
+                            handleCreateGitHubRepository();
+                          } else if (
+                            !githubIntegration.connected &&
+                            (currentUserMembership?.role === "admin" ||
+                              currentUserMembership?.role === "owner")
+                          ) {
+                            // Navigate to dashboard with githubConnected param to open settings dialog
+                            window.location.href =
+                              "/dashboard?githubConnected=true";
                           } else {
-                            // TODO: Implement GitHub connection/repository creation
+                            // This shouldn't happen due to button disabled state
                             setIsGithubDropdownOpen(false);
                           }
                         }}
@@ -2244,7 +2498,8 @@ const MaterializeRenderSection = forwardRef<
                           ? "Loading..."
                           : githubRepository.html_url
                             ? "View Repository"
-                            : githubIntegration.connected && currentUserMembership?.role !== "viewer"
+                            : githubIntegration.connected &&
+                                currentUserMembership?.role !== "viewer"
                               ? "Create Repository For Project"
                               : "Connect GitHub"}
                       </Button>
@@ -2464,23 +2719,26 @@ const MaterializeRenderSection = forwardRef<
           }}
         >
           {/* Floating Add Screen button - top right of canvas */}
-          {!isReadOnlyView && isPreviewView && isMultiScreenEnabled && previewMode === "mobile" && (
-            <div className="absolute top-3 right-3 z-20">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleAddMobileScreen}
-                className="h-8 bg-accent border border-border text-muted-foreground hover:text-foreground hover:border-border/80 hover:bg-accent/80 transition-all"
-                title="Add another screen"
-                disabled={!viewing_url}
-              >
-                <Plus className="h-3.5" />
-                <span className="hidden md:inline text-xs font-medium">
-                  Add Screen
-                </span>
-              </Button>
-            </div>
-          )}
+          {!isReadOnlyView &&
+            isPreviewView &&
+            isMultiScreenEnabled &&
+            previewMode === "mobile" && (
+              <div className="absolute top-3 right-3 z-20">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleAddMobileScreen}
+                  className="h-8 bg-accent border border-border text-muted-foreground hover:text-foreground hover:border-border/80 hover:bg-accent/80 transition-all"
+                  title="Add another screen"
+                  disabled={!viewing_url}
+                >
+                  <Plus className="h-3.5" />
+                  <span className="hidden md:inline text-xs font-medium">
+                    Add Screen
+                  </span>
+                </Button>
+              </div>
+            )}
           {isPreviewView ? (
             renderPreviewContent()
           ) : (
