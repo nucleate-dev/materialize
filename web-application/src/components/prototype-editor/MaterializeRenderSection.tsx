@@ -20,8 +20,6 @@ import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import type {
   APIResponse,
   StandardErrorResponse,
-  StartDevServerRequestBody,
-  StartDevServerSuccessResponse,
 } from "@/lib/types/serverAPITypes";
 import { PublicDisplayConfigScreen } from "@/lib/types/prototypes";
 import { Database } from "@/lib/types/supabase";
@@ -214,7 +212,6 @@ const MaterializeRenderSection = forwardRef<
       prototypeId,
       files,
       assets,
-      onViewingUrlUpdate,
       currentRenderStatus = "Static build",
       onRenderStatusChange,
       designSystemLabel,
@@ -304,7 +301,7 @@ const MaterializeRenderSection = forwardRef<
     const [isExporting, setIsExporting] = useState(false);
     const [isRestartingDevServer, setIsRestartingDevServer] = useState(false);
     const [isBuilding, setIsBuilding] = useState(false);
-    const [buildError, setBuildError] = useState<string | null>(null);
+    const [, setBuildError] = useState<string | null>(null);
     const [mobileScreens, setMobileScreens] = useState<MobileScreenConfig[]>(
       () => {
         // Use initialScreens if provided (from saved public display config)
@@ -359,7 +356,7 @@ const MaterializeRenderSection = forwardRef<
     // Web frame sizing
     const DEFAULT_WEB_FRAME_HEIGHT = 500;
     const [webFrameHeight, setWebFrameHeight] = useState(DEFAULT_WEB_FRAME_HEIGHT);
-    const [isResizingWebFrame, setIsResizingWebFrame] = useState(false);
+    const [, setIsResizingWebFrame] = useState(false);
 
     // Responsive viewport detection for web grid
     const [isNarrowViewport, setIsNarrowViewport] = useState(false);
@@ -471,7 +468,7 @@ const MaterializeRenderSection = forwardRef<
         const maxId = Math.max(...initialScreens.map((s) => s.id));
         nextMobileScreenId.current = maxId + 1;
         // Set the mobile screens from the saved config
-        console.log("[MaterializeRenderSection] Restoring mobile screens from initialScreens:", initialScreens);
+        logger.debug("info", "[MaterializeRenderSection] Restoring mobile screens from initialScreens:", { initialScreens });
         setMobileScreens(initialScreens.map((s) => ({ id: s.id, path: s.path })));
         return;
       }
@@ -519,7 +516,7 @@ const MaterializeRenderSection = forwardRef<
         const maxId = Math.max(...initialWebScreens.map((s) => s.id));
         nextWebScreenId.current = maxId + 1;
         // Set the web screens from the saved config
-        console.log("[MaterializeRenderSection] Restoring web screens from initialWebScreens:", initialWebScreens);
+        logger.debug("info", "[MaterializeRenderSection] Restoring web screens from initialWebScreens:", { initialWebScreens });
         setWebScreens(initialWebScreens.map((s) => ({ id: s.id, path: s.path })));
         return;
       }
@@ -1160,7 +1157,7 @@ const MaterializeRenderSection = forwardRef<
       } finally {
         setIsExporting(false);
       }
-    }, [assets, files, loadingSubscriptionData, logger, prototypeId, userPlan]);
+    }, [assets, files, loadingSubscriptionData, logPrototypeEvent, logger, prototypeId, userPlan]);
 
     const handleModeChange = (mode: PreviewMode) => {
       logPrototypeEvent("client_prototype_editor_preview_mode_changed", {

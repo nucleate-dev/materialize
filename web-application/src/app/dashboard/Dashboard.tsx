@@ -17,23 +17,23 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { useCreatePrototype } from "@/hooks/useCreatePrototype";
-import { useUser } from "@/hooks/useUser";
-import { redirectAfterLoginAtom } from "@/lib/atoms/sidebar";
-import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
-import { Database } from "@/lib/types/supabase";
-import { setChatIntent } from "@/lib/utils/chatIntentUtils";
-import { checkSurveyCompleted } from "@/lib/utils/survey/SurveyUtils";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { VIEWER_ROLE_RESTRICTION_MESSAGE } from "@/GlobalConstants";
 import { useActiveTeam } from "@/contexts/TeamContext";
-import { type PrototypeVisibility } from "@/lib/types/prototypes";
+import { VIEWER_ROLE_RESTRICTION_MESSAGE } from "@/GlobalConstants";
+import { useCreatePrototype } from "@/hooks/useCreatePrototype";
 import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
+import { useUser } from "@/hooks/useUser";
+import { redirectAfterLoginAtom } from "@/lib/atoms/sidebar";
+import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
+import { type PrototypeVisibility } from "@/lib/types/prototypes";
+import { Database } from "@/lib/types/supabase";
+import { setChatIntent } from "@/lib/utils/chatIntentUtils";
+import { checkSurveyCompleted } from "@/lib/utils/survey/SurveyUtils";
 import { SwatchIcon } from "@heroicons/react/24/outline"; // Kept Heroicons
 import { PaintBrushIcon } from "@heroicons/react/24/solid";
 import { useAtom } from "jotai";
@@ -52,8 +52,8 @@ import {
   Wand2,
 } from "lucide-react"; // Kept Lucide
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
 import { usePostHog } from "posthog-js/react";
+import { useEffect, useState } from "react";
 
 // --- Types ---
 type DesignSystemRow = Database["public"]["Tables"]["design_systems"]["Row"];
@@ -73,14 +73,14 @@ const WEB_DESIGN_STYLE_LABELS: Partial<Record<DesignStyle, string>> = {
   stylesheets: "Tailwind + Shadcn",
 };
 
-const DEFAULT_FRAMEWORK: PrototypeFramework = "mobile_expo_react_native";
+const DEFAULT_FRAMEWORK: PrototypeFramework = "web_nextjs_react";
 const PLATFORM_OPTIONS: Array<{
   value: PrototypeFramework;
   label: string;
 }> = [
-  { value: "web_nextjs_react", label: "Web" },
-  { value: "mobile_expo_react_native", label: "Mobile" },
-];
+    { value: "web_nextjs_react", label: "Web" },
+    { value: "mobile_expo_react_native", label: "Mobile" },
+  ];
 
 export default function DashboardPage() {
   // --- Logic / Hooks (Preserved) ---
@@ -342,12 +342,11 @@ export default function DashboardPage() {
           </div> */}
 
           <h1 className="text-4xl md:text-6xl font-medium tracking-tight text-transparent bg-clip-text bg-gradient-to-b from-black via-black to-black/60 dark:from-white dark:via-white dark:to-white/60">
-            Build Your Ideas
+            Design Anything
           </h1>
           <p className="text-lg text-gray-600 dark:text-[#8A8F98] max-w-xl mx-auto font-light">
-            Describe your mobile app, screen, or flow.{" "}
+            Describe your app, screen, or flow.{" "}
             <br className="hidden sm:block" />
-            We will generate the React Native code instantly.
           </p>
         </div>
 
