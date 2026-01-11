@@ -29,6 +29,7 @@ import {
   Box,
   Camera,
   CheckCircle2,
+  ChevronDown,
   ChevronLeft,
   Code2,
   FileCode,
@@ -39,8 +40,8 @@ import {
   Layout,
   Lock,
   MessageCircle,
-  Music2,
-  Palette,
+  MoreHorizontal,
+  Music2, Palette,
   Play,
   RefreshCw,
   Search,
@@ -461,14 +462,24 @@ function VariantsSection() {
                         />
                         <div className="absolute inset-0 bg-black/20" />
                       </div>
-                      <div className="relative z-10 p-6 h-full flex flex-col justify-end">
-                        <div className="w-full aspect-square rounded-2xl overflow-hidden shadow-2xl mb-8 border border-white/10">
+                      <div className="relative z-10 p-6 h-full flex flex-col justify-between">
+                        {/* Header */}
+                        <div className="flex justify-between items-center w-full">
+                          <ChevronDown className="w-6 h-6 text-white/70" />
+                          <span className="text-xs font-medium text-white/50 tracking-widest uppercase">Now Playing</span>
+                          <MoreHorizontal className="w-6 h-6 text-white/70" />
+                        </div>
+
+                        {/* Main Art */}
+                        <div className="w-full aspect-square rounded-2xl overflow-hidden shadow-2xl border border-white/10 mx-auto transform scale-105">
                           <img
                             src="/images/midnight_vibrant.png"
                             alt="Glassmorphism Album Art"
                             className="w-full h-full object-cover"
                           />
                         </div>
+
+                        {/* Controls */}
                         <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/10">
                           <h3 className="text-lg font-semibold text-white mb-1">
                             Midnight City
