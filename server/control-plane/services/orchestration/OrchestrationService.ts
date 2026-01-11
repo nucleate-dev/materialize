@@ -473,16 +473,23 @@ export class OrchestrationService {
       });
     }
 
-    // Step 3: Create Supabase service client to fetch prototype and GitHub integration
-    const supabaseServiceClient = createClient<Database>(
+    // Step 3: Create authenticated Supabase client using user's JWT
+    const supabaseAuthClient = createClient<Database>(
       process.env.SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      process.env.SUPABASE_ANON_KEY!,
+      {
+        global: {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      },
     );
 
     try {
-      // Step 4: Fetch prototype to get team_id
+      // Step 4: Fetch prototype to get team_id (using user's authenticated client)
       const { data: prototype, error: prototypeError } =
-        await supabaseServiceClient
+        await supabaseAuthClient
           .from('prototypes')
           .select('team_id, github_repo_id')
           .eq('id', prototype_id)
@@ -517,7 +524,12 @@ export class OrchestrationService {
         });
       }
 
-      // Step 5: Fetch GitHub integration for the team
+      // Step 5: Fetch GitHub integration for the team (use service role for sensitive data)
+      const supabaseServiceClient = createClient<Database>(
+        process.env.SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      );
+
       const { data: integration, error: integrationError } =
         await supabaseServiceClient
           .from('github_integrations')
