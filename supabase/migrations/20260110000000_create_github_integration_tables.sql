@@ -101,13 +101,7 @@ for select
 to authenticated
 using (
   created_by_user_id = auth.uid()
-  or exists (
-    select 1
-    from public.team_memberships tm
-    where tm.team_id = github_connect_sessions.team_id
-      and tm.user_id = auth.uid()
-      and tm.role in ('owner', 'admin')
-  )
+  or public.is_team_owner_or_admin(github_connect_sessions.team_id)
 );
 
 -- INSERT: only team owner/admin can start a connect session
@@ -118,13 +112,7 @@ for insert
 to authenticated
 with check (
   created_by_user_id = auth.uid()
-  and exists (
-    select 1
-    from public.team_memberships tm
-    where tm.team_id = github_connect_sessions.team_id
-      and tm.user_id = auth.uid()
-      and tm.role in ('owner', 'admin')
-  )
+  and public.is_team_owner_or_admin(github_connect_sessions.team_id)
 );
 
 -- UPDATE: only team owner/admin can update sessions (backend will update status)
@@ -134,22 +122,10 @@ on public.github_connect_sessions
 for update
 to authenticated
 using (
-  exists (
-    select 1
-    from public.team_memberships tm
-    where tm.team_id = github_connect_sessions.team_id
-      and tm.user_id = auth.uid()
-      and tm.role in ('owner', 'admin')
-  )
+  public.is_team_owner_or_admin(github_connect_sessions.team_id)
 )
 with check (
-  exists (
-    select 1
-    from public.team_memberships tm
-    where tm.team_id = github_connect_sessions.team_id
-      and tm.user_id = auth.uid()
-      and tm.role in ('owner', 'admin')
-  )
+  public.is_team_owner_or_admin(github_connect_sessions.team_id)
 );
 
 -- DELETE: only team owner/admin can delete sessions
@@ -159,13 +135,7 @@ on public.github_connect_sessions
 for delete
 to authenticated
 using (
-  exists (
-    select 1
-    from public.team_memberships tm
-    where tm.team_id = github_connect_sessions.team_id
-      and tm.user_id = auth.uid()
-      and tm.role in ('owner', 'admin')
-  )
+  public.is_team_owner_or_admin(github_connect_sessions.team_id)
 );
 
 -- ============================================================
@@ -179,12 +149,7 @@ on public.team_github_integrations
 for select
 to authenticated
 using (
-  exists (
-    select 1
-    from public.team_memberships tm
-    where tm.team_id = team_github_integrations.team_id
-      and tm.user_id = auth.uid()
-  )
+  public.is_team_member(team_github_integrations.team_id)
 );
 
 -- INSERT: only team owner/admin can connect GitHub
@@ -194,13 +159,7 @@ on public.team_github_integrations
 for insert
 to authenticated
 with check (
-  exists (
-    select 1
-    from public.team_memberships tm
-    where tm.team_id = team_github_integrations.team_id
-      and tm.user_id = auth.uid()
-      and tm.role in ('owner', 'admin')
-  )
+  public.is_team_owner_or_admin(team_github_integrations.team_id)
 );
 
 -- UPDATE: only team owner/admin can update GitHub integration
@@ -210,22 +169,10 @@ on public.team_github_integrations
 for update
 to authenticated
 using (
-  exists (
-    select 1
-    from public.team_memberships tm
-    where tm.team_id = team_github_integrations.team_id
-      and tm.user_id = auth.uid()
-      and tm.role in ('owner', 'admin')
-  )
+  public.is_team_owner_or_admin(team_github_integrations.team_id)
 )
 with check (
-  exists (
-    select 1
-    from public.team_memberships tm
-    where tm.team_id = team_github_integrations.team_id
-      and tm.user_id = auth.uid()
-      and tm.role in ('owner', 'admin')
-  )
+  public.is_team_owner_or_admin(team_github_integrations.team_id)
 );
 
 -- DELETE: only team owner/admin can disconnect GitHub
@@ -235,13 +182,7 @@ on public.team_github_integrations
 for delete
 to authenticated
 using (
-  exists (
-    select 1
-    from public.team_memberships tm
-    where tm.team_id = team_github_integrations.team_id
-      and tm.user_id = auth.uid()
-      and tm.role in ('owner', 'admin')
-  )
+  public.is_team_owner_or_admin(team_github_integrations.team_id)
 );
 
 commit;
