@@ -138,7 +138,6 @@ export default function NewPrototypeModal({
     string | null
   >(null);
   const [designSystems, setDesignSystems] = useState<DesignSystemRow[]>([]);
-  const [isLoadingDesignSystems, setIsLoadingDesignSystems] = useState(false);
   const [hasManualDesignSelection, setHasManualDesignSelection] =
     useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
@@ -233,7 +232,6 @@ export default function NewPrototypeModal({
     async function fetchDesignSystems() {
       if (!activeTeam?.id) return;
 
-      setIsLoadingDesignSystems(true);
       try {
         const { data, error } = await supabase
           .from("design_systems")
@@ -254,7 +252,7 @@ export default function NewPrototypeModal({
           stack: error instanceof Error ? error.stack : undefined,
         });
       } finally {
-        setIsLoadingDesignSystems(false);
+        // no-op
       }
     }
 

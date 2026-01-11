@@ -468,7 +468,11 @@ const MaterializeRenderSection = forwardRef<
         const maxId = Math.max(...initialScreens.map((s) => s.id));
         nextMobileScreenId.current = maxId + 1;
         // Set the mobile screens from the saved config
-        logger.debug("info", "[MaterializeRenderSection] Restoring mobile screens from initialScreens:", { initialScreens });
+        logger.debug(
+          "log",
+          "[MaterializeRenderSection] Restoring mobile screens from initialScreens:",
+          { initialScreens },
+        );
         setMobileScreens(initialScreens.map((s) => ({ id: s.id, path: s.path })));
         return;
       }
@@ -481,7 +485,7 @@ const MaterializeRenderSection = forwardRef<
       if (onCurrentPathChange) {
         onCurrentPathChange(initialPath);
       }
-    }, [viewing_url, onCurrentPathChange, initialScreens]);
+    }, [initialScreens, logger, onCurrentPathChange, viewing_url]);
 
     // Notify parent when screens change (for saving public display config)
     useEffect(() => {
@@ -516,7 +520,11 @@ const MaterializeRenderSection = forwardRef<
         const maxId = Math.max(...initialWebScreens.map((s) => s.id));
         nextWebScreenId.current = maxId + 1;
         // Set the web screens from the saved config
-        logger.debug("info", "[MaterializeRenderSection] Restoring web screens from initialWebScreens:", { initialWebScreens });
+        logger.debug(
+          "log",
+          "[MaterializeRenderSection] Restoring web screens from initialWebScreens:",
+          { initialWebScreens },
+        );
         setWebScreens(initialWebScreens.map((s) => ({ id: s.id, path: s.path })));
         return;
       }
@@ -524,7 +532,7 @@ const MaterializeRenderSection = forwardRef<
       const initialPath = extractInitialPath(viewing_url);
       setWebScreens([{ id: 0, path: initialPath }]);
       nextWebScreenId.current = 1;
-    }, [viewing_url, initialWebScreens]);
+    }, [initialWebScreens, logger, viewing_url]);
 
     // Monitor iframe navigation to sync the path display
     useEffect(() => {

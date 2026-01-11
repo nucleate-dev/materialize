@@ -1,13 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Loader2,
   AlertCircle,
   Check,
   Github,
-  ExternalLink,
   AlertTriangle,
 } from "lucide-react";
 import { useActiveTeam } from "@/contexts/TeamContext";
@@ -32,6 +31,7 @@ export function GitHubIntegrationTab() {
   const logger = useProductLogger();
   const { activeTeam } = useActiveTeam();
   const { membership } = useCurrentUserMembership(activeTeam?.id);
+  const activeTeamId = activeTeam?.id;
 
   const isOwnerOrAdmin =
     membership?.role === "owner" || membership?.role === "admin";
@@ -43,8 +43,8 @@ export function GitHubIntegrationTab() {
   const [error, setError] = useState<string | null>(null);
 
   // Fetch GitHub integration status
-  const fetchGitHubStatus = async () => {
-    if (!activeTeam?.id) return;
+  const fetchGitHubStatus = useCallback(async () => {
+    if (!activeTeamId) return;
 
     setIsLoading(true);
     setError(null);
@@ -59,7 +59,7 @@ export function GitHubIntegrationTab() {
       }
 
       const response = await fetch(
-        `${API_BASE_URL}/github/status?teamId=${activeTeam.id}`,
+        `${API_BASE_URL}/github/status?teamId=${activeTeamId}`,
         {
           headers: {
             Authorization: `Bearer ${accessToken}`,
@@ -89,7 +89,7 @@ export function GitHubIntegrationTab() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [activeTeamId, logger]);
 
   // Handle connect button click
   const handleConnect = async () => {
@@ -238,7 +238,7 @@ export function GitHubIntegrationTab() {
       logger.log({
         event: "client_github_connect_success",
         properties: {
-          teamId: activeTeam?.id,
+          teamId: activeTeamId,
         },
       });
     } else if (githubConnected === "0" && errorParam) {
@@ -262,12 +262,12 @@ export function GitHubIntegrationTab() {
           "Failed to connect GitHub. Please try again.",
       );
     }
-  }, []);
+  }, [activeTeamId, fetchGitHubStatus, logger]);
 
   // Fetch status on mount and when team changes
   useEffect(() => {
     void fetchGitHubStatus();
-  }, [activeTeam?.id]);
+  }, [fetchGitHubStatus]);
 
   return (
     <div className="relative min-h-screen text-gray-900 dark:text-white font-sans">

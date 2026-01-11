@@ -17,22 +17,14 @@ import { SLUG_RULES, isValidSlug, normalizeSlug } from "@/lib/utils/slugUtils";
 import {
   AlertTriangle,
   Check,
-  Clock,
   Copy,
   Loader2,
-  PackageCheck,
   Rocket,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 type Prototype = Database["public"]["Tables"]["prototypes"]["Row"];
-
-const APPS_BASE_URL = (
-  process.env.NEXT_PUBLIC_APPS_BASE_URL ??
-  process.env.NEXT_PUBLIC_APPS_HOST ??
-  "https://apps.nucleate.dev"
-).replace(/\/$/, "");
 
 interface PrototypeDeployModalProps {
   open: boolean;
@@ -56,8 +48,7 @@ export default function PrototypeDeployModal({
   const logger = useProductLogger();
 
   const [deploySlug, setDeploySlug] = useState("");
-  const [deployVisibility, setDeployVisibility] =
-    useState<PrototypeVisibility>("PUBLIC");
+  const [deployVisibility] = useState<PrototypeVisibility>("PUBLIC");
   const [isCheckingSlug, setIsCheckingSlug] = useState(false);
   const [slugAvailable, setSlugAvailable] = useState<boolean | null>(null);
   const [slugError, setSlugError] = useState<string | null>(null);
@@ -195,7 +186,7 @@ export default function PrototypeDeployModal({
 
         const available = result.data?.available ?? null;
         setSlugAvailable(available);
-      } catch (error) {
+      } catch {
         if (!controller.signal.aborted) {
           setSlugError("Unable to check slug availability");
           setSlugAvailable(null);

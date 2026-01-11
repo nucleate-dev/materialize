@@ -13,7 +13,7 @@ import {
   Film,
   Folder,
   FolderOpen,
-  Image,
+  Image as ImageIcon,
   Music,
   Trash2,
   Type,
@@ -204,7 +204,7 @@ const FileTree: React.FC<FileTreeProps> = ({
         case "svg":
         case "webp":
         case "ico":
-          return <Image className={className} />;
+          return <ImageIcon className={className} />;
         case "mp3":
         case "wav":
         case "ogg":

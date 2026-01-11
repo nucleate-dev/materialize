@@ -103,17 +103,12 @@ export type RenderStatus =
   | "Connected"
   | "Error";
 
-const APPS_BASE_URL = (
-  process.env.NEXT_PUBLIC_APPS_BASE_URL ??
-  process.env.NEXT_PUBLIC_APPS_HOST ??
-  "https://apps.nucleate.dev"
-).replace(/\/$/, "");
-
 export default function InternalPrototypePage() {
   const router = useRouter();
   const { user, userIsLoading } = useUser();
   const { userPlan } = useSubscriptionAccess();
   const { activeTeam } = useActiveTeam();
+  const activeTeamId = activeTeam?.id;
   const params = useParams<{ prototype_id: string }>();
   const prototypeId = params?.prototype_id;
   const logger = useProductLogger();
@@ -149,7 +144,7 @@ export default function InternalPrototypePage() {
   >(null);
   const [isUpdatingDesignSystem, setIsUpdatingDesignSystem] = useState(false);
   const [isDeployModalOpen, setIsDeployModalOpen] = useState(false);
-  const [isDeploying, setIsDeploying] = useState(false);
+  const [isDeploying] = useState(false);
   const [deployedUrl, setDeployedUrl] = useState<string | null>(null);
 
   // Delete confirmation state
@@ -183,6 +178,7 @@ export default function InternalPrototypePage() {
   // Initialize FileSystem hook
   const defaultFile = "App.js"; // TODO update this for the new default app
   const fileSystem = useFileSystem(prototypeId, defaultFile);
+  const { setSandboxUrl } = fileSystem;
 
   // Claude Code WebSocket management
   const claudeCodeWSMessageHandlers = useRef<
@@ -581,9 +577,9 @@ export default function InternalPrototypePage() {
       }
     }
     const finalNormalizedUrl = normalizedUrl;
-    fileSystem.setSandboxUrl(finalNormalizedUrl);
+    setSandboxUrl(finalNormalizedUrl);
     setNormalizedSandboxUrl(finalNormalizedUrl);
-  }, [baseTunnelUrl, fileSystem.setSandboxUrl]);
+  }, [baseTunnelUrl, setSandboxUrl]);
 
   // USE EFFECT PURPOSE: to poll the fetch viewing url endpoint in case build status changes
   useEffect(() => {
@@ -778,8 +774,7 @@ export default function InternalPrototypePage() {
           ? prototype.description
           : undefined;
 
-      const teamId = activeTeam?.id;
-      if (!teamId) {
+      if (!activeTeamId) {
         logger.debug("error", "Unable to locate active team for clone");
         setIsCloningPrototype(false);
         return;
@@ -792,7 +787,7 @@ export default function InternalPrototypePage() {
         folder_id: folderId,
         prototype_id: prototype.id,
         visibility: "PUBLIC",
-        team_id: teamId,
+        team_id: activeTeamId,
       };
 
       const response = await fetch(
@@ -829,7 +824,7 @@ export default function InternalPrototypePage() {
     } finally {
       setIsCloningPrototype(false);
     }
-  }, [logger, prototype]);
+  }, [activeTeamId, logger, prototype]);
 
   const handleOpenDeployModal = () => {
     logger.log({
@@ -969,7 +964,7 @@ export default function InternalPrototypePage() {
     [fileSystem.state.files, fileSystem.state.assets],
   );
 
-  const handleConfirmDelete = useCallback(async () => {
+  const handleConfirmDelete = async () => {
     if (!deleteTarget || !prototypeId) return;
 
     setIsDeleting(true);
@@ -1020,7 +1015,7 @@ export default function InternalPrototypePage() {
     } finally {
       setIsDeleting(false);
     }
-  }, [deleteTarget, prototypeId, logger, fileSystem, fileSystem.state.assets]);
+  };
 
   const handleFileUpload = useCallback(
     async (files: File[], targetPath?: string) => {

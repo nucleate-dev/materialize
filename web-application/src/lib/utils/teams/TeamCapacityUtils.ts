@@ -148,7 +148,6 @@ interface RoleChangeCheckParams {
   teamMembers: TeamMember[];
   teamInvites: TeamInvite[];
   seatQuantity: number | null;
-  userId?: string; // Optional: user ID of the member being changed (to check if last owner)
 }
 
 /**
@@ -165,7 +164,6 @@ export function canChangeRole(params: RoleChangeCheckParams): boolean {
     teamMembers,
     teamInvites,
     seatQuantity,
-    userId,
   } = params;
 
   // Prevent demoting the last owner

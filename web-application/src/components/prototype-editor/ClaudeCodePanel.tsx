@@ -1248,7 +1248,7 @@ export default function ClaudeCodePanel({
 
       case ChatEvent.COLLABORATOR_MESSAGE: {
         // Another collaborator sent a message
-        const { userId, content, timestamp, imageCount } = message.data;
+        const { userId, content, imageCount } = message.data;
 
         logger.debug("log", "Received collaborator message", {
           userId,

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   Dialog,
   DialogContent,
@@ -33,13 +33,13 @@ export function TeamUpgradeModal({
   const { teamMembers } = useActiveTeam();
 
   // Calculate default seat count based on non-viewer members
-  const getNonViewerCount = () => {
+  const getNonViewerCount = useCallback(() => {
     if (!teamMembers || teamMembers.length === 0) {
       return MIN_SEATS; // Default minimum
     }
     const nonViewers = teamMembers.filter((member) => member.role !== "viewer");
     return Math.max(MIN_SEATS, nonViewers.length);
-  };
+  }, [teamMembers]);
 
   const [seatQuantity, setSeatQuantity] = useState(getNonViewerCount());
   const [isProcessing, setIsProcessing] = useState(false);
@@ -49,7 +49,7 @@ export function TeamUpgradeModal({
     if (isOpen) {
       setSeatQuantity(getNonViewerCount());
     }
-  }, [isOpen, teamMembers]);
+  }, [getNonViewerCount, isOpen]);
 
   const totalPrice = seatQuantity * PRICE_PER_SEAT;
   const totalCredits = seatQuantity * CREDITS_PER_SEAT;

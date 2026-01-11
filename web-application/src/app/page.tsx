@@ -24,6 +24,7 @@ import { setChatIntent } from "@/lib/utils/chatIntentUtils";
 import { handleCheckout } from "@/lib/utils/payments/CheckoutUtils";
 import { CheckIcon, SparklesIcon } from "@heroicons/react/24/solid";
 import { AnimatePresence, motion } from "framer-motion";
+import Image from "next/image";
 import {
   Bell,
   Box,
@@ -253,7 +254,8 @@ function CodebaseIntegrationSection() {
             Your design system, automatically.
           </h2>
           <p className="text-[#8A8F98] max-w-xl mx-auto">
-            Nucleate doesn't just "write code." It adopts your existing primitives to build UI that belongs in your app.
+            Nucleate doesn&apos;t just &quot;write code.&quot; It adopts your existing
+            primitives to build UI that belongs in your app.
           </p>
         </div>
 
@@ -329,7 +331,7 @@ function VariantsSection() {
             Instant variants using <span className="text-indigo-400">your components.</span>
           </h2>
           <p className="text-zinc-500 text-xl md:text-2xl font-normal">
-            Explore variants without breaking the design system. These aren't mockups — they are real components from your repo.
+            Explore variants without breaking the design system. These aren&apos;t mockups — they are real components from your repo.
           </p>
         </div>
 
@@ -373,10 +375,12 @@ function VariantsSection() {
                         <div className="w-8 h-8 bg-black/5 rounded-full backdrop-blur-sm" />
                       </div>
                       <div className="h-2/3 bg-zinc-100 relative">
-                        <img
+                        <Image
                           src="/images/midnight_minimal.png"
                           alt="Minimal Album Art"
-                          className="w-full h-full object-cover"
+                          fill
+                          className="object-cover"
+                          sizes="(max-width: 1024px) 100vw, 33vw"
                         />
                       </div>
                       <div className="p-6">
@@ -413,10 +417,12 @@ function VariantsSection() {
                           <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
                         </div>
                         <div className="w-full aspect-square border-2 border-white/20 rounded-none mb-8 relative">
-                          <img
+                          <Image
                             src="/images/midnight_brutalist.png"
                             alt="Brutalist Album Art"
-                            className="w-full h-full object-cover grayscale opacity-60"
+                            fill
+                            className="object-cover grayscale opacity-60"
+                            sizes="(max-width: 1024px) 100vw, 33vw"
                           />
                           <div className="absolute inset-0 flex items-center justify-center">
                             <div className="w-16 h-16 rounded-full border border-white flex items-center justify-center">
@@ -455,10 +461,12 @@ function VariantsSection() {
                     <div className="text-center text-zinc-500 font-mono text-xs uppercase tracking-widest">Variant C: Glassmorphism</div>
                     <div className="aspect-[9/16] bg-zinc-900 rounded-3xl overflow-hidden shadow-2xl border border-white/10 relative group">
                       <div className="absolute inset-0">
-                        <img
+                        <Image
                           src="/images/midnight_vibrant.png"
-                          className="w-full h-full object-cover opacity-60 blur-xl scale-125"
+                          className="object-cover opacity-60 blur-xl scale-125"
                           alt="Background Blur"
+                          fill
+                          sizes="(max-width: 1024px) 100vw, 33vw"
                         />
                         <div className="absolute inset-0 bg-black/20" />
                       </div>
@@ -472,10 +480,12 @@ function VariantsSection() {
 
                         {/* Main Art */}
                         <div className="w-full aspect-square rounded-2xl overflow-hidden shadow-2xl border border-white/10 mx-auto transform scale-105">
-                          <img
+                          <Image
                             src="/images/midnight_vibrant.png"
                             alt="Glassmorphism Album Art"
-                            className="w-full h-full object-cover"
+                            fill
+                            className="object-cover"
+                            sizes="(max-width: 1024px) 100vw, 33vw"
                           />
                         </div>
 
@@ -1125,7 +1135,8 @@ function ShippingSection() {
             From prototype → PR
           </h2>
           <p className="text-[#8A8F98] max-w-2xl mx-auto">
-            Nucleate isn't a playground. It's a delivery tool that lives in your engineering workflow.
+            Nucleate isn&apos;t a playground. It&apos;s a delivery tool that lives in your
+            engineering workflow.
           </p>
         </div>
 
@@ -1148,7 +1159,9 @@ function ShippingSection() {
             <div className="bg-[#141517] border border-white/10 rounded-2xl p-6 flex-1">
               <Search className="w-8 h-8 text-purple-400 mb-4" />
               <h3 className="text-lg font-bold mb-2">Reviewable Diffs</h3>
-              <p className="text-sm text-white/60">No "black box" code. Small, readable diffs that match your coding style and are easy to iterate on.</p>
+              <p className="text-sm text-white/60">
+                No &quot;black box&quot; code. Small, readable diffs that match your coding style and are easy to iterate on.
+              </p>
             </div>
           </div>
         </div>
@@ -1431,7 +1444,6 @@ function DifferentiationSection() {
  * 11) FAQ SECTION
  */
 function FAQSection() {
-  const router = useRouter();
   const featuredFAQs = [
     { q: "How does repo sync work?", a: "You never have to do manual syncing. Nucleate's agents will always stay up to date on your repo's latest state." },
     { q: "Does it use our existing components?", a: "Yes. Unlike generic AI tools, Nucleate prioritizes using your existing library. If you have a 'Button' or 'Card' component, Nucleate will use them instead of generating new ones." },

@@ -105,11 +105,13 @@ export default function RootLayout({
           }}
         />
         <noscript>
+          {/* eslint-disable-next-line @next/next/no-img-element, jsx-a11y/alt-text */}
           <img
             height="1"
             width="1"
             style={{ display: "none" }}
             src="https://www.facebook.com/tr?id=3308658512608818&ev=PageView&noscript=1"
+            alt=""
           />
         </noscript>
       </head>

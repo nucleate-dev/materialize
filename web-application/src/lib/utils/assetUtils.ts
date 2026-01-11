@@ -81,7 +81,7 @@ export async function getBulkAssetSignedUrls(
       },
       {} as Record<string, string | null>,
     );
-  } catch (error) {
+  } catch {
     // Return nulls for all assets on error
     return assetNames.reduce(
       (acc, assetName) => {

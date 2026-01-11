@@ -30,7 +30,6 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
-import { cn } from "@/lib/classNames"; // Assuming this utility exists based on context
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import {
   normalizePrototypeVisibility,
@@ -42,7 +41,6 @@ import type {
   DeletePrototypeSuccessResponse,
 } from "@/lib/types/serverAPITypes";
 import { Database } from "@/lib/types/supabase";
-import { IsUserPlanSubscribed } from "@/lib/utils/payments/SubscriptionManagementUtils";
 import {
   AlertTriangle,
   FileText,

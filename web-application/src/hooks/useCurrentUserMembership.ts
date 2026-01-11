@@ -1,10 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useUser } from "@/hooks/useUser";
-import { Database } from "@/lib/types/supabase";
 import { supabase } from "@/ClientConstants";
 import { currentUserMembershipQueryKey } from "@/lib/react-query/queryKeys";
-
-type TeamMembership = Database["public"]["Tables"]["team_memberships"]["Row"];
 
 export function useCurrentUserMembership(teamId: string | null | undefined) {
   const { user, userIsLoading } = useUser();

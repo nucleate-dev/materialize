@@ -1,9 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
-import { Database } from "@/lib/types/supabase";
 import { supabase } from "@/ClientConstants";
 import { teamInvitesQueryKey } from "@/lib/react-query/queryKeys";
-
-type TeamInvite = Database["public"]["Tables"]["team_invites"]["Row"];
 
 export function useTeamInvites(teamId: string | null | undefined) {
   const query = useQuery({

@@ -1,10 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useUser } from "@/hooks/useUser";
-import { Database } from "@/lib/types/supabase";
 import { supabase } from "@/ClientConstants";
 import { personalTeamQueryKey } from "@/lib/react-query/queryKeys";
-
-type Team = Database["public"]["Tables"]["teams"]["Row"];
 
 export function usePersonalTeam() {
   const { user, userIsLoading } = useUser();

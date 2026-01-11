@@ -18,7 +18,6 @@ import {
   Search,
   Shield,
   Sparkles,
-  Users,
   X,
 } from "lucide-react";
 

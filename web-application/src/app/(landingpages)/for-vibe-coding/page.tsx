@@ -113,7 +113,8 @@ function HomeContent() {
         <UseCasesSection />
 
         {/* Section 3: Infrastructure & Scale */}
-        {/* <InfrastructureSection /> */}
+        {/* Hidden for now but kept referenced so the component stays typed */}
+        {false && <InfrastructureSection />}
 
         <PricingSection />
         <FAQSection />
@@ -1647,8 +1648,7 @@ function UseCasesSection() {
             title="Product Managers"
             desc="Go from insight to prototype instantly. Visualize requirements and get team buy-in faster than ever."
             gradient="from-indigo-500/10 to-blue-500/5"
-            border="hover:border-indigo-500/30"
-            className="md:col-span-2"
+            className="md:col-span-2 hover:border-indigo-500/30"
             ui={
               <div className="relative h-full w-full flex flex-col justify-center px-8">
                 <div className="flex items-center gap-8 mb-4">
@@ -1686,8 +1686,7 @@ function UseCasesSection() {
             title="Agencies"
             desc="Multiply your impact: deliver more projects, faster, without scaling headcount."
             gradient="from-orange-500/10 to-rose-500/5"
-            border="hover:border-orange-500/30"
-            className="md:col-span-2"
+            className="md:col-span-2 hover:border-orange-500/30"
             ui={
               <div className="relative w-full h-full flex flex-col justify-center items-center px-4">
                 <div className="flex gap-4 relative">
@@ -1730,8 +1729,7 @@ function UseCasesSection() {
             title="Marketers"
             desc="Spin up high-performing landing pages with SEO built-in, no devs needed."
             gradient="from-pink-500/10 to-purple-500/5"
-            border="hover:border-pink-500/30"
-            className="md:col-span-2"
+            className="md:col-span-2 hover:border-pink-500/30"
             ui={
               <div className="relative h-full w-full flex items-center justify-center gap-6 px-4">
                 {/* Google Search Result Mock */}
@@ -1776,8 +1774,7 @@ function UseCasesSection() {
             title="Designers"
             desc="Turn your Figma files into pixel-perfect reality instantly. No more handoff friction."
             gradient="from-purple-500/10 to-pink-500/5"
-            border="hover:border-purple-500/30"
-            className="md:col-span-2"
+            className="md:col-span-2 hover:border-purple-500/30"
             ui={
               <div className="relative h-full w-full flex items-center justify-center gap-4 md:gap-8 px-4">
                 {/* Figma Side */}
@@ -1823,8 +1820,7 @@ function UseCasesSection() {
             title="Entrepreneurs"
             desc="Launch a full business in days, not months."
             gradient="from-emerald-500/10 to-teal-500/5"
-            border="hover:border-emerald-500/30"
-            className="md:col-span-2"
+            className="md:col-span-2 hover:border-emerald-500/30"
             ui={
               <div className="relative h-full w-full flex flex-row justify-around items-center px-8">
                 <div className="relative group/btn cursor-pointer">
@@ -1847,8 +1843,7 @@ function UseCasesSection() {
             title="Students & Builders"
             desc="Take ideas from class or side projects and turn them into working apps."
             gradient="from-blue-500/10 to-indigo-500/5"
-            border="hover:border-blue-500/30"
-            className="md:col-span-2"
+            className="md:col-span-2 hover:border-blue-500/30"
             ui={
               <div className="relative h-full w-full flex flex-col items-center justify-center">
                 <div className="w-full max-w-[320px] bg-[#1A1B1E] rounded-lg border border-white/10 p-3 pt-6 relative overflow-hidden shadow-2xl">
@@ -1915,7 +1910,19 @@ function UseCasesSection() {
   );
 }
 
-function RoleCard({ title, desc, ui, gradient, border, className = "" }: { title: string; desc: string; ui: React.ReactNode; gradient: string; border: string; className?: string; }) {
+function RoleCard({
+  title,
+  desc,
+  ui,
+  gradient,
+  className = "",
+}: {
+  title: string;
+  desc: string;
+  ui: React.ReactNode;
+  gradient: string;
+  className?: string;
+}) {
   return (
     <div className={`bg-[#141517] border border-white/10 rounded-3xl p-1 overflow-hidden group hover:border-white/20 transition-all relative ${className}`}>
       <div className={`absolute inset-0 bg-gradient-to-br ${gradient} opacity-0 group-hover:opacity-100 transition-opacity duration-500`} />

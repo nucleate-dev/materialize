@@ -1,6 +1,5 @@
 "use client";
 
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { useCreditUsage } from "@/hooks/useCreditUsage";
@@ -13,13 +12,11 @@ import { usePostHog } from "posthog-js/react";
 import { handleCheckout } from "@/lib/utils/payments/CheckoutUtils";
 import {
   handleRedirectToStripeCustomerPortal,
-  IsUserPlanSubscribed,
 } from "@/lib/utils/payments/SubscriptionManagementUtils";
 import { useActiveTeam } from "@/contexts/TeamContext";
 import { logout } from "@/lib/utils/auth/SupabaseAuthUtils";
 import {
   AlertCircle,
-  Calendar,
   Check,
   CreditCard,
   Crown,
@@ -34,7 +31,7 @@ import {
   Zap,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/ClientConstants";
 
 // --- Styled Components ---
@@ -90,14 +87,10 @@ function AccountSettings() {
   // Use the new credit usage hook
   const creditUsage = useCreditUsage();
 
-  const [name, setName] = useState<string>("");
-  const [email, setEmail] = useState<string>("");
-  const [memberSince, setMemberSince] = useState<Date>(new Date());
   const [isProcessingUpgrade, setIsProcessingUpgrade] =
     useState<boolean>(false);
 
   // Claude token state
-  const [claudeToken, setClaudeToken] = useState<string>("");
   const [hasClaudeToken, setHasClaudeToken] = useState<boolean>(false);
   const [claudeTokenInput, setClaudeTokenInput] = useState<string>("");
   const [isSavingToken, setIsSavingToken] = useState<boolean>(false);
@@ -106,44 +99,7 @@ function AccountSettings() {
   const [tokenError, setTokenError] = useState<string | null>(null);
   const [isManagingBilling, setIsManagingBilling] = useState<boolean>(false);
 
-  useEffect(() => {
-    if (user.user) {
-      setEmail(user.user.email || "");
-      setName(
-        user.user.user_metadata?.full_name ||
-          user.user.user_metadata?.first_name +
-            " " +
-            user.user.user_metadata?.last_name ||
-          "",
-      );
-      setMemberSince(new Date(user.user.created_at));
-    }
-  }, [user.user]);
-
   const currentSubscription = (userPlan as string) || "free";
-
-  const getPlanBadgeColor = (plan: string) => {
-    switch (plan.toLowerCase()) {
-      case "max":
-      case "pro":
-        return "bg-purple-500/10 text-purple-400 border-purple-500/20";
-      case "plus":
-        return "bg-blue-500/10 text-blue-400 border-blue-500/20";
-      case "team":
-        return "bg-emerald-500/10 text-emerald-400 border-emerald-500/20";
-      default:
-        return "bg-white/5 text-white/60 border-white/10";
-    }
-  };
-
-  const getInitials = (name: string) => {
-    return name
-      .split(" ")
-      .map((n) => n[0])
-      .join("")
-      .toUpperCase()
-      .slice(0, 2);
-  };
 
   const handleUpgradeClick = async (targetPlan: string) => {
     try {
@@ -199,7 +155,7 @@ function AccountSettings() {
   };
 
   // Check if user has a Claude token
-  const checkClaudeToken = async () => {
+  const checkClaudeToken = useCallback(async () => {
     if (!user.user?.id) return;
 
     try {
@@ -214,10 +170,8 @@ function AccountSettings() {
 
       if (data) {
         setHasClaudeToken(true);
-        setClaudeToken(data.oauth_token);
       } else {
         setHasClaudeToken(false);
-        setClaudeToken("");
       }
     } catch (error) {
       logger.debug("error", "Error checking Claude token:", {
@@ -225,7 +179,7 @@ function AccountSettings() {
       });
       setHasClaudeToken(false);
     }
-  };
+  }, [logger, user.user?.id]);
 
   // Save Claude token
   const handleSaveClaudeToken = async () => {
@@ -286,7 +240,6 @@ function AccountSettings() {
       if (error) throw error;
 
       setHasClaudeToken(false);
-      setClaudeToken("");
     } catch (error) {
       logger.debug("error", "Error deleting claude token: ", {
         error,
@@ -302,7 +255,7 @@ function AccountSettings() {
   // Check for token on mount and when user changes
   useEffect(() => {
     void checkClaudeToken();
-  }, [user.user?.id]);
+  }, [checkClaudeToken]);
 
   const upgradeOption = getUpgradeOption();
 

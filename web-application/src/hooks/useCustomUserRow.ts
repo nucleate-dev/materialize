@@ -1,10 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/ClientConstants";
 import { useUser } from "@/hooks/useUser";
-import { Database } from "@/lib/types/supabase";
 import { customUserRowQueryKey } from "@/lib/react-query/queryKeys";
-
-type UserRow = Database["public"]["Tables"]["users"]["Row"];
 
 /**
  * Hook to fetch the user row from the users table
