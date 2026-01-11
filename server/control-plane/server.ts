@@ -32,7 +32,6 @@ declare module "fastify" {
   interface FastifyRequest {
     log2: SystemLogger;
     posthogLogger: PostHogLogger;
-    rawBody?: string; // Added by fastify-raw-body plugin
   }
 }
 
