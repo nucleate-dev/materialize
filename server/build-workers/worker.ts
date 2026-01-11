@@ -136,6 +136,7 @@ const chatService = new ChatService(
   nucleateDevelopmentServerService,
   terminalService,
   fileSyncService,
+  sandboxOrchestrationInitiatorService,
 );
 
 // Now set the chatService reference in NucleateDevelopmentServerService

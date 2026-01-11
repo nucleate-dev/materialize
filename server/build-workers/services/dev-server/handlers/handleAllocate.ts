@@ -202,9 +202,6 @@ export async function handleAllocateImpl(
     }
 
     // 7. CREDENTIALS:
-    materializeDevelopmentServerService.chatService.setOrchestrationToken(
-      keys.orchestration_token,
-    );
     if (keys.aak) {
       materializeDevelopmentServerService.chatService.setAak(keys.aak);
     } else {

@@ -1,6 +1,5 @@
 import { Options } from "@anthropic-ai/claude-agent-sdk";
 import type { UserContent } from "ai";
-import axios from "axios";
 import { FastifyInstance, FastifyRequest } from "fastify";
 import path from "path";
 import WebSocket from "ws";
@@ -15,12 +14,6 @@ import {
   ChatSystemEventSubtype,
   HistoryResponseData,
 } from "../../types/ChatTypes.js";
-import {
-  APIResponse,
-  EndChatResponse,
-  StandardErrorResponse,
-  StartChatResponse,
-} from "../../types/ControlPlaneTypes.js";
 import { Database } from "../../types/supabase.js";
 import { hasRemainingCredits } from "../../utils/credit-checks.js";
 import { getWorkerContext, WORK_DIR } from "../../worker.js";
@@ -28,6 +21,7 @@ import { ClaudeTokenService } from "../auth/claude-token-service.js";
 import { NucleateDevelopmentServerService } from "../dev-server/NucleateDevelopmentServerService.js";
 import { FileSyncService } from "../FileSyncService.js";
 import { SandboxService } from "../SandboxService.js";
+import { SandboxOrchestrationInitiatorService } from "../SandboxOrchestrationInitiatorService.js";
 import { SupabaseClientService } from "../SupabaseClientService.js";
 import { TerminalService } from "../terminals/TerminalService.js";
 import {
@@ -74,6 +68,7 @@ export class ChatService {
   private readonly sandboxService: SandboxService;
   private readonly devServerService: NucleateDevelopmentServerService;
   private readonly fileSyncService: FileSyncService;
+  private readonly sandboxOrchestrationInitiatorService: SandboxOrchestrationInitiatorService;
 
   private readonly chatQueryHandler: ChatEngine;
   private readonly claudeTokenService: ClaudeTokenService;
@@ -86,7 +81,6 @@ export class ChatService {
     firstMessageStatus: null,
   };
   private activeConnections = new Map<string, ChatConnection>();
-  private orchestrationToken: string | null = null;
   private aak: string | null = null;
   private userOAuthToken: string | null = null; // User's Claude subscription OAuth token
   private validAiChatSessionIds = new Set<string>(); // Track valid session IDs created during this CodeService instance's lifetime
@@ -97,11 +91,14 @@ export class ChatService {
     devServerService: NucleateDevelopmentServerService,
     terminalService: TerminalService,
     fileSyncService: FileSyncService,
+    sandboxOrchestrationInitiatorService: SandboxOrchestrationInitiatorService,
   ) {
     this.supabaseClientService = supabaseClientService;
     this.fileSyncService = fileSyncService;
     this.sandboxService = sandboxService;
     this.devServerService = devServerService;
+    this.sandboxOrchestrationInitiatorService =
+      sandboxOrchestrationInitiatorService;
 
     this.chatQueryHandler = new ChatQueryHandler(
       supabaseClientService,
@@ -120,11 +117,6 @@ export class ChatService {
   // ---------------------------------------------------------------------------
   // CLASS METHODS
   // ---------------------------------------------------------------------------
-
-  public setOrchestrationToken(token: string): void {
-    this.orchestrationToken = token;
-    baseLogger.consoleLogDevOnly("info", "Orchestration token set");
-  }
 
   public setAak(key: string): void {
     this.aak = key;
@@ -468,7 +460,8 @@ export class ChatService {
 
     // 4. TELL CONTROL PLANE THAT CHAT IS STARTING
     try {
-      await this.notifyOrchestrationStartChat(prototypeId);
+      await this.sandboxOrchestrationInitiatorService
+        .notifyOrchestrationStartChat(prototypeId);
     } catch (error) {
       const err = error instanceof Error ? error : new Error(String(error));
       logger.error(err, "Failed to notify orchestration start chat", {
@@ -627,7 +620,8 @@ export class ChatService {
         );
       }
       try {
-        await this.notifyOrchestrationEndChat(prototypeId);
+        await this.sandboxOrchestrationInitiatorService
+          .notifyOrchestrationEndChat(prototypeId);
       } catch (error) {
         const err = error instanceof Error ? error : new Error(String(error));
         logger.error(err, "Failed to notify orchestration end chat", {
@@ -1260,91 +1254,6 @@ export class ChatService {
     }
   }
 
-  /**
-   * Notifies the control plane that a chat session has started
-   */
-  private async notifyOrchestrationStartChat(
-    prototypeId: string,
-  ): Promise<void> {
-    const serverEndpoint = process.env.NUCLEATE_SERVER_ENDPOINT;
-    if (!serverEndpoint) {
-      baseLogger.warn(
-        "NUCLEATE_SERVER_ENDPOINT not set, skipping start-chat notification",
-      );
-      return;
-    }
-
-    if (!this.orchestrationToken) {
-      baseLogger.error(
-        new Error("Orchestration token not set"),
-        "Cannot notify start-chat without orchestration token",
-        { prototypeId },
-      );
-      return;
-    }
-
-    try {
-      const response = await axios.post<
-        APIResponse<StartChatResponse, StandardErrorResponse>
-      >(
-        `${serverEndpoint}/orchestration/start-chat`,
-        { prototype_id: prototypeId },
-        {
-          headers: {
-            "x-orchestration-token": this.orchestrationToken,
-            "Content-Type": "application/json",
-          },
-          timeout: 5000,
-        },
-      );
-      const payload = response.data;
-
-      if (payload.error || !payload.data?.success) {
-        const errorMessage = payload.error
-          ? `Control plane rejected start-chat: ${payload.error.message}`
-          : "Control plane returned an invalid start-chat response";
-        const err = new Error(errorMessage) as Error & {
-          responseBody?: APIResponse<StartChatResponse, StandardErrorResponse>;
-        };
-        err.responseBody = payload;
-        throw err;
-      }
-
-      baseLogger.consoleLogDevOnly(
-        "info",
-        "Notified control plane of chat start",
-        {
-          prototypeId,
-          responseMessage: payload.data.message,
-        },
-      );
-    } catch (error) {
-      const axiosError = axios.isAxiosError(error) ? error : null;
-      const derivedError = axiosError
-        ? new Error(
-          `Failed to notify control plane of chat start (status ${axiosError.response?.status ?? "unknown"
-          })`,
-        )
-        : error instanceof Error
-          ? error
-          : new Error(String(error));
-      const responseBody =
-        (error as { responseBody?: unknown; })?.responseBody ??
-        axiosError?.response?.data;
-
-      baseLogger.error(
-        derivedError,
-        "Failed to notify control plane of chat start",
-        {
-          prototypeId,
-          statusCode: axiosError?.response?.status,
-          responseBody,
-        },
-      );
-      throw derivedError;
-    }
-  }
-
   private isPathInsideAllowedRoot(resolvedPath: string): boolean {
     const normalizedPath = path.resolve(resolvedPath);
     const allowedWithSep = ALLOWED_ROOT.endsWith(path.sep)
@@ -1618,104 +1527,6 @@ export class ChatService {
     }
 
     return "";
-  }
-
-  /**
-   * Notifies the control plane that a chat session has ended
-   * CRITICAL: This method must ALWAYS be called at the end of every chat session,
-   * regardless of success or failure. The control plane relies on this notification
-   * to properly manage container state and resource allocation. If this call fails,
-   * it will be retried to ensure the control plane receives the notification.
-   */
-  private async notifyOrchestrationEndChat(prototypeId: string): Promise<void> {
-    const serverEndpoint = process.env.NUCLEATE_SERVER_ENDPOINT;
-    if (!serverEndpoint) {
-      baseLogger.warn(
-        "NUCLEATE_SERVER_ENDPOINT not set, skipping end-chat notification",
-      );
-      return;
-    }
-
-    if (!this.orchestrationToken) {
-      baseLogger.error(
-        new Error("Orchestration token not set"),
-        "Cannot notify end-chat without orchestration token",
-        { prototypeId },
-      );
-      return;
-    }
-
-    // Retry logic to ensure this critical notification succeeds
-    const maxRetries = 3;
-    let lastError: Error | null = null;
-
-    for (let attempt = 1; attempt <= maxRetries; attempt++) {
-      try {
-        const response = await axios.post<
-          APIResponse<EndChatResponse, StandardErrorResponse>
-        >(
-          `${serverEndpoint}/orchestration/end-chat`,
-          { prototype_id: prototypeId },
-          {
-            headers: {
-              "x-orchestration-token": this.orchestrationToken,
-              "Content-Type": "application/json",
-            },
-            timeout: 5000,
-          },
-        );
-        const payload = response.data;
-
-        if (payload.error || !payload.data?.success) {
-          const errorMessage = payload.error
-            ? `Control plane rejected end-chat: ${payload.error.message}`
-            : "Control plane returned an invalid end-chat response";
-          const err = new Error(errorMessage) as Error & {
-            responseBody?: APIResponse<EndChatResponse, StandardErrorResponse>;
-          };
-          err.responseBody = payload;
-          throw err;
-        }
-
-        baseLogger.consoleLogDevOnly(
-          "info",
-          "Notified control plane of chat end",
-          {
-            prototypeId,
-            attempt,
-            responseMessage: payload.data.message,
-          },
-        );
-        return; // Success - exit the function
-      } catch (error) {
-        const axiosError = axios.isAxiosError(error) ? error : null;
-        lastError = error instanceof Error ? error : new Error(String(error));
-        baseLogger.error(
-          lastError,
-          `Failed to notify control plane of chat end (attempt ${attempt}/${maxRetries})`,
-          {
-            prototypeId,
-            statusCode: axiosError?.response?.status,
-            responseBody: (error as { responseBody?: unknown; })?.responseBody ??
-              axiosError?.response?.data,
-          },
-        );
-
-        // Wait before retrying (exponential backoff)
-        if (attempt < maxRetries) {
-          await new Promise((resolve) =>
-            setTimeout(resolve, Math.pow(2, attempt) * 100)
-          );
-        }
-      }
-    }
-
-    // If we get here, all retries failed
-    baseLogger.error(
-      lastError || new Error("Unknown error"),
-      "CRITICAL: Failed to notify control plane of chat end after all retries",
-      { prototypeId, maxRetries },
-    );
   }
 
   // --------------------------------------------------------------------------
