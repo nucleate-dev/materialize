@@ -546,7 +546,7 @@ export class GitHubIntegrationService {
       // Check if integration exists for this team
       const { data: integration, error: integrationError } = await supabaseClient
         .from('team_github_integrations')
-        .select('account_login, account_type, connected_at, installation_id')
+        .select('account_login, account_type, connected_at, installation_id, is_suspended, suspended_at')
         .eq('team_id', teamId)
         .maybeSingle();
 
@@ -583,6 +583,8 @@ export class GitHubIntegrationService {
           account_type: integration.account_type,
           connected_at: integration.connected_at,
           installation_id: integration.installation_id,
+          is_suspended: integration.is_suspended,
+          suspended_at: integration.suspended_at,
         },
         error: null,
       });
@@ -792,8 +794,8 @@ export class GitHubIntegrationService {
       if (event === 'installation') {
         const installationId = payload.installation.id;
 
-        if (payload.action === 'deleted' || payload.action === 'suspend') {
-          // Mark integration as disconnected
+        if (payload.action === 'deleted') {
+          // Permanently delete the integration
           const { error } = await supabaseServiceClient
             .from('team_github_integrations')
             .delete()
@@ -802,20 +804,56 @@ export class GitHubIntegrationService {
           if (error) {
             request.log2.error(
               error,
-              'Failed to delete integration on installation webhook',
-              { installationId, action: payload.action },
+              'Failed to delete integration on installation deleted',
+              { installationId },
             );
           } else {
-            request.log2.info('Integration removed due to installation event', {
+            request.log2.info('Integration deleted due to installation removal', {
               installationId,
-              action: payload.action,
+            });
+          }
+        } else if (payload.action === 'suspend') {
+          // Mark integration as suspended (temporary state)
+          const { error } = await supabaseServiceClient
+            .from('team_github_integrations')
+            .update({
+              is_suspended: true,
+              suspended_at: new Date().toISOString(),
+            })
+            .eq('installation_id', installationId);
+
+          if (error) {
+            request.log2.error(
+              error,
+              'Failed to mark integration as suspended',
+              { installationId },
+            );
+          } else {
+            request.log2.info('Integration marked as suspended', {
+              installationId,
             });
           }
         } else if (payload.action === 'unsuspend') {
-          // Log for monitoring; user needs to reconnect manually
-          request.log2.info('Installation unsuspended', {
-            installationId,
-          });
+          // Clear suspension flag (automatically restore integration)
+          const { error } = await supabaseServiceClient
+            .from('team_github_integrations')
+            .update({
+              is_suspended: false,
+              suspended_at: null,
+            })
+            .eq('installation_id', installationId);
+
+          if (error) {
+            request.log2.error(
+              error,
+              'Failed to clear suspension on installation unsuspend',
+              { installationId },
+            );
+          } else {
+            request.log2.info('Installation unsuspended, integration restored', {
+              installationId,
+            });
+          }
         }
       } else if (event === 'installation_repositories') {
         // Repositories added or removed - log for monitoring

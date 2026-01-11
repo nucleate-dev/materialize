@@ -21,6 +21,8 @@ interface GitHubStatus {
   account_type?: "User" | "Organization";
   connected_at?: string;
   installation_id?: number;
+  is_suspended?: boolean;
+  suspended_at?: string | null;
 }
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3000";
@@ -319,27 +321,55 @@ export function GitHubIntegrationTab() {
             ) : githubStatus?.connected ? (
               /* Connected State */
               <div className="space-y-4">
-                <div className="flex items-start gap-3 p-4 rounded-lg bg-green-500/10 border border-green-500/20">
-                  <Check className="w-5 h-5 text-green-600 dark:text-green-400 mt-0.5 shrink-0" />
-                  <div className="flex-1">
-                    <p className="font-medium text-green-700 dark:text-green-300 mb-1">
-                      GitHub Connected
-                    </p>
-                    <p className="text-sm text-green-600 dark:text-green-400">
-                      Connected to{" "}
-                      <span className="font-mono font-semibold">
-                        {githubStatus.account_login}
-                      </span>{" "}
-                      ({githubStatus.account_type})
-                    </p>
-                    {githubStatus.connected_at && (
-                      <p className="text-xs text-green-600/80 dark:text-green-400/80 mt-1">
-                        Connected on{" "}
-                        {new Date(githubStatus.connected_at).toLocaleDateString()}
+                {githubStatus.is_suspended ? (
+                  /* Suspended State */
+                  <div className="flex items-start gap-3 p-4 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                    <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
+                    <div className="flex-1">
+                      <p className="font-medium text-amber-700 dark:text-amber-300 mb-1">
+                        GitHub Installation Suspended
                       </p>
-                    )}
+                      <p className="text-sm text-amber-600 dark:text-amber-400">
+                        The GitHub installation for{" "}
+                        <span className="font-mono font-semibold">
+                          {githubStatus.account_login}
+                        </span>{" "}
+                        has been temporarily suspended by GitHub. This usually happens due
+                        to billing issues or policy violations. Once GitHub restores the
+                        installation, it will automatically reconnect.
+                      </p>
+                      {githubStatus.suspended_at && (
+                        <p className="text-xs text-amber-600/80 dark:text-amber-400/80 mt-1">
+                          Suspended on{" "}
+                          {new Date(githubStatus.suspended_at).toLocaleDateString()}
+                        </p>
+                      )}
+                    </div>
                   </div>
-                </div>
+                ) : (
+                  /* Active/Connected State */
+                  <div className="flex items-start gap-3 p-4 rounded-lg bg-green-500/10 border border-green-500/20">
+                    <Check className="w-5 h-5 text-green-600 dark:text-green-400 mt-0.5 shrink-0" />
+                    <div className="flex-1">
+                      <p className="font-medium text-green-700 dark:text-green-300 mb-1">
+                        GitHub Connected
+                      </p>
+                      <p className="text-sm text-green-600 dark:text-green-400">
+                        Connected to{" "}
+                        <span className="font-mono font-semibold">
+                          {githubStatus.account_login}
+                        </span>{" "}
+                        ({githubStatus.account_type})
+                      </p>
+                      {githubStatus.connected_at && (
+                        <p className="text-xs text-green-600/80 dark:text-green-400/80 mt-1">
+                          Connected on{" "}
+                          {new Date(githubStatus.connected_at).toLocaleDateString()}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
 
                 <div className="flex gap-2">
                   <Button

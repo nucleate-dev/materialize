@@ -39,6 +39,8 @@ create table if not exists public.team_github_integrations (
   token_encrypted text not null,
   refresh_encrypted text,
   token_expires_at timestamptz,
+  is_suspended boolean not null default false,
+  suspended_at timestamptz,
   connected_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );

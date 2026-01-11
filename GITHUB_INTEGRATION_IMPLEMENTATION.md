@@ -272,7 +272,9 @@ Gets GitHub integration status for a team.
     "account_login": "username",
     "account_type": "User",
     "connected_at": "2025-01-10T00:00:00Z",
-    "installation_id": 12345
+    "installation_id": 12345,
+    "is_suspended": false,
+    "suspended_at": null
   },
   "error": null
 }
@@ -311,7 +313,10 @@ Handles GitHub App webhook events.
 - `X-GitHub-Event`: Event type
 
 **Events Handled**:
-- `installation` (deleted/suspend/unsuspend)
+- `installation`:
+  - `deleted`: Permanently removes the integration from the database
+  - `suspend`: Marks integration as suspended (sets `is_suspended = true`)
+  - `unsuspend`: Clears suspension flag (sets `is_suspended = false`), automatically restoring access
 - `installation_repositories` (added/removed)
 - `repository` (renamed/transferred)
 
@@ -341,6 +346,8 @@ Handles GitHub App webhook events.
 | token_encrypted | text | Encrypted access token |
 | refresh_encrypted | text | Encrypted refresh token (nullable) |
 | token_expires_at | timestamptz | Token expiration (nullable) |
+| is_suspended | boolean | Suspension status (default false) |
+| suspended_at | timestamptz | When suspended (nullable) |
 | connected_at | timestamptz | Connection timestamp |
 | updated_at | timestamptz | Last update timestamp |
 

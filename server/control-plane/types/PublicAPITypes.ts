@@ -456,6 +456,8 @@ export interface GitHubStatusSuccessResponse {
   account_type?: 'User' | 'Organization';
   connected_at?: string;
   installation_id?: number;
+  is_suspended?: boolean;
+  suspended_at?: string | null;
 }
 
 export interface GitHubStatusErrorResponse {
