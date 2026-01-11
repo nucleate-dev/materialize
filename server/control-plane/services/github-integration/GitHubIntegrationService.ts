@@ -913,10 +913,9 @@ export class GitHubIntegrationService {
     const event = request.headers["x-github-event"] as string;
     const payload = request.body as any;
 
-    request.log2.info("GitHub webhook received", {
+    request.log2.consoleLogDevOnly("info", "GitHub webhook received", {
       event,
-      action: payload.action,
-      installationId: payload.installation?.id,
+      payload,
     });
 
     // Get service role client

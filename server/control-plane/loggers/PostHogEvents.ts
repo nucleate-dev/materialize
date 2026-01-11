@@ -85,15 +85,15 @@ export const PostHogEvents: Record<PostHogEvent, PostHogEvent> = Object.freeze({
   client_dashboard_sidebar_item_clicked:
     "client_dashboard_sidebar_item_clicked",
   client_dashboard_sidebar_tab_clicked: "client_dashboard_sidebar_tab_clicked",
+  client_github_connect_started: "client_github_connect_started",
+  client_github_connect_success: "client_github_connect_success",
+  client_github_disconnect_started: "client_github_disconnect_started",
+  client_github_disconnect_success: "client_github_disconnect_success",
   client_landing_page_header_item_clicked:
     "client_landing_page_header_item_clicked",
   client_landing_preset_prompt_selected:
     "client_landing_preset_prompt_selected",
   client_landing_prompt_submitted: "client_landing_prompt_submitted",
-  client_github_connect_started: "client_github_connect_started",
-  client_github_connect_success: "client_github_connect_success",
-  client_github_disconnect_started: "client_github_disconnect_started",
-  client_github_disconnect_success: "client_github_disconnect_success",
   client_new_prototype_modal_creation_success:
     "client_new_prototype_modal_creation_success",
   client_new_prototype_modal_limit_hit: "client_new_prototype_modal_limit_hit",
