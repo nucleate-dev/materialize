@@ -34,6 +34,27 @@ import {
   revokeUserToken,
 } from "../../utils/githubClient.js";
 
+interface GitHubRepositoryResponse {
+  name?: string;
+  html_url?: string;
+  default_branch?: string;
+  owner?: {
+    login?: string;
+  };
+}
+
+interface GitHubWebhookPayload {
+  action?: string;
+  installation?: {
+    id: number;
+  };
+  repositories_added?: unknown[];
+  repositories_removed?: unknown[];
+  repository?: {
+    full_name?: string;
+  };
+}
+
 /**
  * GitHubIntegrationService handles team-level GitHub App integration
  *
@@ -1116,7 +1137,7 @@ export class GitHubIntegrationService {
         });
       }
 
-      let repoData: any = {};
+      let repoData: GitHubRepositoryResponse = {};
       try {
         repoData = responseText ? JSON.parse(responseText) : {};
       } catch (parseError) {
@@ -1219,7 +1240,7 @@ export class GitHubIntegrationService {
     }
 
     const event = request.headers["x-github-event"] as string;
-    const payload = request.body as any;
+    const payload = request.body as GitHubWebhookPayload;
 
     request.log2.consoleLogDevOnly("info", "GitHub webhook received", {
       event,
@@ -1235,7 +1256,15 @@ export class GitHubIntegrationService {
     try {
       // Handle different webhook events
       if (event === "installation") {
-        const installationId = payload.installation.id;
+        const installationId = payload.installation?.id;
+
+        if (typeof installationId !== "number") {
+          request.log2.warn(
+            "Installation webhook missing installation id, skipping",
+            { event, payloadKeys: Object.keys(payload || {}) },
+          );
+          return reply.status(HTTP_STATUS.OK).send({ received: true });
+        }
 
         if (payload.action === "deleted") {
           // Permanently delete the integration
@@ -1306,9 +1335,10 @@ export class GitHubIntegrationService {
         }
       } else if (event === "installation_repositories") {
         // Repositories added or removed - log for monitoring
+        const installationId = payload.installation?.id;
         request.log2.info("Installation repositories changed", {
           action: payload.action,
-          installationId: payload.installation.id,
+          installationId,
           repositoriesAdded: payload.repositories_added?.length || 0,
           repositoriesRemoved: payload.repositories_removed?.length || 0,
         });
