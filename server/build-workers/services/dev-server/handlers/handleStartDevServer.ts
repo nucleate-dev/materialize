@@ -66,8 +66,8 @@ export async function handleStartDevServerImpl(
   const hasGitHubRepo = prototypeRow.github_repo_id !== null;
 
   // if web, set the adapter to the NextJsReactAdapter with the correct tunnel hostname
-  const resolvedFramework =
-    developmentServerService.prototypeFramework ?? DEFAULT_PROTOTYPE_FRAMEWORK;
+  const resolvedFramework = developmentServerService.prototypeFramework ??
+    DEFAULT_PROTOTYPE_FRAMEWORK;
   if (resolvedFramework === "web_nextjs_react") {
     const tunnelHostname = developmentServerService.cloudflareTunnelHostname;
     if (!tunnelHostname) {
@@ -121,7 +121,10 @@ export async function handleStartDevServerImpl(
       request.log2.error(
         githubRepoError ?? new Error("GitHub repository not found"),
         "Failed to fetch GitHub repository info",
-        { prototypeId: prototype_id, githubRepoId: prototypeRow.github_repo_id },
+        {
+          prototypeId: prototype_id,
+          githubRepoId: prototypeRow.github_repo_id,
+        },
       );
       reply.code(HTTP_STATUS.INTERNAL_SERVER_ERROR);
       return {
@@ -135,14 +138,14 @@ export async function handleStartDevServerImpl(
 
     // Get a fresh installation token
     try {
-      const userJwtToken =
-        developmentServerService.supabaseClientService.getCurrentJwtToken();
+      const userJwtToken = developmentServerService.supabaseClientService
+        .getCurrentJwtToken();
       if (!userJwtToken) {
         throw new Error("User JWT token not available");
       }
 
-      const tokenData =
-        await developmentServerService.sandboxOrchestrationInitiatorService.refreshGitHubInstallationToken(
+      const tokenData = await developmentServerService
+        .sandboxOrchestrationInitiatorService.refreshGitHubInstallationToken(
           prototype_id,
           userJwtToken,
         );
@@ -172,7 +175,9 @@ export async function handleStartDevServerImpl(
       );
     } catch (tokenError) {
       request.log2.error(
-        tokenError instanceof Error ? tokenError : new Error(String(tokenError)),
+        tokenError instanceof Error
+          ? tokenError
+          : new Error(String(tokenError)),
         "Failed to get GitHub installation token",
         { prototypeId: prototype_id },
       );
@@ -181,10 +186,9 @@ export async function handleStartDevServerImpl(
         data: null,
         error: {
           error: "Failed to authenticate with GitHub",
-          message:
-            tokenError instanceof Error
-              ? tokenError.message
-              : "Failed to get installation token",
+          message: tokenError instanceof Error
+            ? tokenError.message
+            : "Failed to get installation token",
         },
       };
     }
@@ -197,8 +201,8 @@ export async function handleStartDevServerImpl(
   if (hasGitHubRepo) {
     // For GitHub repos, sync files from local disk to Supabase
     // (the repository was just cloned, so disk has the latest)
-    const syncResult =
-      await developmentServerService.fileSyncService.syncFilesToSupabase(
+    const syncResult = await developmentServerService.fileSyncService
+      .syncFilesToSupabase(
         prototype_id,
         "all",
       );
@@ -211,8 +215,8 @@ export async function handleStartDevServerImpl(
     }
   } else {
     // For non-GitHub prototypes, fetch from Supabase as usual
-    const { errors: fetchErrors } =
-      await developmentServerService.fileSyncService.fetchAllFilesAndAssetsFromSupabaseAndWriteToDisk(
+    const { errors: fetchErrors } = await developmentServerService
+      .fileSyncService.fetchAllFilesAndAssetsFromSupabaseAndWriteToDisk(
         prototype_id,
       );
     if (fetchErrors.length > 0) {
@@ -256,8 +260,8 @@ export async function handleStartDevServerImpl(
     prototypeId: prototype_id,
   });
 
-  const npmInstallResult =
-    await developmentServerService.sandboxService.runCommandInternal({
+  const npmInstallResult = await developmentServerService.sandboxService
+    .runCommandInternal({
       command: "npm",
       args: ["install"],
       cwd: `${WORK_DIR}/client`,
@@ -283,8 +287,7 @@ export async function handleStartDevServerImpl(
   } else if (npmInstallResult.response.data?.status === "success") {
     const stdout = npmInstallResult.response.data.stdout;
     // Check for common npm error indicators in output
-    const hasErrors =
-      stdout.includes("ERR!") ||
+    const hasErrors = stdout.includes("ERR!") ||
       stdout.includes("error") ||
       stdout.includes("failed");
 
@@ -317,8 +320,8 @@ export async function handleStartDevServerImpl(
     DevServerStatus.STARTING;
 
   try {
-    const startResult =
-      await developmentServerService.developmentServerAdapter.startDevServer(
+    const startResult = await developmentServerService.developmentServerAdapter
+      .startDevServer(
         request.log2,
       );
 
@@ -440,13 +443,13 @@ async function initializeGit(
 ): Promise<void> {
   let userRow;
   if (userId) {
-    const { data, error: userFetchError } =
-      await developmentServerService.supabaseClientService
-        .getClient()
-        .from("users")
-        .select("*")
-        .eq("id", userId)
-        .single();
+    const { data, error: userFetchError } = await developmentServerService
+      .supabaseClientService
+      .getClient()
+      .from("users")
+      .select("*")
+      .eq("id", userId)
+      .single();
     if (userFetchError) {
       log2.error(userFetchError, "Failed to fetch user from supabase", {
         userId,
@@ -456,7 +459,8 @@ async function initializeGit(
     userRow = data;
   }
 
-  const commandString = `cd ${WORK_DIR} && git init && git config --global user.email "${userRow?.email}" && git config --global user.name "${userRow?.name}"`;
+  const commandString =
+    `cd ${WORK_DIR} && git init && git config --global user.email "${userRow?.email}" && git config --global user.name "${userRow?.name}"`;
   developmentServerService.terminalService.sendInput(
     "dev-server",
     commandString,
@@ -496,19 +500,21 @@ async function cloneGithubRepository(
 ): Promise<void> {
   const githubRepo = developmentServerService.githubRepository;
   if (!githubRepo) {
-    throw new Error("GitHub repository info not set in developmentServerService");
+    throw new Error(
+      "GitHub repository info not set in developmentServerService",
+    );
   }
 
   // Fetch user info for git config
   let userRow;
   if (userId) {
-    const { data, error: userFetchError } =
-      await developmentServerService.supabaseClientService
-        .getClient()
-        .from("users")
-        .select("*")
-        .eq("id", userId)
-        .single();
+    const { data, error: userFetchError } = await developmentServerService
+      .supabaseClientService
+      .getClient()
+      .from("users")
+      .select("*")
+      .eq("id", userId)
+      .single();
     if (userFetchError) {
       log2.error(userFetchError, "Failed to fetch user from supabase", {
         userId,
@@ -520,14 +526,23 @@ async function cloneGithubRepository(
 
   // Construct the authenticated GitHub URL with the installation token
   // Format: https://x-access-token:<token>@github.com/<owner>/<repo>.git
-  const authenticatedUrl = `https://x-access-token:${githubRepo.installationToken}@github.com/${githubRepo.fullName}.git`;
+  const authenticatedUrl =
+    `https://x-access-token:${githubRepo.installationToken}@github.com/${githubRepo.fullName}.git`;
 
-  // Clone the repository into the client directory
-  const cloneCommand = `cd ${WORK_DIR} && rm -rf client && git clone ${authenticatedUrl} client && cd client && git config user.email "${userRow?.email ?? "noreply@nucleate.dev"}" && git config user.name "${userRow?.name ?? "Nucleate User"}"`;
+  // Clone the repository directly into WORK_DIR
+  // Use find to remove all contents including hidden files
+  const cloneCommand =
+    `cd ${WORK_DIR} && find . -mindepth 1 -delete && git clone ${authenticatedUrl} . && git config user.email "${
+      userRow?.email ?? "noreply@nucleate.dev"
+    }" && git config user.name "${userRow?.name ?? "Nucleate User"}"`;
 
-  developmentServerService.terminalService.sendInput("dev-server", cloneCommand, {
-    bypassValidation: true,
-  });
+  developmentServerService.terminalService.sendInput(
+    "dev-server",
+    cloneCommand,
+    {
+      bypassValidation: true,
+    },
+  );
 
   log2.info("Cloned GitHub repository", {
     repositoryFullName: githubRepo.fullName,
