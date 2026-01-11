@@ -25,14 +25,16 @@ interface GitHubStatus {
   suspended_at?: string | null;
 }
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3000";
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_SERVER_ENDPOINT || "http://localhost:3000";
 
 export function GitHubIntegrationTab() {
   const logger = useProductLogger();
   const { activeTeam } = useActiveTeam();
   const { membership } = useCurrentUserMembership(activeTeam?.id);
 
-  const isOwnerOrAdmin = membership?.role === "owner" || membership?.role === "admin";
+  const isOwnerOrAdmin =
+    membership?.role === "owner" || membership?.role === "admin";
 
   const [githubStatus, setGithubStatus] = useState<GitHubStatus | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -80,7 +82,9 @@ export function GitHubIntegrationTab() {
         error: error instanceof Error ? error.message : String(error),
       });
       setError(
-        error instanceof Error ? error.message : "Failed to fetch GitHub status",
+        error instanceof Error
+          ? error.message
+          : "Failed to fetch GitHub status",
       );
     } finally {
       setIsLoading(false);
@@ -124,7 +128,8 @@ export function GitHubIntegrationTab() {
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(
-          errorData.error?.message || `Failed to start GitHub connection: ${response.status}`,
+          errorData.error?.message ||
+            `Failed to start GitHub connection: ${response.status}`,
         );
       }
 
@@ -191,7 +196,8 @@ export function GitHubIntegrationTab() {
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(
-          errorData.error?.message || `Failed to disconnect GitHub: ${response.status}`,
+          errorData.error?.message ||
+            `Failed to disconnect GitHub: ${response.status}`,
         );
       }
 
@@ -238,16 +244,23 @@ export function GitHubIntegrationTab() {
     } else if (githubConnected === "0" && errorParam) {
       // Error - display error message
       const errorMessages: Record<string, string> = {
-        invalid_session: "Invalid or expired connection session. Please try again.",
+        invalid_session:
+          "Invalid or expired connection session. Please try again.",
         session_expired: "Connection session expired. Please try again.",
-        session_already_used: "Connection session already used. Please try again.",
-        installation_not_found: "GitHub installation not found. Please try again.",
-        no_installation: "No GitHub installation found. Please install the app first.",
+        session_already_used:
+          "Connection session already used. Please try again.",
+        installation_not_found:
+          "GitHub installation not found. Please try again.",
+        no_installation:
+          "No GitHub installation found. Please install the app first.",
         save_failed: "Failed to save GitHub integration. Please try again.",
         internal_error: "An internal error occurred. Please try again.",
       };
 
-      setError(errorMessages[errorParam] || "Failed to connect GitHub. Please try again.");
+      setError(
+        errorMessages[errorParam] ||
+          "Failed to connect GitHub. Please try again.",
+      );
     }
   }, []);
 
@@ -287,7 +300,8 @@ export function GitHubIntegrationTab() {
                       Owner/Admin Access Required
                     </p>
                     <p className="text-sm text-amber-600 dark:text-amber-400">
-                      Only team owners and admins can connect or disconnect GitHub.
+                      Only team owners and admins can connect or disconnect
+                      GitHub.
                       {githubStatus?.connected && (
                         <>
                           {" "}
@@ -323,14 +337,17 @@ export function GitHubIntegrationTab() {
                         <span className="font-mono font-semibold">
                           {githubStatus.account_login}
                         </span>{" "}
-                        has been temporarily suspended by GitHub. This usually happens due
-                        to billing issues or policy violations. Once GitHub restores the
-                        installation, it will automatically reconnect.
+                        has been temporarily suspended by GitHub. This usually
+                        happens due to billing issues or policy violations. Once
+                        GitHub restores the installation, it will automatically
+                        reconnect.
                       </p>
                       {githubStatus.suspended_at && (
                         <p className="text-xs text-amber-600/80 dark:text-amber-400/80 mt-1">
                           Suspended on{" "}
-                          {new Date(githubStatus.suspended_at).toLocaleDateString()}
+                          {new Date(
+                            githubStatus.suspended_at,
+                          ).toLocaleDateString()}
                         </p>
                       )}
                     </div>
@@ -353,7 +370,9 @@ export function GitHubIntegrationTab() {
                       {githubStatus.connected_at && (
                         <p className="text-xs text-green-600/80 dark:text-green-400/80 mt-1">
                           Connected on{" "}
-                          {new Date(githubStatus.connected_at).toLocaleDateString()}
+                          {new Date(
+                            githubStatus.connected_at,
+                          ).toLocaleDateString()}
                         </p>
                       )}
                     </div>

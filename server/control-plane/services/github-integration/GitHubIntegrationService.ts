@@ -1,30 +1,31 @@
-import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
-import { createClient } from '@supabase/supabase-js';
-import crypto from 'crypto';
-import type { Database } from '../../types/supabase.js';
+import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
+import { createClient } from "@supabase/supabase-js";
+import crypto from "crypto";
+import type { Database } from "../../types/supabase.js";
 import {
   type APIResponse,
+  type GitHubConnectStartErrorResponse,
   type GitHubConnectStartRequestBody,
   type GitHubConnectStartSuccessResponse,
-  type GitHubConnectStartErrorResponse,
-  type GitHubOAuthCallbackQuery,
-  type GitHubStatusQuery,
-  type GitHubStatusSuccessResponse,
-  type GitHubStatusErrorResponse,
+  type GitHubDisconnectErrorResponse,
   type GitHubDisconnectRequestBody,
   type GitHubDisconnectSuccessResponse,
-  type GitHubDisconnectErrorResponse,
+  type GitHubOAuthCallbackQuery,
+  type GitHubStatusErrorResponse,
+  type GitHubStatusQuery,
+  type GitHubStatusSuccessResponse,
   HTTP_STATUS,
-} from '../../types/PublicAPITypes.js';
-import { validateJWTToken } from '../../utils/prototypeAuth.js';
-import { userIsTeamAdminOrOwner } from '../../utils/teamUtils.js';
-import { encrypt, decrypt } from '../../utils/encryptionUtils.js';
+} from "../../types/PublicAPITypes.js";
+import { validateJWTToken } from "../../utils/prototypeAuth.js";
+import { userIsTeamAdminOrOwner } from "../../utils/teamUtils.js";
+import { decrypt, encrypt } from "../../utils/encryptionUtils.js";
 import {
+  deleteAppInstallation,
   exchangeCodeForToken,
   getAuthenticatedUser,
   listUserInstallations,
   revokeUserToken,
-} from '../../utils/githubClient.js';
+} from "../../utils/githubClient.js";
 
 /**
  * GitHubIntegrationService handles team-level GitHub App integration
@@ -45,16 +46,16 @@ export class GitHubIntegrationService {
   public registerRoutes(app: FastifyInstance): void {
     // POST /github/connect/start
     app.post<{ Body: GitHubConnectStartRequestBody }>(
-      '/github/connect/start',
+      "/github/connect/start",
       {
         schema: {
           body: {
-            type: 'object',
-            required: ['teamId'],
+            type: "object",
+            required: ["teamId"],
             properties: {
               teamId: {
-                type: 'string',
-                format: 'uuid',
+                type: "string",
+                format: "uuid",
               },
             },
           },
@@ -65,16 +66,16 @@ export class GitHubIntegrationService {
 
     // GET /github/oauth/callback
     app.get<{ Querystring: GitHubOAuthCallbackQuery }>(
-      '/github/oauth/callback',
+      "/github/oauth/callback",
       {
         schema: {
           querystring: {
-            type: 'object',
-            required: ['code', 'state'],
+            type: "object",
+            required: ["code", "state"],
             properties: {
-              code: { type: 'string' },
-              state: { type: 'string' },
-              installation_id: { type: 'string' },
+              code: { type: "string" },
+              state: { type: "string" },
+              installation_id: { type: "string" },
             },
           },
         },
@@ -84,16 +85,16 @@ export class GitHubIntegrationService {
 
     // GET /github/status
     app.get<{ Querystring: GitHubStatusQuery }>(
-      '/github/status',
+      "/github/status",
       {
         schema: {
           querystring: {
-            type: 'object',
-            required: ['teamId'],
+            type: "object",
+            required: ["teamId"],
             properties: {
               teamId: {
-                type: 'string',
-                format: 'uuid',
+                type: "string",
+                format: "uuid",
               },
             },
           },
@@ -104,16 +105,16 @@ export class GitHubIntegrationService {
 
     // POST /github/disconnect
     app.post<{ Body: GitHubDisconnectRequestBody }>(
-      '/github/disconnect',
+      "/github/disconnect",
       {
         schema: {
           body: {
-            type: 'object',
-            required: ['teamId'],
+            type: "object",
+            required: ["teamId"],
             properties: {
               teamId: {
-                type: 'string',
-                format: 'uuid',
+                type: "string",
+                format: "uuid",
               },
             },
           },
@@ -124,7 +125,7 @@ export class GitHubIntegrationService {
 
     // POST /github/webhooks
     app.post(
-      '/github/webhooks',
+      "/github/webhooks",
       {
         config: {
           rawBody: true, // We need raw body for signature verification
@@ -148,15 +149,15 @@ export class GitHubIntegrationService {
     >
   > {
     // Validate JWT and get user
-    const token = request.headers.authorization?.split(' ')[1] ?? '';
+    const token = request.headers.authorization?.split(" ")[1] ?? "";
     const { user } = await validateJWTToken(token, request.log2);
     if (!user) {
-      request.log2.warn('Unauthorized user');
+      request.log2.warn("Unauthorized user");
       return reply.status(HTTP_STATUS.UNAUTHORIZED).send({
         data: null,
         error: {
-          error: 'Unauthorized',
-          message: 'Invalid token',
+          error: "Unauthorized",
+          message: "Invalid token",
         },
       });
     }
@@ -186,14 +187,15 @@ export class GitHubIntegrationService {
       request.log2,
     );
     if (!hasTeamAccess) {
-      request.log2.warn('User is not owner/admin of requested team', {
+      request.log2.warn("User is not owner/admin of requested team", {
         teamId,
       });
       return reply.status(HTTP_STATUS.FORBIDDEN).send({
         data: null,
         error: {
-          error: 'Forbidden',
-          message: 'You do not have permission to manage GitHub integration for this team',
+          error: "Forbidden",
+          message:
+            "You do not have permission to manage GitHub integration for this team",
         },
       });
     }
@@ -208,25 +210,29 @@ export class GitHubIntegrationService {
       // Create connect session
       const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
       const { data: session, error: sessionError } = await supabaseServiceClient
-        .from('github_connect_sessions')
+        .from("github_connect_sessions")
         .insert({
           team_id: teamId,
           created_by_user_id: user.id,
-          status: 'started',
+          status: "started",
           expires_at: expiresAt.toISOString(),
         })
         .select()
         .single();
 
       if (sessionError || !session) {
-        request.log2.error(sessionError, 'Failed to create GitHub connect session', {
-          teamId,
-        });
+        request.log2.error(
+          sessionError,
+          "Failed to create GitHub connect session",
+          {
+            teamId,
+          },
+        );
         return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
           data: null,
           error: {
-            error: 'Database Error',
-            message: 'Failed to create GitHub connect session',
+            error: "Database Error",
+            message: "Failed to create GitHub connect session",
           },
         });
       }
@@ -235,21 +241,22 @@ export class GitHubIntegrationService {
       const appSlug = process.env.GITHUB_APP_SLUG;
       if (!appSlug) {
         request.log2.error(
-          new Error('GITHUB_APP_SLUG not configured'),
-          'Missing GitHub App slug configuration',
+          new Error("GITHUB_APP_SLUG not configured"),
+          "Missing GitHub App slug configuration",
         );
         return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
           data: null,
           error: {
-            error: 'Configuration Error',
-            message: 'GitHub App not properly configured',
+            error: "Configuration Error",
+            message: "GitHub App not properly configured",
           },
         });
       }
 
-      const installUrl = `https://github.com/apps/${appSlug}/installations/select_target?state=${session.id}`;
+      const installUrl =
+        `https://github.com/apps/${appSlug}/installations/select_target?state=${session.id}`;
 
-      request.log2.info('GitHub connect session created', {
+      request.log2.info("GitHub connect session created", {
         teamId,
         connectSessionId: session.id,
       });
@@ -262,12 +269,12 @@ export class GitHubIntegrationService {
         error: null,
       });
     } catch (error) {
-      request.log2.error(error, 'Exception in handleConnectStart', { teamId });
+      request.log2.error(error, "Exception in handleConnectStart", { teamId });
       return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
         data: null,
         error: {
-          error: 'Internal Server Error',
-          message: 'An unexpected error occurred',
+          error: "Internal Server Error",
+          message: "An unexpected error occurred",
         },
       });
     }
@@ -286,7 +293,9 @@ export class GitHubIntegrationService {
 
     request.log2 = request.log2.child({ connectSessionId });
 
-    const siteBaseUrl = process.env.SITE_BASE_URL || 'http://localhost:3000';
+    const siteBaseUrl = process.env.NODE_ENV === "development"
+      ? "http://localhost:3000"
+      : process.env.SITE_BASE_URL || "http://localhost:3000";
 
     // Get service role client
     const supabaseServiceClient = createClient<Database>(
@@ -297,13 +306,13 @@ export class GitHubIntegrationService {
     try {
       // 1. Validate connect session
       const { data: session, error: sessionError } = await supabaseServiceClient
-        .from('github_connect_sessions')
-        .select('*')
-        .eq('id', connectSessionId)
+        .from("github_connect_sessions")
+        .select("*")
+        .eq("id", connectSessionId)
         .single();
 
       if (sessionError || !session) {
-        request.log2.error(sessionError, 'Connect session not found', {
+        request.log2.error(sessionError, "Connect session not found", {
           connectSessionId,
         });
         return reply.redirect(
@@ -313,16 +322,16 @@ export class GitHubIntegrationService {
 
       // Check if session is expired
       if (new Date(session.expires_at) < new Date()) {
-        request.log2.warn('Connect session expired', {
+        request.log2.warn("Connect session expired", {
           connectSessionId,
           expiresAt: session.expires_at,
         });
 
         // Mark as expired
         await supabaseServiceClient
-          .from('github_connect_sessions')
-          .update({ status: 'expired' })
-          .eq('id', connectSessionId);
+          .from("github_connect_sessions")
+          .update({ status: "expired" })
+          .eq("id", connectSessionId);
 
         return reply.redirect(
           `${siteBaseUrl}/dashboard?teamId=${session.team_id}&githubConnected=0&error=session_expired`,
@@ -330,8 +339,8 @@ export class GitHubIntegrationService {
       }
 
       // Check if session is already used
-      if (session.status !== 'started') {
-        request.log2.warn('Connect session already used or invalid', {
+      if (session.status !== "started") {
+        request.log2.warn("Connect session already used or invalid", {
           connectSessionId,
           status: session.status,
         });
@@ -370,8 +379,8 @@ export class GitHubIntegrationService {
         );
         if (!targetInstallation) {
           request.log2.error(
-            new Error('Installation not found or not accessible'),
-            'Installation ID mismatch',
+            new Error("Installation not found or not accessible"),
+            "Installation ID mismatch",
             {
               providedInstallationId: installation_id,
               userInstallations: installations.map((i) => i.id),
@@ -385,24 +394,26 @@ export class GitHubIntegrationService {
         // No installation_id provided, try to find the most recent one
         if (installations.length === 0) {
           request.log2.error(
-            new Error('No installations found'),
-            'User has no accessible installations',
+            new Error("No installations found"),
+            "User has no accessible installations",
           );
           return reply.redirect(
             `${siteBaseUrl}/dashboard?teamId=${session.team_id}&githubConnected=0&error=no_installation`,
           );
         } else if (installations.length === 1) {
           targetInstallation = installations[0];
-          request.log2.info('Using only available installation', {
+          request.log2.info("Using only available installation", {
             installationId: targetInstallation.id,
           });
         } else {
           // Multiple installations - take the most recently updated one
           targetInstallation = installations.sort(
-            (a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime(),
+            (a, b) =>
+              new Date(b.updated_at).getTime() -
+              new Date(a.updated_at).getTime(),
           )[0];
           request.log2.warn(
-            'Multiple installations found, using most recent',
+            "Multiple installations found, using most recent",
             {
               installationId: targetInstallation.id,
               totalInstallations: installations.length,
@@ -424,7 +435,7 @@ export class GitHubIntegrationService {
 
       // 6. Upsert github_integrations (metadata only, no tokens)
       const { error: integrationError } = await supabaseServiceClient
-        .from('github_integrations')
+        .from("github_integrations")
         .upsert(
           {
             team_id: session.team_id,
@@ -434,14 +445,14 @@ export class GitHubIntegrationService {
             installed_by_github_user_id: githubUser.id,
           },
           {
-            onConflict: 'team_id',
+            onConflict: "team_id",
           },
         );
 
       if (integrationError) {
         request.log2.error(
           integrationError,
-          'Failed to save GitHub integration metadata',
+          "Failed to save GitHub integration metadata",
           {
             teamId: session.team_id,
           },
@@ -449,9 +460,9 @@ export class GitHubIntegrationService {
 
         // Mark session as failed
         await supabaseServiceClient
-          .from('github_connect_sessions')
-          .update({ status: 'failed' })
-          .eq('id', connectSessionId);
+          .from("github_connect_sessions")
+          .update({ status: "failed" })
+          .eq("id", connectSessionId);
 
         return reply.redirect(
           `${siteBaseUrl}/dashboard?teamId=${session.team_id}&githubConnected=0&error=save_failed`,
@@ -460,7 +471,7 @@ export class GitHubIntegrationService {
 
       // 7. Upsert github_integration_tokens (tokens only, service role access)
       const { error: tokensError } = await supabaseServiceClient
-        .from('github_integration_tokens')
+        .from("github_integration_tokens")
         .upsert(
           {
             team_id: session.team_id,
@@ -469,14 +480,14 @@ export class GitHubIntegrationService {
             token_expires_at: tokenExpiresAt,
           },
           {
-            onConflict: 'team_id',
+            onConflict: "team_id",
           },
         );
 
       if (tokensError) {
         request.log2.error(
           tokensError,
-          'Failed to save GitHub integration tokens',
+          "Failed to save GitHub integration tokens",
           {
             teamId: session.team_id,
           },
@@ -484,15 +495,15 @@ export class GitHubIntegrationService {
 
         // Mark session as failed
         await supabaseServiceClient
-          .from('github_connect_sessions')
-          .update({ status: 'failed' })
-          .eq('id', connectSessionId);
+          .from("github_connect_sessions")
+          .update({ status: "failed" })
+          .eq("id", connectSessionId);
 
         // Clean up metadata if tokens failed
         await supabaseServiceClient
-          .from('github_integrations')
+          .from("github_integrations")
           .delete()
-          .eq('team_id', session.team_id);
+          .eq("team_id", session.team_id);
 
         return reply.redirect(
           `${siteBaseUrl}/dashboard?teamId=${session.team_id}&githubConnected=0&error=save_failed`,
@@ -501,11 +512,11 @@ export class GitHubIntegrationService {
 
       // 8. Mark connect session as connected
       await supabaseServiceClient
-        .from('github_connect_sessions')
-        .update({ status: 'connected' })
-        .eq('id', connectSessionId);
+        .from("github_connect_sessions")
+        .update({ status: "connected" })
+        .eq("id", connectSessionId);
 
-      request.log2.info('GitHub integration successfully connected', {
+      request.log2.info("GitHub integration successfully connected", {
         teamId: session.team_id,
         installationId: targetInstallation.id,
         accountLogin: targetInstallation.account.login,
@@ -516,15 +527,15 @@ export class GitHubIntegrationService {
         `${siteBaseUrl}/dashboard?teamId=${session.team_id}&githubConnected=1`,
       );
     } catch (error) {
-      request.log2.error(error, 'Exception in handleOAuthCallback');
+      request.log2.error(error, "Exception in handleOAuthCallback");
 
       // Try to get team_id from session for redirect
-      let teamIdForRedirect = '';
+      let teamIdForRedirect = "";
       try {
         const { data: session } = await supabaseServiceClient
-          .from('github_connect_sessions')
-          .select('team_id')
-          .eq('id', connectSessionId)
+          .from("github_connect_sessions")
+          .select("team_id")
+          .eq("id", connectSessionId)
           .single();
         if (session) {
           teamIdForRedirect = `&teamId=${session.team_id}`;
@@ -550,15 +561,15 @@ export class GitHubIntegrationService {
     APIResponse<GitHubStatusSuccessResponse, GitHubStatusErrorResponse>
   > {
     // Validate JWT and get user
-    const token = request.headers.authorization?.split(' ')[1] ?? '';
+    const token = request.headers.authorization?.split(" ")[1] ?? "";
     const { user } = await validateJWTToken(token, request.log2);
     if (!user) {
-      request.log2.warn('Unauthorized user');
+      request.log2.warn("Unauthorized user");
       return reply.status(HTTP_STATUS.UNAUTHORIZED).send({
         data: null,
         error: {
-          error: 'Unauthorized',
-          message: 'Invalid token',
+          error: "Unauthorized",
+          message: "Invalid token",
         },
       });
     }
@@ -583,23 +594,26 @@ export class GitHubIntegrationService {
     try {
       // Check if integration exists for this team
       // Note: github_integrations now only contains metadata (no tokens)
-      const { data: integration, error: integrationError } = await supabaseClient
-        .from('github_integrations')
-        .select('account_login, account_type, connected_at, installation_id, is_suspended, suspended_at')
-        .eq('team_id', teamId)
-        .maybeSingle();
+      const { data: integration, error: integrationError } =
+        await supabaseClient
+          .from("github_integrations")
+          .select(
+            "account_login, account_type, connected_at, installation_id, is_suspended, suspended_at",
+          )
+          .eq("team_id", teamId)
+          .maybeSingle();
 
       if (integrationError) {
         request.log2.error(
           integrationError,
-          'Failed to fetch GitHub integration status',
+          "Failed to fetch GitHub integration status",
           { teamId },
         );
         return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
           data: null,
           error: {
-            error: 'Database Error',
-            message: 'Failed to fetch GitHub integration status',
+            error: "Database Error",
+            message: "Failed to fetch GitHub integration status",
           },
         });
       }
@@ -628,12 +642,12 @@ export class GitHubIntegrationService {
         error: null,
       });
     } catch (error) {
-      request.log2.error(error, 'Exception in handleGetStatus', { teamId });
+      request.log2.error(error, "Exception in handleGetStatus", { teamId });
       return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
         data: null,
         error: {
-          error: 'Internal Server Error',
-          message: 'An unexpected error occurred',
+          error: "Internal Server Error",
+          message: "An unexpected error occurred",
         },
       });
     }
@@ -653,15 +667,15 @@ export class GitHubIntegrationService {
     >
   > {
     // Validate JWT and get user
-    const token = request.headers.authorization?.split(' ')[1] ?? '';
+    const token = request.headers.authorization?.split(" ")[1] ?? "";
     const { user } = await validateJWTToken(token, request.log2);
     if (!user) {
-      request.log2.warn('Unauthorized user');
+      request.log2.warn("Unauthorized user");
       return reply.status(HTTP_STATUS.UNAUTHORIZED).send({
         data: null,
         error: {
-          error: 'Unauthorized',
-          message: 'Invalid token',
+          error: "Unauthorized",
+          message: "Invalid token",
         },
       });
     }
@@ -691,14 +705,15 @@ export class GitHubIntegrationService {
       request.log2,
     );
     if (!hasTeamAccess) {
-      request.log2.warn('User is not owner/admin of requested team', {
+      request.log2.warn("User is not owner/admin of requested team", {
         teamId,
       });
       return reply.status(HTTP_STATUS.FORBIDDEN).send({
         data: null,
         error: {
-          error: 'Forbidden',
-          message: 'You do not have permission to manage GitHub integration for this team',
+          error: "Forbidden",
+          message:
+            "You do not have permission to manage GitHub integration for this team",
         },
       });
     }
@@ -710,11 +725,49 @@ export class GitHubIntegrationService {
     );
 
     try {
+      // Ensure we have metadata for the installation we need to remove
+      const {
+        data: integrationData,
+        error: integrationFetchError,
+      } = await supabaseServiceClient
+        .from("github_integrations")
+        .select("installation_id")
+        .eq("team_id", teamId)
+        .maybeSingle();
+
+      if (integrationFetchError) {
+        request.log2.error(
+          integrationFetchError,
+          "Failed to fetch GitHub integration metadata for disconnect",
+          { teamId },
+        );
+        return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
+          data: null,
+          error: {
+            error: "Database Error",
+            message: "Failed to disconnect GitHub integration",
+          },
+        });
+      }
+
+      if (!integrationData?.installation_id) {
+        request.log2.warn("GitHub integration metadata not found for team", {
+          teamId,
+        });
+        return reply.status(HTTP_STATUS.NOT_FOUND).send({
+          data: null,
+          error: {
+            error: "Not Found",
+            message: "No GitHub integration found for this team",
+          },
+        });
+      }
+
       // First, get the encrypted token from the tokens table
       const { data: tokenData } = await supabaseServiceClient
-        .from('github_integration_tokens')
-        .select('token_encrypted')
-        .eq('team_id', teamId)
+        .from("github_integration_tokens")
+        .select("token_encrypted")
+        .eq("team_id", teamId)
         .maybeSingle();
 
       // Attempt to revoke the token (best effort)
@@ -725,51 +778,80 @@ export class GitHubIntegrationService {
         } catch (revokeError) {
           // Log but don't fail the disconnect operation
           request.log2.warn(
-            'Failed to revoke GitHub token, continuing with disconnect',
+            "Failed to revoke GitHub token, continuing with disconnect",
             {
-              error: revokeError instanceof Error ? revokeError.message : String(revokeError),
+              error: revokeError instanceof Error
+                ? revokeError.message
+                : String(revokeError),
             },
           );
         }
       }
 
+      // Attempt to remove the GitHub App installation
+      try {
+        await deleteAppInstallation(
+          integrationData.installation_id,
+          request.log2,
+        );
+      } catch (installationError) {
+        request.log2.error(
+          installationError instanceof Error
+            ? installationError
+            : new Error(String(installationError)),
+          "Failed to remove GitHub App installation during disconnect",
+          {
+            teamId,
+            installationId: integrationData.installation_id,
+          },
+        );
+        return reply.status(HTTP_STATUS.BAD_GATEWAY).send({
+          data: null,
+          error: {
+            error: "GitHub Error",
+            message:
+              "Failed to remove GitHub App installation. Please try again later.",
+          },
+        });
+      }
+
       // Delete the integration (cascade will delete tokens too)
       const { error: deleteError } = await supabaseServiceClient
-        .from('github_integrations')
+        .from("github_integrations")
         .delete()
-        .eq('team_id', teamId);
+        .eq("team_id", teamId);
 
       if (deleteError) {
         request.log2.error(
           deleteError,
-          'Failed to delete GitHub integration',
+          "Failed to delete GitHub integration",
           { teamId },
         );
         return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
           data: null,
           error: {
-            error: 'Database Error',
-            message: 'Failed to disconnect GitHub integration',
+            error: "Database Error",
+            message: "Failed to disconnect GitHub integration",
           },
         });
       }
 
-      request.log2.info('GitHub integration disconnected', { teamId });
+      request.log2.info("GitHub integration disconnected", { teamId });
 
       return reply.status(HTTP_STATUS.OK).send({
         data: {
           success: true,
-          message: 'GitHub integration disconnected successfully',
+          message: "GitHub integration disconnected successfully",
         },
         error: null,
       });
     } catch (error) {
-      request.log2.error(error, 'Exception in handleDisconnect', { teamId });
+      request.log2.error(error, "Exception in handleDisconnect", { teamId });
       return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
         data: null,
         error: {
-          error: 'Internal Server Error',
-          message: 'An unexpected error occurred',
+          error: "Internal Server Error",
+          message: "An unexpected error occurred",
         },
       });
     }
@@ -783,17 +865,17 @@ export class GitHubIntegrationService {
     request: FastifyRequest,
     reply: FastifyReply,
   ): Promise<void> {
-    const signature = request.headers['x-hub-signature-256'] as string;
+    const signature = request.headers["x-hub-signature-256"] as string;
     const webhookSecret = process.env.GITHUB_APP_WEBHOOK_SECRET;
 
     if (!webhookSecret) {
       request.log2.error(
-        new Error('GITHUB_APP_WEBHOOK_SECRET not configured'),
-        'Webhook secret not configured',
+        new Error("GITHUB_APP_WEBHOOK_SECRET not configured"),
+        "Webhook secret not configured",
       );
       return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
-        error: 'Configuration Error',
-        message: 'Webhook secret not configured',
+        error: "Configuration Error",
+        message: "Webhook secret not configured",
       });
     }
 
@@ -801,33 +883,34 @@ export class GitHubIntegrationService {
     // rawBody is populated by fastify-raw-body plugin (must be registered in server.ts)
     if (!request.rawBody) {
       request.log2.error(
-        new Error('rawBody not available'),
-        'Webhook signature verification failed: rawBody not populated',
+        new Error("rawBody not available"),
+        "Webhook signature verification failed: rawBody not populated",
       );
       return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
-        error: 'Configuration Error',
-        message: 'Server not configured for webhook signature verification',
+        error: "Configuration Error",
+        message: "Server not configured for webhook signature verification",
       });
     }
 
-    const hmac = crypto.createHmac('sha256', webhookSecret);
-    const expectedSignature = 'sha256=' + hmac.update(request.rawBody, 'utf8').digest('hex');
+    const hmac = crypto.createHmac("sha256", webhookSecret);
+    const expectedSignature = "sha256=" +
+      hmac.update(request.rawBody, "utf8").digest("hex");
 
     if (!signature || signature !== expectedSignature) {
-      request.log2.warn('Invalid webhook signature', {
+      request.log2.warn("Invalid webhook signature", {
         receivedSignature: signature?.substring(0, 16),
         expectedSignature: expectedSignature.substring(0, 16),
       });
       return reply.status(HTTP_STATUS.UNAUTHORIZED).send({
-        error: 'Unauthorized',
-        message: 'Invalid webhook signature',
+        error: "Unauthorized",
+        message: "Invalid webhook signature",
       });
     }
 
-    const event = request.headers['x-github-event'] as string;
+    const event = request.headers["x-github-event"] as string;
     const payload = request.body as any;
 
-    request.log2.info('GitHub webhook received', {
+    request.log2.info("GitHub webhook received", {
       event,
       action: payload.action,
       installationId: payload.installation?.id,
@@ -841,81 +924,87 @@ export class GitHubIntegrationService {
 
     try {
       // Handle different webhook events
-      if (event === 'installation') {
+      if (event === "installation") {
         const installationId = payload.installation.id;
 
-        if (payload.action === 'deleted') {
+        if (payload.action === "deleted") {
           // Permanently delete the integration
           const { error } = await supabaseServiceClient
-            .from('github_integrations')
+            .from("github_integrations")
             .delete()
-            .eq('installation_id', installationId);
+            .eq("installation_id", installationId);
 
           if (error) {
             request.log2.error(
               error,
-              'Failed to delete integration on installation deleted',
+              "Failed to delete integration on installation deleted",
               { installationId },
             );
           } else {
-            request.log2.info('Integration deleted due to installation removal', {
-              installationId,
-            });
+            request.log2.info(
+              "Integration deleted due to installation removal",
+              {
+                installationId,
+              },
+            );
           }
-        } else if (payload.action === 'suspend') {
+        } else if (payload.action === "suspend") {
           // Mark integration as suspended (temporary state)
           const { error } = await supabaseServiceClient
-            .from('github_integrations')
+            .from("github_integrations")
             .update({
               is_suspended: true,
               suspended_at: new Date().toISOString(),
             })
-            .eq('installation_id', installationId);
+            .eq("installation_id", installationId);
 
           if (error) {
             request.log2.error(
               error,
-              'Failed to mark integration as suspended',
+              "Failed to mark integration as suspended",
               { installationId },
             );
           } else {
-            request.log2.info('Integration marked as suspended', {
+            request.log2.info("Integration marked as suspended", {
               installationId,
             });
           }
-        } else if (payload.action === 'unsuspend') {
+        } else if (payload.action === "unsuspend") {
           // Clear suspension flag (automatically restore integration)
           const { error } = await supabaseServiceClient
-            .from('github_integrations')
+            .from("github_integrations")
             .update({
               is_suspended: false,
               suspended_at: null,
             })
-            .eq('installation_id', installationId);
+            .eq("installation_id", installationId);
 
           if (error) {
             request.log2.error(
               error,
-              'Failed to clear suspension on installation unsuspend',
+              "Failed to clear suspension on installation unsuspend",
               { installationId },
             );
           } else {
-            request.log2.info('Installation unsuspended, integration restored', {
-              installationId,
-            });
+            request.log2.info(
+              "Installation unsuspended, integration restored",
+              {
+                installationId,
+              },
+            );
           }
         }
-      } else if (event === 'installation_repositories') {
+      } else if (event === "installation_repositories") {
         // Repositories added or removed - log for monitoring
-        request.log2.info('Installation repositories changed', {
+        request.log2.info("Installation repositories changed", {
           action: payload.action,
           installationId: payload.installation.id,
           repositoriesAdded: payload.repositories_added?.length || 0,
           repositoriesRemoved: payload.repositories_removed?.length || 0,
         });
-      } else if (event === 'repository') {
+      } else if (event === "repository") {
         // Repository renamed/transferred - may need to update stored data
-        request.log2.info('Repository event', {
+        request.log2.info("Repository event", {
           action: payload.action,
           repositoryFullName: payload.repository?.full_name,
         });
@@ -924,13 +1013,13 @@ export class GitHubIntegrationService {
       // Acknowledge webhook
       return reply.status(HTTP_STATUS.OK).send({ received: true });
     } catch (error) {
-      request.log2.error(error, 'Exception in handleWebhook', {
+      request.log2.error(error, "Exception in handleWebhook", {
         event,
         action: payload.action,
       });
       return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
-        error: 'Internal Server Error',
-        message: 'Failed to process webhook',
+        error: "Internal Server Error",
+        message: "Failed to process webhook",
       });
     }
   }

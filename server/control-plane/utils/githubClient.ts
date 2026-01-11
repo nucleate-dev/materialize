@@ -334,6 +334,56 @@ export async function createInstallationToken(
 }
 
 // ============================================================================
+// Installation Removal
+// ============================================================================
+
+/**
+ * Uninstall the GitHub App from a specific installation.
+ * https://docs.github.com/en/rest/apps/apps#delete-an-installation-for-the-authenticated-app
+ */
+export async function deleteAppInstallation(
+  installationId: number,
+  logger: SystemLogger,
+): Promise<boolean> {
+  const appJWT = generateAppJWT(logger);
+
+  const response = await fetch(`${GITHUB_API_BASE}/app/installations/${installationId}`, {
+    method: 'DELETE',
+    headers: {
+      'Accept': 'application/vnd.github+json',
+      'Authorization': `Bearer ${appJWT.token}`,
+      'X-GitHub-Api-Version': GITHUB_API_VERSION,
+    },
+  });
+
+  if (response.status === 204) {
+    logger.info('Successfully removed GitHub App installation', {
+      installationId,
+    });
+    return true;
+  }
+
+  if (response.status === 404) {
+    logger.warn('GitHub App installation already removed', {
+      installationId,
+    });
+    return true;
+  }
+
+  const errorText = await response.text();
+  logger.error(
+    new Error('Failed to remove GitHub App installation'),
+    'GitHub API: delete installation failed',
+    {
+      installationId,
+      status: response.status,
+      error: errorText,
+    },
+  );
+  throw new Error(`Failed to delete GitHub App installation: ${response.status}`);
+}
+
+// ============================================================================
 // Token Revocation
 // ============================================================================
 
