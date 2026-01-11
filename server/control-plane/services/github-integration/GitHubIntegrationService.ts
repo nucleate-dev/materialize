@@ -55,7 +55,26 @@ interface GitHubWebhookPayload {
   repositories_added?: unknown[];
   repositories_removed?: unknown[];
   repository?: {
+    id?: number;
+    name?: string;
     full_name?: string;
+    html_url?: string;
+    default_branch?: string;
+    private?: boolean;
+    archived?: boolean;
+    owner?: {
+      login?: string;
+    };
+  };
+  changes?: {
+    repository?: {
+      name?: {
+        from?: string;
+      };
+      default_branch?: {
+        from?: string;
+      };
+    };
   };
 }
 
@@ -1482,11 +1501,129 @@ export class GitHubIntegrationService {
           repositoriesRemoved: payload.repositories_removed?.length || 0,
         });
       } else if (event === "repository") {
-        // Repository renamed/transferred - may need to update stored data
-        request.log2.info("Repository event", {
-          action: payload.action,
+        // Repository renamed/transferred/archived/etc - update stored data if exists
+        const githubRepoId = payload.repository?.id;
+        const action = payload.action;
+
+        if (!githubRepoId) {
+          request.log2.warn(
+            "Repository webhook missing repository id, skipping",
+            { event, action },
+          );
+          return reply.status(HTTP_STATUS.OK).send({ received: true });
+        }
+
+        request.log2.info("Repository event received", {
+          action,
+          githubRepoId,
           repositoryFullName: payload.repository?.full_name,
         });
+
+        // Check if this repository exists in our database
+        const { data: existingRepo } = await supabaseServiceClient
+          .from("github_repositories")
+          .select("github_repo_id, full_name")
+          .eq("github_repo_id", githubRepoId)
+          .maybeSingle();
+
+        if (!existingRepo) {
+          // Repository not tracked by us, ignore
+          request.log2.info(
+            "Repository event for untracked repository, ignoring",
+            { githubRepoId, action },
+          );
+          return reply.status(HTTP_STATUS.OK).send({ received: true });
+        }
+
+        // Handle different repository actions
+        if (
+          action === "renamed" ||
+          action === "transferred" ||
+          action === "edited" ||
+          action === "archived" ||
+          action === "unarchived" ||
+          action === "privatized" ||
+          action === "publicized"
+        ) {
+          const updateData: {
+            repo_name?: string;
+            full_name?: string;
+            owner_login?: string;
+            html_url?: string;
+            default_branch?: string;
+            is_archived?: boolean;
+            is_private?: boolean;
+          } = {};
+
+          // Update fields based on webhook payload
+          if (payload.repository?.name) {
+            updateData.repo_name = payload.repository.name;
+          }
+          if (payload.repository?.full_name) {
+            updateData.full_name = payload.repository.full_name;
+          }
+          if (payload.repository?.owner?.login) {
+            updateData.owner_login = payload.repository.owner.login;
+          }
+          if (payload.repository?.html_url) {
+            updateData.html_url = payload.repository.html_url;
+          }
+          if (payload.repository?.default_branch) {
+            updateData.default_branch = payload.repository.default_branch;
+          }
+          if (typeof payload.repository?.archived === "boolean") {
+            updateData.is_archived = payload.repository.archived;
+          }
+          if (typeof payload.repository?.private === "boolean") {
+            updateData.is_private = payload.repository.private;
+          }
+
+          // Only update if we have data to update
+          if (Object.keys(updateData).length > 0) {
+            const { error: updateError } = await supabaseServiceClient
+              .from("github_repositories")
+              .update(updateData)
+              .eq("github_repo_id", githubRepoId);
+
+            if (updateError) {
+              request.log2.error(
+                updateError,
+                "Failed to update repository metadata from webhook",
+                { githubRepoId, action, updateData },
+              );
+            } else {
+              request.log2.info(
+                "Successfully updated repository metadata from webhook",
+                {
+                  githubRepoId,
+                  action,
+                  oldFullName: existingRepo.full_name,
+                  newFullName: updateData.full_name,
+                  updatedFields: Object.keys(updateData),
+                },
+              );
+            }
+          }
+        } else if (action === "deleted") {
+          // Repository deleted on GitHub - delete from our database
+          const { error: deleteError } = await supabaseServiceClient
+            .from("github_repositories")
+            .delete()
+            .eq("github_repo_id", githubRepoId);
+
+          if (deleteError) {
+            request.log2.error(
+              deleteError,
+              "Failed to delete repository metadata on repo deletion webhook",
+              { githubRepoId },
+            );
+          } else {
+            request.log2.info(
+              "Successfully deleted repository metadata after GitHub deletion",
+              { githubRepoId, fullName: existingRepo.full_name },
+            );
+          }
+        }
       }
 
       // Acknowledge webhook
