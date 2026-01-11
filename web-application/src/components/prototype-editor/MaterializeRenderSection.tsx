@@ -258,6 +258,12 @@ const MaterializeRenderSection = forwardRef<
       loading: boolean;
     }>({ connected: false, loading: true });
 
+    // GitHub repository state for this prototype
+    const [githubRepository, setGithubRepository] = useState<{
+      html_url: string | null;
+      loading: boolean;
+    }>({ html_url: null, loading: true });
+
     // Fetch GitHub integration status for the active team
     useEffect(() => {
       const fetchGithubIntegration = async () => {
@@ -290,6 +296,40 @@ const MaterializeRenderSection = forwardRef<
 
       fetchGithubIntegration();
     }, [activeTeam?.id, isGithubIntegrationEnabled, logger]);
+
+    // Fetch GitHub repository for this prototype
+    useEffect(() => {
+      const fetchGithubRepository = async () => {
+        if (!prototypeId || !isGithubIntegrationEnabled) {
+          setGithubRepository({ html_url: null, loading: false });
+          return;
+        }
+
+        try {
+          const { data, error } = await supabase
+            .from("github_repositories")
+            .select("html_url")
+            .eq("prototype_id", prototypeId)
+            .maybeSingle();
+
+          if (error) {
+            logger.debug("error", "Failed to fetch GitHub repository", { error });
+            setGithubRepository({ html_url: null, loading: false });
+            return;
+          }
+
+          setGithubRepository({
+            html_url: data?.html_url ?? null,
+            loading: false,
+          });
+        } catch (error) {
+          logger.debug("error", "Error checking GitHub repository", { error });
+          setGithubRepository({ html_url: null, loading: false });
+        }
+      };
+
+      fetchGithubRepository();
+    }, [prototypeId, isGithubIntegrationEnabled, logger]);
 
     // Determine if this is a web-only framework
     const isWebFramework = framework === "web_nextjs_react";
@@ -2137,6 +2177,7 @@ const MaterializeRenderSection = forwardRef<
 
                       {/* Show alert if user doesn't have permission */}
                       {!githubIntegration.connected &&
+                       !githubRepository.html_url &&
                        currentUserMembership?.role !== "admin" &&
                        currentUserMembership?.role !== "owner" && (
                         <Alert className="border-amber-500/20 bg-amber-500/10">
@@ -2147,10 +2188,20 @@ const MaterializeRenderSection = forwardRef<
                       )}
 
                       {githubIntegration.connected &&
+                       !githubRepository.html_url &&
                        currentUserMembership?.role === "viewer" && (
                         <Alert className="border-amber-500/20 bg-amber-500/10">
                           <AlertDescription className="text-xs text-amber-600 dark:text-amber-400">
                             You need edit permissions to create a GitHub repository for this project.
+                          </AlertDescription>
+                        </Alert>
+                      )}
+
+                      {githubRepository.html_url &&
+                       currentUserMembership?.role === "viewer" && (
+                        <Alert className="border-amber-500/20 bg-amber-500/10">
+                          <AlertDescription className="text-xs text-amber-600 dark:text-amber-400">
+                            You don't have permission to access this repository.
                           </AlertDescription>
                         </Alert>
                       )}
@@ -2160,15 +2211,25 @@ const MaterializeRenderSection = forwardRef<
                         size="sm"
                         disabled={
                           githubIntegration.loading ||
+                          githubRepository.loading ||
                           (!githubIntegration.connected &&
                            currentUserMembership?.role !== "admin" &&
                            currentUserMembership?.role !== "owner") ||
                           (githubIntegration.connected &&
+                           !githubRepository.html_url &&
+                           currentUserMembership?.role === "viewer") ||
+                          (!!githubRepository.html_url &&
                            currentUserMembership?.role === "viewer")
                         }
                         onClick={() => {
-                          // TODO: Implement GitHub connection/repository creation
-                          setIsGithubDropdownOpen(false);
+                          if (githubRepository.html_url) {
+                            // Open GitHub repository in new tab
+                            window.open(githubRepository.html_url, "_blank", "noopener,noreferrer");
+                            setIsGithubDropdownOpen(false);
+                          } else {
+                            // TODO: Implement GitHub connection/repository creation
+                            setIsGithubDropdownOpen(false);
+                          }
                         }}
                       >
                         <svg
@@ -2179,11 +2240,13 @@ const MaterializeRenderSection = forwardRef<
                         >
                           <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z" />
                         </svg>
-                        {githubIntegration.loading
+                        {githubIntegration.loading || githubRepository.loading
                           ? "Loading..."
-                          : githubIntegration.connected && currentUserMembership?.role !== "viewer"
-                            ? "Create Repository For Project"
-                            : "Connect GitHub"}
+                          : githubRepository.html_url
+                            ? "View Repository"
+                            : githubIntegration.connected && currentUserMembership?.role !== "viewer"
+                              ? "Create Repository For Project"
+                              : "Connect GitHub"}
                       </Button>
                     </div>
                   </DropdownMenuContent>
