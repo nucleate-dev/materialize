@@ -416,6 +416,130 @@ export type Database = {
           },
         ]
       }
+      github_connect_sessions: {
+        Row: {
+          created_at: string
+          created_by_user_id: string
+          expires_at: string
+          id: string
+          status: string
+          team_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by_user_id: string
+          expires_at: string
+          id?: string
+          status: string
+          team_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by_user_id?: string
+          expires_at?: string
+          id?: string
+          status?: string
+          team_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "github_connect_sessions_created_by_user_id_fkey"
+            columns: ["created_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "github_connect_sessions_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      github_integration_tokens: {
+        Row: {
+          created_at: string
+          refresh_encrypted: string | null
+          team_id: string
+          token_encrypted: string
+          token_expires_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          refresh_encrypted?: string | null
+          team_id: string
+          token_encrypted: string
+          token_expires_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          refresh_encrypted?: string | null
+          team_id?: string
+          token_encrypted?: string
+          token_expires_at?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "github_integration_tokens_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: true
+            referencedRelation: "github_integrations"
+            referencedColumns: ["team_id"]
+          },
+        ]
+      }
+      github_integrations: {
+        Row: {
+          account_login: string
+          account_type: string
+          connected_at: string
+          installation_id: number
+          installed_by_github_user_id: number
+          is_suspended: boolean
+          suspended_at: string | null
+          team_id: string
+          updated_at: string
+        }
+        Insert: {
+          account_login: string
+          account_type: string
+          connected_at?: string
+          installation_id: number
+          installed_by_github_user_id: number
+          is_suspended?: boolean
+          suspended_at?: string | null
+          team_id: string
+          updated_at?: string
+        }
+        Update: {
+          account_login?: string
+          account_type?: string
+          connected_at?: string
+          installation_id?: number
+          installed_by_github_user_id?: number
+          is_suspended?: boolean
+          suspended_at?: string | null
+          team_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "github_integrations_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: true
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       payments: {
         Row: {
           amount: number | null
@@ -1255,6 +1379,7 @@ export type Database = {
           total_remaining: number
         }[]
       }
+      is_team_empty: { Args: { p_team_id: string }; Returns: boolean }
       is_team_member: { Args: { p_team_id: string }; Returns: boolean }
       is_team_member_with_edit_privileges: {
         Args: { p_team_id: string }
