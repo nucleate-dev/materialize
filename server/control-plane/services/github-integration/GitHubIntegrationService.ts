@@ -35,9 +35,13 @@ import {
 } from "../../utils/githubClient.js";
 
 interface GitHubRepositoryResponse {
+  id?: number;
   name?: string;
+  full_name?: string;
   html_url?: string;
   default_branch?: string;
+  private?: boolean;
+  archived?: boolean;
   owner?: {
     login?: string;
   };
@@ -965,6 +969,53 @@ export class GitHubIntegrationService {
     );
 
     try {
+      // 1. Check if prototype already has a GitHub repo linked
+      if (authResponse.prototype.github_repo_id) {
+        const {
+          data: existingRepo,
+          error: repoCheckError,
+        } = await supabaseServiceClient
+          .from("github_repositories")
+          .select("github_repo_id, full_name, is_archived, html_url")
+          .eq("github_repo_id", authResponse.prototype.github_repo_id)
+          .maybeSingle();
+
+        if (repoCheckError) {
+          request.log2.error(
+            repoCheckError,
+            "Failed to check existing GitHub repository",
+            { prototypeId: prototype_id },
+          );
+          return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
+            data: null,
+            error: {
+              error: "Database Error",
+              message: "Failed to check existing GitHub repository",
+            },
+          });
+        }
+
+        // If repo exists and is not archived, deny the request
+        if (existingRepo && !existingRepo.is_archived) {
+          request.log2.warn(
+            "Prototype already has an active GitHub repository",
+            {
+              prototypeId: prototype_id,
+              existingRepoId: existingRepo.github_repo_id,
+              existingRepoName: existingRepo.full_name,
+            },
+          );
+          return reply.status(HTTP_STATUS.CONFLICT).send({
+            data: null,
+            error: {
+              error: "Repository Already Exists",
+              message: `This prototype is already linked to GitHub repository: ${existingRepo.full_name}`,
+            },
+          });
+        }
+      }
+
+      // 2. Fetch GitHub integration for the team
       const {
         data: integration,
         error: integrationError,
@@ -1157,6 +1208,92 @@ export class GitHubIntegrationService {
       request.log2.info("Created GitHub repository", {
         repository: repoData?.name ?? repoName,
         owner: repoData?.owner?.login ?? integration.account_login,
+        githubRepoId: repoData?.id,
+      });
+
+      // 3. Store repository metadata in github_repositories table
+      if (!repoData?.id) {
+        request.log2.error(
+          new Error("GitHub repository ID missing from response"),
+          "Cannot store repository without GitHub repo ID",
+          { response: JSON.stringify(repoData).slice(0, 200) },
+        );
+        return reply.status(HTTP_STATUS.BAD_GATEWAY).send({
+          data: null,
+          error: {
+            error: "GitHub Error",
+            message: "GitHub response missing repository ID",
+          },
+        });
+      }
+
+      const githubRepoId = repoData.id;
+      const fullName = repoData.full_name ??
+        `${repoData.owner?.login ?? integration.account_login}/${repoData.name ?? repoName}`;
+
+      const { error: insertRepoError } = await supabaseServiceClient
+        .from("github_repositories")
+        .insert({
+          github_repo_id: githubRepoId,
+          prototype_id: prototype_id,
+          installation_id: integration.installation_id,
+          account_login: integration.account_login,
+          account_type: integration.account_type,
+          owner_login: repoData.owner?.login ?? integration.account_login,
+          repo_name: repoData.name ?? repoName,
+          full_name: fullName,
+          html_url: repoData.html_url ?? `https://github.com/${fullName}`,
+          default_branch: repoData.default_branch ?? "main",
+          is_private: repoData.private ?? isPrivate,
+          is_archived: repoData.archived ?? false,
+        });
+
+      if (insertRepoError) {
+        request.log2.error(
+          insertRepoError,
+          "Failed to insert GitHub repository into database",
+          { githubRepoId, teamId, prototypeId: prototype_id },
+        );
+        return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
+          data: null,
+          error: {
+            error: "Database Error",
+            message: "Failed to save repository metadata",
+          },
+        });
+      }
+
+      // 4. Link the prototype to the repository
+      const { error: updatePrototypeError } = await supabaseServiceClient
+        .from("prototypes")
+        .update({ github_repo_id: githubRepoId })
+        .eq("id", prototype_id);
+
+      if (updatePrototypeError) {
+        request.log2.error(
+          updatePrototypeError,
+          "Failed to link prototype to GitHub repository",
+          { githubRepoId, prototypeId: prototype_id },
+        );
+        // Try to clean up the repo entry we just created
+        await supabaseServiceClient
+          .from("github_repositories")
+          .delete()
+          .eq("github_repo_id", githubRepoId);
+
+        return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
+          data: null,
+          error: {
+            error: "Database Error",
+            message: "Failed to link prototype to repository",
+          },
+        });
+      }
+
+      request.log2.info("Successfully linked prototype to GitHub repository", {
+        prototypeId: prototype_id,
+        githubRepoId,
+        fullName,
       });
 
       return reply.status(HTTP_STATUS.OK).send({
@@ -1165,6 +1302,7 @@ export class GitHubIntegrationService {
           name: repoData?.name ?? repoName,
           html_url: repoData?.html_url,
           default_branch: repoData?.default_branch ?? "main",
+          github_repo_id: githubRepoId,
         },
         error: null,
       });
