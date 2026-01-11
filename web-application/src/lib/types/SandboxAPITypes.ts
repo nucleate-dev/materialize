@@ -5,7 +5,7 @@
 // To update these types, modify the source file and run:
 // npm run sync-build-worker-types
 //
-// Last synced: 2026-01-11T05:53:53.034Z
+// Last synced: 2026-01-11T20:47:57.380Z
 
 import { Database } from "./supabase.js";
 
@@ -132,6 +132,12 @@ export interface PublicDevServerRefetchEnvRequest {
 export interface PublicDevServerRefetchEnvSuccessResponse {
   message: string;
   env_var_count: number;
+}
+
+export interface PublicConnectGitHubSuccessResponse {
+  message: string;
+  repository_url: string;
+  repository_full_name: string;
 }
 
 // Dev Server Response Types
