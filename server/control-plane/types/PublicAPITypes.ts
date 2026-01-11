@@ -420,6 +420,67 @@ export interface UpdateTeamMemberRoleErrorResponse {
 }
 
 // ============================================================================
+// GITHUB INTEGRATION ENDPOINTS
+// ============================================================================
+
+// POST /github/connect/start
+export interface GitHubConnectStartRequestBody {
+  teamId: string;
+}
+
+export interface GitHubConnectStartSuccessResponse {
+  installUrl: string;
+  connectSessionId: string;
+}
+
+export interface GitHubConnectStartErrorResponse {
+  error: string;
+  message: string;
+}
+
+// GET /github/oauth/callback (query params)
+export interface GitHubOAuthCallbackQuery {
+  code: string;
+  state: string;
+  installation_id?: string;
+}
+
+// GET /github/status
+export interface GitHubStatusQuery {
+  teamId: string;
+}
+
+export interface GitHubStatusSuccessResponse {
+  connected: boolean;
+  account_login?: string;
+  account_type?: 'User' | 'Organization';
+  connected_at?: string;
+  installation_id?: number;
+  is_suspended?: boolean;
+  suspended_at?: string | null;
+}
+
+export interface GitHubStatusErrorResponse {
+  error: string;
+  message: string;
+}
+
+// POST /github/disconnect
+export interface GitHubDisconnectRequestBody {
+  teamId: string;
+}
+
+export interface GitHubDisconnectSuccessResponse {
+  success: true;
+  message: string;
+}
+
+export interface GitHubDisconnectErrorResponse {
+  error: string;
+  message: string;
+}
+
+// ============================================================================
 // TYPE GUARDS
 // ============================================================================
 

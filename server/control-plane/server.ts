@@ -4,6 +4,7 @@ import { ECSClient } from "@aws-sdk/client-ecs";
 import { S3Client } from "@aws-sdk/client-s3";
 import { STSClient } from "@aws-sdk/client-sts";
 import cors from "@fastify/cors";
+import rawBody from "fastify-raw-body";
 import { GlideClient } from "@valkey/valkey-glide";
 import "dotenv/config";
 import type { FastifyReply, FastifyRequest } from "fastify";
@@ -22,14 +23,16 @@ import { DispatcherService } from "./services/dispatcher/DispatcherService.js";
 import { IdleContainerAllocationSystemService } from "./services/idle-container-allocation-system/IdleContainerAllocationSystemService.js";
 import { OrchestrationService } from "./services/orchestration/OrchestrationService.js";
 import { PrototypeManagementService } from "./services/prototype-management/PrototypeManagementService.js";
+import { GitHubIntegrationService } from "./services/github-integration/GitHubIntegrationService.js";
 import { PostHogLogger } from "./loggers/PostHogLogger.js";
 import { PostHog } from "posthog-node";
 
-// Extend FastifyRequest to include our custom loggers
+// Extend FastifyRequest to include our custom loggers and raw body
 declare module "fastify" {
   interface FastifyRequest {
     log2: SystemLogger;
     posthogLogger: PostHogLogger;
+    rawBody?: string | Buffer;
   }
 }
 
@@ -162,6 +165,7 @@ let deploymentService: PrototypeDeploymentService;
 let prototypeManagementService: PrototypeManagementService;
 let developmentServerService: DevelopmentServerService;
 let orchestrationService: OrchestrationService;
+let githubIntegrationService: GitHubIntegrationService;
 let internalToolsService: InternalCacheManagementService;
 let internalDevServerManagementService: InternalControlPlaneDevelopmentService;
 let internalProductionDeploymentService: InternalProductionDeploymentService;
@@ -205,6 +209,14 @@ const start = async (): Promise<void> => {
     } = await initializeClients();
 
     cache = cacheClient;
+
+    await fastify.register(rawBody, {
+      field: "rawBody", // adds request.rawBody
+      global: false, // only for routes that set config.rawBody = true
+      encoding: "utf8",
+      runFirst: true, // run before other preParsing hooks
+      routes: ["/github/webhooks"],
+    });
 
     // Create cleanup service with cache and ECS client
     cleanupService = new CleanupService(cacheClient, ecsClient);
@@ -253,6 +265,10 @@ const start = async (): Promise<void> => {
     // Create orchestration service and register routes
     orchestrationService = new OrchestrationService(cacheClient, baseLogger);
     orchestrationService.registerRoutes(fastify);
+
+    // Create GitHub integration service and register routes
+    githubIntegrationService = new GitHubIntegrationService();
+    githubIntegrationService.registerRoutes(fastify);
 
     // Create internal tools service and register routes
     internalToolsService = new InternalCacheManagementService(cacheClient);

@@ -23,7 +23,7 @@ import {
   DropdownMenuContent,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { X, User, CreditCard, Key, Users, LogOut, ChevronDown, Check, Plus } from "lucide-react";
+import { X, User, CreditCard, Key, Users, LogOut, ChevronDown, Check, Plus, Github } from "lucide-react";
 import { useCustomUserRow } from "@/hooks/useCustomUserRow";
 import { usePostHog } from "posthog-js/react";
 import { useActiveTeam } from "@/contexts/TeamContext";
@@ -39,8 +39,9 @@ import { ClaudeConnectionTab } from "./ClaudeConnectionTab";
 import { CreditsAndSubscriptionsTab } from "./CreditsAndSubscriptionsTab";
 import { TeamTab } from "./TeamTab";
 import { PeopleTab } from "./PeopleTab";
+import { GitHubIntegrationTab } from "./GitHubIntegrationTab";
 
-type SettingsTab = "profile" | "credits" | "claude" | "team" | "people";
+type SettingsTab = "profile" | "credits" | "claude" | "team" | "people" | "github";
 
 interface SettingsDialogProps {
   open: boolean;
@@ -66,6 +67,8 @@ export function TeamAndAccountsSettingsDialog({
   const isClaudeConnectionEnabled =
     posthog?.isFeatureEnabled("claude-code-cli-with-personal-token") ?? false;
   const isTeamsUIEnabled = posthog?.isFeatureEnabled("teams-ui") ?? false;
+  const isGitHubIntegrationEnabled =
+    posthog?.isFeatureEnabled("github-integration") ?? false;
 
   // Get initials for team avatar
   const getInitials = (name: string) => {
@@ -157,6 +160,15 @@ export function TeamAndAccountsSettingsDialog({
               icon: CreditCard,
             },
             { id: "people", label: "People", icon: Users },
+            ...(isGitHubIntegrationEnabled
+              ? [
+                  {
+                    id: "github" as const,
+                    label: "GitHub",
+                    icon: Github,
+                  },
+                ]
+              : []),
           ],
         },
         {
@@ -380,6 +392,7 @@ export function TeamAndAccountsSettingsDialog({
               {activeTab === "claude" && <ClaudeConnectionTab />}
               {activeTab === "team" && <TeamTab />}
               {activeTab === "people" && <PeopleTab />}
+              {activeTab === "github" && <GitHubIntegrationTab />}
             </div>
           </div>
         </DialogContent>
