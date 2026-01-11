@@ -553,6 +553,7 @@ export type Database = {
           is_archived: boolean | null
           is_private: boolean | null
           owner_login: string
+          prototype_id: string | null
           repo_name: string
           updated_at: string
         }
@@ -568,6 +569,7 @@ export type Database = {
           is_archived?: boolean | null
           is_private?: boolean | null
           owner_login: string
+          prototype_id?: string | null
           repo_name: string
           updated_at?: string
         }
@@ -583,10 +585,19 @@ export type Database = {
           is_archived?: boolean | null
           is_private?: boolean | null
           owner_login?: string
+          prototype_id?: string | null
           repo_name?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "github_repositories_prototype_id_fkey"
+            columns: ["prototype_id"]
+            isOneToOne: false
+            referencedRelation: "prototypes"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       payments: {
         Row: {

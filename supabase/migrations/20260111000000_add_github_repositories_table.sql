@@ -31,9 +31,41 @@ create table if not exists public.github_repositories (
   updated_at timestamptz not null default now()
 );
 
+-- Add prototype_id column with foreign key (idempotent for re-runs)
+do $$
+begin
+  -- Add column if it doesn't exist
+  if not exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'github_repositories'
+      and column_name = 'prototype_id'
+  ) then
+    alter table public.github_repositories
+      add column prototype_id uuid null;
+  end if;
+
+  -- Add foreign key constraint if it doesn't exist
+  if not exists (
+    select 1 from information_schema.table_constraints
+    where constraint_schema = 'public'
+      and constraint_name = 'github_repositories_prototype_id_fkey'
+  ) then
+    alter table public.github_repositories
+      add constraint github_repositories_prototype_id_fkey
+      foreign key (prototype_id)
+      references public.prototypes(id)
+      on delete cascade;
+  end if;
+end $$;
+
 -- Index for installation_id lookups (for querying repos by installation)
 create index if not exists github_repositories_installation_id_idx
   on public.github_repositories(installation_id);
+
+-- Index for prototype_id lookups (for finding repo by prototype)
+create index if not exists github_repositories_prototype_id_idx
+  on public.github_repositories(prototype_id);
 
 -- 2) Add github_repo_id column to prototypes table
 -- This links a prototype to a GitHub repository (nullable, one-to-one)
@@ -80,61 +112,43 @@ alter table public.github_repositories enable row level security;
 -- RLS POLICIES FOR github_repositories
 -- ============================================================
 
--- SELECT: Users can read repos that are linked to prototypes they can view
+-- SELECT: Only users who can edit the prototype can read repo metadata (Option B: stricter privacy)
+-- Even if the prototype is PUBLIC, GitHub repo metadata is only visible to users with edit access
+-- This prevents exposing GitHub usernames, repo names, and other metadata to public viewers
 drop policy if exists "github_repositories_select" on public.github_repositories;
 create policy "github_repositories_select"
 on public.github_repositories
 for select
 to authenticated
 using (
-  exists (
-    select 1
-    from public.prototypes p
-    where p.github_repo_id = github_repositories.github_repo_id
-      and public.can_view_prototype(p.id)
-  )
+  public.can_edit_prototype(github_repositories.prototype_id)
 );
 
 -- INSERT: Service role only (no policy for authenticated users)
 -- Authenticated users cannot insert - only backend via service role
 -- This prevents users from creating arbitrary repository entries
 
--- UPDATE: Team owners/admins/editors can update repos linked to their team's prototypes
+-- UPDATE: Users who can edit the prototype can update the repo metadata
 drop policy if exists "github_repositories_update" on public.github_repositories;
 create policy "github_repositories_update"
 on public.github_repositories
 for update
 to authenticated
 using (
-  exists (
-    select 1
-    from public.prototypes p
-    where p.github_repo_id = github_repositories.github_repo_id
-      and public.can_edit_prototype(p.id)
-  )
+  public.can_edit_prototype(github_repositories.prototype_id)
 )
 with check (
-  exists (
-    select 1
-    from public.prototypes p
-    where p.github_repo_id = github_repositories.github_repo_id
-      and public.can_edit_prototype(p.id)
-  )
+  public.can_edit_prototype(github_repositories.prototype_id)
 );
 
--- DELETE: Team owners/admins/editors can delete repos linked to their team's prototypes
+-- DELETE: Users who can edit the prototype can delete the repo metadata
 drop policy if exists "github_repositories_delete" on public.github_repositories;
 create policy "github_repositories_delete"
 on public.github_repositories
 for delete
 to authenticated
 using (
-  exists (
-    select 1
-    from public.prototypes p
-    where p.github_repo_id = github_repositories.github_repo_id
-      and public.can_edit_prototype(p.id)
-  )
+  public.can_edit_prototype(github_repositories.prototype_id)
 );
 
 commit;
