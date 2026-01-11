@@ -1148,6 +1148,116 @@ const MaterializeRenderSection = forwardRef<
       }
     };
 
+    const handleCreateGitHubRepository = async () => {
+      logPrototypeEvent("client_prototype_editor_create_github_repo_clicked", {
+        has_prototype: Boolean(prototypeId),
+        has_sandbox: Boolean(sandbox_url),
+      });
+
+      if (!prototypeId) {
+        logger.debug("error", "Cannot create GitHub repository: missing prototype ID");
+        toast.error("Missing prototype ID");
+        return;
+      }
+
+      if (!sandbox_url) {
+        logger.debug("error", "Cannot create GitHub repository: missing sandbox URL");
+        toast.error("Missing sandbox URL");
+        return;
+      }
+
+      // Set loading state
+      setGithubRepository({ html_url: null, loading: true });
+
+      try {
+        // Get authentication token
+        const session = await supabase.auth.getSession();
+        const token = session.data.session?.access_token;
+
+        if (!token) {
+          logger.debug("error", "No authentication token available");
+          toast.error("Authentication required");
+          setGithubRepository({ html_url: null, loading: false });
+          return;
+        }
+
+        toast.info("Creating GitHub repository...");
+
+        // Step 1: Create the GitHub repository via control-plane
+        const siteBaseUrl = process.env.NEXT_PUBLIC_SITE_BASE_URL || window.location.origin;
+        const createRepoResponse = await fetch(`${siteBaseUrl}/github/repo/create`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ prototype_id: prototypeId }),
+        });
+
+        const createRepoResult: APIResponse<
+          { owner: string; name: string; html_url: string; default_branch: string },
+          StandardErrorResponse
+        > = await createRepoResponse.json();
+
+        if (!createRepoResponse.ok || createRepoResult.error) {
+          const errorMessage = createRepoResult.error?.message ?? "Failed to create GitHub repository";
+          logger.debug("error", "GitHub repository creation failed", {
+            error: errorMessage,
+          });
+          toast.error(`Failed to create repository: ${errorMessage}`);
+          setGithubRepository({ html_url: null, loading: false });
+          return;
+        }
+
+        const repositoryData = createRepoResult.data;
+        toast.success("Repository created! Connecting to sandbox...");
+
+        // Step 2: Connect the repository to the sandbox
+        const connectResponse = await fetch(`${sandbox_url}/dev-server/connect-github`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({}),
+        });
+
+        const connectResult: APIResponse<
+          { message: string; repository_url: string; repository_full_name: string },
+          StandardErrorResponse
+        > = await connectResponse.json();
+
+        if (!connectResponse.ok || connectResult.error) {
+          const errorMessage = connectResult.error?.message ?? "Failed to connect repository to sandbox";
+          logger.debug("error", "GitHub repository connection failed", {
+            error: errorMessage,
+          });
+          toast.error(`Repository created but connection failed: ${errorMessage}`);
+          // Still update the state with the repository URL since it was created
+          setGithubRepository({ html_url: repositoryData.html_url, loading: false });
+          setIsGithubDropdownOpen(false);
+          return;
+        }
+
+        // Success! Update state and close dropdown
+        setGithubRepository({ html_url: repositoryData.html_url, loading: false });
+        toast.success("GitHub repository connected successfully!");
+        setIsGithubDropdownOpen(false);
+
+        logger.debug("info", "GitHub repository created and connected", {
+          repository_url: repositoryData.html_url,
+        });
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        logger.debug("error", "Error creating GitHub repository", {
+          error: errorMessage,
+          stack: error instanceof Error ? error.stack : undefined,
+        });
+        toast.error(`Failed to create repository: ${errorMessage}`);
+        setGithubRepository({ html_url: null, loading: false });
+      }
+    };
+
     const handleRefresh = () => {
       logPrototypeEvent("client_prototype_editor_refresh_preview_clicked", {
         status: currentRenderStatus,
@@ -2226,8 +2336,15 @@ const MaterializeRenderSection = forwardRef<
                             // Open GitHub repository in new tab
                             window.open(githubRepository.html_url, "_blank", "noopener,noreferrer");
                             setIsGithubDropdownOpen(false);
+                          } else if (githubIntegration.connected && currentUserMembership?.role !== "viewer") {
+                            // Create GitHub repository and connect to sandbox
+                            handleCreateGitHubRepository();
+                          } else if (!githubIntegration.connected &&
+                                     (currentUserMembership?.role === "admin" || currentUserMembership?.role === "owner")) {
+                            // Navigate to dashboard with githubConnected param to open settings dialog
+                            window.location.href = "/dashboard?githubConnected=true";
                           } else {
-                            // TODO: Implement GitHub connection/repository creation
+                            // This shouldn't happen due to button disabled state
                             setIsGithubDropdownOpen(false);
                           }
                         }}
