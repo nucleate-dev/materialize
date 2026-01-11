@@ -37,6 +37,7 @@ import { ExpoReactNativeAdapter } from "./adapters/ExpoReactNativeAdapter.js";
 import { S3Client } from "@aws-sdk/client-s3";
 import { handleRefetchEnvImpl } from "./handlers/handleRefetchEnv.js";
 import type { Database } from "../../types/supabase.js";
+import { SandboxOrchestrationInitiatorService } from "../SandboxOrchestrationInitiatorService.js";
 
 export const S3_BUCKET = process.env.S3_BUCKET || "materialize-sites";
 export const DEV_SERVER_PORT = 19006;
@@ -50,10 +51,20 @@ export class NucleateDevelopmentServerService {
   public readonly supabaseClientService: SupabaseClientService;
   public readonly fileSyncService: FileSyncService;
   public readonly terminalService: TerminalService;
+  public readonly sandboxOrchestrationInitiatorService: SandboxOrchestrationInitiatorService;
   public developmentServerAdapter: IDevelopmentServerAdapter;
   public s3Client: S3Client | undefined;
   public prototypeFramework: Database["public"]["Enums"]["prototype_framework"];
   public cloudflareTunnelHostname: string | null;
+  public githubRepository: {
+    installationToken: string;
+    repositoryUrl: string;
+    repositoryOwner: string;
+    repositoryName: string;
+    defaultBranch: string;
+    fullName: string;
+    tokenExpiresAt: string;
+  } | null = null;
   public developmentServerState: {
     tunnelUrl: string;
     devServerStatus: DevServerStatus;
@@ -63,6 +74,7 @@ export class NucleateDevelopmentServerService {
     lastUpdatedTime: Date;
     buildError?: string;
   };
+  private githubTokenRefreshInterval: NodeJS.Timeout | null = null;
 
   constructor(
     sandboxService: SandboxService,
@@ -70,6 +82,7 @@ export class NucleateDevelopmentServerService {
     supabaseClientService: SupabaseClientService,
     fileSyncService: FileSyncService,
     terminalService: TerminalService,
+    sandboxOrchestrationInitiatorService: SandboxOrchestrationInitiatorService,
     codeService: ChatService,
   ) {
     this.sandboxService = sandboxService;
@@ -78,6 +91,8 @@ export class NucleateDevelopmentServerService {
     this.supabaseClientService = supabaseClientService;
     this.fileSyncService = fileSyncService;
     this.terminalService = terminalService;
+    this.sandboxOrchestrationInitiatorService =
+      sandboxOrchestrationInitiatorService;
     this.developmentServerAdapter = new ExpoReactNativeAdapter(terminalService); // default adapter]
     this.prototypeFramework = DEFAULT_PROTOTYPE_FRAMEWORK;
     this.cloudflareTunnelHostname = null;
@@ -134,6 +149,67 @@ export class NucleateDevelopmentServerService {
 
   public setCloudflareTunnelHostname(hostname: string): void {
     this.cloudflareTunnelHostname = hostname;
+  }
+
+  /**
+   * Start a background job to refresh the GitHub installation token every 50 minutes.
+   * GitHub installation tokens expire after 1 hour, so we refresh every 50 minutes to be safe.
+   */
+  public startGitHubTokenRefreshJob(prototypeId: string): void {
+    // Clear any existing interval
+    this.stopGitHubTokenRefreshJob();
+
+    const FIFTY_MINUTES_MS = 50 * 60 * 1000;
+
+    this.githubTokenRefreshInterval = setInterval(async () => {
+      try {
+        const tokenData =
+          await this.sandboxOrchestrationInitiatorService.refreshGitHubInstallationToken(
+            prototypeId,
+          );
+
+        if (this.githubRepository) {
+          this.githubRepository.installationToken = tokenData.installation_token;
+          this.githubRepository.tokenExpiresAt = tokenData.expires_at;
+        }
+
+        // Note: baseLogger is imported from loggers/index.js
+        const { baseLogger } = await import("../../loggers/index.js");
+        baseLogger.info("Refreshed GitHub installation token", {
+          prototypeId,
+          expiresAt: tokenData.expires_at,
+        });
+      } catch (error) {
+        const { baseLogger } = await import("../../loggers/index.js");
+        baseLogger.error(
+          error instanceof Error ? error : new Error(String(error)),
+          "Failed to refresh GitHub installation token in background job",
+          { prototypeId },
+        );
+      }
+    }, FIFTY_MINUTES_MS);
+
+    // Also log that we started the job
+    import("../../loggers/index.js").then(({ baseLogger }) => {
+      baseLogger.info("Started GitHub token refresh job", {
+        prototypeId,
+        intervalMs: FIFTY_MINUTES_MS,
+      });
+    });
+  }
+
+  /**
+   * Stop the GitHub installation token refresh job
+   */
+  public stopGitHubTokenRefreshJob(): void {
+    if (this.githubTokenRefreshInterval) {
+      clearInterval(this.githubTokenRefreshInterval);
+      this.githubTokenRefreshInterval = null;
+
+      import("../../loggers/index.js").then(({ baseLogger }) => {
+        baseLogger.consoleLogDevOnly("info", "Stopped GitHub token refresh job");
+      });
+    }
   }
 
   private async allocate(

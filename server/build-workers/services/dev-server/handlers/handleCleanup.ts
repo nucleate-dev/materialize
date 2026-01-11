@@ -59,7 +59,19 @@ export async function handleCleanup(
       request.log2.error(new Error(errorMessage), "Failed to stop dev server");
     }
 
-    // 1.3. Return a success response
+    // 1.3 Stop the GitHub token refresh job if running
+    try {
+      developmentServerService.stopGitHubTokenRefreshJob();
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      request.log2.error(
+        new Error(errorMessage),
+        "Failed to stop GitHub token refresh job",
+      );
+    }
+
+    // 1.4. Return a success response
     reply.code(HTTP_STATUS.OK);
     return {
       data: {
