@@ -232,7 +232,8 @@ export class NucleateDevelopmentServerService {
   }
 
   /**
-   * Commit current changes to git with a commit message derived from chat data
+   * Commit current changes to git with a commit message derived from chat data.
+   * If a GitHub repository is attached, also pushes the commit to the remote.
    */
   public async commitChangesToGit(
     data: ChatQueryData,
@@ -281,10 +282,77 @@ export class NucleateDevelopmentServerService {
       logger.consoleLogDevOnly("info", "Committed chat changes to git", {
         status,
       });
+
+      // If GitHub repository is attached, push the commit
+      if (this.githubRepository) {
+        await this.pushToGitHub(logger);
+      }
     } catch (error) {
       logger.error(
         error instanceof Error ? error : new Error(String(error)),
         "Failed to commit chat changes after execution",
+      );
+    }
+  }
+
+  /**
+   * Push commits to the attached GitHub repository
+   */
+  private async pushToGitHub(logger: SystemLogger): Promise<void> {
+    if (!this.githubRepository) {
+      logger.warn("Cannot push to GitHub: no repository attached");
+      return;
+    }
+
+    try {
+      // Update the remote URL with the fresh installation token
+      const authenticatedUrl = `https://x-access-token:${this.githubRepository.installationToken}@github.com/${this.githubRepository.fullName}.git`;
+
+      const updateRemoteResult = await this.sandboxService.runCommandInternal({
+        command: "sh",
+        args: ["-c", `cd ${WORK_DIR} && git remote set-url origin ${authenticatedUrl}`],
+        cwd: WORK_DIR,
+        session_id: "test",
+        timeout_ms: 10000,
+        strip_ansi: true,
+      });
+
+      if (updateRemoteResult.response.error) {
+        logger.warn("Failed to update git remote URL before push", {
+          error: updateRemoteResult.response.error,
+        });
+        // Continue with push anyway - the existing remote might still work
+      }
+
+      // Push to the default branch
+      const pushResult = await this.sandboxService.runCommandInternal({
+        command: "git",
+        args: ["push", "origin", this.githubRepository.defaultBranch],
+        cwd: WORK_DIR,
+        session_id: "test",
+        timeout_ms: 60000,
+        strip_ansi: true,
+      });
+
+      if (pushResult.response.error) {
+        logger.warn("Failed to push commit to GitHub", {
+          error: pushResult.response.error,
+          repository: this.githubRepository.fullName,
+        });
+        return;
+      }
+
+      logger.consoleLogDevOnly("info", "Pushed commit to GitHub", {
+        repository: this.githubRepository.fullName,
+        branch: this.githubRepository.defaultBranch,
+      });
+    } catch (error) {
+      logger.error(
+        error instanceof Error ? error : new Error(String(error)),
+        "Error pushing to GitHub",
+        {
+          repository: this.githubRepository?.fullName,
+        },
       );
     }
   }
