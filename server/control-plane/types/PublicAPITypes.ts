@@ -482,9 +482,8 @@ export interface GitHubDisconnectErrorResponse {
 
 // POST /github/repo/create
 export interface GitHubRepoCreateRequestBody {
-  teamId: string;
   prototype_id: string;
-  name: string;
+  name?: string;
   private?: boolean;
   description?: string;
 }

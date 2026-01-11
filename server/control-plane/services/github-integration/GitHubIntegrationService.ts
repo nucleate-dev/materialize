@@ -158,9 +158,8 @@ export class GitHubIntegrationService {
         schema: {
           body: {
             type: "object",
-            required: ["teamId", "name", "prototype_id"],
+            required: ["prototype_id"],
             properties: {
-              teamId: { type: "string", format: "uuid" },
               prototype_id: { type: "string" },
               name: { type: "string" },
               private: { type: "boolean", default: true },
@@ -169,7 +168,7 @@ export class GitHubIntegrationService {
           },
         },
       },
-      this.handleCreateRepository.bind(this),
+      this.handleCreateRepositoryForPrototype.bind(this),
     );
 
     // POST /github/webhooks
@@ -908,9 +907,9 @@ export class GitHubIntegrationService {
 
   /**
    * POST /github/repo/create
-   * Create a GitHub repository for a team
+   * Create a GitHub repository for the team that owns the prototype
    */
-  private async handleCreateRepository(
+  private async handleCreateRepositoryForPrototype(
     request: FastifyRequest<{ Body: GitHubRepoCreateRequestBody }>,
     reply: FastifyReply,
   ): Promise<
@@ -920,7 +919,7 @@ export class GitHubIntegrationService {
     >
   > {
     const token = request.headers.authorization?.split(" ")[1];
-    const { teamId, prototype_id, name, description } = request.body;
+    const { prototype_id, name: rawName, description } = request.body;
     const isPrivate = request.body.private ?? true;
 
     const authResponse = await checkUserHasPrototypeEditAccess(
@@ -928,7 +927,7 @@ export class GitHubIntegrationService {
       token,
       request.log2,
     );
-    if (!authResponse || !authResponse.canEdit) {
+    if (!authResponse || !authResponse.canEdit || !authResponse.prototype) {
       return reply.status(HTTP_STATUS.UNAUTHORIZED).send({
         data: null,
         error: {
@@ -937,6 +936,8 @@ export class GitHubIntegrationService {
         },
       });
     }
+
+    const teamId = authResponse.prototype.team_id;
 
     const childContext: Record<string, string> = {
       teamId,
@@ -949,18 +950,14 @@ export class GitHubIntegrationService {
     }
     request.log2 = request.log2.child(childContext);
 
-    if (authResponse.prototype.team_id !== teamId) {
-      request.log2.warn("Prototype does not belong to specified team", {
-        prototypeTeamId: authResponse.prototype.team_id,
-      });
-      return reply.status(HTTP_STATUS.FORBIDDEN).send({
-        data: null,
-        error: {
-          error: "Forbidden",
-          message: "Prototype does not belong to the specified team",
-        },
-      });
-    }
+    const providedName = rawName?.trim();
+    const repoName = providedName && providedName.length > 0
+      ? providedName
+      : (
+        authResponse.prototype.name?.trim() ||
+        authResponse.prototype.slug?.trim() ||
+        authResponse.prototype.id
+      );
 
     const supabaseServiceClient = createClient<Database>(
       process.env.SUPABASE_URL!,
@@ -1112,7 +1109,7 @@ export class GitHubIntegrationService {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          name,
+          name: repoName,
           private: isPrivate,
           description,
         }),
@@ -1158,24 +1155,28 @@ export class GitHubIntegrationService {
       }
 
       request.log2.info("Created GitHub repository", {
-        repository: repoData?.name ?? name,
+        repository: repoData?.name ?? repoName,
         owner: repoData?.owner?.login ?? integration.account_login,
       });
 
       return reply.status(HTTP_STATUS.OK).send({
         data: {
           owner: repoData?.owner?.login ?? integration.account_login,
-          name: repoData?.name ?? name,
+          name: repoData?.name ?? repoName,
           html_url: repoData?.html_url,
           default_branch: repoData?.default_branch ?? "main",
         },
         error: null,
       });
     } catch (error) {
-      request.log2.error(error, "Exception in handleCreateRepository", {
-        teamId,
-        prototypeId: prototype_id,
-      });
+      request.log2.error(
+        error,
+        "Exception in handleCreateRepositoryForPrototype",
+        {
+          teamId,
+          prototypeId: prototype_id,
+        },
+      );
       return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
         data: null,
         error: {
