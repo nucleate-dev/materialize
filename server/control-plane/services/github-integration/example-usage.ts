@@ -9,24 +9,36 @@ import type { Database } from '../../types/supabase.js';
  * Example: Fetch repositories for a team's GitHub installation
  */
 async function fetchTeamRepositories(teamId: string) {
-  // 1. Get the team's GitHub integration from database
+  // 1. Get the team's GitHub integration from database using service role
   const supabase = createClient<Database>(
     process.env.SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!, // Service role required for token access
   );
 
-  const { data: integration, error } = await supabase
-    .from('team_github_integrations')
-    .select('token_encrypted, account_login, installation_id')
+  // Fetch metadata from github_integrations
+  const { data: integration, error: metadataError } = await supabase
+    .from('github_integrations')
+    .select('account_login, installation_id')
     .eq('team_id', teamId)
     .single();
 
-  if (error || !integration) {
+  if (metadataError || !integration) {
     throw new Error('GitHub integration not found');
   }
 
+  // Fetch tokens from separate table (only service role can do this)
+  const { data: tokenData, error: tokenError } = await supabase
+    .from('github_integration_tokens')
+    .select('token_encrypted')
+    .eq('team_id', teamId)
+    .single();
+
+  if (tokenError || !tokenData) {
+    throw new Error('GitHub integration tokens not found');
+  }
+
   // 2. Decrypt the token (happens on backend only!)
-  const accessToken = decrypt(integration.token_encrypted);
+  const accessToken = decrypt(tokenData.token_encrypted);
   // ☝️ This uses the GITHUB_TOKEN_ENCRYPTION_KEY from environment
   // The token is now in plaintext and ready to use
 
@@ -72,22 +84,22 @@ async function createBranch(
 ) {
   const supabase = createClient<Database>(
     process.env.SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!, // Service role required for token access
   );
 
-  // 1. Get encrypted token from database
-  const { data: integration } = await supabase
-    .from('team_github_integrations')
+  // 1. Get encrypted token from tokens table (service role only)
+  const { data: tokenData } = await supabase
+    .from('github_integration_tokens')
     .select('token_encrypted')
     .eq('team_id', teamId)
     .single();
 
-  if (!integration) {
+  if (!tokenData) {
     throw new Error('GitHub integration not found');
   }
 
   // 2. Decrypt the token
-  const accessToken = decrypt(integration.token_encrypted);
+  const accessToken = decrypt(tokenData.token_encrypted);
 
   // 3. Get the SHA of the branch we want to branch from
   const refResponse = await fetch(
@@ -135,12 +147,16 @@ async function createBranch(
  * The decrypted token ONLY exists in memory on the backend server
  * during the API call. It is:
  *
- * ✅ Stored encrypted in the database
+ * ✅ Stored encrypted in the database (in separate `github_integration_tokens` table)
+ * ✅ Completely isolated from client access (NO RLS policies on tokens table)
+ * ✅ Only accessible via service role (SUPABASE_SERVICE_ROLE_KEY)
  * ✅ Decrypted only when needed for API calls
- * ✅ Never sent to the client/frontend
+ * ✅ Never sent to the client/frontend (not even in encrypted form)
  * ✅ Never logged (token values should never appear in logs)
  * ✅ Immediately discarded after use (garbage collected)
  *
- * This is called "encryption at rest" - the data is protected
- * while stored, but can be used when needed by authorized code.
+ * This is called "encryption at rest" with "defense in depth":
+ * - The data is protected while stored (encryption)
+ * - The encrypted data is isolated from regular users (separate table, no RLS)
+ * - Only the backend service can decrypt and use tokens
  */

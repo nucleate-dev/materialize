@@ -422,9 +422,9 @@ export class GitHubIntegrationService {
         ? new Date(Date.now() + tokenResponse.expires_in * 1000).toISOString()
         : null;
 
-      // 6. Upsert team_github_integrations
+      // 6. Upsert github_integrations (metadata only, no tokens)
       const { error: integrationError } = await supabaseServiceClient
-        .from('team_github_integrations')
+        .from('github_integrations')
         .upsert(
           {
             team_id: session.team_id,
@@ -432,9 +432,6 @@ export class GitHubIntegrationService {
             account_login: targetInstallation.account.login,
             account_type: targetInstallation.account.type,
             installed_by_github_user_id: githubUser.id,
-            token_encrypted: tokenEncrypted,
-            refresh_encrypted: refreshEncrypted,
-            token_expires_at: tokenExpiresAt,
           },
           {
             onConflict: 'team_id',
@@ -444,7 +441,7 @@ export class GitHubIntegrationService {
       if (integrationError) {
         request.log2.error(
           integrationError,
-          'Failed to save GitHub integration',
+          'Failed to save GitHub integration metadata',
           {
             teamId: session.team_id,
           },
@@ -461,7 +458,48 @@ export class GitHubIntegrationService {
         );
       }
 
-      // 7. Mark connect session as connected
+      // 7. Upsert github_integration_tokens (tokens only, service role access)
+      const { error: tokensError } = await supabaseServiceClient
+        .from('github_integration_tokens')
+        .upsert(
+          {
+            team_id: session.team_id,
+            token_encrypted: tokenEncrypted,
+            refresh_encrypted: refreshEncrypted,
+            token_expires_at: tokenExpiresAt,
+          },
+          {
+            onConflict: 'team_id',
+          },
+        );
+
+      if (tokensError) {
+        request.log2.error(
+          tokensError,
+          'Failed to save GitHub integration tokens',
+          {
+            teamId: session.team_id,
+          },
+        );
+
+        // Mark session as failed
+        await supabaseServiceClient
+          .from('github_connect_sessions')
+          .update({ status: 'failed' })
+          .eq('id', connectSessionId);
+
+        // Clean up metadata if tokens failed
+        await supabaseServiceClient
+          .from('github_integrations')
+          .delete()
+          .eq('team_id', session.team_id);
+
+        return reply.redirect(
+          `${siteBaseUrl}/settings/team?teamId=${session.team_id}&githubConnected=0&error=save_failed`,
+        );
+      }
+
+      // 8. Mark connect session as connected
       await supabaseServiceClient
         .from('github_connect_sessions')
         .update({ status: 'connected' })
@@ -473,7 +511,7 @@ export class GitHubIntegrationService {
         accountLogin: targetInstallation.account.login,
       });
 
-      // 8. Redirect back to settings
+      // 9. Redirect back to settings
       return reply.redirect(
         `${siteBaseUrl}/settings/team?teamId=${session.team_id}&githubConnected=1`,
       );
@@ -544,8 +582,9 @@ export class GitHubIntegrationService {
 
     try {
       // Check if integration exists for this team
+      // Note: github_integrations now only contains metadata (no tokens)
       const { data: integration, error: integrationError } = await supabaseClient
-        .from('team_github_integrations')
+        .from('github_integrations')
         .select('account_login, account_type, connected_at, installation_id, is_suspended, suspended_at')
         .eq('team_id', teamId)
         .maybeSingle();
@@ -671,17 +710,17 @@ export class GitHubIntegrationService {
     );
 
     try {
-      // First, get the integration to revoke the token
-      const { data: integration } = await supabaseServiceClient
-        .from('team_github_integrations')
+      // First, get the encrypted token from the tokens table
+      const { data: tokenData } = await supabaseServiceClient
+        .from('github_integration_tokens')
         .select('token_encrypted')
         .eq('team_id', teamId)
         .maybeSingle();
 
       // Attempt to revoke the token (best effort)
-      if (integration?.token_encrypted) {
+      if (tokenData?.token_encrypted) {
         try {
-          const accessToken = decrypt(integration.token_encrypted);
+          const accessToken = decrypt(tokenData.token_encrypted);
           await revokeUserToken(accessToken, request.log2);
         } catch (revokeError) {
           // Log but don't fail the disconnect operation
@@ -694,9 +733,9 @@ export class GitHubIntegrationService {
         }
       }
 
-      // Delete the integration
+      // Delete the integration (cascade will delete tokens too)
       const { error: deleteError } = await supabaseServiceClient
-        .from('team_github_integrations')
+        .from('github_integrations')
         .delete()
         .eq('team_id', teamId);
 
@@ -797,7 +836,7 @@ export class GitHubIntegrationService {
         if (payload.action === 'deleted') {
           // Permanently delete the integration
           const { error } = await supabaseServiceClient
-            .from('team_github_integrations')
+            .from('github_integrations')
             .delete()
             .eq('installation_id', installationId);
 
@@ -815,7 +854,7 @@ export class GitHubIntegrationService {
         } else if (payload.action === 'suspend') {
           // Mark integration as suspended (temporary state)
           const { error } = await supabaseServiceClient
-            .from('team_github_integrations')
+            .from('github_integrations')
             .update({
               is_suspended: true,
               suspended_at: new Date().toISOString(),
@@ -836,7 +875,7 @@ export class GitHubIntegrationService {
         } else if (payload.action === 'unsuspend') {
           // Clear suspension flag (automatically restore integration)
           const { error } = await supabaseServiceClient
-            .from('team_github_integrations')
+            .from('github_integrations')
             .update({
               is_suspended: false,
               suspended_at: null,

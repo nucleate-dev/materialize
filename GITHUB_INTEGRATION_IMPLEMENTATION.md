@@ -20,7 +20,8 @@ Implemented a complete team-level GitHub App integration that allows teams to co
 
 1. **`supabase/migrations/20260110000000_create_github_integration_tables.sql`**
    - Creates `github_connect_sessions` table for OAuth flow state tracking
-   - Creates `team_github_integrations` table for storing team-level connections
+   - Creates `github_integrations` table for storing metadata (account info, suspension state)
+   - Creates `github_integration_tokens` table for storing encrypted tokens (NO RLS policies)
    - Implements RLS policies ensuring only team owners/admins can connect/disconnect
    - Adds triggers for automatic `updated_at` timestamp management
 
@@ -193,17 +194,28 @@ Deploy the control-plane service with the new environment variables.
 
 ## Security Features
 
-### 1. Token Encryption
+### 1. Token Encryption & Client Protection
 
 - All GitHub tokens stored encrypted at rest using AES-256-GCM
 - Each encrypted value includes unique IV and authentication tag
 - Master key stored in environment variable, never in database
+- **Encrypted tokens are NEVER exposed to clients** (even in encrypted form)
+  - Tokens stored in separate `github_integration_tokens` table with NO RLS policies
+  - Only service role (backend) can read/write encrypted tokens
+  - Clients query `github_integrations` which only contains metadata
+  - This prevents encrypted tokens from being cached/logged on client devices
 
 ### 2. Row-Level Security (RLS)
 
-- Team members can read integration status
-- Only owners/admins can connect/disconnect
-- Service role bypasses RLS for internal operations
+- **Metadata table** (`github_integrations`):
+  - Team members can SELECT (read metadata only)
+  - Only INSERT/UPDATE/DELETE allowed for owners/admins
+  - Does NOT contain any token fields
+- **Tokens table** (`github_integration_tokens`):
+  - RLS enabled but NO policies defined
+  - Result: Regular users cannot access it at all
+  - Service role bypasses RLS and can read/write
+  - Foreign key cascade from `github_integrations`
 
 ### 3. OAuth Flow Security
 
@@ -334,7 +346,9 @@ Handles GitHub App webhook events.
 | created_at | timestamptz | Creation timestamp |
 | updated_at | timestamptz | Last update timestamp |
 
-### team_github_integrations
+### github_integrations
+
+**Metadata table** (contains NO token fields, safe for client access with RLS):
 
 | Column | Type | Description |
 |--------|------|-------------|
@@ -343,13 +357,27 @@ Handles GitHub App webhook events.
 | account_login | text | GitHub username/org |
 | account_type | text | User or Organization |
 | installed_by_github_user_id | bigint | GitHub user ID |
-| token_encrypted | text | Encrypted access token |
-| refresh_encrypted | text | Encrypted refresh token (nullable) |
-| token_expires_at | timestamptz | Token expiration (nullable) |
 | is_suspended | boolean | Suspension status (default false) |
 | suspended_at | timestamptz | When suspended (nullable) |
 | connected_at | timestamptz | Connection timestamp |
 | updated_at | timestamptz | Last update timestamp |
+
+**RLS**: Team members can SELECT, only owners/admins can INSERT/UPDATE/DELETE
+
+### github_integration_tokens
+
+**Tokens table** (NO RLS policies, only service role can access):
+
+| Column | Type | Description |
+|--------|------|-------------|
+| team_id | uuid | Primary key, FK to github_integrations |
+| token_encrypted | text | Encrypted access token |
+| refresh_encrypted | text | Encrypted refresh token (nullable) |
+| token_expires_at | timestamptz | Token expiration (nullable) |
+| created_at | timestamptz | Creation timestamp |
+| updated_at | timestamptz | Last update timestamp |
+
+**CRITICAL SECURITY**: This table has RLS enabled but NO policies defined. Regular users cannot access it. Only service role can read/write. Foreign key CASCADE on update and delete.
 
 ## Troubleshooting
 
@@ -393,7 +421,9 @@ Potential improvements for future iterations:
 ## Notes
 
 - One team can have at most ONE GitHub App installation connected
-- Tokens are never exposed to the client
+- Tokens are stored in a separate table (`github_integration_tokens`) completely isolated from client access
+- Tokens are never exposed to the client (even in encrypted form)
 - Service uses user access tokens (not installation tokens) for most operations
 - Webhook events are processed asynchronously and are idempotent
 - RLS policies ensure service role can always bypass for internal operations
+- Foreign key cascades ensure deleting `github_integrations` also deletes associated tokens
