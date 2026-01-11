@@ -1,6 +1,12 @@
 import axios from "axios";
 import { baseLogger } from "../loggers/index.js";
 import { SystemLogger } from "../loggers/SystemLogger.js";
+import {
+  APIResponse,
+  EndChatResponse,
+  StandardErrorResponse,
+  StartChatResponse,
+} from "../types/ControlPlaneTypes.js";
 
 interface RefreshGitHubInstallationTokenResponse {
   data: {
@@ -150,5 +156,190 @@ export class SandboxOrchestrationInitiatorService {
 
       throw error;
     }
+  }
+
+  /**
+   * Notifies the control plane that a chat session has started.
+   */
+  public async notifyOrchestrationStartChat(
+    prototypeId: string,
+  ): Promise<void> {
+    const serverEndpoint = process.env.NUCLEATE_SERVER_ENDPOINT;
+    if (!serverEndpoint) {
+      this.logger.warn(
+        "NUCLEATE_SERVER_ENDPOINT not set, skipping start-chat notification",
+      );
+      return;
+    }
+
+    if (!this.orchestrationToken) {
+      this.logger.error(
+        new Error("Orchestration token not set"),
+        "Cannot notify start-chat without orchestration token",
+        { prototypeId },
+      );
+      return;
+    }
+
+    try {
+      const response = await axios.post<
+        APIResponse<StartChatResponse, StandardErrorResponse>
+      >(
+        `${serverEndpoint}/orchestration/start-chat`,
+        { prototype_id: prototypeId },
+        {
+          headers: {
+            "x-orchestration-token": this.orchestrationToken,
+            "Content-Type": "application/json",
+          },
+          timeout: 5000,
+        },
+      );
+      const payload = response.data;
+
+      if (payload.error || !payload.data?.success) {
+        const errorMessage = payload.error
+          ? `Control plane rejected start-chat: ${payload.error.message}`
+          : "Control plane returned an invalid start-chat response";
+        const err = new Error(errorMessage) as Error & {
+          responseBody?: APIResponse<StartChatResponse, StandardErrorResponse>;
+        };
+        err.responseBody = payload;
+        throw err;
+      }
+
+      this.logger.consoleLogDevOnly(
+        "info",
+        "Notified control plane of chat start",
+        {
+          prototypeId,
+          responseMessage: payload.data.message,
+        },
+      );
+    } catch (error) {
+      const axiosError = axios.isAxiosError(error) ? error : null;
+      const derivedError = axiosError
+        ? new Error(
+          `Failed to notify control plane of chat start (status ${
+            axiosError.response?.status ?? "unknown"
+          })`,
+        )
+        : error instanceof Error
+          ? error
+          : new Error(String(error));
+      const responseBody =
+        (error as { responseBody?: unknown; })?.responseBody ??
+        axiosError?.response?.data;
+
+      this.logger.error(
+        derivedError,
+        "Failed to notify control plane of chat start",
+        {
+          prototypeId,
+          statusCode: axiosError?.response?.status,
+          responseBody,
+        },
+      );
+      throw derivedError;
+    }
+  }
+
+  /**
+   * Notifies the control plane that a chat session has ended.
+   * CRITICAL: This method must ALWAYS be called at the end of every chat session,
+   * regardless of success or failure. The control plane relies on this notification
+   * to properly manage container state and resource allocation. If this call fails,
+   * it will be retried to ensure the control plane receives the notification.
+   */
+  public async notifyOrchestrationEndChat(prototypeId: string): Promise<void> {
+    const serverEndpoint = process.env.NUCLEATE_SERVER_ENDPOINT;
+    if (!serverEndpoint) {
+      this.logger.warn(
+        "NUCLEATE_SERVER_ENDPOINT not set, skipping end-chat notification",
+      );
+      return;
+    }
+
+    if (!this.orchestrationToken) {
+      this.logger.error(
+        new Error("Orchestration token not set"),
+        "Cannot notify end-chat without orchestration token",
+        { prototypeId },
+      );
+      return;
+    }
+
+    // Retry logic to ensure this critical notification succeeds
+    const maxRetries = 3;
+    let lastError: Error | null = null;
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        const response = await axios.post<
+          APIResponse<EndChatResponse, StandardErrorResponse>
+        >(
+          `${serverEndpoint}/orchestration/end-chat`,
+          { prototype_id: prototypeId },
+          {
+            headers: {
+              "x-orchestration-token": this.orchestrationToken,
+              "Content-Type": "application/json",
+            },
+            timeout: 5000,
+          },
+        );
+        const payload = response.data;
+
+        if (payload.error || !payload.data?.success) {
+          const errorMessage = payload.error
+            ? `Control plane rejected end-chat: ${payload.error.message}`
+            : "Control plane returned an invalid end-chat response";
+          const err = new Error(errorMessage) as Error & {
+            responseBody?: APIResponse<EndChatResponse, StandardErrorResponse>;
+          };
+          err.responseBody = payload;
+          throw err;
+        }
+
+        this.logger.consoleLogDevOnly(
+          "info",
+          "Notified control plane of chat end",
+          {
+            prototypeId,
+            attempt,
+            responseMessage: payload.data.message,
+          },
+        );
+        return; // Success - exit the function
+      } catch (error) {
+        const axiosError = axios.isAxiosError(error) ? error : null;
+        lastError = error instanceof Error ? error : new Error(String(error));
+        this.logger.error(
+          lastError,
+          `Failed to notify control plane of chat end (attempt ${attempt}/${maxRetries})`,
+          {
+            prototypeId,
+            statusCode: axiosError?.response?.status,
+            responseBody:
+              (error as { responseBody?: unknown; })?.responseBody ??
+              axiosError?.response?.data,
+          },
+        );
+
+        // Wait before retrying (exponential backoff)
+        if (attempt < maxRetries) {
+          await new Promise((resolve) =>
+            setTimeout(resolve, Math.pow(2, attempt) * 100)
+          );
+        }
+      }
+    }
+
+    // If we get here, all retries failed
+    this.logger.error(
+      lastError || new Error("Unknown error"),
+      "CRITICAL: Failed to notify control plane of chat end after all retries",
+      { prototypeId, maxRetries },
+    );
   }
 }
