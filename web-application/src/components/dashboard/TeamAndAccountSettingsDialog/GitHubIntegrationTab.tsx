@@ -217,6 +217,7 @@ export function GitHubIntegrationTab() {
   };
 
   // Check for connection success/failure in URL params
+  // Note: URL params are cleaned up by the Sidebar component after opening the dialog
   useEffect(() => {
     if (typeof window === "undefined") return;
 
@@ -234,14 +235,8 @@ export function GitHubIntegrationTab() {
           teamId: activeTeam?.id,
         },
       });
-
-      // Clean up URL params
-      const newUrl = new URL(window.location.href);
-      newUrl.searchParams.delete("githubConnected");
-      newUrl.searchParams.delete("error");
-      window.history.replaceState({}, "", newUrl.toString());
     } else if (githubConnected === "0" && errorParam) {
-      // Error
+      // Error - display error message
       const errorMessages: Record<string, string> = {
         invalid_session: "Invalid or expired connection session. Please try again.",
         session_expired: "Connection session expired. Please try again.",
@@ -253,12 +248,6 @@ export function GitHubIntegrationTab() {
       };
 
       setError(errorMessages[errorParam] || "Failed to connect GitHub. Please try again.");
-
-      // Clean up URL params
-      const newUrl = new URL(window.location.href);
-      newUrl.searchParams.delete("githubConnected");
-      newUrl.searchParams.delete("error");
-      window.history.replaceState({}, "", newUrl.toString());
     }
   }, []);
 

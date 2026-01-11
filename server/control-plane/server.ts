@@ -4,6 +4,7 @@ import { ECSClient } from "@aws-sdk/client-ecs";
 import { S3Client } from "@aws-sdk/client-s3";
 import { STSClient } from "@aws-sdk/client-sts";
 import cors from "@fastify/cors";
+import rawBody from "fastify-raw-body";
 import { GlideClient } from "@valkey/valkey-glide";
 import "dotenv/config";
 import type { FastifyReply, FastifyRequest } from "fastify";
@@ -26,11 +27,12 @@ import { GitHubIntegrationService } from "./services/github-integration/GitHubIn
 import { PostHogLogger } from "./loggers/PostHogLogger.js";
 import { PostHog } from "posthog-node";
 
-// Extend FastifyRequest to include our custom loggers
+// Extend FastifyRequest to include our custom loggers and raw body
 declare module "fastify" {
   interface FastifyRequest {
     log2: SystemLogger;
     posthogLogger: PostHogLogger;
+    rawBody?: string; // Added by fastify-raw-body plugin
   }
 }
 
@@ -121,6 +123,14 @@ fastify.register(cors, {
     "x-internal-timestamp",
     "x-orchestration-token",
   ],
+});
+
+// Register raw-body plugin for webhook signature verification
+fastify.register(rawBody, {
+  field: 'rawBody', // adds request.rawBody
+  global: false, // only for routes that set config.rawBody = true
+  encoding: 'utf8',
+  runFirst: true, // run before other onRequest hooks
 });
 
 fastify.addHook("onRequest", async (req) => {

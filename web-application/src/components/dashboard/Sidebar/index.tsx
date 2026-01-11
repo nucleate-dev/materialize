@@ -32,17 +32,18 @@ import {
   Zap,
 } from "lucide-react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import { TeamSelector } from "./TeamSelector";
 import { useFeatureFlagEnabled } from "posthog-js/react";
 import { useActiveTeam } from "@/contexts/TeamContext";
 import { TeamAndAccountsSettingsDialog } from "@/components/dashboard/TeamAndAccountSettingsDialog";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 const DashboardSidebarContent = () => {
   const pathname = usePathname();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [sidebarOpen, setSidebarOpen] = useAtom(sidebarOpenAtom);
   const { state, isMobile, setOpenMobile } = useSidebar();
   const { userPlan } = useSubscriptionAccess();
@@ -54,7 +55,7 @@ const DashboardSidebarContent = () => {
   const { activeTeam } = useActiveTeam();
   const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);
   const [settingsDefaultTab, setSettingsDefaultTab] = useState<
-    "profile" | "credits" | "claude" | "team" | "people"
+    "profile" | "credits" | "claude" | "team" | "people" | "github"
   >("profile");
 
   const getInitials = (name: string | null) => {
@@ -66,6 +67,24 @@ const DashboardSidebarContent = () => {
       .toUpperCase()
       .slice(0, 2);
   };
+
+  // Auto-open settings dialog after GitHub OAuth redirect
+  useEffect(() => {
+    const githubConnected = searchParams.get("githubConnected");
+
+    if (githubConnected !== null) {
+      // Open settings dialog with GitHub tab when redirected from OAuth
+      setSettingsDefaultTab("github");
+      setSettingsDialogOpen(true);
+
+      // Clean up URL params
+      const url = new URL(window.location.href);
+      url.searchParams.delete("githubConnected");
+      url.searchParams.delete("error");
+      url.searchParams.delete("teamId");
+      window.history.replaceState({}, "", url.toString());
+    }
+  }, [searchParams]);
 
   const logSidebarItemClick = (
     item: string,

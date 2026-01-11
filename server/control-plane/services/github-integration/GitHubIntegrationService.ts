@@ -307,7 +307,7 @@ export class GitHubIntegrationService {
           connectSessionId,
         });
         return reply.redirect(
-          `${siteBaseUrl}/settings/team?githubConnected=0&error=invalid_session`,
+          `${siteBaseUrl}/dashboard?githubConnected=0&error=invalid_session`,
         );
       }
 
@@ -325,7 +325,7 @@ export class GitHubIntegrationService {
           .eq('id', connectSessionId);
 
         return reply.redirect(
-          `${siteBaseUrl}/settings/team?teamId=${session.team_id}&githubConnected=0&error=session_expired`,
+          `${siteBaseUrl}/dashboard?teamId=${session.team_id}&githubConnected=0&error=session_expired`,
         );
       }
 
@@ -336,7 +336,7 @@ export class GitHubIntegrationService {
           status: session.status,
         });
         return reply.redirect(
-          `${siteBaseUrl}/settings/team?teamId=${session.team_id}&githubConnected=0&error=session_already_used`,
+          `${siteBaseUrl}/dashboard?teamId=${session.team_id}&githubConnected=0&error=session_already_used`,
         );
       }
 
@@ -378,7 +378,7 @@ export class GitHubIntegrationService {
             },
           );
           return reply.redirect(
-            `${siteBaseUrl}/settings/team?teamId=${session.team_id}&githubConnected=0&error=installation_not_found`,
+            `${siteBaseUrl}/dashboard?teamId=${session.team_id}&githubConnected=0&error=installation_not_found`,
           );
         }
       } else {
@@ -389,7 +389,7 @@ export class GitHubIntegrationService {
             'User has no accessible installations',
           );
           return reply.redirect(
-            `${siteBaseUrl}/settings/team?teamId=${session.team_id}&githubConnected=0&error=no_installation`,
+            `${siteBaseUrl}/dashboard?teamId=${session.team_id}&githubConnected=0&error=no_installation`,
           );
         } else if (installations.length === 1) {
           targetInstallation = installations[0];
@@ -454,7 +454,7 @@ export class GitHubIntegrationService {
           .eq('id', connectSessionId);
 
         return reply.redirect(
-          `${siteBaseUrl}/settings/team?teamId=${session.team_id}&githubConnected=0&error=save_failed`,
+          `${siteBaseUrl}/dashboard?teamId=${session.team_id}&githubConnected=0&error=save_failed`,
         );
       }
 
@@ -495,7 +495,7 @@ export class GitHubIntegrationService {
           .eq('team_id', session.team_id);
 
         return reply.redirect(
-          `${siteBaseUrl}/settings/team?teamId=${session.team_id}&githubConnected=0&error=save_failed`,
+          `${siteBaseUrl}/dashboard?teamId=${session.team_id}&githubConnected=0&error=save_failed`,
         );
       }
 
@@ -513,7 +513,7 @@ export class GitHubIntegrationService {
 
       // 9. Redirect back to settings
       return reply.redirect(
-        `${siteBaseUrl}/settings/team?teamId=${session.team_id}&githubConnected=1`,
+        `${siteBaseUrl}/dashboard?teamId=${session.team_id}&githubConnected=1`,
       );
     } catch (error) {
       request.log2.error(error, 'Exception in handleOAuthCallback');
@@ -534,7 +534,7 @@ export class GitHubIntegrationService {
       }
 
       return reply.redirect(
-        `${siteBaseUrl}/settings/team?githubConnected=0&error=internal_error${teamIdForRedirect}`,
+        `${siteBaseUrl}/dashboard?githubConnected=0&error=internal_error${teamIdForRedirect}`,
       );
     }
   }
@@ -798,9 +798,20 @@ export class GitHubIntegrationService {
     }
 
     // Verify webhook signature
-    const rawBody = (request as any).rawBody || JSON.stringify(request.body);
+    // rawBody is populated by fastify-raw-body plugin (must be registered in server.ts)
+    if (!request.rawBody) {
+      request.log2.error(
+        new Error('rawBody not available'),
+        'Webhook signature verification failed: rawBody not populated',
+      );
+      return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
+        error: 'Configuration Error',
+        message: 'Server not configured for webhook signature verification',
+      });
+    }
+
     const hmac = crypto.createHmac('sha256', webhookSecret);
-    const expectedSignature = 'sha256=' + hmac.update(rawBody, 'utf8').digest('hex');
+    const expectedSignature = 'sha256=' + hmac.update(request.rawBody, 'utf8').digest('hex');
 
     if (!signature || signature !== expectedSignature) {
       request.log2.warn('Invalid webhook signature', {

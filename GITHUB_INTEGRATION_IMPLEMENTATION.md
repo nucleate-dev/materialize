@@ -55,8 +55,11 @@ Implemented a complete team-level GitHub App integration that allows teams to co
    - Request/response types for connect, status, disconnect operations
 
 2. **`server/control-plane/server.ts`**
+   - Imported `fastify-raw-body` plugin for webhook signature verification
+   - Registered raw-body plugin with `global: false` (only for routes that need it)
    - Imported `GitHubIntegrationService`
    - Registered service routes with Fastify
+   - Added `rawBody` field to FastifyRequest type declaration
 
 ### Frontend (web-application)
 
@@ -76,6 +79,11 @@ Implemented a complete team-level GitHub App integration that allows teams to co
    - Imported `GitHubIntegrationTab`
    - Added GitHub tab to Team section (feature-flagged)
    - Added rendering logic for GitHub tab
+
+2. **`web-application/src/components/dashboard/Sidebar/index.tsx`**
+   - Added `useEffect` to detect `githubConnected` query parameter
+   - Auto-opens settings dialog with GitHub tab after OAuth redirect
+   - Cleans up URL parameters after handling redirect
 
 ## Environment Variables Required
 
@@ -143,14 +151,23 @@ Suggested permissions (adjust based on your needs):
 
 ## Setup Instructions
 
-### 1. Apply Database Migration
+### 1. Install Required Dependencies
+
+Install the `fastify-raw-body` plugin for webhook signature verification:
+
+```bash
+cd server/control-plane
+npm install fastify-raw-body
+```
+
+### 2. Apply Database Migration
 
 ```bash
 cd supabase
 npx supabase migration up
 ```
 
-### 2. Regenerate TypeScript Types
+### 3. Regenerate TypeScript Types
 
 After applying the migration, regenerate Supabase types:
 
@@ -165,25 +182,25 @@ Or for remote:
 npx supabase gen types typescript --project-id <project-ref> > path/to/types/supabase.ts
 ```
 
-### 3. Configure Environment Variables
+### 4. Configure Environment Variables
 
 1. Create your GitHub App at https://github.com/organizations/nucleatedev/settings/apps
 2. Copy all required credentials to `.env` files
 3. Generate encryption key: `openssl rand -hex 32`
 4. Encode private key: `base64 -i path/to/private-key.pem`
 
-### 4. Enable Feature Flag
+### 5. Enable Feature Flag
 
 In PostHog, enable the feature flag:
 
 - **Flag name**: `github-integration`
 - **Target**: Teams or users who should see the feature
 
-### 5. Deploy Backend
+### 6. Deploy Backend
 
 Deploy the control-plane service with the new environment variables.
 
-### 6. Test the Integration
+### 7. Test the Integration
 
 1. Navigate to Team Settings in the web app
 2. Click on the "GitHub" tab (should appear under Team section)
@@ -392,8 +409,12 @@ This is expected! The errors occur because Supabase types haven't been regenerat
 ### "Invalid signature" on Webhook
 
 1. Verify `GITHUB_APP_WEBHOOK_SECRET` matches GitHub App settings
-2. Check that Fastify `rawBody` is enabled for webhook route
-3. Ensure webhook URL is correct: `https://api.nucleate.dev/github/webhooks`
+2. Ensure `fastify-raw-body` plugin is installed: `npm install fastify-raw-body`
+3. Check that the plugin is registered in `server.ts` before service registration
+4. Verify route has `config: { rawBody: true }` in route options
+5. Ensure webhook URL is correct: `https://api.nucleate.dev/github/webhooks`
+
+**Critical**: The webhook signature verification requires the exact raw bytes GitHub sent. Using `JSON.stringify(request.body)` will never match because JSON re-stringification doesn't preserve the original formatting.
 
 ### "Installation not found" During OAuth
 
