@@ -458,6 +458,15 @@ export class ChatService {
       );
     }
 
+    // 3b. FETCH LATEST REMOTE CHANGES IF GITHUB IS CONNECTED
+    try {
+      await this.devServerService.fetchLatestGitHubChanges(logger);
+    } catch (error) {
+      logger.warn("Failed to fetch latest GitHub changes before chat", {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+
     // 4. TELL CONTROL PLANE THAT CHAT IS STARTING
     try {
       await this.sandboxOrchestrationInitiatorService

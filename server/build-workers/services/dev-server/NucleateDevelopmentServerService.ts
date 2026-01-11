@@ -357,6 +357,66 @@ export class NucleateDevelopmentServerService {
     }
   }
 
+  /**
+   * Fetch the latest changes from the connected GitHub repository.
+   * Skips fetching entirely if there is no GitHub remote configured.
+   */
+  public async fetchLatestGitHubChanges(logger: SystemLogger): Promise<void> {
+    if (!this.githubRepository) {
+      logger.consoleLogDevOnly(
+        "info",
+        "Skipping git fetch - no GitHub repository configured",
+      );
+      return;
+    }
+
+    try {
+      const authenticatedUrl = `https://x-access-token:${this.githubRepository.installationToken}@github.com/${this.githubRepository.fullName}.git`;
+      const updateRemoteResult = await this.sandboxService.runCommandInternal({
+        command: "sh",
+        args: ["-c", `cd ${WORK_DIR} && git remote set-url origin ${authenticatedUrl}`],
+        cwd: WORK_DIR,
+        session_id: "test",
+        timeout_ms: 10000,
+        strip_ansi: true,
+      });
+
+      if (updateRemoteResult.response.error) {
+        logger.warn("Failed to update git remote URL before fetch", {
+          error: updateRemoteResult.response.error,
+        });
+      }
+
+      const fetchResult = await this.sandboxService.runCommandInternal({
+        command: "git",
+        args: ["fetch", "origin", this.githubRepository.defaultBranch],
+        cwd: WORK_DIR,
+        session_id: "test",
+        timeout_ms: 60000,
+        strip_ansi: true,
+      });
+
+      if (fetchResult.response.error) {
+        logger.warn("Failed to fetch latest GitHub changes", {
+          error: fetchResult.response.error,
+          repository: this.githubRepository.fullName,
+        });
+        return;
+      }
+
+      logger.consoleLogDevOnly("info", "Fetched latest changes from GitHub", {
+        repository: this.githubRepository.fullName,
+        branch: this.githubRepository.defaultBranch,
+      });
+    } catch (error) {
+      logger.error(
+        error instanceof Error ? error : new Error(String(error)),
+        "Error fetching latest GitHub changes",
+        { repository: this.githubRepository?.fullName },
+      );
+    }
+  }
+
   private buildCommitMessageArg(data: ChatQueryData): string | null {
     const userMessage = this.extractCommitMessageText(data);
     const normalized = userMessage.replace(/\s+/g, " ").trim();
