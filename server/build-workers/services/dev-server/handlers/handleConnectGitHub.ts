@@ -176,7 +176,8 @@ export async function handleConnectGitHubImpl(
 
     // 5. Push all commits to GitHub
     const defaultBranch = githubRepo.default_branch || "main";
-    const pushCommand = `cd ${WORK_DIR} && git push -u origin ${defaultBranch}`;
+    const pushCommand =
+      `cd ${WORK_DIR} && git push -u origin HEAD:${defaultBranch}`;
 
     const pushResult = await developmentServerService.sandboxService
       .runCommandInternal({
