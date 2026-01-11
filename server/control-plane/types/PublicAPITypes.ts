@@ -480,6 +480,27 @@ export interface GitHubDisconnectErrorResponse {
   message: string;
 }
 
+// POST /github/repo/create
+export interface GitHubRepoCreateRequestBody {
+  teamId: string;
+  prototype_id: string;
+  name: string;
+  private?: boolean;
+  description?: string;
+}
+
+export interface GitHubRepoCreateSuccessResponse {
+  owner: string;
+  name: string;
+  html_url: string;
+  default_branch: string;
+}
+
+export interface GitHubRepoCreateErrorResponse {
+  error: string;
+  message: string;
+}
+
 // ============================================================================
 // TYPE GUARDS
 // ============================================================================
