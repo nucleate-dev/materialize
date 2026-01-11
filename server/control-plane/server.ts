@@ -22,6 +22,7 @@ import { DispatcherService } from "./services/dispatcher/DispatcherService.js";
 import { IdleContainerAllocationSystemService } from "./services/idle-container-allocation-system/IdleContainerAllocationSystemService.js";
 import { OrchestrationService } from "./services/orchestration/OrchestrationService.js";
 import { PrototypeManagementService } from "./services/prototype-management/PrototypeManagementService.js";
+import { GitHubIntegrationService } from "./services/github-integration/GitHubIntegrationService.js";
 import { PostHogLogger } from "./loggers/PostHogLogger.js";
 import { PostHog } from "posthog-node";
 
@@ -162,6 +163,7 @@ let deploymentService: PrototypeDeploymentService;
 let prototypeManagementService: PrototypeManagementService;
 let developmentServerService: DevelopmentServerService;
 let orchestrationService: OrchestrationService;
+let githubIntegrationService: GitHubIntegrationService;
 let internalToolsService: InternalCacheManagementService;
 let internalDevServerManagementService: InternalControlPlaneDevelopmentService;
 let internalProductionDeploymentService: InternalProductionDeploymentService;
@@ -253,6 +255,10 @@ const start = async (): Promise<void> => {
     // Create orchestration service and register routes
     orchestrationService = new OrchestrationService(cacheClient, baseLogger);
     orchestrationService.registerRoutes(fastify);
+
+    // Create GitHub integration service and register routes
+    githubIntegrationService = new GitHubIntegrationService();
+    githubIntegrationService.registerRoutes(fastify);
 
     // Create internal tools service and register routes
     internalToolsService = new InternalCacheManagementService(cacheClient);
