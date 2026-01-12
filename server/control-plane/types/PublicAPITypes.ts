@@ -265,6 +265,7 @@ export interface CreatePrototypeRequestBody {
   design_style?: Database["public"]["Enums"]["design_style"];
   custom_design_system?: string | null;
   framework?: Database["public"]["Enums"]["prototype_framework"];
+  source_repo_id?: number; // GitHub repository ID to use as source
 }
 
 export interface CreatePrototypeSuccessResponse {
@@ -510,6 +511,31 @@ export interface GitHubRepoCreateSuccessResponse {
 }
 
 export interface GitHubRepoCreateErrorResponse {
+  error: string;
+  message: string;
+}
+
+// GET /github/repositories
+export interface GitHubRepositoriesQuery {
+  teamId: string;
+}
+
+export interface GitHubRepository {
+  id: number;
+  name: string;
+  full_name: string;
+  html_url: string;
+  default_branch: string;
+  private: boolean;
+  archived: boolean;
+  owner_login: string;
+}
+
+export interface GitHubRepositoriesSuccessResponse {
+  repositories: GitHubRepository[];
+}
+
+export interface GitHubRepositoriesErrorResponse {
   error: string;
   message: string;
 }

@@ -41,6 +41,7 @@ import { User } from "@supabase/supabase-js";
 import {
   AlertTriangle,
   ChevronDown,
+  Code,
   Folder,
   Globe,
   Loader2,
@@ -143,9 +144,24 @@ export default function NewPrototypeModal({
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [framework, setFramework] =
     useState<PrototypeFramework>(DEFAULT_FRAMEWORK);
+  const [sourceRepoId, setSourceRepoId] = useState<number | null>(null);
+  const [sourceRepos, setSourceRepos] = useState<
+    Array<{
+      id: number;
+      name: string;
+      full_name: string;
+    }>
+  >([]);
+  const [isLoadingSourceRepos, setIsLoadingSourceRepos] = useState(false);
+  const [githubIntegrationStatus, setGithubIntegrationStatus] = useState<{
+    connected: boolean;
+    loading: boolean;
+  }>({ connected: false, loading: true });
 
   const isWebPrototypeEnabled =
     posthog?.isFeatureEnabled("web-prototype-support") ?? false;
+  const isSourceRepoEnabled =
+    posthog?.isFeatureEnabled("source-repo") ?? false;
   const isTeamsUIEnabled = posthog?.isFeatureEnabled("teams-ui") ?? false;
   const isWebFrameworkSelected = framework === "web_nextjs_react";
 
@@ -359,6 +375,120 @@ export default function NewPrototypeModal({
     });
   }, [open, logger, projectId, userPlan]);
 
+  // Fetch GitHub integration status when modal opens
+  useEffect(() => {
+    async function fetchGitHubStatus() {
+      if (!activeTeam?.id || !isSourceRepoEnabled) {
+        setGithubIntegrationStatus({ connected: false, loading: false });
+        return;
+      }
+
+      setGithubIntegrationStatus({ connected: false, loading: true });
+      try {
+        const serverEndpoint = process.env.NEXT_PUBLIC_SERVER_ENDPOINT;
+        const session = await supabase.auth.getSession();
+        const token = session.data.session?.access_token;
+
+        if (!serverEndpoint || !token) {
+          setGithubIntegrationStatus({ connected: false, loading: false });
+          return;
+        }
+
+        const response = await fetch(
+          `${serverEndpoint}/github/status?teamId=${activeTeam.id}`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          },
+        );
+
+        const result = await response.json();
+        if (result.data?.connected) {
+          setGithubIntegrationStatus({ connected: true, loading: false });
+        } else {
+          setGithubIntegrationStatus({ connected: false, loading: false });
+        }
+      } catch (error) {
+        logger.debug("error", "Failed to fetch GitHub integration status", {
+          error: error instanceof Error ? error.message : String(error),
+        });
+        setGithubIntegrationStatus({ connected: false, loading: false });
+      }
+    }
+
+    if (open && user?.id && isSourceRepoEnabled) {
+      fetchGitHubStatus();
+    }
+  }, [open, activeTeam?.id, user, isSourceRepoEnabled, logger]);
+
+  // Fetch source repositories when GitHub is connected
+  useEffect(() => {
+    async function fetchSourceRepos() {
+      if (
+        !activeTeam?.id ||
+        !githubIntegrationStatus.connected ||
+        !isSourceRepoEnabled
+      ) {
+        return;
+      }
+
+      setIsLoadingSourceRepos(true);
+      try {
+        const serverEndpoint = process.env.NEXT_PUBLIC_SERVER_ENDPOINT;
+        const session = await supabase.auth.getSession();
+        const token = session.data.session?.access_token;
+
+        if (!serverEndpoint || !token) {
+          setIsLoadingSourceRepos(false);
+          return;
+        }
+
+        const response = await fetch(
+          `${serverEndpoint}/github/repositories?teamId=${activeTeam.id}`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          },
+        );
+
+        const result = await response.json();
+        if (result.data?.repositories) {
+          setSourceRepos(
+            result.data.repositories.map(
+              (repo: {
+                id: number;
+                name: string;
+                full_name: string;
+              }) => ({
+                id: repo.id,
+                name: repo.name,
+                full_name: repo.full_name,
+              }),
+            ),
+          );
+        }
+      } catch (error) {
+        logger.debug("error", "Failed to fetch source repositories", {
+          error: error instanceof Error ? error.message : String(error),
+        });
+      } finally {
+        setIsLoadingSourceRepos(false);
+      }
+    }
+
+    if (open && githubIntegrationStatus.connected && isSourceRepoEnabled) {
+      fetchSourceRepos();
+    }
+  }, [
+    open,
+    activeTeam?.id,
+    githubIntegrationStatus.connected,
+    isSourceRepoEnabled,
+    logger,
+  ]);
+
   useEffect(() => {
     if (framework !== "web_nextjs_react") {
       return;
@@ -436,6 +566,7 @@ export default function NewPrototypeModal({
         custom_design_system: customDesignSystemId ?? undefined,
         framework,
         team_id: teamId,
+        source_repo_id: sourceRepoId ?? undefined,
       };
 
       const response = await fetch(`${serverEndpoint}/prototype/create`, {
@@ -639,6 +770,82 @@ export default function NewPrototypeModal({
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+            )}
+
+            {/* Source Repository Select */}
+            {isSourceRepoEnabled && (
+              <div className="space-y-2">
+                <Label
+                  htmlFor="source-repo-select"
+                  className="text-xs font-medium text-zinc-500 dark:text-[#8A8F98]"
+                >
+                  Source Repository (Optional)
+                </Label>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div>
+                        <Select
+                          value={sourceRepoId?.toString() || "none"}
+                          onValueChange={(value) =>
+                            setSourceRepoId(
+                              value === "none" ? null : parseInt(value, 10),
+                            )
+                          }
+                          disabled={
+                            isCreating ||
+                            githubIntegrationStatus.loading ||
+                            !githubIntegrationStatus.connected ||
+                            isLoadingSourceRepos
+                          }
+                        >
+                          <SelectTrigger
+                            id="source-repo-select"
+                            className="h-11 bg-white dark:bg-[#0B0C0E] border-zinc-200 dark:border-white/10 text-zinc-900 dark:text-white focus:ring-0"
+                          >
+                            <div className="flex items-center gap-2">
+                              <Code className="w-4 h-4 text-zinc-400 dark:text-white/50" />
+                              <SelectValue placeholder="None" />
+                            </div>
+                          </SelectTrigger>
+                          <SelectContent className="bg-white dark:bg-[#141517] border-zinc-200 dark:border-white/10 text-zinc-900 dark:text-white">
+                            <SelectItem
+                              value="none"
+                              className="focus:bg-zinc-100 dark:focus:bg-white/10 focus:text-zinc-900 dark:focus:text-white cursor-pointer"
+                            >
+                              None
+                            </SelectItem>
+                            {isLoadingSourceRepos ? (
+                              <div className="px-2 py-2 text-xs text-zinc-500 dark:text-white/50 flex items-center gap-2">
+                                <Loader2 className="w-3 h-3 animate-spin" />{" "}
+                                Loading repositories...
+                              </div>
+                            ) : (
+                              sourceRepos.map((repo) => (
+                                <SelectItem
+                                  key={repo.id}
+                                  value={repo.id.toString()}
+                                  className="focus:bg-zinc-100 dark:focus:bg-white/10 focus:text-zinc-900 dark:focus:text-white cursor-pointer"
+                                >
+                                  {repo.full_name}
+                                </SelectItem>
+                              ))
+                            )}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </TooltipTrigger>
+                    {!githubIntegrationStatus.connected &&
+                      !githubIntegrationStatus.loading && (
+                        <TooltipContent>
+                          <p>
+                            Connect GitHub to prototype on a source repository
+                          </p>
+                        </TooltipContent>
+                      )}
+                  </Tooltip>
+                </TooltipProvider>
               </div>
             )}
 
