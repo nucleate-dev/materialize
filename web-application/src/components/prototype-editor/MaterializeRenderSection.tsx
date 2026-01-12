@@ -119,6 +119,40 @@ const normalizePath = (value: string) => {
   return trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
 };
 
+const stripTokenFromPath = (path: string) => {
+  if (!path) return path;
+
+  try {
+    const parsed = new URL(path, "http://local");
+    if (!parsed.searchParams.has("token")) {
+      return path;
+    }
+
+    parsed.searchParams.delete("token");
+    const search = parsed.searchParams.toString();
+    return `${parsed.pathname}${search ? `?${search}` : ""}${parsed.hash}`;
+  } catch {
+    return path;
+  }
+};
+
+const stripTokenFromUrl = (url: string) => {
+  if (!url) return url;
+
+  try {
+    const parsed = new URL(url);
+    if (!parsed.searchParams.has("token")) {
+      return url;
+    }
+
+    parsed.searchParams.delete("token");
+    const search = parsed.searchParams.toString();
+    return `${parsed.origin}${parsed.pathname}${search ? `?${search}` : ""}${parsed.hash}`;
+  } catch {
+    return url;
+  }
+};
+
 const extractInitialPath = (url: string) => {
   try {
     const parsed = new URL(url);
@@ -135,13 +169,33 @@ const resolveIframeSrc = (baseUrl: string, path: string) => {
   }
 
   try {
-    return new URL(path, baseUrl).toString();
+    const base = new URL(baseUrl);
+    const token = base.searchParams.get("token");
+    const resolved = new URL(path || "/", base);
+    if (token && !resolved.searchParams.has("token")) {
+      resolved.searchParams.set("token", token);
+    }
+    return resolved.toString();
   } catch {
     try {
       return new URL(baseUrl).toString();
     } catch {
       return baseUrl;
     }
+  }
+};
+
+const resolveDisplayUrl = (baseUrl: string, path: string) => {
+  if (!baseUrl) {
+    return "";
+  }
+
+  try {
+    const base = new URL(stripTokenFromUrl(baseUrl));
+    const normalizedPath = stripTokenFromPath(path);
+    return new URL(normalizedPath || "/", base).toString();
+  } catch {
+    return stripTokenFromUrl(baseUrl);
   }
 };
 
@@ -584,12 +638,15 @@ const MaterializeRenderSection = forwardRef<
           { initialScreens },
         );
         setMobileScreens(
-          initialScreens.map((s) => ({ id: s.id, path: s.path })),
+          initialScreens.map((s) => ({
+            id: s.id,
+            path: stripTokenFromPath(s.path),
+          })),
         );
         return;
       }
 
-      const initialPath = extractInitialPath(viewing_url);
+      const initialPath = stripTokenFromPath(extractInitialPath(viewing_url));
       setMobileScreens([{ id: 0, path: initialPath }]);
       nextMobileScreenId.current = 1;
 
@@ -638,12 +695,15 @@ const MaterializeRenderSection = forwardRef<
           { initialWebScreens },
         );
         setWebScreens(
-          initialWebScreens.map((s) => ({ id: s.id, path: s.path })),
+          initialWebScreens.map((s) => ({
+            id: s.id,
+            path: stripTokenFromPath(s.path),
+          })),
         );
         return;
       }
 
-      const initialPath = extractInitialPath(viewing_url);
+      const initialPath = stripTokenFromPath(extractInitialPath(viewing_url));
       setWebScreens([{ id: 0, path: initialPath }]);
       nextWebScreenId.current = 1;
     }, [initialWebScreens, logger, viewing_url]);
@@ -660,7 +720,9 @@ const MaterializeRenderSection = forwardRef<
             const iframeUrl = iframeWindow.location.href;
             // Ignore about:blank URLs (used during refresh operations)
             if (iframeUrl && viewing_url && !iframeUrl.startsWith("about:")) {
-              const currentPath = extractInitialPath(iframeUrl);
+              const currentPath = stripTokenFromPath(
+                extractInitialPath(iframeUrl),
+              );
 
               // Update the screen's path if it has changed (but not if currently editing)
               setMobileScreens((prev) =>
@@ -706,7 +768,7 @@ const MaterializeRenderSection = forwardRef<
 
         // Check if this is a navigation message
         if (event.data?.type === "navigation" && event.data?.path) {
-          const newPath = event.data.path;
+          const newPath = stripTokenFromPath(event.data.path);
 
           // Find which screen this iframe belongs to by matching the source
           iframeRefs.current.forEach((iframe, screenId) => {
@@ -858,14 +920,14 @@ const MaterializeRenderSection = forwardRef<
     const handleWebBadgeClick = useCallback(
       (id: number, currentPath: string) => {
         setEditingWebScreenId(id);
-        setTempPath(currentPath);
+        setTempPath(stripTokenFromPath(currentPath));
       },
       [],
     );
 
     const handleConfirmWebPathChange = useCallback(
       (id: number) => {
-        const normalized = normalizePath(tempPath);
+        const normalized = stripTokenFromPath(normalizePath(tempPath));
         setWebScreens((prev) =>
           prev.map((screen) => {
             if (screen.id === id && normalized !== screen.path) {
@@ -961,9 +1023,9 @@ const MaterializeRenderSection = forwardRef<
 
     const handleBadgeClick = (id: number, currentPath: string) => {
       setEditingScreenId(id);
-      setTempPath(currentPath);
+      setTempPath(stripTokenFromPath(currentPath));
       // Filter suggestions based on current path
-      updateRouteSuggestions(currentPath);
+      updateRouteSuggestions(stripTokenFromPath(currentPath));
     };
 
     const updateRouteSuggestions = (input: string) => {
@@ -983,7 +1045,7 @@ const MaterializeRenderSection = forwardRef<
     };
 
     const handleConfirmPathChange = (id: number) => {
-      const normalized = normalizePath(tempPath);
+      const normalized = stripTokenFromPath(normalizePath(tempPath));
       setMobileScreens((prev) =>
         prev.map((screen) => {
           if (screen.id === id && normalized !== screen.path) {
@@ -1850,7 +1912,7 @@ const MaterializeRenderSection = forwardRef<
                                       : undefined
                                   }
                                 >
-                                  {screen.path || "/"}
+                                  {stripTokenFromPath(screen.path) || "/"}
                                 </div>
                                 {!isReadOnlyView && (
                                   <>
@@ -2001,15 +2063,7 @@ const MaterializeRenderSection = forwardRef<
 
       // Helper to resolve iframe src with path
       const resolveWebIframeSrc = (basePath: string) => {
-        if (!viewing_url) return "";
-        if (basePath === "/" || !basePath) return viewing_url;
-        try {
-          const url = new URL(viewing_url);
-          url.pathname = basePath;
-          return url.toString();
-        } catch {
-          return viewing_url;
-        }
+        return resolveIframeSrc(viewing_url, basePath);
       };
 
       const showWebMultiScreen = isMultiScreenEnabled && webScreens.length > 0;
@@ -2132,9 +2186,7 @@ const MaterializeRenderSection = forwardRef<
                             }
                           >
                             <span className="text-[10px] text-muted-foreground font-mono truncate opacity-60">
-                              {screen.path === "/"
-                                ? viewing_url
-                                : `${viewing_url}${screen.path}`}
+                              {resolveDisplayUrl(viewing_url, screen.path)}
                             </span>
                           </div>
                         )}
