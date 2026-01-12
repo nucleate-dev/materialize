@@ -26,6 +26,7 @@ import { NucleateDevelopmentServerService } from "../../dev-server/NucleateDevel
 import { SandboxService } from "../../SandboxService.js";
 import { SupabaseClientService } from "../../SupabaseClientService.js";
 import { TerminalService } from "../../terminals/TerminalService.js";
+import { ALLOWED_ROOTS } from "../ChatService.js";
 import {
   costFunctionV3,
   CURRENT_COST_FUNCTION_NAME,
@@ -39,6 +40,9 @@ import { createDesignToolsMcpServer } from "../mcp/mcp-design-tools.js";
 import { createDevelopmentToolsMcpServer } from "../mcp/mcp-dev-tools.js";
 import {
   getClaudeCodeDesignSubagentPrompt,
+  getSourceRepositoryComponentHarvesterPrompt,
+  getSourceRepositoryScreenExtractorPrompt,
+  getSourceRepositoryThemeSyncPrompt,
   getSystemPromptForDesignStyle,
 } from "../prompts/ClaudeCodePrompts.js";
 import { broadcastToConnections } from "../websocket-broadcast.js";
@@ -49,7 +53,6 @@ import {
   ChatEngineResult,
   ChatEngineSessionState,
 } from "./chat-engine.js";
-import { ALLOWED_ROOT } from "../ChatService.js";
 
 const HISTORY_MESSAGE_REQUEST_COUNT = 6;
 
@@ -265,6 +268,7 @@ export class ChatQueryHandler implements ChatEngine {
         context.getRelativePath,
         systemPrompt,
         sessionState.prototypeChatSessionId,
+        !!this.devServerService.sourceRepository,
       );
 
       // Check if session is valid for resumption
@@ -500,13 +504,14 @@ export class ChatQueryHandler implements ChatEngine {
     relativePathResolver: (path: string) => string,
     systemPromptOverride: string,
     prototypeChatSessionId: string,
+    hasSourceRepository: boolean,
   ): Promise<Options & { resume?: string }> {
     const canUseTool: CanUseTool = async (
       toolName: ToolName,
       input: ToolInput,
       _options: unknown,
     ): Promise<PermissionResult> => {
-      return evaluateToolPermission(ALLOWED_ROOT, toolName, input);
+      return evaluateToolPermission(ALLOWED_ROOTS, toolName, input);
     };
 
     const allowedToolsDefault = [
@@ -587,21 +592,58 @@ export class ChatQueryHandler implements ChatEngine {
       designSubagentEnabled,
       userIdLocal: userId,
     });
+    const agentConfigs: Record<
+      string,
+      { description: string; prompt: string; tools: string[] }
+    > = {};
+
+    if (designSubagentEnabled) {
+      agentConfigs["ui-ux-designer"] = {
+        description: `Expert UI/UX designer for ${
+          framework === "mobile_expo_react_native"
+            ? "mobile react native"
+            : "tailwindcss web Next.js"
+        } applications. Use for design inspiration and planning great design implementation, any time the user requests a feature that has significant user interface changes.`,
+        prompt: getClaudeCodeDesignSubagentPrompt(framework),
+        tools: ["Read", "Glob", "Grep", "WebSearch", "WebFetch"],
+      };
+    }
+
+    if (hasSourceRepository) {
+      const sourceAgentTools = [
+        "Read",
+        "Glob",
+        "Grep",
+        "TodoWrite",
+        "mcp__devtools__SafeBash",
+        "mcp__devtools__SafeWrite",
+      ];
+      agentConfigs["source-screen-extractor"] = {
+        description:
+          "Specialist that finds an existing screen in /tmp/source-repository, copies it plus dependencies into /tmp/materialize-dev-server/client, mocks backend calls, and runs npx tsc to ensure the sandbox builds.",
+        prompt: getSourceRepositoryScreenExtractorPrompt(framework),
+        tools: sourceAgentTools,
+      };
+      agentConfigs["source-theme-syncer"] = {
+        description:
+          "Theme and token expert that compares the sandbox theme files with the source repo tokens and rewrites sandbox theme files to match exactly.",
+        prompt: getSourceRepositoryThemeSyncPrompt(framework),
+        tools: sourceAgentTools,
+      };
+      agentConfigs["source-component-harvester"] = {
+        description:
+          "Component cataloger who searches the source repo for reusable UI components, copies them into the sandbox, and documents what is now available for the main agent.",
+        prompt: getSourceRepositoryComponentHarvesterPrompt(framework),
+        tools: sourceAgentTools,
+      };
+    }
+
+    const agents =
+      Object.keys(agentConfigs).length > 0 ? agentConfigs : undefined;
+
     return {
       ...options,
-      agents: designSubagentEnabled
-        ? {
-          "ui-ux-designer": {
-            description: `Expert UI/UX designer for ${
-              framework === "mobile_expo_react_native"
-                ? "mobile react native"
-                : "tailwindcss web Next.js"
-            } applications. Use for design inspiration and planning great design implementation, any time the user requests a feature that has significant user interface changes.`,
-            prompt: getClaudeCodeDesignSubagentPrompt(framework),
-            tools: ["Read", "Glob", "Grep", "WebSearch", "WebFetch"],
-          },
-        }
-        : undefined,
+      agents,
       includePartialMessages: false,
       cwd: WORK_DIR,
       maxTurns: options?.maxTurns ?? 50,
@@ -821,7 +863,7 @@ export class ChatQueryHandler implements ChatEngine {
           }`,
         );
         const permission = evaluateToolPermission(
-          ALLOWED_ROOT,
+          ALLOWED_ROOTS,
           input.tool_name as ToolName,
           (input.tool_input ?? {}) as ToolInput,
         );

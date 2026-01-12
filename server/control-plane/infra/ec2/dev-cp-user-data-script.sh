@@ -200,6 +200,14 @@ setfacl -R -m g:${MATERIALIZE_GROUP}:rwX ${MATERIALIZE_HOME}
 setfacl -R -d -m u:${MATERIALIZE_USER}:rwX ${MATERIALIZE_HOME}
 setfacl -R -d -m g:${MATERIALIZE_GROUP}:rwX ${MATERIALIZE_HOME}
 
+# Set up /tmp/source-repository with same ACL permissions
+mkdir -p /tmp/source-repository
+chown -R ${MATERIALIZE_USER}:${MATERIALIZE_GROUP} /tmp/source-repository
+setfacl -R -m u:${MATERIALIZE_USER}:rwX /tmp/source-repository
+setfacl -R -m g:${MATERIALIZE_GROUP}:rwX /tmp/source-repository
+setfacl -R -d -m u:${MATERIALIZE_USER}:rwX /tmp/source-repository
+setfacl -R -d -m g:${MATERIALIZE_GROUP}:rwX /tmp/source-repository
+
 # 5. Set environment variables for build-workers
 echo "==> Setting environment variables in ec2-user's profile..."
 cat >> /home/${USER}/.bashrc << 'EOF'

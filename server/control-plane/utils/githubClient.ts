@@ -72,6 +72,17 @@ export interface GitHubAppJWT {
   expiresAt: Date;
 }
 
+export interface GitHubRepositoryInfo {
+  id: number;
+  name: string;
+  full_name: string;
+  html_url: string;
+  default_branch: string;
+  owner: {
+    login: string;
+  };
+}
+
 // ============================================================================
 // OAuth Token Exchange
 // ============================================================================
@@ -331,6 +342,60 @@ export async function createInstallationToken(
 
   const data = await response.json();
   return data as GitHubInstallationToken;
+}
+
+/**
+ * Fetch metadata for a GitHub repository by its numeric ID.
+ * https://docs.github.com/en/rest/repos/repos#get-a-repository
+ */
+export async function fetchRepositoryById(
+  repositoryId: number,
+  accessToken: string,
+  logger: SystemLogger,
+): Promise<GitHubRepositoryInfo> {
+  if (!repositoryId) {
+    throw new Error('A repository ID is required to fetch GitHub repository metadata');
+  }
+
+  if (!accessToken) {
+    throw new Error('A GitHub access token is required to fetch repository metadata');
+  }
+
+  const response = await fetch(`${GITHUB_API_BASE}/repositories/${repositoryId}`, {
+    headers: {
+      'Accept': 'application/vnd.github+json',
+      'Authorization': `Bearer ${accessToken}`,
+      'X-GitHub-Api-Version': GITHUB_API_VERSION,
+    },
+  });
+
+  const responseText = await response.text();
+
+  if (!response.ok) {
+    logger.error(
+      new Error('Failed to fetch GitHub repository by ID'),
+      'GitHub API: repository fetch failed',
+      {
+        repositoryId,
+        status: response.status,
+        response: responseText.slice(0, 500),
+      },
+    );
+    throw new Error(
+      `Failed to fetch GitHub repository ${repositoryId}: ${response.status}`,
+    );
+  }
+
+  try {
+    return JSON.parse(responseText) as GitHubRepositoryInfo;
+  } catch (error) {
+    logger.error(
+      error instanceof Error ? error : new Error(String(error)),
+      'Failed to parse GitHub repository response',
+      { repositoryId, response: responseText.slice(0, 200) },
+    );
+    throw new Error('Failed to parse GitHub repository response');
+  }
 }
 
 // ============================================================================

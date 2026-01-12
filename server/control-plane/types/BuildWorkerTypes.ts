@@ -5,7 +5,7 @@
 // To update these types, modify the source file and run:
 // npm run sync-build-worker-types
 //
-// Last synced: 2026-01-12T00:01:24.731Z
+// Last synced: 2026-01-12T04:38:45.367Z
 
 import { Database } from "./supabase.js";
 
@@ -211,11 +211,22 @@ export interface AllocationKeys {
   aak?: string;
 }
 
+export interface AllocationSourceRepository {
+  github_repo_id: number;
+  installation_id: number;
+  repository_url: string;
+  repository_owner: string;
+  repository_name: string;
+  default_branch: string;
+  full_name: string;
+}
+
 export interface PublicAllocateRequest {
   s3_credentials: AllocationS3CredentialsInput;
   user_details: AllocationUserDetails;
   cloudflare_credentials: AllocationCloudflareTunnelCredentials;
   keys: AllocationKeys;
+  source_repository?: AllocationSourceRepository;
 }
 
 export interface PublicAllocateSuccessResponse {

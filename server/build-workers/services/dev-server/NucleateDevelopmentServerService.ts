@@ -73,6 +73,15 @@ export class NucleateDevelopmentServerService {
     fullName: string;
     tokenExpiresAt: string;
   } | null = null;
+  public sourceRepository: {
+    githubRepoId: number;
+    installationId: number;
+    repositoryUrl: string;
+    repositoryOwner: string;
+    repositoryName: string;
+    defaultBranch: string;
+    fullName: string;
+  } | null = null;
   public developmentServerState: {
     tunnelUrl: string;
     devServerStatus: DevServerStatus;
@@ -159,6 +168,18 @@ export class NucleateDevelopmentServerService {
 
   public setCloudflareTunnelHostname(hostname: string): void {
     this.cloudflareTunnelHostname = hostname;
+  }
+
+  public setSourceRepository(sourceRepository: {
+    githubRepoId: number;
+    installationId: number;
+    repositoryUrl: string;
+    repositoryOwner: string;
+    repositoryName: string;
+    defaultBranch: string;
+    fullName: string;
+  }): void {
+    this.sourceRepository = sourceRepository;
   }
 
   /**
