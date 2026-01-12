@@ -391,9 +391,9 @@ export default function NewPrototypeModal({
     });
   }, [open, logger, projectId, userPlan]);
 
-  // Fetch GitHub integration status when modal opens
+  // Fetch GitHub integration status and repositories when modal opens
   useEffect(() => {
-    async function fetchGitHubStatus() {
+    async function fetchGitHubStatusAndRepos() {
       if (!activeTeam?.id || !isSourceRepoEnabled) {
         setGithubIntegrationStatus({ connected: false, loading: false });
         return;
@@ -410,7 +410,8 @@ export default function NewPrototypeModal({
           return;
         }
 
-        const response = await fetch(
+        // First, check GitHub integration status
+        const statusResponse = await fetch(
           `${serverEndpoint}/github/status?teamId=${activeTeam.id}`,
           {
             headers: {
@@ -419,11 +420,46 @@ export default function NewPrototypeModal({
           },
         );
 
-        const result = await response.json();
-        if (result.data?.connected) {
-          setGithubIntegrationStatus({ connected: true, loading: false });
-        } else {
-          setGithubIntegrationStatus({ connected: false, loading: false });
+        const statusResult = await statusResponse.json();
+        const isConnected = statusResult.data?.connected ?? false;
+        setGithubIntegrationStatus({ connected: isConnected, loading: false });
+
+        // If GitHub is connected, fetch repositories
+        if (isConnected) {
+          setIsLoadingSourceRepos(true);
+          try {
+            const reposResponse = await fetch(
+              `${serverEndpoint}/github/repositories?teamId=${activeTeam.id}`,
+              {
+                headers: {
+                  Authorization: `Bearer ${token}`,
+                },
+              },
+            );
+
+            const reposResult = await reposResponse.json();
+            if (reposResult.data?.repositories) {
+              setSourceRepos(
+                reposResult.data.repositories.map(
+                  (repo: {
+                    id: number;
+                    name: string;
+                    full_name: string;
+                  }) => ({
+                    id: repo.id,
+                    name: repo.name,
+                    full_name: repo.full_name,
+                  }),
+                ),
+              );
+            }
+          } catch (error) {
+            logger.debug("error", "Failed to fetch source repositories", {
+              error: error instanceof Error ? error.message : String(error),
+            });
+          } finally {
+            setIsLoadingSourceRepos(false);
+          }
         }
       } catch (error) {
         logger.debug("error", "Failed to fetch GitHub integration status", {
@@ -434,76 +470,9 @@ export default function NewPrototypeModal({
     }
 
     if (open && user?.id && isSourceRepoEnabled) {
-      fetchGitHubStatus();
+      fetchGitHubStatusAndRepos();
     }
   }, [open, activeTeam?.id, user, isSourceRepoEnabled, logger]);
-
-  // Fetch source repositories when GitHub is connected
-  useEffect(() => {
-    async function fetchSourceRepos() {
-      if (
-        !activeTeam?.id ||
-        !githubIntegrationStatus.connected ||
-        !isSourceRepoEnabled
-      ) {
-        return;
-      }
-
-      setIsLoadingSourceRepos(true);
-      try {
-        const serverEndpoint = process.env.NEXT_PUBLIC_SERVER_ENDPOINT;
-        const session = await supabase.auth.getSession();
-        const token = session.data.session?.access_token;
-
-        if (!serverEndpoint || !token) {
-          setIsLoadingSourceRepos(false);
-          return;
-        }
-
-        const response = await fetch(
-          `${serverEndpoint}/github/repositories?teamId=${activeTeam.id}`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          },
-        );
-
-        const result = await response.json();
-        if (result.data?.repositories) {
-          setSourceRepos(
-            result.data.repositories.map(
-              (repo: {
-                id: number;
-                name: string;
-                full_name: string;
-              }) => ({
-                id: repo.id,
-                name: repo.name,
-                full_name: repo.full_name,
-              }),
-            ),
-          );
-        }
-      } catch (error) {
-        logger.debug("error", "Failed to fetch source repositories", {
-          error: error instanceof Error ? error.message : String(error),
-        });
-      } finally {
-        setIsLoadingSourceRepos(false);
-      }
-    }
-
-    if (open && githubIntegrationStatus.connected && isSourceRepoEnabled) {
-      fetchSourceRepos();
-    }
-  }, [
-    open,
-    activeTeam?.id,
-    githubIntegrationStatus.connected,
-    isSourceRepoEnabled,
-    logger,
-  ]);
 
   useEffect(() => {
     if (framework !== "web_nextjs_react") {
@@ -789,6 +758,87 @@ export default function NewPrototypeModal({
               </div>
             )}
 
+            {/* Visibility Select */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label
+                  htmlFor="prototype-visibility"
+                  className="text-xs font-medium text-zinc-500 dark:text-[#8A8F98]"
+                >
+                  Visibility
+                </Label>
+                {!IsUserPlanSubscribed(userPlan) && (
+                  <span className="text-[10px] text-zinc-500 dark:text-[#8A8F98] bg-zinc-100 dark:bg-white/5 px-1.5 py-0.5 rounded">
+                    Upgrade for Private
+                  </span>
+                )}
+              </div>
+              <Select
+                value={visibility}
+                onValueChange={(value) =>
+                  setVisibility(() => {
+                    const nextVisibility = value as PrototypeVisibility;
+
+                    // Check if trying to select a locked option
+                    if (
+                      isFreePlan &&
+                      (nextVisibility === "SELF" || nextVisibility === "TEAM")
+                    ) {
+                      setShowUpsellModal(true);
+                      return visibility; // Keep current value
+                    }
+
+                    return nextVisibility;
+                  })
+                }
+                disabled={isCreating}
+              >
+                <SelectTrigger
+                  id="prototype-visibility"
+                  className="h-11 bg-white dark:bg-[#0B0C0E] border-zinc-200 dark:border-white/10 text-zinc-900 dark:text-white focus:ring-0"
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-white dark:bg-[#141517] border-zinc-200 dark:border-white/10 text-zinc-900 dark:text-white">
+                  <SelectItem
+                    value="PUBLIC"
+                    className="focus:bg-zinc-100 dark:focus:bg-white/10 focus:text-zinc-900 dark:focus:text-white cursor-pointer"
+                  >
+                    <div className="flex items-center gap-2">
+                      <Globe className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
+                      <span>Public</span>
+                    </div>
+                  </SelectItem>
+                  {isTeamsUIEnabled && activeTeam && (
+                    <SelectItem
+                      value="TEAM"
+                      className="focus:bg-zinc-100 dark:focus:bg-white/10 focus:text-zinc-900 dark:focus:text-white cursor-pointer"
+                    >
+                      <div className="flex items-center gap-2">
+                        <Share2 className="w-4 h-4 text-blue-500 dark:text-blue-400" />
+                        <span>{activeTeam.name}</span>
+                        {isFreePlan && (
+                          <Lock className="w-3.5 h-3.5 text-gray-400 ml-auto" />
+                        )}
+                      </div>
+                    </SelectItem>
+                  )}
+                  <SelectItem
+                    value="SELF"
+                    className="focus:bg-zinc-100 dark:focus:bg-white/10 focus:text-zinc-900 dark:focus:text-white cursor-pointer"
+                  >
+                    <div className="flex items-center gap-2">
+                      <Lock className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+                      <span>Private</span>
+                      {isFreePlan && (
+                        <Lock className="w-3.5 h-3.5 text-gray-400 ml-auto" />
+                      )}
+                    </div>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
             {/* Source Repository Select */}
             {isSourceRepoEnabled && (
               <div className="space-y-2">
@@ -914,87 +964,6 @@ export default function NewPrototypeModal({
                 </TooltipProvider>
               </div>
             )}
-
-            {/* Visibility Select */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label
-                  htmlFor="prototype-visibility"
-                  className="text-xs font-medium text-zinc-500 dark:text-[#8A8F98]"
-                >
-                  Visibility
-                </Label>
-                {!IsUserPlanSubscribed(userPlan) && (
-                  <span className="text-[10px] text-zinc-500 dark:text-[#8A8F98] bg-zinc-100 dark:bg-white/5 px-1.5 py-0.5 rounded">
-                    Upgrade for Private
-                  </span>
-                )}
-              </div>
-              <Select
-                value={visibility}
-                onValueChange={(value) =>
-                  setVisibility(() => {
-                    const nextVisibility = value as PrototypeVisibility;
-
-                    // Check if trying to select a locked option
-                    if (
-                      isFreePlan &&
-                      (nextVisibility === "SELF" || nextVisibility === "TEAM")
-                    ) {
-                      setShowUpsellModal(true);
-                      return visibility; // Keep current value
-                    }
-
-                    return nextVisibility;
-                  })
-                }
-                disabled={isCreating}
-              >
-                <SelectTrigger
-                  id="prototype-visibility"
-                  className="h-11 bg-white dark:bg-[#0B0C0E] border-zinc-200 dark:border-white/10 text-zinc-900 dark:text-white focus:ring-0"
-                >
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="bg-white dark:bg-[#141517] border-zinc-200 dark:border-white/10 text-zinc-900 dark:text-white">
-                  <SelectItem
-                    value="PUBLIC"
-                    className="focus:bg-zinc-100 dark:focus:bg-white/10 focus:text-zinc-900 dark:focus:text-white cursor-pointer"
-                  >
-                    <div className="flex items-center gap-2">
-                      <Globe className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
-                      <span>Public</span>
-                    </div>
-                  </SelectItem>
-                  {isTeamsUIEnabled && activeTeam && (
-                    <SelectItem
-                      value="TEAM"
-                      className="focus:bg-zinc-100 dark:focus:bg-white/10 focus:text-zinc-900 dark:focus:text-white cursor-pointer"
-                    >
-                      <div className="flex items-center gap-2">
-                        <Share2 className="w-4 h-4 text-blue-500 dark:text-blue-400" />
-                        <span>{activeTeam.name}</span>
-                        {isFreePlan && (
-                          <Lock className="w-3.5 h-3.5 text-gray-400 ml-auto" />
-                        )}
-                      </div>
-                    </SelectItem>
-                  )}
-                  <SelectItem
-                    value="SELF"
-                    className="focus:bg-zinc-100 dark:focus:bg-white/10 focus:text-zinc-900 dark:focus:text-white cursor-pointer"
-                  >
-                    <div className="flex items-center gap-2">
-                      <Lock className="w-4 h-4 text-gray-500 dark:text-gray-400" />
-                      <span>Private</span>
-                      {isFreePlan && (
-                        <Lock className="w-3.5 h-3.5 text-gray-400 ml-auto" />
-                      )}
-                    </div>
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
 
             {/* Advanced Options Collapsible */}
             <Collapsible
