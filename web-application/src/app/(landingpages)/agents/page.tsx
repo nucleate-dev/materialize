@@ -85,7 +85,7 @@ function HeroSection() {
             className="bg-foreground text-background hover:bg-foreground/90 px-8 py-6 text-lg rounded-full font-medium transition-all hover:scale-105"
             asChild
           >
-            <Link href="mailto:team@nucleate.dev">
+            <Link href="https://calendly.com/nucleate-agents/nucleate-ai-discovery-call-clone">
               Get In Touch
               <ArrowRight className="ml-2 w-5 h-5" />
             </Link>
@@ -525,7 +525,7 @@ function CTASection() {
           className="bg-foreground text-background hover:bg-foreground/90 px-10 py-6 text-lg rounded-full font-medium transition-all hover:scale-105"
           asChild
         >
-          <Link href="mailto:team@nucleate.dev">
+          <Link href="https://calendly.com/nucleate-agents/nucleate-ai-discovery-call-clone">
             Get In Touch
             <ArrowRight className="ml-2 w-5 h-5" />
           </Link>
