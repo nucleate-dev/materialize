@@ -48,7 +48,7 @@ export class IdleContainerAllocationSystemService {
   private readonly log2: SystemLogger;
   private readonly stsClient: STSClient;
   private readonly cloudflareTunnelSystem: IdleCloudflareTunnelSystem;
-  private readonly supabase: SupabaseClient<Database>;
+  private readonly supabaseServiceRoleClient: SupabaseClient<Database>;
   private maintenanceTimer?: NodeJS.Timeout;
 
   constructor(opts: {
@@ -66,7 +66,7 @@ export class IdleContainerAllocationSystemService {
     this.cloudflareTunnelSystem = new IdleCloudflareTunnelSystem({
       log2: this.log2,
     });
-    this.supabase = createClient(
+    this.supabaseServiceRoleClient = createClient(
       process.env.SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!,
     );
@@ -721,203 +721,10 @@ export class IdleContainerAllocationSystemService {
       );
     }
 
-    // Fetch source repository information if configured for this prototype
-    let sourceRepository: AllocationSourceRepository | undefined;
-    try {
-      const {
-        data: sensitiveMetadata,
-        error: metadataError,
-      } = await this.supabase
-        .from("prototype_sensitive_metadata")
-        .select("source_repo_id")
-        .eq("prototype_id", prototypeId)
-        .maybeSingle();
-
-      if (metadataError) {
-        throw metadataError;
-      }
-
-      if (sensitiveMetadata?.source_repo_id) {
-        const sourceRepoId = sensitiveMetadata.source_repo_id;
-
-        const {
-          data: prototypeRecord,
-          error: prototypeError,
-        } = await this.supabase
-          .from("prototypes")
-          .select("team_id")
-          .eq("id", prototypeId)
-          .maybeSingle();
-
-        if (prototypeError) {
-          throw prototypeError;
-        }
-
-        const teamId = prototypeRecord?.team_id;
-        if (!teamId) {
-          this.log2.warn(
-            "Prototype is missing a team_id, cannot fetch GitHub repository metadata",
-            { prototypeId, sourceRepoId },
-          );
-        } else {
-          const {
-            data: integration,
-            error: integrationError,
-          } = await this.supabase
-            .from("github_integrations")
-            .select("account_type, installation_id")
-            .eq("team_id", teamId)
-            .maybeSingle();
-
-          if (integrationError) {
-            throw integrationError;
-          }
-
-          if (!integration) {
-            this.log2.warn(
-              "No GitHub integration configured for team, skipping repository metadata fetch",
-              {
-                prototypeId,
-                teamId,
-                sourceRepoId,
-              },
-            );
-          } else {
-            let githubAccessToken: string | undefined;
-
-            if (integration.account_type === "Organization") {
-              try {
-                const installationToken = await createInstallationToken(
-                  integration.installation_id,
-                  this.log2,
-                );
-                githubAccessToken = installationToken.token;
-              } catch (installationTokenError) {
-                this.log2.error(
-                  installationTokenError instanceof Error
-                    ? installationTokenError
-                    : new Error(String(installationTokenError)),
-                  "Failed to create installation token for source repository metadata fetch",
-                  {
-                    prototypeId,
-                    teamId,
-                    sourceRepoId,
-                    installationId: integration.installation_id,
-                  },
-                );
-              }
-            } else if (integration.account_type === "User") {
-              const {
-                data: tokenRecord,
-                error: tokenError,
-              } = await this.supabase
-                .from("github_integration_tokens")
-                .select("token_encrypted")
-                .eq("team_id", teamId)
-                .maybeSingle();
-
-              if (tokenError) {
-                throw tokenError;
-              }
-
-              if (!tokenRecord?.token_encrypted) {
-                this.log2.warn(
-                  "GitHub integration token missing for team, skipping repository metadata fetch",
-                  {
-                    prototypeId,
-                    teamId,
-                    sourceRepoId,
-                  },
-                );
-              } else {
-                try {
-                  githubAccessToken = decrypt(tokenRecord.token_encrypted);
-                } catch (decryptError) {
-                  this.log2.error(
-                    decryptError instanceof Error
-                      ? decryptError
-                      : new Error(String(decryptError)),
-                    "Failed to decrypt GitHub token for repository metadata fetch",
-                    {
-                      prototypeId,
-                      teamId,
-                      sourceRepoId,
-                    },
-                  );
-                }
-              }
-            } else {
-              this.log2.warn(
-                "Unsupported GitHub integration account type for repository metadata fetch",
-                {
-                  prototypeId,
-                  teamId,
-                  sourceRepoId,
-                  accountType: integration.account_type,
-                },
-              );
-            }
-
-            if (githubAccessToken) {
-              try {
-                const repoInfo = await fetchRepositoryById(
-                  sourceRepoId,
-                  githubAccessToken,
-                  this.log2,
-                );
-
-                sourceRepository = {
-                  github_repo_id: repoInfo.id,
-                  installation_id: integration.installation_id,
-                  repository_url: repoInfo.html_url,
-                  repository_owner: repoInfo.owner?.login ?? "",
-                  repository_name: repoInfo.name,
-                  default_branch: repoInfo.default_branch,
-                  full_name: repoInfo.full_name,
-                };
-
-                this.log2.info(
-                  "Source repository configured for worker allocation",
-                  {
-                    prototypeId,
-                    repositoryFullName: repoInfo.full_name,
-                    githubRepoId: repoInfo.id,
-                  },
-                );
-              } catch (repoFetchError) {
-                this.log2.error(
-                  repoFetchError instanceof Error
-                    ? repoFetchError
-                    : new Error(String(repoFetchError)),
-                  "Failed to fetch GitHub repository metadata for allocation",
-                  {
-                    prototypeId,
-                    teamId,
-                    sourceRepoId,
-                  },
-                );
-              }
-            } else {
-              this.log2.warn(
-                "Unable to acquire GitHub access token, skipping repository metadata fetch",
-                {
-                  prototypeId,
-                  teamId,
-                  sourceRepoId,
-                },
-              );
-            }
-          }
-        }
-      }
-    } catch (error) {
-      this.log2.error(
-        error instanceof Error ? error : new Error(String(error)),
-        "Error fetching source repository information, continuing without it",
-        { prototypeId },
-      );
-      // Continue without source repository - it's optional
-    }
+    const sourceRepository = await this.fetchSourceRepositoryForAllocation(
+      prototypeId,
+      jwt,
+    );
 
     const creds: PublicAllocateRequest = {
       s3_credentials: {
@@ -938,7 +745,7 @@ export class IdleContainerAllocationSystemService {
         orchestration_token: orchestrationToken,
         aak: process.env.ANTHROPIC_API_KEY,
       },
-      source_repository: sourceRepository,
+      source_repository: sourceRepository ?? undefined,
     };
 
     // Send creds to worker
@@ -978,7 +785,7 @@ export class IdleContainerAllocationSystemService {
             tunnelConfig.tunnel_id,
             this.log2,
             tunnelConfig.hostname || undefined,
-            this.supabase,
+            this.supabaseServiceRoleClient,
           );
         } catch (error) {
           this.log2.error(
@@ -1113,6 +920,218 @@ export class IdleContainerAllocationSystemService {
         launched: launchedCount,
         errors,
       };
+    }
+  }
+
+  private async fetchSourceRepositoryForAllocation(
+    prototypeId: string,
+    jwt: string,
+  ): Promise<AllocationSourceRepository | null> {
+    const supabaseRlsClient = createClient<Database>(
+      process.env.SUPABASE_URL!,
+      process.env.SUPABASE_ANON_KEY!,
+      {
+        global: {
+          headers: {
+            Authorization: `Bearer ${jwt}`,
+          },
+        },
+      },
+    );
+    try {
+      const { data: sensitiveMetadata, error: metadataError } =
+        await supabaseRlsClient
+          .from("prototype_sensitive_metadata")
+          .select("source_repo_id")
+          .eq("prototype_id", prototypeId)
+          .maybeSingle();
+
+      if (metadataError) {
+        this.log2.error(
+          metadataError,
+          "Failed to fetch prototype sensitive metadata for source repository lookup",
+          { prototypeId },
+        );
+        return null;
+      }
+
+      if (!sensitiveMetadata?.source_repo_id) {
+        return null;
+      }
+
+      const sourceRepoId = sensitiveMetadata.source_repo_id;
+
+      const { data: prototypeRecord, error: prototypeError } =
+        await supabaseRlsClient
+          .from("prototypes")
+          .select("team_id")
+          .eq("id", prototypeId)
+          .maybeSingle();
+
+      if (prototypeError) {
+        this.log2.error(
+          prototypeError,
+          "Failed to fetch prototype team for source repository lookup",
+          { prototypeId },
+        );
+        return null;
+      }
+
+      if (!prototypeRecord?.team_id) {
+        this.log2.warn(
+          "Prototype missing team_id, cannot fetch GitHub repository metadata",
+          { prototypeId, sourceRepoId },
+        );
+        return null;
+      }
+
+      const teamId = prototypeRecord.team_id;
+
+      const { data: integration, error: integrationError } =
+        await supabaseRlsClient
+          .from("github_integrations")
+          .select("account_type, installation_id")
+          .eq("team_id", teamId)
+          .maybeSingle();
+
+      if (integrationError) {
+        this.log2.error(
+          integrationError,
+          "Failed to fetch GitHub integration for source repository lookup",
+          { prototypeId, teamId },
+        );
+        return null;
+      }
+
+      if (!integration) {
+        this.log2.warn(
+          "No GitHub integration configured for team, skipping repository metadata fetch",
+          { prototypeId, teamId, sourceRepoId },
+        );
+        return null;
+      }
+
+      let githubAccessToken: string | null = null;
+
+      if (integration.account_type === "Organization") {
+        try {
+          const installationToken = await createInstallationToken(
+            integration.installation_id,
+            this.log2,
+          );
+          githubAccessToken = installationToken.token;
+        } catch (installationTokenError) {
+          this.log2.error(
+            installationTokenError instanceof Error
+              ? installationTokenError
+              : new Error(String(installationTokenError)),
+            "Failed to create installation token for source repository metadata fetch",
+            {
+              prototypeId,
+              teamId,
+              sourceRepoId,
+              installationId: integration.installation_id,
+            },
+          );
+          return null;
+        }
+      } else if (integration.account_type === "User") {
+        const { data: tokenRecord, error: tokenError } = await this
+          .supabaseServiceRoleClient
+          .from("github_integration_tokens")
+          .select("token_encrypted")
+          .eq("team_id", teamId)
+          .maybeSingle();
+
+        if (tokenError) {
+          this.log2.error(
+            tokenError,
+            "Failed to fetch GitHub integration token for repository metadata",
+            { prototypeId, teamId, sourceRepoId },
+          );
+          return null;
+        }
+
+        if (!tokenRecord?.token_encrypted) {
+          this.log2.warn(
+            "GitHub integration token missing for team, skipping repository metadata fetch",
+            { prototypeId, teamId, sourceRepoId },
+          );
+          return null;
+        }
+
+        try {
+          githubAccessToken = decrypt(tokenRecord.token_encrypted);
+        } catch (decryptError) {
+          this.log2.error(
+            decryptError instanceof Error
+              ? decryptError
+              : new Error(String(decryptError)),
+            "Failed to decrypt GitHub token for repository metadata fetch",
+            { prototypeId, teamId, sourceRepoId },
+          );
+          return null;
+        }
+      } else {
+        this.log2.warn(
+          "Unsupported GitHub integration account type for repository metadata fetch",
+          {
+            prototypeId,
+            teamId,
+            sourceRepoId,
+            accountType: integration.account_type,
+          },
+        );
+        return null;
+      }
+
+      if (!githubAccessToken) {
+        this.log2.warn(
+          "Unable to acquire GitHub access token, skipping repository metadata fetch",
+          { prototypeId, teamId, sourceRepoId },
+        );
+        return null;
+      }
+
+      try {
+        const repoInfo = await fetchRepositoryById(
+          sourceRepoId,
+          githubAccessToken,
+          this.log2,
+        );
+
+        this.log2.info("Source repository configured for worker allocation", {
+          prototypeId,
+          repositoryFullName: repoInfo.full_name,
+          githubRepoId: repoInfo.id,
+        });
+
+        return {
+          github_repo_id: repoInfo.id,
+          installation_id: integration.installation_id,
+          repository_url: repoInfo.html_url,
+          repository_owner: repoInfo.owner?.login ?? "",
+          repository_name: repoInfo.name,
+          default_branch: repoInfo.default_branch,
+          full_name: repoInfo.full_name,
+        };
+      } catch (repoFetchError) {
+        this.log2.error(
+          repoFetchError instanceof Error
+            ? repoFetchError
+            : new Error(String(repoFetchError)),
+          "Failed to fetch GitHub repository metadata for allocation",
+          { prototypeId, teamId, sourceRepoId },
+        );
+        return null;
+      }
+    } catch (error) {
+      this.log2.error(
+        error instanceof Error ? error : new Error(String(error)),
+        "Unexpected error while fetching source repository data",
+        { prototypeId },
+      );
+      return null;
     }
   }
 }
