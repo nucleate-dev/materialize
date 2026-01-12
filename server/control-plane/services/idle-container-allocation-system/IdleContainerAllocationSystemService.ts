@@ -923,7 +923,7 @@ export class IdleContainerAllocationSystemService {
     }
   }
 
-  private async fetchSourceRepositoryForAllocation(
+  public async fetchSourceRepositoryForAllocation(
     prototypeId: string,
     jwt: string,
   ): Promise<AllocationSourceRepository | null> {
