@@ -9,6 +9,7 @@ import {
 import { NucleateDevelopmentServerService } from "../NucleateDevelopmentServerService.js";
 import { getWorkerContext, resetWorkerContext } from "../../../worker.js";
 import { clearAllClaudeSessions } from "../../../utils/shared-utils.js";
+import { runCommandAsRoot } from "../../../utils/rootCommandUtils.js";
 
 /**
  * Handles /reset-sandbox endpoint
@@ -51,7 +52,30 @@ export async function handleResetSandbox(
       throw new Error(`Failed to reset project files: ${errorMessage}`);
     }
 
-    // Step 2: Clear all Claude session files
+    // Step 2: Clear /tmp/source-repository contents
+    try {
+      await runCommandAsRoot(
+        "bash",
+        ["-lc", "rm -rf /tmp/source-repository && mkdir -p /tmp/source-repository"],
+        { timeoutMs: 60000 },
+      );
+      request.log2.consoleLogDevOnly(
+        "info",
+        "/tmp/source-repository cleared successfully",
+      );
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      request.log2.error(
+        new Error(errorMessage),
+        "Failed to clear /tmp/source-repository",
+      );
+      throw new Error(
+        `Failed to clear /tmp/source-repository: ${errorMessage}`,
+      );
+    }
+
+    // Step 3: Clear all Claude session files
     let claudeSessionsCleared = false;
     let claudeSessionsDeletedCount = 0;
     try {
@@ -83,7 +107,7 @@ export async function handleResetSandbox(
       // Don't throw - continue with reset even if Claude sessions fail
     }
 
-    // Step 3: Stop the dev server
+    // Step 4: Stop the dev server
     try {
       await developmentServerService.developmentServerAdapter.stopDevServer(
         request.log2,
@@ -97,11 +121,11 @@ export async function handleResetSandbox(
       request.log2.error(new Error(errorMessage), "Failed to stop dev server");
     }
 
-    // Step 4: Reset worker context
+    // Step 5: Reset worker context
     resetWorkerContext();
     request.log2.consoleLogDevOnly("info", "Worker context reset successfully");
 
-    // Step 4: Return success response with the prototype_id that was cleaned up
+    // Step 6: Return success response with the prototype_id that was cleaned up
     reply.code(HTTP_STATUS.OK);
     return {
       data: {
