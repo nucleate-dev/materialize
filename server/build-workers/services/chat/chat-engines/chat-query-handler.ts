@@ -26,6 +26,7 @@ import { NucleateDevelopmentServerService } from "../../dev-server/NucleateDevel
 import { SandboxService } from "../../SandboxService.js";
 import { SupabaseClientService } from "../../SupabaseClientService.js";
 import { TerminalService } from "../../terminals/TerminalService.js";
+import { ALLOWED_ROOTS } from "../ChatService.js";
 import {
   costFunctionV3,
   CURRENT_COST_FUNCTION_NAME,
@@ -49,7 +50,6 @@ import {
   ChatEngineResult,
   ChatEngineSessionState,
 } from "./chat-engine.js";
-import { ALLOWED_ROOT } from "../ChatService.js";
 
 const HISTORY_MESSAGE_REQUEST_COUNT = 6;
 
@@ -506,7 +506,7 @@ export class ChatQueryHandler implements ChatEngine {
       input: ToolInput,
       _options: unknown,
     ): Promise<PermissionResult> => {
-      return evaluateToolPermission(ALLOWED_ROOT, toolName, input);
+      return evaluateToolPermission(ALLOWED_ROOTS, toolName, input);
     };
 
     const allowedToolsDefault = [
@@ -821,7 +821,7 @@ export class ChatQueryHandler implements ChatEngine {
           }`,
         );
         const permission = evaluateToolPermission(
-          ALLOWED_ROOT,
+          ALLOWED_ROOTS,
           input.tool_name as ToolName,
           (input.tool_input ?? {}) as ToolInput,
         );
