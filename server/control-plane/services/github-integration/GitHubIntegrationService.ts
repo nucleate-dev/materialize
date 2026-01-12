@@ -78,6 +78,48 @@ interface GitHubWebhookPayload {
   };
 }
 
+const formatGitHubRepoCreateError = (
+  responseText: string,
+  status: number,
+): string => {
+  let message = "GitHub rejected the create repository request";
+  let details = "";
+
+  try {
+    const parsed = JSON.parse(responseText) as {
+      message?: string;
+      errors?: Array<{ message?: string; field?: string; code?: string }>;
+    };
+    if (typeof parsed?.message === "string" && parsed.message.trim()) {
+      message = parsed.message.trim();
+    }
+
+    if (Array.isArray(parsed?.errors) && parsed.errors.length > 0) {
+      details = parsed.errors
+        .map((error) => {
+          if (typeof error?.message === "string" && error.message.trim()) {
+            return error.message.trim();
+          }
+          if (error?.field && error?.code) {
+            return `${error.field}: ${error.code}`;
+          }
+          return "";
+        })
+        .filter(Boolean)
+        .join("; ");
+    }
+  } catch {
+    // Leave fallback message intact.
+  }
+
+  const composed = details ? `${message} (${details})` : message;
+  const trimmed = composed.length > 300
+    ? `${composed.slice(0, 297)}...`
+    : composed;
+
+  return `GitHub error (${status}): ${trimmed}`;
+};
+
 /**
  * GitHubIntegrationService handles team-level GitHub App integration
  *
@@ -1187,6 +1229,10 @@ export class GitHubIntegrationService {
 
       const responseText = await repoResponse.text();
       if (!repoResponse.ok) {
+        const errorMessage = formatGitHubRepoCreateError(
+          responseText,
+          repoResponse.status,
+        );
         request.log2.error(
           new Error("GitHub repository creation failed"),
           "GitHub API returned an error while creating repository",
@@ -1199,7 +1245,7 @@ export class GitHubIntegrationService {
           data: null,
           error: {
             error: "GitHub Error",
-            message: "GitHub rejected the create repository request",
+            message: errorMessage,
           },
         });
       }

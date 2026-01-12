@@ -265,6 +265,7 @@ const MaterializeRenderSection = forwardRef<
       html_url: string | null;
       loading: boolean;
     }>({ html_url: null, loading: true });
+    const [githubRepoError, setGithubRepoError] = useState<string | null>(null);
 
     // Fetch GitHub integration status for the active team
     useEffect(() => {
@@ -1210,6 +1211,7 @@ const MaterializeRenderSection = forwardRef<
       }
 
       // Set loading state
+      setGithubRepoError(null);
       setGithubRepository({ html_url: null, loading: true });
 
       try {
@@ -1257,6 +1259,7 @@ const MaterializeRenderSection = forwardRef<
             error: errorMessage,
           });
           toast.error(`Failed to create repository: ${errorMessage}`);
+          setGithubRepoError(errorMessage);
           setGithubRepository({ html_url: null, loading: false });
           return;
         }
@@ -1310,6 +1313,7 @@ const MaterializeRenderSection = forwardRef<
           html_url: repositoryData.html_url,
           loading: false,
         });
+        setGithubRepoError(null);
         toast.success("GitHub repository connected successfully!");
         setIsGithubDropdownOpen(false);
 
@@ -1324,6 +1328,7 @@ const MaterializeRenderSection = forwardRef<
           stack: error instanceof Error ? error.stack : undefined,
         });
         toast.error(`Failed to create repository: ${errorMessage}`);
+        setGithubRepoError(errorMessage);
         setGithubRepository({ html_url: null, loading: false });
       }
     };
@@ -2407,6 +2412,14 @@ const MaterializeRenderSection = forwardRef<
                         Sync your project 2-way with GitHub to collaborate at
                         source.
                       </p>
+
+                      {githubRepoError && (
+                        <Alert className="border-rose-500/20 bg-rose-500/10">
+                          <AlertDescription className="text-xs text-rose-600 dark:text-rose-400">
+                            {githubRepoError}
+                          </AlertDescription>
+                        </Alert>
+                      )}
 
                       {/* Show alert if user doesn't have permission */}
                       {!githubIntegration.connected &&
