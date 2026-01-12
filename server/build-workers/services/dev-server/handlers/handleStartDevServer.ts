@@ -16,7 +16,6 @@ import { getWorkerContext, WORK_DIR } from "../../../worker.js";
 import { DEFAULT_PROTOTYPE_FRAMEWORK } from "../NucleateDevelopmentServerService.js";
 import { NextJsReactAdapter } from "../adapters/NextJsReactAdapter.js";
 import { SupabaseClientService } from "../../SupabaseClientService.js";
-import { runCommandAsRoot } from "../../../utils/rootCommandUtils.js";
 
 export async function handleStartDevServerImpl(
   request: FastifyRequest<{ Body: PublicStartDevServerRequest }>,
@@ -613,13 +612,32 @@ async function cloneSourceRepositoryToTmp(
   const authenticatedUrl =
     `https://x-access-token:${tokenData.installation_token}@github.com/${sourceRepo.fullName}.git`;
 
-  const cloneCommand =
-    `rm -rf /tmp/source-repository && mkdir -p /tmp/source-repository && git clone ${authenticatedUrl} /tmp/source-repository`;
+  const cloneResult = await developmentServerService.sandboxService
+    .runCommandInternal({
+      command: "bash",
+      args: [
+        "-c",
+        `rm -rf /tmp/source-repository && mkdir -p /tmp/source-repository && git clone ${authenticatedUrl} /tmp/source-repository`,
+      ],
+      cwd: "/tmp",
+      session_id: "dev-server",
+      timeout_ms: 180000,
+      strip_ansi: true,
+    });
 
-  await runCommandAsRoot("bash", ["-lc", cloneCommand], {
-    cwd: "/",
-    timeoutMs: 180000,
-  });
+  if (cloneResult.response.error) {
+    throw new Error(
+      `Failed to clone source repository: ${cloneResult.response.error.message}`,
+    );
+  } else if (cloneResult.response.data?.status === "timeout") {
+    throw new Error(
+      `Source repository clone timed out: ${cloneResult.response.data.stdout}`,
+    );
+  } else if (cloneResult.response.data?.status !== "success") {
+    throw new Error(
+      `Source repository clone failed with status: ${cloneResult.response.data?.status}`,
+    );
+  }
 
   log2.info("Cloned source repository into /tmp/source-repository", {
     prototypeId,
