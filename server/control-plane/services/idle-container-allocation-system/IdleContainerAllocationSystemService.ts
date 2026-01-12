@@ -20,6 +20,7 @@ import {
   PublicAllocateRequest,
   PublicAllocateSuccessResponse,
   SandboxAPIResponse,
+  AllocationSourceRepository,
 } from '../../types/BuildWorkerTypes.js';
 import {
   ActiveBuild,
@@ -708,6 +709,58 @@ export class IdleContainerAllocationSystemService {
       );
     }
 
+    // Fetch source repository information if configured for this prototype
+    let sourceRepository: AllocationSourceRepository | undefined;
+    try {
+      const { data: sensitiveMetadata } = await this.supabase
+        .from('prototype_sensitive_metadata')
+        .select('source_repo_id')
+        .eq('prototype_id', prototypeId)
+        .maybeSingle();
+
+      if (sensitiveMetadata?.source_repo_id) {
+        // Fetch repository details from github_repositories table
+        const { data: repoData, error: repoError } = await this.supabase
+          .from('github_repositories')
+          .select(
+            'github_repo_id, installation_id, owner_login, repo_name, full_name, html_url, default_branch',
+          )
+          .eq('github_repo_id', sensitiveMetadata.source_repo_id)
+          .single();
+
+        if (repoError) {
+          this.log2.warn('Failed to fetch source repository metadata', {
+            prototypeId,
+            sourceRepoId: sensitiveMetadata.source_repo_id,
+            error: repoError.message,
+          });
+        } else if (repoData) {
+          sourceRepository = {
+            github_repo_id: repoData.github_repo_id,
+            installation_id: repoData.installation_id,
+            repository_url: repoData.html_url,
+            repository_owner: repoData.owner_login,
+            repository_name: repoData.repo_name,
+            default_branch: repoData.default_branch,
+            full_name: repoData.full_name,
+          };
+
+          this.log2.info('Source repository configured for worker allocation', {
+            prototypeId,
+            repositoryFullName: repoData.full_name,
+            githubRepoId: repoData.github_repo_id,
+          });
+        }
+      }
+    } catch (error) {
+      this.log2.error(
+        error,
+        'Error fetching source repository information, continuing without it',
+        { prototypeId },
+      );
+      // Continue without source repository - it's optional
+    }
+
     const creds: PublicAllocateRequest = {
       s3_credentials: {
         accessKeyId: out.Credentials.AccessKeyId!,
@@ -727,6 +780,7 @@ export class IdleContainerAllocationSystemService {
         orchestration_token: orchestrationToken,
         aak: process.env.ANTHROPIC_API_KEY,
       },
+      source_repository: sourceRepository,
     };
 
     // Send creds to worker
