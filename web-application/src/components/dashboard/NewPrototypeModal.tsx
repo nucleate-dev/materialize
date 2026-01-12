@@ -23,6 +23,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import { cn } from "@/lib/classNames";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
@@ -40,7 +53,9 @@ import { useActiveTeam } from "@/contexts/TeamContext";
 import { User } from "@supabase/supabase-js";
 import {
   AlertTriangle,
+  Check,
   ChevronDown,
+  ChevronsUpDown,
   Code,
   Folder,
   Globe,
@@ -157,6 +172,7 @@ export default function NewPrototypeModal({
     connected: boolean;
     loading: boolean;
   }>({ connected: false, loading: true });
+  const [sourceRepoComboboxOpen, setSourceRepoComboboxOpen] = useState(false);
 
   const isWebPrototypeEnabled =
     posthog?.isFeatureEnabled("web-prototype-support") ?? false;
@@ -786,54 +802,104 @@ export default function NewPrototypeModal({
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <div>
-                        <Select
-                          value={sourceRepoId?.toString() || "none"}
-                          onValueChange={(value) =>
-                            setSourceRepoId(
-                              value === "none" ? null : parseInt(value, 10),
-                            )
-                          }
-                          disabled={
-                            isCreating ||
-                            githubIntegrationStatus.loading ||
-                            !githubIntegrationStatus.connected ||
-                            isLoadingSourceRepos
-                          }
+                        <Popover
+                          open={sourceRepoComboboxOpen}
+                          onOpenChange={setSourceRepoComboboxOpen}
                         >
-                          <SelectTrigger
-                            id="source-repo-select"
-                            className="h-11 bg-white dark:bg-[#0B0C0E] border-zinc-200 dark:border-white/10 text-zinc-900 dark:text-white focus:ring-0"
-                          >
-                            <div className="flex items-center gap-2">
-                              <Code className="w-4 h-4 text-zinc-400 dark:text-white/50" />
-                              <SelectValue placeholder="None" />
-                            </div>
-                          </SelectTrigger>
-                          <SelectContent className="bg-white dark:bg-[#141517] border-zinc-200 dark:border-white/10 text-zinc-900 dark:text-white">
-                            <SelectItem
-                              value="none"
-                              className="focus:bg-zinc-100 dark:focus:bg-white/10 focus:text-zinc-900 dark:focus:text-white cursor-pointer"
+                          <PopoverTrigger asChild>
+                            <button
+                              type="button"
+                              role="combobox"
+                              aria-expanded={sourceRepoComboboxOpen}
+                              disabled={
+                                isCreating ||
+                                githubIntegrationStatus.loading ||
+                                !githubIntegrationStatus.connected ||
+                                isLoadingSourceRepos
+                              }
+                              className={cn(
+                                "h-11 w-full bg-white dark:bg-[#0B0C0E] border border-zinc-200 dark:border-white/10 text-zinc-900 dark:text-white rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-zinc-950 dark:focus:ring-zinc-300 disabled:cursor-not-allowed disabled:opacity-50",
+                                "flex items-center justify-between",
+                              )}
                             >
-                              None
-                            </SelectItem>
-                            {isLoadingSourceRepos ? (
-                              <div className="px-2 py-2 text-xs text-zinc-500 dark:text-white/50 flex items-center gap-2">
-                                <Loader2 className="w-3 h-3 animate-spin" />{" "}
-                                Loading repositories...
+                              <div className="flex items-center gap-2">
+                                <Code className="w-4 h-4 text-zinc-400 dark:text-white/50" />
+                                <span className="truncate">
+                                  {isLoadingSourceRepos ? (
+                                    <span className="flex items-center gap-2">
+                                      <Loader2 className="w-3 h-3 animate-spin" />
+                                      Loading repositories...
+                                    </span>
+                                  ) : sourceRepoId ? (
+                                    sourceRepos.find(
+                                      (repo) => repo.id === sourceRepoId,
+                                    )?.full_name || "None"
+                                  ) : (
+                                    "None"
+                                  )}
+                                </span>
                               </div>
-                            ) : (
-                              sourceRepos.map((repo) => (
-                                <SelectItem
-                                  key={repo.id}
-                                  value={repo.id.toString()}
-                                  className="focus:bg-zinc-100 dark:focus:bg-white/10 focus:text-zinc-900 dark:focus:text-white cursor-pointer"
-                                >
-                                  {repo.full_name}
-                                </SelectItem>
-                              ))
-                            )}
-                          </SelectContent>
-                        </Select>
+                              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                            </button>
+                          </PopoverTrigger>
+                          <PopoverContent
+                            className="w-[--radix-popover-trigger-width] p-0 bg-white dark:bg-[#141517] border-zinc-200 dark:border-white/10"
+                            align="start"
+                          >
+                            <Command className="bg-white dark:bg-[#141517]">
+                              <CommandInput
+                                placeholder="Search repositories..."
+                                className="h-9 border-0 focus:ring-0 text-zinc-900 dark:text-white"
+                              />
+                              <CommandList>
+                                <CommandEmpty className="py-6 text-center text-sm text-zinc-500 dark:text-white/50">
+                                  No repository found.
+                                </CommandEmpty>
+                                <CommandGroup>
+                                  <CommandItem
+                                    value="none"
+                                    onSelect={() => {
+                                      setSourceRepoId(null);
+                                      setSourceRepoComboboxOpen(false);
+                                    }}
+                                    className="cursor-pointer text-zinc-900 dark:text-white hover:bg-zinc-100 dark:hover:bg-white/10"
+                                  >
+                                    <Check
+                                      className={cn(
+                                        "mr-2 h-4 w-4",
+                                        sourceRepoId === null
+                                          ? "opacity-100"
+                                          : "opacity-0",
+                                      )}
+                                    />
+                                    None
+                                  </CommandItem>
+                                  {sourceRepos.map((repo) => (
+                                    <CommandItem
+                                      key={repo.id}
+                                      value={repo.full_name}
+                                      onSelect={() => {
+                                        setSourceRepoId(repo.id);
+                                        setSourceRepoComboboxOpen(false);
+                                      }}
+                                      className="cursor-pointer text-zinc-900 dark:text-white hover:bg-zinc-100 dark:hover:bg-white/10"
+                                    >
+                                      <Check
+                                        className={cn(
+                                          "mr-2 h-4 w-4",
+                                          sourceRepoId === repo.id
+                                            ? "opacity-100"
+                                            : "opacity-0",
+                                        )}
+                                      />
+                                      {repo.full_name}
+                                    </CommandItem>
+                                  ))}
+                                </CommandGroup>
+                              </CommandList>
+                            </Command>
+                          </PopoverContent>
+                        </Popover>
                       </div>
                     </TooltipTrigger>
                     {!githubIntegrationStatus.connected &&
