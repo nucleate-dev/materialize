@@ -1,6 +1,5 @@
 "use client";
 
-import { supabase } from "@/ClientConstants";
 import ProPlanUpsellModal from "@/components/prototype-editor/ProPlanUpsellModal";
 import { GridBackground } from "@/components/shared/GridComponent";
 import { Button } from "@/components/ui/button";
@@ -35,7 +34,6 @@ import { Database } from "@/lib/types/supabase";
 import { setChatIntent } from "@/lib/utils/chatIntentUtils";
 import { checkSurveyCompleted } from "@/lib/utils/survey/SurveyUtils";
 import { SwatchIcon } from "@heroicons/react/24/outline"; // Kept Heroicons
-import { PaintBrushIcon } from "@heroicons/react/24/solid";
 import { useAtom } from "jotai";
 import {
   ChevronDown,
@@ -56,7 +54,6 @@ import { usePostHog } from "posthog-js/react";
 import { useEffect, useState } from "react";
 
 // --- Types ---
-type DesignSystemRow = Database["public"]["Tables"]["design_systems"]["Row"];
 type DesignStyle = Database["public"]["Enums"]["design_style"];
 type PrototypeFramework = Database["public"]["Enums"]["prototype_framework"];
 
@@ -96,11 +93,6 @@ export default function DashboardPage() {
   const [redirectAfterLogin, setRedirectAfterLogin] = useAtom(
     redirectAfterLoginAtom,
   );
-  const [designSystems, setDesignSystems] = useState<DesignSystemRow[]>([]);
-  const [customDesignSystemId, setCustomDesignSystemId] = useState<
-    string | null
-  >(null);
-  const [, setIsLoadingDesignSystems] = useState(false);
   const [designStyle, setDesignStyle] = useState<DesignStyle>("stylesheets");
   const [framework, setFramework] =
     useState<PrototypeFramework>(DEFAULT_FRAMEWORK);
@@ -195,39 +187,6 @@ export default function DashboardPage() {
     }
   }, [redirectAfterLogin, setRedirectAfterLogin, router]);
 
-  // Fetch design systems
-  useEffect(() => {
-    async function fetchDesignSystems() {
-      if (!activeTeam) return;
-
-      setIsLoadingDesignSystems(true);
-      try {
-        const { data, error } = await supabase
-          .from("design_systems")
-          .select("id, name, description, design_rules, updated_at")
-          .eq("team_id", activeTeam.id)
-          .order("updated_at", { ascending: false });
-
-        if (error) {
-          logger.debug("error", "Error fetching design systems:", { ...error });
-          return;
-        }
-        setDesignSystems((data as DesignSystemRow[]) || []);
-      } catch (error) {
-        logger.debug("error", "Error fetching design systems:", {
-          error: error instanceof Error ? error.message : String(error),
-          stack: error instanceof Error ? error.stack : undefined,
-        });
-      } finally {
-        setIsLoadingDesignSystems(false);
-      }
-    }
-
-    if (activeTeam?.id) {
-      fetchDesignSystems();
-    }
-  }, [activeTeam, logger]);
-
   useEffect(() => {
     if (framework === "web_nextjs_react" && designStyle !== "stylesheets") {
       setDesignStyle("stylesheets");
@@ -244,7 +203,6 @@ export default function DashboardPage() {
       properties: {
         framework,
         design_style: designStyle,
-        has_custom_design_system: Boolean(customDesignSystemId),
         has_user: Boolean(user?.id),
         source: "dashboard_prompt",
       },
@@ -259,7 +217,6 @@ export default function DashboardPage() {
 
       const result = await createPrototype({
         design_style: designStyle,
-        custom_design_system: customDesignSystemId ?? undefined,
         visibility,
         framework,
         creation_source: "dashboard_prompt",
@@ -423,39 +380,6 @@ export default function DashboardPage() {
                   </SelectContent>
                 </Select>
 
-                {/* Design System Selector */}
-                {designSystems.length > 0 && (
-                  <Select
-                    value={customDesignSystemId ?? "none"}
-                    onValueChange={(value) =>
-                      setCustomDesignSystemId(value === "none" ? null : value)
-                    }
-                    disabled={isLoading}
-                  >
-                    <SelectTrigger className="h-8 border-0 bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 text-black/70 dark:text-white/70 hover:text-black dark:hover:text-white text-xs font-medium rounded-md transition-colors gap-2 w-auto max-w-[180px] focus:ring-0">
-                      <PaintBrushIcon className="w-3.5 h-3.5" />
-                      <SelectValue placeholder="Design System" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-white dark:bg-[#1A1B1E] border-black/10 dark:border-white/10 text-black dark:text-white">
-                      <SelectItem
-                        value="none"
-                        className="focus:bg-black/10 dark:focus:bg-white/10 focus:text-black dark:focus:text-white text-black/70 dark:text-white/70 cursor-pointer text-xs py-2"
-                      >
-                        Default System
-                      </SelectItem>
-                      {designSystems.map((system) => (
-                        <SelectItem
-                          key={system.id}
-                          value={String(system.id)}
-                          className="focus:bg-black/10 dark:focus:bg-white/10 focus:text-black dark:focus:text-white text-black/70 dark:text-white/70 cursor-pointer text-xs py-2"
-                        >
-                          {system.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-
                 {/* Visibility Selector */}
                 <Select
                   value={visibility}
@@ -593,39 +517,6 @@ export default function DashboardPage() {
                           ))}
                         </SelectContent>
                       </Select>
-
-                      {designSystems.length > 0 && (
-                        <Select
-                          value={customDesignSystemId ?? "none"}
-                          onValueChange={(v) =>
-                            setCustomDesignSystemId(v === "none" ? null : v)
-                          }
-                        >
-                          <SelectTrigger className="h-9 border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/5 text-black dark:text-white text-xs w-full">
-                            <div className="flex items-center gap-2">
-                              <PaintBrushIcon className="w-3.5 h-3.5" />
-                              <SelectValue placeholder="Design System" />
-                            </div>
-                          </SelectTrigger>
-                          <SelectContent className="bg-white dark:bg-[#1A1B1E] border-black/10 dark:border-white/10 text-black dark:text-white">
-                            <SelectItem
-                              value="none"
-                              className="focus:bg-black/10 dark:focus:bg-white/10 text-black/80 dark:text-white/80 text-xs"
-                            >
-                              Default System
-                            </SelectItem>
-                            {designSystems.map((s) => (
-                              <SelectItem
-                                key={s.id}
-                                value={String(s.id)}
-                                className="focus:bg-black/10 dark:focus:bg-white/10 text-black/80 dark:text-white/80 text-xs"
-                              >
-                                {s.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      )}
 
                       {/* Visibility Selector */}
                       <Select

@@ -1217,36 +1217,64 @@ function PricingSection() {
   };
 
   const pricingPlans = [
-    { name: "Free", price: "$0", period: "forever", description: "Try with sample repos", features: ["1 Repo connection", "15 messages", "Export code snippets"], cta: "Get Started", highlighted: false, productKey: "free" },
-    { name: "Pro", price: "$29", period: "per month", description: "For shipping to production", features: ["3 Private Repos", "Unlimited messages", "Open PRs to GitHub", "BYO Model Keys (Optional)"], cta: "Upgrade to Pro", highlighted: true, productKey: "plus" },
-    { name: "Team", price: "$79", period: "per month", description: "For collaborative product teams", features: ["Unlimited Repos", "Shared Design Systems", "Team Collaboration", "Priority Support"], cta: "Start Team Trial", highlighted: false, productKey: "teams" },
+    { name: "Free", price: "$0", period: "forever", description: "For trying out Nucleate", features: ["5 free projects", "15 free messages", "Fork projects for free"], cta: "Get Started", highlighted: false, productKey: "free" },
+    { name: "Plus", price: "$25", period: "per month", description: "For individuals", features: ["Everything in Free", "100 credits included", "Unlimited projects", "Export code", "1 free collaborator"], cta: "Upgrade to Plus", highlighted: false, productKey: "plus" },
+    { name: "Teams", price: "$35", period: "per seat/month", description: "For growing teams", features: ["Everything in Plus", "Shared design systems", "Live collaboration", "Internal tools", "Enterprise security"], cta: "Start with Teams", highlighted: true, productKey: "teams" },
+    { name: "Enterprise", price: "Custom", period: "", description: "For large organizations", features: ["Everything in Teams", "SSO & SAML", "Dedicated support", "Custom SLA", "Audit logs"], cta: "Contact Sales", highlighted: false, productKey: "max" },
   ];
 
   return (
     <section className="py-32 bg-[#0B0C0E] border-t border-white/5">
       <div className="container mx-auto px-6 max-w-6xl">
-        <div className="text-center mb-16">
-          <h2 className="text-4xl font-medium text-white mb-4">Straightforward pricing</h2>
-          <p className="text-[#8A8F98]">Focus on the workflow, not the math.</p>
+        <div className="mb-12 relative overflow-hidden rounded-2xl bg-gradient-to-r from-amber-500/20 via-yellow-500/20 to-amber-500/20 border border-yellow-500/30 p-6">
+          <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxIiBmaWxsPSJyZ2JhKDI1NSwyMTUsMCwwLjEpIi8+PC9zdmc+')] opacity-50"></div>
+          <div className="relative flex flex-col md:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <div className="text-4xl">🎉</div>
+              <div>
+                <h3 className="text-xl font-bold text-white">New Year Sale!</h3>
+                <p className="text-yellow-200/80 text-sm">Get 50% off your first month of Plus</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="bg-black/30 backdrop-blur-sm rounded-lg px-4 py-2 border border-yellow-500/20">
+                <span className="text-xs text-yellow-200/60 uppercase tracking-wide">Use code</span>
+                <p className="text-lg font-mono font-bold text-yellow-400">NEWYEAR</p>
+              </div>
+              <div className="text-center">
+                <p className="text-xs text-yellow-200/60">Plus Plan</p>
+                <div className="flex items-center gap-2">
+                  <span className="text-lg text-white/40 line-through">$25</span>
+                  <span className="text-2xl font-bold text-white">$12.50</span>
+                </div>
+                <p className="text-xs text-yellow-200/60">first month</p>
+              </div>
+            </div>
+          </div>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+
+        <div className="text-center mb-12">
+          <h2 className="text-4xl font-medium text-white mb-4">Simple pricing</h2>
+          <p className="text-[#8A8F98]">Start for free, scale as you grow.</p>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {pricingPlans.map((plan, index) => (
-            <div key={index} className={`relative p-8 rounded-3xl flex flex-col ${plan.highlighted ? "bg-[#141517] border-2 border-indigo-500 shadow-2xl" : "border border-white/10"}`}>
+            <div key={index} className={`relative p-8 rounded-3xl flex flex-col ${plan.highlighted ? "bg-[#141517] border border-indigo-500/50 shadow-2xl" : "border border-white/10"}`}>
               <div className="mb-8">
                 <h3 className="text-lg font-medium text-white">{plan.name}</h3>
                 <p className="text-sm text-[#8A8F98] mt-1 h-10">{plan.description}</p>
               </div>
               <div className="mb-8 flex items-baseline gap-1">
                 <span className="text-4xl font-medium text-white">{plan.price}</span>
-                {plan.price !== "$0" && <span className="text-[#8A8F98] text-sm">/{plan.period}</span>}
+                {plan.price !== "$0" && plan.price !== "Custom" && <span className="text-[#8A8F98] text-sm">/{plan.period}</span>}
               </div>
-              <Button onClick={() => handleGetStarted(plan.productKey)} className={`w-full h-11 rounded-full text-sm font-medium transition-all mb-8 ${plan.highlighted ? "bg-indigo-600 text-white hover:bg-indigo-500" : "bg-white/5 text-white hover:bg-white/10 border border-white/10"}`}>
+              <Button onClick={() => handleGetStarted(plan.productKey)} className={`w-full h-11 rounded-full text-sm font-medium transition-all mb-8 ${plan.highlighted ? "bg-white text-black hover:bg-white/90" : "bg-white/5 text-white hover:bg-white/10 border border-white/10"}`}>
                 {plan.cta}
               </Button>
               <div className="space-y-4 mt-auto">
                 {plan.features.map((feature, i) => (
                   <div key={i} className="flex items-center gap-3 text-sm text-[#8A8F98]">
-                    <CheckIcon className="w-4 h-4 text-emerald-500" />
+                    <CheckIcon className="w-4 h-4 text-white/40" />
                     {feature}
                   </div>
                 ))}
@@ -1254,7 +1282,6 @@ function PricingSection() {
             </div>
           ))}
         </div>
-        <p className="text-center mt-12 text-white/30 text-xs">Looking for enterprise SSO or SAML? <span className="underline cursor-pointer">Contact sales.</span></p>
       </div>
     </section>
   );
