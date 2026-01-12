@@ -5,7 +5,7 @@
 // To update these shared files, modify the source file and run:
 // npm run sync-types (in the control-plane directory)
 //
-// Last synced: 2026-01-11T20:47:57.336Z
+// Last synced: 2026-01-12T00:01:24.694Z
 
 export type PostHogEvent =
   | "client_auth_callback_login_completed"
