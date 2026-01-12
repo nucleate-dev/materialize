@@ -10,7 +10,7 @@ import { CSPostHogProvider, QueryProvider } from "./providers";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Nucleate - Build Mobile Apps with AI",
+  title: "Nucleate - AI for UI/UX prototyping",
   description: "Nucleate helps you build beautiful mobile apps with AI.",
   keywords: [
     "prototyping",
@@ -23,13 +23,13 @@ export const metadata: Metadata = {
   ],
   authors: [{ name: "Nucleate" }],
   openGraph: {
-    title: "Nucleate - Build Mobile Apps with AI",
+    title: "Nucleate - AI for UI/UX prototyping",
     description: "Nucleate helps you build beautiful mobile apps with AI.",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Nucleate - Build Mobile Apps with AI",
+    title: "Nucleate - AI for UI/UX prototyping",
     description: "Nucleate helps you build beautiful mobile apps with AI.",
   },
   verification: {

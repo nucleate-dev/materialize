@@ -190,7 +190,7 @@ function HeroSection() {
           UI Prototyping for Real Codebases
         </Badge>
         <h1 className="text-5xl md:text-7xl lg:text-8xl font-medium tracking-tight text-white mb-6">
-          Prototype UI in your codebase.
+          AI for UI/UX prototyping
         </h1>
         <p className="text-lg md:text-xl text-[#8A8F98] max-w-2xl mx-auto mb-12 leading-relaxed">
           Connect GitHub. Nucleate reads your components, tokens, and screens automatically. Generate flows + variants in minutes, then ship via PR.
