@@ -50,7 +50,10 @@ import {
 } from "./cost/oauth-credit-calculation.js";
 import { trackApiUsageBuildWorker } from "./cost/usage-tracking.js";
 import { persistChatMessage } from "./helpers/message-handlers.js";
-import { getSystemPromptForDesignStyle } from "./prompts/ClaudeCodePrompts.js";
+import {
+  getSourceRepositoryPromptAddendum,
+  getSystemPromptForDesignStyle,
+} from "./prompts/ClaudeCodePrompts.js";
 import { broadcastToConnections } from "./websocket-broadcast.js";
 
 export const ALLOWED_ROOTS = ["/tmp/materialize-dev-server", "/tmp/source-repository"];
@@ -1169,6 +1172,11 @@ export class ChatService {
       designStyle,
       framework ?? undefined,
     );
+
+    if (this.devServerService.sourceRepository) {
+      systemPromptAppend += "\n\n" +
+        getSourceRepositoryPromptAddendum(framework ?? undefined);
+    }
 
     if (this.sessionState.designSystemRules) {
       systemPromptAppend += "\n\n## Custom Design System Rules:\n" +
