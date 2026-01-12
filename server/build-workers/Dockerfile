@@ -60,7 +60,8 @@ RUN mkdir -p /tmp/logs /tmp/materialize-dev-server /tmp/source-repository
 # Create unprivileged terminal user
 RUN groupadd --system materialize-user && \
     useradd --system --gid materialize-user --shell /bin/bash --home-dir /tmp/materialize-dev-server materialize-user && \
-    chown -R materialize-user:materialize-user /tmp/materialize-dev-server
+    chown -R materialize-user:materialize-user /tmp/materialize-dev-server && \
+    chown -R materialize-user:materialize-user /tmp/source-repository
 
 # Set default ACLs so all new files created by root are automatically accessible to materialize-user
 # This ensures Metro bundler (running as materialize-user) can read files created by CodeService (running as root)

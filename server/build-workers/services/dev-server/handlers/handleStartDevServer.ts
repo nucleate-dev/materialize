@@ -612,31 +612,31 @@ async function cloneSourceRepositoryToTmp(
   const authenticatedUrl =
     `https://x-access-token:${tokenData.installation_token}@github.com/${sourceRepo.fullName}.git`;
 
-  const cloneResult = await developmentServerService.sandboxService
-    .runCommandInternal({
-      command: "bash",
-      args: [
-        "-c",
-        `rm -rf /tmp/source-repository && mkdir -p /tmp/source-repository && git clone ${authenticatedUrl} /tmp/source-repository`,
-      ],
-      cwd: "/tmp",
-      session_id: "dev-server",
-      timeout_ms: 180000,
-      strip_ansi: true,
-    });
+  // Clone source repository using terminal command
+  // Note: Don't remove the directory itself (owned by root), just clean contents and clone
+  const cloneCommand = `mkdir -p /tmp/source-repository && find /tmp/source-repository -mindepth 1 -delete && git clone ${authenticatedUrl} /tmp/source-repository`;
 
-  if (cloneResult.response.error) {
-    throw new Error(
-      `Failed to clone source repository: ${cloneResult.response.error.message}`,
-    );
-  } else if (cloneResult.response.data?.status === "timeout") {
-    throw new Error(
-      `Source repository clone timed out: ${cloneResult.response.data.stdout}`,
-    );
-  } else if (cloneResult.response.data?.status !== "success") {
-    throw new Error(
-      `Source repository clone failed with status: ${cloneResult.response.data?.status}`,
-    );
+  try {
+    const cloneResult = await developmentServerService.terminalService
+      .asyncSendInputWithCompletionDetectionOrTimeout(
+        "dev-server",
+        cloneCommand,
+        {
+          timeout: 180000,
+          bypassValidation: true,
+        },
+      );
+
+    if (cloneResult.exitCode !== 0) {
+      throw new Error(
+        `Failed to clone source repository (exit code ${cloneResult.exitCode}): ${cloneResult.output}`,
+      );
+    }
+  } catch (error) {
+    const errorMessage = error instanceof Error
+      ? error.message
+      : String(error);
+    throw new Error(`Failed to clone source repository: ${errorMessage}`);
   }
 
   log2.info("Cloned source repository into /tmp/source-repository", {

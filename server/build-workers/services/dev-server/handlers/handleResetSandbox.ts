@@ -52,26 +52,26 @@ export async function handleResetSandbox(
       throw new Error(`Failed to reset project files: ${errorMessage}`);
     }
 
-    // Step 2: Clear /tmp/source-repository contents
+    // Step 2: Clear /tmp/source-repository contents (but keep the directory itself)
     try {
       await runCommandAsRoot(
         "bash",
-        ["-lc", "rm -rf /tmp/source-repository && mkdir -p /tmp/source-repository"],
+        ["-lc", "find /tmp/source-repository -mindepth 1 -delete"],
         { timeoutMs: 60000 },
       );
       request.log2.consoleLogDevOnly(
         "info",
-        "/tmp/source-repository cleared successfully",
+        "/tmp/source-repository contents cleared successfully",
       );
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
       request.log2.error(
         new Error(errorMessage),
-        "Failed to clear /tmp/source-repository",
+        "Failed to clear /tmp/source-repository contents",
       );
       throw new Error(
-        `Failed to clear /tmp/source-repository: ${errorMessage}`,
+        `Failed to clear /tmp/source-repository contents: ${errorMessage}`,
       );
     }
 
