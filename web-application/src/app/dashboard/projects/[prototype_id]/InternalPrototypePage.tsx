@@ -169,7 +169,7 @@ export default function InternalPrototypePage() {
   const [currentViewingPath, setCurrentViewingPath] = useState<string>("/");
 
   // Resizable divider state
-  const [leftPanelWidth, setLeftPanelWidth] = useState(40); // percentage
+  const [leftPanelWidth, setLeftPanelWidth] = useState(32); // percentage
   const [isDragging, setIsDragging] = useState(false);
 
   // Ref to MaterializeRenderSection for triggering refreshes
