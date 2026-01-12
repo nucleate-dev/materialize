@@ -927,6 +927,12 @@ export class IdleContainerAllocationSystemService {
     prototypeId: string,
     jwt: string,
   ): Promise<AllocationSourceRepository | null> {
+    this.log2.consoleLogDevOnly(
+      "info",
+      "fetchSourceRepositoryForAllocation started",
+      { prototypeId },
+    );
+
     const supabaseRlsClient = createClient<Database>(
       process.env.SUPABASE_URL!,
       process.env.SUPABASE_ANON_KEY!,
@@ -946,6 +952,17 @@ export class IdleContainerAllocationSystemService {
           .eq("prototype_id", prototypeId)
           .maybeSingle();
 
+      this.log2.consoleLogDevOnly(
+        "info",
+        "Fetched prototype_sensitive_metadata",
+        {
+          prototypeId,
+          hasData: !!sensitiveMetadata,
+          sourceRepoId: sensitiveMetadata?.source_repo_id,
+          hasError: !!metadataError,
+        },
+      );
+
       if (metadataError) {
         this.log2.error(
           metadataError,
@@ -956,10 +973,21 @@ export class IdleContainerAllocationSystemService {
       }
 
       if (!sensitiveMetadata?.source_repo_id) {
+        this.log2.consoleLogDevOnly(
+          "info",
+          "No source_repo_id found in sensitive metadata, returning null",
+          { prototypeId },
+        );
         return null;
       }
 
       const sourceRepoId = sensitiveMetadata.source_repo_id;
+
+      this.log2.consoleLogDevOnly(
+        "info",
+        "Source repo ID found, fetching prototype team",
+        { prototypeId, sourceRepoId },
+      );
 
       const { data: prototypeRecord, error: prototypeError } =
         await supabaseRlsClient
@@ -967,6 +995,17 @@ export class IdleContainerAllocationSystemService {
           .select("team_id")
           .eq("id", prototypeId)
           .maybeSingle();
+
+      this.log2.consoleLogDevOnly(
+        "info",
+        "Fetched prototype team_id",
+        {
+          prototypeId,
+          hasData: !!prototypeRecord,
+          teamId: prototypeRecord?.team_id,
+          hasError: !!prototypeError,
+        },
+      );
 
       if (prototypeError) {
         this.log2.error(
@@ -987,12 +1026,31 @@ export class IdleContainerAllocationSystemService {
 
       const teamId = prototypeRecord.team_id;
 
+      this.log2.consoleLogDevOnly(
+        "info",
+        "Fetching GitHub integration for team",
+        { prototypeId, teamId, sourceRepoId },
+      );
+
       const { data: integration, error: integrationError } =
         await supabaseRlsClient
           .from("github_integrations")
           .select("account_type, installation_id")
           .eq("team_id", teamId)
           .maybeSingle();
+
+      this.log2.consoleLogDevOnly(
+        "info",
+        "Fetched GitHub integration",
+        {
+          prototypeId,
+          teamId,
+          hasData: !!integration,
+          accountType: integration?.account_type,
+          installationId: integration?.installation_id,
+          hasError: !!integrationError,
+        },
+      );
 
       if (integrationError) {
         this.log2.error(
@@ -1013,6 +1071,16 @@ export class IdleContainerAllocationSystemService {
 
       let githubAccessToken: string | null = null;
 
+      this.log2.consoleLogDevOnly(
+        "info",
+        "Acquiring GitHub access token",
+        {
+          prototypeId,
+          accountType: integration.account_type,
+          installationId: integration.installation_id,
+        },
+      );
+
       if (integration.account_type === "Organization") {
         try {
           const installationToken = await createInstallationToken(
@@ -1020,6 +1088,11 @@ export class IdleContainerAllocationSystemService {
             this.log2,
           );
           githubAccessToken = installationToken.token;
+          this.log2.consoleLogDevOnly(
+            "info",
+            "Successfully created installation token",
+            { prototypeId, teamId },
+          );
         } catch (installationTokenError) {
           this.log2.error(
             installationTokenError instanceof Error
@@ -1062,6 +1135,11 @@ export class IdleContainerAllocationSystemService {
 
         try {
           githubAccessToken = decrypt(tokenRecord.token_encrypted);
+          this.log2.consoleLogDevOnly(
+            "info",
+            "Successfully decrypted user GitHub token",
+            { prototypeId, teamId },
+          );
         } catch (decryptError) {
           this.log2.error(
             decryptError instanceof Error
@@ -1093,11 +1171,27 @@ export class IdleContainerAllocationSystemService {
         return null;
       }
 
+      this.log2.consoleLogDevOnly(
+        "info",
+        "Fetching repository metadata from GitHub",
+        { prototypeId, sourceRepoId },
+      );
+
       try {
         const repoInfo = await fetchRepositoryById(
           sourceRepoId,
           githubAccessToken,
           this.log2,
+        );
+
+        this.log2.consoleLogDevOnly(
+          "info",
+          "Successfully fetched repository metadata from GitHub",
+          {
+            prototypeId,
+            repositoryFullName: repoInfo.full_name,
+            githubRepoId: repoInfo.id,
+          },
         );
 
         this.log2.info("Source repository configured for worker allocation", {
@@ -1106,7 +1200,7 @@ export class IdleContainerAllocationSystemService {
           githubRepoId: repoInfo.id,
         });
 
-        return {
+        const result = {
           github_repo_id: repoInfo.id,
           installation_id: integration.installation_id,
           repository_url: repoInfo.html_url,
@@ -1115,6 +1209,14 @@ export class IdleContainerAllocationSystemService {
           default_branch: repoInfo.default_branch,
           full_name: repoInfo.full_name,
         };
+
+        this.log2.consoleLogDevOnly(
+          "info",
+          "Returning source repository data for allocation",
+          { prototypeId, result },
+        );
+
+        return result;
       } catch (repoFetchError) {
         this.log2.error(
           repoFetchError instanceof Error
