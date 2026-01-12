@@ -79,6 +79,7 @@ export async function handleCreatePrototypeImpl(
       design_style,
       custom_design_system,
       framework,
+      source_repo_id,
     } = request.body;
     let { visibility } = request.body;
 
@@ -333,6 +334,37 @@ export async function handleCreatePrototypeImpl(
             version,
           },
         );
+      }
+
+      // Insert into prototype_sensitive_metadata if source_repo_id is provided
+      if (source_repo_id) {
+        const { error: sensitiveMetadataError } = await supabase
+          .from('prototype_sensitive_metadata')
+          .insert({
+            prototype_id: newPrototypeId,
+            source_repo_id: source_repo_id,
+          } satisfies TablesInsert<'prototype_sensitive_metadata'>);
+        if (sensitiveMetadataError) {
+          request.log2.error(
+            sensitiveMetadataError,
+            '[handleCreatePrototype] Failed to insert prototype_sensitive_metadata entry',
+            {
+              newPrototypeId,
+              source_repo_id,
+            },
+          );
+          // Don't fail the entire operation if sensitive metadata insert fails
+          // The prototype is already created successfully
+        } else {
+          request.log2.consoleLogDevOnly(
+            'info',
+            '[handleCreatePrototype] Created prototype_sensitive_metadata',
+            {
+              newPrototypeId,
+              source_repo_id,
+            },
+          );
+        }
       }
 
       // 6. Get viewing URL and return success

@@ -23,6 +23,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import { cn } from "@/lib/classNames";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
@@ -40,7 +53,10 @@ import { useActiveTeam } from "@/contexts/TeamContext";
 import { User } from "@supabase/supabase-js";
 import {
   AlertTriangle,
+  Check,
   ChevronDown,
+  ChevronsUpDown,
+  Code,
   Folder,
   Globe,
   Loader2,
@@ -143,9 +159,25 @@ export default function NewPrototypeModal({
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [framework, setFramework] =
     useState<PrototypeFramework>(DEFAULT_FRAMEWORK);
+  const [sourceRepoId, setSourceRepoId] = useState<number | null>(null);
+  const [sourceRepos, setSourceRepos] = useState<
+    Array<{
+      id: number;
+      name: string;
+      full_name: string;
+    }>
+  >([]);
+  const [isLoadingSourceRepos, setIsLoadingSourceRepos] = useState(false);
+  const [githubIntegrationStatus, setGithubIntegrationStatus] = useState<{
+    connected: boolean;
+    loading: boolean;
+  }>({ connected: false, loading: true });
+  const [sourceRepoComboboxOpen, setSourceRepoComboboxOpen] = useState(false);
 
   const isWebPrototypeEnabled =
     posthog?.isFeatureEnabled("web-prototype-support") ?? false;
+  const isSourceRepoEnabled =
+    posthog?.isFeatureEnabled("source-repo") ?? false;
   const isTeamsUIEnabled = posthog?.isFeatureEnabled("teams-ui") ?? false;
   const isWebFrameworkSelected = framework === "web_nextjs_react";
 
@@ -359,6 +391,89 @@ export default function NewPrototypeModal({
     });
   }, [open, logger, projectId, userPlan]);
 
+  // Fetch GitHub integration status and repositories when modal opens
+  useEffect(() => {
+    async function fetchGitHubStatusAndRepos() {
+      if (!activeTeam?.id || !isSourceRepoEnabled) {
+        setGithubIntegrationStatus({ connected: false, loading: false });
+        return;
+      }
+
+      setGithubIntegrationStatus({ connected: false, loading: true });
+      try {
+        const serverEndpoint = process.env.NEXT_PUBLIC_SERVER_ENDPOINT;
+        const session = await supabase.auth.getSession();
+        const token = session.data.session?.access_token;
+
+        if (!serverEndpoint || !token) {
+          setGithubIntegrationStatus({ connected: false, loading: false });
+          return;
+        }
+
+        // First, check GitHub integration status
+        const statusResponse = await fetch(
+          `${serverEndpoint}/github/status?teamId=${activeTeam.id}`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          },
+        );
+
+        const statusResult = await statusResponse.json();
+        const isConnected = statusResult.data?.connected ?? false;
+        setGithubIntegrationStatus({ connected: isConnected, loading: false });
+
+        // If GitHub is connected, fetch repositories
+        if (isConnected) {
+          setIsLoadingSourceRepos(true);
+          try {
+            const reposResponse = await fetch(
+              `${serverEndpoint}/github/repositories?teamId=${activeTeam.id}`,
+              {
+                headers: {
+                  Authorization: `Bearer ${token}`,
+                },
+              },
+            );
+
+            const reposResult = await reposResponse.json();
+            if (reposResult.data?.repositories) {
+              setSourceRepos(
+                reposResult.data.repositories.map(
+                  (repo: {
+                    id: number;
+                    name: string;
+                    full_name: string;
+                  }) => ({
+                    id: repo.id,
+                    name: repo.name,
+                    full_name: repo.full_name,
+                  }),
+                ),
+              );
+            }
+          } catch (error) {
+            logger.debug("error", "Failed to fetch source repositories", {
+              error: error instanceof Error ? error.message : String(error),
+            });
+          } finally {
+            setIsLoadingSourceRepos(false);
+          }
+        }
+      } catch (error) {
+        logger.debug("error", "Failed to fetch GitHub integration status", {
+          error: error instanceof Error ? error.message : String(error),
+        });
+        setGithubIntegrationStatus({ connected: false, loading: false });
+      }
+    }
+
+    if (open && user?.id && isSourceRepoEnabled) {
+      fetchGitHubStatusAndRepos();
+    }
+  }, [open, activeTeam?.id, user, isSourceRepoEnabled, logger]);
+
   useEffect(() => {
     if (framework !== "web_nextjs_react") {
       return;
@@ -436,6 +551,7 @@ export default function NewPrototypeModal({
         custom_design_system: customDesignSystemId ?? undefined,
         framework,
         team_id: teamId,
+        source_repo_id: sourceRepoId ?? undefined,
       };
 
       const response = await fetch(`${serverEndpoint}/prototype/create`, {
@@ -722,6 +838,132 @@ export default function NewPrototypeModal({
                 </SelectContent>
               </Select>
             </div>
+
+            {/* Source Repository Select */}
+            {isSourceRepoEnabled && (
+              <div className="space-y-2">
+                <Label
+                  htmlFor="source-repo-select"
+                  className="text-xs font-medium text-zinc-500 dark:text-[#8A8F98]"
+                >
+                  Source Repository (Optional)
+                </Label>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div>
+                        <Popover
+                          open={sourceRepoComboboxOpen}
+                          onOpenChange={setSourceRepoComboboxOpen}
+                        >
+                          <PopoverTrigger asChild>
+                            <button
+                              type="button"
+                              role="combobox"
+                              aria-expanded={sourceRepoComboboxOpen}
+                              disabled={
+                                isCreating ||
+                                githubIntegrationStatus.loading ||
+                                !githubIntegrationStatus.connected ||
+                                isLoadingSourceRepos
+                              }
+                              className={cn(
+                                "h-11 w-full bg-white dark:bg-[#0B0C0E] border border-zinc-200 dark:border-white/10 text-zinc-900 dark:text-white rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-zinc-950 dark:focus:ring-zinc-300 disabled:cursor-not-allowed disabled:opacity-50",
+                                "flex items-center justify-between",
+                              )}
+                            >
+                              <div className="flex items-center gap-2">
+                                <Code className="w-4 h-4 text-zinc-400 dark:text-white/50" />
+                                <span className="truncate">
+                                  {isLoadingSourceRepos ? (
+                                    <span className="flex items-center gap-2">
+                                      <Loader2 className="w-3 h-3 animate-spin" />
+                                      Loading repositories...
+                                    </span>
+                                  ) : sourceRepoId ? (
+                                    sourceRepos.find(
+                                      (repo) => repo.id === sourceRepoId,
+                                    )?.full_name || "None"
+                                  ) : (
+                                    "None"
+                                  )}
+                                </span>
+                              </div>
+                              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                            </button>
+                          </PopoverTrigger>
+                          <PopoverContent
+                            className="w-[--radix-popover-trigger-width] p-0 bg-white dark:bg-[#141517] border-zinc-200 dark:border-white/10"
+                            align="start"
+                          >
+                            <Command className="bg-white dark:bg-[#141517]">
+                              <CommandInput
+                                placeholder="Search repositories..."
+                                className="h-9 border-0 focus:ring-0 text-zinc-900 dark:text-white"
+                              />
+                              <CommandList>
+                                <CommandEmpty className="py-6 text-center text-sm text-zinc-500 dark:text-white/50">
+                                  No repository found.
+                                </CommandEmpty>
+                                <CommandGroup>
+                                  <CommandItem
+                                    value="none"
+                                    onSelect={() => {
+                                      setSourceRepoId(null);
+                                      setSourceRepoComboboxOpen(false);
+                                    }}
+                                    className="cursor-pointer text-zinc-900 dark:text-white hover:bg-zinc-100 dark:hover:bg-white/10"
+                                  >
+                                    <Check
+                                      className={cn(
+                                        "mr-2 h-4 w-4",
+                                        sourceRepoId === null
+                                          ? "opacity-100"
+                                          : "opacity-0",
+                                      )}
+                                    />
+                                    None
+                                  </CommandItem>
+                                  {sourceRepos.map((repo) => (
+                                    <CommandItem
+                                      key={repo.id}
+                                      value={repo.full_name}
+                                      onSelect={() => {
+                                        setSourceRepoId(repo.id);
+                                        setSourceRepoComboboxOpen(false);
+                                      }}
+                                      className="cursor-pointer text-zinc-900 dark:text-white hover:bg-zinc-100 dark:hover:bg-white/10"
+                                    >
+                                      <Check
+                                        className={cn(
+                                          "mr-2 h-4 w-4",
+                                          sourceRepoId === repo.id
+                                            ? "opacity-100"
+                                            : "opacity-0",
+                                        )}
+                                      />
+                                      {repo.full_name}
+                                    </CommandItem>
+                                  ))}
+                                </CommandGroup>
+                              </CommandList>
+                            </Command>
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+                    </TooltipTrigger>
+                    {!githubIntegrationStatus.connected &&
+                      !githubIntegrationStatus.loading && (
+                        <TooltipContent>
+                          <p>
+                            Connect GitHub to prototype on a source repository
+                          </p>
+                        </TooltipContent>
+                      )}
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
+            )}
 
             {/* Advanced Options Collapsible */}
             <Collapsible

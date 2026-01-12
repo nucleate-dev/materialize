@@ -1,7 +1,6 @@
 import { Options } from "@anthropic-ai/claude-agent-sdk";
 import type { UserContent } from "ai";
 import { FastifyInstance, FastifyRequest } from "fastify";
-import path from "path";
 import WebSocket from "ws";
 import { baseLogger, posthog } from "../../loggers/index.js";
 import { SystemLogger } from "../../loggers/SystemLogger.js";
@@ -20,8 +19,8 @@ import { getWorkerContext, WORK_DIR } from "../../worker.js";
 import { ClaudeTokenService } from "../auth/claude-token-service.js";
 import { NucleateDevelopmentServerService } from "../dev-server/NucleateDevelopmentServerService.js";
 import { FileSyncService } from "../FileSyncService.js";
-import { SandboxService } from "../SandboxService.js";
 import { SandboxOrchestrationInitiatorService } from "../SandboxOrchestrationInitiatorService.js";
+import { SandboxService } from "../SandboxService.js";
 import { SupabaseClientService } from "../SupabaseClientService.js";
 import { TerminalService } from "../terminals/TerminalService.js";
 import {
@@ -51,10 +50,13 @@ import {
 } from "./cost/oauth-credit-calculation.js";
 import { trackApiUsageBuildWorker } from "./cost/usage-tracking.js";
 import { persistChatMessage } from "./helpers/message-handlers.js";
-import { getSystemPromptForDesignStyle } from "./prompts/ClaudeCodePrompts.js";
+import {
+  getSourceRepositoryPromptAddendum,
+  getSystemPromptForDesignStyle,
+} from "./prompts/ClaudeCodePrompts.js";
 import { broadcastToConnections } from "./websocket-broadcast.js";
 
-export const ALLOWED_ROOT = "/tmp/materialize-dev-server";
+export const ALLOWED_ROOTS = ["/tmp/materialize-dev-server", "/tmp/source-repository"];
 const CHAT_HEARTBEAT_INTERVAL_MS = 15000;
 
 interface ChatQueryValidationResult {
@@ -107,11 +109,6 @@ export class ChatService {
       terminalService,
     );
     this.claudeTokenService = new ClaudeTokenService(supabaseClientService);
-
-    baseLogger.consoleLogDevOnly("info", "ChatService initialized", {
-      workDir: WORK_DIR,
-      allowedRoot: ALLOWED_ROOT,
-    });
   }
 
   // ---------------------------------------------------------------------------
@@ -1176,6 +1173,11 @@ export class ChatService {
       framework ?? undefined,
     );
 
+    if (this.devServerService.sourceRepository) {
+      systemPromptAppend += "\n\n" +
+        getSourceRepositoryPromptAddendum(framework ?? undefined);
+    }
+
     if (this.sessionState.designSystemRules) {
       systemPromptAppend += "\n\n## Custom Design System Rules:\n" +
         this.sessionState.designSystemRules;
@@ -1261,17 +1263,6 @@ export class ChatService {
       );
       return false;
     }
-  }
-
-  private isPathInsideAllowedRoot(resolvedPath: string): boolean {
-    const normalizedPath = path.resolve(resolvedPath);
-    const allowedWithSep = ALLOWED_ROOT.endsWith(path.sep)
-      ? ALLOWED_ROOT
-      : `${ALLOWED_ROOT}${path.sep}`;
-    return (
-      normalizedPath === ALLOWED_ROOT ||
-      normalizedPath.startsWith(allowedWithSep)
-    );
   }
 
   // --------------------------------------------------------------------------

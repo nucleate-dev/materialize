@@ -37,6 +37,38 @@ export async function handleStartDevServerImpl(
   }
   // Note: auth already happens by control-plane before calling this route
   const { userId } = getWorkerContext();
+  const sourceRepository = developmentServerService.sourceRepository;
+  let cachedInstallationToken:
+    | { installation_token: string; expires_at: string }
+    | null = null;
+  let githubTokenJobStarted = false;
+
+  if (sourceRepository) {
+    try {
+      cachedInstallationToken = await cloneSourceRepositoryToTmp(
+        prototype_id,
+        developmentServerService,
+        request.log2,
+      );
+      githubTokenJobStarted = true;
+    } catch (error) {
+      request.log2.error(
+        error instanceof Error ? error : new Error(String(error)),
+        "Failed to clone source repository",
+        { prototypeId: prototype_id },
+      );
+      reply.code(HTTP_STATUS.INTERNAL_SERVER_ERROR);
+      return {
+        data: null,
+        error: {
+          error: "Failed to clone source repository",
+          message: error instanceof Error
+            ? error.message
+            : "Unable to clone source repository",
+        },
+      };
+    }
+  }
 
   // Fetch prototype to check for GitHub repo
   const { data: prototypeRow, error: prototypeError } =
@@ -136,19 +168,23 @@ export async function handleStartDevServerImpl(
       };
     }
 
-    // Get a fresh installation token
+    // Get a fresh installation token (or reuse the one from source repo cloning)
     try {
-      const userJwtToken = developmentServerService.supabaseClientService
-        .getCurrentJwtToken();
-      if (!userJwtToken) {
-        throw new Error("User JWT token not available");
-      }
+      let tokenData = cachedInstallationToken;
+      if (!tokenData) {
+        const userJwtToken = developmentServerService.supabaseClientService
+          .getCurrentJwtToken();
+        if (!userJwtToken) {
+          throw new Error("User JWT token not available");
+        }
 
-      const tokenData = await developmentServerService
-        .sandboxOrchestrationInitiatorService.refreshGitHubInstallationToken(
-          prototype_id,
-          userJwtToken,
-        );
+        tokenData = await developmentServerService
+          .sandboxOrchestrationInitiatorService.refreshGitHubInstallationToken(
+            prototype_id,
+            userJwtToken,
+          );
+        cachedInstallationToken = tokenData;
+      }
 
       // Store GitHub info in developmentServerService
       developmentServerService.githubRepository = {
@@ -362,9 +398,10 @@ export async function handleStartDevServerImpl(
       },
     );
 
-    // Start GitHub token refresh job if this prototype has a GitHub repo
-    if (hasGitHubRepo) {
+    // Start GitHub token refresh job if needed for this prototype
+    if (hasGitHubRepo && !githubTokenJobStarted) {
       developmentServerService.startGitHubTokenRefreshJob(prototype_id);
+      githubTokenJobStarted = true;
     }
 
     reply.code(HTTP_STATUS.OK);
@@ -548,4 +585,64 @@ async function cloneGithubRepository(
     repositoryFullName: githubRepo.fullName,
     defaultBranch: githubRepo.defaultBranch,
   });
+}
+
+async function cloneSourceRepositoryToTmp(
+  prototypeId: string,
+  developmentServerService: NucleateDevelopmentServerService,
+  log2: SystemLogger,
+): Promise<{ installation_token: string; expires_at: string }> {
+  const sourceRepo = developmentServerService.sourceRepository;
+  if (!sourceRepo) {
+    throw new Error("Source repository not configured");
+  }
+
+  const userJwtToken = developmentServerService.supabaseClientService
+    .getCurrentJwtToken();
+  if (!userJwtToken) {
+    throw new Error("User JWT token not available");
+  }
+
+  const tokenData = await developmentServerService
+    .sandboxOrchestrationInitiatorService
+    .refreshGitHubInstallationToken(prototypeId, userJwtToken);
+
+  developmentServerService.startGitHubTokenRefreshJob(prototypeId);
+
+  const authenticatedUrl =
+    `https://x-access-token:${tokenData.installation_token}@github.com/${sourceRepo.fullName}.git`;
+
+  // Clone source repository using terminal command
+  // Note: Don't remove the directory itself (owned by root), just clean contents and clone
+  const cloneCommand = `mkdir -p /tmp/source-repository && find /tmp/source-repository -mindepth 1 -delete && git clone ${authenticatedUrl} /tmp/source-repository`;
+
+  try {
+    const cloneResult = await developmentServerService.terminalService
+      .asyncSendInputWithCompletionDetectionOrTimeout(
+        "dev-server",
+        cloneCommand,
+        {
+          timeout: 180000,
+          bypassValidation: true,
+        },
+      );
+
+    if (cloneResult.exitCode !== 0) {
+      throw new Error(
+        `Failed to clone source repository (exit code ${cloneResult.exitCode}): ${cloneResult.output}`,
+      );
+    }
+  } catch (error) {
+    const errorMessage = error instanceof Error
+      ? error.message
+      : String(error);
+    throw new Error(`Failed to clone source repository: ${errorMessage}`);
+  }
+
+  log2.info("Cloned source repository into /tmp/source-repository", {
+    prototypeId,
+    repositoryFullName: sourceRepo.fullName,
+  });
+
+  return tokenData;
 }

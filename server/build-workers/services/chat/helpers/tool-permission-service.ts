@@ -84,7 +84,7 @@ interface ToolInputWithFilePath {
 }
 
 export function evaluateToolPermission(
-  allowedRoot: string,
+  allowedRoots: string[],
   toolName: ToolName,
   input: ToolInput,
 ): PermissionResult {
@@ -111,17 +111,24 @@ export function evaluateToolPermission(
         reason: "File path must be a non-empty string",
       };
     }
+    
+    let resolvedPath: string | undefined;
+    let withinRoot = false;
 
-    const { resolvedPath, withinRoot } = normalizePathToAllowedRoot(
-      allowedRoot,
-      rawPath,
-    );
+    for (const root of allowedRoots) {
+      const normalized = normalizePathToAllowedRoot(root, rawPath);
+      resolvedPath = normalized.resolvedPath;
+      if (normalized.withinRoot) {
+        withinRoot = true;
+        break;
+      }
+    }
 
     if (!withinRoot) {
       return {
         ok: false,
         resolvedPath,
-        reason: `Path must stay within ${allowedRoot}`,
+        reason: `Path must stay within ${allowedRoots.join(", ")}`,
       };
     }
 
@@ -264,9 +271,22 @@ export function evaluateToolPermission(
         return deny("Glob patterns cannot escape the workspace");
       }
 
-      const basePath =
-        typeof globInput.path === "string" ? globInput.path : allowedRoot;
-      const validation = validatePath(basePath);
+      const pathCandidates =
+        typeof globInput.path === "string" ? [globInput.path] : allowedRoots;
+
+      let validation: { ok: boolean; resolvedPath?: string; reason?: string } = {
+        ok: false,
+        reason: "No valid base path found",
+      };
+
+      for (const candidate of pathCandidates) {
+        const result = validatePath(candidate);
+        if (result.ok) {
+          validation = result;
+          break;
+        }
+        validation = result;
+      }
 
       if (!validation.ok || !validation.resolvedPath) {
         return deny(
@@ -314,7 +334,7 @@ export function evaluateToolPermission(
           updatedInput.paths = resolvedPaths;
         }
       } else {
-        updatedInput.path = allowedRoot;
+        updatedInput.path = allowedRoots[0];
       }
 
       return { behavior: "allow" as const, updatedInput };
