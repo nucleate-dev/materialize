@@ -504,7 +504,7 @@ export default function NewPrototypeModal({
   return (
     <>
       <Dialog open={open} onOpenChange={onClose}>
-        <DialogContent className="sm:max-w-md bg-white dark:bg-[#141517] border border-zinc-200 dark:border-white/10 text-zinc-900 dark:text-white shadow-2xl">
+        <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto bg-white dark:bg-[#141517] border border-zinc-200 dark:border-white/10 text-zinc-900 dark:text-white shadow-2xl">
           <DialogHeader className="text-center space-y-3 pb-2">
             <div className="flex items-center justify-center">
               <div className="p-2.5 bg-zinc-50 dark:bg-[#0B0C0E] border border-zinc-200 dark:border-white/10 rounded-xl shadow-inner">
