@@ -139,6 +139,19 @@ export async function handleUndoLastChangeImpl(
     },
   );
 
+  // Push to GitHub if repository is linked
+  if (developmentServerService.githubRepository) {
+    try {
+      await developmentServerService.pushToGitHub(request.log2);
+    } catch (error) {
+      request.log2.warn("Failed to push revert commit to GitHub", {
+        error: error instanceof Error ? error.message : String(error),
+        prototypeId,
+      });
+      // Don't fail the undo operation if push fails
+    }
+  }
+
   developmentServerService.developmentServerState.lastUpdatedTime = new Date();
 
   return {

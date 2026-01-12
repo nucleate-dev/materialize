@@ -305,7 +305,7 @@ export class NucleateDevelopmentServerService {
   /**
    * Push commits to the attached GitHub repository
    */
-  private async pushToGitHub(logger: SystemLogger): Promise<void> {
+  public async pushToGitHub(logger: SystemLogger): Promise<void> {
     if (!this.githubRepository) {
       logger.warn("Cannot push to GitHub: no repository attached");
       return;
