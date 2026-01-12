@@ -920,6 +920,35 @@ export type Database = {
           },
         ]
       }
+      prototype_sensitive_metadata: {
+        Row: {
+          created_at: string
+          prototype_id: string
+          source_repo_id: number | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          prototype_id: string
+          source_repo_id?: number | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          prototype_id?: string
+          source_repo_id?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prototype_sensitive_metadata_prototype_id_fkey"
+            columns: ["prototype_id"]
+            isOneToOne: true
+            referencedRelation: "prototypes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       prototypes: {
         Row: {
           created_at: string | null
@@ -1447,6 +1476,10 @@ export type Database = {
           success: boolean
           total_remaining: number
         }[]
+      }
+      get_prototype_team_id: {
+        Args: { p_prototype_id: string }
+        Returns: string
       }
       is_team_empty: { Args: { p_team_id: string }; Returns: boolean }
       is_team_member: { Args: { p_team_id: string }; Returns: boolean }

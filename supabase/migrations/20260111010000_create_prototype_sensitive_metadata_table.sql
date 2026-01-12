@@ -82,7 +82,7 @@ for select
 to authenticated
 using (
   public.is_team_member(
-    public.get_prototype_team_id(prototype_sensitive_metadata.prototype_id),
+    public.get_prototype_team_id(prototype_sensitive_metadata.prototype_id)
   )
 );
 
