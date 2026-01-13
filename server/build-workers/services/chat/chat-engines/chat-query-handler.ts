@@ -33,6 +33,11 @@ import {
   CURRENT_COST_FUNCTION_NAME,
 } from "../cost/cost-calculation.js";
 import {
+  calculateOAuthCredits,
+  getPromptLengthFromQueryData,
+  OAUTH_COST_FUNCTION_NAME,
+} from "../cost/oauth-credit-calculation.js";
+import {
   getToolDisplayName,
   persistChatMessage,
 } from "../helpers/message-handlers.js";
@@ -84,6 +89,8 @@ interface StreamContext {
     creditsUsed: number | undefined;
     costFunction: string | undefined;
   };
+  isUsingOAuthToken: boolean;
+  queryData: ChatQueryData;
 }
 
 interface HookContext {
@@ -332,6 +339,8 @@ export class ChatQueryHandler implements ChatEngine {
         socket,
         activeConnections,
         bufferState,
+        isUsingOAuthToken: context.isUsingOAuthToken,
+        queryData: data,
       };
       const totalCostUsd = await this.streamQueryResponse(
         streamContext,
@@ -1206,9 +1215,17 @@ export class ChatQueryHandler implements ChatEngine {
           // Store total_cost_usd for usage tracking in finally block
           totalCostUsd = total_cost_usd;
 
-          // Calculate credits used using the shared cost calculation function
-          bufferState.creditsUsed = costFunctionV3(total_cost_usd);
-          bufferState.costFunction = CURRENT_COST_FUNCTION_NAME;
+          // Calculate credits used - use OAuth-aware calculation to match USAGE_UPDATE
+          if (streamContext.isUsingOAuthToken) {
+            // OAuth user: flat fee based on prompt length
+            const promptLength = getPromptLengthFromQueryData(streamContext.queryData);
+            bufferState.creditsUsed = calculateOAuthCredits(promptLength, baseLogger);
+            bufferState.costFunction = OAUTH_COST_FUNCTION_NAME;
+          } else {
+            // API key user: token-based pricing
+            bufferState.creditsUsed = costFunctionV3(total_cost_usd);
+            bufferState.costFunction = CURRENT_COST_FUNCTION_NAME;
+          }
 
           baseLogger.metricTokenUsage({
             modelName: queryOptions.model ?? "unknown",

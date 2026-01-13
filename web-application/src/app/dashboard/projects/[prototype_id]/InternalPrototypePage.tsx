@@ -254,19 +254,6 @@ export default function InternalPrototypePage() {
     materializeRenderRef.current?.updateScreens(data);
   }, [logger]);
 
-  // Handle creating variants from the preview toolbar
-  const handleCreateVariants = useCallback(() => {
-    const message = `Create 2 design variants of the current screen at ${currentViewingPath}`;
-    claudeCodePanelRef.current?.populateInput(message);
-    logger.log({
-      event: "client_prototype_editor_create_variants_clicked",
-      properties: {
-        prototype_id: prototypeId,
-        current_path: currentViewingPath,
-      },
-    });
-  }, [currentViewingPath, logger, prototypeId]);
-
   // Handle canvas state changes with debounced save
   const handleCanvasStateChange = useCallback(
     (state: CanvasStateData) => {
@@ -1380,7 +1367,6 @@ export default function InternalPrototypePage() {
               isCloningPrototype={isCloningPrototype}
               framework={prototype?.framework ?? undefined}
               onStartDevServer={handleTriggerFetchAndStartDevServer}
-              onCreateVariants={handleCreateVariants}
               codeView={
                 <div className={`flex h-full ${isMobile ? "flex-col" : ""}`}>
                   {isMobile ? (

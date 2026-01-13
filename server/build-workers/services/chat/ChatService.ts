@@ -606,6 +606,7 @@ export class ChatService {
         validAiChatSessionIds: this.validAiChatSessionIds,
         systemPrompt,
         getRelativePath: this.getRelativePath.bind(this),
+        isUsingOAuthToken: this.hasUserOAuthToken(),
       });
     } finally {
       const combinedCost = designAgentCost === undefined &&

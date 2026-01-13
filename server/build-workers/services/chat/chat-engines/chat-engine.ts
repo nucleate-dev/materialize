@@ -29,6 +29,7 @@ export interface ChatEngineContext {
   validAiChatSessionIds: Set<string>;
   getRelativePath: (absolutePath: string) => string;
   systemPrompt: string;
+  isUsingOAuthToken: boolean;
 }
 
 export interface ChatEngineResult {
