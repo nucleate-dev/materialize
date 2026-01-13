@@ -2398,34 +2398,50 @@ const MaterializeRenderSection = forwardRef<
               {!isReadOnlyView && (
                 <>
                   <div className="bg-accent p-1 rounded-lg border border-border flex items-center gap-1">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handlePreviewToggle(true)}
-                      className={cn(
-                        "h-7 px-3 text-xs font-medium rounded-md transition-all",
-                        isPreviewView
-                          ? "bg-white text-black shadow-sm"
-                          : "text-muted-foreground hover:text-foreground hover:bg-accent",
-                      )}
-                    >
-                      <Eye className="w-3.5 h-3.5 mr-1.5" />
-                      Preview
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handlePreviewToggle(false)}
-                      className={cn(
-                        "h-7 px-3 text-xs font-medium rounded-md transition-all",
-                        !isPreviewView
-                          ? "bg-white text-black shadow-sm"
-                          : "text-muted-foreground hover:text-foreground hover:bg-accent",
-                      )}
-                    >
-                      <Code2 className="w-3.5 h-3.5 mr-1.5" />
-                      Code
-                    </Button>
+                    <TooltipProvider delayDuration={200}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handlePreviewToggle(true)}
+                            className={cn(
+                              "h-7 w-7 rounded-md transition-all",
+                              isPreviewView
+                                ? "bg-white text-black shadow-sm"
+                                : "text-muted-foreground hover:text-foreground hover:bg-accent",
+                            )}
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Preview</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                    <TooltipProvider delayDuration={200}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handlePreviewToggle(false)}
+                            className={cn(
+                              "h-7 w-7 rounded-md transition-all",
+                              !isPreviewView
+                                ? "bg-white text-black shadow-sm"
+                                : "text-muted-foreground hover:text-foreground hover:bg-accent",
+                            )}
+                          >
+                            <Code2 className="w-3.5 h-3.5" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Code</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
                   </div>
 
                   <div className="h-4 w-px bg-border mx-1" />
