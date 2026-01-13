@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { useActiveTeam } from "@/contexts/TeamContext";
 import { useUser } from "@/hooks/useUser";
 import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
@@ -73,7 +73,6 @@ export function PeopleTab() {
   const isFreeTier = userPlan === "free";
   const isPlusWithMultipleMembers =
     userPlan === "plus" && (teamMembers?.length ?? 0) >= 2;
-  const shouldShowUpsell = isFreeTier || isPlusWithMultipleMembers;
   const isTeamPlan = userPlan === "team";
   const [inviteEmails, setInviteEmails] = useState("");
   const [inviteRole, setInviteRole] = useState<TeamRole>("editor");
@@ -92,20 +91,20 @@ export function PeopleTab() {
   const [isManagingBilling, setIsManagingBilling] = useState(false);
 
   // Calculate default seat count based on non-viewer members
-  const getNonViewerCount = () => {
+  const getNonViewerCount = useCallback(() => {
     if (!teamMembers || teamMembers.length === 0) {
       return 1; // Default minimum
     }
     const nonViewers = teamMembers.filter((member) => member.role !== "viewer");
     return Math.max(1, nonViewers.length);
-  };
+  }, [teamMembers]);
 
   const [teamSeatQuantity, setTeamSeatQuantity] = useState(getNonViewerCount());
 
   // Update seat quantity when team members change
   useEffect(() => {
     setTeamSeatQuantity(getNonViewerCount());
-  }, [teamMembers]);
+  }, [getNonViewerCount]);
 
   const getInitials = (name: string) => {
     return name
@@ -600,14 +599,13 @@ export function PeopleTab() {
                   onClick={() => {
                     if (isPlusWithMultipleMembers) {
                       handleManageBillingClick();
-                    } else {
-                      activeTeam?.id &&
-                        handleCheckout(
-                          "team",
-                          router,
-                          activeTeam.id,
-                          teamSeatQuantity,
-                        );
+                    } else if (activeTeam?.id) {
+                      void handleCheckout(
+                        "team",
+                        router,
+                        activeTeam.id,
+                        teamSeatQuantity,
+                      );
                     }
                   }}
                   className="w-full h-8 text-xs bg-blue-600 hover:bg-blue-700"

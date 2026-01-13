@@ -240,6 +240,9 @@ export default function ClaudeCodePanelUI({
     useFeatureFlagEnabled("claude-code-cli-with-personal-token") ?? false;
   const [showCreditLimitModal, setShowCreditLimitModal] = useState(false);
   const hasShownModalRef = useRef(false);
+  const [expandedToolCommands, setExpandedToolCommands] = useState<Set<string>>(
+    new Set(),
+  );
 
   // Show modal when credit limit is reached, but only once per session
   useEffect(() => {
@@ -253,6 +256,18 @@ export default function ClaudeCodePanelUI({
     text
       .replace(/Claude Code/g, "Nucleate")
       .replace(/\/tmp\/materialize-dev-server/g, "");
+
+  const toggleToolCommandExpanded = (toolId: string) => {
+    setExpandedToolCommands((prev) => {
+      const next = new Set(prev);
+      if (next.has(toolId)) {
+        next.delete(toolId);
+      } else {
+        next.add(toolId);
+      }
+      return next;
+    });
+  };
 
   return (
     <div
@@ -582,29 +597,84 @@ export default function ClaudeCodePanelUI({
 
                       {/* Tool Status */}
                       {message.type === "tool" && (
-                        <div className="flex items-center gap-2 px-3 py-1.5 my-0.5 rounded-md bg-accent/50 border border-border w-fit max-w-full">
-                          <div
-                            className={cn(
-                              "w-1.5 h-1.5 rounded-full shrink-0",
-                              message.status === "error"
-                                ? "bg-red-500"
-                                : message.status === "running"
-                                  ? "bg-indigo-500 animate-pulse"
-                                  : "bg-emerald-500",
-                            )}
-                          />
-                          <code className="text-xs font-mono text-muted-foreground truncate max-w-[200px] sm:max-w-md">
-                            {sanitizeText(message.content)}
-                          </code>
-                          {message.status === "running" && (
-                            <Loader2 className="w-3 h-3 text-muted-foreground animate-spin ml-1" />
-                          )}
-                          {message.status === "success" && (
-                            <Check className="w-3 h-3 text-emerald-500 ml-1" />
-                          )}
-                          {message.status === "error" && (
-                            <X className="w-3 h-3 text-red-500 ml-1" />
-                          )}
+                        <div className="my-0.5 w-fit max-w-full">
+                          {(() => {
+                            const toolId = message.toolCallId ?? message.id;
+                            const toolCommand = typeof message.toolInput
+                              ?.command === "string"
+                              ? message.toolInput.command
+                              : "";
+                            const isBashTool = message.toolName?.toLowerCase()
+                              .includes("bash");
+                            const isExpandable = isBashTool && toolCommand;
+                            const isExpanded =
+                              isExpandable && expandedToolCommands.has(toolId);
+
+                            return (
+                              <>
+                                <div
+                                  className={cn(
+                                    "flex items-center gap-2 px-3 py-1.5 rounded-md bg-accent/50 border border-border w-fit max-w-full",
+                                    isExpandable &&
+                                      "cursor-pointer hover:bg-accent/70 transition-colors",
+                                  )}
+                                  role={isExpandable ? "button" : undefined}
+                                  tabIndex={isExpandable ? 0 : undefined}
+                                  onClick={() =>
+                                    isExpandable &&
+                                    toggleToolCommandExpanded(toolId)
+                                  }
+                                  onKeyDown={(event) => {
+                                    if (!isExpandable) return;
+                                    if (
+                                      event.key === "Enter" ||
+                                      event.key === " "
+                                    ) {
+                                      event.preventDefault();
+                                      toggleToolCommandExpanded(toolId);
+                                    }
+                                  }}
+                                >
+                                  {isExpandable && (
+                                    <span className="text-muted-foreground">
+                                      {isExpanded ? (
+                                        <ChevronDown className="w-3.5 h-3.5" />
+                                      ) : (
+                                        <ChevronRight className="w-3.5 h-3.5" />
+                                      )}
+                                    </span>
+                                  )}
+                                  <div
+                                    className={cn(
+                                      "w-1.5 h-1.5 rounded-full shrink-0",
+                                      message.status === "error"
+                                        ? "bg-red-500"
+                                        : message.status === "running"
+                                          ? "bg-indigo-500 animate-pulse"
+                                          : "bg-emerald-500",
+                                    )}
+                                  />
+                                  <code className="text-xs font-mono text-muted-foreground truncate max-w-[200px] sm:max-w-md">
+                                    {sanitizeText(message.content)}
+                                  </code>
+                                  {message.status === "running" && (
+                                    <Loader2 className="w-3 h-3 text-muted-foreground animate-spin ml-1" />
+                                  )}
+                                  {message.status === "success" && (
+                                    <Check className="w-3 h-3 text-emerald-500 ml-1" />
+                                  )}
+                                  {message.status === "error" && (
+                                    <X className="w-3 h-3 text-red-500 ml-1" />
+                                  )}
+                                </div>
+                                {isExpanded && (
+                                  <div className="ml-5 mt-1 rounded-md border border-border bg-background/60 px-3 py-2 text-xs font-mono text-foreground/80 whitespace-pre-wrap">
+                                    {sanitizeText(toolCommand)}
+                                  </div>
+                                )}
+                              </>
+                            );
+                          })()}
                         </div>
                       )}
 

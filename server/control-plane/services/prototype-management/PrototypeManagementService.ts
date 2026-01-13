@@ -107,6 +107,7 @@ export class PrototypeManagementService {
                 type: "string",
                 enum: ["mobile_expo_react_native", "web_nextjs_react"],
               },
+              source_repo_id: { type: "number" },
             },
           },
         },

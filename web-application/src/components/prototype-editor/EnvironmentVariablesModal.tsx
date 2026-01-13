@@ -209,10 +209,11 @@ export function EnvironmentVariablesModal({
   };
 
   const refetchEnvVarsOnDevServer = useCallback(
-    async (_source: "manual" | "auto" = "auto"): Promise<boolean> => {
+    async (source: "manual" | "auto" = "auto"): Promise<boolean> => {
       // Clear previous sync messages
       setEnvSyncWarning(null);
       setEnvSyncError(null);
+      logger.debug("log", "Refreshing dev server env vars", { source });
 
       if (!sandbox_url || !prototypeId) {
         setEnvSyncWarning(

@@ -104,7 +104,7 @@ export function TeamProvider({ children }: { children: ReactNode }) {
         }
 
         setSignedAvatarUrl(data.signedUrl);
-      } catch (err) {
+      } catch {
         setSignedAvatarUrl(null);
       }
     };

@@ -4,7 +4,7 @@ import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { sidebarOpenAtom } from "@/lib/atoms/sidebar";
 import { useAtom } from "jotai";
 import { usePathname } from "next/navigation";
-import { useEffect } from "react";
+import { Suspense, useEffect } from "react";
 import MobileHeader from "../../components/dashboard/MobileHeader";
 import DashboardSidebar from "../../components/dashboard/Sidebar";
 import RequireAuth from "./RequireAuth";
@@ -24,7 +24,9 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
 
   return (
     <>
-      <DashboardSidebar />
+      <Suspense fallback={null}>
+        <DashboardSidebar />
+      </Suspense>
       <SidebarInset>
         {/* Sidebar Trigger - shown when sidebar is collapsed */}
         {/* {sidebarState === "collapsed" && (

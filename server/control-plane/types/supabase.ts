@@ -416,6 +416,189 @@ export type Database = {
           },
         ]
       }
+      github_connect_sessions: {
+        Row: {
+          created_at: string
+          created_by_user_id: string
+          expires_at: string
+          id: string
+          status: string
+          team_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by_user_id: string
+          expires_at: string
+          id?: string
+          status: string
+          team_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by_user_id?: string
+          expires_at?: string
+          id?: string
+          status?: string
+          team_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "github_connect_sessions_created_by_user_id_fkey"
+            columns: ["created_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "github_connect_sessions_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      github_integration_tokens: {
+        Row: {
+          created_at: string
+          refresh_encrypted: string | null
+          team_id: string
+          token_encrypted: string
+          token_expires_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          refresh_encrypted?: string | null
+          team_id: string
+          token_encrypted: string
+          token_expires_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          refresh_encrypted?: string | null
+          team_id?: string
+          token_encrypted?: string
+          token_expires_at?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "github_integration_tokens_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: true
+            referencedRelation: "github_integrations"
+            referencedColumns: ["team_id"]
+          },
+        ]
+      }
+      github_integrations: {
+        Row: {
+          account_login: string
+          account_type: string
+          connected_at: string
+          installation_id: number
+          installed_by_github_user_id: number
+          is_suspended: boolean
+          suspended_at: string | null
+          team_id: string
+          updated_at: string
+        }
+        Insert: {
+          account_login: string
+          account_type: string
+          connected_at?: string
+          installation_id: number
+          installed_by_github_user_id: number
+          is_suspended?: boolean
+          suspended_at?: string | null
+          team_id: string
+          updated_at?: string
+        }
+        Update: {
+          account_login?: string
+          account_type?: string
+          connected_at?: string
+          installation_id?: number
+          installed_by_github_user_id?: number
+          is_suspended?: boolean
+          suspended_at?: string | null
+          team_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "github_integrations_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: true
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      github_repositories: {
+        Row: {
+          account_login: string
+          account_type: string
+          created_at: string
+          default_branch: string
+          full_name: string
+          github_repo_id: number
+          html_url: string
+          installation_id: number
+          is_archived: boolean | null
+          is_private: boolean | null
+          owner_login: string
+          prototype_id: string | null
+          repo_name: string
+          updated_at: string
+        }
+        Insert: {
+          account_login: string
+          account_type: string
+          created_at?: string
+          default_branch: string
+          full_name: string
+          github_repo_id: number
+          html_url: string
+          installation_id: number
+          is_archived?: boolean | null
+          is_private?: boolean | null
+          owner_login: string
+          prototype_id?: string | null
+          repo_name: string
+          updated_at?: string
+        }
+        Update: {
+          account_login?: string
+          account_type?: string
+          created_at?: string
+          default_branch?: string
+          full_name?: string
+          github_repo_id?: number
+          html_url?: string
+          installation_id?: number
+          is_archived?: boolean | null
+          is_private?: boolean | null
+          owner_login?: string
+          prototype_id?: string | null
+          repo_name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "github_repositories_prototype_id_fkey"
+            columns: ["prototype_id"]
+            isOneToOne: false
+            referencedRelation: "prototypes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       payments: {
         Row: {
           amount: number | null
@@ -737,6 +920,35 @@ export type Database = {
           },
         ]
       }
+      prototype_sensitive_metadata: {
+        Row: {
+          created_at: string
+          prototype_id: string
+          source_repo_id: number | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          prototype_id: string
+          source_repo_id?: number | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          prototype_id?: string
+          source_repo_id?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prototype_sensitive_metadata_prototype_id_fkey"
+            columns: ["prototype_id"]
+            isOneToOne: true
+            referencedRelation: "prototypes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       prototypes: {
         Row: {
           created_at: string | null
@@ -745,6 +957,7 @@ export type Database = {
           design_style: Database["public"]["Enums"]["design_style"]
           folder_id: string | null
           framework: Database["public"]["Enums"]["prototype_framework"] | null
+          github_repo_id: number | null
           id: string
           latest_build_key: string
           latest_deploy_key: string | null
@@ -752,6 +965,7 @@ export type Database = {
           owner_id: string | null
           project_context: string
           prototype_context: Json | null
+          public_display_config: Json | null
           slug: string | null
           team_id: string
           updated_at: string | null
@@ -764,6 +978,7 @@ export type Database = {
           design_style?: Database["public"]["Enums"]["design_style"]
           folder_id?: string | null
           framework?: Database["public"]["Enums"]["prototype_framework"] | null
+          github_repo_id?: number | null
           id?: string
           latest_build_key: string
           latest_deploy_key?: string | null
@@ -771,6 +986,7 @@ export type Database = {
           owner_id?: string | null
           project_context?: string
           prototype_context?: Json | null
+          public_display_config?: Json | null
           slug?: string | null
           team_id: string
           updated_at?: string | null
@@ -783,6 +999,7 @@ export type Database = {
           design_style?: Database["public"]["Enums"]["design_style"]
           folder_id?: string | null
           framework?: Database["public"]["Enums"]["prototype_framework"] | null
+          github_repo_id?: number | null
           id?: string
           latest_build_key?: string
           latest_deploy_key?: string | null
@@ -790,6 +1007,7 @@ export type Database = {
           owner_id?: string | null
           project_context?: string
           prototype_context?: Json | null
+          public_display_config?: Json | null
           slug?: string | null
           team_id?: string
           updated_at?: string | null
@@ -809,6 +1027,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "folders"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prototypes_github_repo_id_fkey"
+            columns: ["github_repo_id"]
+            isOneToOne: false
+            referencedRelation: "github_repositories"
+            referencedColumns: ["github_repo_id"]
           },
           {
             foreignKeyName: "prototypes_owner_id_fkey"
@@ -1252,6 +1477,11 @@ export type Database = {
           total_remaining: number
         }[]
       }
+      get_prototype_team_id: {
+        Args: { p_prototype_id: string }
+        Returns: string
+      }
+      is_team_empty: { Args: { p_team_id: string }; Returns: boolean }
       is_team_member: { Args: { p_team_id: string }; Returns: boolean }
       is_team_member_with_edit_privileges: {
         Args: { p_team_id: string }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Loader2,
@@ -61,7 +61,7 @@ export function ClaudeConnectionTab() {
   };
 
   // Check if user has a Claude token
-  const checkClaudeToken = async () => {
+  const checkClaudeToken = useCallback(async () => {
     if (!user?.id) return;
 
     try {
@@ -85,7 +85,7 @@ export function ClaudeConnectionTab() {
       });
       setHasClaudeToken(false);
     }
-  };
+  }, [logger, user?.id]);
 
   // Save Claude token
   const handleSaveClaudeToken = async () => {
@@ -161,7 +161,7 @@ export function ClaudeConnectionTab() {
   // Check for token on mount and when user changes
   useEffect(() => {
     void checkClaudeToken();
-  }, [user?.id]);
+  }, [checkClaudeToken]);
 
   return (
     <div className="relative min-h-screen text-gray-900 dark:text-white font-sans">

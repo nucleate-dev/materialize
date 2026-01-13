@@ -162,7 +162,7 @@ export default function Terminal({
           if (onResize) {
             onResize(instance.xterm.cols, instance.xterm.rows);
           }
-        } catch (e) {
+        } catch {
           // fit() might fail if the element is still not visible for some reason
         }
       }

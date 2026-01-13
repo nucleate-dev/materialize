@@ -68,17 +68,6 @@ export const useFileSystem = (
     return chunks;
   }, []);
 
-  const fileToBase64 = useCallback(async (file: File): Promise<string> => {
-    const buffer = await file.arrayBuffer();
-    let binary = "";
-    const bytes = new Uint8Array(buffer);
-    const chunkSize = 0x8000;
-    for (let i = 0; i < bytes.length; i += chunkSize) {
-      binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
-    }
-    return btoa(binary);
-  }, []);
-
   // Load files from database
   const loadFilesFromDatabase = useCallback(
     async (prototypeId: string, preserveSelection = false) => {
@@ -605,10 +594,6 @@ export const useFileSystem = (
     },
     [
       prototypeId,
-      files,
-      assets,
-      selectedFile,
-      defaultFile,
       logger,
       userPlan,
       sandboxUrl,

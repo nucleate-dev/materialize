@@ -13,6 +13,7 @@ import { FileSyncService } from "./services/FileSyncService.js";
 import { SandboxService } from "./services/SandboxService.js";
 import { SupabaseClientService } from "./services/SupabaseClientService.js";
 import { TerminalService } from "./services/terminals/TerminalService.js";
+import { SandboxOrchestrationInitiatorService } from "./services/SandboxOrchestrationInitiatorService.js";
 
 // Load environment variables
 dotenv.config();
@@ -113,6 +114,10 @@ const sandboxService = new SandboxService(terminalService);
 
 const cloudflareTunnelManagementService =
   new CloudflareTunnelManagementService();
+
+const sandboxOrchestrationInitiatorService =
+  new SandboxOrchestrationInitiatorService();
+
 // Create NucleateDevelopmentServerService with undefined chatService (will be set after ChatService is created)
 // This is needed to break the circular dependency between ChatService and NucleateDevelopmentServerService
 const nucleateDevelopmentServerService = new NucleateDevelopmentServerService(
@@ -121,6 +126,7 @@ const nucleateDevelopmentServerService = new NucleateDevelopmentServerService(
   supabaseClientService,
   fileSyncService,
   terminalService,
+  sandboxOrchestrationInitiatorService,
   undefined!, // chatService - will be set after ChatService is created
 );
 
@@ -130,6 +136,7 @@ const chatService = new ChatService(
   nucleateDevelopmentServerService,
   terminalService,
   fileSyncService,
+  sandboxOrchestrationInitiatorService,
 );
 
 // Now set the chatService reference in NucleateDevelopmentServerService

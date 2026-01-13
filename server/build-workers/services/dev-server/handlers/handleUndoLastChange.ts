@@ -98,6 +98,39 @@ export async function handleUndoLastChangeImpl(
     };
   }
 
+  // Check if the commit being reverted is the initial "Initialize development server" commit
+  const getCommitMessageResult =
+    await developmentServerService.sandboxService.runCommandInternal({
+      command: "git",
+      args: ["log", "-1", "--format=%s", "HEAD"],
+      cwd: WORK_DIR,
+      session_id: "test",
+      timeout_ms: 10000,
+      strip_ansi: true,
+    });
+
+  const commitMessage =
+    getCommitMessageResult.response.data?.stdout?.trim() ?? "";
+
+  if (commitMessage === "Initialize development server") {
+    request.log2.warn(
+      "Attempted to undo initial development server commit",
+      {
+        prototypeId,
+        commitMessage,
+      },
+    );
+    reply.code(400);
+    return {
+      data: null,
+      error: {
+        error: "Cannot undo initial commit",
+        message:
+          "Cannot undo the initial development server setup. This is the first commit in your sandbox session.",
+      },
+    };
+  }
+
   request.log2.consoleLogDevOnly(
     "info",
     "Successfully reverted latest commit via undo-last-change",
@@ -105,6 +138,19 @@ export async function handleUndoLastChangeImpl(
       prototypeId,
     },
   );
+
+  // Push to GitHub if repository is linked
+  if (developmentServerService.githubRepository) {
+    try {
+      await developmentServerService.pushToGitHub(request.log2);
+    } catch (error) {
+      request.log2.warn("Failed to push revert commit to GitHub", {
+        error: error instanceof Error ? error.message : String(error),
+        prototypeId,
+      });
+      // Don't fail the undo operation if push fails
+    }
+  }
 
   developmentServerService.developmentServerState.lastUpdatedTime = new Date();
 

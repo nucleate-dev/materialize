@@ -55,18 +55,22 @@ COPY . .
 RUN npm run build
 
 # Create log directory and build workspace
-RUN mkdir -p /tmp/logs /tmp/materialize-dev-server
+RUN mkdir -p /tmp/logs /tmp/materialize-dev-server /tmp/source-repository
 
 # Create unprivileged terminal user
 RUN groupadd --system materialize-user && \
     useradd --system --gid materialize-user --shell /bin/bash --home-dir /tmp/materialize-dev-server materialize-user && \
-    chown -R materialize-user:materialize-user /tmp/materialize-dev-server
+    chown -R materialize-user:materialize-user /tmp/materialize-dev-server && \
+    chown -R materialize-user:materialize-user /tmp/source-repository
 
 # Set default ACLs so all new files created by root are automatically accessible to materialize-user
 # This ensures Metro bundler (running as materialize-user) can read files created by CodeService (running as root)
 RUN setfacl -R -m u:materialize-user:rwX /tmp/materialize-dev-server && \
     setfacl -R -d -m u:materialize-user:rwX /tmp/materialize-dev-server && \
-    setfacl -R -d -m g:materialize-user:rwX /tmp/materialize-dev-server
+    setfacl -R -d -m g:materialize-user:rwX /tmp/materialize-dev-server && \
+    setfacl -R -m u:materialize-user:rwX /tmp/source-repository && \
+    setfacl -R -d -m u:materialize-user:rwX /tmp/source-repository && \
+    setfacl -R -d -m g:materialize-user:rwX /tmp/source-repository
 
 # Keep a minimal bashrc to prevent PTY exit
 RUN echo '# Minimal bashrc for PTY sessions' > /etc/bash.bashrc && \

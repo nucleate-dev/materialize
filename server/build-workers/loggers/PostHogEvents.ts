@@ -5,7 +5,7 @@
 // To update these shared files, modify the source file and run:
 // npm run sync-types (in the control-plane directory)
 //
-// Last synced: 2025-12-31T19:38:38.572Z
+// Last synced: 2026-01-12T04:38:45.332Z
 
 export type PostHogEvent =
   | "client_auth_callback_login_completed"
@@ -32,6 +32,7 @@ export type PostHogEvent =
   | "client_prototype_editor_code_editor_files_uploaded"
   | "client_prototype_editor_code_editor_upload_modal_opened"
   | "client_prototype_editor_code_tab_selected"
+  | "client_prototype_editor_create_github_repo_clicked"
   | "client_prototype_editor_deploy_modal_opened"
   | "client_prototype_editor_deploy_submitted"
   | "client_prototype_editor_deployment_url_copied"
@@ -55,6 +56,10 @@ export type PostHogEvent =
   | "client_upgrade_checkout_clicked"
   | "client_landing_preset_prompt_selected"
   | "client_landing_prompt_submitted"
+  | "client_github_connect_started"
+  | "client_github_connect_success"
+  | "client_github_disconnect_started"
+  | "client_github_disconnect_success"
   | "client_checkout_payment_completed"
   | "client_new_prototype_modal_creation_success"
   | "client_new_prototype_modal_limit_hit"
@@ -90,6 +95,10 @@ export const PostHogEvents: Record<PostHogEvent, PostHogEvent> = Object.freeze({
   client_dashboard_sidebar_item_clicked:
     "client_dashboard_sidebar_item_clicked",
   client_dashboard_sidebar_tab_clicked: "client_dashboard_sidebar_tab_clicked",
+  client_github_connect_started: "client_github_connect_started",
+  client_github_connect_success: "client_github_connect_success",
+  client_github_disconnect_started: "client_github_disconnect_started",
+  client_github_disconnect_success: "client_github_disconnect_success",
   client_landing_page_header_item_clicked:
     "client_landing_page_header_item_clicked",
   client_landing_preset_prompt_selected:
@@ -126,6 +135,8 @@ export const PostHogEvents: Record<PostHogEvent, PostHogEvent> = Object.freeze({
     "client_prototype_editor_code_editor_upload_modal_opened",
   client_prototype_editor_code_tab_selected:
     "client_prototype_editor_code_tab_selected",
+  client_prototype_editor_create_github_repo_clicked:
+    "client_prototype_editor_create_github_repo_clicked",
   client_prototype_editor_deploy_modal_opened:
     "client_prototype_editor_deploy_modal_opened",
   client_prototype_editor_deploy_submitted:

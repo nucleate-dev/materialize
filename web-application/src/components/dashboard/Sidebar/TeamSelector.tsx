@@ -49,7 +49,7 @@ export function TeamSelector({
   const router = useRouter();
   const logger = useProductLogger();
   const { activeTeam, setActiveTeam, teamMembers, signedAvatarUrl } = useActiveTeam();
-  const { teams, isLoading: teamsLoading } = useUserTeams();
+  const { teams } = useUserTeams();
   const { userPlan, loadingSubscriptionData } = useSubscriptionAccess();
   const {
     creditsRemaining,
@@ -117,9 +117,6 @@ export function TeamSelector({
 
   const teamName = activeTeam?.name || "Team";
   const teamInitials = getInitials(teamName);
-
-  // Check if active team is a personal team
-  const isPersonalTeam = activeTeam?.personal_owner_user_id !== null;
 
   const handleUpgrade = () => {
     logger.log({

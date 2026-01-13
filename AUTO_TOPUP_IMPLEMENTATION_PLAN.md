@@ -4,7 +4,7 @@
 
 This document outlines the complete implementation plan for an automatic credit balance top-up feature. When a paid subscriber's credit balance falls below a configured threshold, the system will automatically charge their saved payment method to purchase a credit pack.
 
-### Key Design Decisions
+### Key Design Decisions 
 
 - **Eligibility:** Paid subscribers only (users with active subscriptions)
 - **Payment Methods:** Support multiple saved payment methods with user selection

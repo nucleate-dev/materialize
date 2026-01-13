@@ -371,17 +371,28 @@ export default function PrototypePage() {
       const rawConfig = prototype.public_display_config;
 
       if (isValidPublicDisplayConfig(rawConfig)) {
-        console.log("[PublicPrototypePage] Loading saved public_display_config:", JSON.stringify(rawConfig, null, 2));
+        logger.debug(
+          "log",
+          "[PublicPrototypePage] Loading saved public_display_config:",
+          { config: rawConfig },
+        );
         setSavedConfig(rawConfig);
       } else {
-        console.warn("[PublicPrototypePage] Invalid public_display_config, resetting to default:", rawConfig);
+        logger.debug(
+          "warn",
+          "[PublicPrototypePage] Invalid public_display_config, resetting to default:",
+          { config: rawConfig },
+        );
         // Reset to default by not setting savedConfig (will use component defaults)
         setSavedConfig(null);
       }
     } else if (prototype) {
-      console.log("[PublicPrototypePage] No public_display_config found on prototype");
+      logger.debug(
+        "log",
+        "[PublicPrototypePage] No public_display_config found on prototype",
+      );
     }
-  }, [prototype]);
+  }, [logger, prototype]);
 
   // Handle screens change from MaterializeRenderSection
   const handleScreensChange = useCallback(
@@ -414,7 +425,11 @@ export default function PrototypePage() {
         webScreens: currentWebScreens.map((s) => ({ id: s.id, path: s.path })),
         previewMode: savedConfig?.previewMode ?? "mobile",
       };
-      console.log("[PublicPrototypePage] Saving public_display_config:", JSON.stringify(configToSave, null, 2));
+      logger.debug(
+        "log",
+        "[PublicPrototypePage] Saving public_display_config:",
+        { configToSave },
+      );
 
       const { error: updateError } = await supabase
         .from("prototypes")

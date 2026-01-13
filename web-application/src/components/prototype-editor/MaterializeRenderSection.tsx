@@ -1,6 +1,7 @@
 "use client";
 
 import { supabase } from "@/ClientConstants";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -16,15 +17,14 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { useActiveTeam } from "@/contexts/TeamContext";
 import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
+import { type ScreenUpdateData } from "@/lib/types/ChatTypes";
+import { PublicDisplayConfigScreen } from "@/lib/types/prototypes";
 import type {
   APIResponse,
   StandardErrorResponse,
-  StartDevServerRequestBody,
-  StartDevServerSuccessResponse,
 } from "@/lib/types/serverAPITypes";
-import { PublicDisplayConfigScreen } from "@/lib/types/prototypes";
-import { type ScreenUpdateData } from "@/lib/types/ChatTypes";
 import { Database } from "@/lib/types/supabase";
 import { getBulkAssetSignedUrls } from "@/lib/utils/assetUtils";
 import { usePostHog } from "posthog-js/react";
@@ -49,9 +49,7 @@ import {
   KeyRound,
   Layers,
   Loader2,
-  Maximize,
-  Minus,
-  Monitor,
+  Maximize, Monitor,
   MoreVertical,
   Palette,
   Pencil,
@@ -66,7 +64,7 @@ import {
   X,
   Zap,
   ZoomIn,
-  ZoomOut,
+  ZoomOut
 } from "lucide-react";
 import dynamic from "next/dynamic";
 import React, {
@@ -92,8 +90,8 @@ import {
 import { ViewOnDeviceModal } from "./ViewOnDeviceModal";
 
 // Import PreviewCanvas for infinite canvas mode
+import type { CanvasStateData, PreviewCanvasRef } from "./canvas";
 import { PreviewCanvas } from "./canvas";
-import type { PreviewCanvasRef, CanvasStateData } from "./canvas";
 
 export interface MobileScreenConfig {
   id: number;
@@ -129,6 +127,40 @@ const normalizePath = (value: string) => {
   return trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
 };
 
+const stripTokenFromPath = (path: string) => {
+  if (!path) return path;
+
+  try {
+    const parsed = new URL(path, "http://local");
+    if (!parsed.searchParams.has("token")) {
+      return path;
+    }
+
+    parsed.searchParams.delete("token");
+    const search = parsed.searchParams.toString();
+    return `${parsed.pathname}${search ? `?${search}` : ""}${parsed.hash}`;
+  } catch {
+    return path;
+  }
+};
+
+const stripTokenFromUrl = (url: string) => {
+  if (!url) return url;
+
+  try {
+    const parsed = new URL(url);
+    if (!parsed.searchParams.has("token")) {
+      return url;
+    }
+
+    parsed.searchParams.delete("token");
+    const search = parsed.searchParams.toString();
+    return `${parsed.origin}${parsed.pathname}${search ? `?${search}` : ""}${parsed.hash}`;
+  } catch {
+    return url;
+  }
+};
+
 const extractInitialPath = (url: string) => {
   try {
     const parsed = new URL(url);
@@ -145,13 +177,33 @@ const resolveIframeSrc = (baseUrl: string, path: string) => {
   }
 
   try {
-    return new URL(path, baseUrl).toString();
+    const base = new URL(baseUrl);
+    const token = base.searchParams.get("token");
+    const resolved = new URL(path || "/", base);
+    if (token && !resolved.searchParams.has("token")) {
+      resolved.searchParams.set("token", token);
+    }
+    return resolved.toString();
   } catch {
     try {
       return new URL(baseUrl).toString();
     } catch {
       return baseUrl;
     }
+  }
+};
+
+const resolveDisplayUrl = (baseUrl: string, path: string) => {
+  if (!baseUrl) {
+    return "";
+  }
+
+  try {
+    const base = new URL(stripTokenFromUrl(baseUrl));
+    const normalizedPath = stripTokenFromPath(path);
+    return new URL(normalizedPath || "/", base).toString();
+  } catch {
+    return stripTokenFromUrl(baseUrl);
   }
 };
 
@@ -232,7 +284,6 @@ const MaterializeRenderSection = forwardRef<
       prototypeId,
       files,
       assets,
-      onViewingUrlUpdate,
       currentRenderStatus = "Static build",
       onRenderStatusChange,
       designSystemLabel,
@@ -267,9 +318,99 @@ const MaterializeRenderSection = forwardRef<
     const logger = useProductLogger();
     const { userPlan, loadingSubscriptionData } = useSubscriptionAccess();
     const posthog = usePostHog();
+    const { activeTeam, currentUserMembership } = useActiveTeam();
 
     // Check if multi-screen feature is enabled
-    const isMultiScreenEnabled = posthog?.isFeatureEnabled("multiple-frames-view") ?? false;
+    const isMultiScreenEnabled =
+      posthog?.isFeatureEnabled("multiple-frames-view") ?? false;
+
+    // Check if GitHub integration is enabled
+    const isGithubIntegrationEnabled =
+      posthog?.isFeatureEnabled("github-integration") ?? false;
+
+    // GitHub integration state
+    const [githubIntegration, setGithubIntegration] = useState<{
+      connected: boolean;
+      loading: boolean;
+    }>({ connected: false, loading: true });
+
+    // GitHub repository state for this prototype
+    const [githubRepository, setGithubRepository] = useState<{
+      html_url: string | null;
+      loading: boolean;
+    }>({ html_url: null, loading: true });
+    const [githubRepoError, setGithubRepoError] = useState<string | null>(null);
+
+    // Fetch GitHub integration status for the active team
+    useEffect(() => {
+      const fetchGithubIntegration = async () => {
+        if (!activeTeam?.id || !isGithubIntegrationEnabled) {
+          setGithubIntegration({ connected: false, loading: false });
+          return;
+        }
+
+        try {
+          const { data, error } = await supabase
+            .from("github_integrations")
+            .select("installation_id, is_suspended")
+            .eq("team_id", activeTeam.id)
+            .maybeSingle();
+
+          if (error) {
+            logger.debug("error", "Failed to fetch GitHub integration", {
+              error,
+            });
+            setGithubIntegration({ connected: false, loading: false });
+            return;
+          }
+
+          // Integration is connected if it exists and is not suspended
+          const isConnected = !!data && !data.is_suspended;
+          setGithubIntegration({ connected: isConnected, loading: false });
+        } catch (error) {
+          logger.debug("error", "Error checking GitHub integration", { error });
+          setGithubIntegration({ connected: false, loading: false });
+        }
+      };
+
+      fetchGithubIntegration();
+    }, [activeTeam?.id, isGithubIntegrationEnabled, logger]);
+
+    // Fetch GitHub repository for this prototype
+    useEffect(() => {
+      const fetchGithubRepository = async () => {
+        if (!prototypeId || !isGithubIntegrationEnabled) {
+          setGithubRepository({ html_url: null, loading: false });
+          return;
+        }
+
+        try {
+          const { data, error } = await supabase
+            .from("github_repositories")
+            .select("html_url")
+            .eq("prototype_id", prototypeId)
+            .maybeSingle();
+
+          if (error) {
+            logger.debug("error", "Failed to fetch GitHub repository", {
+              error,
+            });
+            setGithubRepository({ html_url: null, loading: false });
+            return;
+          }
+
+          setGithubRepository({
+            html_url: data?.html_url ?? null,
+            loading: false,
+          });
+        } catch (error) {
+          logger.debug("error", "Error checking GitHub repository", { error });
+          setGithubRepository({ html_url: null, loading: false });
+        }
+      };
+
+      fetchGithubRepository();
+    }, [prototypeId, isGithubIntegrationEnabled, logger]);
 
     // Check if canvas preview mode is enabled (infinite canvas like Figma)
     const isCanvasPreviewEnabled = posthog?.isFeatureEnabled("canvas-preview-mode") ?? false;
@@ -340,14 +481,16 @@ const MaterializeRenderSection = forwardRef<
     const [isExporting, setIsExporting] = useState(false);
     const [isRestartingDevServer, setIsRestartingDevServer] = useState(false);
     const [isBuilding, setIsBuilding] = useState(false);
-    const [buildError, setBuildError] = useState<string | null>(null);
+    const [, setBuildError] = useState<string | null>(null);
     const [mobileScreens, setMobileScreens] = useState<MobileScreenConfig[]>(
       () => {
         // Use initialScreens if provided (from saved public display config)
         if (initialScreens?.length) {
           return initialScreens.map((s) => ({ id: s.id, path: s.path }));
         }
-        return viewing_url ? [{ id: 0, path: extractInitialPath(viewing_url) }] : [];
+        return viewing_url
+          ? [{ id: 0, path: extractInitialPath(viewing_url) }]
+          : [];
       },
     );
 
@@ -358,13 +501,15 @@ const MaterializeRenderSection = forwardRef<
       }
 
       // Get available width (approximate viewport width minus padding)
-      const availableWidth = typeof window !== "undefined" ? window.innerWidth - 100 : 1200;
+      const availableWidth =
+        typeof window !== "undefined" ? window.innerWidth - 100 : 1200;
       const screenCount = mobileScreens.length;
       const gapBetweenScreens = 32; // gap-x-8 = 32px
       const addButtonWidth = mobileSize.width + 48; // Inline add button takes space too
 
       // Calculate how much width each screen can have
-      const totalGapSpace = (screenCount - 1) * gapBetweenScreens + addButtonWidth;
+      const totalGapSpace =
+        (screenCount - 1) * gapBetweenScreens + addButtonWidth;
       const availablePerScreen = (availableWidth - totalGapSpace) / screenCount;
 
       // Minimum width threshold (below this, use horizontal scroll)
@@ -372,7 +517,10 @@ const MaterializeRenderSection = forwardRef<
       const maxWidth = mobileSize.width + 16; // Original size + frame
 
       // Calculate scale factor
-      const targetWidth = Math.max(minWidth, Math.min(maxWidth, availablePerScreen));
+      const targetWidth = Math.max(
+        minWidth,
+        Math.min(maxWidth, availablePerScreen),
+      );
       const scaleFactor = targetWidth / (mobileSize.width + 16);
 
       // Apply scale to both dimensions to maintain aspect ratio
@@ -387,15 +535,19 @@ const MaterializeRenderSection = forwardRef<
       if (initialWebScreens?.length) {
         return initialWebScreens.map((s) => ({ id: s.id, path: s.path }));
       }
-      return viewing_url ? [{ id: 0, path: extractInitialPath(viewing_url) }] : [];
+      return viewing_url
+        ? [{ id: 0, path: extractInitialPath(viewing_url) }]
+        : [];
     });
     const nextWebScreenId = useRef(1);
     const webIframeRefs = useRef<Map<number, HTMLIFrameElement>>(new Map());
 
     // Web frame sizing
     const DEFAULT_WEB_FRAME_HEIGHT = 500;
-    const [webFrameHeight, setWebFrameHeight] = useState(DEFAULT_WEB_FRAME_HEIGHT);
-    const [isResizingWebFrame, setIsResizingWebFrame] = useState(false);
+    const [webFrameHeight, setWebFrameHeight] = useState(
+      DEFAULT_WEB_FRAME_HEIGHT,
+    );
+    const [, setIsResizingWebFrame] = useState(false);
 
     // Responsive viewport detection for web grid
     const [isNarrowViewport, setIsNarrowViewport] = useState(false);
@@ -404,20 +556,26 @@ const MaterializeRenderSection = forwardRef<
     const webGridLayout = React.useMemo(() => {
       const count = webScreens.length;
       if (count <= 1) return { gridTemplate: "1fr", showAddButton: true };
-      if (count === 2) return { gridTemplate: "repeat(2, 1fr)", showAddButton: true };
-      if (count === 3) return { gridTemplate: "repeat(2, 1fr)", showAddButton: true };
+      if (count === 2)
+        return { gridTemplate: "repeat(2, 1fr)", showAddButton: true };
+      if (count === 3)
+        return { gridTemplate: "repeat(2, 1fr)", showAddButton: true };
       return { gridTemplate: "repeat(2, 1fr)", showAddButton: false }; // Max 4
     }, [webScreens.length]);
 
     const [editingScreenId, setEditingScreenId] = useState<number | null>(null);
-    const [editingWebScreenId, setEditingWebScreenId] = useState<number | null>(null);
+    const [editingWebScreenId, setEditingWebScreenId] = useState<number | null>(
+      null,
+    );
     const [tempPath, setTempPath] = useState<string>("");
     const [routeSuggestions, setRouteSuggestions] = useState<
       Array<{ route: string; group?: string; }>
     >([]);
     // Allow screen editing in public view if onScreensChange or onWebScreensChange is provided
-    const canEditScreensInPublicView = publicView && (!!onScreensChange || !!onWebScreensChange);
-    const isReadOnlyView = (publicView && !canEditScreensInPublicView) || deployedView;
+    const canEditScreensInPublicView =
+      publicView && (!!onScreensChange || !!onWebScreensChange);
+    const isReadOnlyView =
+      (publicView && !canEditScreensInPublicView) || deployedView;
 
     // Terminal state
     const [isTerminalOpen, setIsTerminalOpen] = useState(false);
@@ -427,6 +585,7 @@ const MaterializeRenderSection = forwardRef<
     // Modal states
     const [isQRModalOpen, setIsQRModalOpen] = useState(false);
     const [isEnvVarDialogOpen, setIsEnvVarDialogOpen] = useState(false);
+    const [isGithubDropdownOpen, setIsGithubDropdownOpen] = useState(false);
 
     const logPrototypeEvent = useCallback(
       (event: PostHogEvent, properties?: Record<string, unknown>) => {
@@ -507,12 +666,21 @@ const MaterializeRenderSection = forwardRef<
         const maxId = Math.max(...initialScreens.map((s) => s.id));
         nextMobileScreenId.current = maxId + 1;
         // Set the mobile screens from the saved config
-        console.log("[MaterializeRenderSection] Restoring mobile screens from initialScreens:", initialScreens);
-        setMobileScreens(initialScreens.map((s) => ({ id: s.id, path: s.path })));
+        logger.debug(
+          "log",
+          "[MaterializeRenderSection] Restoring mobile screens from initialScreens:",
+          { initialScreens },
+        );
+        setMobileScreens(
+          initialScreens.map((s) => ({
+            id: s.id,
+            path: stripTokenFromPath(s.path),
+          })),
+        );
         return;
       }
 
-      const initialPath = extractInitialPath(viewing_url);
+      const initialPath = stripTokenFromPath(extractInitialPath(viewing_url));
       setMobileScreens([{ id: 0, path: initialPath }]);
       nextMobileScreenId.current = 1;
 
@@ -520,7 +688,7 @@ const MaterializeRenderSection = forwardRef<
       if (onCurrentPathChange) {
         onCurrentPathChange(initialPath);
       }
-    }, [viewing_url, onCurrentPathChange, initialScreens]);
+    }, [initialScreens, logger, onCurrentPathChange, viewing_url]);
 
     // Notify parent when screens change (for saving public display config)
     useEffect(() => {
@@ -555,15 +723,24 @@ const MaterializeRenderSection = forwardRef<
         const maxId = Math.max(...initialWebScreens.map((s) => s.id));
         nextWebScreenId.current = maxId + 1;
         // Set the web screens from the saved config
-        console.log("[MaterializeRenderSection] Restoring web screens from initialWebScreens:", initialWebScreens);
-        setWebScreens(initialWebScreens.map((s) => ({ id: s.id, path: s.path })));
+        logger.debug(
+          "log",
+          "[MaterializeRenderSection] Restoring web screens from initialWebScreens:",
+          { initialWebScreens },
+        );
+        setWebScreens(
+          initialWebScreens.map((s) => ({
+            id: s.id,
+            path: stripTokenFromPath(s.path),
+          })),
+        );
         return;
       }
 
-      const initialPath = extractInitialPath(viewing_url);
+      const initialPath = stripTokenFromPath(extractInitialPath(viewing_url));
       setWebScreens([{ id: 0, path: initialPath }]);
       nextWebScreenId.current = 1;
-    }, [viewing_url, initialWebScreens]);
+    }, [initialWebScreens, logger, viewing_url]);
 
     // Monitor iframe navigation to sync the path display
     useEffect(() => {
@@ -577,7 +754,9 @@ const MaterializeRenderSection = forwardRef<
             const iframeUrl = iframeWindow.location.href;
             // Ignore about:blank URLs (used during refresh operations)
             if (iframeUrl && viewing_url && !iframeUrl.startsWith("about:")) {
-              const currentPath = extractInitialPath(iframeUrl);
+              const currentPath = stripTokenFromPath(
+                extractInitialPath(iframeUrl),
+              );
 
               // Update the screen's path if it has changed (but not if currently editing)
               setMobileScreens((prev) =>
@@ -623,7 +802,7 @@ const MaterializeRenderSection = forwardRef<
 
         // Check if this is a navigation message
         if (event.data?.type === "navigation" && event.data?.path) {
-          const newPath = event.data.path;
+          const newPath = stripTokenFromPath(event.data.path);
 
           // Find which screen this iframe belongs to by matching the source
           iframeRefs.current.forEach((iframe, screenId) => {
@@ -660,7 +839,8 @@ const MaterializeRenderSection = forwardRef<
       const currentCount = mobileScreens.length;
       if (currentCount >= 4) {
         toast.warning("Performance note", {
-          description: "Having many screens open may slow down your browser. Consider closing unused screens.",
+          description:
+            "Having many screens open may slow down your browser. Consider closing unused screens.",
         });
       }
 
@@ -739,56 +919,65 @@ const MaterializeRenderSection = forwardRef<
     }, []);
 
     // Web frame resize handler
-    const handleWebFrameResizeStart = useCallback((e: React.MouseEvent) => {
-      e.preventDefault();
-      e.stopPropagation();
-      setIsResizingWebFrame(true);
+    const handleWebFrameResizeStart = useCallback(
+      (e: React.MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsResizingWebFrame(true);
 
-      const startY = e.clientY;
-      const startHeight = webFrameHeight;
+        const startY = e.clientY;
+        const startHeight = webFrameHeight;
 
-      const handleMouseMove = (moveEvent: MouseEvent) => {
-        const deltaY = moveEvent.clientY - startY;
-        const newHeight = Math.max(300, Math.min(900, startHeight + deltaY));
-        setWebFrameHeight(newHeight);
-      };
+        const handleMouseMove = (moveEvent: MouseEvent) => {
+          const deltaY = moveEvent.clientY - startY;
+          const newHeight = Math.max(300, Math.min(900, startHeight + deltaY));
+          setWebFrameHeight(newHeight);
+        };
 
-      const handleMouseUp = () => {
-        setIsResizingWebFrame(false);
-        document.removeEventListener("mousemove", handleMouseMove);
-        document.removeEventListener("mouseup", handleMouseUp);
-        document.body.style.cursor = "";
-        document.body.style.userSelect = "";
-      };
+        const handleMouseUp = () => {
+          setIsResizingWebFrame(false);
+          document.removeEventListener("mousemove", handleMouseMove);
+          document.removeEventListener("mouseup", handleMouseUp);
+          document.body.style.cursor = "";
+          document.body.style.userSelect = "";
+        };
 
-      document.addEventListener("mousemove", handleMouseMove);
-      document.addEventListener("mouseup", handleMouseUp);
-      document.body.style.cursor = "ns-resize";
-      document.body.style.userSelect = "none";
-    }, [webFrameHeight]);
+        document.addEventListener("mousemove", handleMouseMove);
+        document.addEventListener("mouseup", handleMouseUp);
+        document.body.style.cursor = "ns-resize";
+        document.body.style.userSelect = "none";
+      },
+      [webFrameHeight],
+    );
 
     // Web screen path editing handlers
-    const handleWebBadgeClick = useCallback((id: number, currentPath: string) => {
-      setEditingWebScreenId(id);
-      setTempPath(currentPath);
-    }, []);
+    const handleWebBadgeClick = useCallback(
+      (id: number, currentPath: string) => {
+        setEditingWebScreenId(id);
+        setTempPath(stripTokenFromPath(currentPath));
+      },
+      [],
+    );
 
-    const handleConfirmWebPathChange = useCallback((id: number) => {
-      const normalized = normalizePath(tempPath);
-      setWebScreens((prev) =>
-        prev.map((screen) => {
-          if (screen.id === id && normalized !== screen.path) {
-            setIsIframeLoading(true);
-            setIframeError(false);
-            return { ...screen, path: normalized };
-          }
-          return screen;
-        })
-      );
-      setEditingWebScreenId(null);
-      setTempPath("");
-      setRouteSuggestions([]);
-    }, [tempPath]);
+    const handleConfirmWebPathChange = useCallback(
+      (id: number) => {
+        const normalized = stripTokenFromPath(normalizePath(tempPath));
+        setWebScreens((prev) =>
+          prev.map((screen) => {
+            if (screen.id === id && normalized !== screen.path) {
+              setIsIframeLoading(true);
+              setIframeError(false);
+              return { ...screen, path: normalized };
+            }
+            return screen;
+          }),
+        );
+        setEditingWebScreenId(null);
+        setTempPath("");
+        setRouteSuggestions([]);
+      },
+      [tempPath],
+    );
 
     const handleCancelWebEdit = useCallback(() => {
       setEditingWebScreenId(null);
@@ -868,9 +1057,9 @@ const MaterializeRenderSection = forwardRef<
 
     const handleBadgeClick = (id: number, currentPath: string) => {
       setEditingScreenId(id);
-      setTempPath(currentPath);
+      setTempPath(stripTokenFromPath(currentPath));
       // Filter suggestions based on current path
-      updateRouteSuggestions(currentPath);
+      updateRouteSuggestions(stripTokenFromPath(currentPath));
     };
 
     const updateRouteSuggestions = (input: string) => {
@@ -890,7 +1079,7 @@ const MaterializeRenderSection = forwardRef<
     };
 
     const handleConfirmPathChange = (id: number) => {
-      const normalized = normalizePath(tempPath);
+      const normalized = stripTokenFromPath(normalizePath(tempPath));
       setMobileScreens((prev) =>
         prev.map((screen) => {
           if (screen.id === id && normalized !== screen.path) {
@@ -1162,6 +1351,153 @@ const MaterializeRenderSection = forwardRef<
       }
     };
 
+    const handleCreateGitHubRepository = async () => {
+      logPrototypeEvent("client_prototype_editor_create_github_repo_clicked", {
+        has_prototype: Boolean(prototypeId),
+        has_sandbox: Boolean(sandbox_url),
+      });
+
+      if (!prototypeId) {
+        logger.debug(
+          "error",
+          "Cannot create GitHub repository: missing prototype ID",
+        );
+        toast.error("Missing prototype ID");
+        return;
+      }
+
+      if (!sandbox_url) {
+        logger.debug(
+          "error",
+          "Cannot create GitHub repository: missing sandbox URL",
+        );
+        toast.error("Missing sandbox URL");
+        return;
+      }
+
+      // Set loading state
+      setGithubRepoError(null);
+      setGithubRepository({ html_url: null, loading: true });
+
+      try {
+        // Get authentication token
+        const session = await supabase.auth.getSession();
+        const token = session.data.session?.access_token;
+
+        if (!token) {
+          logger.debug("error", "No authentication token available");
+          toast.error("Authentication required");
+          setGithubRepository({ html_url: null, loading: false });
+          return;
+        }
+
+        toast.info("Creating GitHub repository...");
+
+        // Step 1: Create the GitHub repository via control-plane
+        const createRepoResponse = await fetch(
+          `${process.env.NEXT_PUBLIC_SERVER_ENDPOINT!}/github/repo/create`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({ prototype_id: prototypeId }),
+          },
+        );
+
+        const createRepoResult: APIResponse<
+          {
+            owner: string;
+            name: string;
+            html_url: string;
+            default_branch: string;
+          },
+          StandardErrorResponse
+        > = await createRepoResponse.json();
+
+        if (!createRepoResponse.ok || createRepoResult.error) {
+          const errorMessage =
+            createRepoResult.error?.message ??
+            "Failed to create GitHub repository";
+          logger.debug("error", "GitHub repository creation failed", {
+            error: errorMessage,
+          });
+          toast.error(`Failed to create repository: ${errorMessage}`);
+          setGithubRepoError(errorMessage);
+          setGithubRepository({ html_url: null, loading: false });
+          return;
+        }
+
+        const repositoryData = createRepoResult.data;
+        toast.success("Repository created! Connecting to sandbox...");
+
+        // Step 2: Connect the repository to the sandbox
+        const connectResponse = await fetch(
+          `${sandbox_url}/dev-server/connect-github`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({}),
+          },
+        );
+
+        const connectResult: APIResponse<
+          {
+            message: string;
+            repository_url: string;
+            repository_full_name: string;
+          },
+          StandardErrorResponse
+        > = await connectResponse.json();
+
+        if (!connectResponse.ok || connectResult.error) {
+          const errorMessage =
+            connectResult.error?.message ??
+            "Failed to connect repository to sandbox";
+          logger.debug("error", "GitHub repository connection failed", {
+            error: errorMessage,
+          });
+          toast.error(
+            `Repository created but connection failed: ${errorMessage}`,
+          );
+          // Still update the state with the repository URL since it was created
+          setGithubRepository({
+            html_url: repositoryData.html_url,
+            loading: false,
+          });
+          setIsGithubDropdownOpen(false);
+          return;
+        }
+
+        // Success! Update state and close dropdown
+        setGithubRepository({
+          html_url: repositoryData.html_url,
+          loading: false,
+        });
+        setGithubRepoError(null);
+        toast.success("GitHub repository connected successfully!");
+        setIsGithubDropdownOpen(false);
+
+        logger.debug("log", "GitHub repository created and connected", {
+          repository_url: repositoryData.html_url,
+        });
+      } catch (error) {
+        const errorMessage =
+          error instanceof Error ? error.message : String(error);
+        logger.debug("error", "Error creating GitHub repository", {
+          error: errorMessage,
+          stack: error instanceof Error ? error.stack : undefined,
+        });
+        toast.error(`Failed to create repository: ${errorMessage}`);
+        setGithubRepoError(errorMessage);
+        setGithubRepository({ html_url: null, loading: false });
+      }
+    };
+
     const handleRefresh = () => {
       logPrototypeEvent("client_prototype_editor_refresh_preview_clicked", {
         status: currentRenderStatus,
@@ -1265,7 +1601,15 @@ const MaterializeRenderSection = forwardRef<
       } finally {
         setIsExporting(false);
       }
-    }, [assets, files, loadingSubscriptionData, logger, prototypeId, userPlan]);
+    }, [
+      assets,
+      files,
+      loadingSubscriptionData,
+      logPrototypeEvent,
+      logger,
+      prototypeId,
+      userPlan,
+    ]);
 
     const handleModeChange = (mode: PreviewMode) => {
       logPrototypeEvent("client_prototype_editor_preview_mode_changed", {
@@ -1444,7 +1788,8 @@ const MaterializeRenderSection = forwardRef<
             };
           case "Starting Dev Server..":
             return {
-              className: "bg-amber-500/10 border border-amber-500/20 text-amber-500",
+              className:
+                "bg-amber-500/10 border border-amber-500/20 text-amber-500",
               dotClassName:
                 "w-2 h-2 bg-amber-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(245,158,11,0.6)]",
               text: "Starting Dev Server.. (~1m)",
@@ -1602,10 +1947,12 @@ const MaterializeRenderSection = forwardRef<
         return (
           <div className="w-full h-full overflow-auto bg-background">
             <div className="min-h-full flex items-center justify-center">
-              <div className={cn(
-                "flex flex-wrap justify-center gap-x-8 gap-y-12 pb-8 relative",
-                isMultiScreenEnabled ? "pt-16" : "pt-8"
-              )}>
+              <div
+                className={cn(
+                  "flex flex-wrap justify-center gap-x-8 gap-y-12 pb-8 relative",
+                  isMultiScreenEnabled && mobileScreens.length > 1 ? "pt-16" : "pt-8",
+                )}
+              >
                 {mobileScreens.map((screen, index) => {
                   const iframeSrc = resolveIframeSrc(viewing_url, screen.path);
                   const isPrimaryScreen = index === 0;
@@ -1625,7 +1972,8 @@ const MaterializeRenderSection = forwardRef<
                         {/* URL Bar / Controls - Show when multi-screen feature is enabled */}
                         {isMultiScreenEnabled && (
                           <div className="absolute -top-12 left-1/2 -translate-x-1/2 z-20">
-                            {editingScreenId === screen.id && !isReadOnlyView ? (
+                            {editingScreenId === screen.id &&
+                              !isReadOnlyView ? (
                               <div className="flex flex-col items-center gap-1 animate-in fade-in slide-in-from-bottom-1 duration-200">
                                 <div className="flex items-center gap-1 bg-accent border border-border px-1.5 py-1 rounded-lg shadow-xl">
                                   <Input
@@ -1692,11 +2040,19 @@ const MaterializeRenderSection = forwardRef<
                                     "px-3 py-1.5 rounded-full text-xs font-mono transition-all shadow-sm",
                                     isReadOnlyView
                                       ? "bg-accent/50 border border-border/50 text-muted-foreground/70"
-                                      : "bg-accent border border-border text-muted-foreground hover:text-foreground hover:border-border/80 cursor-pointer"
+                                      : "bg-accent border border-border text-muted-foreground hover:text-foreground hover:border-border/80 cursor-pointer",
                                   )}
-                                  onClick={!isReadOnlyView ? () => handleBadgeClick(screen.id, screen.path) : undefined}
+                                  onClick={
+                                    !isReadOnlyView
+                                      ? () =>
+                                        handleBadgeClick(
+                                          screen.id,
+                                          screen.path,
+                                        )
+                                      : undefined
+                                  }
                                 >
-                                  {screen.path || "/"}
+                                  {stripTokenFromPath(screen.path) || "/"}
                                 </div>
                                 {!isReadOnlyView && (
                                   <>
@@ -1817,26 +2173,28 @@ const MaterializeRenderSection = forwardRef<
                   );
                 })}
                 {/* Inline Add Screen button - only show when 2+ screens exist and can edit */}
-                {isMultiScreenEnabled && mobileScreens.length >= 2 && !isReadOnlyView && (
-                  <div className="flex flex-col items-center justify-center gap-2 pt-2">
-                    <div
-                      className="relative mx-auto select-none flex items-center justify-center"
-                      style={{
-                        width: scaledMobileSize.width + 16,
-                        height: scaledMobileSize.height + 16,
-                      }}
-                    >
-                      <button
-                        onClick={handleAddMobileScreen}
-                        disabled={!viewing_url}
-                        className="w-10 h-10 rounded-full border border-dashed border-border hover:border-muted-foreground/50 bg-accent/30 hover:bg-accent/50 transition-all flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed group"
-                        aria-label="Add another screen"
+                {isMultiScreenEnabled &&
+                  mobileScreens.length >= 2 &&
+                  !isReadOnlyView && (
+                    <div className="flex flex-col items-center justify-center gap-2 pt-2">
+                      <div
+                        className="relative mx-auto select-none flex items-center justify-center"
+                        style={{
+                          width: scaledMobileSize.width + 16,
+                          height: scaledMobileSize.height + 16,
+                        }}
                       >
-                        <Plus className="w-5 h-5 text-muted-foreground group-hover:text-foreground transition-colors" />
-                      </button>
+                        <button
+                          onClick={handleAddMobileScreen}
+                          disabled={!viewing_url}
+                          className="w-10 h-10 rounded-full border border-dashed border-border hover:border-muted-foreground/50 bg-accent/30 hover:bg-accent/50 transition-all flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed group"
+                          aria-label="Add another screen"
+                        >
+                          <Plus className="w-5 h-5 text-muted-foreground group-hover:text-foreground transition-colors" />
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
               </div>
             </div>
           </div>
@@ -1845,15 +2203,7 @@ const MaterializeRenderSection = forwardRef<
 
       // Helper to resolve iframe src with path
       const resolveWebIframeSrc = (basePath: string) => {
-        if (!viewing_url) return "";
-        if (basePath === "/" || !basePath) return viewing_url;
-        try {
-          const url = new URL(viewing_url);
-          url.pathname = basePath;
-          return url.toString();
-        } catch {
-          return viewing_url;
-        }
+        return resolveIframeSrc(viewing_url, basePath);
       };
 
       const showWebMultiScreen = isMultiScreenEnabled && webScreens.length > 0;
@@ -1886,171 +2236,196 @@ const MaterializeRenderSection = forwardRef<
               "gap-4 h-full",
               !showWebMultiScreen || isNarrowViewport || webScreens.length === 1
                 ? "flex flex-col"
-                : "grid"
+                : "grid",
             )}
             style={{
               gridTemplateColumns:
-                !showWebMultiScreen || isNarrowViewport ? "1fr" : webGridLayout.gridTemplate,
+                !showWebMultiScreen || isNarrowViewport
+                  ? "1fr"
+                  : webGridLayout.gridTemplate,
             }}
           >
-            {(showWebMultiScreen ? webScreens : [{ id: 0, path: "/" }]).map((screen) => {
-              const iframeSrc = resolveWebIframeSrc(screen.path);
-              const showScreenControls = showWebMultiScreen && webScreens.length > 1;
+            {(showWebMultiScreen ? webScreens : [{ id: 0, path: "/" }]).map(
+              (screen) => {
+                const iframeSrc = resolveWebIframeSrc(screen.path);
+                const showScreenControls =
+                  showWebMultiScreen && webScreens.length > 1;
 
-              return (
-                <div
-                  key={`web-screen-${screen.id}`}
-                  className="bg-accent rounded-xl border border-border overflow-hidden shadow-sm flex flex-col"
-                  style={{ minHeight: showWebMultiScreen ? webFrameHeight : undefined, height: showWebMultiScreen ? undefined : "100%" }}
-                >
-                  {/* Browser Header */}
-                  <div className="bg-accent border-b border-border px-4 py-2.5 flex items-center gap-4">
-                    {/* Traffic Lights */}
-                    <div className="flex space-x-1.5">
-                      <div className="w-2.5 h-2.5 rounded-full bg-red-500/20 border border-red-500/50"></div>
-                      <div className="w-2.5 h-2.5 rounded-full bg-amber-500/20 border border-amber-500/50"></div>
-                      <div className="w-2.5 h-2.5 rounded-full bg-emerald-500/20 border border-emerald-500/50"></div>
-                    </div>
+                return (
+                  <div
+                    key={`web-screen-${screen.id}`}
+                    className="bg-accent rounded-xl border border-border overflow-hidden shadow-sm flex flex-col"
+                    style={{
+                      minHeight: showWebMultiScreen
+                        ? webFrameHeight
+                        : undefined,
+                      height: showWebMultiScreen ? undefined : "100%",
+                    }}
+                  >
+                    {/* Browser Header */}
+                    <div className="bg-accent border-b border-border px-4 py-2.5 flex items-center gap-4">
+                      {/* Traffic Lights */}
+                      <div className="flex space-x-1.5">
+                        <div className="w-2.5 h-2.5 rounded-full bg-red-500/20 border border-red-500/50"></div>
+                        <div className="w-2.5 h-2.5 rounded-full bg-amber-500/20 border border-amber-500/50"></div>
+                        <div className="w-2.5 h-2.5 rounded-full bg-emerald-500/20 border border-emerald-500/50"></div>
+                      </div>
 
-                    {/* URL Bar */}
-                    <div className="flex-1 flex justify-center">
-                      {editingWebScreenId === screen.id && !isReadOnlyView ? (
-                        <div className="flex items-center gap-1 bg-background border border-border px-2 py-1 rounded-md">
-                          <Input
-                            value={tempPath}
-                            onChange={(e) => handlePathInputChange(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") {
-                                handleConfirmWebPathChange(screen.id);
-                              } else if (e.key === "Escape") {
-                                handleCancelWebEdit();
+                      {/* URL Bar */}
+                      <div className="flex-1 flex justify-center">
+                        {editingWebScreenId === screen.id && !isReadOnlyView ? (
+                          <div className="flex items-center gap-1 bg-background border border-border px-2 py-1 rounded-md">
+                            <Input
+                              value={tempPath}
+                              onChange={(e) =>
+                                handlePathInputChange(e.target.value)
                               }
-                            }}
-                            className="h-6 w-48 text-xs border-0 bg-transparent focus-visible:ring-0 text-foreground"
-                            placeholder="/"
-                            autoFocus
-                          />
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                  handleConfirmWebPathChange(screen.id);
+                                } else if (e.key === "Escape") {
+                                  handleCancelWebEdit();
+                                }
+                              }}
+                              className="h-6 w-48 text-xs border-0 bg-transparent focus-visible:ring-0 text-foreground"
+                              placeholder="/"
+                              autoFocus
+                            />
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-5 w-5"
+                              onClick={() =>
+                                handleConfirmWebPathChange(screen.id)
+                              }
+                            >
+                              <Check className="w-3 h-3 text-emerald-500" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-5 w-5"
+                              onClick={handleCancelWebEdit}
+                            >
+                              <X className="w-3 h-3 text-red-400" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <div
+                            className={cn(
+                              "h-6 px-4 rounded-md bg-background border border-border flex items-center justify-center min-w-[200px] max-w-[400px]",
+                              showWebControls &&
+                              showScreenControls &&
+                              "cursor-pointer hover:border-muted-foreground/50",
+                            )}
+                            onClick={
+                              showWebControls && showScreenControls
+                                ? () =>
+                                  handleWebBadgeClick(screen.id, screen.path)
+                                : undefined
+                            }
+                          >
+                            <span className="text-[10px] text-muted-foreground font-mono truncate opacity-60">
+                              {resolveDisplayUrl(viewing_url, screen.path)}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Screen Controls */}
+                      {showWebControls && showScreenControls ? (
+                        <div className="flex items-center gap-1">
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-5 w-5"
-                            onClick={() => handleConfirmWebPathChange(screen.id)}
+                            className="h-6 w-6"
+                            onClick={() => refreshWebScreen(screen.id)}
                           >
-                            <Check className="w-3 h-3 text-emerald-500" />
+                            <RefreshCw className="w-3 h-3 text-muted-foreground" />
                           </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-5 w-5"
-                            onClick={handleCancelWebEdit}
-                          >
-                            <X className="w-3 h-3 text-red-400" />
-                          </Button>
+                          {webScreens.length > 1 && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6 hover:text-red-400"
+                              onClick={() => handleRemoveWebScreen(screen.id)}
+                            >
+                              <X className="w-3 h-3" />
+                            </Button>
+                          )}
                         </div>
                       ) : (
-                        <div
-                          className={cn(
-                            "h-6 px-4 rounded-md bg-background border border-border flex items-center justify-center min-w-[200px] max-w-[400px]",
-                            showWebControls && showScreenControls && "cursor-pointer hover:border-muted-foreground/50"
-                          )}
-                          onClick={
-                            showWebControls && showScreenControls
-                              ? () => handleWebBadgeClick(screen.id, screen.path)
-                              : undefined
-                          }
-                        >
-                          <span className="text-[10px] text-muted-foreground font-mono truncate opacity-60">
-                            {screen.path === "/" ? viewing_url : `${viewing_url}${screen.path}`}
-                          </span>
-                        </div>
+                        <div className="w-10"></div>
                       )}
                     </div>
 
-                    {/* Screen Controls */}
-                    {showWebControls && showScreenControls ? (
-                      <div className="flex items-center gap-1">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-6 w-6"
-                          onClick={() => refreshWebScreen(screen.id)}
-                        >
-                          <RefreshCw className="w-3 h-3 text-muted-foreground" />
-                        </Button>
-                        {webScreens.length > 1 && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6 hover:text-red-400"
-                            onClick={() => handleRemoveWebScreen(screen.id)}
-                          >
-                            <X className="w-3 h-3" />
-                          </Button>
-                        )}
+                    {/* Iframe Content */}
+                    <div
+                      className="relative w-full flex-1 bg-white"
+                      style={{
+                        minHeight: showWebMultiScreen
+                          ? webFrameHeight - 60
+                          : undefined,
+                      }}
+                    >
+                      <iframe
+                        key={`web-${screen.id}-${refreshKey}`}
+                        ref={(c) => {
+                          if (showWebMultiScreen) {
+                            if (c) {
+                              webIframeRefs.current.set(screen.id, c);
+                            } else {
+                              webIframeRefs.current.delete(screen.id);
+                            }
+                          } else {
+                            webPreviewRef.current = c?.contentWindow ?? null;
+                          }
+                        }}
+                        className="w-full h-full"
+                        title={`Web Preview ${screen.path}`}
+                        src={iframeSrc}
+                        sandbox="allow-scripts allow-same-origin allow-forms allow-downloads allow-modals allow-popups allow-presentation"
+                        allow="microphone; camera;"
+                        onLoad={handleIframeLoad}
+                        onError={handleIframeError}
+                      />
+                      {isIframeLoading && (
+                        <ConnectionLoadingOverlay mode="web" />
+                      )}
+                      {iframeError && <ConnectionErrorOverlay mode="web" />}
+                    </div>
+
+                    {/* Resize Handle - only for multi-screen */}
+                    {showWebMultiScreen && !isReadOnlyView && (
+                      <div
+                        className="h-2 cursor-ns-resize bg-accent hover:bg-accent/80 flex items-center justify-center group"
+                        onMouseDown={handleWebFrameResizeStart}
+                      >
+                        <div className="w-8 h-1 rounded-full bg-border group-hover:bg-muted-foreground/50 transition-colors" />
                       </div>
-                    ) : (
-                      <div className="w-10"></div>
                     )}
                   </div>
-
-                  {/* Iframe Content */}
-                  <div
-                    className="relative w-full flex-1 bg-white"
-                    style={{ minHeight: showWebMultiScreen ? webFrameHeight - 60 : undefined }}
-                  >
-                    <iframe
-                      key={`web-${screen.id}-${refreshKey}`}
-                      ref={(c) => {
-                        if (showWebMultiScreen) {
-                          if (c) {
-                            webIframeRefs.current.set(screen.id, c);
-                          } else {
-                            webIframeRefs.current.delete(screen.id);
-                          }
-                        } else {
-                          webPreviewRef.current = c?.contentWindow ?? null;
-                        }
-                      }}
-                      className="w-full h-full"
-                      title={`Web Preview ${screen.path}`}
-                      src={iframeSrc}
-                      sandbox="allow-scripts allow-same-origin allow-forms allow-downloads allow-modals allow-popups allow-presentation"
-                      allow="microphone; camera;"
-                      onLoad={handleIframeLoad}
-                      onError={handleIframeError}
-                    />
-                    {isIframeLoading && <ConnectionLoadingOverlay mode="web" />}
-                    {iframeError && <ConnectionErrorOverlay mode="web" />}
-                  </div>
-
-                  {/* Resize Handle - only for multi-screen */}
-                  {showWebMultiScreen && !isReadOnlyView && (
-                    <div
-                      className="h-2 cursor-ns-resize bg-accent hover:bg-accent/80 flex items-center justify-center group"
-                      onMouseDown={handleWebFrameResizeStart}
-                    >
-                      <div className="w-8 h-1 rounded-full bg-border group-hover:bg-muted-foreground/50 transition-colors" />
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+                );
+              },
+            )}
 
             {/* Inline Add Button for Grid */}
-            {showWebControls && webScreens.length >= 2 && webScreens.length < 4 && (
-              <div
-                className="flex items-center justify-center border border-dashed border-border rounded-xl hover:border-muted-foreground/50 bg-accent/30 hover:bg-accent/50 transition-all cursor-pointer"
-                style={{ minHeight: webFrameHeight }}
-                onClick={handleAddWebScreen}
-              >
-                <button
-                  className="w-10 h-10 rounded-full border border-dashed border-border hover:border-muted-foreground/50 bg-accent/50 hover:bg-accent/80 transition-all flex items-center justify-center group"
-                  aria-label="Add another screen"
+            {showWebControls &&
+              webScreens.length >= 2 &&
+              webScreens.length < 4 && (
+                <div
+                  className="flex items-center justify-center border border-dashed border-border rounded-xl hover:border-muted-foreground/50 bg-accent/30 hover:bg-accent/50 transition-all cursor-pointer"
+                  style={{ minHeight: webFrameHeight }}
+                  onClick={handleAddWebScreen}
                 >
-                  <Plus className="w-5 h-5 text-muted-foreground group-hover:text-foreground transition-colors" />
-                </button>
-              </div>
-            )}
+                  <button
+                    className="w-10 h-10 rounded-full border border-dashed border-border hover:border-muted-foreground/50 bg-accent/50 hover:bg-accent/80 transition-all flex items-center justify-center group"
+                    aria-label="Add another screen"
+                  >
+                    <Plus className="w-5 h-5 text-muted-foreground group-hover:text-foreground transition-colors" />
+                  </button>
+                </div>
+              )}
           </div>
         </div>
       );
@@ -2281,6 +2656,149 @@ const MaterializeRenderSection = forwardRef<
                   <KeyRound className="w-3.5 h-3.5" />
                 </Button>
               )}
+              {!isReadOnlyView && isGithubIntegrationEnabled && (
+                <DropdownMenu
+                  open={isGithubDropdownOpen}
+                  onOpenChange={setIsGithubDropdownOpen}
+                >
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="hidden sm:flex h-8 bg-accent border border-border text-muted-foreground hover:text-foreground hover:border-border/80 hover:bg-accent/80 transition-all"
+                      title="GitHub integration"
+                      disabled={!prototypeId}
+                    >
+                      <svg
+                        className="w-4 h-4"
+                        viewBox="0 0 16 16"
+                        fill="currentColor"
+                        xmlns="http://www.w3.org/2000/svg"
+                      >
+                        <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z" />
+                      </svg>
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent
+                    align="end"
+                    className="w-80 bg-accent border-border text-foreground p-4"
+                  >
+                    <div className="space-y-3">
+                      <h3 className="text-sm font-semibold text-foreground">
+                        GitHub
+                      </h3>
+                      <p className="text-xs text-muted-foreground leading-relaxed">
+                        Sync your project 2-way with GitHub to collaborate at
+                        source.
+                      </p>
+
+                      {githubRepoError && (
+                        <Alert className="border-rose-500/20 bg-rose-500/10">
+                          <AlertDescription className="text-xs text-rose-600 dark:text-rose-400">
+                            {githubRepoError}
+                          </AlertDescription>
+                        </Alert>
+                      )}
+
+                      {/* Show alert if user doesn't have permission */}
+                      {!githubIntegration.connected &&
+                        !githubRepository.html_url &&
+                        currentUserMembership?.role !== "admin" &&
+                        currentUserMembership?.role !== "owner" && (
+                          <Alert className="border-amber-500/20 bg-amber-500/10">
+                            <AlertDescription className="text-xs text-amber-600 dark:text-amber-400">
+                              Please reach out to a team admin to connect a
+                              GitHub account first.
+                            </AlertDescription>
+                          </Alert>
+                        )}
+
+                      {githubIntegration.connected &&
+                        !githubRepository.html_url &&
+                        currentUserMembership?.role === "viewer" && (
+                          <Alert className="border-amber-500/20 bg-amber-500/10">
+                            <AlertDescription className="text-xs text-amber-600 dark:text-amber-400">
+                              You need edit permissions to create a GitHub
+                              repository for this project.
+                            </AlertDescription>
+                          </Alert>
+                        )}
+
+                      {githubRepository.html_url &&
+                        currentUserMembership?.role === "viewer" && (
+                          <Alert className="border-amber-500/20 bg-amber-500/10">
+                            <AlertDescription className="text-xs text-amber-600 dark:text-amber-400">
+                              You don&apos;t have permission to access this
+                              repository.
+                            </AlertDescription>
+                          </Alert>
+                        )}
+
+                      <Button
+                        className="w-full bg-white text-black hover:bg-white/90 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                        size="sm"
+                        disabled={
+                          githubIntegration.loading ||
+                          githubRepository.loading ||
+                          (!githubIntegration.connected &&
+                            currentUserMembership?.role !== "admin" &&
+                            currentUserMembership?.role !== "owner") ||
+                          (githubIntegration.connected &&
+                            !githubRepository.html_url &&
+                            currentUserMembership?.role === "viewer") ||
+                          (!!githubRepository.html_url &&
+                            currentUserMembership?.role === "viewer")
+                        }
+                        onClick={() => {
+                          if (githubRepository.html_url) {
+                            // Open GitHub repository in new tab
+                            window.open(
+                              githubRepository.html_url,
+                              "_blank",
+                              "noopener,noreferrer",
+                            );
+                            setIsGithubDropdownOpen(false);
+                          } else if (
+                            githubIntegration.connected &&
+                            currentUserMembership?.role !== "viewer"
+                          ) {
+                            // Create GitHub repository and connect to sandbox
+                            handleCreateGitHubRepository();
+                          } else if (
+                            !githubIntegration.connected &&
+                            (currentUserMembership?.role === "admin" ||
+                              currentUserMembership?.role === "owner")
+                          ) {
+                            // Navigate to dashboard with githubConnected param to open settings dialog
+                            window.location.href =
+                              "/dashboard?githubConnected=true";
+                          } else {
+                            // This shouldn't happen due to button disabled state
+                            setIsGithubDropdownOpen(false);
+                          }
+                        }}
+                      >
+                        <svg
+                          className="w-4 h-4 mr-2"
+                          viewBox="0 0 16 16"
+                          fill="currentColor"
+                          xmlns="http://www.w3.org/2000/svg"
+                        >
+                          <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z" />
+                        </svg>
+                        {githubIntegration.loading || githubRepository.loading
+                          ? "Loading..."
+                          : githubRepository.html_url
+                            ? "View Repository"
+                            : githubIntegration.connected &&
+                              currentUserMembership?.role !== "viewer"
+                              ? "Create Repository For Project"
+                              : "Connect GitHub"}
+                      </Button>
+                    </div>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
               {onShare && (
                 <Button
                   variant="ghost"
@@ -2432,7 +2950,7 @@ const MaterializeRenderSection = forwardRef<
                         ) : (
                           <Hammer className="w-4 h-4 mr-2 opacity-70" />
                         )}
-                        {isBuilding ? "Building..." : "Build & Deploy"}
+                        {isBuilding ? "Building..." : "Build"}
                       </DropdownMenuItem>
                     </>
                   )}
@@ -2495,7 +3013,7 @@ const MaterializeRenderSection = forwardRef<
             transition: isResizingTerminal ? "none" : "height 0.2s ease-in-out",
           }}
         >
-          {/* Floating Add Screen button - top right of canvas */}
+          {/* Floating Add Screen button - top right of canvas */};
           {!isReadOnlyView && isPreviewView && (
             isCanvasPreviewEnabled ? (
               <div className="absolute top-3 right-3 z-20">
@@ -2531,81 +3049,85 @@ const MaterializeRenderSection = forwardRef<
               </div>
             )
           )}
-          {isPreviewView ? (
-            isCanvasPreviewEnabled ? (
-              <PreviewCanvas
-                ref={canvasRef}
-                viewingUrl={viewing_url}
-                previewMode={previewMode}
-                initialScreens={previewMode === "mobile"
-                  ? (initialScreens || mobileScreens).map(s => ({ id: s.id, path: s.path }))
-                  : (initialWebScreens || webScreens).map(s => ({ id: s.id, path: s.path }))
-                }
-                initialCanvasState={initialCanvasState}
-                onCanvasStateChange={onCanvasStateChange}
-                onScreensChange={(screens) => {
-                  if (previewMode === "mobile") {
-                    onScreensChange?.(screens.map(s => ({ id: s.id, path: s.path })));
-                  } else {
-                    onWebScreensChange?.(screens.map(s => ({ id: s.id, path: s.path })));
+          {
+            isPreviewView ? (
+              isCanvasPreviewEnabled ? (
+                <PreviewCanvas
+                  ref={canvasRef}
+                  viewingUrl={viewing_url}
+                  previewMode={previewMode}
+                  initialScreens={previewMode === "mobile"
+                    ? (initialScreens || mobileScreens).map(s => ({ id: s.id, path: s.path }))
+                    : (initialWebScreens || webScreens).map(s => ({ id: s.id, path: s.path }))
                   }
-                }}
-                readOnly={isReadOnlyView}
-                availableRoutes={availableRoutes}
-                onIframeLoad={handleIframeLoad}
-                onIframeError={handleIframeError}
-              />
+                  initialCanvasState={initialCanvasState}
+                  onCanvasStateChange={onCanvasStateChange}
+                  onScreensChange={(screens) => {
+                    if (previewMode === "mobile") {
+                      onScreensChange?.(screens.map(s => ({ id: s.id, path: s.path })));
+                    } else {
+                      onWebScreensChange?.(screens.map(s => ({ id: s.id, path: s.path })));
+                    }
+                  }}
+                  readOnly={isReadOnlyView}
+                  availableRoutes={availableRoutes}
+                  onIframeLoad={handleIframeLoad}
+                  onIframeError={handleIframeError}
+                />
+              ) : (
+                renderPreviewContent()
+              )
             ) : (
-              renderPreviewContent()
+              <div className="h-full w-full overflow-hidden bg-accent">
+                {codeView}
+              </div>
             )
-          ) : (
-            <div className="h-full w-full overflow-hidden bg-accent">
-              {codeView}
-            </div>
-          )}
-        </div>
+          }
+        </div >
 
         {/* Terminal Panel */}
-        {!isReadOnlyView && isTerminalOpen && (
-          <div
-            className="relative border-t border-border bg-background"
-            style={{ height: `${terminalHeight}px` }}
-          >
-            {/* Terminal Header with Resize Handle */}
+        {
+          !isReadOnlyView && isTerminalOpen && (
             <div
-              className="absolute top-0 left-0 right-0 h-9 bg-accent border-b border-border flex items-center justify-between px-4 cursor-ns-resize hover:bg-accent/80 transition-colors group z-10"
-              onMouseDown={handleTerminalResizeStart}
+              className="relative border-t border-border bg-background"
+              style={{ height: `${terminalHeight}px` }}
             >
-              <div className="flex items-center gap-2">
-                <TerminalIcon className="w-3.5 h-3.5 text-muted-foreground" />
-                <span className="text-xs font-medium text-muted-foreground group-hover:text-foreground transition-colors">
-                  Terminal Output
-                </span>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium opacity-0 group-hover:opacity-100 transition-opacity">
-                  Drag to resize
+              {/* Terminal Header with Resize Handle */}
+              <div
+                className="absolute top-0 left-0 right-0 h-9 bg-accent border-b border-border flex items-center justify-between px-4 cursor-ns-resize hover:bg-accent/80 transition-colors group z-10"
+                onMouseDown={handleTerminalResizeStart}
+              >
+                <div className="flex items-center gap-2">
+                  <TerminalIcon className="w-3.5 h-3.5 text-muted-foreground" />
+                  <span className="text-xs font-medium text-muted-foreground group-hover:text-foreground transition-colors">
+                    Terminal Output
+                  </span>
                 </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground hover:bg-accent rounded"
-                  onClick={() => setIsTerminalOpen(false)}
-                >
-                  <ChevronDown className="w-4 h-4" />
-                </Button>
+                <div className="flex items-center gap-3">
+                  <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium opacity-0 group-hover:opacity-100 transition-opacity">
+                    Drag to resize
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground hover:bg-accent rounded"
+                    onClick={() => setIsTerminalOpen(false)}
+                  >
+                    <ChevronDown className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+
+              {/* Terminal Content */}
+              <div className="absolute top-9 left-0 right-0 bottom-0 bg-background">
+                <Terminal
+                  className="w-full h-full"
+                  baseTunnelUrl={base_tunnel_url}
+                />
               </div>
             </div>
-
-            {/* Terminal Content */}
-            <div className="absolute top-9 left-0 right-0 bottom-0 bg-background">
-              <Terminal
-                className="w-full h-full"
-                baseTunnelUrl={base_tunnel_url}
-              />
-            </div>
-          </div>
-        )}
+          )
+        }
 
         {/* Environment Variables Modal */}
         <EnvironmentVariablesModal
@@ -2623,7 +3145,7 @@ const MaterializeRenderSection = forwardRef<
           viewing_url={viewing_url}
           currentRenderStatus={currentRenderStatus}
         />
-      </div>
+      </div >
     );
   },
 );

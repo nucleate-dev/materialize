@@ -1,10 +1,10 @@
 # materialize 
 
-Repo for the AI design/UI code building software. 
+Repo for the AI design/UI code building software .
 
 ## Prototype Development Workflow
 
-The prototype system uses a flow where default app files are stored in S3 and synchronized with Supabase for development:
+The prototype system uses a flow where default app files are stored in S3 and synchronized with Supabase for development: 
 
 ### 1. Creating a New Prototype
 

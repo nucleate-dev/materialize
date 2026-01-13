@@ -16,24 +16,16 @@ import { Database } from "@/lib/types/supabase";
 import { SLUG_RULES, isValidSlug, normalizeSlug, normalizeSlugWhileTyping } from "@/lib/utils/slugUtils";
 import {
   AlertTriangle,
-  Check,
-  ChevronDown,
-  ChevronUp,
+  Check, ChevronUp,
   Copy,
   Info,
   Loader2,
-  Rocket,
+  Rocket
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 type Prototype = Database["public"]["Tables"]["prototypes"]["Row"];
-
-const APPS_BASE_URL = (
-  process.env.NEXT_PUBLIC_APPS_BASE_URL ??
-  process.env.NEXT_PUBLIC_APPS_HOST ??
-  "https://apps.nucleate.dev"
-).replace(/\/$/, "");
 
 interface PrototypeDeployModalProps {
   open: boolean;
@@ -57,8 +49,7 @@ export default function PrototypeDeployModal({
   const logger = useProductLogger();
 
   const [deploySlug, setDeploySlug] = useState("");
-  const [deployVisibility, setDeployVisibility] =
-    useState<PrototypeVisibility>("PUBLIC");
+  const [deployVisibility] = useState<PrototypeVisibility>("PUBLIC");
   const [isCheckingSlug, setIsCheckingSlug] = useState(false);
   const [slugAvailable, setSlugAvailable] = useState<boolean | null>(null);
   const [slugError, setSlugError] = useState<string | null>(null);
@@ -193,7 +184,7 @@ export default function PrototypeDeployModal({
 
         const available = result.data?.available ?? null;
         setSlugAvailable(available);
-      } catch (error) {
+      } catch {
         if (!controller.signal.aborted) {
           setSlugError("Unable to check slug availability");
           setSlugAvailable(null);
@@ -478,11 +469,10 @@ export default function PrototypeDeployModal({
                   return (
                     <div
                       key={build.id}
-                      className={`flex items-center justify-between gap-4 p-3 rounded-lg border ${
-                        isDeployed
+                      className={`flex items-center justify-between gap-4 p-3 rounded-lg border ${isDeployed
                           ? "bg-emerald-950/20 border-emerald-500/30"
                           : "bg-accent border-border"
-                      }`}
+                        }`}
                     >
                       {/* Build ID with badges */}
                       <div className="flex items-center gap-2 min-w-0">

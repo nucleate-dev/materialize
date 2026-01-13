@@ -5,7 +5,7 @@
 // To update these shared files, modify the source file and run:
 // npm run sync-types (in the control-plane directory)
 //
-// Last synced: 2025-12-31T19:38:38.568Z
+// Last synced: 2026-01-12T04:38:45.329Z
 
 // Public API types for the Control Plane Server
 // These types define the request and response schemas for all public endpoints
@@ -274,6 +274,7 @@ export interface CreatePrototypeRequestBody {
   design_style?: Database["public"]["Enums"]["design_style"];
   custom_design_system?: string | null;
   framework?: Database["public"]["Enums"]["prototype_framework"];
+  source_repo_id?: number; // GitHub repository ID to use as source
 }
 
 export interface CreatePrototypeSuccessResponse {
@@ -365,6 +366,20 @@ export interface EndChatResponse {
   message?: string;
 }
 
+export interface RefreshGitHubInstallationTokenRequestBody {
+  prototype_id: string;
+}
+
+export interface RefreshGitHubInstallationTokenSuccessResponse {
+  installation_token: string;
+  expires_at: string;
+}
+
+export interface RefreshGitHubInstallationTokenErrorResponse {
+  error: string;
+  message: string;
+}
+
 // ============================================================================
 // /teams/accept-invite ENDPOINT
 // ============================================================================
@@ -424,6 +439,112 @@ export interface UpdateTeamMemberRoleSuccessResponse {
 }
 
 export interface UpdateTeamMemberRoleErrorResponse {
+  error: string;
+  message: string;
+}
+
+// ============================================================================
+// GITHUB INTEGRATION ENDPOINTS
+// ============================================================================
+
+// POST /github/connect/start
+export interface GitHubConnectStartRequestBody {
+  teamId: string;
+}
+
+export interface GitHubConnectStartSuccessResponse {
+  installUrl: string;
+  connectSessionId: string;
+}
+
+export interface GitHubConnectStartErrorResponse {
+  error: string;
+  message: string;
+}
+
+// GET /github/oauth/callback (query params)
+export interface GitHubOAuthCallbackQuery {
+  code: string;
+  state: string;
+  installation_id?: string;
+}
+
+// GET /github/status
+export interface GitHubStatusQuery {
+  teamId: string;
+}
+
+export interface GitHubStatusSuccessResponse {
+  connected: boolean;
+  account_login?: string;
+  account_type?: 'User' | 'Organization';
+  connected_at?: string;
+  installation_id?: number;
+  is_suspended?: boolean;
+  suspended_at?: string | null;
+}
+
+export interface GitHubStatusErrorResponse {
+  error: string;
+  message: string;
+}
+
+// POST /github/disconnect
+export interface GitHubDisconnectRequestBody {
+  teamId: string;
+}
+
+export interface GitHubDisconnectSuccessResponse {
+  success: true;
+  message: string;
+}
+
+export interface GitHubDisconnectErrorResponse {
+  error: string;
+  message: string;
+}
+
+// POST /github/repo/create
+export interface GitHubRepoCreateRequestBody {
+  prototype_id: string;
+  name?: string;
+  private?: boolean;
+  description?: string;
+}
+
+export interface GitHubRepoCreateSuccessResponse {
+  owner: string;
+  name: string;
+  html_url: string;
+  default_branch: string;
+}
+
+export interface GitHubRepoCreateErrorResponse {
+  error: string;
+  message: string;
+}
+
+// GET /github/repositories
+export interface GitHubRepositoriesQuery {
+  teamId: string;
+}
+
+export interface GitHubRepository {
+  id: number;
+  name: string;
+  full_name: string;
+  html_url: string;
+  default_branch: string;
+  private: boolean;
+  archived: boolean;
+  owner_login: string;
+}
+
+export interface GitHubRepositoriesSuccessResponse {
+  repositories: GitHubRepository[];
+}
+
+export interface GitHubRepositoriesErrorResponse {
   error: string;
   message: string;
 }

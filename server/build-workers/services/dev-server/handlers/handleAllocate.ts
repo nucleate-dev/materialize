@@ -19,8 +19,27 @@ export async function handleAllocateImpl(
 ): Promise<
   SandboxAPIResponse<PublicAllocateSuccessResponse, StandardErrorResponse>
 > {
-  const { s3_credentials, user_details, cloudflare_credentials, keys } =
-    request.body;
+  const {
+    s3_credentials,
+    user_details,
+    cloudflare_credentials,
+    keys,
+    source_repository,
+  } = request.body;
+
+  // Log allocation request details
+  request.log2.info("Allocation request received", {
+    prototypeId: user_details?.prototypeId,
+    userId: user_details?.userId,
+    hasSourceRepository: !!source_repository,
+    sourceRepositoryDetails: source_repository
+      ? {
+          githubRepoId: source_repository.github_repo_id,
+          fullName: source_repository.full_name,
+          repositoryName: source_repository.repository_name,
+        }
+      : undefined,
+  });
 
   // 1. Extract JWT token from Authorization header
   const authHeader = request.headers.authorization;
@@ -143,6 +162,23 @@ export async function handleAllocateImpl(
     );
   }
 
+  // 4b. SET SOURCE REPOSITORY IF PROVIDED:
+  if (source_repository) {
+    materializeDevelopmentServerService.setSourceRepository({
+      githubRepoId: source_repository.github_repo_id,
+      installationId: source_repository.installation_id,
+      repositoryUrl: source_repository.repository_url,
+      repositoryOwner: source_repository.repository_owner,
+      repositoryName: source_repository.repository_name,
+      defaultBranch: source_repository.default_branch,
+      fullName: source_repository.full_name,
+    });
+    request.log2.info("Source repository configured for worker", {
+      repositoryName: source_repository.repository_name,
+      fullName: source_repository.full_name,
+    });
+  }
+
   try {
     // 5. S3 CLIENT INSTANTIATION:
     // TODO: for dev ec2 flow, just do S3Client()
@@ -202,14 +238,16 @@ export async function handleAllocateImpl(
     }
 
     // 7. CREDENTIALS:
-    materializeDevelopmentServerService.chatService.setOrchestrationToken(
-      keys.orchestration_token,
-    );
     if (keys.aak) {
       materializeDevelopmentServerService.chatService.setAak(keys.aak);
     } else {
       request.log2.warn("No aak provided during allocation");
     }
+
+    // 8. SET ORCHESTRATION TOKEN IN SandboxOrchestrationInitiatorService:
+    materializeDevelopmentServerService.sandboxOrchestrationInitiatorService.setOrchestrationToken(
+      keys.orchestration_token,
+    );
 
     reply.status(200);
     return {

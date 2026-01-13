@@ -125,6 +125,12 @@ export interface PublicDevServerRefetchEnvSuccessResponse {
   env_var_count: number;
 }
 
+export interface PublicConnectGitHubSuccessResponse {
+  message: string;
+  repository_url: string;
+  repository_full_name: string;
+}
+
 // Dev Server Response Types
 export interface DevServerStartResponse {
   success: boolean;
@@ -196,11 +202,22 @@ export interface AllocationKeys {
   aak?: string;
 }
 
+export interface AllocationSourceRepository {
+  github_repo_id: number;
+  installation_id: number;
+  repository_url: string;
+  repository_owner: string;
+  repository_name: string;
+  default_branch: string;
+  full_name: string;
+}
+
 export interface PublicAllocateRequest {
   s3_credentials: AllocationS3CredentialsInput;
   user_details: AllocationUserDetails;
   cloudflare_credentials: AllocationCloudflareTunnelCredentials;
   keys: AllocationKeys;
+  source_repository?: AllocationSourceRepository;
 }
 
 export interface PublicAllocateSuccessResponse {
