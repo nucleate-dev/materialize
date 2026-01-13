@@ -5,9 +5,9 @@ import {
 } from "@anthropic-ai/claude-agent-sdk";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
-import { stripAnsiSequences } from "../../terminals/TerminalAnsiUtils.js";
+import { ScreenUpdateData } from "../../../types/ChatTypes.js";
 import { WORK_DIR } from "../../../worker.js";
-import { ChatEvent, ScreenUpdateData } from "../../../types/ChatTypes.js";
+import { stripAnsiSequences } from "../../terminals/TerminalAnsiUtils.js";
 
 // Define the signature for the command runner callback
 export type CommandRunner = (

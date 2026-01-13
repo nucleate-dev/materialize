@@ -27,6 +27,7 @@ import { NucleateDevelopmentServerService } from "../../dev-server/NucleateDevel
 import { SandboxService } from "../../SandboxService.js";
 import { SupabaseClientService } from "../../SupabaseClientService.js";
 import { TerminalService } from "../../terminals/TerminalService.js";
+import { ALLOWED_ROOT } from "../ChatService.js";
 import {
   costFunctionV3,
   CURRENT_COST_FUNCTION_NAME,
@@ -50,7 +51,6 @@ import {
   ChatEngineResult,
   ChatEngineSessionState,
 } from "./chat-engine.js";
-import { ALLOWED_ROOT } from "../ChatService.js";
 
 const HISTORY_MESSAGE_REQUEST_COUNT = 6;
 
@@ -578,7 +578,7 @@ export class ChatQueryHandler implements ChatEngine {
         },
         // Screen update broadcast callback (only enabled if visibleScreens is provided)
         visibleScreens
-          ? (data: ScreenUpdateData) => {
+          ? (data: ScreenUpdateData): void => {
               broadcastToConnections(activeConnections, {
                 type: ChatEvent.SCREEN_UPDATE,
                 data,
@@ -586,7 +586,7 @@ export class ChatQueryHandler implements ChatEngine {
             }
           : undefined,
         // Get visible screens count callback
-        visibleScreens ? () => visibleScreens.length : undefined,
+        visibleScreens ? (): number => visibleScreens.length : undefined,
       ),
     };
 

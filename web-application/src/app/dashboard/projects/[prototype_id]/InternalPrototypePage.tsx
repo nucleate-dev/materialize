@@ -11,6 +11,10 @@ import MaterializeRenderSection, {
   MaterializeRenderSectionRef,
   type MobileScreenConfig,
 } from "@/components/prototype-editor/MaterializeRenderSection";
+import type {
+  CanvasStateData,
+  PrototypeContextData,
+} from "@/components/prototype-editor/canvas/types";
 import ProPlanUpsellModal from "@/components/prototype-editor/ProPlanUpsellModal";
 import PrototypeDeployModal from "@/components/prototype-editor/PrototypeDeployModal";
 import { SurveyOverlay } from "@/components/survey/SurveyOverlay";
@@ -181,6 +185,10 @@ export default function InternalPrototypePage() {
   const [webScreensState, setWebScreensState] = useState<MobileScreenConfig[]>([]);
   const [previewMode, setPreviewMode] = useState<"mobile" | "web">("mobile");
 
+  // Canvas state for infinite canvas mode
+  const [canvasState, setCanvasState] = useState<CanvasStateData | null>(null);
+  const canvasSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
   // Resizable divider state
   const [leftPanelWidth, setLeftPanelWidth] = useState(40); // percentage
   const [isDragging, setIsDragging] = useState(false);
@@ -262,6 +270,53 @@ export default function InternalPrototypePage() {
       },
     });
   }, [currentViewingPath, logger, prototypeId]);
+
+  // Handle canvas state changes with debounced save
+  const handleCanvasStateChange = useCallback(
+    (state: CanvasStateData) => {
+      // Clear any existing timeout
+      if (canvasSaveTimeoutRef.current) {
+        clearTimeout(canvasSaveTimeoutRef.current);
+      }
+
+      // Debounce the save to prevent excessive database writes
+      canvasSaveTimeoutRef.current = setTimeout(async () => {
+        if (!prototypeId) return;
+
+        // Cast to Json type for Supabase compatibility
+        const contextToSave = {
+          canvas: {
+            document: state.document,
+            zoom: state.zoom,
+            camera: state.camera,
+            previewMode: state.previewMode,
+            lastModified: state.lastModified,
+          },
+        };
+
+        const { error } = await supabase
+          .from("prototypes")
+          .update({ prototype_context: contextToSave as unknown as Database["public"]["Tables"]["prototypes"]["Update"]["prototype_context"] })
+          .eq("id", prototypeId);
+
+        if (error) {
+          logger.debug("error", "Failed to save canvas state:", { error });
+        } else {
+          logger.debug("log", "Canvas state saved successfully");
+        }
+      }, 1000);
+    },
+    [prototypeId, logger],
+  );
+
+  // Cleanup canvas save timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (canvasSaveTimeoutRef.current) {
+        clearTimeout(canvasSaveTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const canEditDesignSystem = Boolean(
     prototype && user && prototype.owner_id === user.id,
@@ -451,6 +506,14 @@ export default function InternalPrototypePage() {
           ? `${data.slug}.app.nucleate.dev`
           : null,
       );
+
+      // Load canvas state from prototype_context if available
+      if (data.prototype_context) {
+        const context = data.prototype_context as PrototypeContextData;
+        if (context.canvas) {
+          setCanvasState(context.canvas);
+        }
+      }
 
       // 2. FETCH CURRENT VIEWING URL FROM SERVER
       const session = await supabase.auth.getSession();
@@ -1308,6 +1371,8 @@ export default function InternalPrototypePage() {
               onScreensChange={setMobileScreensState}
               onWebScreensChange={setWebScreensState}
               onPreviewModeChange={setPreviewMode}
+              initialCanvasState={canvasState ?? undefined}
+              onCanvasStateChange={handleCanvasStateChange}
               isPreviewView={isPreviewView}
               onPreviewViewChange={setIsPreviewView}
               onDeploy={

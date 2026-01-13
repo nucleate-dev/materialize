@@ -7,19 +7,19 @@ import WebSocket from "ws";
 import { baseLogger, posthog } from "../../loggers/index.js";
 import { SystemLogger } from "../../loggers/SystemLogger.js";
 import {
-  ChatClientEvent,
-  ChatClientMessage,
-  ChatEvent,
-  ChatQueryData,
-  ChatServerMessage,
-  ChatSystemEventSubtype,
-  HistoryResponseData,
+    ChatClientEvent,
+    ChatClientMessage,
+    ChatEvent,
+    ChatQueryData,
+    ChatServerMessage,
+    ChatSystemEventSubtype,
+    HistoryResponseData,
 } from "../../types/ChatTypes.js";
 import {
-  APIResponse,
-  EndChatResponse,
-  StandardErrorResponse,
-  StartChatResponse,
+    APIResponse,
+    EndChatResponse,
+    StandardErrorResponse,
+    StartChatResponse,
 } from "../../types/ControlPlaneTypes.js";
 import { Database } from "../../types/supabase.js";
 import { hasRemainingCredits } from "../../utils/credit-checks.js";
@@ -31,29 +31,29 @@ import { SandboxService } from "../SandboxService.js";
 import { SupabaseClientService } from "../SupabaseClientService.js";
 import { TerminalService } from "../terminals/TerminalService.js";
 import {
-  ChatConnection,
-  ChatEngine,
-  ChatEngineResult,
-  ChatEngineSessionState,
-  DesignAgentMetadata,
+    ChatConnection,
+    ChatEngine,
+    ChatEngineResult,
+    ChatEngineSessionState,
+    DesignAgentMetadata,
 } from "./chat-engines/chat-engine.js";
 import { ChatQueryHandler } from "./chat-engines/chat-query-handler.js";
 import {
-  DEFAULT_DESIGN_AGENT_MODELS,
-  type DesignAgentProvider,
-  executeDesignAgent,
-  persistDesignSpecToFiles,
+    DEFAULT_DESIGN_AGENT_MODELS,
+    type DesignAgentProvider,
+    executeDesignAgent,
+    persistDesignSpecToFiles,
 } from "./classifiers-and-subagents/design-agent-service.js";
 import { buildDesignAgentUserContent } from "./classifiers-and-subagents/design-classifier-utils.js";
 import { classifyDesignIntent } from "./classifiers-and-subagents/design-intent-classifier.js";
 import {
-  costFunctionV3,
-  CURRENT_COST_FUNCTION_NAME,
+    costFunctionV3,
+    CURRENT_COST_FUNCTION_NAME,
 } from "./cost/cost-calculation.js";
 import {
-  calculateOAuthCredits,
-  getPromptLengthFromQueryData,
-  OAUTH_COST_FUNCTION_NAME,
+    calculateOAuthCredits,
+    getPromptLengthFromQueryData,
+    OAUTH_COST_FUNCTION_NAME,
 } from "./cost/oauth-credit-calculation.js";
 import { trackApiUsageBuildWorker } from "./cost/usage-tracking.js";
 import { persistChatMessage } from "./helpers/message-handlers.js";
@@ -974,7 +974,7 @@ export class ChatService {
       data.content.some(block => block.type === "image");
 
     if (hasImages) {
-      const imageCount = data.content.filter(block => block.type === "image").length;
+      const imageCount = Array.isArray(data.content) ? data.content.filter(block => block.type === "image").length : 0;
       logger.consoleLogDevOnly("info", "Skipping design agent - user provided images", {
         prototypeId,
         imageCount,

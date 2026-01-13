@@ -49,6 +49,8 @@ import {
   KeyRound,
   Layers,
   Loader2,
+  Maximize,
+  Minus,
   Monitor,
   MoreVertical,
   Palette,
@@ -63,6 +65,8 @@ import {
   Terminal as TerminalIcon,
   X,
   Zap,
+  ZoomIn,
+  ZoomOut,
 } from "lucide-react";
 import dynamic from "next/dynamic";
 import React, {
@@ -86,6 +90,10 @@ import {
   PublicDevServerRestartSuccessResponse,
 } from "@/lib/types/SandboxAPITypes";
 import { ViewOnDeviceModal } from "./ViewOnDeviceModal";
+
+// Import PreviewCanvas for infinite canvas mode
+import { PreviewCanvas } from "./canvas";
+import type { PreviewCanvasRef, CanvasStateData } from "./canvas";
 
 export interface MobileScreenConfig {
   id: number;
@@ -199,6 +207,9 @@ interface MaterializeRenderSectionProps {
   onWebScreensChange?: (screens: MobileScreenConfig[]) => void;
   // Preview mode change callback
   onPreviewModeChange?: (mode: "mobile" | "web") => void;
+  // Canvas mode props (infinite canvas like Figma)
+  initialCanvasState?: CanvasStateData;
+  onCanvasStateChange?: (state: CanvasStateData) => void;
 }
 
 export interface MaterializeRenderSectionRef {
@@ -248,6 +259,8 @@ const MaterializeRenderSection = forwardRef<
       initialWebScreens,
       onWebScreensChange,
       onPreviewModeChange,
+      initialCanvasState,
+      onCanvasStateChange,
     },
     ref,
   ) => {
@@ -257,6 +270,15 @@ const MaterializeRenderSection = forwardRef<
 
     // Check if multi-screen feature is enabled
     const isMultiScreenEnabled = posthog?.isFeatureEnabled("multiple-frames-view") ?? false;
+
+    // Check if canvas preview mode is enabled (infinite canvas like Figma)
+    const isCanvasPreviewEnabled = posthog?.isFeatureEnabled("canvas-preview-mode") ?? false;
+
+    // Canvas ref for infinite canvas mode
+    const canvasRef = useRef<PreviewCanvasRef>(null);
+
+    // Zoom state for canvas mode
+    const [canvasZoom, setCanvasZoom] = useState(1);
 
     // Determine if this is a web-only framework
     const isWebFramework = framework === "web_nextjs_react";
@@ -931,8 +953,38 @@ const MaterializeRenderSection = forwardRef<
     useImperativeHandle(
       ref,
       () => ({
-        forceRefresh,
+        forceRefresh: () => {
+          // Use canvas ref if in canvas mode
+          if (isCanvasPreviewEnabled && canvasRef.current) {
+            canvasRef.current.forceRefresh();
+          } else {
+            forceRefresh();
+          }
+        },
         updateScreens: (data: ScreenUpdateData) => {
+          // Use canvas ref if in canvas mode
+          if (isCanvasPreviewEnabled && canvasRef.current) {
+            switch (data.action) {
+              case "add":
+                if (data.path) {
+                  canvasRef.current.addScreen(data.path);
+                }
+                break;
+              case "remove":
+                if (data.screenId !== undefined) {
+                  canvasRef.current.removeScreen(data.screenId);
+                }
+                break;
+              case "set":
+                if (data.screens && data.screens.length > 0) {
+                  canvasRef.current.setScreens(data.screens.map((s, index) => ({ id: index + 1, path: s.path })));
+                }
+                break;
+            }
+            return;
+          }
+
+          // Legacy mode - use state-based screen management
           const setScreens = previewMode === "mobile" ? setMobileScreens : setWebScreens;
           const nextIdRef = previewMode === "mobile" ? nextMobileScreenId : nextWebScreenId;
 
@@ -972,7 +1024,7 @@ const MaterializeRenderSection = forwardRef<
           }
         },
       }),
-      [forceRefresh, previewMode, mobileScreens, webScreens, logger],
+      [forceRefresh, previewMode, mobileScreens, webScreens, logger, isCanvasPreviewEnabled],
     );
 
     const handleRestartDevServer = async () => {
@@ -1226,6 +1278,43 @@ const MaterializeRenderSection = forwardRef<
         setIframeError(false);
       }
     };
+
+    // Canvas zoom handlers
+    const handleZoomIn = useCallback(() => {
+      if (canvasRef.current) {
+        const currentZoom = canvasRef.current.getZoom();
+        const newZoom = Math.min(currentZoom * 1.25, 4); // Max 400%
+        canvasRef.current.setZoom(newZoom);
+        setCanvasZoom(newZoom);
+      }
+    }, []);
+
+    const handleZoomOut = useCallback(() => {
+      if (canvasRef.current) {
+        const currentZoom = canvasRef.current.getZoom();
+        const newZoom = Math.max(currentZoom / 1.25, 0.1); // Min 10%
+        canvasRef.current.setZoom(newZoom);
+        setCanvasZoom(newZoom);
+      }
+    }, []);
+
+    const handleZoomToFit = useCallback(() => {
+      if (canvasRef.current) {
+        canvasRef.current.zoomToFit();
+        // Update zoom state after a short delay to get the new zoom level
+        setTimeout(() => {
+          if (canvasRef.current) {
+            setCanvasZoom(canvasRef.current.getZoom());
+          }
+        }, 350);
+      }
+    }, []);
+
+    const handleAddCanvasScreen = useCallback(() => {
+      if (canvasRef.current) {
+        canvasRef.current.addScreen("/");
+      }
+    }, []);
 
     const handleMouseDown = (e: React.MouseEvent) => {
       e.preventDefault();
@@ -2011,6 +2100,70 @@ const MaterializeRenderSection = forwardRef<
 
                   <ConnectionStatusIndicator />
 
+                  {/* Canvas Zoom Controls - only show when canvas mode is enabled and in preview view */}
+                  {isCanvasPreviewEnabled && isPreviewView && (
+                    <>
+                      <div className="h-4 w-px bg-border mx-1" />
+                      <div className="flex items-center gap-1 bg-accent p-1 rounded-lg border border-border">
+                        <TooltipProvider delayDuration={200}>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6 text-muted-foreground hover:text-foreground"
+                                onClick={handleZoomOut}
+                              >
+                                <ZoomOut className="w-3.5 h-3.5" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Zoom out</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                        <span className="text-xs text-muted-foreground font-mono w-12 text-center">
+                          {Math.round(canvasZoom * 100)}%
+                        </span>
+                        <TooltipProvider delayDuration={200}>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6 text-muted-foreground hover:text-foreground"
+                                onClick={handleZoomIn}
+                              >
+                                <ZoomIn className="w-3.5 h-3.5" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Zoom in</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                        <div className="h-4 w-px bg-border mx-0.5" />
+                        <TooltipProvider delayDuration={200}>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6 text-muted-foreground hover:text-foreground"
+                                onClick={handleZoomToFit}
+                              >
+                                <Maximize className="w-3.5 h-3.5" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Zoom to fit</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      </div>
+                    </>
+                  )}
+
                   {mobileHint && isMobileLayout && (
                     <span className="text-xs text-muted-foreground animate-pulse">
                       {mobileHint}
@@ -2330,7 +2483,10 @@ const MaterializeRenderSection = forwardRef<
         {/* Preview Area */}
         <div
           className={cn(
-            "relative flex items-center justify-center bg-background transition-all duration-300",
+            "relative bg-background transition-all duration-300",
+            isCanvasPreviewEnabled && isPreviewView
+              ? "flex-1 overflow-hidden"
+              : "flex items-center justify-center",
           )}
           style={{
             height: isTerminalOpen
@@ -2340,25 +2496,68 @@ const MaterializeRenderSection = forwardRef<
           }}
         >
           {/* Floating Add Screen button - top right of canvas */}
-          {!isReadOnlyView && isPreviewView && isMultiScreenEnabled && previewMode === "mobile" && (
-            <div className="absolute top-3 right-3 z-20">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleAddMobileScreen}
-                className="h-8 bg-accent border border-border text-muted-foreground hover:text-foreground hover:border-border/80 hover:bg-accent/80 transition-all"
-                title="Add another screen"
-                disabled={!viewing_url}
-              >
-                <Plus className="h-3.5" />
-                <span className="hidden md:inline text-xs font-medium">
-                  Add Screen
-                </span>
-              </Button>
-            </div>
+          {!isReadOnlyView && isPreviewView && (
+            isCanvasPreviewEnabled ? (
+              <div className="absolute top-3 right-3 z-20">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleAddCanvasScreen}
+                  className="h-8 bg-accent border border-border text-muted-foreground hover:text-foreground hover:border-border/80 hover:bg-accent/80 transition-all"
+                  title="Add another screen"
+                  disabled={!viewing_url}
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  <span className="hidden md:inline text-xs font-medium ml-1">
+                    Add Screen
+                  </span>
+                </Button>
+              </div>
+            ) : isMultiScreenEnabled && previewMode === "mobile" && (
+              <div className="absolute top-3 right-3 z-20">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleAddMobileScreen}
+                  className="h-8 bg-accent border border-border text-muted-foreground hover:text-foreground hover:border-border/80 hover:bg-accent/80 transition-all"
+                  title="Add another screen"
+                  disabled={!viewing_url}
+                >
+                  <Plus className="h-3.5" />
+                  <span className="hidden md:inline text-xs font-medium">
+                    Add Screen
+                  </span>
+                </Button>
+              </div>
+            )
           )}
           {isPreviewView ? (
-            renderPreviewContent()
+            isCanvasPreviewEnabled ? (
+              <PreviewCanvas
+                ref={canvasRef}
+                viewingUrl={viewing_url}
+                previewMode={previewMode}
+                initialScreens={previewMode === "mobile"
+                  ? (initialScreens || mobileScreens).map(s => ({ id: s.id, path: s.path }))
+                  : (initialWebScreens || webScreens).map(s => ({ id: s.id, path: s.path }))
+                }
+                initialCanvasState={initialCanvasState}
+                onCanvasStateChange={onCanvasStateChange}
+                onScreensChange={(screens) => {
+                  if (previewMode === "mobile") {
+                    onScreensChange?.(screens.map(s => ({ id: s.id, path: s.path })));
+                  } else {
+                    onWebScreensChange?.(screens.map(s => ({ id: s.id, path: s.path })));
+                  }
+                }}
+                readOnly={isReadOnlyView}
+                availableRoutes={availableRoutes}
+                onIframeLoad={handleIframeLoad}
+                onIframeError={handleIframeError}
+              />
+            ) : (
+              renderPreviewContent()
+            )
           ) : (
             <div className="h-full w-full overflow-hidden bg-accent">
               {codeView}
