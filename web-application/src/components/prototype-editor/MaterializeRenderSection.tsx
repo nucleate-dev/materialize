@@ -2168,29 +2168,6 @@ const MaterializeRenderSection = forwardRef<
                     </div>
                   );
                 })}
-                {/* Inline Add Screen button - only show when 2+ screens exist and can edit */}
-                {isMultiScreenEnabled &&
-                  mobileScreens.length >= 2 &&
-                  !isReadOnlyView && (
-                    <div className="flex flex-col items-center justify-center gap-2 pt-2">
-                      <div
-                        className="relative mx-auto select-none flex items-center justify-center"
-                        style={{
-                          width: scaledMobileSize.width + 16,
-                          height: scaledMobileSize.height + 16,
-                        }}
-                      >
-                        <button
-                          onClick={handleAddMobileScreen}
-                          disabled={!viewing_url}
-                          className="w-10 h-10 rounded-full border border-dashed border-border hover:border-muted-foreground/50 bg-accent/30 hover:bg-accent/50 transition-all flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed group"
-                          aria-label="Add another screen"
-                        >
-                          <Plus className="w-5 h-5 text-muted-foreground group-hover:text-foreground transition-colors" />
-                        </button>
-                      </div>
-                    </div>
-                  )}
               </div>
             </div>
           </div>
@@ -2219,9 +2196,11 @@ const MaterializeRenderSection = forwardRef<
                 disabled={!viewing_url}
               >
                 <Plus className="h-3.5 w-3.5" />
-                <span className="hidden md:inline text-xs font-medium ml-1">
-                  Add Screen
-                </span>
+                {webScreens.length < 2 && (
+                  <span className="hidden md:inline text-xs font-medium ml-1">
+                    Add Screen
+                  </span>
+                )}
               </Button>
             </div>
           )}
@@ -2404,24 +2383,6 @@ const MaterializeRenderSection = forwardRef<
                 );
               },
             )}
-
-            {/* Inline Add Button for Grid */}
-            {showWebControls &&
-              webScreens.length >= 2 &&
-              webScreens.length < 4 && (
-                <div
-                  className="flex items-center justify-center border border-dashed border-border rounded-xl hover:border-muted-foreground/50 bg-accent/30 hover:bg-accent/50 transition-all cursor-pointer"
-                  style={{ minHeight: webFrameHeight }}
-                  onClick={handleAddWebScreen}
-                >
-                  <button
-                    className="w-10 h-10 rounded-full border border-dashed border-border hover:border-muted-foreground/50 bg-accent/50 hover:bg-accent/80 transition-all flex items-center justify-center group"
-                    aria-label="Add another screen"
-                  >
-                    <Plus className="w-5 h-5 text-muted-foreground group-hover:text-foreground transition-colors" />
-                  </button>
-                </div>
-              )}
           </div>
         </div>
       );
@@ -2800,7 +2761,7 @@ const MaterializeRenderSection = forwardRef<
                   ) : (
                     <Rocket className="w-3.5 h-3.5 mr-2" />
                   )}
-                  {deploymentUrl ? "Manage deploy" : "Deploy app"}
+                  {deploymentUrl ? "Manage deploy" : "Deploy"}
                 </Button>
               )}
               <DropdownMenu>

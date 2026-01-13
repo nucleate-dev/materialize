@@ -27,6 +27,7 @@ export const MODEL_COSTS_USD: Record<
   "o1-mini": { inputPer1M: 3.0, outputPer1M: 12.0 },
 
   // Google models
+  "gemini-3-pro-preview": { inputPer1M: 2.0, outputPer1M: 12.0 },
   "gemini-2.0-flash": { inputPer1M: 0.1, outputPer1M: 0.4 },
   "gemini-2.0-flash-exp": { inputPer1M: 0.1, outputPer1M: 0.4 },
   "gemini-1.5-flash": { inputPer1M: 0.075, outputPer1M: 0.3 },

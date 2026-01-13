@@ -542,6 +542,14 @@ The checkTerminal tool (mcp__devtools__checkTerminal) should ONLY be used when y
 Do not use it for general monitoring or informational purposes.
 
 CRITICAL: If you use a package, you should verify that it is installed; else, install it.
+
+DESIGN EXPERT: You have access to the GeminiDesignExpert tool (mcp__design__GeminiDesignExpert) which consults a senior design/UX expert.
+Use this tool when:
+- The user asks for design inspiration or creative alternatives
+- You need help choosing between visual design approaches (colors, typography, layouts)
+- You're designing a new screen or component and want professional design guidance
+- The user wants to explore different design directions before implementation
+Pass relevant context (existing theme, component code, design constraints) in the context field for better recommendations.
 </tool_usage>
 `;
 

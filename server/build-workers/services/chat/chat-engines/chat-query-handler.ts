@@ -18,6 +18,7 @@ import { DevServerStatus } from "../../../types/BuildWorkerTypes.js";
 import {
   ChatContentBlock,
   ChatEvent,
+  ChatQueryData,
   ChatServerMessage,
   ScreenUpdateData,
 } from "../../../types/ChatTypes.js";
@@ -88,6 +89,7 @@ interface StreamContext {
     assistantMessageBuffer: string;
     creditsUsed: number | undefined;
     costFunction: string | undefined;
+    accumulatedGeminiCostUsd: number;
   };
   isUsingOAuthToken: boolean;
   queryData: ChatQueryData;
@@ -124,7 +126,6 @@ export class ChatQueryHandler implements ChatEngine {
   private readonly sandboxService: SandboxService;
   private readonly devServerService: NucleateDevelopmentServerService;
   private readonly terminalService: TerminalService;
-  private enableDesignMcpTools: boolean;
 
   constructor(
     supabaseClientService: SupabaseClientService,
@@ -136,11 +137,6 @@ export class ChatQueryHandler implements ChatEngine {
     this.sandboxService = sandboxService;
     this.devServerService = devServerService;
     this.terminalService = terminalService;
-    this.enableDesignMcpTools = false;
-  }
-
-  public setEnableDesignMcpTools(enabled: boolean): void {
-    this.enableDesignMcpTools = enabled;
   }
 
   /**
@@ -248,6 +244,7 @@ export class ChatQueryHandler implements ChatEngine {
         assistantMessageBuffer: "",
         creditsUsed: undefined as number | undefined,
         costFunction: undefined as string | undefined,
+        accumulatedGeminiCostUsd: 0,
       };
 
       // Create flush callback that will be passed to hooks
@@ -278,6 +275,10 @@ export class ChatQueryHandler implements ChatEngine {
         sessionState.prototypeChatSessionId,
         data.visible_screens,
         !!this.devServerService.sourceRepository,
+        // Callback to accumulate Gemini design tool costs
+        (costUsd: number) => {
+          bufferState.accumulatedGeminiCostUsd += costUsd;
+        },
       );
 
       // Check if session is valid for resumption
@@ -517,6 +518,7 @@ export class ChatQueryHandler implements ChatEngine {
     prototypeChatSessionId: string,
     visibleScreens?: Array<{ id: number; path: string }>,
     hasSourceRepository: boolean = false,
+    onGeminiUsage?: (costUsd: number) => void,
   ): Promise<Options & { resume?: string }> {
     const canUseTool: CanUseTool = async (
       toolName: ToolName,
@@ -540,11 +542,9 @@ export class ChatQueryHandler implements ChatEngine {
       "mcp__devtools__SafeBash",
       "mcp__devtools__checkTerminal",
       "mcp__devtools__RestartDevServer",
+      // MCP tools from design server
+      "mcp__design__GeminiDesignExpert",
     ];
-
-    if (this.enableDesignMcpTools) {
-      allowedToolsDefault.push("mcp__design__GeminiDesignExpert");
-    }
 
     // Add UpdatePreviewScreens tool if multi-screen is enabled (visibleScreens provided)
     if (visibleScreens) {
@@ -602,11 +602,8 @@ export class ChatQueryHandler implements ChatEngine {
         // Get visible screens count callback
         visibleScreens ? (): number => visibleScreens.length : undefined,
       ),
+      design: createDesignToolsMcpServer(baseLogger, undefined, onGeminiUsage),
     };
-
-    if (this.enableDesignMcpTools) {
-      mcpServers.design = createDesignToolsMcpServer(baseLogger);
-    }
 
     const { userId } = getWorkerContext();
     let designSubagentEnabled = false;
@@ -1212,8 +1209,25 @@ export class ChatQueryHandler implements ChatEngine {
           const cacheCreationOutputTokens =
             usage?.cache_creation_output_tokens ?? 0;
 
-          // Store total_cost_usd for usage tracking in finally block
-          totalCostUsd = total_cost_usd;
+          // Combine Claude costs with accumulated Gemini design tool costs
+          const combinedCostUsd =
+            (total_cost_usd ?? 0) + bufferState.accumulatedGeminiCostUsd;
+
+          // Store combined cost for usage tracking in finally block
+          totalCostUsd = combinedCostUsd;
+
+          // Log Gemini costs if any were accumulated
+          if (bufferState.accumulatedGeminiCostUsd > 0) {
+            baseLogger.consoleLogDevOnly(
+              "info",
+              "Gemini design tool costs included in total",
+              {
+                claudeCostUsd: total_cost_usd,
+                geminiCostUsd: bufferState.accumulatedGeminiCostUsd,
+                combinedCostUsd,
+              },
+            );
+          }
 
           // Calculate credits used - use OAuth-aware calculation to match USAGE_UPDATE
           if (streamContext.isUsingOAuthToken) {
@@ -1222,8 +1236,8 @@ export class ChatQueryHandler implements ChatEngine {
             bufferState.creditsUsed = calculateOAuthCredits(promptLength, baseLogger);
             bufferState.costFunction = OAUTH_COST_FUNCTION_NAME;
           } else {
-            // API key user: token-based pricing
-            bufferState.creditsUsed = costFunctionV3(total_cost_usd);
+            // API key user: token-based pricing (using combined cost)
+            bufferState.creditsUsed = costFunctionV3(combinedCostUsd);
             bufferState.costFunction = CURRENT_COST_FUNCTION_NAME;
           }
 
@@ -1233,7 +1247,7 @@ export class ChatQueryHandler implements ChatEngine {
             outputTokens,
             cacheReadInputTokens,
             cacheCreationOutputTokens,
-            costInUsd: total_cost_usd,
+            costInUsd: combinedCostUsd,
             durationMs: duration_ms,
             durationApiMs: duration_api_ms,
           });
