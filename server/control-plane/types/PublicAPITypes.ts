@@ -435,7 +435,6 @@ export interface UpdateTeamMemberRoleErrorResponse {
 }
 
 // ============================================================================
-
 // /llm/completion ENDPOINT
 // ============================================================================
 
@@ -543,6 +542,7 @@ export interface LLMImageGenerationErrorResponse {
   error: LLMErrorCode;
   message: string;
   provider_error?: string;
+}
 
 // GITHUB INTEGRATION ENDPOINTS
 // ============================================================================
