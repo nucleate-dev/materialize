@@ -526,6 +526,16 @@ const MaterializeRenderSection = forwardRef<
       };
     }, [isMultiScreenEnabled, mobileScreens.length, mobileSize]);
 
+    // Calculate scale factor for iframe content zoom
+    const mobileScaleFactor = React.useMemo(() => {
+      if (!isMultiScreenEnabled || mobileScreens.length <= 1) {
+        return 1;
+      }
+      const targetWidth = scaledMobileSize.width + 16;
+      const originalWidth = mobileSize.width + 16;
+      return targetWidth / originalWidth;
+    }, [isMultiScreenEnabled, mobileScreens.length, scaledMobileSize, mobileSize]);
+
     // Web screens state for multi-screen web view
     const [webScreens, setWebScreens] = useState<MobileScreenConfig[]>(() => {
       if (initialWebScreens?.length) {
@@ -536,6 +546,20 @@ const MaterializeRenderSection = forwardRef<
         : [];
     });
     const nextWebScreenId = useRef(1);
+
+    // Calculate scale factor for web iframe content zoom
+    const webScaleFactor = React.useMemo(() => {
+      if (!isMultiScreenEnabled || webScreens.length <= 1) {
+        return 1;
+      }
+      // Scale down based on number of screens in grid
+      // 2 screens (side by side): 0.7 scale
+      // 3-4 screens (2x2 grid): 0.6 scale
+      if (webScreens.length === 2) {
+        return 0.7;
+      }
+      return 0.6;
+    }, [isMultiScreenEnabled, webScreens.length]);
     const webIframeRefs = useRef<Map<number, HTMLIFrameElement>>(new Map());
 
     // Web frame sizing
@@ -2138,6 +2162,10 @@ const MaterializeRenderSection = forwardRef<
                                   }
                                 }}
                                 className="w-full h-full"
+                                style={{
+                                  zoom: mobileScaleFactor,
+                                  transformOrigin: "top left",
+                                }}
                                 title="React Native Preview"
                                 aria-label={`React Native Preview ${screen.path}`}
                                 src={iframeSrc}
@@ -2357,6 +2385,10 @@ const MaterializeRenderSection = forwardRef<
                           }
                         }}
                         className="w-full h-full"
+                        style={{
+                          zoom: webScaleFactor,
+                          transformOrigin: "top left",
+                        }}
                         title={`Web Preview ${screen.path}`}
                         src={iframeSrc}
                         sandbox="allow-scripts allow-same-origin allow-forms allow-downloads allow-modals allow-popups allow-presentation"
