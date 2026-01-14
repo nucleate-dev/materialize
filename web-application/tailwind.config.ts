@@ -10,7 +10,8 @@ const config: Config = {
   theme: {
     extend: {
       fontFamily: {
-        satoshi: ["Satoshi", "sans-serif"],
+        sans: ["var(--font-inter)", "system-ui", "sans-serif"],
+        serif: ["var(--font-fraunces)", "Georgia", "serif"],
       },
       colors: {
         current: "currentColor",
@@ -18,10 +19,11 @@ const config: Config = {
         white: "#FFFFFF",
         black: "#000000",
         "black-2": "#010101",
-        body: "#64748B",
-        bodydark: "#AEB7C0",
-        bodydark1: "#DEE4EE",
-        bodydark2: "#8A99AF",
+        /* Warm gray tones for body text */
+        body: "#6B5B4F",
+        bodydark: "#C4B5A8",
+        bodydark1: "#E8E0D8",
+        bodydark2: "#9A8B7D",
         primary: {
           DEFAULT: "hsl(var(--primary))",
           foreground: "hsl(var(--primary-foreground))",
@@ -30,18 +32,19 @@ const config: Config = {
           DEFAULT: "hsl(var(--secondary))",
           foreground: "hsl(var(--secondary-foreground))",
         },
-        stroke: "#E2E8F0",
-        gray: "#EFF4FB",
-        graydark: "#333A48",
-        "gray-2": "#F7F9FC",
-        "gray-3": "#FAFAFA",
-        whiten: "#F1F5F9",
-        whiter: "#F5F7FD",
-        boxdark: "#24303F",
-        "boxdark-2": "#1A222C",
-        strokedark: "#2E3A47",
-        "form-strokedark": "#3d4d60",
-        "form-input": "#1d2a39",
+        /* Warm stroke and background tones */
+        stroke: "#E8E0D8",
+        gray: "#FAF8F5",
+        graydark: "#3D3632",
+        "gray-2": "#FCF9F6",
+        "gray-3": "#FFFDFB",
+        whiten: "#F5F2EE",
+        whiter: "#FAF7F3",
+        boxdark: "#2D2722",
+        "boxdark-2": "#1F1B17",
+        strokedark: "#3D3632",
+        "form-strokedark": "#4D4540",
+        "form-input": "#2D2722",
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
         card: {

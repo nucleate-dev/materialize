@@ -2,17 +2,17 @@
 
 import React, { useState } from "react";
 import {
-  ChevronDownIcon,
-  ChevronRightIcon,
-  CheckCircleIcon,
-  ClockIcon,
-  PlayIcon,
-  DocumentIcon,
-  FolderIcon,
-  PlusIcon,
-  TrashIcon,
-  ArrowRightIcon,
-} from "@heroicons/react/24/outline";
+  ArrowRight,
+  CheckCircle,
+  ChevronDown,
+  ChevronRight,
+  Clock,
+  FileText,
+  Folder,
+  Play,
+  Plus,
+  Trash2,
+} from "lucide-react";
 
 export interface PlannedOperation {
   id: string;
@@ -36,15 +36,15 @@ export interface PlanningViewProps {
 const getOperationIcon = (type: PlannedOperation["type"]) => {
   switch (type) {
     case "create":
-      return <PlusIcon className="w-4 h-4" />;
+      return <Plus className="w-4 h-4" />;
     case "modify":
-      return <DocumentIcon className="w-4 h-4" />;
+      return <FileText className="w-4 h-4" />;
     case "delete":
-      return <TrashIcon className="w-4 h-4" />;
+      return <Trash2 className="w-4 h-4" />;
     case "move":
-      return <ArrowRightIcon className="w-4 h-4" />;
+      return <ArrowRight className="w-4 h-4" />;
     default:
-      return <DocumentIcon className="w-4 h-4" />;
+      return <FileText className="w-4 h-4" />;
   }
 };
 
@@ -73,21 +73,21 @@ const getStatusIcon = (
 
   switch (status) {
     case "completed":
-      return <CheckCircleIcon className="w-4 h-4 text-green-500" />;
+      return <CheckCircle className="w-4 h-4 text-green-500" />;
     case "error":
       return <div className="w-4 h-4 bg-red-500 rounded-full" />;
     case "in_progress":
       return <div className="w-4 h-4 bg-blue-500 rounded-full animate-pulse" />;
     default:
-      return <ClockIcon className="w-4 h-4 text-gray-400" />;
+      return <Clock className="w-4 h-4 text-gray-400" />;
   }
 };
 
 const getFileIcon = (filePath: string) => {
   if (filePath.includes("/")) {
-    return <FolderIcon className="w-3 h-3 text-gray-500" />;
+    return <Folder className="w-3 h-3 text-gray-500" />;
   }
-  return <DocumentIcon className="w-3 h-3 text-gray-500" />;
+  return <FileText className="w-3 h-3 text-gray-500" />;
 };
 
 export default function PlanningView({
@@ -133,15 +133,15 @@ export default function PlanningView({
           className="flex items-center gap-2 hover:bg-indigo-100/50 dark:hover:bg-indigo-800/30 px-2 py-1 rounded-lg transition-colors"
         >
           <div className="p-1.5 rounded-lg bg-gradient-to-r from-indigo-500 to-purple-500 dark:from-indigo-600 dark:to-purple-600">
-            <PlayIcon className="w-4 h-4 text-white" />
+            <Play className="w-4 h-4 text-white" />
           </div>
           <span className="font-semibold text-indigo-800 dark:text-indigo-200 text-sm">
             Detailed View
           </span>
           {isExpanded ? (
-            <ChevronDownIcon className="w-4 h-4 text-indigo-600 dark:text-indigo-300" />
+            <ChevronDown className="w-4 h-4 text-indigo-600 dark:text-indigo-300" />
           ) : (
-            <ChevronRightIcon className="w-4 h-4 text-indigo-600 dark:text-indigo-300" />
+            <ChevronRight className="w-4 h-4 text-indigo-600 dark:text-indigo-300" />
           )}
         </button>
 
@@ -233,7 +233,7 @@ export default function PlanningView({
                         </code>
                         {operation.newFilePath && (
                           <>
-                            <ArrowRightIcon className="w-3 h-3 text-gray-400" />
+                            <ArrowRight className="w-3 h-3 text-gray-400" />
                             <code className="px-2 py-1 bg-slate-100 dark:bg-slate-700 rounded text-slate-700 dark:text-slate-300">
                               {operation.newFilePath}
                             </code>
@@ -264,7 +264,7 @@ export default function PlanningView({
                     {/* Success indicator with clearer message */}
                     {operation.status === "completed" && (
                       <div className="px-3 py-1 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-lg text-xs font-medium flex items-center gap-1.5">
-                        <CheckCircleIcon className="w-3 h-3" />
+                        <CheckCircle className="w-3 h-3" />
                         {operation.type === "create" &&
                           `Created ${operation.filePath}`}
                         {operation.type === "modify" &&

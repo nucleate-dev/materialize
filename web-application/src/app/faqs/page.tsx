@@ -4,7 +4,7 @@ import PremiumHeader from "@/components/prototype-editor/PremiumHeader";
 import { GridBackground } from "@/components/shared/GridComponent";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { MagnifyingGlassIcon } from "@heroicons/react/24/outline";
+import { Search } from "lucide-react";
 import { motion } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
 
@@ -232,7 +232,7 @@ export default function FAQPage() {
             <div className="relative max-w-xl mx-auto group">
               <div className="absolute inset-0 bg-indigo-500/20 blur-xl rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
               <div className="relative relative bg-[#141517] border border-white/10 rounded-xl flex items-center shadow-2xl transition-colors focus-within:border-white/30 focus-within:bg-[#18191B]">
-                <MagnifyingGlassIcon className="w-5 h-5 text-white/40 ml-4" />
+                <Search className="w-5 h-5 text-white/40 ml-4" />
                 <Input
                   ref={inputRef}
                   type="text"

@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import { useActiveTeam } from "@/contexts/TeamContext";
-import { RocketLaunchIcon, SparklesIcon } from "@heroicons/react/24/outline";
+import { Rocket, Sparkles } from "lucide-react";
 import { User } from "@supabase/supabase-js";
 import { useState } from "react";
 
@@ -83,7 +83,7 @@ export default function NewFolderModal({
         <DialogHeader className="text-center space-y-4">
           <div className="flex items-center justify-center">
             <div className="p-3 bg-muted rounded-lg">
-              <SparklesIcon className="w-6 h-6 text-primary" />
+              <Sparkles className="w-6 h-6 text-primary" />
             </div>
           </div>
           <DialogTitle className="text-2xl font-bold text-foreground">
@@ -133,7 +133,7 @@ export default function NewFolderModal({
               </>
             ) : (
               <>
-                <RocketLaunchIcon className="w-5 h-5 mr-2" />
+                <Rocket className="w-5 h-5 mr-2" />
                 Create Folder
               </>
             )}

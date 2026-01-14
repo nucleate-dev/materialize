@@ -1,94 +1,128 @@
-@import url("https://fonts.cdnfonts.com/css/satoshi");
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   body {
-    @apply font-satoshi font-normal text-base text-body relative z-[1];
+    @apply font-sans font-normal text-base text-body relative z-[1];
   }
   :root {
-    --background: 0 0% 98%;
-    --foreground: 224 71.4% 4.1%;
+    /* Terracotta Warmth - Light Mode */
+    --background: 30 20% 98%;
+    --foreground: 25 25% 12%;
     --card: 0 0% 100%;
-    --card-foreground: 224 71.4% 4.1%;
+    --card-foreground: 25 25% 12%;
     --popover: 0 0% 100%;
-    --popover-foreground: 224 71.4% 4.1%;
-    --primary: 217 91% 60%;
-    --primary-foreground: 210 20% 98%;
-    --secondary: 214 32% 91%;
-    --secondary-foreground: 222 84% 5%;
-    --muted: 210 40% 96%;
-    --muted-foreground: 215 16% 47%;
-    --accent: 210 40% 96%;
-    --accent-foreground: 222 84% 5%;
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 210 20% 98%;
-    --border: 214 32% 91%;
-    --input: 214 32% 91%;
-    --ring: 217 91% 60%;
-    --radius: 0.5rem;
-    --success: 142 76% 36%;
-    --success-foreground: 210 20% 98%;
+    --popover-foreground: 25 25% 12%;
+
+    /* Primary: Terracotta */
+    --primary: 15 80% 55%;
+    --primary-foreground: 0 0% 100%;
+
+    /* Secondary: Warm neutral */
+    --secondary: 35 25% 92%;
+    --secondary-foreground: 25 25% 12%;
+
+    /* Muted: Warm gray */
+    --muted: 30 15% 94%;
+    --muted-foreground: 25 10% 45%;
+
+    /* Accent: Amber gold */
+    --accent: 35 90% 55%;
+    --accent-foreground: 25 25% 12%;
+
+    /* Semantic colors */
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+    --success: 158 64% 40%;
+    --success-foreground: 0 0% 100%;
     --warning: 38 92% 50%;
-    --warning-foreground: 222 84% 5%;
-    --info: 217 91% 60%;
-    --info-foreground: 210 20% 98%;
-    --chart-1: 217 91% 60%;
-    --chart-2: 142 76% 36%;
-    --chart-3: 38 92% 50%;
-    --chart-4: 262 76% 50%;
-    --chart-5: 173 58% 39%;
-    --sidebar-background: 0 0% 98%;
-    --sidebar-foreground: 240 5.3% 26.1%;
-    --sidebar-primary: 217 91% 60%;
-    --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 210 40% 96%;
-    --sidebar-accent-foreground: 222 84% 5%;
-    --sidebar-border: 214 32% 91%;
-    --sidebar-ring: 217 91% 60%;
+    --warning-foreground: 25 25% 12%;
+    --info: 199 89% 48%;
+    --info-foreground: 0 0% 100%;
+
+    /* Borders & inputs */
+    --border: 30 15% 88%;
+    --input: 30 15% 88%;
+    --ring: 15 80% 55%;
+
+    /* Radius */
+    --radius: 0.5rem;
+
+    /* Charts - warm palette */
+    --chart-1: 15 80% 55%;
+    --chart-2: 158 64% 40%;
+    --chart-3: 35 90% 55%;
+    --chart-4: 25 70% 45%;
+    --chart-5: 199 89% 48%;
+
+    /* Sidebar */
+    --sidebar-background: 30 20% 98%;
+    --sidebar-foreground: 25 15% 35%;
+    --sidebar-primary: 15 80% 55%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 30 15% 94%;
+    --sidebar-accent-foreground: 25 25% 12%;
+    --sidebar-border: 30 15% 88%;
+    --sidebar-ring: 15 80% 55%;
   }
 
   .dark {
-    --background: 240 8% 6%;
-    --foreground: 210 20% 98%;
-    --card: 220 7% 8%;
-    --card-foreground: 210 20% 98%;
-    --popover: 224 71.4% 4.1%;
-    --popover-foreground: 210 20% 98%;
-    --primary: 217 91% 60%;
-    --primary-foreground: 210 20% 98%;
-    --secondary: 215 28% 17%;
-    --secondary-foreground: 210 20% 98%;
-    --muted: 215 28% 17%;
-    --muted-foreground: 218 11% 65%;
-    --accent: 215 28% 17%;
-    --accent-foreground: 210 20% 98%;
-    --destructive: 0 63% 31%;
-    --destructive-foreground: 210 20% 98%;
-    --border: 215 28% 17%;
-    --input: 215 28% 17%;
-    --ring: 217 91% 60%;
-    --success: 142 76% 36%;
-    --success-foreground: 210 20% 98%;
-    --warning: 38 92% 50%;
-    --warning-foreground: 224 71.4% 4.1%;
-    --info: 217 91% 60%;
-    --info-foreground: 210 20% 98%;
-    --chart-1: 217 91% 60%;
-    --chart-2: 142 76% 36%;
-    --chart-3: 38 92% 50%;
-    --chart-4: 262 76% 50%;
-    --chart-5: 173 58% 39%;
-    --sidebar-background: 240 8% 10%;
-    --sidebar-foreground: 240 5% 96%;
-    --sidebar-primary: 217 91% 60%;
+    /* Terracotta Warmth - Dark Mode */
+    --background: 25 15% 8%;
+    --foreground: 30 15% 92%;
+    --card: 25 12% 11%;
+    --card-foreground: 30 15% 92%;
+    --popover: 25 15% 10%;
+    --popover-foreground: 30 15% 92%;
+
+    /* Primary: Terracotta (slightly brighter for dark mode) */
+    --primary: 15 75% 60%;
+    --primary-foreground: 0 0% 100%;
+
+    /* Secondary */
+    --secondary: 25 15% 18%;
+    --secondary-foreground: 30 15% 92%;
+
+    /* Muted */
+    --muted: 25 12% 16%;
+    --muted-foreground: 25 10% 55%;
+
+    /* Accent: Amber gold */
+    --accent: 35 85% 50%;
+    --accent-foreground: 0 0% 100%;
+
+    /* Semantic colors - adjusted for dark mode */
+    --destructive: 0 68% 56%;
+    --destructive-foreground: 0 0% 100%;
+    --success: 158 60% 45%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 88% 55%;
+    --warning-foreground: 25 25% 12%;
+    --info: 199 85% 52%;
+    --info-foreground: 0 0% 100%;
+
+    /* Borders & inputs */
+    --border: 25 12% 20%;
+    --input: 25 12% 20%;
+    --ring: 15 75% 60%;
+
+    /* Charts - warm palette for dark mode */
+    --chart-1: 15 75% 60%;
+    --chart-2: 158 60% 45%;
+    --chart-3: 35 85% 50%;
+    --chart-4: 25 65% 50%;
+    --chart-5: 199 85% 52%;
+
+    /* Sidebar */
+    --sidebar-background: 25 15% 10%;
+    --sidebar-foreground: 30 10% 85%;
+    --sidebar-primary: 15 75% 60%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 4% 16%;
-    --sidebar-accent-foreground: 240 5% 96%;
-    --sidebar-border: 240 4% 16%;
-    --sidebar-ring: 217 91% 60%;
+    --sidebar-accent: 25 12% 16%;
+    --sidebar-accent-foreground: 30 15% 92%;
+    --sidebar-border: 25 12% 20%;
+    --sidebar-ring: 15 75% 60%;
   }
 }
 
@@ -271,7 +305,7 @@ span.flatpickr-weekday,
 
 .jvectormap-tip {
   background-color: #f8fafc !important;
-  font-family: Satoshi, sans-serif;
+  font-family: Inter, sans-serif;
 }
 
 .map-btn .jvectormap-container .jvectormap-zoomin,

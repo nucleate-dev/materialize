@@ -5,11 +5,7 @@ import Loader from "@/components/dashboard/Loader";
 import { useUser } from "@/hooks/useUser";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import { Database, Json } from "@/lib/types/supabase";
-import {
-  ChatBubbleLeftIcon,
-  PaperAirplaneIcon,
-  SparklesIcon,
-} from "@heroicons/react/24/outline";
+import { MessageSquare, Send, Sparkles } from "lucide-react";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -303,7 +299,7 @@ export default function CanvasPage() {
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-3">
                   <div className="p-3 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 dark:from-blue-600 dark:to-purple-700 shadow-lg shadow-blue-500/25 dark:shadow-blue-600/60 ring-1 ring-white/20 dark:ring-blue-400/30">
-                    <SparklesIcon className="w-5 h-5 text-white drop-shadow-sm" />
+                    <Sparkles className="w-5 h-5 text-white drop-shadow-sm" />
                   </div>
                   <div>
                     <h3 className="font-bold text-lg text-gray-900 dark:text-slate-100 drop-shadow-sm">
@@ -367,7 +363,7 @@ export default function CanvasPage() {
                   >
                     <span className="flex items-center justify-center gap-2">
                       Update & Notify
-                      <SparklesIcon className="w-4 h-4" />
+                      <Sparkles className="w-4 h-4" />
                     </span>
                   </button>
                 </div>
@@ -457,7 +453,7 @@ export default function CanvasPage() {
                   <div className="absolute right-4 top-1/2 transform -translate-y-1/2 transition-all duration-300 group-hover:scale-110">
                     <div className="relative">
                       <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-purple-500 dark:from-blue-400 dark:to-purple-400 rounded-full blur-sm opacity-0 group-hover:opacity-50 dark:group-hover:opacity-70 transition-opacity duration-300"></div>
-                      <SparklesIcon className="relative w-5 h-5 text-gray-400 dark:text-slate-500 group-hover:text-blue-500 dark:group-hover:text-blue-400 transition-colors duration-300" />
+                      <Sparkles className="relative w-5 h-5 text-gray-400 dark:text-slate-500 group-hover:text-blue-500 dark:group-hover:text-blue-400 transition-colors duration-300" />
                     </div>
                   </div>
                 </div>
@@ -482,7 +478,7 @@ export default function CanvasPage() {
                       <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-white/20 to-transparent dark:from-white/10 dark:to-blue-900/20"></div>
                     )}
 
-                    <PaperAirplaneIcon
+                    <Send
                       className={`relative w-6 h-6 transition-transform duration-300 ${
                         newMessage.trim()
                           ? "hover:translate-x-0.5 hover:-translate-y-0.5"
@@ -520,7 +516,7 @@ export default function CanvasPage() {
                 {/* Inner gradient overlay for depth */}
                 <div className="absolute inset-0 rounded-full bg-gradient-to-br from-white/20 via-transparent to-black/10 dark:from-white/10 dark:to-black/20"></div>
 
-                <ChatBubbleLeftIcon className="relative w-8 h-8 transition-transform duration-300 group-hover:rotate-12 group-hover:scale-110" />
+                <MessageSquare className="relative w-8 h-8 transition-transform duration-300 group-hover:rotate-12 group-hover:scale-110" />
 
                 {/* Enhanced notification badge with dark mode */}
                 <div className="absolute -top-2 -right-2 group">
@@ -529,7 +525,7 @@ export default function CanvasPage() {
 
                   {/* Badge body */}
                   <div className="relative w-5 h-5 bg-gradient-to-r from-pink-500 to-red-500 dark:from-pink-400 dark:to-red-400 rounded-full flex items-center justify-center ring-2 ring-white/30 dark:ring-white/20 shadow-lg">
-                    <SparklesIcon className="w-3 h-3 text-white animate-spin" />
+                    <Sparkles className="w-3 h-3 text-white animate-spin" />
                   </div>
                 </div>
 
@@ -561,7 +557,7 @@ export default function CanvasPage() {
                 <div className="relative px-4 py-3 rounded-xl text-sm font-semibold whitespace-nowrap bg-white/95 dark:bg-gray-900/95 text-gray-900 dark:text-white border border-black/10 dark:border-white/20 backdrop-blur-xl shadow-2xl dark:shadow-black/50">
                   <div className="flex items-center gap-2">
                     <span>Open Canvas Assistant</span>
-                    <SparklesIcon className="w-4 h-4 text-blue-500 dark:text-blue-400" />
+                    <Sparkles className="w-4 h-4 text-blue-500 dark:text-blue-400" />
                   </div>
 
                   {/* Tooltip arrow */}

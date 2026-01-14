@@ -1,12 +1,7 @@
 "use client";
 import { useSidebar } from "@/components/ui/sidebar";
 import { useFolder } from "@/hooks/useFolder";
-import {
-  Bars3Icon,
-  ClockIcon,
-  Cog6ToothIcon,
-  FolderIcon,
-} from "@heroicons/react/24/outline";
+import { Clock, Folder, Menu, Settings } from "lucide-react";
 import Link from "next/link";
 import { useParams, usePathname } from "next/navigation";
 
@@ -21,19 +16,19 @@ export default function FoldersHeader() {
     {
       name: "Recent",
       href: `/dashboard/folders/${folderId}`,
-      icon: ClockIcon,
+      icon: Clock,
       active: pathname === `/dashboard/folders/${folderId}`,
     },
     {
       name: "Folders",
       href: `/dashboard/folders/${folderId}`,
-      icon: FolderIcon,
+      icon: Folder,
       active: pathname === `/dashboard/folders/${folderId}`,
     },
     {
       name: "Settings",
       href: `/dashboard/folders/${folderId}/settings`,
-      icon: Cog6ToothIcon,
+      icon: Settings,
       active: pathname?.includes("/settings"),
     },
   ];
@@ -75,7 +70,7 @@ export default function FoldersHeader() {
               className="flex items-center justify-center w-10 h-10 rounded-xl bg-white/60 dark:bg-boxdark/60 hover:bg-white/80 dark:hover:bg-boxdark/80 border border-stroke/30 dark:border-strokedark/40 backdrop-blur-sm transition-all duration-300 hover:scale-110 group"
             >
               <div className="absolute inset-0 bg-gradient-to-r from-primary/10 to-secondary/10 dark:from-primary/20 dark:to-secondary/20 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-              <Bars3Icon className="relative w-5 h-5 text-body dark:text-bodydark transition-colors duration-300 group-hover:text-primary dark:group-hover:text-secondary" />
+              <Menu className="relative w-5 h-5 text-body dark:text-bodydark transition-colors duration-300 group-hover:text-primary dark:group-hover:text-secondary" />
             </button>
           </div>
 
@@ -84,7 +79,7 @@ export default function FoldersHeader() {
             {/* Folder Icon Container */}
             <div className="relative p-2.5 bg-gradient-to-br from-primary/10 via-secondary/5 to-info/10 dark:from-primary/20 dark:via-secondary/10 dark:to-info/20 rounded-xl border border-primary/20 dark:border-secondary/30 backdrop-blur-sm">
               <div className="absolute inset-0 bg-gradient-to-r from-primary/5 to-secondary/5 dark:from-primary/10 dark:to-secondary/10 rounded-xl blur-sm opacity-50"></div>
-              <FolderIcon className="relative w-5 h-5 text-primary dark:text-secondary" />
+              <Folder className="relative w-5 h-5 text-primary dark:text-secondary" />
             </div>
 
             {/* Folder Name & Loading State */}

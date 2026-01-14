@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
-import { FolderIcon, PaintBrushIcon } from "@heroicons/react/24/outline";
+import { Folder, Paintbrush } from "lucide-react";
 import { User } from "@supabase/supabase-js";
 import { useEffect, useState } from "react";
 
@@ -138,7 +138,7 @@ export default function NewWhiteboardModal({
         <DialogHeader className="text-center space-y-4">
           <div className="flex items-center justify-center">
             <div className="p-3 bg-muted rounded-lg">
-              <PaintBrushIcon className="w-6 h-6 text-primary" />
+              <Paintbrush className="w-6 h-6 text-primary" />
             </div>
           </div>
           <DialogTitle className="text-2xl font-bold text-foreground">
@@ -202,7 +202,7 @@ export default function NewWhiteboardModal({
             >
               <SelectTrigger className="h-12">
                 <div className="flex items-center gap-2">
-                  <FolderIcon className="w-4 h-4 text-primary" />
+                  <Folder className="w-4 h-4 text-primary" />
                   <SelectValue placeholder="Select a project (optional)" />
                 </div>
               </SelectTrigger>
@@ -217,7 +217,7 @@ export default function NewWhiteboardModal({
                   projects.map((project) => (
                     <SelectItem key={project.id} value={project.id}>
                       <div className="flex items-center gap-2">
-                        <FolderIcon className="w-4 h-4 text-primary" />
+                        <Folder className="w-4 h-4 text-primary" />
                         {project.name}
                       </div>
                     </SelectItem>
@@ -239,7 +239,7 @@ export default function NewWhiteboardModal({
               </>
             ) : (
               <>
-                <PaintBrushIcon className="w-5 h-5 mr-2" />
+                <Paintbrush className="w-5 h-5 mr-2" />
                 Create Whiteboard
               </>
             )}

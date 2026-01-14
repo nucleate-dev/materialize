@@ -2,12 +2,20 @@ import { MetaPixelPageView } from "@/components/MetaPixelPageView";
 import { ThemeProvider } from "@/components/theme-provider";
 import { TeamProvider } from "@/contexts/TeamContext";
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Inter, Fraunces } from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
 import { CSPostHogProvider, QueryProvider } from "./providers";
 
-const inter = Inter({ subsets: ["latin"] });
+const inter = Inter({
+  subsets: ["latin"],
+  variable: "--font-inter",
+});
+
+const fraunces = Fraunces({
+  subsets: ["latin"],
+  variable: "--font-fraunces",
+});
 
 export const metadata: Metadata = {
   title: "Nucleate - AI for UI/UX prototyping",
@@ -115,7 +123,7 @@ export default function RootLayout({
           />
         </noscript>
       </head>
-      <body className={inter.className}>
+      <body className={`${inter.variable} ${fraunces.variable} font-sans antialiased`}>
         <CSPostHogProvider>
           <QueryProvider>
             <TeamProvider>

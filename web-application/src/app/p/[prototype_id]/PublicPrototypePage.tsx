@@ -46,9 +46,9 @@ import type {
 } from "@/lib/types/serverAPITypes";
 import { Database } from "@/lib/types/supabase";
 import { logout } from "@/lib/utils/auth/SupabaseAuthUtils";
-import { EyeIcon, SparklesIcon } from "@heroicons/react/24/outline";
 import {
   Atom,
+  Eye,
   Folder,
   Loader2,
   LogOut,
@@ -607,7 +607,7 @@ export default function PrototypePage() {
         <Card className="max-w-md mx-auto bg-white dark:bg-[#141517] border-gray-200 dark:border-white/10 shadow-2xl">
           <CardHeader className="text-center pb-2">
             <div className="w-16 h-16 bg-red-50 dark:bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-6 border border-red-100 dark:border-red-500/20">
-              <SparklesIcon className="w-8 h-8 text-red-500" />
+              <Sparkles className="w-8 h-8 text-red-500" />
             </div>
             <CardTitle className="text-2xl font-medium text-gray-900 dark:text-white">
               Couldn&apos;t Load Project
@@ -635,7 +635,7 @@ export default function PrototypePage() {
         <Card className="max-w-md mx-auto bg-white dark:bg-[#141517] border-gray-200 dark:border-white/10 shadow-2xl">
           <CardHeader className="text-center pb-2">
             <div className="w-16 h-16 bg-gray-100 dark:bg-white/5 rounded-full flex items-center justify-center mx-auto mb-6 border border-gray-200 dark:border-white/10">
-              <EyeIcon className="w-8 h-8 text-gray-400 dark:text-[#8A8F98]" />
+              <Eye className="w-8 h-8 text-gray-400 dark:text-[#8A8F98]" />
             </div>
             <CardTitle className="text-2xl font-medium text-gray-900 dark:text-white">
               Prototype Not Found

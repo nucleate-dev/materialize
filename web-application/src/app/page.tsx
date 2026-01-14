@@ -22,13 +22,13 @@ import { Database } from "@/lib/types/supabase";
 import { captureUTMParams } from "@/lib/utils/analytics/utmTracking";
 import { setChatIntent } from "@/lib/utils/chatIntentUtils";
 import { handleCheckout } from "@/lib/utils/payments/CheckoutUtils";
-import { CheckIcon, SparklesIcon } from "@heroicons/react/24/solid";
 import { AnimatePresence, motion } from "framer-motion";
 import Image from "next/image";
 import {
   Bell,
   Box,
   Camera,
+  Check,
   CheckCircle2,
   ChevronDown,
   ChevronLeft,
@@ -42,18 +42,21 @@ import {
   Lock,
   MessageCircle,
   MoreHorizontal,
-  Music2, Palette,
+  Music2,
+  Palette,
   Play,
   RefreshCw,
   Search,
-  ShieldCheck, Smartphone,
+  ShieldCheck,
+  Smartphone,
+  Sparkles,
   Star,
   ThumbsDown,
   ThumbsUp,
   Tv,
   Users,
   X,
-  Zap
+  Zap,
 } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { usePostHog } from "posthog-js/react";
@@ -250,7 +253,7 @@ function HeroSection() {
                 animate={{ rotate: [0, 10, -10, 0] }}
                 transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
               >
-                <SparklesIcon className="w-5 h-5 text-white/30 mt-1" />
+                <Sparkles className="w-5 h-5 text-white/30 mt-1" />
               </motion.div>
               <Textarea
                 placeholder="Describe a screen or flow you want to prototype..."
@@ -1685,7 +1688,7 @@ function PricingSection() {
                       transition={{ delay: index * 0.03 + i * 0.02 }}
                       className="flex items-center gap-3 text-sm text-[#8A8F98]"
                     >
-                      <CheckIcon className="w-4 h-4 text-white/40" />
+                      <Check className="w-4 h-4 text-white/40" />
                       {feature}
                     </motion.div>
                   ))}

@@ -1,7 +1,6 @@
 "use client";
 
-import { MoonIcon, SunIcon } from "@heroicons/react/24/outline";
-import { ChevronDown, Monitor } from "lucide-react";
+import { ChevronDown, Monitor, Moon, Sun } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
 
@@ -38,7 +37,7 @@ export function HorizontalModeToggle({
         )}
         disabled
       >
-        <SunIcon className="h-4 w-4" />
+        <Sun className="h-4 w-4" />
         {sidebarExpanded && <span>Theme</span>}
       </SidebarMenuButton>
     );
@@ -47,9 +46,9 @@ export function HorizontalModeToggle({
   const getThemeIcon = () => {
     switch (theme) {
       case "light":
-        return <SunIcon className="h-4 w-4" />;
+        return <Sun className="h-4 w-4" />;
       case "dark":
-        return <MoonIcon className="h-4 w-4" />;
+        return <Moon className="h-4 w-4" />;
       default:
         return <Monitor className="h-4 w-4" />;
     }
@@ -87,11 +86,11 @@ export function HorizontalModeToggle({
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-32">
         <DropdownMenuItem onClick={() => setTheme("light")}>
-          <SunIcon className="h-4 w-4 mr-2" />
+          <Sun className="h-4 w-4 mr-2" />
           <span>Light</span>
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => setTheme("dark")}>
-          <MoonIcon className="h-4 w-4 mr-2" />
+          <Moon className="h-4 w-4 mr-2" />
           <span>Dark</span>
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => setTheme("system")}>

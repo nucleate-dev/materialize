@@ -22,7 +22,6 @@ import { Database } from "@/lib/types/supabase";
 import { captureUTMParams } from "@/lib/utils/analytics/utmTracking";
 import { setChatIntent } from "@/lib/utils/chatIntentUtils";
 import { handleCheckout } from "@/lib/utils/payments/CheckoutUtils";
-import { CheckIcon, SparklesIcon } from "@heroicons/react/24/solid";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   ArrowRight,
@@ -30,6 +29,7 @@ import {
   Bell,
   Box,
   Camera,
+  Check,
   CheckCircle2,
   ChevronLeft,
   Layers,
@@ -43,13 +43,14 @@ import {
   ShieldCheck,
   ShoppingBag,
   Smartphone,
+  Sparkles,
   Star,
   ThumbsDown,
   ThumbsUp,
   Tv,
   Users,
   X,
-  Zap
+  Zap,
 } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { usePostHog } from "posthog-js/react";
@@ -188,7 +189,7 @@ function HeroSection() {
           <div className="absolute -inset-0.5 bg-gradient-to-r from-indigo-500/30 to-blue-500/30 rounded-2xl blur opacity-20 group-hover:opacity-40 transition duration-500"></div>
           <div className="relative bg-[#141517] border border-white/10 rounded-xl overflow-hidden shadow-2xl flex flex-col focus-within:border-white/20">
             <div className="px-4 pt-4 flex gap-3">
-              <SparklesIcon className="w-5 h-5 text-white/30 mt-1" />
+              <Sparkles className="w-5 h-5 text-white/30 mt-1" />
               <Textarea
                 placeholder="Describe the app you want to build..."
                 value={prompt}
@@ -1707,7 +1708,7 @@ function UseCasesSection() {
                       <div className="w-8 h-1.5 bg-white/5 rounded-full" />
                       {i === 3 && (
                         <div className="absolute -top-3 -right-3 w-6 h-6 bg-green-500 rounded-full border-4 border-[#1A1B1E] flex items-center justify-center shadow-lg">
-                          <CheckIcon className="w-3 h-3 text-black stroke-[3px]" />
+                          <Check className="w-3 h-3 text-black stroke-[3px]" />
                         </div>
                       )}
                     </motion.div>
@@ -2017,7 +2018,7 @@ function PricingSection() {
               <div className="space-y-4 mt-auto">
                 {plan.features.map((feature, i) => (
                   <div key={i} className="flex items-center gap-3 text-sm text-[#8A8F98]">
-                    <CheckIcon className="w-4 h-4 text-white/40" />
+                    <Check className="w-4 h-4 text-white/40" />
                     {feature}
                   </div>
                 ))}

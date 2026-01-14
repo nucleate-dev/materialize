@@ -1,6 +1,6 @@
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { DocumentIcon, FolderIcon } from "@heroicons/react/24/outline";
+import { FileText, Folder } from "lucide-react";
 import { useEffect, useState } from "react";
 
 interface FileAutocompleteProps {
@@ -82,17 +82,17 @@ export function FileAutocomplete({
       case "ts":
       case "jsx":
       case "js":
-        return <DocumentIcon className={`${iconClass} text-blue-500`} />;
+        return <FileText className={`${iconClass} text-blue-500`} />;
       case "css":
       case "scss":
       case "sass":
-        return <DocumentIcon className={`${iconClass} text-pink-500`} />;
+        return <FileText className={`${iconClass} text-pink-500`} />;
       case "json":
-        return <DocumentIcon className={`${iconClass} text-yellow-500`} />;
+        return <FileText className={`${iconClass} text-yellow-500`} />;
       case "md":
-        return <DocumentIcon className={`${iconClass} text-gray-500`} />;
+        return <FileText className={`${iconClass} text-gray-500`} />;
       default:
-        return <DocumentIcon className={`${iconClass} text-gray-400`} />;
+        return <FileText className={`${iconClass} text-gray-400`} />;
     }
   };
 
@@ -128,7 +128,7 @@ export function FileAutocomplete({
     <div className="w-full bg-background border border-border rounded-lg shadow-lg">
       <div className="p-2 border-b border-border">
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <FolderIcon className="w-3 h-3" />
+          <Folder className="w-3 h-3" />
           <span>Select a file to reference</span>
           {files.length > 0 && (
             <Badge variant="secondary" className="text-xs">

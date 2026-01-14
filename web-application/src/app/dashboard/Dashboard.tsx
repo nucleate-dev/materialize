@@ -33,7 +33,7 @@ import { type PrototypeVisibility } from "@/lib/types/prototypes";
 import { Database } from "@/lib/types/supabase";
 import { setChatIntent } from "@/lib/utils/chatIntentUtils";
 import { checkSurveyCompleted } from "@/lib/utils/survey/SurveyUtils";
-import { SwatchIcon } from "@heroicons/react/24/outline"; // Kept Heroicons
+import { Palette } from "lucide-react";
 import { useAtom } from "jotai";
 import {
   ChevronDown,
@@ -275,18 +275,18 @@ export default function DashboardPage() {
   // Show loading state while checking survey
   if (isSurveyChecking) {
     return (
-      <div className="relative min-h-screen text-black dark:text-white selection:bg-purple-500/30 font-sans flex items-center justify-center">
+      <div className="relative min-h-screen text-foreground selection:bg-primary/30 font-sans flex items-center justify-center">
         <GridBackground />
         <div className="relative z-10 flex flex-col items-center gap-4">
-          <Loader2 className="w-8 h-8 animate-spin text-gray-400" />
-          <p className="text-sm text-gray-500">Loading...</p>
+          <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+          <p className="text-sm text-muted-foreground">Loading...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="relative min-h-screen text-black dark:text-white selection:bg-purple-500/30 font-sans">
+    <div className="relative min-h-screen text-foreground selection:bg-primary/30 font-sans">
       <GridBackground />
 
       <div className="container mx-auto px-4 pt-24 pb-16 max-w-4xl relative z-10">
@@ -298,10 +298,10 @@ export default function DashboardPage() {
             </span>
           </div> */}
 
-          <h1 className="text-4xl md:text-6xl font-medium tracking-tight text-transparent bg-clip-text bg-gradient-to-b from-black via-black to-black/60 dark:from-white dark:via-white dark:to-white/60">
+          <h1 className="text-4xl md:text-6xl font-serif font-medium tracking-tight text-transparent bg-clip-text bg-gradient-to-b from-foreground via-foreground to-foreground/60">
             Design Anything
           </h1>
-          <p className="text-lg text-gray-600 dark:text-[#8A8F98] max-w-xl mx-auto font-light">
+          <p className="text-lg text-muted-foreground max-w-xl mx-auto font-light">
             Describe your app, screen, or flow.{" "}
             <br className="hidden sm:block" />
           </p>
@@ -310,9 +310,9 @@ export default function DashboardPage() {
         {/* --- Main Input Console --- */}
         <div className="relative group animate-in fade-in slide-in-from-bottom-8 duration-1000 delay-100">
           {/* Glow Effect */}
-          <div className="absolute -inset-0.5 bg-gradient-to-r from-purple-500/20 to-blue-500/20 rounded-2xl blur-xl opacity-20 group-hover:opacity-30 transition duration-500"></div>
+          <div className="absolute -inset-0.5 bg-gradient-to-r from-primary/20 to-accent/20 rounded-2xl blur-xl opacity-20 group-hover:opacity-30 transition duration-500"></div>
 
-          <div className="relative bg-gray-50 dark:bg-[#141517] border border-black/10 dark:border-white/10 rounded-xl overflow-hidden shadow-2xl flex flex-col transition-all duration-200 focus-within:border-black/20 dark:focus-within:border-white/20 focus-within:bg-gray-100 dark:focus-within:bg-[#18191B] focus-within:ring-1 focus-within:ring-black/5 dark:focus-within:ring-white/5">
+          <div className="relative bg-card border border-border rounded-xl overflow-hidden shadow-2xl flex flex-col transition-all duration-200 focus-within:border-primary/30 focus-within:bg-muted focus-within:ring-1 focus-within:ring-primary/10">
             {/* Input Area */}
             <div className="px-5 pt-5">
               <Textarea
@@ -320,14 +320,14 @@ export default function DashboardPage() {
                 onChange={(e) => setPrompt(e.target.value)}
                 onKeyDown={handleKeyDown}
                 placeholder="Describe your app logic, UI components, and design style..."
-                className="w-full min-h-[140px] bg-transparent border-none text-lg text-black dark:text-white placeholder:text-black/20 dark:placeholder:text-white/20 resize-none focus-visible:ring-0 p-0 leading-relaxed"
+                className="w-full min-h-[140px] bg-transparent border-none text-lg text-foreground placeholder:text-muted-foreground/50 resize-none focus-visible:ring-0 p-0 leading-relaxed"
                 disabled={isLoading}
                 autoFocus
               />
             </div>
 
             {/* Toolbar / Action Bar */}
-            <div className="px-4 py-3 mt-2 bg-black/[0.02] dark:bg-white/[0.02] border-t border-black/5 dark:border-white/5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+            <div className="px-4 py-3 mt-2 bg-muted/50 border-t border-border flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
               {/* Left: Configuration Tools (Desktop) */}
               <div className="hidden md:flex items-center gap-2">
                 {isWebPrototypeEnabled && (
@@ -338,16 +338,16 @@ export default function DashboardPage() {
                     }
                     disabled={isLoading}
                   >
-                    <SelectTrigger className="h-8 border-0 bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 text-black/70 dark:text-white/70 hover:text-black dark:hover:text-white text-xs font-medium rounded-md transition-colors gap-2 w-auto min-w-[120px] focus:ring-0">
+                    <SelectTrigger className="h-8 border-0 bg-secondary hover:bg-secondary/80 text-secondary-foreground text-xs font-medium rounded-md transition-colors gap-2 w-auto min-w-[120px] focus:ring-0">
                       <Rocket className="w-3.5 h-3.5" />
                       <SelectValue placeholder="Platform" />
                     </SelectTrigger>
-                    <SelectContent className="bg-white dark:bg-[#1A1B1E] border-black/10 dark:border-white/10 text-black dark:text-white">
+                    <SelectContent className="bg-popover border-border text-popover-foreground">
                       {PLATFORM_OPTIONS.map((option) => (
                         <SelectItem
                           key={option.value}
                           value={option.value}
-                          className="focus:bg-black/10 dark:focus:bg-white/10 focus:text-black dark:focus:text-white text-black/70 dark:text-white/70 cursor-pointer text-xs py-2"
+                          className="focus:bg-accent focus:text-accent-foreground text-muted-foreground cursor-pointer text-xs py-2"
                         >
                           {option.label}
                         </SelectItem>
@@ -363,16 +363,16 @@ export default function DashboardPage() {
                   }
                   disabled={isLoading}
                 >
-                  <SelectTrigger className="h-8 border-0 bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 text-black/70 dark:text-white/70 hover:text-black dark:hover:text-white text-xs font-medium rounded-md transition-colors gap-2 w-auto min-w-[130px] focus:ring-0">
-                    <SwatchIcon className="w-3.5 h-3.5" />
+                  <SelectTrigger className="h-8 border-0 bg-secondary hover:bg-secondary/80 text-secondary-foreground text-xs font-medium rounded-md transition-colors gap-2 w-auto min-w-[130px] focus:ring-0">
+                    <Palette className="w-3.5 h-3.5" />
                     <SelectValue placeholder="Style" />
                   </SelectTrigger>
-                  <SelectContent className="bg-white dark:bg-[#1A1B1E] border-black/10 dark:border-white/10 text-black dark:text-white">
+                  <SelectContent className="bg-popover border-border text-popover-foreground">
                     {availableDesignStyles.map((style) => (
                       <SelectItem
                         key={style}
                         value={style}
-                        className="focus:bg-black/10 dark:focus:bg-white/10 focus:text-black dark:focus:text-white text-black/70 dark:text-white/70 cursor-pointer text-xs py-2"
+                        className="focus:bg-accent focus:text-accent-foreground text-muted-foreground cursor-pointer text-xs py-2"
                       >
                         {getDesignStyleLabel(style)}
                       </SelectItem>
@@ -399,14 +399,14 @@ export default function DashboardPage() {
                   }}
                   disabled={isLoading}
                 >
-                  <SelectTrigger className="h-8 border-0 bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 text-black/70 dark:text-white/70 hover:text-black dark:hover:text-white text-xs font-medium rounded-md transition-colors gap-2 w-auto min-w-[120px] focus:ring-0">
+                  <SelectTrigger className="h-8 border-0 bg-secondary hover:bg-secondary/80 text-secondary-foreground text-xs font-medium rounded-md transition-colors gap-2 w-auto min-w-[120px] focus:ring-0">
                     <Share2 className="w-3.5 h-3.5" />
                     <SelectValue placeholder="Visibility" />
                   </SelectTrigger>
-                  <SelectContent className="bg-white dark:bg-[#1A1B1E] border-black/10 dark:border-white/10 text-black dark:text-white">
+                  <SelectContent className="bg-popover border-border text-popover-foreground">
                     <SelectItem
                       value="PUBLIC"
-                      className="focus:bg-black/10 dark:focus:bg-white/10 focus:text-black dark:focus:text-white text-black/70 dark:text-white/70 cursor-pointer text-xs py-2"
+                      className="focus:bg-accent focus:text-accent-foreground text-muted-foreground cursor-pointer text-xs py-2"
                     >
                       <div className="flex items-center gap-2">
                         <Globe className="w-3.5 h-3.5" />
@@ -416,26 +416,26 @@ export default function DashboardPage() {
                     {isTeamsUIEnabled && activeTeam && (
                       <SelectItem
                         value="TEAM"
-                        className="focus:bg-black/10 dark:focus:bg-white/10 focus:text-black dark:focus:text-white text-black/70 dark:text-white/70 cursor-pointer text-xs py-2"
+                        className="focus:bg-accent focus:text-accent-foreground text-muted-foreground cursor-pointer text-xs py-2"
                       >
                         <div className="flex items-center gap-2">
                           <Share2 className="w-3.5 h-3.5" />
                           <span>{activeTeam.name}</span>
                           {isFreePlan && (
-                            <Lock className="w-3 h-3 text-black/40 dark:text-white/40 ml-auto" />
+                            <Lock className="w-3 h-3 text-muted-foreground/50 ml-auto" />
                           )}
                         </div>
                       </SelectItem>
                     )}
                     <SelectItem
                       value="SELF"
-                      className="focus:bg-black/10 dark:focus:bg-white/10 focus:text-black dark:focus:text-white text-black/70 dark:text-white/70 cursor-pointer text-xs py-2"
+                      className="focus:bg-accent focus:text-accent-foreground text-muted-foreground cursor-pointer text-xs py-2"
                     >
                       <div className="flex items-center gap-2">
                         <Lock className="w-3.5 h-3.5" />
                         <span>Private</span>
                         {isFreePlan && (
-                          <Lock className="w-3 h-3 text-black/40 dark:text-white/40 ml-auto" />
+                          <Lock className="w-3 h-3 text-muted-foreground/50 ml-auto" />
                         )}
                       </div>
                     </SelectItem>
@@ -453,7 +453,7 @@ export default function DashboardPage() {
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="h-8 w-full justify-between text-black/60 dark:text-white/60 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5 text-xs px-2"
+                      className="h-8 w-full justify-between text-muted-foreground hover:text-foreground text-xs px-2"
                     >
                       <span className="flex items-center gap-2">
                         <Cpu className="w-3.5 h-3.5" />
@@ -475,18 +475,18 @@ export default function DashboardPage() {
                           }
                           disabled={isLoading}
                         >
-                          <SelectTrigger className="h-9 border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/5 text-black dark:text-white text-xs w-full">
+                          <SelectTrigger className="h-9 border-border bg-secondary text-secondary-foreground text-xs w-full">
                             <div className="flex items-center gap-2">
                               <Rocket className="w-3.5 h-3.5" />
                               <SelectValue placeholder="Platform" />
                             </div>
                           </SelectTrigger>
-                          <SelectContent className="bg-white dark:bg-[#1A1B1E] border-black/10 dark:border-white/10 text-black dark:text-white">
+                          <SelectContent className="bg-popover border-border text-popover-foreground">
                             {PLATFORM_OPTIONS.map((option) => (
                               <SelectItem
                                 key={option.value}
                                 value={option.value}
-                                className="focus:bg-black/10 dark:focus:bg-white/10 text-black/80 dark:text-white/80 text-xs"
+                                className="focus:bg-accent focus:text-accent-foreground text-muted-foreground text-xs"
                               >
                                 {option.label}
                               </SelectItem>
@@ -499,18 +499,18 @@ export default function DashboardPage() {
                         onValueChange={(v) => setDesignStyle(v as DesignStyle)}
                         disabled={isLoading}
                       >
-                        <SelectTrigger className="h-9 border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/5 text-black dark:text-white text-xs w-full">
+                        <SelectTrigger className="h-9 border-border bg-secondary text-secondary-foreground text-xs w-full">
                           <div className="flex items-center gap-2">
-                            <SwatchIcon className="w-3.5 h-3.5" />
+                            <Palette className="w-3.5 h-3.5" />
                             <SelectValue placeholder="Style" />
                           </div>
                         </SelectTrigger>
-                        <SelectContent className="bg-white dark:bg-[#1A1B1E] border-black/10 dark:border-white/10 text-black dark:text-white">
+                        <SelectContent className="bg-popover border-border text-popover-foreground">
                           {availableDesignStyles.map((s) => (
                             <SelectItem
                               key={s}
                               value={s}
-                              className="focus:bg-black/10 dark:focus:bg-white/10 text-black/80 dark:text-white/80 text-xs"
+                              className="focus:bg-accent focus:text-accent-foreground text-muted-foreground text-xs"
                             >
                               {getDesignStyleLabel(s)}
                             </SelectItem>
@@ -538,16 +538,16 @@ export default function DashboardPage() {
                         }}
                         disabled={isLoading}
                       >
-                        <SelectTrigger className="h-9 border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/5 text-black dark:text-white text-xs w-full">
+                        <SelectTrigger className="h-9 border-border bg-secondary text-secondary-foreground text-xs w-full">
                           <div className="flex items-center gap-2">
                             <Share2 className="w-3.5 h-3.5" />
                             <SelectValue placeholder="Visibility" />
                           </div>
                         </SelectTrigger>
-                        <SelectContent className="bg-white dark:bg-[#1A1B1E] border-black/10 dark:border-white/10 text-black dark:text-white">
+                        <SelectContent className="bg-popover border-border text-popover-foreground">
                           <SelectItem
                             value="PUBLIC"
-                            className="focus:bg-black/10 dark:focus:bg-white/10 text-black/80 dark:text-white/80 text-xs"
+                            className="focus:bg-accent focus:text-accent-foreground text-muted-foreground text-xs"
                           >
                             <div className="flex items-center gap-2">
                               <Globe className="w-3.5 h-3.5" />
@@ -557,26 +557,26 @@ export default function DashboardPage() {
                           {isTeamsUIEnabled && activeTeam && (
                             <SelectItem
                               value="TEAM"
-                              className="focus:bg-black/10 dark:focus:bg-white/10 text-black/80 dark:text-white/80 text-xs"
+                              className="focus:bg-accent focus:text-accent-foreground text-muted-foreground text-xs"
                             >
                               <div className="flex items-center gap-2">
                                 <Share2 className="w-3.5 h-3.5" />
                                 <span>{activeTeam.name}</span>
                                 {isFreePlan && (
-                                  <Lock className="w-3 h-3 text-black/40 dark:text-white/40 ml-auto" />
+                                  <Lock className="w-3 h-3 text-muted-foreground/50 ml-auto" />
                                 )}
                               </div>
                             </SelectItem>
                           )}
                           <SelectItem
                             value="SELF"
-                            className="focus:bg-black/10 dark:focus:bg-white/10 text-black/80 dark:text-white/80 text-xs"
+                            className="focus:bg-accent focus:text-accent-foreground text-muted-foreground text-xs"
                           >
                             <div className="flex items-center gap-2">
                               <Lock className="w-3.5 h-3.5" />
                               <span>Private</span>
                               {isFreePlan && (
-                                <Lock className="w-3 h-3 text-black/40 dark:text-white/40 ml-auto" />
+                                <Lock className="w-3 h-3 text-muted-foreground/50 ml-auto" />
                               )}
                             </div>
                           </SelectItem>
@@ -589,7 +589,7 @@ export default function DashboardPage() {
 
               {/* Right: Action Button */}
               <div className="flex items-center justify-between w-full md:w-auto gap-4">
-                <div className="hidden md:flex items-center text-[10px] text-black/30 dark:text-white/30 font-medium gap-1 select-none">
+                <div className="hidden md:flex items-center text-[10px] text-muted-foreground/50 font-medium gap-1 select-none">
                   <Command className="w-3 h-3" />
                   <span>ENTER</span>
                 </div>
@@ -601,7 +601,7 @@ export default function DashboardPage() {
                         <Button
                           onClick={() => handleSubmit()}
                           disabled={!prompt.trim() || isLoading || isViewer}
-                          className="w-full md:w-auto h-8 px-4 rounded-md bg-black dark:bg-white text-white dark:text-black hover:bg-black/90 dark:hover:bg-white/90 disabled:opacity-50 disabled:cursor-not-allowed text-xs font-bold tracking-wide shadow-[0_0_20px_-5px_rgba(0,0,0,0.3)] dark:shadow-[0_0_20px_-5px_rgba(255,255,255,0.3)] transition-all"
+                          className="w-full md:w-auto h-8 px-4 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed text-xs font-bold tracking-wide shadow-lg shadow-primary/25 transition-all"
                         >
                           {isLoading ? (
                             <>
@@ -629,7 +629,7 @@ export default function DashboardPage() {
           </div>
 
           {/* Helper text underneath */}
-          <div className="mt-4 flex items-center justify-center gap-6 text-xs text-gray-600 dark:text-[#8A8F98] animate-in fade-in duration-1000 delay-300">
+          <div className="mt-4 flex items-center justify-center gap-6 text-xs text-muted-foreground animate-in fade-in duration-1000 delay-300">
             <div className="flex items-center gap-1.5">
               <LayoutTemplate className="w-3.5 h-3.5 opacity-50" />
               <span>Components</span>

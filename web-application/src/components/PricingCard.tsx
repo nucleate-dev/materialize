@@ -2,7 +2,7 @@
 
 import { useActiveTeam } from "@/contexts/TeamContext";
 import { handleCheckout } from "@/lib/utils/payments/CheckoutUtils";
-import { CheckIcon } from "@heroicons/react/24/outline";
+import { Check } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 
@@ -95,7 +95,7 @@ export function PricingCard({
             {features.map((feature, index) => (
               <div key={index} className="flex items-start gap-3">
                 <div className="flex-shrink-0 w-5 h-5 mt-0.5">
-                  <CheckIcon className="w-5 h-5 text-green-400" />
+                  <Check className="w-5 h-5 text-green-400" />
                 </div>
                 <span
                   className={`text-gray-300 ${feature.startsWith("•") ? "text-sm ml-4" : ""}`}
