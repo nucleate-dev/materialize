@@ -115,6 +115,10 @@ function HomeContent() {
 
         <CodebaseIntegrationSection />
 
+        <DesignSystemSection />
+
+        <BringYourOwnClaudeCodeSection />
+
         <ShippingSection />
 
         <ProblemSection />
@@ -183,24 +187,75 @@ function HeroSection() {
     }
   };
 
-  return (
-    <section className="relative min-h-[85vh] flex flex-col justify-center px-6 pt-20 pb-12">
-      <div className="container mx-auto max-w-5xl w-full text-center">
-        <Badge variant="outline" className="mb-6 border-indigo-500/30 bg-indigo-500/10 text-indigo-300 px-4 py-1">
-          UI Prototyping for Real Codebases
-        </Badge>
-        <h1 className="text-5xl md:text-7xl lg:text-8xl font-medium tracking-tight text-white mb-6">
-          AI for UI/UX prototyping
-        </h1>
-        <p className="text-lg md:text-xl text-[#8A8F98] max-w-2xl mx-auto mb-12 leading-relaxed">
-          Connect GitHub. Nucleate reads your components, tokens, and screens automatically. Generate flows + variants in minutes, then ship via PR.
-        </p>
+  const suggestionChips = [
+    { label: "Paywall variant", prompt: "Create a high-converting paywall screen for a mobile health app using a dark, modern theme. The layout should feature a compelling header image, followed by a toggle for Monthly vs Yearly billing. Highlight the Yearly plan with a 'Best Value' badge and animate the selection state. Below the plans, include a list of verified user reviews and a 'Restore Purchases' link in the footer." },
+    { label: "Onboarding", prompt: "Create a 3-step onboarding flow for a financial technology app. Step 1 should focus on trust, displaying certification logos and a secure animation. Step 2 should ask for the user's primary investment goals using large, selectable cards with icons. Step 3 needs to be a 'Connect Bank' screen with a search bar for institutions and a list of popular banks." },
+    { label: "Landing Page", prompt: "Design a high-impact landing page for an AI-powered analytics platform. Start with a large, centered hero section featuring a glowing gradient headline and a floating dashboard mockup. Follow this with a logo carousel of trusted companies and a grid of feature cards that reveal details on hover. Conclude with a pricing section comparing three tiers and a final call-to-action footer with social links." },
+  ];
 
-        <div className="max-w-3xl mx-auto relative group">
+  return (
+    <section className="relative min-h-[85vh] flex flex-col justify-center px-6 pt-20 pb-12 overflow-hidden">
+      {/* Floating gradient orbs */}
+      <motion.div
+        animate={{ y: [0, -30, 0], opacity: [0.3, 0.5, 0.3] }}
+        transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
+        className="absolute top-1/4 left-1/4 w-[400px] h-[400px] bg-indigo-600/20 rounded-full blur-[120px] pointer-events-none"
+      />
+      <motion.div
+        animate={{ y: [0, 20, 0], opacity: [0.2, 0.4, 0.2] }}
+        transition={{ duration: 10, repeat: Infinity, ease: "easeInOut", delay: 1 }}
+        className="absolute bottom-1/4 right-1/4 w-[350px] h-[350px] bg-purple-600/20 rounded-full blur-[100px] pointer-events-none"
+      />
+      <motion.div
+        animate={{ y: [0, -15, 0], x: [0, 10, 0] }}
+        transition={{ duration: 12, repeat: Infinity, ease: "easeInOut", delay: 2 }}
+        className="absolute top-1/2 right-1/3 w-[200px] h-[200px] bg-blue-500/15 rounded-full blur-[80px] pointer-events-none"
+      />
+
+      <div className="container mx-auto max-w-5xl w-full text-center relative z-10">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }}
+        >
+          <Badge variant="outline" className="mb-6 border-indigo-500/30 bg-indigo-500/10 text-indigo-300 px-4 py-1">
+            UI Prototyping for Real Codebases
+          </Badge>
+        </motion.div>
+
+        <motion.h1
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.7, delay: 0.1 }}
+          className="text-5xl md:text-7xl lg:text-8xl font-medium tracking-tight text-white mb-6"
+        >
+          AI for UI/UX prototyping
+        </motion.h1>
+
+        <motion.p
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.2 }}
+          className="text-lg md:text-xl text-[#8A8F98] max-w-2xl mx-auto mb-12 leading-relaxed"
+        >
+          Connect GitHub. Nucleate reads your components, tokens, and screens automatically. Generate flows + variants in minutes, then ship via PR.
+        </motion.p>
+
+        <motion.div
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.7, delay: 0.3 }}
+          className="max-w-3xl mx-auto relative group"
+        >
           <div className="absolute -inset-0.5 bg-gradient-to-r from-indigo-500/30 to-blue-500/30 rounded-2xl blur opacity-20 group-hover:opacity-40 transition duration-500"></div>
           <div className="relative bg-[#141517] border border-white/10 rounded-xl overflow-hidden shadow-2xl flex flex-col focus-within:border-white/20">
             <div className="px-4 pt-4 flex gap-3">
-              <SparklesIcon className="w-5 h-5 text-white/30 mt-1" />
+              <motion.div
+                animate={{ rotate: [0, 10, -10, 0] }}
+                transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+              >
+                <SparklesIcon className="w-5 h-5 text-white/30 mt-1" />
+              </motion.div>
               <Textarea
                 placeholder="Describe a screen or flow you want to prototype..."
                 value={prompt}
@@ -212,9 +267,19 @@ function HeroSection() {
             <div className="px-4 pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-t border-white/5 mt-2 pt-2 bg-white/[0.02]">
               <div className="flex gap-4 items-center">
                 <span className="text-[10px] text-white/30 uppercase tracking-widest font-bold">Try:</span>
-                <button onClick={() => setPrompt("Create a high-converting paywall screen for a mobile health app using a dark, modern theme. The layout should feature a compelling header image, followed by a toggle for Monthly vs Yearly billing. Highlight the Yearly plan with a 'Best Value' badge and animate the selection state. Below the plans, include a list of verified user reviews and a 'Restore Purchases' link in the footer.")} className="text-xs text-white/50 hover:text-white">Paywall variant</button>
-                <button onClick={() => setPrompt("Create a 3-step onboarding flow for a financial technology app. Step 1 should focus on trust, displaying certification logos and a secure animation. Step 2 should ask for the user's primary investment goals using large, selectable cards with icons. Step 3 needs to be a 'Connect Bank' screen with a search bar for institutions and a list of popular banks.")} className="text-xs text-white/50 hover:text-white">Onboarding</button>
-                <button onClick={() => setPrompt("Design a high-impact landing page for an AI-powered analytics platform. Start with a large, centered hero section featuring a glowing gradient headline and a floating dashboard mockup. Follow this with a logo carousel of trusted companies and a grid of feature cards that reveal details on hover. Conclude with a pricing section comparing three tiers and a final call-to-action footer with social links.")} className="text-xs text-white/50 hover:text-white">Landing Page</button>
+                {suggestionChips.map((chip, index) => (
+                  <motion.button
+                    key={chip.label}
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ duration: 0.4, delay: 0.5 + index * 0.1 }}
+                    whileHover={{ scale: 1.05 }}
+                    onClick={() => setPrompt(chip.prompt)}
+                    className="text-xs text-white/50 hover:text-white transition-colors"
+                  >
+                    {chip.label}
+                  </motion.button>
+                ))}
               </div>
               <div className="flex items-center gap-2">
                 {isWebPrototypeEnabled && (
@@ -225,13 +290,15 @@ function HeroSection() {
                     </SelectContent>
                   </Select>
                 )}
-                <Button onClick={handleSend} disabled={!prompt.trim() || isLoading} size="sm" className="bg-indigo-600 text-white hover:bg-indigo-500 px-6">
-                  {isLoading ? "Loading..." : "Generate"}
-                </Button>
+                <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                  <Button onClick={handleSend} disabled={!prompt.trim() || isLoading} size="sm" className="bg-indigo-600 text-white hover:bg-indigo-500 px-6">
+                    {isLoading ? "Loading..." : "Generate"}
+                  </Button>
+                </motion.div>
               </div>
             </div>
           </div>
-        </div>
+        </motion.div>
       </div>
       <ProPlanUpsellModal open={showUpsellModal} onOpenChange={setShowUpsellModal} reason="prototype_creation_limit_reached" />
     </section>
@@ -239,16 +306,116 @@ function HeroSection() {
 }
 
 /**
- * BUILD YOUR OWN WAY SECTION
- */
-/**
  * 4) CODEBASE INTEGRATION SECTION
  */
 function CodebaseIntegrationSection() {
+  const cards = [
+    {
+      icon: <Github className="w-6 h-6 text-indigo-400" />,
+      iconBg: "bg-indigo-500/10 border-indigo-500/20",
+      hoverBorder: "hover:border-indigo-500/40",
+      glowColor: "group-hover:bg-indigo-500/5",
+      title: "Automatic Repo Sync",
+      description: "Connect GitHub and we instantly index your components, tokens, and navigation patterns. No manual mapping required.",
+      illustration: (
+        <div className="mt-6 relative h-20 overflow-hidden">
+          <div className="absolute inset-0 flex items-center justify-center gap-2">
+            <motion.div
+              animate={{ x: [0, 20, 20], opacity: [1, 1, 0] }}
+              transition={{ duration: 2, repeat: Infinity, repeatDelay: 1 }}
+              className="w-6 h-6 bg-white/10 rounded flex items-center justify-center"
+            >
+              <FileCode className="w-3 h-3 text-white/50" />
+            </motion.div>
+            <motion.div
+              animate={{ x: [0, 20, 20], opacity: [1, 1, 0] }}
+              transition={{ duration: 2, repeat: Infinity, repeatDelay: 1, delay: 0.2 }}
+              className="w-6 h-6 bg-white/10 rounded flex items-center justify-center"
+            >
+              <FileCode className="w-3 h-3 text-white/50" />
+            </motion.div>
+            <motion.div
+              animate={{ scale: [1, 1.1, 1] }}
+              transition={{ duration: 2, repeat: Infinity }}
+              className="w-10 h-10 bg-indigo-500/20 rounded-lg flex items-center justify-center border border-indigo-500/30"
+            >
+              <Layers className="w-5 h-5 text-indigo-400" />
+            </motion.div>
+          </div>
+        </div>
+      ),
+    },
+    {
+      icon: <ShieldCheck className="w-6 h-6 text-purple-400" />,
+      iconBg: "bg-purple-500/10 border-purple-500/20",
+      hoverBorder: "hover:border-purple-500/40",
+      glowColor: "group-hover:bg-purple-500/5",
+      title: "System-Safe Generation",
+      description: "Every screen generated strictly respects your design tokens, spacing scales, typography, and existing component props.",
+      illustration: (
+        <div className="mt-6 flex flex-wrap gap-2 justify-center">
+          {["Button", "Card", "Input", "Modal"].map((token, i) => (
+            <motion.div
+              key={token}
+              initial={{ opacity: 0, scale: 0.8 }}
+              whileInView={{ opacity: 1, scale: 1 }}
+              transition={{ delay: i * 0.1 }}
+              viewport={{ once: true }}
+              className="px-2 py-1 bg-purple-500/10 border border-purple-500/20 rounded text-[10px] text-purple-300 font-mono"
+            >
+              {token}
+            </motion.div>
+          ))}
+        </div>
+      ),
+    },
+    {
+      icon: <GitPullRequest className="w-6 h-6 text-emerald-400" />,
+      iconBg: "bg-emerald-500/10 border-emerald-500/20",
+      hoverBorder: "hover:border-emerald-500/40",
+      glowColor: "group-hover:bg-emerald-500/5",
+      title: "Two Shipping Paths",
+      description: "Ready to go? Copy-paste the clean, system-compliant code or let our agent open a Pull Request directly to your branch.",
+      illustration: (
+        <div className="mt-6 flex items-center justify-center gap-4">
+          <motion.div
+            whileHover={{ scale: 1.05 }}
+            className="flex flex-col items-center gap-1"
+          >
+            <div className="w-8 h-8 bg-white/5 rounded flex items-center justify-center border border-white/10">
+              <Code2 className="w-4 h-4 text-white/50" />
+            </div>
+            <span className="text-[9px] text-white/40">Copy</span>
+          </motion.div>
+          <div className="text-white/20 text-xs">or</div>
+          <motion.div
+            whileHover={{ scale: 1.05 }}
+            className="flex flex-col items-center gap-1"
+          >
+            <div className="w-8 h-8 bg-emerald-500/20 rounded flex items-center justify-center border border-emerald-500/30">
+              <GitPullRequest className="w-4 h-4 text-emerald-400" />
+            </div>
+            <span className="text-[9px] text-emerald-400/60">PR</span>
+          </motion.div>
+        </div>
+      ),
+    },
+  ];
+
   return (
-    <section className="py-24 px-6 bg-[#0B0C0E]">
-      <div className="container mx-auto max-w-6xl">
-        <div className="text-center mb-16">
+    <section className="pt-24 pb-12 px-6 bg-[#0B0C0E] relative overflow-hidden">
+      {/* Background gradient orbs */}
+      <div className="absolute top-1/2 left-0 w-[300px] h-[300px] bg-indigo-600/10 rounded-full blur-[100px] pointer-events-none" />
+      <div className="absolute bottom-0 right-1/4 w-[250px] h-[250px] bg-purple-600/10 rounded-full blur-[80px] pointer-events-none" />
+
+      <div className="container mx-auto max-w-6xl relative z-10">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, amount: 0.3 }}
+          transition={{ duration: 0.6 }}
+          className="text-center mb-16"
+        >
           <Badge variant="outline" className="mb-4 border-indigo-500/20 bg-indigo-500/10 text-indigo-300">System Aware</Badge>
           <h2 className="text-4xl md:text-5xl font-medium tracking-tight mb-4">
             Your design system, automatically.
@@ -257,38 +424,36 @@ function CodebaseIntegrationSection() {
             Nucleate doesn&apos;t just &quot;write code.&quot; It adopts your existing
             primitives to build UI that belongs in your app.
           </p>
-        </div>
+        </motion.div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-[#141517] border border-white/10 rounded-2xl p-8 group">
-            <div className="w-12 h-12 bg-indigo-500/10 rounded-xl flex items-center justify-center mb-6 border border-indigo-500/20">
-              <Github className="w-6 h-6 text-indigo-400" />
-            </div>
-            <h3 className="text-xl font-medium mb-3">Automatic Repo Sync</h3>
-            <p className="text-sm text-[#8A8F98] leading-relaxed">
-              Connect GitHub and we instantly index your components, tokens, and navigation patterns. No manual mapping required.
-            </p>
-          </div>
-
-          <div className="bg-[#141517] border border-white/10 rounded-2xl p-8 group">
-            <div className="w-12 h-12 bg-purple-500/10 rounded-xl flex items-center justify-center mb-6 border border-purple-500/20">
-              <ShieldCheck className="w-6 h-6 text-purple-400" />
-            </div>
-            <h3 className="text-xl font-medium mb-3">System-Safe Generation</h3>
-            <p className="text-sm text-[#8A8F98] leading-relaxed">
-              Every screen generated strictly respects your design tokens, spacing scales, typography, and existing component props.
-            </p>
-          </div>
-
-          <div className="bg-[#141517] border border-white/10 rounded-2xl p-8 group">
-            <div className="w-12 h-12 bg-emerald-500/10 rounded-xl flex items-center justify-center mb-6 border border-emerald-500/20">
-              <GitPullRequest className="w-6 h-6 text-emerald-400" />
-            </div>
-            <h3 className="text-xl font-medium mb-3">Two Shipping Paths</h3>
-            <p className="text-sm text-[#8A8F98] leading-relaxed">
-              Ready to go? Copy-paste the clean, system-compliant code or let our agent open a Pull Request directly to your branch.
-            </p>
-          </div>
+          {cards.map((card, index) => (
+            <motion.div
+              key={card.title}
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, amount: 0.3 }}
+              transition={{ duration: 0.5, delay: index * 0.15 }}
+              whileHover={{ y: -5, scale: 1.02 }}
+              className={`bg-[#141517] border border-white/10 rounded-2xl p-8 group transition-all duration-300 ${card.hoverBorder} relative overflow-hidden`}
+            >
+              <div className={`absolute inset-0 ${card.glowColor} transition-colors duration-300`} />
+              <div className="relative z-10">
+                <motion.div
+                  animate={{ y: [0, -3, 0] }}
+                  transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+                  className={`w-12 h-12 ${card.iconBg} rounded-xl flex items-center justify-center mb-6 border`}
+                >
+                  {card.icon}
+                </motion.div>
+                <h3 className="text-xl font-medium mb-3">{card.title}</h3>
+                <p className="text-sm text-[#8A8F98] leading-relaxed">
+                  {card.description}
+                </p>
+                {card.illustration}
+              </div>
+            </motion.div>
+          ))}
         </div>
       </div>
     </section>
@@ -318,12 +483,26 @@ function VariantsSection() {
 
   return (
     <section className="py-24 bg-black border-y border-white/5 relative overflow-hidden">
-      {/* Background accents */}
-      <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-indigo-600/5 blur-[120px] rounded-full pointer-events-none" />
-      <div className="absolute bottom-0 right-1/4 w-[500px] h-[500px] bg-purple-600/5 blur-[120px] rounded-full pointer-events-none" />
+      {/* Animated background accents */}
+      <motion.div
+        animate={{ y: [0, 30, 0], x: [0, -20, 0] }}
+        transition={{ duration: 15, repeat: Infinity, ease: "easeInOut" }}
+        className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-indigo-600/5 blur-[120px] rounded-full pointer-events-none"
+      />
+      <motion.div
+        animate={{ y: [0, -40, 0], x: [0, 30, 0] }}
+        transition={{ duration: 18, repeat: Infinity, ease: "easeInOut", delay: 2 }}
+        className="absolute bottom-0 right-1/4 w-[500px] h-[500px] bg-purple-600/5 blur-[120px] rounded-full pointer-events-none"
+      />
 
       <div className="container mx-auto px-6 max-w-7xl relative z-10">
-        <div className="text-center mb-16 max-w-4xl mx-auto">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, amount: 0.3 }}
+          transition={{ duration: 0.6 }}
+          className="text-center mb-16 max-w-4xl mx-auto"
+        >
           <Badge variant="outline" className="mb-4 border-white/10 bg-white/5 text-zinc-300">
             Instant Exploration
           </Badge>
@@ -333,13 +512,19 @@ function VariantsSection() {
           <p className="text-zinc-500 text-xl md:text-2xl font-normal">
             Explore variants without breaking the design system. These aren&apos;t mockups — they are real components from your repo.
           </p>
-        </div>
+        </motion.div>
 
         {/* Tabs */}
         <div className="flex flex-wrap justify-center gap-2 mb-12">
-          {tabs.map((tab) => (
-            <button
+          {tabs.map((tab, index) => (
+            <motion.button
               key={tab.id}
+              initial={{ opacity: 0, y: 10 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.4, delay: index * 0.1 }}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.98 }}
               onClick={() => setActiveTab(tab.id)}
               className={`px-6 py-3 rounded-full text-sm font-medium flex items-center gap-2 transition-all duration-300 border ${activeTab === tab.id
                 ? "bg-white text-black border-white shadow-[0_0_20px_rgba(255,255,255,0.2)]"
@@ -348,7 +533,7 @@ function VariantsSection() {
             >
               {tab.icon}
               {tab.label}
-            </button>
+            </motion.button>
           ))}
         </div>
 
@@ -1124,13 +1309,343 @@ function VariantsSection() {
 }
 
 /**
+ * DESIGN SYSTEM SECTION
+ */
+function DesignSystemSection() {
+  return (
+    <section className="pt-8 pb-16 px-6 bg-[#0B0C0E] relative overflow-hidden">
+      {/* Background gradient orbs */}
+      <motion.div
+        animate={{ x: [0, 20, 0], opacity: [0.2, 0.4, 0.2] }}
+        transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
+        className="absolute top-1/2 left-1/4 w-[400px] h-[400px] bg-indigo-600/10 rounded-full blur-[120px] pointer-events-none"
+      />
+      <motion.div
+        animate={{ x: [0, -20, 0], opacity: [0.2, 0.3, 0.2] }}
+        transition={{ duration: 12, repeat: Infinity, ease: "easeInOut" }}
+        className="absolute top-1/3 right-1/4 w-[300px] h-[300px] bg-purple-600/10 rounded-full blur-[100px] pointer-events-none"
+      />
+
+      <div className="container mx-auto max-w-5xl relative z-10">
+        <motion.div
+          initial={{ opacity: 0, y: 30 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, amount: 0.3 }}
+          transition={{ duration: 0.6 }}
+          className="bg-gradient-to-b from-[#141517] to-black border border-white/10 rounded-3xl p-8 md:p-12 overflow-hidden relative group"
+        >
+          <div className="text-center mb-12">
+            <motion.div
+              initial={{ scale: 0.8, opacity: 0 }}
+              whileInView={{ scale: 1, opacity: 1 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.2 }}
+              className="flex justify-center gap-1 mb-6"
+            >
+              <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+              <div className="w-2 h-2 rounded-full bg-pink-500"></div>
+              <div className="w-2 h-2 rounded-full bg-purple-500"></div>
+            </motion.div>
+            <motion.h3
+              initial={{ opacity: 0, y: 10 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.3 }}
+              className="text-3xl md:text-4xl font-medium mb-4"
+            >
+              Build with <span className="text-indigo-400">your</span> design system
+            </motion.h3>
+            <motion.p
+              initial={{ opacity: 0 }}
+              whileInView={{ opacity: 1 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.4 }}
+              className="text-[#8A8F98]"
+            >
+              Stop building from scratch. Start building on-brand.
+            </motion.p>
+          </div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ delay: 0.5 }}
+            className="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-8 items-center opacity-80 group-hover:opacity-100 transition-opacity"
+          >
+            {/* Left - Toggle & Code */}
+            <div className="space-y-6">
+              <div className="flex gap-4 items-center">
+                <div className="w-10 h-6 bg-white/5 rounded-full relative border border-white/10">
+                  <motion.div
+                    animate={{ x: [0, 0, 0] }}
+                    className="absolute right-1 top-1 w-4 h-4 bg-indigo-500 rounded-full"
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <div className="w-4 h-4 bg-indigo-500 rounded-sm"></div>
+                  <div className="w-4 h-4 border border-white/20 rounded-sm"></div>
+                </div>
+              </div>
+              <div className="p-4 bg-white/5 rounded-xl border border-white/10 text-xs font-mono text-white/40">
+                .button {'{'} <br />
+                &nbsp;&nbsp;radius: 12px;<br />
+                &nbsp;&nbsp;shadow: var(--lg);<br />
+                {'}'}
+              </div>
+            </div>
+
+            {/* Center - Color Swatches */}
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              whileInView={{ scale: 1, opacity: 1 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.6 }}
+              className="flex justify-center gap-4"
+            >
+              <motion.div
+                whileHover={{ scale: 1.1, y: -5 }}
+                className="w-16 h-16 bg-teal-400 rounded-xl shadow-lg shadow-teal-400/20"
+              />
+              <motion.div
+                whileHover={{ scale: 1.1, y: -5 }}
+                className="w-16 h-16 bg-indigo-600 rounded-xl shadow-lg shadow-indigo-600/20"
+              />
+              <motion.div
+                whileHover={{ scale: 1.1, y: -5 }}
+                className="w-16 h-16 bg-orange-300 rounded-xl shadow-lg shadow-orange-300/20"
+              />
+            </motion.div>
+
+            {/* Right - Typography */}
+            <motion.div
+              initial={{ opacity: 0, x: 20 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.7 }}
+              className="space-y-4"
+            >
+              <h1 className="text-2xl font-bold">Headline Lg</h1>
+              <h2 className="text-xl font-semibold opacity-60">Headline Md</h2>
+              <h3 className="text-lg opacity-40">Headline Sm</h3>
+            </motion.div>
+          </motion.div>
+        </motion.div>
+      </div>
+    </section>
+  );
+}
+
+/**
+ * BRING YOUR OWN CLAUDE CODE SECTION
+ */
+function BringYourOwnClaudeCodeSection() {
+  return (
+    <section className="py-16 px-6 bg-[#0B0C0E] relative overflow-hidden">
+      <div className="container mx-auto max-w-5xl relative z-10">
+        <motion.div
+          initial={{ opacity: 0, y: 30 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, amount: 0.3 }}
+          transition={{ duration: 0.6 }}
+          className="relative bg-gradient-to-br from-[#D97757]/10 via-[#141517] to-[#141517] border border-[#D97757]/20 rounded-2xl p-8 md:p-10 overflow-hidden hover:border-[#D97757]/40 transition-all group"
+        >
+          {/* Subtle glow effect */}
+          <motion.div
+            animate={{ opacity: [0.1, 0.2, 0.1], scale: [1, 1.1, 1] }}
+            transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+            className="absolute top-0 right-0 w-64 h-64 bg-[#D97757]/10 blur-[100px] rounded-full pointer-events-none"
+          />
+
+          <div className="relative z-10 flex flex-col lg:flex-row items-start lg:items-center gap-8">
+            {/* Left side - Icon and content */}
+            <div className="flex items-start gap-6 flex-1">
+              <motion.div
+                initial={{ scale: 0.8, opacity: 0 }}
+                whileInView={{ scale: 1, opacity: 1 }}
+                viewport={{ once: true }}
+                transition={{ delay: 0.2 }}
+                className="flex-shrink-0"
+              >
+                <div className="w-14 h-14 bg-[#D97757]/20 rounded-xl flex items-center justify-center border border-[#D97757]/30 group-hover:bg-[#D97757]/30 transition-colors">
+                  <svg viewBox="0 0 24 24" fill="none" className="w-7 h-7 text-[#D97757]" xmlns="http://www.w3.org/2000/svg">
+                    <path fillRule="evenodd" clipRule="evenodd" d="M19.16 4.38H4.84V19.62H19.16V4.38ZM17.72 17.9L12 14.5L6.28 17.9V6.1H17.72V17.9Z" fill="currentColor" />
+                  </svg>
+                </div>
+              </motion.div>
+              <div>
+                <motion.h3
+                  initial={{ opacity: 0, y: 10 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: 0.3 }}
+                  className="text-xl md:text-2xl font-medium text-white mb-2"
+                >
+                  Bring your own Claude Code
+                </motion.h3>
+                <motion.p
+                  initial={{ opacity: 0 }}
+                  whileInView={{ opacity: 1 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: 0.4 }}
+                  className="text-[#8A8F98] leading-relaxed max-w-xl"
+                >
+                  Already have a Claude Code subscription? Connect it to Nucleate for massive savings.
+                </motion.p>
+              </div>
+            </div>
+
+            {/* Right side - Stats and benefits */}
+            <motion.div
+              initial={{ opacity: 0, x: 20 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.5 }}
+              className="flex flex-col sm:flex-row items-start sm:items-center gap-6 lg:gap-8"
+            >
+              <div className="text-center sm:text-left">
+                <motion.div
+                  initial={{ scale: 0.5, opacity: 0 }}
+                  whileInView={{ scale: 1, opacity: 1 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: 0.6, type: "spring", stiffness: 200 }}
+                  className="text-3xl md:text-4xl font-bold text-[#D97757] mb-1"
+                >
+                  1000x
+                </motion.div>
+                <div className="text-xs text-white/50 uppercase tracking-wider">more usage</div>
+              </div>
+              <div className="hidden sm:block w-px h-12 bg-white/10"></div>
+              <div className="space-y-2">
+                <motion.div
+                  initial={{ opacity: 0, x: -10 }}
+                  whileInView={{ opacity: 1, x: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: 0.7 }}
+                  className="flex items-center gap-2 text-sm text-white/70"
+                >
+                  <CheckCircle2 className="w-4 h-4 text-[#D97757] flex-shrink-0" />
+                  <span>Use your subscription or ours</span>
+                </motion.div>
+                <motion.div
+                  initial={{ opacity: 0, x: -10 }}
+                  whileInView={{ opacity: 1, x: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: 0.8 }}
+                  className="flex items-center gap-2 text-sm text-white/70"
+                >
+                  <CheckCircle2 className="w-4 h-4 text-[#D97757] flex-shrink-0" />
+                  <span>Fraction of the cost vs. competitors</span>
+                </motion.div>
+              </div>
+            </motion.div>
+          </div>
+        </motion.div>
+      </div>
+    </section>
+  );
+}
+
+/**
  * 5) SHIPPING SECTION
  */
 function ShippingSection() {
+  const cards = [
+    {
+      icon: <FileCode className="w-8 h-8 text-indigo-400" />,
+      title: "Export Code",
+      description: "Copy/paste specific components or export entire screens as clean, modular React files.",
+      hoverBorder: "hover:border-indigo-500/40",
+      illustration: (
+        <div className="mt-4 bg-[#0B0C0E] rounded-lg p-3 border border-white/5 font-mono text-[10px] overflow-hidden">
+          <motion.div
+            initial={{ opacity: 0 }}
+            whileInView={{ opacity: 1 }}
+            viewport={{ once: true }}
+            transition={{ delay: 0.2 }}
+            className="text-pink-400"
+          >export default</motion.div>
+          <motion.div
+            initial={{ opacity: 0 }}
+            whileInView={{ opacity: 1 }}
+            viewport={{ once: true }}
+            transition={{ delay: 0.4 }}
+            className="text-blue-400"
+          >function Button()</motion.div>
+          <motion.div
+            initial={{ opacity: 0 }}
+            whileInView={{ opacity: 1 }}
+            viewport={{ once: true }}
+            transition={{ delay: 0.6 }}
+            className="text-white/30 pl-2"
+          >{'// Clean code...'}</motion.div>
+        </div>
+      ),
+    },
+    {
+      icon: <GitPullRequest className="w-8 h-8 text-emerald-400" />,
+      title: "Open a PR",
+      description: "Nucleate creates a PR against your repo following your naming conventions and file structure.",
+      hoverBorder: "hover:border-emerald-500/40",
+      illustration: (
+        <div className="mt-4 bg-[#0B0C0E] rounded-lg p-3 border border-white/5">
+          <div className="flex items-center gap-2 mb-2">
+            <div className="w-2 h-2 rounded-full bg-emerald-500" />
+            <span className="text-[10px] text-emerald-400 font-medium">Open</span>
+          </div>
+          <div className="text-[10px] text-white/60 mb-2">feat: Add onboarding flow</div>
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0 }}
+            whileInView={{ scale: 1, opacity: 1 }}
+            viewport={{ once: true }}
+            transition={{ delay: 0.3 }}
+            className="px-2 py-1 bg-emerald-500/20 rounded text-[9px] text-emerald-400 w-fit"
+          >
+            Ready to merge
+          </motion.div>
+        </div>
+      ),
+    },
+    {
+      icon: <Search className="w-8 h-8 text-purple-400" />,
+      title: "Reviewable Diffs",
+      description: "No \"black box\" code. Small, readable diffs that match your coding style and are easy to iterate on.",
+      hoverBorder: "hover:border-purple-500/40",
+      illustration: (
+        <div className="mt-4 bg-[#0B0C0E] rounded-lg p-2 border border-white/5 space-y-1">
+          {[
+            { color: "bg-emerald-500/20 text-emerald-400", text: "+ <Button variant=\"primary\" />" },
+            { color: "bg-red-500/20 text-red-400", text: "- <button className=\"btn\" />" },
+          ].map((line, i) => (
+            <motion.div
+              key={i}
+              initial={{ x: -10, opacity: 0 }}
+              whileInView={{ x: 0, opacity: 1 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.2 + i * 0.15 }}
+              className={`text-[9px] font-mono px-2 py-1 rounded ${line.color}`}
+            >
+              {line.text}
+            </motion.div>
+          ))}
+        </div>
+      ),
+    },
+  ];
+
   return (
-    <section className="py-24 px-6 bg-[#0B0C0E] border-t border-white/5">
-      <div className="container mx-auto max-w-6xl">
-        <div className="text-center mb-16">
+    <section className="py-24 px-6 bg-[#0B0C0E] border-t border-white/5 relative overflow-hidden">
+      {/* Background gradient */}
+      <div className="absolute top-1/2 right-0 w-[300px] h-[300px] bg-emerald-600/10 rounded-full blur-[100px] pointer-events-none" />
+
+      <div className="container mx-auto max-w-6xl relative z-10">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, amount: 0.3 }}
+          transition={{ duration: 0.6 }}
+          className="text-center mb-16"
+        >
           <h2 className="text-4xl md:text-5xl font-medium tracking-tight mb-4">
             From prototype → PR
           </h2>
@@ -1138,55 +1653,85 @@ function ShippingSection() {
             Nucleate isn&apos;t a playground. It&apos;s a delivery tool that lives in your
             engineering workflow.
           </p>
-        </div>
+        </motion.div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          <div className="flex flex-col gap-4">
-            <div className="bg-[#141517] border border-white/10 rounded-2xl p-6 flex-1">
-              <FileCode className="w-8 h-8 text-indigo-400 mb-4" />
-              <h3 className="text-lg font-bold mb-2">Export Code</h3>
-              <p className="text-sm text-white/60">Copy/paste specific components or export entire screens as clean, modular React files.</p>
-            </div>
-          </div>
-          <div className="flex flex-col gap-4">
-            <div className="bg-[#141517] border border-white/10 rounded-2xl p-6 flex-1">
-              <GitPullRequest className="w-8 h-8 text-emerald-400 mb-4" />
-              <h3 className="text-lg font-bold mb-2">Open a PR</h3>
-              <p className="text-sm text-white/60">Nucleate creates a PR against your repo following your naming conventions and file structure.</p>
-            </div>
-          </div>
-          <div className="flex flex-col gap-4">
-            <div className="bg-[#141517] border border-white/10 rounded-2xl p-6 flex-1">
-              <Search className="w-8 h-8 text-purple-400 mb-4" />
-              <h3 className="text-lg font-bold mb-2">Reviewable Diffs</h3>
-              <p className="text-sm text-white/60">
-                No &quot;black box&quot; code. Small, readable diffs that match your coding style and are easy to iterate on.
-              </p>
-            </div>
-          </div>
+          {cards.map((card, index) => (
+            <motion.div
+              key={card.title}
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, amount: 0.3 }}
+              transition={{ duration: 0.5, delay: index * 0.15 }}
+              whileHover={{ y: -5 }}
+              className={`bg-[#141517] border border-white/10 rounded-2xl p-6 transition-all duration-300 ${card.hoverBorder}`}
+            >
+              <motion.div
+                animate={{ y: [0, -3, 0] }}
+                transition={{ duration: 3, repeat: Infinity, ease: "easeInOut", delay: index * 0.5 }}
+              >
+                {card.icon}
+              </motion.div>
+              <h3 className="text-lg font-bold mb-2 mt-4">{card.title}</h3>
+              <p className="text-sm text-white/60">{card.description}</p>
+              {card.illustration}
+            </motion.div>
+          ))}
         </div>
 
-        <div className="mt-12 bg-[#141517] border border-white/10 rounded-2xl p-8 flex flex-col md:flex-row items-center gap-8">
+        <motion.div
+          initial={{ opacity: 0, y: 30 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, amount: 0.3 }}
+          transition={{ duration: 0.6, delay: 0.3 }}
+          className="mt-12 bg-[#141517] border border-white/10 rounded-2xl p-8 flex flex-col md:flex-row items-center gap-8"
+        >
           <div className="flex-1">
             <h3 className="text-xl font-medium mb-2">Design and engineering work in the same source of truth: Git.</h3>
             <p className="text-white/50 text-sm">Stop rebuilding UI from screenshots. Let Nucleate bridge the gap by generating code that actually belongs in your codebase.</p>
           </div>
           <div className="flex items-center gap-4">
-            <div className="flex flex-col items-center">
+            <motion.div
+              initial={{ scale: 0.8, opacity: 0 }}
+              whileInView={{ scale: 1, opacity: 1 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.4 }}
+              className="flex flex-col items-center"
+            >
               <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center border border-white/10 mb-2">
                 <Github className="w-5 h-5" />
               </div>
               <span className="text-[10px] text-white/30 uppercase font-bold tracking-widest">Git Provider</span>
+            </motion.div>
+
+            {/* Animated connection line */}
+            <div className="relative w-12">
+              <div className="w-full h-px bg-white/10" />
+              <motion.div
+                animate={{ x: [0, 48, 0] }}
+                transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+                className="absolute top-1/2 -translate-y-1/2 w-2 h-2 bg-indigo-500 rounded-full shadow-[0_0_10px_rgba(99,102,241,0.8)]"
+              />
             </div>
-            <div className="w-12 h-px bg-white/10" />
-            <div className="flex flex-col items-center">
-              <div className="w-10 h-10 rounded-full bg-indigo-500 flex items-center justify-center shadow-[0_0_15px_rgba(99,102,241,0.5)] mb-2">
+
+            <motion.div
+              initial={{ scale: 0.8, opacity: 0 }}
+              whileInView={{ scale: 1, opacity: 1 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.6 }}
+              className="flex flex-col items-center"
+            >
+              <motion.div
+                animate={{ boxShadow: ["0 0 15px rgba(99,102,241,0.5)", "0 0 25px rgba(99,102,241,0.8)", "0 0 15px rgba(99,102,241,0.5)"] }}
+                transition={{ duration: 2, repeat: Infinity }}
+                className="w-10 h-10 rounded-full bg-indigo-500 flex items-center justify-center mb-2"
+              >
                 <Zap className="w-5 h-5 text-white" />
-              </div>
+              </motion.div>
               <span className="text-[10px] text-white/30 uppercase font-bold tracking-widest">Nucleate</span>
-            </div>
+            </motion.div>
           </div>
-        </div>
+        </motion.div>
       </div>
     </section>
   );
@@ -1224,13 +1769,33 @@ function PricingSection() {
   ];
 
   return (
-    <section className="py-32 bg-[#0B0C0E] border-t border-white/5">
-      <div className="container mx-auto px-6 max-w-6xl">
-        <div className="mb-12 relative overflow-hidden rounded-2xl bg-gradient-to-r from-amber-500/20 via-yellow-500/20 to-amber-500/20 border border-yellow-500/30 p-6">
+    <section className="py-32 bg-[#0B0C0E] border-t border-white/5 relative overflow-hidden">
+      {/* Background gradient */}
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-indigo-600/5 rounded-full blur-[150px] pointer-events-none" />
+
+      <div className="container mx-auto px-6 max-w-6xl relative z-10">
+        {/* Sale Banner with shimmer */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.6 }}
+          className="mb-12 relative overflow-hidden rounded-2xl bg-gradient-to-r from-amber-500/20 via-yellow-500/20 to-amber-500/20 border border-yellow-500/30 p-6"
+        >
+          {/* Shimmer effect */}
+          <motion.div
+            animate={{ x: ["-100%", "200%"] }}
+            transition={{ duration: 3, repeat: Infinity, repeatDelay: 2 }}
+            className="absolute inset-0 bg-gradient-to-r from-transparent via-yellow-500/10 to-transparent skew-x-12"
+          />
           <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxIiBmaWxsPSJyZ2JhKDI1NSwyMTUsMCwwLjEpIi8+PC9zdmc+')] opacity-50"></div>
           <div className="relative flex flex-col md:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-4">
-              <div className="text-4xl">🎉</div>
+              <motion.div
+                animate={{ rotate: [0, 10, -10, 0] }}
+                transition={{ duration: 2, repeat: Infinity }}
+                className="text-4xl"
+              >🎉</motion.div>
               <div>
                 <h3 className="text-xl font-bold text-white">New Year Sale!</h3>
                 <p className="text-yellow-200/80 text-sm">Get 50% off your first month of Plus</p>
@@ -1251,35 +1816,70 @@ function PricingSection() {
               </div>
             </div>
           </div>
-        </div>
+        </motion.div>
 
-        <div className="text-center mb-12">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.6, delay: 0.1 }}
+          className="text-center mb-12"
+        >
           <h2 className="text-4xl font-medium text-white mb-4">Simple pricing</h2>
           <p className="text-[#8A8F98]">Start for free, scale as you grow.</p>
-        </div>
+        </motion.div>
+
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {pricingPlans.map((plan, index) => (
-            <div key={index} className={`relative p-8 rounded-3xl flex flex-col ${plan.highlighted ? "bg-[#141517] border border-indigo-500/50 shadow-2xl" : "border border-white/10"}`}>
-              <div className="mb-8">
-                <h3 className="text-lg font-medium text-white">{plan.name}</h3>
-                <p className="text-sm text-[#8A8F98] mt-1 h-10">{plan.description}</p>
+            <motion.div
+              key={index}
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, amount: 0.3 }}
+              transition={{ duration: 0.5, delay: index * 0.1 }}
+              whileHover={{ y: -8 }}
+              className={`relative p-8 rounded-3xl flex flex-col transition-all duration-300 ${plan.highlighted ? "bg-[#141517] border border-indigo-500/50 shadow-2xl shadow-indigo-500/10" : "border border-white/10 hover:border-white/20"}`}
+            >
+              {/* Featured plan glow */}
+              {plan.highlighted && (
+                <motion.div
+                  animate={{ opacity: [0.3, 0.5, 0.3] }}
+                  transition={{ duration: 2, repeat: Infinity }}
+                  className="absolute -inset-px bg-gradient-to-b from-indigo-500/20 to-transparent rounded-3xl pointer-events-none"
+                />
+              )}
+
+              <div className="relative z-10">
+                <div className="mb-8">
+                  <h3 className="text-lg font-medium text-white">{plan.name}</h3>
+                  <p className="text-sm text-[#8A8F98] mt-1 h-10">{plan.description}</p>
+                </div>
+                <div className="mb-8 flex items-baseline gap-1">
+                  <span className="text-4xl font-medium text-white">{plan.price}</span>
+                  {plan.price !== "$0" && plan.price !== "Custom" && <span className="text-[#8A8F98] text-sm">/{plan.period}</span>}
+                </div>
+                <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                  <Button onClick={() => handleGetStarted(plan.productKey)} className={`w-full h-11 rounded-full text-sm font-medium transition-all mb-8 ${plan.highlighted ? "bg-white text-black hover:bg-white/90" : "bg-white/5 text-white hover:bg-white/10 border border-white/10"}`}>
+                    {plan.cta}
+                  </Button>
+                </motion.div>
+                <div className="space-y-4 mt-auto">
+                  {plan.features.map((feature, i) => (
+                    <motion.div
+                      key={i}
+                      initial={{ opacity: 0, x: -10 }}
+                      whileInView={{ opacity: 1, x: 0 }}
+                      viewport={{ once: true }}
+                      transition={{ delay: index * 0.1 + i * 0.05 }}
+                      className="flex items-center gap-3 text-sm text-[#8A8F98]"
+                    >
+                      <CheckIcon className="w-4 h-4 text-white/40" />
+                      {feature}
+                    </motion.div>
+                  ))}
+                </div>
               </div>
-              <div className="mb-8 flex items-baseline gap-1">
-                <span className="text-4xl font-medium text-white">{plan.price}</span>
-                {plan.price !== "$0" && plan.price !== "Custom" && <span className="text-[#8A8F98] text-sm">/{plan.period}</span>}
-              </div>
-              <Button onClick={() => handleGetStarted(plan.productKey)} className={`w-full h-11 rounded-full text-sm font-medium transition-all mb-8 ${plan.highlighted ? "bg-white text-black hover:bg-white/90" : "bg-white/5 text-white hover:bg-white/10 border border-white/10"}`}>
-                {plan.cta}
-              </Button>
-              <div className="space-y-4 mt-auto">
-                {plan.features.map((feature, i) => (
-                  <div key={i} className="flex items-center gap-3 text-sm text-[#8A8F98]">
-                    <CheckIcon className="w-4 h-4 text-white/40" />
-                    {feature}
-                  </div>
-                ))}
-              </div>
-            </div>
+            </motion.div>
           ))}
         </div>
       </div>
@@ -1300,45 +1900,155 @@ function ProblemSection() {
       title: "Design Drift",
       desc: "Figma diverges from code. Nucleate uses your repo as the single source of truth.",
       icon: <GitBranch className="w-5 h-5 text-orange-400" />,
+      glowColor: "group-hover:bg-orange-500/5",
+      hoverBorder: "hover:border-orange-500/30",
+      illustration: (
+        <div className="mt-4 flex items-center justify-center gap-2">
+          <motion.div
+            animate={{ x: [-3, 3, -3] }}
+            transition={{ duration: 2, repeat: Infinity }}
+            className="w-6 h-6 bg-purple-500/20 rounded flex items-center justify-center"
+          >
+            <Palette className="w-3 h-3 text-purple-400" />
+          </motion.div>
+          <motion.div
+            animate={{ opacity: [0.3, 1, 0.3] }}
+            transition={{ duration: 1.5, repeat: Infinity }}
+            className="text-white/30"
+          >↔</motion.div>
+          <motion.div
+            animate={{ x: [3, -3, 3] }}
+            transition={{ duration: 2, repeat: Infinity }}
+            className="w-6 h-6 bg-blue-500/20 rounded flex items-center justify-center"
+          >
+            <Code2 className="w-3 h-3 text-blue-400" />
+          </motion.div>
+        </div>
+      ),
     },
     {
       title: "Manual Rebuilds",
       desc: "Engineers rebuild UI from scratch using screenshots. Nucleate outputs production-ready PRs.",
       icon: <Code2 className="w-5 h-5 text-pink-400" />,
+      glowColor: "group-hover:bg-pink-500/5",
+      hoverBorder: "hover:border-pink-500/30",
+      illustration: (
+        <div className="mt-4 flex items-center justify-center gap-2">
+          <div className="w-6 h-6 bg-white/10 rounded flex items-center justify-center">
+            <Camera className="w-3 h-3 text-white/40" />
+          </div>
+          <motion.div
+            animate={{ scale: [1, 1.2, 1], rotate: [0, 180, 360] }}
+            transition={{ duration: 2, repeat: Infinity }}
+            className="text-pink-400"
+          >→</motion.div>
+          <div className="w-6 h-6 bg-emerald-500/20 rounded flex items-center justify-center">
+            <GitPullRequest className="w-3 h-3 text-emerald-400" />
+          </div>
+        </div>
+      ),
     },
     {
       title: "Stifled Exploration",
       desc: "Handoff is too slow to try more than 1 design. Nucleate generates 10 system-safe variants in minutes.",
       icon: <Layers className="w-5 h-5 text-yellow-400" />,
+      glowColor: "group-hover:bg-yellow-500/5",
+      hoverBorder: "hover:border-yellow-500/30",
+      illustration: (
+        <div className="mt-4 flex items-center justify-center">
+          <div className="flex -space-x-1">
+            {[0, 1, 2].map((i) => (
+              <motion.div
+                key={i}
+                initial={{ x: 0, opacity: 0.5 }}
+                whileInView={{ x: i * 4, opacity: 1 }}
+                viewport={{ once: true }}
+                transition={{ delay: i * 0.1 }}
+                className="w-5 h-7 bg-yellow-500/20 rounded border border-yellow-500/30"
+              />
+            ))}
+          </div>
+        </div>
+      ),
     },
     {
       title: "Handoff Friction",
       desc: "The 'design-to-dev' loop takes weeks. Nucleate unifies exploration and implementation in one cycle.",
       icon: <RefreshCw className="w-5 h-5 text-indigo-400" />,
+      glowColor: "group-hover:bg-indigo-500/5",
+      hoverBorder: "hover:border-indigo-500/30",
+      illustration: (
+        <div className="mt-4 flex items-center justify-center">
+          <div className="relative w-full max-w-[80px]">
+            <div className="h-1.5 bg-white/10 rounded-full" />
+            <motion.div
+              initial={{ width: "100%" }}
+              whileInView={{ width: "30%" }}
+              viewport={{ once: true }}
+              transition={{ duration: 1, delay: 0.3 }}
+              className="absolute top-0 left-0 h-1.5 bg-indigo-500 rounded-full"
+            />
+          </div>
+        </div>
+      ),
     },
   ];
 
   return (
-    <section className="py-24 bg-[#0B0C0E] border-t border-white/5">
-      <div className="container mx-auto px-6 max-w-6xl">
-        <div className="text-center mb-16">
+    <section className="py-24 bg-[#0B0C0E] border-t border-white/5 relative overflow-hidden">
+      {/* Background gradient orbs */}
+      <motion.div
+        animate={{ y: [0, 20, 0] }}
+        transition={{ duration: 10, repeat: Infinity }}
+        className="absolute top-0 left-1/4 w-[300px] h-[300px] bg-orange-600/10 rounded-full blur-[100px] pointer-events-none"
+      />
+      <motion.div
+        animate={{ y: [0, -20, 0] }}
+        transition={{ duration: 12, repeat: Infinity, delay: 2 }}
+        className="absolute bottom-0 right-1/4 w-[250px] h-[250px] bg-pink-600/10 rounded-full blur-[80px] pointer-events-none"
+      />
+
+      <div className="container mx-auto px-6 max-w-6xl relative z-10">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, amount: 0.3 }}
+          transition={{ duration: 0.6 }}
+          className="text-center mb-16"
+        >
           <h2 className="text-3xl md:text-5xl font-medium text-white mb-4">
             UI iteration is broken when design and code are split.
           </h2>
           <p className="text-zinc-400 text-lg">
             Bridge the gap between vision and production.
           </p>
-        </div>
+        </motion.div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {painPoints.map((point, idx) => (
-            <div key={idx} className="p-6 rounded-2xl bg-[#141517] border border-white/5">
-              <div className="w-10 h-10 rounded-lg bg-white/5 flex items-center justify-center mb-4 border border-white/5">
-                {point.icon}
+            <motion.div
+              key={idx}
+              initial={{ opacity: 0, x: idx % 2 === 0 ? -30 : 30 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true, amount: 0.3 }}
+              transition={{ duration: 0.5, delay: idx * 0.1 }}
+              whileHover={{ y: -5 }}
+              className={`p-6 rounded-2xl bg-[#141517] border border-white/5 group transition-all duration-300 relative overflow-hidden ${point.hoverBorder}`}
+            >
+              <div className={`absolute inset-0 ${point.glowColor} transition-colors duration-300`} />
+              <div className="relative z-10">
+                <motion.div
+                  whileHover={{ rotate: point.title === "Handoff Friction" ? 180 : 0 }}
+                  transition={{ duration: 0.5 }}
+                  className="w-10 h-10 rounded-lg bg-white/5 flex items-center justify-center mb-4 border border-white/5"
+                >
+                  {point.icon}
+                </motion.div>
+                <h3 className="text-lg font-medium text-white mb-2">{point.title}</h3>
+                <p className="text-sm text-zinc-500 leading-relaxed">{point.desc}</p>
+                {point.illustration}
               </div>
-              <h3 className="text-lg font-medium text-white mb-2">{point.title}</h3>
-              <p className="text-sm text-zinc-500 leading-relaxed">{point.desc}</p>
-            </div>
+            </motion.div>
           ))}
         </div>
       </div>
@@ -1347,59 +2057,177 @@ function ProblemSection() {
 }
 
 /**
- * HOW IT WORKS SECTION
- */
-/**
  * 8) HOW IT WORKS SECTION
  */
 function HowItWorksSection() {
+  const steps = [
+    {
+      number: 1,
+      title: "Connect Repo",
+      description: "Connect GitHub. Nucleate auto-detects your design system, components, and styling primitives.",
+      color: "indigo",
+      illustration: (
+        <div className="mt-4 flex items-center justify-center md:justify-end gap-2">
+          <motion.div
+            initial={{ scale: 0.8, opacity: 0 }}
+            whileInView={{ scale: 1, opacity: 1 }}
+            viewport={{ once: true }}
+            transition={{ delay: 0.3 }}
+            className="w-8 h-8 bg-white/5 rounded-lg flex items-center justify-center border border-white/10"
+          >
+            <Github className="w-4 h-4 text-white/60" />
+          </motion.div>
+          <motion.div
+            initial={{ width: 0 }}
+            whileInView={{ width: 24 }}
+            viewport={{ once: true }}
+            transition={{ delay: 0.5, duration: 0.3 }}
+            className="h-px bg-indigo-500"
+          />
+          <motion.div
+            initial={{ scale: 0.8, opacity: 0 }}
+            whileInView={{ scale: 1, opacity: 1 }}
+            viewport={{ once: true }}
+            transition={{ delay: 0.7 }}
+            className="w-6 h-6 bg-indigo-500/20 rounded-full flex items-center justify-center border border-indigo-500/30"
+          >
+            <CheckCircle2 className="w-3 h-3 text-indigo-400" />
+          </motion.div>
+        </div>
+      ),
+    },
+    {
+      number: 2,
+      title: "Prototype & Explore",
+      description: "Describe a flow. Generate variants and screens using your real system components instantly.",
+      color: "purple",
+      illustration: (
+        <div className="mt-4 flex items-center justify-center md:justify-start gap-1">
+          {[0, 1, 2].map((i) => (
+            <motion.div
+              key={i}
+              initial={{ opacity: 0, scale: 0.8, rotate: 0 }}
+              whileInView={{ opacity: 1, scale: 1, rotate: i === 0 ? -5 : i === 2 ? 5 : 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.3 + i * 0.1 }}
+              className="w-6 h-9 bg-purple-500/10 rounded border border-purple-500/20"
+            />
+          ))}
+        </div>
+      ),
+    },
+    {
+      number: 3,
+      title: "Ship Real Code",
+      description: "Export production-ready web or mobile code. Or, have Nucleate open a PR directly against your repo.",
+      color: "emerald",
+      illustration: (
+        <div className="mt-4 flex items-center justify-center md:justify-end">
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ delay: 0.4 }}
+            className="px-3 py-1.5 bg-emerald-500/20 rounded-lg border border-emerald-500/30 flex items-center gap-2"
+          >
+            <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+            <span className="text-[10px] text-emerald-400 font-medium">PR Created</span>
+          </motion.div>
+        </div>
+      ),
+    },
+  ];
+
   return (
-    <section className="py-24 bg-[#0B0C0E] border-t border-white/5">
-      <div className="container mx-auto px-6 max-w-4xl">
-        <div className="text-center mb-16">
+    <section className="py-24 bg-[#0B0C0E] border-t border-white/5 relative overflow-hidden">
+      {/* Background gradient */}
+      <motion.div
+        animate={{ y: [0, 30, 0] }}
+        transition={{ duration: 15, repeat: Infinity }}
+        className="absolute top-1/3 left-0 w-[300px] h-[300px] bg-indigo-600/10 rounded-full blur-[100px] pointer-events-none"
+      />
+
+      <div className="container mx-auto px-6 max-w-4xl relative z-10">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, amount: 0.3 }}
+          transition={{ duration: 0.6 }}
+          className="text-center mb-16"
+        >
           <h2 className="text-3xl md:text-5xl font-medium text-white mb-4">How It Works</h2>
           <p className="text-zinc-400">No manual setup. No component tagging. No config hell.</p>
-        </div>
+        </motion.div>
 
         <div className="space-y-12 relative">
-          {/* Connecting Line */}
-          <div className="absolute left-[27px] top-4 bottom-4 w-0.5 bg-gradient-to-b from-indigo-500 via-purple-500 to-transparent md:left-1/2 md:-ml-px" />
-
-          {/* Step 1 */}
-          <div className="relative flex flex-col md:flex-row items-center gap-8 group">
-            <div className="absolute left-0 w-14 h-14 rounded-full bg-[#141517] border-4 border-[#0B0C0E] z-10 flex items-center justify-center text-white font-bold md:left-1/2 md:-ml-7 shadow-xl">1</div>
-            <div className="pl-20 md:pl-0 md:w-1/2 md:pr-12 md:text-right">
-              <div className="bg-[#141517] p-6 rounded-2xl border border-white/5">
-                <h3 className="text-xl font-medium text-white mb-2 flex items-center gap-2 md:justify-end">Connect Repo</h3>
-                <p className="text-zinc-400 text-sm">Connect GitHub. Nucleate auto-detects your design system, components, and styling primitives.</p>
-              </div>
-            </div>
-            <div className="md:w-1/2" />
+          {/* Animated Connecting Line */}
+          <div className="absolute left-[27px] top-4 bottom-4 w-0.5 md:left-1/2 md:-ml-px overflow-hidden">
+            <motion.div
+              initial={{ height: 0 }}
+              whileInView={{ height: "100%" }}
+              viewport={{ once: true, amount: 0.1 }}
+              transition={{ duration: 1.5, ease: "easeOut" }}
+              className="w-full bg-gradient-to-b from-indigo-500 via-purple-500 to-emerald-500"
+            />
           </div>
 
-          {/* Step 2 */}
-          <div className="relative flex flex-col md:flex-row items-center gap-8 group">
-            <div className="absolute left-0 w-14 h-14 rounded-full bg-[#141517] border-4 border-[#0B0C0E] z-10 flex items-center justify-center text-white font-bold md:left-1/2 md:-ml-7 shadow-xl">2</div>
-            <div className="md:w-1/2" />
-            <div className="pl-20 md:pl-0 md:w-1/2 md:pl-12">
-              <div className="bg-[#141517] p-6 rounded-2xl border border-white/5">
-                <h3 className="text-xl font-medium text-white mb-2 flex items-center gap-2">Prototype & Explore</h3>
-                <p className="text-zinc-400 text-sm">Describe a flow. Generate variants and screens using your real system components instantly.</p>
-              </div>
-            </div>
-          </div>
+          {steps.map((step, index) => (
+            <motion.div
+              key={step.number}
+              initial={{ opacity: 0, x: index % 2 === 0 ? -50 : 50 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true, amount: 0.3 }}
+              transition={{ duration: 0.6, delay: index * 0.2 }}
+              className="relative flex flex-col md:flex-row items-center gap-8 group"
+            >
+              {/* Step Number */}
+              <motion.div
+                initial={{ scale: 0.5, opacity: 0 }}
+                whileInView={{ scale: 1, opacity: 1 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.4, delay: index * 0.2 + 0.3 }}
+                className={`absolute left-0 w-14 h-14 rounded-full bg-[#141517] border-4 border-[#0B0C0E] z-10 flex items-center justify-center text-white font-bold md:left-1/2 md:-ml-7 shadow-xl group-hover:shadow-${step.color}-500/30 transition-shadow`}
+              >
+                <motion.span
+                  animate={{ scale: [1, 1.1, 1] }}
+                  transition={{ duration: 2, repeat: Infinity, delay: index * 0.5 }}
+                >
+                  {step.number}
+                </motion.span>
+              </motion.div>
 
-          {/* Step 3 */}
-          <div className="relative flex flex-col md:flex-row items-center gap-8 group">
-            <div className="absolute left-0 w-14 h-14 rounded-full bg-[#141517] border-4 border-[#0B0C0E] z-10 flex items-center justify-center text-white font-bold md:left-1/2 md:-ml-7 shadow-xl">3</div>
-            <div className="pl-20 md:pl-0 md:w-1/2 md:pr-12 md:text-right">
-              <div className="bg-[#141517] p-6 rounded-2xl border border-white/5">
-                <h3 className="text-xl font-medium text-white mb-2 flex items-center gap-2 md:justify-end">Ship Real Code</h3>
-                <p className="text-zinc-400 text-sm">Export production-ready web or mobile code. Or, have Nucleate open a PR directly against your repo.</p>
-              </div>
-            </div>
-            <div className="md:w-1/2" />
-          </div>
+              {/* Content - alternating sides */}
+              {index % 2 === 0 ? (
+                <>
+                  <div className="pl-20 md:pl-0 md:w-1/2 md:pr-12 md:text-right">
+                    <motion.div
+                      whileHover={{ y: -3 }}
+                      className="bg-[#141517] p-6 rounded-2xl border border-white/5 hover:border-white/10 transition-all"
+                    >
+                      <h3 className="text-xl font-medium text-white mb-2 flex items-center gap-2 md:justify-end">{step.title}</h3>
+                      <p className="text-zinc-400 text-sm">{step.description}</p>
+                      {step.illustration}
+                    </motion.div>
+                  </div>
+                  <div className="md:w-1/2" />
+                </>
+              ) : (
+                <>
+                  <div className="md:w-1/2" />
+                  <div className="pl-20 md:pl-0 md:w-1/2 md:pl-12">
+                    <motion.div
+                      whileHover={{ y: -3 }}
+                      className="bg-[#141517] p-6 rounded-2xl border border-white/5 hover:border-white/10 transition-all"
+                    >
+                      <h3 className="text-xl font-medium text-white mb-2 flex items-center gap-2">{step.title}</h3>
+                      <p className="text-zinc-400 text-sm">{step.description}</p>
+                      {step.illustration}
+                    </motion.div>
+                  </div>
+                </>
+              )}
+            </motion.div>
+          ))}
         </div>
       </div>
     </section>
@@ -1416,19 +2244,34 @@ function DifferentiationSection() {
   return (
     <section className="py-24 bg-[#0B0C0E] border-t border-white/5">
       <div className="container mx-auto px-6 max-w-5xl">
-        <div className="text-center mb-16">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, amount: 0.3 }}
+          transition={{ duration: 0.6 }}
+          className="text-center mb-16"
+        >
           <h2 className="text-3xl font-medium text-white mb-4">Why Nucleate?</h2>
           <p className="text-zinc-400">Prototyping that lives in the codebase.</p>
-        </div>
+        </motion.div>
 
-        <div className="overflow-x-auto">
+        <motion.div
+          initial={{ opacity: 0 }}
+          whileInView={{ opacity: 1 }}
+          viewport={{ once: true, amount: 0.3 }}
+          transition={{ duration: 0.6, delay: 0.2 }}
+          className="overflow-x-auto"
+        >
           <table className="w-full text-left border-collapse">
             <thead>
               <tr>
                 <th className="p-4 text-xs uppercase tracking-wider text-zinc-500 font-medium border-b border-white/10">Feature</th>
                 <th className="p-4 text-xs uppercase tracking-wider text-zinc-500 font-medium border-b border-white/10">Figma</th>
                 <th className="p-4 text-xs uppercase tracking-wider text-zinc-500 font-medium border-b border-white/10">AI Builders</th>
-                <th className="p-4 text-xs uppercase tracking-wider text-indigo-400 font-bold border-b border-indigo-500/50 bg-indigo-500/5 rounded-t-xl">Nucleate</th>
+                <th className="p-4 text-xs uppercase tracking-wider text-indigo-400 font-bold border-b border-indigo-500/50 bg-indigo-500/5 rounded-t-xl relative">
+                  <span className="relative z-10">Nucleate</span>
+                  <div className="absolute inset-0 bg-indigo-500/10 blur-sm rounded-t-xl" />
+                </th>
               </tr>
             </thead>
             <tbody className="text-sm">
@@ -1458,7 +2301,7 @@ function DifferentiationSection() {
               </tr>
             </tbody>
           </table>
-        </div>
+        </motion.div>
       </div>
     </section>
   );
