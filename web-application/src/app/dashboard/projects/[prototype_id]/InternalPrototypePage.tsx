@@ -16,7 +16,6 @@ import type {
   PrototypeContextData,
 } from "@/components/prototype-editor/canvas/types";
 import ProPlanUpsellModal from "@/components/prototype-editor/ProPlanUpsellModal";
-import PrototypeDeployModal from "@/components/prototype-editor/PrototypeDeployModal";
 import { SurveyOverlay } from "@/components/survey/SurveyOverlay";
 import {
   AlertDialog,
@@ -30,13 +29,6 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import {
   Select,
   SelectContent,
   SelectItem,
@@ -47,7 +39,6 @@ import { useClaudeCodeWebSocket } from "@/hooks/useClaudeCodeWebSocket";
 import { useFileSystem } from "@/hooks/useFileSystem";
 import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import { useUser } from "@/hooks/useUser";
-import { usePostHog } from "posthog-js/react";
 import { sidebarOpenAtom } from "@/lib/atoms/sidebar";
 import { cn } from "@/lib/classNames";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
@@ -68,25 +59,18 @@ import {
   type StartDevServerSuccessResponse,
 } from "@/lib/types/serverAPITypes";
 import { Database } from "@/lib/types/supabase";
-import { IsUserPlanSubscribed } from "@/lib/utils/payments/SubscriptionManagementUtils";
 import { useActiveTeam } from "@/contexts/TeamContext";
 import { useSetAtom } from "jotai";
 import {
   AlertTriangle,
-  Check,
   Code2,
-  Copy,
   Folder,
-  Globe,
   Loader2,
-  Lock,
   MessageSquare,
-  Share2,
   Smartphone,
 } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { toast } from "sonner";
 
 type Prototype = Database["public"]["Tables"]["prototypes"]["Row"];
 type DesignStyle = Database["public"]["Enums"]["design_style"];
@@ -114,26 +98,18 @@ export default function InternalPrototypePage() {
   const router = useRouter();
   const { user, userIsLoading } = useUser();
   const { userPlan } = useSubscriptionAccess();
-  const { activeTeam } = useActiveTeam();
+  const { activeTeam, currentUserMembership } = useActiveTeam();
   const activeTeamId = activeTeam?.id;
   const params = useParams<{ prototype_id: string }>();
   const prototypeId = params?.prototype_id;
   const logger = useProductLogger();
   const setSidebarOpen = useSetAtom(sidebarOpenAtom);
-  const posthog = usePostHog();
-
-  // Feature flags
-  const isDeployFeatureEnabled =
-    posthog?.isFeatureEnabled("deploy-app-for-public-viewing") ?? false;
 
   const [shouldTriggerInitialFetch, setShouldTriggerInitialFetch] =
     useState(true);
   const [isPreviewView, setIsPreviewView] = useState(true);
   const [prototype, setPrototype] = useState<Prototype | null>(null);
-  const [showShareModal, setShowShareModal] = useState(false);
   const [isPublic, setIsPublic] = useState(false);
-  const [isCopying, setIsCopying] = useState(false);
-  const [hasCopied, setHasCopied] = useState(false);
   const [isCloningPrototype, setIsCloningPrototype] = useState(false);
   const [showCloneUpsellModal, setShowCloneUpsellModal] = useState(false);
   const [viewingUrl, setViewingUrl] = useState<string | null>(null);
@@ -150,7 +126,6 @@ export default function InternalPrototypePage() {
     string | null
   >(null);
   const [isUpdatingDesignSystem, setIsUpdatingDesignSystem] = useState(false);
-  const [isDeployModalOpen, setIsDeployModalOpen] = useState(false);
   const [isDeploying] = useState(false);
   const [deployedUrl, setDeployedUrl] = useState<string | null>(null);
 
@@ -815,16 +790,6 @@ export default function InternalPrototypePage() {
     }
   };
 
-  const handleShare = () => {
-    logger.log({
-      event: "client_prototype_editor_share_modal_opened",
-      properties: {
-        prototype_id: prototypeId,
-      },
-    });
-    setShowShareModal(true);
-  };
-
   const handleClone = useCallback(async () => {
     if (!prototype) return;
 
@@ -906,16 +871,6 @@ export default function InternalPrototypePage() {
     }
   }, [activeTeamId, logger, prototype]);
 
-  const handleOpenDeployModal = () => {
-    logger.log({
-      event: "client_prototype_editor_deploy_modal_opened",
-      properties: {
-        prototype_id: prototype?.id,
-      },
-    });
-    setIsDeployModalOpen(true);
-  };
-
   const handleDeploySuccess = useCallback(
     (result: {
       slug: string;
@@ -938,82 +893,24 @@ export default function InternalPrototypePage() {
     [],
   );
 
-  const handleCopyLink = async () => {
-    if (!prototype) return;
-
-    setIsCopying(true);
-    try {
-      if (!isPublic) {
-        await supabase
-          .from("prototypes")
-          .update({ visibility: "PUBLIC" })
-          .eq("id", prototype.id);
-
-        setIsPublic(true);
-        setPrototype((prev) =>
-          prev ? { ...prev, visibility: "PUBLIC" } : null,
-        );
-      }
-
-      await navigator.clipboard.writeText(
-        window.location.href.replace("dashboard/projects", "p"),
-      );
-
-      toast.success("Copied!");
-      logger.log({
-        event: "client_prototype_editor_share_link_copied",
-        properties: {
-          prototype_id: prototype.id,
-          visibility_before: isPublic ? "PUBLIC" : "SELF",
-        },
-      });
-
-      setHasCopied(true);
-      setTimeout(() => {
-        setShowShareModal(false);
-        setHasCopied(false);
-      }, 1000);
-    } catch (err) {
-      logger.debug("error", "Failed to copy URL:", {
-        error: err instanceof Error ? err.message : String(err),
-        stack: err instanceof Error ? err.stack : undefined,
-      });
-    } finally {
-      setIsCopying(false);
-    }
-  };
-
-  const handleVisibilityToggle = async (checked: boolean) => {
-    if (!prototype) return;
-    if (!checked && !IsUserPlanSubscribed(userPlan)) {
-      return;
-    }
-
-    try {
-      const newVisibility: PrototypeVisibility = checked ? "PUBLIC" : "SELF";
-      logger.log({
-        event: "client_prototype_editor_share_visibility_changed",
-        properties: {
-          prototype_id: prototype.id,
-          visibility: newVisibility,
-        },
-      });
-      await supabase
-        .from("prototypes")
-        .update({ visibility: newVisibility })
-        .eq("id", prototype.id);
-
-      setIsPublic(checked);
+  // Callback for visibility changes from the modal
+  const handleVisibilityChange = useCallback(
+    (newIsPublic: boolean) => {
+      setIsPublic(newIsPublic);
       setPrototype((prev) =>
-        prev ? { ...prev, visibility: newVisibility } : null,
+        prev ? { ...prev, visibility: newIsPublic ? "PUBLIC" : "SELF" } : null,
       );
-    } catch (err) {
-      logger.debug("error", "Failed to update visibility:", {
-        error: err instanceof Error ? err.message : String(err),
-        stack: err instanceof Error ? err.stack : undefined,
-      });
-    }
-  };
+    },
+    [],
+  );
+
+  // Callback for name changes from the modal
+  const handleNameChange = useCallback(
+    (newName: string) => {
+      setPrototype((prev) => (prev ? { ...prev, name: newName } : null));
+    },
+    [],
+  );
 
   const handleDeleteRequest = useCallback(
     (path: string, type: "file" | "folder" | "asset") => {
@@ -1357,14 +1254,23 @@ export default function InternalPrototypePage() {
               onCanvasStateChange={handleCanvasStateChange}
               isPreviewView={isPreviewView}
               onPreviewViewChange={setIsPreviewView}
-              onDeploy={
-                isDeployFeatureEnabled ? handleOpenDeployModal : undefined
-              }
               deploymentUrl={deployedUrl}
               isDeploying={isDeploying}
-              onShare={handleShare}
               onClone={handleClone}
               isCloningPrototype={isCloningPrototype}
+              prototype={prototype}
+              isPublic={isPublic}
+              onVisibilityChange={handleVisibilityChange}
+              userPlan={userPlan}
+              onNameChange={handleNameChange}
+              canEditName={prototype?.owner_id === user?.id}
+              onDeploySuccess={handleDeploySuccess}
+              canManageGithub={
+                activeTeam?.id === prototype?.team_id &&
+                (currentUserMembership?.role === "admin" ||
+                  currentUserMembership?.role === "owner" ||
+                  currentUserMembership?.role === "editor")
+              }
               framework={prototype?.framework ?? undefined}
               onStartDevServer={handleTriggerFetchAndStartDevServer}
               codeView={
@@ -1581,109 +1487,6 @@ export default function InternalPrototypePage() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Deploy Modal */}
-      {isDeployFeatureEnabled && (
-        <PrototypeDeployModal
-          open={isDeployModalOpen}
-          onOpenChange={setIsDeployModalOpen}
-          prototype={prototype}
-          normalizedSandboxUrl={normalizedSandboxUrl}
-          onDeploySuccess={handleDeploySuccess}
-        />
-      )}
-
-      {/* Share Modal */}
-      <Dialog open={showShareModal} onOpenChange={setShowShareModal}>
-        <DialogContent className="sm:max-w-md bg-background border border-border text-foreground">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Share2 className="w-4 h-4 text-indigo-500" /> Share Project
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 pt-2">
-            {/* Visibility Toggle */}
-            <div className="flex items-center justify-between p-3 bg-accent border border-border rounded-lg">
-              <div>
-                <div className="flex items-center gap-2">
-                  {isPublic ? (
-                    <Globe className="w-3.5 h-3.5 text-indigo-400" />
-                  ) : (
-                    <Lock className="w-3.5 h-3.5 text-gray-500" />
-                  )}
-                  <p className="font-medium text-sm">Make Public</p>
-                </div>
-                <p className="text-xs text-muted-foreground mt-1 ml-5">
-                  {isPublic
-                    ? "Anyone with the link can view"
-                    : "Only you can view"}
-                </p>
-                {!IsUserPlanSubscribed(userPlan) && !isPublic && (
-                  <p className="text-xs text-amber-500/80 mt-1 ml-5">
-                    Upgrade to Plus to restrict access
-                  </p>
-                )}
-              </div>
-              <label
-                className={`relative inline-flex items-center ${
-                  !IsUserPlanSubscribed(userPlan) && !isPublic
-                    ? "opacity-50 cursor-not-allowed"
-                    : "cursor-pointer"
-                }`}
-              >
-                <input
-                  type="checkbox"
-                  checked={isPublic}
-                  onChange={(e) => handleVisibilityToggle(e.target.checked)}
-                  disabled={!IsUserPlanSubscribed(userPlan) && !isPublic}
-                  className="sr-only peer"
-                />
-                <div className="w-9 h-5 bg-muted peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-500 peer-disabled:cursor-not-allowed"></div>
-              </label>
-            </div>
-
-            {/* Share Link */}
-            <div className="space-y-2">
-              <p className="text-sm font-medium text-muted-foreground">Share Link</p>
-              <div className="flex items-center gap-2">
-                <Input
-                  value={window.location.href.replace(
-                    "dashboard/projects",
-                    "p",
-                  )}
-                  readOnly
-                  className="flex-1 bg-accent border-border text-foreground h-9 text-xs"
-                />
-                <Button
-                  onClick={handleCopyLink}
-                  disabled={isCopying || hasCopied}
-                  size="sm"
-                  className={cn(
-                    "flex items-center gap-2 h-9",
-                    hasCopied
-                      ? "bg-green-500 text-white hover:bg-green-600"
-                      : "bg-white text-black hover:bg-white/90",
-                  )}
-                >
-                  {isCopying ? (
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  ) : hasCopied ? (
-                    <Check className="w-3.5 h-3.5" />
-                  ) : (
-                    <Copy className="w-3.5 h-3.5" />
-                  )}
-                  {isCopying ? "Copying..." : hasCopied ? "Copied!" : "Copy"}
-                </Button>
-              </div>
-              {!isPublic && (
-                <p className="text-xs text-amber-500/80">
-                  ⚠️ Copying the link will automatically make this project
-                  public
-                </p>
-              )}
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
 
       {/* Clone Upsell Modal */}
       <ProPlanUpsellModal

@@ -12,19 +12,15 @@ export interface ScreenShapeProps {
 
 /**
  * Props specific to the phone frame shape
+ * Phone-specific props can be added here (e.g., deviceType: 'iphone' | 'android')
  */
-export interface PhoneFrameShapeProps extends ScreenShapeProps {
-  // Phone-specific props can be added here
-  // e.g., deviceType: 'iphone' | 'android'
-}
+export type PhoneFrameShapeProps = ScreenShapeProps;
 
 /**
  * Props specific to the browser frame shape
+ * Browser-specific props can be added here (e.g., showTrafficLights: boolean)
  */
-export interface BrowserFrameShapeProps extends ScreenShapeProps {
-  // Browser-specific props can be added here
-  // e.g., showTrafficLights: boolean
-}
+export type BrowserFrameShapeProps = ScreenShapeProps;
 
 /**
  * Canvas state that gets persisted to the database

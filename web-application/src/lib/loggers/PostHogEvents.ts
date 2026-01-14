@@ -43,6 +43,7 @@ export type PostHogEvent =
   | "client_prototype_editor_export_clicked"
   | "client_prototype_editor_preview_tab_selected"
   | "client_prototype_editor_preview_mode_changed"
+  | "client_prototype_editor_project_settings_opened"
   | "client_prototype_editor_refresh_preview_clicked"
   | "client_prototype_editor_restart_dev_server_clicked"
   | "client_prototype_editor_share_link_copied"
@@ -155,6 +156,8 @@ export const PostHogEvents: Record<PostHogEvent, PostHogEvent> = Object.freeze({
     "client_prototype_editor_export_clicked",
   client_prototype_editor_preview_mode_changed:
     "client_prototype_editor_preview_mode_changed",
+  client_prototype_editor_project_settings_opened:
+    "client_prototype_editor_project_settings_opened",
   client_prototype_editor_preview_tab_selected:
     "client_prototype_editor_preview_tab_selected",
   client_prototype_editor_refresh_preview_clicked:

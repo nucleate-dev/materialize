@@ -115,10 +115,6 @@ function HomeContent() {
 
         <CodebaseIntegrationSection />
 
-        <DesignSystemSection />
-
-        <BringYourOwnClaudeCodeSection />
-
         <ShippingSection />
 
         <ProblemSection />
@@ -216,7 +212,7 @@ function HeroSection() {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
+          transition={{ duration: 0.3 }}
         >
           <Badge variant="outline" className="mb-6 border-indigo-500/30 bg-indigo-500/10 text-indigo-300 px-4 py-1">
             UI Prototyping for Real Codebases
@@ -226,7 +222,7 @@ function HeroSection() {
         <motion.h1
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.7, delay: 0.1 }}
+          transition={{ duration: 0.35, delay: 0.1 }}
           className="text-5xl md:text-7xl lg:text-8xl font-medium tracking-tight text-white mb-6"
         >
           AI for UI/UX prototyping
@@ -235,7 +231,7 @@ function HeroSection() {
         <motion.p
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.2 }}
+          transition={{ duration: 0.3, delay: 0.2 }}
           className="text-lg md:text-xl text-[#8A8F98] max-w-2xl mx-auto mb-12 leading-relaxed"
         >
           Connect GitHub. Nucleate reads your components, tokens, and screens automatically. Generate flows + variants in minutes, then ship via PR.
@@ -244,7 +240,7 @@ function HeroSection() {
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.7, delay: 0.3 }}
+          transition={{ duration: 0.35, delay: 0.1 }}
           className="max-w-3xl mx-auto relative group"
         >
           <div className="absolute -inset-0.5 bg-gradient-to-r from-indigo-500/30 to-blue-500/30 rounded-2xl blur opacity-20 group-hover:opacity-40 transition duration-500"></div>
@@ -272,7 +268,7 @@ function HeroSection() {
                     key={chip.label}
                     initial={{ opacity: 0, x: -10 }}
                     animate={{ opacity: 1, x: 0 }}
-                    transition={{ duration: 0.4, delay: 0.5 + index * 0.1 }}
+                    transition={{ duration: 0.2, delay: 0.1 + index * 0.05 }}
                     whileHover={{ scale: 1.05 }}
                     onClick={() => setPrompt(chip.prompt)}
                     className="text-xs text-white/50 hover:text-white transition-colors"
@@ -413,7 +409,7 @@ function CodebaseIntegrationSection() {
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, amount: 0.3 }}
-          transition={{ duration: 0.6 }}
+          transition={{ duration: 0.3 }}
           className="text-center mb-16"
         >
           <Badge variant="outline" className="mb-4 border-indigo-500/20 bg-indigo-500/10 text-indigo-300">System Aware</Badge>
@@ -433,7 +429,7 @@ function CodebaseIntegrationSection() {
               initial={{ opacity: 0, y: 30 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, amount: 0.3 }}
-              transition={{ duration: 0.5, delay: index * 0.15 }}
+              transition={{ duration: 0.25, delay: index * 0.05 }}
               whileHover={{ y: -5, scale: 1.02 }}
               className={`bg-[#141517] border border-white/10 rounded-2xl p-8 group transition-all duration-300 ${card.hoverBorder} relative overflow-hidden`}
             >
@@ -455,6 +451,60 @@ function CodebaseIntegrationSection() {
             </motion.div>
           ))}
         </div>
+
+        {/* Build with your design system - full width card */}
+        <motion.div
+          initial={{ opacity: 0, y: 30 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, amount: 0.3 }}
+          transition={{ duration: 0.3, delay: 0.1 }}
+          className="mt-6 bg-gradient-to-b from-[#141517] to-black border border-white/10 rounded-2xl p-8 md:p-10 overflow-hidden relative group hover:border-indigo-500/30 transition-colors"
+        >
+          <div className="flex flex-col md:flex-row items-center gap-8 md:gap-12">
+            {/* Left - Title */}
+            <div className="text-center md:text-left md:flex-shrink-0">
+              <div className="flex justify-center md:justify-start gap-1 mb-4">
+                <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+                <div className="w-2 h-2 rounded-full bg-pink-500"></div>
+                <div className="w-2 h-2 rounded-full bg-purple-500"></div>
+              </div>
+              <h3 className="text-2xl md:text-3xl font-medium mb-2">
+                Build with <span className="text-indigo-400">your</span> design system
+              </h3>
+              <p className="text-[#8A8F98] text-sm">
+                Stop building from scratch. Start building on-brand.
+              </p>
+            </div>
+
+            {/* Right - Visual elements */}
+            <div className="flex-1 flex flex-wrap items-center justify-center gap-6 md:gap-8 opacity-80 group-hover:opacity-100 transition-opacity">
+              {/* Toggle & Code snippet */}
+              <div className="flex items-center gap-4">
+                <div className="w-10 h-6 bg-white/5 rounded-full relative border border-white/10">
+                  <div className="absolute right-1 top-1 w-4 h-4 bg-indigo-500 rounded-full" />
+                </div>
+                <div className="flex gap-2">
+                  <div className="w-4 h-4 bg-indigo-500 rounded-sm"></div>
+                  <div className="w-4 h-4 border border-white/20 rounded-sm"></div>
+                </div>
+              </div>
+
+              {/* Color Swatches */}
+              <div className="flex gap-3">
+                <motion.div whileHover={{ scale: 1.1 }} className="w-10 h-10 bg-teal-400 rounded-lg shadow-lg shadow-teal-400/20" />
+                <motion.div whileHover={{ scale: 1.1 }} className="w-10 h-10 bg-indigo-600 rounded-lg shadow-lg shadow-indigo-600/20" />
+                <motion.div whileHover={{ scale: 1.1 }} className="w-10 h-10 bg-orange-300 rounded-lg shadow-lg shadow-orange-300/20" />
+              </div>
+
+              {/* Typography */}
+              <div className="hidden lg:flex flex-col gap-1">
+                <span className="text-lg font-bold">Headline</span>
+                <span className="text-sm font-semibold opacity-60">Subhead</span>
+                <span className="text-xs opacity-40">Body</span>
+              </div>
+            </div>
+          </div>
+        </motion.div>
       </div>
     </section>
   );
@@ -500,7 +550,7 @@ function VariantsSection() {
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, amount: 0.3 }}
-          transition={{ duration: 0.6 }}
+          transition={{ duration: 0.3 }}
           className="text-center mb-16 max-w-4xl mx-auto"
         >
           <Badge variant="outline" className="mb-4 border-white/10 bg-white/5 text-zinc-300">
@@ -522,7 +572,7 @@ function VariantsSection() {
               initial={{ opacity: 0, y: 10 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
-              transition={{ duration: 0.4, delay: index * 0.1 }}
+              transition={{ duration: 0.2, delay: index * 0.05 }}
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.98 }}
               onClick={() => setActiveTab(tab.id)}
@@ -545,7 +595,7 @@ function VariantsSection() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
-              transition={{ duration: 0.4 }}
+              transition={{ duration: 0.2 }}
               className="h-full w-full"
             >
               {/* DEMO CONTENT BASED ON TAB */}
@@ -1309,244 +1359,6 @@ function VariantsSection() {
 }
 
 /**
- * DESIGN SYSTEM SECTION
- */
-function DesignSystemSection() {
-  return (
-    <section className="pt-8 pb-16 px-6 bg-[#0B0C0E] relative overflow-hidden">
-      {/* Background gradient orbs */}
-      <motion.div
-        animate={{ x: [0, 20, 0], opacity: [0.2, 0.4, 0.2] }}
-        transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
-        className="absolute top-1/2 left-1/4 w-[400px] h-[400px] bg-indigo-600/10 rounded-full blur-[120px] pointer-events-none"
-      />
-      <motion.div
-        animate={{ x: [0, -20, 0], opacity: [0.2, 0.3, 0.2] }}
-        transition={{ duration: 12, repeat: Infinity, ease: "easeInOut" }}
-        className="absolute top-1/3 right-1/4 w-[300px] h-[300px] bg-purple-600/10 rounded-full blur-[100px] pointer-events-none"
-      />
-
-      <div className="container mx-auto max-w-5xl relative z-10">
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, amount: 0.3 }}
-          transition={{ duration: 0.6 }}
-          className="bg-gradient-to-b from-[#141517] to-black border border-white/10 rounded-3xl p-8 md:p-12 overflow-hidden relative group"
-        >
-          <div className="text-center mb-12">
-            <motion.div
-              initial={{ scale: 0.8, opacity: 0 }}
-              whileInView={{ scale: 1, opacity: 1 }}
-              viewport={{ once: true }}
-              transition={{ delay: 0.2 }}
-              className="flex justify-center gap-1 mb-6"
-            >
-              <div className="w-2 h-2 rounded-full bg-blue-500"></div>
-              <div className="w-2 h-2 rounded-full bg-pink-500"></div>
-              <div className="w-2 h-2 rounded-full bg-purple-500"></div>
-            </motion.div>
-            <motion.h3
-              initial={{ opacity: 0, y: 10 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: 0.3 }}
-              className="text-3xl md:text-4xl font-medium mb-4"
-            >
-              Build with <span className="text-indigo-400">your</span> design system
-            </motion.h3>
-            <motion.p
-              initial={{ opacity: 0 }}
-              whileInView={{ opacity: 1 }}
-              viewport={{ once: true }}
-              transition={{ delay: 0.4 }}
-              className="text-[#8A8F98]"
-            >
-              Stop building from scratch. Start building on-brand.
-            </motion.p>
-          </div>
-
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ delay: 0.5 }}
-            className="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-8 items-center opacity-80 group-hover:opacity-100 transition-opacity"
-          >
-            {/* Left - Toggle & Code */}
-            <div className="space-y-6">
-              <div className="flex gap-4 items-center">
-                <div className="w-10 h-6 bg-white/5 rounded-full relative border border-white/10">
-                  <motion.div
-                    animate={{ x: [0, 0, 0] }}
-                    className="absolute right-1 top-1 w-4 h-4 bg-indigo-500 rounded-full"
-                  />
-                </div>
-                <div className="flex gap-2">
-                  <div className="w-4 h-4 bg-indigo-500 rounded-sm"></div>
-                  <div className="w-4 h-4 border border-white/20 rounded-sm"></div>
-                </div>
-              </div>
-              <div className="p-4 bg-white/5 rounded-xl border border-white/10 text-xs font-mono text-white/40">
-                .button {'{'} <br />
-                &nbsp;&nbsp;radius: 12px;<br />
-                &nbsp;&nbsp;shadow: var(--lg);<br />
-                {'}'}
-              </div>
-            </div>
-
-            {/* Center - Color Swatches */}
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              whileInView={{ scale: 1, opacity: 1 }}
-              viewport={{ once: true }}
-              transition={{ delay: 0.6 }}
-              className="flex justify-center gap-4"
-            >
-              <motion.div
-                whileHover={{ scale: 1.1, y: -5 }}
-                className="w-16 h-16 bg-teal-400 rounded-xl shadow-lg shadow-teal-400/20"
-              />
-              <motion.div
-                whileHover={{ scale: 1.1, y: -5 }}
-                className="w-16 h-16 bg-indigo-600 rounded-xl shadow-lg shadow-indigo-600/20"
-              />
-              <motion.div
-                whileHover={{ scale: 1.1, y: -5 }}
-                className="w-16 h-16 bg-orange-300 rounded-xl shadow-lg shadow-orange-300/20"
-              />
-            </motion.div>
-
-            {/* Right - Typography */}
-            <motion.div
-              initial={{ opacity: 0, x: 20 }}
-              whileInView={{ opacity: 1, x: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: 0.7 }}
-              className="space-y-4"
-            >
-              <h1 className="text-2xl font-bold">Headline Lg</h1>
-              <h2 className="text-xl font-semibold opacity-60">Headline Md</h2>
-              <h3 className="text-lg opacity-40">Headline Sm</h3>
-            </motion.div>
-          </motion.div>
-        </motion.div>
-      </div>
-    </section>
-  );
-}
-
-/**
- * BRING YOUR OWN CLAUDE CODE SECTION
- */
-function BringYourOwnClaudeCodeSection() {
-  return (
-    <section className="py-16 px-6 bg-[#0B0C0E] relative overflow-hidden">
-      <div className="container mx-auto max-w-5xl relative z-10">
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, amount: 0.3 }}
-          transition={{ duration: 0.6 }}
-          className="relative bg-gradient-to-br from-[#D97757]/10 via-[#141517] to-[#141517] border border-[#D97757]/20 rounded-2xl p-8 md:p-10 overflow-hidden hover:border-[#D97757]/40 transition-all group"
-        >
-          {/* Subtle glow effect */}
-          <motion.div
-            animate={{ opacity: [0.1, 0.2, 0.1], scale: [1, 1.1, 1] }}
-            transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-            className="absolute top-0 right-0 w-64 h-64 bg-[#D97757]/10 blur-[100px] rounded-full pointer-events-none"
-          />
-
-          <div className="relative z-10 flex flex-col lg:flex-row items-start lg:items-center gap-8">
-            {/* Left side - Icon and content */}
-            <div className="flex items-start gap-6 flex-1">
-              <motion.div
-                initial={{ scale: 0.8, opacity: 0 }}
-                whileInView={{ scale: 1, opacity: 1 }}
-                viewport={{ once: true }}
-                transition={{ delay: 0.2 }}
-                className="flex-shrink-0"
-              >
-                <div className="w-14 h-14 bg-[#D97757]/20 rounded-xl flex items-center justify-center border border-[#D97757]/30 group-hover:bg-[#D97757]/30 transition-colors">
-                  <svg viewBox="0 0 24 24" fill="none" className="w-7 h-7 text-[#D97757]" xmlns="http://www.w3.org/2000/svg">
-                    <path fillRule="evenodd" clipRule="evenodd" d="M19.16 4.38H4.84V19.62H19.16V4.38ZM17.72 17.9L12 14.5L6.28 17.9V6.1H17.72V17.9Z" fill="currentColor" />
-                  </svg>
-                </div>
-              </motion.div>
-              <div>
-                <motion.h3
-                  initial={{ opacity: 0, y: 10 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ delay: 0.3 }}
-                  className="text-xl md:text-2xl font-medium text-white mb-2"
-                >
-                  Bring your own Claude Code
-                </motion.h3>
-                <motion.p
-                  initial={{ opacity: 0 }}
-                  whileInView={{ opacity: 1 }}
-                  viewport={{ once: true }}
-                  transition={{ delay: 0.4 }}
-                  className="text-[#8A8F98] leading-relaxed max-w-xl"
-                >
-                  Already have a Claude Code subscription? Connect it to Nucleate for massive savings.
-                </motion.p>
-              </div>
-            </div>
-
-            {/* Right side - Stats and benefits */}
-            <motion.div
-              initial={{ opacity: 0, x: 20 }}
-              whileInView={{ opacity: 1, x: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: 0.5 }}
-              className="flex flex-col sm:flex-row items-start sm:items-center gap-6 lg:gap-8"
-            >
-              <div className="text-center sm:text-left">
-                <motion.div
-                  initial={{ scale: 0.5, opacity: 0 }}
-                  whileInView={{ scale: 1, opacity: 1 }}
-                  viewport={{ once: true }}
-                  transition={{ delay: 0.6, type: "spring", stiffness: 200 }}
-                  className="text-3xl md:text-4xl font-bold text-[#D97757] mb-1"
-                >
-                  1000x
-                </motion.div>
-                <div className="text-xs text-white/50 uppercase tracking-wider">more usage</div>
-              </div>
-              <div className="hidden sm:block w-px h-12 bg-white/10"></div>
-              <div className="space-y-2">
-                <motion.div
-                  initial={{ opacity: 0, x: -10 }}
-                  whileInView={{ opacity: 1, x: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ delay: 0.7 }}
-                  className="flex items-center gap-2 text-sm text-white/70"
-                >
-                  <CheckCircle2 className="w-4 h-4 text-[#D97757] flex-shrink-0" />
-                  <span>Use your subscription or ours</span>
-                </motion.div>
-                <motion.div
-                  initial={{ opacity: 0, x: -10 }}
-                  whileInView={{ opacity: 1, x: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ delay: 0.8 }}
-                  className="flex items-center gap-2 text-sm text-white/70"
-                >
-                  <CheckCircle2 className="w-4 h-4 text-[#D97757] flex-shrink-0" />
-                  <span>Fraction of the cost vs. competitors</span>
-                </motion.div>
-              </div>
-            </motion.div>
-          </div>
-        </motion.div>
-      </div>
-    </section>
-  );
-}
-
-/**
  * 5) SHIPPING SECTION
  */
 function ShippingSection() {
@@ -1569,14 +1381,14 @@ function ShippingSection() {
             initial={{ opacity: 0 }}
             whileInView={{ opacity: 1 }}
             viewport={{ once: true }}
-            transition={{ delay: 0.4 }}
+            transition={{ delay: 0.15 }}
             className="text-blue-400"
           >function Button()</motion.div>
           <motion.div
             initial={{ opacity: 0 }}
             whileInView={{ opacity: 1 }}
             viewport={{ once: true }}
-            transition={{ delay: 0.6 }}
+            transition={{ delay: 0.2 }}
             className="text-white/30 pl-2"
           >{'// Clean code...'}</motion.div>
         </div>
@@ -1598,7 +1410,7 @@ function ShippingSection() {
             initial={{ scale: 0.9, opacity: 0 }}
             whileInView={{ scale: 1, opacity: 1 }}
             viewport={{ once: true }}
-            transition={{ delay: 0.3 }}
+            transition={{ delay: 0.1 }}
             className="px-2 py-1 bg-emerald-500/20 rounded text-[9px] text-emerald-400 w-fit"
           >
             Ready to merge
@@ -1622,7 +1434,7 @@ function ShippingSection() {
               initial={{ x: -10, opacity: 0 }}
               whileInView={{ x: 0, opacity: 1 }}
               viewport={{ once: true }}
-              transition={{ delay: 0.2 + i * 0.15 }}
+              transition={{ delay: 0.05 + i * 0.03 }}
               className={`text-[9px] font-mono px-2 py-1 rounded ${line.color}`}
             >
               {line.text}
@@ -1643,7 +1455,7 @@ function ShippingSection() {
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, amount: 0.3 }}
-          transition={{ duration: 0.6 }}
+          transition={{ duration: 0.3 }}
           className="text-center mb-16"
         >
           <h2 className="text-4xl md:text-5xl font-medium tracking-tight mb-4">
@@ -1662,7 +1474,7 @@ function ShippingSection() {
               initial={{ opacity: 0, y: 30 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, amount: 0.3 }}
-              transition={{ duration: 0.5, delay: index * 0.15 }}
+              transition={{ duration: 0.25, delay: index * 0.05 }}
               whileHover={{ y: -5 }}
               className={`bg-[#141517] border border-white/10 rounded-2xl p-6 transition-all duration-300 ${card.hoverBorder}`}
             >
@@ -1683,7 +1495,7 @@ function ShippingSection() {
           initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, amount: 0.3 }}
-          transition={{ duration: 0.6, delay: 0.3 }}
+          transition={{ duration: 0.3, delay: 0.1 }}
           className="mt-12 bg-[#141517] border border-white/10 rounded-2xl p-8 flex flex-col md:flex-row items-center gap-8"
         >
           <div className="flex-1">
@@ -1695,7 +1507,7 @@ function ShippingSection() {
               initial={{ scale: 0.8, opacity: 0 }}
               whileInView={{ scale: 1, opacity: 1 }}
               viewport={{ once: true }}
-              transition={{ delay: 0.4 }}
+              transition={{ delay: 0.15 }}
               className="flex flex-col items-center"
             >
               <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center border border-white/10 mb-2">
@@ -1718,7 +1530,7 @@ function ShippingSection() {
               initial={{ scale: 0.8, opacity: 0 }}
               whileInView={{ scale: 1, opacity: 1 }}
               viewport={{ once: true }}
-              transition={{ delay: 0.6 }}
+              transition={{ delay: 0.2 }}
               className="flex flex-col items-center"
             >
               <motion.div
@@ -1779,7 +1591,7 @@ function PricingSection() {
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          transition={{ duration: 0.6 }}
+          transition={{ duration: 0.3 }}
           className="mb-12 relative overflow-hidden rounded-2xl bg-gradient-to-r from-amber-500/20 via-yellow-500/20 to-amber-500/20 border border-yellow-500/30 p-6"
         >
           {/* Shimmer effect */}
@@ -1822,7 +1634,7 @@ function PricingSection() {
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          transition={{ duration: 0.6, delay: 0.1 }}
+          transition={{ duration: 0.3, delay: 0.1 }}
           className="text-center mb-12"
         >
           <h2 className="text-4xl font-medium text-white mb-4">Simple pricing</h2>
@@ -1836,7 +1648,7 @@ function PricingSection() {
               initial={{ opacity: 0, y: 30 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, amount: 0.3 }}
-              transition={{ duration: 0.5, delay: index * 0.1 }}
+              transition={{ duration: 0.25, delay: index * 0.05 }}
               whileHover={{ y: -8 }}
               className={`relative p-8 rounded-3xl flex flex-col transition-all duration-300 ${plan.highlighted ? "bg-[#141517] border border-indigo-500/50 shadow-2xl shadow-indigo-500/10" : "border border-white/10 hover:border-white/20"}`}
             >
@@ -1870,7 +1682,7 @@ function PricingSection() {
                       initial={{ opacity: 0, x: -10 }}
                       whileInView={{ opacity: 1, x: 0 }}
                       viewport={{ once: true }}
-                      transition={{ delay: index * 0.1 + i * 0.05 }}
+                      transition={{ delay: index * 0.03 + i * 0.02 }}
                       className="flex items-center gap-3 text-sm text-[#8A8F98]"
                     >
                       <CheckIcon className="w-4 h-4 text-white/40" />
@@ -1882,6 +1694,62 @@ function PricingSection() {
             </motion.div>
           ))}
         </div>
+
+        {/* Bring Your Own Claude Code */}
+        <motion.div
+          initial={{ opacity: 0, y: 30 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, amount: 0.3 }}
+          transition={{ duration: 0.3, delay: 0.15 }}
+          className="mt-8 relative bg-gradient-to-br from-[#D97757]/10 via-[#141517] to-[#141517] border border-[#D97757]/20 rounded-2xl p-6 md:p-8 overflow-hidden hover:border-[#D97757]/40 transition-all group"
+        >
+          {/* Subtle glow effect */}
+          <motion.div
+            animate={{ opacity: [0.1, 0.2, 0.1], scale: [1, 1.1, 1] }}
+            transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+            className="absolute top-0 right-0 w-64 h-64 bg-[#D97757]/10 blur-[100px] rounded-full pointer-events-none"
+          />
+
+          <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center gap-6">
+            {/* Left side - Icon and content */}
+            <div className="flex items-start gap-4 flex-1">
+              <div className="flex-shrink-0">
+                <div className="w-12 h-12 bg-[#D97757]/20 rounded-xl flex items-center justify-center border border-[#D97757]/30 group-hover:bg-[#D97757]/30 transition-colors">
+                  <svg viewBox="0 0 24 24" fill="none" className="w-6 h-6 text-[#D97757]" xmlns="http://www.w3.org/2000/svg">
+                    <path fillRule="evenodd" clipRule="evenodd" d="M19.16 4.38H4.84V19.62H19.16V4.38ZM17.72 17.9L12 14.5L6.28 17.9V6.1H17.72V17.9Z" fill="currentColor" />
+                  </svg>
+                </div>
+              </div>
+              <div>
+                <h3 className="text-lg md:text-xl font-medium text-white mb-1">
+                  Bring your own Claude Code
+                </h3>
+                <p className="text-[#8A8F98] text-sm leading-relaxed">
+                  Already have a Claude Code subscription? Connect it to Nucleate for massive savings. <span className="text-[#D97757]">Available on Plus.</span>
+                </p>
+              </div>
+            </div>
+
+            {/* Right side - Stats and benefits */}
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 md:gap-6">
+              <div className="text-center sm:text-left">
+                <div className="text-2xl md:text-3xl font-bold text-[#D97757] mb-0.5">1000x</div>
+                <div className="text-[10px] text-white/50 uppercase tracking-wider">more usage</div>
+              </div>
+              <div className="hidden sm:block w-px h-10 bg-white/10"></div>
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-2 text-sm text-white/70">
+                  <CheckCircle2 className="w-4 h-4 text-[#D97757] flex-shrink-0" />
+                  <span>Use your subscription or ours</span>
+                </div>
+                <div className="flex items-center gap-2 text-sm text-white/70">
+                  <CheckCircle2 className="w-4 h-4 text-[#D97757] flex-shrink-0" />
+                  <span>Fraction of the cost vs. competitors</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </motion.div>
       </div>
     </section>
   );
@@ -1985,7 +1853,7 @@ function ProblemSection() {
               initial={{ width: "100%" }}
               whileInView={{ width: "30%" }}
               viewport={{ once: true }}
-              transition={{ duration: 1, delay: 0.3 }}
+              transition={{ duration: 1, delay: 0.1 }}
               className="absolute top-0 left-0 h-1.5 bg-indigo-500 rounded-full"
             />
           </div>
@@ -2013,7 +1881,7 @@ function ProblemSection() {
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, amount: 0.3 }}
-          transition={{ duration: 0.6 }}
+          transition={{ duration: 0.3 }}
           className="text-center mb-16"
         >
           <h2 className="text-3xl md:text-5xl font-medium text-white mb-4">
@@ -2031,7 +1899,7 @@ function ProblemSection() {
               initial={{ opacity: 0, x: idx % 2 === 0 ? -30 : 30 }}
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true, amount: 0.3 }}
-              transition={{ duration: 0.5, delay: idx * 0.1 }}
+              transition={{ duration: 0.25, delay: idx * 0.05 }}
               whileHover={{ y: -5 }}
               className={`p-6 rounded-2xl bg-[#141517] border border-white/5 group transition-all duration-300 relative overflow-hidden ${point.hoverBorder}`}
             >
@@ -2039,7 +1907,7 @@ function ProblemSection() {
               <div className="relative z-10">
                 <motion.div
                   whileHover={{ rotate: point.title === "Handoff Friction" ? 180 : 0 }}
-                  transition={{ duration: 0.5 }}
+                  transition={{ duration: 0.25 }}
                   className="w-10 h-10 rounded-lg bg-white/5 flex items-center justify-center mb-4 border border-white/5"
                 >
                   {point.icon}
@@ -2072,7 +1940,7 @@ function HowItWorksSection() {
             initial={{ scale: 0.8, opacity: 0 }}
             whileInView={{ scale: 1, opacity: 1 }}
             viewport={{ once: true }}
-            transition={{ delay: 0.3 }}
+            transition={{ delay: 0.1 }}
             className="w-8 h-8 bg-white/5 rounded-lg flex items-center justify-center border border-white/10"
           >
             <Github className="w-4 h-4 text-white/60" />
@@ -2081,14 +1949,14 @@ function HowItWorksSection() {
             initial={{ width: 0 }}
             whileInView={{ width: 24 }}
             viewport={{ once: true }}
-            transition={{ delay: 0.5, duration: 0.3 }}
+            transition={{ delay: 0.15, duration: 0.3 }}
             className="h-px bg-indigo-500"
           />
           <motion.div
             initial={{ scale: 0.8, opacity: 0 }}
             whileInView={{ scale: 1, opacity: 1 }}
             viewport={{ once: true }}
-            transition={{ delay: 0.7 }}
+            transition={{ delay: 0.2 }}
             className="w-6 h-6 bg-indigo-500/20 rounded-full flex items-center justify-center border border-indigo-500/30"
           >
             <CheckCircle2 className="w-3 h-3 text-indigo-400" />
@@ -2109,7 +1977,7 @@ function HowItWorksSection() {
               initial={{ opacity: 0, scale: 0.8, rotate: 0 }}
               whileInView={{ opacity: 1, scale: 1, rotate: i === 0 ? -5 : i === 2 ? 5 : 0 }}
               viewport={{ once: true }}
-              transition={{ delay: 0.3 + i * 0.1 }}
+              transition={{ delay: 0.1 + i * 0.03 }}
               className="w-6 h-9 bg-purple-500/10 rounded border border-purple-500/20"
             />
           ))}
@@ -2127,7 +1995,7 @@ function HowItWorksSection() {
             initial={{ opacity: 0, y: 10 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            transition={{ delay: 0.4 }}
+            transition={{ delay: 0.15 }}
             className="px-3 py-1.5 bg-emerald-500/20 rounded-lg border border-emerald-500/30 flex items-center gap-2"
           >
             <CheckCircle2 className="w-3 h-3 text-emerald-400" />
@@ -2152,7 +2020,7 @@ function HowItWorksSection() {
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, amount: 0.3 }}
-          transition={{ duration: 0.6 }}
+          transition={{ duration: 0.3 }}
           className="text-center mb-16"
         >
           <h2 className="text-3xl md:text-5xl font-medium text-white mb-4">How It Works</h2>
@@ -2177,7 +2045,7 @@ function HowItWorksSection() {
               initial={{ opacity: 0, x: index % 2 === 0 ? -50 : 50 }}
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true, amount: 0.3 }}
-              transition={{ duration: 0.6, delay: index * 0.2 }}
+              transition={{ duration: 0.3, delay: index * 0.05 }}
               className="relative flex flex-col md:flex-row items-center gap-8 group"
             >
               {/* Step Number */}
@@ -2185,7 +2053,7 @@ function HowItWorksSection() {
                 initial={{ scale: 0.5, opacity: 0 }}
                 whileInView={{ scale: 1, opacity: 1 }}
                 viewport={{ once: true }}
-                transition={{ duration: 0.4, delay: index * 0.2 + 0.3 }}
+                transition={{ duration: 0.2, delay: index * 0.05 + 0.1 }}
                 className={`absolute left-0 w-14 h-14 rounded-full bg-[#141517] border-4 border-[#0B0C0E] z-10 flex items-center justify-center text-white font-bold md:left-1/2 md:-ml-7 shadow-xl group-hover:shadow-${step.color}-500/30 transition-shadow`}
               >
                 <motion.span
@@ -2248,7 +2116,7 @@ function DifferentiationSection() {
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, amount: 0.3 }}
-          transition={{ duration: 0.6 }}
+          transition={{ duration: 0.3 }}
           className="text-center mb-16"
         >
           <h2 className="text-3xl font-medium text-white mb-4">Why Nucleate?</h2>
@@ -2259,7 +2127,7 @@ function DifferentiationSection() {
           initial={{ opacity: 0 }}
           whileInView={{ opacity: 1 }}
           viewport={{ once: true, amount: 0.3 }}
-          transition={{ duration: 0.6, delay: 0.2 }}
+          transition={{ duration: 0.3, delay: 0.2 }}
           className="overflow-x-auto"
         >
           <table className="w-full text-left border-collapse">

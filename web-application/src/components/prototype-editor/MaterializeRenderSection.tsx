@@ -46,7 +46,6 @@ import {
   ExternalLink,
   Eye,
   Hammer,
-  KeyRound,
   Loader2,
   Maximize, Monitor,
   MoreVertical,
@@ -57,7 +56,7 @@ import {
   RefreshCw,
   Rocket,
   RotateCcw,
-  Share2,
+  Settings,
   Smartphone,
   Terminal as TerminalIcon,
   X,
@@ -79,8 +78,11 @@ import React, {
 // Dynamically import Terminal to avoid SSR issues with xterm
 const Terminal = dynamic(() => import("./Terminal"), { ssr: false });
 
-// Import the Environment Variables Modal
-import { EnvironmentVariablesModal } from "./EnvironmentVariablesModal";
+// Import the Project Settings Modal (unified modal)
+import {
+  ProjectSettingsModal,
+  type ProjectSettingsTab,
+} from "./ProjectSettingsModal";
 // Import the View on Device Modal
 import {
   BuildAndDeployResponse,
@@ -233,14 +235,25 @@ interface MaterializeRenderSectionProps {
   codeView: ReactNode;
   mobileHint?: string;
   isMobileLayout?: boolean;
-  // Share and clone actions
-  onShare?: () => void;
+  // Clone action
   onClone?: () => void;
   isCloningPrototype?: boolean;
+  // Project settings modal props
+  prototype?: Database["public"]["Tables"]["prototypes"]["Row"] | null;
+  isPublic?: boolean;
+  onVisibilityChange?: (isPublic: boolean) => void;
+  userPlan?: string | null;
+  onNameChange?: (name: string) => void;
+  canEditName?: boolean;
+  onDeploySuccess?: (result: {
+    slug: string;
+    url: string;
+    visibility: import("@/lib/types/prototypes").PrototypeVisibility;
+  }) => void;
+  canManageGithub?: boolean;
   // Public view mode - hides preview/code switch, status badge, and terminal
   publicView?: boolean;
   // Deployment
-  onDeploy?: () => void;
   deploymentUrl?: string | null;
   isDeploying?: boolean;
   deployedView?: boolean;
@@ -291,10 +304,15 @@ const MaterializeRenderSection = forwardRef<
       codeView,
       mobileHint,
       isMobileLayout,
-      onShare,
       onClone,
       isCloningPrototype = false,
-      onDeploy,
+      prototype,
+      isPublic = false,
+      onVisibilityChange,
+      onNameChange,
+      canEditName = false,
+      onDeploySuccess,
+      canManageGithub = false,
       deploymentUrl,
       isDeploying = false,
       deployedView = false,
@@ -604,8 +622,10 @@ const MaterializeRenderSection = forwardRef<
 
     // Modal states
     const [isQRModalOpen, setIsQRModalOpen] = useState(false);
-    const [isEnvVarDialogOpen, setIsEnvVarDialogOpen] = useState(false);
     const [isGithubDropdownOpen, setIsGithubDropdownOpen] = useState(false);
+    const [isProjectSettingsOpen, setIsProjectSettingsOpen] = useState(false);
+    const [projectSettingsTab, setProjectSettingsTab] =
+      useState<ProjectSettingsTab>("deploy");
 
     const logPrototypeEvent = useCallback(
       (event: PostHogEvent, properties?: Record<string, unknown>) => {
@@ -632,12 +652,14 @@ const MaterializeRenderSection = forwardRef<
       [logPrototypeEvent, onPreviewViewChange],
     );
 
-    const handleOpenEnvModal = useCallback(
-      (source: string) => {
-        logPrototypeEvent("client_prototype_editor_env_vars_opened", {
+    const handleOpenProjectSettings = useCallback(
+      (tab: ProjectSettingsTab = "deploy", source?: string) => {
+        logPrototypeEvent("client_prototype_editor_project_settings_opened", {
+          tab,
           source,
         });
-        setIsEnvVarDialogOpen(true);
+        setProjectSettingsTab(tab);
+        setIsProjectSettingsOpen(true);
       },
       [logPrototypeEvent],
     );
@@ -2626,18 +2648,6 @@ const MaterializeRenderSection = forwardRef<
                   <TerminalIcon className="w-3.5 h-3.5" />
                 </Button>
               )}
-              {!isReadOnlyView && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => handleOpenEnvModal("toolbar_button")}
-                  className="hidden sm:flex h-8 bg-accent border border-border text-muted-foreground hover:text-foreground hover:border-border/80 hover:bg-accent/80 transition-all"
-                  title="Manage environment variables"
-                  disabled={!prototypeId}
-                >
-                  <KeyRound className="w-3.5 h-3.5" />
-                </Button>
-              )}
               {!isReadOnlyView && isGithubIntegrationEnabled && (
                 <DropdownMenu
                   open={isGithubDropdownOpen}
@@ -2781,22 +2791,25 @@ const MaterializeRenderSection = forwardRef<
                   </DropdownMenuContent>
                 </DropdownMenu>
               )}
-              {onShare && (
+              {/* Project Settings (Gear icon) */}
+              {!isReadOnlyView && (
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={onShare}
-                  className="hidden sm:flex h-8 bg-accent border border-border text-muted-foreground hover:text-foreground hover:border-border/80 hover:bg-accent/80 transition-all"
-                  title="Share"
+                  onClick={() => handleOpenProjectSettings("deploy", "toolbar_gear")}
+                  className="h-8 w-8 p-0 bg-accent border border-border text-muted-foreground hover:text-foreground hover:border-border/80 hover:bg-accent/80 transition-all"
+                  title="Project Settings"
+                  disabled={!prototypeId}
                 >
-                  <Share2 className="w-3.5 h-3.5" />
+                  <Settings className="w-3.5 h-3.5" />
                 </Button>
               )}
-              {onDeploy && !isReadOnlyView && (
+              {/* Deploy Button - opens modal */}
+              {!isReadOnlyView && (
                 <Button
                   size="sm"
-                  onClick={onDeploy}
-                  disabled={isDeploying}
+                  onClick={() => handleOpenProjectSettings("deploy", "toolbar_deploy")}
+                  disabled={isDeploying || !prototypeId}
                   className={cn(
                     "h-8 px-3 text-xs font-semibold text-white shadow-sm",
                     deploymentUrl
@@ -2901,12 +2914,12 @@ const MaterializeRenderSection = forwardRef<
                         {isTerminalOpen ? "Hide Terminal" : "Show Terminal"}
                       </DropdownMenuItem>
                       <DropdownMenuItem
-                        onClick={() => handleOpenEnvModal("dropdown")}
+                        onClick={() => handleOpenProjectSettings("deploy", "dropdown")}
                         disabled={!prototypeId}
                         className="sm:hidden focus:bg-accent/80 focus:text-foreground text-muted-foreground text-sm cursor-pointer"
                       >
-                        <KeyRound className="w-4 h-4 mr-2 opacity-70" />
-                        Environment variables
+                        <Settings className="w-4 h-4 mr-2 opacity-70" />
+                        Project Settings
                       </DropdownMenuItem>
                       <DropdownMenuItem
                         onClick={handleRestartDevServer}
@@ -2935,15 +2948,6 @@ const MaterializeRenderSection = forwardRef<
                         {isBuilding ? "Building..." : "Build"}
                       </DropdownMenuItem>
                     </>
-                  )}
-                  {onShare && (
-                    <DropdownMenuItem
-                      onClick={onShare}
-                      className="sm:hidden focus:bg-accent/80 focus:text-foreground text-muted-foreground text-sm cursor-pointer"
-                    >
-                      <Share2 className="w-4 h-4 mr-2 opacity-70" />
-                      Share
-                    </DropdownMenuItem>
                   )}
                   {onClone && (
                     <>
@@ -3111,13 +3115,26 @@ const MaterializeRenderSection = forwardRef<
           )
         }
 
-        {/* Environment Variables Modal */}
-        <EnvironmentVariablesModal
-          isOpen={isEnvVarDialogOpen}
-          onOpenChange={setIsEnvVarDialogOpen}
+        {/* Project Settings Modal (unified) */}
+        <ProjectSettingsModal
+          open={isProjectSettingsOpen}
+          onOpenChange={setIsProjectSettingsOpen}
+          initialTab={projectSettingsTab}
+          prototype={prototype ?? null}
           prototypeId={prototypeId}
-          sandbox_url={sandbox_url}
+          normalizedSandboxUrl={sandbox_url}
+          onDeploySuccess={onDeploySuccess}
+          isPublic={isPublic}
+          onVisibilityChange={onVisibilityChange}
+          userPlan={userPlan}
           framework={framework}
+          onNameChange={onNameChange}
+          canEditName={canEditName}
+          isGithubIntegrationEnabled={isGithubIntegrationEnabled}
+          githubIntegration={githubIntegration}
+          githubRepository={githubRepository}
+          onCreateGitHubRepository={handleCreateGitHubRepository}
+          canManageGithub={canManageGithub}
         />
 
         {/* View on Device Modal */}

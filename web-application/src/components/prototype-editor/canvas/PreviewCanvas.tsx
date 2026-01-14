@@ -126,6 +126,7 @@ const PreviewCanvas = forwardRef<PreviewCanvasRef, PreviewCanvasProps>(
         // Rebuild the screen to shape mapping
         rebuildScreenShapeMap();
       } catch (error) {
+        // eslint-disable-next-line no-restricted-syntax
         console.error("Error loading canvas state:", error);
       }
     }, []);

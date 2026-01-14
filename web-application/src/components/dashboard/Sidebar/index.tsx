@@ -114,18 +114,18 @@ const DashboardSidebarContent = () => {
       label: "Projects",
       active: pathname?.includes("projects"),
     },
-    {
-      href: "/dashboard/folders",
-      icon: Folder,
-      label: "Folders",
-      active: pathname?.includes("folders"),
-    },
-    {
-      href: "/dashboard/design-systems",
-      icon: Palette,
-      label: "Design Systems",
-      active: pathname?.includes("design-systems"),
-    },
+    // {
+    //   href: "/dashboard/folders",
+    //   icon: Folder,
+    //   label: "Folders",
+    //   active: pathname?.includes("folders"),
+    // },
+    // {
+    //   href: "/dashboard/design-systems",
+    //   icon: Palette,
+    //   label: "Design Systems",
+    //   active: pathname?.includes("design-systems"),
+    // },
     ...(SHOW_WHITEBOARDS
       ? [
           {
