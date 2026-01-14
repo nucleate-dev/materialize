@@ -1,7 +1,6 @@
 "use client";
 
 import ProPlanUpsellModal from "@/components/prototype-editor/ProPlanUpsellModal";
-import { GridBackground } from "@/components/shared/GridComponent";
 import { Button } from "@/components/ui/button";
 import {
   Collapsible,
@@ -275,9 +274,8 @@ export default function DashboardPage() {
   // Show loading state while checking survey
   if (isSurveyChecking) {
     return (
-      <div className="relative min-h-screen text-foreground selection:bg-primary/30 font-sans flex items-center justify-center">
-        <GridBackground />
-        <div className="relative z-10 flex flex-col items-center gap-4">
+      <div className="relative min-h-screen bg-background text-foreground selection:bg-primary/30 font-sans flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
           <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
           <p className="text-sm text-muted-foreground">Loading...</p>
         </div>
@@ -286,8 +284,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="relative min-h-screen text-foreground selection:bg-primary/30 font-sans">
-      <GridBackground />
+    <div className="relative min-h-screen bg-background text-foreground selection:bg-primary/30 font-sans">
 
       <div className="container mx-auto px-4 pt-24 pb-16 max-w-4xl relative z-10">
         {/* --- Header Section --- */}
