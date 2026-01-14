@@ -1376,10 +1376,14 @@ export class ChatService {
         });
       } else {
         // Calculate credits based on auth method
+        // Respect user's explicit preference, fall back to auto-detect
+        const useOAuth = (data.use_oauth_token ?? this.hasUserOAuthToken()) &&
+          this.hasUserOAuthToken();
+
         let creditsUsed: number;
         let costFunction: string;
 
-        if (this.hasUserOAuthToken()) {
+        if (useOAuth) {
           // OAuth user: flat fee based on prompt length
           const promptLength = getPromptLengthFromQueryData(data);
           creditsUsed = calculateOAuthCredits(promptLength, logger);
@@ -1396,7 +1400,9 @@ export class ChatService {
           totalCostUsd,
           creditsUsed,
           costFunction,
-          isOAuthUser: this.hasUserOAuthToken(),
+          isOAuthUser: useOAuth,
+          userPreference: data.use_oauth_token,
+          hasOAuthToken: this.hasUserOAuthToken(),
         });
 
         const { teamId } = getWorkerContext();

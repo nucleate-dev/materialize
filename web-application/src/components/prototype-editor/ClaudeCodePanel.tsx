@@ -14,6 +14,7 @@ import {
 import { normalizePrototypeVisibility } from "@/lib/types/prototypes";
 import { Database } from "@/lib/types/supabase";
 import { clearChatIntent, getChatIntent } from "@/lib/utils/chatIntentUtils";
+import { getAuthMode, setAuthMode as setAuthModeToStorage, type AuthMode } from "@/lib/utils/authModeUtils";
 import type React from "react";
 import {
   forwardRef,
@@ -216,6 +217,7 @@ const ClaudeCodePanel = forwardRef<ClaudeCodePanelRef, ClaudeCodePanelProps>(({
   const [editedTitle, setEditedTitle] = useState("");
   const [isUpdatingTitle, setIsUpdatingTitle] = useState(false);
   const [isUsingOAuthToken, setIsUsingOAuthToken] = useState(false);
+  const [authMode, setAuthMode] = useState<AuthMode>("nucleate");
   const [modelProvider, setModelProvider] = useState<"claude" | "vercel">(
     "claude",
   );
@@ -241,6 +243,30 @@ const ClaudeCodePanel = forwardRef<ClaudeCodePanelRef, ClaudeCodePanelProps>(({
       }
     }
   }, [modelProvider, model, vercelModelOptions]);
+
+  // Load auth mode from localStorage and set default when OAuth is available
+  useEffect(() => {
+    const storedMode = getAuthMode();
+    if (storedMode) {
+      // Use stored preference if valid
+      // But only allow claude_sub if OAuth is actually available
+      if (storedMode === "claude_sub" && !isUsingOAuthToken) {
+        setAuthMode("nucleate");
+      } else {
+        setAuthMode(storedMode);
+      }
+    } else if (isUsingOAuthToken) {
+      // Default to claude_sub if OAuth is available and no preference stored
+      setAuthMode("claude_sub");
+      setAuthModeToStorage("claude_sub");
+    }
+  }, [isUsingOAuthToken]);
+
+  // Handler to change auth mode and save to localStorage
+  const handleAuthModeChange = useCallback((mode: AuthMode) => {
+    setAuthMode(mode);
+    setAuthModeToStorage(mode);
+  }, []);
 
   // Reset confirmation modal state
 
@@ -883,6 +909,7 @@ const ClaudeCodePanel = forwardRef<ClaudeCodePanelRef, ClaudeCodePanelProps>(({
                 visible_screens: visibleScreens,
                 preview_mode: previewMode,
                 design_style: prototype?.design_style,
+                use_oauth_token: authMode === "claude_sub",
               },
             }),
           );
@@ -904,6 +931,7 @@ const ClaudeCodePanel = forwardRef<ClaudeCodePanelRef, ClaudeCodePanelProps>(({
     isCorruptedSession,
     model,
     modelProvider,
+    authMode,
   ]);
 
   // WebSocket connection is managed by parent component (InternalPrototypePage)
@@ -2042,6 +2070,7 @@ const ClaudeCodePanel = forwardRef<ClaudeCodePanelRef, ClaudeCodePanelProps>(({
               current_viewing_path: currentViewingPath,
               visible_screens: visibleScreens,
               preview_mode: previewMode,
+              use_oauth_token: authMode === "claude_sub",
               image_metadata: uploadedImageMetadata.map((img) => ({
                 storage_path: img.storage_path,
                 media_type: img.media_type,
@@ -2328,6 +2357,9 @@ const ClaudeCodePanel = forwardRef<ClaudeCodePanelRef, ClaudeCodePanelProps>(({
       isProjectContextEnabled={isProjectContextEnabled}
       isTeamsUIEnabled={isTeamsUIEnabled}
       isUsingOAuthToken={isUsingOAuthToken}
+      authMode={authMode}
+      onAuthModeChange={handleAuthModeChange}
+      hasClaudeSubAvailable={isUsingOAuthToken}
     />
   );
 });

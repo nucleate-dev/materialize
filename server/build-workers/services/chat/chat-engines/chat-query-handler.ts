@@ -332,6 +332,10 @@ export class ChatQueryHandler implements ChatEngine {
       });
 
       // Execute query and stream responses
+      // Respect user's explicit preference, fall back to auto-detect
+      const useOAuth = (data.use_oauth_token ?? context.isUsingOAuthToken) &&
+        context.isUsingOAuthToken;
+
       const streamContext: StreamContext = {
         messageContent,
         queryOptions,
@@ -340,7 +344,7 @@ export class ChatQueryHandler implements ChatEngine {
         socket,
         activeConnections,
         bufferState,
-        isUsingOAuthToken: context.isUsingOAuthToken,
+        isUsingOAuthToken: useOAuth,
         queryData: data,
       };
       const totalCostUsd = await this.streamQueryResponse(

@@ -63,6 +63,7 @@ export interface ChatQueryData {
   }>;
   visible_screens?: Array<{ id: number; path: string }>; // All visible preview screens (for multi-screen mode)
   preview_mode?: "mobile" | "web"; // Current preview mode
+  use_oauth_token?: boolean; // User's preference: true = use their Claude subscription, false = use Nucleate credits
 }
 
 export interface QueryMessage {

@@ -5,7 +5,7 @@
 // To update these shared files, modify the source file and run:
 // npm run sync-types (in the control-plane directory)
 //
-// Last synced: 2026-01-12T04:38:45.331Z
+// Last synced: 2026-01-14T05:31:52.825Z
 
 export enum ChatEvent {
   AUTHENTICATED = "authenticated",
@@ -72,6 +72,7 @@ export interface ChatQueryData {
   }>;
   visible_screens?: Array<{ id: number; path: string }>; // All visible preview screens (for multi-screen mode)
   preview_mode?: "mobile" | "web"; // Current preview mode
+  use_oauth_token?: boolean; // User's preference: true = use their Claude subscription, false = use Nucleate credits
 }
 
 export interface QueryMessage {

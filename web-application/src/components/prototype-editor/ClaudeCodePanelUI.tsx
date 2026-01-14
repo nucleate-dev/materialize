@@ -66,6 +66,7 @@ import type {
   Todo,
   UploadedImage
 } from "./ClaudeCodePanel";
+import type { AuthMode } from "@/lib/utils/authModeUtils";
 
 interface ClaudeCodePanelUIProps {
   prototypeId: string;
@@ -143,6 +144,9 @@ interface ClaudeCodePanelUIProps {
   isProjectContextEnabled: boolean;
   isTeamsUIEnabled: boolean;
   isUsingOAuthToken: boolean;
+  authMode: AuthMode;
+  onAuthModeChange: (mode: AuthMode) => void;
+  hasClaudeSubAvailable: boolean;
 }
 
 function CopyMessageButton({ content }: { content: string; }) {
@@ -235,6 +239,9 @@ export default function ClaudeCodePanelUI({
   isProjectContextEnabled,
   isTeamsUIEnabled,
   isUsingOAuthToken,
+  authMode,
+  onAuthModeChange,
+  hasClaudeSubAvailable,
 }: ClaudeCodePanelUIProps) {
   const isClaudeOAuthEnabled =
     useFeatureFlagEnabled("claude-code-cli-with-personal-token") ?? false;
@@ -423,13 +430,6 @@ export default function ClaudeCodePanelUI({
         </div>
 
         <div className="flex items-center gap-1">
-          {/* OAuth Token Indicator */}
-          {isClaudeOAuthEnabled && isUsingOAuthToken && (
-            <span className="text-[10px] text-muted-foreground whitespace-nowrap mr-1">
-              Using your Claude subscription
-            </span>
-          )}
-
           {/* Undo Button */}
           <TooltipProvider>
             <Tooltip>
@@ -932,7 +932,7 @@ export default function ClaudeCodePanelUI({
               </div>
             )}
 
-            <div className="flex items-end gap-2 bg-accent/50 p-2 rounded-xl border border-border focus-within:ring-1 focus-within:ring-indigo-500/30 focus-within:border-indigo-500/50 transition-all shadow-sm">
+            <div className="flex flex-col gap-2 bg-accent/50 p-3 rounded-xl border border-border focus-within:ring-1 focus-within:ring-indigo-500/30 focus-within:border-indigo-500/50 transition-all shadow-sm">
               <input
                 ref={fileInputRef}
                 type="file"
@@ -942,24 +942,7 @@ export default function ClaudeCodePanelUI({
                 className="hidden"
               />
 
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      type="button"
-                      size="icon"
-                      variant="ghost"
-                      onClick={() => fileInputRef.current?.click()}
-                      disabled={isProcessing || !isCurrentSessionMostRecent}
-                      className="h-9 w-9 mb-0.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent"
-                    >
-                      <Paperclip className="w-5 h-5" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Attach Images</TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-
+              {/* Textarea */}
               <Textarea
                 ref={textareaRef}
                 value={inputValue}
@@ -972,34 +955,82 @@ export default function ClaudeCodePanelUI({
                     : "Ask Nucleate to edit code..."
                 }
                 disabled={isProcessing || !isCurrentSessionMostRecent}
-                className="flex-1 min-h-[44px] max-h-32 bg-transparent border-0 focus-visible:ring-0 p-2.5 text-sm resize-none placeholder:text-muted-foreground text-foreground"
+                className="w-full min-h-[40px] max-h-32 bg-transparent border-0 focus-visible:ring-0 px-1 py-1 text-sm resize-none placeholder:text-muted-foreground text-foreground"
                 rows={1}
               />
 
-              <Button
-                onClick={isProcessing ? interruptQuery : sendQuery}
-                disabled={
-                  !isProcessing &&
-                  ((!inputValue.trim() && uploadedImages.length === 0) ||
-                    !isCurrentSessionMostRecent)
-                }
-                size="icon"
-                className={cn(
-                  "h-9 w-9 mb-0.5 rounded-lg transition-all",
-                  isProcessing
-                    ? "bg-red-500 hover:bg-red-600 text-white shadow-md"
-                    : (!inputValue.trim() && uploadedImages.length === 0) ||
-                      !isCurrentSessionMostRecent
-                      ? "bg-accent text-muted-foreground"
-                      : "bg-black dark:bg-white text-white dark:text-black hover:opacity-90 shadow-md",
-                )}
-              >
-                {isProcessing ? (
-                  <StopCircle className="w-4 h-4" />
-                ) : (
-                  <Send className="w-4 h-4 ml-0.5" />
-                )}
-              </Button>
+              {/* Bottom row with controls */}
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-1">
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => fileInputRef.current?.click()}
+                          disabled={isProcessing || !isCurrentSessionMostRecent}
+                          className="h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent"
+                        >
+                          <Paperclip className="w-4 h-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Attach Images</TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+
+                  {/* Auth Mode Selector */}
+                  {isClaudeOAuthEnabled && (
+                    <Select
+                      value={authMode}
+                      onValueChange={(value) => onAuthModeChange(value as AuthMode)}
+                      disabled={isProcessing || !isCurrentSessionMostRecent}
+                    >
+                      <SelectTrigger className="h-8 text-xs bg-accent/50 border-border/50 focus:ring-0 px-2 gap-1">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="bg-background border-border">
+                        <SelectItem value="nucleate" className="text-xs">
+                          Nucleate Credits
+                        </SelectItem>
+                        <SelectItem
+                          value="claude_sub"
+                          disabled={!hasClaudeSubAvailable}
+                          className="text-xs"
+                        >
+                          Your Claude Sub
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  )}
+                </div>
+
+                <Button
+                  onClick={isProcessing ? interruptQuery : sendQuery}
+                  disabled={
+                    !isProcessing &&
+                    ((!inputValue.trim() && uploadedImages.length === 0) ||
+                      !isCurrentSessionMostRecent)
+                  }
+                  size="icon"
+                  className={cn(
+                    "h-8 w-8 rounded-lg transition-all shrink-0",
+                    isProcessing
+                      ? "bg-red-500 hover:bg-red-600 text-white shadow-md"
+                      : (!inputValue.trim() && uploadedImages.length === 0) ||
+                        !isCurrentSessionMostRecent
+                        ? "bg-accent text-muted-foreground"
+                        : "bg-black dark:bg-white text-white dark:text-black hover:opacity-90 shadow-md",
+                  )}
+                >
+                  {isProcessing ? (
+                    <StopCircle className="w-4 h-4" />
+                  ) : (
+                    <Send className="w-4 h-4" />
+                  )}
+                </Button>
+              </div>
             </div>
           </div>
         </>
