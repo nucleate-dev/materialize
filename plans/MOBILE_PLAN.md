@@ -761,7 +761,7 @@ materialize/
 ## Part 9: Success Criteria
 
 ### MVP Checklist
-- [ ] User can sign up and log in (email + OAuth)
+- [x] User can sign up and log in (email/password)
 - [ ] User can view their projects list
 - [ ] User can switch between teams
 - [ ] User can create a new project with prompt
@@ -777,3 +777,19 @@ materialize/
 - **Reliability**: No crashes in normal usage
 - **Offline**: Cached data available within 24 hours
 - **Accessibility**: VoiceOver/TalkBack basic support
+
+---
+
+## TODOs / Future Enhancements
+
+### Authentication
+- [ ] **Google OAuth** - Add Google sign-in using `expo-auth-session` with Supabase OAuth flow
+- [ ] **GitHub OAuth** - Add GitHub sign-in using `expo-auth-session`
+- [ ] **Apple Sign-In** - Required for iOS App Store if other social logins are present
+- [ ] **Biometric Auth** - Optional Face ID / Touch ID for returning users
+
+### Features (Post-MVP)
+- [ ] Push notifications for build completion, chat responses
+- [ ] Deep linking to specific projects
+- [ ] File browser within projects
+- [ ] Terminal access (via WebView or native PTY)
