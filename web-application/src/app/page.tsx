@@ -185,9 +185,9 @@ function HeroSection() {
   };
 
   const suggestionChips = [
-    { label: "Paywall variant", prompt: "Create a high-converting paywall screen for a mobile health app using a dark, modern theme. The layout should feature a compelling header image, followed by a toggle for Monthly vs Yearly billing. Highlight the Yearly plan with a 'Best Value' badge and animate the selection state. Below the plans, include a list of verified user reviews and a 'Restore Purchases' link in the footer." },
-    { label: "Onboarding", prompt: "Create a 3-step onboarding flow for a financial technology app. Step 1 should focus on trust, displaying certification logos and a secure animation. Step 2 should ask for the user's primary investment goals using large, selectable cards with icons. Step 3 needs to be a 'Connect Bank' screen with a search bar for institutions and a list of popular banks." },
-    { label: "Landing Page", prompt: "Design a high-impact landing page for an AI-powered analytics platform. Start with a large, centered hero section featuring a glowing gradient headline and a floating dashboard mockup. Follow this with a logo carousel of trusted companies and a grid of feature cards that reveal details on hover. Conclude with a pricing section comparing three tiers and a final call-to-action footer with social links." },
+    { label: "Paywall variant", prompt: "Personal health dashboard. Widgets for heart rate graph, sleep quality score with moon icon, daily caloric intake vs burn, hydration water level tracker, and recovery battery percentage. Activity rings and step counter.\n\nCreate also the other screens.\n\nMobile dashboard, Bento Grid layout, Soft Neo-Brutalism. Dark mode, deep charcoal background, rounded cards with vivid pastel accents (salmon, periwinkle, yellow). Bold all-caps sans-serif typography, modular fintech SaaS aesthetic with high contrast." },
+    { label: "Onboarding", prompt: "Personal health dashboard. Widgets for heart rate graph, sleep quality score with moon icon, daily caloric intake vs burn, hydration water level tracker, and recovery battery percentage. Activity rings and step counter.\n\nCreate also the other screens.\n\nMobile dashboard, Bento Grid layout, Soft Neo-Brutalism. Dark mode, deep charcoal background, rounded cards with vivid pastel accents (salmon, periwinkle, yellow). Bold all-caps sans-serif typography, modular fintech SaaS aesthetic with high contrast." },
+    { label: "Landing Page", prompt: "Personal health dashboard. Widgets for heart rate graph, sleep quality score with moon icon, daily caloric intake vs burn, hydration water level tracker, and recovery battery percentage. Activity rings and step counter.\n\nCreate also the other screens.\n\nMobile dashboard, Bento Grid layout, Soft Neo-Brutalism. Dark mode, deep charcoal background, rounded cards with vivid pastel accents (salmon, periwinkle, yellow). Bold all-caps sans-serif typography, modular fintech SaaS aesthetic with high contrast." },
   ];
 
   return (
@@ -216,7 +216,7 @@ function HeroSection() {
           transition={{ duration: 0.3 }}
         >
           <Badge variant="outline" className="mb-6 border-primary/30 bg-primary/10 text-primary px-4 py-1">
-            UI Prototyping for Real Codebases
+            Prototyping for Production Teams
           </Badge>
         </motion.div>
 
@@ -226,7 +226,7 @@ function HeroSection() {
           transition={{ duration: 0.35, delay: 0.1 }}
           className="text-5xl md:text-7xl lg:text-8xl font-medium tracking-tight text-foreground mb-6"
         >
-          AI for UI/UX prototyping
+          AI with an eye for design
         </motion.h1>
 
         <motion.p
@@ -235,7 +235,7 @@ function HeroSection() {
           transition={{ duration: 0.3, delay: 0.2 }}
           className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-12 leading-relaxed"
         >
-          Connect GitHub. Nucleate reads your components, tokens, and screens automatically. Generate flows + variants in minutes, then ship via PR.
+          Connect your codebase directly. Nucleate ingests your real styles and components, so every variant is on-brand. Explore quickly, then export real code.
         </motion.p>
 
         <motion.div
@@ -289,7 +289,7 @@ function HeroSection() {
                 )}
                 <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
                   <Button onClick={handleSend} disabled={!prompt.trim() || isLoading} size="sm" className="bg-primary text-primary-foreground hover:bg-primary/90 px-6">
-                    {isLoading ? "Loading..." : "Generate"}
+                    {isLoading ? "Loading..." : "Create prototype"}
                   </Button>
                 </motion.div>
               </div>
