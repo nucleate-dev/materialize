@@ -47,9 +47,12 @@ import {
   Eye,
   Hammer,
   Loader2,
-  Maximize, Monitor,
+  Maximize,
+  MessageSquare,
+  Monitor,
   MoreVertical,
   Palette,
+  PanelLeftOpen,
   Pencil,
   Plus,
   QrCode,
@@ -272,6 +275,9 @@ interface MaterializeRenderSectionProps {
   // Canvas mode props (infinite canvas like Figma)
   initialCanvasState?: CanvasStateData;
   onCanvasStateChange?: (state: CanvasStateData) => void;
+  // Chat panel collapse state
+  isChatCollapsed?: boolean;
+  onExpandChat?: () => void;
 }
 
 export interface MaterializeRenderSectionRef {
@@ -326,6 +332,8 @@ const MaterializeRenderSection = forwardRef<
       onPreviewModeChange,
       initialCanvasState,
       onCanvasStateChange,
+      isChatCollapsed = false,
+      onExpandChat,
     },
     ref,
   ) => {
@@ -581,11 +589,34 @@ const MaterializeRenderSection = forwardRef<
     const webIframeRefs = useRef<Map<number, HTMLIFrameElement>>(new Map());
 
     // Web frame sizing
-    const DEFAULT_WEB_FRAME_HEIGHT = 500;
-    const [webFrameHeight, setWebFrameHeight] = useState(
-      DEFAULT_WEB_FRAME_HEIGHT,
-    );
+    const [webFrameHeight, setWebFrameHeight] = useState(500);
     const [, setIsResizingWebFrame] = useState(false);
+    const [hasManuallyResizedWebFrame, setHasManuallyResizedWebFrame] = useState(false);
+
+    // Calculate responsive web frame height based on viewport
+    useEffect(() => {
+      const calculateWebFrameHeight = () => {
+        if (hasManuallyResizedWebFrame) return;
+
+        const vh = window.innerHeight;
+        // Account for toolbar, padding, and other UI elements
+        const uiOverhead = 140;
+        const availableHeight = Math.max(0, vh - uiOverhead);
+
+        // Use 90% of available height
+        let newHeight = availableHeight * 0.9;
+
+        // Clamp to reasonable bounds
+        newHeight = Math.max(400, newHeight); // Minimum reasonable height
+        newHeight = Math.min(1200, newHeight); // Maximum reasonable height
+
+        setWebFrameHeight(newHeight);
+      };
+
+      calculateWebFrameHeight();
+      window.addEventListener("resize", calculateWebFrameHeight);
+      return () => window.removeEventListener("resize", calculateWebFrameHeight);
+    }, [hasManuallyResizedWebFrame]);
 
     // Responsive viewport detection for web grid
     const [isNarrowViewport, setIsNarrowViewport] = useState(false);
@@ -966,13 +997,16 @@ const MaterializeRenderSection = forwardRef<
         e.preventDefault();
         e.stopPropagation();
         setIsResizingWebFrame(true);
+        setHasManuallyResizedWebFrame(true);
 
         const startY = e.clientY;
         const startHeight = webFrameHeight;
+        // Allow resizing up to 90% of viewport height
+        const maxHeight = window.innerHeight * 0.9;
 
         const handleMouseMove = (moveEvent: MouseEvent) => {
           const deltaY = moveEvent.clientY - startY;
-          const newHeight = Math.max(300, Math.min(900, startHeight + deltaY));
+          const newHeight = Math.max(300, Math.min(maxHeight, startHeight + deltaY));
           setWebFrameHeight(newHeight);
         };
 
@@ -2291,7 +2325,17 @@ const MaterializeRenderSection = forwardRef<
                     <div className="bg-accent border-b border-border px-4 py-2.5 flex items-center gap-4">
                       {/* Traffic Lights */}
                       <div className="flex space-x-1.5">
-                        <div className="w-2.5 h-2.5 rounded-full bg-red-500/20 border border-red-500/50"></div>
+                        {showScreenControls && webScreens.length > 1 ? (
+                          <button
+                            className="w-2.5 h-2.5 rounded-full bg-red-500/20 border border-red-500/50 hover:bg-red-500 hover:border-red-500 transition-colors flex items-center justify-center group"
+                            onClick={() => handleRemoveWebScreen(screen.id)}
+                            aria-label="Close screen"
+                          >
+                            <X className="w-1.5 h-1.5 text-transparent group-hover:text-white" strokeWidth={3} />
+                          </button>
+                        ) : (
+                          <div className="w-2.5 h-2.5 rounded-full bg-red-500/20 border border-red-500/50"></div>
+                        )}
                         <div className="w-2.5 h-2.5 rounded-full bg-amber-500/20 border border-amber-500/50"></div>
                         <div className="w-2.5 h-2.5 rounded-full bg-emerald-500/20 border border-emerald-500/50"></div>
                       </div>
@@ -2449,6 +2493,27 @@ const MaterializeRenderSection = forwardRef<
           <div className="flex flex-wrap items-center justify-between gap-3">
             {/* Left: View Toggles */}
             <div className="flex items-center gap-3 flex-wrap">
+              {/* Expand Chat Button - shown when chat is collapsed */}
+              {isChatCollapsed && onExpandChat && (
+                <TooltipProvider delayDuration={200}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={onExpandChat}
+                        className="h-8 w-8 rounded-lg bg-primary/10 text-primary hover:bg-primary/20 border border-primary/20"
+                      >
+                        <MessageSquare className="w-4 h-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Open Chat</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
+
               {!isReadOnlyView && (
                 <>
                   <div className="bg-accent p-1 rounded-lg border border-border flex items-center gap-1">

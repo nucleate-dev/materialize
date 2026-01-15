@@ -162,6 +162,7 @@ export default function InternalPrototypePage() {
   // Resizable divider state
   const [leftPanelWidth, setLeftPanelWidth] = useState(32); // percentage
   const [isDragging, setIsDragging] = useState(false);
+  const [isChatCollapsed, setIsChatCollapsed] = useState(false);
 
   // Ref to MaterializeRenderSection for triggering refreshes
   const materializeRenderRef = useRef<MaterializeRenderSectionRef>(null);
@@ -299,6 +300,16 @@ export default function InternalPrototypePage() {
   useEffect(() => {
     setSidebarOpen(false);
   }, [setSidebarOpen]);
+
+  // Update document title when prototype name is available
+  useEffect(() => {
+    if (prototype?.name) {
+      document.title = `${prototype.name} | Nucleate`;
+    }
+    return () => {
+      document.title = "Nucleate";
+    };
+  }, [prototype?.name]);
 
   // Load design systems when dialog opens
   useEffect(() => {
@@ -1152,55 +1163,58 @@ export default function InternalPrototypePage() {
         onTouchEnd={isMobile ? onTouchEnd : undefined}
       >
         {/* Left Panel - Claude Code */}
-        <div
-          className={`${
-            isMobile
-              ? `${activePanel === "chat" ? "flex" : "hidden"} w-full h-full`
-              : "flex"
-          } flex-col relative z-10 bg-[#0B0C0E] overflow-hidden`}
-          style={
-            isMobile
-              ? { height: "100%" }
-              : { width: `${leftPanelWidth}%`, minWidth: "320px" }
-          }
-        >
-          {/* Content Area */}
-          <div className="flex-1 min-h-0">
-            <ClaudeCodePanel
-              ref={claudeCodePanelRef}
-              prototypeId={prototypeId}
-              baseTunnelUrl={baseTunnelUrl}
-              prototype={prototype}
-              canEditPrototype={canEditPrototype}
-              onPrototypeUpdate={setPrototype}
-              currentRenderStatus={currentRenderStatus}
-              currentViewingPath={currentViewingPath}
-              visibleScreens={previewMode === "mobile" ? mobileScreensState : webScreensState}
-              previewMode={previewMode}
-              onScreenUpdate={handleScreenUpdate}
-              fileSystem={fileSystem}
-              externalWS={claudeCodeWS}
-              externalWSConnected={claudeCodeWSConnected}
-              externalWSConnecting={claudeCodeWSConnecting}
-              onConnect={connectClaudeCodeWS}
-              onDisconnect={disconnectClaudeCodeWS}
-              onRegisterMessageHandler={(
-                id: string,
-                handler: (msg: ChatServerMessage) => void,
-              ) => {
-                claudeCodeWSMessageHandlers.current.set(id, handler);
-              }}
-              onUnregisterMessageHandler={(id: string) => {
-                claudeCodeWSMessageHandlers.current.delete(id);
-              }}
-              onRestartDevServerComplete={handleChatRestartDevServerComplete}
-              onStartDevServer={handleTriggerFetchAndStartDevServer}
-            />
+        {!isChatCollapsed && (
+          <div
+            className={`${
+              isMobile
+                ? `${activePanel === "chat" ? "flex" : "hidden"} w-full h-full`
+                : "flex"
+            } flex-col relative z-10 bg-[#0B0C0E] overflow-hidden`}
+            style={
+              isMobile
+                ? { height: "100%" }
+                : { width: `${leftPanelWidth}%`, minWidth: "320px" }
+            }
+          >
+            {/* Content Area */}
+            <div className="flex-1 min-h-0">
+              <ClaudeCodePanel
+                ref={claudeCodePanelRef}
+                prototypeId={prototypeId}
+                baseTunnelUrl={baseTunnelUrl}
+                prototype={prototype}
+                canEditPrototype={canEditPrototype}
+                onPrototypeUpdate={setPrototype}
+                currentRenderStatus={currentRenderStatus}
+                currentViewingPath={currentViewingPath}
+                visibleScreens={previewMode === "mobile" ? mobileScreensState : webScreensState}
+                previewMode={previewMode}
+                onScreenUpdate={handleScreenUpdate}
+                fileSystem={fileSystem}
+                externalWS={claudeCodeWS}
+                externalWSConnected={claudeCodeWSConnected}
+                externalWSConnecting={claudeCodeWSConnecting}
+                onConnect={connectClaudeCodeWS}
+                onDisconnect={disconnectClaudeCodeWS}
+                onRegisterMessageHandler={(
+                  id: string,
+                  handler: (msg: ChatServerMessage) => void,
+                ) => {
+                  claudeCodeWSMessageHandlers.current.set(id, handler);
+                }}
+                onUnregisterMessageHandler={(id: string) => {
+                  claudeCodeWSMessageHandlers.current.delete(id);
+                }}
+                onRestartDevServerComplete={handleChatRestartDevServerComplete}
+                onStartDevServer={handleTriggerFetchAndStartDevServer}
+                onCollapse={() => setIsChatCollapsed(true)}
+              />
+            </div>
           </div>
-        </div>
+        )}
 
-        {/* Draggable Divider - Only show on desktop */}
-        {!isMobile && (
+        {/* Draggable Divider - Only show on desktop when chat is not collapsed */}
+        {!isMobile && !isChatCollapsed && (
           <div
             className="relative w-[1px] cursor-col-resize hover:bg-primary/50 transition-colors group flex-shrink-0 bg-border"
             onMouseDown={handleDividerMouseDown}
@@ -1221,7 +1235,7 @@ export default function InternalPrototypePage() {
           style={
             isMobile
               ? {}
-              : { width: `${100 - leftPanelWidth}%`, minWidth: "320px" }
+              : { width: isChatCollapsed ? "100%" : `${100 - leftPanelWidth}%`, minWidth: "320px" }
           }
         >
           <div className="flex-1 min-h-0 h-full">
@@ -1273,6 +1287,8 @@ export default function InternalPrototypePage() {
               }
               framework={prototype?.framework ?? undefined}
               onStartDevServer={handleTriggerFetchAndStartDevServer}
+              isChatCollapsed={isChatCollapsed}
+              onExpandChat={() => setIsChatCollapsed(false)}
               codeView={
                 <div className={`flex h-full ${isMobile ? "flex-col" : ""}`}>
                   {isMobile ? (

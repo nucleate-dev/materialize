@@ -1,6 +1,8 @@
 "use client";
 
 import { supabase } from "@/ClientConstants";
+import { useActiveTeam } from "@/contexts/TeamContext";
+import { useMetaPixel } from "@/hooks/useMetaPixel";
 import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import type {
@@ -9,17 +11,16 @@ import type {
   CreatePrototypeRequestBody,
   CreatePrototypeSuccessResponse,
 } from "@/lib/types/serverAPITypes";
-import { handleRedirectToPaymentsPage } from "@/lib/utils/payments/CheckoutUtils";
-import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
-import { useMetaPixel } from "@/hooks/useMetaPixel";
-import { usePostHog } from "posthog-js/react";
-import RegistrationAccountCreatedEmailVerificationPending from "../../../(auth)/register/RegistrationAccountCreatedEmailVerificationPending";
-import { useActiveTeam } from "@/contexts/TeamContext";
 import {
   clearAcceptInviteIntent,
   getAcceptInviteIntent,
 } from "@/lib/utils/acceptInviteIntentUtils";
+import { handleRedirectToPaymentsPage } from "@/lib/utils/payments/CheckoutUtils";
+import { Loader2 } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { usePostHog } from "posthog-js/react";
+import { useEffect, useRef, useState } from "react";
+import RegistrationAccountCreatedEmailVerificationPending from "../../../(auth)/register/RegistrationAccountCreatedEmailVerificationPending";
 
 export default function AuthCallback() {
   const [showEmailVerificationRequired, setShowEmailVerificationRequired] =
@@ -38,8 +39,8 @@ export default function AuthCallback() {
 
       // Read intents from localStorage inside useEffect to ensure they're available
       let productId: string | null = null;
-      let chatIntent: { message: string; prototype_id?: string } | null = null;
-      let acceptInviteIntent: { invite_id: string } | null = null;
+      let chatIntent: { message: string; prototype_id?: string; } | null = null;
+      let acceptInviteIntent: { invite_id: string; } | null = null;
 
       if (typeof window !== "undefined") {
         productId = localStorage?.getItem("checkout_intent");
@@ -242,8 +243,29 @@ export default function AuthCallback() {
   }
 
   return (
-    <div className="justify-self-center self-center justify-center">
-      Redirecting...
+    <div className="flex min-h-screen w-full flex-col items-center justify-center bg-background p-4">
+      <div className="w-full max-w-sm rounded-2xl border border-border bg-card p-8 shadow-xl animate-in fade-in zoom-in-95 duration-500">
+        <div className="flex flex-col items-center space-y-6 text-center">
+          <div className="relative flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/5 ring-1 ring-primary/10">
+            <Loader2 className="h-8 w-8 text-primary animate-spin" />
+          </div>
+
+          <div className="space-y-2">
+            <h1 className="text-xl font-semibold tracking-tight text-foreground">
+              Authenticating
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              Verifying your secure session...
+            </p>
+          </div>
+
+          <div className="flex gap-1">
+            <div className="h-1 w-1 rounded-full bg-primary/30 animate-bounce [animation-delay:-0.3s]" />
+            <div className="h-1 w-1 rounded-full bg-primary/30 animate-bounce [animation-delay:-0.15s]" />
+            <div className="h-1 w-1 rounded-full bg-primary/30 animate-bounce" />
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

@@ -1,6 +1,5 @@
 "use client";
 
-import ErrorModal from "@/components/ErrorModal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -36,7 +35,6 @@ export default function LoginForm() {
   });
   const [showVerifyEmailState, setShowVerifyEmailState] =
     useState<boolean>(false);
-  const [showErrorModal, setShowErrorModal] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string>("");
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [lastLoginMethod, setLastLoginMethod] = useState<string | null>(null);
@@ -64,11 +62,15 @@ export default function LoginForm() {
       ...formData,
       [name]: value,
     });
+    if (errorMessage) {
+      setErrorMessage("");
+    }
   };
 
   const handleSubmit = useCallback(
     async (e: FormEvent<HTMLFormElement>) => {
       e.preventDefault();
+      setErrorMessage("");
       setIsLoading(true);
 
       const loginResponse = await login({
@@ -79,7 +81,6 @@ export default function LoginForm() {
       setIsLoading(false);
 
       if (loginResponse.error) {
-        setShowErrorModal(true);
         setErrorMessage(loginResponse.error.message);
         return;
       }
@@ -95,7 +96,6 @@ export default function LoginForm() {
       }
     },
     [
-      setShowErrorModal,
       setErrorMessage,
       router,
       setShowVerifyEmailState,
@@ -148,14 +148,6 @@ export default function LoginForm() {
 
   return (
     <div className="relative w-full max-w-md mx-auto animate-in fade-in slide-in-from-bottom-4 duration-700">
-      <ErrorModal
-        show={showErrorModal}
-        onClose={() => {
-          setShowErrorModal(false);
-        }}
-        errorMessage={errorMessage}
-      />
-
       {/* Premium Card Container */}
       <div className="bg-card border border-border rounded-2xl shadow-2xl overflow-hidden">
         {/* Header */}
@@ -164,15 +156,21 @@ export default function LoginForm() {
             <Lock className="w-5 h-5 text-foreground" />
           </div>
           <h2 className="text-2xl font-medium tracking-tight text-foreground">
-            Welcome back
+            Login
           </h2>
-          <p className="text-muted-foreground text-sm">
-            Enter your credentials to access your account
-          </p>
         </div>
 
         {/* Content */}
         <div className="p-8 space-y-6">
+          {errorMessage && (
+            <div
+              className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-600 dark:text-red-200 shadow-sm animate-in fade-in slide-in-from-top-2 duration-300"
+              role="alert"
+              aria-live="polite"
+            >
+              {errorMessage}
+            </div>
+          )}
           <form onSubmit={handleSubmit} className="space-y-5">
             {/* Email Field */}
             <div className="space-y-1.5">

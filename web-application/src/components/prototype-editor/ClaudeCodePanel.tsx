@@ -72,6 +72,7 @@ interface ClaudeCodePanelProps {
   onUnregisterMessageHandler: (id: string) => void;
   onRestartDevServerComplete?: () => void;
   onStartDevServer?: () => void;
+  onCollapse?: () => void;
 }
 
 export interface Message {
@@ -137,6 +138,7 @@ const ClaudeCodePanel = forwardRef<ClaudeCodePanelRef, ClaudeCodePanelProps>(({
   onUnregisterMessageHandler,
   onRestartDevServerComplete,
   onStartDevServer,
+  onCollapse,
 }, ref) => {
   const logger = useProductLogger();
 
@@ -2360,6 +2362,7 @@ const ClaudeCodePanel = forwardRef<ClaudeCodePanelRef, ClaudeCodePanelProps>(({
       authMode={authMode}
       onAuthModeChange={handleAuthModeChange}
       hasClaudeSubAvailable={isUsingOAuthToken}
+      onCollapse={onCollapse}
     />
   );
 });

@@ -35,6 +35,7 @@ import {
   Info,
   Loader2,
   MessageSquare,
+  PanelLeftClose,
   Paperclip,
   Plus,
   Send,
@@ -129,6 +130,7 @@ interface ClaudeCodePanelUIProps {
   authMode: AuthMode;
   onAuthModeChange: (mode: AuthMode) => void;
   hasClaudeSubAvailable: boolean;
+  onCollapse?: () => void;
 }
 
 function CopyMessageButton({ content }: { content: string; }) {
@@ -212,6 +214,7 @@ export default function ClaudeCodePanelUI({
   authMode,
   onAuthModeChange,
   hasClaudeSubAvailable,
+  onCollapse,
 }: ClaudeCodePanelUIProps) {
   const isClaudeOAuthEnabled =
     useFeatureFlagEnabled("claude-code-cli-with-personal-token") ?? false;
@@ -287,104 +290,97 @@ export default function ClaudeCodePanelUI({
             </span>
           </div>
 
-          {/* View Toggle - Chat / Context */}
-          {fileSystem && isProjectContextEnabled && (
-            <div className="bg-accent p-0.5 rounded-lg border border-border flex items-center gap-0.5">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => onActiveViewChange("chat")}
-                className={cn(
-                  "h-6 px-2 text-xs rounded-md",
-                  activeView === "chat"
-                    ? "bg-card text-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground hover:bg-transparent",
-                )}
-              >
-                <MessageSquare className="w-3 h-3 mr-1" />
-                Chat
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => onActiveViewChange("context")}
-                className={cn(
-                  "h-6 px-2 text-xs rounded-md",
-                  activeView === "context"
-                    ? "bg-card text-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground hover:bg-transparent",
-                )}
-              >
-                <FileText className="w-3 h-3 mr-1" />
-                Context
-              </Button>
-            </div>
-          )}
 
           {/* Session Selector */}
-          {allChatSessions.length > 0 && (
-            <div className="hidden sm:block">
-              <Select
-                value={
-                  prototypeChatSessionId
-                    ? String(prototypeChatSessionId)
-                    : undefined
+          <div className="hidden sm:block">
+            <Select
+              value={
+                prototypeChatSessionId
+                  ? String(prototypeChatSessionId)
+                  : undefined
+              }
+              onValueChange={(value) => {
+                if (value === "new") {
+                  createNewChatSession();
+                } else {
+                  switchChatSession(value);
                 }
-                onValueChange={(value) => switchChatSession(value)}
-              >
-                <SelectTrigger className="w-[140px] h-7 text-xs bg-background border-border text-foreground focus:ring-0 focus:ring-offset-0">
-                  <SelectValue placeholder="Session" />
-                </SelectTrigger>
-                <SelectContent className="bg-background border-border">
-                  {allChatSessions.map((session) => {
-                    const date = new Date(session.created_at ?? new Date());
-                    const isToday =
-                      date.toDateString() === new Date().toDateString();
-                    const dateStr = isToday
-                      ? "Today"
-                      : date.toLocaleDateString(undefined, {
-                        month: "short",
-                        day: "numeric",
-                      });
-                    const timeStr = date.toLocaleTimeString(undefined, {
-                      hour: "numeric",
-                      minute: "2-digit",
-                    });
-                    return (
-                      <SelectItem
-                        key={session.id}
-                        value={String(session.id)}
-                        className="text-xs cursor-pointer"
-                      >
-                        {dateStr}, {timeStr}
-                      </SelectItem>
-                    );
-                  })}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-
-          {/* New Chat Button */}
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  onClick={createNewChatSession}
+              }}
+            >
+              <SelectTrigger className="w-[140px] h-7 text-xs bg-background border-border text-foreground focus:ring-0 focus:ring-offset-0">
+                <SelectValue placeholder="Session" />
+              </SelectTrigger>
+              <SelectContent className="bg-background border-border">
+                <SelectItem
+                  value="new"
                   disabled={!isConnected}
-                  className="h-7 w-7 text-muted-foreground hover:text-primary"
+                  className="text-xs cursor-pointer"
                 >
-                  <Plus className="w-4 h-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>New Chat</TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
+                  <span className="flex items-center gap-1.5">
+                    <Plus className="w-3 h-3" />
+                    New Chat
+                  </span>
+                </SelectItem>
+                {allChatSessions.length > 0 && (
+                  <div className="my-1 h-px bg-border" />
+                )}
+                {allChatSessions.map((session) => {
+                  const date = new Date(session.created_at ?? new Date());
+                  const isToday =
+                    date.toDateString() === new Date().toDateString();
+                  const dateStr = isToday
+                    ? "Today"
+                    : date.toLocaleDateString(undefined, {
+                      month: "short",
+                      day: "numeric",
+                    });
+                  const timeStr = date.toLocaleTimeString(undefined, {
+                    hour: "numeric",
+                    minute: "2-digit",
+                  });
+                  return (
+                    <SelectItem
+                      key={session.id}
+                      value={String(session.id)}
+                      className="text-xs cursor-pointer"
+                    >
+                      {dateStr}, {timeStr}
+                    </SelectItem>
+                  );
+                })}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
         <div className="flex items-center gap-1">
+          {/* View Toggle - Chat / Context */}
+          {fileSystem && isProjectContextEnabled && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    onClick={() =>
+                      onActiveViewChange(activeView === "chat" ? "context" : "chat")
+                    }
+                    className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                  >
+                    {activeView === "chat" ? (
+                      <FileText className="w-3.5 h-3.5" />
+                    ) : (
+                      <MessageSquare className="w-3.5 h-3.5" />
+                    )}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">
+                  {activeView === "chat" ? "View Context" : "View Chat"}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+
           {/* Undo Button */}
           <TooltipProvider>
             <Tooltip>
@@ -417,6 +413,25 @@ export default function ClaudeCodePanelUI({
                     {creditsUsed} / {totalAvailableCredits} credits used
                   </span>
                 </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+
+          {/* Collapse Button */}
+          {onCollapse && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    onClick={onCollapse}
+                    className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                  >
+                    <PanelLeftClose className="w-3.5 h-3.5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">Collapse Chat</TooltipContent>
               </Tooltip>
             </TooltipProvider>
           )}
@@ -942,7 +957,7 @@ export default function ClaudeCodePanelUI({
                       onValueChange={(value) => onAuthModeChange(value as AuthMode)}
                       disabled={isProcessing || !isCurrentSessionMostRecent}
                     >
-                      <SelectTrigger className="h-8 text-xs bg-accent/50 border-border/50 focus:ring-0 px-2 gap-1">
+                      <SelectTrigger className="h-8 text-xs bg-accent/50 border-border/50 text-foreground focus:ring-0 px-2 gap-1">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent className="bg-background border-border">
@@ -952,7 +967,7 @@ export default function ClaudeCodePanelUI({
                         <SelectItem
                           value="claude_sub"
                           disabled={!hasClaudeSubAvailable}
-                          className="text-xs"
+                          className="text-xs data-[disabled]:opacity-100 data-[disabled]:text-muted-foreground"
                         >
                           Your Claude Sub
                         </SelectItem>

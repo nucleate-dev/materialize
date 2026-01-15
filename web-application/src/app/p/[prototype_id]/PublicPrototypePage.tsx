@@ -355,6 +355,16 @@ export default function PrototypePage() {
     return false;
   }, [canEditPublicConfig, currentScreens, currentWebScreens, savedConfig, screensChanged]);
 
+  // Update document title when prototype name is available
+  useEffect(() => {
+    if (prototype?.name) {
+      document.title = `${prototype.name} | Nucleate`;
+    }
+    return () => {
+      document.title = "Nucleate";
+    };
+  }, [prototype?.name]);
+
   // Fetch current user
   useEffect(() => {
     async function fetchUserInfo() {

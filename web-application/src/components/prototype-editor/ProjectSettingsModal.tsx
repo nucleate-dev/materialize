@@ -979,7 +979,7 @@ export function ProjectSettingsModal({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-hidden flex flex-col bg-background border border-border text-foreground p-6">
+      <DialogContent className="sm:max-w-3xl w-full h-[85vh] sm:h-[600px] overflow-hidden flex flex-col bg-background border border-border text-foreground p-6">
         {/* Tabs - Vertical Layout */}
         <Tabs
           value={activeTab}
