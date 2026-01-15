@@ -1696,49 +1696,6 @@ function PricingSection() {
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          transition={{ duration: 0.3 }}
-          className="mb-12 relative overflow-hidden rounded-2xl bg-gradient-to-r from-amber-500/20 via-yellow-500/20 to-amber-500/20 border border-yellow-500/30 p-6"
-        >
-          {/* Shimmer effect */}
-          <motion.div
-            animate={{ x: ["-100%", "200%"] }}
-            transition={{ duration: 3, repeat: Infinity, repeatDelay: 2 }}
-            className="absolute inset-0 bg-gradient-to-r from-transparent via-yellow-500/10 to-transparent skew-x-12"
-          />
-          <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxIiBmaWxsPSJyZ2JhKDI1NSwyMTUsMCwwLjEpIi8+PC9zdmc+')] opacity-50"></div>
-          <div className="relative flex flex-col md:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-4">
-              <motion.div
-                animate={{ rotate: [0, 10, -10, 0] }}
-                transition={{ duration: 2, repeat: Infinity }}
-                className="text-4xl"
-              >🎉</motion.div>
-              <div>
-                <h3 className="text-xl font-bold text-white">New Year Sale!</h3>
-                <p className="text-yellow-200/80 text-sm">Get 50% off your first month of Plus</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3">
-              <div className="bg-background/30 backdrop-blur-sm rounded-lg px-4 py-2 border border-yellow-500/20">
-                <span className="text-xs text-yellow-200/60 uppercase tracking-wide">Use code</span>
-                <p className="text-lg font-mono font-bold text-yellow-400">NEWYEAR</p>
-              </div>
-              <div className="text-center">
-                <p className="text-xs text-yellow-200/60">Plus Plan</p>
-                <div className="flex items-center gap-2">
-                  <span className="text-lg text-white/40 line-through">$25</span>
-                  <span className="text-2xl font-bold text-white">$12.50</span>
-                </div>
-                <p className="text-xs text-yellow-200/60">first month</p>
-              </div>
-            </div>
-          </div>
-        </motion.div>
-
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
           transition={{ duration: 0.3, delay: 0.1 }}
           className="text-center mb-12"
         >
