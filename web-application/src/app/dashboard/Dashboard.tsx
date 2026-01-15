@@ -295,8 +295,8 @@ export default function DashboardPage() {
             </span>
           </div> */}
 
-          <h1 className="text-4xl md:text-6xl font-serif font-medium tracking-tight text-transparent bg-clip-text bg-gradient-to-b from-foreground via-foreground to-foreground/60">
-            Design Anything
+          <h1 className="text-4xl md:text-6xl font-serif font-medium tracking-tight text-transparent bg-clip-text bg-gradient-to-b from-foreground via-foreground to-foreground/60 pb-1">
+            Make your ideas real
           </h1>
           <p className="text-lg text-muted-foreground max-w-xl mx-auto font-light">
             Describe your app, screen, or flow.{" "}

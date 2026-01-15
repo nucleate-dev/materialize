@@ -77,8 +77,8 @@ export default function Home() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen bg-[#0B0C0E] flex items-center justify-center">
-          <div className="text-white/50">Loading...</div>
+        <div className="min-h-screen bg-background flex items-center justify-center">
+          <div className="text-muted-foreground">Loading...</div>
         </div>
       }
     >
@@ -97,15 +97,15 @@ function HomeContent() {
   }, [searchParams]);
 
   return (
-    <main className="relative min-h-screen bg-[#0B0C0E] text-white selection:bg-indigo-500/30 overflow-hidden font-sans">
-      <GridBackground forceDarkMode />
+    <main className="relative min-h-screen bg-background text-foreground selection:bg-primary/30 overflow-hidden font-sans">
+      <GridBackground />
 
       <div className="relative z-10">
-        <PremiumHeader forceDarkMode />
+        <PremiumHeader />
 
         <HeroSection />
 
-        <div className="border-y border-white/5 bg-black/50 backdrop-blur-sm py-4">
+        <div className="border-y border-border bg-card/50 backdrop-blur-sm py-4">
           <div className="container mx-auto px-6 flex flex-wrap justify-center items-center gap-8 md:gap-16 opacity-40 grayscale">
             <div className="flex items-center gap-2"><Github className="w-5 h-5" /> <span className="text-sm font-medium">GitHub Integration</span></div>
             <div className="flex items-center gap-2"><Code2 className="w-5 h-5" /> <span className="text-sm font-medium">React & Next.js</span></div>
@@ -130,9 +130,7 @@ function HomeContent() {
 
         <FAQSection />
 
-        <div className="dark">
-          <Footer />
-        </div>
+        <Footer />
       </div>
     </main>
   );
@@ -198,17 +196,17 @@ function HeroSection() {
       <motion.div
         animate={{ y: [0, -30, 0], opacity: [0.3, 0.5, 0.3] }}
         transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
-        className="absolute top-1/4 left-1/4 w-[400px] h-[400px] bg-indigo-600/20 rounded-full blur-[120px] pointer-events-none"
+        className="absolute top-1/4 left-1/4 w-[400px] h-[400px] bg-primary/20 rounded-full blur-[120px] pointer-events-none"
       />
       <motion.div
         animate={{ y: [0, 20, 0], opacity: [0.2, 0.4, 0.2] }}
         transition={{ duration: 10, repeat: Infinity, ease: "easeInOut", delay: 1 }}
-        className="absolute bottom-1/4 right-1/4 w-[350px] h-[350px] bg-purple-600/20 rounded-full blur-[100px] pointer-events-none"
+        className="absolute bottom-1/4 right-1/4 w-[350px] h-[350px] bg-primary/15 rounded-full blur-[100px] pointer-events-none"
       />
       <motion.div
         animate={{ y: [0, -15, 0], x: [0, 10, 0] }}
         transition={{ duration: 12, repeat: Infinity, ease: "easeInOut", delay: 2 }}
-        className="absolute top-1/2 right-1/3 w-[200px] h-[200px] bg-blue-500/15 rounded-full blur-[80px] pointer-events-none"
+        className="absolute top-1/2 right-1/3 w-[200px] h-[200px] bg-primary/10 rounded-full blur-[80px] pointer-events-none"
       />
 
       <div className="container mx-auto max-w-5xl w-full text-center relative z-10">
@@ -217,7 +215,7 @@ function HeroSection() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3 }}
         >
-          <Badge variant="outline" className="mb-6 border-indigo-500/30 bg-indigo-500/10 text-indigo-300 px-4 py-1">
+          <Badge variant="outline" className="mb-6 border-primary/30 bg-primary/10 text-primary px-4 py-1">
             UI Prototyping for Real Codebases
           </Badge>
         </motion.div>
@@ -226,7 +224,7 @@ function HeroSection() {
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.35, delay: 0.1 }}
-          className="text-5xl md:text-7xl lg:text-8xl font-medium tracking-tight text-white mb-6"
+          className="text-5xl md:text-7xl lg:text-8xl font-medium tracking-tight text-foreground mb-6"
         >
           AI for UI/UX prototyping
         </motion.h1>
@@ -235,7 +233,7 @@ function HeroSection() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3, delay: 0.2 }}
-          className="text-lg md:text-xl text-[#8A8F98] max-w-2xl mx-auto mb-12 leading-relaxed"
+          className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-12 leading-relaxed"
         >
           Connect GitHub. Nucleate reads your components, tokens, and screens automatically. Generate flows + variants in minutes, then ship via PR.
         </motion.p>
@@ -246,26 +244,26 @@ function HeroSection() {
           transition={{ duration: 0.35, delay: 0.1 }}
           className="max-w-3xl mx-auto relative group"
         >
-          <div className="absolute -inset-0.5 bg-gradient-to-r from-indigo-500/30 to-blue-500/30 rounded-2xl blur opacity-20 group-hover:opacity-40 transition duration-500"></div>
-          <div className="relative bg-[#141517] border border-white/10 rounded-xl overflow-hidden shadow-2xl flex flex-col focus-within:border-white/20">
+          <div className="absolute -inset-0.5 bg-gradient-to-r from-primary/30 to-primary/20 rounded-2xl blur opacity-20 group-hover:opacity-40 transition duration-500"></div>
+          <div className="relative bg-card border border-border rounded-xl overflow-hidden shadow-2xl flex flex-col focus-within:border-primary/30">
             <div className="px-4 pt-4 flex gap-3">
               <motion.div
                 animate={{ rotate: [0, 10, -10, 0] }}
                 transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
               >
-                <Sparkles className="w-5 h-5 text-white/30 mt-1" />
+                <Sparkles className="w-5 h-5 text-muted-foreground mt-1" />
               </motion.div>
               <Textarea
                 placeholder="Describe a screen or flow you want to prototype..."
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
                 disabled={isLoading}
-                className="flex-1 bg-transparent text-lg text-white placeholder:text-white/30 border-none p-0 focus-visible:ring-0 resize-none min-h-[80px]"
+                className="flex-1 bg-transparent text-lg text-foreground placeholder:text-muted-foreground border-none p-0 focus-visible:ring-0 resize-none min-h-[80px]"
               />
             </div>
-            <div className="px-4 pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-t border-white/5 mt-2 pt-2 bg-white/[0.02]">
+            <div className="px-4 pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-t border-border mt-2 pt-2 bg-accent/50">
               <div className="flex gap-4 items-center">
-                <span className="text-[10px] text-white/30 uppercase tracking-widest font-bold">Try:</span>
+                <span className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold">Try:</span>
                 {suggestionChips.map((chip, index) => (
                   <motion.button
                     key={chip.label}
@@ -274,7 +272,7 @@ function HeroSection() {
                     transition={{ duration: 0.2, delay: 0.1 + index * 0.05 }}
                     whileHover={{ scale: 1.05 }}
                     onClick={() => setPrompt(chip.prompt)}
-                    className="text-xs text-white/50 hover:text-white transition-colors"
+                    className="text-xs text-muted-foreground hover:text-foreground transition-colors"
                   >
                     {chip.label}
                   </motion.button>
@@ -283,14 +281,14 @@ function HeroSection() {
               <div className="flex items-center gap-2">
                 {isWebPrototypeEnabled && (
                   <Select value={framework} onValueChange={(v) => setFramework(v as PrototypeFramework)}>
-                    <SelectTrigger className="h-9 w-32 border-white/10 bg-white/5 text-xs"><SelectValue /></SelectTrigger>
-                    <SelectContent className="bg-[#141517] border-white/10">
+                    <SelectTrigger className="h-9 w-32 border-border bg-accent text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent className="bg-card border-border">
                       {PLATFORM_OPTIONS.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 )}
                 <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-                  <Button onClick={handleSend} disabled={!prompt.trim() || isLoading} size="sm" className="bg-indigo-600 text-white hover:bg-indigo-500 px-6">
+                  <Button onClick={handleSend} disabled={!prompt.trim() || isLoading} size="sm" className="bg-primary text-primary-foreground hover:bg-primary/90 px-6">
                     {isLoading ? "Loading..." : "Generate"}
                   </Button>
                 </motion.div>
@@ -310,10 +308,10 @@ function HeroSection() {
 function CodebaseIntegrationSection() {
   const cards = [
     {
-      icon: <Github className="w-6 h-6 text-indigo-400" />,
-      iconBg: "bg-indigo-500/10 border-indigo-500/20",
-      hoverBorder: "hover:border-indigo-500/40",
-      glowColor: "group-hover:bg-indigo-500/5",
+      icon: <Github className="w-6 h-6 text-primary" />,
+      iconBg: "bg-primary/10 border-primary/20",
+      hoverBorder: "hover:border-primary/40",
+      glowColor: "group-hover:bg-primary/5",
       title: "Automatic Repo Sync",
       description: "Connect GitHub and we instantly index your components, tokens, and navigation patterns. No manual mapping required.",
       illustration: (
@@ -322,23 +320,23 @@ function CodebaseIntegrationSection() {
             <motion.div
               animate={{ x: [0, 20, 20], opacity: [1, 1, 0] }}
               transition={{ duration: 2, repeat: Infinity, repeatDelay: 1 }}
-              className="w-6 h-6 bg-white/10 rounded flex items-center justify-center"
+              className="w-6 h-6 bg-accent rounded flex items-center justify-center"
             >
-              <FileCode className="w-3 h-3 text-white/50" />
+              <FileCode className="w-3 h-3 text-muted-foreground" />
             </motion.div>
             <motion.div
               animate={{ x: [0, 20, 20], opacity: [1, 1, 0] }}
               transition={{ duration: 2, repeat: Infinity, repeatDelay: 1, delay: 0.2 }}
-              className="w-6 h-6 bg-white/10 rounded flex items-center justify-center"
+              className="w-6 h-6 bg-accent rounded flex items-center justify-center"
             >
-              <FileCode className="w-3 h-3 text-white/50" />
+              <FileCode className="w-3 h-3 text-muted-foreground" />
             </motion.div>
             <motion.div
               animate={{ scale: [1, 1.1, 1] }}
               transition={{ duration: 2, repeat: Infinity }}
-              className="w-10 h-10 bg-indigo-500/20 rounded-lg flex items-center justify-center border border-indigo-500/30"
+              className="w-10 h-10 bg-primary/20 rounded-lg flex items-center justify-center border border-primary/30"
             >
-              <Layers className="w-5 h-5 text-indigo-400" />
+              <Layers className="w-5 h-5 text-primary" />
             </motion.div>
           </div>
         </div>
@@ -381,12 +379,12 @@ function CodebaseIntegrationSection() {
             whileHover={{ scale: 1.05 }}
             className="flex flex-col items-center gap-1"
           >
-            <div className="w-8 h-8 bg-white/5 rounded flex items-center justify-center border border-white/10">
-              <Code2 className="w-4 h-4 text-white/50" />
+            <div className="w-8 h-8 bg-accent rounded flex items-center justify-center border border-border">
+              <Code2 className="w-4 h-4 text-muted-foreground" />
             </div>
-            <span className="text-[9px] text-white/40">Copy</span>
+            <span className="text-[9px] text-muted-foreground">Copy</span>
           </motion.div>
-          <div className="text-white/20 text-xs">or</div>
+          <div className="text-muted-foreground text-xs">or</div>
           <motion.div
             whileHover={{ scale: 1.05 }}
             className="flex flex-col items-center gap-1"
@@ -402,9 +400,9 @@ function CodebaseIntegrationSection() {
   ];
 
   return (
-    <section className="pt-24 pb-12 px-6 bg-[#0B0C0E] relative overflow-hidden">
+    <section className="pt-24 pb-12 px-6 bg-background relative overflow-hidden">
       {/* Background gradient orbs */}
-      <div className="absolute top-1/2 left-0 w-[300px] h-[300px] bg-indigo-600/10 rounded-full blur-[100px] pointer-events-none" />
+      <div className="absolute top-1/2 left-0 w-[300px] h-[300px] bg-primary/10 rounded-full blur-[100px] pointer-events-none" />
       <div className="absolute bottom-0 right-1/4 w-[250px] h-[250px] bg-purple-600/10 rounded-full blur-[80px] pointer-events-none" />
 
       <div className="container mx-auto max-w-6xl relative z-10">
@@ -415,11 +413,11 @@ function CodebaseIntegrationSection() {
           transition={{ duration: 0.3 }}
           className="text-center mb-16"
         >
-          <Badge variant="outline" className="mb-4 border-indigo-500/20 bg-indigo-500/10 text-indigo-300">System Aware</Badge>
+          <Badge variant="outline" className="mb-4 border-primary/20 bg-primary/10 text-primary">System Aware</Badge>
           <h2 className="text-4xl md:text-5xl font-medium tracking-tight mb-4">
             Your design system, automatically.
           </h2>
-          <p className="text-[#8A8F98] max-w-xl mx-auto">
+          <p className="text-muted-foreground max-w-xl mx-auto">
             Nucleate doesn&apos;t just &quot;write code.&quot; It adopts your existing
             primitives to build UI that belongs in your app.
           </p>
@@ -434,7 +432,7 @@ function CodebaseIntegrationSection() {
               viewport={{ once: true, amount: 0.3 }}
               transition={{ duration: 0.25, delay: index * 0.05 }}
               whileHover={{ y: -5, scale: 1.02 }}
-              className={`bg-[#141517] border border-white/10 rounded-2xl p-8 group transition-all duration-300 ${card.hoverBorder} relative overflow-hidden`}
+              className={`bg-card border border-border rounded-2xl p-8 group transition-all duration-300 ${card.hoverBorder} relative overflow-hidden`}
             >
               <div className={`absolute inset-0 ${card.glowColor} transition-colors duration-300`} />
               <div className="relative z-10">
@@ -446,7 +444,7 @@ function CodebaseIntegrationSection() {
                   {card.icon}
                 </motion.div>
                 <h3 className="text-xl font-medium mb-3">{card.title}</h3>
-                <p className="text-sm text-[#8A8F98] leading-relaxed">
+                <p className="text-sm text-muted-foreground leading-relaxed">
                   {card.description}
                 </p>
                 {card.illustration}
@@ -461,7 +459,7 @@ function CodebaseIntegrationSection() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, amount: 0.3 }}
           transition={{ duration: 0.3, delay: 0.1 }}
-          className="mt-6 bg-gradient-to-b from-[#141517] to-black border border-white/10 rounded-2xl p-8 md:p-10 overflow-hidden relative group hover:border-indigo-500/30 transition-colors"
+          className="mt-6 bg-gradient-to-b from-card to-background border border-border rounded-2xl p-8 md:p-10 overflow-hidden relative group hover:border-primary/30 transition-colors"
         >
           <div className="flex flex-col md:flex-row items-center gap-8 md:gap-12">
             {/* Left - Title */}
@@ -472,9 +470,9 @@ function CodebaseIntegrationSection() {
                 <div className="w-2 h-2 rounded-full bg-purple-500"></div>
               </div>
               <h3 className="text-2xl md:text-3xl font-medium mb-2">
-                Build with <span className="text-indigo-400">your</span> design system
+                Build with <span className="text-primary">your</span> design system
               </h3>
-              <p className="text-[#8A8F98] text-sm">
+              <p className="text-muted-foreground text-sm">
                 Stop building from scratch. Start building on-brand.
               </p>
             </div>
@@ -483,19 +481,19 @@ function CodebaseIntegrationSection() {
             <div className="flex-1 flex flex-wrap items-center justify-center gap-6 md:gap-8 opacity-80 group-hover:opacity-100 transition-opacity">
               {/* Toggle & Code snippet */}
               <div className="flex items-center gap-4">
-                <div className="w-10 h-6 bg-white/5 rounded-full relative border border-white/10">
-                  <div className="absolute right-1 top-1 w-4 h-4 bg-indigo-500 rounded-full" />
+                <div className="w-10 h-6 bg-accent rounded-full relative border border-border">
+                  <div className="absolute right-1 top-1 w-4 h-4 bg-primary rounded-full" />
                 </div>
                 <div className="flex gap-2">
-                  <div className="w-4 h-4 bg-indigo-500 rounded-sm"></div>
-                  <div className="w-4 h-4 border border-white/20 rounded-sm"></div>
+                  <div className="w-4 h-4 bg-primary rounded-sm"></div>
+                  <div className="w-4 h-4 border border-border rounded-sm"></div>
                 </div>
               </div>
 
               {/* Color Swatches */}
               <div className="flex gap-3">
                 <motion.div whileHover={{ scale: 1.1 }} className="w-10 h-10 bg-teal-400 rounded-lg shadow-lg shadow-teal-400/20" />
-                <motion.div whileHover={{ scale: 1.1 }} className="w-10 h-10 bg-indigo-600 rounded-lg shadow-lg shadow-indigo-600/20" />
+                <motion.div whileHover={{ scale: 1.1 }} className="w-10 h-10 bg-primary rounded-lg shadow-lg shadow-primary/20" />
                 <motion.div whileHover={{ scale: 1.1 }} className="w-10 h-10 bg-orange-300 rounded-lg shadow-lg shadow-orange-300/20" />
               </div>
 
@@ -535,12 +533,12 @@ function VariantsSection() {
   ];
 
   return (
-    <section className="py-24 bg-black border-y border-white/5 relative overflow-hidden">
+    <section className="py-24 bg-background border-y border-border relative overflow-hidden">
       {/* Animated background accents */}
       <motion.div
         animate={{ y: [0, 30, 0], x: [0, -20, 0] }}
         transition={{ duration: 15, repeat: Infinity, ease: "easeInOut" }}
-        className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-indigo-600/5 blur-[120px] rounded-full pointer-events-none"
+        className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-primary/5 blur-[120px] rounded-full pointer-events-none"
       />
       <motion.div
         animate={{ y: [0, -40, 0], x: [0, 30, 0] }}
@@ -556,13 +554,13 @@ function VariantsSection() {
           transition={{ duration: 0.3 }}
           className="text-center mb-16 max-w-4xl mx-auto"
         >
-          <Badge variant="outline" className="mb-4 border-white/10 bg-white/5 text-zinc-300">
+          <Badge variant="outline" className="mb-4 border-border bg-accent text-muted-foreground">
             Instant Exploration
           </Badge>
-          <h2 className="text-4xl md:text-6xl font-medium text-white mb-6">
-            Instant variants using <span className="text-indigo-400">your components.</span>
+          <h2 className="text-4xl md:text-6xl font-medium text-foreground mb-6">
+            Instant variants using <span className="text-primary">your components.</span>
           </h2>
-          <p className="text-zinc-500 text-xl md:text-2xl font-normal">
+          <p className="text-muted-foreground text-xl md:text-2xl font-normal">
             Explore variants without breaking the design system. These aren&apos;t mockups — they are real components from your repo.
           </p>
         </motion.div>
@@ -580,8 +578,8 @@ function VariantsSection() {
               whileTap={{ scale: 0.98 }}
               onClick={() => setActiveTab(tab.id)}
               className={`px-6 py-3 rounded-full text-sm font-medium flex items-center gap-2 transition-all duration-300 border ${activeTab === tab.id
-                ? "bg-white text-black border-white shadow-[0_0_20px_rgba(255,255,255,0.2)]"
-                : "bg-zinc-900/50 text-zinc-400 border-white/5 hover:bg-zinc-800 hover:text-white"
+                ? "bg-foreground text-background border-foreground shadow-[0_0_20px_rgba(255,255,255,0.2)]"
+                : "bg-card/50 text-muted-foreground border-border hover:bg-card hover:text-foreground"
                 }`}
             >
               {tab.icon}
@@ -591,7 +589,7 @@ function VariantsSection() {
         </div>
 
         {/* Content Area */}
-        <div className="relative min-h-[600px] bg-[#0F1012] rounded-3xl border border-white/10 p-4 md:p-8 overflow-hidden shadow-2xl">
+        <div className="relative min-h-[600px] bg-card rounded-3xl border border-border p-4 md:p-8 overflow-hidden shadow-2xl">
           <AnimatePresence mode="wait">
             <motion.div
               key={activeTab}
@@ -606,7 +604,7 @@ function VariantsSection() {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 h-full items-start justify-center">
                   {/* Variant 1: Modern Minimal */}
                   <div className="flex flex-col gap-4">
-                    <div className="text-center text-zinc-500 font-mono text-xs uppercase tracking-widest">Variant A: Minimal</div>
+                    <div className="text-center text-muted-foreground font-mono text-xs uppercase tracking-widest">Variant A: Minimal</div>
                     <div className="aspect-[9/16] bg-white rounded-3xl overflow-hidden shadow-2xl border border-zinc-200 relative group">
                       <div className="absolute top-4 left-6 right-6 flex justify-between items-center z-10">
                         <div className="w-8 h-8 bg-black/5 rounded-full backdrop-blur-sm" />
@@ -645,8 +643,8 @@ function VariantsSection() {
 
                   {/* Variant 2: Dark Brutalist */}
                   <div className="flex flex-col gap-4">
-                    <div className="text-center text-zinc-500 font-mono text-xs uppercase tracking-widest">Variant B: Brutalist</div>
-                    <div className="aspect-[9/16] bg-[#121212] rounded-3xl overflow-hidden shadow-2xl border border-zinc-800 relative group">
+                    <div className="text-center text-muted-foreground font-mono text-xs uppercase tracking-widest">Variant B: Brutalist</div>
+                    <div className="aspect-[9/16] bg-card rounded-3xl overflow-hidden shadow-2xl border border-border relative group">
                       <div className="p-6 h-full flex flex-col">
                         <div className="flex justify-between items-center mb-8">
                           <div className="text-white font-mono text-xs">
@@ -696,8 +694,8 @@ function VariantsSection() {
 
                   {/* Variant 3: Glassmorphism */}
                   <div className="flex flex-col gap-4">
-                    <div className="text-center text-zinc-500 font-mono text-xs uppercase tracking-widest">Variant C: Glassmorphism</div>
-                    <div className="aspect-[9/16] bg-zinc-900 rounded-3xl overflow-hidden shadow-2xl border border-white/10 relative group">
+                    <div className="text-center text-muted-foreground font-mono text-xs uppercase tracking-widest">Variant C: Glassmorphism</div>
+                    <div className="aspect-[9/16] bg-card rounded-3xl overflow-hidden shadow-2xl border border-border relative group">
                       <div className="absolute inset-0">
                         <Image
                           src="/images/midnight_vibrant.png"
@@ -706,18 +704,18 @@ function VariantsSection() {
                           fill
                           sizes="(max-width: 1024px) 100vw, 33vw"
                         />
-                        <div className="absolute inset-0 bg-black/20" />
+                        <div className="absolute inset-0 bg-background/20" />
                       </div>
                       <div className="relative z-10 p-6 h-full flex flex-col justify-between">
                         {/* Header */}
                         <div className="flex justify-between items-center w-full">
-                          <ChevronDown className="w-6 h-6 text-white/70" />
-                          <span className="text-xs font-medium text-white/50 tracking-widest uppercase">Now Playing</span>
-                          <MoreHorizontal className="w-6 h-6 text-white/70" />
+                          <ChevronDown className="w-6 h-6 text-muted-foreground" />
+                          <span className="text-xs font-medium text-muted-foreground tracking-widest uppercase">Now Playing</span>
+                          <MoreHorizontal className="w-6 h-6 text-muted-foreground" />
                         </div>
 
                         {/* Main Art */}
-                        <div className="w-full aspect-square rounded-2xl overflow-hidden shadow-2xl border border-white/10 mx-auto transform scale-105">
+                        <div className="w-full aspect-square rounded-2xl overflow-hidden shadow-2xl border border-border mx-auto transform scale-105">
                           <Image
                             src="/images/midnight_vibrant.png"
                             alt="Glassmorphism Album Art"
@@ -728,22 +726,22 @@ function VariantsSection() {
                         </div>
 
                         {/* Controls */}
-                        <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/10">
+                        <div className="bg-accent backdrop-blur-md rounded-2xl p-4 border border-border">
                           <h3 className="text-lg font-semibold text-white mb-1">
                             Midnight City
                           </h3>
-                          <p className="text-white/60 text-xs mb-4">M83</p>
-                          <div className="h-1 bg-white/20 rounded-full overflow-hidden mb-4">
+                          <p className="text-muted-foreground text-xs mb-4">M83</p>
+                          <div className="h-1 bg-accent rounded-full overflow-hidden mb-4">
                             <div className="h-full w-2/3 bg-white shadow-[0_0_10px_white]" />
                           </div>
                           <div className="flex justify-between px-4">
-                            <div className="w-6 h-6 text-white/60">
+                            <div className="w-6 h-6 text-muted-foreground">
                               <div className="w-full h-full border-b-2 border-l-2 border-current rotate-45 translate-x-1" />
                             </div>
-                            <div className="w-8 h-8 bg-white text-black rounded-full flex items-center justify-center shadow-lg">
-                              <div className="w-0 h-0 border-t-[4px] border-t-transparent border-l-[6px] border-l-black border-b-[4px] border-b-transparent ml-0.5" />
+                            <div className="w-8 h-8 bg-foreground text-background rounded-full flex items-center justify-center shadow-lg">
+                              <div className="w-0 h-0 border-t-[4px] border-t-transparent border-l-[6px] border-l-background border-b-[4px] border-b-transparent ml-0.5" />
                             </div>
-                            <div className="w-6 h-6 text-white/60">
+                            <div className="w-6 h-6 text-muted-foreground">
                               <div className="w-full h-full border-b-2 border-r-2 border-current -rotate-45 -translate-x-1" />
                             </div>
                           </div>
@@ -781,7 +779,7 @@ function VariantsSection() {
                   </div>
 
                   {/* Loading State */}
-                  <div className="bg-[#0F1012] rounded-3xl border border-zinc-800 p-6 aspect-[9/16] max-h-[500px] flex flex-col relative overflow-hidden group">
+                  <div className="bg-card rounded-3xl border border-border p-6 aspect-[9/16] max-h-[500px] flex flex-col relative overflow-hidden group">
                     <div className="flex items-center justify-between mb-8">
                       <div className="w-8 h-8 rounded-full bg-zinc-800 animate-pulse" />
                       <div className="w-24 h-4 bg-zinc-800 rounded animate-pulse" />
@@ -797,8 +795,8 @@ function VariantsSection() {
                         </div>
                       ))}
                     </div>
-                    <div className="absolute inset-0 bg-gradient-to-t from-[#0F1012] via-transparent to-transparent pointer-events-none" />
-                    <div className="absolute top-4 left-0 right-0 text-center text-[10px] text-zinc-600 font-mono opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="absolute inset-0 bg-gradient-to-t from-card via-transparent to-transparent pointer-events-none" />
+                    <div className="absolute top-4 left-0 right-0 text-center text-[10px] text-muted-foreground font-mono opacity-0 group-hover:opacity-100 transition-opacity">
                       Loading State
                     </div>
                   </div>
@@ -1367,12 +1365,12 @@ function VariantsSection() {
 function ShippingSection() {
   const cards = [
     {
-      icon: <FileCode className="w-8 h-8 text-indigo-400" />,
+      icon: <FileCode className="w-8 h-8 text-primary" />,
       title: "Export Code",
       description: "Copy/paste specific components or export entire screens as clean, modular React files.",
-      hoverBorder: "hover:border-indigo-500/40",
+      hoverBorder: "hover:border-primary/40",
       illustration: (
-        <div className="mt-4 bg-[#0B0C0E] rounded-lg p-3 border border-white/5 font-mono text-[10px] overflow-hidden">
+        <div className="mt-4 bg-background rounded-lg p-3 border border-border font-mono text-[10px] overflow-hidden">
           <motion.div
             initial={{ opacity: 0 }}
             whileInView={{ opacity: 1 }}
@@ -1392,7 +1390,7 @@ function ShippingSection() {
             whileInView={{ opacity: 1 }}
             viewport={{ once: true }}
             transition={{ delay: 0.2 }}
-            className="text-white/30 pl-2"
+            className="text-muted-foreground pl-2"
           >{'// Clean code...'}</motion.div>
         </div>
       ),
@@ -1403,12 +1401,12 @@ function ShippingSection() {
       description: "Nucleate creates a PR against your repo following your naming conventions and file structure.",
       hoverBorder: "hover:border-emerald-500/40",
       illustration: (
-        <div className="mt-4 bg-[#0B0C0E] rounded-lg p-3 border border-white/5">
+        <div className="mt-4 bg-background rounded-lg p-3 border border-border">
           <div className="flex items-center gap-2 mb-2">
             <div className="w-2 h-2 rounded-full bg-emerald-500" />
             <span className="text-[10px] text-emerald-400 font-medium">Open</span>
           </div>
-          <div className="text-[10px] text-white/60 mb-2">feat: Add onboarding flow</div>
+          <div className="text-[10px] text-muted-foreground mb-2">feat: Add onboarding flow</div>
           <motion.div
             initial={{ scale: 0.9, opacity: 0 }}
             whileInView={{ scale: 1, opacity: 1 }}
@@ -1427,7 +1425,7 @@ function ShippingSection() {
       description: "No \"black box\" code. Small, readable diffs that match your coding style and are easy to iterate on.",
       hoverBorder: "hover:border-purple-500/40",
       illustration: (
-        <div className="mt-4 bg-[#0B0C0E] rounded-lg p-2 border border-white/5 space-y-1">
+        <div className="mt-4 bg-background rounded-lg p-2 border border-border space-y-1">
           {[
             { color: "bg-emerald-500/20 text-emerald-400", text: "+ <Button variant=\"primary\" />" },
             { color: "bg-red-500/20 text-red-400", text: "- <button className=\"btn\" />" },
@@ -1449,7 +1447,7 @@ function ShippingSection() {
   ];
 
   return (
-    <section className="py-24 px-6 bg-[#0B0C0E] border-t border-white/5 relative overflow-hidden">
+    <section className="py-24 px-6 bg-background border-t border-border relative overflow-hidden">
       {/* Background gradient */}
       <div className="absolute top-1/2 right-0 w-[300px] h-[300px] bg-emerald-600/10 rounded-full blur-[100px] pointer-events-none" />
 
@@ -1464,7 +1462,7 @@ function ShippingSection() {
           <h2 className="text-4xl md:text-5xl font-medium tracking-tight mb-4">
             From prototype → PR
           </h2>
-          <p className="text-[#8A8F98] max-w-2xl mx-auto">
+          <p className="text-muted-foreground max-w-2xl mx-auto">
             Nucleate isn&apos;t a playground. It&apos;s a delivery tool that lives in your
             engineering workflow.
           </p>
@@ -1479,7 +1477,7 @@ function ShippingSection() {
               viewport={{ once: true, amount: 0.3 }}
               transition={{ duration: 0.25, delay: index * 0.05 }}
               whileHover={{ y: -5 }}
-              className={`bg-[#141517] border border-white/10 rounded-2xl p-6 transition-all duration-300 ${card.hoverBorder}`}
+              className={`bg-card border border-border rounded-2xl p-6 transition-all duration-300 ${card.hoverBorder}`}
             >
               <motion.div
                 animate={{ y: [0, -3, 0] }}
@@ -1488,7 +1486,7 @@ function ShippingSection() {
                 {card.icon}
               </motion.div>
               <h3 className="text-lg font-bold mb-2 mt-4">{card.title}</h3>
-              <p className="text-sm text-white/60">{card.description}</p>
+              <p className="text-sm text-muted-foreground">{card.description}</p>
               {card.illustration}
             </motion.div>
           ))}
@@ -1499,11 +1497,11 @@ function ShippingSection() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, amount: 0.3 }}
           transition={{ duration: 0.3, delay: 0.1 }}
-          className="mt-12 bg-[#141517] border border-white/10 rounded-2xl p-8 flex flex-col md:flex-row items-center gap-8"
+          className="mt-12 bg-card border border-border rounded-2xl p-8 flex flex-col md:flex-row items-center gap-8"
         >
           <div className="flex-1">
             <h3 className="text-xl font-medium mb-2">Design and engineering work in the same source of truth: Git.</h3>
-            <p className="text-white/50 text-sm">Stop rebuilding UI from screenshots. Let Nucleate bridge the gap by generating code that actually belongs in your codebase.</p>
+            <p className="text-muted-foreground text-sm">Stop rebuilding UI from screenshots. Let Nucleate bridge the gap by generating code that actually belongs in your codebase.</p>
           </div>
           <div className="flex items-center gap-4">
             <motion.div
@@ -1513,19 +1511,19 @@ function ShippingSection() {
               transition={{ delay: 0.15 }}
               className="flex flex-col items-center"
             >
-              <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center border border-white/10 mb-2">
+              <div className="w-10 h-10 rounded-full bg-accent flex items-center justify-center border border-border mb-2">
                 <Github className="w-5 h-5" />
               </div>
-              <span className="text-[10px] text-white/30 uppercase font-bold tracking-widest">Git Provider</span>
+              <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">Git Provider</span>
             </motion.div>
 
             {/* Animated connection line */}
             <div className="relative w-12">
-              <div className="w-full h-px bg-white/10" />
+              <div className="w-full h-px bg-border" />
               <motion.div
                 animate={{ x: [0, 48, 0] }}
                 transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-                className="absolute top-1/2 -translate-y-1/2 w-2 h-2 bg-indigo-500 rounded-full shadow-[0_0_10px_rgba(99,102,241,0.8)]"
+                className="absolute top-1/2 -translate-y-1/2 w-2 h-2 bg-primary rounded-full shadow-[0_0_10px_rgba(99,102,241,0.8)]"
               />
             </div>
 
@@ -1539,11 +1537,11 @@ function ShippingSection() {
               <motion.div
                 animate={{ boxShadow: ["0 0 15px rgba(99,102,241,0.5)", "0 0 25px rgba(99,102,241,0.8)", "0 0 15px rgba(99,102,241,0.5)"] }}
                 transition={{ duration: 2, repeat: Infinity }}
-                className="w-10 h-10 rounded-full bg-indigo-500 flex items-center justify-center mb-2"
+                className="w-10 h-10 rounded-full bg-primary flex items-center justify-center mb-2"
               >
-                <Zap className="w-5 h-5 text-white" />
+                <Zap className="w-5 h-5 text-primary-foreground" />
               </motion.div>
-              <span className="text-[10px] text-white/30 uppercase font-bold tracking-widest">Nucleate</span>
+              <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">Nucleate</span>
             </motion.div>
           </div>
         </motion.div>
@@ -1584,9 +1582,9 @@ function PricingSection() {
   ];
 
   return (
-    <section className="py-32 bg-[#0B0C0E] border-t border-white/5 relative overflow-hidden">
+    <section className="py-32 bg-background border-t border-border relative overflow-hidden">
       {/* Background gradient */}
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-indigo-600/5 rounded-full blur-[150px] pointer-events-none" />
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-primary/5 rounded-full blur-[150px] pointer-events-none" />
 
       <div className="container mx-auto px-6 max-w-6xl relative z-10">
         {/* Sale Banner with shimmer */}
@@ -1617,7 +1615,7 @@ function PricingSection() {
               </div>
             </div>
             <div className="flex items-center gap-3">
-              <div className="bg-black/30 backdrop-blur-sm rounded-lg px-4 py-2 border border-yellow-500/20">
+              <div className="bg-background/30 backdrop-blur-sm rounded-lg px-4 py-2 border border-yellow-500/20">
                 <span className="text-xs text-yellow-200/60 uppercase tracking-wide">Use code</span>
                 <p className="text-lg font-mono font-bold text-yellow-400">NEWYEAR</p>
               </div>
@@ -1640,8 +1638,8 @@ function PricingSection() {
           transition={{ duration: 0.3, delay: 0.1 }}
           className="text-center mb-12"
         >
-          <h2 className="text-4xl font-medium text-white mb-4">Simple pricing</h2>
-          <p className="text-[#8A8F98]">Start for free, scale as you grow.</p>
+          <h2 className="text-4xl font-medium text-foreground mb-4">Simple pricing</h2>
+          <p className="text-muted-foreground">Start for free, scale as you grow.</p>
         </motion.div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -1653,28 +1651,28 @@ function PricingSection() {
               viewport={{ once: true, amount: 0.3 }}
               transition={{ duration: 0.25, delay: index * 0.05 }}
               whileHover={{ y: -8 }}
-              className={`relative p-8 rounded-3xl flex flex-col transition-all duration-300 ${plan.highlighted ? "bg-[#141517] border border-indigo-500/50 shadow-2xl shadow-indigo-500/10" : "border border-white/10 hover:border-white/20"}`}
+              className={`relative p-8 rounded-3xl flex flex-col transition-all duration-300 ${plan.highlighted ? "bg-card border border-primary/50 shadow-2xl shadow-primary/10" : "border border-border hover:border-border"}`}
             >
               {/* Featured plan glow */}
               {plan.highlighted && (
                 <motion.div
                   animate={{ opacity: [0.3, 0.5, 0.3] }}
                   transition={{ duration: 2, repeat: Infinity }}
-                  className="absolute -inset-px bg-gradient-to-b from-indigo-500/20 to-transparent rounded-3xl pointer-events-none"
+                  className="absolute -inset-px bg-gradient-to-b from-primary/20 to-transparent rounded-3xl pointer-events-none"
                 />
               )}
 
               <div className="relative z-10">
                 <div className="mb-8">
-                  <h3 className="text-lg font-medium text-white">{plan.name}</h3>
-                  <p className="text-sm text-[#8A8F98] mt-1 h-10">{plan.description}</p>
+                  <h3 className="text-lg font-medium text-foreground">{plan.name}</h3>
+                  <p className="text-sm text-muted-foreground mt-1 h-10">{plan.description}</p>
                 </div>
                 <div className="mb-8 flex items-baseline gap-1">
-                  <span className="text-4xl font-medium text-white">{plan.price}</span>
-                  {plan.price !== "$0" && plan.price !== "Custom" && <span className="text-[#8A8F98] text-sm">/{plan.period}</span>}
+                  <span className="text-4xl font-medium text-foreground">{plan.price}</span>
+                  {plan.price !== "$0" && plan.price !== "Custom" && <span className="text-muted-foreground text-sm">/{plan.period}</span>}
                 </div>
                 <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-                  <Button onClick={() => handleGetStarted(plan.productKey)} className={`w-full h-11 rounded-full text-sm font-medium transition-all mb-8 ${plan.highlighted ? "bg-white text-black hover:bg-white/90" : "bg-white/5 text-white hover:bg-white/10 border border-white/10"}`}>
+                  <Button onClick={() => handleGetStarted(plan.productKey)} className={`w-full h-11 rounded-full text-sm font-medium transition-all mb-8 ${plan.highlighted ? "bg-foreground text-background hover:bg-foreground/90" : "bg-accent text-foreground hover:bg-accent border border-border"}`}>
                     {plan.cta}
                   </Button>
                 </motion.div>
@@ -1686,9 +1684,9 @@ function PricingSection() {
                       whileInView={{ opacity: 1, x: 0 }}
                       viewport={{ once: true }}
                       transition={{ delay: index * 0.03 + i * 0.02 }}
-                      className="flex items-center gap-3 text-sm text-[#8A8F98]"
+                      className="flex items-center gap-3 text-sm text-muted-foreground"
                     >
-                      <Check className="w-4 h-4 text-white/40" />
+                      <Check className="w-4 h-4 text-muted-foreground" />
                       {feature}
                     </motion.div>
                   ))}
@@ -1704,7 +1702,7 @@ function PricingSection() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, amount: 0.3 }}
           transition={{ duration: 0.3, delay: 0.15 }}
-          className="mt-8 relative bg-gradient-to-br from-[#D97757]/10 via-[#141517] to-[#141517] border border-[#D97757]/20 rounded-2xl p-6 md:p-8 overflow-hidden hover:border-[#D97757]/40 transition-all group"
+          className="mt-8 relative bg-gradient-to-br from-[#D97757]/10 via-card to-card border border-[#D97757]/20 rounded-2xl p-6 md:p-8 overflow-hidden hover:border-[#D97757]/40 transition-all group"
         >
           {/* Subtle glow effect */}
           <motion.div
@@ -1724,10 +1722,10 @@ function PricingSection() {
                 </div>
               </div>
               <div>
-                <h3 className="text-lg md:text-xl font-medium text-white mb-1">
+                <h3 className="text-lg md:text-xl font-medium text-foreground mb-1">
                   Bring your own Claude Code
                 </h3>
-                <p className="text-[#8A8F98] text-sm leading-relaxed">
+                <p className="text-muted-foreground text-sm leading-relaxed">
                   Already have a Claude Code subscription? Connect it to Nucleate for massive savings. <span className="text-[#D97757]">Available on Plus.</span>
                 </p>
               </div>
@@ -1737,15 +1735,15 @@ function PricingSection() {
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 md:gap-6">
               <div className="text-center sm:text-left">
                 <div className="text-2xl md:text-3xl font-bold text-[#D97757] mb-0.5">1000x</div>
-                <div className="text-[10px] text-white/50 uppercase tracking-wider">more usage</div>
+                <div className="text-[10px] text-muted-foreground uppercase tracking-wider">more usage</div>
               </div>
-              <div className="hidden sm:block w-px h-10 bg-white/10"></div>
+              <div className="hidden sm:block w-px h-10 bg-border"></div>
               <div className="space-y-1.5">
-                <div className="flex items-center gap-2 text-sm text-white/70">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <CheckCircle2 className="w-4 h-4 text-[#D97757] flex-shrink-0" />
                   <span>Use your subscription or ours</span>
                 </div>
-                <div className="flex items-center gap-2 text-sm text-white/70">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <CheckCircle2 className="w-4 h-4 text-[#D97757] flex-shrink-0" />
                   <span>Fraction of the cost vs. competitors</span>
                 </div>
@@ -1785,7 +1783,7 @@ function ProblemSection() {
           <motion.div
             animate={{ opacity: [0.3, 1, 0.3] }}
             transition={{ duration: 1.5, repeat: Infinity }}
-            className="text-white/30"
+            className="text-muted-foreground"
           >↔</motion.div>
           <motion.div
             animate={{ x: [3, -3, 3] }}
@@ -1805,8 +1803,8 @@ function ProblemSection() {
       hoverBorder: "hover:border-pink-500/30",
       illustration: (
         <div className="mt-4 flex items-center justify-center gap-2">
-          <div className="w-6 h-6 bg-white/10 rounded flex items-center justify-center">
-            <Camera className="w-3 h-3 text-white/40" />
+          <div className="w-6 h-6 bg-accent rounded flex items-center justify-center">
+            <Camera className="w-3 h-3 text-muted-foreground" />
           </div>
           <motion.div
             animate={{ scale: [1, 1.2, 1], rotate: [0, 180, 360] }}
@@ -1845,19 +1843,19 @@ function ProblemSection() {
     {
       title: "Handoff Friction",
       desc: "The 'design-to-dev' loop takes weeks. Nucleate unifies exploration and implementation in one cycle.",
-      icon: <RefreshCw className="w-5 h-5 text-indigo-400" />,
-      glowColor: "group-hover:bg-indigo-500/5",
-      hoverBorder: "hover:border-indigo-500/30",
+      icon: <RefreshCw className="w-5 h-5 text-primary" />,
+      glowColor: "group-hover:bg-primary/5",
+      hoverBorder: "hover:border-primary/30",
       illustration: (
         <div className="mt-4 flex items-center justify-center">
           <div className="relative w-full max-w-[80px]">
-            <div className="h-1.5 bg-white/10 rounded-full" />
+            <div className="h-1.5 bg-accent rounded-full" />
             <motion.div
               initial={{ width: "100%" }}
               whileInView={{ width: "30%" }}
               viewport={{ once: true }}
               transition={{ duration: 1, delay: 0.1 }}
-              className="absolute top-0 left-0 h-1.5 bg-indigo-500 rounded-full"
+              className="absolute top-0 left-0 h-1.5 bg-primary rounded-full"
             />
           </div>
         </div>
@@ -1866,7 +1864,7 @@ function ProblemSection() {
   ];
 
   return (
-    <section className="py-24 bg-[#0B0C0E] border-t border-white/5 relative overflow-hidden">
+    <section className="py-24 bg-background border-t border-border relative overflow-hidden">
       {/* Background gradient orbs */}
       <motion.div
         animate={{ y: [0, 20, 0] }}
@@ -1887,10 +1885,10 @@ function ProblemSection() {
           transition={{ duration: 0.3 }}
           className="text-center mb-16"
         >
-          <h2 className="text-3xl md:text-5xl font-medium text-white mb-4">
+          <h2 className="text-3xl md:text-5xl font-medium text-foreground mb-4">
             UI iteration is broken when design and code are split.
           </h2>
-          <p className="text-zinc-400 text-lg">
+          <p className="text-muted-foreground text-lg">
             Bridge the gap between vision and production.
           </p>
         </motion.div>
@@ -1904,19 +1902,19 @@ function ProblemSection() {
               viewport={{ once: true, amount: 0.3 }}
               transition={{ duration: 0.25, delay: idx * 0.05 }}
               whileHover={{ y: -5 }}
-              className={`p-6 rounded-2xl bg-[#141517] border border-white/5 group transition-all duration-300 relative overflow-hidden ${point.hoverBorder}`}
+              className={`p-6 rounded-2xl bg-card border border-border group transition-all duration-300 relative overflow-hidden ${point.hoverBorder}`}
             >
               <div className={`absolute inset-0 ${point.glowColor} transition-colors duration-300`} />
               <div className="relative z-10">
                 <motion.div
                   whileHover={{ rotate: point.title === "Handoff Friction" ? 180 : 0 }}
                   transition={{ duration: 0.25 }}
-                  className="w-10 h-10 rounded-lg bg-white/5 flex items-center justify-center mb-4 border border-white/5"
+                  className="w-10 h-10 rounded-lg bg-accent flex items-center justify-center mb-4 border border-border"
                 >
                   {point.icon}
                 </motion.div>
-                <h3 className="text-lg font-medium text-white mb-2">{point.title}</h3>
-                <p className="text-sm text-zinc-500 leading-relaxed">{point.desc}</p>
+                <h3 className="text-lg font-medium text-foreground mb-2">{point.title}</h3>
+                <p className="text-sm text-muted-foreground leading-relaxed">{point.desc}</p>
                 {point.illustration}
               </div>
             </motion.div>
@@ -1936,7 +1934,7 @@ function HowItWorksSection() {
       number: 1,
       title: "Connect Repo",
       description: "Connect GitHub. Nucleate auto-detects your design system, components, and styling primitives.",
-      color: "indigo",
+      color: "primary",
       illustration: (
         <div className="mt-4 flex items-center justify-center md:justify-end gap-2">
           <motion.div
@@ -1944,25 +1942,25 @@ function HowItWorksSection() {
             whileInView={{ scale: 1, opacity: 1 }}
             viewport={{ once: true }}
             transition={{ delay: 0.1 }}
-            className="w-8 h-8 bg-white/5 rounded-lg flex items-center justify-center border border-white/10"
+            className="w-8 h-8 bg-accent rounded-lg flex items-center justify-center border border-border"
           >
-            <Github className="w-4 h-4 text-white/60" />
+            <Github className="w-4 h-4 text-muted-foreground" />
           </motion.div>
           <motion.div
             initial={{ width: 0 }}
             whileInView={{ width: 24 }}
             viewport={{ once: true }}
             transition={{ delay: 0.15, duration: 0.3 }}
-            className="h-px bg-indigo-500"
+            className="h-px bg-primary"
           />
           <motion.div
             initial={{ scale: 0.8, opacity: 0 }}
             whileInView={{ scale: 1, opacity: 1 }}
             viewport={{ once: true }}
             transition={{ delay: 0.2 }}
-            className="w-6 h-6 bg-indigo-500/20 rounded-full flex items-center justify-center border border-indigo-500/30"
+            className="w-6 h-6 bg-primary/20 rounded-full flex items-center justify-center border border-primary/30"
           >
-            <CheckCircle2 className="w-3 h-3 text-indigo-400" />
+            <CheckCircle2 className="w-3 h-3 text-primary" />
           </motion.div>
         </div>
       ),
@@ -2010,12 +2008,12 @@ function HowItWorksSection() {
   ];
 
   return (
-    <section className="py-24 bg-[#0B0C0E] border-t border-white/5 relative overflow-hidden">
+    <section className="py-24 bg-background border-t border-border relative overflow-hidden">
       {/* Background gradient */}
       <motion.div
         animate={{ y: [0, 30, 0] }}
         transition={{ duration: 15, repeat: Infinity }}
-        className="absolute top-1/3 left-0 w-[300px] h-[300px] bg-indigo-600/10 rounded-full blur-[100px] pointer-events-none"
+        className="absolute top-1/3 left-0 w-[300px] h-[300px] bg-primary/10 rounded-full blur-[100px] pointer-events-none"
       />
 
       <div className="container mx-auto px-6 max-w-4xl relative z-10">
@@ -2026,8 +2024,8 @@ function HowItWorksSection() {
           transition={{ duration: 0.3 }}
           className="text-center mb-16"
         >
-          <h2 className="text-3xl md:text-5xl font-medium text-white mb-4">How It Works</h2>
-          <p className="text-zinc-400">No manual setup. No component tagging. No config hell.</p>
+          <h2 className="text-3xl md:text-5xl font-medium text-foreground mb-4">How It Works</h2>
+          <p className="text-muted-foreground">No manual setup. No component tagging. No config hell.</p>
         </motion.div>
 
         <div className="space-y-12 relative">
@@ -2057,7 +2055,7 @@ function HowItWorksSection() {
                 whileInView={{ scale: 1, opacity: 1 }}
                 viewport={{ once: true }}
                 transition={{ duration: 0.2, delay: index * 0.05 + 0.1 }}
-                className={`absolute left-0 w-14 h-14 rounded-full bg-[#141517] border-4 border-[#0B0C0E] z-10 flex items-center justify-center text-white font-bold md:left-1/2 md:-ml-7 shadow-xl group-hover:shadow-${step.color}-500/30 transition-shadow`}
+                className={`absolute left-0 w-14 h-14 rounded-full bg-card border-4 border-background z-10 flex items-center justify-center text-foreground font-bold md:left-1/2 md:-ml-7 shadow-xl group-hover:shadow-${step.color}-500/30 transition-shadow`}
               >
                 <motion.span
                   animate={{ scale: [1, 1.1, 1] }}
@@ -2073,10 +2071,10 @@ function HowItWorksSection() {
                   <div className="pl-20 md:pl-0 md:w-1/2 md:pr-12 md:text-right">
                     <motion.div
                       whileHover={{ y: -3 }}
-                      className="bg-[#141517] p-6 rounded-2xl border border-white/5 hover:border-white/10 transition-all"
+                      className="bg-card p-6 rounded-2xl border border-border hover:border-border transition-all"
                     >
-                      <h3 className="text-xl font-medium text-white mb-2 flex items-center gap-2 md:justify-end">{step.title}</h3>
-                      <p className="text-zinc-400 text-sm">{step.description}</p>
+                      <h3 className="text-xl font-medium text-foreground mb-2 flex items-center gap-2 md:justify-end">{step.title}</h3>
+                      <p className="text-muted-foreground text-sm">{step.description}</p>
                       {step.illustration}
                     </motion.div>
                   </div>
@@ -2088,10 +2086,10 @@ function HowItWorksSection() {
                   <div className="pl-20 md:pl-0 md:w-1/2 md:pl-12">
                     <motion.div
                       whileHover={{ y: -3 }}
-                      className="bg-[#141517] p-6 rounded-2xl border border-white/5 hover:border-white/10 transition-all"
+                      className="bg-card p-6 rounded-2xl border border-border hover:border-border transition-all"
                     >
-                      <h3 className="text-xl font-medium text-white mb-2 flex items-center gap-2">{step.title}</h3>
-                      <p className="text-zinc-400 text-sm">{step.description}</p>
+                      <h3 className="text-xl font-medium text-foreground mb-2 flex items-center gap-2">{step.title}</h3>
+                      <p className="text-muted-foreground text-sm">{step.description}</p>
                       {step.illustration}
                     </motion.div>
                   </div>
@@ -2113,7 +2111,7 @@ function HowItWorksSection() {
  */
 function DifferentiationSection() {
   return (
-    <section className="py-24 bg-[#0B0C0E] border-t border-white/5">
+    <section className="py-24 bg-background border-t border-border">
       <div className="container mx-auto px-6 max-w-5xl">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -2122,8 +2120,8 @@ function DifferentiationSection() {
           transition={{ duration: 0.3 }}
           className="text-center mb-16"
         >
-          <h2 className="text-3xl font-medium text-white mb-4">Why Nucleate?</h2>
-          <p className="text-zinc-400">Prototyping that lives in the codebase.</p>
+          <h2 className="text-3xl font-medium text-foreground mb-4">Why Nucleate?</h2>
+          <p className="text-muted-foreground">Prototyping that lives in the codebase.</p>
         </motion.div>
 
         <motion.div
@@ -2136,39 +2134,39 @@ function DifferentiationSection() {
           <table className="w-full text-left border-collapse">
             <thead>
               <tr>
-                <th className="p-4 text-xs uppercase tracking-wider text-zinc-500 font-medium border-b border-white/10">Feature</th>
-                <th className="p-4 text-xs uppercase tracking-wider text-zinc-500 font-medium border-b border-white/10">Figma</th>
-                <th className="p-4 text-xs uppercase tracking-wider text-zinc-500 font-medium border-b border-white/10">AI Builders</th>
-                <th className="p-4 text-xs uppercase tracking-wider text-indigo-400 font-bold border-b border-indigo-500/50 bg-indigo-500/5 rounded-t-xl relative">
+                <th className="p-4 text-xs uppercase tracking-wider text-muted-foreground font-medium border-b border-border">Feature</th>
+                <th className="p-4 text-xs uppercase tracking-wider text-muted-foreground font-medium border-b border-border">Figma</th>
+                <th className="p-4 text-xs uppercase tracking-wider text-muted-foreground font-medium border-b border-border">AI Builders</th>
+                <th className="p-4 text-xs uppercase tracking-wider text-primary font-bold border-b border-primary/50 bg-primary/5 rounded-t-xl relative">
                   <span className="relative z-10">Nucleate</span>
-                  <div className="absolute inset-0 bg-indigo-500/10 blur-sm rounded-t-xl" />
+                  <div className="absolute inset-0 bg-primary/10 blur-sm rounded-t-xl" />
                 </th>
               </tr>
             </thead>
             <tbody className="text-sm">
-              <tr className="border-b border-white/5">
-                <td className="p-4 text-white font-medium">Uses your components</td>
-                <td className="p-4 text-zinc-500">No</td>
-                <td className="p-4 text-zinc-500">No</td>
-                <td className="p-4 text-white font-semibold bg-indigo-500/5">Yes (Automatic)</td>
+              <tr className="border-b border-border">
+                <td className="p-4 text-foreground font-medium">Uses your components</td>
+                <td className="p-4 text-muted-foreground">No</td>
+                <td className="p-4 text-muted-foreground">No</td>
+                <td className="p-4 text-foreground font-semibold bg-primary/5">Yes (Automatic)</td>
               </tr>
-              <tr className="border-b border-white/5">
-                <td className="p-4 text-white font-medium">Enforces design tokens</td>
-                <td className="p-4 text-zinc-500">Manual</td>
-                <td className="p-4 text-zinc-500">No</td>
-                <td className="p-4 text-white font-semibold bg-indigo-500/5">Strictly Enforced</td>
+              <tr className="border-b border-border">
+                <td className="p-4 text-foreground font-medium">Enforces design tokens</td>
+                <td className="p-4 text-muted-foreground">Manual</td>
+                <td className="p-4 text-muted-foreground">No</td>
+                <td className="p-4 text-foreground font-semibold bg-primary/5">Strictly Enforced</td>
               </tr>
-              <tr className="border-b border-white/5">
-                <td className="p-4 text-white font-medium">Works on existing codebase</td>
-                <td className="p-4 text-zinc-500">No</td>
-                <td className="p-4 text-zinc-500">No</td>
-                <td className="p-4 text-white font-semibold bg-indigo-500/5">Yes</td>
+              <tr className="border-b border-border">
+                <td className="p-4 text-foreground font-medium">Works on existing codebase</td>
+                <td className="p-4 text-muted-foreground">No</td>
+                <td className="p-4 text-muted-foreground">No</td>
+                <td className="p-4 text-foreground font-semibold bg-primary/5">Yes</td>
               </tr>
               <tr>
-                <td className="p-4 text-white font-medium">PR to repo</td>
-                <td className="p-4 text-zinc-500">No</td>
-                <td className="p-4 text-zinc-500">No</td>
-                <td className="p-4 text-white font-semibold bg-indigo-500/5 rounded-b-xl">Direct GitHub PR</td>
+                <td className="p-4 text-foreground font-medium">PR to repo</td>
+                <td className="p-4 text-muted-foreground">No</td>
+                <td className="p-4 text-muted-foreground">No</td>
+                <td className="p-4 text-foreground font-semibold bg-primary/5 rounded-b-xl">Direct GitHub PR</td>
               </tr>
             </tbody>
           </table>
@@ -2193,16 +2191,16 @@ function FAQSection() {
   ];
 
   return (
-    <section className="py-24 bg-[#0B0C0E] border-t border-white/5">
+    <section className="py-24 bg-background border-t border-border">
       <div className="container mx-auto px-6 max-w-6xl">
         <div className="text-center mb-16">
-          <h2 className="text-4xl font-medium text-white mb-4">Questions?</h2>
+          <h2 className="text-4xl font-medium text-foreground mb-4">Questions?</h2>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12 max-w-4xl mx-auto">
           {featuredFAQs.map((faq, index) => (
-            <div key={index} className="bg-[#141517] border border-white/10 rounded-2xl p-6">
-              <h3 className="text-lg font-medium text-white mb-3">{faq.q}</h3>
-              <p className="text-[#8A8F98] text-sm leading-relaxed">{faq.a}</p>
+            <div key={index} className="bg-card border border-border rounded-2xl p-6">
+              <h3 className="text-lg font-medium text-foreground mb-3">{faq.q}</h3>
+              <p className="text-muted-foreground text-sm leading-relaxed">{faq.a}</p>
             </div>
           ))}
         </div>

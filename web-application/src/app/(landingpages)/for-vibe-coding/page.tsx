@@ -71,8 +71,8 @@ export default function Home() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen bg-[#0B0C0E] flex items-center justify-center">
-          <div className="text-white/50">Loading...</div>
+        <div className="min-h-screen bg-background flex items-center justify-center">
+          <div className="text-muted-foreground">Loading...</div>
         </div>
       }
     >
@@ -91,11 +91,11 @@ function HomeContent() {
   }, [searchParams]);
 
   return (
-    <main className="relative min-h-screen bg-[#0B0C0E] text-white selection:bg-indigo-500/30 overflow-hidden font-sans">
-      <GridBackground forceDarkMode />
+    <main className="relative min-h-screen bg-background text-foreground selection:bg-primary/30 overflow-hidden font-sans">
+      <GridBackground />
 
       <div className="relative z-10">
-        <PremiumHeader forceDarkMode />
+        <PremiumHeader />
 
         <HeroSection />
 
@@ -181,34 +181,34 @@ function HeroSection() {
         <h1 className="text-5xl md:text-7xl lg:text-8xl font-medium tracking-tight text-transparent bg-clip-text bg-gradient-to-b from-white via-white to-white/60 pb-2 mb-6">
           AI to build anything
         </h1>
-        <p className="text-lg md:text-xl text-[#8A8F98] max-w-2xl mx-auto mb-12">
+        <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-12">
           Go from prompt to production-ready web and mobile apps in minutes.
         </p>
 
         <div className="max-w-3xl mx-auto relative group">
-          <div className="absolute -inset-0.5 bg-gradient-to-r from-indigo-500/30 to-blue-500/30 rounded-2xl blur opacity-20 group-hover:opacity-40 transition duration-500"></div>
-          <div className="relative bg-[#141517] border border-white/10 rounded-xl overflow-hidden shadow-2xl flex flex-col focus-within:border-white/20">
+          <div className="absolute -inset-0.5 bg-gradient-to-r from-primary/30 to-blue-500/30 rounded-2xl blur opacity-20 group-hover:opacity-40 transition duration-500"></div>
+          <div className="relative bg-card border border-border rounded-xl overflow-hidden shadow-2xl flex flex-col focus-within:border-border">
             <div className="px-4 pt-4 flex gap-3">
-              <Sparkles className="w-5 h-5 text-white/30 mt-1" />
+              <Sparkles className="w-5 h-5 text-muted-foreground mt-1" />
               <Textarea
                 placeholder="Describe the app you want to build..."
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
                 disabled={isLoading}
-                className="flex-1 bg-transparent text-lg text-white placeholder:text-white/30 border-none p-0 focus-visible:ring-0 resize-none min-h-[80px]"
+                className="flex-1 bg-transparent text-lg text-foreground placeholder:text-muted-foreground border-none p-0 focus-visible:ring-0 resize-none min-h-[80px]"
               />
             </div>
-            <div className="px-4 pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-t border-white/5 mt-2 pt-2 bg-white/[0.02]">
+            <div className="px-4 pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-t border-border mt-2 pt-2 bg-accent">
               <div className="flex gap-4 items-center">
-                <span className="text-[10px] text-white/30 uppercase tracking-widest font-bold">Try:</span>
-                <button onClick={() => setPrompt("Onboarding flow")} className="text-xs text-white/50 hover:text-white">Onboarding</button>
-                <button onClick={() => setPrompt("Crypto Dashboard")} className="text-xs text-white/50 hover:text-white">Dashboard</button>
+                <span className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold">Try:</span>
+                <button onClick={() => setPrompt("Onboarding flow")} className="text-xs text-muted-foreground hover:text-foreground">Onboarding</button>
+                <button onClick={() => setPrompt("Crypto Dashboard")} className="text-xs text-muted-foreground hover:text-foreground">Dashboard</button>
               </div>
               <div className="flex items-center gap-2">
                 {isWebPrototypeEnabled && (
                   <Select value={framework} onValueChange={(v) => setFramework(v as PrototypeFramework)}>
-                    <SelectTrigger className="h-9 w-32 border-white/10 bg-white/5 text-xs"><SelectValue /></SelectTrigger>
-                    <SelectContent className="bg-[#141517] border-white/10">
+                    <SelectTrigger className="h-9 w-32 border-border bg-accent text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent className="bg-card border-border">
                       {PLATFORM_OPTIONS.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
                     </SelectContent>
                   </Select>
@@ -231,54 +231,54 @@ function HeroSection() {
  */
 function BuildYourOwnWaySection() {
   return (
-    <section className="py-20 px-6 bg-[#0B0C0E]">
+    <section className="py-20 px-6 bg-background">
       <div className="container mx-auto max-w-6xl">
         <div className="text-center mb-12">
           <h2 className="text-3xl md:text-5xl font-medium tracking-tight mb-4">
             Build your own way
           </h2>
-          <p className="text-[#8A8F98] max-w-xl mx-auto">
+          <p className="text-muted-foreground max-w-xl mx-auto">
             Choose your platform and bring your own tools for maximum flexibility.
           </p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
           {/* Web */}
-          <div className="bg-[#141517] border border-white/10 rounded-2xl p-6 hover:border-white/20 transition-all group">
+          <div className="bg-card border border-border rounded-2xl p-6 hover:border-border transition-all group">
             <div className="w-12 h-12 bg-blue-500/10 rounded-xl flex items-center justify-center mb-4 border border-blue-500/20">
               <Layout className="w-6 h-6 text-blue-400" />
             </div>
             <h3 className="text-lg font-medium mb-2">Web</h3>
-            <p className="text-sm text-[#8A8F98] leading-relaxed">
+            <p className="text-sm text-muted-foreground leading-relaxed">
               Build responsive web apps with Next.js, React, and modern frameworks.
             </p>
           </div>
 
           {/* Mobile */}
-          <div className="bg-[#141517] border border-white/10 rounded-2xl p-6 hover:border-white/20 transition-all group">
+          <div className="bg-card border border-border rounded-2xl p-6 hover:border-border transition-all group">
             <div className="w-12 h-12 bg-emerald-500/10 rounded-xl flex items-center justify-center mb-4 border border-emerald-500/20">
               <Smartphone className="w-6 h-6 text-emerald-400" />
             </div>
             <h3 className="text-lg font-medium mb-2">Mobile</h3>
-            <p className="text-sm text-[#8A8F98] leading-relaxed">
+            <p className="text-sm text-muted-foreground leading-relaxed">
               Create native iOS and Android apps with Expo and React Native.
             </p>
           </div>
 
           {/* Shared Design Systems */}
-          <div className="bg-[#141517] border border-white/10 rounded-2xl p-6 hover:border-white/20 transition-all group">
+          <div className="bg-card border border-border rounded-2xl p-6 hover:border-border transition-all group">
             <div className="w-12 h-12 bg-purple-500/10 rounded-xl flex items-center justify-center mb-4 border border-purple-500/20">
               <Palette className="w-6 h-6 text-purple-400" />
             </div>
             <h3 className="text-lg font-medium mb-2">Shared Design Systems</h3>
-            <p className="text-sm text-[#8A8F98] leading-relaxed">
+            <p className="text-sm text-muted-foreground leading-relaxed">
               Maintain consistent branding across all platforms with shared components.
             </p>
           </div>
         </div>
 
         {/* Bring Your Own Claude Code - Large Box */}
-        <div className="relative bg-gradient-to-br from-[#D97757]/10 via-[#141517] to-[#141517] border border-[#D97757]/20 rounded-2xl p-8 md:p-10 overflow-hidden hover:border-[#D97757]/40 transition-all">
+        <div className="relative bg-gradient-to-br from-[#D97757]/10 via-card to-card border border-[#D97757]/20 rounded-2xl p-8 md:p-10 overflow-hidden hover:border-[#D97757]/40 transition-all">
           {/* Subtle glow effect */}
           <div className="absolute top-0 right-0 w-64 h-64 bg-[#D97757]/10 blur-[100px] rounded-full pointer-events-none"></div>
 
@@ -293,10 +293,10 @@ function BuildYourOwnWaySection() {
                 </div>
               </div>
               <div>
-                <h3 className="text-xl md:text-2xl font-medium text-white mb-2">
+                <h3 className="text-xl md:text-2xl font-medium text-foreground mb-2">
                   Bring your own Claude Code
                 </h3>
-                <p className="text-[#8A8F98] leading-relaxed max-w-xl">
+                <p className="text-muted-foreground leading-relaxed max-w-xl">
                   Already have a Claude Code subscription? Connect it to Nucleate for massive savings.
                 </p>
               </div>
@@ -306,15 +306,15 @@ function BuildYourOwnWaySection() {
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6 lg:gap-8">
               <div className="text-center sm:text-left">
                 <div className="text-3xl md:text-4xl font-bold text-[#D97757] mb-1">1000x</div>
-                <div className="text-xs text-white/50 uppercase tracking-wider">more usage</div>
+                <div className="text-xs text-muted-foreground uppercase tracking-wider">more usage</div>
               </div>
-              <div className="hidden sm:block w-px h-12 bg-white/10"></div>
+              <div className="hidden sm:block w-px h-12 bg-border"></div>
               <div className="space-y-2">
-                <div className="flex items-center gap-2 text-sm text-white/70">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <CheckCircle2 className="w-4 h-4 text-[#D97757] flex-shrink-0" />
                   <span>Use your subscription or ours</span>
                 </div>
-                <div className="flex items-center gap-2 text-sm text-white/70">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <CheckCircle2 className="w-4 h-4 text-[#D97757] flex-shrink-0" />
                   <span>Fraction of the cost vs. competitors</span>
                 </div>
@@ -349,22 +349,22 @@ function VariantsSection() {
   ];
 
   return (
-    <section className="py-24 bg-black border-y border-white/5 relative overflow-hidden">
+    <section className="py-24 bg-background border-y border-border relative overflow-hidden">
       {/* Background accents */}
-      <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-indigo-600/5 blur-[120px] rounded-full pointer-events-none" />
+      <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-primary/5 blur-[120px] rounded-full pointer-events-none" />
       <div className="absolute bottom-0 right-1/4 w-[500px] h-[500px] bg-purple-600/5 blur-[120px] rounded-full pointer-events-none" />
 
       <div className="container mx-auto px-6 max-w-7xl relative z-10">
         <div className="text-center mb-16 max-w-4xl mx-auto">
           <Badge
             variant="outline"
-            className="mb-4 border-white/10 bg-white/5 text-zinc-300"
+            className="mb-4 border-border bg-accent text-muted-foreground"
           >
             Infinite Exploration
           </Badge>
-          <h2 className="text-4xl md:text-6xl font-medium text-white mb-6">
+          <h2 className="text-4xl md:text-6xl font-medium text-foreground mb-6">
             Instant Variants.
-            <span className="text-zinc-500 block text-2xl md:text-3xl mt-4 font-normal">
+            <span className="text-muted-foreground block text-2xl md:text-3xl mt-4 font-normal">
               Explore more ideas in 10 minutes than your team could in 2 weeks.
             </span>
           </h2>
@@ -378,7 +378,7 @@ function VariantsSection() {
               onClick={() => setActiveTab(tab.id)}
               className={`px-6 py-3 rounded-full text-sm font-medium flex items-center gap-2 transition-all duration-300 border ${activeTab === tab.id
                 ? "bg-white text-black border-white shadow-[0_0_20px_rgba(255,255,255,0.2)]"
-                : "bg-zinc-900/50 text-zinc-400 border-white/5 hover:bg-zinc-800 hover:text-white"
+                : "bg-card/50 text-muted-foreground border-border hover:bg-card hover:text-foreground"
                 }`}
             >
               {tab.icon}
@@ -388,7 +388,7 @@ function VariantsSection() {
         </div>
 
         {/* Content Area */}
-        <div className="relative min-h-[600px] bg-[#0F1012] rounded-3xl border border-white/10 p-4 md:p-8 overflow-hidden shadow-2xl">
+        <div className="relative min-h-[600px] bg-card rounded-3xl border border-border p-4 md:p-8 overflow-hidden shadow-2xl">
           <AnimatePresence mode="wait">
             <motion.div
               key={activeTab}
@@ -435,7 +435,7 @@ function VariantsSection() {
                   </div>
 
                   {/* Variant 2: Dark Brutalist */}
-                  <div className="aspect-[9/16] bg-[#121212] rounded-3xl overflow-hidden shadow-2xl border border-zinc-800 relative group">
+                  <div className="aspect-[9/16] bg-card rounded-3xl overflow-hidden shadow-2xl border border-zinc-800 relative group">
                     <div className="p-6 h-full flex flex-col">
                       <div className="flex justify-between items-center mb-8">
                         <div className="text-white font-mono text-xs">
@@ -480,37 +480,37 @@ function VariantsSection() {
                   </div>
 
                   {/* Variant 3: Glassmorphism */}
-                  <div className="aspect-[9/16] bg-zinc-900 rounded-3xl overflow-hidden shadow-2xl border border-white/10 relative group">
+                  <div className="aspect-[9/16] bg-card rounded-3xl overflow-hidden shadow-2xl border border-border relative group">
                     <div className="absolute inset-0">
                       <div className="w-full h-full object-cover opacity-60 blur-xl scale-125 bg-indigo-500" />
-                      <div className="absolute inset-0 bg-black/20" />
+                      <div className="absolute inset-0 bg-background/20" />
                     </div>
                     <div className="relative z-10 p-6 h-full flex flex-col justify-end">
-                      <div className="w-full aspect-square rounded-2xl overflow-hidden shadow-2xl mb-8 border border-white/10">
+                      <div className="w-full aspect-square rounded-2xl overflow-hidden shadow-2xl mb-8 border border-border">
                         <div className="w-full h-full object-cover bg-indigo-400" />
                       </div>
-                      <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/10">
-                        <h3 className="text-lg font-semibold text-white mb-1">
+                      <div className="bg-accent backdrop-blur-md rounded-2xl p-4 border border-border">
+                        <h3 className="text-lg font-semibold text-foreground mb-1">
                           Midnight City
                         </h3>
-                        <p className="text-white/60 text-xs mb-4">M83</p>
-                        <div className="h-1 bg-white/20 rounded-full overflow-hidden mb-4">
+                        <p className="text-muted-foreground text-xs mb-4">M83</p>
+                        <div className="h-1 bg-accent rounded-full overflow-hidden mb-4">
                           <div className="h-full w-2/3 bg-white shadow-[0_0_10px_white]" />
                         </div>
                         <div className="flex justify-between px-4">
-                          <div className="w-6 h-6 text-white/60">
+                          <div className="w-6 h-6 text-muted-foreground">
                             <div className="w-full h-full border-b-2 border-l-2 border-current rotate-45 translate-x-1" />
                           </div>
                           <div className="w-8 h-8 bg-white text-black rounded-full flex items-center justify-center shadow-lg">
                             <div className="w-0 h-0 border-t-[4px] border-t-transparent border-l-[6px] border-l-black border-b-[4px] border-b-transparent ml-0.5" />
                           </div>
-                          <div className="w-6 h-6 text-white/60">
+                          <div className="w-6 h-6 text-muted-foreground">
                             <div className="w-full h-full border-b-2 border-r-2 border-current -rotate-45 -translate-x-1" />
                           </div>
                         </div>
                       </div>
                     </div>
-                    <div className="absolute top-4 left-0 right-0 text-center text-[10px] text-white/50 font-mono opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="absolute top-4 left-0 right-0 text-center text-[10px] text-muted-foreground font-mono opacity-0 group-hover:opacity-100 transition-opacity">
                       Variant C: Glassmorphism
                     </div>
                   </div>
@@ -544,7 +544,7 @@ function VariantsSection() {
                   </div>
 
                   {/* Loading State */}
-                  <div className="bg-[#0F1012] rounded-3xl border border-zinc-800 p-6 aspect-[9/16] max-h-[500px] flex flex-col relative overflow-hidden group">
+                  <div className="bg-card rounded-3xl border border-zinc-800 p-6 aspect-[9/16] max-h-[500px] flex flex-col relative overflow-hidden group">
                     <div className="flex items-center justify-between mb-8">
                       <div className="w-8 h-8 rounded-full bg-zinc-800 animate-pulse" />
                       <div className="w-24 h-4 bg-zinc-800 rounded animate-pulse" />
@@ -560,8 +560,8 @@ function VariantsSection() {
                         </div>
                       ))}
                     </div>
-                    <div className="absolute inset-0 bg-gradient-to-t from-[#0F1012] via-transparent to-transparent pointer-events-none" />
-                    <div className="absolute top-4 left-0 right-0 text-center text-[10px] text-zinc-600 font-mono opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="absolute inset-0 bg-gradient-to-t from-card via-transparent to-transparent pointer-events-none" />
+                    <div className="absolute top-4 left-0 right-0 text-center text-[10px] text-muted-foreground font-mono opacity-0 group-hover:opacity-100 transition-opacity">
                       Loading State
                     </div>
                   </div>
@@ -1129,23 +1129,23 @@ function VariantsSection() {
  */
 function InfrastructureSection() {
   return (
-    <section className="py-24 px-6 border-t border-white/5 bg-[#0B0C0E]">
+    <section className="py-24 px-6 border-t border-border bg-background">
       <div className="container mx-auto max-w-6xl">
         <div className="text-center mb-20">
-          <Badge variant="outline" className="mb-4 border-indigo-500/20 bg-indigo-500/10 text-indigo-300">
+          <Badge variant="outline" className="mb-4 border-primary/20 bg-primary/10 text-primary">
             Enterprise Grade
           </Badge>
           <h2 className="text-4xl md:text-5xl lg:text-6xl font-medium tracking-tight mb-6">
-            Everything you need to scale <br /> <span className="text-white/40">Built in.</span>
+            Everything you need to scale <br /> <span className="text-muted-foreground">Built in.</span>
           </h2>
-          <p className="text-zinc-400 text-lg max-w-2xl mx-auto leading-relaxed">
+          <p className="text-muted-foreground text-lg max-w-2xl mx-auto leading-relaxed">
             Stop stitching together platforms. Nucleate gives you enterprise-grade backend infrastructure including hosting, databases, integrations and more.
           </p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-12 gap-6 auto-rows-[240px]">
           {/* Databases - Wide Card */}
-          <div className="md:col-span-8 md:row-span-2 bg-[#141517] border border-white/10 rounded-3xl p-8 relative overflow-hidden group hover:border-white/20 transition-all">
+          <div className="md:col-span-8 md:row-span-2 bg-card border border-border rounded-3xl p-8 relative overflow-hidden group hover:border-border transition-all">
             <div className="relative z-10 flex flex-col h-full">
               <div className="mb-auto">
                 <div className="w-12 h-12 bg-blue-500/10 rounded-xl flex items-center justify-center mb-6 border border-blue-500/20">
@@ -1153,18 +1153,18 @@ function InfrastructureSection() {
                     <path strokeLinecap="round" strokeLinejoin="round" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" />
                   </svg>
                 </div>
-                <h3 className="text-2xl font-medium mb-3 text-white">Integrated with your own database</h3>
-                <p className="text-zinc-400 max-w-md text-sm leading-relaxed">
+                <h3 className="text-2xl font-medium mb-3 text-foreground">Integrated with your own database</h3>
+                <p className="text-muted-foreground max-w-md text-sm leading-relaxed">
                   Connect to your existing database or automatic integration with Supabase with one-click.
                 </p>
               </div>
 
               {/* Database Visual */}
-              <div className="mt-8 relative h-64 w-full bg-[#0B0C0E] rounded-xl border border-white/5 overflow-hidden">
+              <div className="mt-8 relative h-64 w-full bg-background rounded-xl border border-border overflow-hidden">
                 <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:14px_24px]"></div>
                 <div className="absolute inset-0 flex items-center justify-center">
                   <div className="w-full max-w-sm space-y-3 p-6 font-mono text-xs">
-                    <div className="flex gap-8 text-zinc-500 border-b border-white/5 pb-2">
+                    <div className="flex gap-8 text-muted-foreground border-b border-border pb-2">
                       <span className="w-24">id</span>
                       <span className="w-32">user_email</span>
                       <span className="flex-1">status</span>
@@ -1181,9 +1181,9 @@ function InfrastructureSection() {
                         transition={{ delay: i * 0.1 + 0.2 }}
                         className="flex gap-8 items-center"
                       >
-                        <span className="w-24 text-zinc-400">{row.id}</span>
-                        <span className="w-32 text-zinc-300">{row.email}</span>
-                        <span className={`flex-1 ${row.color} px-2 py-0.5 bg-white/5 rounded w-fit`}>{row.status}</span>
+                        <span className="w-24 text-muted-foreground">{row.id}</span>
+                        <span className="w-32 text-foreground">{row.email}</span>
+                        <span className={`flex-1 ${row.color} px-2 py-0.5 bg-accent rounded w-fit`}>{row.status}</span>
                       </motion.div>
                     ))}
                     <motion.div
@@ -1199,28 +1199,28 @@ function InfrastructureSection() {
           </div>
 
           {/* User Auth - Tall Card */}
-          <div className="md:col-span-4 md:row-span-2 bg-[#141517] border border-white/10 rounded-3xl p-8 relative overflow-hidden group hover:border-white/20 transition-all">
+          <div className="md:col-span-4 md:row-span-2 bg-card border border-border rounded-3xl p-8 relative overflow-hidden group hover:border-border transition-all">
             <div className="relative z-10 h-full flex flex-col">
               <div className="w-12 h-12 bg-emerald-500/10 rounded-xl flex items-center justify-center mb-6 border border-emerald-500/20">
                 <ShieldCheck className="w-6 h-6 text-emerald-400" />
               </div>
-              <h3 className="text-xl font-medium mb-3 text-white">Auth & User Management</h3>
-              <p className="text-zinc-400 text-sm leading-relaxed mb-8">
+              <h3 className="text-xl font-medium mb-3 text-foreground">Auth & User Management</h3>
+              <p className="text-muted-foreground text-sm leading-relaxed mb-8">
                 Enterprise-ready authentication with social logins, MFA, and user management built-in.
               </p>
 
               <div className="mt-auto relative">
-                <div className="bg-[#0B0C0E] border border-white/5 rounded-2xl p-4 shadow-2xl">
+                <div className="bg-background border border-border rounded-2xl p-4 shadow-2xl">
                   <div className="flex gap-3 mb-4">
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-500" />
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-primary to-purple-500" />
                     <div>
-                      <div className="h-2 w-24 bg-white/10 rounded mb-2" />
-                      <div className="h-2 w-16 bg-white/10 rounded" />
+                      <div className="h-2 w-24 bg-accent rounded mb-2" />
+                      <div className="h-2 w-16 bg-accent rounded" />
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <div className="h-8 w-full bg-white/5 rounded border border-white/5 flex items-center px-3 text-[10px] text-zinc-500">Sign in with Google</div>
-                    <div className="h-8 w-full bg-white/5 rounded border border-white/5 flex items-center px-3 text-[10px] text-zinc-500">Sign in with GitHub</div>
+                    <div className="h-8 w-full bg-accent rounded border border-border flex items-center px-3 text-[10px] text-muted-foreground">Sign in with Google</div>
+                    <div className="h-8 w-full bg-accent rounded border border-border flex items-center px-3 text-[10px] text-muted-foreground">Sign in with GitHub</div>
                   </div>
                 </div>
                 {/* Floating Elements */}
@@ -1238,12 +1238,12 @@ function InfrastructureSection() {
           </div>
 
           {/* Hosting */}
-          <div className="md:col-span-5 md:row-span-1 bg-[#141517] border border-white/10 rounded-3xl p-8 relative overflow-hidden group hover:border-white/20 transition-all">
+          <div className="md:col-span-5 md:row-span-1 bg-card border border-border rounded-3xl p-8 relative overflow-hidden group hover:border-border transition-all">
             <div className="flex flex-col h-full justify-between relative z-10">
               <div className="flex justify-between items-start">
                 <div>
-                  <h3 className="text-lg font-medium text-white mb-1">Global Edge Hosting</h3>
-                  <p className="text-zinc-500 text-xs">Deploy instantly to 35+ regions</p>
+                  <h3 className="text-lg font-medium text-foreground mb-1">Global Edge Hosting</h3>
+                  <p className="text-muted-foreground text-xs">Deploy instantly to 35+ regions</p>
                 </div>
                 <div className="h-8 w-8 rounded-full bg-green-500/20 flex items-center justify-center">
                   <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
@@ -1251,13 +1251,13 @@ function InfrastructureSection() {
               </div>
 
               <div className="mt-6 flex gap-2">
-                <div className="px-3 py-1.5 rounded-full bg-white/5 border border-white/5 text-[10px] text-zinc-400 flex items-center gap-2">
+                <div className="px-3 py-1.5 rounded-full bg-accent border border-border text-[10px] text-muted-foreground flex items-center gap-2">
                   <span className="w-1.5 h-1.5 rounded-full bg-green-500" /> us-east
                 </div>
-                <div className="px-3 py-1.5 rounded-full bg-white/5 border border-white/5 text-[10px] text-zinc-400 flex items-center gap-2">
+                <div className="px-3 py-1.5 rounded-full bg-accent border border-border text-[10px] text-muted-foreground flex items-center gap-2">
                   <span className="w-1.5 h-1.5 rounded-full bg-green-500" /> eu-west
                 </div>
-                <div className="px-3 py-1.5 rounded-full bg-white/5 border border-white/5 text-[10px] text-zinc-400 flex items-center gap-2">
+                <div className="px-3 py-1.5 rounded-full bg-accent border border-border text-[10px] text-muted-foreground flex items-center gap-2">
                   <span className="w-1.5 h-1.5 rounded-full bg-green-500" /> asia-pac
                 </div>
               </div>
@@ -1266,10 +1266,10 @@ function InfrastructureSection() {
           </div>
 
           {/* SEO Performance */}
-          <div className="md:col-span-4 md:row-span-1 bg-[#141517] border border-white/10 rounded-3xl p-8 relative overflow-hidden group hover:border-white/20 transition-all flex items-center gap-6">
+          <div className="md:col-span-4 md:row-span-1 bg-card border border-border rounded-3xl p-8 relative overflow-hidden group hover:border-border transition-all flex items-center gap-6">
             <div className="relative w-20 h-20 shrink-0">
               <svg className="w-full h-full -rotate-90">
-                <circle cx="40" cy="40" r="36" stroke="currentColor" strokeWidth="6" className="text-white/5" fill="none" />
+                <circle cx="40" cy="40" r="36" stroke="currentColor" strokeWidth="6" className="text-accent" fill="none" />
                 <motion.circle
                   initial={{ pathLength: 0 }}
                   whileInView={{ pathLength: 1 }}
@@ -1282,28 +1282,28 @@ function InfrastructureSection() {
                 />
               </svg>
               <div className="absolute inset-0 flex items-center justify-center flex-col">
-                <span className="text-2xl font-bold text-white">100</span>
+                <span className="text-2xl font-bold text-foreground">100</span>
               </div>
             </div>
             <div>
-              <h3 className="text-lg font-medium text-white mb-1">Perfect SEO</h3>
-              <p className="text-zinc-500 text-xs leading-relaxed">
+              <h3 className="text-lg font-medium text-foreground mb-1">Perfect SEO</h3>
+              <p className="text-muted-foreground text-xs leading-relaxed">
                 Server-side rendering and automatic meta tags ensure you rank #1.
               </p>
             </div>
           </div>
 
           {/* Analytics */}
-          <div className="md:col-span-3 md:row-span-1 bg-[#141517] border border-white/10 rounded-3xl p-6 flex flex-col justify-center relative overflow-hidden text-center group hover:border-white/20 transition-all">
-            <div className="absolute inset-0 bg-gradient-to-b from-indigo-500/5 to-transparent" />
-            <BarChart3 className="w-10 h-10 text-indigo-400 mx-auto mb-3" />
-            <h3 className="text-white font-medium">Built-in Analytics</h3>
-            <p className="text-zinc-500 text-xs mt-1">Privacy focused</p>
+          <div className="md:col-span-3 md:row-span-1 bg-card border border-border rounded-3xl p-6 flex flex-col justify-center relative overflow-hidden text-center group hover:border-border transition-all">
+            <div className="absolute inset-0 bg-gradient-to-b from-primary/5 to-transparent" />
+            <BarChart3 className="w-10 h-10 text-primary mx-auto mb-3" />
+            <h3 className="text-foreground font-medium">Built-in Analytics</h3>
+            <p className="text-muted-foreground text-xs mt-1">Privacy focused</p>
           </div>
         </div>
 
-        <div className="mt-20 pt-10 border-t border-white/5 text-center">
-          <p className="text-lg font-medium text-zinc-400 max-w-2xl mx-auto">
+        <div className="mt-20 pt-10 border-t border-border text-center">
+          <p className="text-lg font-medium text-muted-foreground max-w-2xl mx-auto">
             Nucleate gives you everything you need inside one familiar interface—no extra accounts, no steep learning curve.
           </p>
         </div>
@@ -1317,29 +1317,29 @@ function InfrastructureSection() {
  */
 function AgentsSection() {
   return (
-    <section className="py-24 px-6 bg-[#0B0C0E]">
+    <section className="py-24 px-6 bg-background">
       <div className="container mx-auto max-w-6xl">
         <div className="text-center mb-16">
           <h2 className="text-4xl md:text-6xl font-medium tracking-tight mb-4">
-            Empowering product builders <br /> <span className="text-white/40">with the most powerful coding agents</span>
+            Empowering product builders <br /> <span className="text-muted-foreground">with the most powerful coding agents</span>
           </h2>
-          <p className="text-[#8A8F98] max-w-2xl mx-auto">
+          <p className="text-muted-foreground max-w-2xl mx-auto">
             Nucleate does the heavy lifting for you, so you can focus on your vision instead of fighting errors.
           </p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
           {/* Agent Switcher */}
-          <div className="bg-[#141517] border border-white/10 rounded-3xl p-8 flex flex-col md:flex-row gap-8 items-center">
+          <div className="bg-card border border-border rounded-3xl p-8 flex flex-col md:flex-row gap-8 items-center">
             <div className="flex-1">
               <h3 className="text-lg font-medium mb-3">Always the best, without switching tools</h3>
-              <p className="text-sm text-[#8A8F98] leading-relaxed">
+              <p className="text-sm text-muted-foreground leading-relaxed">
                 Nucleate integrates the frontier coding agents from the AI labs directly inside one familiar visual interface.
                 No more AI anxiety or juggling multiple platforms.
               </p>
             </div>
-            <div className="w-full md:w-64 bg-black/40 border border-white/5 rounded-2xl p-2 space-y-1">
-              <div className="flex items-center justify-between p-3 bg-white/5 rounded-xl border border-white/10">
+            <div className="w-full md:w-64 bg-background/40 border border-border rounded-2xl p-2 space-y-1">
+              <div className="flex items-center justify-between p-3 bg-accent rounded-xl border border-border">
                 <div className="flex items-center gap-3">
                   <div className="w-6 h-6 bg-[#D97757]/20 rounded flex items-center justify-center">
                     <svg viewBox="0 0 24 24" fill="none" className="w-3.5 h-3.5 text-[#D97757]" xmlns="http://www.w3.org/2000/svg">
@@ -1357,14 +1357,14 @@ function AgentsSection() {
               </div>
               <div className="flex items-center justify-between p-3 opacity-40">
                 <div className="flex items-center gap-3">
-                  <div className="w-6 h-6 bg-white/10 rounded flex items-center justify-center">
-                    <svg viewBox="0 0 24 24" fill="none" className="w-3.5 h-3.5 text-white" xmlns="http://www.w3.org/2000/svg">
+                  <div className="w-6 h-6 bg-accent rounded flex items-center justify-center">
+                    <svg viewBox="0 0 24 24" fill="none" className="w-3.5 h-3.5 text-foreground" xmlns="http://www.w3.org/2000/svg">
                       <path d="M22.28 9.82a5.98 5.98 0 0 0-.51-4.91 6.05 6.05 0 0 0-6.51-2.9A6.06 6.06 0 0 0 4.98 4.18a5.98 5.98 0 0 0-4 2.9 6.05 6.05 0 0 0 .74 7.1 5.98 5.98 0 0 0 .51 4.91 6.05 6.05 0 0 0 6.51 2.9 6.06 6.06 0 0 0 10.29-2.18 5.98 5.98 0 0 0 4-2.9 6.05 6.05 0 0 0-.75-7.1Zm-9 11.23a4.05 4.05 0 0 1-3.6-2.31l.14-.14 3.42-5.91h2.93l-2.07 7.7a4.07 4.07 0 0 1-.82.66Zm5.94-3.58a4.06 4.06 0 0 1-3.37 1.25l-2.07-7.7 5.09-2.93.9 3.06a4.07 4.07 0 0 1-.55 6.32Zm-4.82-13.3a4.05 4.05 0 0 1 3.6 2.31l-.14.15-3.42 5.9h-2.93l2.08-7.7a4.07 4.07 0 0 1 .81-.66Zm-5.94 3.58a4.06 4.06 0 0 1 3.37-1.25l2.07 7.7-5.09 2.93-.9-3.06a4.07 4.07 0 0 1 .55-6.32ZM3.1 11.45A4.06 4.06 0 0 1 8.24 9l-2.07 7.7h-3.95l-.15-.43a4.07 4.07 0 0 1 1.03-4.82Zm17.8 1.1a4.06 4.06 0 0 1-5.14 2.44l2.07-7.7h3.95l.15.43a4.07 4.07 0 0 1-1.03 4.83Z" fill="currentColor" />
                     </svg>
                   </div>
                   <span className="text-sm">Codex</span>
                 </div>
-                <span className="text-[10px] uppercase font-bold text-white/40">coming soon</span>
+                <span className="text-[10px] uppercase font-bold text-muted-foreground">coming soon</span>
               </div>
               <div className="flex items-center justify-between p-3 opacity-40">
                 <div className="flex items-center gap-3">
@@ -1376,65 +1376,65 @@ function AgentsSection() {
                   </div>
                   <span className="text-sm">Gemini</span>
                 </div>
-                <span className="text-[10px] uppercase font-bold text-white/40">coming soon</span>
+                <span className="text-[10px] uppercase font-bold text-muted-foreground">coming soon</span>
               </div>
             </div>
           </div>
 
           {/* Stats Cards */}
           <div className="grid md:grid-cols-2 gap-6">
-            <div className="bg-[#141517] border border-white/10 rounded-3xl p-8 flex flex-col items-center justify-center text-center">
+            <div className="bg-card border border-border rounded-3xl p-8 flex flex-col items-center justify-center text-center">
               <span className="text-6xl font-bold mb-2">98%</span>
-              <span className="text-sm text-white/60 uppercase font-bold tracking-widest mb-4">less errors</span>
-              <p className="text-sm text-white/70 max-w-sm leading-relaxed">
+              <span className="text-sm text-muted-foreground uppercase font-bold tracking-widest mb-4">less errors</span>
+              <p className="text-sm text-muted-foreground max-w-sm leading-relaxed">
                 Nucleate automatically tests, refactors, and iterates reducing errors so you keep building instead of fixing.
               </p>
             </div>
-            <div className="bg-[#141517] border border-white/10 rounded-3xl p-8 flex flex-col relative overflow-hidden min-h-[300px]">
+            <div className="bg-card border border-border rounded-3xl p-8 flex flex-col relative overflow-hidden min-h-[300px]">
               <div className="relative z-10 mb-8">
-                <h3 className="text-lg font-bold text-white mb-3">Build big without breaking</h3>
-                <p className="text-sm text-white/70 leading-relaxed">
+                <h3 className="text-lg font-bold text-foreground mb-3">Build big without breaking</h3>
+                <p className="text-sm text-muted-foreground leading-relaxed">
                   Nucleate handles projects 1,000 times larger than before. Its improved built-in context management can handle complexity and keep your projects running smoothly.
                 </p>
               </div>
 
               {/* Visual */}
-              <div className="absolute bottom-0 left-0 right-0 h-40 bg-gradient-to-t from-[#141517] to-transparent z-10"></div>
+              <div className="absolute bottom-0 left-0 right-0 h-40 bg-gradient-to-t from-card to-transparent z-10"></div>
               <div className="absolute bottom-0 left-4 right-4 h-48 opacity-50 flex gap-2 transform translate-y-12">
-                <div className="flex-1 bg-white/5 border border-white/10 rounded-t-lg"></div>
-                <div className="flex-[2] bg-white/5 border border-white/10 rounded-t-lg relative flex items-center justify-center">
-                  <span className="text-5xl font-bold text-white/20">1000x</span>
+                <div className="flex-1 bg-accent border border-border rounded-t-lg"></div>
+                <div className="flex-[2] bg-accent border border-border rounded-t-lg relative flex items-center justify-center">
+                  <span className="text-5xl font-bold text-muted-foreground">1000x</span>
                 </div>
-                <div className="flex-1 bg-white/5 border border-white/10 rounded-t-lg"></div>
+                <div className="flex-1 bg-accent border border-border rounded-t-lg"></div>
               </div>
             </div>
           </div>
         </div>
 
         {/* Design System Card */}
-        <div className="bg-gradient-to-b from-[#141517] to-black border border-white/10 rounded-3xl p-12 overflow-hidden relative group">
+        <div className="bg-gradient-to-b from-card to-background border border-border rounded-3xl p-12 overflow-hidden relative group">
           <div className="text-center mb-12">
             <div className="flex justify-center gap-1 mb-6">
               <div className="w-2 h-2 rounded-full bg-blue-500"></div>
               <div className="w-2 h-2 rounded-full bg-pink-500"></div>
               <div className="w-2 h-2 rounded-full bg-purple-500"></div>
             </div>
-            <h3 className="text-3xl font-medium mb-4">Build with <span className="text-indigo-400">your</span> design system</h3>
-            <p className="text-[#8A8F98]">Stop building from scratch. Start building on-brand.</p>
+            <h3 className="text-3xl font-medium mb-4">Build with <span className="text-primary">your</span> design system</h3>
+            <p className="text-muted-foreground">Stop building from scratch. Start building on-brand.</p>
           </div>
 
           <div className="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-8 items-center opacity-80 group-hover:opacity-100 transition-opacity">
             <div className="space-y-6">
               <div className="flex gap-4 items-center">
-                <div className="w-10 h-6 bg-white/5 rounded-full relative border border-white/10">
-                  <div className="absolute right-1 top-1 w-4 h-4 bg-indigo-500 rounded-full"></div>
+                <div className="w-10 h-6 bg-accent rounded-full relative border border-border">
+                  <div className="absolute right-1 top-1 w-4 h-4 bg-primary rounded-full"></div>
                 </div>
                 <div className="flex gap-2">
-                  <div className="w-4 h-4 bg-indigo-500 rounded-sm"></div>
-                  <div className="w-4 h-4 border border-white/20 rounded-sm"></div>
+                  <div className="w-4 h-4 bg-primary rounded-sm"></div>
+                  <div className="w-4 h-4 border border-border rounded-sm"></div>
                 </div>
               </div>
-              <div className="p-4 bg-white/5 rounded-xl border border-white/10 text-xs font-mono text-white/40">
+              <div className="p-4 bg-accent rounded-xl border border-border text-xs font-mono text-muted-foreground">
                 .button {'{'} <br />
                 &nbsp;&nbsp;radius: 12px;<br />
                 &nbsp;&nbsp;shadow: var(--lg);<br />
@@ -1463,27 +1463,27 @@ function AgentsSection() {
  */
 function TeamsSection() {
   return (
-    <section className="py-24 px-6 bg-[#0B0C0E] border-t border-white/5">
+    <section className="py-24 px-6 bg-background border-t border-border">
       <div className="container mx-auto max-w-6xl">
         <div className="text-center mb-16">
-          <div className="inline-flex items-center gap-2 mb-6 px-3 py-1.5 bg-white/5 border border-white/10 rounded-full">
-            <Users className="w-3.5 h-3.5 text-indigo-400" />
-            <span className="text-xs font-medium text-white/70 uppercase tracking-widest">Built for Teams</span>
+          <div className="inline-flex items-center gap-2 mb-6 px-3 py-1.5 bg-accent border border-border rounded-full">
+            <Users className="w-3.5 h-3.5 text-primary" />
+            <span className="text-xs font-medium text-muted-foreground uppercase tracking-widest">Built for Teams</span>
           </div>
           <h2 className="text-4xl md:text-6xl font-medium tracking-tight mb-4">
-            Build together <span className="text-white/40">in real-time</span>
+            Build together <span className="text-muted-foreground">in real-time</span>
           </h2>
-          <p className="text-[#8A8F98] max-w-2xl mx-auto">
+          <p className="text-muted-foreground max-w-2xl mx-auto">
             Live collaboration, shared design systems, and internal tools for teams of any size.
           </p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Live Collaboration Card */}
-          <div className="bg-[#141517] border border-white/10 rounded-3xl p-8 relative overflow-hidden group hover:border-indigo-500/30 transition-colors">
+          <div className="bg-card border border-border rounded-3xl p-8 relative overflow-hidden group hover:border-primary/30 transition-colors">
             <div className="relative z-10 mb-8">
-              <h3 className="text-lg font-bold text-white mb-3">Real-time collaboration</h3>
-              <p className="text-sm text-white/70 leading-relaxed">
+              <h3 className="text-lg font-bold text-foreground mb-3">Real-time collaboration</h3>
+              <p className="text-sm text-muted-foreground leading-relaxed">
                 See teammates&apos; cursors, chat in-context, and build together simultaneously.
               </p>
             </div>
@@ -1506,7 +1506,7 @@ function TeamsSection() {
                 initial={{ opacity: 0, y: 10 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.3 }}
-                className="absolute right-4 bottom-8 bg-white/10 backdrop-blur rounded-lg px-3 py-2 text-xs text-white/80"
+                className="absolute right-4 bottom-8 bg-accent backdrop-blur rounded-lg px-3 py-2 text-xs text-foreground"
               >
                 Looks great!
               </motion.div>
@@ -1514,97 +1514,97 @@ function TeamsSection() {
           </div>
 
           {/* Shared Design Systems Card */}
-          <div className="bg-[#141517] border border-white/10 rounded-3xl p-8 relative overflow-hidden group hover:border-purple-500/30 transition-colors">
+          <div className="bg-card border border-border rounded-3xl p-8 relative overflow-hidden group hover:border-purple-500/30 transition-colors">
             <div className="relative z-10 mb-8">
-              <h3 className="text-lg font-bold text-white mb-3">One design system, every project</h3>
-              <p className="text-sm text-white/70 leading-relaxed">
+              <h3 className="text-lg font-bold text-foreground mb-3">One design system, every project</h3>
+              <p className="text-sm text-muted-foreground leading-relaxed">
                 Create and share component libraries, color palettes, and typography across your team&apos;s projects.
               </p>
             </div>
             {/* Visual: Design system components */}
             <div className="flex flex-wrap gap-3">
-              <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-lg px-3 py-2">
-                <div className="w-4 h-4 rounded bg-indigo-500"></div>
-                <span className="text-xs text-white/60">Primary</span>
+              <div className="flex items-center gap-2 bg-accent border border-border rounded-lg px-3 py-2">
+                <div className="w-4 h-4 rounded bg-primary"></div>
+                <span className="text-xs text-muted-foreground">Primary</span>
               </div>
-              <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-lg px-3 py-2">
+              <div className="flex items-center gap-2 bg-accent border border-border rounded-lg px-3 py-2">
                 <div className="w-4 h-4 rounded bg-pink-500"></div>
-                <span className="text-xs text-white/60">Accent</span>
+                <span className="text-xs text-muted-foreground">Accent</span>
               </div>
-              <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-lg px-3 py-2">
-                <Box className="w-4 h-4 text-white/40" />
-                <span className="text-xs text-white/60">Button</span>
+              <div className="flex items-center gap-2 bg-accent border border-border rounded-lg px-3 py-2">
+                <Box className="w-4 h-4 text-muted-foreground" />
+                <span className="text-xs text-muted-foreground">Button</span>
               </div>
-              <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-lg px-3 py-2">
-                <Layout className="w-4 h-4 text-white/40" />
-                <span className="text-xs text-white/60">Card</span>
+              <div className="flex items-center gap-2 bg-accent border border-border rounded-lg px-3 py-2">
+                <Layout className="w-4 h-4 text-muted-foreground" />
+                <span className="text-xs text-muted-foreground">Card</span>
               </div>
               <div className="mt-4 w-full text-center">
-                <span className="text-xs text-white/40">Shared across 12 projects</span>
+                <span className="text-xs text-muted-foreground">Shared across 12 projects</span>
               </div>
             </div>
           </div>
 
           {/* Internal Tools Card */}
-          <div className="bg-[#141517] border border-white/10 rounded-3xl p-8 relative overflow-hidden group hover:border-emerald-500/30 transition-colors">
+          <div className="bg-card border border-border rounded-3xl p-8 relative overflow-hidden group hover:border-emerald-500/30 transition-colors">
             <div className="relative z-10 mb-8">
-              <h3 className="text-lg font-bold text-white mb-3">Internal tools in minutes</h3>
-              <p className="text-sm text-white/70 leading-relaxed">
+              <h3 className="text-lg font-bold text-foreground mb-3">Internal tools in minutes</h3>
+              <p className="text-sm text-muted-foreground leading-relaxed">
                 Build dashboards, admin panels, and workflows for your team without engineering sprints.
               </p>
             </div>
             {/* Visual: Admin dashboard mockup */}
-            <div className="bg-black/40 border border-white/10 rounded-xl p-4">
+            <div className="bg-background/40 border border-border rounded-xl p-4">
               <div className="flex items-center gap-2 mb-4">
                 <div className="px-2 py-0.5 bg-emerald-500/20 text-emerald-400 text-[10px] font-bold rounded">INTERNAL</div>
-                <span className="text-xs text-white/40">Team Dashboard</span>
+                <span className="text-xs text-muted-foreground">Team Dashboard</span>
               </div>
               <div className="grid grid-cols-3 gap-2">
-                <div className="bg-white/5 rounded p-2">
-                  <div className="text-lg font-bold text-white">248</div>
-                  <div className="text-[10px] text-white/40">Active users</div>
+                <div className="bg-accent rounded p-2">
+                  <div className="text-lg font-bold text-foreground">248</div>
+                  <div className="text-[10px] text-muted-foreground">Active users</div>
                 </div>
-                <div className="bg-white/5 rounded p-2">
-                  <div className="text-lg font-bold text-white">12</div>
-                  <div className="text-[10px] text-white/40">Projects</div>
+                <div className="bg-accent rounded p-2">
+                  <div className="text-lg font-bold text-foreground">12</div>
+                  <div className="text-[10px] text-muted-foreground">Projects</div>
                 </div>
-                <div className="bg-white/5 rounded p-2">
-                  <div className="text-lg font-bold text-white">99%</div>
-                  <div className="text-[10px] text-white/40">Uptime</div>
+                <div className="bg-accent rounded p-2">
+                  <div className="text-lg font-bold text-foreground">99%</div>
+                  <div className="text-[10px] text-muted-foreground">Uptime</div>
                 </div>
               </div>
             </div>
           </div>
 
           {/* Team Management Card */}
-          <div className="bg-[#141517] border border-white/10 rounded-3xl p-8 relative overflow-hidden group hover:border-blue-500/30 transition-colors">
+          <div className="bg-card border border-border rounded-3xl p-8 relative overflow-hidden group hover:border-blue-500/30 transition-colors">
             <div className="relative z-10 mb-8">
-              <h3 className="text-lg font-bold text-white mb-3">Scale from 2 to 200</h3>
-              <p className="text-sm text-white/70 leading-relaxed">
+              <h3 className="text-lg font-bold text-foreground mb-3">Scale from 2 to 200</h3>
+              <p className="text-sm text-muted-foreground leading-relaxed">
                 Workspaces, permissions, SSO, and audit logs. Enterprise-ready from day one.
               </p>
             </div>
             {/* Visual: Team members with roles */}
             <div className="space-y-3">
-              <div className="flex items-center gap-3 bg-white/5 border border-white/10 rounded-lg p-3">
-                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center text-xs font-bold text-white">JD</div>
+              <div className="flex items-center gap-3 bg-accent border border-border rounded-lg p-3">
+                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-purple-500 flex items-center justify-center text-xs font-bold text-white">JD</div>
                 <div className="flex-1">
-                  <div className="text-sm text-white">Jane Doe</div>
-                  <div className="text-[10px] text-white/40">Owner</div>
+                  <div className="text-sm text-foreground">Jane Doe</div>
+                  <div className="text-[10px] text-muted-foreground">Owner</div>
                 </div>
-                <ShieldCheck className="w-4 h-4 text-indigo-400" />
+                <ShieldCheck className="w-4 h-4 text-primary" />
               </div>
-              <div className="flex items-center gap-3 bg-white/5 border border-white/10 rounded-lg p-3">
+              <div className="flex items-center gap-3 bg-accent border border-border rounded-lg p-3">
                 <div className="w-8 h-8 rounded-full bg-gradient-to-br from-pink-500 to-orange-500 flex items-center justify-center text-xs font-bold text-white">AS</div>
                 <div className="flex-1">
-                  <div className="text-sm text-white">Alex Smith</div>
-                  <div className="text-[10px] text-white/40">Admin</div>
+                  <div className="text-sm text-foreground">Alex Smith</div>
+                  <div className="text-[10px] text-muted-foreground">Admin</div>
                 </div>
               </div>
-              <div className="flex items-center gap-3 bg-white/5 border border-white/10 rounded-lg p-3 opacity-60">
+              <div className="flex items-center gap-3 bg-accent border border-border rounded-lg p-3 opacity-60">
                 <div className="w-8 h-8 rounded-full bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center text-xs font-bold text-white">+5</div>
                 <div className="flex-1">
-                  <div className="text-sm text-white/60">5 more members...</div>
+                  <div className="text-sm text-muted-foreground">5 more members...</div>
                 </div>
               </div>
             </div>
@@ -1632,13 +1632,13 @@ function UseCasesSection() {
   ];
 
   return (
-    <section className="py-24 px-6 border-t border-white/5 bg-[#0B0C0E]">
+    <section className="py-24 px-6 border-t border-border bg-background">
       <div className="container mx-auto max-w-6xl">
         <div className="text-center mb-20">
           <h2 className="text-4xl md:text-6xl font-medium tracking-tight mb-6">
-            Whatever your role <br /> <span className="text-white/40">Nucleate gives you superpowers</span>
+            Whatever your role <br /> <span className="text-muted-foreground">Nucleate gives you superpowers</span>
           </h2>
-          <p className="text-zinc-400 text-lg max-w-2xl mx-auto leading-relaxed">
+          <p className="text-muted-foreground text-lg max-w-2xl mx-auto leading-relaxed">
             From idea to live product, Nucleate adapts to the way you work turning every vision into something real & fast.
           </p>
         </div>
@@ -1654,27 +1654,27 @@ function UseCasesSection() {
               <div className="relative h-full w-full flex flex-col justify-center px-8">
                 <div className="flex items-center gap-8 mb-4">
                   <div className="flex-1 space-y-3 opacity-50 scale-95 origin-right">
-                    <div className="h-2 w-2/3 bg-white/10 rounded-full" />
-                    <div className="h-2 w-full bg-white/10 rounded-full" />
-                    <div className="h-2 w-1/2 bg-white/10 rounded-full" />
+                    <div className="h-2 w-2/3 bg-accent rounded-full" />
+                    <div className="h-2 w-full bg-accent rounded-full" />
+                    <div className="h-2 w-1/2 bg-accent rounded-full" />
                   </div>
-                  <div className="text-zinc-500">
+                  <div className="text-muted-foreground">
                     <ArrowRight className="w-5 h-5" />
                   </div>
-                  <div className="flex-1 bg-[#0B0C0E] border border-white/10 rounded-lg p-3 shadow-xl">
+                  <div className="flex-1 bg-background border border-border rounded-lg p-3 shadow-xl">
                     <div className="flex gap-2 mb-2">
                       <div className="w-2 h-2 rounded-full bg-red-500/50" />
                       <div className="w-2 h-2 rounded-full bg-yellow-500/50" />
                       <div className="w-2 h-2 rounded-full bg-green-500/50" />
                     </div>
                     <div className="flex item-center justify-center py-2">
-                      <div className="w-8 h-8 rounded bg-indigo-500/20 flex items-center justify-center">
-                        <Zap className="w-4 h-4 text-indigo-400" />
+                      <div className="w-8 h-8 rounded bg-primary/20 flex items-center justify-center">
+                        <Zap className="w-4 h-4 text-primary" />
                       </div>
                     </div>
                   </div>
                 </div>
-                <div className="flex justify-between items-center text-[10px] font-mono text-zinc-500 px-2">
+                <div className="flex justify-between items-center text-[10px] font-mono text-muted-foreground px-2">
                   <span>PRD Document</span>
                   <span>Interactive Prototype</span>
                 </div>
@@ -1697,29 +1697,29 @@ function UseCasesSection() {
                       initial={{ opacity: 0, y: 20 }}
                       whileInView={{ opacity: 1, y: 0 }}
                       transition={{ delay: i * 0.1 }}
-                      className="w-20 h-28 bg-[#1A1B1E] border border-white/10 rounded-xl shadow-lg relative flex flex-col items-center justify-center p-2"
+                      className="w-20 h-28 bg-card border border-border rounded-xl shadow-lg relative flex flex-col items-center justify-center p-2"
                       style={{
                         transform: `rotate(${i % 2 === 0 ? 0 : 3}deg) translateY(${i % 2 === 0 ? 0 : -5}px)`,
                         zIndex: i
                       }}
                     >
-                      <div className="w-8 h-8 rounded-full bg-white/5 mb-3" />
-                      <div className="w-12 h-1.5 bg-white/10 rounded-full mb-1" />
-                      <div className="w-8 h-1.5 bg-white/5 rounded-full" />
+                      <div className="w-8 h-8 rounded-full bg-accent mb-3" />
+                      <div className="w-12 h-1.5 bg-accent rounded-full mb-1" />
+                      <div className="w-8 h-1.5 bg-accent rounded-full" />
                       {i === 3 && (
-                        <div className="absolute -top-3 -right-3 w-6 h-6 bg-green-500 rounded-full border-4 border-[#1A1B1E] flex items-center justify-center shadow-lg">
+                        <div className="absolute -top-3 -right-3 w-6 h-6 bg-green-500 rounded-full border-4 border-card flex items-center justify-center shadow-lg">
                           <Check className="w-3 h-3 text-black stroke-[3px]" />
                         </div>
                       )}
                     </motion.div>
                   ))}
                 </div>
-                <div className="mt-6 flex items-center gap-3 bg-white/5 px-4 py-2 rounded-full border border-white/5">
+                <div className="mt-6 flex items-center gap-3 bg-accent px-4 py-2 rounded-full border border-border">
                   <span className="relative flex h-2 w-2">
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
                     <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
                   </span>
-                  <span className="text-xs text-zinc-400 font-mono tracking-wide">3 PROJECTS SHIPPED</span>
+                  <span className="text-xs text-muted-foreground font-mono tracking-wide">3 PROJECTS SHIPPED</span>
                 </div>
               </div>
             }
@@ -1734,20 +1734,20 @@ function UseCasesSection() {
             ui={
               <div className="relative h-full w-full flex items-center justify-center gap-6 px-4">
                 {/* Google Search Result Mock */}
-                <div className="flex-1 bg-[#1A1B1E] rounded-lg border border-white/10 p-4 max-w-[240px] shadow-2xl">
+                <div className="flex-1 bg-card rounded-lg border border-border p-4 max-w-[240px] shadow-2xl">
                   <div className="flex items-center gap-2 mb-2">
                     <div className="w-4 h-4 rounded-full bg-pink-500/20 flex items-center justify-center text-[8px] text-pink-500">Ad</div>
-                    <div className="h-1.5 w-24 bg-white/10 rounded-full" />
+                    <div className="h-1.5 w-24 bg-accent rounded-full" />
                   </div>
                   <div className="space-y-2">
                     <div className="h-3 w-3/4 bg-blue-400/20 rounded-sm" />
-                    <div className="h-1.5 w-full bg-white/5 rounded-full" />
-                    <div className="h-1.5 w-2/3 bg-white/5 rounded-full" />
+                    <div className="h-1.5 w-full bg-accent rounded-full" />
+                    <div className="h-1.5 w-2/3 bg-accent rounded-full" />
                   </div>
                   <div className="mt-4 flex gap-2">
-                    <div className="px-2 py-1 rounded bg-white/5 border border-white/5 flex items-center gap-1">
+                    <div className="px-2 py-1 rounded bg-accent border border-border flex items-center gap-1">
                       <Star className="w-2 h-2 text-yellow-500 fill-yellow-500" />
-                      <span className="text-[8px] text-white/50">4.9</span>
+                      <span className="text-[8px] text-muted-foreground">4.9</span>
                     </div>
                     <div className="px-2 py-1 rounded bg-green-500/10 border border-green-500/20 flex items-center gap-1">
                       <span className="text-[8px] text-green-400">98/100 SEO</span>
@@ -1779,10 +1779,10 @@ function UseCasesSection() {
             ui={
               <div className="relative h-full w-full flex items-center justify-center gap-4 md:gap-8 px-4">
                 {/* Figma Side */}
-                <div className="w-24 h-32 border-2 border-purple-500/20 rounded-lg bg-[#1A1B1E] relative flex flex-col items-center justify-center gap-2 overflow-hidden shadow-lg group-hover:border-purple-500/40 transition-colors">
-                  <div className="absolute top-0 left-0 w-full h-4 bg-white/5 border-b border-white/5 flex items-center px-2 gap-1">
-                    <div className="w-1 h-1 rounded-full bg-white/20" />
-                    <div className="w-1 h-1 rounded-full bg-white/20" />
+                <div className="w-24 h-32 border-2 border-purple-500/20 rounded-lg bg-card relative flex flex-col items-center justify-center gap-2 overflow-hidden shadow-lg group-hover:border-purple-500/40 transition-colors">
+                  <div className="absolute top-0 left-0 w-full h-4 bg-accent border-b border-border flex items-center px-2 gap-1">
+                    <div className="w-1 h-1 rounded-full bg-muted-foreground" />
+                    <div className="w-1 h-1 rounded-full bg-muted-foreground" />
                   </div>
                   <Palette className="w-6 h-6 text-purple-500" />
                   <div className="h-1 w-12 bg-purple-500/20 rounded-full" />
@@ -1801,15 +1801,15 @@ function UseCasesSection() {
                 </div>
 
                 {/* Code Side */}
-                <div className="w-24 h-32 border-2 border-blue-500/20 rounded-lg bg-[#1A1B1E] relative flex flex-col p-3 gap-2 overflow-hidden shadow-lg group-hover:border-blue-500/40 transition-colors">
+                <div className="w-24 h-32 border-2 border-blue-500/20 rounded-lg bg-card relative flex flex-col p-3 gap-2 overflow-hidden shadow-lg group-hover:border-blue-500/40 transition-colors">
                   <div className="absolute top-0 left-0 w-full h-4 bg-blue-500/10 border-b border-blue-500/10 flex items-center px-2">
                     <span className="text-[6px] font-mono text-blue-300">react.tsx</span>
                   </div>
                   <div className="mt-2 space-y-1.5 opacity-80">
                     <div className="flex gap-1 mb-1"><span className="text-pink-400 text-[6px]">const</span> <span className="text-blue-300 text-[6px]">App</span></div>
-                    <div className="ml-2 h-1 w-12 bg-white/10 rounded-full" />
-                    <div className="ml-2 h-1 w-8 bg-white/10 rounded-full" />
-                    <div className="ml-2 h-1 w-10 bg-white/10 rounded-full" />
+                    <div className="ml-2 h-1 w-12 bg-accent rounded-full" />
+                    <div className="ml-2 h-1 w-8 bg-accent rounded-full" />
+                    <div className="ml-2 h-1 w-10 bg-accent rounded-full" />
                   </div>
                 </div>
               </div>
@@ -1826,14 +1826,14 @@ function UseCasesSection() {
               <div className="relative h-full w-full flex flex-row justify-around items-center px-8">
                 <div className="relative group/btn cursor-pointer">
                   <div className="absolute inset-0 bg-emerald-500 blur-xl opacity-20 group-hover/btn:opacity-40 transition-opacity" />
-                  <div className="bg-[#1A1B1E] border border-emerald-500/30 rounded-xl px-8 py-4 flex items-center gap-3 relative z-10 group-hover/btn:scale-105 transition-transform">
+                  <div className="bg-card border border-emerald-500/30 rounded-xl px-8 py-4 flex items-center gap-3 relative z-10 group-hover/btn:scale-105 transition-transform">
                     <Zap className="w-5 h-5 text-emerald-400 fill-emerald-400" />
-                    <span className="text-base font-bold text-white tracking-wide">LAUNCH STARTUP</span>
+                    <span className="text-base font-bold text-foreground tracking-wide">LAUNCH STARTUP</span>
                   </div>
                 </div>
-                <div className="flex flex-col items-center pl-8 border-l border-white/10">
-                  <span className="text-[10px] text-zinc-500 uppercase tracking-widest mb-1">Time to revenue</span>
-                  <span className="text-2xl font-mono text-white">48h</span>
+                <div className="flex flex-col items-center pl-8 border-l border-border">
+                  <span className="text-[10px] text-muted-foreground uppercase tracking-widest mb-1">Time to revenue</span>
+                  <span className="text-2xl font-mono text-foreground">48h</span>
                 </div>
               </div>
             }
@@ -1847,25 +1847,25 @@ function UseCasesSection() {
             className="md:col-span-2 hover:border-blue-500/30"
             ui={
               <div className="relative h-full w-full flex flex-col items-center justify-center">
-                <div className="w-full max-w-[320px] bg-[#1A1B1E] rounded-lg border border-white/10 p-3 pt-6 relative overflow-hidden shadow-2xl">
-                  <div className="absolute top-0 left-0 right-0 h-6 bg-white/5 border-b border-white/5 flex items-center px-3 gap-1.5">
+                <div className="w-full max-w-[320px] bg-card rounded-lg border border-border p-3 pt-6 relative overflow-hidden shadow-2xl">
+                  <div className="absolute top-0 left-0 right-0 h-6 bg-accent border-b border-border flex items-center px-3 gap-1.5">
                     <div className="w-2 h-2 rounded-full bg-red-500/40" />
                     <div className="w-2 h-2 rounded-full bg-yellow-500/40" />
                     <div className="w-2 h-2 rounded-full bg-green-500/40" />
-                    <div className="ml-4 text-[8px] font-mono text-white/20">index.tsx</div>
+                    <div className="ml-4 text-[8px] font-mono text-muted-foreground">index.tsx</div>
                   </div>
                   <div className="font-mono text-[10px] space-y-1.5 p-2">
                     <div className="flex gap-2">
                       <span className="text-pink-400">export default</span>
                       <span className="text-blue-400">function</span>
                       <span className="text-yellow-200">App()</span>
-                      <span className="text-zinc-500">{"{"}</span>
+                      <span className="text-muted-foreground">{"{"}</span>
                     </div>
                     <motion.div
                       initial={{ opacity: 0, x: -10 }}
                       whileInView={{ opacity: 1, x: 0 }}
                       transition={{ delay: 0.2 }}
-                      className="pl-4 text-zinc-400"
+                      className="pl-4 text-muted-foreground"
                     >
                       {/* // Turn this homework into a startup */}
                     </motion.div>
@@ -1873,11 +1873,11 @@ function UseCasesSection() {
                       initial={{ opacity: 0 }}
                       whileInView={{ opacity: 1 }}
                       transition={{ delay: 0.6 }}
-                      className="pl-4 text-white"
+                      className="pl-4 text-foreground"
                     >
                       <span className="text-blue-400">return</span> <span className="text-green-400">&quot;Hello World&quot;</span>;
                     </motion.div>
-                    <div className="text-zinc-500">{"}"}</div>
+                    <div className="text-muted-foreground">{"}"}</div>
                   </div>
                 </div>
               </div>
@@ -1887,8 +1887,8 @@ function UseCasesSection() {
 
         <div className="space-y-12">
           <div className="flex flex-col items-center gap-4">
-            <h3 className="text-2xl font-medium text-white/90">You can build literally anything</h3>
-            <div className="h-1 w-20 bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+            <h3 className="text-2xl font-medium text-foreground">You can build literally anything</h3>
+            <div className="h-1 w-20 bg-gradient-to-r from-transparent via-border to-transparent" />
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
@@ -1896,12 +1896,12 @@ function UseCasesSection() {
               <motion.div
                 key={i}
                 whileHover={{ y: -5 }}
-                className={`bg-gradient-to-br ${cat.color} to-[#141517] border border-white/10 rounded-2xl p-6 flex flex-col items-center gap-4 hover:border-white/30 transition-all cursor-pointer group`}
+                className={`bg-gradient-to-br ${cat.color} to-card border border-border rounded-2xl p-6 flex flex-col items-center gap-4 hover:border-border transition-all cursor-pointer group`}
               >
-                <div className="w-12 h-12 rounded-2xl bg-black/40 flex items-center justify-center group-hover:scale-110 transition-transform shadow-inner border border-white/5">
+                <div className="w-12 h-12 rounded-2xl bg-background/40 flex items-center justify-center group-hover:scale-110 transition-transform shadow-inner border border-border">
                   {cat.icon}
                 </div>
-                <span className="text-sm font-medium text-white/80 group-hover:text-white transition-colors">{cat.label}</span>
+                <span className="text-sm font-medium text-foreground group-hover:text-foreground transition-colors">{cat.label}</span>
               </motion.div>
             ))}
           </div>
@@ -1925,15 +1925,15 @@ function RoleCard({
   className?: string;
 }) {
   return (
-    <div className={`bg-[#141517] border border-white/10 rounded-3xl p-1 overflow-hidden group hover:border-white/20 transition-all relative ${className}`}>
+    <div className={`bg-card border border-border rounded-3xl p-1 overflow-hidden group hover:border-border transition-all relative ${className}`}>
       <div className={`absolute inset-0 bg-gradient-to-br ${gradient} opacity-0 group-hover:opacity-100 transition-opacity duration-500`} />
-      <div className="bg-[#141517] rounded-[22px] p-6 h-full flex flex-col relative z-10">
-        <div className="mb-6 flex-1 w-full flex items-center justify-center bg-[#0B0C0E] rounded-2xl border border-white/5 overflow-hidden min-h-[140px]">
+      <div className="bg-card rounded-[22px] p-6 h-full flex flex-col relative z-10">
+        <div className="mb-6 flex-1 w-full flex items-center justify-center bg-background rounded-2xl border border-border overflow-hidden min-h-[140px]">
           {ui}
         </div>
         <div className="mt-auto">
-          <h3 className="text-xl font-medium text-white mb-2">{title}</h3>
-          <p className="text-sm text-[#8A8F98] leading-relaxed">
+          <h3 className="text-xl font-medium text-foreground mb-2">{title}</h3>
+          <p className="text-sm text-muted-foreground leading-relaxed">
             {desc}
           </p>
         </div>
@@ -1967,7 +1967,7 @@ function PricingSection() {
   ];
 
   return (
-    <section className="py-32 bg-[#0B0C0E] border-t border-white/5">
+    <section className="py-32 bg-background border-t border-border">
       <div className="container mx-auto px-6 max-w-6xl">
         {/* New Year Sale Banner */}
         <div className="mb-12 relative overflow-hidden rounded-2xl bg-gradient-to-r from-amber-500/20 via-yellow-500/20 to-amber-500/20 border border-yellow-500/30 p-6">
@@ -1976,20 +1976,20 @@ function PricingSection() {
             <div className="flex items-center gap-4">
               <div className="text-4xl">🎉</div>
               <div>
-                <h3 className="text-xl font-bold text-white">New Year Sale!</h3>
+                <h3 className="text-xl font-bold text-foreground">New Year Sale!</h3>
                 <p className="text-yellow-200/80 text-sm">Get 50% off your first month of Plus</p>
               </div>
             </div>
             <div className="flex items-center gap-3">
-              <div className="bg-black/30 backdrop-blur-sm rounded-lg px-4 py-2 border border-yellow-500/20">
+              <div className="bg-background/30 backdrop-blur-sm rounded-lg px-4 py-2 border border-yellow-500/20">
                 <span className="text-xs text-yellow-200/60 uppercase tracking-wide">Use code</span>
                 <p className="text-lg font-mono font-bold text-yellow-400">NEWYEAR</p>
               </div>
               <div className="text-center">
                 <p className="text-xs text-yellow-200/60">Plus Plan</p>
                 <div className="flex items-center gap-2">
-                  <span className="text-lg text-white/40 line-through">$25</span>
-                  <span className="text-2xl font-bold text-white">$12.50</span>
+                  <span className="text-lg text-muted-foreground line-through">$25</span>
+                  <span className="text-2xl font-bold text-foreground">$12.50</span>
                 </div>
                 <p className="text-xs text-yellow-200/60">first month</p>
               </div>
@@ -1998,27 +1998,27 @@ function PricingSection() {
         </div>
 
         <div className="text-center mb-12">
-          <h2 className="text-4xl font-medium text-white mb-4">Simple pricing</h2>
-          <p className="text-[#8A8F98]">Start for free, scale as you grow.</p>
+          <h2 className="text-4xl font-medium text-foreground mb-4">Simple pricing</h2>
+          <p className="text-muted-foreground">Start for free, scale as you grow.</p>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {pricingPlans.map((plan, index) => (
-            <div key={index} className={`relative p-8 rounded-3xl flex flex-col ${plan.highlighted ? "bg-[#141517] border border-indigo-500/50 shadow-2xl" : "border border-white/10"}`}>
+            <div key={index} className={`relative p-8 rounded-3xl flex flex-col ${plan.highlighted ? "bg-card border border-primary/50 shadow-2xl" : "border border-border"}`}>
               <div className="mb-8">
-                <h3 className="text-lg font-medium text-white">{plan.name}</h3>
-                <p className="text-sm text-[#8A8F98] mt-1 h-10">{plan.description}</p>
+                <h3 className="text-lg font-medium text-foreground">{plan.name}</h3>
+                <p className="text-sm text-muted-foreground mt-1 h-10">{plan.description}</p>
               </div>
               <div className="mb-8 flex items-baseline gap-1">
-                <span className="text-4xl font-medium text-white">{plan.price}</span>
-                {plan.price !== "$0" && plan.price !== "Custom" && <span className="text-[#8A8F98] text-sm">/{plan.period}</span>}
+                <span className="text-4xl font-medium text-foreground">{plan.price}</span>
+                {plan.price !== "$0" && plan.price !== "Custom" && <span className="text-muted-foreground text-sm">/{plan.period}</span>}
               </div>
-              <Button onClick={() => handleGetStarted(plan.productKey)} className={`w-full h-11 rounded-full text-sm font-medium transition-all mb-8 ${plan.highlighted ? "bg-white text-black hover:bg-white/90" : "bg-white/5 text-white hover:bg-white/10 border border-white/10"}`}>
+              <Button onClick={() => handleGetStarted(plan.productKey)} className={`w-full h-11 rounded-full text-sm font-medium transition-all mb-8 ${plan.highlighted ? "bg-white text-black hover:bg-white/90" : "bg-accent text-foreground hover:bg-accent border border-border"}`}>
                 {plan.cta}
               </Button>
               <div className="space-y-4 mt-auto">
                 {plan.features.map((feature, i) => (
-                  <div key={i} className="flex items-center gap-3 text-sm text-[#8A8F98]">
-                    <Check className="w-4 h-4 text-white/40" />
+                  <div key={i} className="flex items-center gap-3 text-sm text-muted-foreground">
+                    <Check className="w-4 h-4 text-muted-foreground" />
                     {feature}
                   </div>
                 ))}
@@ -2043,22 +2043,22 @@ function FAQSection() {
   ];
 
   return (
-    <section className="py-24 bg-[#0B0C0E] border-t border-white/5">
+    <section className="py-24 bg-background border-t border-border">
       <div className="container mx-auto px-6 max-w-6xl">
         <div className="text-center mb-16">
-          <h2 className="text-4xl font-medium text-white mb-4">Questions?</h2>
-          <p className="text-[#8A8F98] text-lg">Quick answers to common questions about Nucleate.</p>
+          <h2 className="text-4xl font-medium text-foreground mb-4">Questions?</h2>
+          <p className="text-muted-foreground text-lg">Quick answers to common questions about Nucleate.</p>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
           {featuredFAQs.map((faq, index) => (
-            <div key={index} className="bg-[#141517] border border-white/10 rounded-2xl p-6 hover:border-white/20 transition-all duration-300">
-              <h3 className="text-lg font-medium text-white mb-3">{faq.q}</h3>
-              <p className="text-[#8A8F98] text-sm leading-relaxed">{faq.a}</p>
+            <div key={index} className="bg-card border border-border rounded-2xl p-6 hover:border-border transition-all duration-300">
+              <h3 className="text-lg font-medium text-foreground mb-3">{faq.q}</h3>
+              <p className="text-muted-foreground text-sm leading-relaxed">{faq.a}</p>
             </div>
           ))}
         </div>
         <div className="text-center">
-          <Button onClick={() => router.push("/faqs")} variant="outline" className="border-white/20 bg-white/5 hover:bg-white/10 text-white rounded-full px-6 h-10">
+          <Button onClick={() => router.push("/faqs")} variant="outline" className="border-border bg-accent hover:bg-accent text-foreground rounded-full px-6 h-10">
             View all FAQs
           </Button>
         </div>
