@@ -1,52 +1,132 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import {
   View,
   StyleSheet,
-  TextInput,
   KeyboardAvoidingView,
   Platform,
   Pressable,
-  ScrollView,
+  FlatList,
   ActivityIndicator,
 } from 'react-native';
 import { useLocalSearchParams, Stack } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
 import { useTheme } from '../../../lib/ThemeContext';
-import { BodyText, Card, Label } from '../../../components/ui';
+import { BodyText, Label } from '../../../components/ui';
 import { spacing, borderRadius } from '../../../lib/theme';
+import { useViewingUrl, getStatusMessage } from '../../../hooks/useViewingUrl';
+import { usePrototype } from '../../../hooks/usePrototypes';
+import { useClaudeCodeWebSocket } from '../../../hooks/useClaudeCodeWebSocket';
+import { useChatStore, type Message, type UploadedImage } from '../../../stores/chatStore';
+import { ChatMessage, ChatInput } from '../../../components/chat';
+import { ChatContentBlock } from '../../../lib/types/ChatTypes';
 
-type ViewMode = 'chat' | 'preview' | 'split';
+type ViewMode = 'chat' | 'preview';
 
 export default function ProjectEditScreen() {
   const { theme } = useTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
 
   const [viewMode, setViewMode] = useState<ViewMode>('chat');
-  const [message, setMessage] = useState('');
-  const [messages, setMessages] = useState<Array<{ role: 'user' | 'assistant'; content: string }>>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const scrollViewRef = useRef<ScrollView>(null);
+  const [webViewLoading, setWebViewLoading] = useState(true);
+  const flatListRef = useRef<FlatList>(null);
+  const webViewRef = useRef<WebView>(null);
 
-  // TODO: Implement WebSocket connection and real chat functionality
-  const viewingUrl = null;
+  // Prototype and viewing URL
+  const { data: prototype } = usePrototype(id);
+  const { viewingUrl, status, terminalUrl, refetch: refetchUrl } = useViewingUrl(id, 'edit');
 
-  const handleSend = () => {
-    if (!message.trim()) return;
+  // Chat store
+  const messages = useChatStore((state) => state.messages);
+  const isProcessing = useChatStore((state) => state.isProcessing);
+  const expandedThinking = useChatStore((state) => state.expandedThinking);
+  const sessionId = useChatStore((state) => state.sessionId);
+  const addMessage = useChatStore((state) => state.addMessage);
+  const handleServerMessage = useChatStore((state) => state.handleServerMessage);
+  const toggleThinkingExpanded = useChatStore((state) => state.toggleThinkingExpanded);
+  const reset = useChatStore((state) => state.reset);
 
-    const newMessage = { role: 'user' as const, content: message.trim() };
-    setMessages((prev) => [...prev, newMessage]);
-    setMessage('');
-    setIsLoading(true);
+  // WebSocket connection
+  const {
+    isConnected,
+    isConnecting,
+    connectionError,
+    connect,
+    sendQuery,
+    sendInterrupt,
+  } = useClaudeCodeWebSocket({
+    prototypeId: id,
+    baseTunnelUrl: terminalUrl || viewingUrl,
+    onMessage: handleServerMessage,
+  });
 
-    // Simulate response (will be replaced with real WebSocket)
-    setTimeout(() => {
-      setMessages((prev) => [
-        ...prev,
-        { role: 'assistant', content: 'This is a placeholder response. Chat functionality will be implemented with WebSocket connection.' },
-      ]);
-      setIsLoading(false);
-    }, 1000);
+  // Reset chat store when mounting with a new prototype
+  useEffect(() => {
+    reset();
+  }, [id, reset]);
+
+  // Auto-scroll to bottom when new messages arrive
+  useEffect(() => {
+    if (messages.length > 0) {
+      setTimeout(() => {
+        flatListRef.current?.scrollToEnd({ animated: true });
+      }, 100);
+    }
+  }, [messages.length]);
+
+  const isBuilding = status === 'creating' || status === 'building' || status === 'updating';
+  const statusMessage = getStatusMessage(status);
+
+  const handleSend = useCallback(
+    (messageText: string, images: UploadedImage[]) => {
+      // Build content blocks
+      const content: ChatContentBlock[] = [];
+
+      // Add text if present
+      if (messageText) {
+        content.push({ type: 'text', text: messageText });
+      }
+
+      // Add images
+      for (const image of images) {
+        content.push({
+          type: 'image',
+          source: {
+            type: 'base64',
+            media_type: image.mediaType,
+            data: image.base64,
+          },
+        });
+      }
+
+      // Add user message to store
+      const userMessage: Message = {
+        id: `${Date.now()}-user`,
+        type: 'user',
+        content: messageText,
+        timestamp: Date.now(),
+        imageUrls: images.map((img) => img.uri),
+      };
+      addMessage(userMessage);
+
+      // Send via WebSocket
+      sendQuery({
+        content,
+        ai_chat_session_id: sessionId,
+      });
+    },
+    [addMessage, sendQuery, sessionId]
+  );
+
+  const handleInterrupt = useCallback(() => {
+    sendInterrupt();
+  }, [sendInterrupt]);
+
+  const handleRefreshPreview = () => {
+    if (webViewRef.current) {
+      webViewRef.current.reload();
+    }
+    refetchUrl();
   };
 
   const toggleView = () => {
@@ -54,20 +134,84 @@ export default function ProjectEditScreen() {
     else if (viewMode === 'preview') setViewMode('chat');
   };
 
+  const renderMessage = useCallback(
+    ({ item }: { item: Message }) => (
+      <ChatMessage
+        message={item}
+        isThinkingExpanded={expandedThinking.has(item.id)}
+        onToggleThinking={() => toggleThinkingExpanded(item.id)}
+      />
+    ),
+    [expandedThinking, toggleThinkingExpanded]
+  );
+
+  const renderEmptyChat = () => (
+    <View style={styles.emptyChat}>
+      <BodyText size="lg" weight="medium" center>
+        How can I help you today?
+      </BodyText>
+      <BodyText muted center style={styles.emptyChatSubtext}>
+        Describe what you'd like to build or change
+      </BodyText>
+    </View>
+  );
+
+  // Connection status indicator
+  const getConnectionStatusColor = () => {
+    if (isConnected) return theme.colors.success;
+    if (isConnecting) return theme.colors.warning;
+    if (connectionError) return theme.colors.destructive;
+    return theme.colors.muted;
+  };
+
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]} edges={['bottom']}>
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: theme.colors.background }]}
+      edges={['bottom']}
+    >
       <Stack.Screen
         options={{
-          title: 'Edit',
+          title: prototype?.name || 'Edit',
           headerRight: () => (
-            <Pressable onPress={toggleView} hitSlop={8}>
-              <Label color={theme.colors.primary}>
-                {viewMode === 'chat' ? 'Preview' : 'Chat'}
-              </Label>
-            </Pressable>
+            <View style={styles.headerButtons}>
+              {/* Connection status dot */}
+              <View
+                style={[
+                  styles.connectionDot,
+                  { backgroundColor: getConnectionStatusColor() },
+                ]}
+              />
+              <Pressable onPress={toggleView} hitSlop={8}>
+                <Label color={theme.colors.primary}>
+                  {viewMode === 'chat' ? 'Preview' : 'Chat'}
+                </Label>
+              </Pressable>
+            </View>
           ),
         }}
       />
+
+      {/* Status Banner (when building) */}
+      {isBuilding && (
+        <View style={[styles.statusBanner, { backgroundColor: theme.colors.warning }]}>
+          <ActivityIndicator size="small" color={theme.colors.warningForeground} />
+          <BodyText color={theme.colors.warningForeground} size="sm">
+            {statusMessage}
+          </BodyText>
+        </View>
+      )}
+
+      {/* Connection Error Banner */}
+      {connectionError && !isConnecting && (
+        <Pressable
+          style={[styles.errorBanner, { backgroundColor: theme.colors.destructive }]}
+          onPress={connect}
+        >
+          <BodyText color={theme.colors.destructiveForeground} size="sm">
+            {connectionError} - Tap to retry
+          </BodyText>
+        </Pressable>
+      )}
 
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -78,11 +222,38 @@ export default function ProjectEditScreen() {
         {viewMode === 'preview' && (
           <View style={styles.previewContainer}>
             {viewingUrl ? (
-              <WebView source={{ uri: viewingUrl }} style={styles.webview} />
+              <>
+                <WebView
+                  ref={webViewRef}
+                  source={{ uri: viewingUrl }}
+                  style={styles.webview}
+                  onLoadStart={() => setWebViewLoading(true)}
+                  onLoadEnd={() => setWebViewLoading(false)}
+                  javaScriptEnabled
+                  domStorageEnabled
+                />
+                {webViewLoading && (
+                  <View
+                    style={[
+                      styles.webViewLoadingOverlay,
+                      { backgroundColor: theme.colors.background },
+                    ]}
+                  >
+                    <ActivityIndicator size="large" color={theme.colors.primary} />
+                  </View>
+                )}
+                {/* Refresh Button */}
+                <View style={[styles.previewActions, { borderTopColor: theme.colors.border }]}>
+                  <Pressable style={styles.actionButton} onPress={handleRefreshPreview}>
+                    <BodyText>↻ Refresh</BodyText>
+                  </Pressable>
+                </View>
+              </>
             ) : (
               <View style={styles.previewPlaceholder}>
-                <BodyText muted center>
-                  Preview will appear here when the project is running
+                <ActivityIndicator size="large" color={theme.colors.primary} />
+                <BodyText muted center style={styles.previewPlaceholderText}>
+                  Loading preview...
                 </BodyText>
               </View>
             )}
@@ -92,85 +263,32 @@ export default function ProjectEditScreen() {
         {/* Chat Section */}
         {viewMode === 'chat' && (
           <View style={styles.chatContainer}>
-            <ScrollView
-              ref={scrollViewRef}
-              style={styles.messagesContainer}
-              contentContainerStyle={styles.messagesContent}
-              onContentSizeChange={() => scrollViewRef.current?.scrollToEnd({ animated: true })}
-            >
-              {messages.length === 0 ? (
-                <View style={styles.emptyChat}>
-                  <BodyText size="lg" weight="medium" center>
-                    How can I help you today?
-                  </BodyText>
-                  <BodyText muted center style={styles.emptyChatSubtext}>
-                    Describe what you'd like to build or change
-                  </BodyText>
-                </View>
-              ) : (
-                messages.map((msg, index) => (
-                  <View
-                    key={index}
-                    style={[
-                      styles.messageBubble,
-                      msg.role === 'user' ? styles.userMessage : styles.assistantMessage,
-                      {
-                        backgroundColor:
-                          msg.role === 'user' ? theme.colors.primary : theme.colors.card,
-                      },
-                    ]}
-                  >
-                    <BodyText
-                      color={msg.role === 'user' ? theme.colors.primaryForeground : undefined}
-                    >
-                      {msg.content}
-                    </BodyText>
-                  </View>
-                ))
-              )}
+            <FlatList
+              ref={flatListRef}
+              data={messages}
+              renderItem={renderMessage}
+              keyExtractor={(item) => item.id}
+              contentContainerStyle={[
+                styles.messagesContent,
+                messages.length === 0 && styles.emptyListContent,
+              ]}
+              ListEmptyComponent={renderEmptyChat}
+              showsVerticalScrollIndicator={false}
+              onContentSizeChange={() => {
+                if (messages.length > 0) {
+                  flatListRef.current?.scrollToEnd({ animated: true });
+                }
+              }}
+            />
 
-              {isLoading && (
-                <View style={[styles.messageBubble, styles.assistantMessage, { backgroundColor: theme.colors.card }]}>
-                  <ActivityIndicator size="small" color={theme.colors.primary} />
-                </View>
-              )}
-            </ScrollView>
-
-            {/* Input Area */}
-            <View style={[styles.inputContainer, { borderTopColor: theme.colors.border }]}>
-              <TextInput
-                style={[
-                  styles.input,
-                  {
-                    backgroundColor: theme.colors.card,
-                    color: theme.colors.foreground,
-                    borderColor: theme.colors.border,
-                  },
-                ]}
-                placeholder="Message..."
-                placeholderTextColor={theme.colors.mutedForeground}
-                value={message}
-                onChangeText={setMessage}
-                multiline
-                maxLength={4000}
-              />
-              <Pressable
-                style={[
-                  styles.sendButton,
-                  {
-                    backgroundColor: message.trim() ? theme.colors.primary : theme.colors.muted,
-                  },
-                ]}
-                onPress={handleSend}
-                disabled={!message.trim() || isLoading}
-              >
-                <Label
-                  color={message.trim() ? theme.colors.primaryForeground : theme.colors.mutedForeground}
-                >
-                  Send
-                </Label>
-              </Pressable>
-            </View>
+            {/* Chat Input */}
+            <ChatInput
+              onSend={handleSend}
+              onInterrupt={handleInterrupt}
+              isProcessing={isProcessing}
+              isConnected={isConnected}
+              placeholder="Describe what you'd like to build..."
+            />
           </View>
         )}
       </KeyboardAvoidingView>
@@ -182,75 +300,84 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  headerButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing[3],
+  },
+  connectionDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  statusBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing[2],
+    paddingVertical: spacing[2],
+    paddingHorizontal: spacing[4],
+  },
+  errorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing[2],
+    paddingHorizontal: spacing[4],
+  },
   keyboardView: {
     flex: 1,
   },
   previewContainer: {
     flex: 1,
+    position: 'relative',
   },
   webview: {
     flex: 1,
+  },
+  webViewLoadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   previewPlaceholder: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     padding: spacing[4],
+    gap: spacing[3],
+  },
+  previewPlaceholderText: {
+    marginTop: spacing[2],
+  },
+  previewActions: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: spacing[3],
+    paddingHorizontal: spacing[4],
+    borderTopWidth: 1,
+  },
+  actionButton: {
+    paddingVertical: spacing[2],
+    paddingHorizontal: spacing[4],
   },
   chatContainer: {
     flex: 1,
   },
-  messagesContainer: {
-    flex: 1,
-  },
   messagesContent: {
     padding: spacing[4],
-    gap: spacing[3],
+    gap: spacing[2],
   },
-  emptyChat: {
+  emptyListContent: {
     flex: 1,
     justifyContent: 'center',
+  },
+  emptyChat: {
     alignItems: 'center',
-    paddingVertical: spacing[20],
+    paddingVertical: spacing[8],
   },
   emptyChatSubtext: {
     marginTop: spacing[2],
-  },
-  messageBubble: {
-    padding: spacing[3],
-    borderRadius: borderRadius.lg,
-    maxWidth: '85%',
-  },
-  userMessage: {
-    alignSelf: 'flex-end',
-    borderBottomRightRadius: borderRadius.sm,
-  },
-  assistantMessage: {
-    alignSelf: 'flex-start',
-    borderBottomLeftRadius: borderRadius.sm,
-  },
-  inputContainer: {
-    flexDirection: 'row',
-    padding: spacing[3],
-    gap: spacing[2],
-    borderTopWidth: 1,
-    alignItems: 'flex-end',
-  },
-  input: {
-    flex: 1,
-    minHeight: 44,
-    maxHeight: 120,
-    paddingHorizontal: spacing[3],
-    paddingVertical: spacing[2.5],
-    borderRadius: borderRadius.lg,
-    borderWidth: 1,
-    fontSize: 16,
-  },
-  sendButton: {
-    height: 44,
-    paddingHorizontal: spacing[4],
-    borderRadius: borderRadius.lg,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
 });

@@ -762,15 +762,15 @@ materialize/
 
 ### MVP Checklist
 - [x] User can sign up and log in (email/password)
-- [ ] User can view their projects list
-- [ ] User can switch between teams
-- [ ] User can create a new project with prompt
-- [ ] User can view project preview in WebView
-- [ ] User can edit project via chat interface
-- [ ] Chat shows all message types correctly
-- [ ] WebSocket reconnects on disconnect
-- [ ] Offline mode shows cached data with banner
-- [ ] App handles all error states gracefully
+- [x] User can view their projects list
+- [x] User can switch between teams
+- [x] User can create a new project with prompt
+- [x] User can view project preview in WebView
+- [x] User can edit project via chat interface
+- [x] Chat shows all message types correctly
+- [x] WebSocket reconnects on disconnect
+- [x] Offline mode shows cached data with banner
+- [x] App handles all error states gracefully
 
 ### Quality Bars
 - **Performance**: 60fps scrolling, <100ms tap response

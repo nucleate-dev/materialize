@@ -17,7 +17,7 @@ export interface Prototype {
   slug: string | null;
 }
 
-const PROTOTYPES_QUERY_KEY = 'prototypes';
+export const PROTOTYPES_QUERY_KEY = 'prototypes';
 
 export function usePrototypes() {
   const activeTeam = useActiveTeam();

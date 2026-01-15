@@ -10,6 +10,7 @@ import { queryClient, restoreQueryCache } from '../lib/queryClient';
 import { useAuthStore } from '../stores/authStore';
 import { useTeamStore } from '../stores/teamStore';
 import { useProtectedRoute } from '../components/AuthGuard';
+import { OfflineBanner } from '../components/OfflineBanner';
 
 function RootLayoutNav() {
   const { theme, isDark } = useTheme();
@@ -20,6 +21,7 @@ function RootLayoutNav() {
   return (
     <>
       <StatusBar style={isDark ? 'light' : 'dark'} />
+      <OfflineBanner />
       <Stack
         screenOptions={{
           headerStyle: {

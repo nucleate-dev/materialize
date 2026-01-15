@@ -233,6 +233,21 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: spacing[4],
+    paddingHorizontal: spacing[3],
+    paddingVertical: spacing[2.5],
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    gap: spacing[2],
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: typography.fontSize.base,
+    paddingVertical: spacing[1],
+  },
   teamSwitcher: {
     flexDirection: 'row',
     alignItems: 'center',
