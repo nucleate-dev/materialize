@@ -590,7 +590,8 @@ const MaterializeRenderSection = forwardRef<
 
     // Web frame sizing
     const [webFrameHeight, setWebFrameHeight] = useState(500);
-    const [, setIsResizingWebFrame] = useState(false);
+    const [webFrameWidth, setWebFrameWidth] = useState<number | null>(null); // null = auto (fill container)
+    const [isResizingWebFrame, setIsResizingWebFrame] = useState(false);
     const [hasManuallyResizedWebFrame, setHasManuallyResizedWebFrame] = useState(false);
 
     // Calculate responsive web frame height based on viewport
@@ -650,6 +651,9 @@ const MaterializeRenderSection = forwardRef<
     const [isTerminalOpen, setIsTerminalOpen] = useState(false);
     const [terminalHeight, setTerminalHeight] = useState(250); // Default height in pixels
     const [isResizingTerminal, setIsResizingTerminal] = useState(false);
+
+    // Mobile resize state
+    const [isResizingMobile, setIsResizingMobile] = useState(false);
 
     // Modal states
     const [isQRModalOpen, setIsQRModalOpen] = useState(false);
@@ -991,22 +995,34 @@ const MaterializeRenderSection = forwardRef<
       }
     }, []);
 
-    // Web frame resize handler
-    const handleWebFrameResizeStart = useCallback(
-      (e: React.MouseEvent) => {
+    // Web frame corner resize handler (like resizing a window)
+    const handleWebFrameCornerResize = useCallback(
+      (e: React.MouseEvent, screenElement: HTMLElement | null) => {
         e.preventDefault();
         e.stopPropagation();
         setIsResizingWebFrame(true);
         setHasManuallyResizedWebFrame(true);
 
+        const startX = e.clientX;
         const startY = e.clientY;
         const startHeight = webFrameHeight;
-        // Allow resizing up to 90% of viewport height
+        // Get initial width from the element or use a default
+        const startWidth = screenElement?.offsetWidth ?? webFrameWidth ?? 800;
+
+        // Constraints
         const maxHeight = window.innerHeight * 0.9;
+        const maxWidth = window.innerWidth * 0.9;
+        const minHeight = 300;
+        const minWidth = 400;
 
         const handleMouseMove = (moveEvent: MouseEvent) => {
+          const deltaX = moveEvent.clientX - startX;
           const deltaY = moveEvent.clientY - startY;
-          const newHeight = Math.max(300, Math.min(maxHeight, startHeight + deltaY));
+
+          const newWidth = Math.max(minWidth, Math.min(maxWidth, startWidth + deltaX));
+          const newHeight = Math.max(minHeight, Math.min(maxHeight, startHeight + deltaY));
+
+          setWebFrameWidth(newWidth);
           setWebFrameHeight(newHeight);
         };
 
@@ -1020,10 +1036,10 @@ const MaterializeRenderSection = forwardRef<
 
         document.addEventListener("mousemove", handleMouseMove);
         document.addEventListener("mouseup", handleMouseUp);
-        document.body.style.cursor = "ns-resize";
+        document.body.style.cursor = "nwse-resize";
         document.body.style.userSelect = "none";
       },
-      [webFrameHeight],
+      [webFrameHeight, webFrameWidth],
     );
 
     // Web screen path editing handlers
@@ -1740,6 +1756,7 @@ const MaterializeRenderSection = forwardRef<
       e.preventDefault();
       e.stopPropagation();
       setHasManuallyResized(true);
+      setIsResizingMobile(true);
 
       const startX = e.clientX;
       const startY = e.clientY;
@@ -1757,6 +1774,7 @@ const MaterializeRenderSection = forwardRef<
       };
 
       const handleMouseUp = () => {
+        setIsResizingMobile(false);
         document.removeEventListener("mousemove", handleMouseMove);
         document.removeEventListener("mouseup", handleMouseUp);
         document.body.style.cursor = "";
@@ -1765,7 +1783,7 @@ const MaterializeRenderSection = forwardRef<
 
       document.addEventListener("mousemove", handleMouseMove);
       document.addEventListener("mouseup", handleMouseUp);
-      document.body.style.cursor = "se-resize";
+      document.body.style.cursor = "nwse-resize";
       document.body.style.userSelect = "none";
     };
 
@@ -2221,6 +2239,8 @@ const MaterializeRenderSection = forwardRef<
                                 style={{
                                   zoom: mobileScaleFactor,
                                   transformOrigin: "top left",
+                                  // Disable pointer events during resize so mouse events reach the document
+                                  pointerEvents: isResizingMobile ? "none" : "auto",
                                 }}
                                 title="React Native Preview"
                                 aria-label={`React Native Preview ${screen.path}`}
@@ -2241,7 +2261,7 @@ const MaterializeRenderSection = forwardRef<
 
                           {/* Resize Handle */}
                           <div
-                            className="absolute bottom-4 right-4 w-6 h-6 cursor-se-resize opacity-0 hover:opacity-100 transition-opacity z-30"
+                            className="absolute bottom-4 right-4 w-6 h-6 cursor-nwse-resize opacity-0 hover:opacity-100 transition-opacity z-30"
                             onMouseDown={handleMouseDown}
                           >
                             <div className="absolute bottom-0 right-0 w-2 h-2 border-b-2 border-r-2 border-white/40 rounded-br"></div>
@@ -2296,6 +2316,8 @@ const MaterializeRenderSection = forwardRef<
               !showWebMultiScreen || isNarrowViewport || webScreens.length === 1
                 ? "flex flex-col"
                 : "grid",
+              // Center single screen when manually resized
+              !showWebMultiScreen && hasManuallyResizedWebFrame && "items-start justify-center",
             )}
             style={{
               gridTemplateColumns:
@@ -2309,16 +2331,24 @@ const MaterializeRenderSection = forwardRef<
                 const iframeSrc = resolveWebIframeSrc(screen.path);
                 const showScreenControls =
                   showWebMultiScreen && webScreens.length > 1;
+                // For single screen, enable resize. For multi-screen, only enable if not in narrow viewport
+                const enableResize = !isReadOnlyView && (!showWebMultiScreen || !isNarrowViewport);
 
                 return (
                   <div
                     key={`web-screen-${screen.id}`}
-                    className="bg-accent rounded-xl border border-border overflow-hidden shadow-sm flex flex-col"
+                    className="bg-accent rounded-xl border border-border overflow-hidden shadow-sm flex flex-col relative"
                     style={{
-                      minHeight: showWebMultiScreen
-                        ? webFrameHeight
-                        : undefined,
-                      height: showWebMultiScreen ? undefined : "100%",
+                      // For multi-screen, use minHeight. For single-screen with manual resize, use explicit dimensions
+                      ...(showWebMultiScreen ? {
+                        minHeight: webFrameHeight,
+                      } : hasManuallyResizedWebFrame ? {
+                        width: webFrameWidth ?? undefined,
+                        height: webFrameHeight,
+                        maxWidth: "100%",
+                      } : {
+                        height: "100%",
+                      }),
                     }}
                   >
                     {/* Browser Header */}
@@ -2454,6 +2484,8 @@ const MaterializeRenderSection = forwardRef<
                         style={{
                           zoom: webScaleFactor,
                           transformOrigin: "top left",
+                          // Disable pointer events during resize so mouse events reach the document
+                          pointerEvents: isResizingWebFrame ? "none" : "auto",
                         }}
                         title={`Web Preview ${screen.path}`}
                         src={iframeSrc}
@@ -2468,13 +2500,27 @@ const MaterializeRenderSection = forwardRef<
                       {iframeError && <ConnectionErrorOverlay mode="web" />}
                     </div>
 
-                    {/* Resize Handle - only for multi-screen */}
-                    {showWebMultiScreen && !isReadOnlyView && (
+                    {/* Corner Resize Handle - window-style resize */}
+                    {enableResize && (
                       <div
-                        className="h-2 cursor-ns-resize bg-accent hover:bg-accent/80 flex items-center justify-center group"
-                        onMouseDown={handleWebFrameResizeStart}
+                        className="absolute bottom-0 right-0 w-4 h-4 cursor-nwse-resize z-10 group"
+                        onMouseDown={(e) => {
+                          const screenEl = e.currentTarget.closest('[class*="bg-accent rounded-xl"]') as HTMLElement;
+                          handleWebFrameCornerResize(e, screenEl);
+                        }}
                       >
-                        <div className="w-8 h-1 rounded-full bg-border group-hover:bg-muted-foreground/50 transition-colors" />
+                        {/* Resize grip indicator */}
+                        <div className="absolute bottom-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <div className="flex flex-col gap-[2px]">
+                            <div className="flex gap-[2px] justify-end">
+                              <div className="w-1 h-1 rounded-full bg-muted-foreground/40" />
+                            </div>
+                            <div className="flex gap-[2px] justify-end">
+                              <div className="w-1 h-1 rounded-full bg-muted-foreground/40" />
+                              <div className="w-1 h-1 rounded-full bg-muted-foreground/40" />
+                            </div>
+                          </div>
+                        </div>
                       </div>
                     )}
                   </div>

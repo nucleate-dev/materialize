@@ -263,7 +263,7 @@ function HeroSection() {
             </div>
             <div className="px-4 pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-t border-border mt-2 pt-2 bg-accent/50">
               <div className="flex gap-4 items-center">
-                <span className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold">Try:</span>
+                <span className="text-xs text-muted-foreground uppercase tracking-widest font-bold">Try:</span>
                 {suggestionChips.map((chip, index) => (
                   <motion.button
                     key={chip.label}
@@ -358,7 +358,7 @@ function CodebaseIntegrationSection() {
               whileInView={{ opacity: 1, scale: 1 }}
               transition={{ delay: i * 0.1 }}
               viewport={{ once: true }}
-              className="px-2 py-1 bg-purple-500/10 border border-purple-500/20 rounded text-[10px] text-purple-300 font-mono"
+              className="px-3 py-1.5 bg-purple-500/10 border border-purple-500/20 rounded text-sm text-purple-300 font-mono"
             >
               {token}
             </motion.div>
@@ -382,7 +382,7 @@ function CodebaseIntegrationSection() {
             <div className="w-8 h-8 bg-accent rounded flex items-center justify-center border border-border">
               <Code2 className="w-4 h-4 text-muted-foreground" />
             </div>
-            <span className="text-[9px] text-muted-foreground">Copy</span>
+            <span className="text-xs text-muted-foreground">Copy</span>
           </motion.div>
           <div className="text-muted-foreground text-xs">or</div>
           <motion.div
@@ -392,7 +392,7 @@ function CodebaseIntegrationSection() {
             <div className="w-8 h-8 bg-emerald-500/20 rounded flex items-center justify-center border border-emerald-500/30">
               <GitPullRequest className="w-4 h-4 text-emerald-400" />
             </div>
-            <span className="text-[9px] text-emerald-400/60">PR</span>
+            <span className="text-xs text-emerald-400/60">PR</span>
           </motion.div>
         </div>
       ),
@@ -423,87 +423,179 @@ function CodebaseIntegrationSection() {
           </p>
         </motion.div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {cards.map((card, index) => (
-            <motion.div
-              key={card.title}
-              initial={{ opacity: 0, y: 30 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, amount: 0.3 }}
-              transition={{ duration: 0.25, delay: index * 0.05 }}
-              whileHover={{ y: -5, scale: 1.02 }}
-              className={`bg-card border border-border rounded-2xl p-8 group transition-all duration-300 ${card.hoverBorder} relative overflow-hidden`}
-            >
-              <div className={`absolute inset-0 ${card.glowColor} transition-colors duration-300`} />
-              <div className="relative z-10">
+        {/* Bento Grid Layout */}
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-4 auto-rows-[minmax(200px,auto)]">
+          {/* Large featured card - spans 7 columns and 2 rows */}
+          <motion.div
+            initial={{ opacity: 0, x: -30 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true, amount: 0.3 }}
+            transition={{ duration: 0.4 }}
+            className="md:col-span-7 md:row-span-2 bg-gradient-to-br from-primary/10 via-card to-card border border-primary/20 rounded-3xl p-8 md:p-10 group hover:border-primary/40 transition-all duration-300 relative overflow-hidden"
+          >
+            <div className="absolute top-0 right-0 w-64 h-64 bg-primary/10 rounded-full blur-[80px] pointer-events-none" />
+            <div className="relative z-10 h-full flex flex-col">
+              <motion.div
+                animate={{ rotate: [0, 5, -5, 0] }}
+                transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
+                className="w-14 h-14 bg-primary/20 rounded-2xl flex items-center justify-center mb-6 border border-primary/30"
+              >
+                <Github className="w-7 h-7 text-primary" />
+              </motion.div>
+              <h3 className="text-2xl md:text-3xl font-medium mb-4">{cards[0].title}</h3>
+              <p className="text-muted-foreground leading-relaxed mb-8 max-w-md">
+                {cards[0].description}
+              </p>
+              {/* Animated file sync visualization */}
+              <div className="mt-auto flex items-center gap-6">
+                <div className="flex -space-x-2">
+                  {[FileCode, FileCode, FileCode].map((Icon, i) => (
+                    <motion.div
+                      key={i}
+                      animate={{ y: [0, -8, 0] }}
+                      transition={{ duration: 2, repeat: Infinity, delay: i * 0.2 }}
+                      className="w-10 h-10 bg-accent rounded-lg flex items-center justify-center border border-border"
+                    >
+                      <Icon className="w-5 h-5 text-muted-foreground" />
+                    </motion.div>
+                  ))}
+                </div>
+                <motion.div
+                  animate={{ x: [0, 10, 0] }}
+                  transition={{ duration: 1.5, repeat: Infinity }}
+                  className="flex items-center gap-2"
+                >
+                  <div className="w-8 h-px bg-gradient-to-r from-primary to-transparent" />
+                  <div className="w-8 h-px bg-gradient-to-r from-primary/60 to-transparent" />
+                  <div className="w-8 h-px bg-gradient-to-r from-primary/30 to-transparent" />
+                </motion.div>
+                <motion.div
+                  animate={{ scale: [1, 1.1, 1], boxShadow: ["0 0 20px rgba(99,102,241,0.3)", "0 0 40px rgba(99,102,241,0.5)", "0 0 20px rgba(99,102,241,0.3)"] }}
+                  transition={{ duration: 2, repeat: Infinity }}
+                  className="w-12 h-12 bg-primary/20 rounded-xl flex items-center justify-center border border-primary/30"
+                >
+                  <Layers className="w-6 h-6 text-primary" />
+                </motion.div>
+              </div>
+            </div>
+          </motion.div>
+
+          {/* Top right card - compact */}
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, amount: 0.3 }}
+            transition={{ duration: 0.3, delay: 0.1 }}
+            className="md:col-span-5 bg-card border border-purple-500/20 rounded-3xl p-6 group hover:border-purple-500/40 transition-all duration-300 relative overflow-hidden"
+          >
+            <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+            <div className="relative z-10">
+              <div className="flex items-start justify-between mb-4">
                 <motion.div
                   animate={{ y: [0, -3, 0] }}
                   transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
-                  className={`w-12 h-12 ${card.iconBg} rounded-xl flex items-center justify-center mb-6 border`}
+                  className="w-10 h-10 bg-purple-500/10 rounded-xl flex items-center justify-center border border-purple-500/20"
                 >
-                  {card.icon}
+                  <ShieldCheck className="w-5 h-5 text-purple-400" />
                 </motion.div>
-                <h3 className="text-xl font-medium mb-3">{card.title}</h3>
-                <p className="text-sm text-muted-foreground leading-relaxed">
-                  {card.description}
-                </p>
-                {card.illustration}
+                <div className="flex gap-1">
+                  {[1, 2, 3].map((i) => (
+                    <motion.div
+                      key={i}
+                      animate={{ opacity: [0.3, 1, 0.3] }}
+                      transition={{ duration: 1.5, repeat: Infinity, delay: i * 0.2 }}
+                      className="w-1.5 h-1.5 rounded-full bg-purple-400"
+                    />
+                  ))}
+                </div>
               </div>
-            </motion.div>
-          ))}
+              <h3 className="text-lg font-medium mb-2">{cards[1].title}</h3>
+              <p className="text-sm text-muted-foreground leading-relaxed mb-4">
+                {cards[1].description}
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {["Button", "Card", "Input", "Modal"].map((token, i) => (
+                  <motion.div
+                    key={token}
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    whileInView={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: i * 0.1 }}
+                    viewport={{ once: true }}
+                    className="px-3 py-1.5 bg-purple-500/10 border border-purple-500/20 rounded-full text-sm text-purple-300 font-mono"
+                  >
+                    {token}
+                  </motion.div>
+                ))}
+              </div>
+            </div>
+          </motion.div>
+
+          {/* Bottom right card - with visual emphasis */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, amount: 0.3 }}
+            transition={{ duration: 0.3, delay: 0.15 }}
+            className="md:col-span-5 bg-card border border-emerald-500/20 rounded-3xl p-6 group hover:border-emerald-500/40 transition-all duration-300 relative overflow-hidden"
+          >
+            <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+            <div className="relative z-10">
+              <motion.div
+                animate={{ y: [0, -3, 0] }}
+                transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+                className="w-10 h-10 bg-emerald-500/10 rounded-xl flex items-center justify-center border border-emerald-500/20 mb-4"
+              >
+                <GitPullRequest className="w-5 h-5 text-emerald-400" />
+              </motion.div>
+              <h3 className="text-lg font-medium mb-2">{cards[2].title}</h3>
+              <p className="text-sm text-muted-foreground leading-relaxed mb-4">
+                {cards[2].description}
+              </p>
+              <div className="flex items-center gap-3">
+                <motion.div whileHover={{ scale: 1.05 }} className="flex-1 py-3 bg-accent rounded-xl flex items-center justify-center gap-2 border border-border cursor-pointer hover:bg-accent/80 transition-colors">
+                  <Code2 className="w-4 h-4 text-muted-foreground" />
+                  <span className="text-sm text-muted-foreground font-medium">Copy Code</span>
+                </motion.div>
+                <motion.div whileHover={{ scale: 1.05 }} className="flex-1 py-3 bg-emerald-500/20 rounded-xl flex items-center justify-center gap-2 border border-emerald-500/30 cursor-pointer hover:bg-emerald-500/30 transition-colors">
+                  <GitPullRequest className="w-4 h-4 text-emerald-400" />
+                  <span className="text-sm text-emerald-400 font-medium">Open PR</span>
+                </motion.div>
+              </div>
+            </div>
+          </motion.div>
         </div>
 
-        {/* Build with your design system - full width card */}
+        {/* Design system visual strip */}
         <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, amount: 0.3 }}
-          transition={{ duration: 0.3, delay: 0.1 }}
-          className="mt-6 bg-gradient-to-b from-card to-background border border-border rounded-2xl p-8 md:p-10 overflow-hidden relative group hover:border-primary/30 transition-colors"
+          initial={{ opacity: 0 }}
+          whileInView={{ opacity: 1 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.5, delay: 0.2 }}
+          className="mt-6 py-6 px-8 bg-card/50 border border-border rounded-2xl flex flex-wrap items-center justify-center gap-8 md:gap-12"
         >
-          <div className="flex flex-col md:flex-row items-center gap-8 md:gap-12">
-            {/* Left - Title */}
-            <div className="text-center md:text-left md:flex-shrink-0">
-              <div className="flex justify-center md:justify-start gap-1 mb-4">
-                <div className="w-2 h-2 rounded-full bg-blue-500"></div>
-                <div className="w-2 h-2 rounded-full bg-pink-500"></div>
-                <div className="w-2 h-2 rounded-full bg-purple-500"></div>
-              </div>
-              <h3 className="text-2xl md:text-3xl font-medium mb-2">
-                Build with <span className="text-primary">your</span> design system
-              </h3>
-              <p className="text-muted-foreground text-sm">
-                Stop building from scratch. Start building on-brand.
-              </p>
+          <div className="flex items-center gap-3">
+            <div className="flex gap-1">
+              <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+              <div className="w-2 h-2 rounded-full bg-pink-500"></div>
+              <div className="w-2 h-2 rounded-full bg-purple-500"></div>
             </div>
-
-            {/* Right - Visual elements */}
-            <div className="flex-1 flex flex-wrap items-center justify-center gap-6 md:gap-8 opacity-80 group-hover:opacity-100 transition-opacity">
-              {/* Toggle & Code snippet */}
-              <div className="flex items-center gap-4">
-                <div className="w-10 h-6 bg-accent rounded-full relative border border-border">
-                  <div className="absolute right-1 top-1 w-4 h-4 bg-primary rounded-full" />
-                </div>
-                <div className="flex gap-2">
-                  <div className="w-4 h-4 bg-primary rounded-sm"></div>
-                  <div className="w-4 h-4 border border-border rounded-sm"></div>
-                </div>
+            <span className="text-sm text-muted-foreground">Your brand colors</span>
+          </div>
+          <div className="flex gap-2">
+            {["Aa", "Bb"].map((text, i) => (
+              <div key={i} className={`w-10 h-10 rounded-lg flex items-center justify-center text-sm font-medium ${i === 0 ? "bg-foreground text-background" : "bg-accent text-foreground border border-border"}`}>
+                {text}
               </div>
-
-              {/* Color Swatches */}
-              <div className="flex gap-3">
-                <motion.div whileHover={{ scale: 1.1 }} className="w-10 h-10 bg-teal-400 rounded-lg shadow-lg shadow-teal-400/20" />
-                <motion.div whileHover={{ scale: 1.1 }} className="w-10 h-10 bg-primary rounded-lg shadow-lg shadow-primary/20" />
-                <motion.div whileHover={{ scale: 1.1 }} className="w-10 h-10 bg-orange-300 rounded-lg shadow-lg shadow-orange-300/20" />
-              </div>
-
-              {/* Typography */}
-              <div className="hidden lg:flex flex-col gap-1">
-                <span className="text-lg font-bold">Headline</span>
-                <span className="text-sm font-semibold opacity-60">Subhead</span>
-                <span className="text-xs opacity-40">Body</span>
-              </div>
+            ))}
+            <span className="text-sm text-muted-foreground ml-2">Typography</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="flex gap-1">
+              <div className="w-3 h-3 bg-accent rounded-sm border border-border" />
+              <div className="w-4 h-3 bg-accent rounded-sm border border-border" />
+              <div className="w-2 h-3 bg-accent rounded-sm border border-border" />
             </div>
+            <span className="text-sm text-muted-foreground">Spacing scales</span>
           </div>
         </motion.div>
       </div>
@@ -773,7 +865,7 @@ function VariantsSection() {
                     <div className="w-full py-3 bg-zinc-900 text-white rounded-xl font-medium text-sm shadow-xl shadow-zinc-200">
                       New Project
                     </div>
-                    <div className="absolute top-4 left-0 right-0 text-center text-[10px] text-zinc-400 font-mono opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="absolute top-4 left-0 right-0 text-center text-xs text-zinc-400 font-mono opacity-0 group-hover:opacity-100 transition-opacity">
                       Empty State
                     </div>
                   </div>
@@ -796,7 +888,7 @@ function VariantsSection() {
                       ))}
                     </div>
                     <div className="absolute inset-0 bg-gradient-to-t from-card via-transparent to-transparent pointer-events-none" />
-                    <div className="absolute top-4 left-0 right-0 text-center text-[10px] text-muted-foreground font-mono opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="absolute top-4 left-0 right-0 text-center text-xs text-muted-foreground font-mono opacity-0 group-hover:opacity-100 transition-opacity">
                       Loading State
                     </div>
                   </div>
@@ -818,7 +910,7 @@ function VariantsSection() {
                     <button className="flex items-center gap-2 px-6 py-2.5 bg-red-50 text-red-600 rounded-full font-medium text-sm hover:bg-red-100 transition-colors">
                       <RefreshCw className="w-4 h-4" /> Try Again
                     </button>
-                    <div className="absolute top-4 left-0 right-0 text-center text-[10px] text-zinc-400 font-mono opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="absolute top-4 left-0 right-0 text-center text-xs text-zinc-400 font-mono opacity-0 group-hover:opacity-100 transition-opacity">
                       Error State
                     </div>
                   </div>
@@ -830,7 +922,7 @@ function VariantsSection() {
                   {/* Variant 1: Dark Mode / Value Prop (Gymverse Scale) */}
                   <div className="w-[300px] aspect-[9/19] bg-slate-900 rounded-[2.5rem] border-[8px] border-zinc-900 relative shadow-2xl overflow-hidden flex flex-col font-sans">
                     {/* Status Bar */}
-                    <div className="px-6 py-4 flex justify-between items-center text-white text-[10px] font-bold">
+                    <div className="px-6 py-4 flex justify-between items-center text-white text-xs font-bold">
                       <span>9:41</span>
                       <div className="flex gap-1">
                         <div className="w-3 h-3 bg-white rounded-full opacity-20" />
@@ -845,7 +937,7 @@ function VariantsSection() {
                       </div>
 
                       <div className="mt-4 mb-2 flex justify-center">
-                        <div className="px-2 py-1 rounded bg-white text-slate-900 text-[10px] font-bold uppercase tracking-wider">
+                        <div className="px-2 py-1 rounded bg-white text-slate-900 text-xs font-bold uppercase tracking-wider">
                           PRO
                         </div>
                       </div>
@@ -866,7 +958,7 @@ function VariantsSection() {
                             />
                           ))}
                         </div>
-                        <div className="text-[10px] text-slate-300">
+                        <div className="text-xs text-slate-300">
                           <span className="font-bold text-white">150K+</span>{" "}
                           5-Star Reviews
                         </div>
@@ -892,7 +984,7 @@ function VariantsSection() {
                       {/* Pricing Cards */}
                       <div className="mt-auto space-y-3 mb-4">
                         <div className="relative p-4 rounded-xl border-2 border-white bg-slate-800/50 cursor-pointer">
-                          <div className="absolute -top-3 right-4 bg-yellow-400 text-black text-[10px] font-bold px-2 py-0.5 rounded">
+                          <div className="absolute -top-3 right-4 bg-yellow-400 text-black text-xs font-bold px-2 py-0.5 rounded">
                             BEST VALUE
                           </div>
                           <div className="flex justify-between items-center mb-1">
@@ -904,10 +996,10 @@ function VariantsSection() {
                             </span>
                           </div>
                           <div className="flex justify-between items-center">
-                            <span className="bg-white/20 text-white text-[10px] px-1.5 py-0.5 rounded">
+                            <span className="bg-white/20 text-white text-xs px-1.5 py-0.5 rounded">
                               7-day free trial
                             </span>
-                            <span className="text-slate-400 text-[10px]">
+                            <span className="text-slate-400 text-xs">
                               only $10.00/mo
                             </span>
                           </div>
@@ -925,7 +1017,7 @@ function VariantsSection() {
                         <button className="w-full py-3.5 rounded-full bg-yellow-400 text-black font-bold text-sm shadow-lg hover:bg-yellow-300 transition-colors mt-2">
                           START MY FREE TRIAL
                         </button>
-                        <p className="text-[9px] text-center text-slate-500 mt-2">
+                        <p className="text-xs text-center text-slate-500 mt-2">
                           No Payment Now. Cancel Anytime.
                         </p>
                       </div>
@@ -1009,7 +1101,7 @@ function VariantsSection() {
                           <div className="text-xs font-bold text-slate-900">
                             100% Satisfaction Guaranteed
                           </div>
-                          <div className="text-[10px] text-slate-500">
+                          <div className="text-xs text-slate-500">
                             Full refund anytime, no questions asked.
                           </div>
                         </div>
@@ -1017,7 +1109,7 @@ function VariantsSection() {
 
                       {/* Footer Price & CTA */}
                       <div className="mt-4 pt-4 border-t border-slate-100 text-center">
-                        <p className="text-[10px] text-slate-500 mb-1">
+                        <p className="text-xs text-slate-500 mb-1">
                           Unlimited free access for 7 days, then
                         </p>
                         <p className="text-xs text-slate-900 font-bold mb-4">
@@ -1031,7 +1123,7 @@ function VariantsSection() {
                         <button className="w-full py-4 rounded-xl bg-green-500 text-white font-bold text-base shadow-xl shadow-green-200 hover:bg-green-600 transition-colors">
                           Start my free trial now
                         </button>
-                        <p className="text-[10px] text-slate-400 mt-3">
+                        <p className="text-xs text-slate-400 mt-3">
                           Skip this one-time offer
                         </p>
                       </div>
@@ -1120,11 +1212,11 @@ function VariantsSection() {
                           SUBSCRIBE NOW
                         </button>
                         <div className="flex justify-center">
-                          <button className="text-[10px] font-bold text-slate-900">
+                          <button className="text-xs font-bold text-slate-900">
                             Restore purchases
                           </button>
                         </div>
-                        <p className="text-[9px] text-slate-400 text-center mt-4 leading-relaxed">
+                        <p className="text-xs text-slate-400 text-center mt-4 leading-relaxed">
                           Subscriptions renew automatically. Cancel at least 24
                           hours before the end.
                         </p>
@@ -1323,13 +1415,13 @@ function VariantsSection() {
                           </div>
 
                           {/* X Axis */}
-                          <div className="absolute bottom-0 left-0 text-[10px] font-medium text-slate-500">
+                          <div className="absolute bottom-0 left-0 text-xs font-medium text-slate-500">
                             3 Days
                           </div>
-                          <div className="absolute bottom-0 left-1/2 -translate-x-1/2 text-[10px] font-medium text-slate-500">
+                          <div className="absolute bottom-0 left-1/2 -translate-x-1/2 text-xs font-medium text-slate-500">
                             7 Days
                           </div>
-                          <div className="absolute bottom-0 right-0 text-[10px] font-medium text-slate-500">
+                          <div className="absolute bottom-0 right-0 text-xs font-medium text-slate-500">
                             30 Days
                           </div>
                         </div>
@@ -1370,7 +1462,7 @@ function ShippingSection() {
       description: "Copy/paste specific components or export entire screens as clean, modular React files.",
       hoverBorder: "hover:border-primary/40",
       illustration: (
-        <div className="mt-4 bg-background rounded-lg p-3 border border-border font-mono text-[10px] overflow-hidden">
+        <div className="mt-4 bg-background rounded-lg p-3 border border-border font-mono text-sm overflow-hidden">
           <motion.div
             initial={{ opacity: 0 }}
             whileInView={{ opacity: 1 }}
@@ -1404,15 +1496,15 @@ function ShippingSection() {
         <div className="mt-4 bg-background rounded-lg p-3 border border-border">
           <div className="flex items-center gap-2 mb-2">
             <div className="w-2 h-2 rounded-full bg-emerald-500" />
-            <span className="text-[10px] text-emerald-400 font-medium">Open</span>
+            <span className="text-sm text-emerald-400 font-medium">Open</span>
           </div>
-          <div className="text-[10px] text-muted-foreground mb-2">feat: Add onboarding flow</div>
+          <div className="text-sm text-muted-foreground mb-2">feat: Add onboarding flow</div>
           <motion.div
             initial={{ scale: 0.9, opacity: 0 }}
             whileInView={{ scale: 1, opacity: 1 }}
             viewport={{ once: true }}
             transition={{ delay: 0.1 }}
-            className="px-2 py-1 bg-emerald-500/20 rounded text-[9px] text-emerald-400 w-fit"
+            className="px-2 py-1 bg-emerald-500/20 rounded text-xs text-emerald-400 w-fit"
           >
             Ready to merge
           </motion.div>
@@ -1436,7 +1528,7 @@ function ShippingSection() {
               whileInView={{ x: 0, opacity: 1 }}
               viewport={{ once: true }}
               transition={{ delay: 0.05 + i * 0.03 }}
-              className={`text-[9px] font-mono px-2 py-1 rounded ${line.color}`}
+              className={`text-xs font-mono px-2 py-1 rounded ${line.color}`}
             >
               {line.text}
             </motion.div>
@@ -1450,99 +1542,111 @@ function ShippingSection() {
     <section className="py-24 px-6 bg-background border-t border-border relative overflow-hidden">
       {/* Background gradient */}
       <div className="absolute top-1/2 right-0 w-[300px] h-[300px] bg-emerald-600/10 rounded-full blur-[100px] pointer-events-none" />
+      <div className="absolute bottom-0 left-1/4 w-[250px] h-[250px] bg-primary/10 rounded-full blur-[100px] pointer-events-none" />
 
       <div className="container mx-auto max-w-6xl relative z-10">
+        {/* Split header layout */}
+        <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-6 mb-16">
+          <motion.div
+            initial={{ opacity: 0, x: -20 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.4 }}
+            className="max-w-xl"
+          >
+            <h2 className="text-4xl md:text-5xl font-medium tracking-tight mb-4">
+              From prototype → PR
+            </h2>
+            <p className="text-muted-foreground">
+              Nucleate isn&apos;t a playground. It&apos;s a delivery tool that lives in your
+              engineering workflow.
+            </p>
+          </motion.div>
+          <motion.div
+            initial={{ opacity: 0, x: 20 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.4, delay: 0.1 }}
+            className="flex items-center gap-3"
+          >
+            <div className="flex items-center gap-2 px-4 py-2 bg-card rounded-full border border-border">
+              <Github className="w-4 h-4" />
+              <span className="text-sm text-muted-foreground">Git-native</span>
+            </div>
+            <div className="flex items-center gap-2 px-4 py-2 bg-emerald-500/10 rounded-full border border-emerald-500/20">
+              <GitBranch className="w-4 h-4 text-emerald-400" />
+              <span className="text-sm text-emerald-400">PR Ready</span>
+            </div>
+          </motion.div>
+        </div>
+
+        {/* Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
+            {cards.map((card, index) => (
+              <motion.div
+                key={card.title}
+                initial={{ opacity: 0, y: 40 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, amount: 0.3 }}
+                transition={{ duration: 0.4, delay: index * 0.1 }}
+                className="relative"
+              >
+                {/* Card content */}
+                <motion.div
+                  whileHover={{ y: -5, scale: 1.02 }}
+                  className={`bg-card border rounded-2xl p-6 transition-all duration-300 h-full ${
+                    index === 0 ? "border-primary/20 hover:border-primary/40" :
+                    index === 1 ? "border-emerald-500/20 hover:border-emerald-500/40" :
+                    "border-purple-500/20 hover:border-purple-500/40"
+                  }`}
+                >
+                  <div className="flex items-center gap-3 mb-4">
+                    <motion.div
+                      animate={{ y: [0, -3, 0] }}
+                      transition={{ duration: 3, repeat: Infinity, ease: "easeInOut", delay: index * 0.5 }}
+                    >
+                      {card.icon}
+                    </motion.div>
+                    <h3 className="text-xl font-bold">{card.title}</h3>
+                  </div>
+                  <p className="text-sm text-muted-foreground mb-4">{card.description}</p>
+                  {card.illustration}
+                </motion.div>
+              </motion.div>
+            ))}
+        </div>
+
+        {/* Bottom CTA strip */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, amount: 0.3 }}
-          transition={{ duration: 0.3 }}
-          className="text-center mb-16"
+          viewport={{ once: true }}
+          transition={{ duration: 0.4, delay: 0.3 }}
+          className="mt-20 bg-gradient-to-r from-card via-card to-emerald-500/10 border border-border rounded-2xl p-6 md:p-8 flex flex-col md:flex-row items-center justify-between gap-6"
         >
-          <h2 className="text-4xl md:text-5xl font-medium tracking-tight mb-4">
-            From prototype → PR
-          </h2>
-          <p className="text-muted-foreground max-w-2xl mx-auto">
-            Nucleate isn&apos;t a playground. It&apos;s a delivery tool that lives in your
-            engineering workflow.
-          </p>
-        </motion.div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {cards.map((card, index) => (
-            <motion.div
-              key={card.title}
-              initial={{ opacity: 0, y: 30 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, amount: 0.3 }}
-              transition={{ duration: 0.25, delay: index * 0.05 }}
-              whileHover={{ y: -5 }}
-              className={`bg-card border border-border rounded-2xl p-6 transition-all duration-300 ${card.hoverBorder}`}
-            >
-              <motion.div
-                animate={{ y: [0, -3, 0] }}
-                transition={{ duration: 3, repeat: Infinity, ease: "easeInOut", delay: index * 0.5 }}
-              >
-                {card.icon}
-              </motion.div>
-              <h3 className="text-lg font-bold mb-2 mt-4">{card.title}</h3>
-              <p className="text-sm text-muted-foreground">{card.description}</p>
-              {card.illustration}
-            </motion.div>
-          ))}
-        </div>
-
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, amount: 0.3 }}
-          transition={{ duration: 0.3, delay: 0.1 }}
-          className="mt-12 bg-card border border-border rounded-2xl p-8 flex flex-col md:flex-row items-center gap-8"
-        >
-          <div className="flex-1">
-            <h3 className="text-xl font-medium mb-2">Design and engineering work in the same source of truth: Git.</h3>
-            <p className="text-muted-foreground text-sm">Stop rebuilding UI from screenshots. Let Nucleate bridge the gap by generating code that actually belongs in your codebase.</p>
-          </div>
           <div className="flex items-center gap-4">
-            <motion.div
-              initial={{ scale: 0.8, opacity: 0 }}
-              whileInView={{ scale: 1, opacity: 1 }}
-              viewport={{ once: true }}
-              transition={{ delay: 0.15 }}
-              className="flex flex-col items-center"
-            >
-              <div className="w-10 h-10 rounded-full bg-accent flex items-center justify-center border border-border mb-2">
-                <Github className="w-5 h-5" />
-              </div>
-              <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">Git Provider</span>
-            </motion.div>
-
-            {/* Animated connection line */}
-            <div className="relative w-12">
-              <div className="w-full h-px bg-border" />
-              <motion.div
-                animate={{ x: [0, 48, 0] }}
-                transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-                className="absolute top-1/2 -translate-y-1/2 w-2 h-2 bg-primary rounded-full shadow-[0_0_10px_rgba(99,102,241,0.8)]"
-              />
+            <div className="w-12 h-12 rounded-xl bg-emerald-500/20 flex items-center justify-center border border-emerald-500/30">
+              <GitPullRequest className="w-6 h-6 text-emerald-400" />
             </div>
-
+            <div>
+              <h3 className="text-lg font-medium mb-1">Ship to your repo in seconds</h3>
+              <p className="text-sm text-muted-foreground">Design and engineering work in the same source of truth: Git.</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
             <motion.div
-              initial={{ scale: 0.8, opacity: 0 }}
-              whileInView={{ scale: 1, opacity: 1 }}
-              viewport={{ once: true }}
-              transition={{ delay: 0.2 }}
-              className="flex flex-col items-center"
+              animate={{ scale: [1, 1.05, 1] }}
+              transition={{ duration: 2, repeat: Infinity }}
+              className="flex items-center gap-2 px-5 py-2.5 bg-emerald-500 rounded-full text-white font-medium text-sm cursor-pointer hover:bg-emerald-600 transition-colors"
             >
-              <motion.div
-                animate={{ boxShadow: ["0 0 15px rgba(99,102,241,0.5)", "0 0 25px rgba(99,102,241,0.8)", "0 0 15px rgba(99,102,241,0.5)"] }}
-                transition={{ duration: 2, repeat: Infinity }}
-                className="w-10 h-10 rounded-full bg-primary flex items-center justify-center mb-2"
-              >
-                <Zap className="w-5 h-5 text-primary-foreground" />
-              </motion.div>
-              <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">Nucleate</span>
+              <GitPullRequest className="w-4 h-4" />
+              Open PR
             </motion.div>
+            <div className="text-muted-foreground text-sm">or</div>
+            <div className="flex items-center gap-2 px-5 py-2.5 bg-accent rounded-full border border-border text-sm font-medium cursor-pointer hover:bg-accent/80 transition-colors">
+              <Code2 className="w-4 h-4" />
+              Copy Code
+            </div>
           </div>
         </motion.div>
       </div>
@@ -1735,7 +1839,7 @@ function PricingSection() {
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 md:gap-6">
               <div className="text-center sm:text-left">
                 <div className="text-2xl md:text-3xl font-bold text-[#D97757] mb-0.5">1000x</div>
-                <div className="text-[10px] text-muted-foreground uppercase tracking-wider">more usage</div>
+                <div className="text-xs text-muted-foreground uppercase tracking-wider">more usage</div>
               </div>
               <div className="hidden sm:block w-px h-10 bg-border"></div>
               <div className="space-y-1.5">
@@ -2000,7 +2104,7 @@ function HowItWorksSection() {
             className="px-3 py-1.5 bg-emerald-500/20 rounded-lg border border-emerald-500/30 flex items-center gap-2"
           >
             <CheckCircle2 className="w-3 h-3 text-emerald-400" />
-            <span className="text-[10px] text-emerald-400 font-medium">PR Created</span>
+            <span className="text-xs text-emerald-400 font-medium">PR Created</span>
           </motion.div>
         </div>
       ),

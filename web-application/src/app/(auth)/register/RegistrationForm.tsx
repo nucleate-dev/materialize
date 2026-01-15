@@ -1,6 +1,5 @@
 "use client";
 
-import ErrorModal from "@/components/ErrorModal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -48,7 +47,6 @@ export default function RegistrationForm() {
     confirmPasswordError: "",
   });
   const [showSuccessState, setShowSuccessState] = useState<boolean>(false);
-  const [showErrorModal, setShowErrorModal] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string>("");
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const { email, password, firstName, lastName, confirmPassword } = formData;
@@ -117,13 +115,17 @@ export default function RegistrationForm() {
 
         return newFormData;
       });
+      if (errorMessage) {
+        setErrorMessage("");
+      }
     },
-    [], // No dependencies needed - using functional updates
+    [errorMessage], // Clear server error on new input
   );
 
   const handleSubmit = useCallback(
     async (e: FormEvent<HTMLFormElement>) => {
       e.preventDefault();
+      setErrorMessage("");
 
       // Validate all fields before submission
       const emailValidationError = !isValidEmailInput(email)
@@ -155,7 +157,6 @@ export default function RegistrationForm() {
       });
       setIsLoading(false);
       if (authResponse.error) {
-        setShowErrorModal(true);
         setErrorMessage(authResponse.error.message);
         return;
       }
@@ -223,14 +224,6 @@ export default function RegistrationForm() {
 
   return (
     <div className="relative w-full max-w-md mx-auto animate-in fade-in slide-in-from-bottom-4 duration-700">
-      <ErrorModal
-        show={showErrorModal}
-        onClose={() => {
-          setShowErrorModal(false);
-        }}
-        errorMessage={errorMessage}
-      />
-
       {/* Premium Container */}
       <div className="bg-card border border-border rounded-2xl shadow-2xl overflow-hidden">
         {/* Header */}
@@ -248,6 +241,15 @@ export default function RegistrationForm() {
 
         {/* Content */}
         <div className="p-8 space-y-6">
+          {errorMessage && (
+            <div
+              className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-600 dark:text-red-200 shadow-sm animate-in fade-in slide-in-from-top-2 duration-300"
+              role="alert"
+              aria-live="polite"
+            >
+              {errorMessage}
+            </div>
+          )}
           <form onSubmit={handleSubmit} className="space-y-5">
             {/* Name Fields */}
             <div className="grid grid-cols-2 gap-4">
