@@ -23,7 +23,6 @@ import { captureUTMParams } from "@/lib/utils/analytics/utmTracking";
 import { setChatIntent } from "@/lib/utils/chatIntentUtils";
 import { handleCheckout } from "@/lib/utils/payments/CheckoutUtils";
 import { AnimatePresence, motion } from "framer-motion";
-import Image from "next/image";
 import {
   Bell,
   Box,
@@ -58,6 +57,7 @@ import {
   X,
   Zap,
 } from "lucide-react";
+import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import { usePostHog } from "posthog-js/react";
 import { Suspense, useEffect, useState } from "react";
@@ -515,12 +515,12 @@ function CodebaseIntegrationSection() {
  * VARIANTS MEGA-SECTION
  */
 function VariantsSection() {
-  const [activeTab, setActiveTab] = useState("refreshes");
+  const [activeTab, setActiveTab] = useState("variants");
 
   const tabs = [
     {
-      id: "refreshes",
-      label: "Refreshes",
+      id: "variants",
+      label: "Variants",
       icon: <Layout className="w-4 h-4" />,
     },
     { id: "states", label: "States", icon: <Layers className="w-4 h-4" /> },
@@ -600,7 +600,7 @@ function VariantsSection() {
               className="h-full w-full"
             >
               {/* DEMO CONTENT BASED ON TAB */}
-              {activeTab === "refreshes" && (
+              {activeTab === "variants" && (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 h-full items-start justify-center">
                   {/* Variant 1: Modern Minimal */}
                   <div className="flex flex-col gap-4">
@@ -695,7 +695,7 @@ function VariantsSection() {
                   {/* Variant 3: Glassmorphism */}
                   <div className="flex flex-col gap-4">
                     <div className="text-center text-muted-foreground font-mono text-xs uppercase tracking-widest">Variant C: Glassmorphism</div>
-                    <div className="aspect-[9/16] bg-card rounded-3xl overflow-hidden shadow-2xl border border-border relative group">
+                    <div className="aspect-[9/16] bg-zinc-900 rounded-3xl overflow-hidden shadow-2xl border border-zinc-800 relative group">
                       <div className="absolute inset-0">
                         <Image
                           src="/images/midnight_vibrant.png"
@@ -704,18 +704,18 @@ function VariantsSection() {
                           fill
                           sizes="(max-width: 1024px) 100vw, 33vw"
                         />
-                        <div className="absolute inset-0 bg-background/20" />
+                        <div className="absolute inset-0 bg-black/20" />
                       </div>
                       <div className="relative z-10 p-6 h-full flex flex-col justify-between">
                         {/* Header */}
                         <div className="flex justify-between items-center w-full">
-                          <ChevronDown className="w-6 h-6 text-muted-foreground" />
-                          <span className="text-xs font-medium text-muted-foreground tracking-widest uppercase">Now Playing</span>
-                          <MoreHorizontal className="w-6 h-6 text-muted-foreground" />
+                          <ChevronDown className="w-6 h-6 text-white/70" />
+                          <span className="text-xs font-medium text-white/50 tracking-widest uppercase">Now Playing</span>
+                          <MoreHorizontal className="w-6 h-6 text-white/70" />
                         </div>
 
                         {/* Main Art */}
-                        <div className="w-full aspect-square rounded-2xl overflow-hidden shadow-2xl border border-border mx-auto transform scale-105">
+                        <div className="w-full aspect-square rounded-2xl overflow-hidden shadow-2xl border border-white/10 mx-auto transform scale-105">
                           <Image
                             src="/images/midnight_vibrant.png"
                             alt="Glassmorphism Album Art"
@@ -726,22 +726,22 @@ function VariantsSection() {
                         </div>
 
                         {/* Controls */}
-                        <div className="bg-accent backdrop-blur-md rounded-2xl p-4 border border-border">
+                        <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/20">
                           <h3 className="text-lg font-semibold text-white mb-1">
                             Midnight City
                           </h3>
-                          <p className="text-muted-foreground text-xs mb-4">M83</p>
-                          <div className="h-1 bg-accent rounded-full overflow-hidden mb-4">
+                          <p className="text-white/60 text-xs mb-4">M83</p>
+                          <div className="h-1 bg-white/20 rounded-full overflow-hidden mb-4">
                             <div className="h-full w-2/3 bg-white shadow-[0_0_10px_white]" />
                           </div>
                           <div className="flex justify-between px-4">
-                            <div className="w-6 h-6 text-muted-foreground">
+                            <div className="w-6 h-6 text-white/60">
                               <div className="w-full h-full border-b-2 border-l-2 border-current rotate-45 translate-x-1" />
                             </div>
-                            <div className="w-8 h-8 bg-foreground text-background rounded-full flex items-center justify-center shadow-lg">
-                              <div className="w-0 h-0 border-t-[4px] border-t-transparent border-l-[6px] border-l-background border-b-[4px] border-b-transparent ml-0.5" />
+                            <div className="w-8 h-8 bg-white text-zinc-900 rounded-full flex items-center justify-center shadow-lg">
+                              <div className="w-0 h-0 border-t-[4px] border-t-transparent border-l-[6px] border-l-zinc-900 border-b-[4px] border-b-transparent ml-0.5" />
                             </div>
-                            <div className="w-6 h-6 text-muted-foreground">
+                            <div className="w-6 h-6 text-white/60">
                               <div className="w-full h-full border-b-2 border-r-2 border-current -rotate-45 -translate-x-1" />
                             </div>
                           </div>
