@@ -363,6 +363,40 @@ const MaterializeRenderSection = forwardRef<
     }>({ html_url: null, loading: true });
     const [githubRepoError, setGithubRepoError] = useState<string | null>(null);
 
+    // Vercel integration feature flag
+    const isVercelIntegrationEnabled =
+      posthog?.isFeatureEnabled("vercel-integration") ?? false;
+
+    // Vercel integration state
+    const [vercelIntegration, setVercelIntegration] = useState<{
+      connected: boolean;
+      loading: boolean;
+    }>({ connected: false, loading: true });
+
+    // Vercel project state for this prototype
+    const [vercelProject, setVercelProject] = useState<{
+      vercel_project_id: string | null;
+      vercel_project_name: string | null;
+      production_url: string | null;
+      loading: boolean;
+    }>({
+      vercel_project_id: null,
+      vercel_project_name: null,
+      production_url: null,
+      loading: true,
+    });
+
+    // Vercel deployments for this prototype
+    const [vercelDeployments, setVercelDeployments] = useState<
+      Array<{
+        id: string;
+        url: string | null;
+        status: "queued" | "building" | "ready" | "error" | "canceled";
+        git_ref: string | null;
+        created_at: string;
+      }>
+    >([]);
+
     // Fetch GitHub integration status for the active team
     useEffect(() => {
       const fetchGithubIntegration = async () => {
@@ -433,6 +467,139 @@ const MaterializeRenderSection = forwardRef<
 
       fetchGithubRepository();
     }, [prototypeId, isGithubIntegrationEnabled, logger]);
+
+    // Fetch Vercel integration status for the active team
+    useEffect(() => {
+      const fetchVercelIntegration = async () => {
+        if (!activeTeam?.id || !isVercelIntegrationEnabled) {
+          setVercelIntegration({ connected: false, loading: false });
+          return;
+        }
+
+        try {
+          const { data, error } = await supabase
+            .from("vercel_integrations")
+            .select("account_name, account_type")
+            .eq("team_id", activeTeam.id)
+            .maybeSingle();
+
+          if (error) {
+            logger.debug("error", "Failed to fetch Vercel integration", {
+              error,
+            });
+            setVercelIntegration({ connected: false, loading: false });
+            return;
+          }
+
+          setVercelIntegration({ connected: !!data, loading: false });
+        } catch (error) {
+          logger.debug("error", "Error checking Vercel integration", { error });
+          setVercelIntegration({ connected: false, loading: false });
+        }
+      };
+
+      fetchVercelIntegration();
+    }, [activeTeam?.id, isVercelIntegrationEnabled, logger]);
+
+    // Fetch Vercel project for this prototype
+    useEffect(() => {
+      const fetchVercelProject = async () => {
+        if (!prototypeId || !isVercelIntegrationEnabled) {
+          setVercelProject({
+            vercel_project_id: null,
+            vercel_project_name: null,
+            production_url: null,
+            loading: false,
+          });
+          return;
+        }
+
+        try {
+          const { data, error } = await supabase
+            .from("vercel_projects")
+            .select("vercel_project_id, vercel_project_name, production_url")
+            .eq("prototype_id", prototypeId)
+            .maybeSingle();
+
+          if (error) {
+            logger.debug("error", "Failed to fetch Vercel project", { error });
+            setVercelProject({
+              vercel_project_id: null,
+              vercel_project_name: null,
+              production_url: null,
+              loading: false,
+            });
+            return;
+          }
+
+          setVercelProject({
+            vercel_project_id: data?.vercel_project_id ?? null,
+            vercel_project_name: data?.vercel_project_name ?? null,
+            production_url: data?.production_url ?? null,
+            loading: false,
+          });
+        } catch (error) {
+          logger.debug("error", "Error checking Vercel project", { error });
+          setVercelProject({
+            vercel_project_id: null,
+            vercel_project_name: null,
+            production_url: null,
+            loading: false,
+          });
+        }
+      };
+
+      fetchVercelProject();
+    }, [prototypeId, isVercelIntegrationEnabled, logger]);
+
+    // Fetch Vercel deployments for this prototype
+    useEffect(() => {
+      const fetchVercelDeployments = async () => {
+        if (!prototypeId || !isVercelIntegrationEnabled) {
+          setVercelDeployments([]);
+          return;
+        }
+
+        try {
+          const { data, error } = await supabase
+            .from("vercel_deployments")
+            .select(
+              "vercel_deployment_id, vercel_deployment_url, status, git_ref, created_at",
+            )
+            .eq("prototype_id", prototypeId)
+            .order("created_at", { ascending: false })
+            .limit(10);
+
+          if (error) {
+            logger.debug("error", "Failed to fetch Vercel deployments", {
+              error,
+            });
+            setVercelDeployments([]);
+            return;
+          }
+
+          setVercelDeployments(
+            (data ?? []).map((d) => ({
+              id: d.vercel_deployment_id,
+              url: d.vercel_deployment_url,
+              status: d.status as
+                | "queued"
+                | "building"
+                | "ready"
+                | "error"
+                | "canceled",
+              git_ref: d.git_ref,
+              created_at: d.created_at,
+            })),
+          );
+        } catch (error) {
+          logger.debug("error", "Error checking Vercel deployments", { error });
+          setVercelDeployments([]);
+        }
+      };
+
+      fetchVercelDeployments();
+    }, [prototypeId, isVercelIntegrationEnabled, logger]);
 
     // Check if canvas preview mode is enabled (infinite canvas like Figma)
     const isCanvasPreviewEnabled = posthog?.isFeatureEnabled("canvas-preview-mode") ?? false;
@@ -1587,6 +1754,187 @@ const MaterializeRenderSection = forwardRef<
         toast.error(`Failed to create repository: ${errorMessage}`);
         setGithubRepoError(errorMessage);
         setGithubRepository({ html_url: null, loading: false });
+      }
+    };
+
+    // Handler to create a Vercel project
+    const handleCreateVercelProject = async () => {
+      logPrototypeEvent("client_prototype_editor_create_vercel_project_clicked", {
+        has_prototype: Boolean(prototypeId),
+        has_github_repo: Boolean(githubRepository.html_url),
+      });
+
+      if (!prototypeId) {
+        logger.debug("error", "Cannot create Vercel project: missing prototype ID");
+        toast.error("Missing prototype ID");
+        return;
+      }
+
+      if (!githubRepository.html_url) {
+        logger.debug("error", "Cannot create Vercel project: missing GitHub repository");
+        toast.error("Please create a GitHub repository first");
+        return;
+      }
+
+      setVercelProject((prev) => ({ ...prev, loading: true }));
+
+      try {
+        const session = await supabase.auth.getSession();
+        const token = session.data.session?.access_token;
+
+        if (!token) {
+          logger.debug("error", "No authentication token available");
+          toast.error("Authentication required");
+          setVercelProject((prev) => ({ ...prev, loading: false }));
+          return;
+        }
+
+        toast.info("Creating Vercel project...");
+
+        const response = await fetch(
+          `${process.env.NEXT_PUBLIC_SERVER_ENDPOINT!}/vercel/project/create`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({ prototype_id: prototypeId }),
+          },
+        );
+
+        const result: APIResponse<
+          {
+            vercel_project_id: string;
+            vercel_project_name: string;
+            production_url: string | null;
+          },
+          StandardErrorResponse
+        > = await response.json();
+
+        if (!response.ok || result.error) {
+          const errorMessage =
+            result.error?.message ?? "Failed to create Vercel project";
+          logger.debug("error", "Vercel project creation failed", {
+            error: errorMessage,
+          });
+          toast.error(`Failed to create project: ${errorMessage}`);
+          setVercelProject((prev) => ({ ...prev, loading: false }));
+          return;
+        }
+
+        setVercelProject({
+          vercel_project_id: result.data.vercel_project_id,
+          vercel_project_name: result.data.vercel_project_name,
+          production_url: result.data.production_url,
+          loading: false,
+        });
+        toast.success("Vercel project created!");
+        logger.debug("log", "Vercel project created", {
+          vercel_project_id: result.data.vercel_project_id,
+        });
+      } catch (error) {
+        const errorMessage =
+          error instanceof Error ? error.message : String(error);
+        logger.debug("error", "Error creating Vercel project", {
+          error: errorMessage,
+        });
+        toast.error(`Failed to create project: ${errorMessage}`);
+        setVercelProject((prev) => ({ ...prev, loading: false }));
+      }
+    };
+
+    // Handler to deploy to Vercel
+    const handleDeployToVercel = async () => {
+      logPrototypeEvent("client_prototype_editor_deploy_to_vercel_clicked", {
+        has_prototype: Boolean(prototypeId),
+        has_vercel_project: Boolean(vercelProject.vercel_project_id),
+      });
+
+      if (!prototypeId) {
+        logger.debug("error", "Cannot deploy to Vercel: missing prototype ID");
+        toast.error("Missing prototype ID");
+        return;
+      }
+
+      if (!vercelProject.vercel_project_id) {
+        logger.debug("error", "Cannot deploy to Vercel: missing Vercel project");
+        toast.error("Please create a Vercel project first");
+        return;
+      }
+
+      setVercelProject((prev) => ({ ...prev, loading: true }));
+
+      try {
+        const session = await supabase.auth.getSession();
+        const token = session.data.session?.access_token;
+
+        if (!token) {
+          logger.debug("error", "No authentication token available");
+          toast.error("Authentication required");
+          setVercelProject((prev) => ({ ...prev, loading: false }));
+          return;
+        }
+
+        toast.info("Deploying to Vercel...");
+
+        const response = await fetch(
+          `${process.env.NEXT_PUBLIC_SERVER_ENDPOINT!}/vercel/deploy`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({ prototype_id: prototypeId }),
+          },
+        );
+
+        const result: APIResponse<
+          {
+            deployment_id: string;
+            deployment_url: string | null;
+            status: "queued" | "building" | "ready" | "error" | "canceled";
+          },
+          StandardErrorResponse
+        > = await response.json();
+
+        if (!response.ok || result.error) {
+          const errorMessage =
+            result.error?.message ?? "Failed to deploy to Vercel";
+          logger.debug("error", "Vercel deployment failed", {
+            error: errorMessage,
+          });
+          toast.error(`Failed to deploy: ${errorMessage}`);
+          setVercelProject((prev) => ({ ...prev, loading: false }));
+          return;
+        }
+
+        // Add the new deployment to the list
+        setVercelDeployments((prev) => [
+          {
+            id: result.data.deployment_id,
+            url: result.data.deployment_url,
+            status: result.data.status,
+            git_ref: "main",
+            created_at: new Date().toISOString(),
+          },
+          ...prev,
+        ]);
+
+        setVercelProject((prev) => ({ ...prev, loading: false }));
+        toast.success("Deployment started! Check the Vercel tab for status.");
+        logger.debug("log", "Vercel deployment initiated", {
+          deployment_id: result.data.deployment_id,
+        });
+      } catch (error) {
+        const errorMessage =
+          error instanceof Error ? error.message : String(error);
+        logger.debug("error", "Error deploying to Vercel", {
+          error: errorMessage,
+        });
+        toast.error(`Failed to deploy: ${errorMessage}`);
+        setVercelProject((prev) => ({ ...prev, loading: false }));
       }
     };
 
@@ -3246,6 +3594,13 @@ const MaterializeRenderSection = forwardRef<
           githubRepository={githubRepository}
           onCreateGitHubRepository={handleCreateGitHubRepository}
           canManageGithub={canManageGithub}
+          isVercelIntegrationEnabled={isVercelIntegrationEnabled}
+          vercelIntegration={vercelIntegration}
+          vercelProject={vercelProject}
+          vercelDeployments={vercelDeployments}
+          onCreateVercelProject={handleCreateVercelProject}
+          onDeployToVercel={handleDeployToVercel}
+          canManageVercel={canManageGithub}
         />
 
         {/* View on Device Modal */}

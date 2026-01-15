@@ -651,6 +651,125 @@ export interface GitHubRepositoriesErrorResponse {
 }
 
 // ============================================================================
+// VERCEL INTEGRATION ENDPOINTS
+// ============================================================================
+
+// POST /vercel/connect/start
+export interface VercelConnectStartRequestBody {
+  teamId: string;
+}
+
+export interface VercelConnectStartSuccessResponse {
+  installUrl: string;
+  connectSessionId: string;
+}
+
+export interface VercelConnectStartErrorResponse {
+  error: string;
+  message: string;
+}
+
+// GET /vercel/oauth/callback (query params)
+export interface VercelOAuthCallbackQuery {
+  code: string;
+  state: string;
+  teamId?: string; // Vercel team ID (null for personal accounts)
+  configurationId?: string;
+}
+
+// GET /vercel/status
+export interface VercelStatusQuery {
+  teamId: string;
+}
+
+export interface VercelStatusSuccessResponse {
+  connected: boolean;
+  account_name?: string;
+  account_type?: "user" | "team";
+  connected_at?: string;
+  vercel_team_id?: string | null;
+}
+
+export interface VercelStatusErrorResponse {
+  error: string;
+  message: string;
+}
+
+// POST /vercel/disconnect
+export interface VercelDisconnectRequestBody {
+  teamId: string;
+}
+
+export interface VercelDisconnectSuccessResponse {
+  success: true;
+  message: string;
+}
+
+export interface VercelDisconnectErrorResponse {
+  error: string;
+  message: string;
+}
+
+// POST /vercel/project/create
+export interface VercelProjectCreateRequestBody {
+  prototype_id: string;
+  name?: string;
+  framework?: string;
+}
+
+export interface VercelProjectCreateSuccessResponse {
+  vercel_project_id: string;
+  vercel_project_name: string;
+  production_url: string | null;
+}
+
+export interface VercelProjectCreateErrorResponse {
+  error: string;
+  message: string;
+}
+
+// POST /vercel/deploy
+export interface VercelDeployRequestBody {
+  prototype_id: string;
+  git_ref?: string; // branch name or commit SHA
+}
+
+export interface VercelDeploySuccessResponse {
+  deployment_id: string;
+  deployment_url: string | null;
+  status: "queued" | "building" | "ready" | "error" | "canceled";
+}
+
+export interface VercelDeployErrorResponse {
+  error: string;
+  message: string;
+}
+
+// GET /vercel/deployments
+export interface VercelDeploymentsQuery {
+  prototype_id: string;
+  limit?: number;
+}
+
+export interface VercelDeploymentInfo {
+  id: string;
+  url: string | null;
+  status: "queued" | "building" | "ready" | "error" | "canceled";
+  git_ref: string | null;
+  created_at: string;
+  error_message: string | null;
+}
+
+export interface VercelDeploymentsSuccessResponse {
+  deployments: VercelDeploymentInfo[];
+}
+
+export interface VercelDeploymentsErrorResponse {
+  error: string;
+  message: string;
+}
+
+// ============================================================================
 // TYPE GUARDS
 // ============================================================================
 
