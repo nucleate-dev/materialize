@@ -237,6 +237,19 @@ export default function ClaudeCodePanelUI({
       .replace(/Claude Code/g, "Nucleate")
       .replace(/\/tmp\/materialize-dev-server/g, "");
 
+  const toolStatusOverrides: Record<string, string> = {
+    mcp__design__GenerateImage: "Generating image",
+    mcp__design__GeminiDesignExpert: "Iterating on design",
+    mcp__devtools__RestartDevServer: "Restarting dev server",
+  };
+
+  const getToolDisplayName = (toolName?: string, fallback?: string) =>
+    (toolName && toolStatusOverrides[toolName]) ||
+    (fallback && toolStatusOverrides[fallback]) ||
+    fallback ||
+    toolName ||
+    "";
+
   const toggleToolCommandExpanded = (toolId: string) => {
     setExpandedToolCommands((prev) => {
       const next = new Set(prev);
@@ -574,6 +587,10 @@ export default function ClaudeCodePanelUI({
                               ?.command === "string"
                               ? message.toolInput.command
                               : "";
+                            const toolDisplayName = getToolDisplayName(
+                              message.toolName,
+                              message.content,
+                            );
                             const isBashTool = message.toolName?.toLowerCase()
                               .includes("bash");
                             const isExpandable = isBashTool && toolCommand;
@@ -625,7 +642,7 @@ export default function ClaudeCodePanelUI({
                                     )}
                                   />
                                   <code className="text-xs font-mono text-muted-foreground truncate max-w-[200px] sm:max-w-md">
-                                    {sanitizeText(message.content)}
+                                    {sanitizeText(toolDisplayName)}
                                   </code>
                                   {message.status === "running" && (
                                     <Loader2 className="w-3 h-3 text-muted-foreground animate-spin ml-1" />

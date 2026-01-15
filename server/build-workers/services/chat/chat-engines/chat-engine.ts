@@ -34,6 +34,7 @@ export interface ChatEngineContext {
 
 export interface ChatEngineResult {
   totalCostUsd?: number;
+  geminiCostUsd?: number; // Separate Gemini cost for proper OAuth billing
 }
 
 export interface ChatEngine {

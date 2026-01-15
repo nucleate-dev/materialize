@@ -1,5 +1,4 @@
 import { Options } from "@anthropic-ai/claude-agent-sdk";
-import type { UserContent } from "ai";
 import { FastifyInstance, FastifyRequest } from "fastify";
 import WebSocket from "ws";
 import { baseLogger, posthog } from "../../loggers/index.js";
@@ -31,14 +30,6 @@ import {
   DesignAgentMetadata,
 } from "./chat-engines/chat-engine.js";
 import { ChatQueryHandler } from "./chat-engines/chat-query-handler.js";
-import {
-  DEFAULT_DESIGN_AGENT_MODELS,
-  type DesignAgentProvider,
-  executeDesignAgent,
-  persistDesignSpecToFiles,
-} from "./classifiers-and-subagents/design-agent-service.js";
-import { buildDesignAgentUserContent } from "./classifiers-and-subagents/design-classifier-utils.js";
-import { classifyDesignIntent } from "./classifiers-and-subagents/design-intent-classifier.js";
 import {
   costFunctionV3,
   CURRENT_COST_FUNCTION_NAME,
@@ -954,11 +945,11 @@ export class ChatService {
   }
 
   private async prepareFirstMessageDesignContext(
-    socket: WebSocket,
-    data: ChatQueryData,
-    prototypeId: string,
-    logger: SystemLogger,
-    isFirstMessage: boolean,
+    _socket: WebSocket,
+    _data: ChatQueryData,
+    _prototypeId: string,
+    _logger: SystemLogger,
+    _isFirstMessage: boolean,
   ): Promise<
     {
       designSpec: string | null;
@@ -966,170 +957,9 @@ export class ChatService {
       designAgentCost?: number;
     } | null
   > {
-    if (!isFirstMessage) {
-      return null;
-    }
-
-    // Skip design agent if user provided images - let Claude work directly from screenshots
-    const hasImages = Array.isArray(data.content) &&
-      data.content.some(block => block.type === "image");
-
-    if (hasImages) {
-      const imageCount = Array.isArray(data.content) ? data.content.filter(block => block.type === "image").length : 0;
-      logger.consoleLogDevOnly("info", "Skipping design agent - user provided images", {
-        prototypeId,
-        imageCount,
-      });
-      return null;
-    }
-
-    const canAttemptClassification = !!this.sessionState.prototypeChatSessionId;
-    if (!canAttemptClassification) {
-      logger.consoleLogDevOnly(
-        "info",
-        "Skipping design intent classification gate",
-        {
-          prototypeId,
-          hasPrototypeChatSessionId: !!this.sessionState.prototypeChatSessionId,
-        },
-      );
-      return null;
-    }
-
-    const { prompt, content } = data;
-    const userMessageText = typeof content === "string"
-      ? content
-      : Array.isArray(content)
-        ? content
-          .filter((block) => block.type === "text")
-          .map((block) => block.text || "")
-          .join("\n")
-        : prompt || "";
-
-    const designAgentUserContent = buildDesignAgentUserContent(
-      typeof content === "string" ? content : prompt,
-      Array.isArray(content) ? content : undefined,
-      logger,
-      prototypeId,
-    );
-
-    if (!userMessageText) {
-      return null;
-    }
-
-    const classifierAbortController = new AbortController();
-    this.sessionState.abortController = classifierAbortController;
-
-    logger.debug("Classifying user intent on first message", {
-      prototypeId,
-      userMessageLength: userMessageText.length,
-    });
-
-    const classificationResult = await classifyDesignIntent({
-      userMessage: userMessageText,
-      abortController: classifierAbortController,
-      logger,
-      prototypeId,
-    });
-
-    const classifierCost = classificationResult.costUsd;
-    let designAgentCost = classifierCost;
-    let designSpec: string | null = null;
-    let designMetadata: DesignAgentMetadata | null = null;
-
-    if (classificationResult.shouldGenerateDesignSpec) {
-      broadcastToConnections(
-        this.activeConnections,
-        {
-          type: ChatEvent.DESIGN_GENERATION,
-          data: {
-            status: "started",
-            message: "Generating design specification...",
-            runDesignAgent: true,
-          },
-        },
-        logger,
-      );
-
-      logger.debug("Calling design agent", {
-        prototypeId,
-        userMessageLength: userMessageText.length,
-        hasAbortController: !!classifierAbortController,
-      });
-
-      const designResult = await this.executeDesignAgentForFirstMessage(
-        prototypeId,
-        designAgentUserContent ?? userMessageText,
-        classifierAbortController,
-        logger,
-      );
-
-      designAgentCost = (designResult.costUsd ?? 0) + (designAgentCost ?? 0);
-
-      if (designResult.designSpec) {
-        const parsed = this.parseDesignAgentSpec(designResult.designSpec);
-        designSpec = parsed.spec;
-        designMetadata = parsed.metadata;
-
-        await persistDesignSpecToFiles(
-          WORK_DIR,
-          designSpec,
-          logger,
-          prototypeId,
-        );
-
-        const { error: updateError } = await this.supabaseClientService
-          .getClient()
-          .from("prototypes")
-          .update({ project_context: designSpec })
-          .eq("id", prototypeId);
-
-        if (updateError) {
-          logger.error(
-            updateError,
-            "Failed to store design specification in project_context",
-            { prototypeId },
-          );
-        } else {
-          logger.consoleLogDevOnly(
-            "info",
-            "Stored design specification in project_context database",
-            { prototypeId, specLength: designSpec.length },
-          );
-        }
-      }
-
-      logger.consoleLogDevOnly("info", "Design agent execution completed", {
-        prototypeId,
-        hasDesignSpec: !!designSpec,
-        designAgentCost,
-        metadata: designMetadata,
-      });
-    } else {
-      logger.consoleLogDevOnly(
-        "info",
-        "Skipping design agent - no design spec needed",
-        {
-          prototypeId,
-          shouldGenerateDesignSpec:
-            classificationResult.shouldGenerateDesignSpec,
-          classifierCost,
-        },
-      );
-    }
-
-    if (this.sessionState.prototypeChatSessionId) {
-      this.sessionState.firstMessageStatus = {
-        sessionId: this.sessionState.prototypeChatSessionId,
-        isFirst: false,
-      };
-    }
-
-    return {
-      designSpec,
-      designMetadata,
-      designAgentCost,
-    };
+    // Design agent is disabled - GeminiDesignExpert MCP tool is the replacement
+    // Claude can call it on-demand during the conversation instead of auto-triggering on first message
+    return null;
   }
 
   private async constructSystemPrompt(
@@ -1470,87 +1300,4 @@ export class ChatService {
     return absolutePath;
   }
 
-  private async executeDesignAgentForFirstMessage(
-    prototypeId: string,
-    userContent: UserContent,
-    abortController: AbortController,
-    logger: SystemLogger,
-  ): Promise<{ designSpec: string | null; costUsd: number | undefined; }> {
-    const provider: DesignAgentProvider = "google";
-    const model = DEFAULT_DESIGN_AGENT_MODELS[provider];
-
-    const imageCount = Array.isArray(userContent)
-      ? userContent.filter((part) => part.type === "image").length
-      : 0;
-    logger.consoleLogDevOnly("info", "Executing design agent via AI SDK", {
-      prototypeId,
-      provider,
-      model,
-      userMessageLength: typeof userContent === "string"
-        ? userContent.length
-        : undefined,
-      imageCount,
-    });
-
-    return executeDesignAgent({
-      provider,
-      model,
-      userContent,
-      workDir: WORK_DIR,
-      abortController,
-      logger,
-      prototypeId,
-    });
-  }
-
-  private parseDesignAgentSpec(rawSpec: string): {
-    spec: string;
-    metadata: DesignAgentMetadata;
-  } {
-    const defaultMetadata: DesignAgentMetadata = {
-      scope: "unknown",
-    };
-
-    const metadataHeading = "### METADATA";
-    const headingIndex = rawSpec.lastIndexOf(metadataHeading);
-
-    if (headingIndex === -1) {
-      return { spec: rawSpec.trim(), metadata: defaultMetadata };
-    }
-
-    const specWithoutMetadata = rawSpec.slice(0, headingIndex).trim();
-    const metadataSection = rawSpec
-      .slice(headingIndex + metadataHeading.length)
-      .trim();
-
-    const metadataLines = metadataSection
-      .split(/\r?\n/)
-      .map((line) => line.trim())
-      .filter(Boolean);
-
-    const metadata: DesignAgentMetadata = { ...defaultMetadata };
-
-    for (const line of metadataLines) {
-      const [rawKey, ...rest] = line.split(":");
-      if (!rawKey || rest.length === 0) {
-        continue;
-      }
-      const key = rawKey.trim().toLowerCase();
-      const value = rest.join(":").trim().toLowerCase();
-
-      if (key === "scope") {
-        if (value === "app") {
-          metadata.scope = "app";
-        } else if (value === "screen") {
-          metadata.scope = "screen";
-        } else if (value === "component") {
-          metadata.scope = "component";
-        } else if (value === "other") {
-          metadata.scope = "other";
-        }
-      }
-    }
-
-    return { spec: specWithoutMetadata, metadata };
-  }
 }

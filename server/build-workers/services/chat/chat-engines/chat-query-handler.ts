@@ -169,10 +169,13 @@ export class ChatQueryHandler implements ChatEngine {
     this.devServerService.developmentServerState.lastUpdatedTime = new Date();
 
     // Step 5: Execute query with proper cleanup
-    let implementationCostUsd: number | undefined = undefined;
+    let result: { totalCostUsd: number | undefined; geminiCostUsd: number } = {
+      totalCostUsd: undefined,
+      geminiCostUsd: 0,
+    };
 
     try {
-      implementationCostUsd = await this.executeClaudeQuery(
+      result = await this.executeClaudeQuery(
         context,
         framework,
         context.systemPrompt,
@@ -182,7 +185,7 @@ export class ChatQueryHandler implements ChatEngine {
       this.devServerService.developmentServerState.lastUpdatedTime = new Date();
     }
 
-    return { totalCostUsd: implementationCostUsd };
+    return { totalCostUsd: result.totalCostUsd, geminiCostUsd: result.geminiCostUsd };
   }
 
   /**
@@ -192,7 +195,7 @@ export class ChatQueryHandler implements ChatEngine {
     context: ChatEngineContext,
     framework: Database["public"]["Enums"]["prototype_framework"],
     systemPrompt: string,
-  ): Promise<number | undefined> {
+  ): Promise<{ totalCostUsd: number | undefined; geminiCostUsd: number }> {
     const {
       socket,
       activeConnections,
@@ -314,7 +317,7 @@ export class ChatQueryHandler implements ChatEngine {
             original_query: data,
           },
         });
-        return undefined;
+        return { totalCostUsd: undefined, geminiCostUsd: 0 };
       }
 
       if (isValidSessionId) {
@@ -347,7 +350,7 @@ export class ChatQueryHandler implements ChatEngine {
         isUsingOAuthToken: useOAuth,
         queryData: data,
       };
-      const totalCostUsd = await this.streamQueryResponse(
+      const { totalCostUsd, geminiCostUsd } = await this.streamQueryResponse(
         streamContext,
         sessionState.prototypeChatSessionId,
       );
@@ -370,7 +373,7 @@ export class ChatQueryHandler implements ChatEngine {
         baseLogger,
       );
 
-      return totalCostUsd;
+      return { totalCostUsd, geminiCostUsd };
     } catch (error) {
       // Clear the abort controller on error
       sessionState.abortController = null;
@@ -411,7 +414,7 @@ export class ChatQueryHandler implements ChatEngine {
         baseLogger,
       );
 
-      return undefined;
+      return { totalCostUsd: undefined, geminiCostUsd: 0 };
     }
   }
 
@@ -548,6 +551,7 @@ export class ChatQueryHandler implements ChatEngine {
       "mcp__devtools__RestartDevServer",
       // MCP tools from design server
       "mcp__design__GeminiDesignExpert",
+      "mcp__design__GenerateImage",
     ];
 
     // Add UpdatePreviewScreens tool if multi-screen is enabled (visibleScreens provided)
@@ -606,7 +610,7 @@ export class ChatQueryHandler implements ChatEngine {
         // Get visible screens count callback
         visibleScreens ? (): number => visibleScreens.length : undefined,
       ),
-      design: createDesignToolsMcpServer(baseLogger, undefined, onGeminiUsage),
+      design: createDesignToolsMcpServer(baseLogger, undefined, onGeminiUsage, WORK_DIR),
     };
 
     const { userId } = getWorkerContext();
@@ -1052,7 +1056,7 @@ export class ChatQueryHandler implements ChatEngine {
   private async streamQueryResponse(
     streamContext: StreamContext,
     prototypeChatSessionId: string,
-  ): Promise<number | undefined> {
+  ): Promise<{ totalCostUsd: number | undefined; geminiCostUsd: number }> {
     const {
       messageContent,
       queryOptions,
@@ -1234,13 +1238,17 @@ export class ChatQueryHandler implements ChatEngine {
           }
 
           // Calculate credits used - use OAuth-aware calculation to match USAGE_UPDATE
+          // Gemini costs (GeminiDesignExpert, GenerateImage) are ALWAYS charged regardless of auth method
+          const geminiCredits = costFunctionV3(bufferState.accumulatedGeminiCostUsd) ?? 0;
+
           if (streamContext.isUsingOAuthToken) {
-            // OAuth user: flat fee based on prompt length
+            // OAuth user: flat fee based on prompt length PLUS Gemini tool costs
             const promptLength = getPromptLengthFromQueryData(streamContext.queryData);
-            bufferState.creditsUsed = calculateOAuthCredits(promptLength, baseLogger);
+            const oauthBaseCredits = calculateOAuthCredits(promptLength, baseLogger);
+            bufferState.creditsUsed = oauthBaseCredits + geminiCredits;
             bufferState.costFunction = OAUTH_COST_FUNCTION_NAME;
           } else {
-            // API key user: token-based pricing (using combined cost)
+            // API key user: token-based pricing (using combined cost which includes Gemini)
             bufferState.creditsUsed = costFunctionV3(combinedCostUsd);
             bufferState.costFunction = CURRENT_COST_FUNCTION_NAME;
           }
@@ -1286,7 +1294,10 @@ export class ChatQueryHandler implements ChatEngine {
       );
     }
 
-    return totalCostUsd;
+    return {
+      totalCostUsd,
+      geminiCostUsd: bufferState.accumulatedGeminiCostUsd,
+    };
   }
 
   private sendMessage(socket: WebSocket, message: ChatServerMessage): void {

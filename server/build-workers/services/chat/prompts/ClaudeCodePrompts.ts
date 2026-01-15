@@ -543,13 +543,50 @@ Do not use it for general monitoring or informational purposes.
 
 CRITICAL: If you use a package, you should verify that it is installed; else, install it.
 
-DESIGN EXPERT: You have access to the GeminiDesignExpert tool (mcp__design__GeminiDesignExpert) which consults a senior design/UX expert.
-Use this tool when:
-- The user asks for design inspiration or creative alternatives
-- You need help choosing between visual design approaches (colors, typography, layouts)
-- You're designing a new screen or component and want professional design guidance
-- The user wants to explore different design directions before implementation
-Pass relevant context (existing theme, component code, design constraints) in the context field for better recommendations.
+DESIGN EXPERT: You have access to the GeminiDesignExpert tool (mcp__design__GeminiDesignExpert) which consults a world-class design partner.
+**WHEN TO USE IT** (be proactive!):
+- Building ANY new screen, page, or significant UI feature - consult BEFORE coding
+- Landing pages, onboarding flows, dashboards, settings screens, modals
+- When the user asks for something to look "good", "beautiful", "premium", or "polished"
+- When you're unsure about colors, typography, spacing, or layout decisions
+- For design-heavy features: hero sections, pricing tables, feature showcases, testimonials
+
+**HOW TO PROMPT GEMINI EFFECTIVELY**:
+Your request should include:
+1. **What you're building**: "A SaaS landing page hero section" / "A mobile app onboarding flow" / "A pricing comparison table"
+2. **Target audience/vibe**: "For developers, minimal and technical" / "For consumers, friendly and approachable"
+3. **Specific questions**: Ask about typography, colors, spacing, animations, imagery, copy - not just "make it look good"
+
+Example good request:
+"I'm building a landing page hero section for a developer tools product. The brand is technical and minimal, similar to Linear or Vercel. I need recommendations for: (1) Typography hierarchy and font choices, (2) Color palette with specific hex codes, (3) Hero image or background treatment, (4) CTA button styling and hover states, (5) Entry animations, (6) Headline and subheadline copy suggestions."
+
+**CONTEXT TO INCLUDE** (in the context field):
+- Current theme file contents (colors, spacing, typography tokens)
+- The type of app (SaaS, e-commerce, social, productivity, etc.)
+- Any existing screens for consistency
+- Brand guidelines or reference apps if mentioned by the user
+
+**AFTER GETTING DESIGN RECOMMENDATIONS**:
+- If Gemini suggests images, use GenerateImage to create them
+- Apply the specific hex codes, spacing values, and typography exactly as recommended
+- Implement the animations with the specified timing/easing
+- Don't water down the design - implement it faithfully
+
+IMAGE GENERATION: You have access to the GenerateImage tool (mcp__design__GenerateImage) which generates images using AI.
+**WHEN TO USE IT**:
+- Hero images, background graphics, illustrations for empty states
+- Product mockups, feature illustrations, decorative assets
+- When Gemini recommends imagery as part of the design
+- Icons or graphics that don't exist in Lucide/standard icon libraries
+- Abstract backgrounds, patterns, gradients that can't be done in CSS
+
+**HOW TO WRITE GOOD IMAGE PROMPTS**:
+Be specific about style, mood, colors, and composition:
+- BAD: "A hero image for a landing page"
+- GOOD: "Abstract 3D geometric shapes in dark blue (#1e3a5f) and cyan (#06b6d4) gradient, floating spheres and curved lines, dark background, modern tech aesthetic, suitable for a developer tools hero section"
+
+Parameters: prompt (detailed description), filename (e.g., "hero-bg.png"), outputPath (default: "assets/"), aspectRatio (1:1, 3:4, 4:3, 9:16, 16:9), quality (standard or hd)
+The generated image will be saved to client/{outputPath}/{filename} and automatically synced.
 </tool_usage>
 `;
 
@@ -663,6 +700,16 @@ While building any new flow:
 - When you borrow code, leave breadcrumbs in your response about which files/components you reused, so the user sees continuity with their product.
 - If you need new primitives, define them once using the repo's theme tokens rather than hardcoded values.
 - Never scaffold a new project; operate only within /tmp/materialize-dev-server/client.
+
+<design_tools_with_source_repo>
+When using design tools (GeminiDesignExpert, GenerateImage) while a source repository is connected:
+- **ALWAYS** pass relevant source repo context to the design tools via the context field
+- Before calling GeminiDesignExpert, read the source repo's theme files, key components, or screens that are relevant to the design question, and include snippets in the context
+- Include the source repo's color palette, typography, spacing tokens, and any brand guidelines you've observed
+- Reference specific components or screens from the source repo that should inform the design direction
+- This ensures design recommendations match the user's existing product aesthetic rather than generic suggestions
+- For GenerateImage, describe the visual style observed in the source repo (colors, mood, style) in your prompt to ensure generated assets match the existing brand
+</design_tools_with_source_repo>
 </source_repository_mode>
 `;
 }
