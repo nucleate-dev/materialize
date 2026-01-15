@@ -208,8 +208,8 @@ const ProjectContextEditor: React.FC<ProjectContextEditorProps> = ({
       <div className="h-full flex flex-col bg-background text-foreground">
         <div className="flex-1 flex items-center justify-center">
           <div className="flex flex-col items-center gap-4 text-center max-w-sm px-4">
-            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-500/10 to-purple-500/10 flex items-center justify-center border border-indigo-500/20">
-              <FileText className="w-8 h-8 text-indigo-500/50" />
+            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary/10 to-accent/10 flex items-center justify-center border border-primary/20">
+              <FileText className="w-8 h-8 text-primary/50" />
             </div>
             <div>
               <h3 className="text-lg font-medium text-foreground mb-2">
@@ -223,7 +223,7 @@ const ProjectContextEditor: React.FC<ProjectContextEditorProps> = ({
             <Button
               onClick={handleCreateFile}
               disabled={isCreating || userPlan === "free"}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white"
+              className="bg-primary hover:bg-primary/90 text-white"
             >
               {isCreating ? (
                 <>
@@ -238,7 +238,7 @@ const ProjectContextEditor: React.FC<ProjectContextEditorProps> = ({
               )}
             </Button>
             {userPlan === "free" && (
-              <p className="text-xs text-amber-500/80">
+              <p className="text-xs text-warning/80">
                 Upgrade to Plus to create project context files
               </p>
             )}
@@ -307,8 +307,8 @@ const ProjectContextEditor: React.FC<ProjectContextEditorProps> = ({
           --crepe-color-background: hsl(var(--background));
           --crepe-color-surface: hsl(var(--accent));
           --crepe-color-overlay: hsl(var(--muted));
-          --crepe-color-primary: #6366f1;
-          --crepe-color-secondary: #8b5cf6;
+          --crepe-color-primary: hsl(var(--primary));
+          --crepe-color-secondary: hsl(var(--accent));
           --crepe-color-solid: hsl(var(--foreground));
           --crepe-color-line: hsl(var(--border));
           --crepe-color-border: hsl(var(--border));

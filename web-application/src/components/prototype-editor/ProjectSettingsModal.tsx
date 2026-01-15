@@ -105,6 +105,9 @@ interface ProjectSettingsModalProps {
   githubRepository?: { html_url: string | null; loading: boolean };
   onCreateGitHubRepository?: () => void;
   canManageGithub?: boolean;
+  // For details section
+  visibilityLabel?: string;
+  createdAtLabel?: string | null;
 }
 
 const normalizeEnvVarNameInput = (value: string) => {
@@ -139,6 +142,8 @@ export function ProjectSettingsModal({
   githubRepository,
   onCreateGitHubRepository,
   canManageGithub = false,
+  visibilityLabel,
+  createdAtLabel,
 }: ProjectSettingsModalProps) {
   const logger = useProductLogger();
 
@@ -1063,7 +1068,7 @@ export function ProjectSettingsModal({
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-10 w-10 hover:bg-emerald-500/20 hover:text-emerald-400"
+                        className="h-10 w-10 hover:bg-success/20 hover:text-success"
                         onClick={handleSaveName}
                         disabled={isSavingName}
                       >
@@ -1076,7 +1081,7 @@ export function ProjectSettingsModal({
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-10 w-10 hover:bg-red-500/20 hover:text-red-400"
+                        className="h-10 w-10 hover:bg-destructive/20 hover:text-destructive"
                         onClick={() => {
                           setIsEditingName(false);
                           setEditedName(prototype?.name ?? "");
@@ -1106,6 +1111,35 @@ export function ProjectSettingsModal({
                     </div>
                   )}
                 </div>
+
+                {/* Meta Info */}
+                <div className="grid grid-cols-2 gap-4">
+                  {visibilityLabel && (
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium text-muted-foreground">
+                        Visibility
+                      </p>
+                      <div className="flex">
+                        <Badge
+                          variant="outline"
+                          className="bg-accent/50 border-border text-foreground"
+                        >
+                          {visibilityLabel}
+                        </Badge>
+                      </div>
+                    </div>
+                  )}
+                  {createdAtLabel && (
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium text-muted-foreground">
+                        Created
+                      </p>
+                      <p className="text-sm text-foreground font-mono">
+                        {createdAtLabel}
+                      </p>
+                    </div>
+                  )}
+                </div>
               </div>
             </TabsContent>
 
@@ -1114,7 +1148,7 @@ export function ProjectSettingsModal({
               {/* Deploy Section */}
               <div className="space-y-4">
                 <div className="flex items-center gap-3">
-                  <Rocket className="w-5 h-5 text-indigo-400" />
+                  <Rocket className="w-5 h-5 text-primary" />
                   <h3 className="text-base font-medium">Deploy</h3>
                 </div>
                 <p className="text-sm text-muted-foreground">
@@ -1154,7 +1188,7 @@ export function ProjectSettingsModal({
                       className="h-9 px-3 text-muted-foreground hover:text-foreground"
                     >
                       {deployUrlCopied ? (
-                        <Check className="w-4 h-4 text-emerald-400" />
+                        <Check className="w-4 h-4 text-success" />
                       ) : (
                         <Copy className="w-4 h-4" />
                       )}
@@ -1166,19 +1200,19 @@ export function ProjectSettingsModal({
                         </span>
                       )}
                       {!isCheckingSlug && slugAvailable === true && (
-                        <span className="inline-flex items-center gap-1 text-emerald-400">
+                        <span className="inline-flex items-center gap-1 text-success">
                           <Check className="w-3 h-3" /> Available
                         </span>
                       )}
                       {!isCheckingSlug && slugAvailable === false && (
-                        <span className="inline-flex items-center gap-1 text-amber-400">
+                        <span className="inline-flex items-center gap-1 text-warning">
                           <AlertTriangle className="w-3 h-3" /> Taken
                         </span>
                       )}
                     </div>
                   </div>
                   {slugError && (
-                    <p className="text-xs text-amber-400">{slugError}</p>
+                    <p className="text-xs text-warning">{slugError}</p>
                   )}
                 </div>
 
@@ -1246,7 +1280,7 @@ export function ProjectSettingsModal({
                             className={cn(
                               "flex items-center justify-between gap-4 p-2 rounded-lg border",
                               isDeployed
-                                ? "bg-emerald-950/20 border-emerald-500/30"
+                                ? "bg-success/10 border-success/30"
                                 : "bg-accent border-border",
                             )}
                           >
@@ -1255,12 +1289,12 @@ export function ProjectSettingsModal({
                                 {build.id.slice(-8)}
                               </p>
                               {isLatest && (
-                                <span className="px-1.5 py-0.5 text-[10px] rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                                <span className="px-1.5 py-0.5 text-[10px] rounded bg-primary/20 text-primary border border-primary/30">
                                   Latest
                                 </span>
                               )}
                               {isDeployed && (
-                                <span className="px-1.5 py-0.5 text-[10px] rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                                <span className="px-1.5 py-0.5 text-[10px] rounded bg-success/20 text-success border border-success/30">
                                   Deployed
                                 </span>
                               )}
@@ -1286,7 +1320,7 @@ export function ProjectSettingsModal({
                         slugError ||
                         (!hasSlugChanged && isLatestBuildDeployed),
                     )}
-                    className="bg-indigo-600 hover:bg-indigo-700 text-white"
+                    className="bg-primary hover:bg-primary/90 text-primary-foreground"
                   >
                     {isDeploying ? (
                       <>
@@ -1320,7 +1354,7 @@ export function ProjectSettingsModal({
                   <div>
                     <div className="flex items-center gap-2">
                       {isPublic ? (
-                        <Globe className="w-4 h-4 text-indigo-400" />
+                        <Globe className="w-4 h-4 text-primary" />
                       ) : (
                         <Lock className="w-4 h-4 text-muted-foreground" />
                       )}
@@ -1332,7 +1366,7 @@ export function ProjectSettingsModal({
                         : "Only you can view"}
                     </p>
                     {!IsUserPlanSubscribed(userPlan ?? "") && !isPublic && (
-                      <p className="text-sm text-amber-500/80 mt-1.5 ml-6">
+                      <p className="text-sm text-warning mt-1.5 ml-6">
                         Upgrade to Plus to restrict access
                       </p>
                     )}
@@ -1352,7 +1386,7 @@ export function ProjectSettingsModal({
                       disabled={!IsUserPlanSubscribed(userPlan ?? "") && !isPublic}
                       className="sr-only peer"
                     />
-                    <div className="w-10 h-6 bg-muted peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[3px] after:left-[3px] after:bg-white after:rounded-full after:h-[18px] after:w-[18px] after:transition-all peer-checked:bg-indigo-500 peer-disabled:cursor-not-allowed"></div>
+                    <div className="w-10 h-6 bg-muted peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[3px] after:left-[3px] after:bg-white after:rounded-full after:h-[18px] after:w-[18px] after:transition-all peer-checked:bg-primary peer-disabled:cursor-not-allowed"></div>
                   </label>
                 </div>
 
@@ -1378,8 +1412,8 @@ export function ProjectSettingsModal({
                       className={cn(
                         "flex items-center gap-2 h-10 px-4",
                         hasCopied
-                          ? "bg-emerald-500 text-white hover:bg-emerald-600"
-                          : "bg-foreground text-background hover:bg-foreground/90",
+                          ? "bg-success text-white hover:bg-success/90"
+                          : "bg-primary text-primary-foreground hover:bg-primary/90",
                       )}
                     >
                       {isCopying ? (
@@ -1393,7 +1427,7 @@ export function ProjectSettingsModal({
                     </Button>
                   </div>
                   {!isPublic && (
-                    <p className="text-sm text-amber-500/80">
+                    <p className="text-sm text-warning">
                       Copying the link will automatically make this project
                       public
                     </p>
@@ -1514,7 +1548,7 @@ export function ProjectSettingsModal({
                                   <Button
                                     variant="ghost"
                                     size="icon"
-                                    className="h-7 w-7 hover:bg-emerald-500/20 hover:text-emerald-400 text-emerald-500/70"
+                                    className="h-7 w-7 hover:bg-success/20 hover:text-success text-success/70"
                                     onClick={() => {
                                       const input = document.getElementById(
                                         `env-var-input-${envVar.id}`,
@@ -1537,7 +1571,7 @@ export function ProjectSettingsModal({
                                   <Button
                                     variant="ghost"
                                     size="icon"
-                                    className="h-7 w-7 hover:bg-red-500/20 hover:text-red-400 text-red-500/70"
+                                    className="h-7 w-7 hover:bg-destructive/20 hover:text-destructive text-destructive/70"
                                     onClick={() => {
                                       setEditingEnvVars((prev) => {
                                         const updated = new Set(prev);
@@ -1551,7 +1585,7 @@ export function ProjectSettingsModal({
                                   </Button>
                                 </div>
                               ) : envVar.secret_value === null ? (
-                                <div className="flex items-center gap-1 text-xs text-amber-500">
+                                <div className="flex items-center gap-1 text-xs text-warning">
                                   <AlertTriangle className="w-3.5 h-3.5" />
                                   <span>Value not set yet</span>
                                 </div>
@@ -1630,7 +1664,7 @@ export function ProjectSettingsModal({
                                       <Button
                                         variant="ghost"
                                         size="icon"
-                                        className="h-7 w-7 text-muted-foreground hover:text-red-400 hover:bg-red-500/10"
+                                        className="h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
                                         onClick={() => {
                                           const displayName = envVar.is_public
                                             ? `${envPrefix}${envVar.name}`
@@ -1671,15 +1705,15 @@ export function ProjectSettingsModal({
 
               {/* Sync Warning/Error Messages */}
               {envSyncWarning && (
-                <div className="flex items-start gap-2 bg-amber-500/10 border border-amber-500/20 rounded-lg p-3">
-                  <AlertTriangle className="w-4 h-4 text-amber-500 mt-0.5 flex-shrink-0" />
-                  <p className="text-xs text-amber-500">{envSyncWarning}</p>
+                <div className="flex items-start gap-2 bg-warning/10 border border-warning/30 rounded-lg p-3">
+                  <AlertTriangle className="w-4 h-4 text-warning mt-0.5 flex-shrink-0" />
+                  <p className="text-xs text-warning">{envSyncWarning}</p>
                 </div>
               )}
               {envSyncError && (
                 <div className="flex items-start gap-2 bg-red-500/10 border border-red-500/20 rounded-lg p-3">
-                  <AlertTriangle className="w-4 h-4 text-red-500 mt-0.5 flex-shrink-0" />
-                  <p className="text-xs text-red-500">{envSyncError}</p>
+                  <AlertTriangle className="w-4 h-4 text-destructive mt-0.5 flex-shrink-0" />
+                  <p className="text-xs text-destructive">{envSyncError}</p>
                 </div>
               )}
 
@@ -1796,7 +1830,7 @@ export function ProjectSettingsModal({
                 </div>
 
                 {envVarFormError && (
-                  <p className="text-xs text-red-500">{envVarFormError}</p>
+                  <p className="text-xs text-destructive">{envVarFormError}</p>
                 )}
 
                 <div className="flex justify-end">
@@ -1839,8 +1873,8 @@ export function ProjectSettingsModal({
                 </div>
               ) : !githubIntegration?.connected ? (
                 <div className="space-y-4">
-                  <div className="flex items-start gap-3 p-4 bg-amber-500/10 border border-amber-500/20 rounded-lg">
-                    <AlertTriangle className="w-5 h-5 text-amber-500 mt-0.5 flex-shrink-0" />
+                  <div className="flex items-start gap-3 p-4 bg-warning/10 border border-warning/30 rounded-lg">
+                    <AlertTriangle className="w-5 h-5 text-warning mt-0.5 flex-shrink-0" />
                     <div>
                       <p className="text-sm font-medium text-foreground">
                         GitHub not connected
@@ -1867,8 +1901,8 @@ export function ProjectSettingsModal({
                 </div>
               ) : githubRepository?.html_url ? (
                 <div className="space-y-4">
-                  <div className="flex items-start gap-3 p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-lg">
-                    <Check className="w-5 h-5 text-emerald-500 mt-0.5 flex-shrink-0" />
+                  <div className="flex items-start gap-3 p-4 bg-success/10 border border-success/30 rounded-lg">
+                    <Check className="w-5 h-5 text-success mt-0.5 flex-shrink-0" />
                     <div className="flex-1">
                       <p className="text-sm font-medium text-foreground">
                         Repository Connected

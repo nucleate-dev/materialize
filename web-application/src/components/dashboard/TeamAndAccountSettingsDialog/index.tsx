@@ -215,7 +215,7 @@ export function TeamAndAccountsSettingsDialog({
         <DialogOverlay className="bg-black/60" />
         <DialogContent
           hideCloseButton
-          className="fixed max-w-none w-[90vw] h-[90vh] p-0 border border-black/10 dark:border-white/10 rounded-lg flex bg-background"
+          className="fixed max-w-none w-[90vw] h-[90vh] p-0 border border-black/10 dark:border-border rounded-lg flex bg-background"
         >
           {/* Dialog Sidebar */}
           <div className="w-64 border-r border-border bg-muted/30 flex flex-col">
@@ -293,7 +293,7 @@ export function TeamAndAccountsSettingsDialog({
                       </div>
 
                       {/* Create new team button */}
-                      <div className="border-t border-white/10 pt-2">
+                      <div className="border-t border-border pt-2">
                         <Button
                           variant="ghost"
                           className="w-full justify-start text-sm"

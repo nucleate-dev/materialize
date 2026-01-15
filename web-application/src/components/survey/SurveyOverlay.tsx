@@ -174,7 +174,7 @@ export function SurveyOverlay({ userId, isBuildRunning }: SurveyOverlayProps) {
   return (
     <Dialog open={showSurvey} onOpenChange={() => {}}>
       <DialogContent
-        className="max-w-lg p-0 bg-[#141517] rounded-2xl border border-white/10 shadow-2xl overflow-hidden flex flex-col gap-0"
+        className="max-w-lg p-0 bg-card rounded-2xl border border-border shadow-2xl overflow-hidden flex flex-col gap-0"
         hideCloseButton
         onPointerDownOutside={(e) => e.preventDefault()}
         onEscapeKeyDown={(e) => e.preventDefault()}

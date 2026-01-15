@@ -1815,42 +1815,42 @@ const MaterializeRenderSection = forwardRef<
               className:
                 "bg-accent border border-border text-muted-foreground hover:bg-accent/80 hover:text-foreground transition-colors",
               dotClassName:
-                "w-2 h-2 bg-blue-500/50 border border-blue-500 rounded-full",
+                "w-2 h-2 bg-info/50 border border-info rounded-full",
               text: "Static Build",
               animate: false,
             };
           case "Updating..":
           case "Connecting..":
             return {
-              className: "bg-accent border border-border text-muted-foreground",
+              className: "bg-warning/10 border border-warning/30 text-foreground",
               dotClassName:
-                "w-2 h-2 bg-amber-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(245,158,11,0.6)]",
+                "w-2 h-2 bg-warning rounded-full animate-pulse shadow-[0_0_8px_hsl(var(--warning)/0.6)]",
               text: status,
               animate: true,
             };
           case "Starting Dev Server..":
             return {
               className:
-                "bg-amber-500/10 border border-amber-500/20 text-amber-500",
+                "bg-warning/10 border border-warning/30 text-foreground",
               dotClassName:
-                "w-2 h-2 bg-amber-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(245,158,11,0.6)]",
+                "w-2 h-2 bg-warning rounded-full animate-pulse shadow-[0_0_8px_hsl(var(--warning)/0.6)]",
               text: "Starting Dev Server.. (~1m)",
               animate: true,
             };
           case "Disconnected":
             return {
-              className: "bg-red-500/10 border border-red-500/20 text-red-400",
+              className: "bg-destructive/10 border border-destructive/30 text-destructive",
               dotClassName:
-                "w-2 h-2 bg-red-500 rounded-full shadow-[0_0_8px_rgba(239,68,68,0.6)]",
+                "w-2 h-2 bg-destructive rounded-full shadow-[0_0_8px_hsl(var(--destructive)/0.6)]",
               text: "Disconnected",
               animate: false,
             };
           case "Connected":
             return {
               className:
-                "bg-emerald-500/10 border border-emerald-500/20 text-emerald-400",
+                "bg-success/10 border border-success/30 text-success",
               dotClassName:
-                "w-2 h-2 bg-emerald-500 rounded-full shadow-[0_0_8px_rgba(34,197,94,0.6)]",
+                "w-2 h-2 bg-success rounded-full shadow-[0_0_8px_hsl(var(--success)/0.6)]",
               text: "Connected",
               animate: false,
             };
@@ -1957,7 +1957,7 @@ const MaterializeRenderSection = forwardRef<
               setIsIframeLoading(true);
               setRefreshKey((prev) => prev + 1);
             }}
-            className="bg-white text-black hover:bg-white/90 h-8 px-4 text-xs"
+            className="bg-primary text-primary-foreground hover:bg-primary/90 h-8 px-4 text-xs"
           >
             <RefreshCw className="w-3 h-3 mr-2" />
             Retry Connection
@@ -2574,8 +2574,8 @@ const MaterializeRenderSection = forwardRef<
                 </>
               )}
               {canEditScreensInPublicView && (
-                <div className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500/10 border border-amber-500/20 rounded-full text-amber-500 text-xs font-medium">
-                  <Pencil className="w-3 h-3" />
+                <div className="flex items-center gap-1.5 px-3 py-1.5 bg-warning/10 border border-warning/30 rounded-full text-foreground text-xs font-medium">
+                  <Pencil className="w-3 h-3 text-warning" />
                   Editing public view
                 </div>
               )}
@@ -2697,8 +2697,8 @@ const MaterializeRenderSection = forwardRef<
                         !githubRepository.html_url &&
                         currentUserMembership?.role !== "admin" &&
                         currentUserMembership?.role !== "owner" && (
-                          <Alert className="border-amber-500/20 bg-amber-500/10">
-                            <AlertDescription className="text-xs text-amber-600 dark:text-amber-400">
+                          <Alert className="border-warning/30 bg-warning/10">
+                            <AlertDescription className="text-xs text-foreground">
                               Please reach out to a team admin to connect a
                               GitHub account first.
                             </AlertDescription>
@@ -2708,8 +2708,8 @@ const MaterializeRenderSection = forwardRef<
                       {githubIntegration.connected &&
                         !githubRepository.html_url &&
                         currentUserMembership?.role === "viewer" && (
-                          <Alert className="border-amber-500/20 bg-amber-500/10">
-                            <AlertDescription className="text-xs text-amber-600 dark:text-amber-400">
+                          <Alert className="border-warning/30 bg-warning/10">
+                            <AlertDescription className="text-xs text-foreground">
                               You need edit permissions to create a GitHub
                               repository for this project.
                             </AlertDescription>
@@ -2718,8 +2718,8 @@ const MaterializeRenderSection = forwardRef<
 
                       {githubRepository.html_url &&
                         currentUserMembership?.role === "viewer" && (
-                          <Alert className="border-amber-500/20 bg-amber-500/10">
-                            <AlertDescription className="text-xs text-amber-600 dark:text-amber-400">
+                          <Alert className="border-warning/30 bg-warning/10">
+                            <AlertDescription className="text-xs text-foreground">
                               You don&apos;t have permission to access this
                               repository.
                             </AlertDescription>
@@ -2811,10 +2811,10 @@ const MaterializeRenderSection = forwardRef<
                   onClick={() => handleOpenProjectSettings("deploy", "toolbar_deploy")}
                   disabled={isDeploying || !prototypeId}
                   className={cn(
-                    "h-8 px-3 text-xs font-semibold text-white shadow-sm",
+                    "h-8 px-3 text-xs font-semibold shadow-sm",
                     deploymentUrl
-                      ? "bg-emerald-600 hover:bg-emerald-700"
-                      : "bg-indigo-600 hover:bg-indigo-700",
+                      ? "bg-success hover:bg-success/90 text-white"
+                      : "bg-primary hover:bg-primary/90 text-primary-foreground",
                   )}
                 >
                   {isDeploying ? (

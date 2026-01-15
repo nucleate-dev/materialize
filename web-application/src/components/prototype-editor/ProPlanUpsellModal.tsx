@@ -170,33 +170,33 @@ export default function ProPlanUpsellModal({
   if (isPaidUser) {
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="sm:max-w-lg bg-[#141517] border border-white/10 text-white p-0 gap-0 overflow-hidden shadow-2xl">
+        <DialogContent className="sm:max-w-lg bg-card border border-border text-foreground p-0 gap-0 overflow-hidden shadow-2xl">
           {/* Visual Header */}
-          <div className="relative p-8 flex flex-col items-center text-center bg-[#0B0C0E] border-b border-white/5">
+          <div className="relative p-8 flex flex-col items-center text-center bg-background border-b border-border">
             {/* Glow Effect */}
-            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-32 bg-yellow-500/20 blur-[50px] rounded-full pointer-events-none" />
+            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-32 bg-warning/20 blur-[50px] rounded-full pointer-events-none" />
 
-            <div className="relative w-14 h-14 rounded-2xl bg-[#141517] border border-yellow-500/30 shadow-[0_0_20px_-5px_rgba(234,179,8,0.3)] flex items-center justify-center mb-6">
-              <Zap className="w-7 h-7 text-yellow-400 fill-yellow-400/20" />
+            <div className="relative w-14 h-14 rounded-2xl bg-card border border-warning/30 shadow-[0_0_20px_-5px_hsl(var(--warning)/0.3)] flex items-center justify-center mb-6">
+              <Zap className="w-7 h-7 text-warning fill-warning/20" />
             </div>
 
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 mb-4">
-              <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-              <span className="text-xs font-semibold text-amber-500 uppercase tracking-wide">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-warning/10 border border-warning/20 mb-4">
+              <Sparkles className="w-3.5 h-3.5 text-warning" />
+              <span className="text-xs font-semibold text-warning uppercase tracking-wide">
                 {content.limitText}
               </span>
             </div>
 
-            <h3 className="text-xl font-medium text-white mb-2 tracking-tight">
+            <h3 className="text-xl font-medium text-foreground mb-2 tracking-tight">
               Top Up Credits
             </h3>
-            <p className="text-[#8A8F98] text-sm leading-relaxed max-w-[90%] mx-auto">
+            <p className="text-muted-foreground text-sm leading-relaxed max-w-[90%] mx-auto">
               Purchase additional credits to keep building.
             </p>
           </div>
 
           {/* Credit Packs */}
-          <div className="p-6 bg-[#141517]">
+          <div className="p-6 bg-card">
             <div className="grid grid-cols-3 gap-3">
               {creditPacks.map((pack) => (
                 <div
@@ -204,25 +204,25 @@ export default function ProPlanUpsellModal({
                   className={cn(
                     "relative rounded-xl border transition-all duration-200 group cursor-pointer flex flex-col",
                     pack.bestValue
-                      ? "bg-[#1A1B1E] border-purple-500/50 shadow-[0_0_20px_-5px_rgba(168,85,247,0.15)] pt-6 pb-4 px-4"
-                      : "bg-[#141517] border-white/10 hover:border-white/20 shadow-sm p-4",
+                      ? "bg-muted border-primary/50 shadow-[0_0_20px_-5px_hsl(var(--primary)/0.15)] pt-6 pb-4 px-4"
+                      : "bg-card border-border hover:border-border/80 shadow-sm p-4",
                   )}
                   onClick={() => !isProcessing && handleUpgrade(pack.id)}
                 >
                   {pack.bestValue && (
-                    <div className="absolute -top-2 left-1/2 -translate-x-1/2 px-2 py-0.5 bg-purple-500 text-white text-[10px] font-bold uppercase tracking-wider rounded-full border border-purple-400 whitespace-nowrap">
+                    <div className="absolute -top-2 left-1/2 -translate-x-1/2 px-2 py-0.5 bg-primary text-primary-foreground text-[10px] font-bold uppercase tracking-wider rounded-full border border-primary/80 whitespace-nowrap">
                       Best Value
                     </div>
                   )}
                   <div className="flex flex-col items-center text-center mb-3">
-                    <h4 className="text-white font-medium text-sm mb-1">
+                    <h4 className="text-foreground font-medium text-sm mb-1">
                       {pack.credits} Credits
                     </h4>
-                    <span className="text-2xl font-semibold text-white">
+                    <span className="text-2xl font-semibold text-foreground">
                       ${pack.price}
                     </span>
                   </div>
-                  <div className="text-xs text-[#8A8F98] text-center mb-3 flex-grow">
+                  <div className="text-xs text-muted-foreground text-center mb-3 flex-grow">
                     <div>Never expires</div>
                     <div className="mt-1">
                       ${(pack.price / pack.credits).toFixed(2)} / credit
@@ -232,8 +232,8 @@ export default function ProPlanUpsellModal({
                     className={cn(
                       "w-full h-8 text-xs mt-auto",
                       pack.bestValue
-                        ? "bg-white text-black hover:bg-white/90"
-                        : "bg-white/5 text-white hover:bg-white/10 border border-white/10",
+                        ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                        : "bg-muted text-foreground hover:bg-muted/80 border border-border",
                     )}
                     disabled={isProcessing}
                     onClick={(e) => {
@@ -253,11 +253,11 @@ export default function ProPlanUpsellModal({
           </div>
 
           {/* Footer Actions */}
-          <DialogFooter className="p-6 pt-0 bg-[#141517] flex-col sm:flex-row gap-3">
+          <DialogFooter className="p-6 pt-0 bg-card flex-col sm:flex-row gap-3">
             <Button
               variant="ghost"
               onClick={handleDismiss}
-              className="text-[#8A8F98] hover:text-white hover:bg-white/5 w-full"
+              className="text-muted-foreground hover:text-foreground hover:bg-muted w-full"
             >
               Maybe Later
             </Button>
@@ -270,62 +270,62 @@ export default function ProPlanUpsellModal({
   // Free users - show upgrade modal
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md bg-[#141517] border border-white/10 text-white p-0 gap-0 overflow-hidden shadow-2xl">
+      <DialogContent className="sm:max-w-md bg-card border border-border text-foreground p-0 gap-0 overflow-hidden shadow-2xl">
         {/* Visual Header */}
-        <div className="relative p-8 flex flex-col items-center text-center bg-[#0B0C0E] border-b border-white/5">
+        <div className="relative p-8 flex flex-col items-center text-center bg-background border-b border-border">
           {/* Glow Effect */}
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-32 bg-indigo-500/20 blur-[50px] rounded-full pointer-events-none" />
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-32 bg-primary/20 blur-[50px] rounded-full pointer-events-none" />
 
-          <div className="relative w-14 h-14 rounded-2xl bg-[#141517] border border-indigo-500/30 shadow-[0_0_20px_-5px_rgba(99,102,241,0.3)] flex items-center justify-center mb-6">
-            <Star className="w-7 h-7 text-indigo-400 fill-indigo-400/20" />
+          <div className="relative w-14 h-14 rounded-2xl bg-card border border-primary/30 shadow-[0_0_20px_-5px_hsl(var(--primary)/0.3)] flex items-center justify-center mb-6">
+            <Star className="w-7 h-7 text-primary fill-primary/20" />
           </div>
 
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 mb-4">
-            <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-            <span className="text-xs font-semibold text-amber-500 uppercase tracking-wide">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-warning/10 border border-warning/20 mb-4">
+            <Sparkles className="w-3.5 h-3.5 text-warning" />
+            <span className="text-xs font-semibold text-warning uppercase tracking-wide">
               {content.limitText}
             </span>
           </div>
 
-          <h3 className="text-xl font-medium text-white mb-2 tracking-tight">
+          <h3 className="text-xl font-medium text-foreground mb-2 tracking-tight">
             {content.title}
           </h3>
-          <p className="text-[#8A8F98] text-sm leading-relaxed max-w-[90%] mx-auto">
+          <p className="text-muted-foreground text-sm leading-relaxed max-w-[90%] mx-auto">
             {content.description}
           </p>
         </div>
 
         {/* Features List */}
-        <div className="p-8 pb-6 bg-[#141517]">
+        <div className="p-8 pb-6 bg-card">
           <div className="space-y-4">
             {content.features.map((feature, index) => (
               <div key={index} className="flex items-center gap-3 group">
-                <div className="w-6 h-6 rounded-full bg-indigo-500/10 flex items-center justify-center flex-shrink-0 group-hover:bg-indigo-500/20 transition-colors">
-                  <Check className="w-3.5 h-3.5 text-indigo-400" />
+                <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 group-hover:bg-primary/20 transition-colors">
+                  <Check className="w-3.5 h-3.5 text-primary" />
                 </div>
-                <span className="text-sm text-white/90">{feature}</span>
+                <span className="text-sm text-foreground/90">{feature}</span>
               </div>
             ))}
           </div>
         </div>
 
         {/* Footer Actions */}
-        <DialogFooter className="p-6 pt-0 bg-[#141517] flex-col sm:flex-row gap-3">
+        <DialogFooter className="p-6 pt-0 bg-card flex-col sm:flex-row gap-3">
           <Button
             variant="ghost"
             onClick={handleDismiss}
-            className="text-[#8A8F98] hover:text-white hover:bg-white/5 w-full sm:w-auto"
+            className="text-muted-foreground hover:text-foreground hover:bg-muted w-full sm:w-auto"
           >
             Maybe Later
           </Button>
           <Button
             onClick={() => handleUpgrade()}
             disabled={isProcessing}
-            className="w-full sm:w-auto bg-white text-black hover:bg-white/90 rounded-full font-semibold shadow-[0_0_20px_-5px_rgba(255,255,255,0.3)] transition-all"
+            className="w-full sm:w-auto bg-primary text-primary-foreground hover:bg-primary/90 rounded-full font-semibold shadow-[0_0_20px_-5px_hsl(var(--primary)/0.3)] transition-all"
           >
             {isProcessing ? (
               <>
-                <div className="w-4 h-4 mr-2 border-2 border-black/30 border-t-black rounded-full animate-spin" />
+                <div className="w-4 h-4 mr-2 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
                 Processing...
               </>
             ) : (

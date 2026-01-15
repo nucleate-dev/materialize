@@ -27,8 +27,8 @@
     --muted: 30 15% 94%;
     --muted-foreground: 25 10% 45%;
 
-    /* Accent: Amber gold */
-    --accent: 35 90% 55%;
+    /* Accent: Subtle warm gray for hover/selection states */
+    --accent: 30 15% 94%;
     --accent-foreground: 25 25% 12%;
 
     /* Semantic colors */
@@ -88,9 +88,9 @@
     --muted: 25 12% 16%;
     --muted-foreground: 25 10% 55%;
 
-    /* Accent: Amber gold */
-    --accent: 35 85% 50%;
-    --accent-foreground: 0 0% 100%;
+    /* Accent: Subtle warm gray for hover/selection states */
+    --accent: 25 12% 16%;
+    --accent-foreground: 30 15% 92%;
 
     /* Semantic colors - adjusted for dark mode */
     --destructive: 0 68% 56%;

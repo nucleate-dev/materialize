@@ -52,8 +52,8 @@ const ThumbnailCard: React.FC<ThumbnailCardProps> = ({
         return {
           label: "Folder",
           icon: Folder,
-          color: "text-blue-400",
-          bg: "bg-blue-400/10",
+          color: "text-info",
+          bg: "bg-info/10",
         };
       case "prototype":
         // Determine icon based on framework
@@ -61,22 +61,22 @@ const ThumbnailCard: React.FC<ThumbnailCardProps> = ({
         return {
           label: "Project",
           icon: isMobile ? Smartphone : Monitor,
-          color: "text-emerald-400",
-          bg: "bg-emerald-400/10",
+          color: "text-success",
+          bg: "bg-success/10",
         };
       case "canvas":
         return {
           label: "Canvas",
           icon: Layout,
-          color: "text-orange-400",
-          bg: "bg-orange-400/10",
+          color: "text-primary",
+          bg: "bg-primary/10",
         };
       default:
         return {
           label: "Item",
           icon: FileBox,
-          color: "text-gray-400",
-          bg: "bg-gray-400/10",
+          color: "text-muted-foreground",
+          bg: "bg-muted",
         };
     }
   };
@@ -95,12 +95,12 @@ const ThumbnailCard: React.FC<ThumbnailCardProps> = ({
       onClick={handleEdit}
     >
       {/* --- Thumbnail Area --- */}
-      <div className="relative aspect-[9/16] w-full rounded-xl border border-black/10 dark:border-white/10 bg-gray-100 dark:bg-[#141517] overflow-hidden transition-all duration-300 group-hover:border-black/20 dark:group-hover:border-white/20 group-hover:shadow-[0_0_20px_-10px_rgba(0,0,0,0.1)] dark:group-hover:shadow-[0_0_20px_-10px_rgba(255,255,255,0.1)]">
+      <div className="relative aspect-[9/16] w-full rounded-xl border border-border bg-muted overflow-hidden transition-all duration-300 group-hover:border-border/80 group-hover:shadow-md">
         {/* Loading State */}
         {loading && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-100 dark:bg-[#141517] z-20">
-            <Loader2 className="w-6 h-6 text-black/20 dark:text-white/20 animate-spin mb-2" />
-            <span className="text-xs text-black/40 dark:text-white/40 font-medium">
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-muted z-20">
+            <Loader2 className="w-6 h-6 text-muted-foreground/40 animate-spin mb-2" />
+            <span className="text-xs text-muted-foreground font-medium">
               Loading...
             </span>
           </div>
@@ -115,11 +115,11 @@ const ThumbnailCard: React.FC<ThumbnailCardProps> = ({
               alt={name}
               className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
             />
-            <div className="absolute inset-0 bg-white/0 dark:bg-black/0 transition-colors duration-300 group-hover:bg-white/40 dark:group-hover:bg-black/40" />
+            <div className="absolute inset-0 bg-background/0 transition-colors duration-300 group-hover:bg-background/40" />
           </>
         ) : (
-          <div className="absolute inset-0 bg-gradient-to-br from-black/5 dark:from-white/5 to-transparent flex items-center justify-center">
-            <TypeIcon className="w-12 h-12 text-black/5 dark:text-white/5 group-hover:text-black/10 dark:group-hover:text-white/10 transition-colors duration-300" />
+          <div className="absolute inset-0 bg-gradient-to-br from-foreground/5 to-transparent flex items-center justify-center">
+            <TypeIcon className="w-12 h-12 text-foreground/5 group-hover:text-foreground/10 transition-colors duration-300" />
           </div>
         )}
 
@@ -132,7 +132,7 @@ const ThumbnailCard: React.FC<ThumbnailCardProps> = ({
               onSettings();
             }}
           >
-            <div className="p-1.5 rounded-md bg-white/50 dark:bg-black/50 backdrop-blur-md text-black/70 dark:text-white/70 hover:text-black dark:hover:text-white hover:bg-white/70 dark:hover:bg-black/70 border border-black/10 dark:border-white/10 transition-all">
+            <div className="p-1.5 rounded-md bg-card/50 backdrop-blur-md text-foreground/70 hover:text-foreground hover:bg-card/70 border border-border transition-all">
               <MoreHorizontal className="w-4 h-4" />
             </div>
           </div>
@@ -146,7 +146,7 @@ const ThumbnailCard: React.FC<ThumbnailCardProps> = ({
               <Button
                 variant="ghost"
                 size="sm"
-                className="flex-1 h-8 bg-black/10 dark:bg-white/10 hover:bg-black/20 dark:hover:bg-white/20 text-black dark:text-white backdrop-blur-md border border-black/10 dark:border-white/10 rounded-lg text-xs font-medium transition-all transform translate-y-2 group-hover:translate-y-0 duration-300"
+                className="flex-1 h-8 bg-muted/80 hover:bg-muted text-foreground backdrop-blur-md border border-border rounded-lg text-xs font-medium transition-all transform translate-y-2 group-hover:translate-y-0 duration-300"
                 onClick={(e) => {
                   e.stopPropagation();
                   onView();
@@ -163,8 +163,8 @@ const ThumbnailCard: React.FC<ThumbnailCardProps> = ({
                 size="sm"
                 className={cn(
                   "flex-1 h-8 text-xs font-medium rounded-lg shadow-lg transition-all transform translate-y-2 group-hover:translate-y-0 duration-300 delay-75",
-                  // Primary style logic
-                  "bg-black dark:bg-white text-white dark:text-black hover:bg-black/90 dark:hover:bg-white/90 border-0",
+                  // Primary style
+                  "bg-primary text-primary-foreground hover:bg-primary/90 border-0",
                 )}
                 onClick={(e) => {
                   e.stopPropagation();
@@ -182,13 +182,13 @@ const ThumbnailCard: React.FC<ThumbnailCardProps> = ({
       {/* --- Info Section --- */}
       <div className="flex flex-col px-1 space-y-1.5">
         <div className="flex items-start justify-between gap-2">
-          <h3 className="font-medium text-sm text-black/90 dark:text-white/90 truncate group-hover:text-black dark:group-hover:text-white transition-colors">
+          <h3 className="font-medium text-sm text-foreground/90 truncate group-hover:text-foreground transition-colors">
             {name}
           </h3>
           {/* Type Indicator (Pill) */}
           <div
             className={cn(
-              "flex items-center gap-1.5 px-1.5 py-0.5 rounded text-[10px] font-medium bg-black/5 dark:bg-white/5 border border-black/5 dark:border-white/5",
+              "flex items-center gap-1.5 px-1.5 py-0.5 rounded text-[10px] font-medium bg-muted border border-border",
               typeColor,
             )}
           >
@@ -199,7 +199,7 @@ const ThumbnailCard: React.FC<ThumbnailCardProps> = ({
 
         {/* Metadata */}
         {lastModified && (
-          <div className="flex items-center gap-2 text-[11px] text-gray-600 dark:text-[#8A8F98]">
+          <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
             <Calendar className="w-3 h-3 opacity-50" />
             <span>{lastModified}</span>
           </div>

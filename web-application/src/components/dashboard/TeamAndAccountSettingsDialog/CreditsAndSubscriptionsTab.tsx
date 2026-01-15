@@ -171,7 +171,7 @@ export function CreditsAndSubscriptionsTab() {
           <h1 className="text-3xl font-medium tracking-tight text-gray-900 dark:text-white mb-2">
             Credits and Subscriptions
           </h1>
-          <p className="text-gray-600 dark:text-[#8A8F98] text-lg">
+          <p className="text-gray-600 dark:text-muted-foreground text-lg">
             Manage your subscription and credit usage.
           </p>
         </div>
@@ -187,23 +187,23 @@ export function CreditsAndSubscriptionsTab() {
                 icon={CreditCard}
               />
               <div className="p-6 space-y-6">
-                <div className="flex items-center justify-between p-4 rounded-lg bg-gray-50 dark:bg-white/[0.02] border border-black/5 dark:border-white/5">
+                <div className="flex items-center justify-between p-4 rounded-lg bg-gray-50 dark:bg-white/[0.02] border border-black/5 dark:border-border">
                   <div className="space-y-1">
                     <p className="font-medium text-gray-900 dark:text-white capitalize">
                       {currentSubscription} Plan
                     </p>
-                    <p className="text-sm text-gray-600 dark:text-[#8A8F98]">
+                    <p className="text-sm text-gray-600 dark:text-muted-foreground">
                       {currentSubscription === "free"
                         ? "Free forever"
                         : `${creditUsage.creditLimit} credits / month`}
                     </p>
                     {seatQuantity !== null && currentSubscription === "team" && (
-                      <p className="text-sm text-gray-600 dark:text-[#8A8F98]">
+                      <p className="text-sm text-gray-600 dark:text-muted-foreground">
                         {seatQuantity} seat{seatQuantity !== 1 ? "s" : ""}
                       </p>
                     )}
                   </div>
-                  <div className="flex items-center gap-2 text-sm text-emerald-600 dark:text-emerald-400">
+                  <div className="flex items-center gap-2 text-sm text-emerald-600 dark:text-success">
                     <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
                     Active
                   </div>
@@ -211,8 +211,8 @@ export function CreditsAndSubscriptionsTab() {
 
                 {currentSubscription !== "free" && (
                   <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div className="p-3 rounded bg-gray-50 dark:bg-white/[0.02] border border-black/5 dark:border-white/5">
-                      <p className="text-gray-600 dark:text-[#8A8F98] mb-1 text-xs">
+                    <div className="p-3 rounded bg-gray-50 dark:bg-white/[0.02] border border-black/5 dark:border-border">
+                      <p className="text-gray-600 dark:text-muted-foreground mb-1 text-xs">
                         Current Period Ends
                       </p>
                       <p className="text-gray-900 dark:text-white font-medium">
@@ -223,8 +223,8 @@ export function CreditsAndSubscriptionsTab() {
                         })}
                       </p>
                     </div>
-                    <div className="p-3 rounded bg-gray-50 dark:bg-white/[0.02] border border-black/5 dark:border-white/5">
-                      <p className="text-gray-600 dark:text-[#8A8F98] mb-1 text-xs">
+                    <div className="p-3 rounded bg-gray-50 dark:bg-white/[0.02] border border-black/5 dark:border-border">
+                      <p className="text-gray-600 dark:text-muted-foreground mb-1 text-xs">
                         Billing Cycle
                       </p>
                       <p className="text-gray-900 dark:text-white font-medium">
@@ -272,7 +272,7 @@ export function CreditsAndSubscriptionsTab() {
                               onClick={handleManageBillingClick}
                               variant="outline"
                               disabled={isManagingBilling || !isOwnerOrAdmin}
-                              className="w-full border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 text-gray-900 dark:text-white"
+                              className="w-full border-black/10 dark:border-border bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 text-gray-900 dark:text-white"
                             >
                               {isManagingBilling ? (
                                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -309,7 +309,7 @@ export function CreditsAndSubscriptionsTab() {
                     <span className="text-gray-900 dark:text-white">
                       Credits Used
                     </span>
-                    <span className="text-gray-600 dark:text-[#8A8F98]">
+                    <span className="text-gray-600 dark:text-muted-foreground">
                       {creditUsage.creditsUsed.toFixed(1)} /{" "}
                       {creditUsage.totalAvailableCredits.toFixed(1)}
                     </span>
@@ -340,8 +340,8 @@ export function CreditsAndSubscriptionsTab() {
                 {userPlan !== "free" &&
                   !creditUsage.loading &&
                   creditUsage.creditGrants.length > 0 && (
-                    <div className="space-y-3 pt-4 border-t border-black/5 dark:border-white/5">
-                      <p className="text-xs font-medium text-gray-600 dark:text-[#8A8F98] uppercase tracking-wider">
+                    <div className="space-y-3 pt-4 border-t border-black/5 dark:border-border">
+                      <p className="text-xs font-medium text-gray-600 dark:text-muted-foreground uppercase tracking-wider">
                         Active Grants
                       </p>
                       {creditUsage.creditGrants.map((grant) => (
@@ -353,7 +353,7 @@ export function CreditsAndSubscriptionsTab() {
                             <div className="text-gray-900 dark:text-white">
                               {formatGrantType(grant.grant_type)}
                             </div>
-                            <div className="text-gray-600 dark:text-[#8A8F98] text-xs">
+                            <div className="text-gray-600 dark:text-muted-foreground text-xs">
                               Expires{" "}
                               {new Date(grant.expires_at).toLocaleDateString()}
                             </div>
@@ -396,7 +396,7 @@ export function CreditsAndSubscriptionsTab() {
                         "relative p-5 rounded-xl border transition-all duration-200 group",
                         pack.bestValue
                           ? "bg-white dark:bg-[#1A1B1E] border-purple-500/50 shadow-[0_0_20px_-5px_rgba(168,85,247,0.15)]"
-                          : "bg-white dark:bg-[#141517] border-black/10 dark:border-white/10 hover:border-black/20 dark:hover:border-white/20 shadow-sm dark:shadow-none",
+                          : "bg-white dark:bg-card border-black/10 dark:border-border hover:border-black/20 dark:hover:border-white/20 shadow-sm dark:shadow-none",
                       )}
                     >
                       {pack.bestValue && (
@@ -412,7 +412,7 @@ export function CreditsAndSubscriptionsTab() {
                           ${pack.price}
                         </span>
                       </div>
-                      <div className="flex items-center justify-between text-xs text-gray-600 dark:text-[#8A8F98] mb-4">
+                      <div className="flex items-center justify-between text-xs text-gray-600 dark:text-muted-foreground mb-4">
                         <span>Never expires</span>
                         <span>
                           ${(pack.price / pack.credits).toFixed(2)} / credit
@@ -428,7 +428,7 @@ export function CreditsAndSubscriptionsTab() {
                                   "w-full h-8 text-xs",
                                   pack.bestValue
                                     ? "bg-black dark:bg-white text-white dark:text-black hover:bg-black/90 dark:hover:bg-white/90"
-                                    : "bg-black/5 dark:bg-white/5 text-gray-900 dark:text-white hover:bg-black/10 dark:hover:bg-white/10 border border-black/10 dark:border-white/10",
+                                    : "bg-black/5 dark:bg-white/5 text-gray-900 dark:text-white hover:bg-black/10 dark:hover:bg-white/10 border border-black/10 dark:border-border",
                                 )}
                                 disabled={isProcessingUpgrade || !isOwnerOrAdmin}
                               >

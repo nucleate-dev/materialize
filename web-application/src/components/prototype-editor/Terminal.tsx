@@ -302,7 +302,7 @@ export default function Terminal({
   return (
     <div className={`w-full h-full flex flex-col ${className}`}>
       {/* Tab Navigation */}
-      <div className="flex border-b border-border bg-[#1a1a1a]">
+      <div className="flex border-b border-border bg-card">
         {TERMINAL_SESSIONS.map((session) => {
           const instance = terminalInstancesMap.current.get(session);
           const isConnected = instance?.isConnected || false;
@@ -315,8 +315,8 @@ export default function Terminal({
                 px-4 py-2 text-sm font-medium transition-colors relative
                 ${
                   activeSession === session
-                    ? "text-foreground bg-[#0a0a0a] border-b-2 border-primary"
-                    : "text-muted-foreground hover:text-foreground hover:bg-[#0a0a0a]/50"
+                    ? "text-foreground bg-background border-b-2 border-primary"
+                    : "text-muted-foreground hover:text-foreground hover:bg-background/50"
                 }
               `}
             >
@@ -325,7 +325,7 @@ export default function Terminal({
                 {/* Connection indicator */}
                 <div
                   className={`w-2 h-2 rounded-full ${
-                    isConnected ? "bg-green-500" : "bg-gray-500"
+                    isConnected ? "bg-success" : "bg-muted-foreground"
                   }`}
                   title={isConnected ? "Connected" : "Disconnected"}
                 />
@@ -343,7 +343,7 @@ export default function Terminal({
             ref={(el) => {
               if (el) terminalRefsMap.current.set(session, el);
             }}
-            className={`w-full h-full bg-[#0a0a0a] overflow-hidden absolute inset-0 ${
+            className={`w-full h-full bg-background overflow-hidden absolute inset-0 ${
               activeSession === session ? "block" : "hidden"
             }`}
           />

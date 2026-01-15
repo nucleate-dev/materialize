@@ -277,7 +277,7 @@ const DashboardSidebarContent = () => {
                 tooltip={isCollapsed ? "Upgrade" : undefined}
                 className={isCollapsed ? "justify-center" : ""}
               >
-                <Zap className="w-4 h-4 text-amber-500" />
+                <Zap className="w-4 h-4 text-warning" />
                 {!isCollapsed && (
                   <span className="text-sidebar-foreground">Upgrade</span>
                 )}

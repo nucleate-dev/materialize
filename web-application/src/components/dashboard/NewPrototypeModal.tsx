@@ -620,18 +620,18 @@ export default function NewPrototypeModal({
   return (
     <>
       <Dialog open={open} onOpenChange={onClose}>
-        <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto bg-white dark:bg-[#141517] border border-zinc-200 dark:border-white/10 text-zinc-900 dark:text-white shadow-2xl">
+        <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto bg-card border border-border text-foreground shadow-2xl">
           <DialogHeader className="text-center space-y-3 pb-2">
             <div className="flex items-center justify-center">
-              <div className="p-2.5 bg-zinc-50 dark:bg-[#0B0C0E] border border-zinc-200 dark:border-white/10 rounded-xl shadow-inner">
-                <Sparkles className="w-5 h-5 text-zinc-900 dark:text-white" />
+              <div className="p-2.5 bg-muted border border-border rounded-xl shadow-inner">
+                <Sparkles className="w-5 h-5 text-primary" />
               </div>
             </div>
-            <DialogTitle className="text-xl font-medium tracking-tight text-zinc-900 dark:text-white">
+            <DialogTitle className="text-xl font-medium tracking-tight text-foreground">
               Create New Project
             </DialogTitle>
             {userPlan === "free" && (
-              <div className="text-xs font-medium text-zinc-500 dark:text-[#8A8F98] uppercase tracking-wider">
+              <div className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
                 {isLoadingCount ? (
                   <span className="flex items-center justify-center gap-2">
                     <Loader2 className="w-3 h-3 animate-spin" /> Check Limits
@@ -692,7 +692,7 @@ export default function NewPrototypeModal({
             <div className="space-y-2">
               <Label
                 htmlFor="prototype-name"
-                className="text-xs font-medium text-zinc-500 dark:text-[#8A8F98]"
+                className="text-xs font-medium text-muted-foreground"
               >
                 Project Name
               </Label>
@@ -703,16 +703,16 @@ export default function NewPrototypeModal({
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 className={cn(
-                  "h-11 bg-white dark:bg-[#0B0C0E] border-zinc-200 dark:border-white/10 text-zinc-900 dark:text-white focus:border-indigo-500 dark:focus:border-white/20 placeholder:text-zinc-400 dark:placeholder:text-white/20 transition-all",
+                  "h-11 bg-background border-border text-foreground focus:border-primary placeholder:text-muted-foreground/50 transition-all",
                   touched &&
                     !name.trim() &&
-                    "border-red-500/50 focus-visible:ring-red-500/20",
+                    "border-destructive/50 focus-visible:ring-destructive/20",
                 )}
                 autoFocus
                 maxLength={64}
               />
               {touched && !name.trim() && (
-                <p className="text-xs text-red-500 dark:text-red-400">
+                <p className="text-xs text-destructive">
                   Name is required
                 </p>
               )}
@@ -723,7 +723,7 @@ export default function NewPrototypeModal({
               <div className="space-y-2">
                 <Label
                   htmlFor="platform-select"
-                  className="text-xs font-medium text-zinc-500 dark:text-[#8A8F98]"
+                  className="text-xs font-medium text-muted-foreground"
                 >
                   Platform
                 </Label>
@@ -736,19 +736,19 @@ export default function NewPrototypeModal({
                 >
                   <SelectTrigger
                     id="platform-select"
-                    className="h-11 bg-white dark:bg-[#0B0C0E] border-zinc-200 dark:border-white/10 text-zinc-900 dark:text-white focus:ring-0"
+                    className="h-11 bg-background border-border text-foreground focus:ring-0"
                   >
                     <div className="flex items-center gap-2">
-                      <Rocket className="w-4 h-4 text-zinc-400 dark:text-white/50" />
+                      <Rocket className="w-4 h-4 text-muted-foreground" />
                       <SelectValue />
                     </div>
                   </SelectTrigger>
-                  <SelectContent className="bg-white dark:bg-[#141517] border-zinc-200 dark:border-white/10 text-zinc-900 dark:text-white">
+                  <SelectContent className="bg-card border-border text-foreground">
                     {PLATFORM_OPTIONS.map((option) => (
                       <SelectItem
                         key={option.value}
                         value={option.value}
-                        className="focus:bg-zinc-100 dark:focus:bg-white/10 focus:text-zinc-900 dark:focus:text-white cursor-pointer"
+                        className="focus:bg-muted focus:text-foreground cursor-pointer"
                       >
                         {option.label}
                       </SelectItem>
@@ -763,12 +763,12 @@ export default function NewPrototypeModal({
               <div className="flex items-center justify-between">
                 <Label
                   htmlFor="prototype-visibility"
-                  className="text-xs font-medium text-zinc-500 dark:text-[#8A8F98]"
+                  className="text-xs font-medium text-muted-foreground"
                 >
                   Visibility
                 </Label>
                 {!IsUserPlanSubscribed(userPlan) && (
-                  <span className="text-[10px] text-zinc-500 dark:text-[#8A8F98] bg-zinc-100 dark:bg-white/5 px-1.5 py-0.5 rounded">
+                  <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
                     Upgrade for Private
                   </span>
                 )}
@@ -795,43 +795,43 @@ export default function NewPrototypeModal({
               >
                 <SelectTrigger
                   id="prototype-visibility"
-                  className="h-11 bg-white dark:bg-[#0B0C0E] border-zinc-200 dark:border-white/10 text-zinc-900 dark:text-white focus:ring-0"
+                  className="h-11 bg-background border-border text-foreground focus:ring-0"
                 >
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent className="bg-white dark:bg-[#141517] border-zinc-200 dark:border-white/10 text-zinc-900 dark:text-white">
+                <SelectContent className="bg-card border-border text-foreground">
                   <SelectItem
                     value="PUBLIC"
-                    className="focus:bg-zinc-100 dark:focus:bg-white/10 focus:text-zinc-900 dark:focus:text-white cursor-pointer"
+                    className="focus:bg-muted focus:text-foreground cursor-pointer"
                   >
                     <div className="flex items-center gap-2">
-                      <Globe className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
+                      <Globe className="w-4 h-4 text-primary" />
                       <span>Public</span>
                     </div>
                   </SelectItem>
                   {isTeamsUIEnabled && activeTeam && (
                     <SelectItem
                       value="TEAM"
-                      className="focus:bg-zinc-100 dark:focus:bg-white/10 focus:text-zinc-900 dark:focus:text-white cursor-pointer"
+                      className="focus:bg-muted focus:text-foreground cursor-pointer"
                     >
                       <div className="flex items-center gap-2">
-                        <Share2 className="w-4 h-4 text-blue-500 dark:text-blue-400" />
+                        <Share2 className="w-4 h-4 text-info" />
                         <span>{activeTeam.name}</span>
                         {isFreePlan && (
-                          <Lock className="w-3.5 h-3.5 text-gray-400 ml-auto" />
+                          <Lock className="w-3.5 h-3.5 text-muted-foreground ml-auto" />
                         )}
                       </div>
                     </SelectItem>
                   )}
                   <SelectItem
                     value="SELF"
-                    className="focus:bg-zinc-100 dark:focus:bg-white/10 focus:text-zinc-900 dark:focus:text-white cursor-pointer"
+                    className="focus:bg-muted focus:text-foreground cursor-pointer"
                   >
                     <div className="flex items-center gap-2">
-                      <Lock className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+                      <Lock className="w-4 h-4 text-muted-foreground" />
                       <span>Private</span>
                       {isFreePlan && (
-                        <Lock className="w-3.5 h-3.5 text-gray-400 ml-auto" />
+                        <Lock className="w-3.5 h-3.5 text-muted-foreground ml-auto" />
                       )}
                     </div>
                   </SelectItem>
@@ -844,7 +844,7 @@ export default function NewPrototypeModal({
               <div className="space-y-2">
                 <Label
                   htmlFor="source-repo-select"
-                  className="text-xs font-medium text-zinc-500 dark:text-[#8A8F98]"
+                  className="text-xs font-medium text-muted-foreground"
                 >
                   Source Repository (Optional)
                 </Label>
@@ -868,12 +868,12 @@ export default function NewPrototypeModal({
                                 isLoadingSourceRepos
                               }
                               className={cn(
-                                "h-11 w-full bg-white dark:bg-[#0B0C0E] border border-zinc-200 dark:border-white/10 text-zinc-900 dark:text-white rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-zinc-950 dark:focus:ring-zinc-300 disabled:cursor-not-allowed disabled:opacity-50",
+                                "h-11 w-full bg-background border border-border text-foreground rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50",
                                 "flex items-center justify-between",
                               )}
                             >
                               <div className="flex items-center gap-2">
-                                <Code className="w-4 h-4 text-zinc-400 dark:text-white/50" />
+                                <Code className="w-4 h-4 text-muted-foreground" />
                                 <span className="truncate">
                                   {isLoadingSourceRepos ? (
                                     <span className="flex items-center gap-2">
@@ -893,16 +893,16 @@ export default function NewPrototypeModal({
                             </button>
                           </PopoverTrigger>
                           <PopoverContent
-                            className="w-[--radix-popover-trigger-width] p-0 bg-white dark:bg-[#141517] border-zinc-200 dark:border-white/10"
+                            className="w-[--radix-popover-trigger-width] p-0 bg-card border-border"
                             align="start"
                           >
-                            <Command className="bg-white dark:bg-[#141517]">
+                            <Command className="bg-card">
                               <CommandInput
                                 placeholder="Search repositories..."
-                                className="h-9 border-0 focus:ring-0 text-zinc-900 dark:text-white"
+                                className="h-9 border-0 focus:ring-0 text-foreground"
                               />
                               <CommandList>
-                                <CommandEmpty className="py-6 text-center text-sm text-zinc-500 dark:text-white/50">
+                                <CommandEmpty className="py-6 text-center text-sm text-muted-foreground">
                                   No repository found.
                                 </CommandEmpty>
                                 <CommandGroup>
@@ -912,7 +912,7 @@ export default function NewPrototypeModal({
                                       setSourceRepoId(null);
                                       setSourceRepoComboboxOpen(false);
                                     }}
-                                    className="cursor-pointer text-zinc-900 dark:text-white hover:bg-zinc-100 dark:hover:bg-white/10"
+                                    className="cursor-pointer text-foreground hover:bg-muted"
                                   >
                                     <Check
                                       className={cn(
@@ -932,7 +932,7 @@ export default function NewPrototypeModal({
                                         setSourceRepoId(repo.id);
                                         setSourceRepoComboboxOpen(false);
                                       }}
-                                      className="cursor-pointer text-zinc-900 dark:text-white hover:bg-zinc-100 dark:hover:bg-white/10"
+                                      className="cursor-pointer text-foreground hover:bg-muted"
                                     >
                                       <Check
                                         className={cn(
@@ -969,13 +969,13 @@ export default function NewPrototypeModal({
             <Collapsible
               open={showAdvanced}
               onOpenChange={setShowAdvanced}
-              className="border-t border-zinc-200 dark:border-white/5 pt-4"
+              className="border-t border-border pt-4"
             >
               <CollapsibleTrigger asChild>
                 <Button
                   type="button"
                   variant="ghost"
-                  className="flex items-center justify-between w-full p-0 h-auto text-xs font-medium text-zinc-500 dark:text-[#8A8F98] hover:text-zinc-900 dark:hover:text-white hover:bg-transparent transition-colors"
+                  className="flex items-center justify-between w-full p-0 h-auto text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-transparent transition-colors"
                 >
                   <span>Advanced Options</span>
                   <ChevronDown
@@ -992,7 +992,7 @@ export default function NewPrototypeModal({
                 <div className="space-y-2">
                   <Label
                     htmlFor="project-select"
-                    className="text-xs font-medium text-zinc-500 dark:text-[#8A8F98]"
+                    className="text-xs font-medium text-muted-foreground"
                   >
                     Folder
                   </Label>
@@ -1004,21 +1004,21 @@ export default function NewPrototypeModal({
                       setHasManualDesignSelection(false);
                     }}
                   >
-                    <SelectTrigger className="h-10 bg-white dark:bg-[#0B0C0E] border-zinc-200 dark:border-white/10 text-zinc-900 dark:text-white text-sm focus:ring-0">
+                    <SelectTrigger className="h-10 bg-background border-border text-foreground text-sm focus:ring-0">
                       <div className="flex items-center gap-2 truncate">
-                        <Folder className="w-3.5 h-3.5 text-zinc-400 dark:text-white/50" />
+                        <Folder className="w-3.5 h-3.5 text-muted-foreground" />
                         <SelectValue placeholder="Select folder..." />
                       </div>
                     </SelectTrigger>
-                    <SelectContent className="bg-white dark:bg-[#141517] border-zinc-200 dark:border-white/10 text-zinc-900 dark:text-white">
+                    <SelectContent className="bg-card border-border text-foreground">
                       <SelectItem
                         value="none"
-                        className="focus:bg-zinc-100 dark:focus:bg-white/10 focus:text-zinc-900 dark:focus:text-white cursor-pointer text-sm"
+                        className="focus:bg-muted focus:text-foreground cursor-pointer text-sm"
                       >
                         No folder
                       </SelectItem>
                       {isLoadingFolders ? (
-                        <div className="px-2 py-2 text-xs text-zinc-500 dark:text-white/50 flex items-center gap-2">
+                        <div className="px-2 py-2 text-xs text-muted-foreground flex items-center gap-2">
                           <Loader2 className="w-3 h-3 animate-spin" />{" "}
                           Loading...
                         </div>
@@ -1027,10 +1027,10 @@ export default function NewPrototypeModal({
                           <SelectItem
                             key={project.id}
                             value={project.id}
-                            className="focus:bg-zinc-100 dark:focus:bg-white/10 focus:text-zinc-900 dark:focus:text-white cursor-pointer text-sm"
+                            className="focus:bg-muted focus:text-foreground cursor-pointer text-sm"
                           >
                             <div className="flex items-center gap-2">
-                              <Folder className="w-3.5 h-3.5 text-zinc-400 dark:text-white/50" />
+                              <Folder className="w-3.5 h-3.5 text-muted-foreground" />
                               {project.name}
                             </div>
                           </SelectItem>
@@ -1044,7 +1044,7 @@ export default function NewPrototypeModal({
                 <div className="space-y-2">
                   <Label
                     htmlFor="design-style"
-                    className="text-xs font-medium text-zinc-500 dark:text-[#8A8F98]"
+                    className="text-xs font-medium text-muted-foreground"
                   >
                     Style
                   </Label>
@@ -1057,19 +1057,19 @@ export default function NewPrototypeModal({
                   >
                     <SelectTrigger
                       id="design-style"
-                      className="h-10 bg-white dark:bg-[#0B0C0E] border-zinc-200 dark:border-white/10 text-zinc-900 dark:text-white text-sm focus:ring-0"
+                      className="h-10 bg-background border-border text-foreground text-sm focus:ring-0"
                     >
                       <div className="flex items-center gap-2">
-                        <Palette className="w-3.5 h-3.5 text-zinc-400 dark:text-white/50" />
+                        <Palette className="w-3.5 h-3.5 text-muted-foreground" />
                         <SelectValue />
                       </div>
                     </SelectTrigger>
-                    <SelectContent className="bg-white dark:bg-[#141517] border-zinc-200 dark:border-white/10 text-zinc-900 dark:text-white">
+                    <SelectContent className="bg-card border-border text-foreground">
                       {availableDesignStyles.map((style) => (
                         <SelectItem
                           key={style}
                           value={style}
-                          className="focus:bg-zinc-100 dark:focus:bg-white/10 focus:text-zinc-900 dark:focus:text-white cursor-pointer text-sm"
+                          className="focus:bg-muted focus:text-foreground cursor-pointer text-sm"
                         >
                           {getDesignStyleLabel(style)}
                         </SelectItem>
@@ -1083,7 +1083,7 @@ export default function NewPrototypeModal({
                   <div className="space-y-2">
                     <Label
                       htmlFor="custom-design-system"
-                      className="text-xs font-medium text-zinc-500 dark:text-[#8A8F98]"
+                      className="text-xs font-medium text-muted-foreground"
                     >
                       Design System
                     </Label>
@@ -1098,14 +1098,14 @@ export default function NewPrototypeModal({
                     >
                       <SelectTrigger
                         id="custom-design-system"
-                        className="h-10 bg-white dark:bg-[#0B0C0E] border-zinc-200 dark:border-white/10 text-zinc-900 dark:text-white text-sm focus:ring-0"
+                        className="h-10 bg-background border-border text-foreground text-sm focus:ring-0"
                       >
                         <SelectValue placeholder="None" />
                       </SelectTrigger>
-                      <SelectContent className="bg-white dark:bg-[#141517] border-zinc-200 dark:border-white/10 text-zinc-900 dark:text-white">
+                      <SelectContent className="bg-card border-border text-foreground">
                         <SelectItem
                           value="none"
-                          className="focus:bg-zinc-100 dark:focus:bg-white/10 focus:text-zinc-900 dark:focus:text-white cursor-pointer text-sm"
+                          className="focus:bg-muted focus:text-foreground cursor-pointer text-sm"
                         >
                           None
                         </SelectItem>
@@ -1113,7 +1113,7 @@ export default function NewPrototypeModal({
                           <SelectItem
                             key={system.id}
                             value={String(system.id)}
-                            className="focus:bg-zinc-100 dark:focus:bg-white/10 focus:text-zinc-900 dark:focus:text-white cursor-pointer text-sm"
+                            className="focus:bg-muted focus:text-foreground cursor-pointer text-sm"
                           >
                             {system.name}
                           </SelectItem>
@@ -1137,7 +1137,7 @@ export default function NewPrototypeModal({
                         (userPlan === "free" && prototypeCount >= 5) ||
                         isViewer
                       }
-                      className="w-full h-11 bg-zinc-900 text-white hover:bg-zinc-800 dark:bg-white dark:text-black dark:hover:bg-white/90 font-medium rounded-lg"
+                      className="w-full h-11 bg-primary text-primary-foreground hover:bg-primary/90 font-medium rounded-lg"
                     >
                       {isCreating ? (
                         <>

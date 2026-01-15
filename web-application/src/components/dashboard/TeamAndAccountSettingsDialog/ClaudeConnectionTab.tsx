@@ -171,7 +171,7 @@ export function ClaudeConnectionTab() {
           <h1 className="text-3xl font-medium tracking-tight text-gray-900 dark:text-white mb-2">
             Claude Connection
           </h1>
-          <p className="text-gray-600 dark:text-[#8A8F98] text-lg">
+          <p className="text-gray-600 dark:text-muted-foreground text-lg">
             Connect your Claude Pro or Max subscription for AI chat.
           </p>
         </div>
@@ -283,7 +283,7 @@ export function ClaudeConnectionTab() {
                         value={claudeTokenInput}
                         onChange={(e) => setClaudeTokenInput(e.target.value)}
                         placeholder="Paste your token here"
-                        className="flex-1 px-3 py-2 bg-white dark:bg-[#1A1B1E] border border-black/10 dark:border-white/10 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 dark:focus:ring-purple-400"
+                        className="flex-1 px-3 py-2 bg-white dark:bg-card border border-black/10 dark:border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 dark:focus:ring-purple-400"
                       />
                       <Button
                         onClick={handleSaveClaudeToken}

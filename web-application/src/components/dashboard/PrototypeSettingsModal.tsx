@@ -190,14 +190,14 @@ export default function PrototypeSettingsModal({
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-lg p-0 gap-0 overflow-hidden bg-white dark:bg-[#141517] border-gray-200 dark:border-white/10 shadow-2xl">
+      <DialogContent className="sm:max-w-lg p-0 gap-0 overflow-hidden bg-white dark:bg-card border-gray-200 dark:border-border shadow-2xl">
         {/* Header */}
         <DialogHeader className="p-6 pb-4 border-b border-gray-200 dark:border-white/5 bg-gray-50 dark:bg-white/[0.02]">
           <DialogTitle className="flex items-center gap-2 text-xl font-medium tracking-tight text-gray-900 dark:text-white">
-            <Settings className="w-5 h-5 text-indigo-500 dark:text-indigo-400" />
+            <Settings className="w-5 h-5 text-primary" />
             Project Settings
           </DialogTitle>
-          <p className="text-sm text-gray-600 dark:text-[#8A8F98]">
+          <p className="text-sm text-gray-600 dark:text-muted-foreground">
             Manage configuration for{" "}
             <span className="font-mono text-gray-800 dark:text-white/80">
               {prototype?.name}
@@ -225,7 +225,7 @@ export default function PrototypeSettingsModal({
                           value={name}
                           onChange={(e) => setName(e.target.value)}
                           disabled={isSubmitting || isViewer}
-                          className="bg-gray-50 dark:bg-[#0B0C0E] border-gray-200 dark:border-white/10 text-gray-900 dark:text-white focus-visible:ring-indigo-500/20 focus-visible:border-indigo-500"
+                          className="bg-gray-50 dark:bg-background border-gray-200 dark:border-border text-gray-900 dark:text-white focus-visible:ring-primary/20 focus-visible:border-primary"
                           placeholder="e.g. My Awesome App"
                         />
                       </div>
@@ -254,7 +254,7 @@ export default function PrototypeSettingsModal({
                           value={description}
                           onChange={(e) => setDescription(e.target.value)}
                           disabled={isSubmitting || isViewer}
-                          className="min-h-[100px] resize-none bg-gray-50 dark:bg-[#0B0C0E] border-gray-200 dark:border-white/10 text-gray-900 dark:text-white focus-visible:ring-indigo-500/20 focus-visible:border-indigo-500"
+                          className="min-h-[100px] resize-none bg-gray-50 dark:bg-background border-gray-200 dark:border-border text-gray-900 dark:text-white focus-visible:ring-primary/20 focus-visible:border-primary"
                           placeholder="Describe what this project does..."
                         />
                       </div>
@@ -301,17 +301,17 @@ export default function PrototypeSettingsModal({
                           >
                             <SelectTrigger
                               id="prototype-visibility"
-                              className="bg-gray-50 dark:bg-[#0B0C0E] border-gray-200 dark:border-white/10 text-gray-900 dark:text-white focus:ring-indigo-500/20"
+                              className="bg-gray-50 dark:bg-background border-gray-200 dark:border-border text-gray-900 dark:text-white focus:ring-primary/20"
                             >
                               <SelectValue />
                             </SelectTrigger>
-                            <SelectContent className="bg-white dark:bg-[#141517] border-gray-200 dark:border-white/10 text-gray-900 dark:text-white">
+                            <SelectContent className="bg-white dark:bg-card border-gray-200 dark:border-border text-gray-900 dark:text-white">
                               <SelectItem
                                 value="PUBLIC"
                                 className="cursor-pointer focus:bg-gray-100 dark:focus:bg-white/10"
                               >
                                 <div className="flex items-center gap-2">
-                                  <Globe className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
+                                  <Globe className="w-4 h-4 text-primary" />
                                   <span>Public</span>
                                 </div>
                               </SelectItem>
@@ -395,7 +395,7 @@ export default function PrototypeSettingsModal({
                     variant="outline"
                     onClick={onClose}
                     disabled={isSubmitting}
-                    className="border-gray-200 dark:border-white/10 text-gray-700 dark:text-white hover:bg-gray-100 dark:hover:bg-white/5"
+                    className="border-gray-200 dark:border-border text-gray-700 dark:text-white hover:bg-gray-100 dark:hover:bg-white/5"
                   >
                     Cancel
                   </Button>
@@ -426,13 +426,13 @@ export default function PrototypeSettingsModal({
 
       {/* Delete Alert Dialog */}
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-        <AlertDialogContent className="bg-white dark:bg-[#141517] border-gray-200 dark:border-white/10 text-gray-900 dark:text-white">
+        <AlertDialogContent className="bg-white dark:bg-card border-gray-200 dark:border-border text-gray-900 dark:text-white">
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2 text-red-600 dark:text-red-500">
               <AlertTriangle className="w-5 h-5" />
               Delete Project
             </AlertDialogTitle>
-            <AlertDialogDescription className="text-gray-600 dark:text-[#8A8F98]">
+            <AlertDialogDescription className="text-gray-600 dark:text-muted-foreground">
               Are you sure you want to delete{" "}
               <span className="font-medium text-gray-900 dark:text-white">
                 {prototype?.name}
@@ -446,7 +446,7 @@ export default function PrototypeSettingsModal({
           <AlertDialogFooter>
             <AlertDialogCancel
               disabled={isSubmitting}
-              className="border-gray-200 dark:border-white/10 text-gray-700 dark:text-white hover:bg-gray-100 dark:hover:bg-white/5"
+              className="border-gray-200 dark:border-border text-gray-700 dark:text-white hover:bg-gray-100 dark:hover:bg-white/5"
             >
               Cancel
             </AlertDialogCancel>

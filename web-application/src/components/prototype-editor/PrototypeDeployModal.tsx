@@ -361,7 +361,7 @@ export default function PrototypeDeployModal({
       <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto bg-background border border-border text-foreground">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Rocket className="w-4 h-4 text-indigo-400" />
+            <Rocket className="w-4 h-4 text-primary" />
             Deploy {prototype?.name ?? "Project"}
           </DialogTitle>
           <DialogDescription className="text-sm text-muted-foreground">
@@ -400,7 +400,7 @@ export default function PrototypeDeployModal({
                 disabled={!deploySlug}
                 className="h-10 pl-3 text-muted-foreground hover:text-foreground"
               >
-                {copied ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
+                {copied ? <Check className="w-4 h-4 text-success" /> : <Copy className="w-4 h-4" />}
               </Button>
               <div className="w-24 text-xs text-right">
                 {isCheckingSlug && (
@@ -409,18 +409,18 @@ export default function PrototypeDeployModal({
                   </span>
                 )}
                 {!isCheckingSlug && slugAvailable === true && (
-                  <span className="inline-flex items-center gap-1 text-emerald-400">
+                  <span className="inline-flex items-center gap-1 text-success">
                     <Check className="w-3 h-3" /> Available
                   </span>
                 )}
                 {!isCheckingSlug && slugAvailable === false && (
-                  <span className="inline-flex items-center gap-1 text-amber-400">
+                  <span className="inline-flex items-center gap-1 text-warning">
                     <AlertTriangle className="w-3 h-3" /> Taken
                   </span>
                 )}
               </div>
             </div>
-            {slugError && <p className="text-xs text-amber-400">{slugError}</p>}
+            {slugError && <p className="text-xs text-warning">{slugError}</p>}
           </div>
 
           {/* Build History Timeline */}
@@ -470,7 +470,7 @@ export default function PrototypeDeployModal({
                     <div
                       key={build.id}
                       className={`flex items-center justify-between gap-4 p-3 rounded-lg border ${isDeployed
-                          ? "bg-emerald-950/20 border-emerald-500/30"
+                          ? "bg-success/10 border-success/30"
                           : "bg-accent border-border"
                         }`}
                     >
@@ -480,12 +480,12 @@ export default function PrototypeDeployModal({
                           {build.id.slice(-8)}
                         </p>
                         {isLatest && (
-                          <span className="px-1.5 py-0.5 text-[10px] rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 whitespace-nowrap">
+                          <span className="px-1.5 py-0.5 text-[10px] rounded bg-primary/20 text-primary border border-primary/30 whitespace-nowrap">
                             Latest
                           </span>
                         )}
                         {isDeployed && (
-                          <span className="px-1.5 py-0.5 text-[10px] rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 whitespace-nowrap">
+                          <span className="px-1.5 py-0.5 text-[10px] rounded bg-success/20 text-success border border-success/30 whitespace-nowrap">
                             Deployed
                           </span>
                         )}
@@ -493,8 +493,8 @@ export default function PrototypeDeployModal({
 
                       {/* Build status */}
                       <div className="flex items-center gap-1.5">
-                        <div className="w-2 h-2 rounded-full bg-emerald-400" />
-                        <p className="text-xs text-emerald-400">Ready</p>
+                        <div className="w-2 h-2 rounded-full bg-success" />
+                        <p className="text-xs text-success">Ready</p>
                       </div>
 
                       {/* Build time */}
@@ -525,7 +525,7 @@ export default function PrototypeDeployModal({
                 slugError ||
                 (!hasSlugChanged && isLatestBuildDeployed),
               )}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white"
+              className="bg-primary hover:bg-primary/90 text-primary-foreground"
             >
               {isDeploying ? (
                 <>

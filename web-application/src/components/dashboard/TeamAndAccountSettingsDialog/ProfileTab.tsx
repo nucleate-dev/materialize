@@ -30,7 +30,7 @@ export function ProfileTab() {
           <h1 className="text-3xl font-medium tracking-tight text-gray-900 dark:text-white mb-2">
             Profile
           </h1>
-          <p className="text-gray-600 dark:text-[#8A8F98] text-lg">
+          <p className="text-gray-600 dark:text-muted-foreground text-lg">
             Manage your profile information.
           </p>
         </div>

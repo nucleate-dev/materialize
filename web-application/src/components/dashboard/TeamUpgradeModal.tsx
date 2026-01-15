@@ -125,27 +125,27 @@ export function TeamUpgradeModal({
                 +
               </Button>
             </div>
-            <p className="text-xs text-gray-600 dark:text-gray-400">
+            <p className="text-xs text-muted-foreground">
               You currently have {getNonViewerCount()} non-viewer member
               {getNonViewerCount() !== 1 ? "s" : ""}
             </p>
           </div>
 
           {/* Pricing Breakdown */}
-          <div className="rounded-lg bg-gray-50 dark:bg-white/5 border border-black/5 dark:border-white/10 p-4 space-y-2">
+          <div className="rounded-lg bg-muted border border-border p-4 space-y-2">
             <div className="flex justify-between text-sm">
-              <span className="text-gray-600 dark:text-gray-400">
+              <span className="text-muted-foreground">
                 Price per seat
               </span>
               <span className="font-medium">${PRICE_PER_SEAT}/month</span>
             </div>
             <div className="flex justify-between text-sm">
-              <span className="text-gray-600 dark:text-gray-400">
+              <span className="text-muted-foreground">
                 Number of seats
               </span>
               <span className="font-medium">× {seatQuantity}</span>
             </div>
-            <div className="border-t border-gray-200 dark:border-white/10 pt-2 flex justify-between">
+            <div className="border-t border-border pt-2 flex justify-between">
               <span className="font-semibold">Total</span>
               <span className="font-semibold text-lg">${totalPrice}/month</span>
             </div>
@@ -153,29 +153,29 @@ export function TeamUpgradeModal({
 
           {/* Features List */}
           <div className="space-y-2">
-            <p className="text-sm font-medium text-gray-900 dark:text-white">
+            <p className="text-sm font-medium text-foreground">
               Team Plan Includes:
             </p>
-            <ul className="text-sm text-gray-600 dark:text-gray-400 space-y-1.5">
+            <ul className="text-sm text-muted-foreground space-y-1.5">
               <li className="flex items-start gap-2">
-                <span className="text-emerald-500 dark:text-emerald-400 mt-0.5">
+                <span className="text-success mt-0.5">
                   ✓
                 </span>
                 <span>
-                  <strong className="text-gray-900 dark:text-white">
+                  <strong className="text-foreground">
                     {totalCredits.toLocaleString()} credits
                   </strong>{" "}
                   per month ({CREDITS_PER_SEAT} per seat)
                 </span>
               </li>
               <li className="flex items-start gap-2">
-                <span className="text-emerald-500 dark:text-emerald-400 mt-0.5">
+                <span className="text-success mt-0.5">
                   ✓
                 </span>
                 <span>Unlimited team members with Viewer roles</span>
               </li>
               <li className="flex items-start gap-2">
-                <span className="text-emerald-500 dark:text-emerald-400 mt-0.5">
+                <span className="text-success mt-0.5">
                   ✓
                 </span>
                 <span>
@@ -183,13 +183,13 @@ export function TeamUpgradeModal({
                 </span>
               </li>
               <li className="flex items-start gap-2">
-                <span className="text-emerald-500 dark:text-emerald-400 mt-0.5">
+                <span className="text-success mt-0.5">
                   ✓
                 </span>
                 <span>Live collaboration on projects</span>
               </li>
               <li className="flex items-start gap-2">
-                <span className="text-emerald-500 dark:text-emerald-400 mt-0.5">
+                <span className="text-success mt-0.5">
                   ✓
                 </span>
                 <span>Priority support</span>
@@ -205,7 +205,7 @@ export function TeamUpgradeModal({
           <Button
             onClick={handleConfirm}
             disabled={isProcessing}
-            className="bg-black dark:bg-white text-white dark:text-black hover:bg-black/90 dark:hover:bg-white/90"
+            className="bg-primary text-primary-foreground hover:bg-primary/90"
           >
             {isProcessing ? (
               <>

@@ -713,7 +713,7 @@ export function EnvironmentVariablesModal({
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-7 w-7 hover:bg-emerald-500/20 hover:text-emerald-400 text-emerald-500/70"
+                                className="h-7 w-7 hover:bg-success/20 hover:text-success text-success/70"
                                 onClick={() => {
                                   const input = document.getElementById(
                                     `env-var-input-${envVar.id}`,
@@ -736,7 +736,7 @@ export function EnvironmentVariablesModal({
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-7 w-7 hover:bg-red-500/20 hover:text-red-400 text-red-500/70"
+                                className="h-7 w-7 hover:bg-destructive/20 hover:text-destructive text-destructive/70"
                                 onClick={() => {
                                   setEditingEnvVars((prev) => {
                                     const updated = new Set(prev);
@@ -750,7 +750,7 @@ export function EnvironmentVariablesModal({
                               </Button>
                             </div>
                           ) : envVar.secret_value === null ? (
-                            <div className="flex items-center gap-1 text-xs text-amber-500">
+                            <div className="flex items-center gap-1 text-xs text-warning">
                               <AlertTriangle className="w-3.5 h-3.5" />
                               <span>Value not set yet</span>
                             </div>
@@ -825,7 +825,7 @@ export function EnvironmentVariablesModal({
                                   <Button
                                     variant="ghost"
                                     size="icon"
-                                    className="h-7 w-7 text-muted-foreground hover:text-red-400 hover:bg-red-500/10"
+                                    className="h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
                                     onClick={() => {
                                       const displayName = envVar.is_public
                                         ? `${envPrefix}${envVar.name}`
@@ -866,15 +866,15 @@ export function EnvironmentVariablesModal({
 
           {/* Sync Warning/Error Messages */}
           {envSyncWarning && (
-            <div className="flex items-start gap-2 bg-amber-500/10 border border-amber-500/20 rounded-lg p-3">
-              <AlertTriangle className="w-4 h-4 text-amber-500 mt-0.5 flex-shrink-0" />
-              <p className="text-xs text-amber-500">{envSyncWarning}</p>
+            <div className="flex items-start gap-2 bg-warning/10 border border-warning/20 rounded-lg p-3">
+              <AlertTriangle className="w-4 h-4 text-warning mt-0.5 flex-shrink-0" />
+              <p className="text-xs text-warning">{envSyncWarning}</p>
             </div>
           )}
           {envSyncError && (
-            <div className="flex items-start gap-2 bg-red-500/10 border border-red-500/20 rounded-lg p-3">
-              <AlertTriangle className="w-4 h-4 text-red-500 mt-0.5 flex-shrink-0" />
-              <p className="text-xs text-red-500">{envSyncError}</p>
+            <div className="flex items-start gap-2 bg-destructive/10 border border-destructive/20 rounded-lg p-3">
+              <AlertTriangle className="w-4 h-4 text-destructive mt-0.5 flex-shrink-0" />
+              <p className="text-xs text-destructive">{envSyncError}</p>
             </div>
           )}
 
@@ -992,7 +992,7 @@ export function EnvironmentVariablesModal({
             </div>
 
             {envVarFormError && (
-              <p className="text-xs text-red-500">{envVarFormError}</p>
+              <p className="text-xs text-destructive">{envVarFormError}</p>
             )}
 
             <div className="flex justify-end">

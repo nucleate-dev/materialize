@@ -1202,12 +1202,12 @@ export default function InternalPrototypePage() {
         {/* Draggable Divider - Only show on desktop */}
         {!isMobile && (
           <div
-            className="relative w-[1px] cursor-col-resize hover:bg-indigo-500/50 transition-colors group flex-shrink-0 bg-border"
+            className="relative w-[1px] cursor-col-resize hover:bg-primary/50 transition-colors group flex-shrink-0 bg-border"
             onMouseDown={handleDividerMouseDown}
             style={{ zIndex: 20 }}
           >
-            <div className="absolute inset-y-0 -left-1 -right-1 group-hover:bg-indigo-500/0" />
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-1 h-8 bg-transparent group-hover:bg-indigo-500 rounded-full transition-colors opacity-0 group-hover:opacity-100" />
+            <div className="absolute inset-y-0 -left-1 -right-1 group-hover:bg-primary/0" />
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-1 h-8 bg-transparent group-hover:bg-primary rounded-full transition-colors opacity-0 group-hover:opacity-100" />
           </div>
         )}
 

@@ -345,15 +345,15 @@ export default function PublicPrototypeHeader({
                       <Button
                         size="icon"
                         variant="ghost"
-                        className="h-6 w-6 text-gray-400 hover:text-indigo-500 dark:text-[#8A8F98] dark:hover:text-white transition-colors"
+                        className="h-6 w-6 text-gray-400 hover:text-primary text-muted-foreground dark:hover:text-white transition-colors"
                       >
                         <Info className="w-4 h-4" />
                       </Button>
                     </DialogTrigger>
-                    <DialogContent className="sm:max-w-md bg-white dark:bg-[#141517] border-gray-200 dark:border-white/10 text-gray-900 dark:text-white shadow-2xl">
+                    <DialogContent className="sm:max-w-md bg-white dark:bg-card border-gray-200 dark:border-border text-gray-900 dark:text-white shadow-2xl">
                       <DialogHeader>
                         <DialogTitle>Project Information</DialogTitle>
-                        <DialogDescription className="text-gray-500 dark:text-[#8A8F98]">
+                        <DialogDescription className="text-gray-500 text-muted-foreground">
                           Details about this project
                         </DialogDescription>
                       </DialogHeader>
@@ -371,7 +371,7 @@ export default function PublicPrototypeHeader({
                                   size="sm"
                                   variant="ghost"
                                   onClick={handleStartEdit}
-                                  className="h-6 px-2 text-xs text-indigo-500 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-500/10"
+                                  className="h-6 px-2 text-xs text-primary hover:text-primary hover:bg-primary/10 dark:hover:bg-primary/10"
                                 >
                                   <Pencil className="w-3 h-3 mr-1" />
                                   Edit
@@ -383,7 +383,7 @@ export default function PublicPrototypeHeader({
                               <Input
                                 value={editedName}
                                 onChange={(e) => setEditedName(e.target.value)}
-                                className="text-sm flex-1 bg-gray-50 dark:bg-[#0B0C0E] border-gray-200 dark:border-white/10"
+                                className="text-sm flex-1 bg-gray-50 dark:bg-background border-gray-200 dark:border-border"
                                 onKeyDown={(e) => {
                                   if (e.key === "Enter") handleSaveEdit();
                                   else if (e.key === "Escape")
@@ -396,7 +396,7 @@ export default function PublicPrototypeHeader({
                                 size="icon"
                                 onClick={handleSaveEdit}
                                 disabled={isUpdating || !editedName.trim()}
-                                className="h-9 w-9 bg-emerald-500 hover:bg-emerald-600 text-white"
+                                className="h-9 w-9 bg-success hover:bg-success/90 text-white"
                               >
                                 {isUpdating ? (
                                   <Loader2 className="w-4 h-4 animate-spin" />
@@ -409,13 +409,13 @@ export default function PublicPrototypeHeader({
                                 variant="outline"
                                 onClick={handleCancelEdit}
                                 disabled={isUpdating}
-                                className="h-9 w-9 border-gray-200 dark:border-white/10"
+                                className="h-9 w-9 border-gray-200 dark:border-border"
                               >
                                 <X className="w-4 h-4" />
                               </Button>
                             </div>
                           ) : (
-                            <p className="text-sm font-medium p-2 bg-gray-50 dark:bg-[#0B0C0E] border border-gray-200 dark:border-white/5 rounded-md">
+                            <p className="text-sm font-medium p-2 bg-gray-50 dark:bg-background border border-gray-200 dark:border-border/50 rounded-md">
                               {prototype.name}
                             </p>
                           )}
@@ -442,7 +442,7 @@ export default function PublicPrototypeHeader({
                           </span>
                           <Badge
                             variant="outline"
-                            className={`text-xs border-gray-200 dark:border-white/10 ${user && prototype.owner_id === user.id ? "cursor-pointer hover:bg-gray-50 dark:hover:bg-white/5" : ""}`}
+                            className={`text-xs border-gray-200 dark:border-border ${user && prototype.owner_id === user.id ? "cursor-pointer hover:bg-gray-50 dark:hover:bg-white/5" : ""}`}
                             onClick={
                               user && prototype.owner_id === user.id
                                 ? handleVisibilityClick
@@ -452,7 +452,7 @@ export default function PublicPrototypeHeader({
                             {normalizedVisibility === "SELF" ? (
                               <Lock className="w-3 h-3 mr-1 text-gray-400" />
                             ) : (
-                              <Globe className="w-3 h-3 mr-1 text-indigo-400" />
+                              <Globe className="w-3 h-3 mr-1 text-primary" />
                             )}
                             {normalizedVisibility === "SELF"
                               ? "Private"
@@ -464,11 +464,11 @@ export default function PublicPrototypeHeader({
 
                         {/* Description */}
                         {prototype.description && (
-                          <div className="pt-4 border-t border-gray-100 dark:border-white/5 space-y-2">
+                          <div className="pt-4 border-t border-gray-100 dark:border-border/50 space-y-2">
                             <span className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
                               Description
                             </span>
-                            <p className="text-sm text-gray-600 dark:text-gray-300 bg-gray-50 dark:bg-[#0B0C0E] p-3 rounded-md border border-gray-200 dark:border-white/5">
+                            <p className="text-sm text-gray-600 dark:text-gray-300 bg-gray-50 dark:bg-background p-3 rounded-md border border-gray-200 dark:border-border/50">
                               {prototype.description}
                             </p>
                           </div>
@@ -507,7 +507,7 @@ export default function PublicPrototypeHeader({
                   variant="outline"
                   size="sm"
                   onClick={handleShare}
-                  className="border-gray-200 dark:border-white/10 bg-transparent hover:bg-gray-100 dark:hover:bg-white/5 text-gray-700 dark:text-white"
+                  className="border-gray-200 dark:border-border bg-transparent hover:bg-gray-100 dark:hover:bg-white/5 text-gray-700 dark:text-white"
                 >
                   <Share2 className="w-4 h-4" />
                 </Button>
@@ -516,7 +516,7 @@ export default function PublicPrototypeHeader({
                   asChild
                   variant="outline"
                   size="sm"
-                  className="border-gray-200 dark:border-white/10 bg-transparent hover:bg-gray-100 dark:hover:bg-white/5 text-gray-700 dark:text-white"
+                  className="border-gray-200 dark:border-border bg-transparent hover:bg-gray-100 dark:hover:bg-white/5 text-gray-700 dark:text-white"
                 >
                   <Link
                     href={`/apps/${prototype.id}`}
@@ -534,14 +534,14 @@ export default function PublicPrototypeHeader({
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="sm:hidden text-gray-500 dark:text-[#8A8F98]"
+                    className="sm:hidden text-gray-500 text-muted-foreground"
                   >
                     <MoreVertical className="w-4 h-4" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent
                   align="end"
-                  className="w-48 bg-white dark:bg-[#141517] border-gray-200 dark:border-white/10 text-gray-900 dark:text-white"
+                  className="w-48 bg-white dark:bg-card border-gray-200 dark:border-border text-gray-900 dark:text-white"
                 >
                   <DropdownMenuItem
                     onClick={handleClonePrototype}
@@ -582,12 +582,12 @@ export default function PublicPrototypeHeader({
 
       {/* Share Modal */}
       <Dialog open={showShareModal} onOpenChange={setShowShareModal}>
-        <DialogContent className="sm:max-w-md bg-white dark:bg-[#141517] border-gray-200 dark:border-white/10 text-gray-900 dark:text-white">
+        <DialogContent className="sm:max-w-md bg-white dark:bg-card border-gray-200 dark:border-border text-gray-900 dark:text-white">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Share2 className="w-4 h-4 text-indigo-500" /> Share Project
+              <Share2 className="w-4 h-4 text-primary" /> Share Project
             </DialogTitle>
-            <DialogDescription className="text-gray-500 dark:text-[#8A8F98]">
+            <DialogDescription className="text-gray-500 text-muted-foreground">
               Anyone with this link can view this project
             </DialogDescription>
           </DialogHeader>
@@ -596,13 +596,13 @@ export default function PublicPrototypeHeader({
               <Input
                 readOnly
                 value={`${typeof window !== "undefined" ? window.location.origin : ""}/p/${prototype.id}`}
-                className="flex-1 text-sm bg-gray-50 dark:bg-[#0B0C0E] border-gray-200 dark:border-white/10 text-gray-600 dark:text-gray-300"
+                className="flex-1 text-sm bg-gray-50 dark:bg-background border-gray-200 dark:border-border text-gray-600 dark:text-gray-300"
                 onClick={(e) => e.currentTarget.select()}
               />
               <Button
                 size="sm"
                 onClick={handleCopyLink}
-                className="flex-shrink-0 bg-indigo-600 dark:bg-white text-white dark:text-black hover:bg-indigo-700 dark:hover:bg-white/90"
+                className="flex-shrink-0 bg-primary dark:bg-white text-white dark:text-black hover:bg-primary/90 dark:hover:bg-white/90"
               >
                 {linkCopied ? (
                   <>
@@ -623,32 +623,32 @@ export default function PublicPrototypeHeader({
 
       {/* Visibility Change Modal */}
       <Dialog open={showVisibilityModal} onOpenChange={setShowVisibilityModal}>
-        <DialogContent className="sm:max-w-md bg-white dark:bg-[#141517] border-gray-200 dark:border-white/10 text-gray-900 dark:text-white">
+        <DialogContent className="sm:max-w-md bg-white dark:bg-card border-gray-200 dark:border-border text-gray-900 dark:text-white">
           <DialogHeader>
             <DialogTitle>Change Visibility</DialogTitle>
-            <DialogDescription className="text-gray-500 dark:text-[#8A8F98]">
+            <DialogDescription className="text-gray-500 text-muted-foreground">
               Choose who can view this project
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3 py-4">
             <Button
               variant="outline"
-              className="w-full justify-start text-left h-auto py-4 px-4 border-gray-200 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-white/5 bg-transparent"
+              className="w-full justify-start text-left h-auto py-4 px-4 border-gray-200 dark:border-border hover:bg-gray-50 dark:hover:bg-white/5 bg-transparent"
               onClick={() => handleVisibilityChange("PUBLIC")}
               disabled={isUpdatingVisibility}
             >
               <div className="flex flex-col items-start gap-1">
                 <div className="font-medium flex items-center gap-2">
-                  <Globe className="w-4 h-4 text-indigo-500" /> Public
+                  <Globe className="w-4 h-4 text-primary" /> Public
                 </div>
-                <div className="text-sm text-gray-500 dark:text-[#8A8F98]">
+                <div className="text-sm text-gray-500 text-muted-foreground">
                   Anyone with the link can view
                 </div>
               </div>
             </Button>
             <Button
               variant="outline"
-              className="w-full justify-start text-left h-auto py-4 px-4 border-gray-200 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-white/5 bg-transparent"
+              className="w-full justify-start text-left h-auto py-4 px-4 border-gray-200 dark:border-border hover:bg-gray-50 dark:hover:bg-white/5 bg-transparent"
               onClick={() => handleVisibilityChange("SELF")}
               disabled={isUpdatingVisibility}
             >
@@ -665,7 +665,7 @@ export default function PublicPrototypeHeader({
                     </Badge>
                   )}
                 </div>
-                <div className="text-sm text-gray-500 dark:text-[#8A8F98]">
+                <div className="text-sm text-gray-500 text-muted-foreground">
                   Only you can view
                 </div>
               </div>

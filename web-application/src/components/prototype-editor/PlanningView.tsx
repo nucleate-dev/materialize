@@ -125,23 +125,23 @@ export default function PlanningView({
   }
 
   return (
-    <div className="mt-4 p-4 rounded-2xl bg-gradient-to-br from-indigo-50/80 to-purple-50/80 dark:from-indigo-900/20 dark:to-purple-900/20 border border-indigo-200/50 dark:border-indigo-700/30 backdrop-blur-sm">
+    <div className="mt-4 p-4 rounded-2xl bg-gradient-to-br from-primary/10 to-accent/10 border border-primary/30 backdrop-blur-sm">
       {/* Header */}
       <div className="flex items-center justify-between mb-3">
         <button
           onClick={onToggleExpanded}
-          className="flex items-center gap-2 hover:bg-indigo-100/50 dark:hover:bg-indigo-800/30 px-2 py-1 rounded-lg transition-colors"
+          className="flex items-center gap-2 hover:bg-primary/10 px-2 py-1 rounded-lg transition-colors"
         >
-          <div className="p-1.5 rounded-lg bg-gradient-to-r from-indigo-500 to-purple-500 dark:from-indigo-600 dark:to-purple-600">
+          <div className="p-1.5 rounded-lg bg-gradient-to-r from-primary to-accent">
             <Play className="w-4 h-4 text-white" />
           </div>
-          <span className="font-semibold text-indigo-800 dark:text-indigo-200 text-sm">
+          <span className="font-semibold text-foreground text-sm">
             Detailed View
           </span>
           {isExpanded ? (
-            <ChevronDown className="w-4 h-4 text-indigo-600 dark:text-indigo-300" />
+            <ChevronDown className="w-4 h-4 text-primary" />
           ) : (
-            <ChevronRight className="w-4 h-4 text-indigo-600 dark:text-indigo-300" />
+            <ChevronRight className="w-4 h-4 text-primary" />
           )}
         </button>
 
@@ -150,16 +150,16 @@ export default function PlanningView({
           <div
             className={`px-3 py-1 rounded-full text-xs font-medium ${
               hasErrors
-                ? "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300"
+                ? "bg-destructive/10 text-destructive"
                 : completedCount === totalCount
-                  ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300"
-                  : "bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300"
+                  ? "bg-success/10 text-success"
+                  : "bg-primary/10 text-primary"
             }`}
           >
             {completedCount}/{totalCount} completed
           </div>
           {currentExecutingId && (
-            <div className="px-2 py-1 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-xs font-medium">
+            <div className="px-2 py-1 rounded-full bg-info/10 text-info text-xs font-medium">
               Executing...
             </div>
           )}
@@ -168,7 +168,7 @@ export default function PlanningView({
 
       {/* Collapsed Preview */}
       {!isExpanded && (
-        <div className="text-sm text-indigo-700 dark:text-indigo-300">
+        <div className="text-sm text-primary">
           {operations.length} operation{operations.length !== 1 ? "s" : ""}{" "}
           planned
           {completedCount > 0 && ` • ${completedCount} completed`}

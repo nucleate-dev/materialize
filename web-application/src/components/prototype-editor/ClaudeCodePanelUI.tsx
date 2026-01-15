@@ -3,14 +3,8 @@
 import { RenderStatus } from "@/app/dashboard/projects/[prototype_id]/InternalPrototypePage";
 import ProPlanUpsellModal from "@/components/prototype-editor/ProPlanUpsellModal";
 import ProjectContextEditor from "@/components/prototype-editor/ProjectContextEditor";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
@@ -37,18 +31,18 @@ import {
   ChevronUp,
   CircleAlert,
   Copy,
-  Edit2,
   FileText,
   Info,
   Loader2,
   MessageSquare,
   Paperclip,
-  Plus, Send,
+  Plus,
+  Send,
   Sparkles,
   StopCircle,
   Terminal,
   Undo2,
-  X
+  X,
 } from "lucide-react";
 import type {
   ChangeEvent,
@@ -71,14 +65,6 @@ import type { AuthMode } from "@/lib/utils/authModeUtils";
 interface ClaudeCodePanelUIProps {
   prototypeId: string;
   prototypeTitle: string;
-  visibilityLabel: string;
-  createdAtLabel: string | null;
-  canEditName: boolean;
-  isEditingTitle: boolean;
-  editedTitle: string;
-  isUpdatingTitle: boolean;
-  showSettingsModal: boolean;
-  setShowSettingsModal: (open: boolean) => void;
   allChatSessions: PrototypeChatSession[];
   prototypeChatSessionId: string | null;
   isConnected: boolean;
@@ -110,10 +96,6 @@ interface ClaudeCodePanelUIProps {
   textareaRef:
   | RefObject<HTMLTextAreaElement | null>
   | MutableRefObject<HTMLTextAreaElement | null>;
-  handleStartTitleEdit: () => void;
-  handleCancelTitleEdit: () => void;
-  handleSaveTitle: () => void;
-  setEditedTitle: (value: string) => void;
   switchChatSession: (value: string) => void;
   createNewChatSession: () => void;
   connect: () => void;
@@ -165,7 +147,7 @@ function CopyMessageButton({ content }: { content: string; }) {
       className={cn(
         "transition-colors",
         isCopied
-          ? "text-green-500 hover:text-green-600"
+          ? "text-success hover:text-success/80"
           : "text-muted-foreground hover:text-foreground"
       )}
       title="Copy message"
@@ -178,14 +160,6 @@ function CopyMessageButton({ content }: { content: string; }) {
 export default function ClaudeCodePanelUI({
   prototypeId,
   prototypeTitle,
-  visibilityLabel,
-  createdAtLabel,
-  canEditName,
-  isEditingTitle,
-  editedTitle,
-  isUpdatingTitle,
-  showSettingsModal,
-  setShowSettingsModal,
   allChatSessions,
   prototypeChatSessionId,
   isConnected,
@@ -206,10 +180,6 @@ export default function ClaudeCodePanelUI({
   scrollAreaRef,
   fileInputRef,
   textareaRef,
-  handleStartTitleEdit,
-  handleCancelTitleEdit,
-  handleSaveTitle,
-  setEditedTitle,
   switchChatSession,
   createNewChatSession,
   // connect is available via props if needed
@@ -286,11 +256,11 @@ export default function ClaudeCodePanelUI({
     >
       {/* Drag Overlay */}
       {isDragOver && (
-        <div className="absolute inset-0 bg-indigo-500/10 backdrop-blur-sm z-50 flex items-center justify-center border-2 border-dashed border-indigo-500 pointer-events-none">
-          <div className="bg-background/90 rounded-2xl px-8 py-6 shadow-2xl border border-indigo-500/20">
+        <div className="absolute inset-0 bg-primary/10 backdrop-blur-sm z-50 flex items-center justify-center border-2 border-dashed border-primary pointer-events-none">
+          <div className="bg-background/90 rounded-2xl px-8 py-6 shadow-2xl border border-primary/20">
             <div className="flex flex-col items-center gap-3">
-              <div className="w-16 h-16 rounded-full bg-indigo-500/20 flex items-center justify-center">
-                <Paperclip className="w-8 h-8 text-indigo-500" />
+              <div className="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center">
+                <Paperclip className="w-8 h-8 text-primary" />
               </div>
               <div className="text-center">
                 <p className="text-lg font-semibold text-foreground mb-1">
@@ -315,21 +285,6 @@ export default function ClaudeCodePanelUI({
             >
               {prototypeTitle}
             </span>
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    onClick={() => setShowSettingsModal(true)}
-                    variant="ghost"
-                    size="icon"
-                    className="h-5 w-5 text-muted-foreground hover:text-foreground"
-                  >
-                    <Info className="w-3.5 h-3.5" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom">Settings</TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
           </div>
 
           {/* View Toggle - Chat / Context */}
@@ -342,7 +297,7 @@ export default function ClaudeCodePanelUI({
                 className={cn(
                   "h-6 px-2 text-xs rounded-md",
                   activeView === "chat"
-                    ? "bg-white dark:bg-slate-800 text-foreground shadow-sm"
+                    ? "bg-card text-foreground shadow-sm"
                     : "text-muted-foreground hover:text-foreground hover:bg-transparent",
                 )}
               >
@@ -356,7 +311,7 @@ export default function ClaudeCodePanelUI({
                 className={cn(
                   "h-6 px-2 text-xs rounded-md",
                   activeView === "context"
-                    ? "bg-white dark:bg-slate-800 text-foreground shadow-sm"
+                    ? "bg-card text-foreground shadow-sm"
                     : "text-muted-foreground hover:text-foreground hover:bg-transparent",
                 )}
               >
@@ -419,7 +374,7 @@ export default function ClaudeCodePanelUI({
                   variant="ghost"
                   onClick={createNewChatSession}
                   disabled={!isConnected}
-                  className="h-7 w-7 text-muted-foreground hover:text-indigo-600"
+                  className="h-7 w-7 text-muted-foreground hover:text-primary"
                 >
                   <Plus className="w-4 h-4" />
                 </Button>
@@ -474,7 +429,7 @@ export default function ClaudeCodePanelUI({
                 size="sm"
                 variant="default"
                 onClick={connect}
-                className="h-7 text-xs bg-indigo-600 hover:bg-indigo-700 text-white"
+                className="h-7 text-xs bg-primary hover:bg-primary/90 text-primary-foreground"
               >
                 Reconnect
               </Button>
@@ -504,8 +459,8 @@ export default function ClaudeCodePanelUI({
             <div className="py-4 space-y-3">
               {messages.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-[50vh] text-center opacity-0 animate-in fade-in duration-700">
-                  <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-500/10 to-purple-500/10 flex items-center justify-center mb-4 border border-indigo-500/20">
-                    <Sparkles className="w-8 h-8 text-indigo-500/50" />
+                  <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary/10 to-accent/10 flex items-center justify-center mb-4 border border-primary/20">
+                    <Sparkles className="w-8 h-8 text-primary/50" />
                   </div>
                   <h3 className="text-lg font-medium text-foreground mb-2">
                     How can I help you build?
@@ -532,12 +487,12 @@ export default function ClaudeCodePanelUI({
                             className={cn(
                               "rounded-2xl rounded-tr-sm px-4 py-3 text-sm leading-relaxed shadow-sm border",
                               message.isQueued
-                                ? "bg-amber-50 dark:bg-amber-950/50 border-amber-200 dark:border-amber-800 text-amber-900 dark:text-amber-100"
-                                : "bg-white dark:bg-slate-800 border-border text-foreground",
+                                ? "bg-warning/10 border-warning/30 text-foreground"
+                                : "bg-card border-border text-foreground",
                             )}
                           >
                             {message.isQueued && (
-                              <div className="flex items-center gap-2 mb-2 text-xs font-medium opacity-80 pb-2 border-b border-amber-200/50">
+                              <div className="flex items-center gap-2 mb-2 text-xs font-medium opacity-80 pb-2 border-b border-warning/30">
                                 <Loader2 className="w-3 h-3 animate-spin" />
                                 <span>Queued - waiting for connection</span>
                               </div>
@@ -584,8 +539,8 @@ export default function ClaudeCodePanelUI({
                             className="prose prose-sm prose-gray dark:prose-invert max-w-none break-words
                         prose-pre:bg-accent/50
                         prose-pre:border prose-pre:border-border
-                        prose-code:text-indigo-600 dark:prose-code:text-indigo-400
-                        prose-code:bg-indigo-50 dark:prose-code:bg-indigo-950/50 prose-code:px-1 prose-code:rounded
+                        prose-code:text-primary
+                        prose-code:bg-primary/10 prose-code:px-1 prose-code:rounded
                         prose-code:before:content-none prose-code:after:content-none"
                           >
                             <ReactMarkdown>
@@ -648,10 +603,10 @@ export default function ClaudeCodePanelUI({
                                     className={cn(
                                       "w-1.5 h-1.5 rounded-full shrink-0",
                                       message.status === "error"
-                                        ? "bg-red-500"
+                                        ? "bg-destructive"
                                         : message.status === "running"
-                                          ? "bg-indigo-500 animate-pulse"
-                                          : "bg-emerald-500",
+                                          ? "bg-primary animate-pulse"
+                                          : "bg-success",
                                     )}
                                   />
                                   <code className="text-xs font-mono text-muted-foreground truncate max-w-[200px] sm:max-w-md">
@@ -661,10 +616,10 @@ export default function ClaudeCodePanelUI({
                                     <Loader2 className="w-3 h-3 text-muted-foreground animate-spin ml-1" />
                                   )}
                                   {message.status === "success" && (
-                                    <Check className="w-3 h-3 text-emerald-500 ml-1" />
+                                    <Check className="w-3 h-3 text-success ml-1" />
                                   )}
                                   {message.status === "error" && (
-                                    <X className="w-3 h-3 text-red-500 ml-1" />
+                                    <X className="w-3 h-3 text-destructive ml-1" />
                                   )}
                                 </div>
                                 {isExpanded && (
@@ -715,7 +670,7 @@ export default function ClaudeCodePanelUI({
                                     <div className="mt-3 pt-3 border-t border-dashed border-border">
                                       {message.toolInput.prompt && (
                                         <div className="mb-1">
-                                          <span className="text-indigo-500">
+                                          <span className="text-primary">
                                             prompt:
                                           </span>{" "}
                                           {sanitizeFilePath(
@@ -725,7 +680,7 @@ export default function ClaudeCodePanelUI({
                                       )}
                                       {message.toolInput.model && (
                                         <div>
-                                          <span className="text-purple-500">
+                                          <span className="text-accent-foreground">
                                             model:
                                           </span>{" "}
                                           {message.toolInput.model}
@@ -741,7 +696,7 @@ export default function ClaudeCodePanelUI({
 
                       {/* Error Toast Style */}
                       {message.type === "error" && (
-                        <div className="flex items-start gap-3 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-600 dark:text-red-400 text-sm">
+                        <div className="flex items-start gap-3 p-3 rounded-lg bg-destructive/10 border border-destructive/30 text-destructive text-sm">
                           <CircleAlert className="w-4 h-4 mt-0.5 shrink-0" />
                           <div>{sanitizeText(message.content)}</div>
                         </div>
@@ -758,7 +713,7 @@ export default function ClaudeCodePanelUI({
                       {message.type === "design_spec" && (
                         <div className="w-full">
                           <div
-                            className="flex items-center gap-2 p-3 rounded-lg bg-purple-500/10 border border-purple-500/20 cursor-pointer hover:bg-purple-500/15 transition-colors"
+                            className="flex items-center gap-2 p-3 rounded-lg bg-accent/20 border border-accent/30 cursor-pointer hover:bg-accent/30 transition-colors"
                             onClick={() => {
                               onMessageUpdate?.({
                                 ...message,
@@ -766,14 +721,14 @@ export default function ClaudeCodePanelUI({
                               });
                             }}
                           >
-                            <Sparkles className="w-4 h-4 text-purple-600 dark:text-purple-400 shrink-0" />
-                            <div className="flex-1 text-sm font-medium text-purple-600 dark:text-purple-400">
+                            <Sparkles className="w-4 h-4 text-accent-foreground shrink-0" />
+                            <div className="flex-1 text-sm font-medium text-accent-foreground">
                               {sanitizeText(message.content)}
                             </div>
                             {message.isCollapsed ? (
-                              <ChevronDown className="w-4 h-4 text-purple-600 dark:text-purple-400 shrink-0" />
+                              <ChevronDown className="w-4 h-4 text-accent-foreground shrink-0" />
                             ) : (
-                              <ChevronUp className="w-4 h-4 text-purple-600 dark:text-purple-400 shrink-0" />
+                              <ChevronUp className="w-4 h-4 text-accent-foreground shrink-0" />
                             )}
                           </div>
                           {!message.isCollapsed && message.designSpec && (
@@ -790,9 +745,9 @@ export default function ClaudeCodePanelUI({
                   {isProcessing && isConnected && !hasReceivedResponse && (
                     <div className="flex items-center gap-2 px-1 py-2">
                       <div className="flex gap-1">
-                        <div className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
-                        <div className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
-                        <div className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-bounce"></div>
+                        <div className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce [animation-delay:-0.3s]"></div>
+                        <div className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce [animation-delay:-0.15s]"></div>
+                        <div className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce"></div>
                       </div>
                       <span className="text-xs font-medium text-muted-foreground animate-pulse">
                         Thinking...
@@ -824,7 +779,7 @@ export default function ClaudeCodePanelUI({
             {/* History Banner */}
             {!isCurrentSessionMostRecent && (
               <div className="absolute bottom-6 left-0 right-0 z-20 px-6 flex justify-center">
-                <div className="bg-amber-100 text-amber-800 px-4 py-2 rounded-full border border-amber-200 backdrop-blur-md shadow-lg text-xs font-medium flex items-center gap-2">
+                <div className="bg-warning/20 text-foreground px-4 py-2 rounded-full border border-warning/30 backdrop-blur-md shadow-lg text-xs font-medium flex items-center gap-2">
                   <Info className="w-3.5 h-3.5" />
                   Viewing past session. Start a new chat to interact.
                 </div>
@@ -837,9 +792,9 @@ export default function ClaudeCodePanelUI({
             currentTodos.some((t) => t.status !== "completed") &&
             isCurrentSessionMostRecent && (
               <div className="px-4 pt-3 pb-1 bg-accent/20 border-t border-border">
-                <div className="rounded-lg border border-indigo-200 dark:border-indigo-800 bg-indigo-50/50 dark:bg-indigo-950/30 p-3">
+                <div className="rounded-lg border border-primary/30 bg-primary/5 p-3">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-primary">
                       Current Tasks
                     </span>
                     <span className="text-[10px] text-muted-foreground font-mono">
@@ -860,11 +815,11 @@ export default function ClaudeCodePanelUI({
                       >
                         <div className="mt-0.5 shrink-0">
                           {todo.status === "completed" ? (
-                            <div className="w-3.5 h-3.5 rounded-full bg-emerald-500/20 flex items-center justify-center">
-                              <Check className="w-2.5 h-2.5 text-emerald-500" />
+                            <div className="w-3.5 h-3.5 rounded-full bg-success/20 flex items-center justify-center">
+                              <Check className="w-2.5 h-2.5 text-success" />
                             </div>
                           ) : todo.status === "in_progress" ? (
-                            <Loader2 className="w-3.5 h-3.5 text-indigo-500 animate-spin" />
+                            <Loader2 className="w-3.5 h-3.5 text-primary animate-spin" />
                           ) : (
                             <div className="w-3.5 h-3.5 rounded-full border-2 border-border" />
                           )}
@@ -923,7 +878,7 @@ export default function ClaudeCodePanelUI({
                   <div key={id} className="mt-1">
                     <div className="h-1.5 w-full bg-accent rounded-full overflow-hidden">
                       <div
-                        className="h-full bg-indigo-500 transition-all duration-300"
+                        className="h-full bg-primary transition-all duration-300"
                         style={{ width: `${progress}%` }}
                       />
                     </div>
@@ -932,7 +887,7 @@ export default function ClaudeCodePanelUI({
               </div>
             )}
 
-            <div className="flex flex-col gap-2 bg-accent/50 p-3 rounded-xl border border-border focus-within:ring-1 focus-within:ring-indigo-500/30 focus-within:border-indigo-500/50 transition-all shadow-sm">
+            <div className="flex flex-col gap-2 bg-accent/50 p-3 rounded-xl border border-border focus-within:ring-1 focus-within:ring-primary/30 focus-within:border-primary/50 transition-all shadow-sm">
               <input
                 ref={fileInputRef}
                 type="file"
@@ -1017,11 +972,11 @@ export default function ClaudeCodePanelUI({
                   className={cn(
                     "h-8 w-8 rounded-lg transition-all shrink-0",
                     isProcessing
-                      ? "bg-red-500 hover:bg-red-600 text-white shadow-md"
+                      ? "bg-destructive hover:bg-destructive/90 text-white shadow-md"
                       : (!inputValue.trim() && uploadedImages.length === 0) ||
                         !isCurrentSessionMostRecent
                         ? "bg-accent text-muted-foreground"
-                        : "bg-black dark:bg-white text-white dark:text-black hover:opacity-90 shadow-md",
+                        : "bg-primary text-primary-foreground hover:bg-primary/90 shadow-md",
                   )}
                 >
                   {isProcessing ? (
@@ -1035,157 +990,6 @@ export default function ClaudeCodePanelUI({
           </div>
         </>
       )}
-
-      {/* --- Settings Modal --- */}
-      <Dialog open={showSettingsModal} onOpenChange={setShowSettingsModal}>
-        <DialogContent className="sm:max-w-md bg-background border-border text-foreground">
-          <DialogHeader className="border-b border-border pb-4">
-            <DialogTitle>Project Details</DialogTitle>
-          </DialogHeader>
-          <div className="py-4 space-y-5">
-            {/* Name */}
-            <div className="space-y-2">
-              <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Project Name
-              </label>
-              {isEditingTitle ? (
-                <div className="flex items-center gap-2">
-                  <Input
-                    value={editedTitle}
-                    onChange={(event) => setEditedTitle(event.target.value)}
-                    className="flex-1 bg-accent/50 border-border"
-                    autoFocus
-                    disabled={isUpdatingTitle}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter") {
-                        event.preventDefault();
-                        handleSaveTitle();
-                      } else if (event.key === "Escape")
-                        handleCancelTitleEdit();
-                    }}
-                  />
-                  <Button
-                    size="icon"
-                    onClick={handleSaveTitle}
-                    disabled={isUpdatingTitle || !editedTitle.trim()}
-                    className="h-9 w-9 bg-emerald-500 hover:bg-emerald-600 text-white"
-                  >
-                    {isUpdatingTitle ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <Check className="w-4 h-4" />
-                    )}
-                  </Button>
-                  <Button
-                    size="icon"
-                    variant="outline"
-                    onClick={handleCancelTitleEdit}
-                    disabled={isUpdatingTitle}
-                    className="h-9 w-9 border-border"
-                  >
-                    <X className="w-4 h-4" />
-                  </Button>
-                </div>
-              ) : (
-                <div className="flex items-center justify-between p-3 rounded-lg bg-accent/50 border border-border">
-                  <span className="text-sm font-medium">{prototypeTitle}</span>
-                  {canEditName && (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={handleStartTitleEdit}
-                      className="h-6 w-6 text-muted-foreground hover:text-indigo-500"
-                    >
-                      <Edit2 className="w-3.5 h-3.5" />
-                    </Button>
-                  )}
-                </div>
-              )}
-            </div>
-
-            {/* Meta Info */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  Visibility
-                </label>
-                <div className="flex">
-                  <Badge
-                    variant="outline"
-                    className="bg-accent/50 border-border text-foreground"
-                  >
-                    {visibilityLabel}
-                  </Badge>
-                </div>
-              </div>
-              {createdAtLabel && (
-                <div className="space-y-2">
-                  <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                    Created
-                  </label>
-                  <p className="text-sm text-foreground font-mono">
-                    {createdAtLabel}
-                  </p>
-                </div>
-              )}
-            </div>
-
-            {/* Model / Provider */}
-            {/* <div className="space-y-3">
-              <div className="space-y-2">
-                <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  Model Provider
-                </label>
-                <Select
-                  value={modelProvider}
-                  onValueChange={(value) =>
-                    onModelProviderChange(value as "claude" | "vercel")
-                  }
-                >
-                  <SelectTrigger className="w-full bg-accent/50 border-border">
-                    <SelectValue placeholder="Select provider" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-background border-border">
-                    <SelectItem value="claude" className="text-sm">
-                      Claude (default)
-                    </SelectItem>
-                    <SelectItem value="vercel" className="text-sm">
-                      Vercel AI (OpenAI/Google)
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {modelProvider === "vercel" && (
-                <div className="space-y-2">
-                  <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                    Model
-                  </label>
-                  <Select value={model} onValueChange={(value) => onModelChange(value)}>
-                    <SelectTrigger className="w-full bg-accent/50 border-border">
-                      <SelectValue placeholder="Select model" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-background border-border">
-                      {vercelModels.map((option) => (
-                        <SelectItem
-                          key={option.value}
-                          value={option.value}
-                          className="text-sm"
-                        >
-                          {option.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
-              <p className="text-xs text-muted-foreground">
-                Switching providers or models starts a fresh chat session automatically.
-              </p>
-            </div> */}
-          </div>
-        </DialogContent>
-      </Dialog>
 
       {/* Credit Limit Paywall Modal */}
       <ProPlanUpsellModal

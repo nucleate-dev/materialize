@@ -123,23 +123,23 @@ export function PricingCard({
   // Light theme for paywall and other components
   return (
     <div
-      className={`flex flex-col p-8 bg-white rounded-lg shadow-md transition-transform transform hover:scale-105 ${
-        popular ? "border-2 border-purple-500" : "border"
+      className={`flex flex-col p-8 bg-card rounded-lg shadow-md transition-transform transform hover:scale-105 ${
+        popular ? "border-2 border-primary" : "border border-border"
       }`}
     >
       {popular && (
-        <span className="px-3 py-1 bg-purple-500 text-white rounded-full text-sm font-semibold mb-3 inline-block">
+        <span className="px-3 py-1 bg-primary text-primary-foreground rounded-full text-sm font-semibold mb-3 inline-block">
           Sale
         </span>
       )}
       <div className="flex flex-col h-full">
-        <h3 className="text-2xl font-bold text-gray-800 mb-4">{cardTitle}</h3>
-        <p className="text-4xl font-extrabold text-gray-900 mb-8">{price}</p>
+        <h3 className="text-2xl font-bold text-foreground mb-4">{cardTitle}</h3>
+        <p className="text-4xl font-extrabold text-foreground mb-8">{price}</p>
         <ul className="flex-1 space-y-4">
           {features.map((feature, index) => (
             <li key={index} className="flex items-center">
               <svg
-                className="w-6 h-6 text-purple-500 mr-2"
+                className="w-6 h-6 text-primary mr-2"
                 fill="currentColor"
                 viewBox="0 0 20 20"
                 xmlns="http://www.w3.org/2000/svg"
@@ -150,14 +150,14 @@ export function PricingCard({
                   clipRule="evenodd"
                 ></path>
               </svg>
-              <span>{feature}</span>
+              <span className="text-foreground">{feature}</span>
             </li>
           ))}
         </ul>
         <div className="pt-6">
           <button
             onClick={handlePlanClick}
-            className="block w-full py-3 px-6 bg-purple-500 text-white text-center rounded-lg font-semibold hover:bg-purple-600 transition-colors cursor-pointer"
+            className="block w-full py-3 px-6 bg-primary text-primary-foreground text-center rounded-lg font-semibold hover:bg-primary/90 transition-colors cursor-pointer"
           >
             {cta}
           </button>

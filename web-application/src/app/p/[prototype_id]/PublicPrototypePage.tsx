@@ -141,7 +141,7 @@ function AppSidebar() {
   ];
 
   return (
-    <Sidebar className="border-r border-gray-200 dark:border-white/5 bg-gray-50 dark:bg-[#0B0C0E]">
+    <Sidebar className="border-r border-gray-200 dark:border-border bg-gray-50 dark:bg-background">
       <SidebarHeader className="border-b border-gray-200 dark:border-sidebar-border">
         <div className="flex items-center gap-3 px-2 py-2">
           <Link href="/" className="group flex-1 min-w-0">
@@ -168,10 +168,10 @@ function AppSidebar() {
                   asChild
                   isActive={pathname === "/"}
                   size="lg"
-                  className="bg-white dark:bg-[#141517] border border-gray-200 dark:border-white/10 hover:bg-gray-100 dark:hover:bg-white/10 text-gray-700 dark:text-white shadow-sm transition-all"
+                  className="bg-white dark:bg-card border border-gray-200 dark:border-border hover:bg-gray-100 dark:hover:bg-muted text-gray-700 dark:text-white shadow-sm transition-all"
                 >
                   <Link href="/">
-                    <Sparkles className="w-5 h-5 text-indigo-500" />
+                    <Sparkles className="w-5 h-5 text-primary" />
                     <span className="font-medium">New chat +</span>
                   </Link>
                 </SidebarMenuButton>
@@ -194,7 +194,7 @@ function AppSidebar() {
                     isActive={item.active}
                     size="lg"
                     className={cn(
-                      "text-gray-600 dark:text-[#8A8F98] hover:text-gray-900 dark:hover:text-white transition-colors",
+                      "text-gray-600 dark:text-muted-foreground hover:text-gray-900 dark:hover:text-foreground transition-colors",
                       item.active &&
                         "bg-gray-100 dark:bg-white/5 text-gray-900 dark:text-white font-medium",
                     )}
@@ -203,7 +203,7 @@ function AppSidebar() {
                       <item.icon
                         className={cn(
                           "w-5 h-5",
-                          item.active ? "text-indigo-500" : "opacity-70",
+                          item.active ? "text-primary" : "opacity-70",
                         )}
                       />
                       <span>{item.label}</span>
@@ -228,7 +228,7 @@ function AppSidebar() {
                   asChild
                   isActive={pathname?.includes("account")}
                   size="lg"
-                  className="text-gray-600 dark:text-[#8A8F98] hover:text-gray-900 dark:hover:text-white"
+                  className="text-gray-600 dark:text-muted-foreground hover:text-gray-900 dark:hover:text-foreground"
                 >
                   <Link href="/dashboard/account">
                     <Settings className="w-5 h-5" />
@@ -240,7 +240,7 @@ function AppSidebar() {
                 <SidebarMenuButton
                   onClick={logout}
                   size="lg"
-                  className="text-gray-600 dark:text-[#8A8F98] hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10"
+                  className="text-gray-600 dark:text-muted-foreground hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10"
                 >
                   <LogOut className="w-5 h-5" />
                   <span>Logout</span>
@@ -253,7 +253,7 @@ function AppSidebar() {
               <SidebarMenuButton
                 asChild
                 size="lg"
-                className="text-gray-600 dark:text-[#8A8F98] hover:text-gray-900 dark:hover:text-white"
+                className="text-gray-600 dark:text-muted-foreground hover:text-gray-900 dark:hover:text-foreground"
               >
                 <Link href="/login">
                   <LogOut className="w-5 h-5 rotate-180" />
@@ -595,7 +595,7 @@ export default function PrototypePage() {
 
   if (isLoading) {
     return (
-      <div className="h-screen bg-white dark:bg-[#0B0C0E]">
+      <div className="h-screen bg-white dark:bg-background">
         <Loader />
       </div>
     );
@@ -603,8 +603,8 @@ export default function PrototypePage() {
 
   if (error) {
     return (
-      <div className="h-screen bg-gray-50 dark:bg-[#0B0C0E] flex items-center justify-center p-4">
-        <Card className="max-w-md mx-auto bg-white dark:bg-[#141517] border-gray-200 dark:border-white/10 shadow-2xl">
+      <div className="h-screen bg-gray-50 dark:bg-background flex items-center justify-center p-4">
+        <Card className="max-w-md mx-auto bg-white dark:bg-card border-gray-200 dark:border-border shadow-2xl">
           <CardHeader className="text-center pb-2">
             <div className="w-16 h-16 bg-red-50 dark:bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-6 border border-red-100 dark:border-red-500/20">
               <Sparkles className="w-8 h-8 text-red-500" />
@@ -612,7 +612,7 @@ export default function PrototypePage() {
             <CardTitle className="text-2xl font-medium text-gray-900 dark:text-white">
               Couldn&apos;t Load Project
             </CardTitle>
-            <CardDescription className="text-gray-500 dark:text-[#8A8F98] mt-2">
+            <CardDescription className="text-gray-500 dark:text-muted-foreground mt-2">
               {error}
             </CardDescription>
           </CardHeader>
@@ -631,16 +631,16 @@ export default function PrototypePage() {
 
   if (!prototype) {
     return (
-      <div className="h-screen bg-gray-50 dark:bg-[#0B0C0E] flex items-center justify-center p-4">
-        <Card className="max-w-md mx-auto bg-white dark:bg-[#141517] border-gray-200 dark:border-white/10 shadow-2xl">
+      <div className="h-screen bg-gray-50 dark:bg-background flex items-center justify-center p-4">
+        <Card className="max-w-md mx-auto bg-white dark:bg-card border-gray-200 dark:border-border shadow-2xl">
           <CardHeader className="text-center pb-2">
-            <div className="w-16 h-16 bg-gray-100 dark:bg-white/5 rounded-full flex items-center justify-center mx-auto mb-6 border border-gray-200 dark:border-white/10">
-              <Eye className="w-8 h-8 text-gray-400 dark:text-[#8A8F98]" />
+            <div className="w-16 h-16 bg-gray-100 dark:bg-white/5 rounded-full flex items-center justify-center mx-auto mb-6 border border-gray-200 dark:border-border">
+              <Eye className="w-8 h-8 text-gray-400 dark:text-muted-foreground" />
             </div>
             <CardTitle className="text-2xl font-medium text-gray-900 dark:text-white">
               Prototype Not Found
             </CardTitle>
-            <CardDescription className="text-gray-500 dark:text-[#8A8F98] mt-2">
+            <CardDescription className="text-gray-500 dark:text-muted-foreground mt-2">
               The prototype you&apos;re looking for doesn&apos;t exist or you
               don&apos;t have permission to view it.
             </CardDescription>
@@ -660,12 +660,12 @@ export default function PrototypePage() {
 
   return (
     <SidebarProvider defaultOpen={false}>
-      <div className="flex w-full h-screen bg-white dark:bg-[#0B0C0E]">
+      <div className="flex w-full h-screen bg-white dark:bg-background">
         <AppSidebar />
-        <main className="flex flex-1 flex-col h-screen overflow-hidden bg-white dark:bg-[#0B0C0E]">
+        <main className="flex flex-1 flex-col h-screen overflow-hidden bg-white dark:bg-background">
           {/* Header with Sidebar Trigger */}
-          <div className="flex items-center gap-4 p-4 border-b border-gray-200 dark:border-white/5 bg-gray-50/50 dark:bg-white/[0.02]">
-            <SidebarTrigger className="text-gray-500 dark:text-[#8A8F98] hover:bg-gray-100 dark:hover:bg-white/10" />
+          <div className="flex items-center gap-4 p-4 border-b border-gray-200 dark:border-border bg-gray-50/50 dark:bg-white/[0.02]">
+            <SidebarTrigger className="text-gray-500 dark:text-muted-foreground hover:bg-gray-100 dark:hover:bg-muted" />
             <div className="flex-1">
               <PublicPrototypeHeader
                 prototype={prototype}
@@ -695,7 +695,7 @@ export default function PrototypePage() {
                 canEditPublicConfig ? handleWebScreensChange : undefined
               }
               codeView={
-                <div className="flex h-full items-center justify-center text-sm text-gray-500 dark:text-[#8A8F98] bg-gray-50 dark:bg-[#0B0C0E]">
+                <div className="flex h-full items-center justify-center text-sm text-gray-500 dark:text-muted-foreground bg-gray-50 dark:bg-background">
                   Code view is unavailable in the public prototype viewer.
                 </div>
               }
@@ -717,7 +717,7 @@ export default function PrototypePage() {
                   <Button
                     onClick={handleSaveConfig}
                     disabled={isSaving}
-                    className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg px-4 py-2 rounded-lg flex items-center gap-2"
+                    className="bg-primary hover:bg-primary/90 text-white shadow-lg px-4 py-2 rounded-lg flex items-center gap-2"
                     aria-label="Save public view configuration so visitors see this layout"
                   >
                     {isSaving ? (

@@ -268,7 +268,7 @@ const FileTree: React.FC<FileTreeProps> = ({
                   "hover:bg-accent",
                   // Drag over state
                   isDraggedOver &&
-                    "bg-indigo-500/20 border-2 border-indigo-500/50 border-dashed",
+                    "bg-primary/20 border-2 border-primary/50 border-dashed",
                   // Active State (if needed, usually folders aren't 'selected' in this view, but visual feedback helps)
                   isExpanded
                     ? "text-foreground"
@@ -288,7 +288,7 @@ const FileTree: React.FC<FileTreeProps> = ({
                   )}
                 </span>
 
-                <span className="mr-2 text-indigo-400/80 group-hover:text-indigo-400 transition-colors">
+                <span className="mr-2 text-primary/80 group-hover:text-primary transition-colors">
                   {isExpanded ? (
                     <FolderOpen className="w-4 h-4" />
                   ) : (
@@ -332,7 +332,7 @@ const FileTree: React.FC<FileTreeProps> = ({
               className={cn(
                 "flex items-center py-1.5 pr-2 my-0.5 rounded cursor-pointer transition-all duration-200 select-none",
                 isSelected
-                  ? "bg-indigo-500/10 text-indigo-300"
+                  ? "bg-primary/10 text-primary"
                   : "text-muted-foreground hover:text-foreground hover:bg-accent",
               )}
               style={{ paddingLeft: `${paddingLeft + 18}px` }} // +18 to align with folder text, skipping arrows
@@ -341,7 +341,7 @@ const FileTree: React.FC<FileTreeProps> = ({
                 className={cn(
                   "mr-2 transition-colors",
                   isSelected
-                    ? "text-indigo-400"
+                    ? "text-primary"
                     : "text-muted-foreground/50 group-hover:text-muted-foreground",
                 )}
               >
@@ -399,7 +399,7 @@ const FileTree: React.FC<FileTreeProps> = ({
           "flex-1 overflow-y-auto py-2 px-2 custom-scrollbar transition-colors",
           dragOver &&
             !dragOverPath &&
-            "bg-indigo-500/10 border-2 border-indigo-500/30 border-dashed",
+            "bg-primary/10 border-2 border-primary/30 border-dashed",
         )}
         onDragOver={(e) => handleDragOver(e, "")}
         onDragLeave={handleDragLeave}
