@@ -4,8 +4,6 @@ import { RenderStatus } from "@/app/dashboard/projects/[prototype_id]/InternalPr
 import ProPlanUpsellModal from "@/components/prototype-editor/ProPlanUpsellModal";
 import ProjectContextEditor from "@/components/prototype-editor/ProjectContextEditor";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Select,
@@ -23,6 +21,7 @@ import {
 } from "@/components/ui/tooltip";
 import { UseFileSystemReturn } from "@/hooks/useFileSystem";
 import { cn } from "@/lib/classNames"; // Assuming cn utility exists
+import type { AuthMode } from "@/lib/utils/authModeUtils";
 import {
   ArrowDown,
   Check,
@@ -45,6 +44,7 @@ import {
   Undo2,
   X,
 } from "lucide-react";
+import { useFeatureFlagEnabled } from "posthog-js/react";
 import type {
   ChangeEvent,
   KeyboardEvent,
@@ -53,7 +53,6 @@ import type {
 } from "react";
 import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
-import { useFeatureFlagEnabled } from "posthog-js/react";
 import { toast } from "sonner";
 import type {
   ClaudeCodePanelActiveView, Message,
@@ -61,7 +60,6 @@ import type {
   Todo,
   UploadedImage
 } from "./ClaudeCodePanel";
-import type { AuthMode } from "@/lib/utils/authModeUtils";
 
 interface ClaudeCodePanelUIProps {
   prototypeId: string;
@@ -117,6 +115,7 @@ interface ClaudeCodePanelUIProps {
   handlePaste: (event: React.ClipboardEvent) => void;
   hasReachedCreditLimit: boolean;
   creditsUsed: number;
+  visibilityLabel?: string;
   totalAvailableCredits: number;
   onUndo: () => void;
   onMessageUpdate?: (message: Message) => void;
@@ -603,7 +602,7 @@ export default function ClaudeCodePanelUI({
                                   className={cn(
                                     "flex items-center gap-2 px-3 py-1.5 rounded-md bg-accent/50 border border-border w-fit max-w-full",
                                     isExpandable &&
-                                      "cursor-pointer hover:bg-accent/70 transition-colors",
+                                    "cursor-pointer hover:bg-accent/70 transition-colors",
                                   )}
                                   role={isExpandable ? "button" : undefined}
                                   tabIndex={isExpandable ? 0 : undefined}

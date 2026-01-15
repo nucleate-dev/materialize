@@ -4,8 +4,8 @@ import PremiumHeader from "@/components/prototype-editor/PremiumHeader";
 import { GridBackground } from "@/components/shared/GridComponent";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Search } from "lucide-react";
 import { motion } from "framer-motion";
+import { Search } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 // --- FAQ DATA ---
@@ -188,13 +188,13 @@ export default function FAQPage() {
   // Filter logic
   const filteredData = searchQuery.trim()
     ? FAQ_DATA.map((cat) => ({
-        ...cat,
-        items: cat.items.filter(
-          (item) =>
-            item.q.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            item.a.toLowerCase().includes(searchQuery.toLowerCase()),
-        ),
-      })).filter((cat) => cat.items.length > 0)
+      ...cat,
+      items: cat.items.filter(
+        (item) =>
+          item.q.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          item.a.toLowerCase().includes(searchQuery.toLowerCase()),
+      ),
+    })).filter((cat) => cat.items.length > 0)
     : FAQ_DATA;
 
   const scrollToCategory = (category: string) => {
@@ -213,33 +213,33 @@ export default function FAQPage() {
   };
 
   return (
-    <main className="relative min-h-screen bg-[#0B0C0E] text-white selection:bg-indigo-500/30 overflow-hidden font-sans">
-      <GridBackground forceDarkMode />
+    <main className="relative min-h-screen bg-background text-foreground selection:bg-primary/20 overflow-hidden font-sans">
+      <GridBackground />
 
       <div className="relative z-10">
-        <PremiumHeader forceDarkMode />
+        <PremiumHeader />
 
         {/* Hero Section */}
-        <section className="pt-32 pb-12 lg:pt-48 px-6 border-b border-white/5 bg-gradient-to-b from-transparent to-[#0B0C0E]">
+        <section className="pt-32 pb-12 lg:pt-48 px-6 border-b border-border bg-gradient-to-b from-transparent to-background">
           <div className="container mx-auto max-w-4xl text-center">
-            <h1 className="text-4xl md:text-5xl lg:text-6xl font-medium tracking-tight text-white mb-6">
+            <h1 className="text-4xl md:text-5xl lg:text-6xl font-medium tracking-tight text-foreground mb-6">
               Frequently Asked Questions
             </h1>
-            <p className="text-xl text-[#8A8F98] max-w-2xl mx-auto mb-10">
+            <p className="text-xl text-muted-foreground max-w-2xl mx-auto mb-10">
               Quick answers about building apps with Nucleate.
             </p>
 
             <div className="relative max-w-xl mx-auto group">
-              <div className="absolute inset-0 bg-indigo-500/20 blur-xl rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-              <div className="relative relative bg-[#141517] border border-white/10 rounded-xl flex items-center shadow-2xl transition-colors focus-within:border-white/30 focus-within:bg-[#18191B]">
-                <Search className="w-5 h-5 text-white/40 ml-4" />
+              <div className="absolute inset-0 bg-primary/20 blur-xl rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+              <div className="relative relative bg-card border border-border rounded-xl flex items-center shadow-2xl transition-colors focus-within:border-primary/50 focus-within:bg-card">
+                <Search className="w-5 h-5 text-muted-foreground ml-4" />
                 <Input
                   ref={inputRef}
                   type="text"
                   placeholder="Search questions... (Press / to focus)"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="bg-transparent border-none text-white placeholder:text-white/30 h-12 text-base focus-visible:ring-0 px-3"
+                  className="bg-transparent border-none text-foreground placeholder:text-muted-foreground h-12 text-base focus-visible:ring-0 px-3"
                 />
               </div>
             </div>
@@ -258,11 +258,10 @@ export default function FAQPage() {
                       <button
                         key={cat.category}
                         onClick={() => scrollToCategory(cat.category)}
-                        className={`w-full text-left px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
-                          activeCategory === cat.category
-                            ? "bg-white/10 text-white"
-                            : "text-[#8A8F98] hover:text-white hover:bg-white/5"
-                        }`}
+                        className={`w-full text-left px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${activeCategory === cat.category
+                          ? "bg-accent text-accent-foreground"
+                          : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
+                          }`}
                       >
                         {cat.category}
                       </button>
@@ -281,10 +280,10 @@ export default function FAQPage() {
                       className="scroll-mt-32"
                     >
                       {/* Section Header */}
-                      <h2 className="text-2xl font-medium text-white mb-8 border-b border-white/5 pb-4 flex items-center gap-2">
+                      <h2 className="text-2xl font-medium text-foreground mb-8 border-b border-border pb-4 flex items-center gap-2">
                         {section.category}
                         {searchQuery && (
-                          <span className="text-sm font-normal text-white/40 ml-2">
+                          <span className="text-sm font-normal text-muted-foreground ml-2">
                             ({section.items.length} result
                             {section.items.length !== 1 ? "s" : ""})
                           </span>
@@ -300,12 +299,12 @@ export default function FAQPage() {
                             viewport={{ once: true }}
                             transition={{ duration: 0.3, delay: i * 0.05 }}
                             key={i}
-                            className="group bg-[#141517] border border-white/10 rounded-2xl p-6 md:p-8 hover:border-white/20 transition-colors duration-300"
+                            className="group bg-card border border-border rounded-2xl p-6 md:p-8 hover:border-primary/20 transition-colors duration-300"
                           >
-                            <h3 className="text-lg font-medium text-white/90 mb-3 leading-snug">
+                            <h3 className="text-lg font-medium text-foreground/90 mb-3 leading-snug">
                               {item.q}
                             </h3>
-                            <div className="text-[#8A8F98] leading-relaxed text-[15px] space-y-2 whitespace-pre-wrap">
+                            <div className="text-muted-foreground leading-relaxed text-[15px] space-y-2 whitespace-pre-wrap">
                               {/* Parse links in the answer text */}
                               <ParsedAnswer text={item.a} />
                             </div>
@@ -316,12 +315,12 @@ export default function FAQPage() {
                   ))
                 ) : (
                   <div className="text-center py-24">
-                    <p className="text-white/40 text-lg">
+                    <p className="text-muted-foreground text-lg">
                       No matching questions found.
                     </p>
                     <Button
                       variant="link"
-                      className="text-indigo-400 mt-2"
+                      className="text-primary mt-2"
                       onClick={() => setSearchQuery("")}
                     >
                       Clear search
@@ -340,7 +339,7 @@ export default function FAQPage() {
 }
 
 // Utility to parse URLs in text and make them clickable
-function ParsedAnswer({ text }: { text: string }) {
+function ParsedAnswer({ text }: { text: string; }) {
   const parts = text.split(/(https?:\/\/[^\s]+)/g);
 
   return (
@@ -353,7 +352,7 @@ function ParsedAnswer({ text }: { text: string }) {
               href={part}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-indigo-400 hover:text-indigo-300 transition-colors break-all"
+              className="text-primary hover:text-primary/80 transition-colors break-all"
             >
               {part}
             </a>
@@ -367,21 +366,21 @@ function ParsedAnswer({ text }: { text: string }) {
 
 function Footer() {
   return (
-    <footer className="py-12 border-t border-white/5 bg-[#0B0C0E] text-sm relative z-10">
-      <div className="container mx-auto px-6 max-w-6xl flex flex-col md:flex-row justify-between items-center text-[#8A8F98] gap-6">
+    <footer className="py-12 border-t border-border bg-background text-sm relative z-10">
+      <div className="container mx-auto px-6 max-w-6xl flex flex-col md:flex-row justify-between items-center text-muted-foreground gap-6">
         <div className="flex gap-6">
-          <span className="hover:text-white cursor-pointer transition-colors">
+          <span className="hover:text-foreground cursor-pointer transition-colors">
             Twitter
           </span>
-          <span className="hover:text-white cursor-pointer transition-colors">
+          <span className="hover:text-foreground cursor-pointer transition-colors">
             GitHub
           </span>
         </div>
         <div className="flex gap-6">
-          <span className="hover:text-white cursor-pointer transition-colors">
+          <span className="hover:text-foreground cursor-pointer transition-colors">
             Privacy
           </span>
-          <span className="hover:text-white cursor-pointer transition-colors">
+          <span className="hover:text-foreground cursor-pointer transition-colors">
             Terms
           </span>
           <span>© 2025 Nucleate Inc.</span>

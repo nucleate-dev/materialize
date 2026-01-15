@@ -4,28 +4,28 @@ import { GridBackground } from "@/components/shared/GridComponent";
 
 export default function PrivacyPolicyPage() {
   return (
-    <main className="relative min-h-screen bg-[#0B0C0E] text-white selection:bg-indigo-500/30 overflow-hidden font-sans">
-      <GridBackground forceDarkMode />
+    <main className="relative min-h-screen bg-background text-foreground selection:bg-primary/20 overflow-hidden font-sans">
+      <GridBackground />
 
       <div className="relative z-10">
-        <PremiumHeader forceDarkMode />
+        <PremiumHeader />
 
-        <section className="pt-32 pb-12 lg:pt-48 px-6 border-b border-white/5">
+        <section className="pt-32 pb-12 lg:pt-48 px-6 border-b border-border">
           <div className="container mx-auto max-w-4xl text-center">
-            <p className="text-sm uppercase tracking-[0.3em] text-white/50 mb-4">
+            <p className="text-sm uppercase tracking-[0.3em] text-muted-foreground mb-4">
               Legal
             </p>
-            <h1 className="text-4xl md:text-5xl lg:text-6xl font-medium tracking-tight text-white mb-6">
+            <h1 className="text-4xl md:text-5xl lg:text-6xl font-medium tracking-tight text-foreground mb-6">
               Nucleate Privacy Policy
             </h1>
-            <p className="text-lg md:text-xl text-[#8A8F98] max-w-2xl mx-auto">
+            <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto">
               Last updated: 02/24/2025
             </p>
           </div>
         </section>
 
         <section className="py-16 px-6">
-          <div className="container mx-auto max-w-4xl space-y-12 text-[#8A8F98] leading-relaxed">
+          <div className="container mx-auto max-w-4xl space-y-12 text-muted-foreground leading-relaxed">
             <div className="space-y-4">
               <p>
                 Nucleate, Inc. and its affiliates (“Nucleate,” “we,” “our,”
@@ -45,7 +45,7 @@ export default function PrivacyPolicyPage() {
             </div>
 
             <div className="space-y-4">
-              <h2 className="text-2xl font-medium text-white">
+              <h2 className="text-2xl font-medium text-foreground">
                 Information We Collect
               </h2>
               <p>
@@ -59,12 +59,12 @@ export default function PrivacyPolicyPage() {
                 we are legally required to collect it.
               </p>
 
-              <h3 className="text-xl font-medium text-white pt-4">
+              <h3 className="text-xl font-medium text-foreground pt-4">
                 A. Information You Provide to Us.
               </h3>
 
               <p>
-                <strong className="text-white">
+                <strong className="text-foreground">
                   Registration and Profile Information.
                 </strong>{" "}
                 When you register for an account, we ask you for your email
@@ -76,14 +76,14 @@ export default function PrivacyPolicyPage() {
               </p>
 
               <p>
-                <strong className="text-white">Payment Information.</strong>{" "}
+                <strong className="text-foreground">Payment Information.</strong>{" "}
                 When you add a credit card or payment method to your account a
                 third-party service provider that handles payments on our behalf
                 will receive and process your payment card information.
               </p>
 
               <p>
-                <strong className="text-white">Communications.</strong> When you
+                <strong className="text-foreground">Communications.</strong> When you
                 communicate with us, we may receive additional information about
                 you. For example, when you communicate with our Customer Support
                 Team, we will receive your name, email address, phone number,
@@ -97,7 +97,7 @@ export default function PrivacyPolicyPage() {
               </p>
 
               <p>
-                <strong className="text-white">Careers.</strong> If you apply
+                <strong className="text-foreground">Careers.</strong> If you apply
                 for a job with us, you may submit your contact information and
                 your resume online. We will collect the information you choose
                 to provide on your resume, such as your education and employment
@@ -105,7 +105,7 @@ export default function PrivacyPolicyPage() {
                 supplementary conditions apply.
               </p>
 
-              <h3 className="text-xl font-medium text-white pt-4">
+              <h3 className="text-xl font-medium text-foreground pt-4">
                 B. Information We Collect Automatically When You Use Our
                 Services.
               </h3>
@@ -119,7 +119,7 @@ export default function PrivacyPolicyPage() {
               </p>
 
               <p>
-                <strong className="text-white">What are Cookies?</strong>{" "}
+                <strong className="text-foreground">What are Cookies?</strong>{" "}
                 Cookies are small files of letters and numbers that we store on
                 your browser or the hard drive of your computer, or small
                 graphic images placed on web pages or in emails. They can be
@@ -136,7 +136,7 @@ export default function PrivacyPolicyPage() {
 
               <ul className="list-disc pl-6 space-y-2">
                 <li>
-                  <span className="text-white">
+                  <span className="text-foreground">
                     Strictly necessary cookies.
                   </span>{" "}
                   Some cookies are strictly necessary to make the Services
@@ -144,14 +144,14 @@ export default function PrivacyPolicyPage() {
                   without this type of cookies.
                 </li>
                 <li>
-                  <span className="text-white">Functional cookies.</span> These
+                  <span className="text-foreground">Functional cookies.</span> These
                   are used to recognize you when you return to the Services.
                   This enables us to adapt our content for you, and remember
                   your preferences (for example, your choice of language or
                   region).
                 </li>
                 <li>
-                  <span className="text-white">
+                  <span className="text-foreground">
                     Analytical or Performance cookies.
                   </span>{" "}
                   We also use cookies for analytics purposes in order to
@@ -172,14 +172,14 @@ export default function PrivacyPolicyPage() {
               </p>
 
               <p>
-                <strong className="text-white">
+                <strong className="text-foreground">
                   What information do we automatically collect as you use the
                   Services?
                 </strong>
               </p>
 
               <p>
-                <strong className="text-white">Device Information.</strong> We
+                <strong className="text-foreground">Device Information.</strong> We
                 receive information about the device and software you use to
                 access our Services, including internet protocol (IP) address,
                 Internet Service Provider, web browser type, operating system
@@ -189,7 +189,7 @@ export default function PrivacyPolicyPage() {
               </p>
 
               <p>
-                <strong className="text-white">Location Information.</strong> We
+                <strong className="text-foreground">Location Information.</strong> We
                 may infer your general location information from other
                 information we collect from and about you (for example, your IP
                 address may indicate your general geographic region). We do not
@@ -197,7 +197,7 @@ export default function PrivacyPolicyPage() {
               </p>
 
               <p>
-                <strong className="text-white">Usage Information.</strong> To
+                <strong className="text-foreground">Usage Information.</strong> To
                 help us understand and analyze how you use our Services and to
                 help us improve them, we automatically receive information about
                 your interactions with our Services, like the pages or other
@@ -206,12 +206,12 @@ export default function PrivacyPolicyPage() {
                 and the dates and times of your visits.
               </p>
 
-              <h3 className="text-xl font-medium text-white pt-4">
+              <h3 className="text-xl font-medium text-foreground pt-4">
                 C. Information We Receive from Third Parties.
               </h3>
 
               <p>
-                <strong className="text-white">
+                <strong className="text-foreground">
                   Information from third party services.
                 </strong>{" "}
                 If you choose to link our Services to a third-party account, we
@@ -224,7 +224,7 @@ export default function PrivacyPolicyPage() {
               </p>
 
               <p>
-                <strong className="text-white">Other third parties.</strong> We
+                <strong className="text-foreground">Other third parties.</strong> We
                 may receive additional information about you, such as
                 demographic data, from third parties such as data or marketing
                 partners and combine it with other information we have about
@@ -233,7 +233,7 @@ export default function PrivacyPolicyPage() {
             </div>
 
             <div className="space-y-4">
-              <h2 className="text-2xl font-medium text-white">
+              <h2 className="text-2xl font-medium text-foreground">
                 How We Use the Information We Collect
               </h2>
               <p>We use the information we collect:</p>
@@ -277,7 +277,7 @@ export default function PrivacyPolicyPage() {
                 </li>
               </ul>
               <p>
-                <strong className="text-white">
+                <strong className="text-foreground">
                   De-Identified Information.
                 </strong>{" "}
                 Please note that we may de-identify the information we collect
@@ -290,7 +290,7 @@ export default function PrivacyPolicyPage() {
             </div>
 
             <div className="space-y-4">
-              <h2 className="text-2xl font-medium text-white">
+              <h2 className="text-2xl font-medium text-foreground">
                 Your Privacy Obligations
               </h2>
               <p>
@@ -325,7 +325,7 @@ export default function PrivacyPolicyPage() {
             </div>
 
             <div className="space-y-4">
-              <h2 className="text-2xl font-medium text-white">
+              <h2 className="text-2xl font-medium text-foreground">
                 Legal Bases for Processing Information
               </h2>
               <p>
@@ -336,25 +336,25 @@ export default function PrivacyPolicyPage() {
               </p>
               <ul className="list-disc pl-6 space-y-2">
                 <li>
-                  <strong className="text-white">Consent.</strong> You have
+                  <strong className="text-foreground">Consent.</strong> You have
                   consented to the use of your information, for example, where
                   legally required, to send you marketing communications.
                 </li>
                 <li>
-                  <strong className="text-white">Contractual necessity.</strong>{" "}
+                  <strong className="text-foreground">Contractual necessity.</strong>{" "}
                   We need your information to provide you with the Services, for
                   example to facilitate your registration and respond to your
                   inquiries.
                 </li>
                 <li>
-                  <strong className="text-white">
+                  <strong className="text-foreground">
                     Compliance with a legal obligation.
                   </strong>{" "}
                   We have a legal obligation to use your information, for
                   example to comply with tax and accounting obligations.
                 </li>
                 <li>
-                  <strong className="text-white">Legitimate interests.</strong>{" "}
+                  <strong className="text-foreground">Legitimate interests.</strong>{" "}
                   We have a legitimate interest in using your information for a
                   business purpose that does not override your individual rights
                   and interests. For example, we have a legitimate interest in
@@ -368,7 +368,7 @@ export default function PrivacyPolicyPage() {
             </div>
 
             <div className="space-y-4">
-              <h2 className="text-2xl font-medium text-white">
+              <h2 className="text-2xl font-medium text-foreground">
                 How We Share the Information We Collect
               </h2>
               <p>
@@ -377,14 +377,14 @@ export default function PrivacyPolicyPage() {
               </p>
 
               <p>
-                <strong className="text-white">Affiliates.</strong> We may share
+                <strong className="text-foreground">Affiliates.</strong> We may share
                 any information we receive with our corporate affiliates under
                 common ownership or control for any of the purposes described in
                 this Privacy Policy.
               </p>
 
               <p>
-                <strong className="text-white">Service Providers.</strong> We
+                <strong className="text-foreground">Service Providers.</strong> We
                 may share any information we receive with vendors retained in
                 connection with the provision of our Services and that process
                 your information on our behalf. These entities may include
@@ -393,7 +393,7 @@ export default function PrivacyPolicyPage() {
               </p>
 
               <p>
-                <strong className="text-white">
+                <strong className="text-foreground">
                   Other Users and Individuals.
                 </strong>{" "}
                 Our Services are social services in which you can find,
@@ -416,7 +416,7 @@ export default function PrivacyPolicyPage() {
               </p>
 
               <p>
-                <strong className="text-white">
+                <strong className="text-foreground">
                   Third Party App Integrations.
                 </strong>{" "}
                 If you connect a third-party application to our Services, we may
@@ -424,7 +424,7 @@ export default function PrivacyPolicyPage() {
               </p>
 
               <p>
-                <strong className="text-white">
+                <strong className="text-foreground">
                   As Required by Law and Similar Disclosures.
                 </strong>{" "}
                 We may access, preserve, and disclose your information if we
@@ -438,7 +438,7 @@ export default function PrivacyPolicyPage() {
               </p>
 
               <p>
-                <strong className="text-white">
+                <strong className="text-foreground">
                   Merger, Sale, or Other Asset Transfers.
                 </strong>{" "}
                 We may disclose and transfer your information to service
@@ -451,18 +451,18 @@ export default function PrivacyPolicyPage() {
               </p>
 
               <p>
-                <strong className="text-white">Consent.</strong> We may also
+                <strong className="text-foreground">Consent.</strong> We may also
                 disclose information from or about you with your permission.
               </p>
             </div>
 
             <div className="space-y-4">
-              <h2 className="text-2xl font-medium text-white">
+              <h2 className="text-2xl font-medium text-foreground">
                 Your Rights and Choices
               </h2>
 
               <p>
-                <strong className="text-white">Sharing Preferences.</strong> If
+                <strong className="text-foreground">Sharing Preferences.</strong> If
                 you prefer to not have others see your code, you can upgrade to
                 make that code private. If you import code from GitHub and your
                 repository is public, it will remain public by default on
@@ -472,7 +472,7 @@ export default function PrivacyPolicyPage() {
               </p>
 
               <p>
-                <strong className="text-white">
+                <strong className="text-foreground">
                   Marketing Communications.
                 </strong>{" "}
                 You can unsubscribe from our promotional emails via the link
@@ -482,7 +482,7 @@ export default function PrivacyPolicyPage() {
               </p>
 
               <p>
-                <strong className="text-white">How to Block Cookies.</strong>{" "}
+                <strong className="text-foreground">How to Block Cookies.</strong>{" "}
                 You can change your browser settings to block, disable, or
                 notify you when you receive a Cookie, delete Cookies, or browse
                 our Services using your browser’s anonymous usage setting.
@@ -493,7 +493,7 @@ export default function PrivacyPolicyPage() {
               </p>
 
               <p>
-                <strong className="text-white">
+                <strong className="text-foreground">
                   Your European Privacy Rights.
                 </strong>{" "}
                 If you are located in the European Economic Area or the United
@@ -536,7 +536,7 @@ export default function PrivacyPolicyPage() {
             </div>
 
             <div className="space-y-4">
-              <h2 className="text-2xl font-medium text-white">Third Parties</h2>
+              <h2 className="text-2xl font-medium text-foreground">Third Parties</h2>
               <p>
                 Our Services may contain links to other websites, products, or
                 services that we do not own or operate. We are not responsible
@@ -549,7 +549,7 @@ export default function PrivacyPolicyPage() {
             </div>
 
             <div className="space-y-4">
-              <h2 className="text-2xl font-medium text-white">Retention</h2>
+              <h2 className="text-2xl font-medium text-foreground">Retention</h2>
               <p>
                 We take measures to delete your information or maintain it in a
                 de-identified form when it is no longer necessary to be kept in
@@ -566,7 +566,7 @@ export default function PrivacyPolicyPage() {
             </div>
 
             <div className="space-y-4">
-              <h2 className="text-2xl font-medium text-white">Security</h2>
+              <h2 className="text-2xl font-medium text-foreground">Security</h2>
               <p>
                 We use a variety of technical, organizational, and physical
                 safeguards designed to safeguard the information we maintain.
@@ -576,7 +576,7 @@ export default function PrivacyPolicyPage() {
             </div>
 
             <div className="space-y-4">
-              <h2 className="text-2xl font-medium text-white">
+              <h2 className="text-2xl font-medium text-foreground">
                 Children’s and Students’ Privacy
               </h2>
               <p>
@@ -596,7 +596,7 @@ export default function PrivacyPolicyPage() {
             </div>
 
             <div className="space-y-4">
-              <h2 className="text-2xl font-medium text-white">
+              <h2 className="text-2xl font-medium text-foreground">
                 International Visitors
               </h2>
               <p>
@@ -611,7 +611,7 @@ export default function PrivacyPolicyPage() {
             </div>
 
             <div className="space-y-4">
-              <h2 className="text-2xl font-medium text-white">
+              <h2 className="text-2xl font-medium text-foreground">
                 Update Your Information or Pose a Question
               </h2>
               <p>
@@ -623,7 +623,7 @@ export default function PrivacyPolicyPage() {
             </div>
 
             <div className="space-y-4">
-              <h2 className="text-2xl font-medium text-white">
+              <h2 className="text-2xl font-medium text-foreground">
                 Changes to this Privacy Policy
               </h2>
               <p>
@@ -636,7 +636,7 @@ export default function PrivacyPolicyPage() {
             </div>
 
             <div className="space-y-4">
-              <h2 className="text-2xl font-medium text-white">
+              <h2 className="text-2xl font-medium text-foreground">
                 Contact Information
               </h2>
               <p>

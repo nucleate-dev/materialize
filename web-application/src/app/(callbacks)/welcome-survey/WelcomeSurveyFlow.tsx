@@ -1,21 +1,21 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
 import { supabase } from "@/ClientConstants";
+import { GridBackground } from "@/components/shared/GridComponent";
+import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import type { SurveyResponses } from "@/lib/types/surveyTypes";
 import { SURVEY_QUESTIONS } from "@/lib/utils/survey/surveyQuestions";
 import {
-  submitSurvey,
-  saveSurveyProgress,
-  loadSurveyProgress,
   clearSurveyProgress,
+  loadSurveyProgress,
+  saveSurveyProgress,
+  submitSurvey,
 } from "@/lib/utils/survey/SurveyUtils";
-import { SurveyHeader } from "./components/SurveyHeader";
-import { QuestionCard } from "./components/QuestionCard";
-import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
+import { useRouter } from "next/navigation";
 import { usePostHog } from "posthog-js/react";
-import { GridBackground } from "@/components/shared/GridComponent";
+import { useEffect, useState } from "react";
+import { QuestionCard } from "./components/QuestionCard";
+import { SurveyHeader } from "./components/SurveyHeader";
 
 export function WelcomeSurveyFlow() {
   const router = useRouter();
@@ -231,16 +231,16 @@ export function WelcomeSurveyFlow() {
   const otherText = otherTexts[otherKey] || "";
 
   return (
-    <div className="relative min-h-screen bg-[#0B0C0E] text-white selection:bg-indigo-500/30 overflow-hidden font-sans">
-      <GridBackground forceDarkMode />
+    <div className="relative min-h-screen bg-background text-foreground selection:bg-primary/20 overflow-hidden font-sans">
+      <GridBackground />
 
       <div className="relative z-10 min-h-screen flex flex-col items-center justify-center px-4 py-12">
         {/* Welcome Header */}
         <div className="text-center mb-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-          <h1 className="text-3xl md:text-4xl font-medium tracking-tight text-transparent bg-clip-text bg-gradient-to-b from-white via-white to-white/60 mb-3">
+          <h1 className="text-3xl md:text-4xl font-medium tracking-tight text-foreground mb-3">
             Welcome to Nucleate
           </h1>
-          <p className="text-[#8A8F98] text-base max-w-md mx-auto">
+          <p className="text-muted-foreground text-base max-w-md mx-auto">
             Help us personalize your experience with a few quick questions
           </p>
         </div>
@@ -248,9 +248,9 @@ export function WelcomeSurveyFlow() {
         {/* Survey Card */}
         <div className="w-full max-w-lg animate-in fade-in slide-in-from-bottom-8 duration-1000 delay-100">
           {/* Glow Effect */}
-          <div className="absolute -inset-0.5 bg-gradient-to-r from-indigo-500/20 to-blue-500/20 rounded-2xl blur-xl opacity-20"></div>
+          <div className="absolute -inset-0.5 bg-gradient-to-r from-primary/20 to-primary/20 rounded-2xl blur-xl opacity-20"></div>
 
-          <div className="relative bg-[#141517] border border-white/10 rounded-2xl shadow-2xl overflow-hidden">
+          <div className="relative bg-card border border-border rounded-2xl shadow-2xl overflow-hidden">
             <SurveyHeader
               currentStep={currentStep}
               totalSteps={totalSteps}

@@ -4,21 +4,21 @@ import { GridBackground } from "@/components/shared/GridComponent";
 
 export default function TermsAndConditionsPage() {
   return (
-    <main className="relative min-h-screen bg-[#0B0C0E] text-white selection:bg-indigo-500/30 overflow-hidden font-sans">
-      <GridBackground forceDarkMode />
+    <main className="relative min-h-screen bg-background text-foreground selection:bg-primary/20 overflow-hidden font-sans">
+      <GridBackground />
 
       <div className="relative z-10">
-        <PremiumHeader forceDarkMode />
+        <PremiumHeader />
 
-        <section className="pt-32 pb-12 lg:pt-48 px-6 border-b border-white/5">
+        <section className="pt-32 pb-12 lg:pt-48 px-6 border-b border-border">
           <div className="container mx-auto max-w-4xl text-center">
-            <p className="text-sm uppercase tracking-[0.3em] text-white/50 mb-4">
+            <p className="text-sm uppercase tracking-[0.3em] text-muted-foreground mb-4">
               Terms and Conditions
             </p>
-            <h1 className="text-4xl md:text-5xl lg:text-6xl font-medium tracking-tight text-white mb-6">
+            <h1 className="text-4xl md:text-5xl lg:text-6xl font-medium tracking-tight text-foreground mb-6">
               Nucleate Terms of Service
             </h1>
-            <p className="text-lg md:text-xl text-[#8A8F98] max-w-2xl mx-auto">
+            <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto">
               Please read these Terms carefully before using Nucleate.
             </p>
           </div>
@@ -27,19 +27,19 @@ export default function TermsAndConditionsPage() {
         <section className="py-16 px-6">
           <div className="container mx-auto max-w-4xl space-y-12">
             <div className="space-y-4">
-              <h2 className="text-2xl md:text-3xl font-medium text-white">
+              <h2 className="text-2xl md:text-3xl font-medium text-foreground">
                 A. Terms of Service
               </h2>
-              <p className="text-[#8A8F98]">
+              <p className="text-muted-foreground">
                 Summary: When you use Nucleate, you are agreeing to these terms
                 and our Privacy Policy, and promising to safeguard your account.
                 You agree to use the service for non-commercial purposes and are
                 of legal age to accept these terms. If you are a commercial
                 user, please visit our Nucleate Teams page for more information.
               </p>
-              <ol className="list-decimal pl-6 space-y-4 text-[#8A8F98]">
+              <ol className="list-decimal pl-6 space-y-4 text-muted-foreground">
                 <li>
-                  <span className="text-white">Acceptance of Terms</span>
+                  <span className="text-foreground font-medium">Acceptance of Terms</span>
                   <p className="mt-2">
                     Nucleate, Inc. (&quot;Nucleate&quot;) provides users with a
                     hosted environment and community to code, build, share, and
@@ -52,7 +52,7 @@ export default function TermsAndConditionsPage() {
                   </p>
                 </li>
                 <li>
-                  <span className="text-white">Account Usage and Security</span>
+                  <span className="text-foreground font-medium">Account Usage and Security</span>
                   <p className="mt-2">
                     You are responsible for maintaining the confidentiality of
                     your account and password, including but not limited to the
@@ -60,7 +60,7 @@ export default function TermsAndConditionsPage() {
                   </p>
                 </li>
                 <li>
-                  <span className="text-white">
+                  <span className="text-foreground font-medium">
                     Personal and non-commercial use
                   </span>
                   <p className="mt-2">
@@ -72,7 +72,7 @@ export default function TermsAndConditionsPage() {
                   </p>
                 </li>
                 <li>
-                  <span className="text-white">Minimum Age</span>
+                  <span className="text-foreground font-medium">Minimum Age</span>
                   <p className="mt-2">
                     You must be an adult to use the Service. If you are younger
                     than 13 we will allow you to use the Service if you first
@@ -87,10 +87,10 @@ export default function TermsAndConditionsPage() {
             </div>
 
             <div className="space-y-4">
-              <h2 className="text-2xl md:text-3xl font-medium text-white">
+              <h2 className="text-2xl md:text-3xl font-medium text-foreground">
                 B. Acceptable Use
               </h2>
-              <p className="text-[#8A8F98]">
+              <p className="text-muted-foreground">
                 Summary: Nucleate hosts a wide variety of coding projects from
                 all over the world, and that hosting only works when our users
                 are able to work together and not abuse the Service. Certain
@@ -98,9 +98,9 @@ export default function TermsAndConditionsPage() {
                 set quotas and limits that you must follow.
               </p>
 
-              <ol className="list-decimal pl-6 space-y-4 text-[#8A8F98]">
+              <ol className="list-decimal pl-6 space-y-4 text-muted-foreground">
                 <li>
-                  <span className="text-white">Prohibited Conduct</span>
+                  <span className="text-foreground font-medium">Prohibited Conduct</span>
                   <p className="mt-2">
                     While using the Service, you must not engage in any conduct
                     that is abusive or violates applicable laws, regulations, or
@@ -146,7 +146,7 @@ export default function TermsAndConditionsPage() {
                   </ul>
                 </li>
                 <li>
-                  <span className="text-white">Prohibited Content</span>
+                  <span className="text-foreground font-medium">Prohibited Content</span>
                   <p className="mt-2">
                     You are solely responsible for the content you create,
                     submit, and share on the Service. The following content is
@@ -175,7 +175,7 @@ export default function TermsAndConditionsPage() {
                   </ul>
                 </li>
                 <li>
-                  <span className="text-white">Quotas and Limits</span>
+                  <span className="text-foreground font-medium">Quotas and Limits</span>
                   <p className="mt-2">
                     Nucleate may establish usage quotas and limits that govern
                     your usage of the platform, including but not limited to
@@ -188,10 +188,10 @@ export default function TermsAndConditionsPage() {
             </div>
 
             <div className="space-y-4">
-              <h2 className="text-2xl md:text-3xl font-medium text-white">
+              <h2 className="text-2xl md:text-3xl font-medium text-foreground">
                 C. Content on Nucleate
               </h2>
-              <p className="text-[#8A8F98]">
+              <p className="text-muted-foreground">
                 Summary: You affirm you own the rights to the content you post
                 to Nucleate. You give us permission to host your content, make
                 your content available to others, and to use it to improve our
@@ -200,9 +200,9 @@ export default function TermsAndConditionsPage() {
                 limitations.
               </p>
 
-              <ol className="list-decimal pl-6 space-y-4 text-[#8A8F98]">
+              <ol className="list-decimal pl-6 space-y-4 text-muted-foreground">
                 <li>
-                  <span className="text-white">Your Content and Ownership</span>
+                  <span className="text-foreground font-medium">Your Content and Ownership</span>
                   <p className="mt-2">
                     When you submit content to the Service, you affirm that you
                     hold all of the rights to the content or have obtained all
@@ -220,7 +220,7 @@ export default function TermsAndConditionsPage() {
                   </p>
                 </li>
                 <li>
-                  <span className="text-white">Public Apps</span>
+                  <span className="text-foreground font-medium">Public Apps</span>
                   <p className="mt-2">
                     Content you publish as a public App is automatically made
                     subject to the MIT License, which allows others to view,
@@ -241,7 +241,7 @@ export default function TermsAndConditionsPage() {
                   </p>
                 </li>
                 <li>
-                  <span className="text-white">Private Apps</span>
+                  <span className="text-foreground font-medium">Private Apps</span>
                   <p className="mt-2">
                     Content in private Apps is not made available to the public.
                     You may apply specific licensing terms to your code in a
@@ -254,7 +254,7 @@ export default function TermsAndConditionsPage() {
                   </p>
                 </li>
                 <li>
-                  <span className="text-white">Third Party Content</span>
+                  <span className="text-foreground font-medium">Third Party Content</span>
                   <p className="mt-2">
                     Content on the Service originates from various sources and
                     is made accessible for your use on the Service only. You
@@ -265,7 +265,7 @@ export default function TermsAndConditionsPage() {
                   </p>
                 </li>
                 <li>
-                  <span className="text-white">Nucleate Ownership</span>
+                  <span className="text-foreground font-medium">Nucleate Ownership</span>
                   <p className="mt-2">
                     Nucleate owns and retains all right, title, and interest in
                     and to the Service and related software, all improvements,
@@ -280,7 +280,7 @@ export default function TermsAndConditionsPage() {
                   </p>
                 </li>
                 <li>
-                  <span className="text-white">
+                  <span className="text-foreground font-medium">
                     Data Protection and Privacy
                   </span>
                   <p className="mt-2">
@@ -296,7 +296,7 @@ export default function TermsAndConditionsPage() {
                   </p>
                 </li>
                 <li>
-                  <span className="text-white">Copyright Violations</span>
+                  <span className="text-foreground font-medium">Copyright Violations</span>
                   <p className="mt-2">
                     Nucleate takes copyright infringement seriously. If you
                     believe that your copyright has been violated on the
@@ -310,19 +310,19 @@ export default function TermsAndConditionsPage() {
             </div>
 
             <div className="space-y-4">
-              <h2 className="text-2xl md:text-3xl font-medium text-white">
+              <h2 className="text-2xl md:text-3xl font-medium text-foreground">
                 D. Purchases
               </h2>
-              <p className="text-[#8A8F98]">
+              <p className="text-muted-foreground">
                 Summary: You are responsible to pay for any purchases, recurring
                 subscription fees, and usage fees that you incur on the Service.
                 We reserve the right to refuse or cancel purchases in cases of
                 error or fraud.
               </p>
 
-              <ol className="list-decimal pl-6 space-y-4 text-[#8A8F98]">
+              <ol className="list-decimal pl-6 space-y-4 text-muted-foreground">
                 <li>
-                  <span className="text-white">Subscription Services</span>
+                  <span className="text-foreground font-medium">Subscription Services</span>
                   <p className="mt-2">
                     You may acquire subscription services from Nucleate to add
                     additional features to your account. Your subscription will
@@ -332,7 +332,7 @@ export default function TermsAndConditionsPage() {
                   </p>
                 </li>
                 <li>
-                  <span className="text-white">Pricing and Usage Fees</span>
+                  <span className="text-foreground font-medium">Pricing and Usage Fees</span>
                   <p className="mt-2">
                     For details of current pricing, consult our pricing page,
                     which may be updated from time to time.
@@ -347,7 +347,7 @@ export default function TermsAndConditionsPage() {
                   </p>
                 </li>
                 <li>
-                  <span className="text-white">Refunds</span>
+                  <span className="text-foreground font-medium">Refunds</span>
                   <p className="mt-2">
                     We allow for full refunds for subscription payments made
                     within 30 days of purchase. However, Usage-Based Billing
@@ -360,7 +360,7 @@ export default function TermsAndConditionsPage() {
                   </p>
                 </li>
                 <li>
-                  <span className="text-white">Extensions</span>
+                  <span className="text-foreground font-medium">Extensions</span>
                   <p className="mt-2">
                     The Extensions Store enables you to access Apps to work with
                     and extend the capabilities of your workspace and individual
@@ -375,7 +375,7 @@ export default function TermsAndConditionsPage() {
                   </p>
                 </li>
                 <li>
-                  <span className="text-white">Purchase of Cycles</span>
+                  <span className="text-foreground font-medium">Purchase of Cycles</span>
                   <p className="mt-2">
                     Nucleate provides the option to acquire Cycles, a virtual
                     token for accessing features on the Service. Cycles have no
@@ -388,19 +388,19 @@ export default function TermsAndConditionsPage() {
             </div>
 
             <div className="space-y-4">
-              <h2 className="text-2xl md:text-3xl font-medium text-white">
+              <h2 className="text-2xl md:text-3xl font-medium text-foreground">
                 E. Notices, Changes, and Termination
               </h2>
-              <p className="text-[#8A8F98]">
+              <p className="text-muted-foreground">
                 Summary: We may make changes to these terms and conditions at
                 any time. If you provide an email address, we may use it to
                 contact you with service announcements. Your account may be
                 terminated at our sole discretion.
               </p>
 
-              <ol className="list-decimal pl-6 space-y-4 text-[#8A8F98]">
+              <ol className="list-decimal pl-6 space-y-4 text-muted-foreground">
                 <li>
-                  <span className="text-white">
+                  <span className="text-foreground font-medium">
                     Modification of Terms and Conditions
                   </span>
                   <p className="mt-2">
@@ -413,7 +413,7 @@ export default function TermsAndConditionsPage() {
                   </p>
                 </li>
                 <li>
-                  <span className="text-white">Service Announcements</span>
+                  <span className="text-foreground font-medium">Service Announcements</span>
                   <p className="mt-2">
                     You consent to receiving Service announcements and updates
                     from Nucleate via email or from within the Service. These
@@ -425,7 +425,7 @@ export default function TermsAndConditionsPage() {
                   </p>
                 </li>
                 <li>
-                  <span className="text-white">Account Termination</span>
+                  <span className="text-foreground font-medium">Account Termination</span>
                   <p className="mt-2">
                     Upon termination, your right to use the Service will cease
                     immediately. If you wish to delete your account, you may
@@ -445,7 +445,7 @@ export default function TermsAndConditionsPage() {
                   </p>
                 </li>
                 <li>
-                  <span className="text-white">Survival</span>
+                  <span className="text-foreground font-medium">Survival</span>
                   <p className="mt-2">
                     All provisions of these Terms which by their nature should
                     survive termination shall survive termination, including,
@@ -454,7 +454,7 @@ export default function TermsAndConditionsPage() {
                   </p>
                 </li>
                 <li>
-                  <span className="text-white">
+                  <span className="text-foreground font-medium">
                     Deprecation of Service Features
                   </span>
                   <p className="mt-2">
@@ -467,10 +467,10 @@ export default function TermsAndConditionsPage() {
             </div>
 
             <div className="space-y-4">
-              <h2 className="text-2xl md:text-3xl font-medium text-white">
+              <h2 className="text-2xl md:text-3xl font-medium text-foreground">
                 F. Limitations and Disclaimers
               </h2>
-              <p className="text-[#8A8F98]">
+              <p className="text-muted-foreground">
                 Summary: The Service may contain errors, inaccuracies, or
                 omissions, which we may correct at any time. As you use the
                 Service at your own risk, we do not accept responsibility for
@@ -478,9 +478,9 @@ export default function TermsAndConditionsPage() {
                 from your use of the Service.
               </p>
 
-              <ol className="list-decimal pl-6 space-y-4 text-[#8A8F98]">
+              <ol className="list-decimal pl-6 space-y-4 text-muted-foreground">
                 <li>
-                  <span className="text-white">Content Accuracy</span>
+                  <span className="text-foreground font-medium">Content Accuracy</span>
                   <p className="mt-2">
                     The Service may contain errors, inaccuracies, or omissions
                     in the content provided. Code generated or suggested by our
@@ -492,7 +492,7 @@ export default function TermsAndConditionsPage() {
                   </p>
                 </li>
                 <li>
-                  <span className="text-white">Use at Your Own Risk</span>
+                  <span className="text-foreground font-medium">Use at Your Own Risk</span>
                   <p className="mt-2">
                     Your use of Nucleate is entirely at your own risk. Nucleate
                     disclaims any responsibility for any loss or damage that may
@@ -502,7 +502,7 @@ export default function TermsAndConditionsPage() {
                   </p>
                 </li>
                 <li>
-                  <span className="text-white">Disclaimer of Warranties</span>
+                  <span className="text-foreground font-medium">Disclaimer of Warranties</span>
                   <p className="mt-2">
                     Your use of the Service is at your sole risk. The Service is
                     provided on an &quot;AS IS&quot; and &quot;AS
@@ -526,7 +526,7 @@ export default function TermsAndConditionsPage() {
                   </p>
                 </li>
                 <li>
-                  <span className="text-white">Limitation of Liability</span>
+                  <span className="text-foreground font-medium">Limitation of Liability</span>
                   <p className="mt-2">
                     To the maximum extent permitted by law, Nucleate will not be
                     liable for any direct, indirect, incidental, special,
@@ -565,7 +565,7 @@ export default function TermsAndConditionsPage() {
                   </p>
                 </li>
                 <li>
-                  <span className="text-white">Indemnification</span>
+                  <span className="text-foreground font-medium">Indemnification</span>
                   <p className="mt-2">
                     You are responsible for any claims against Nucleate
                     regarding your use of the Service. By using the Service, you
@@ -580,13 +580,13 @@ export default function TermsAndConditionsPage() {
             </div>
 
             <div className="space-y-4">
-              <h2 className="text-2xl md:text-3xl font-medium text-white">
+              <h2 className="text-2xl md:text-3xl font-medium text-foreground">
                 G. General Terms
               </h2>
 
-              <ol className="list-decimal pl-6 space-y-4 text-[#8A8F98]">
+              <ol className="list-decimal pl-6 space-y-4 text-muted-foreground">
                 <li>
-                  <span className="text-white">Feedback and Suggestions</span>
+                  <span className="text-foreground font-medium">Feedback and Suggestions</span>
                   <p className="mt-2">
                     Any feedback, comments, ideas, improvements, or suggestions
                     (collectively, &quot;Suggestions&quot;) provided by you to
@@ -598,7 +598,7 @@ export default function TermsAndConditionsPage() {
                   </p>
                 </li>
                 <li>
-                  <span className="text-white">Jurisdiction</span>
+                  <span className="text-foreground font-medium">Jurisdiction</span>
                   <p className="mt-2">
                     These Terms are governed by the laws of the State of
                     California. Any disputes under this agreement will be
@@ -610,7 +610,7 @@ export default function TermsAndConditionsPage() {
                   </p>
                 </li>
                 <li>
-                  <span className="text-white">Entire Agreement</span>
+                  <span className="text-foreground font-medium">Entire Agreement</span>
                   <p className="mt-2">
                     These Terms are the parties&apos; entire agreement regarding
                     its subject matter and supersede any prior or
@@ -618,7 +618,7 @@ export default function TermsAndConditionsPage() {
                   </p>
                 </li>
                 <li>
-                  <span className="text-white">Severability</span>
+                  <span className="text-foreground font-medium">Severability</span>
                   <p className="mt-2">
                     If any provision of these Terms are found by a court of
                     competent jurisdiction to be illegal, invalid, or
@@ -632,7 +632,7 @@ export default function TermsAndConditionsPage() {
                   </p>
                 </li>
                 <li>
-                  <span className="text-white">Assignment of Rights</span>
+                  <span className="text-foreground font-medium">Assignment of Rights</span>
                   <p className="mt-2">
                     Nucleate reserves the right to assign its rights to another
                     party at its discretion. However, you may not assign or
@@ -641,7 +641,7 @@ export default function TermsAndConditionsPage() {
                   </p>
                 </li>
                 <li>
-                  <span className="text-white">Google APIs</span>
+                  <span className="text-foreground font-medium">Google APIs</span>
                   <p className="mt-2">
                     Nucleate&apos;s use and transfer of information received
                     from Google APIs to any other app is subject to

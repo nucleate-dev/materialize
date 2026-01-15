@@ -13,8 +13,9 @@ import {
 } from "@/lib/types/ChatTypes";
 import { normalizePrototypeVisibility } from "@/lib/types/prototypes";
 import { Database } from "@/lib/types/supabase";
-import { clearChatIntent, getChatIntent } from "@/lib/utils/chatIntentUtils";
 import { getAuthMode, setAuthMode as setAuthModeToStorage, type AuthMode } from "@/lib/utils/authModeUtils";
+import { clearChatIntent, getChatIntent } from "@/lib/utils/chatIntentUtils";
+import { useFeatureFlagEnabled } from "posthog-js/react";
 import type React from "react";
 import {
   forwardRef,
@@ -25,7 +26,6 @@ import {
   useRef,
   useState,
 } from "react";
-import { useFeatureFlagEnabled } from "posthog-js/react";
 import ClaudeCodePanelUI from "./ClaudeCodePanelUI";
 
 type Prototype = Database["public"]["Tables"]["prototypes"]["Row"];
@@ -55,7 +55,7 @@ interface ClaudeCodePanelProps {
   onPrototypeUpdate?: (updatedPrototype: Prototype) => void;
   currentRenderStatus?: RenderStatus;
   currentViewingPath?: string;
-  visibleScreens?: Array<{ id: number; path: string }>;
+  visibleScreens?: Array<{ id: number; path: string; }>;
   previewMode?: "mobile" | "web";
   onScreenUpdate?: (data: ScreenUpdateData) => void;
   fileSystem?: UseFileSystemReturn;
@@ -78,14 +78,14 @@ interface ClaudeCodePanelProps {
 export interface Message {
   id: string;
   type:
-    | "user"
-    | "assistant"
-    | "system"
-    | "error"
-    | "tool"
-    | "thinking"
-    | "usage"
-    | "design_spec";
+  | "user"
+  | "assistant"
+  | "system"
+  | "error"
+  | "tool"
+  | "thinking"
+  | "usage"
+  | "design_spec";
   content: string;
   timestamp: number;
   toolName?: string;
@@ -1356,7 +1356,7 @@ const ClaudeCodePanel = forwardRef<ClaudeCodePanelRef, ClaudeCodePanelProps>(({
       }
 
       default: {
-        const unknownMessage = message as { type: string };
+        const unknownMessage = message as { type: string; };
         logger.debug("log", "Unknown message type", {
           messageType: unknownMessage.type,
         });
@@ -1984,7 +1984,7 @@ const ClaudeCodePanel = forwardRef<ClaudeCodePanelRef, ClaudeCodePanelProps>(({
       const content: Array<{
         type: string;
         text?: string;
-        source?: { type: string; url: string };
+        source?: { type: string; url: string; };
       }> = [];
 
       // Add text if present
@@ -2288,13 +2288,6 @@ const ClaudeCodePanel = forwardRef<ClaudeCodePanelRef, ClaudeCodePanelProps>(({
       prototypeId={prototypeId}
       prototypeTitle={prototypeTitle}
       visibilityLabel={visibilityLabel}
-      createdAtLabel={createdAtLabel}
-      canEditName={canEditName}
-      isEditingTitle={isEditingTitle}
-      editedTitle={editedTitle}
-      isUpdatingTitle={isUpdatingTitle}
-      showSettingsModal={showSettingsModal}
-      setShowSettingsModal={setShowSettingsModal}
       allChatSessions={allChatSessions}
       prototypeChatSessionId={prototypeChatSessionId}
       isConnected={isConnected}
@@ -2320,10 +2313,6 @@ const ClaudeCodePanel = forwardRef<ClaudeCodePanelRef, ClaudeCodePanelProps>(({
       scrollAreaRef={scrollAreaRef}
       fileInputRef={fileInputRef}
       textareaRef={textareaRef}
-      handleStartTitleEdit={handleStartTitleEdit}
-      handleCancelTitleEdit={handleCancelTitleEdit}
-      handleSaveTitle={handleSaveTitle}
-      setEditedTitle={setEditedTitle}
       switchChatSession={switchChatSession}
       createNewChatSession={createNewChatSession}
       connect={connect}
