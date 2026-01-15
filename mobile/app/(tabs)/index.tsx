@@ -1,12 +1,12 @@
-import { useState } from 'react';
-import { View, StyleSheet, FlatList, RefreshControl, Pressable, Image } from 'react-native';
+import { useState, useMemo } from 'react';
+import { View, StyleSheet, FlatList, RefreshControl, Pressable, Image, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { useTheme } from '../../lib/ThemeContext';
 import { Heading, BodyText, Card, PressableCard, Button, Label, Caption } from '../../components/ui';
-import { spacing, borderRadius } from '../../lib/theme';
+import { spacing, borderRadius, typography } from '../../lib/theme';
 import { usePrototypes, getScreenshotUrl, type Prototype } from '../../hooks/usePrototypes';
-import { useTeamStore, useActiveTeam, useTeams } from '../../stores/teamStore';
+import { useTeamStore, useActiveTeam, useTeams, Team } from '../../stores/teamStore';
 import { formatDistanceToNow } from '../../lib/utils/dateUtils';
 
 export default function ProjectsScreen() {
@@ -14,8 +14,20 @@ export default function ProjectsScreen() {
   const activeTeam = useActiveTeam();
   const teams = useTeams();
   const setActiveTeam = useTeamStore((state) => state.setActiveTeam);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const { data: prototypes, isLoading, refetch, isRefetching } = usePrototypes();
+
+  // Filter prototypes based on search query
+  const filteredPrototypes = useMemo(() => {
+    if (!searchQuery.trim()) return prototypes;
+    const query = searchQuery.toLowerCase();
+    return prototypes?.filter(
+      (p) =>
+        p.name.toLowerCase().includes(query) ||
+        p.description?.toLowerCase().includes(query)
+    );
+  }, [prototypes, searchQuery]);
 
   const handleProjectPress = (prototype: Prototype) => {
     router.push(`/project/${prototype.id}`);
@@ -104,6 +116,30 @@ export default function ProjectsScreen() {
       <BodyText muted>
         {activeTeam?.personal_owner_user_id ? 'Your personal projects' : activeTeam?.name}
       </BodyText>
+
+      {/* Search Bar */}
+      <View
+        style={[
+          styles.searchContainer,
+          { backgroundColor: theme.colors.card, borderColor: theme.colors.border },
+        ]}
+      >
+        <BodyText muted>🔍</BodyText>
+        <TextInput
+          style={[styles.searchInput, { color: theme.colors.foreground }]}
+          placeholder="Search projects..."
+          placeholderTextColor={theme.colors.mutedForeground}
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          autoCapitalize="none"
+          autoCorrect={false}
+        />
+        {searchQuery.length > 0 && (
+          <Pressable onPress={() => setSearchQuery('')} hitSlop={8}>
+            <BodyText muted>✕</BodyText>
+          </Pressable>
+        )}
+      </View>
     </View>
   );
 
@@ -113,7 +149,7 @@ export default function ProjectsScreen() {
       edges={['bottom']}
     >
       <FlatList
-        data={prototypes}
+        data={filteredPrototypes}
         renderItem={renderProjectCard}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.listContent}
@@ -134,8 +170,6 @@ export default function ProjectsScreen() {
 }
 
 // Team Switcher Component
-import { Team } from '../../stores/teamStore';
-
 interface TeamSwitcherProps {
   teams: Team[];
   activeTeam: Team | null;
