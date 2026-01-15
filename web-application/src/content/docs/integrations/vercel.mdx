@@ -1,0 +1,97 @@
+---
+title: Vercel Integration
+description: Deploy your Nucleate projects to Vercel with one click
+section: integrations
+order: 1
+---
+
+# Vercel Integration
+
+Deploy your Nucleate web projects to Vercel for production hosting with automatic deployments from your GitHub repository.
+
+## Prerequisites
+
+Before using the Vercel integration, you need:
+
+1. **GitHub Connected** - Your team must have GitHub connected in Team Settings
+2. **GitHub Repository** - Your project must have a GitHub repository created
+3. **Vercel Connected** - Your team must have Vercel connected in Team Settings
+
+## Connecting Vercel
+
+1. Go to **Dashboard → Team Settings → Integrations**
+2. Click **Connect Vercel**
+3. Authorize Nucleate to access your Vercel account
+4. Select the Vercel team/account to use (or personal account)
+
+## Creating a Vercel Project
+
+Once Vercel is connected:
+
+1. Open your project in the Nucleate editor
+2. Click the **Settings** icon in the toolbar
+3. Go to the **Vercel** tab
+4. Click **Create Vercel Project**
+
+This creates a new Vercel project linked to your GitHub repository.
+
+## Deploying to Vercel
+
+After creating a Vercel project:
+
+1. Make sure your code is committed to GitHub
+2. Go to **Settings → Vercel** tab
+3. Click **Deploy to Vercel**
+
+Each deployment:
+- Creates a new immutable deployment
+- Automatically promotes successful deployments to production
+- Previous deployments remain accessible at their preview URLs
+
+## Deployment Status
+
+Track your deployments in the Vercel tab:
+
+| Status | Description |
+|--------|-------------|
+| Queued | Deployment is waiting to start |
+| Building | Vercel is building your project |
+| Ready | Deployment completed successfully |
+| Error | Deployment failed - check Vercel dashboard for details |
+| Canceled | Deployment was canceled |
+
+## Redeployment
+
+To deploy again after making changes:
+
+1. Commit your changes to GitHub (via the GitHub tab)
+2. Click **Deploy to Vercel** again
+
+Each deploy creates a new deployment - there's no "update" action needed.
+
+## Disconnecting Vercel
+
+To disconnect Vercel from your team:
+
+1. Go to **Dashboard → Team Settings → Integrations**
+2. Click **Disconnect** next to Vercel
+
+This removes the connection but does not delete projects already created on Vercel.
+
+## Troubleshooting
+
+### "GitHub repository required"
+Create a GitHub repository for your project first in the GitHub tab.
+
+### "Vercel not connected"
+Ask a team admin to connect Vercel in Team Settings.
+
+### Deployment fails
+Check the Vercel dashboard for detailed error logs. Common issues:
+- Build command errors
+- Missing environment variables
+- Package installation failures
+
+## Supported Frameworks
+
+The Vercel integration works with Next.js projects created in Nucleate. Vercel automatically detects the framework and applies optimal build settings.

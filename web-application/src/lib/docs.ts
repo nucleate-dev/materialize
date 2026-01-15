@@ -33,8 +33,9 @@ export const SECTION_CONFIG: Record<string, { title: string; order: number }> =
     "build-with-ai": { title: "Build with AI", order: 2 },
     guides: { title: "Guides", order: 3 },
     deploy: { title: "Deploy", order: 4 },
-    troubleshooting: { title: "Troubleshooting", order: 5 },
-    reference: { title: "Reference", order: 6 },
+    integrations: { title: "Integrations", order: 5 },
+    troubleshooting: { title: "Troubleshooting", order: 6 },
+    reference: { title: "Reference", order: 7 },
   };
 
 export function getAllDocs(): DocPage[] {

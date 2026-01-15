@@ -20,6 +20,7 @@ import { CleanupService } from "./services/cleanup/CleanupService.js";
 import { DevelopmentServerService } from "./services/DevelopmentServerService.js";
 import { DispatcherService } from "./services/dispatcher/DispatcherService.js";
 import { GitHubIntegrationService } from "./services/github-integration/GitHubIntegrationService.js";
+import { VercelIntegrationService } from "./services/vercel-integration/VercelIntegrationService.js";
 import { IdleContainerAllocationSystemService } from "./services/idle-container-allocation-system/IdleContainerAllocationSystemService.js";
 import { LLMService } from "./services/llm/LLMService.js";
 import { OrchestrationService } from "./services/orchestration/OrchestrationService.js";
@@ -167,6 +168,7 @@ let prototypeManagementService: PrototypeManagementService;
 let developmentServerService: DevelopmentServerService;
 let orchestrationService: OrchestrationService;
 let githubIntegrationService: GitHubIntegrationService;
+let vercelIntegrationService: VercelIntegrationService;
 let internalToolsService: InternalCacheManagementService;
 let internalDevServerManagementService: InternalControlPlaneDevelopmentService;
 let internalProductionDeploymentService: InternalProductionDeploymentService;
@@ -217,7 +219,7 @@ const start = async (): Promise<void> => {
       global: false, // only for routes that set config.rawBody = true
       encoding: "utf8",
       runFirst: true, // run before other preParsing hooks
-      routes: ["/github/webhooks"],
+      routes: ["/github/webhooks", "/vercel/webhooks"],
     });
 
     // Create cleanup service with cache and ECS client
@@ -271,6 +273,10 @@ const start = async (): Promise<void> => {
     // Create GitHub integration service and register routes
     githubIntegrationService = new GitHubIntegrationService();
     githubIntegrationService.registerRoutes(fastify);
+
+    // Create Vercel integration service and register routes
+    vercelIntegrationService = new VercelIntegrationService();
+    vercelIntegrationService.registerRoutes(fastify);
 
     // Create internal tools service and register routes
     internalToolsService = new InternalCacheManagementService(cacheClient);

@@ -74,7 +74,7 @@ interface NewEnvVarInput {
   visibility: "client" | "backend";
 }
 
-export type ProjectSettingsTab = "details" | "deploy" | "share" | "environment" | "github";
+export type ProjectSettingsTab = "details" | "deploy" | "share" | "environment" | "github" | "vercel";
 
 interface ProjectSettingsModalProps {
   open: boolean;
@@ -105,6 +105,25 @@ interface ProjectSettingsModalProps {
   githubRepository?: { html_url: string | null; loading: boolean };
   onCreateGitHubRepository?: () => void;
   canManageGithub?: boolean;
+  // Vercel integration
+  isVercelIntegrationEnabled?: boolean;
+  vercelIntegration?: { connected: boolean; loading: boolean };
+  vercelProject?: {
+    vercel_project_id: string | null;
+    vercel_project_name: string | null;
+    production_url: string | null;
+    loading: boolean;
+  };
+  vercelDeployments?: Array<{
+    id: string;
+    url: string | null;
+    status: "queued" | "building" | "ready" | "error" | "canceled";
+    git_ref: string | null;
+    created_at: string;
+  }>;
+  onCreateVercelProject?: () => void;
+  onDeployToVercel?: () => void;
+  canManageVercel?: boolean;
   // For details section
   visibilityLabel?: string;
   createdAtLabel?: string | null;
@@ -142,6 +161,13 @@ export function ProjectSettingsModal({
   githubRepository,
   onCreateGitHubRepository,
   canManageGithub = false,
+  isVercelIntegrationEnabled = false,
+  vercelIntegration,
+  vercelProject,
+  vercelDeployments,
+  onCreateVercelProject,
+  onDeployToVercel,
+  canManageVercel = false,
   visibilityLabel,
   createdAtLabel,
 }: ProjectSettingsModalProps) {
@@ -1030,6 +1056,20 @@ export function ProjectSettingsModal({
                 <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z" />
               </svg>
               <span>GitHub</span>
+            </TabsTrigger>
+            <TabsTrigger
+              value="vercel"
+              className="w-full justify-start gap-3 px-3 py-2.5 data-[state=active]:bg-background"
+              disabled={!isVercelIntegrationEnabled || !githubRepository?.html_url}
+            >
+              <svg
+                className="w-4 h-4 flex-shrink-0"
+                viewBox="0 0 24 24"
+                fill="currentColor"
+              >
+                <path d="M24 22.525H0l12-21.05 12 21.05z" />
+              </svg>
+              <span>Vercel</span>
             </TabsTrigger>
           </TabsList>
 
@@ -1966,6 +2006,195 @@ export function ProjectSettingsModal({
                         <Plus className="w-4 h-4 mr-2" />
                       )}
                       Create Repository
+                    </Button>
+                  )}
+                </div>
+              )}
+            </TabsContent>
+
+            {/* Vercel Integration Tab */}
+            <TabsContent value="vercel" className="mt-0 space-y-4">
+              {!githubRepository?.html_url ? (
+                <div className="space-y-4">
+                  <div className="flex items-start gap-3 p-4 bg-warning/10 border border-warning/30 rounded-lg">
+                    <AlertTriangle className="w-5 h-5 text-warning mt-0.5 flex-shrink-0" />
+                    <div>
+                      <p className="text-sm font-medium text-foreground">
+                        GitHub repository required
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Create a GitHub repository first to enable Vercel deployment.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ) : !isVercelIntegrationEnabled ? (
+                <div className="text-center py-8">
+                  <svg
+                    className="w-12 h-12 mx-auto text-muted-foreground mb-4"
+                    viewBox="0 0 24 24"
+                    fill="currentColor"
+                  >
+                    <path d="M24 22.525H0l12-21.05 12 21.05z" />
+                  </svg>
+                  <p className="text-sm text-muted-foreground">
+                    Vercel integration is not enabled
+                  </p>
+                </div>
+              ) : vercelIntegration?.loading || vercelProject?.loading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                </div>
+              ) : !vercelIntegration?.connected ? (
+                <div className="space-y-4">
+                  <div className="flex items-start gap-3 p-4 bg-warning/10 border border-warning/30 rounded-lg">
+                    <AlertTriangle className="w-5 h-5 text-warning mt-0.5 flex-shrink-0" />
+                    <div>
+                      <p className="text-sm font-medium text-foreground">
+                        Vercel not connected
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {canManageVercel
+                          ? "Connect Vercel to your team to enable deployment features."
+                          : "Ask a team admin to connect Vercel to enable deployment features."}
+                      </p>
+                    </div>
+                  </div>
+                  {canManageVercel && (
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        window.open("/dashboard/settings?tab=vercel", "_blank");
+                      }}
+                      className="w-full"
+                    >
+                      <ExternalLink className="w-4 h-4 mr-2" />
+                      Go to Team Settings
+                    </Button>
+                  )}
+                </div>
+              ) : vercelProject?.vercel_project_id ? (
+                <div className="space-y-4">
+                  <div className="flex items-start gap-3 p-4 bg-success/10 border border-success/30 rounded-lg">
+                    <Check className="w-5 h-5 text-success mt-0.5 flex-shrink-0" />
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-foreground">
+                        Vercel Project Connected
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {vercelProject.vercel_project_name}
+                      </p>
+                    </div>
+                  </div>
+
+                  {vercelProject.production_url && (
+                    <Button
+                      variant="outline"
+                      onClick={() =>
+                        window.open(
+                          vercelProject.production_url!,
+                          "_blank",
+                          "noopener,noreferrer",
+                        )
+                      }
+                      className="w-full"
+                    >
+                      <Globe className="w-4 h-4 mr-2" />
+                      View Production Site
+                      <ExternalLink className="w-3.5 h-3.5 ml-auto" />
+                    </Button>
+                  )}
+
+                  {canManageVercel && (
+                    <Button
+                      onClick={onDeployToVercel}
+                      disabled={vercelProject?.loading}
+                      className="w-full bg-foreground text-background hover:bg-foreground/90"
+                    >
+                      {vercelProject?.loading ? (
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      ) : (
+                        <Rocket className="w-4 h-4 mr-2" />
+                      )}
+                      Deploy to Vercel
+                    </Button>
+                  )}
+
+                  {/* Deployment History */}
+                  {vercelDeployments && vercelDeployments.length > 0 && (
+                    <div className="space-y-3 pt-4 border-t border-border">
+                      <p className="text-sm font-medium text-muted-foreground">Recent Deployments</p>
+                      <div className="space-y-2">
+                        {vercelDeployments.slice(0, 5).map((deployment) => (
+                          <div
+                            key={deployment.id}
+                            className="flex items-center justify-between p-3 bg-accent/50 rounded-lg"
+                          >
+                            <div className="flex items-center gap-3">
+                              {deployment.status === "ready" ? (
+                                <Check className="w-4 h-4 text-success" />
+                              ) : deployment.status === "building" || deployment.status === "queued" ? (
+                                <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                              ) : (
+                                <AlertTriangle className="w-4 h-4 text-destructive" />
+                              )}
+                              <div>
+                                <p className="text-sm font-mono">
+                                  {deployment.git_ref || "main"}
+                                </p>
+                                <p className="text-xs text-muted-foreground">
+                                  {new Date(deployment.created_at).toLocaleDateString()}
+                                </p>
+                              </div>
+                            </div>
+                            {deployment.url && deployment.status === "ready" && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() =>
+                                  window.open(deployment.url!, "_blank", "noopener,noreferrer")
+                                }
+                              >
+                                <ExternalLink className="w-3.5 h-3.5" />
+                              </Button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="flex items-start gap-3 p-4 bg-accent border border-border rounded-lg">
+                    <svg
+                      className="w-5 h-5 text-muted-foreground mt-0.5 flex-shrink-0"
+                      viewBox="0 0 24 24"
+                      fill="currentColor"
+                    >
+                      <path d="M24 22.525H0l12-21.05 12 21.05z" />
+                    </svg>
+                    <div>
+                      <p className="text-sm font-medium text-foreground">
+                        No Vercel project yet
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Create a Vercel project to deploy your app to production
+                      </p>
+                    </div>
+                  </div>
+                  {canManageVercel && (
+                    <Button
+                      onClick={onCreateVercelProject}
+                      disabled={vercelProject?.loading}
+                      className="w-full bg-foreground text-background hover:bg-foreground/90"
+                    >
+                      {vercelProject?.loading ? (
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      ) : (
+                        <Plus className="w-4 h-4 mr-2" />
+                      )}
+                      Create Vercel Project
                     </Button>
                   )}
                 </div>
