@@ -106,7 +106,7 @@ export default function PremiumHeader() {
                   }
                   className="px-4 py-2 rounded-full font-medium transition-all duration-300 hover:scale-105 text-sm bg-primary text-primary-foreground"
                 >
-                  Create Account
+                  Register
                 </Link>
               </>
             )}
