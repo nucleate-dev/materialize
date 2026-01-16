@@ -91,7 +91,7 @@ const ThumbnailCard: React.FC<ThumbnailCardProps> = ({
 
   return (
     <div
-      className="group relative flex flex-col gap-3 cursor-pointer select-none"
+      className="group relative flex flex-col gap-3 cursor-pointer select-none active:scale-[0.98] transition-transform"
       onClick={handleEdit}
     >
       {/* --- Thumbnail Area --- */}
@@ -118,41 +118,41 @@ const ThumbnailCard: React.FC<ThumbnailCardProps> = ({
             <div className="absolute inset-0 bg-background/0 transition-colors duration-300 group-hover:bg-background/40" />
           </>
         ) : (
-          <div className="absolute inset-0 bg-gradient-to-br from-foreground/5 to-transparent flex items-center justify-center">
-            <TypeIcon className="w-12 h-12 text-foreground/5 group-hover:text-foreground/10 transition-colors duration-300" />
+          <div className="absolute inset-0 bg-gradient-to-br from-foreground/10 to-transparent flex items-center justify-center">
+            <TypeIcon className="w-12 h-12 text-foreground/20 group-hover:text-foreground/30 transition-colors duration-300" />
           </div>
         )}
 
         {/* Settings Button (Top Right) */}
         {onSettings && (
           <div
-            className="absolute top-2 right-2 z-30 opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+            className="absolute top-2 right-2 z-30 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 transition-opacity duration-200"
             onClick={(e) => {
               e.stopPropagation();
               onSettings();
             }}
           >
-            <div className="p-1.5 rounded-md bg-card/50 backdrop-blur-md text-foreground/70 hover:text-foreground hover:bg-card/70 border border-border transition-all">
+            <button className="p-1.5 rounded-md bg-card/80 backdrop-blur-md text-foreground/80 hover:text-foreground hover:bg-card active:bg-card/90 border border-border transition-all">
               <MoreHorizontal className="w-4 h-4" />
-            </div>
+            </button>
           </div>
         )}
 
         {/* --- Interaction Overlay (Bottom) --- */}
-        <div className="absolute inset-0 flex items-end justify-center p-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-20 pointer-events-none">
+        <div className="absolute inset-0 flex items-end justify-center p-4 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 transition-opacity duration-300 z-20 pointer-events-none">
           <div className="flex items-center gap-2 w-full pointer-events-auto">
             {/* View Button */}
             {onView && (
               <Button
                 variant="ghost"
                 size="sm"
-                className="flex-1 h-8 bg-muted/80 hover:bg-muted text-foreground backdrop-blur-md border border-border rounded-lg text-xs font-medium transition-all transform translate-y-2 group-hover:translate-y-0 duration-300"
+                className="flex-1 h-8 bg-muted/90 hover:bg-muted active:bg-muted/70 text-foreground backdrop-blur-md border border-border rounded-lg text-xs font-medium transition-all transform translate-y-0 sm:translate-y-2 sm:group-hover:translate-y-0 duration-300"
                 onClick={(e) => {
                   e.stopPropagation();
                   onView();
                 }}
               >
-                <Eye className="w-3.5 h-3.5 mr-2 opacity-70" />
+                <Eye className="w-3.5 h-3.5 mr-2" />
                 View
               </Button>
             )}
@@ -162,9 +162,9 @@ const ThumbnailCard: React.FC<ThumbnailCardProps> = ({
               <Button
                 size="sm"
                 className={cn(
-                  "flex-1 h-8 text-xs font-medium rounded-lg shadow-lg transition-all transform translate-y-2 group-hover:translate-y-0 duration-300 delay-75",
+                  "flex-1 h-8 text-xs font-medium rounded-lg shadow-lg transition-all transform translate-y-0 sm:translate-y-2 sm:group-hover:translate-y-0 duration-300 delay-75",
                   // Primary style
-                  "bg-primary text-primary-foreground hover:bg-primary/90 border-0",
+                  "bg-primary text-primary-foreground hover:bg-primary/90 active:bg-primary/80 border-0",
                 )}
                 onClick={(e) => {
                   e.stopPropagation();
@@ -188,19 +188,19 @@ const ThumbnailCard: React.FC<ThumbnailCardProps> = ({
           {/* Type Indicator (Pill) */}
           <div
             className={cn(
-              "flex items-center gap-1.5 px-1.5 py-0.5 rounded text-[10px] font-medium bg-muted border border-border",
+              "flex items-center gap-1.5 px-1.5 py-0.5 rounded text-[11px] font-medium bg-muted border border-border",
               typeColor,
             )}
           >
-            <TypeIcon className="w-4 h-4" />
+            <TypeIcon className="w-3.5 h-3.5" />
             <span className="hidden xs:inline">{typeLabel}</span>
           </div>
         </div>
 
         {/* Metadata */}
         {lastModified && (
-          <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
-            <Calendar className="w-3 h-3 opacity-50" />
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <Calendar className="w-3 h-3 opacity-70" />
             <span>{lastModified}</span>
           </div>
         )}

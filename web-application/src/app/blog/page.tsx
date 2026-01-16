@@ -5,13 +5,13 @@ import Blog from "./Blog";
 export const metadata: Metadata = {
   title: "Blog | Nucleate",
   description:
-    "Latest insights, tutorials, and updates from the Nucleate team on React Native development, AI-powered prototyping, and mobile app design.",
+    "Latest insights, tutorials, and updates from the Nucleate team on design engineering, product engineering, and rapid prototyping.",
   keywords: [
-    "React Native",
-    "Mobile Development",
+    "Design Engineering",
+    "Product Engineering",
     "Prototyping",
     "AI",
-    "App Design",
+    "UI/UX",
     "Blog",
   ],
   openGraph: {

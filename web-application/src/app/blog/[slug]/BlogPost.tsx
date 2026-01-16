@@ -144,8 +144,8 @@ export default function BlogPost({ post }: BlogPostProps) {
                 Enjoyed this post?
               </h3>
               <p className="text-muted-foreground mb-8 text-lg">
-                Subscribe to get the latest insights on React Native development
-                and AI-powered prototyping.
+                Subscribe to get the latest insights on design engineering and
+                product engineering.
               </p>
               <Link href="/blog">
                 <button className="h-11 px-8 bg-primary text-primary-foreground hover:bg-primary/90 font-medium rounded-full transition-colors">

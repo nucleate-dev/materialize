@@ -305,8 +305,8 @@ export default function Blog({ initialPosts }: BlogProps) {
                   Stay in the loop
                 </h2>
                 <p className="text-muted-foreground mb-8 text-lg">
-                  Get the latest insights on React Native development and
-                  AI-powered prototyping delivered directly to your inbox.
+                  Get the latest insights on design engineering and product
+                  engineering delivered directly to your inbox.
                 </p>
 
                 <div className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto">
