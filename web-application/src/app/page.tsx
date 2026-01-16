@@ -226,7 +226,7 @@ function HeroSection() {
           transition={{ duration: 0.35, delay: 0.1 }}
           className="text-5xl md:text-7xl lg:text-8xl font-medium tracking-tight text-foreground mb-6"
         >
-          AI with an eye for design
+          The AI Design Engineer
         </motion.h1>
 
         <motion.p
@@ -235,7 +235,7 @@ function HeroSection() {
           transition={{ duration: 0.3, delay: 0.2 }}
           className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-12 leading-relaxed"
         >
-          Connect your codebase directly. Nucleate ingests your real styles and components, so every variant is on-brand. Explore quickly, then export real code.
+          Nucleate ingests your codebase's styles and components, so every prototype is on-brand. Explore variants quickly, then export real code.
         </motion.p>
 
         <motion.div
@@ -1582,38 +1582,37 @@ function ShippingSection() {
 
         {/* Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
-            {cards.map((card, index) => (
+          {cards.map((card, index) => (
+            <motion.div
+              key={card.title}
+              initial={{ opacity: 0, y: 40 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, amount: 0.3 }}
+              transition={{ duration: 0.4, delay: index * 0.1 }}
+              className="relative"
+            >
+              {/* Card content */}
               <motion.div
-                key={card.title}
-                initial={{ opacity: 0, y: 40 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, amount: 0.3 }}
-                transition={{ duration: 0.4, delay: index * 0.1 }}
-                className="relative"
-              >
-                {/* Card content */}
-                <motion.div
-                  whileHover={{ y: -5, scale: 1.02 }}
-                  className={`bg-card border rounded-2xl p-6 transition-all duration-300 h-full ${
-                    index === 0 ? "border-primary/20 hover:border-primary/40" :
-                    index === 1 ? "border-emerald-500/20 hover:border-emerald-500/40" :
+                whileHover={{ y: -5, scale: 1.02 }}
+                className={`bg-card border rounded-2xl p-6 transition-all duration-300 h-full ${index === 0 ? "border-primary/20 hover:border-primary/40" :
+                  index === 1 ? "border-emerald-500/20 hover:border-emerald-500/40" :
                     "border-purple-500/20 hover:border-purple-500/40"
                   }`}
-                >
-                  <div className="flex items-center gap-3 mb-4">
-                    <motion.div
-                      animate={{ y: [0, -3, 0] }}
-                      transition={{ duration: 3, repeat: Infinity, ease: "easeInOut", delay: index * 0.5 }}
-                    >
-                      {card.icon}
-                    </motion.div>
-                    <h3 className="text-xl font-bold">{card.title}</h3>
-                  </div>
-                  <p className="text-sm text-muted-foreground mb-4">{card.description}</p>
-                  {card.illustration}
-                </motion.div>
+              >
+                <div className="flex items-center gap-3 mb-4">
+                  <motion.div
+                    animate={{ y: [0, -3, 0] }}
+                    transition={{ duration: 3, repeat: Infinity, ease: "easeInOut", delay: index * 0.5 }}
+                  >
+                    {card.icon}
+                  </motion.div>
+                  <h3 className="text-xl font-bold">{card.title}</h3>
+                </div>
+                <p className="text-sm text-muted-foreground mb-4">{card.description}</p>
+                {card.illustration}
               </motion.div>
-            ))}
+            </motion.div>
+          ))}
         </div>
 
         {/* Bottom CTA strip */}
