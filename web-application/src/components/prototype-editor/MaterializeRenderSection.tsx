@@ -2146,11 +2146,15 @@ const MaterializeRenderSection = forwardRef<
                               <div className="flex items-center gap-1.5">
                                 <div
                                   className={cn(
-                                    "px-3 py-1.5 rounded-full text-xs font-mono transition-all shadow-sm",
+                                    "px-3 py-1.5 rounded-full text-xs font-mono transition-all shadow-sm max-w-[200px] whitespace-nowrap overflow-hidden",
                                     isReadOnlyView
                                       ? "bg-accent/50 border border-border/50 text-muted-foreground/70"
                                       : "bg-accent border border-border text-muted-foreground hover:text-foreground hover:border-border/80 cursor-pointer",
                                   )}
+                                  style={{
+                                    maskImage: "linear-gradient(to right, black 80%, transparent 100%)",
+                                    WebkitMaskImage: "linear-gradient(to right, black 80%, transparent 100%)",
+                                  }}
                                   onClick={
                                     !isReadOnlyView
                                       ? () =>
