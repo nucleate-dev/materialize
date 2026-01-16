@@ -94,7 +94,7 @@ export class PrototypeManagementService {
               prototype_id: { type: "string" }, // For forking
               visibility: {
                 type: "string",
-                enum: ["PUBLIC", "SELF"],
+                enum: ["PUBLIC", "TEAM", "TEAM_SUBSET", "SELF"],
               },
               design_style: {
                 type: "string",

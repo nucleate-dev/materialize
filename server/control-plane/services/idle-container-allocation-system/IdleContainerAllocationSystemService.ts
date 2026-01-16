@@ -33,11 +33,11 @@ import {
 import { Database } from "../../types/supabase.js";
 import { updateBuildTunnelInfo } from "../../utils/cacheInteractionUtils.js";
 import { deleteCloudflareTunnel } from "../../utils/cloudflareTunnelManagementUtils.js";
-import { decrypt } from "../../utils/encryptionUtils.js";
 import {
   createInstallationToken,
   fetchRepositoryById,
 } from "../../utils/githubClient.js";
+import { getValidGitHubUserAccessToken } from "../../utils/githubTokenUtils.js";
 import { IdleCloudflareTunnelSystem } from "./IdleCloudflareTunnelSystem.js";
 
 const MAX_IDLE_FARGATE_BUILDS: number = 1;
@@ -1109,43 +1109,28 @@ export class IdleContainerAllocationSystemService {
           return null;
         }
       } else if (integration.account_type === "User") {
-        const { data: tokenRecord, error: tokenError } = await this
-          .supabaseServiceRoleClient
-          .from("github_integration_tokens")
-          .select("token_encrypted")
-          .eq("team_id", teamId)
-          .maybeSingle();
-
-        if (tokenError) {
-          this.log2.error(
-            tokenError,
-            "Failed to fetch GitHub integration token for repository metadata",
-            { prototypeId, teamId, sourceRepoId },
-          );
-          return null;
-        }
-
-        if (!tokenRecord?.token_encrypted) {
-          this.log2.warn(
-            "GitHub integration token missing for team, skipping repository metadata fetch",
-            { prototypeId, teamId, sourceRepoId },
-          );
-          return null;
-        }
-
         try {
-          githubAccessToken = decrypt(tokenRecord.token_encrypted);
+          const tokenResult = await getValidGitHubUserAccessToken({
+            supabaseClient: this.supabaseServiceRoleClient,
+            teamId,
+            logger: this.log2,
+          });
+          githubAccessToken = tokenResult.accessToken;
           this.log2.consoleLogDevOnly(
             "info",
-            "Successfully decrypted user GitHub token",
-            { prototypeId, teamId },
+            "Acquired valid GitHub OAuth token for user integration",
+            {
+              prototypeId,
+              teamId,
+              refreshed: tokenResult.refreshed,
+            },
           );
-        } catch (decryptError) {
+        } catch (tokenError) {
           this.log2.error(
-            decryptError instanceof Error
-              ? decryptError
-              : new Error(String(decryptError)),
-            "Failed to decrypt GitHub token for repository metadata fetch",
+            tokenError instanceof Error
+              ? tokenError
+              : new Error(String(tokenError)),
+            "Failed to acquire valid GitHub OAuth token for repository metadata fetch",
             { prototypeId, teamId, sourceRepoId },
           );
           return null;

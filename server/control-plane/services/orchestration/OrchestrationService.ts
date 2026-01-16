@@ -22,6 +22,7 @@ import { SystemLogger } from "../../loggers/SystemLogger.js";
 import { isDevServerInShutdownStages } from "../../utils/prototypeDevServerStatusUtils.js";
 import { validateJWTToken } from "../../utils/prototypeAuth.js";
 import { createInstallationToken } from "../../utils/githubClient.js";
+import { getValidGitHubUserAccessToken } from "../../utils/githubTokenUtils.js";
 import type { Database } from "../../types/supabase.js";
 
 export class OrchestrationService {
@@ -540,7 +541,7 @@ export class OrchestrationService {
       const { data: integration, error: integrationError } =
         await supabaseServiceClient
           .from("github_integrations")
-          .select("installation_id")
+          .select("installation_id, account_type")
           .eq("team_id", prototype.team_id)
           .maybeSingle();
 
@@ -557,6 +558,31 @@ export class OrchestrationService {
             message: "GitHub integration not found for this team",
           },
         });
+      }
+
+      if (integration.account_type === "User") {
+        try {
+          await getValidGitHubUserAccessToken({
+            supabaseClient: supabaseServiceClient,
+            teamId: prototype.team_id,
+            logger: this.logger,
+          });
+        } catch (tokenError) {
+          this.logger.error(
+            tokenError instanceof Error
+              ? tokenError
+              : new Error(String(tokenError)),
+            "Failed to refresh GitHub OAuth token before issuing installation token",
+            { prototypeId: prototype_id, teamId: prototype.team_id },
+          );
+          return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
+            data: null,
+            error: {
+              error: "GITHUB_TOKEN_ERROR",
+              message: "Failed to refresh GitHub OAuth token",
+            },
+          });
+        }
       }
 
       // Step 6: Create installation token
