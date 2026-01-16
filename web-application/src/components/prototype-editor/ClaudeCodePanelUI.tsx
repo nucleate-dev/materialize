@@ -774,7 +774,7 @@ export default function ClaudeCodePanelUI({
                   ))}
 
                   {/* Active Thinking Indicator */}
-                  {isProcessing && isConnected && !hasReceivedResponse && (
+                  {isProcessing && isConnected && (
                     <div className="flex items-center gap-2 px-1 py-2">
                       <div className="flex gap-1">
                         <div className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce [animation-delay:-0.3s]"></div>
