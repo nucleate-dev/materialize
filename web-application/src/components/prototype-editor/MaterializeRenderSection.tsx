@@ -465,27 +465,34 @@ const MaterializeRenderSection = forwardRef<
     const [mobileSize, setMobileSize] = useState({ width: 320, height: 640 });
     const [hasManuallyResized, setHasManuallyResized] = useState(false);
 
-    // Calculate responsive mobile size based on viewport height
+    // Calculate responsive mobile size based on viewport height and width
     useEffect(() => {
       const calculateSize = () => {
         if (hasManuallyResized) return;
 
         const vh = window.innerHeight;
-        // The render section has some UI overhead (header, padding, etc)
-        // Adjust this value based on your layout needs
+        const vw = window.innerWidth;
+
+        // UI overhead for header, padding, etc
         const uiOverhead = 120;
         const availableHeight = Math.max(0, vh - uiOverhead);
 
-        // Standard phone ratio is roughly 1:2 (320/640)
+        // Standard phone aspect ratio (width / height)
         const aspectRatio = 320 / 640;
 
-        // Target height: reasonable portion of available height
-        // e.g. 85-90% of available space
-        let newHeight = availableHeight * 0.9;
+        // Calculate size based on available height (use 85% to leave some breathing room)
+        let newHeight = availableHeight * 0.85;
 
-        // Clamp values to keep it usable
-        newHeight = Math.max(640, newHeight); // Minimum reasonable height
-        newHeight = Math.min(1000, newHeight); // Maximum reasonable height
+        // Also consider viewport width to ensure phone fits horizontally
+        // Account for padding/margins (100px total) and phone frame border (16px)
+        const maxHeightBasedOnWidth = (vw - 116) / aspectRatio;
+
+        // Use the smaller of the two constraints
+        newHeight = Math.min(newHeight, maxHeightBasedOnWidth);
+
+        // Clamp to reasonable bounds - much smaller minimum for mobile devices
+        newHeight = Math.max(300, newHeight); // Minimum 300px instead of 640px
+        newHeight = Math.min(1000, newHeight); // Maximum 1000px
 
         const newWidth = newHeight * aspectRatio;
 
