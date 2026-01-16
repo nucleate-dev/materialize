@@ -564,7 +564,7 @@ export class IdleContainerAllocationSystemService {
               },
               {
                 name: "GOOGLE_GENERATIVE_AI_API_KEY",
-                value: process.env.GOOGLE_GENERATIVE_AI_API_KEY!,
+                value: process.env.GOOGLE_AI_API_KEY!,
               },
             ],
           },

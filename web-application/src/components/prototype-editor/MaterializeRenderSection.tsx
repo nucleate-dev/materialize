@@ -1896,6 +1896,14 @@ const MaterializeRenderSection = forwardRef<
               text: "Starting Dev Server.. (~1m)",
               animate: true,
             };
+          case "Error":
+            return {
+              className: "bg-destructive/10 border border-destructive/30 text-destructive",
+              dotClassName:
+                "w-2 h-2 bg-destructive rounded-full shadow-[0_0_8px_hsl(var(--destructive)/0.6)]",
+              text: "Error",
+              animate: false,
+            };
           case "Disconnected":
             return {
               className: "bg-destructive/10 border border-destructive/30 text-destructive",
