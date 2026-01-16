@@ -17,10 +17,10 @@ import { randomBytes } from "crypto";
 import type { SystemLogger } from "../../loggers/SystemLogger.js"; // adjust your path
 import {
   AllocationSourceRepository,
+  StandardErrorResponse as BuildWorkerStandardErrorResponse,
   PublicAllocateRequest,
   PublicAllocateSuccessResponse,
   SandboxAPIResponse,
-  StandardErrorResponse as BuildWorkerStandardErrorResponse,
 } from "../../types/BuildWorkerTypes.js";
 import {
   ActiveBuild,

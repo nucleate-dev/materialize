@@ -2198,19 +2198,6 @@ const MaterializeRenderSection = forwardRef<
                               "0 25px 50px -12px rgba(0, 0, 0, 0.5), inset 0 0 0 1px rgba(0,0,0,0.5)",
                           }}
                         >
-                          {/* Dynamic Island / Notch area */}
-                          <div
-                            className="absolute bg-black z-20"
-                            style={{
-                              width: "35%",
-                              height: "24px",
-                              top: "8px",
-                              left: "50%",
-                              transform: "translateX(-50%)",
-                              borderRadius: "12px",
-                            }}
-                          ></div>
-
                           {/* Buttons */}
                           <div className="absolute -left-[2px] top-[80px] w-[2px] h-[24px] bg-[#333] rounded-l-md"></div>
                           <div className="absolute -left-[2px] top-[120px] w-[2px] h-[40px] bg-[#333] rounded-l-md"></div>
