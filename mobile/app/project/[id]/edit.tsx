@@ -12,7 +12,7 @@ import { useLocalSearchParams, Stack } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
 import { useTheme } from '../../../lib/ThemeContext';
-import { BodyText, Label } from '../../../components/ui';
+import { BodyText, Label, ConnectionStatusBadge } from '../../../components/ui';
 import { spacing, borderRadius } from '../../../lib/theme';
 import { usePrototypeDevServer, type RenderStatus } from '../../../hooks/usePrototypeDevServer';
 import { usePrototype } from '../../../hooks/usePrototypes';
@@ -54,7 +54,12 @@ export default function ProjectEditScreen() {
   const toggleThinkingExpanded = useChatStore((state) => state.toggleThinkingExpanded);
   const reset = useChatStore((state) => state.reset);
 
-  // WebSocket connection - only connects when baseTunnelUrl is available from dev server
+  // Only allow WebSocket connection when dev server is ready (Connecting.. or Connected status)
+  // This prevents premature connection attempts before the dev server is actually running
+  const isDevServerReady = renderStatus === 'Connecting..' || renderStatus === 'Connected';
+  const effectiveBaseTunnelUrl = isDevServerReady ? baseTunnelUrl : null;
+
+  // WebSocket connection - only connects when dev server is ready
   const {
     isConnected,
     isConnecting,
@@ -64,7 +69,7 @@ export default function ProjectEditScreen() {
     sendInterrupt,
   } = useClaudeCodeWebSocket({
     prototypeId: id,
-    baseTunnelUrl: baseTunnelUrl,
+    baseTunnelUrl: effectiveBaseTunnelUrl,
     onMessage: handleServerMessage,
   });
 
@@ -81,12 +86,6 @@ export default function ProjectEditScreen() {
       }, 100);
     }
   }, [messages.length]);
-
-  const isBuilding =
-    renderStatus === 'Starting Dev Server..' ||
-    renderStatus === 'Updating..' ||
-    renderStatus === 'Connecting..';
-  const statusMessage = renderStatus;
 
   const handleSend = useCallback(
     (messageText: string, images: UploadedImage[]) => {
@@ -167,13 +166,9 @@ export default function ProjectEditScreen() {
     </View>
   );
 
-  // Connection status indicator
-  const getConnectionStatusColor = () => {
-    if (isConnected) return theme.colors.success;
-    if (isConnecting) return theme.colors.warning;
-    if (connectionError) return theme.colors.destructive;
-    return theme.colors.muted;
-  };
+  // Compute the effective render status for display
+  // When WebSocket is connected, show "Connected", otherwise show the dev server status
+  const effectiveRenderStatus: RenderStatus = isConnected ? 'Connected' : renderStatus;
 
   return (
     <SafeAreaView
@@ -185,13 +180,6 @@ export default function ProjectEditScreen() {
           title: prototype?.name || 'Edit',
           headerRight: () => (
             <View style={styles.headerButtons}>
-              {/* Connection status dot */}
-              <View
-                style={[
-                  styles.connectionDot,
-                  { backgroundColor: getConnectionStatusColor() },
-                ]}
-              />
               <Pressable onPress={toggleView} hitSlop={8}>
                 <Label color={theme.colors.primary}>
                   {viewMode === 'chat' ? 'Preview' : 'Chat'}
@@ -201,16 +189,6 @@ export default function ProjectEditScreen() {
           ),
         }}
       />
-
-      {/* Status Banner (when building) */}
-      {isBuilding && (
-        <View style={[styles.statusBanner, { backgroundColor: theme.colors.warning }]}>
-          <ActivityIndicator size="small" color={theme.colors.warningForeground} />
-          <BodyText color={theme.colors.warningForeground} size="sm">
-            {statusMessage}
-          </BodyText>
-        </View>
-      )}
 
       {/* Dev Server Error Banner */}
       {devServerError && (
@@ -235,6 +213,14 @@ export default function ProjectEditScreen() {
           </BodyText>
         </Pressable>
       )}
+
+      {/* Status Badge */}
+      <View style={[styles.statusBadgeContainer, { borderBottomColor: theme.colors.border }]}>
+        <ConnectionStatusBadge
+          status={effectiveRenderStatus}
+          onStartDevServer={startDevServer}
+        />
+      </View>
 
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -328,18 +314,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing[3],
   },
-  connectionDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  statusBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing[2],
+  statusBadgeContainer: {
     paddingVertical: spacing[2],
     paddingHorizontal: spacing[4],
+    borderBottomWidth: 1,
+    alignItems: 'flex-start',
   },
   errorBanner: {
     flexDirection: 'row',
