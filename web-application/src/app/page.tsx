@@ -343,7 +343,7 @@ function HeroSection() {
           transition={{ duration: 0.3, delay: 0.2 }}
           className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-12 leading-relaxed"
         >
-          Nucleate ingests your codebase's styles and components, so every prototype is on-brand. Explore variants quickly, then export real code.
+          Nucleate ingests your codebase&apos;s styles and components, so every prototype is on-brand. Explore variants quickly, then export real code.
         </motion.p>
 
         <motion.div
