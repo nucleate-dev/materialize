@@ -149,6 +149,69 @@ export async function exchangeCodeForToken(
   return data as GitHubOAuthTokenResponse;
 }
 
+/**
+ * Refresh an OAuth access token using its refresh token.
+ *
+ * https://docs.github.com/en/apps/creating-github-apps/authenticating-with-a-github-app/generating-a-user-access-token-for-a-github-app#renewing-a-user-access-token
+ */
+export async function refreshGitHubOAuthToken(
+  refreshToken: string,
+  logger: SystemLogger,
+): Promise<GitHubOAuthTokenResponse> {
+  const clientId = process.env.GITHUB_APP_CLIENT_ID;
+  const clientSecret = process.env.GITHUB_APP_CLIENT_SECRET;
+
+  if (!clientId || !clientSecret) {
+    throw new Error("GitHub App client ID and secret must be configured");
+  }
+
+  const response = await fetch("https://github.com/login/oauth/access_token", {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      client_id: clientId,
+      client_secret: clientSecret,
+      grant_type: "refresh_token",
+      refresh_token: refreshToken,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    logger.error(
+      new Error("Failed to refresh GitHub OAuth token"),
+      "GitHub OAuth token refresh failed",
+      {
+        status: response.status,
+        statusText: response.statusText,
+        error: errorText,
+      },
+    );
+    throw new Error(`GitHub OAuth token refresh failed: ${response.status}`);
+  }
+
+  const data = await response.json();
+
+  if ("error" in data) {
+    logger.error(
+      new Error("GitHub OAuth refresh error"),
+      "GitHub returned error in token refresh response",
+      {
+        error: data.error,
+        error_description: data.error_description,
+      },
+    );
+    throw new Error(
+      `GitHub OAuth refresh error: ${data.error} - ${data.error_description}`,
+    );
+  }
+
+  return data as GitHubOAuthTokenResponse;
+}
+
 // ============================================================================
 // User API Calls
 // ============================================================================
