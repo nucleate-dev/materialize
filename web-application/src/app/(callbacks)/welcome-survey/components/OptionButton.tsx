@@ -1,6 +1,6 @@
-import { Check, Circle, LucideIcon } from "lucide-react";
-import * as LucideIcons from "lucide-react";
 import { cn } from "@/lib/classNames";
+import * as LucideIcons from "lucide-react";
+import { Check, Circle, LucideIcon } from "lucide-react";
 
 interface OptionButtonProps {
   icon: string;
@@ -28,20 +28,20 @@ export function OptionButton({
         "w-full p-3.5 rounded-xl flex items-center gap-3.5 text-left transition-all duration-200",
         "border hover:scale-[1.01] active:scale-[0.99]",
         isSelected
-          ? "bg-white/10 border-white/20 text-white shadow-lg shadow-white/5"
-          : "bg-white/[0.02] border-white/10 text-white/80 hover:bg-white/[0.05] hover:border-white/15",
+          ? "bg-primary/5 border-primary text-foreground shadow-sm"
+          : "bg-card border-border text-muted-foreground hover:bg-accent hover:border-accent-foreground/20 hover:text-foreground",
       )}
     >
       <div
         className={cn(
           "w-9 h-9 rounded-lg flex items-center justify-center shrink-0 transition-colors",
           isSelected
-            ? "bg-gradient-to-br from-indigo-500 to-blue-500"
-            : "bg-white/10",
+            ? "bg-primary text-primary-foreground"
+            : "bg-muted text-muted-foreground",
         )}
       >
         <IconComponent
-          className={cn("w-4 h-4", isSelected ? "text-white" : "text-white/60")}
+          className={cn("w-4 h-4", isSelected ? "text-primary-foreground" : "text-muted-foreground")}
         />
       </div>
       <span className="font-medium text-sm flex-1">{label}</span>
@@ -50,11 +50,11 @@ export function OptionButton({
           className={cn(
             "w-5 h-5 rounded-md border flex items-center justify-center shrink-0 transition-all",
             isSelected
-              ? "bg-white border-white"
-              : "bg-transparent border-white/20",
+              ? "bg-primary border-primary"
+              : "bg-transparent border-input",
           )}
         >
-          {isSelected && <Check className="w-3.5 h-3.5 text-[#141517]" />}
+          {isSelected && <Check className="w-3.5 h-3.5 text-primary-foreground" />}
         </div>
       )}
     </button>

@@ -1,7 +1,15 @@
+export interface ChatIntentImage {
+  id: string;
+  base64: string;
+  mediaType: string;
+  name: string;
+}
+
 export interface ChatIntent {
   prototype_id: string;
   message: string;
   is_sending: boolean;
+  images?: ChatIntentImage[];
 }
 
 /**
@@ -46,6 +54,7 @@ export function setChatIntent(
   prototypeId: string | undefined,
   message: string,
   is_sending: boolean,
+  images?: ChatIntentImage[],
 ): void {
   if (typeof window === "undefined" || !message) {
     return;
@@ -56,6 +65,7 @@ export function setChatIntent(
       prototype_id: prototypeId,
       message: message,
       is_sending,
+      images: images && images.length > 0 ? images : undefined,
     }),
   );
 }

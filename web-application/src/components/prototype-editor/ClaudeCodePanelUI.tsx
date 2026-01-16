@@ -240,6 +240,7 @@ export default function ClaudeCodePanelUI({
     mcp__design__GenerateImage: "Generating image",
     mcp__design__GeminiDesignExpert: "Iterating on design",
     mcp__devtools__RestartDevServer: "Restarting dev server",
+    mcp__devtools__UpdatePreviewScreens: "Updating canvas",
   };
 
   const getToolDisplayName = (toolName?: string, fallback?: string) =>

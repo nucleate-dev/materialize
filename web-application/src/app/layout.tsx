@@ -2,7 +2,7 @@ import { MetaPixelPageView } from "@/components/MetaPixelPageView";
 import { ThemeProvider } from "@/components/theme-provider";
 import { TeamProvider } from "@/contexts/TeamContext";
 import type { Metadata } from "next";
-import { Inter, Fraunces } from "next/font/google";
+import { Fraunces, Inter } from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
 import { CSPostHogProvider, QueryProvider } from "./providers";
@@ -18,7 +18,7 @@ const fraunces = Fraunces({
 });
 
 export const metadata: Metadata = {
-  title: "Nucleate - AI for UI/UX prototyping",
+  title: "Nucleate - AI Design Engineer",
   description: "Nucleate helps you build beautiful mobile apps with AI.",
   keywords: [
     "prototyping",
@@ -31,13 +31,13 @@ export const metadata: Metadata = {
   ],
   authors: [{ name: "Nucleate" }],
   openGraph: {
-    title: "Nucleate - AI for UI/UX prototyping",
+    title: "Nucleate - AI Design Engineer",
     description: "Nucleate helps you build beautiful mobile apps with AI.",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Nucleate - AI for UI/UX prototyping",
+    title: "Nucleate - AI Design Engineer",
     description: "Nucleate helps you build beautiful mobile apps with AI.",
   },
   verification: {

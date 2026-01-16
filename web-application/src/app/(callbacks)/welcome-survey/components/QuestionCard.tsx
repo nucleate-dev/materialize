@@ -1,8 +1,8 @@
+import { Button } from "@/components/ui/button";
 import type { SurveyQuestion } from "@/lib/types/surveyTypes";
+import { ArrowRight, Loader2 } from "lucide-react";
 import { OptionButton } from "./OptionButton";
 import { TextInput } from "./TextInput";
-import { Button } from "@/components/ui/button";
-import { Loader2, ArrowRight } from "lucide-react";
 
 interface QuestionCardProps {
   question: SurveyQuestion;
@@ -54,11 +54,11 @@ export function QuestionCard({
     <div className="flex flex-col">
       {/* Question Title */}
       <div className="px-6 pt-6 pb-4">
-        <h3 className="text-xl font-medium text-white leading-tight mb-1.5">
+        <h3 className="text-xl font-medium text-foreground leading-tight mb-1.5">
           {question.title}
         </h3>
         {question.subtitle && (
-          <p className="text-sm text-[#8A8F98]">{question.subtitle}</p>
+          <p className="text-sm text-muted-foreground">{question.subtitle}</p>
         )}
       </div>
 
@@ -86,11 +86,11 @@ export function QuestionCard({
       </div>
 
       {/* Continue Button */}
-      <div className="p-6 pt-4 border-t border-white/5">
+      <div className="p-6 pt-4 border-t border-border mt-auto">
         <Button
           onClick={onContinue}
           disabled={!canContinue || isSubmitting}
-          className="w-full h-11 bg-white text-black hover:bg-white/90 rounded-xl font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+          className="w-full h-11 text-sm font-medium"
         >
           {isSubmitting ? (
             <>

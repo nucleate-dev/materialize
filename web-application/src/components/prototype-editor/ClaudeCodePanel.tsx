@@ -182,6 +182,7 @@ const ClaudeCodePanel = forwardRef<ClaudeCodePanelRef, ClaudeCodePanelProps>(({
   const [uploadedImages, setUploadedImages] = useState<UploadedImage[]>([]);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [queuedMessage, setQueuedMessage] = useState<string | null>(null);
+  const [queuedImages, setQueuedImages] = useState<UploadedImage[]>([]);
   const hasProcessedChatIntent = useRef(false);
   const queueTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
@@ -791,10 +792,16 @@ const ClaudeCodePanel = forwardRef<ClaudeCodePanelRef, ClaudeCodePanelProps>(({
     if (chatIntent && chatIntent.message) {
       logger.debug("log", "Found chat intent, queueing message", {
         message: chatIntent.message,
+        hasImages: Boolean(chatIntent.images?.length),
       });
 
       // Set queued message state
       setQueuedMessage(chatIntent.message);
+
+      // Set queued images if present
+      if (chatIntent.images && chatIntent.images.length > 0) {
+        setQueuedImages(chatIntent.images);
+      }
 
       // Add queued message to UI
       setMessages((prev) => [
@@ -805,6 +812,9 @@ const ClaudeCodePanel = forwardRef<ClaudeCodePanelRef, ClaudeCodePanelProps>(({
           content: chatIntent.message,
           timestamp: Date.now(),
           isQueued: true,
+          imageUrls: chatIntent.images?.map(
+            (img) => `data:${img.mediaType};base64,${img.base64}`
+          ),
         },
       ]);
 
@@ -869,7 +879,9 @@ const ClaudeCodePanel = forwardRef<ClaudeCodePanelRef, ClaudeCodePanelProps>(({
 
         // Send the message
         const content = queuedMessage;
+        const imagesToSend = queuedImages.length > 0 ? queuedImages : [];
         setQueuedMessage(null);
+        setQueuedImages([]);
         setIsProcessing(true);
         setHasReceivedResponse(false);
         // Clear chat intent from localStorage
@@ -890,7 +902,24 @@ const ClaudeCodePanel = forwardRef<ClaudeCodePanelRef, ClaudeCodePanelProps>(({
 
         // Send message via WebSocket
         if (ws) {
-          const messageContent = [{ type: "text", text: content }];
+          // Build message content with text and any queued images
+          const messageContent: Array<
+            | { type: "text"; text: string }
+            | { type: "image"; source: { type: "base64"; media_type: string; data: string } }
+          > = [{ type: "text", text: content }];
+
+          // Add queued images to message content
+          for (const image of imagesToSend) {
+            messageContent.push({
+              type: "image",
+              source: {
+                type: "base64",
+                media_type: image.mediaType,
+                data: image.base64,
+              },
+            });
+          }
+
           ws.send(
             JSON.stringify({
               type: "query",
@@ -920,6 +949,7 @@ const ClaudeCodePanel = forwardRef<ClaudeCodePanelRef, ClaudeCodePanelProps>(({
     }
   }, [
     queuedMessage,
+    queuedImages,
     currentRenderStatus,
     isConnected,
     isProcessing,

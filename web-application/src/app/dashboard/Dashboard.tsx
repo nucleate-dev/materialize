@@ -30,7 +30,10 @@ import { redirectAfterLoginAtom } from "@/lib/atoms/sidebar";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import { type PrototypeVisibility } from "@/lib/types/prototypes";
 import { Database } from "@/lib/types/supabase";
-import { setChatIntent } from "@/lib/utils/chatIntentUtils";
+import {
+  setChatIntent,
+  type ChatIntentImage,
+} from "@/lib/utils/chatIntentUtils";
 import { checkSurveyCompleted } from "@/lib/utils/survey/SurveyUtils";
 import { Palette } from "lucide-react";
 import { useAtom } from "jotai";
@@ -43,14 +46,17 @@ import {
   LayoutTemplate,
   Loader2,
   Lock,
+  Paperclip,
   Rocket,
   Share2,
   Sparkles,
   Wand2,
+  X,
 } from "lucide-react"; // Kept Lucide
 import { useRouter } from "next/navigation";
 import { usePostHog } from "posthog-js/react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 
 // --- Types ---
 type DesignStyle = Database["public"]["Enums"]["design_style"];
@@ -100,6 +106,9 @@ export default function DashboardPage() {
   const [showUpsellModal, setShowUpsellModal] = useState(false);
   const [isSurveyChecking, setIsSurveyChecking] = useState(true);
   const [hasCheckedIntent, setHasCheckedIntent] = useState(false);
+  const [uploadedImages, setUploadedImages] = useState<ChatIntentImage[]>([]);
+  const [isDragOver, setIsDragOver] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const isWebPrototypeEnabled =
     posthog?.isFeatureEnabled("web-prototype-support") ?? false;
@@ -192,6 +201,103 @@ export default function DashboardPage() {
     }
   }, [framework, designStyle]);
 
+  // Process image files
+  const processImageFiles = (files: File[]) => {
+    files.forEach((file) => {
+      if (!file.type.startsWith("image/")) {
+        toast.error(`Invalid file type: ${file.name}. Only images are supported.`);
+        return;
+      }
+
+      if (file.size > 3 * 1024 * 1024) {
+        toast.error(`Image too large: ${file.name}. Maximum size is 3MB.`);
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64String = reader.result as string;
+        const base64Data = base64String.split(",")[1];
+
+        setUploadedImages((prev) => [
+          ...prev,
+          {
+            id: `${Date.now()}-${Math.random()}`,
+            base64: base64Data,
+            mediaType: file.type,
+            name: file.name,
+          },
+        ]);
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleImageSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (!files) return;
+    processImageFiles(Array.from(files));
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
+  const handleDragEnter = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.dataTransfer.types.includes("Files")) {
+      setIsDragOver(true);
+    }
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.currentTarget === e.target) {
+      setIsDragOver(false);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
+    const files = Array.from(e.dataTransfer.files);
+    if (files.length > 0) {
+      processImageFiles(files);
+    }
+  };
+
+  const handlePaste = (e: React.ClipboardEvent) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+
+    const imageFiles: File[] = [];
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      if (item.type.startsWith("image/")) {
+        const file = item.getAsFile();
+        if (file) {
+          imageFiles.push(file);
+        }
+      }
+    }
+
+    if (imageFiles.length > 0) {
+      e.preventDefault();
+      processImageFiles(imageFiles);
+    }
+  };
+
+  const removeImage = (imageId: string) => {
+    setUploadedImages((prev) => prev.filter((img) => img.id !== imageId));
+  };
+
   const submitPrompt = async (message: string) => {
     const content = message.trim();
     if (!content || isLoading) return;
@@ -207,9 +313,11 @@ export default function DashboardPage() {
       },
     });
 
+    const imagesToSend = uploadedImages.length > 0 ? uploadedImages : undefined;
+
     try {
       if (!user?.id) {
-        setChatIntent(undefined, content, false);
+        setChatIntent(undefined, content, false, imagesToSend);
         router.push("/login");
         return;
       }
@@ -231,7 +339,8 @@ export default function DashboardPage() {
             source: "dashboard_prompt",
           },
         });
-        setChatIntent(result.data.prototype_id, content, false);
+        setChatIntent(result.data.prototype_id, content, false, imagesToSend);
+        setUploadedImages([]);
         router.push(`/dashboard/projects/${result.data.prototype_id}`);
       } else if (result.error?.error === "PROTOTYPE_LIMIT_REACHED") {
         logger.log({
@@ -305,22 +414,82 @@ export default function DashboardPage() {
         </div>
 
         {/* --- Main Input Console --- */}
-        <div className="relative group animate-in fade-in slide-in-from-bottom-8 duration-1000 delay-100">
+        <div
+          className="relative group animate-in fade-in slide-in-from-bottom-8 duration-1000 delay-100"
+          onDragEnter={handleDragEnter}
+          onDragLeave={handleDragLeave}
+          onDragOver={handleDragOver}
+          onDrop={handleDrop}
+        >
+          {/* Drag Overlay */}
+          {isDragOver && (
+            <div className="absolute inset-0 bg-primary/10 backdrop-blur-sm z-50 flex items-center justify-center border-2 border-dashed border-primary rounded-xl pointer-events-none">
+              <div className="bg-background/90 rounded-2xl px-8 py-6 shadow-2xl border border-primary/20">
+                <div className="flex flex-col items-center gap-3">
+                  <div className="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center">
+                    <Paperclip className="w-8 h-8 text-primary" />
+                  </div>
+                  <div className="text-center">
+                    <p className="text-lg font-semibold text-foreground mb-1">
+                      Drop images here
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      Upload images to attach to your message
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Glow Effect */}
           <div className="absolute -inset-0.5 bg-gradient-to-r from-primary/20 to-accent/20 rounded-2xl blur-xl opacity-20 group-hover:opacity-30 transition duration-500"></div>
 
           <div className="relative bg-card border border-border rounded-xl overflow-hidden shadow-2xl flex flex-col transition-all duration-200 focus-within:border-primary/30 focus-within:bg-muted focus-within:ring-1 focus-within:ring-primary/10">
+            {/* Hidden file input */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              onChange={handleImageSelect}
+              className="hidden"
+            />
+
             {/* Input Area */}
             <div className="px-5 pt-5">
               <Textarea
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
                 onKeyDown={handleKeyDown}
+                onPaste={handlePaste}
                 placeholder="Describe your app logic, UI components, and design style..."
                 className="w-full min-h-[140px] bg-transparent border-none text-lg text-foreground placeholder:text-muted-foreground/50 resize-none focus-visible:ring-0 p-0 leading-relaxed"
                 disabled={isLoading}
                 autoFocus
               />
+
+              {/* Uploaded Images Preview */}
+              {uploadedImages.length > 0 && (
+                <div className="flex gap-2 mt-3 pb-2 overflow-x-auto">
+                  {uploadedImages.map((image) => (
+                    <div key={image.id} className="relative group/img shrink-0">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={`data:${image.mediaType};base64,${image.base64}`}
+                        alt={image.name}
+                        className="h-16 w-16 object-cover rounded-md border border-border"
+                      />
+                      <button
+                        onClick={() => removeImage(image.id)}
+                        className="absolute -top-1.5 -right-1.5 bg-background text-muted-foreground rounded-full p-0.5 border border-border shadow-sm opacity-0 group-hover/img:opacity-100 transition-opacity"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Toolbar / Action Bar */}
@@ -586,6 +755,25 @@ export default function DashboardPage() {
 
               {/* Right: Action Button */}
               <div className="flex items-center justify-between w-full md:w-auto gap-4">
+                {/* Attach Image Button */}
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="ghost"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={isLoading}
+                        className="h-8 w-8 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent"
+                      >
+                        <Paperclip className="w-4 h-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Attach Images</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+
                 <div className="hidden md:flex items-center text-[10px] text-muted-foreground/50 font-medium gap-1 select-none">
                   <Command className="w-3 h-3" />
                   <span>ENTER</span>
