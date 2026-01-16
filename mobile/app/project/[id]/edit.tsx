@@ -14,7 +14,7 @@ import { WebView } from 'react-native-webview';
 import { useTheme } from '../../../lib/ThemeContext';
 import { BodyText, Label } from '../../../components/ui';
 import { spacing, borderRadius } from '../../../lib/theme';
-import { useViewingUrl, getStatusMessage } from '../../../hooks/useViewingUrl';
+import { usePrototypeDevServer, type RenderStatus } from '../../../hooks/usePrototypeDevServer';
 import { usePrototype } from '../../../hooks/usePrototypes';
 import { useClaudeCodeWebSocket } from '../../../hooks/useClaudeCodeWebSocket';
 import { useChatStore, type Message, type UploadedImage } from '../../../stores/chatStore';
@@ -32,9 +32,17 @@ export default function ProjectEditScreen() {
   const flatListRef = useRef<FlatList>(null);
   const webViewRef = useRef<WebView>(null);
 
-  // Prototype and viewing URL
+  // Prototype and dev server (follows web app flow)
   const { data: prototype } = usePrototype(id);
-  const { viewingUrl, status, terminalUrl, refetch: refetchUrl } = useViewingUrl(id, 'edit');
+  const {
+    viewingUrl,
+    baseTunnelUrl,
+    renderStatus,
+    isLoading: isDevServerLoading,
+    error: devServerError,
+    startDevServer,
+    refetch: refetchUrl,
+  } = usePrototypeDevServer({ prototypeId: id });
 
   // Chat store
   const messages = useChatStore((state) => state.messages);
@@ -46,7 +54,7 @@ export default function ProjectEditScreen() {
   const toggleThinkingExpanded = useChatStore((state) => state.toggleThinkingExpanded);
   const reset = useChatStore((state) => state.reset);
 
-  // WebSocket connection
+  // WebSocket connection - only connects when baseTunnelUrl is available from dev server
   const {
     isConnected,
     isConnecting,
@@ -56,7 +64,7 @@ export default function ProjectEditScreen() {
     sendInterrupt,
   } = useClaudeCodeWebSocket({
     prototypeId: id,
-    baseTunnelUrl: terminalUrl || viewingUrl,
+    baseTunnelUrl: baseTunnelUrl,
     onMessage: handleServerMessage,
   });
 
@@ -74,8 +82,11 @@ export default function ProjectEditScreen() {
     }
   }, [messages.length]);
 
-  const isBuilding = status === 'creating' || status === 'building' || status === 'updating';
-  const statusMessage = getStatusMessage(status);
+  const isBuilding =
+    renderStatus === 'Starting Dev Server..' ||
+    renderStatus === 'Updating..' ||
+    renderStatus === 'Connecting..';
+  const statusMessage = renderStatus;
 
   const handleSend = useCallback(
     (messageText: string, images: UploadedImage[]) => {
@@ -201,8 +212,20 @@ export default function ProjectEditScreen() {
         </View>
       )}
 
+      {/* Dev Server Error Banner */}
+      {devServerError && (
+        <Pressable
+          style={[styles.errorBanner, { backgroundColor: theme.colors.destructive }]}
+          onPress={startDevServer}
+        >
+          <BodyText color={theme.colors.destructiveForeground} size="sm">
+            {devServerError} - Tap to retry
+          </BodyText>
+        </Pressable>
+      )}
+
       {/* Connection Error Banner */}
-      {connectionError && !isConnecting && (
+      {connectionError && !isConnecting && !devServerError && (
         <Pressable
           style={[styles.errorBanner, { backgroundColor: theme.colors.destructive }]}
           onPress={connect}

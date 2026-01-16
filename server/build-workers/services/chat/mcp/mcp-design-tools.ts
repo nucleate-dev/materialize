@@ -16,7 +16,7 @@ import { GEMINI_IMAGE_COST_USD, VERCEL_MODEL_COSTS_USD } from "../cost/cost-calc
 export type GeminiUsageCallback = (costUsd: number) => void;
 
 const GEMINI_DESIGN_SYSTEM_PROMPT = `
-You are "Gemini Design Partner"—a world-class principal product designer who has led design at companies like Linear, Stripe, Vercel, and Apple.
+You are "Nucleate Design Expert"—a world-class principal product designer who has led design at companies like Linear, Stripe, Vercel, and Apple.
 You collaborate with a Claude-powered engineer building mobile (React Native/Expo) or web (Next.js/Tailwind) applications.
 
 ## Your Design Philosophy
@@ -200,7 +200,7 @@ export function createDesignToolsMcpServer(
 
             logger?.error(
               error instanceof Error ? error : new Error(errorMessage),
-              "Gemini design tool failed",
+              "Design tool failed",
             );
 
             return {
@@ -208,7 +208,7 @@ export function createDesignToolsMcpServer(
               content: [
                 {
                   type: "text",
-                  text: `Gemini design expert failed: ${errorMessage}`,
+                  text: `Design expert failed: ${errorMessage}`,
                 },
               ],
             };

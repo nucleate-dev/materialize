@@ -128,6 +128,19 @@ export interface DispatchPrecheckSuccessResponse {
   terminal_tunnel_hostname: string | null;
 }
 
+// Start dev server
+export interface StartDevServerRequestBody {
+  prototype_id: string;
+}
+
+export interface StartDevServerSuccessResponse {
+  success: true;
+  status: 'success' | 'error';
+  viewing_url: string;
+  message: string;
+  terminal_url: string | null;
+}
+
 // HTTP status codes
 export const HTTP_STATUS = {
   OK: 200,

@@ -1228,7 +1228,7 @@ export class ChatQueryHandler implements ChatEngine {
           if (bufferState.accumulatedGeminiCostUsd > 0) {
             baseLogger.consoleLogDevOnly(
               "info",
-              "Gemini design tool costs included in total",
+              "Nucleate design tool costs included in total",
               {
                 claudeCostUsd: total_cost_usd,
                 geminiCostUsd: bufferState.accumulatedGeminiCostUsd,

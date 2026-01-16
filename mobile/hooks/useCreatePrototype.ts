@@ -12,6 +12,7 @@ import {
   DesignStyle,
 } from '../lib/types/serverAPITypes';
 import { PROTOTYPES_QUERY_KEY } from './usePrototypes';
+import { useSubscriptionAccess } from './useSubscriptionAccess';
 
 const SERVER_ENDPOINT = process.env.EXPO_PUBLIC_SERVER_ENDPOINT;
 
@@ -34,6 +35,7 @@ export function useCreatePrototype(): UseCreatePrototypeReturn {
   const queryClient = useQueryClient();
   const activeTeam = useActiveTeam();
   const session = useAuthStore((state) => state.session);
+  const { isFreePlan } = useSubscriptionAccess();
 
   const mutation = useMutation({
     mutationFn: async (
@@ -47,12 +49,15 @@ export function useCreatePrototype(): UseCreatePrototypeReturn {
         throw new Error('No active team selected');
       }
 
+      // Free tier users can only create PUBLIC prototypes
+      const defaultVisibility: VisibilityLevel = isFreePlan ? 'PUBLIC' : 'SELF';
+
       const payload: CreatePrototypeRequestBody = {
         name: options.name || 'New Project',
         creation_source: 'dashboard_prompt',
         team_id: activeTeam.id,
         framework: options.framework || 'mobile_expo_react_native',
-        visibility: options.visibility || 'SELF',
+        visibility: options.visibility || defaultVisibility,
         design_style: options.designStyle || 'stylesheets',
         description: options.description,
       };

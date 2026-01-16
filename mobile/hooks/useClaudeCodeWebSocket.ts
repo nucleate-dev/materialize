@@ -96,7 +96,8 @@ export function useClaudeCodeWebSocket({
       // Build WebSocket URL
       // Convert https:// to wss:// or http:// to ws://
       const wsProtocol = baseTunnelUrl.startsWith('https') ? 'wss' : 'ws';
-      const wsHost = baseTunnelUrl.replace(/^https?:\/\//, '');
+      // Strip protocol and any trailing slashes to avoid double slashes in URL
+      const wsHost = baseTunnelUrl.replace(/^https?:\/\//, '').replace(/\/+$/, '');
       const wsUrl = `${wsProtocol}://${wsHost}/code/ws/${prototypeId}`;
 
       console.log('[WebSocket] Connecting to:', wsUrl);
