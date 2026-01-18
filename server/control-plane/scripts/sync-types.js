@@ -8,6 +8,7 @@
  * 2. ChatTypes.ts: build-workers -> web-application
  * 3. PublicAPITypes.ts: control-plane -> build-workers (as ControlPlaneTypes.ts)
  * 4. PostHogEvents.ts: control-plane -> build-workers & web-application
+ * 5. TeamLevelAllowlists.ts: control-plane -> build-workers & web-application
  *
  * This ensures all services have consistent type definitions
  */
@@ -65,6 +66,24 @@ const SYNC_CONFIGS = [
       '../../../web-application/src/lib/loggers/PostHogEvents.ts',
     ),
     sourceLocation: '@server/control-plane/loggers/PostHogEvents.ts',
+  },
+  {
+    name: 'TeamLevelAllowlists (control-plane → build-workers)',
+    source: path.resolve(__dirname, '../types/TeamLevelAllowlists.ts'),
+    target: path.resolve(
+      __dirname,
+      '../../build-workers/types/TeamLevelAllowlists.ts',
+    ),
+    sourceLocation: '@server/control-plane/types/TeamLevelAllowlists.ts',
+  },
+  {
+    name: 'TeamLevelAllowlists (control-plane → web-application)',
+    source: path.resolve(__dirname, '../types/TeamLevelAllowlists.ts'),
+    target: path.resolve(
+      __dirname,
+      '../../../web-application/src/lib/types/TeamLevelAllowlists.ts',
+    ),
+    sourceLocation: '@server/control-plane/types/TeamLevelAllowlists.ts',
   },
 ];
 

@@ -1,8 +1,10 @@
 import { supabase } from "@/ClientConstants";
+import { useActiveTeam } from "@/contexts/TeamContext";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
 import { useSubscriptionAccess } from "./useSubscriptionAccess";
+import { team_allowlist_attach_personal_claude_subscriptions } from "@/lib/types/TeamLevelAllowlists";
 
 interface ClaudePersonalSubscriptionAccessResult {
   isEligible: boolean;
@@ -19,10 +21,16 @@ interface ClaudePersonalSubscriptionAccessResult {
  */
 export function useClaudePersonalSubscriptionAccess(): ClaudePersonalSubscriptionAccessResult {
   const { userPlan, user, loadingSubscriptionData } = useSubscriptionAccess();
+  const { activeTeam } = useActiveTeam();
   const logger = useProductLogger();
 
   const userId = user?.id ?? null;
-  const isEligible = userPlan === "free" || userPlan === "plus";
+  const teamId = activeTeam?.id ?? null;
+  const allowlistedTeam =
+    teamId != null &&
+    team_allowlist_attach_personal_claude_subscriptions.has(teamId);
+  const isEligiblePlan = userPlan === "free" || userPlan === "plus";
+  const isEligible = isEligiblePlan || allowlistedTeam;
   const tokenQueryEnabled = Boolean(userId && isEligible);
 
   const tokenQuery = useQuery({
