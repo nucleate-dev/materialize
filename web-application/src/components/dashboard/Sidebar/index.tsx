@@ -27,7 +27,6 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import { TeamSelector } from "./TeamSelector";
-import { useFeatureFlagEnabled } from "posthog-js/react";
 import { useActiveTeam } from "@/contexts/TeamContext";
 import { TeamAndAccountsSettingsDialog } from "@/components/dashboard/TeamAndAccountSettingsDialog";
 import { useState, useEffect } from "react";
@@ -43,7 +42,6 @@ const DashboardSidebarContent = () => {
   const isCollapsed = state === "collapsed";
   const isPaidUser = IsUserPlanSubscribed(userPlan);
   const logger = useProductLogger();
-  const isTeamsUIEnabled = useFeatureFlagEnabled("teams-ui") ?? false;
   const { activeTeam } = useActiveTeam();
   const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);
   const [settingsDefaultTab, setSettingsDefaultTab] = useState<
@@ -171,17 +169,15 @@ const DashboardSidebarContent = () => {
       </SidebarHeader>
 
       {/* Team Selector */}
-      {isTeamsUIEnabled && (
-        <div className={cn("py-1", "px-2")}>
-          <TeamSelector
-            isCollapsed={isCollapsed}
-            onOpenSettings={(tab) => {
-              setSettingsDefaultTab(tab);
-              setSettingsDialogOpen(true);
-            }}
-          />
-        </div>
-      )}
+      <div className={cn("py-1", "px-2")}>
+        <TeamSelector
+          isCollapsed={isCollapsed}
+          onOpenSettings={(tab) => {
+            setSettingsDefaultTab(tab);
+            setSettingsDialogOpen(true);
+          }}
+        />
+      </div>
 
       <SidebarContent>
         <SidebarGroup>

@@ -28,7 +28,6 @@ import { handleRedirectToStripeCustomerPortal } from "@/lib/utils/payments/Subsc
 import { formatGrantType } from "@/lib/utils/credits/CreditUtils";
 import { cn } from "@/lib/classNames";
 import { SectionCard, SectionHeader } from "./SettingsHelpers";
-import { useFeatureFlagEnabled } from "posthog-js/react";
 import { TeamUpgradeModal } from "@/components/dashboard/TeamUpgradeModal";
 
 export function CreditsAndSubscriptionsTab() {
@@ -37,9 +36,6 @@ export function CreditsAndSubscriptionsTab() {
   const { userPlan, currentPeriodEnd, seatQuantity } = useSubscriptionAccess();
   const { activeTeam, currentUserMembership } = useActiveTeam();
   const creditUsage = useCreditUsage();
-
-  // Check PostHog feature flag for teams UI
-  const isTeamsUIEnabled = useFeatureFlagEnabled("teams-ui");
 
   // Check if current user is owner or admin
   const isOwnerOrAdmin =
@@ -144,14 +140,10 @@ export function CreditsAndSubscriptionsTab() {
     switch (currentSubscription) {
       case "free":
         options.push({ tier: "plus", label: "Upgrade to Plus" });
-        if (isTeamsUIEnabled) {
-          options.push({ tier: "team", label: "Upgrade to Team" });
-        }
+        options.push({ tier: "team", label: "Upgrade to Team" });
         break;
       case "plus":
-        if (isTeamsUIEnabled) {
-          options.push({ tier: "team", label: "Upgrade to Team" });
-        }
+        options.push({ tier: "team", label: "Upgrade to Team" });
         break;
       case "pro":
       default:

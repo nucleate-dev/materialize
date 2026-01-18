@@ -157,9 +157,6 @@ const ClaudeCodePanel = forwardRef<ClaudeCodePanelRef, ClaudeCodePanelProps>(
     const isProjectContextEnabled =
       useFeatureFlagEnabled("project-context") ?? false;
 
-    // Check if teams UI feature is enabled
-    const isTeamsUIEnabled = useFeatureFlagEnabled("teams-ui") ?? false;
-
     // Active view state (chat or context editor)
     const [activeView, setActiveView] =
       useState<ClaudeCodePanelActiveView>("chat");
@@ -2412,7 +2409,6 @@ const ClaudeCodePanel = forwardRef<ClaudeCodePanelRef, ClaudeCodePanelProps>(
         onActiveViewChange={setActiveView}
         fileSystem={fileSystem}
         isProjectContextEnabled={isProjectContextEnabled}
-        isTeamsUIEnabled={isTeamsUIEnabled}
         isUsingOAuthToken={isUsingOAuthToken}
         authMode={authMode}
         onAuthModeChange={handleAuthModeChange}

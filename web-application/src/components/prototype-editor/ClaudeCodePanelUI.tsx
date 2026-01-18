@@ -125,7 +125,6 @@ interface ClaudeCodePanelUIProps {
   onActiveViewChange: (view: ClaudeCodePanelActiveView) => void;
   fileSystem?: UseFileSystemReturn;
   isProjectContextEnabled: boolean;
-  isTeamsUIEnabled: boolean;
   isUsingOAuthToken: boolean;
   authMode: AuthMode;
   onAuthModeChange: (mode: AuthMode) => void;
@@ -209,7 +208,6 @@ export default function ClaudeCodePanelUI({
   onActiveViewChange,
   fileSystem,
   isProjectContextEnabled,
-  isTeamsUIEnabled,
   isUsingOAuthToken,
   authMode,
   onAuthModeChange,
@@ -413,24 +411,6 @@ export default function ClaudeCodePanelUI({
               <TooltipContent side="bottom">Undo Last Change</TooltipContent>
             </Tooltip>
           </TooltipProvider>
-
-          {/* Credits Indicator */}
-          {!isTeamsUIEnabled && (
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div className="flex items-center justify-center h-7 w-7 rounded-md hover:bg-accent cursor-default">
-                    <Sparkles className="w-3.5 h-3.5 text-muted-foreground" />
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent side="bottom">
-                  <span className="text-xs">
-                    {creditsUsed} / {totalAvailableCredits} credits used
-                  </span>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          )}
 
           {/* Collapse Button */}
           {onCollapse && (

@@ -82,7 +82,6 @@ export function TeamAndAccountsSettingsDialog({
 
   const isClaudeConnectionEnabled =
     posthog?.isFeatureEnabled("claude-code-cli-with-personal-token") ?? false;
-  const isTeamsUIEnabled = posthog?.isFeatureEnabled("teams-ui") ?? false;
 
   // Get initials for team avatar
   const getInitials = (name: string) => {
@@ -162,63 +161,40 @@ export function TeamAndAccountsSettingsDialog({
     }[];
   }
 
-  const tabGroups: TabGroup[] = isTeamsUIEnabled
-    ? [
+  const tabGroups: TabGroup[] = [
+    {
+      label: "Team",
+      tabs: [
+        { id: "team", label: teamName, icon: User, isTeamTab: true },
         {
-          label: "Team",
-          tabs: [
-            { id: "team", label: teamName, icon: User, isTeamTab: true },
-            {
-              id: "credits",
-              label: "Credits and subscriptions",
-              icon: CreditCard,
-            },
-            { id: "people", label: "People", icon: Users },
-            {
-              id: "github" as const,
-              label: "GitHub",
-              icon: Github,
-            },
-          ],
+          id: "credits",
+          label: "Credits and subscriptions",
+          icon: CreditCard,
         },
+        { id: "people", label: "People", icon: Users },
         {
-          label: "Account",
-          tabs: [
-            { id: "profile", label: userRow?.name || "Profile", icon: User },
-            ...(isClaudeConnectionEnabled
-              ? [
-                  {
-                    id: "claude" as const,
-                    label: "Claude connection",
-                    icon: Key,
-                  },
-                ]
-              : []),
-          ],
+          id: "github" as const,
+          label: "GitHub",
+          icon: Github,
         },
-      ]
-    : [
-        {
-          label: "Account",
-          tabs: [
-            { id: "profile", label: userRow?.name || "Profile", icon: User },
-            {
-              id: "credits",
-              label: "Credits and subscriptions",
-              icon: CreditCard,
-            },
-            ...(isClaudeConnectionEnabled
-              ? [
-                  {
-                    id: "claude" as const,
-                    label: "Claude connection",
-                    icon: Key,
-                  },
-                ]
-              : []),
-          ],
-        },
-      ];
+      ],
+    },
+    {
+      label: "Account",
+      tabs: [
+        { id: "profile", label: userRow?.name || "Profile", icon: User },
+        ...(isClaudeConnectionEnabled
+          ? [
+              {
+                id: "claude" as const,
+                label: "Claude connection",
+                icon: Key,
+              },
+            ]
+          : []),
+      ],
+    },
+  ];
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -232,94 +208,89 @@ export function TeamAndAccountsSettingsDialog({
           <div className="w-64 border-r border-border bg-muted/30 flex flex-col">
             {/* Tabs */}
             <div className="flex-1 p-2 space-y-4">
-              {/* Team Selector Dropdown - only show if teams UI is enabled */}
-              {isTeamsUIEnabled && (
-                <div className="mb-2">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <button className="w-full flex items-center gap-2 px-3 py-2 rounded-lg border border-sidebar-border bg-sidebar-accent/50 hover:bg-sidebar-accent transition-colors">
-                        <Avatar className="w-6 h-6 rounded-lg shrink-0">
-                          <AvatarFallback className="rounded-lg bg-primary/10 text-xs font-bold text-primary">
-                            {teamInitials}
-                          </AvatarFallback>
-                        </Avatar>
-                        <span className="flex-1 text-sm font-medium text-left truncate">
-                          {teamName}
-                        </span>
-                        <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" />
-                      </button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent
-                      align="start"
-                      className="w-[240px] p-2"
-                    >
-                      <div className="space-y-1">
-                        {teams.map((team) => {
-                          const isActive = activeTeam?.id === team.id;
-                          const teamInitialsLocal = getInitials(team.name);
-                          const teamPlan = teamSubscriptions[team.id] || "free";
-                          const teamIsFree = teamPlan === "free";
+              {/* Team Selector Dropdown */}
+              <div className="mb-2">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button className="w-full flex items-center gap-2 px-3 py-2 rounded-lg border border-sidebar-border bg-sidebar-accent/50 hover:bg-sidebar-accent transition-colors">
+                      <Avatar className="w-6 h-6 rounded-lg shrink-0">
+                        <AvatarFallback className="rounded-lg bg-primary/10 text-xs font-bold text-primary">
+                          {teamInitials}
+                        </AvatarFallback>
+                      </Avatar>
+                      <span className="flex-1 text-sm font-medium text-left truncate">
+                        {teamName}
+                      </span>
+                      <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="w-[240px] p-2">
+                    <div className="space-y-1">
+                      {teams.map((team) => {
+                        const isActive = activeTeam?.id === team.id;
+                        const teamInitialsLocal = getInitials(team.name);
+                        const teamPlan = teamSubscriptions[team.id] || "free";
+                        const teamIsFree = teamPlan === "free";
 
-                          return (
-                            <button
-                              key={team.id}
-                              className="w-full flex items-center gap-2 px-2 py-2 rounded-md hover:bg-accent/50 transition-colors"
-                              onClick={() => {
-                                setActiveTeam(team);
-                              }}
-                            >
-                              <Avatar className="w-6 h-6 rounded-lg shrink-0">
-                                <AvatarFallback className="rounded-lg bg-primary/10 text-xs font-bold text-primary">
-                                  {teamInitialsLocal}
-                                </AvatarFallback>
-                              </Avatar>
-                              <div className="flex-1 text-left min-w-0">
-                                <div className="flex items-center gap-1.5">
-                                  <span className="text-sm font-medium truncate">
-                                    {team.name}
-                                  </span>
-                                  {teamIsFree ? (
-                                    <Badge
-                                      variant="secondary"
-                                      className="text-[10px] px-1 py-0 shrink-0"
-                                    >
-                                      FREE
-                                    </Badge>
-                                  ) : (
-                                    <Badge
-                                      variant="secondary"
-                                      className="text-[10px] px-1 py-0 uppercase shrink-0"
-                                    >
-                                      {teamPlan}
-                                    </Badge>
-                                  )}
-                                </div>
+                        return (
+                          <button
+                            key={team.id}
+                            className="w-full flex items-center gap-2 px-2 py-2 rounded-md hover:bg-accent/50 transition-colors"
+                            onClick={() => {
+                              setActiveTeam(team);
+                            }}
+                          >
+                            <Avatar className="w-6 h-6 rounded-lg shrink-0">
+                              <AvatarFallback className="rounded-lg bg-primary/10 text-xs font-bold text-primary">
+                                {teamInitialsLocal}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className="flex-1 text-left min-w-0">
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-sm font-medium truncate">
+                                  {team.name}
+                                </span>
+                                {teamIsFree ? (
+                                  <Badge
+                                    variant="secondary"
+                                    className="text-[10px] px-1 py-0 shrink-0"
+                                  >
+                                    FREE
+                                  </Badge>
+                                ) : (
+                                  <Badge
+                                    variant="secondary"
+                                    className="text-[10px] px-1 py-0 uppercase shrink-0"
+                                  >
+                                    {teamPlan}
+                                  </Badge>
+                                )}
                               </div>
-                              {isActive && (
-                                <Check className="w-4 h-4 text-primary shrink-0" />
-                              )}
-                            </button>
-                          );
-                        })}
-                      </div>
+                            </div>
+                            {isActive && (
+                              <Check className="w-4 h-4 text-primary shrink-0" />
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
 
-                      {/* Create new team button */}
-                      <div className="border-t border-border pt-2">
-                        <Button
-                          variant="ghost"
-                          className="w-full justify-start text-sm"
-                          onClick={() => {
-                            router.push("/teams/create");
-                          }}
-                        >
-                          <Plus className="w-4 h-4 mr-2" />
-                          Create new team
-                        </Button>
-                      </div>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-              )}
+                    {/* Create new team button */}
+                    <div className="border-t border-border pt-2">
+                      <Button
+                        variant="ghost"
+                        className="w-full justify-start text-sm"
+                        onClick={() => {
+                          router.push("/teams/create");
+                        }}
+                      >
+                        <Plus className="w-4 h-4 mr-2" />
+                        Create new team
+                      </Button>
+                    </div>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
 
               {tabGroups.map((group) => (
                 <SidebarGroup key={group.label}>

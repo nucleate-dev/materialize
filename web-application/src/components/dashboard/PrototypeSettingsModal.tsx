@@ -61,7 +61,6 @@ import {
 } from "@/components/ui/tooltip";
 import { VIEWER_ROLE_RESTRICTION_MESSAGE } from "@/GlobalConstants";
 import { useActiveTeam } from "@/contexts/TeamContext";
-import { usePostHog } from "posthog-js/react";
 import ProPlanUpsellModal from "@/components/prototype-editor/ProPlanUpsellModal";
 
 interface PrototypeSettingsModalProps {
@@ -82,7 +81,6 @@ export default function PrototypeSettingsModal({
   onDeleted,
 }: PrototypeSettingsModalProps) {
   const logger = useProductLogger();
-  const posthog = usePostHog();
   const { activeTeam, currentUserMembership } = useActiveTeam();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -94,9 +92,6 @@ export default function PrototypeSettingsModal({
 
   // Check if user is a viewer (no edit privileges)
   const isViewer = currentUserMembership?.role === "viewer";
-
-  // Check if teams UI is enabled
-  const isTeamsUIEnabled = posthog?.isFeatureEnabled("teams-ui") ?? false;
 
   // Check if team is on free plan
   const isFreePlan = userPlan === "free";
@@ -315,7 +310,7 @@ export default function PrototypeSettingsModal({
                                   <span>Public</span>
                                 </div>
                               </SelectItem>
-                              {isTeamsUIEnabled && activeTeam && (
+                              {activeTeam && (
                                 <SelectItem
                                   value="TEAM"
                                   className="cursor-pointer focus:bg-gray-100 dark:focus:bg-white/10"

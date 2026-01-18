@@ -68,7 +68,6 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { usePostHog } from "posthog-js/react";
 import {
   Tooltip,
   TooltipContent,
@@ -133,7 +132,6 @@ export default function NewPrototypeModal({
 }: NewPrototypeModalProps) {
   const router = useRouter();
   const logger = useProductLogger();
-  const posthog = usePostHog();
   const { activeTeam, currentUserMembership } = useActiveTeam();
 
   const [name, setName] = useState("");
@@ -174,7 +172,6 @@ export default function NewPrototypeModal({
   }>({ connected: false, loading: true });
   const [sourceRepoComboboxOpen, setSourceRepoComboboxOpen] = useState(false);
 
-  const isTeamsUIEnabled = posthog?.isFeatureEnabled("teams-ui") ?? false;
   const isWebFrameworkSelected = framework === "web_nextjs_react";
 
   // Check if team is on free plan
@@ -804,7 +801,7 @@ export default function NewPrototypeModal({
                       <span>Public</span>
                     </div>
                   </SelectItem>
-                  {isTeamsUIEnabled && activeTeam && (
+                  {activeTeam && (
                     <SelectItem
                       value="TEAM"
                       className="focus:bg-muted focus:text-foreground cursor-pointer"
