@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useSidebar } from "@/components/ui/sidebar";
 import { logout } from "@/lib/utils/auth/SupabaseAuthUtils";
+import { TEAM_ACCOUNT_CREDITS_SETTINGS_PATH } from "@/GlobalConstants";
 import {
   ChevronDown,
   Folder,
@@ -140,11 +141,11 @@ const MobileHeader = () => {
                 <DropdownMenuContent align="end" className="w-48">
                   <DropdownMenuItem asChild>
                     <Link
-                      href="/dashboard/account"
+                      href={TEAM_ACCOUNT_CREDITS_SETTINGS_PATH}
                       className="flex items-center gap-3 cursor-pointer"
                       onClick={() => {
                         logSidebarClick("settings", {
-                          href: "/dashboard/account",
+                          href: TEAM_ACCOUNT_CREDITS_SETTINGS_PATH,
                         });
                         setOpenMobile(false);
                       }}

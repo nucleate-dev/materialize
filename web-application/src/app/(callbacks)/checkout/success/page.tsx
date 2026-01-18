@@ -1,6 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
+import { TEAM_ACCOUNT_CREDITS_SETTINGS_PATH } from "@/GlobalConstants";
 import { useMetaPixel } from "@/hooks/useMetaPixel";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import { SUBSCRIPTION_ACCESS_QUERY_KEY } from "@/lib/react-query/queryKeys";
@@ -24,7 +25,7 @@ function CheckoutSuccessContent() {
 
     if (!sessionId) {
       logger.debug("warn", "No session_id in checkout success URL");
-      router.push("/dashboard/account");
+      router.push(TEAM_ACCOUNT_CREDITS_SETTINGS_PATH);
       return;
     }
 
@@ -100,7 +101,7 @@ function CheckoutSuccessContent() {
       return;
     }
     setHasRedirected(true);
-    router.replace("/dashboard/account");
+    router.replace(TEAM_ACCOUNT_CREDITS_SETTINGS_PATH);
   }, [isTracking, hasRedirected, router]);
 
   return (
@@ -146,7 +147,7 @@ function CheckoutSuccessContent() {
             {!isTracking && (
               <div className="space-y-3 pt-4">
                 <Button
-                  onClick={() => router.replace("/dashboard/account")}
+                  onClick={() => router.replace(TEAM_ACCOUNT_CREDITS_SETTINGS_PATH)}
                   className="w-full bg-black dark:bg-white text-white dark:text-black hover:bg-black/90 dark:hover:bg-white/90 h-11"
                 >
                   Continue to Account Settings

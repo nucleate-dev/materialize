@@ -18,6 +18,9 @@ export const WAITLIST_MODE = false;
 export const DEBUG_MODE = false;
 export const ENABLE_ASSET_UPLOAD = true;
 
+export const TEAM_ACCOUNT_CREDITS_SETTINGS_PATH =
+  "/dashboard?settingsTab=credits";
+
 // MESSAGES
 
 export const VIEWER_ROLE_RESTRICTION_MESSAGE =

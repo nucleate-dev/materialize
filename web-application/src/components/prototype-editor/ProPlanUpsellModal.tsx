@@ -11,6 +11,7 @@ import { handleCheckout } from "@/lib/utils/payments/CheckoutUtils";
 import { Check, Loader2, Sparkles, Star, Zap } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { TEAM_ACCOUNT_CREDITS_SETTINGS_PATH } from "@/GlobalConstants";
 
 type UpsellReason =
   | "free_message_limit_reached"
@@ -140,7 +141,7 @@ export default function ProPlanUpsellModal({
         stack: error instanceof Error ? error.stack : undefined,
       });
       // Fallback to account page if checkout fails
-      window.open("/dashboard/account", "_blank");
+      window.open(TEAM_ACCOUNT_CREDITS_SETTINGS_PATH, "_blank");
       setIsProcessing(false);
     }
   };

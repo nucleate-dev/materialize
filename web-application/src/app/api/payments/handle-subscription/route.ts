@@ -1,4 +1,7 @@
-import { SubscriptionStatuses } from "@/GlobalConstants";
+import {
+  SubscriptionStatuses,
+  TEAM_ACCOUNT_CREDITS_SETTINGS_PATH,
+} from "@/GlobalConstants";
 import {
   triggerSubscriptionFreeTrialWillEndEmail,
   triggerSubscriptionPaymentFailedEmail,
@@ -830,7 +833,7 @@ async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
     if (stripeCustomerId != null) {
       const session = await stripe.billingPortal.sessions.create({
         customer: stripeCustomerId,
-        return_url: `${process.env.NEXT_PUBLIC_SITE_BASE_URL}dashboard/account`, // Change this to your actual return URL
+        return_url: `${process.env.NEXT_PUBLIC_SITE_BASE_URL}${TEAM_ACCOUNT_CREDITS_SETTINGS_PATH}`, // Change this to your actual return URL
       });
       retryUrl = session.url;
     }

@@ -34,6 +34,20 @@ import {
 } from "@/components/dashboard/TeamAndAccountSettingsDialog";
 import { useState, useEffect } from "react";
 
+const SETTINGS_TABS: SettingsTab[] = [
+  "profile",
+  "credits",
+  "claude",
+  "team",
+  "people",
+  "github",
+];
+
+const isValidSettingsTab = (value: string | null): value is SettingsTab => {
+  if (!value) return false;
+  return SETTINGS_TABS.includes(value as SettingsTab);
+};
+
 const DashboardSidebarContent = () => {
   const pathname = usePathname();
   const router = useRouter();
@@ -76,6 +90,28 @@ const DashboardSidebarContent = () => {
       url.searchParams.delete("teamId");
       window.history.replaceState({}, "", url.toString());
     }
+  }, [searchParams]);
+
+  // Open settings dialog when explicitly requested via query params
+  useEffect(() => {
+    const requestedTab = searchParams.get("settingsTab");
+
+    if (!requestedTab) {
+      return;
+    }
+
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      url.searchParams.delete("settingsTab");
+      window.history.replaceState({}, "", url.toString());
+    }
+
+    if (!isValidSettingsTab(requestedTab)) {
+      return;
+    }
+
+    setSettingsDefaultTab(requestedTab);
+    setSettingsDialogOpen(true);
   }, [searchParams]);
 
   const logSidebarItemClick = (
