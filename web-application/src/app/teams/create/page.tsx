@@ -4,7 +4,6 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { GridBackground } from "@/components/shared/GridComponent";
 import { useActiveTeam } from "@/contexts/TeamContext";
 import { useUser } from "@/hooks/useUser";
 import { supabase } from "@/ClientConstants";
@@ -138,13 +137,11 @@ export default function CreateTeamPage() {
   ];
 
   return (
-    <div className="relative min-h-screen bg-[#0B0C0E] text-white selection:bg-indigo-500/30 overflow-hidden font-sans">
-      <GridBackground forceDarkMode />
-
-      {/* Close button - outside main content container */}
+    <div className="relative min-h-screen bg-background text-foreground selection:bg-primary/30 overflow-hidden font-sans">
+      {/* Close button */}
       <button
         onClick={() => router.back()}
-        className="fixed top-6 right-6 z-50 p-2 hover:bg-white/10 rounded-lg transition-colors"
+        className="fixed top-6 right-6 z-50 p-2 hover:bg-accent rounded-lg transition-colors"
         disabled={isCreating}
       >
         <X className="w-5 h-5" />
@@ -153,23 +150,20 @@ export default function CreateTeamPage() {
       <div className="relative z-10 min-h-screen flex flex-col items-center justify-center px-4 py-12">
         {/* Header */}
         <div className="text-center mb-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-          <h1 className="text-3xl md:text-4xl font-medium tracking-tight text-transparent bg-clip-text bg-gradient-to-b from-white via-white to-white/60 mb-3">
+          <h1 className="text-3xl md:text-4xl font-medium tracking-tight text-transparent bg-clip-text bg-gradient-to-b from-foreground via-foreground to-foreground/60 mb-3">
             Create a new team
           </h1>
-          <p className="text-[#8A8F98] text-base max-w-md mx-auto">
+          <p className="text-muted-foreground text-base max-w-md mx-auto">
             Set up your team workspace and choose a plan
           </p>
         </div>
 
         {/* Team Creation Card */}
         <div className="w-full max-w-4xl animate-in fade-in slide-in-from-bottom-8 duration-1000 delay-100">
-          {/* Glow Effect */}
-          <div className="absolute -inset-0.5 bg-gradient-to-r from-indigo-500/20 to-blue-500/20 rounded-2xl blur-xl opacity-20"></div>
-
-          <div className="relative bg-[#141517] border border-white/10 rounded-2xl shadow-2xl overflow-hidden p-8">
+          <div className="relative bg-card border border-border rounded-xl shadow-lg overflow-hidden p-8">
             {/* Team Name Section */}
             <div className="mb-8">
-              <label className="block text-sm font-medium text-white mb-3">
+              <label className="block text-sm font-medium text-foreground mb-3">
                 Team name
               </label>
               <Input
@@ -177,14 +171,14 @@ export default function CreateTeamPage() {
                 onChange={(e) => setTeamName(e.target.value)}
                 placeholder="Enter your team name"
                 disabled={isCreating}
-                className="bg-[#0B0C0E] border-white/10 text-white placeholder:text-white/30 h-12 text-base"
+                className="bg-background border-border text-foreground placeholder:text-muted-foreground h-12 text-base"
                 maxLength={100}
               />
             </div>
 
             {/* Plan Selection Section */}
             <div className="mb-8">
-              <label className="block text-sm font-medium text-white mb-4">
+              <label className="block text-sm font-medium text-foreground mb-4">
                 Select plan
               </label>
 
@@ -196,38 +190,38 @@ export default function CreateTeamPage() {
                     disabled={isCreating}
                     className={`relative p-6 rounded-xl flex flex-col text-left transition-all duration-200 ${
                       selectedPlan === plan.productKey
-                        ? "bg-[#1A1B1E] border-2 border-indigo-500/50 shadow-[0_0_40px_-10px_rgba(99,102,241,0.3)]"
-                        : "bg-transparent border-2 border-white/10 hover:border-white/20"
+                        ? "bg-accent border-2 border-primary/50 ring-1 ring-primary/20"
+                        : "bg-transparent border-2 border-border hover:border-border/60"
                     }`}
                   >
                     {selectedPlan === plan.productKey && (
-                      <div className="absolute -top-3 -right-3 w-8 h-8 bg-indigo-500 rounded-full flex items-center justify-center">
-                        <CheckIcon className="w-5 h-5 text-white" />
+                      <div className="absolute -top-3 -right-3 w-8 h-8 bg-primary rounded-full flex items-center justify-center">
+                        <CheckIcon className="w-5 h-5 text-primary-foreground" />
                       </div>
                     )}
 
                     <div className="mb-6">
-                      <h3 className="text-lg font-medium text-white">
+                      <h3 className="text-lg font-medium text-foreground">
                         {plan.name}
                       </h3>
-                      <p className="text-sm text-[#8A8F98] mt-1 h-10">
+                      <p className="text-sm text-muted-foreground mt-1 h-10">
                         {plan.description}
                       </p>
                     </div>
 
                     <div className="mb-6 flex items-baseline gap-1">
-                      <span className="text-3xl font-medium text-white">
+                      <span className="text-3xl font-medium text-foreground">
                         {plan.price}
                       </span>
-                      <span className="text-[#8A8F98] text-sm">
+                      <span className="text-muted-foreground text-sm">
                         /{plan.period}
                       </span>
                     </div>
 
                     {/* Seat Selector for Team plan */}
                     {plan.productKey === "team" && selectedPlan === "team" && (
-                      <div className="mb-6 p-4 bg-white/5 rounded-lg border border-white/10">
-                        <div className="text-sm font-medium text-white mb-3">
+                      <div className="mb-6 p-4 bg-accent rounded-lg border border-border">
+                        <div className="text-sm font-medium text-foreground mb-3">
                           Number of seats
                         </div>
                         <div className="flex items-center gap-3">
@@ -240,7 +234,7 @@ export default function CreateTeamPage() {
                               setSeatQuantity(Math.max(1, seatQuantity - 1));
                             }}
                             disabled={seatQuantity <= 1 || isCreating}
-                            className="h-9 w-9 bg-white/5 hover:bg-white/10 border border-white/20 text-white disabled:opacity-30 disabled:cursor-not-allowed"
+                            className="h-9 w-9 bg-background hover:bg-accent border border-border disabled:opacity-30 disabled:cursor-not-allowed"
                           >
                             -
                           </Button>
@@ -253,7 +247,7 @@ export default function CreateTeamPage() {
                               setSeatQuantity(Math.max(1, num));
                             }}
                             onClick={(e) => e.stopPropagation()}
-                            className="text-center h-9 w-20 text-sm bg-[#0B0C0E] border-white/20 text-white"
+                            className="text-center h-9 w-20 text-sm bg-background border-border"
                             disabled={isCreating}
                           />
                           <Button
@@ -265,7 +259,7 @@ export default function CreateTeamPage() {
                               setSeatQuantity(seatQuantity + 1);
                             }}
                             disabled={isCreating}
-                            className="h-9 w-9 bg-white/5 hover:bg-white/10 border border-white/20 text-white disabled:opacity-30 disabled:cursor-not-allowed"
+                            className="h-9 w-9 bg-background hover:bg-accent border border-border disabled:opacity-30 disabled:cursor-not-allowed"
                           >
                             +
                           </Button>
@@ -283,9 +277,9 @@ export default function CreateTeamPage() {
                       {plan.features.map((feature, i) => (
                         <div
                           key={i}
-                          className="flex items-center gap-3 text-sm text-[#8A8F98]"
+                          className="flex items-center gap-3 text-sm text-muted-foreground"
                         >
-                          <CheckIcon className="w-4 h-4 text-white/40 shrink-0" />
+                          <CheckIcon className="w-4 h-4 text-foreground/40 shrink-0" />
                           {feature}
                         </div>
                       ))}
@@ -301,7 +295,7 @@ export default function CreateTeamPage() {
                 onClick={handleCreateTeam}
                 disabled={!canContinue || isCreating}
                 size="lg"
-                className="bg-white text-black hover:bg-white/90 disabled:opacity-50 disabled:cursor-not-allowed font-semibold px-8"
+                className="bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed font-semibold px-8"
               >
                 {isCreating ? "Creating team..." : "Create team & continue"}
               </Button>
