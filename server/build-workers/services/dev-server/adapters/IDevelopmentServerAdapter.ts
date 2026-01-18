@@ -3,6 +3,7 @@ import {
   SandboxAPIResponse,
   StandardErrorResponse,
 } from "../../../types/BuildWorkerTypes.js";
+import { Database } from "../../../types/supabase.js";
 
 /**
  * Type definition for supported development server frameworks.
@@ -38,7 +39,14 @@ export interface IDevelopmentServerAdapter {
   build(
     log2: SystemLogger,
   ): Promise<
-    SandboxAPIResponse<{ output_path: string }, StandardErrorResponse>
+    SandboxAPIResponse<
+      {
+        output_path: string;
+        build_status: Database["public"]["Enums"]["prototype_build_status"];
+        build_output: string;
+      },
+      StandardErrorResponse
+    >
   >;
 
   /**

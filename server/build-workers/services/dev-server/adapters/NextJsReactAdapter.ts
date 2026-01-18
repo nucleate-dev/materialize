@@ -169,7 +169,14 @@ export class NextJsReactAdapter implements IDevelopmentServerAdapter {
   async build(
     log2: SystemLogger,
   ): Promise<
-    SandboxAPIResponse<{ output_path: string }, StandardErrorResponse>
+    SandboxAPIResponse<
+      {
+        output_path: string;
+        build_status: "in_progress" | "success" | "failure";
+        build_output: string;
+      },
+      StandardErrorResponse
+    >
   > {
     const result = await new Promise<{
       stdout: string;
@@ -297,7 +304,11 @@ echo "EXIT_CODE=$?"
         { projectDir: this.clientDir },
       );
       return {
-        data: null,
+        data: {
+          output_path: "",
+          build_status: "failure",
+          build_output: result.stdout || result.stderr || "Build failed with no output",
+        },
         error: {
           error: "Next.js build failed",
           message: `Next.js build failed with exit code ${result.code}`,
@@ -318,7 +329,11 @@ echo "EXIT_CODE=$?"
         "Dist output missing after Next.js export",
       );
       return {
-        data: null,
+        data: {
+          output_path: "",
+          build_status: "failure",
+          build_output: result.stdout || "Build output directory not found",
+        },
         error: {
           error: "Dist directory missing",
           message: "Next.js export did not produce a dist directory",
@@ -329,6 +344,8 @@ echo "EXIT_CODE=$?"
     return {
       data: {
         output_path: distPath,
+        build_status: "success",
+        build_output: result.stdout || "Build completed successfully",
       },
       error: null,
     };

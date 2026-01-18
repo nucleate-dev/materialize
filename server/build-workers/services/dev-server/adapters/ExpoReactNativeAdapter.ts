@@ -233,7 +233,14 @@ export class ExpoReactNativeAdapter implements IDevelopmentServerAdapter {
   async build(
     log2: SystemLogger,
   ): Promise<
-    SandboxAPIResponse<{ output_path: string }, StandardErrorResponse>
+    SandboxAPIResponse<
+      {
+        output_path: string;
+        build_status: "in_progress" | "success" | "failure";
+        build_output: string;
+      },
+      StandardErrorResponse
+    >
   > {
     // TODO: Implement Expo project build logic
     const result = await new Promise<{
@@ -357,7 +364,11 @@ export class ExpoReactNativeAdapter implements IDevelopmentServerAdapter {
         { projectDir: this.clientDir },
       );
       return {
-        data: null,
+        data: {
+          output_path: "",
+          build_status: "failure",
+          build_output: result.stdout || result.stderr || "Build failed with no output",
+        },
         error: {
           error: "Expo build failed",
           message: `Expo build failed with exit code ${result.code}`,
@@ -371,7 +382,11 @@ export class ExpoReactNativeAdapter implements IDevelopmentServerAdapter {
       const distStats = await fs.stat(distPath);
       if (!distStats.isDirectory()) {
         return {
-          data: null,
+          data: {
+            output_path: "",
+            build_status: "failure",
+            build_output: result.stdout || "Build output exists but is not a directory",
+          },
           error: {
             error: "Dist is not a directory",
             message: "Dist is not a directory",
@@ -381,7 +396,11 @@ export class ExpoReactNativeAdapter implements IDevelopmentServerAdapter {
     } catch (error) {
       log2.error(error, "Dist is not a directory");
       return {
-        data: null,
+        data: {
+          output_path: "",
+          build_status: "failure",
+          build_output: result.stdout || "Build output directory not found",
+        },
         error: {
           error: "Dist is not a directory",
           message: "Dist is not a directory",
@@ -392,6 +411,8 @@ export class ExpoReactNativeAdapter implements IDevelopmentServerAdapter {
     return {
       data: {
         output_path: distPath,
+        build_status: "success",
+        build_output: result.stdout || "Build completed successfully",
       },
       error: null,
     };
