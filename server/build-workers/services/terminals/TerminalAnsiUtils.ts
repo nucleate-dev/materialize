@@ -57,10 +57,50 @@ export function cleanBuildOutput(input: string): string {
     return "";
   }
 
-  // First strip ANSI sequences, then remove progress bar lines
+  // First strip ANSI sequences
   const withoutAnsi = stripAnsiSequences(input);
-  const withoutProgress = stripProgressBars(withoutAnsi);
+
+  // Split by newlines and process each line
+  const lines = withoutAnsi.split("\n").map((line) => {
+    // Handle carriage returns - keep only the last segment
+    // This handles progress bars that use \r to update in place
+    const segments = line.split("\r");
+    return segments[segments.length - 1];
+  });
+
+  // Filter out progress bar lines and artifacts
+  const filteredLines = lines.filter((line) => {
+    const trimmed = line.trim();
+
+    // Skip empty lines
+    if (!trimmed) {
+      return true;
+    }
+
+    // Filter out spinner/progress bar lines
+    if (/^[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]/.test(trimmed)) {
+      return false;
+    }
+
+    // Filter out lines that are just single characters repeated (progress artifacts)
+    // e.g., "m", "mm", "mmmmm" which are remnants of escape sequences
+    if (/^(.)\1*$/.test(trimmed) && trimmed.length <= 5) {
+      return false;
+    }
+
+    // Check if line contains progress bar characters with progress info
+    const hasProgressChars = /[░▓▒]/.test(line);
+    const hasPercentage = /\d+\.\d+%/.test(line);
+    const hasFileCount = /\(\s*\d+\/\s*\d+\)/.test(line);
+
+    // If it has progress characteristics, filter it out
+    if (hasProgressChars && (hasPercentage || hasFileCount)) {
+      return false;
+    }
+
+    return true;
+  });
 
   // Remove excessive blank lines (more than 2 consecutive)
-  return withoutProgress.replace(/\n{3,}/g, "\n\n").trim();
+  return filteredLines.join("\n").replace(/\n{3,}/g, "\n\n").trim();
 }
