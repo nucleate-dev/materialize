@@ -647,6 +647,9 @@ const MaterializeRenderSection = forwardRef<
       null,
     );
     const [tempPath, setTempPath] = useState<string>("");
+    const [routeSuggestions, setRouteSuggestions] = useState<
+      Array<{ route: string; group?: string }>
+    >([]);
     // Allow screen editing in public view if onScreensChange or onWebScreensChange is provided
     const canEditScreensInPublicView =
       publicView && (!!onScreensChange || !!onWebScreensChange);

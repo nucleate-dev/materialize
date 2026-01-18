@@ -153,6 +153,27 @@ const PreviewCanvas = forwardRef<PreviewCanvasRef, PreviewCanvasProps>(
       [rebuildScreenShapeMap],
     );
 
+    // Notify parent of screen changes
+    const notifyScreensChanged = useCallback(() => {
+      if (!editorRef.current || !onScreensChange) return;
+
+      const editor = editorRef.current;
+      const shapes = editor.getCurrentPageShapes();
+      const screens: ScreenConfig[] = [];
+
+      for (const shape of shapes) {
+        if (shape.type === "phone-frame" || shape.type === "browser-frame") {
+          const props = shape.props as { screenId: number; path: string };
+          screens.push({
+            id: props.screenId,
+            path: props.path,
+          });
+        }
+      }
+
+      onScreensChange(screens);
+    }, [onScreensChange]);
+
     // Add a new screen
     const addScreen = useCallback(
       (path: string) => {
@@ -267,27 +288,6 @@ const PreviewCanvas = forwardRef<PreviewCanvasRef, PreviewCanvasProps>(
       },
       [debouncedSave, notifyScreensChanged, previewMode, viewingUrl],
     );
-
-    // Notify parent of screen changes
-    const notifyScreensChanged = useCallback(() => {
-      if (!editorRef.current || !onScreensChange) return;
-
-      const editor = editorRef.current;
-      const shapes = editor.getCurrentPageShapes();
-      const screens: ScreenConfig[] = [];
-
-      for (const shape of shapes) {
-        if (shape.type === "phone-frame" || shape.type === "browser-frame") {
-          const props = shape.props as { screenId: number; path: string };
-          screens.push({
-            id: props.screenId,
-            path: props.path,
-          });
-        }
-      }
-
-      onScreensChange(screens);
-    }, [onScreensChange]);
 
     // Zoom to fit all shapes
     const zoomToFit = useCallback(() => {
