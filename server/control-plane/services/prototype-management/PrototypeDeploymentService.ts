@@ -217,26 +217,7 @@ export class PrototypeDeploymentService {
       prototypeId: prototype_id,
     });
 
-    // 2. Check user has access to the deploy feature
-    const isDeployFeatureEnabled = await posthog.isFeatureEnabled(
-      'deploy-app-for-public-viewing',
-      authResult.user.id,
-    );
-    if (!isDeployFeatureEnabled) {
-      request.log2.warn('Deployment feature not enabled for user', {
-        user_id: authResult.user.id,
-      });
-      reply.status(HTTP_STATUS.FORBIDDEN);
-      return {
-        data: null,
-        error: {
-          error: 'Feature not available',
-          message: 'Deployment feature is not enabled for your account',
-        },
-      };
-    }
-
-    // 3. Validate the slug formatting
+    // 2. Validate the slug formatting
     const normalizedSlug = this.normalizeSlug(rawSlug);
     if (!this.isValidSlug(normalizedSlug)) {
       reply.status(HTTP_STATUS.BAD_REQUEST);
@@ -249,7 +230,7 @@ export class PrototypeDeploymentService {
       };
     }
 
-    // 4. Check the slug uniqueness
+    // 3. Check the slug uniqueness
     const { data: slugMatches, error: slugCheckError } = await supabase
       .from('prototypes')
       .select('id')
@@ -284,7 +265,7 @@ export class PrototypeDeploymentService {
       request.log2,
     );
 
-    // 5. Copy the build output into a unique deployment folder
+    // 4. Copy the build output into a unique deployment folder
     const deploymentKey = `d${Date.now()}`;
     const copyResult = await copyPrototypeBuildToDeploymentFolder(
       this.s3Client,
@@ -304,7 +285,7 @@ export class PrototypeDeploymentService {
       };
     }
 
-    // 6. Clean up old deployment folders to preserve S3 storage space
+    // 5. Clean up old deployment folders to preserve S3 storage space
     const prefixesToDelete = existingDeploymentPrefixes.filter(
       (prefix) => !prefix.endsWith(`/${deploymentKey}/`),
     );
@@ -321,7 +302,7 @@ export class PrototypeDeploymentService {
       }
     }
 
-    // 7. Record deployment key against the latest build history entry
+    // 6. Record deployment key against the latest build history entry
     const { data: latestBuildHistory, error: buildHistoryError } =
       await supabase
         .from('prototype_build_history')
@@ -364,7 +345,7 @@ export class PrototypeDeploymentService {
       }
     }
 
-    // 8. Update prototype with deployment details
+    // 7. Update prototype with deployment details
     const { data: updatedPrototype, error: updateError } = await supabase
       .from('prototypes')
       .update({
