@@ -50,6 +50,7 @@ import { CreditsAndSubscriptionsTab } from "./CreditsAndSubscriptionsTab";
 import { TeamTab } from "./TeamTab";
 import { PeopleTab } from "./PeopleTab";
 import { GitHubIntegrationTab } from "./GitHubIntegrationTab";
+import { useClaudePersonalSubscriptionAccess } from "@/hooks/useClaudePersonalSubscriptionAccess";
 
 type SettingsTab =
   | "profile"
@@ -80,8 +81,12 @@ export function TeamAndAccountsSettingsDialog({
     Record<string, string>
   >({});
 
-  const isClaudeConnectionEnabled =
+  const { isEligible: isClaudePersonalEligible, loading: claudeAccessLoading } =
+    useClaudePersonalSubscriptionAccess();
+  const isClaudeFeatureEnabled =
     posthog?.isFeatureEnabled("claude-code-cli-with-personal-token") ?? false;
+  const canShowClaudeTab =
+    isClaudeFeatureEnabled && isClaudePersonalEligible && !claudeAccessLoading;
 
   // Get initials for team avatar
   const getInitials = (name: string) => {
@@ -99,9 +104,19 @@ export function TeamAndAccountsSettingsDialog({
   // Update active tab when dialog opens with a new defaultTab
   useEffect(() => {
     if (open) {
-      setActiveTab(defaultTab);
+      if (defaultTab === "claude" && !canShowClaudeTab) {
+        setActiveTab("profile");
+      } else {
+        setActiveTab(defaultTab);
+      }
     }
-  }, [open, defaultTab]);
+  }, [open, defaultTab, canShowClaudeTab]);
+
+  useEffect(() => {
+    if (!canShowClaudeTab && activeTab === "claude") {
+      setActiveTab("profile");
+    }
+  }, [canShowClaudeTab, activeTab]);
 
   // Fetch subscriptions for all teams
   useEffect(() => {
@@ -183,7 +198,7 @@ export function TeamAndAccountsSettingsDialog({
       label: "Account",
       tabs: [
         { id: "profile", label: userRow?.name || "Profile", icon: User },
-        ...(isClaudeConnectionEnabled
+        ...(canShowClaudeTab
           ? [
               {
                 id: "claude" as const,
@@ -372,7 +387,9 @@ export function TeamAndAccountsSettingsDialog({
             <div className="h-full">
               {activeTab === "profile" && <ProfileTab />}
               {activeTab === "credits" && <CreditsAndSubscriptionsTab />}
-              {activeTab === "claude" && <ClaudeConnectionTab />}
+              {canShowClaudeTab && activeTab === "claude" && (
+                <ClaudeConnectionTab />
+              )}
               {activeTab === "team" && <TeamTab />}
               {activeTab === "people" && <PeopleTab />}
               {activeTab === "github" && <GitHubIntegrationTab />}
