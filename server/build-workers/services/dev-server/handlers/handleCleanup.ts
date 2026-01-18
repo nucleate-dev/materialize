@@ -170,6 +170,27 @@ export async function triggerDevServerBuildAndUploadToS3(
     log2.error(buildResult.error, "Build failed");
     developmentServerService.developmentServerState.buildError =
       buildResult.error.message;
+
+    // Insert failed build record into history
+    const buildStatus = (buildResult.data as any)?.build_status || "failure";
+    const buildOutput = (buildResult.data as any)?.build_output || buildResult.error.message;
+
+    const { error: insertFailedBuildError } = await supabase
+      .from("prototype_build_history")
+      .insert({
+        prototype_id: prototypeId,
+        build_key: "",
+        deploy_key: "",
+        build_status: buildStatus as "failure",
+        build_output: buildOutput,
+      });
+
+    if (insertFailedBuildError) {
+      log2.error(insertFailedBuildError, "Failed to insert failed build history", {
+        prototypeId,
+      });
+    }
+
     throw new Error(buildResult.error.message);
   }
   log2.consoleLogDevOnly(
@@ -194,6 +215,8 @@ export async function triggerDevServerBuildAndUploadToS3(
       prototype_id: prototypeId,
       build_key: uploadResult.version,
       deploy_key: "",
+      build_status: buildResult.data.build_status,
+      build_output: buildResult.data.build_output,
     });
   if (insertHistoryError) {
     log2.error(insertHistoryError, "Failed to insert prototype build history", {
