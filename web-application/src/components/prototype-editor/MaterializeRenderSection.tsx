@@ -1,6 +1,7 @@
 "use client";
 
 import { supabase } from "@/ClientConstants";
+import { ENABLE_DESIGN_SYSTEM } from "@/GlobalConstants";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
@@ -3079,18 +3080,20 @@ const MaterializeRenderSection = forwardRef<
                       Browser
                     </DropdownMenuItem>
                   )}
-                  {designSystemLabel && onDesignSystemClick && (
-                    <>
-                      <DropdownMenuSeparator className="bg-border" />
-                      <DropdownMenuItem
-                        onClick={onDesignSystemClick}
-                        className="focus:bg-accent/80 focus:text-foreground text-muted-foreground text-sm cursor-pointer"
-                      >
-                        <Palette className="w-4 h-4 mr-2 opacity-70" />
-                        Change design system
-                      </DropdownMenuItem>
-                    </>
-                  )}
+                  {ENABLE_DESIGN_SYSTEM &&
+                    designSystemLabel &&
+                    onDesignSystemClick && (
+                      <>
+                        <DropdownMenuSeparator className="bg-border" />
+                        <DropdownMenuItem
+                          onClick={onDesignSystemClick}
+                          className="focus:bg-accent/80 focus:text-foreground text-muted-foreground text-sm cursor-pointer"
+                        >
+                          <Palette className="w-4 h-4 mr-2 opacity-70" />
+                          Change design system
+                        </DropdownMenuItem>
+                      </>
+                    )}
                   {!isReadOnlyView && (
                     <>
                       <DropdownMenuSeparator className="bg-border" />

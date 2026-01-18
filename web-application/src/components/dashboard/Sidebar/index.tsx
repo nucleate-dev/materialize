@@ -14,7 +14,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { SHOW_WHITEBOARDS } from "@/GlobalConstants";
+import { SHOW_WHITEBOARDS, ENABLE_DESIGN_SYSTEM } from "@/GlobalConstants";
 import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import { useCustomUserRow } from "@/hooks/useCustomUserRow";
 import { sidebarOpenAtom } from "@/lib/atoms/sidebar";
@@ -22,7 +22,7 @@ import { cn } from "@/lib/classNames";
 import { handleCheckout } from "@/lib/utils/payments/CheckoutUtils";
 import { IsUserPlanSubscribed } from "@/lib/utils/payments/SubscriptionManagementUtils";
 import { useAtom } from "jotai";
-import { Atom, Rocket, Sparkles, SquareStack, Zap } from "lucide-react";
+import { Atom, Palette, Rocket, Sparkles, SquareStack, Zap } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
@@ -110,12 +110,16 @@ const DashboardSidebarContent = () => {
     //   label: "Folders",
     //   active: pathname?.includes("folders"),
     // },
-    // {
-    //   href: "/dashboard/design-systems",
-    //   icon: Palette,
-    //   label: "Design Systems",
-    //   active: pathname?.includes("design-systems"),
-    // },
+    ...(ENABLE_DESIGN_SYSTEM
+      ? [
+          {
+            href: "/dashboard/design-systems",
+            icon: Palette,
+            label: "Design Systems",
+            active: pathname?.includes("design-systems"),
+          },
+        ]
+      : []),
     ...(SHOW_WHITEBOARDS
       ? [
           {
