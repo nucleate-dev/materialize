@@ -3,7 +3,7 @@
 import { RenderStatus } from "@/app/dashboard/projects/[prototype_id]/InternalPrototypePage";
 import { supabase } from "@/ClientConstants";
 import Loader from "@/components/dashboard/Loader";
-import { HorizontalModeToggle } from "@/components/prototype-editor/horizontal-mode-toggle";
+import DashboardSidebar from "@/components/dashboard/Sidebar";
 import MaterializeRenderSection, {
   type MaterializeRenderSectionRef,
 } from "@/components/prototype-editor/MaterializeRenderSection";
@@ -21,20 +21,9 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import {
-  Sidebar,
-  SidebarContent,
-  SidebarFooter,
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarHeader,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
   SidebarProvider,
-  SidebarSeparator,
   SidebarTrigger,
 } from "@/components/ui/sidebar";
-import { SHOW_WHITEBOARDS } from "@/GlobalConstants";
 import { useUserTeams } from "@/hooks/useUserTeams";
 import { cn } from "@/lib/classNames";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
@@ -45,22 +34,15 @@ import type {
   StandardErrorResponse,
 } from "@/lib/types/serverAPITypes";
 import { Database } from "@/lib/types/supabase";
-import { logout } from "@/lib/utils/auth/SupabaseAuthUtils";
 import {
-  Atom,
   Eye,
-  Folder,
   Loader2,
-  LogOut,
-  Rocket,
   RotateCcw,
   Save,
-  Settings,
   Sparkles,
-  SquareStack,
 } from "lucide-react";
 import Link from "next/link";
-import { useParams, usePathname } from "next/navigation";
+import { useParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
@@ -105,179 +87,6 @@ const isValidPublicDisplayConfig = (
   return true;
 };
 
-function AppSidebar() {
-  const pathname = usePathname();
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-
-  useEffect(() => {
-    // Check initial auth state
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setIsAuthenticated(!!session);
-    });
-
-    // Listen for auth state changes
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setIsAuthenticated(!!session);
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
-
-  const menuItems = [
-    {
-      href: "/dashboard/projects",
-      icon: Rocket,
-      label: "Projects",
-      active: pathname?.includes("projects"),
-    },
-    {
-      href: "/dashboard/folders",
-      icon: Folder,
-      label: "Folders",
-      active: pathname?.includes("projects"), // Kept logic as per original
-    },
-    ...(SHOW_WHITEBOARDS
-      ? [
-          {
-            href: "/dashboard/whiteboards",
-            icon: SquareStack,
-            label: "Whiteboards",
-            active: pathname?.includes("whiteboards"),
-          },
-        ]
-      : []),
-  ];
-
-  return (
-    <Sidebar className="border-r border-gray-200 dark:border-border bg-gray-50 dark:bg-background">
-      <SidebarHeader className="border-b border-gray-200 dark:border-sidebar-border">
-        <div className="flex items-center gap-3 px-2 py-2">
-          <Link href="/" className="group flex-1 min-w-0">
-            <div className="relative flex items-center gap-3 px-3 py-2">
-              {/* Glow Effect */}
-              <div className="absolute inset-0 bg-gradient-to-r from-primary/20 to-secondary/20 dark:from-primary/30 dark:to-secondary/30 rounded-xl blur-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-
-              <Atom className="relative w-6 h-6 text-primary transition-transform duration-300 group-hover:scale-110 flex-shrink-0" />
-
-              <span className="relative text-xl font-bold text-gray-900 dark:text-foreground transition-transform duration-300 group-hover:scale-105">
-                Nucleate
-              </span>
-            </div>
-          </Link>
-        </div>
-      </SidebarHeader>
-
-      <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  asChild
-                  isActive={pathname === "/"}
-                  size="lg"
-                  className="bg-white dark:bg-card border border-gray-200 dark:border-border hover:bg-gray-100 dark:hover:bg-muted text-gray-700 dark:text-white shadow-sm transition-all"
-                >
-                  <Link href="/">
-                    <Sparkles className="w-5 h-5 text-primary" />
-                    <span className="font-medium">New chat +</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-        <div className="px-4 py-2">
-          <SidebarSeparator className="bg-gray-200 dark:bg-white/5" />
-        </div>
-
-        <SidebarGroup>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {menuItems.map((item) => (
-                <SidebarMenuItem key={item.href}>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={item.active}
-                    size="lg"
-                    className={cn(
-                      "text-gray-600 dark:text-muted-foreground hover:text-gray-900 dark:hover:text-foreground transition-colors",
-                      item.active &&
-                        "bg-gray-100 dark:bg-white/5 text-gray-900 dark:text-white font-medium",
-                    )}
-                  >
-                    <Link href={item.href}>
-                      <item.icon
-                        className={cn(
-                          "w-5 h-5",
-                          item.active ? "text-primary" : "opacity-70",
-                        )}
-                      />
-                      <span>{item.label}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-      </SidebarContent>
-
-      <SidebarFooter className="pt-4 border-t border-gray-200 dark:border-sidebar-border">
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <HorizontalModeToggle sidebarExpanded={true} />
-          </SidebarMenuItem>
-          {isAuthenticated && (
-            <>
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  asChild
-                  isActive={pathname?.includes("account")}
-                  size="lg"
-                  className="text-gray-600 dark:text-muted-foreground hover:text-gray-900 dark:hover:text-foreground"
-                >
-                  <Link href="/dashboard/account">
-                    <Settings className="w-5 h-5" />
-                    <span>Settings</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  onClick={logout}
-                  size="lg"
-                  className="text-gray-600 dark:text-muted-foreground hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10"
-                >
-                  <LogOut className="w-5 h-5" />
-                  <span>Logout</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            </>
-          )}
-          {!isAuthenticated && (
-            <SidebarMenuItem>
-              <SidebarMenuButton
-                asChild
-                size="lg"
-                className="text-gray-600 dark:text-muted-foreground hover:text-gray-900 dark:hover:text-foreground"
-              >
-                <Link href="/login">
-                  <LogOut className="w-5 h-5 rotate-180" />
-                  <span>Login</span>
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          )}
-        </SidebarMenu>
-      </SidebarFooter>
-    </Sidebar>
-  );
-}
-
 // Interface matching MobileScreenConfig from MaterializeRenderSection
 interface MobileScreenConfig {
   id: number;
@@ -300,6 +109,7 @@ export default function PrototypePage() {
 
   // Auth and edit permissions
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const { teams: userTeams } = useUserTeams();
 
   // Public display config state - mobile screens
@@ -387,14 +197,25 @@ export default function PrototypePage() {
     };
   }, [prototype?.name]);
 
-  // Fetch current user
+  // Fetch current user and check authentication
   useEffect(() => {
     async function fetchUserInfo() {
       const { data: sessionData } = await supabase.auth.getSession();
       const userId = sessionData.session?.user?.id ?? null;
       setCurrentUserId(userId);
+      setIsAuthenticated(!!sessionData.session);
     }
     fetchUserInfo();
+
+    // Listen for auth state changes
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setIsAuthenticated(!!session);
+      setCurrentUserId(session?.user?.id ?? null);
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
   // Initialize saved config from prototype
@@ -711,11 +532,13 @@ export default function PrototypePage() {
   return (
     <SidebarProvider defaultOpen={false}>
       <div className="flex w-full h-screen bg-white dark:bg-background">
-        <AppSidebar />
+        {isAuthenticated && <DashboardSidebar />}
         <main className="flex flex-1 flex-col h-screen overflow-hidden bg-white dark:bg-background">
           {/* Header with Sidebar Trigger */}
           <div className="flex items-center gap-4 p-4 border-b border-gray-200 dark:border-border bg-gray-50/50 dark:bg-white/[0.02]">
-            <SidebarTrigger className="text-gray-500 dark:text-muted-foreground hover:bg-gray-100 dark:hover:bg-muted" />
+            {isAuthenticated && (
+              <SidebarTrigger className="text-gray-500 dark:text-muted-foreground hover:bg-gray-100 dark:hover:bg-muted" />
+            )}
             <div className="flex-1">
               <PublicPrototypeHeader
                 prototype={prototype}
