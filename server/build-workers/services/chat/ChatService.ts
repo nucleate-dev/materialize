@@ -14,6 +14,7 @@ import {
   ChatSystemEventSubtype,
   HistoryResponseData,
 } from "../../types/ChatTypes.js";
+import { isEligibleForPersonalClaudeSubscription } from "../../utils/eligibilityChecks.js";
 import { Database } from "../../types/supabase.js";
 import { hasRemainingCredits } from "../../utils/credit-checks.js";
 import { getWorkerContext, WORK_DIR } from "../../worker.js";
@@ -719,6 +720,52 @@ export class ChatService {
     ) {
       this.sendAuthModeStatus(socket, connectionId, prototypeId);
       return;
+    }
+
+    if (requestedMode === "claude_sub") {
+      const { teamId, userId } = getWorkerContext();
+      if (!teamId || !userId) {
+        logger.consoleLogDevOnly(
+          "warn",
+          "Cannot enable personal Claude subscription without team/user context",
+          {
+            teamId,
+            userId,
+          },
+        );
+        this.sendMessage(socket, {
+          type: ChatEvent.ERROR,
+          error: {
+            message: "Unable to determine eligibility for personal subscription.",
+          },
+        });
+        this.sendAuthModeStatus(socket, connectionId, prototypeId);
+        return;
+      }
+
+      const eligible = await isEligibleForPersonalClaudeSubscription({
+        supabase: this.supabaseClientService.getClient(),
+        userId,
+        teamId,
+        logger,
+      });
+
+      if (!eligible) {
+        logger.consoleLogDevOnly(
+          "warn",
+          "Team attempted to use personal Claude subscription without eligibility",
+          { teamId, userId },
+        );
+        this.sendMessage(socket, {
+          type: ChatEvent.ERROR,
+          error: {
+            message:
+              "Your team plan does not allow connecting a personal Claude subscription.",
+          },
+        });
+        this.sendAuthModeStatus(socket, connectionId, prototypeId);
+        return;
+      }
     }
 
     const applied = this.applyAuthEnvironment(requestedMode, logger);

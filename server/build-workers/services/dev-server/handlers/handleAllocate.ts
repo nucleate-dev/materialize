@@ -11,6 +11,7 @@ import {
   DEFAULT_PROTOTYPE_FRAMEWORK,
   NucleateDevelopmentServerService,
 } from "../NucleateDevelopmentServerService.js";
+import { isEligibleForPersonalClaudeSubscription } from "../../../utils/eligibilityChecks.js";
 
 export async function handleAllocateImpl(
   request: FastifyRequest<{ Body: PublicAllocateRequest }>,
@@ -98,47 +99,80 @@ export async function handleAllocateImpl(
   });
 
   // 3b. CHECK FOR USER OAUTH TOKEN AND SET UP AUTH ENVIRONMENT
-  try {
-    const { data: tokenData, error: tokenError } = await supabaseClient
-      .from("user_claude_tokens")
-      .select("oauth_token, is_valid")
-      .eq("user_id", user_details.userId)
-      .eq("is_valid", true)
-      .maybeSingle();
-
-    if (tokenError) {
-      request.log2.warn("Failed to query user OAuth token", {
-        error: tokenError.message,
-        code: tokenError.code,
-      });
-    } else if (tokenData?.oauth_token) {
-      // Set up environment for Claude SDK OAuth authentication
-      process.env.CLAUDE_CODE_OAUTH_TOKEN = tokenData.oauth_token;
-      delete process.env.ANTHROPIC_API_KEY;
-
-      // Store token reference in ChatService for usage tracking
-      materializeDevelopmentServerService.chatService.setUserOAuthToken(
-        tokenData.oauth_token,
-      );
-
-      request.log2.info("User OAuth token configured for worker", {
+  let claudePersonalEligible = false;
+  if (prototypeTeamId) {
+    try {
+      claudePersonalEligible = await isEligibleForPersonalClaudeSubscription({
+        supabase: supabaseClient,
         userId: user_details.userId,
-        tokenLength: tokenData.oauth_token.length,
+        teamId: prototypeTeamId,
+        logger: request.log2,
       });
-    } else {
-      request.log2.consoleLogDevOnly(
-        "info",
-        "No OAuth token found for user, using platform API key",
-        { userId: user_details.userId },
+    } catch (error) {
+      request.log2.error(
+        error instanceof Error ? error : new Error(String(error)),
+        "Failed to determine personal Claude eligibility",
+        { userId: user_details.userId, teamId: prototypeTeamId },
       );
     }
-  } catch (error) {
-    request.log2.error(
-      error instanceof Error ? error : new Error(String(error)),
-      "Error setting up OAuth token authentication",
-      { userId: user_details.userId },
+  }
+
+  if (claudePersonalEligible) {
+    try {
+      const { data: tokenData, error: tokenError } = await supabaseClient
+        .from("user_claude_tokens")
+        .select("oauth_token, is_valid")
+        .eq("user_id", user_details.userId)
+        .eq("is_valid", true)
+        .maybeSingle();
+
+      if (tokenError) {
+      request.log2.consoleLogDevOnly(
+        "warn",
+        "Failed to query user OAuth token",
+        {
+          error: tokenError.message,
+          code: tokenError.code,
+        },
+      );
+      } else if (tokenData?.oauth_token) {
+        // Set up environment for Claude SDK OAuth authentication
+        process.env.CLAUDE_CODE_OAUTH_TOKEN = tokenData.oauth_token;
+        delete process.env.ANTHROPIC_API_KEY;
+
+        // Store token reference in ChatService for usage tracking
+        materializeDevelopmentServerService.chatService.setUserOAuthToken(
+          tokenData.oauth_token,
+        );
+
+        request.log2.info("User OAuth token configured for worker", {
+          userId: user_details.userId,
+          tokenLength: tokenData.oauth_token.length,
+        });
+      } else {
+        request.log2.consoleLogDevOnly(
+          "info",
+          "No OAuth token found for user, using platform API key",
+          { userId: user_details.userId },
+        );
+      }
+    } catch (error) {
+      request.log2.error(
+        error instanceof Error ? error : new Error(String(error)),
+        "Error setting up OAuth token authentication",
+        { userId: user_details.userId },
+      );
+      // Continue with platform API key - don't fail allocation
+    }
+  } else {
+    request.log2.consoleLogDevOnly(
+      "info",
+      "Personal Claude subscription not enabled for this team/plan",
+      {
+        userId: user_details.userId,
+        teamId: prototypeTeamId,
+      },
     );
-    // Continue with platform API key - don't fail allocation
   }
 
   // 4 PROTOTYPE FRAMEWORK INITIALIZATION:
