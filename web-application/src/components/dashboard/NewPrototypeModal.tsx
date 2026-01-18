@@ -229,14 +229,17 @@ export default function NewPrototypeModal({
     }
 
     async function fetchPrototypeCount() {
-      if (!user) return;
+      if (!activeTeam?.id) {
+        setPrototypeCount(0);
+        return;
+      }
 
       setIsLoadingCount(true);
       try {
         const { count, error } = await supabase
           .from("prototypes")
           .select("*", { count: "exact", head: true })
-          .eq("owner_id", user.id);
+          .eq("team_id", activeTeam.id);
 
         if (error) {
           logger.debug("error", "Error fetching prototype count:", {
