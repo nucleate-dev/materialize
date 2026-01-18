@@ -174,8 +174,6 @@ export default function NewPrototypeModal({
   }>({ connected: false, loading: true });
   const [sourceRepoComboboxOpen, setSourceRepoComboboxOpen] = useState(false);
 
-  const isWebPrototypeEnabled =
-    posthog?.isFeatureEnabled("web-prototype-support") ?? false;
   const isTeamsUIEnabled = posthog?.isFeatureEnabled("teams-ui") ?? false;
   const isWebFrameworkSelected = framework === "web_nextjs_react";
 
@@ -718,8 +716,7 @@ export default function NewPrototypeModal({
             </div>
 
             {/* Platform Select */}
-            {isWebPrototypeEnabled && (
-              <div className="space-y-2">
+            <div className="space-y-2">
                 <Label
                   htmlFor="platform-select"
                   className="text-xs font-medium text-muted-foreground"
@@ -755,7 +752,6 @@ export default function NewPrototypeModal({
                   </SelectContent>
                 </Select>
               </div>
-            )}
 
             {/* Visibility Select */}
             <div className="space-y-2">

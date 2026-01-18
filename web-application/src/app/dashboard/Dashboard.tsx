@@ -110,8 +110,6 @@ export default function DashboardPage() {
   const [isDragOver, setIsDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const isWebPrototypeEnabled =
-    posthog?.isFeatureEnabled("web-prototype-support") ?? false;
   const isTeamsUIEnabled = posthog?.isFeatureEnabled("teams-ui") ?? false;
   const isWebFrameworkSelected = framework === "web_nextjs_react";
 
@@ -497,31 +495,29 @@ export default function DashboardPage() {
             <div className="px-4 py-3 mt-2 bg-muted/50 border-t border-border flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
               {/* Left: Configuration Tools (Desktop) */}
               <div className="hidden md:flex items-center gap-2">
-                {isWebPrototypeEnabled && (
-                  <Select
-                    value={framework}
-                    onValueChange={(value) =>
-                      setFramework(value as PrototypeFramework)
-                    }
-                    disabled={isLoading}
-                  >
-                    <SelectTrigger className="h-8 border-0 bg-secondary hover:bg-secondary/80 text-secondary-foreground text-xs font-medium rounded-md transition-colors gap-2 w-auto min-w-[120px] focus:ring-0">
-                      <Rocket className="w-3.5 h-3.5" />
-                      <SelectValue placeholder="Platform" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-popover border-border text-popover-foreground">
-                      {PLATFORM_OPTIONS.map((option) => (
-                        <SelectItem
-                          key={option.value}
-                          value={option.value}
-                          className="focus:bg-accent focus:text-accent-foreground text-muted-foreground cursor-pointer text-xs py-2"
-                        >
-                          {option.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
+                <Select
+                  value={framework}
+                  onValueChange={(value) =>
+                    setFramework(value as PrototypeFramework)
+                  }
+                  disabled={isLoading}
+                >
+                  <SelectTrigger className="h-8 border-0 bg-secondary hover:bg-secondary/80 text-secondary-foreground text-xs font-medium rounded-md transition-colors gap-2 w-auto min-w-[120px] focus:ring-0">
+                    <Rocket className="w-3.5 h-3.5" />
+                    <SelectValue placeholder="Platform" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-popover border-border text-popover-foreground">
+                    {PLATFORM_OPTIONS.map((option) => (
+                      <SelectItem
+                        key={option.value}
+                        value={option.value}
+                        className="focus:bg-accent focus:text-accent-foreground text-muted-foreground cursor-pointer text-xs py-2"
+                      >
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 {/* Design Style Selector */}
                 <Select
                   value={designStyle}
@@ -634,33 +630,31 @@ export default function DashboardPage() {
                   <CollapsibleContent className="space-y-2 pt-2 pb-1 animate-in slide-in-from-top-2">
                     {/* Mobile Selects */}
                     <div className="grid grid-cols-1 gap-2">
-                      {isWebPrototypeEnabled && (
-                        <Select
-                          value={framework}
-                          onValueChange={(value) =>
-                            setFramework(value as PrototypeFramework)
-                          }
-                          disabled={isLoading}
-                        >
-                          <SelectTrigger className="h-9 border-border bg-secondary text-secondary-foreground text-xs w-full">
-                            <div className="flex items-center gap-2">
-                              <Rocket className="w-3.5 h-3.5" />
-                              <SelectValue placeholder="Platform" />
-                            </div>
-                          </SelectTrigger>
-                          <SelectContent className="bg-popover border-border text-popover-foreground">
-                            {PLATFORM_OPTIONS.map((option) => (
-                              <SelectItem
-                                key={option.value}
-                                value={option.value}
-                                className="focus:bg-accent focus:text-accent-foreground text-muted-foreground text-xs"
-                              >
-                                {option.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      )}
+                      <Select
+                        value={framework}
+                        onValueChange={(value) =>
+                          setFramework(value as PrototypeFramework)
+                        }
+                        disabled={isLoading}
+                      >
+                        <SelectTrigger className="h-9 border-border bg-secondary text-secondary-foreground text-xs w-full">
+                          <div className="flex items-center gap-2">
+                            <Rocket className="w-3.5 h-3.5" />
+                            <SelectValue placeholder="Platform" />
+                          </div>
+                        </SelectTrigger>
+                        <SelectContent className="bg-popover border-border text-popover-foreground">
+                          {PLATFORM_OPTIONS.map((option) => (
+                            <SelectItem
+                              key={option.value}
+                              value={option.value}
+                              className="focus:bg-accent focus:text-accent-foreground text-muted-foreground text-xs"
+                            >
+                              {option.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                       <Select
                         value={designStyle}
                         onValueChange={(v) => setDesignStyle(v as DesignStyle)}

@@ -171,9 +171,6 @@ function HeroSection() {
   const [isDragOver, setIsDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const isWebPrototypeEnabled =
-    posthog?.isFeatureEnabled("web-prototype-support") ?? false;
-
   // Process image files
   const processImageFiles = (files: File[]) => {
     files.forEach((file) => {
@@ -517,23 +514,21 @@ function HeroSection() {
                 >
                   <Paperclip className="w-4 h-4" />
                 </Button>
-                {isWebPrototypeEnabled && (
-                  <Select
-                    value={framework}
-                    onValueChange={(v) => setFramework(v as PrototypeFramework)}
-                  >
-                    <SelectTrigger className="h-9 w-32 border-border bg-accent text-xs">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent className="bg-card border-border">
-                      {PLATFORM_OPTIONS.map((o) => (
-                        <SelectItem key={o.value} value={o.value}>
-                          {o.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
+                <Select
+                  value={framework}
+                  onValueChange={(v) => setFramework(v as PrototypeFramework)}
+                >
+                  <SelectTrigger className="h-9 w-32 border-border bg-accent text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-card border-border">
+                    {PLATFORM_OPTIONS.map((o) => (
+                      <SelectItem key={o.value} value={o.value}>
+                        {o.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 <motion.div
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}

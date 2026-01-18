@@ -142,9 +142,6 @@ function HeroSection() {
   const [framework, setFramework] =
     useState<PrototypeFramework>(DEFAULT_FRAMEWORK);
 
-  const isWebPrototypeEnabled =
-    posthog?.isFeatureEnabled("web-prototype-support") ?? false;
-
   const handleSend = async () => {
     const content = prompt.trim();
     if (!content || isLoading) return;
@@ -226,23 +223,21 @@ function HeroSection() {
                 </button>
               </div>
               <div className="flex items-center gap-2">
-                {isWebPrototypeEnabled && (
-                  <Select
-                    value={framework}
-                    onValueChange={(v) => setFramework(v as PrototypeFramework)}
-                  >
-                    <SelectTrigger className="h-9 w-32 border-border bg-accent text-xs">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent className="bg-card border-border">
-                      {PLATFORM_OPTIONS.map((o) => (
-                        <SelectItem key={o.value} value={o.value}>
-                          {o.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
+                <Select
+                  value={framework}
+                  onValueChange={(v) => setFramework(v as PrototypeFramework)}
+                >
+                  <SelectTrigger className="h-9 w-32 border-border bg-accent text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-card border-border">
+                    {PLATFORM_OPTIONS.map((o) => (
+                      <SelectItem key={o.value} value={o.value}>
+                        {o.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 <Button
                   onClick={handleSend}
                   disabled={!prompt.trim() || isLoading}
