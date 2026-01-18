@@ -685,6 +685,8 @@ export type Database = {
       prototype_build_history: {
         Row: {
           build_key: string;
+          build_output: string | null;
+          build_status: Database["public"]["Enums"]["prototype_build_status"];
           created_at: string;
           deploy_key: string;
           id: string;
@@ -693,6 +695,8 @@ export type Database = {
         };
         Insert: {
           build_key: string;
+          build_output?: string | null;
+          build_status?: Database["public"]["Enums"]["prototype_build_status"];
           created_at?: string;
           deploy_key: string;
           id?: string;
@@ -701,6 +705,8 @@ export type Database = {
         };
         Update: {
           build_key?: string;
+          build_output?: string | null;
+          build_status?: Database["public"]["Enums"]["prototype_build_status"];
           created_at?: string;
           deploy_key?: string;
           id?: string;
@@ -1500,6 +1506,7 @@ export type Database = {
       chat_role: "user" | "assistant" | "system";
       design_style: "tamagui" | "stylesheets" | "nativewind" | "custom";
       file_type: "text" | "asset";
+      prototype_build_status: "in_progress" | "success" | "failure";
       prototype_framework: "mobile_expo_react_native" | "web_nextjs_react";
       subscription_plan_type: "free" | "team" | "pro" | "plus" | "max";
       subscription_status: "active" | "past_due" | "canceled";
@@ -1640,6 +1647,7 @@ export const Constants = {
       chat_role: ["user", "assistant", "system"],
       design_style: ["tamagui", "stylesheets", "nativewind", "custom"],
       file_type: ["text", "asset"],
+      prototype_build_status: ["in_progress", "success", "failure"],
       prototype_framework: ["mobile_expo_react_native", "web_nextjs_react"],
       subscription_plan_type: ["free", "team", "pro", "plus", "max"],
       subscription_status: ["active", "past_due", "canceled"],
