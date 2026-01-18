@@ -52,7 +52,7 @@ import { PeopleTab } from "./PeopleTab";
 import { GitHubIntegrationTab } from "./GitHubIntegrationTab";
 import { useClaudePersonalSubscriptionAccess } from "@/hooks/useClaudePersonalSubscriptionAccess";
 
-type SettingsTab =
+export type SettingsTab =
   | "profile"
   | "credits"
   | "claude"

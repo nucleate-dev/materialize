@@ -5,7 +5,7 @@
 // To update these shared files, modify the source file and run:
 // npm run sync-types (in the control-plane directory)
 //
-// Last synced: 2026-01-18T04:12:36.331Z
+// Last synced: 2026-01-18T06:24:27.103Z
 
 // Team-level allowlists for feature gating
 // Each Set contains team UUIDs that are allowed to use specific features
@@ -13,6 +13,8 @@
 /**
  * Teams allowed to attach personal Claude subscriptions
  */
-export const team_allowlist_attach_personal_claude_subscriptions = new Set<string>([
-  // Add team UUIDs here
+export const team_allowlist_attach_personal_claude_subscriptions = new Set<
+  string
+>([
+  "a4cbf754-f730-4063-bceb-90f1507f71f5",
 ]);

@@ -2,6 +2,10 @@
 
 import { supabase } from "@/ClientConstants";
 import Loader from "@/components/dashboard/Loader";
+import {
+  TeamAndAccountsSettingsDialog,
+  type SettingsTab,
+} from "@/components/dashboard/TeamAndAccountSettingsDialog";
 import ClaudeCodePanel, {
   type ClaudeCodePanelRef,
 } from "@/components/prototype-editor/ClaudeCodePanel";
@@ -101,6 +105,7 @@ export default function InternalPrototypePage() {
   const router = useRouter();
   const { user, userIsLoading } = useUser();
   const { userPlan } = useSubscriptionAccess();
+  const isFreePlan = userPlan === "free";
   const { activeTeam, currentUserMembership } = useActiveTeam();
   const activeTeamId = activeTeam?.id;
   const params = useParams<{ prototype_id: string }>();
@@ -115,6 +120,19 @@ export default function InternalPrototypePage() {
   const [isPublic, setIsPublic] = useState(false);
   const [isCloningPrototype, setIsCloningPrototype] = useState(false);
   const [showCloneUpsellModal, setShowCloneUpsellModal] = useState(false);
+  const [teamSettingsDialogOpen, setTeamSettingsDialogOpen] = useState(false);
+  const [teamSettingsDefaultTab, setTeamSettingsDefaultTab] =
+    useState<SettingsTab>("profile");
+  const openTeamSettingsDialog = useCallback(
+    (tab: SettingsTab = "profile") => {
+      setTeamSettingsDefaultTab(tab);
+      setTeamSettingsDialogOpen(true);
+    },
+    [],
+  );
+  const showClaudeConnectionSettings = useCallback(() => {
+    openTeamSettingsDialog("claude");
+  }, [openTeamSettingsDialog]);
   const [viewingUrl, setViewingUrl] = useState<string | null>(null);
   const [baseTunnelUrl, setBaseTunnelUrl] = useState<string | null>(null);
   const [currentRenderStatus, setCurrentRenderStatus] =
@@ -1240,6 +1258,8 @@ export default function InternalPrototypePage() {
                 onRestartDevServerComplete={handleChatRestartDevServerComplete}
                 onStartDevServer={handleTriggerFetchAndStartDevServer}
                 onCollapse={() => setIsChatCollapsed(true)}
+                isFreePlan={isFreePlan}
+                onShowClaudeConnectionSettings={showClaudeConnectionSettings}
               />
             </div>
           </div>
@@ -1619,6 +1639,12 @@ export default function InternalPrototypePage() {
           }
         />
       )}
+
+      <TeamAndAccountsSettingsDialog
+        open={teamSettingsDialogOpen}
+        onOpenChange={setTeamSettingsDialogOpen}
+        defaultTab={teamSettingsDefaultTab}
+      />
     </div>
   );
 }

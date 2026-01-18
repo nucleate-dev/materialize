@@ -81,6 +81,8 @@ interface ClaudeCodePanelProps {
   onRestartDevServerComplete?: () => void;
   onStartDevServer?: () => void;
   onCollapse?: () => void;
+  isFreePlan?: boolean;
+  onShowClaudeConnectionSettings?: () => void;
 }
 
 export interface Message {
@@ -149,6 +151,8 @@ const ClaudeCodePanel = forwardRef<ClaudeCodePanelRef, ClaudeCodePanelProps>(
       onRestartDevServerComplete,
       onStartDevServer,
       onCollapse,
+      isFreePlan = false,
+      onShowClaudeConnectionSettings,
     },
     ref,
   ) => {
@@ -354,9 +358,12 @@ const ClaudeCodePanel = forwardRef<ClaudeCodePanelRef, ClaudeCodePanelProps>(
         if (mode === authMode) {
           return;
         }
+        if (mode === "claude_sub" && isFreePlan) {
+          onShowClaudeConnectionSettings?.();
+        }
         updateAuthMode(mode, { notifySandbox: true });
       },
-      [authMode, updateAuthMode],
+      [authMode, updateAuthMode, isFreePlan, onShowClaudeConnectionSettings],
     );
 
     useEffect(() => {

@@ -28,7 +28,10 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import { TeamSelector } from "./TeamSelector";
 import { useActiveTeam } from "@/contexts/TeamContext";
-import { TeamAndAccountsSettingsDialog } from "@/components/dashboard/TeamAndAccountSettingsDialog";
+import {
+  TeamAndAccountsSettingsDialog,
+  type SettingsTab,
+} from "@/components/dashboard/TeamAndAccountSettingsDialog";
 import { useState, useEffect } from "react";
 
 const DashboardSidebarContent = () => {
@@ -44,9 +47,8 @@ const DashboardSidebarContent = () => {
   const logger = useProductLogger();
   const { activeTeam } = useActiveTeam();
   const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);
-  const [settingsDefaultTab, setSettingsDefaultTab] = useState<
-    "profile" | "credits" | "claude" | "team" | "people" | "github"
-  >("profile");
+  const [settingsDefaultTab, setSettingsDefaultTab] =
+    useState<SettingsTab>("profile");
 
   const getInitials = (name: string | null) => {
     if (!name) return "U";
