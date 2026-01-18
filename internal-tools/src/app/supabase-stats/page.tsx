@@ -3,7 +3,17 @@
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import { Box, Briefcase, ClipboardList, Loader2, MessageSquare, Share2, Sparkles, Target, Users } from "lucide-react";
+import {
+  Box,
+  Briefcase,
+  ClipboardList,
+  Loader2,
+  MessageSquare,
+  Share2,
+  Sparkles,
+  Target,
+  Users,
+} from "lucide-react";
 import { useEffect, useState } from "react";
 
 interface DailyStat {
@@ -48,10 +58,7 @@ function SimpleBarChart({
 
   return (
     <div className="w-full flex flex-col gap-2">
-      <div
-        className="flex justify-between gap-2 w-full"
-        style={{ height }}
-      >
+      <div className="flex justify-between gap-2 w-full" style={{ height }}>
         {data.map((item) => {
           const percent = (item.count / max) * 100;
           // Format date to show just Month-Day or Day name if needed
@@ -106,7 +113,10 @@ function HorizontalBarChart({
         const percent = (item.count / max) * 100;
         return (
           <div key={item.name} className="flex items-center gap-2 group">
-            <div className="w-28 text-xs text-muted-foreground truncate" title={item.name}>
+            <div
+              className="w-28 text-xs text-muted-foreground truncate"
+              title={item.name}
+            >
               {item.name}
             </div>
             <div className="flex-1 h-6 bg-muted/20 rounded-sm relative">
@@ -269,7 +279,10 @@ export default function SupabaseStatsPage() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold mb-4">
-                  {stats?.onboardingSurvey?.daily?.reduce((acc, curr) => acc + curr.count, 0) || 0}
+                  {stats?.onboardingSurvey?.daily?.reduce(
+                    (acc, curr) => acc + curr.count,
+                    0,
+                  ) || 0}
                 </div>
                 {stats?.onboardingSurvey?.daily && (
                   <SimpleBarChart
@@ -287,7 +300,8 @@ export default function SupabaseStatsPage() {
                 <Briefcase className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                {stats?.onboardingSurvey?.byRole && stats.onboardingSurvey.byRole.length > 0 ? (
+                {stats?.onboardingSurvey?.byRole &&
+                stats.onboardingSurvey.byRole.length > 0 ? (
                   <HorizontalBarChart
                     data={stats.onboardingSurvey.byRole}
                     colorClass="bg-sky-500"
@@ -307,7 +321,8 @@ export default function SupabaseStatsPage() {
                 <Sparkles className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                {stats?.onboardingSurvey?.byExperience && stats.onboardingSurvey.byExperience.length > 0 ? (
+                {stats?.onboardingSurvey?.byExperience &&
+                stats.onboardingSurvey.byExperience.length > 0 ? (
                   <HorizontalBarChart
                     data={stats.onboardingSurvey.byExperience}
                     colorClass="bg-amber-500"
@@ -327,7 +342,8 @@ export default function SupabaseStatsPage() {
                 <Share2 className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                {stats?.onboardingSurvey?.byReferralSource && stats.onboardingSurvey.byReferralSource.length > 0 ? (
+                {stats?.onboardingSurvey?.byReferralSource &&
+                stats.onboardingSurvey.byReferralSource.length > 0 ? (
                   <HorizontalBarChart
                     data={stats.onboardingSurvey.byReferralSource}
                     colorClass="bg-rose-500"
@@ -347,7 +363,8 @@ export default function SupabaseStatsPage() {
                 <Target className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                {stats?.onboardingSurvey?.byUseCases && stats.onboardingSurvey.byUseCases.length > 0 ? (
+                {stats?.onboardingSurvey?.byUseCases &&
+                stats.onboardingSurvey.byUseCases.length > 0 ? (
                   <HorizontalBarChart
                     data={stats.onboardingSurvey.byUseCases}
                     colorClass="bg-teal-500"

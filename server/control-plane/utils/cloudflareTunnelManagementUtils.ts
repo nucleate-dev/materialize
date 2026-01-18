@@ -1,8 +1,8 @@
-import type { SystemLogger } from "../loggers/SystemLogger.js";
-import { type SupabaseClient } from "@supabase/supabase-js";
-import type { Database } from "../types/supabase.js";
+import type { SystemLogger } from '../loggers/SystemLogger.js';
+import { type SupabaseClient } from '@supabase/supabase-js';
+import type { Database } from '../types/supabase.js';
 
-const CLOUDFLARE_API_URL = "https://api.cloudflare.com/client/v4";
+const CLOUDFLARE_API_URL = 'https://api.cloudflare.com/client/v4';
 
 type CfResp<T> = {
   success: boolean;
@@ -33,14 +33,14 @@ export async function createCloudflareTunnelForContainer(
       `${CLOUDFLARE_API_URL}/accounts/${process.env
         .CLOUDFLARE_ACCOUNT_ID!}/cfd_tunnel`,
       {
-        method: "POST",
+        method: 'POST',
         headers: {
           Authorization: `Bearer ${process.env.CLOUDFLARE_TUNNELS_API_KEY!}`,
-          "Content-Type": "application/json",
+          'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           name: tunnelName,
-          config_src: "cloudflare", // remote-config managed via API
+          config_src: 'cloudflare', // remote-config managed via API
         }),
       },
     );
@@ -57,9 +57,9 @@ export async function createCloudflareTunnelForContainer(
       }>;
     if (!createTunnelResponseJson.success) {
       throw new Error(
-        `CF create tunnel not success: ${
-          JSON.stringify(createTunnelResponseJson.errors)
-        }`,
+        `CF create tunnel not success: ${JSON.stringify(
+          createTunnelResponseJson.errors,
+        )}`,
       );
     }
     tunnelId = createTunnelResponseJson.result.id;
@@ -71,59 +71,59 @@ export async function createCloudflareTunnelForContainer(
       `${CLOUDFLARE_API_URL}/accounts/${process.env
         .CLOUDFLARE_ACCOUNT_ID!}/cfd_tunnel/${tunnelId}/configurations`,
       {
-        method: "PUT",
+        method: 'PUT',
         headers: {
           Authorization: `Bearer ${process.env.CLOUDFLARE_TUNNELS_API_KEY!}`,
-          "Content-Type": "application/json",
+          'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           config: {
             ingress: [
               {
                 hostname,
-                path: "/terminal/ws/*",
-                service: "http://localhost:3002",
+                path: '/terminal/ws/*',
+                service: 'http://localhost:3002',
                 originRequest: {}, // optional; can add timeouts, headers, etc.
               },
               {
                 hostname,
-                path: "/code/ws/*",
-                service: "http://localhost:3002", // Claude Code WebSocket
+                path: '/code/ws/*',
+                service: 'http://localhost:3002', // Claude Code WebSocket
                 originRequest: {},
               },
               {
                 hostname,
-                path: "/update-files-v2",
-                service: "http://localhost:3002",
+                path: '/update-files-v2',
+                service: 'http://localhost:3002',
                 originRequest: {},
               },
               {
                 hostname,
-                path: "/dev-server/restart-v2",
-                service: "http://localhost:3002",
+                path: '/dev-server/restart-v2',
+                service: 'http://localhost:3002',
                 originRequest: {},
               },
               {
                 hostname,
-                path: "/dev-server/build-and-deploy",
-                service: "http://localhost:3002",
+                path: '/dev-server/build-and-deploy',
+                service: 'http://localhost:3002',
                 originRequest: {},
               },
               {
                 hostname,
-                path: "/dev-server/refetch-env",
-                service: "http://localhost:3002",
+                path: '/dev-server/refetch-env',
+                service: 'http://localhost:3002',
                 originRequest: {},
               },
               {
                 hostname,
-                path: "/dev-server/undo-last-change",
+                path: '/dev-server/undo-last-change',
                 service: `http://localhost:3002`,
                 originRequest: {},
               },
               {
                 hostname,
-                path: "/dev-server/connect-github",
+                path: '/dev-server/connect-github',
                 service: `http://localhost:3002`,
                 originRequest: {},
               },
@@ -132,7 +132,7 @@ export async function createCloudflareTunnelForContainer(
                 service: `http://127.0.0.1:19006`,
                 originRequest: {},
               },
-              { service: "http_status:404" },
+              { service: 'http_status:404' },
             ],
           },
         }),
@@ -155,13 +155,13 @@ export async function createCloudflareTunnelForContainer(
       `${CLOUDFLARE_API_URL}/zones/${process.env
         .CLOUDFLARE_ZONE_ID!}/dns_records`,
       {
-        method: "POST",
+        method: 'POST',
         headers: {
           Authorization: `Bearer ${process.env.CLOUDFLARE_TUNNELS_API_KEY!}`,
-          "Content-Type": "application/json",
+          'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          type: "CNAME",
+          type: 'CNAME',
           name: hostname,
           content: cnameTarget,
           proxied: true,
@@ -209,10 +209,10 @@ export async function deleteCloudflareTunnel(
     `${CLOUDFLARE_API_URL}/accounts/${process.env
       .CLOUDFLARE_ACCOUNT_ID!}/cfd_tunnel/${tunnelId}`,
     {
-      method: "DELETE",
+      method: 'DELETE',
       headers: {
         Authorization: `Bearer ${process.env.CLOUDFLARE_TUNNELS_API_KEY!}`,
-        "Content-Type": "application/json",
+        'Content-Type': 'application/json',
       },
     },
   );
@@ -225,7 +225,7 @@ export async function deleteCloudflareTunnel(
   }
 
   log2.consoleLogDevOnly(
-    "info",
+    'info',
     `Successfully deleted Cloudflare tunnel ${tunnelId}`,
   );
 
@@ -233,15 +233,15 @@ export async function deleteCloudflareTunnel(
   if (hostname) {
     // Strip protocol prefixes if present
     let cleanHostname = hostname;
-    if (hostname.startsWith("wss://")) {
+    if (hostname.startsWith('wss://')) {
       cleanHostname = hostname.substring(6);
-    } else if (hostname.startsWith("https://")) {
+    } else if (hostname.startsWith('https://')) {
       cleanHostname = hostname.substring(8);
-    } else if (hostname.startsWith("http://")) {
+    } else if (hostname.startsWith('http://')) {
       cleanHostname = hostname.substring(7);
     }
 
-    log2.consoleLogDevOnly("info", "deleting DNS record", {
+    log2.consoleLogDevOnly('info', 'deleting DNS record', {
       hostname: cleanHostname,
     });
     try {
@@ -250,10 +250,10 @@ export async function deleteCloudflareTunnel(
         `${CLOUDFLARE_API_URL}/zones/${process.env
           .CLOUDFLARE_ZONE_ID!}/dns_records?name=${cleanHostname}`,
         {
-          method: "GET",
+          method: 'GET',
           headers: {
             Authorization: `Bearer ${process.env.CLOUDFLARE_TUNNELS_API_KEY!}`,
-            "Content-Type": "application/json",
+            'Content-Type': 'application/json',
           },
         },
       );
@@ -271,11 +271,11 @@ export async function deleteCloudflareTunnel(
             `${CLOUDFLARE_API_URL}/zones/${process.env
               .CLOUDFLARE_ZONE_ID!}/dns_records/${recordId}`,
             {
-              method: "DELETE",
+              method: 'DELETE',
               headers: {
                 Authorization: `Bearer ${process.env
                   .CLOUDFLARE_TUNNELS_API_KEY!}`,
-                "Content-Type": "application/json",
+                'Content-Type': 'application/json',
               },
             },
           );
@@ -287,7 +287,7 @@ export async function deleteCloudflareTunnel(
             );
           } else {
             log2.consoleLogDevOnly(
-              "info",
+              'info',
               `Successfully deleted DNS record for ${cleanHostname}`,
             );
           }
@@ -306,12 +306,12 @@ export async function deleteCloudflareTunnel(
 
   // Delete from Supabase if supabase client is provided
   if (supabase) {
-    log2.consoleLogDevOnly("info", "deleting Supabase", { hostname });
+    log2.consoleLogDevOnly('info', 'deleting Supabase', { hostname });
     try {
       const { error: deleteError } = await supabase
-        .from("cloudflare_tunnels")
+        .from('cloudflare_tunnels')
         .delete()
-        .eq("tunnel_id", tunnelId);
+        .eq('tunnel_id', tunnelId);
 
       if (deleteError) {
         log2.error(
@@ -320,7 +320,7 @@ export async function deleteCloudflareTunnel(
         );
       } else {
         log2.consoleLogDevOnly(
-          "info",
+          'info',
           `Successfully deleted tunnel ${tunnelId} from Supabase`,
         );
       }

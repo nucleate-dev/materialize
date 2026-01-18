@@ -42,11 +42,7 @@ export default function ErrorModal({
         </div>
 
         <DialogFooter className="sm:justify-center">
-          <Button
-            type="button"
-            onClick={onClose}
-            className="w-full h-11"
-          >
+          <Button type="button" onClick={onClose} className="w-full h-11">
             Close
           </Button>
         </DialogFooter>

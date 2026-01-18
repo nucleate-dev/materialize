@@ -305,10 +305,11 @@ function VariantsSection() {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`px-6 py-3 rounded-full text-sm font-medium flex items-center gap-2 transition-all duration-300 border ${activeTab === tab.id
-                ? "bg-white text-black border-white shadow-[0_0_20px_rgba(255,255,255,0.2)]"
-                : "bg-zinc-900/50 text-zinc-400 border-white/5 hover:bg-zinc-800 hover:text-white"
-                }`}
+              className={`px-6 py-3 rounded-full text-sm font-medium flex items-center gap-2 transition-all duration-300 border ${
+                activeTab === tab.id
+                  ? "bg-white text-black border-white shadow-[0_0_20px_rgba(255,255,255,0.2)]"
+                  : "bg-zinc-900/50 text-zinc-400 border-white/5 hover:bg-zinc-800 hover:text-white"
+              }`}
             >
               {tab.icon}
               {tab.label}

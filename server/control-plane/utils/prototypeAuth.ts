@@ -1,7 +1,7 @@
-import { createClient, User } from "@supabase/supabase-js";
-import jwt from "jsonwebtoken";
-import { SystemLogger } from "../loggers/SystemLogger.js";
-import type { Database } from "../types/supabase.js";
+import { createClient, User } from '@supabase/supabase-js';
+import jwt from 'jsonwebtoken';
+import { SystemLogger } from '../loggers/SystemLogger.js';
+import type { Database } from '../types/supabase.js';
 
 interface JWTPayload {
   sub?: string;
@@ -27,8 +27,8 @@ export async function validateJWTToken(
 
     jwt.verify(token, process.env.JWT_SECRET!) as JWTPayload;
   } catch (error) {
-    log2.error(error, "JWT validation error:", {
-      functionName: "validateJWTToken",
+    log2.error(error, 'JWT validation error:', {
+      functionName: 'validateJWTToken',
     });
     return { user: null, isServiceRole: false };
   }
@@ -64,13 +64,11 @@ export async function checkUserHasPrototypeViewingAccess(
   prototypeId: string,
   jwtToken: string | undefined,
   log2: SystemLogger,
-): Promise<
-  {
-    user: User | null;
-    prototype: Database["public"]["Tables"]["prototypes"]["Row"];
-    isServiceRole: boolean;
-  } | null
-> {
+): Promise<{
+  user: User | null;
+  prototype: Database['public']['Tables']['prototypes']['Row'];
+  isServiceRole: boolean;
+} | null> {
   try {
     // Create Supabase client with or without JWT
     const supabaseClient = createClient<Database>(
@@ -78,22 +76,22 @@ export async function checkUserHasPrototypeViewingAccess(
       process.env.SUPABASE_ANON_KEY!,
       jwtToken
         ? {
-          global: {
-            headers: {
-              Authorization: `Bearer ${jwtToken}`,
+            global: {
+              headers: {
+                Authorization: `Bearer ${jwtToken}`,
+              },
             },
-          },
-        }
+          }
         : undefined,
     );
     const { data: prototype, error } = await supabaseClient
-      .from("prototypes")
-      .select("*")
-      .eq("id", prototypeId)
+      .from('prototypes')
+      .select('*')
+      .eq('id', prototypeId)
       .single();
     if (error || !prototype) {
-      log2.consoleLogDevOnly("error", "Error fetching prototype:", {
-        functionName: "checkUserHasPrototypeViewingAccess",
+      log2.consoleLogDevOnly('error', 'Error fetching prototype:', {
+        functionName: 'checkUserHasPrototypeViewingAccess',
         error: error.message,
         prototype: prototype,
       });
@@ -102,8 +100,8 @@ export async function checkUserHasPrototypeViewingAccess(
     const { user, isServiceRole } = await validateJWTToken(jwtToken, log2);
     return { user, prototype, isServiceRole };
   } catch (error) {
-    log2.error(error, "Error checking prototype viewing access:", {
-      functionName: "checkUserHasPrototypeViewingAccess",
+    log2.error(error, 'Error checking prototype viewing access:', {
+      functionName: 'checkUserHasPrototypeViewingAccess',
     });
     return null;
   }
@@ -116,14 +114,12 @@ export async function checkUserHasPrototypeEditAccess(
   prototypeId: string,
   jwtToken: string | undefined,
   log2: SystemLogger,
-): Promise<
-  {
-    user: User | null;
-    prototype: Database["public"]["Tables"]["prototypes"]["Row"];
-    canEdit: boolean;
-    isServiceRole: boolean;
-  } | null
-> {
+): Promise<{
+  user: User | null;
+  prototype: Database['public']['Tables']['prototypes']['Row'];
+  canEdit: boolean;
+  isServiceRole: boolean;
+} | null> {
   try {
     // Check if this is a service role token
     const isServiceRoleToken =
@@ -135,31 +131,31 @@ export async function checkUserHasPrototypeEditAccess(
       // Only call RPC if not using service role key
       !isServiceRoleToken && jwtToken
         ? (async (): Promise<boolean> => {
-          const supabaseClient = createClient<Database>(
-            process.env.SUPABASE_URL!,
-            process.env.SUPABASE_ANON_KEY!,
-            {
-              global: {
-                headers: {
-                  Authorization: `Bearer ${jwtToken}`,
+            const supabaseClient = createClient<Database>(
+              process.env.SUPABASE_URL!,
+              process.env.SUPABASE_ANON_KEY!,
+              {
+                global: {
+                  headers: {
+                    Authorization: `Bearer ${jwtToken}`,
+                  },
                 },
               },
-            },
-          );
-          const { data, error } = await supabaseClient.rpc(
-            "can_edit_prototype",
-            {
-              p_prototype_id: prototypeId,
-            },
-          );
-          if (error) {
-            log2.error(error, "Error calling can_edit_prototype RPC:", {
-              functionName: "checkUserHasPrototypeEditAccess",
-            });
-            return false;
-          }
-          return data === true;
-        })()
+            );
+            const { data, error } = await supabaseClient.rpc(
+              'can_edit_prototype',
+              {
+                p_prototype_id: prototypeId,
+              },
+            );
+            if (error) {
+              log2.error(error, 'Error calling can_edit_prototype RPC:', {
+                functionName: 'checkUserHasPrototypeEditAccess',
+              });
+              return false;
+            }
+            return data === true;
+          })()
         : Promise.resolve(false),
     ]);
 
@@ -179,8 +175,8 @@ export async function checkUserHasPrototypeEditAccess(
       isServiceRole,
     };
   } catch (error) {
-    log2.error(error, "Error checking prototype edit access:", {
-      functionName: "checkUserHasPrototypeEditAccess",
+    log2.error(error, 'Error checking prototype edit access:', {
+      functionName: 'checkUserHasPrototypeEditAccess',
     });
     return null;
   }

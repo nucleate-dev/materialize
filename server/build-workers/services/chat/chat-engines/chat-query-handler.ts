@@ -185,7 +185,10 @@ export class ChatQueryHandler implements ChatEngine {
       this.devServerService.developmentServerState.lastUpdatedTime = new Date();
     }
 
-    return { totalCostUsd: result.totalCostUsd, geminiCostUsd: result.geminiCostUsd };
+    return {
+      totalCostUsd: result.totalCostUsd,
+      geminiCostUsd: result.geminiCostUsd,
+    };
   }
 
   /**
@@ -285,8 +288,8 @@ export class ChatQueryHandler implements ChatEngine {
       );
 
       // Check if session is valid for resumption
-      const isValidSessionId = ai_chat_session_id &&
-        validAiChatSessionIds.has(ai_chat_session_id);
+      const isValidSessionId =
+        ai_chat_session_id && validAiChatSessionIds.has(ai_chat_session_id);
 
       // Handle invalid session ID
       if (
@@ -336,7 +339,8 @@ export class ChatQueryHandler implements ChatEngine {
 
       // Execute query and stream responses
       // Respect user's explicit preference, fall back to auto-detect
-      const useOAuth = (data.use_oauth_token ?? context.isUsingOAuthToken) &&
+      const useOAuth =
+        (data.use_oauth_token ?? context.isUsingOAuthToken) &&
         context.isUsingOAuthToken;
 
       const streamContext: StreamContext = {
@@ -378,9 +382,8 @@ export class ChatQueryHandler implements ChatEngine {
       // Clear the abort controller on error
       sessionState.abortController = null;
 
-      const errorMessage = error instanceof Error
-        ? error.message
-        : String(error);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
 
       baseLogger.error(
         error instanceof Error ? error : new Error(String(error)),
@@ -479,24 +482,24 @@ export class ChatQueryHandler implements ChatEngine {
     }>,
     prototypeChatSessionId: string,
   ): Promise<void> {
-    const userMessageText = typeof messageContent === "string"
-      ? messageContent
-      : messageContent
-        .filter((block) => block.type === "text")
-        .map((block) => block.text || "")
-        .join("\n");
+    const userMessageText =
+      typeof messageContent === "string"
+        ? messageContent
+        : messageContent
+            .filter((block) => block.type === "text")
+            .map((block) => block.text || "")
+            .join("\n");
 
     const hasImages = imagesFromContent.length > 0;
     const userMessageDisplay = hasImages
       ? `${userMessageText} [with ${imagesFromContent.length} image${
-        imagesFromContent.length > 1 ? "s" : ""
-      }]`
+          imagesFromContent.length > 1 ? "s" : ""
+        }]`
       : userMessageText;
 
     // Include image metadata in event_data if images were uploaded
-    const eventData = imageMetadata.length > 0
-      ? { images: imageMetadata }
-      : null;
+    const eventData =
+      imageMetadata.length > 0 ? { images: imageMetadata } : null;
 
     await persistChatMessage(
       this.supabaseClientService,
@@ -610,16 +613,22 @@ export class ChatQueryHandler implements ChatEngine {
         // Get visible screens count callback
         visibleScreens ? (): number => visibleScreens.length : undefined,
       ),
-      design: createDesignToolsMcpServer(baseLogger, undefined, onGeminiUsage, WORK_DIR),
+      design: createDesignToolsMcpServer(
+        baseLogger,
+        undefined,
+        onGeminiUsage,
+        WORK_DIR,
+      ),
     };
 
     const { userId } = getWorkerContext();
     let designSubagentEnabled = false;
     if (userId) {
-      designSubagentEnabled = (await posthog.getFeatureFlag(
-        "claude-code-sdk-design-subagent",
-        userId,
-      )) === "test";
+      designSubagentEnabled =
+        (await posthog.getFeatureFlag(
+          "claude-code-sdk-design-subagent",
+          userId,
+        )) === "test";
     }
     baseLogger.info("design subagent flag checked: ", {
       designSubagentEnabled,
@@ -686,7 +695,8 @@ export class ChatQueryHandler implements ChatEngine {
       systemPrompt: {
         type: "preset" as const,
         preset: "claude_code" as const,
-        append: systemPromptOverride ??
+        append:
+          systemPromptOverride ??
           getSystemPromptForDesignStyle(undefined, framework, visibleScreens),
       },
       settingSources: [
@@ -772,8 +782,8 @@ export class ChatQueryHandler implements ChatEngine {
           normalizedCwd = path.join(WORK_DIR, cwd);
         }
       }
-      const { response: responseRaw } = await this.sandboxService
-        .runCommandInternal({
+      const { response: responseRaw } =
+        await this.sandboxService.runCommandInternal({
           command,
           args,
           cwd: normalizedCwd,
@@ -857,9 +867,8 @@ export class ChatQueryHandler implements ChatEngine {
         };
       }
     } catch (error) {
-      const errorMessage = error instanceof Error
-        ? error.message
-        : String(error);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
       baseLogger.error(
         error instanceof Error ? error : new Error(errorMessage),
         "MCP Write tool: failed to write file",
@@ -879,21 +888,15 @@ export class ChatQueryHandler implements ChatEngine {
     hookContext: HookContext,
     prototypeChatSessionId: string,
   ): Promise<HookJSONOutput> {
-    const {
-      input,
-      toolUseID,
-      activeConnections,
-      flushAssistantBuffer,
-    } = hookContext;
+    const { input, toolUseID, activeConnections, flushAssistantBuffer } =
+      hookContext;
 
     try {
       if (input.hook_event_name === "PreToolUse") {
         baseLogger.debug(
-          `PreToolUse Hook called for tool ${input.tool_name} with args: ${
-            JSON.stringify(
-              input.tool_input,
-            )
-          }`,
+          `PreToolUse Hook called for tool ${input.tool_name} with args: ${JSON.stringify(
+            input.tool_input,
+          )}`,
         );
         const permission = evaluateToolPermission(
           ALLOWED_ROOTS,
@@ -1093,7 +1096,8 @@ export class ChatQueryHandler implements ChatEngine {
       // MCP stream fix: Keep input stream open until result message arrives
       // This prevents premature MCP server connection closure during multi-turn conversations
       if (ChatQueryHandler.ENABLE_MCP_STREAM_FIX) {
-        const maxChecks = ChatQueryHandler.MCP_STREAM_MAX_WAIT_MS /
+        const maxChecks =
+          ChatQueryHandler.MCP_STREAM_MAX_WAIT_MS /
           ChatQueryHandler.MCP_STREAM_POLL_INTERVAL_MS;
 
         for (let i = 0; i < maxChecks; i++) {
@@ -1103,7 +1107,7 @@ export class ChatQueryHandler implements ChatEngine {
           }
 
           await new Promise((resolve) =>
-            setTimeout(resolve, ChatQueryHandler.MCP_STREAM_POLL_INTERVAL_MS)
+            setTimeout(resolve, ChatQueryHandler.MCP_STREAM_POLL_INTERVAL_MS),
           );
 
           // Check if result message has arrived
@@ -1239,12 +1243,18 @@ export class ChatQueryHandler implements ChatEngine {
 
           // Calculate credits used - use OAuth-aware calculation to match USAGE_UPDATE
           // Gemini costs (GeminiDesignExpert, GenerateImage) are ALWAYS charged regardless of auth method
-          const geminiCredits = costFunctionV3(bufferState.accumulatedGeminiCostUsd) ?? 0;
+          const geminiCredits =
+            costFunctionV3(bufferState.accumulatedGeminiCostUsd) ?? 0;
 
           if (streamContext.isUsingOAuthToken) {
             // OAuth user: flat fee based on prompt length PLUS Gemini tool costs
-            const promptLength = getPromptLengthFromQueryData(streamContext.queryData);
-            const oauthBaseCredits = calculateOAuthCredits(promptLength, baseLogger);
+            const promptLength = getPromptLengthFromQueryData(
+              streamContext.queryData,
+            );
+            const oauthBaseCredits = calculateOAuthCredits(
+              promptLength,
+              baseLogger,
+            );
             bufferState.creditsUsed = oauthBaseCredits + geminiCredits;
             bufferState.costFunction = OAUTH_COST_FUNCTION_NAME;
           } else {

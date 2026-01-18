@@ -7,7 +7,7 @@
 //
 // Last synced: 2026-01-16T05:09:29.496Z
 
-import { Database } from "./supabase.js";
+import { Database } from './supabase.js';
 
 // ============================================================================
 // GENERIC API RESPONSE TYPE
@@ -48,31 +48,31 @@ export interface StandardErrorResponse {
 }
 
 export type PrototypeFileInput =
-  Database["public"]["Tables"]["prototype_files"]["Row"];
+  Database['public']['Tables']['prototype_files']['Row'];
 export type PrototypeAssetInput =
-  Database["public"]["Tables"]["prototype_assets"]["Row"];
+  Database['public']['Tables']['prototype_assets']['Row'];
 export type PrototypeAssetInputWithContent = PrototypeAssetInput & {
   contents: string;
 };
 
 // Operation Status Enum
 export enum OperationStatus {
-  IDLE = "idle",
-  STARTING_DEV_SERVER = "starting_dev_server",
-  UPDATING_FILES = "updating_files",
-  BUILDING = "building",
-  DEPLOYING = "deploying",
-  BUILDING_AND_DEPLOYING = "building_and_deploying",
-  STOPPING = "stopping",
+  IDLE = 'idle',
+  STARTING_DEV_SERVER = 'starting_dev_server',
+  UPDATING_FILES = 'updating_files',
+  BUILDING = 'building',
+  DEPLOYING = 'deploying',
+  BUILDING_AND_DEPLOYING = 'building_and_deploying',
+  STOPPING = 'stopping',
 }
 
 // Dev Server Status Enum
 export enum DevServerStatus {
-  STOPPED = "stopped",
-  STARTING = "starting",
-  RUNNING = "running",
-  ERROR = "error",
-  RESTARTING = "restarting",
+  STOPPED = 'stopped',
+  STARTING = 'starting',
+  RUNNING = 'running',
+  ERROR = 'error',
+  RESTARTING = 'restarting',
 }
 
 export interface BuildAndDeployResponse {
@@ -185,7 +185,7 @@ export interface PublicRunCommandRequest {
 }
 
 export interface PublicRunCommandSuccessResponse {
-  status: "success" | "timeout";
+  status: 'success' | 'timeout';
   stdout: string;
 }
 
@@ -230,7 +230,7 @@ export interface PublicAllocateRequest {
 }
 
 export interface PublicAllocateSuccessResponse {
-  tunnel_status: "connected" | "error" | "timeout" | "not_started";
+  tunnel_status: 'connected' | 'error' | 'timeout' | 'not_started';
   tunnel_message?: string;
 }
 
@@ -273,7 +273,7 @@ export interface SandboxGitCheckoutSuccessResponse {
 }
 
 // Terminal API Types
-export type TerminalSessionType = "generic" | "dev-server" | "build" | "test";
+export type TerminalSessionType = 'generic' | 'dev-server' | 'build' | 'test';
 
 export interface TerminalCreateRequest {
   session_type: TerminalSessionType;
@@ -286,14 +286,14 @@ export interface TerminalCreateRequest {
 }
 
 export interface TerminalCreateResponse {
-  status: "success" | "error";
+  status: 'success' | 'error';
   session_id?: string;
   session_type?: TerminalSessionType;
   error?: string;
 }
 
 export interface TerminalInfoResponse {
-  status: "success" | "error";
+  status: 'success' | 'error';
   session_id?: string;
   session_type?: TerminalSessionType;
   state?: string;
@@ -301,7 +301,7 @@ export interface TerminalInfoResponse {
 }
 
 export interface TerminalCloseResponse {
-  status: "success" | "error";
+  status: 'success' | 'error';
   error?: string;
 }
 
@@ -310,7 +310,7 @@ export interface TerminalInputRequest {
 }
 
 export interface TerminalInputResponse {
-  status: "success" | "error";
+  status: 'success' | 'error';
   error?: string;
 }
 
@@ -320,6 +320,6 @@ export interface TerminalResizeRequest {
 }
 
 export interface TerminalResizeResponse {
-  status: "success" | "error";
+  status: 'success' | 'error';
   error?: string;
 }

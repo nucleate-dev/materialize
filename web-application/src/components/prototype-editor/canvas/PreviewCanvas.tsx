@@ -19,7 +19,10 @@ import {
 import "tldraw/tldraw.css";
 
 import { PhoneFrameShapeUtil, PhoneFrameShape } from "./PhoneFrameShapeUtil";
-import { BrowserFrameShapeUtil, BrowserFrameShape } from "./BrowserFrameShapeUtil";
+import {
+  BrowserFrameShapeUtil,
+  BrowserFrameShape,
+} from "./BrowserFrameShapeUtil";
 import type {
   CanvasStateData,
   PreviewCanvasProps,
@@ -58,12 +61,12 @@ const PreviewCanvas = forwardRef<PreviewCanvasRef, PreviewCanvasProps>(
       onIframeLoad,
       onIframeError,
     },
-    ref
+    ref,
   ) => {
     const editorRef = useRef<Editor | null>(null);
     const [isInitialized, setIsInitialized] = useState(false);
     const screenIdCounter = useRef(
-      Math.max(...initialScreens.map((s) => s.id), 0) + 1
+      Math.max(...initialScreens.map((s) => s.id), 0) + 1,
     );
 
     // Track screen ID to shape ID mapping
@@ -140,10 +143,7 @@ const PreviewCanvas = forwardRef<PreviewCanvasRef, PreviewCanvasProps>(
 
       const allShapes = editor.getCurrentPageShapes();
       for (const shape of allShapes) {
-        if (
-          shape.type === "phone-frame" ||
-          shape.type === "browser-frame"
-        ) {
+        if (shape.type === "phone-frame" || shape.type === "browser-frame") {
           const props = shape.props as { screenId: number };
           screenToShapeMap.current.set(props.screenId, shape.id);
         }
@@ -164,9 +164,7 @@ const PreviewCanvas = forwardRef<PreviewCanvasRef, PreviewCanvasProps>(
         const shapeType =
           previewMode === "mobile" ? "phone-frame" : "browser-frame";
         const defaultProps =
-          previewMode === "mobile"
-            ? { w: 336, h: 656 }
-            : { w: 800, h: 600 };
+          previewMode === "mobile" ? { w: 336, h: 656 } : { w: 800, h: 600 };
 
         editor.createShape({
           id: shapeId,
@@ -189,7 +187,7 @@ const PreviewCanvas = forwardRef<PreviewCanvasRef, PreviewCanvasProps>(
         notifyScreensChanged();
         debouncedSave();
       },
-      [previewMode, viewingUrl, debouncedSave]
+      [previewMode, viewingUrl, debouncedSave],
     );
 
     // Remove a screen
@@ -205,7 +203,7 @@ const PreviewCanvas = forwardRef<PreviewCanvasRef, PreviewCanvasProps>(
           debouncedSave();
         }
       },
-      [debouncedSave]
+      [debouncedSave],
     );
 
     // Set all screens (replace existing)
@@ -218,9 +216,7 @@ const PreviewCanvas = forwardRef<PreviewCanvasRef, PreviewCanvasProps>(
         // Delete all existing screen shapes
         const existingShapes = editor.getCurrentPageShapes();
         const screenShapeIds = existingShapes
-          .filter(
-            (s) => s.type === "phone-frame" || s.type === "browser-frame"
-          )
+          .filter((s) => s.type === "phone-frame" || s.type === "browser-frame")
           .map((s) => s.id);
 
         if (screenShapeIds.length > 0) {
@@ -233,9 +229,7 @@ const PreviewCanvas = forwardRef<PreviewCanvasRef, PreviewCanvasProps>(
         const shapeType =
           previewMode === "mobile" ? "phone-frame" : "browser-frame";
         const defaultProps =
-          previewMode === "mobile"
-            ? { w: 336, h: 656 }
-            : { w: 800, h: 600 };
+          previewMode === "mobile" ? { w: 336, h: 656 } : { w: 800, h: 600 };
 
         screens.forEach((screen, index) => {
           const shapeId = createShapeId();
@@ -268,7 +262,7 @@ const PreviewCanvas = forwardRef<PreviewCanvasRef, PreviewCanvasProps>(
         notifyScreensChanged();
         debouncedSave();
       },
-      [previewMode, viewingUrl, debouncedSave]
+      [previewMode, viewingUrl, debouncedSave],
     );
 
     // Notify parent of screen changes
@@ -280,10 +274,7 @@ const PreviewCanvas = forwardRef<PreviewCanvasRef, PreviewCanvasProps>(
       const screens: ScreenConfig[] = [];
 
       for (const shape of shapes) {
-        if (
-          shape.type === "phone-frame" ||
-          shape.type === "browser-frame"
-        ) {
+        if (shape.type === "phone-frame" || shape.type === "browser-frame") {
           const props = shape.props as { screenId: number; path: string };
           screens.push({
             id: props.screenId,
@@ -311,7 +302,7 @@ const PreviewCanvas = forwardRef<PreviewCanvasRef, PreviewCanvasProps>(
         if (shape) {
           editorRef.current.zoomToBounds(
             editorRef.current.getShapePageBounds(shape)!,
-            { animation: { duration: 300 } }
+            { animation: { duration: 300 } },
           );
         }
       }
@@ -326,10 +317,7 @@ const PreviewCanvas = forwardRef<PreviewCanvasRef, PreviewCanvasProps>(
       const shapes = editor.getCurrentPageShapes();
 
       for (const shape of shapes) {
-        if (
-          shape.type === "phone-frame" ||
-          shape.type === "browser-frame"
-        ) {
+        if (shape.type === "phone-frame" || shape.type === "browser-frame") {
           // Update the shape to trigger a re-render
           editor.updateShape({
             id: shape.id,
@@ -383,7 +371,7 @@ const PreviewCanvas = forwardRef<PreviewCanvasRef, PreviewCanvasProps>(
         forceRefresh,
         getZoom,
         setZoom,
-      ]
+      ],
     );
 
     // Handle editor mount
@@ -405,9 +393,7 @@ const PreviewCanvas = forwardRef<PreviewCanvasRef, PreviewCanvasProps>(
           const shapeType =
             previewMode === "mobile" ? "phone-frame" : "browser-frame";
           const defaultProps =
-            previewMode === "mobile"
-              ? { w: 336, h: 656 }
-              : { w: 800, h: 600 };
+            previewMode === "mobile" ? { w: 336, h: 656 } : { w: 800, h: 600 };
 
           initialScreens.forEach((screen, index) => {
             const shapeId = createShapeId();
@@ -444,7 +430,7 @@ const PreviewCanvas = forwardRef<PreviewCanvasRef, PreviewCanvasProps>(
           () => {
             debouncedSave();
           },
-          { scope: "document" }
+          { scope: "document" },
         );
 
         // Double-click to zoom to shape
@@ -478,7 +464,7 @@ const PreviewCanvas = forwardRef<PreviewCanvasRef, PreviewCanvasProps>(
         initialScreens,
         viewingUrl,
         debouncedSave,
-      ]
+      ],
     );
 
     // Update viewingUrl on all shapes when it changes
@@ -489,10 +475,7 @@ const PreviewCanvas = forwardRef<PreviewCanvasRef, PreviewCanvasProps>(
       const shapes = editor.getCurrentPageShapes();
 
       for (const shape of shapes) {
-        if (
-          shape.type === "phone-frame" ||
-          shape.type === "browser-frame"
-        ) {
+        if (shape.type === "phone-frame" || shape.type === "browser-frame") {
           editor.updateShape({
             id: shape.id,
             type: shape.type,
@@ -531,7 +514,7 @@ const PreviewCanvas = forwardRef<PreviewCanvasRef, PreviewCanvasProps>(
         />
       </div>
     );
-  }
+  },
 );
 
 PreviewCanvas.displayName = "PreviewCanvas";

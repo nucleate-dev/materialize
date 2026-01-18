@@ -76,33 +76,35 @@ export default function PrivacyPolicyPage() {
               </p>
 
               <p>
-                <strong className="text-foreground">Payment Information.</strong>{" "}
+                <strong className="text-foreground">
+                  Payment Information.
+                </strong>{" "}
                 When you add a credit card or payment method to your account a
                 third-party service provider that handles payments on our behalf
                 will receive and process your payment card information.
               </p>
 
               <p>
-                <strong className="text-foreground">Communications.</strong> When you
-                communicate with us, we may receive additional information about
-                you. For example, when you communicate with our Customer Support
-                Team, we will receive your name, email address, phone number,
-                the contents of a message or attachments that you may send to
-                us, and other information you choose to provide. If you
-                subscribe to our newsletter, then we will collect certain
-                information from you, such as your email address. When we send
-                you emails, we may use technologies such as web beacons to track
-                whether you open them to learn how to deliver a better customer
-                experience and improve our Services.
+                <strong className="text-foreground">Communications.</strong>{" "}
+                When you communicate with us, we may receive additional
+                information about you. For example, when you communicate with
+                our Customer Support Team, we will receive your name, email
+                address, phone number, the contents of a message or attachments
+                that you may send to us, and other information you choose to
+                provide. If you subscribe to our newsletter, then we will
+                collect certain information from you, such as your email
+                address. When we send you emails, we may use technologies such
+                as web beacons to track whether you open them to learn how to
+                deliver a better customer experience and improve our Services.
               </p>
 
               <p>
-                <strong className="text-foreground">Careers.</strong> If you apply
-                for a job with us, you may submit your contact information and
-                your resume online. We will collect the information you choose
-                to provide on your resume, such as your education and employment
-                experience. For job applicants who reside in California, these
-                supplementary conditions apply.
+                <strong className="text-foreground">Careers.</strong> If you
+                apply for a job with us, you may submit your contact information
+                and your resume online. We will collect the information you
+                choose to provide on your resume, such as your education and
+                employment experience. For job applicants who reside in
+                California, these supplementary conditions apply.
               </p>
 
               <h3 className="text-xl font-medium text-foreground pt-4">
@@ -144,11 +146,11 @@ export default function PrivacyPolicyPage() {
                   without this type of cookies.
                 </li>
                 <li>
-                  <span className="text-foreground">Functional cookies.</span> These
-                  are used to recognize you when you return to the Services.
-                  This enables us to adapt our content for you, and remember
-                  your preferences (for example, your choice of language or
-                  region).
+                  <span className="text-foreground">Functional cookies.</span>{" "}
+                  These are used to recognize you when you return to the
+                  Services. This enables us to adapt our content for you, and
+                  remember your preferences (for example, your choice of
+                  language or region).
                 </li>
                 <li>
                   <span className="text-foreground">
@@ -179,8 +181,8 @@ export default function PrivacyPolicyPage() {
               </p>
 
               <p>
-                <strong className="text-foreground">Device Information.</strong> We
-                receive information about the device and software you use to
+                <strong className="text-foreground">Device Information.</strong>{" "}
+                We receive information about the device and software you use to
                 access our Services, including internet protocol (IP) address,
                 Internet Service Provider, web browser type, operating system
                 version, phone carrier and manufacturer, application
@@ -189,21 +191,23 @@ export default function PrivacyPolicyPage() {
               </p>
 
               <p>
-                <strong className="text-foreground">Location Information.</strong> We
-                may infer your general location information from other
+                <strong className="text-foreground">
+                  Location Information.
+                </strong>{" "}
+                We may infer your general location information from other
                 information we collect from and about you (for example, your IP
                 address may indicate your general geographic region). We do not
                 collect precise geolocation data.
               </p>
 
               <p>
-                <strong className="text-foreground">Usage Information.</strong> To
-                help us understand and analyze how you use our Services and to
-                help us improve them, we automatically receive information about
-                your interactions with our Services, like the pages or other
-                content you view or interact with, the searches you conduct,
-                your comments, any content you enter or post, commands you type,
-                and the dates and times of your visits.
+                <strong className="text-foreground">Usage Information.</strong>{" "}
+                To help us understand and analyze how you use our Services and
+                to help us improve them, we automatically receive information
+                about your interactions with our Services, like the pages or
+                other content you view or interact with, the searches you
+                conduct, your comments, any content you enter or post, commands
+                you type, and the dates and times of your visits.
               </p>
 
               <h3 className="text-xl font-medium text-foreground pt-4">
@@ -224,8 +228,10 @@ export default function PrivacyPolicyPage() {
               </p>
 
               <p>
-                <strong className="text-foreground">Other third parties.</strong> We
-                may receive additional information about you, such as
+                <strong className="text-foreground">
+                  Other third parties.
+                </strong>{" "}
+                We may receive additional information about you, such as
                 demographic data, from third parties such as data or marketing
                 partners and combine it with other information we have about
                 you.
@@ -341,7 +347,9 @@ export default function PrivacyPolicyPage() {
                   legally required, to send you marketing communications.
                 </li>
                 <li>
-                  <strong className="text-foreground">Contractual necessity.</strong>{" "}
+                  <strong className="text-foreground">
+                    Contractual necessity.
+                  </strong>{" "}
                   We need your information to provide you with the Services, for
                   example to facilitate your registration and respond to your
                   inquiries.
@@ -354,7 +362,9 @@ export default function PrivacyPolicyPage() {
                   example to comply with tax and accounting obligations.
                 </li>
                 <li>
-                  <strong className="text-foreground">Legitimate interests.</strong>{" "}
+                  <strong className="text-foreground">
+                    Legitimate interests.
+                  </strong>{" "}
                   We have a legitimate interest in using your information for a
                   business purpose that does not override your individual rights
                   and interests. For example, we have a legitimate interest in
@@ -377,15 +387,15 @@ export default function PrivacyPolicyPage() {
               </p>
 
               <p>
-                <strong className="text-foreground">Affiliates.</strong> We may share
-                any information we receive with our corporate affiliates under
-                common ownership or control for any of the purposes described in
-                this Privacy Policy.
+                <strong className="text-foreground">Affiliates.</strong> We may
+                share any information we receive with our corporate affiliates
+                under common ownership or control for any of the purposes
+                described in this Privacy Policy.
               </p>
 
               <p>
-                <strong className="text-foreground">Service Providers.</strong> We
-                may share any information we receive with vendors retained in
+                <strong className="text-foreground">Service Providers.</strong>{" "}
+                We may share any information we receive with vendors retained in
                 connection with the provision of our Services and that process
                 your information on our behalf. These entities may include
                 analytics, billing, legal support, marketing, security, machine
@@ -451,8 +461,9 @@ export default function PrivacyPolicyPage() {
               </p>
 
               <p>
-                <strong className="text-foreground">Consent.</strong> We may also
-                disclose information from or about you with your permission.
+                <strong className="text-foreground">Consent.</strong> We may
+                also disclose information from or about you with your
+                permission.
               </p>
             </div>
 
@@ -462,10 +473,12 @@ export default function PrivacyPolicyPage() {
               </h2>
 
               <p>
-                <strong className="text-foreground">Sharing Preferences.</strong> If
-                you prefer to not have others see your code, you can upgrade to
-                make that code private. If you import code from GitHub and your
-                repository is public, it will remain public by default on
+                <strong className="text-foreground">
+                  Sharing Preferences.
+                </strong>{" "}
+                If you prefer to not have others see your code, you can upgrade
+                to make that code private. If you import code from GitHub and
+                your repository is public, it will remain public by default on
                 Nucleate. If you wish to import code from GitHub and your
                 repository is private, you can upgrade to ensure that your code
                 will also remain private on Nucleate.
@@ -482,7 +495,9 @@ export default function PrivacyPolicyPage() {
               </p>
 
               <p>
-                <strong className="text-foreground">How to Block Cookies.</strong>{" "}
+                <strong className="text-foreground">
+                  How to Block Cookies.
+                </strong>{" "}
                 You can change your browser settings to block, disable, or
                 notify you when you receive a Cookie, delete Cookies, or browse
                 our Services using your browser’s anonymous usage setting.
@@ -536,7 +551,9 @@ export default function PrivacyPolicyPage() {
             </div>
 
             <div className="space-y-4">
-              <h2 className="text-2xl font-medium text-foreground">Third Parties</h2>
+              <h2 className="text-2xl font-medium text-foreground">
+                Third Parties
+              </h2>
               <p>
                 Our Services may contain links to other websites, products, or
                 services that we do not own or operate. We are not responsible
@@ -549,7 +566,9 @@ export default function PrivacyPolicyPage() {
             </div>
 
             <div className="space-y-4">
-              <h2 className="text-2xl font-medium text-foreground">Retention</h2>
+              <h2 className="text-2xl font-medium text-foreground">
+                Retention
+              </h2>
               <p>
                 We take measures to delete your information or maintain it in a
                 de-identified form when it is no longer necessary to be kept in

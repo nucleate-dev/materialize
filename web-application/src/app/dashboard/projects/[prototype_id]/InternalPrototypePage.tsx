@@ -42,7 +42,10 @@ import { useUser } from "@/hooks/useUser";
 import { sidebarOpenAtom } from "@/lib/atoms/sidebar";
 import { cn } from "@/lib/classNames";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
-import { type ChatServerMessage, type ScreenUpdateData } from "@/lib/types/ChatTypes";
+import {
+  type ChatServerMessage,
+  type ScreenUpdateData,
+} from "@/lib/types/ChatTypes";
 import {
   normalizePrototypeVisibility,
   type PrototypeVisibility,
@@ -151,8 +154,12 @@ export default function InternalPrototypePage() {
   const [currentViewingPath, setCurrentViewingPath] = useState<string>("/");
 
   // Multi-screen state for LLM control
-  const [mobileScreensState, setMobileScreensState] = useState<MobileScreenConfig[]>([]);
-  const [webScreensState, setWebScreensState] = useState<MobileScreenConfig[]>([]);
+  const [mobileScreensState, setMobileScreensState] = useState<
+    MobileScreenConfig[]
+  >([]);
+  const [webScreensState, setWebScreensState] = useState<MobileScreenConfig[]>(
+    [],
+  );
   const [previewMode, setPreviewMode] = useState<"mobile" | "web">("mobile");
 
   // Canvas state for infinite canvas mode
@@ -225,10 +232,13 @@ export default function InternalPrototypePage() {
   }, [logger]);
 
   // Handle screen updates from LLM
-  const handleScreenUpdate = useCallback((data: ScreenUpdateData) => {
-    logger.debug("log", "LLM requested screen update", { data });
-    materializeRenderRef.current?.updateScreens(data);
-  }, [logger]);
+  const handleScreenUpdate = useCallback(
+    (data: ScreenUpdateData) => {
+      logger.debug("log", "LLM requested screen update", { data });
+      materializeRenderRef.current?.updateScreens(data);
+    },
+    [logger],
+  );
 
   // Handle canvas state changes with debounced save
   const handleCanvasStateChange = useCallback(
@@ -255,7 +265,10 @@ export default function InternalPrototypePage() {
 
         const { error } = await supabase
           .from("prototypes")
-          .update({ prototype_context: contextToSave as unknown as Database["public"]["Tables"]["prototypes"]["Update"]["prototype_context"] })
+          .update({
+            prototype_context:
+              contextToSave as unknown as Database["public"]["Tables"]["prototypes"]["Update"]["prototype_context"],
+          })
           .eq("id", prototypeId);
 
         if (error) {
@@ -905,23 +918,17 @@ export default function InternalPrototypePage() {
   );
 
   // Callback for visibility changes from the modal
-  const handleVisibilityChange = useCallback(
-    (newIsPublic: boolean) => {
-      setIsPublic(newIsPublic);
-      setPrototype((prev) =>
-        prev ? { ...prev, visibility: newIsPublic ? "PUBLIC" : "SELF" } : null,
-      );
-    },
-    [],
-  );
+  const handleVisibilityChange = useCallback((newIsPublic: boolean) => {
+    setIsPublic(newIsPublic);
+    setPrototype((prev) =>
+      prev ? { ...prev, visibility: newIsPublic ? "PUBLIC" : "SELF" } : null,
+    );
+  }, []);
 
   // Callback for name changes from the modal
-  const handleNameChange = useCallback(
-    (newName: string) => {
-      setPrototype((prev) => (prev ? { ...prev, name: newName } : null));
-    },
-    [],
-  );
+  const handleNameChange = useCallback((newName: string) => {
+    setPrototype((prev) => (prev ? { ...prev, name: newName } : null));
+  }, []);
 
   const handleDeleteRequest = useCallback(
     (path: string, type: "file" | "folder" | "asset") => {
@@ -1187,7 +1194,11 @@ export default function InternalPrototypePage() {
                 onPrototypeUpdate={setPrototype}
                 currentRenderStatus={currentRenderStatus}
                 currentViewingPath={currentViewingPath}
-                visibleScreens={previewMode === "mobile" ? mobileScreensState : webScreensState}
+                visibleScreens={
+                  previewMode === "mobile"
+                    ? mobileScreensState
+                    : webScreensState
+                }
                 previewMode={previewMode}
                 onScreenUpdate={handleScreenUpdate}
                 fileSystem={fileSystem}
@@ -1235,7 +1246,10 @@ export default function InternalPrototypePage() {
           style={
             isMobile
               ? {}
-              : { width: isChatCollapsed ? "100%" : `${100 - leftPanelWidth}%`, minWidth: "320px" }
+              : {
+                  width: isChatCollapsed ? "100%" : `${100 - leftPanelWidth}%`,
+                  minWidth: "320px",
+                }
           }
         >
           <div className="flex-1 min-h-0 h-full">
@@ -1502,7 +1516,6 @@ export default function InternalPrototypePage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
 
       {/* Clone Upsell Modal */}
       <ProPlanUpsellModal

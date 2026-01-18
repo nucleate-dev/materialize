@@ -1,6 +1,12 @@
-import type { LLMProviderError, LLMProviderErrorType } from "../providers/types.js";
-import type { LLMCompletionErrorResponse, LLMErrorCode } from "../../../types/PublicAPITypes.js";
-import { HTTP_STATUS } from "../../../types/PublicAPITypes.js";
+import type {
+  LLMProviderError,
+  LLMProviderErrorType,
+} from '../providers/types.js';
+import type {
+  LLMCompletionErrorResponse,
+  LLMErrorCode,
+} from '../../../types/PublicAPITypes.js';
+import { HTTP_STATUS } from '../../../types/PublicAPITypes.js';
 
 export interface MappedError {
   status: number;
@@ -8,12 +14,12 @@ export interface MappedError {
 }
 
 const ERROR_TYPE_TO_CODE: Record<LLMProviderErrorType, LLMErrorCode> = {
-  rate_limit: "RATE_LIMITED",
-  auth: "PROVIDER_ERROR",
-  invalid_request: "VALIDATION_ERROR",
-  content_policy: "CONTENT_POLICY_VIOLATION",
-  server: "PROVIDER_ERROR",
-  unknown: "PROVIDER_ERROR",
+  rate_limit: 'RATE_LIMITED',
+  auth: 'PROVIDER_ERROR',
+  invalid_request: 'VALIDATION_ERROR',
+  content_policy: 'CONTENT_POLICY_VIOLATION',
+  server: 'PROVIDER_ERROR',
+  unknown: 'PROVIDER_ERROR',
 };
 
 const ERROR_TYPE_TO_STATUS: Record<LLMProviderErrorType, number> = {
@@ -26,12 +32,12 @@ const ERROR_TYPE_TO_STATUS: Record<LLMProviderErrorType, number> = {
 };
 
 const ERROR_TYPE_TO_MESSAGE: Record<LLMProviderErrorType, string> = {
-  rate_limit: "Provider rate limit exceeded. Please try again later.",
-  auth: "Provider authentication failed. Please contact support.",
-  invalid_request: "Invalid request to provider.",
-  content_policy: "Content violates provider usage policy.",
-  server: "Provider server error. Please try again later.",
-  unknown: "An unexpected error occurred.",
+  rate_limit: 'Provider rate limit exceeded. Please try again later.',
+  auth: 'Provider authentication failed. Please contact support.',
+  invalid_request: 'Invalid request to provider.',
+  content_policy: 'Content violates provider usage policy.',
+  server: 'Provider server error. Please try again later.',
+  unknown: 'An unexpected error occurred.',
 };
 
 export function mapProviderErrorToAPIError(error: unknown): MappedError {
@@ -55,9 +61,9 @@ export function mapProviderErrorToAPIError(error: unknown): MappedError {
   return {
     status: HTTP_STATUS.INTERNAL_SERVER_ERROR,
     response: {
-      error: "PROVIDER_ERROR",
-      message: "An unexpected error occurred.",
-      provider_error: genericError?.message ?? "Unknown error",
+      error: 'PROVIDER_ERROR',
+      message: 'An unexpected error occurred.',
+      provider_error: genericError?.message ?? 'Unknown error',
     },
   };
 }
@@ -65,8 +71,8 @@ export function mapProviderErrorToAPIError(error: unknown): MappedError {
 export function isLLMProviderError(error: unknown): error is LLMProviderError {
   return (
     error !== null &&
-    typeof error === "object" &&
-    "type" in error &&
-    typeof (error as LLMProviderError).type === "string"
+    typeof error === 'object' &&
+    'type' in error &&
+    typeof (error as LLMProviderError).type === 'string'
   );
 }

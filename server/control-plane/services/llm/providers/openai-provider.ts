@@ -1,6 +1,6 @@
-import { openai } from "@ai-sdk/openai";
-import { generateText, type UserContent } from "ai";
-import OpenAI from "openai";
+import { openai } from '@ai-sdk/openai';
+import { generateText, type UserContent } from 'ai';
+import OpenAI from 'openai';
 import type {
   LLMProvider,
   LLMProviderConfig,
@@ -10,9 +10,9 @@ import type {
   ImageGenerationResponse,
   ProviderMessage,
   ProviderMessagePart,
-} from "./types.js";
-import { createProviderError } from "./types.js";
-import type { SystemLogger } from "../../../loggers/SystemLogger.js";
+} from './types.js';
+import { createProviderError } from './types.js';
+import type { SystemLogger } from '../../../loggers/SystemLogger.js';
 
 interface UsageInfo {
   promptTokens?: number;
@@ -21,7 +21,7 @@ interface UsageInfo {
 }
 
 export class OpenAIProvider implements LLMProvider {
-  readonly name = "openai";
+  readonly name = 'openai';
   readonly supportsVision = true;
   readonly supportsImageGeneration = true;
 
@@ -30,7 +30,7 @@ export class OpenAIProvider implements LLMProvider {
 
   constructor(config: LLMProviderConfig) {
     this.openaiClient = new OpenAI({ apiKey: config.apiKey });
-    this.logger = config.logger.child({ provider: "openai" });
+    this.logger = config.logger.child({ provider: 'openai' });
   }
 
   async complete(request: CompletionRequest): Promise<CompletionResponse> {
@@ -76,9 +76,9 @@ export class OpenAIProvider implements LLMProvider {
         model: request.model,
         prompt: request.prompt,
         size: this.normalizeSize(request.size),
-        quality: (request.quality as "standard" | "hd") ?? "standard",
+        quality: (request.quality as 'standard' | 'hd') ?? 'standard',
         n: request.n ?? 1,
-        response_format: "b64_json",
+        response_format: 'b64_json',
       });
 
       return {
@@ -95,29 +95,29 @@ export class OpenAIProvider implements LLMProvider {
 
   private normalizeSize(
     size?: string,
-  ): "256x256" | "512x512" | "1024x1024" | "1792x1024" | "1024x1792" {
+  ): '256x256' | '512x512' | '1024x1024' | '1792x1024' | '1024x1792' {
     const validSizes = [
-      "256x256",
-      "512x512",
-      "1024x1024",
-      "1792x1024",
-      "1024x1792",
+      '256x256',
+      '512x512',
+      '1024x1024',
+      '1792x1024',
+      '1024x1792',
     ] as const;
     if (size && validSizes.includes(size as (typeof validSizes)[number])) {
       return size as (typeof validSizes)[number];
     }
-    return "1024x1024";
+    return '1024x1024';
   }
 
   private convertMessages(
     messages: ProviderMessage[],
-  ): Array<{ role: "user" | "assistant"; content: string | UserContent }> {
+  ): Array<{ role: 'user' | 'assistant'; content: string | UserContent }> {
     return messages
-      .filter((msg) => msg.role !== "system")
+      .filter((msg) => msg.role !== 'system')
       .map((msg) => {
-        const role = msg.role as "user" | "assistant";
+        const role = msg.role as 'user' | 'assistant';
 
-        if (typeof msg.content === "string") {
+        if (typeof msg.content === 'string') {
           return { role, content: msg.content };
         }
 
@@ -131,28 +131,28 @@ export class OpenAIProvider implements LLMProvider {
 
   private convertMessagePart(
     part: ProviderMessagePart,
-  ): { type: "text"; text: string } | { type: "image"; image: string | URL } {
-    if (part.type === "text") {
-      return { type: "text", text: part.text ?? "" };
+  ): { type: 'text'; text: string } | { type: 'image'; image: string | URL } {
+    if (part.type === 'text') {
+      return { type: 'text', text: part.text ?? '' };
     }
 
     if (part.imageData) {
       // Use data URI format for base64 images
       const dataUri = `data:${part.imageData.mediaType};base64,${part.imageData.base64}`;
       return {
-        type: "image",
+        type: 'image',
         image: dataUri,
       };
     }
 
     if (part.imageUrl) {
       return {
-        type: "image",
+        type: 'image',
         image: new URL(part.imageUrl),
       };
     }
 
-    return { type: "text", text: "" };
+    return { type: 'text', text: '' };
   }
 
   private mapError(error: unknown): Error {
@@ -162,17 +162,17 @@ export class OpenAIProvider implements LLMProvider {
       error?: { code?: string; type?: string };
     };
 
-    this.logger.error(err, "OpenAI API error");
+    this.logger.error(err, 'OpenAI API error');
 
     if (err.status === 429) {
-      return createProviderError("rate_limit", "Rate limit exceeded", {
+      return createProviderError('rate_limit', 'Rate limit exceeded', {
         statusCode: 429,
         originalError: error,
       });
     }
 
     if (err.status === 401) {
-      return createProviderError("auth", "Authentication failed", {
+      return createProviderError('auth', 'Authentication failed', {
         statusCode: 401,
         originalError: error,
       });
@@ -180,30 +180,30 @@ export class OpenAIProvider implements LLMProvider {
 
     if (err.status === 400) {
       const errorCode = err.error?.code;
-      if (errorCode === "content_policy_violation") {
+      if (errorCode === 'content_policy_violation') {
         return createProviderError(
-          "content_policy",
-          "Content violates usage policy",
+          'content_policy',
+          'Content violates usage policy',
           {
             statusCode: 400,
             originalError: error,
           },
         );
       }
-      return createProviderError("invalid_request", err.message, {
+      return createProviderError('invalid_request', err.message, {
         statusCode: 400,
         originalError: error,
       });
     }
 
     if (err.status && err.status >= 500) {
-      return createProviderError("server", "Provider server error", {
+      return createProviderError('server', 'Provider server error', {
         statusCode: err.status,
         originalError: error,
       });
     }
 
-    return createProviderError("unknown", err.message ?? "Unknown error", {
+    return createProviderError('unknown', err.message ?? 'Unknown error', {
       originalError: error,
     });
   }

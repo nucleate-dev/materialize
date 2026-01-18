@@ -16,11 +16,16 @@ export async function processInputImage(
 
   // Validate the base64 data is reasonable
   if (!base64Data || base64Data.length === 0) {
-    throw new Error("Empty image data provided");
+    throw new Error('Empty image data provided');
   }
 
   // Validate media type
-  const validMediaTypes = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+  const validMediaTypes = [
+    'image/jpeg',
+    'image/png',
+    'image/webp',
+    'image/gif',
+  ];
   const normalizedMediaType = mediaType.toLowerCase();
   if (!validMediaTypes.includes(normalizedMediaType)) {
     throw new Error(`Unsupported image media type: ${mediaType}`);
@@ -36,20 +41,22 @@ export async function fetchImageAsBase64(url: string): Promise<ProcessedImage> {
   const response = await fetch(url);
 
   if (!response.ok) {
-    throw new Error(`Failed to fetch image: ${response.status} ${response.statusText}`);
+    throw new Error(
+      `Failed to fetch image: ${response.status} ${response.statusText}`,
+    );
   }
 
-  const contentType = response.headers.get("content-type");
-  if (!contentType || !contentType.startsWith("image/")) {
+  const contentType = response.headers.get('content-type');
+  if (!contentType || !contentType.startsWith('image/')) {
     throw new Error(`Invalid content type: ${contentType}`);
   }
 
   const arrayBuffer = await response.arrayBuffer();
   const buffer = Buffer.from(arrayBuffer);
-  const base64 = buffer.toString("base64");
+  const base64 = buffer.toString('base64');
 
   // Extract the base media type (e.g., "image/jpeg" from "image/jpeg; charset=utf-8")
-  const mediaType = contentType.split(";")[0].trim();
+  const mediaType = contentType.split(';')[0].trim();
 
   return processInputImage(base64, mediaType);
 }
@@ -63,12 +70,12 @@ export function isBase64Image(data: string): boolean {
 
 export function estimateImageTokens(
   base64Data: string,
-  provider: "anthropic" | "openai" | "google",
+  provider: 'anthropic' | 'openai' | 'google',
 ): number {
   // Rough estimation of image tokens based on size
   // This varies by provider, but we use a conservative estimate
 
-  const sizeInBytes = Buffer.from(base64Data, "base64").length;
+  const sizeInBytes = Buffer.from(base64Data, 'base64').length;
   const sizeInKb = sizeInBytes / 1024;
 
   // Anthropic: roughly 1 token per 750 bytes for images
@@ -76,12 +83,12 @@ export function estimateImageTokens(
   // Google: similar to Anthropic
 
   switch (provider) {
-    case "anthropic":
+    case 'anthropic':
       return Math.ceil(sizeInBytes / 750);
-    case "openai":
+    case 'openai':
       // OpenAI has a more complex calculation, use a middle estimate
       return Math.ceil(sizeInKb * 0.5);
-    case "google":
+    case 'google':
       return Math.ceil(sizeInBytes / 750);
     default:
       return Math.ceil(sizeInBytes / 750);

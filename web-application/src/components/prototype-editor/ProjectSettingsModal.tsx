@@ -74,7 +74,12 @@ interface NewEnvVarInput {
   visibility: "client" | "backend";
 }
 
-export type ProjectSettingsTab = "details" | "deploy" | "share" | "environment" | "github";
+export type ProjectSettingsTab =
+  | "details"
+  | "deploy"
+  | "share"
+  | "environment"
+  | "github";
 
 interface ProjectSettingsModalProps {
   open: boolean;
@@ -642,67 +647,60 @@ export function ProjectSettingsModal({
     }
   }, [open, activeTab, fetchEnvVars]);
 
-  const refetchEnvVarsOnDevServer = useCallback(
-    async (): Promise<boolean> => {
-      setEnvSyncWarning(null);
-      setEnvSyncError(null);
+  const refetchEnvVarsOnDevServer = useCallback(async (): Promise<boolean> => {
+    setEnvSyncWarning(null);
+    setEnvSyncError(null);
 
-      if (!normalizedSandboxUrl || !prototypeId) {
-        setEnvSyncWarning(
-          "Dev server not started yet, try syncing again soon.",
-        );
-        return false;
-      }
+    if (!normalizedSandboxUrl || !prototypeId) {
+      setEnvSyncWarning("Dev server not started yet, try syncing again soon.");
+      return false;
+    }
 
-      setIsSyncingEnvFile(true);
-      try {
-        const session = await supabase.auth.getSession();
-        const token = session.data.session?.access_token;
-        if (!token) {
-          toast.error("Sign in again to sync environment variables.");
-          setEnvSyncError(
-            "Error syncing to development server. Try again later.",
-          );
-          return false;
-        }
-
-        const response = await fetch(
-          `${normalizedSandboxUrl}/dev-server/refetch-env`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify({ prototype_id: prototypeId }),
-          },
-        );
-
-        const result: APIResponse<
-          { env_var_count: number; message: string },
-          StandardErrorResponse
-        > = await response.json().catch(() => ({ data: null, error: null }));
-
-        if (!response.ok || result.error) {
-          throw new Error(
-            result.error?.message ?? "Failed to refresh dev server env vars",
-          );
-        }
-
-        toast.success("Dev server environment updated");
-        return true;
-      } catch {
-        toast.error("Unable to refresh dev server env vars");
+    setIsSyncingEnvFile(true);
+    try {
+      const session = await supabase.auth.getSession();
+      const token = session.data.session?.access_token;
+      if (!token) {
+        toast.error("Sign in again to sync environment variables.");
         setEnvSyncError(
           "Error syncing to development server. Try again later.",
         );
         return false;
-      } finally {
-        setIsSyncingEnvFile(false);
       }
-    },
-    [normalizedSandboxUrl, prototypeId],
-  );
+
+      const response = await fetch(
+        `${normalizedSandboxUrl}/dev-server/refetch-env`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ prototype_id: prototypeId }),
+        },
+      );
+
+      const result: APIResponse<
+        { env_var_count: number; message: string },
+        StandardErrorResponse
+      > = await response.json().catch(() => ({ data: null, error: null }));
+
+      if (!response.ok || result.error) {
+        throw new Error(
+          result.error?.message ?? "Failed to refresh dev server env vars",
+        );
+      }
+
+      toast.success("Dev server environment updated");
+      return true;
+    } catch {
+      toast.error("Unable to refresh dev server env vars");
+      setEnvSyncError("Error syncing to development server. Try again later.");
+      return false;
+    } finally {
+      setIsSyncingEnvFile(false);
+    }
+  }, [normalizedSandboxUrl, prototypeId]);
 
   const handleUpdateEnvVar = useCallback(
     async (envVarId: string, newValue: string) => {
@@ -1039,7 +1037,9 @@ export function ProjectSettingsModal({
             <TabsContent value="details" className="mt-0 space-y-6">
               <div className="space-y-5">
                 <div>
-                  <h3 className="text-base font-medium mb-2">Project Details</h3>
+                  <h3 className="text-base font-medium mb-2">
+                    Project Details
+                  </h3>
                   <p className="text-sm text-muted-foreground">
                     Manage your project name and basic information.
                   </p>
@@ -1047,7 +1047,9 @@ export function ProjectSettingsModal({
 
                 {/* Project Name */}
                 <div className="space-y-3">
-                  <p className="text-sm font-medium text-muted-foreground">Project Name</p>
+                  <p className="text-sm font-medium text-muted-foreground">
+                    Project Name
+                  </p>
                   {isEditingName ? (
                     <div className="flex items-center gap-3">
                       <Input
@@ -1169,7 +1171,9 @@ export function ProjectSettingsModal({
                       <Input
                         value={deploySlug}
                         onChange={(e) => {
-                          setDeploySlug(normalizeSlugWhileTyping(e.target.value));
+                          setDeploySlug(
+                            normalizeSlugWhileTyping(e.target.value),
+                          );
                           setSlugAvailable(null);
                           setSlugError(null);
                         }}
@@ -1244,8 +1248,9 @@ export function ProjectSettingsModal({
                     <div className="text-xs text-muted-foreground bg-accent/50 rounded-md p-3 space-y-2">
                       <p>
                         Each time you make changes to your app, we automatically
-                        create a <strong className="text-foreground">build</strong>{" "}
-                        — a snapshot of your app at that moment.
+                        create a{" "}
+                        <strong className="text-foreground">build</strong> — a
+                        snapshot of your app at that moment.
                       </p>
                       <p>
                         When you click{" "}
@@ -1315,10 +1320,10 @@ export function ProjectSettingsModal({
                     onClick={handleDeploy}
                     disabled={Boolean(
                       isDeploying ||
-                        isCheckingSlug ||
-                        slugAvailable !== true ||
-                        slugError ||
-                        (!hasSlugChanged && isLatestBuildDeployed),
+                      isCheckingSlug ||
+                      slugAvailable !== true ||
+                      slugError ||
+                      (!hasSlugChanged && isLatestBuildDeployed),
                     )}
                     className="bg-primary hover:bg-primary/90 text-primary-foreground"
                   >
@@ -1336,16 +1341,18 @@ export function ProjectSettingsModal({
                   </Button>
                 </div>
               </div>
-
             </TabsContent>
 
             {/* Share Tab */}
             <TabsContent value="share" className="mt-0 space-y-6">
               <div className="space-y-5">
                 <div>
-                  <h3 className="text-base font-medium mb-2">Share with prototype view</h3>
+                  <h3 className="text-base font-medium mb-2">
+                    Share with prototype view
+                  </h3>
                   <p className="text-sm text-muted-foreground">
-                    Share your project with others using the prototype view link.
+                    Share your project with others using the prototype view
+                    link.
                   </p>
                 </div>
 
@@ -1383,7 +1390,9 @@ export function ProjectSettingsModal({
                       type="checkbox"
                       checked={isPublic}
                       onChange={(e) => handleVisibilityToggle(e.target.checked)}
-                      disabled={!IsUserPlanSubscribed(userPlan ?? "") && !isPublic}
+                      disabled={
+                        !IsUserPlanSubscribed(userPlan ?? "") && !isPublic
+                      }
                       className="sr-only peer"
                     />
                     <div className="w-10 h-6 bg-muted peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[3px] after:left-[3px] after:bg-white after:rounded-full after:h-[18px] after:w-[18px] after:transition-all peer-checked:bg-primary peer-disabled:cursor-not-allowed"></div>
@@ -1392,7 +1401,9 @@ export function ProjectSettingsModal({
 
                 {/* Share Link */}
                 <div className="space-y-3">
-                  <p className="text-sm font-medium text-muted-foreground">Share Link</p>
+                  <p className="text-sm font-medium text-muted-foreground">
+                    Share Link
+                  </p>
                   <div className="flex items-center gap-3">
                     <Input
                       value={
@@ -1468,7 +1479,9 @@ export function ProjectSettingsModal({
                               variant="ghost"
                               size="sm"
                               className="h-8 px-3 text-xs"
-                              disabled={!canSyncEnvToDevServer || isSyncingEnvFile}
+                              disabled={
+                                !canSyncEnvToDevServer || isSyncingEnvFile
+                              }
                               onClick={() => {
                                 void refetchEnvVarsOnDevServer();
                               }}
@@ -1642,7 +1655,9 @@ export function ProjectSettingsModal({
                                           className="h-7 w-7 text-muted-foreground hover:text-foreground hover:bg-accent"
                                           onClick={() => {
                                             setEditingEnvVars((prev) =>
-                                              new Set(prev).add(envVar.id ?? ""),
+                                              new Set(prev).add(
+                                                envVar.id ?? "",
+                                              ),
                                             );
                                           }}
                                           disabled={isDeleting}

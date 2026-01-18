@@ -1,7 +1,7 @@
-import { createClient } from "@supabase/supabase-js";
-import type { FastifyReply, FastifyRequest } from "fastify";
-import type { User } from "@supabase/supabase-js";
-import type { Database } from "../../../types/supabase.js";
+import { createClient } from '@supabase/supabase-js';
+import type { FastifyReply, FastifyRequest } from 'fastify';
+import type { User } from '@supabase/supabase-js';
+import type { Database } from '../../../types/supabase.js';
 import type {
   APIResponse,
   LLMCompletionRequestBody,
@@ -9,21 +9,32 @@ import type {
   LLMCompletionErrorResponse,
   LLMTextBlock,
   LLMImageBlock,
-} from "../../../types/PublicAPITypes.js";
-import { HTTP_STATUS } from "../../../types/PublicAPITypes.js";
-import { getProvider, isValidProvider } from "../providers/provider-registry.js";
-import type { ProviderMessage, ProviderMessagePart } from "../providers/types.js";
-import { calculateCompletionCredits } from "../utils/cost-calculation.js";
-import { trackLLMUsage, checkCreditsAvailable } from "../utils/usage-tracking.js";
-import { mapProviderErrorToAPIError } from "../utils/error-mapping.js";
-import { fetchImageAsBase64 } from "../utils/image-processing.js";
+} from '../../../types/PublicAPITypes.js';
+import { HTTP_STATUS } from '../../../types/PublicAPITypes.js';
+import {
+  getProvider,
+  isValidProvider,
+} from '../providers/provider-registry.js';
+import type {
+  ProviderMessage,
+  ProviderMessagePart,
+} from '../providers/types.js';
+import { calculateCompletionCredits } from '../utils/cost-calculation.js';
+import {
+  trackLLMUsage,
+  checkCreditsAvailable,
+} from '../utils/usage-tracking.js';
+import { mapProviderErrorToAPIError } from '../utils/error-mapping.js';
+import { fetchImageAsBase64 } from '../utils/image-processing.js';
 
 export async function handleCompletionImpl(
   request: FastifyRequest<{ Body: LLMCompletionRequestBody }>,
   reply: FastifyReply,
   user: User,
   token: string,
-): Promise<APIResponse<LLMCompletionSuccessResponse, LLMCompletionErrorResponse>> {
+): Promise<
+  APIResponse<LLMCompletionSuccessResponse, LLMCompletionErrorResponse>
+> {
   const {
     provider: providerName,
     model,
@@ -34,7 +45,7 @@ export async function handleCompletionImpl(
     system_prompt,
   } = request.body;
   const logger = request.log2.child({
-    function: "handleCompletionImpl",
+    function: 'handleCompletionImpl',
     userId: user.id,
     provider: providerName,
     model,
@@ -45,7 +56,7 @@ export async function handleCompletionImpl(
     return reply.status(HTTP_STATUS.BAD_REQUEST).send({
       data: null,
       error: {
-        error: "INVALID_PROVIDER",
+        error: 'INVALID_PROVIDER',
         message: `Invalid provider: ${providerName}. Supported providers: anthropic, openai, google`,
       },
     });
@@ -66,30 +77,38 @@ export async function handleCompletionImpl(
 
   // 3. Verify team membership using RPC
   const { data: isMember, error: memberError } = await supabase.rpc(
-    "is_team_member",
+    'is_team_member',
     { p_team_id: team_id },
   );
 
   if (memberError || !isMember) {
-    logger.warn("User is not a member of the team", { teamId: team_id, memberError });
+    logger.warn('User is not a member of the team', {
+      teamId: team_id,
+      memberError,
+    });
     return reply.status(HTTP_STATUS.FORBIDDEN).send({
       data: null,
       error: {
-        error: "UNAUTHORIZED",
-        message: "You are not a member of this team",
+        error: 'UNAUTHORIZED',
+        message: 'You are not a member of this team',
       },
     });
   }
 
   // 4. Check credits available
-  const creditCheck = await checkCreditsAvailable(supabase, user.id, team_id, logger);
+  const creditCheck = await checkCreditsAvailable(
+    supabase,
+    user.id,
+    team_id,
+    logger,
+  );
   if (!creditCheck.hasCredits) {
     return reply.status(HTTP_STATUS.PAYMENT_REQUIRED).send({
       data: null,
       error: {
-        error: "INSUFFICIENT_CREDITS",
+        error: 'INSUFFICIENT_CREDITS',
         message:
-          "Insufficient credits. Please upgrade your plan or purchase more credits.",
+          'Insufficient credits. Please upgrade your plan or purchase more credits.',
       },
     });
   }
@@ -116,15 +135,22 @@ export async function handleCompletionImpl(
       result.usage.outputTokens,
     );
 
-    const usageResult = await trackLLMUsage(supabase, user.id, team_id, creditsUsed, logger, {
-      provider: providerName,
-      model,
-      requestType: "completion",
-      inputTokens: result.usage.inputTokens,
-      outputTokens: result.usage.outputTokens,
-    });
+    const usageResult = await trackLLMUsage(
+      supabase,
+      user.id,
+      team_id,
+      creditsUsed,
+      logger,
+      {
+        provider: providerName,
+        model,
+        requestType: 'completion',
+        inputTokens: result.usage.inputTokens,
+        outputTokens: result.usage.outputTokens,
+      },
+    );
 
-    logger.info("LLM completion successful", {
+    logger.info('LLM completion successful', {
       inputTokens: result.usage.inputTokens,
       outputTokens: result.usage.outputTokens,
       creditsUsed,
@@ -148,7 +174,7 @@ export async function handleCompletionImpl(
   } catch (error) {
     logger.error(
       error instanceof Error ? error : new Error(String(error)),
-      "LLM completion failed",
+      'LLM completion failed',
     );
 
     const mappedError = mapProviderErrorToAPIError(error);
@@ -160,12 +186,12 @@ export async function handleCompletionImpl(
 }
 
 async function convertMessagesToProviderFormat(
-  messages: LLMCompletionRequestBody["messages"],
+  messages: LLMCompletionRequestBody['messages'],
 ): Promise<ProviderMessage[]> {
   const converted: ProviderMessage[] = [];
 
   for (const msg of messages) {
-    if (typeof msg.content === "string") {
+    if (typeof msg.content === 'string') {
       converted.push({
         role: msg.role,
         content: msg.content,
@@ -177,29 +203,29 @@ async function convertMessagesToProviderFormat(
     const parts: ProviderMessagePart[] = [];
 
     for (const block of msg.content) {
-      if (block.type === "text") {
+      if (block.type === 'text') {
         const textBlock = block as LLMTextBlock;
         parts.push({
-          type: "text",
+          type: 'text',
           text: textBlock.text,
         });
-      } else if (block.type === "image") {
+      } else if (block.type === 'image') {
         const imageBlock = block as LLMImageBlock;
         const source = imageBlock.source;
 
-        if (source.type === "base64" && source.data) {
+        if (source.type === 'base64' && source.data) {
           parts.push({
-            type: "image",
+            type: 'image',
             imageData: {
               base64: source.data,
-              mediaType: source.media_type ?? "image/jpeg",
+              mediaType: source.media_type ?? 'image/jpeg',
             },
           });
-        } else if (source.type === "url" && source.url) {
+        } else if (source.type === 'url' && source.url) {
           // Fetch the image and convert to base64
           const fetchedImage = await fetchImageAsBase64(source.url);
           parts.push({
-            type: "image",
+            type: 'image',
             imageData: {
               base64: fetchedImage.base64,
               mediaType: fetchedImage.mediaType,

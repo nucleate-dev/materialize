@@ -105,8 +105,7 @@ export async function handleRedirectToPaymentsPage(
     requestBody.seatQuantity = Math.max(1, seatQuantity ?? 1);
   }
 
-  const checkoutEndpoint =
-    `${process.env.NEXT_PUBLIC_SERVER_ENDPOINT}/payments/checkout`;
+  const checkoutEndpoint = `${process.env.NEXT_PUBLIC_SERVER_ENDPOINT}/payments/checkout`;
 
   const response = await fetch(checkoutEndpoint, {
     method: "POST",

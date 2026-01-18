@@ -29,7 +29,9 @@ export const SectionHeader = ({
   <div className="px-6 py-5 border-b border-black/5 dark:border-border flex items-start justify-between">
     <div className="space-y-1">
       <h3 className="text-base font-medium text-gray-900 dark:text-white flex items-center gap-2">
-        {Icon && <Icon className="w-4 h-4 text-gray-500 dark:text-muted-foreground" />}
+        {Icon && (
+          <Icon className="w-4 h-4 text-gray-500 dark:text-muted-foreground" />
+        )}
         {title}
       </h3>
       {description && (

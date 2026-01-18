@@ -10,7 +10,10 @@ import { mkdirSync, writeFileSync } from "fs";
 import { dirname, join } from "path";
 import { z } from "zod";
 import { SystemLogger } from "../../../loggers/SystemLogger.js";
-import { GEMINI_IMAGE_COST_USD, VERCEL_MODEL_COSTS_USD } from "../cost/cost-calculation.js";
+import {
+  GEMINI_IMAGE_COST_USD,
+  VERCEL_MODEL_COSTS_USD,
+} from "../cost/cost-calculation.js";
 
 // Callback type for reporting Gemini usage costs
 export type GeminiUsageCallback = (costUsd: number) => void;
@@ -228,11 +231,15 @@ export function createDesignToolsMcpServer(
           filename: z
             .string()
             .min(1)
-            .describe("Output filename with extension (e.g., hero-image.png, app-icon.jpg)"),
+            .describe(
+              "Output filename with extension (e.g., hero-image.png, app-icon.jpg)",
+            ),
           outputPath: z
             .string()
             .optional()
-            .describe("Directory path relative to project root (default: assets/)"),
+            .describe(
+              "Directory path relative to project root (default: assets/)",
+            ),
           aspectRatio: z
             .enum(["1:1", "3:4", "4:3", "9:16", "16:9"])
             .optional()
@@ -240,7 +247,9 @@ export function createDesignToolsMcpServer(
           quality: z
             .enum(["standard", "hd"])
             .optional()
-            .describe("Image quality: standard (1K/2K resolution) or hd (4K resolution). Default: standard"),
+            .describe(
+              "Image quality: standard (1K/2K resolution) or hd (4K resolution). Default: standard",
+            ),
         },
         async ({
           prompt,
@@ -269,7 +278,11 @@ export function createDesignToolsMcpServer(
           }
 
           // Validate filename (no path traversal or directory separators)
-          if (filename.includes("..") || filename.includes("/") || filename.includes("\\")) {
+          if (
+            filename.includes("..") ||
+            filename.includes("/") ||
+            filename.includes("\\")
+          ) {
             return {
               isError: true,
               content: [
@@ -283,7 +296,8 @@ export function createDesignToolsMcpServer(
 
           try {
             logger?.consoleLogDevOnly("info", "GenerateImage tool invoked", {
-              prompt: prompt.substring(0, 100) + (prompt.length > 100 ? "..." : ""),
+              prompt:
+                prompt.substring(0, 100) + (prompt.length > 100 ? "..." : ""),
               filename,
               outputPath,
               aspectRatio: aspectRatio ?? "1:1",
@@ -335,7 +349,8 @@ export function createDesignToolsMcpServer(
             // - Input: token-based ($2/1M for text prompt)
             // - Output: per-image pricing ($0.134 standard, $0.24 HD)
             if (onUsage) {
-              const pricing = VERCEL_MODEL_COSTS_USD[DEFAULT_GEMINI_IMAGE_MODEL];
+              const pricing =
+                VERCEL_MODEL_COSTS_USD[DEFAULT_GEMINI_IMAGE_MODEL];
               const inputTokens = result.usage?.inputTokens ?? 0;
               const inputCost =
                 (inputTokens * (pricing?.inputUsdPer1M ?? 0)) / 1_000_000;
@@ -346,13 +361,17 @@ export function createDesignToolsMcpServer(
               const totalCostUsd = inputCost + imageCost;
               onUsage(totalCostUsd);
 
-              logger?.consoleLogDevOnly("info", "GenerateImage cost calculated", {
-                inputTokens,
-                inputCost,
-                imageCost,
-                quality: quality ?? "standard",
-                totalCostUsd,
-              });
+              logger?.consoleLogDevOnly(
+                "info",
+                "GenerateImage cost calculated",
+                {
+                  inputTokens,
+                  inputCost,
+                  imageCost,
+                  quality: quality ?? "standard",
+                  totalCostUsd,
+                },
+              );
             }
 
             logger?.consoleLogDevOnly("info", "Image generated successfully", {

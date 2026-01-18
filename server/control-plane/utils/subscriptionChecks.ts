@@ -1,8 +1,8 @@
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import type { Database } from "../types/supabase.js";
-import type { SubscriptionInfo } from "../types/InternalTypes.js";
-import { SystemLogger } from "../loggers/SystemLogger.js";
-import { CreditLimits } from "../types/PublicAPITypes.js";
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import type { Database } from '../types/supabase.js';
+import type { SubscriptionInfo } from '../types/InternalTypes.js';
+import { SystemLogger } from '../loggers/SystemLogger.js';
+import { CreditLimits } from '../types/PublicAPITypes.js';
 
 /**
  * Helper function to get the start and end of the current month
@@ -43,29 +43,29 @@ export async function getSubscriptionInfo(
   );
   try {
     const query = supabaseClient
-      .from("subscriptions")
-      .select("*")
-      .eq("team_id", teamId)
-      .eq("status", "active")
-      .lte("current_period_start", nowInSeconds)
-      .gte("current_period_end", nowInSeconds)
-      .order("updated_at", {
+      .from('subscriptions')
+      .select('*')
+      .eq('team_id', teamId)
+      .eq('status', 'active')
+      .lte('current_period_start', nowInSeconds)
+      .gte('current_period_end', nowInSeconds)
+      .order('updated_at', {
         ascending: false,
       });
 
     const { data, error } = await query;
 
     if (error) {
-      log2.error(error, "Error fetching subscription from supabase:", {
-        functionName: "getSubscriptionInfo",
+      log2.error(error, 'Error fetching subscription from supabase:', {
+        functionName: 'getSubscriptionInfo',
       });
       // Default to free tier with current month period
       const { startOfMonth, endOfMonth } = getCurrentMonthPeriod();
       return {
-        userPlan: "free",
+        userPlan: 'free',
         currentPeriodStart: startOfMonth,
         currentPeriodEnd: endOfMonth,
-        stripeCustomerId: "",
+        stripeCustomerId: '',
       };
     }
 
@@ -73,10 +73,10 @@ export async function getSubscriptionInfo(
       // No active subscription found, user is on free tier
       const { startOfMonth, endOfMonth } = getCurrentMonthPeriod();
       return {
-        userPlan: "free",
+        userPlan: 'free',
         currentPeriodStart: startOfMonth,
         currentPeriodEnd: endOfMonth,
-        stripeCustomerId: "",
+        stripeCustomerId: '',
       };
     }
 
@@ -103,10 +103,10 @@ export async function getSubscriptionInfo(
         } else {
           const { startOfMonth, endOfMonth } = getCurrentMonthPeriod();
           return {
-            userPlan: "free",
+            userPlan: 'free',
             currentPeriodStart: startOfMonth,
             currentPeriodEnd: endOfMonth,
-            stripeCustomerId: "",
+            stripeCustomerId: '',
           };
         }
       } else {
@@ -120,29 +120,29 @@ export async function getSubscriptionInfo(
         userPlan: plan,
         currentPeriodStart,
         currentPeriodEnd,
-        stripeCustomerId: latestSubscription.stripe_customer_id || "",
+        stripeCustomerId: latestSubscription.stripe_customer_id || '',
       };
     } else {
       // Fallback to free if no plan is found
       const { startOfMonth, endOfMonth } = getCurrentMonthPeriod();
       return {
-        userPlan: "free",
+        userPlan: 'free',
         currentPeriodStart: startOfMonth,
         currentPeriodEnd: endOfMonth,
-        stripeCustomerId: "",
+        stripeCustomerId: '',
       };
     }
   } catch (error) {
-    log2.error(error, "Error in getSubscriptionInfo:", {
-      functionName: "getSubscriptionInfo",
+    log2.error(error, 'Error in getSubscriptionInfo:', {
+      functionName: 'getSubscriptionInfo',
     });
     // Default to free tier on any error
     const { startOfMonth, endOfMonth } = getCurrentMonthPeriod();
     return {
-      userPlan: "free",
+      userPlan: 'free',
       currentPeriodStart: startOfMonth,
       currentPeriodEnd: endOfMonth,
-      stripeCustomerId: "",
+      stripeCustomerId: '',
     };
   }
 }
@@ -154,14 +154,14 @@ async function calculateFreeTierCreditInfo(
 ): Promise<{ remaining: number; granted: number; used: number }> {
   // Check if this is a personal team (only personal teams get free credits)
   const { data: team, error: teamError } = await supabaseClient
-    .from("teams")
-    .select("personal_owner_user_id")
-    .eq("id", teamId)
+    .from('teams')
+    .select('personal_owner_user_id')
+    .eq('id', teamId)
     .single();
 
   if (teamError) {
-    log2.error(teamError, "Error fetching team for free-tier check:", {
-      functionName: "calculateFreeTierCreditInfo",
+    log2.error(teamError, 'Error fetching team for free-tier check:', {
+      functionName: 'calculateFreeTierCreditInfo',
       teamId,
     });
     // On error, deny credits to be safe
@@ -186,16 +186,16 @@ async function calculateFreeTierCreditInfo(
   const periodStart = startOfMonth.toISOString();
   const periodEnd = endOfMonth.toISOString();
   const { data: usageRows, error } = await supabaseClient
-    .from("api_usage")
-    .select("credits_used")
-    .eq("team_id", teamId)
-    .eq("is_free_tier", true)
-    .gte("created_at", periodStart)
-    .lte("created_at", periodEnd);
+    .from('api_usage')
+    .select('credits_used')
+    .eq('team_id', teamId)
+    .eq('is_free_tier', true)
+    .gte('created_at', periodStart)
+    .lte('created_at', periodEnd);
 
   if (error) {
-    log2.error(error, "Error fetching free-tier usage:", {
-      functionName: "calculateFreeTierCreditInfo",
+    log2.error(error, 'Error fetching free-tier usage:', {
+      functionName: 'calculateFreeTierCreditInfo',
       teamId,
     });
   }
@@ -229,7 +229,7 @@ export async function hasExceededPrototypeCreationLimit(
   );
 
   // Paid users have no limit
-  if (subscriptionInfo.userPlan !== "free") {
+  if (subscriptionInfo.userPlan !== 'free') {
     return {
       exceeded: false,
       current: 0,
@@ -245,12 +245,12 @@ export async function hasExceededPrototypeCreationLimit(
   );
 
   const { count, error } = await supabaseClient
-    .from("prototypes")
-    .select("*", { count: "exact", head: true })
-    .eq("team_id", teamId);
+    .from('prototypes')
+    .select('*', { count: 'exact', head: true })
+    .eq('team_id', teamId);
   if (error) {
-    log2.error(error, "Error counting user prototypes from supabase:", {
-      functionName: "hasExceededPrototypeCreationLimit",
+    log2.error(error, 'Error counting user prototypes from supabase:', {
+      functionName: 'hasExceededPrototypeCreationLimit',
     });
     // Default to exceeded on error to be safe
     return {
@@ -317,7 +317,7 @@ export async function getRemainingCredits(
       teamId,
     );
 
-    if (subscriptionInfo.userPlan === "free") {
+    if (subscriptionInfo.userPlan === 'free') {
       const freeCreditInfo = await calculateFreeTierCreditInfo(
         supabaseClient,
         teamId,
@@ -337,43 +337,45 @@ export async function getRemainingCredits(
 
     const nowIso = new Date().toISOString();
     const { data: balances, error: balancesError } = await supabaseClient
-      .from("credit_grant_balances")
-      .select("credits_granted, credits_remaining")
-      .eq("team_id", teamId)
-      .gt("expires_at", nowIso);
+      .from('credit_grant_balances')
+      .select('credits_granted, credits_remaining')
+      .eq('team_id', teamId)
+      .gt('expires_at', nowIso);
 
     if (balancesError) {
-      log2.error(balancesError, "Error fetching credit grant balances:", {
-        functionName: "getRemainingCredits",
+      log2.error(balancesError, 'Error fetching credit grant balances:', {
+        functionName: 'getRemainingCredits',
       });
     }
 
-    const totalGranted = balances?.reduce(
-      (sum, balance) => sum + (balance.credits_granted || 0),
-      0,
-    ) || 0;
-    const totalRemaining = balances?.reduce(
-      (sum, balance) => sum + (balance.credits_remaining || 0),
-      0,
-    ) || 0;
+    const totalGranted =
+      balances?.reduce(
+        (sum, balance) => sum + (balance.credits_granted || 0),
+        0,
+      ) || 0;
+    const totalRemaining =
+      balances?.reduce(
+        (sum, balance) => sum + (balance.credits_remaining || 0),
+        0,
+      ) || 0;
     const totalUsed = totalGranted - totalRemaining;
 
     // Get the credit limit for this plan
     let creditLimit = 0;
     switch (subscriptionInfo.userPlan as string) {
-      case "free":
+      case 'free':
         creditLimit = CreditLimits.FREE;
         break;
-      case "plus":
+      case 'plus':
         creditLimit = CreditLimits.PLUS;
         break;
-      case "pro":
+      case 'pro':
         creditLimit = CreditLimits.PRO;
         break;
-      case "max":
+      case 'max':
         creditLimit = CreditLimits.MAX;
         break;
-      case "team":
+      case 'team':
         creditLimit = CreditLimits.TEAM;
         break;
       default:
@@ -391,8 +393,8 @@ export async function getRemainingCredits(
       stripeCustomerId: subscriptionInfo.stripeCustomerId,
     };
   } catch (error) {
-    log2.error(error, "Error in getRemainingCredits:", {
-      functionName: "getRemainingCredits",
+    log2.error(error, 'Error in getRemainingCredits:', {
+      functionName: 'getRemainingCredits',
     });
     const { startOfMonth, endOfMonth } = getCurrentMonthPeriod();
     return {
@@ -400,10 +402,10 @@ export async function getRemainingCredits(
       granted: 0,
       used: 0,
       limit: CreditLimits.FREE,
-      plan: "free",
+      plan: 'free',
       currentPeriodStart: startOfMonth,
       currentPeriodEnd: endOfMonth,
-      stripeCustomerId: "",
+      stripeCustomerId: '',
     };
   }
 }
@@ -446,8 +448,8 @@ export async function hasExceededCreditLimit(
       ...creditInfo,
     };
   } catch (error) {
-    log2.error(error, "Error in hasExceededCreditLimit:", {
-      functionName: "hasExceededCreditLimit",
+    log2.error(error, 'Error in hasExceededCreditLimit:', {
+      functionName: 'hasExceededCreditLimit',
     });
     const { startOfMonth, endOfMonth } = getCurrentMonthPeriod();
     return {
@@ -456,10 +458,10 @@ export async function hasExceededCreditLimit(
       granted: 0,
       used: 0,
       limit: CreditLimits.FREE,
-      plan: "free",
+      plan: 'free',
       currentPeriodStart: startOfMonth,
       currentPeriodEnd: endOfMonth,
-      stripeCustomerId: "",
+      stripeCustomerId: '',
     };
   }
 }
@@ -517,7 +519,7 @@ export async function getRemainingSeats(
     const plan = subscriptionInfo.userPlan;
 
     // Free plan: always 0 seats for both
-    if (plan === "free") {
+    if (plan === 'free') {
       return {
         collaboratorSeats: {
           hasSeats: false,
@@ -533,16 +535,17 @@ export async function getRemainingSeats(
         },
         plan,
       };
-    } else if (plan === "plus") { // Plus plan: max 2 total members across all roles, Both collaborator and viewer seats use the same pool
+    } else if (plan === 'plus') {
+      // Plus plan: max 2 total members across all roles, Both collaborator and viewer seats use the same pool
       // Count all current team members (all roles)
       const { count: memberCount, error: memberError } = await supabaseClient
-        .from("team_memberships")
-        .select("*", { count: "exact", head: true })
-        .eq("team_id", teamId);
+        .from('team_memberships')
+        .select('*', { count: 'exact', head: true })
+        .eq('team_id', teamId);
 
       if (memberError) {
-        log2.error(memberError, "Error counting team members", {
-          functionName: "getRemainingSeats",
+        log2.error(memberError, 'Error counting team members', {
+          functionName: 'getRemainingSeats',
           teamId,
         });
         throw memberError;
@@ -550,14 +553,14 @@ export async function getRemainingSeats(
 
       // Count all pending invites (all roles)
       const { count: inviteCount, error: inviteError } = await supabaseClient
-        .from("team_invites")
-        .select("*", { count: "exact", head: true })
-        .eq("team_id", teamId)
-        .eq("invite_status", "pending");
+        .from('team_invites')
+        .select('*', { count: 'exact', head: true })
+        .eq('team_id', teamId)
+        .eq('invite_status', 'pending');
 
       if (inviteError) {
-        log2.error(inviteError, "Error counting pending invites", {
-          functionName: "getRemainingSeats",
+        log2.error(inviteError, 'Error counting pending invites', {
+          functionName: 'getRemainingSeats',
           teamId,
         });
         throw inviteError;
@@ -580,23 +583,24 @@ export async function getRemainingSeats(
         viewerSeats: seatInfo,
         plan,
       };
-    } else if (plan === "team") { // Team plan: collaborator seats limited by subscription, unlimited viewer seats
+    } else if (plan === 'team') {
+      // Team plan: collaborator seats limited by subscription, unlimited viewer seats
       // Get the number of seats from the subscription
       const nowInSeconds = Math.floor(Date.now() / 1000);
       const { data: subscription, error: subError } = await supabaseClient
-        .from("subscriptions")
-        .select("seat_quantity")
-        .eq("team_id", teamId)
-        .eq("status", "active")
-        .lte("current_period_start", nowInSeconds)
-        .gte("current_period_end", nowInSeconds)
-        .order("updated_at", { ascending: false })
+        .from('subscriptions')
+        .select('seat_quantity')
+        .eq('team_id', teamId)
+        .eq('status', 'active')
+        .lte('current_period_start', nowInSeconds)
+        .gte('current_period_end', nowInSeconds)
+        .order('updated_at', { ascending: false })
         .limit(1)
         .maybeSingle();
 
       if (subError) {
-        log2.error(subError, "Error fetching subscription", {
-          functionName: "getRemainingSeats",
+        log2.error(subError, 'Error fetching subscription', {
+          functionName: 'getRemainingSeats',
           teamId,
         });
         throw subError;
@@ -607,14 +611,14 @@ export async function getRemainingSeats(
       // Count current members with owner, admin, or editor roles
       const { count: collaboratorMemberCount, error: memberError } =
         await supabaseClient
-          .from("team_memberships")
-          .select("*", { count: "exact", head: true })
-          .eq("team_id", teamId)
-          .in("role", ["owner", "admin", "editor"]);
+          .from('team_memberships')
+          .select('*', { count: 'exact', head: true })
+          .eq('team_id', teamId)
+          .in('role', ['owner', 'admin', 'editor']);
 
       if (memberError) {
-        log2.error(memberError, "Error counting team members", {
-          functionName: "getRemainingSeats",
+        log2.error(memberError, 'Error counting team members', {
+          functionName: 'getRemainingSeats',
           teamId,
         });
         throw memberError;
@@ -623,37 +627,37 @@ export async function getRemainingSeats(
       // Count pending invites for owner, admin, or editor roles
       const { count: collaboratorInviteCount, error: inviteError } =
         await supabaseClient
-          .from("team_invites")
-          .select("*", { count: "exact", head: true })
-          .eq("team_id", teamId)
-          .in("role", ["owner", "admin", "editor"])
-          .eq("invite_status", "pending");
+          .from('team_invites')
+          .select('*', { count: 'exact', head: true })
+          .eq('team_id', teamId)
+          .in('role', ['owner', 'admin', 'editor'])
+          .eq('invite_status', 'pending');
 
       if (inviteError) {
-        log2.error(inviteError, "Error counting pending invites", {
-          functionName: "getRemainingSeats",
+        log2.error(inviteError, 'Error counting pending invites', {
+          functionName: 'getRemainingSeats',
           teamId,
         });
         throw inviteError;
       }
 
-      const collaboratorUsed = (collaboratorMemberCount || 0) +
-        (collaboratorInviteCount || 0);
+      const collaboratorUsed =
+        (collaboratorMemberCount || 0) + (collaboratorInviteCount || 0);
       const collaboratorRemaining = Math.max(totalSeats - collaboratorUsed, 0);
 
       // Count viewer members for reporting purposes
       const { count: viewerMemberCount } = await supabaseClient
-        .from("team_memberships")
-        .select("*", { count: "exact", head: true })
-        .eq("team_id", teamId)
-        .eq("role", "viewer");
+        .from('team_memberships')
+        .select('*', { count: 'exact', head: true })
+        .eq('team_id', teamId)
+        .eq('role', 'viewer');
 
       const { count: viewerInviteCount } = await supabaseClient
-        .from("team_invites")
-        .select("*", { count: "exact", head: true })
-        .eq("team_id", teamId)
-        .eq("role", "viewer")
-        .eq("invite_status", "pending");
+        .from('team_invites')
+        .select('*', { count: 'exact', head: true })
+        .eq('team_id', teamId)
+        .eq('role', 'viewer')
+        .eq('invite_status', 'pending');
 
       const viewerUsed = (viewerMemberCount || 0) + (viewerInviteCount || 0);
 
@@ -691,8 +695,8 @@ export async function getRemainingSeats(
       plan,
     };
   } catch (error) {
-    log2.error(error, "Error in getRemainingSeats", {
-      functionName: "getRemainingSeats",
+    log2.error(error, 'Error in getRemainingSeats', {
+      functionName: 'getRemainingSeats',
       teamId,
     });
     // On error, default to no seats available to be safe
@@ -709,7 +713,7 @@ export async function getRemainingSeats(
         total: 0,
         used: 0,
       },
-      plan: "unknown",
+      plan: 'unknown',
     };
   }
 }

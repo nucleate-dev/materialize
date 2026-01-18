@@ -67,19 +67,23 @@ import { toast } from "sonner";
 type Prototype = Database["public"]["Tables"]["prototypes"]["Row"];
 
 // Validate a screen config array
-const isValidScreenArray = (arr: unknown): arr is PublicDisplayConfigScreen[] => {
+const isValidScreenArray = (
+  arr: unknown,
+): arr is PublicDisplayConfigScreen[] => {
   if (!Array.isArray(arr)) return false;
   return arr.every(
     (item) =>
       typeof item === "object" &&
       item !== null &&
       typeof item.id === "number" &&
-      typeof item.path === "string"
+      typeof item.path === "string",
   );
 };
 
 // Validate the public display config structure
-const isValidPublicDisplayConfig = (config: unknown): config is PublicDisplayConfig => {
+const isValidPublicDisplayConfig = (
+  config: unknown,
+): config is PublicDisplayConfig => {
   if (typeof config !== "object" || config === null) return false;
   const c = config as Record<string, unknown>;
 
@@ -87,10 +91,16 @@ const isValidPublicDisplayConfig = (config: unknown): config is PublicDisplayCon
   if (c.screens !== undefined && !isValidScreenArray(c.screens)) return false;
 
   // webScreens is optional, but if present must be valid
-  if (c.webScreens !== undefined && !isValidScreenArray(c.webScreens)) return false;
+  if (c.webScreens !== undefined && !isValidScreenArray(c.webScreens))
+    return false;
 
   // previewMode is optional, but if present must be "mobile" or "web"
-  if (c.previewMode !== undefined && c.previewMode !== "mobile" && c.previewMode !== "web") return false;
+  if (
+    c.previewMode !== undefined &&
+    c.previewMode !== "mobile" &&
+    c.previewMode !== "web"
+  )
+    return false;
 
   return true;
 };
@@ -297,9 +307,9 @@ export default function PrototypePage() {
     [],
   );
   // Public display config state - web screens
-  const [currentWebScreens, setCurrentWebScreens] = useState<MobileScreenConfig[]>(
-    [],
-  );
+  const [currentWebScreens, setCurrentWebScreens] = useState<
+    MobileScreenConfig[]
+  >([]);
   const [savedConfig, setSavedConfig] = useState<PublicDisplayConfig | null>(
     null,
   );
@@ -311,13 +321,18 @@ export default function PrototypePage() {
   const canEditPublicConfig = useMemo(() => {
     if (!currentUserId || !prototype) return false;
     const isOwner = currentUserId === prototype.owner_id;
-    const isMemberOfTeam = userTeams.some((team) => team.id === prototype.team_id);
+    const isMemberOfTeam = userTeams.some(
+      (team) => team.id === prototype.team_id,
+    );
     return isOwner || isMemberOfTeam;
   }, [currentUserId, prototype, userTeams]);
 
   // Helper to check if screens have changed
   const screensChanged = useCallback(
-    (current: MobileScreenConfig[], saved: MobileScreenConfig[] | undefined) => {
+    (
+      current: MobileScreenConfig[],
+      saved: MobileScreenConfig[] | undefined,
+    ) => {
       const savedScreens = saved ?? [];
       if (savedScreens.length === 0) {
         if (current.length > 1) return true;
@@ -349,11 +364,18 @@ export default function PrototypePage() {
 
     // Check web screens
     if (currentWebScreens.length > 0) {
-      if (screensChanged(currentWebScreens, savedConfig?.webScreens)) return true;
+      if (screensChanged(currentWebScreens, savedConfig?.webScreens))
+        return true;
     }
 
     return false;
-  }, [canEditPublicConfig, currentScreens, currentWebScreens, savedConfig, screensChanged]);
+  }, [
+    canEditPublicConfig,
+    currentScreens,
+    currentWebScreens,
+    savedConfig,
+    screensChanged,
+  ]);
 
   // Update document title when prototype name is available
   useEffect(() => {
@@ -443,7 +465,10 @@ export default function PrototypePage() {
 
       const { error: updateError } = await supabase
         .from("prototypes")
-        .update({ public_display_config: configToSave as unknown as Database["public"]["Tables"]["prototypes"]["Update"]["public_display_config"] })
+        .update({
+          public_display_config:
+            configToSave as unknown as Database["public"]["Tables"]["prototypes"]["Update"]["public_display_config"],
+        })
         .eq("id", prototypeId);
 
       if (updateError) {
@@ -460,7 +485,14 @@ export default function PrototypePage() {
     } finally {
       setIsSaving(false);
     }
-  }, [prototypeId, canEditPublicConfig, currentScreens, currentWebScreens, savedConfig?.previewMode, logger]);
+  }, [
+    prototypeId,
+    canEditPublicConfig,
+    currentScreens,
+    currentWebScreens,
+    savedConfig?.previewMode,
+    logger,
+  ]);
 
   // Discard unsaved changes
   const handleDiscardChanges = useCallback(() => {
@@ -468,13 +500,17 @@ export default function PrototypePage() {
     if (!savedConfig?.screens?.length) {
       setCurrentScreens([{ id: 0, path: "/" }]);
     } else {
-      setCurrentScreens(savedConfig.screens.map((s) => ({ id: s.id, path: s.path })));
+      setCurrentScreens(
+        savedConfig.screens.map((s) => ({ id: s.id, path: s.path })),
+      );
     }
     // Reset web screens
     if (!savedConfig?.webScreens?.length) {
       setCurrentWebScreens([{ id: 0, path: "/" }]);
     } else {
-      setCurrentWebScreens(savedConfig.webScreens.map((s) => ({ id: s.id, path: s.path })));
+      setCurrentWebScreens(
+        savedConfig.webScreens.map((s) => ({ id: s.id, path: s.path })),
+      );
     }
     toast.info("Changes discarded");
   }, [savedConfig]);
@@ -494,7 +530,9 @@ export default function PrototypePage() {
   }, [hasUnsavedChanges]);
 
   // Get initial screens from saved config
-  const initialScreens = useMemo((): PublicDisplayConfigScreen[] | undefined => {
+  const initialScreens = useMemo(():
+    | PublicDisplayConfigScreen[]
+    | undefined => {
     if (savedConfig?.screens?.length) {
       return savedConfig.screens;
     }
@@ -502,7 +540,9 @@ export default function PrototypePage() {
   }, [savedConfig]);
 
   // Get initial web screens from saved config
-  const initialWebScreens = useMemo((): PublicDisplayConfigScreen[] | undefined => {
+  const initialWebScreens = useMemo(():
+    | PublicDisplayConfigScreen[]
+    | undefined => {
     if (savedConfig?.webScreens?.length) {
       return savedConfig.webScreens;
     }

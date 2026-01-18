@@ -1,14 +1,14 @@
-import type { FastifyReply, FastifyRequest } from "fastify";
+import type { FastifyReply, FastifyRequest } from 'fastify';
 import {
   type APIResponse,
   HTTP_STATUS,
   type UpdateTeamMemberRoleErrorResponse,
   type UpdateTeamMemberRoleRequestBody,
   type UpdateTeamMemberRoleSuccessResponse,
-} from "../../../types/PublicAPITypes.js";
-import { validateJWTToken } from "../../../utils/prototypeAuth.js";
-import { createClient } from "@supabase/supabase-js";
-import { Database } from "../../../types/supabase.js";
+} from '../../../types/PublicAPITypes.js';
+import { validateJWTToken } from '../../../utils/prototypeAuth.js';
+import { createClient } from '@supabase/supabase-js';
+import { Database } from '../../../types/supabase.js';
 
 /**
  * Implementation for updating a team member's role.
@@ -38,16 +38,16 @@ export default async function handleUpdateMemberRoleImpl(
   >
 > {
   // Extract JWT token from Authorization header and validate it
-  const token = request.headers.authorization?.split(" ")[1] ?? "";
+  const token = request.headers.authorization?.split(' ')[1] ?? '';
   const { user } = await validateJWTToken(token, request.log2);
   if (!user) {
-    request.log2.warn("Unauthorized user");
+    request.log2.warn('Unauthorized user');
     reply.status(HTTP_STATUS.UNAUTHORIZED);
     return {
       data: null,
       error: {
-        error: "Unauthorized",
-        message: "Invalid token",
+        error: 'Unauthorized',
+        message: 'Invalid token',
       },
     };
   }
@@ -77,14 +77,14 @@ export default async function handleUpdateMemberRoleImpl(
   try {
     // Validate that user is owner or admin of the team
     const { data: isAuthorized, error: authError } = await supabaseClient.rpc(
-      "is_team_owner_or_admin",
+      'is_team_owner_or_admin',
       {
         p_team_id: team_id,
       },
     );
 
     if (authError || !isAuthorized) {
-      request.log2.warn("User is not authorized to update member roles", {
+      request.log2.warn('User is not authorized to update member roles', {
         authError,
         isAuthorized,
       });
@@ -92,23 +92,23 @@ export default async function handleUpdateMemberRoleImpl(
       return {
         data: null,
         error: {
-          error: "Forbidden",
+          error: 'Forbidden',
           message:
-            "You must be an owner or admin of this team to update member roles",
+            'You must be an owner or admin of this team to update member roles',
         },
       };
     }
 
     // Fetch the current membership to get the old role
     const { data: membership, error: membershipError } = await supabaseClient
-      .from("team_memberships")
-      .select("*")
-      .eq("team_id", team_id)
-      .eq("user_id", user_id)
+      .from('team_memberships')
+      .select('*')
+      .eq('team_id', team_id)
+      .eq('user_id', user_id)
       .single();
 
     if (membershipError || !membership) {
-      request.log2.warn("Team membership not found", {
+      request.log2.warn('Team membership not found', {
         team_id,
         user_id,
         error: membershipError,
@@ -117,8 +117,8 @@ export default async function handleUpdateMemberRoleImpl(
       return {
         data: null,
         error: {
-          error: "Membership not found",
-          message: "The specified team membership does not exist",
+          error: 'Membership not found',
+          message: 'The specified team membership does not exist',
         },
       };
     }
@@ -127,7 +127,7 @@ export default async function handleUpdateMemberRoleImpl(
 
     // Check if the role is actually changing
     if (oldRole === role) {
-      request.log2.warn("Role is already set to the requested value", {
+      request.log2.warn('Role is already set to the requested value', {
         team_id,
         user_id,
         role,
@@ -136,8 +136,8 @@ export default async function handleUpdateMemberRoleImpl(
       return {
         data: null,
         error: {
-          error: "No change needed",
-          message: "User already has this role",
+          error: 'No change needed',
+          message: 'User already has this role',
         },
       };
     }
@@ -147,24 +147,24 @@ export default async function handleUpdateMemberRoleImpl(
 
     // Update the role
     const { error: updateError } = await supabaseClient
-      .from("team_memberships")
+      .from('team_memberships')
       .update({ role })
-      .eq("team_id", team_id)
-      .eq("user_id", user_id);
+      .eq('team_id', team_id)
+      .eq('user_id', user_id);
 
     if (updateError) {
-      request.log2.error(updateError, "Failed to update team member role");
+      request.log2.error(updateError, 'Failed to update team member role');
       reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR);
       return {
         data: null,
         error: {
-          error: "Update failed",
-          message: "Failed to update the team member role",
+          error: 'Update failed',
+          message: 'Failed to update the team member role',
         },
       };
     }
 
-    request.log2.consoleLogDevOnly("info", "Team member role updated", {
+    request.log2.consoleLogDevOnly('info', 'Team member role updated', {
       team_id,
       user_id,
       old_role: oldRole,
@@ -176,20 +176,20 @@ export default async function handleUpdateMemberRoleImpl(
     return {
       data: {
         success: true,
-        message: "Team member role updated successfully",
+        message: 'Team member role updated successfully',
         old_role: oldRole,
         new_role: role,
       },
       error: null,
     };
   } catch (error) {
-    request.log2.error(error, "Exception updating team member role");
+    request.log2.error(error, 'Exception updating team member role');
     reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR);
     return {
       data: null,
       error: {
-        error: "Internal server error",
-        message: error instanceof Error ? error.message : "Unknown error",
+        error: 'Internal server error',
+        message: error instanceof Error ? error.message : 'Unknown error',
       },
     };
   }

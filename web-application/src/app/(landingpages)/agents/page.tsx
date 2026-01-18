@@ -229,7 +229,9 @@ function TransformationSection() {
           <h2 className="text-4xl md:text-6xl font-medium tracking-tight mb-6 text-foreground">
             We don&apos;t automate tasks.
             <br />
-            <span className="text-emerald-600 dark:text-emerald-400">We transform departments.</span>
+            <span className="text-emerald-600 dark:text-emerald-400">
+              We transform departments.
+            </span>
           </h2>
           <p className="text-muted-foreground text-xl max-w-2xl mx-auto">
             End-to-end workflow automation replacing entire process chains,
@@ -249,7 +251,9 @@ function TransformationSection() {
               <div className="w-12 h-12 bg-emerald-500/10 rounded-xl flex items-center justify-center mb-6 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
                 {item.icon}
               </div>
-              <h3 className="text-xl font-medium mb-3 text-foreground">{item.title}</h3>
+              <h3 className="text-xl font-medium mb-3 text-foreground">
+                {item.title}
+              </h3>
               <p className="text-muted-foreground leading-relaxed">
                 {item.description}
               </p>
@@ -337,7 +341,9 @@ function EngagementModelSection() {
                     {phase.number}
                   </span>
                 </div>
-                <h3 className="text-lg font-medium mb-3 text-foreground">{phase.title}</h3>
+                <h3 className="text-lg font-medium mb-3 text-foreground">
+                  {phase.title}
+                </h3>
                 <p className="text-sm text-muted-foreground leading-relaxed">
                   {phase.description}
                 </p>
@@ -426,8 +432,8 @@ function CaseStudiesSection() {
             Real results. Real impact.
           </h2>
           <p className="text-muted-foreground max-w-xl mx-auto text-lg">
-            See how leading organizations have transformed their operations
-            with Nucleate Agents.
+            See how leading organizations have transformed their operations with
+            Nucleate Agents.
           </p>
         </div>
 

@@ -22,7 +22,18 @@ import {
   DropdownMenuContent,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { X, User, CreditCard, Key, Users, LogOut, ChevronDown, Check, Plus, Github } from "lucide-react";
+import {
+  X,
+  User,
+  CreditCard,
+  Key,
+  Users,
+  LogOut,
+  ChevronDown,
+  Check,
+  Plus,
+  Github,
+} from "lucide-react";
 import { useCustomUserRow } from "@/hooks/useCustomUserRow";
 import { usePostHog } from "posthog-js/react";
 import { useActiveTeam } from "@/contexts/TeamContext";
@@ -40,7 +51,13 @@ import { TeamTab } from "./TeamTab";
 import { PeopleTab } from "./PeopleTab";
 import { GitHubIntegrationTab } from "./GitHubIntegrationTab";
 
-type SettingsTab = "profile" | "credits" | "claude" | "team" | "people" | "github";
+type SettingsTab =
+  | "profile"
+  | "credits"
+  | "claude"
+  | "team"
+  | "people"
+  | "github";
 
 interface SettingsDialogProps {
   open: boolean;
@@ -322,7 +339,9 @@ export function TeamAndAccountsSettingsDialog({
                             <SidebarMenuButton
                               isActive={activeTab === tab.id}
                               onClick={() => setActiveTab(tab.id)}
-                              className={tab.isTeamTab ? "h-auto min-h-[2rem] py-2" : ""}
+                              className={
+                                tab.isTeamTab ? "h-auto min-h-[2rem] py-2" : ""
+                              }
                             >
                               {tab.isTeamTab ? (
                                 <>

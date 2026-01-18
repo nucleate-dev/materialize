@@ -50,7 +50,10 @@ function HeroSection() {
   return (
     <section className="relative min-h-[85vh] flex flex-col justify-center px-6 py-24 pt-32">
       <div className="container mx-auto max-w-5xl w-full text-center">
-        <Badge variant="outline" className="mb-6 border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-300">
+        <Badge
+          variant="outline"
+          className="mb-6 border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-300"
+        >
           AI Website Builder for Accountants
         </Badge>
 
@@ -60,8 +63,8 @@ function HeroSection() {
         </h1>
 
         <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-8">
-          Build a client-ready website in minutes. Update it anytime by chatting with AI.
-          No designers, no developers, no hassle.
+          Build a client-ready website in minutes. Update it anytime by chatting
+          with AI. No designers, no developers, no hassle.
         </p>
 
         <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-12">
@@ -99,7 +102,9 @@ function HeroSection() {
                   <div className="w-8 h-8 bg-emerald-500/20 rounded-lg flex items-center justify-center">
                     <Calculator className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                   </div>
-                  <span className="font-semibold text-foreground">Smith & Anderson CPA</span>
+                  <span className="font-semibold text-foreground">
+                    Smith & Anderson CPA
+                  </span>
                 </div>
                 <div className="hidden md:flex gap-6 text-sm text-muted-foreground">
                   <span>Services</span>
@@ -114,7 +119,8 @@ function HeroSection() {
                     Expert Tax & Accounting Services
                   </h2>
                   <p className="text-muted-foreground mb-6 text-sm">
-                    Trusted by 500+ businesses. Personal attention, professional results.
+                    Trusted by 500+ businesses. Personal attention, professional
+                    results.
                   </p>
                   <div className="flex gap-3">
                     <div className="px-4 py-2 bg-emerald-500 text-white rounded-lg text-sm font-medium">
@@ -126,8 +132,16 @@ function HeroSection() {
                   </div>
                 </div>
                 <div className="hidden md:grid grid-cols-2 gap-3">
-                  {["Tax Preparation", "Bookkeeping", "Payroll", "Business Advisory"].map((service) => (
-                    <div key={service} className="bg-background/50 border border-border rounded-lg p-3 text-sm">
+                  {[
+                    "Tax Preparation",
+                    "Bookkeeping",
+                    "Payroll",
+                    "Business Advisory",
+                  ].map((service) => (
+                    <div
+                      key={service}
+                      className="bg-background/50 border border-border rounded-lg p-3 text-sm"
+                    >
                       <CheckCircle2 className="w-4 h-4 text-emerald-500 mb-2" />
                       <span className="text-foreground">{service}</span>
                     </div>
@@ -150,22 +164,26 @@ function PainPointsSection() {
     {
       icon: <Clock className="w-6 h-6" />,
       title: "Your website is outdated",
-      description: "Clients judge credibility in seconds. An old site with stock photos drives them away.",
+      description:
+        "Clients judge credibility in seconds. An old site with stock photos drives them away.",
     },
     {
       icon: <DollarSign className="w-6 h-6" />,
       title: "Agencies charge thousands",
-      description: "$3,000-$10,000 for a basic site. Then $100/hour for every small update.",
+      description:
+        "$3,000-$10,000 for a basic site. Then $100/hour for every small update.",
     },
     {
       icon: <X className="w-6 h-6" />,
       title: "DIY builders are frustrating",
-      description: "Squarespace and Wix take hours to learn. The result still looks generic.",
+      description:
+        "Squarespace and Wix take hours to learn. The result still looks generic.",
     },
     {
       icon: <PenLine className="w-6 h-6" />,
       title: "Updates are a nightmare",
-      description: "Adding a new service or changing hours means calling your developer.",
+      description:
+        "Adding a new service or changing hours means calling your developer.",
     },
   ];
 
@@ -177,7 +195,8 @@ function PainPointsSection() {
             Sound familiar?
           </h2>
           <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-            Most CPAs and accountants face these exact problems with their websites.
+            Most CPAs and accountants face these exact problems with their
+            websites.
           </p>
         </div>
 
@@ -193,8 +212,12 @@ function PainPointsSection() {
               <div className="w-12 h-12 bg-red-500/10 rounded-xl flex items-center justify-center mb-4 text-red-500 dark:text-red-400 group-hover:bg-red-500/20 transition-colors">
                 {point.icon}
               </div>
-              <h3 className="text-xl font-medium text-foreground mb-2">{point.title}</h3>
-              <p className="text-muted-foreground leading-relaxed">{point.description}</p>
+              <h3 className="text-xl font-medium text-foreground mb-2">
+                {point.title}
+              </h3>
+              <p className="text-muted-foreground leading-relaxed">
+                {point.description}
+              </p>
             </motion.div>
           ))}
         </div>
@@ -221,12 +244,20 @@ function WhatWeBuildSection() {
     {
       icon: <Users className="w-5 h-5" />,
       title: "Lead Capture Forms",
-      items: ["Consultation requests", "New client intake", "Email notifications"],
+      items: [
+        "Consultation requests",
+        "New client intake",
+        "Email notifications",
+      ],
     },
     {
       icon: <MessageSquare className="w-5 h-5" />,
       title: "AI Chat Editing",
-      items: ["Update content instantly", "Add new services", "Change anything"],
+      items: [
+        "Update content instantly",
+        "Add new services",
+        "Change anything",
+      ],
     },
   ];
 
@@ -234,14 +265,18 @@ function WhatWeBuildSection() {
     <section className="py-24 px-6 border-t border-border bg-muted/30">
       <div className="container mx-auto max-w-6xl">
         <div className="text-center mb-16">
-          <Badge variant="outline" className="mb-4 border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-300">
+          <Badge
+            variant="outline"
+            className="mb-4 border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-300"
+          >
             What You Get
           </Badge>
           <h2 className="text-3xl md:text-5xl font-medium tracking-tight mb-6 text-foreground">
             Everything your firm needs online
           </h2>
           <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-            A complete, professional website built for accounting firms. Not a template—a custom site for your practice.
+            A complete, professional website built for accounting firms. Not a
+            template—a custom site for your practice.
           </p>
         </div>
 
@@ -257,10 +292,15 @@ function WhatWeBuildSection() {
               <div className="w-10 h-10 bg-emerald-500/10 rounded-xl flex items-center justify-center mb-4 text-emerald-600 dark:text-emerald-400">
                 {component.icon}
               </div>
-              <h3 className="text-lg font-medium text-foreground mb-4">{component.title}</h3>
+              <h3 className="text-lg font-medium text-foreground mb-4">
+                {component.title}
+              </h3>
               <ul className="space-y-2">
                 {component.items.map((item, i) => (
-                  <li key={i} className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <li
+                    key={i}
+                    className="flex items-center gap-2 text-sm text-muted-foreground"
+                  >
                     <CheckCircle2 className="w-4 h-4 text-emerald-500" />
                     {item}
                   </li>
@@ -279,9 +319,18 @@ function WhatWeBuildSection() {
  */
 function AIChatSection() {
   const chatExamples = [
-    { user: "Add a new service for estate planning", ai: "Done! I've added Estate Planning to your services page with a description and added it to the navigation." },
-    { user: "Change our office hours to 8am-6pm", ai: "Updated! Your contact page now shows Monday-Friday, 8:00 AM - 6:00 PM." },
-    { user: "Add a testimonial from Johnson Industries", ai: "Added! The testimonial is now displayed on your homepage with their logo." },
+    {
+      user: "Add a new service for estate planning",
+      ai: "Done! I've added Estate Planning to your services page with a description and added it to the navigation.",
+    },
+    {
+      user: "Change our office hours to 8am-6pm",
+      ai: "Updated! Your contact page now shows Monday-Friday, 8:00 AM - 6:00 PM.",
+    },
+    {
+      user: "Add a testimonial from Johnson Industries",
+      ai: "Added! The testimonial is now displayed on your homepage with their logo.",
+    },
   ];
 
   return (
@@ -292,15 +341,19 @@ function AIChatSection() {
       <div className="container mx-auto max-w-6xl relative z-10">
         <div className="grid lg:grid-cols-2 gap-12 items-center">
           <div>
-            <Badge variant="outline" className="mb-4 border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-300">
+            <Badge
+              variant="outline"
+              className="mb-4 border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-300"
+            >
               The Difference
             </Badge>
             <h2 className="text-3xl md:text-5xl font-medium tracking-tight mb-6 text-foreground">
               Update your website by chatting
             </h2>
             <p className="text-muted-foreground text-lg mb-8 leading-relaxed">
-              No more waiting for developers. No more learning complicated editors.
-              Just tell Nucleate what you want to change, and it happens instantly.
+              No more waiting for developers. No more learning complicated
+              editors. Just tell Nucleate what you want to change, and it
+              happens instantly.
             </p>
 
             <div className="space-y-4">
@@ -345,7 +398,9 @@ function AIChatSection() {
                   {/* AI response */}
                   <div className="flex justify-start">
                     <div className="bg-muted border border-border rounded-2xl rounded-bl-md px-4 py-2 max-w-[80%]">
-                      <p className="text-sm text-muted-foreground">{example.ai}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {example.ai}
+                      </p>
                     </div>
                   </div>
                 </motion.div>
@@ -355,7 +410,9 @@ function AIChatSection() {
             <div className="mt-6 pt-4 border-t border-border">
               <div className="bg-muted rounded-xl px-4 py-3 flex items-center gap-3">
                 <MessageSquare className="w-4 h-4 text-muted-foreground" />
-                <span className="text-muted-foreground text-sm">Type your update...</span>
+                <span className="text-muted-foreground text-sm">
+                  Type your update...
+                </span>
               </div>
             </div>
           </div>
@@ -373,17 +430,20 @@ function FeaturesSection() {
     {
       icon: <Search className="w-6 h-6" />,
       title: "SEO Optimized",
-      description: "Show up when clients search for 'CPA near me' or 'accountant in [your city]'.",
+      description:
+        "Show up when clients search for 'CPA near me' or 'accountant in [your city]'.",
     },
     {
       icon: <Shield className="w-6 h-6" />,
       title: "Professional & Secure",
-      description: "HTTPS, fast hosting, and a design that builds trust with potential clients.",
+      description:
+        "HTTPS, fast hosting, and a design that builds trust with potential clients.",
     },
     {
       icon: <Clock className="w-6 h-6" />,
       title: "Ready in Minutes",
-      description: "Not weeks. Describe your firm and get a complete website same day.",
+      description:
+        "Not weeks. Describe your firm and get a complete website same day.",
     },
   ];
 
@@ -402,8 +462,12 @@ function FeaturesSection() {
               <div className="w-14 h-14 bg-emerald-500/10 rounded-2xl flex items-center justify-center mb-6 text-emerald-600 dark:text-emerald-400 mx-auto">
                 {feature.icon}
               </div>
-              <h3 className="text-xl font-medium text-foreground mb-3">{feature.title}</h3>
-              <p className="text-muted-foreground leading-relaxed">{feature.description}</p>
+              <h3 className="text-xl font-medium text-foreground mb-3">
+                {feature.title}
+              </h3>
+              <p className="text-muted-foreground leading-relaxed">
+                {feature.description}
+              </p>
             </motion.div>
           ))}
         </div>
@@ -426,7 +490,8 @@ function CTASection() {
           Ready to grow your practice?
         </h2>
         <p className="text-muted-foreground text-lg max-w-2xl mx-auto mb-8">
-          Join hundreds of accounting firms who&apos;ve upgraded their online presence with Nucleate.
+          Join hundreds of accounting firms who&apos;ve upgraded their online
+          presence with Nucleate.
         </p>
 
         <Button
@@ -464,8 +529,12 @@ function FAQSection() {
     <section className="py-24 bg-muted/30 border-t border-border">
       <div className="container mx-auto px-6 max-w-6xl">
         <div className="text-center mb-16">
-          <h2 className="text-3xl md:text-4xl font-medium text-foreground mb-4">Questions?</h2>
-          <p className="text-muted-foreground text-lg">Quick answers about Nucleate for accounting firms.</p>
+          <h2 className="text-3xl md:text-4xl font-medium text-foreground mb-4">
+            Questions?
+          </h2>
+          <p className="text-muted-foreground text-lg">
+            Quick answers about Nucleate for accounting firms.
+          </p>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {faqs.map((faq, index) => (
@@ -476,8 +545,12 @@ function FAQSection() {
               transition={{ delay: index * 0.1 }}
               className="bg-card border border-border rounded-2xl p-6 hover:border-primary/30 transition-all duration-300"
             >
-              <h3 className="text-lg font-medium text-foreground mb-3">{faq.q}</h3>
-              <p className="text-muted-foreground text-sm leading-relaxed">{faq.a}</p>
+              <h3 className="text-lg font-medium text-foreground mb-3">
+                {faq.q}
+              </h3>
+              <p className="text-muted-foreground text-sm leading-relaxed">
+                {faq.a}
+              </p>
             </motion.div>
           ))}
         </div>

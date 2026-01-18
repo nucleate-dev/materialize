@@ -8,18 +8,16 @@ import type {
 } from "@/lib/types/serverAPITypes";
 import { useActiveTeam } from "@/contexts/TeamContext";
 
-type CreatePrototypeOptions =
-  & {
-    name?: string;
-    folder_id?: string | null;
-    creation_source: CreatePrototypeRequestBody["creation_source"];
-  }
-  & Partial<
-    Omit<
-      CreatePrototypeRequestBody,
-      "name" | "creation_source" | "folder_id" | "team_id"
-    >
-  >;
+type CreatePrototypeOptions = {
+  name?: string;
+  folder_id?: string | null;
+  creation_source: CreatePrototypeRequestBody["creation_source"];
+} & Partial<
+  Omit<
+    CreatePrototypeRequestBody,
+    "name" | "creation_source" | "folder_id" | "team_id"
+  >
+>;
 
 export function useCreatePrototype() {
   const logger = useProductLogger();
@@ -131,9 +129,10 @@ export function useCreatePrototype() {
         data: null,
         error: {
           error: "DATABASE_ERROR",
-          message: error instanceof Error
-            ? error.message
-            : "Failed to create prototype",
+          message:
+            error instanceof Error
+              ? error.message
+              : "Failed to create prototype",
         },
       };
     }

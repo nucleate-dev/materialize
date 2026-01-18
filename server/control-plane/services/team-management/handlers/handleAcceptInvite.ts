@@ -1,14 +1,14 @@
-import type { FastifyReply, FastifyRequest } from "fastify";
+import type { FastifyReply, FastifyRequest } from 'fastify';
 import {
   type AcceptTeamInviteErrorResponse,
   type AcceptTeamInviteRequestBody,
   type AcceptTeamInviteSuccessResponse,
   type APIResponse,
   HTTP_STATUS,
-} from "../../../types/PublicAPITypes.js";
-import { validateJWTToken } from "../../../utils/prototypeAuth.js";
-import { createClient } from "@supabase/supabase-js";
-import { Database } from "../../../types/supabase.js";
+} from '../../../types/PublicAPITypes.js';
+import { validateJWTToken } from '../../../utils/prototypeAuth.js';
+import { createClient } from '@supabase/supabase-js';
+import { Database } from '../../../types/supabase.js';
 
 /**
  * Implementation for accepting a team invite.
@@ -36,16 +36,16 @@ export default async function handleAcceptInviteImpl(
   APIResponse<AcceptTeamInviteSuccessResponse, AcceptTeamInviteErrorResponse>
 > {
   // Extract JWT token from Authorization header and validate it
-  const token = request.headers.authorization?.split(" ")[1] ?? "";
+  const token = request.headers.authorization?.split(' ')[1] ?? '';
   const { user } = await validateJWTToken(token, request.log2);
   if (!user) {
-    request.log2.warn("Unauthorized user");
+    request.log2.warn('Unauthorized user');
     reply.status(HTTP_STATUS.UNAUTHORIZED);
     return {
       data: null,
       error: {
-        error: "Unauthorized",
-        message: "Invalid token",
+        error: 'Unauthorized',
+        message: 'Invalid token',
       },
     };
   }
@@ -80,13 +80,13 @@ export default async function handleAcceptInviteImpl(
   try {
     // Fetch the invite
     const { data: invite, error: inviteError } = await supabaseClient
-      .from("team_invites")
-      .select("*")
-      .eq("id", invite_id)
+      .from('team_invites')
+      .select('*')
+      .eq('id', invite_id)
       .single();
 
     if (inviteError || !invite) {
-      request.log2.warn("Invite not found", {
+      request.log2.warn('Invite not found', {
         invite_id,
         error: inviteError,
       });
@@ -94,8 +94,8 @@ export default async function handleAcceptInviteImpl(
       return {
         data: null,
         error: {
-          error: "Invite not found",
-          message: "The specified invite does not exist",
+          error: 'Invite not found',
+          message: 'The specified invite does not exist',
         },
       };
     }
@@ -107,35 +107,34 @@ export default async function handleAcceptInviteImpl(
     });
 
     // Check if invite has already been accepted
-    if (invite.invite_status === "accepted") {
-      request.log2.warn("Invite already accepted", { invite_id });
+    if (invite.invite_status === 'accepted') {
+      request.log2.warn('Invite already accepted', { invite_id });
       reply.status(HTTP_STATUS.BAD_REQUEST);
       return {
         data: null,
         error: {
-          error: "Invite already accepted",
-          message: "This invite has already been accepted",
+          error: 'Invite already accepted',
+          message: 'This invite has already been accepted',
         },
       };
-    } else if (invite.invite_status === "cancelled") {
-      request.log2.warn("Invite has been cancelled", { invite_id });
+    } else if (invite.invite_status === 'cancelled') {
+      request.log2.warn('Invite has been cancelled', { invite_id });
       reply.status(HTTP_STATUS.BAD_REQUEST);
       return {
         data: null,
         error: {
-          error: "Invite cancelled",
-          message: "This invite has been cancelled",
+          error: 'Invite cancelled',
+          message: 'This invite has been cancelled',
         },
       };
     }
 
     // Check if invite has expired
     const now = new Date();
-    const expiresAt = invite.expires_at !== null
-      ? new Date(invite.expires_at)
-      : null;
+    const expiresAt =
+      invite.expires_at !== null ? new Date(invite.expires_at) : null;
     if (expiresAt && now > expiresAt) {
-      request.log2.warn("Invite expired", {
+      request.log2.warn('Invite expired', {
         invite_id,
         expires_at: invite.expires_at,
       });
@@ -143,18 +142,18 @@ export default async function handleAcceptInviteImpl(
       return {
         data: null,
         error: {
-          error: "Invite expired",
-          message: "This invite has expired",
+          error: 'Invite expired',
+          message: 'This invite has expired',
         },
       };
     }
 
     // Verify user is the intended recipient
-    const isIntendedRecipient = invite.invited_user_id === user.id ||
-      invite.email === user.email;
+    const isIntendedRecipient =
+      invite.invited_user_id === user.id || invite.email === user.email;
 
     if (!isIntendedRecipient) {
-      request.log2.warn("User is not the intended recipient", {
+      request.log2.warn('User is not the intended recipient', {
         invite_id,
         user_id: user.id,
         invited_user_id: invite.invited_user_id,
@@ -165,22 +164,22 @@ export default async function handleAcceptInviteImpl(
       return {
         data: null,
         error: {
-          error: "Forbidden",
-          message: "You are not authorized to accept this invite",
+          error: 'Forbidden',
+          message: 'You are not authorized to accept this invite',
         },
       };
     }
 
     // Check if user is already a member of the team
     const { data: existingMembership } = await supabaseClient
-      .from("team_memberships")
-      .select("*")
-      .eq("team_id", invite.team_id)
-      .eq("user_id", user.id)
+      .from('team_memberships')
+      .select('*')
+      .eq('team_id', invite.team_id)
+      .eq('user_id', user.id)
       .single();
 
     if (existingMembership) {
-      request.log2.warn("User is already a member of the team", {
+      request.log2.warn('User is already a member of the team', {
         invite_id,
         team_id: invite.team_id,
         user_id: user.id,
@@ -189,8 +188,8 @@ export default async function handleAcceptInviteImpl(
       return {
         data: null,
         error: {
-          error: "Already a member",
-          message: "You are already a member of this team",
+          error: 'Already a member',
+          message: 'You are already a member of this team',
         },
       };
     }
@@ -199,22 +198,22 @@ export default async function handleAcceptInviteImpl(
     // Note: We update both invite_status and accepted_at. The trigger prevents invitees from changing
     // invited_user_id, so we don't attempt to set it here.
     const { error: updateError } = await supabaseClient
-      .from("team_invites")
+      .from('team_invites')
       .update({
-        invite_status: "accepted",
+        invite_status: 'accepted',
         accepted_at: new Date().toISOString(),
       })
-      .eq("id", invite_id);
+      .eq('id', invite_id);
 
     if (updateError) {
-      request.log2.error(updateError, "Failed to update invite status");
+      request.log2.error(updateError, 'Failed to update invite status');
       // Don't fail the request since membership was created successfully
       reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR);
       return {
         data: null,
         error: {
-          error: "Membership team invitation acceptance failed",
-          message: "Failed to accept the team invite",
+          error: 'Membership team invitation acceptance failed',
+          message: 'Failed to accept the team invite',
         },
       };
     }
@@ -222,7 +221,7 @@ export default async function handleAcceptInviteImpl(
     // Create team membership using service role (bypasses RLS)
     // This is necessary because the user is not yet a team member and cannot insert themselves
     const { error: membershipError } = await supabaseServiceClient
-      .from("team_memberships")
+      .from('team_memberships')
       .insert({
         team_id: invite.team_id,
         user_id: user.id,
@@ -231,20 +230,20 @@ export default async function handleAcceptInviteImpl(
       });
 
     if (membershipError) {
-      request.log2.error(membershipError, "Failed to create team membership");
+      request.log2.error(membershipError, 'Failed to create team membership');
       reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR);
       return {
         data: null,
         error: {
-          error: "Membership creation failed",
-          message: "Failed to create team membership",
+          error: 'Membership creation failed',
+          message: 'Failed to create team membership',
         },
       };
     }
 
     request.log2.consoleLogDevOnly(
-      "info",
-      "Team invite accepted successfully",
+      'info',
+      'Team invite accepted successfully',
       {
         invite_id,
         team_id: invite.team_id,
@@ -263,13 +262,13 @@ export default async function handleAcceptInviteImpl(
       error: null,
     };
   } catch (error) {
-    request.log2.error(error, "Exception accepting team invite");
+    request.log2.error(error, 'Exception accepting team invite');
     reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR);
     return {
       data: null,
       error: {
-        error: "Internal server error",
-        message: error instanceof Error ? error.message : "Unknown error",
+        error: 'Internal server error',
+        message: error instanceof Error ? error.message : 'Unknown error',
       },
     };
   }

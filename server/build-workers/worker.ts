@@ -210,10 +210,9 @@ const close = async (): Promise<void> => {
   const logger = baseLogger.child({ context: "shutdown" });
   logger.info("Shutting down build worker...");
   try {
-    await nucleateDevelopmentServerService.developmentServerAdapter
-      .stopDevServer(
-        logger,
-      );
+    await nucleateDevelopmentServerService.developmentServerAdapter.stopDevServer(
+      logger,
+    );
     terminalService.shutdownAllSessions();
     await chatService.shutdown();
     await app.close();

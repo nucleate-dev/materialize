@@ -203,15 +203,15 @@ export class SandboxOrchestrationInitiatorService {
       const axiosError = axios.isAxiosError(error) ? error : null;
       const derivedError = axiosError
         ? new Error(
-          `Failed to notify control plane of chat start (status ${
-            axiosError.response?.status ?? "unknown"
-          })`,
-        )
+            `Failed to notify control plane of chat start (status ${
+              axiosError.response?.status ?? "unknown"
+            })`,
+          )
         : error instanceof Error
           ? error
           : new Error(String(error));
       const responseBody =
-        (error as { responseBody?: unknown; })?.responseBody ??
+        (error as { responseBody?: unknown })?.responseBody ??
         axiosError?.response?.data;
 
       this.logger.error(
@@ -304,7 +304,7 @@ export class SandboxOrchestrationInitiatorService {
             prototypeId,
             statusCode: axiosError?.response?.status,
             responseBody:
-              (error as { responseBody?: unknown; })?.responseBody ??
+              (error as { responseBody?: unknown })?.responseBody ??
               axiosError?.response?.data,
           },
         );
@@ -312,7 +312,7 @@ export class SandboxOrchestrationInitiatorService {
         // Wait before retrying (exponential backoff)
         if (attempt < maxRetries) {
           await new Promise((resolve) =>
-            setTimeout(resolve, Math.pow(2, attempt) * 100)
+            setTimeout(resolve, Math.pow(2, attempt) * 100),
           );
         }
       }

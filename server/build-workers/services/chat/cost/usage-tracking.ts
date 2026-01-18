@@ -160,7 +160,6 @@ export async function trackApiUsageBuildWorker(
     }
   };
 
-
   const userPlan = await fetchUserPlan(supabase, userId, log2, teamId);
   if (userPlan === "free") {
     return trackFreeTierUsage(

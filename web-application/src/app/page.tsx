@@ -74,9 +74,9 @@ const PLATFORM_OPTIONS: Array<{
   value: PrototypeFramework;
   label: string;
 }> = [
-    { value: "web_nextjs_react", label: "Web" },
-    { value: "mobile_expo_react_native", label: "Mobile" },
-  ];
+  { value: "web_nextjs_react", label: "Web" },
+  { value: "mobile_expo_react_native", label: "Mobile" },
+];
 
 export default function Home() {
   return (
@@ -112,10 +112,22 @@ function HomeContent() {
 
         <div className="border-y border-border bg-card/50 backdrop-blur-sm py-4">
           <div className="container mx-auto px-6 flex flex-wrap justify-center items-center gap-8 md:gap-16 opacity-40 grayscale">
-            <div className="flex items-center gap-2"><Github className="w-5 h-5" /> <span className="text-sm font-medium">GitHub Integration</span></div>
-            <div className="flex items-center gap-2"><Code2 className="w-5 h-5" /> <span className="text-sm font-medium">React & Next.js</span></div>
-            <div className="flex items-center gap-2"><Smartphone className="w-5 h-5" /> <span className="text-sm font-medium">Expo & RN</span></div>
-            <div className="flex items-center gap-2"><Palette className="w-5 h-5" /> <span className="text-sm font-medium">Design System Aware</span></div>
+            <div className="flex items-center gap-2">
+              <Github className="w-5 h-5" />{" "}
+              <span className="text-sm font-medium">GitHub Integration</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Code2 className="w-5 h-5" />{" "}
+              <span className="text-sm font-medium">React & Next.js</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Smartphone className="w-5 h-5" />{" "}
+              <span className="text-sm font-medium">Expo & RN</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Palette className="w-5 h-5" />{" "}
+              <span className="text-sm font-medium">Design System Aware</span>
+            </div>
           </div>
         </div>
 
@@ -153,18 +165,22 @@ function HeroSection() {
   const router = useRouter();
   const { user } = useUser();
   const posthog = usePostHog();
-  const [framework, setFramework] = useState<PrototypeFramework>(DEFAULT_FRAMEWORK);
+  const [framework, setFramework] =
+    useState<PrototypeFramework>(DEFAULT_FRAMEWORK);
   const [uploadedImages, setUploadedImages] = useState<ChatIntentImage[]>([]);
   const [isDragOver, setIsDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const isWebPrototypeEnabled = posthog?.isFeatureEnabled("web-prototype-support") ?? false;
+  const isWebPrototypeEnabled =
+    posthog?.isFeatureEnabled("web-prototype-support") ?? false;
 
   // Process image files
   const processImageFiles = (files: File[]) => {
     files.forEach((file) => {
       if (!file.type.startsWith("image/")) {
-        toast.error(`Invalid file type: ${file.name}. Only images are supported.`);
+        toast.error(
+          `Invalid file type: ${file.name}. Only images are supported.`,
+        );
         return;
       }
 
@@ -264,7 +280,11 @@ function HeroSection() {
     setIsLoading(true);
     logger.log({
       event: "client_landing_prompt_submitted",
-      properties: { has_user: Boolean(user?.id), framework, source: "landing_hero" },
+      properties: {
+        has_user: Boolean(user?.id),
+        framework,
+        source: "landing_hero",
+      },
     });
 
     const imagesToSend = uploadedImages.length > 0 ? uploadedImages : undefined;
@@ -276,7 +296,10 @@ function HeroSection() {
         return;
       }
 
-      const result = await createPrototype({ framework, creation_source: "landing_prompt" });
+      const result = await createPrototype({
+        framework,
+        creation_source: "landing_prompt",
+      });
 
       if (result.data) {
         setChatIntent(result.data.prototype_id, content, false, imagesToSend);
@@ -293,9 +316,21 @@ function HeroSection() {
   };
 
   const suggestionChips = [
-    { label: "Paywall variant", prompt: "Personal health dashboard. Widgets for heart rate graph, sleep quality score with moon icon, daily caloric intake vs burn, hydration water level tracker, and recovery battery percentage. Activity rings and step counter.\n\nCreate also the other screens.\n\nMobile dashboard, Bento Grid layout, Soft Neo-Brutalism. Dark mode, deep charcoal background, rounded cards with vivid pastel accents (salmon, periwinkle, yellow). Bold all-caps sans-serif typography, modular fintech SaaS aesthetic with high contrast." },
-    { label: "Onboarding", prompt: "Personal health dashboard. Widgets for heart rate graph, sleep quality score with moon icon, daily caloric intake vs burn, hydration water level tracker, and recovery battery percentage. Activity rings and step counter.\n\nCreate also the other screens.\n\nMobile dashboard, Bento Grid layout, Soft Neo-Brutalism. Dark mode, deep charcoal background, rounded cards with vivid pastel accents (salmon, periwinkle, yellow). Bold all-caps sans-serif typography, modular fintech SaaS aesthetic with high contrast." },
-    { label: "Landing Page", prompt: "Personal health dashboard. Widgets for heart rate graph, sleep quality score with moon icon, daily caloric intake vs burn, hydration water level tracker, and recovery battery percentage. Activity rings and step counter.\n\nCreate also the other screens.\n\nMobile dashboard, Bento Grid layout, Soft Neo-Brutalism. Dark mode, deep charcoal background, rounded cards with vivid pastel accents (salmon, periwinkle, yellow). Bold all-caps sans-serif typography, modular fintech SaaS aesthetic with high contrast." },
+    {
+      label: "Paywall variant",
+      prompt:
+        "Personal health dashboard. Widgets for heart rate graph, sleep quality score with moon icon, daily caloric intake vs burn, hydration water level tracker, and recovery battery percentage. Activity rings and step counter.\n\nCreate also the other screens.\n\nMobile dashboard, Bento Grid layout, Soft Neo-Brutalism. Dark mode, deep charcoal background, rounded cards with vivid pastel accents (salmon, periwinkle, yellow). Bold all-caps sans-serif typography, modular fintech SaaS aesthetic with high contrast.",
+    },
+    {
+      label: "Onboarding",
+      prompt:
+        "Personal health dashboard. Widgets for heart rate graph, sleep quality score with moon icon, daily caloric intake vs burn, hydration water level tracker, and recovery battery percentage. Activity rings and step counter.\n\nCreate also the other screens.\n\nMobile dashboard, Bento Grid layout, Soft Neo-Brutalism. Dark mode, deep charcoal background, rounded cards with vivid pastel accents (salmon, periwinkle, yellow). Bold all-caps sans-serif typography, modular fintech SaaS aesthetic with high contrast.",
+    },
+    {
+      label: "Landing Page",
+      prompt:
+        "Personal health dashboard. Widgets for heart rate graph, sleep quality score with moon icon, daily caloric intake vs burn, hydration water level tracker, and recovery battery percentage. Activity rings and step counter.\n\nCreate also the other screens.\n\nMobile dashboard, Bento Grid layout, Soft Neo-Brutalism. Dark mode, deep charcoal background, rounded cards with vivid pastel accents (salmon, periwinkle, yellow). Bold all-caps sans-serif typography, modular fintech SaaS aesthetic with high contrast.",
+    },
   ];
 
   return (
@@ -308,12 +343,22 @@ function HeroSection() {
       />
       <motion.div
         animate={{ y: [0, 20, 0], opacity: [0.2, 0.4, 0.2] }}
-        transition={{ duration: 10, repeat: Infinity, ease: "easeInOut", delay: 1 }}
+        transition={{
+          duration: 10,
+          repeat: Infinity,
+          ease: "easeInOut",
+          delay: 1,
+        }}
         className="absolute bottom-1/4 right-1/4 w-[350px] h-[350px] bg-primary/15 rounded-full blur-[100px] pointer-events-none"
       />
       <motion.div
         animate={{ y: [0, -15, 0], x: [0, 10, 0] }}
-        transition={{ duration: 12, repeat: Infinity, ease: "easeInOut", delay: 2 }}
+        transition={{
+          duration: 12,
+          repeat: Infinity,
+          ease: "easeInOut",
+          delay: 2,
+        }}
         className="absolute top-1/2 right-1/3 w-[200px] h-[200px] bg-primary/10 rounded-full blur-[80px] pointer-events-none"
       />
 
@@ -323,7 +368,10 @@ function HeroSection() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3 }}
         >
-          <Badge variant="outline" className="mb-6 border-primary/30 bg-primary/10 text-primary px-4 py-1">
+          <Badge
+            variant="outline"
+            className="mb-6 border-primary/30 bg-primary/10 text-primary px-4 py-1"
+          >
             Prototyping for Production Teams
           </Badge>
         </motion.div>
@@ -343,7 +391,9 @@ function HeroSection() {
           transition={{ duration: 0.3, delay: 0.2 }}
           className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-12 leading-relaxed"
         >
-          Nucleate ingests your codebase&apos;s styles and components, so every prototype is on-brand. Explore variants quickly, then export real code.
+          Nucleate ingests your codebase&apos;s styles and components, so every
+          prototype is on-brand. Explore variants quickly, then export real
+          code.
         </motion.p>
 
         <motion.div
@@ -392,7 +442,11 @@ function HeroSection() {
             <div className="px-4 pt-4 flex gap-3">
               <motion.div
                 animate={{ rotate: [0, 10, -10, 0] }}
-                transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+                transition={{
+                  duration: 4,
+                  repeat: Infinity,
+                  ease: "easeInOut",
+                }}
               >
                 <Sparkles className="w-5 h-5 text-muted-foreground mt-1" />
               </motion.div>
@@ -410,7 +464,10 @@ function HeroSection() {
                 {uploadedImages.length > 0 && (
                   <div className="flex gap-2 mt-3 pb-2 overflow-x-auto">
                     {uploadedImages.map((image) => (
-                      <div key={image.id} className="relative group/img shrink-0">
+                      <div
+                        key={image.id}
+                        className="relative group/img shrink-0"
+                      >
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
                           src={`data:${image.mediaType};base64,${image.base64}`}
@@ -431,7 +488,9 @@ function HeroSection() {
             </div>
             <div className="px-4 pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-t border-border mt-2 pt-2 bg-accent/50">
               <div className="flex gap-4 items-center">
-                <span className="text-xs text-muted-foreground uppercase tracking-widest font-bold">Try:</span>
+                <span className="text-xs text-muted-foreground uppercase tracking-widest font-bold">
+                  Try:
+                </span>
                 {suggestionChips.map((chip, index) => (
                   <motion.button
                     key={chip.label}
@@ -459,15 +518,32 @@ function HeroSection() {
                   <Paperclip className="w-4 h-4" />
                 </Button>
                 {isWebPrototypeEnabled && (
-                  <Select value={framework} onValueChange={(v) => setFramework(v as PrototypeFramework)}>
-                    <SelectTrigger className="h-9 w-32 border-border bg-accent text-xs"><SelectValue /></SelectTrigger>
+                  <Select
+                    value={framework}
+                    onValueChange={(v) => setFramework(v as PrototypeFramework)}
+                  >
+                    <SelectTrigger className="h-9 w-32 border-border bg-accent text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
                     <SelectContent className="bg-card border-border">
-                      {PLATFORM_OPTIONS.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+                      {PLATFORM_OPTIONS.map((o) => (
+                        <SelectItem key={o.value} value={o.value}>
+                          {o.label}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 )}
-                <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-                  <Button onClick={handleSend} disabled={!prompt.trim() || isLoading} size="sm" className="bg-primary text-primary-foreground hover:bg-primary/90 px-6">
+                <motion.div
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                >
+                  <Button
+                    onClick={handleSend}
+                    disabled={!prompt.trim() || isLoading}
+                    size="sm"
+                    className="bg-primary text-primary-foreground hover:bg-primary/90 px-6"
+                  >
                     {isLoading ? "Loading..." : "Create prototype"}
                   </Button>
                 </motion.div>
@@ -476,7 +552,11 @@ function HeroSection() {
           </div>
         </motion.div>
       </div>
-      <ProPlanUpsellModal open={showUpsellModal} onOpenChange={setShowUpsellModal} reason="prototype_creation_limit_reached" />
+      <ProPlanUpsellModal
+        open={showUpsellModal}
+        onOpenChange={setShowUpsellModal}
+        reason="prototype_creation_limit_reached"
+      />
     </section>
   );
 }
@@ -492,7 +572,8 @@ function CodebaseIntegrationSection() {
       hoverBorder: "hover:border-primary/40",
       glowColor: "group-hover:bg-primary/5",
       title: "Automatic Repo Sync",
-      description: "Connect GitHub and we instantly index your components, tokens, and navigation patterns. No manual mapping required.",
+      description:
+        "Connect GitHub and we instantly index your components, tokens, and navigation patterns. No manual mapping required.",
       illustration: (
         <div className="mt-6 relative h-20 overflow-hidden">
           <div className="absolute inset-0 flex items-center justify-center gap-2">
@@ -505,7 +586,12 @@ function CodebaseIntegrationSection() {
             </motion.div>
             <motion.div
               animate={{ x: [0, 20, 20], opacity: [1, 1, 0] }}
-              transition={{ duration: 2, repeat: Infinity, repeatDelay: 1, delay: 0.2 }}
+              transition={{
+                duration: 2,
+                repeat: Infinity,
+                repeatDelay: 1,
+                delay: 0.2,
+              }}
               className="w-6 h-6 bg-accent rounded flex items-center justify-center"
             >
               <FileCode className="w-3 h-3 text-muted-foreground" />
@@ -527,7 +613,8 @@ function CodebaseIntegrationSection() {
       hoverBorder: "hover:border-purple-500/40",
       glowColor: "group-hover:bg-purple-500/5",
       title: "System-Safe Generation",
-      description: "Every screen generated strictly respects your design tokens, spacing scales, typography, and existing component props.",
+      description:
+        "Every screen generated strictly respects your design tokens, spacing scales, typography, and existing component props.",
       illustration: (
         <div className="mt-6 flex flex-wrap gap-2 justify-center">
           {["Button", "Card", "Input", "Modal"].map((token, i) => (
@@ -551,7 +638,8 @@ function CodebaseIntegrationSection() {
       hoverBorder: "hover:border-emerald-500/40",
       glowColor: "group-hover:bg-emerald-500/5",
       title: "Two Shipping Paths",
-      description: "Ready to go? Copy-paste the clean, system-compliant code or let our agent open a Pull Request directly to your branch.",
+      description:
+        "Ready to go? Copy-paste the clean, system-compliant code or let our agent open a Pull Request directly to your branch.",
       illustration: (
         <div className="mt-6 flex items-center justify-center gap-4">
           <motion.div
@@ -592,13 +680,18 @@ function CodebaseIntegrationSection() {
           transition={{ duration: 0.3 }}
           className="text-center mb-16"
         >
-          <Badge variant="outline" className="mb-4 border-primary/20 bg-primary/10 text-primary">System Aware</Badge>
+          <Badge
+            variant="outline"
+            className="mb-4 border-primary/20 bg-primary/10 text-primary"
+          >
+            System Aware
+          </Badge>
           <h2 className="text-4xl md:text-5xl font-medium tracking-tight mb-4">
             Your design system, automatically.
           </h2>
           <p className="text-muted-foreground max-w-xl mx-auto">
-            Nucleate doesn&apos;t just &quot;write code.&quot; It adopts your existing
-            primitives to build UI that belongs in your app.
+            Nucleate doesn&apos;t just &quot;write code.&quot; It adopts your
+            existing primitives to build UI that belongs in your app.
           </p>
         </motion.div>
 
@@ -616,12 +709,18 @@ function CodebaseIntegrationSection() {
             <div className="relative z-10 h-full flex flex-col">
               <motion.div
                 animate={{ rotate: [0, 5, -5, 0] }}
-                transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
+                transition={{
+                  duration: 6,
+                  repeat: Infinity,
+                  ease: "easeInOut",
+                }}
                 className="w-14 h-14 bg-primary/20 rounded-2xl flex items-center justify-center mb-6 border border-primary/30"
               >
                 <Github className="w-7 h-7 text-primary" />
               </motion.div>
-              <h3 className="text-2xl md:text-3xl font-medium mb-4">{cards[0].title}</h3>
+              <h3 className="text-2xl md:text-3xl font-medium mb-4">
+                {cards[0].title}
+              </h3>
               <p className="text-muted-foreground leading-relaxed mb-8 max-w-md">
                 {cards[0].description}
               </p>
@@ -632,7 +731,11 @@ function CodebaseIntegrationSection() {
                     <motion.div
                       key={i}
                       animate={{ y: [0, -8, 0] }}
-                      transition={{ duration: 2, repeat: Infinity, delay: i * 0.2 }}
+                      transition={{
+                        duration: 2,
+                        repeat: Infinity,
+                        delay: i * 0.2,
+                      }}
                       className="w-10 h-10 bg-accent rounded-lg flex items-center justify-center border border-border"
                     >
                       <Icon className="w-5 h-5 text-muted-foreground" />
@@ -649,7 +752,14 @@ function CodebaseIntegrationSection() {
                   <div className="w-8 h-px bg-gradient-to-r from-primary/30 to-transparent" />
                 </motion.div>
                 <motion.div
-                  animate={{ scale: [1, 1.1, 1], boxShadow: ["0 0 20px rgba(99,102,241,0.3)", "0 0 40px rgba(99,102,241,0.5)", "0 0 20px rgba(99,102,241,0.3)"] }}
+                  animate={{
+                    scale: [1, 1.1, 1],
+                    boxShadow: [
+                      "0 0 20px rgba(99,102,241,0.3)",
+                      "0 0 40px rgba(99,102,241,0.5)",
+                      "0 0 20px rgba(99,102,241,0.3)",
+                    ],
+                  }}
                   transition={{ duration: 2, repeat: Infinity }}
                   className="w-12 h-12 bg-primary/20 rounded-xl flex items-center justify-center border border-primary/30"
                 >
@@ -672,7 +782,11 @@ function CodebaseIntegrationSection() {
               <div className="flex items-start justify-between mb-4">
                 <motion.div
                   animate={{ y: [0, -3, 0] }}
-                  transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+                  transition={{
+                    duration: 3,
+                    repeat: Infinity,
+                    ease: "easeInOut",
+                  }}
                   className="w-10 h-10 bg-purple-500/10 rounded-xl flex items-center justify-center border border-purple-500/20"
                 >
                   <ShieldCheck className="w-5 h-5 text-purple-400" />
@@ -682,7 +796,11 @@ function CodebaseIntegrationSection() {
                     <motion.div
                       key={i}
                       animate={{ opacity: [0.3, 1, 0.3] }}
-                      transition={{ duration: 1.5, repeat: Infinity, delay: i * 0.2 }}
+                      transition={{
+                        duration: 1.5,
+                        repeat: Infinity,
+                        delay: i * 0.2,
+                      }}
                       className="w-1.5 h-1.5 rounded-full bg-purple-400"
                     />
                   ))}
@@ -721,7 +839,11 @@ function CodebaseIntegrationSection() {
             <div className="relative z-10">
               <motion.div
                 animate={{ y: [0, -3, 0] }}
-                transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+                transition={{
+                  duration: 3,
+                  repeat: Infinity,
+                  ease: "easeInOut",
+                }}
                 className="w-10 h-10 bg-emerald-500/10 rounded-xl flex items-center justify-center border border-emerald-500/20 mb-4"
               >
                 <GitPullRequest className="w-5 h-5 text-emerald-400" />
@@ -731,13 +853,23 @@ function CodebaseIntegrationSection() {
                 {cards[2].description}
               </p>
               <div className="flex items-center gap-3">
-                <motion.div whileHover={{ scale: 1.05 }} className="flex-1 py-3 bg-accent rounded-xl flex items-center justify-center gap-2 border border-border cursor-pointer hover:bg-accent/80 transition-colors">
+                <motion.div
+                  whileHover={{ scale: 1.05 }}
+                  className="flex-1 py-3 bg-accent rounded-xl flex items-center justify-center gap-2 border border-border cursor-pointer hover:bg-accent/80 transition-colors"
+                >
                   <Code2 className="w-4 h-4 text-muted-foreground" />
-                  <span className="text-sm text-muted-foreground font-medium">Copy Code</span>
+                  <span className="text-sm text-muted-foreground font-medium">
+                    Copy Code
+                  </span>
                 </motion.div>
-                <motion.div whileHover={{ scale: 1.05 }} className="flex-1 py-3 bg-emerald-500/20 rounded-xl flex items-center justify-center gap-2 border border-emerald-500/30 cursor-pointer hover:bg-emerald-500/30 transition-colors">
+                <motion.div
+                  whileHover={{ scale: 1.05 }}
+                  className="flex-1 py-3 bg-emerald-500/20 rounded-xl flex items-center justify-center gap-2 border border-emerald-500/30 cursor-pointer hover:bg-emerald-500/30 transition-colors"
+                >
                   <GitPullRequest className="w-4 h-4 text-emerald-400" />
-                  <span className="text-sm text-emerald-400 font-medium">Open PR</span>
+                  <span className="text-sm text-emerald-400 font-medium">
+                    Open PR
+                  </span>
                 </motion.div>
               </div>
             </div>
@@ -758,15 +890,22 @@ function CodebaseIntegrationSection() {
               <div className="w-2 h-2 rounded-full bg-pink-500"></div>
               <div className="w-2 h-2 rounded-full bg-purple-500"></div>
             </div>
-            <span className="text-sm text-muted-foreground">Your brand colors</span>
+            <span className="text-sm text-muted-foreground">
+              Your brand colors
+            </span>
           </div>
           <div className="flex gap-2">
             {["Aa", "Bb"].map((text, i) => (
-              <div key={i} className={`w-10 h-10 rounded-lg flex items-center justify-center text-sm font-medium ${i === 0 ? "bg-foreground text-background" : "bg-accent text-foreground border border-border"}`}>
+              <div
+                key={i}
+                className={`w-10 h-10 rounded-lg flex items-center justify-center text-sm font-medium ${i === 0 ? "bg-foreground text-background" : "bg-accent text-foreground border border-border"}`}
+              >
                 {text}
               </div>
             ))}
-            <span className="text-sm text-muted-foreground ml-2">Typography</span>
+            <span className="text-sm text-muted-foreground ml-2">
+              Typography
+            </span>
           </div>
           <div className="flex items-center gap-2">
             <div className="flex gap-1">
@@ -774,7 +913,9 @@ function CodebaseIntegrationSection() {
               <div className="w-4 h-3 bg-accent rounded-sm border border-border" />
               <div className="w-2 h-3 bg-accent rounded-sm border border-border" />
             </div>
-            <span className="text-sm text-muted-foreground">Spacing scales</span>
+            <span className="text-sm text-muted-foreground">
+              Spacing scales
+            </span>
           </div>
         </motion.div>
       </div>
@@ -813,7 +954,12 @@ function VariantsSection() {
       />
       <motion.div
         animate={{ y: [0, -40, 0], x: [0, 30, 0] }}
-        transition={{ duration: 18, repeat: Infinity, ease: "easeInOut", delay: 2 }}
+        transition={{
+          duration: 18,
+          repeat: Infinity,
+          ease: "easeInOut",
+          delay: 2,
+        }}
         className="absolute bottom-0 right-1/4 w-[500px] h-[500px] bg-purple-600/5 blur-[120px] rounded-full pointer-events-none"
       />
 
@@ -825,14 +971,19 @@ function VariantsSection() {
           transition={{ duration: 0.3 }}
           className="text-center mb-16 max-w-4xl mx-auto"
         >
-          <Badge variant="outline" className="mb-4 border-border bg-accent text-muted-foreground">
+          <Badge
+            variant="outline"
+            className="mb-4 border-border bg-accent text-muted-foreground"
+          >
             Instant Exploration
           </Badge>
           <h2 className="text-4xl md:text-6xl font-medium text-foreground mb-6">
-            Instant variants using <span className="text-primary">your components.</span>
+            Instant variants using{" "}
+            <span className="text-primary">your components.</span>
           </h2>
           <p className="text-muted-foreground text-xl md:text-2xl font-normal">
-            Explore variants without breaking the design system. These aren&apos;t mockups — they are real components from your repo.
+            Explore variants without breaking the design system. These
+            aren&apos;t mockups — they are real components from your repo.
           </p>
         </motion.div>
 
@@ -848,10 +999,11 @@ function VariantsSection() {
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.98 }}
               onClick={() => setActiveTab(tab.id)}
-              className={`px-6 py-3 rounded-full text-sm font-medium flex items-center gap-2 transition-all duration-300 border ${activeTab === tab.id
-                ? "bg-foreground text-background border-foreground shadow-[0_0_20px_rgba(255,255,255,0.2)]"
-                : "bg-card/50 text-muted-foreground border-border hover:bg-card hover:text-foreground"
-                }`}
+              className={`px-6 py-3 rounded-full text-sm font-medium flex items-center gap-2 transition-all duration-300 border ${
+                activeTab === tab.id
+                  ? "bg-foreground text-background border-foreground shadow-[0_0_20px_rgba(255,255,255,0.2)]"
+                  : "bg-card/50 text-muted-foreground border-border hover:bg-card hover:text-foreground"
+              }`}
             >
               {tab.icon}
               {tab.label}
@@ -875,7 +1027,9 @@ function VariantsSection() {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 h-full items-start justify-center">
                   {/* Variant 1: Modern Minimal */}
                   <div className="flex flex-col gap-4">
-                    <div className="text-center text-muted-foreground font-mono text-xs uppercase tracking-widest">Variant A: Minimal</div>
+                    <div className="text-center text-muted-foreground font-mono text-xs uppercase tracking-widest">
+                      Variant A: Minimal
+                    </div>
                     <div className="aspect-[9/16] bg-white rounded-3xl overflow-hidden shadow-2xl border border-zinc-200 relative group">
                       <div className="absolute top-4 left-6 right-6 flex justify-between items-center z-10">
                         <div className="w-8 h-8 bg-black/5 rounded-full backdrop-blur-sm" />
@@ -914,7 +1068,9 @@ function VariantsSection() {
 
                   {/* Variant 2: Dark Brutalist */}
                   <div className="flex flex-col gap-4">
-                    <div className="text-center text-muted-foreground font-mono text-xs uppercase tracking-widest">Variant B: Brutalist</div>
+                    <div className="text-center text-muted-foreground font-mono text-xs uppercase tracking-widest">
+                      Variant B: Brutalist
+                    </div>
                     <div className="aspect-[9/16] bg-card rounded-3xl overflow-hidden shadow-2xl border border-border relative group">
                       <div className="p-6 h-full flex flex-col">
                         <div className="flex justify-between items-center mb-8">
@@ -965,7 +1121,9 @@ function VariantsSection() {
 
                   {/* Variant 3: Glassmorphism */}
                   <div className="flex flex-col gap-4">
-                    <div className="text-center text-muted-foreground font-mono text-xs uppercase tracking-widest">Variant C: Glassmorphism</div>
+                    <div className="text-center text-muted-foreground font-mono text-xs uppercase tracking-widest">
+                      Variant C: Glassmorphism
+                    </div>
                     <div className="aspect-[9/16] bg-zinc-900 rounded-3xl overflow-hidden shadow-2xl border border-zinc-800 relative group">
                       <div className="absolute inset-0">
                         <Image
@@ -981,7 +1139,9 @@ function VariantsSection() {
                         {/* Header */}
                         <div className="flex justify-between items-center w-full">
                           <ChevronDown className="w-6 h-6 text-white/70" />
-                          <span className="text-xs font-medium text-white/50 tracking-widest uppercase">Now Playing</span>
+                          <span className="text-xs font-medium text-white/50 tracking-widest uppercase">
+                            Now Playing
+                          </span>
                           <MoreHorizontal className="w-6 h-6 text-white/70" />
                         </div>
 
@@ -1638,7 +1798,8 @@ function ShippingSection() {
     {
       icon: <FileCode className="w-8 h-8 text-primary" />,
       title: "Export Code",
-      description: "Copy/paste specific components or export entire screens as clean, modular React files.",
+      description:
+        "Copy/paste specific components or export entire screens as clean, modular React files.",
       hoverBorder: "hover:border-primary/40",
       illustration: (
         <div className="mt-4 bg-background rounded-lg p-3 border border-border font-mono text-sm overflow-hidden">
@@ -1648,28 +1809,35 @@ function ShippingSection() {
             viewport={{ once: true }}
             transition={{ delay: 0.2 }}
             className="text-pink-400"
-          >export default</motion.div>
+          >
+            export default
+          </motion.div>
           <motion.div
             initial={{ opacity: 0 }}
             whileInView={{ opacity: 1 }}
             viewport={{ once: true }}
             transition={{ delay: 0.15 }}
             className="text-blue-400"
-          >function Button()</motion.div>
+          >
+            function Button()
+          </motion.div>
           <motion.div
             initial={{ opacity: 0 }}
             whileInView={{ opacity: 1 }}
             viewport={{ once: true }}
             transition={{ delay: 0.2 }}
             className="text-muted-foreground pl-2"
-          >{'// Clean code...'}</motion.div>
+          >
+            {"// Clean code..."}
+          </motion.div>
         </div>
       ),
     },
     {
       icon: <GitPullRequest className="w-8 h-8 text-emerald-400" />,
       title: "Open a PR",
-      description: "Nucleate creates a PR against your repo following your naming conventions and file structure.",
+      description:
+        "Nucleate creates a PR against your repo following your naming conventions and file structure.",
       hoverBorder: "hover:border-emerald-500/40",
       illustration: (
         <div className="mt-4 bg-background rounded-lg p-3 border border-border">
@@ -1677,7 +1845,9 @@ function ShippingSection() {
             <div className="w-2 h-2 rounded-full bg-emerald-500" />
             <span className="text-sm text-emerald-400 font-medium">Open</span>
           </div>
-          <div className="text-sm text-muted-foreground mb-2">feat: Add onboarding flow</div>
+          <div className="text-sm text-muted-foreground mb-2">
+            feat: Add onboarding flow
+          </div>
           <motion.div
             initial={{ scale: 0.9, opacity: 0 }}
             whileInView={{ scale: 1, opacity: 1 }}
@@ -1693,13 +1863,20 @@ function ShippingSection() {
     {
       icon: <Search className="w-8 h-8 text-purple-400" />,
       title: "Reviewable Diffs",
-      description: "No \"black box\" code. Small, readable diffs that match your coding style and are easy to iterate on.",
+      description:
+        'No "black box" code. Small, readable diffs that match your coding style and are easy to iterate on.',
       hoverBorder: "hover:border-purple-500/40",
       illustration: (
         <div className="mt-4 bg-background rounded-lg p-2 border border-border space-y-1">
           {[
-            { color: "bg-emerald-500/20 text-emerald-400", text: "+ <Button variant=\"primary\" />" },
-            { color: "bg-red-500/20 text-red-400", text: "- <button className=\"btn\" />" },
+            {
+              color: "bg-emerald-500/20 text-emerald-400",
+              text: '+ <Button variant="primary" />',
+            },
+            {
+              color: "bg-red-500/20 text-red-400",
+              text: '- <button className="btn" />',
+            },
           ].map((line, i) => (
             <motion.div
               key={i}
@@ -1737,8 +1914,8 @@ function ShippingSection() {
               From prototype → PR
             </h2>
             <p className="text-muted-foreground">
-              Nucleate isn&apos;t a playground. It&apos;s a delivery tool that lives in your
-              engineering workflow.
+              Nucleate isn&apos;t a playground. It&apos;s a delivery tool that
+              lives in your engineering workflow.
             </p>
           </motion.div>
           <motion.div
@@ -1773,21 +1950,31 @@ function ShippingSection() {
               {/* Card content */}
               <motion.div
                 whileHover={{ y: -5, scale: 1.02 }}
-                className={`bg-card border rounded-2xl p-6 transition-all duration-300 h-full ${index === 0 ? "border-primary/20 hover:border-primary/40" :
-                  index === 1 ? "border-emerald-500/20 hover:border-emerald-500/40" :
-                    "border-purple-500/20 hover:border-purple-500/40"
-                  }`}
+                className={`bg-card border rounded-2xl p-6 transition-all duration-300 h-full ${
+                  index === 0
+                    ? "border-primary/20 hover:border-primary/40"
+                    : index === 1
+                      ? "border-emerald-500/20 hover:border-emerald-500/40"
+                      : "border-purple-500/20 hover:border-purple-500/40"
+                }`}
               >
                 <div className="flex items-center gap-3 mb-4">
                   <motion.div
                     animate={{ y: [0, -3, 0] }}
-                    transition={{ duration: 3, repeat: Infinity, ease: "easeInOut", delay: index * 0.5 }}
+                    transition={{
+                      duration: 3,
+                      repeat: Infinity,
+                      ease: "easeInOut",
+                      delay: index * 0.5,
+                    }}
                   >
                     {card.icon}
                   </motion.div>
                   <h3 className="text-xl font-bold">{card.title}</h3>
                 </div>
-                <p className="text-sm text-muted-foreground mb-4">{card.description}</p>
+                <p className="text-sm text-muted-foreground mb-4">
+                  {card.description}
+                </p>
                 {card.illustration}
               </motion.div>
             </motion.div>
@@ -1807,8 +1994,12 @@ function ShippingSection() {
               <GitPullRequest className="w-6 h-6 text-emerald-400" />
             </div>
             <div>
-              <h3 className="text-lg font-medium mb-1">Ship to your repo in seconds</h3>
-              <p className="text-sm text-muted-foreground">Design and engineering work in the same source of truth: Git.</p>
+              <h3 className="text-lg font-medium mb-1">
+                Ship to your repo in seconds
+              </h3>
+              <p className="text-sm text-muted-foreground">
+                Design and engineering work in the same source of truth: Git.
+              </p>
             </div>
           </div>
           <div className="flex items-center gap-3">
@@ -1832,7 +2023,6 @@ function ShippingSection() {
   );
 }
 
-
 /**
 
 
@@ -1849,7 +2039,10 @@ function PricingSection() {
 
   const handleGetStarted = (productKey: string) => {
     if (productKey !== "free") {
-      logger.log({ event: "client_upgrade_checkout_clicked", properties: { source: "landing_pricing_section", plan: productKey } });
+      logger.log({
+        event: "client_upgrade_checkout_clicked",
+        properties: { source: "landing_pricing_section", plan: productKey },
+      });
     }
     if (activeTeam?.id) {
       handleCheckout(productKey, router, activeTeam.id);
@@ -1857,10 +2050,68 @@ function PricingSection() {
   };
 
   const pricingPlans = [
-    { name: "Free", price: "$0", period: "forever", description: "For trying out Nucleate", features: ["5 free projects", "15 free messages", "Fork projects for free"], cta: "Get Started", highlighted: false, productKey: "free" },
-    { name: "Plus", price: "$25", period: "per month", description: "For individuals", features: ["Everything in Free", "100 credits included", "Unlimited projects", "Export code", "1 free collaborator"], cta: "Upgrade to Plus", highlighted: false, productKey: "plus" },
-    { name: "Teams", price: "$35", period: "per seat/month", description: "For growing teams", features: ["Everything in Plus", "Shared design systems", "Live collaboration", "Internal tools", "Enterprise security"], cta: "Start with Teams", highlighted: true, productKey: "teams" },
-    { name: "Enterprise", price: "Custom", period: "", description: "For large organizations", features: ["Everything in Teams", "SSO & SAML", "Dedicated support", "Custom SLA", "Audit logs"], cta: "Contact Sales", highlighted: false, productKey: "max" },
+    {
+      name: "Free",
+      price: "$0",
+      period: "forever",
+      description: "For trying out Nucleate",
+      features: [
+        "5 free projects",
+        "15 free messages",
+        "Fork projects for free",
+      ],
+      cta: "Get Started",
+      highlighted: false,
+      productKey: "free",
+    },
+    {
+      name: "Plus",
+      price: "$25",
+      period: "per month",
+      description: "For individuals",
+      features: [
+        "Everything in Free",
+        "100 credits included",
+        "Unlimited projects",
+        "Export code",
+        "1 free collaborator",
+      ],
+      cta: "Upgrade to Plus",
+      highlighted: false,
+      productKey: "plus",
+    },
+    {
+      name: "Teams",
+      price: "$35",
+      period: "per seat/month",
+      description: "For growing teams",
+      features: [
+        "Everything in Plus",
+        "Shared design systems",
+        "Live collaboration",
+        "Internal tools",
+        "Enterprise security",
+      ],
+      cta: "Start with Teams",
+      highlighted: true,
+      productKey: "teams",
+    },
+    {
+      name: "Enterprise",
+      price: "Custom",
+      period: "",
+      description: "For large organizations",
+      features: [
+        "Everything in Teams",
+        "SSO & SAML",
+        "Dedicated support",
+        "Custom SLA",
+        "Audit logs",
+      ],
+      cta: "Contact Sales",
+      highlighted: false,
+      productKey: "max",
+    },
   ];
 
   return (
@@ -1877,8 +2128,12 @@ function PricingSection() {
           transition={{ duration: 0.3, delay: 0.1 }}
           className="text-center mb-12"
         >
-          <h2 className="text-4xl font-medium text-foreground mb-4">Simple pricing</h2>
-          <p className="text-muted-foreground">Start for free, scale as you grow.</p>
+          <h2 className="text-4xl font-medium text-foreground mb-4">
+            Simple pricing
+          </h2>
+          <p className="text-muted-foreground">
+            Start for free, scale as you grow.
+          </p>
         </motion.div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -1903,15 +2158,31 @@ function PricingSection() {
 
               <div className="relative z-10">
                 <div className="mb-8">
-                  <h3 className="text-lg font-medium text-foreground">{plan.name}</h3>
-                  <p className="text-sm text-muted-foreground mt-1 h-10">{plan.description}</p>
+                  <h3 className="text-lg font-medium text-foreground">
+                    {plan.name}
+                  </h3>
+                  <p className="text-sm text-muted-foreground mt-1 h-10">
+                    {plan.description}
+                  </p>
                 </div>
                 <div className="mb-8 flex items-baseline gap-1">
-                  <span className="text-4xl font-medium text-foreground">{plan.price}</span>
-                  {plan.price !== "$0" && plan.price !== "Custom" && <span className="text-muted-foreground text-sm">/{plan.period}</span>}
+                  <span className="text-4xl font-medium text-foreground">
+                    {plan.price}
+                  </span>
+                  {plan.price !== "$0" && plan.price !== "Custom" && (
+                    <span className="text-muted-foreground text-sm">
+                      /{plan.period}
+                    </span>
+                  )}
                 </div>
-                <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-                  <Button onClick={() => handleGetStarted(plan.productKey)} className={`w-full h-11 rounded-full text-sm font-medium transition-all mb-8 ${plan.highlighted ? "bg-foreground text-background hover:bg-foreground/90" : "bg-accent text-foreground hover:bg-accent border border-border"}`}>
+                <motion.div
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                >
+                  <Button
+                    onClick={() => handleGetStarted(plan.productKey)}
+                    className={`w-full h-11 rounded-full text-sm font-medium transition-all mb-8 ${plan.highlighted ? "bg-foreground text-background hover:bg-foreground/90" : "bg-accent text-foreground hover:bg-accent border border-border"}`}
+                  >
                     {plan.cta}
                   </Button>
                 </motion.div>
@@ -1955,8 +2226,18 @@ function PricingSection() {
             <div className="flex items-start gap-4 flex-1">
               <div className="flex-shrink-0">
                 <div className="w-12 h-12 bg-[#D97757]/20 rounded-xl flex items-center justify-center border border-[#D97757]/30 group-hover:bg-[#D97757]/30 transition-colors">
-                  <svg viewBox="0 0 24 24" fill="none" className="w-6 h-6 text-[#D97757]" xmlns="http://www.w3.org/2000/svg">
-                    <path fillRule="evenodd" clipRule="evenodd" d="M19.16 4.38H4.84V19.62H19.16V4.38ZM17.72 17.9L12 14.5L6.28 17.9V6.1H17.72V17.9Z" fill="currentColor" />
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    className="w-6 h-6 text-[#D97757]"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path
+                      fillRule="evenodd"
+                      clipRule="evenodd"
+                      d="M19.16 4.38H4.84V19.62H19.16V4.38ZM17.72 17.9L12 14.5L6.28 17.9V6.1H17.72V17.9Z"
+                      fill="currentColor"
+                    />
                   </svg>
                 </div>
               </div>
@@ -1965,7 +2246,9 @@ function PricingSection() {
                   Bring your own Claude Code
                 </h3>
                 <p className="text-muted-foreground text-sm leading-relaxed">
-                  Already have a Claude Code subscription? Connect it to Nucleate for massive savings. <span className="text-[#D97757]">Available on Plus.</span>
+                  Already have a Claude Code subscription? Connect it to
+                  Nucleate for massive savings.{" "}
+                  <span className="text-[#D97757]">Available on Plus.</span>
                 </p>
               </div>
             </div>
@@ -1973,8 +2256,12 @@ function PricingSection() {
             {/* Right side - Stats and benefits */}
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 md:gap-6">
               <div className="text-center sm:text-left">
-                <div className="text-2xl md:text-3xl font-bold text-[#D97757] mb-0.5">1000x</div>
-                <div className="text-xs text-muted-foreground uppercase tracking-wider">more usage</div>
+                <div className="text-2xl md:text-3xl font-bold text-[#D97757] mb-0.5">
+                  1000x
+                </div>
+                <div className="text-xs text-muted-foreground uppercase tracking-wider">
+                  more usage
+                </div>
               </div>
               <div className="hidden sm:block w-px h-10 bg-border"></div>
               <div className="space-y-1.5">
@@ -1994,7 +2281,6 @@ function PricingSection() {
     </section>
   );
 }
-
 
 /**
  * PROBLEM SECTION - Why Teams Struggle Today
@@ -2023,7 +2309,9 @@ function ProblemSection() {
             animate={{ opacity: [0.3, 1, 0.3] }}
             transition={{ duration: 1.5, repeat: Infinity }}
             className="text-muted-foreground"
-          >↔</motion.div>
+          >
+            ↔
+          </motion.div>
           <motion.div
             animate={{ x: [3, -3, 3] }}
             transition={{ duration: 2, repeat: Infinity }}
@@ -2049,7 +2337,9 @@ function ProblemSection() {
             animate={{ scale: [1, 1.2, 1], rotate: [0, 180, 360] }}
             transition={{ duration: 2, repeat: Infinity }}
             className="text-pink-400"
-          >→</motion.div>
+          >
+            →
+          </motion.div>
           <div className="w-6 h-6 bg-emerald-500/20 rounded flex items-center justify-center">
             <GitPullRequest className="w-3 h-3 text-emerald-400" />
           </div>
@@ -2143,17 +2433,25 @@ function ProblemSection() {
               whileHover={{ y: -5 }}
               className={`p-6 rounded-2xl bg-card border border-border group transition-all duration-300 relative overflow-hidden ${point.hoverBorder}`}
             >
-              <div className={`absolute inset-0 ${point.glowColor} transition-colors duration-300`} />
+              <div
+                className={`absolute inset-0 ${point.glowColor} transition-colors duration-300`}
+              />
               <div className="relative z-10">
                 <motion.div
-                  whileHover={{ rotate: point.title === "Handoff Friction" ? 180 : 0 }}
+                  whileHover={{
+                    rotate: point.title === "Handoff Friction" ? 180 : 0,
+                  }}
                   transition={{ duration: 0.25 }}
                   className="w-10 h-10 rounded-lg bg-accent flex items-center justify-center mb-4 border border-border"
                 >
                   {point.icon}
                 </motion.div>
-                <h3 className="text-lg font-medium text-foreground mb-2">{point.title}</h3>
-                <p className="text-sm text-muted-foreground leading-relaxed">{point.desc}</p>
+                <h3 className="text-lg font-medium text-foreground mb-2">
+                  {point.title}
+                </h3>
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  {point.desc}
+                </p>
                 {point.illustration}
               </div>
             </motion.div>
@@ -2172,7 +2470,8 @@ function HowItWorksSection() {
     {
       number: 1,
       title: "Connect Repo",
-      description: "Connect GitHub. Nucleate auto-detects your design system, components, and styling primitives.",
+      description:
+        "Connect GitHub. Nucleate auto-detects your design system, components, and styling primitives.",
       color: "primary",
       illustration: (
         <div className="mt-4 flex items-center justify-center md:justify-end gap-2">
@@ -2207,7 +2506,8 @@ function HowItWorksSection() {
     {
       number: 2,
       title: "Prototype & Explore",
-      description: "Describe a flow. Generate variants and screens using your real system components instantly.",
+      description:
+        "Describe a flow. Generate variants and screens using your real system components instantly.",
       color: "purple",
       illustration: (
         <div className="mt-4 flex items-center justify-center md:justify-start gap-1">
@@ -2215,7 +2515,11 @@ function HowItWorksSection() {
             <motion.div
               key={i}
               initial={{ opacity: 0, scale: 0.8, rotate: 0 }}
-              whileInView={{ opacity: 1, scale: 1, rotate: i === 0 ? -5 : i === 2 ? 5 : 0 }}
+              whileInView={{
+                opacity: 1,
+                scale: 1,
+                rotate: i === 0 ? -5 : i === 2 ? 5 : 0,
+              }}
               viewport={{ once: true }}
               transition={{ delay: 0.1 + i * 0.03 }}
               className="w-6 h-9 bg-purple-500/10 rounded border border-purple-500/20"
@@ -2227,7 +2531,8 @@ function HowItWorksSection() {
     {
       number: 3,
       title: "Ship Real Code",
-      description: "Export production-ready web or mobile code. Or, have Nucleate open a PR directly against your repo.",
+      description:
+        "Export production-ready web or mobile code. Or, have Nucleate open a PR directly against your repo.",
       color: "emerald",
       illustration: (
         <div className="mt-4 flex items-center justify-center md:justify-end">
@@ -2239,7 +2544,9 @@ function HowItWorksSection() {
             className="px-3 py-1.5 bg-emerald-500/20 rounded-lg border border-emerald-500/30 flex items-center gap-2"
           >
             <CheckCircle2 className="w-3 h-3 text-emerald-400" />
-            <span className="text-xs text-emerald-400 font-medium">PR Created</span>
+            <span className="text-xs text-emerald-400 font-medium">
+              PR Created
+            </span>
           </motion.div>
         </div>
       ),
@@ -2263,8 +2570,12 @@ function HowItWorksSection() {
           transition={{ duration: 0.3 }}
           className="text-center mb-16"
         >
-          <h2 className="text-3xl md:text-5xl font-medium text-foreground mb-4">How It Works</h2>
-          <p className="text-muted-foreground">No manual setup. No component tagging. No config hell.</p>
+          <h2 className="text-3xl md:text-5xl font-medium text-foreground mb-4">
+            How It Works
+          </h2>
+          <p className="text-muted-foreground">
+            No manual setup. No component tagging. No config hell.
+          </p>
         </motion.div>
 
         <div className="space-y-12 relative">
@@ -2298,7 +2609,11 @@ function HowItWorksSection() {
               >
                 <motion.span
                   animate={{ scale: [1, 1.1, 1] }}
-                  transition={{ duration: 2, repeat: Infinity, delay: index * 0.5 }}
+                  transition={{
+                    duration: 2,
+                    repeat: Infinity,
+                    delay: index * 0.5,
+                  }}
                 >
                   {step.number}
                 </motion.span>
@@ -2312,8 +2627,12 @@ function HowItWorksSection() {
                       whileHover={{ y: -3 }}
                       className="bg-card p-6 rounded-2xl border border-border hover:border-border transition-all"
                     >
-                      <h3 className="text-xl font-medium text-foreground mb-2 flex items-center gap-2 md:justify-end">{step.title}</h3>
-                      <p className="text-muted-foreground text-sm">{step.description}</p>
+                      <h3 className="text-xl font-medium text-foreground mb-2 flex items-center gap-2 md:justify-end">
+                        {step.title}
+                      </h3>
+                      <p className="text-muted-foreground text-sm">
+                        {step.description}
+                      </p>
                       {step.illustration}
                     </motion.div>
                   </div>
@@ -2327,8 +2646,12 @@ function HowItWorksSection() {
                       whileHover={{ y: -3 }}
                       className="bg-card p-6 rounded-2xl border border-border hover:border-border transition-all"
                     >
-                      <h3 className="text-xl font-medium text-foreground mb-2 flex items-center gap-2">{step.title}</h3>
-                      <p className="text-muted-foreground text-sm">{step.description}</p>
+                      <h3 className="text-xl font-medium text-foreground mb-2 flex items-center gap-2">
+                        {step.title}
+                      </h3>
+                      <p className="text-muted-foreground text-sm">
+                        {step.description}
+                      </p>
                       {step.illustration}
                     </motion.div>
                   </div>
@@ -2359,8 +2682,12 @@ function DifferentiationSection() {
           transition={{ duration: 0.3 }}
           className="text-center mb-16"
         >
-          <h2 className="text-3xl font-medium text-foreground mb-4">Why Nucleate?</h2>
-          <p className="text-muted-foreground">Prototyping that lives in the codebase.</p>
+          <h2 className="text-3xl font-medium text-foreground mb-4">
+            Why Nucleate?
+          </h2>
+          <p className="text-muted-foreground">
+            Prototyping that lives in the codebase.
+          </p>
         </motion.div>
 
         <motion.div
@@ -2373,9 +2700,15 @@ function DifferentiationSection() {
           <table className="w-full text-left border-collapse">
             <thead>
               <tr>
-                <th className="p-4 text-xs uppercase tracking-wider text-muted-foreground font-medium border-b border-border">Feature</th>
-                <th className="p-4 text-xs uppercase tracking-wider text-muted-foreground font-medium border-b border-border">Figma</th>
-                <th className="p-4 text-xs uppercase tracking-wider text-muted-foreground font-medium border-b border-border">AI Builders</th>
+                <th className="p-4 text-xs uppercase tracking-wider text-muted-foreground font-medium border-b border-border">
+                  Feature
+                </th>
+                <th className="p-4 text-xs uppercase tracking-wider text-muted-foreground font-medium border-b border-border">
+                  Figma
+                </th>
+                <th className="p-4 text-xs uppercase tracking-wider text-muted-foreground font-medium border-b border-border">
+                  AI Builders
+                </th>
                 <th className="p-4 text-xs uppercase tracking-wider text-primary font-bold border-b border-primary/50 bg-primary/5 rounded-t-xl relative">
                   <span className="relative z-10">Nucleate</span>
                   <div className="absolute inset-0 bg-primary/10 blur-sm rounded-t-xl" />
@@ -2384,28 +2717,42 @@ function DifferentiationSection() {
             </thead>
             <tbody className="text-sm">
               <tr className="border-b border-border">
-                <td className="p-4 text-foreground font-medium">Uses your components</td>
+                <td className="p-4 text-foreground font-medium">
+                  Uses your components
+                </td>
                 <td className="p-4 text-muted-foreground">No</td>
                 <td className="p-4 text-muted-foreground">No</td>
-                <td className="p-4 text-foreground font-semibold bg-primary/5">Yes (Automatic)</td>
+                <td className="p-4 text-foreground font-semibold bg-primary/5">
+                  Yes (Automatic)
+                </td>
               </tr>
               <tr className="border-b border-border">
-                <td className="p-4 text-foreground font-medium">Enforces design tokens</td>
+                <td className="p-4 text-foreground font-medium">
+                  Enforces design tokens
+                </td>
                 <td className="p-4 text-muted-foreground">Manual</td>
                 <td className="p-4 text-muted-foreground">No</td>
-                <td className="p-4 text-foreground font-semibold bg-primary/5">Strictly Enforced</td>
+                <td className="p-4 text-foreground font-semibold bg-primary/5">
+                  Strictly Enforced
+                </td>
               </tr>
               <tr className="border-b border-border">
-                <td className="p-4 text-foreground font-medium">Works on existing codebase</td>
+                <td className="p-4 text-foreground font-medium">
+                  Works on existing codebase
+                </td>
                 <td className="p-4 text-muted-foreground">No</td>
                 <td className="p-4 text-muted-foreground">No</td>
-                <td className="p-4 text-foreground font-semibold bg-primary/5">Yes</td>
+                <td className="p-4 text-foreground font-semibold bg-primary/5">
+                  Yes
+                </td>
               </tr>
               <tr>
                 <td className="p-4 text-foreground font-medium">PR to repo</td>
                 <td className="p-4 text-muted-foreground">No</td>
                 <td className="p-4 text-muted-foreground">No</td>
-                <td className="p-4 text-foreground font-semibold bg-primary/5 rounded-b-xl">Direct GitHub PR</td>
+                <td className="p-4 text-foreground font-semibold bg-primary/5 rounded-b-xl">
+                  Direct GitHub PR
+                </td>
               </tr>
             </tbody>
           </table>
@@ -2423,23 +2770,44 @@ function DifferentiationSection() {
  */
 function FAQSection() {
   const featuredFAQs = [
-    { q: "How does repo sync work?", a: "You never have to do manual syncing. Nucleate's agents will always stay up to date on your repo's latest state." },
-    { q: "Does it use our existing components?", a: "Yes. Unlike generic AI tools, Nucleate prioritizes using your existing library. If you have a 'Button' or 'Card' component, Nucleate will use them instead of generating new ones." },
-    { q: "How does the PR workflow work?", a: "After you're happy with a prototype, you can click 'Open PR'. Nucleate will branch from your main, commit the new screens and components, and create a Pull Request for your review." },
-    { q: "Is our code sent externally?", a: "We only send the necessary context (component signatures and tokens) to the model to generate the UI. Your source code is never used to train models." },
+    {
+      q: "How does repo sync work?",
+      a: "You never have to do manual syncing. Nucleate's agents will always stay up to date on your repo's latest state.",
+    },
+    {
+      q: "Does it use our existing components?",
+      a: "Yes. Unlike generic AI tools, Nucleate prioritizes using your existing library. If you have a 'Button' or 'Card' component, Nucleate will use them instead of generating new ones.",
+    },
+    {
+      q: "How does the PR workflow work?",
+      a: "After you're happy with a prototype, you can click 'Open PR'. Nucleate will branch from your main, commit the new screens and components, and create a Pull Request for your review.",
+    },
+    {
+      q: "Is our code sent externally?",
+      a: "We only send the necessary context (component signatures and tokens) to the model to generate the UI. Your source code is never used to train models.",
+    },
   ];
 
   return (
     <section className="py-24 bg-background border-t border-border">
       <div className="container mx-auto px-6 max-w-6xl">
         <div className="text-center mb-16">
-          <h2 className="text-4xl font-medium text-foreground mb-4">Questions?</h2>
+          <h2 className="text-4xl font-medium text-foreground mb-4">
+            Questions?
+          </h2>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12 max-w-4xl mx-auto">
           {featuredFAQs.map((faq, index) => (
-            <div key={index} className="bg-card border border-border rounded-2xl p-6">
-              <h3 className="text-lg font-medium text-foreground mb-3">{faq.q}</h3>
-              <p className="text-muted-foreground text-sm leading-relaxed">{faq.a}</p>
+            <div
+              key={index}
+              className="bg-card border border-border rounded-2xl p-6"
+            >
+              <h3 className="text-lg font-medium text-foreground mb-3">
+                {faq.q}
+              </h3>
+              <p className="text-muted-foreground text-sm leading-relaxed">
+                {faq.a}
+              </p>
             </div>
           ))}
         </div>

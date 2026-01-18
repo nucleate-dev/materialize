@@ -18,10 +18,12 @@ export function useTeamMembers(teamId: string | null | undefined) {
 
       const { data, error } = await supabase
         .from("team_memberships")
-        .select(`
+        .select(
+          `
           *,
           user:users!team_memberships_user_id_fkey(*)
-        `)
+        `,
+        )
         .eq("team_id", teamId);
 
       if (error) {

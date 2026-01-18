@@ -1,4 +1,4 @@
-import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
+import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type {
   APIResponse,
   LLMCompletionRequestBody,
@@ -7,12 +7,12 @@ import type {
   LLMImageGenerationRequestBody,
   LLMImageGenerationSuccessResponse,
   LLMImageGenerationErrorResponse,
-} from "../../types/PublicAPITypes.js";
-import { HTTP_STATUS } from "../../types/PublicAPITypes.js";
-import { validateJWTToken } from "../../utils/prototypeAuth.js";
-import { handleCompletionImpl } from "./handlers/handleCompletion.js";
-import { handleImageGenerationImpl } from "./handlers/handleImageGeneration.js";
-import { baseLogger } from "../../server.js";
+} from '../../types/PublicAPITypes.js';
+import { HTTP_STATUS } from '../../types/PublicAPITypes.js';
+import { validateJWTToken } from '../../utils/prototypeAuth.js';
+import { handleCompletionImpl } from './handlers/handleCompletion.js';
+import { handleImageGenerationImpl } from './handlers/handleImageGeneration.js';
+import { baseLogger } from '../../server.js';
 
 export class LLMService {
   constructor() {
@@ -31,8 +31,8 @@ export class LLMService {
 
     if (missing.length > 0) {
       baseLogger.warn(
-        `Missing environment variables: ${missing.join(", ")}. Some providers may not work.`,
-        { service: "LLMService", missingKeys: missing },
+        `Missing environment variables: ${missing.join(', ')}. Some providers may not work.`,
+        { service: 'LLMService', missingKeys: missing },
       );
     }
   }
@@ -40,61 +40,61 @@ export class LLMService {
   public registerRoutes(app: FastifyInstance): void {
     // POST /llm/completion - Text and vision completion
     app.post<{ Body: LLMCompletionRequestBody }>(
-      "/llm/completion",
+      '/llm/completion',
       {
         schema: {
           body: {
-            type: "object",
-            required: ["provider", "model", "messages", "team_id"],
+            type: 'object',
+            required: ['provider', 'model', 'messages', 'team_id'],
             properties: {
               provider: {
-                type: "string",
-                enum: ["anthropic", "openai", "google"],
+                type: 'string',
+                enum: ['anthropic', 'openai', 'google'],
               },
-              model: { type: "string" },
+              model: { type: 'string' },
               messages: {
-                type: "array",
+                type: 'array',
                 minItems: 1,
                 items: {
-                  type: "object",
-                  required: ["role", "content"],
+                  type: 'object',
+                  required: ['role', 'content'],
                   properties: {
                     role: {
-                      type: "string",
-                      enum: ["user", "assistant", "system"],
+                      type: 'string',
+                      enum: ['user', 'assistant', 'system'],
                     },
                     content: {
                       oneOf: [
-                        { type: "string" },
+                        { type: 'string' },
                         {
-                          type: "array",
+                          type: 'array',
                           items: {
-                            type: "object",
-                            required: ["type"],
+                            type: 'object',
+                            required: ['type'],
                             properties: {
                               type: {
-                                type: "string",
-                                enum: ["text", "image"],
+                                type: 'string',
+                                enum: ['text', 'image'],
                               },
-                              text: { type: "string" },
+                              text: { type: 'string' },
                               source: {
-                                type: "object",
+                                type: 'object',
                                 properties: {
                                   type: {
-                                    type: "string",
-                                    enum: ["base64", "url"],
+                                    type: 'string',
+                                    enum: ['base64', 'url'],
                                   },
                                   media_type: {
-                                    type: "string",
+                                    type: 'string',
                                     enum: [
-                                      "image/jpeg",
-                                      "image/png",
-                                      "image/webp",
-                                      "image/gif",
+                                      'image/jpeg',
+                                      'image/png',
+                                      'image/webp',
+                                      'image/gif',
                                     ],
                                   },
-                                  data: { type: "string" },
-                                  url: { type: "string", format: "uri" },
+                                  data: { type: 'string' },
+                                  url: { type: 'string', format: 'uri' },
                                 },
                               },
                             },
@@ -105,10 +105,10 @@ export class LLMService {
                   },
                 },
               },
-              team_id: { type: "string" },
-              max_tokens: { type: "integer", minimum: 1, maximum: 100000 },
-              temperature: { type: "number", minimum: 0, maximum: 2 },
-              system_prompt: { type: "string" },
+              team_id: { type: 'string' },
+              max_tokens: { type: 'integer', minimum: 1, maximum: 100000 },
+              temperature: { type: 'number', minimum: 0, maximum: 2 },
+              system_prompt: { type: 'string' },
             },
           },
         },
@@ -118,38 +118,38 @@ export class LLMService {
 
     // POST /llm/image-generation - DALL-E image generation
     app.post<{ Body: LLMImageGenerationRequestBody }>(
-      "/llm/image-generation",
+      '/llm/image-generation',
       {
         schema: {
           body: {
-            type: "object",
-            required: ["provider", "model", "prompt", "team_id"],
+            type: 'object',
+            required: ['provider', 'model', 'prompt', 'team_id'],
             properties: {
               provider: {
-                type: "string",
-                enum: ["openai"],
+                type: 'string',
+                enum: ['openai'],
               },
               model: {
-                type: "string",
-                enum: ["dall-e-3", "dall-e-2"],
+                type: 'string',
+                enum: ['dall-e-3', 'dall-e-2'],
               },
-              prompt: { type: "string", maxLength: 4000 },
-              team_id: { type: "string" },
+              prompt: { type: 'string', maxLength: 4000 },
+              team_id: { type: 'string' },
               size: {
-                type: "string",
+                type: 'string',
                 enum: [
-                  "1024x1024",
-                  "1792x1024",
-                  "1024x1792",
-                  "512x512",
-                  "256x256",
+                  '1024x1024',
+                  '1792x1024',
+                  '1024x1792',
+                  '512x512',
+                  '256x256',
                 ],
               },
               quality: {
-                type: "string",
-                enum: ["standard", "hd"],
+                type: 'string',
+                enum: ['standard', 'hd'],
               },
-              n: { type: "integer", minimum: 1, maximum: 10 },
+              n: { type: 'integer', minimum: 1, maximum: 10 },
             },
           },
         },
@@ -165,15 +165,15 @@ export class LLMService {
     APIResponse<LLMCompletionSuccessResponse, LLMCompletionErrorResponse>
   > {
     // JWT validation
-    const token = request.headers.authorization?.split(" ")[1] ?? "";
+    const token = request.headers.authorization?.split(' ')[1] ?? '';
     const { user } = await validateJWTToken(token, request.log2);
 
     if (!user) {
       return reply.status(HTTP_STATUS.UNAUTHORIZED).send({
         data: null,
         error: {
-          error: "UNAUTHORIZED",
-          message: "Invalid or missing authentication token",
+          error: 'UNAUTHORIZED',
+          message: 'Invalid or missing authentication token',
         },
       });
     }
@@ -193,15 +193,15 @@ export class LLMService {
     >
   > {
     // JWT validation
-    const token = request.headers.authorization?.split(" ")[1] ?? "";
+    const token = request.headers.authorization?.split(' ')[1] ?? '';
     const { user } = await validateJWTToken(token, request.log2);
 
     if (!user) {
       return reply.status(HTTP_STATUS.UNAUTHORIZED).send({
         data: null,
         error: {
-          error: "UNAUTHORIZED",
-          message: "Invalid or missing authentication token",
+          error: 'UNAUTHORIZED',
+          message: 'Invalid or missing authentication token',
         },
       });
     }

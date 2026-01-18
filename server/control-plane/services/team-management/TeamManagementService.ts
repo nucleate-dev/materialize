@@ -1,4 +1,4 @@
-import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
+import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import {
   type AcceptTeamInviteErrorResponse,
   type AcceptTeamInviteRequestBody,
@@ -10,10 +10,10 @@ import {
   type UpdateTeamMemberRoleErrorResponse,
   type UpdateTeamMemberRoleRequestBody,
   type UpdateTeamMemberRoleSuccessResponse,
-} from "../../types/PublicAPITypes.js";
-import handleAcceptInviteImpl from "./handlers/handleAcceptInvite.js";
-import handleSendInviteImpl from "./handlers/handleSendInvite.js";
-import handleUpdateMemberRoleImpl from "./handlers/handleUpdateMemberRole.js";
+} from '../../types/PublicAPITypes.js';
+import handleAcceptInviteImpl from './handlers/handleAcceptInvite.js';
+import handleSendInviteImpl from './handlers/handleSendInvite.js';
+import handleUpdateMemberRoleImpl from './handlers/handleUpdateMemberRole.js';
 
 /**
  * TeamManagementService handles team invitation and membership management operations.
@@ -28,27 +28,27 @@ export class TeamManagementService {
   public registerRoutes(app: FastifyInstance): void {
     // POST /teams/send-invite
     app.post<{ Body: SendTeamInviteRequestBody }>(
-      "/teams/send-invite",
+      '/teams/send-invite',
       {
         schema: {
           body: {
-            type: "object",
-            required: ["emails", "team_id", "role"],
+            type: 'object',
+            required: ['emails', 'team_id', 'role'],
             properties: {
               emails: {
-                type: "array",
+                type: 'array',
                 items: {
-                  type: "string",
-                  format: "email",
+                  type: 'string',
+                  format: 'email',
                 },
                 minItems: 1,
               },
               team_id: {
-                type: "string",
+                type: 'string',
               },
               role: {
-                type: "string",
-                enum: ["owner", "admin", "viewer", "editor"],
+                type: 'string',
+                enum: ['owner', 'admin', 'viewer', 'editor'],
               },
             },
           },
@@ -59,15 +59,15 @@ export class TeamManagementService {
 
     // POST /teams/accept-invite
     app.post<{ Body: AcceptTeamInviteRequestBody }>(
-      "/teams/accept-invite",
+      '/teams/accept-invite',
       {
         schema: {
           body: {
-            type: "object",
-            required: ["invite_id"],
+            type: 'object',
+            required: ['invite_id'],
             properties: {
               invite_id: {
-                type: "string",
+                type: 'string',
               },
             },
           },
@@ -78,22 +78,22 @@ export class TeamManagementService {
 
     // POST /teams/update-member-role
     app.post<{ Body: UpdateTeamMemberRoleRequestBody }>(
-      "/teams/update-member-role",
+      '/teams/update-member-role',
       {
         schema: {
           body: {
-            type: "object",
-            required: ["team_id", "user_id", "role"],
+            type: 'object',
+            required: ['team_id', 'user_id', 'role'],
             properties: {
               team_id: {
-                type: "string",
+                type: 'string',
               },
               user_id: {
-                type: "string",
+                type: 'string',
               },
               role: {
-                type: "string",
-                enum: ["owner", "admin", "viewer", "editor"],
+                type: 'string',
+                enum: ['owner', 'admin', 'viewer', 'editor'],
               },
             },
           },

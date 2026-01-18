@@ -70,7 +70,7 @@ import {
   X,
   Zap,
   ZoomIn,
-  ZoomOut
+  ZoomOut,
 } from "lucide-react";
 import dynamic from "next/dynamic";
 import React, {
@@ -440,7 +440,8 @@ const MaterializeRenderSection = forwardRef<
     }, [prototypeId, isGithubIntegrationEnabled, logger]);
 
     // Check if canvas preview mode is enabled (infinite canvas like Figma)
-    const isCanvasPreviewEnabled = posthog?.isFeatureEnabled("canvas-preview-mode") ?? false;
+    const isCanvasPreviewEnabled =
+      posthog?.isFeatureEnabled("canvas-preview-mode") ?? false;
 
     // Canvas ref for infinite canvas mode
     const canvasRef = useRef<PreviewCanvasRef>(null);
@@ -572,7 +573,12 @@ const MaterializeRenderSection = forwardRef<
       const targetWidth = scaledMobileSize.width + 16;
       const originalWidth = mobileSize.width + 16;
       return targetWidth / originalWidth;
-    }, [isMultiScreenEnabled, mobileScreens.length, scaledMobileSize, mobileSize]);
+    }, [
+      isMultiScreenEnabled,
+      mobileScreens.length,
+      scaledMobileSize,
+      mobileSize,
+    ]);
 
     // Web screens state for multi-screen web view
     const [webScreens, setWebScreens] = useState<MobileScreenConfig[]>(() => {
@@ -604,7 +610,8 @@ const MaterializeRenderSection = forwardRef<
     const [webFrameHeight, setWebFrameHeight] = useState(500);
     const [webFrameWidth, setWebFrameWidth] = useState<number | null>(null); // null = auto (fill container)
     const [isResizingWebFrame, setIsResizingWebFrame] = useState(false);
-    const [hasManuallyResizedWebFrame, setHasManuallyResizedWebFrame] = useState(false);
+    const [hasManuallyResizedWebFrame, setHasManuallyResizedWebFrame] =
+      useState(false);
 
     // Calculate responsive web frame height based on viewport
     useEffect(() => {
@@ -628,7 +635,8 @@ const MaterializeRenderSection = forwardRef<
 
       calculateWebFrameHeight();
       window.addEventListener("resize", calculateWebFrameHeight);
-      return () => window.removeEventListener("resize", calculateWebFrameHeight);
+      return () =>
+        window.removeEventListener("resize", calculateWebFrameHeight);
     }, [hasManuallyResizedWebFrame]);
 
     // Responsive viewport detection for web grid
@@ -651,7 +659,7 @@ const MaterializeRenderSection = forwardRef<
     );
     const [tempPath, setTempPath] = useState<string>("");
     const [routeSuggestions, setRouteSuggestions] = useState<
-      Array<{ route: string; group?: string; }>
+      Array<{ route: string; group?: string }>
     >([]);
     // Allow screen editing in public view if onScreensChange or onWebScreensChange is provided
     const canEditScreensInPublicView =
@@ -1031,8 +1039,14 @@ const MaterializeRenderSection = forwardRef<
           const deltaX = moveEvent.clientX - startX;
           const deltaY = moveEvent.clientY - startY;
 
-          const newWidth = Math.max(minWidth, Math.min(maxWidth, startWidth + deltaX));
-          const newHeight = Math.max(minHeight, Math.min(maxHeight, startHeight + deltaY));
+          const newWidth = Math.max(
+            minWidth,
+            Math.min(maxWidth, startWidth + deltaX),
+          );
+          const newHeight = Math.max(
+            minHeight,
+            Math.min(maxHeight, startHeight + deltaY),
+          );
 
           setWebFrameWidth(newWidth);
           setWebFrameHeight(newHeight);
@@ -1093,7 +1107,7 @@ const MaterializeRenderSection = forwardRef<
     const availableRoutes = React.useMemo(() => {
       if (!files) return [];
 
-      const routes: Array<{ route: string; group?: string; }> = [];
+      const routes: Array<{ route: string; group?: string }> = [];
       Object.keys(files).forEach((filePath) => {
         // Look for files in app/ directory that could be routes
         if (filePath.startsWith("app/")) {
@@ -1270,7 +1284,12 @@ const MaterializeRenderSection = forwardRef<
                 break;
               case "set":
                 if (data.screens && data.screens.length > 0) {
-                  canvasRef.current.setScreens(data.screens.map((s, index) => ({ id: index + 1, path: s.path })));
+                  canvasRef.current.setScreens(
+                    data.screens.map((s, index) => ({
+                      id: index + 1,
+                      path: s.path,
+                    })),
+                  );
                 }
                 break;
             }
@@ -1278,19 +1297,28 @@ const MaterializeRenderSection = forwardRef<
           }
 
           // Legacy mode - use state-based screen management
-          const setScreens = previewMode === "mobile" ? setMobileScreens : setWebScreens;
-          const nextIdRef = previewMode === "mobile" ? nextMobileScreenId : nextWebScreenId;
+          const setScreens =
+            previewMode === "mobile" ? setMobileScreens : setWebScreens;
+          const nextIdRef =
+            previewMode === "mobile" ? nextMobileScreenId : nextWebScreenId;
 
           switch (data.action) {
             case "add":
               if (data.path) {
                 // Enforce max 4 screens
-                const currentScreens = previewMode === "mobile" ? mobileScreens : webScreens;
+                const currentScreens =
+                  previewMode === "mobile" ? mobileScreens : webScreens;
                 if (currentScreens.length >= 4) {
-                  logger.debug("warn", "Cannot add screen: maximum of 4 screens allowed");
+                  logger.debug(
+                    "warn",
+                    "Cannot add screen: maximum of 4 screens allowed",
+                  );
                   return;
                 }
-                setScreens((prev) => [...prev, { id: nextIdRef.current++, path: data.path! }]);
+                setScreens((prev) => [
+                  ...prev,
+                  { id: nextIdRef.current++, path: data.path! },
+                ]);
               }
               break;
             case "remove":
@@ -1310,14 +1338,23 @@ const MaterializeRenderSection = forwardRef<
                 // Enforce max 4 screens
                 const screensToSet = data.screens.slice(0, 4);
                 let idCounter = 0;
-                setScreens(screensToSet.map((s) => ({ id: idCounter++, path: s.path })));
+                setScreens(
+                  screensToSet.map((s) => ({ id: idCounter++, path: s.path })),
+                );
                 nextIdRef.current = idCounter;
               }
               break;
           }
         },
       }),
-      [forceRefresh, previewMode, mobileScreens, webScreens, logger, isCanvasPreviewEnabled],
+      [
+        forceRefresh,
+        previewMode,
+        mobileScreens,
+        webScreens,
+        logger,
+        isCanvasPreviewEnabled,
+      ],
     );
 
     const handleRestartDevServer = async () => {
@@ -1886,7 +1923,8 @@ const MaterializeRenderSection = forwardRef<
           case "Updating..":
           case "Connecting..":
             return {
-              className: "bg-warning/10 border border-warning/30 text-foreground",
+              className:
+                "bg-warning/10 border border-warning/30 text-foreground",
               dotClassName:
                 "w-2 h-2 bg-warning rounded-full animate-pulse shadow-[0_0_8px_hsl(var(--warning)/0.6)]",
               text: status,
@@ -1903,7 +1941,8 @@ const MaterializeRenderSection = forwardRef<
             };
           case "Error":
             return {
-              className: "bg-destructive/10 border border-destructive/30 text-destructive",
+              className:
+                "bg-destructive/10 border border-destructive/30 text-destructive",
               dotClassName:
                 "w-2 h-2 bg-destructive rounded-full shadow-[0_0_8px_hsl(var(--destructive)/0.6)]",
               text: "Error",
@@ -1911,7 +1950,8 @@ const MaterializeRenderSection = forwardRef<
             };
           case "Disconnected":
             return {
-              className: "bg-destructive/10 border border-destructive/30 text-destructive",
+              className:
+                "bg-destructive/10 border border-destructive/30 text-destructive",
               dotClassName:
                 "w-2 h-2 bg-destructive rounded-full shadow-[0_0_8px_hsl(var(--destructive)/0.6)]",
               text: "Disconnected",
@@ -1919,8 +1959,7 @@ const MaterializeRenderSection = forwardRef<
             };
           case "Connected":
             return {
-              className:
-                "bg-success/10 border border-success/30 text-success",
+              className: "bg-success/10 border border-success/30 text-success",
               dotClassName:
                 "w-2 h-2 bg-success rounded-full shadow-[0_0_8px_hsl(var(--success)/0.6)]",
               text: "Connected",
@@ -1989,7 +2028,7 @@ const MaterializeRenderSection = forwardRef<
     };
 
     // Connection loading overlay for iframe
-    const ConnectionLoadingOverlay = ({ mode }: { mode: PreviewMode; }) => (
+    const ConnectionLoadingOverlay = ({ mode }: { mode: PreviewMode }) => (
       <div className="absolute inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm z-10">
         <div className="text-center bg-accent p-6 rounded-xl border border-border shadow-2xl">
           <Loader2 className="w-6 h-6 animate-spin mx-auto mb-3 text-muted-foreground" />
@@ -2006,7 +2045,7 @@ const MaterializeRenderSection = forwardRef<
     );
 
     // Error overlay for iframe
-    const ConnectionErrorOverlay = ({ mode }: { mode: PreviewMode; }) => (
+    const ConnectionErrorOverlay = ({ mode }: { mode: PreviewMode }) => (
       <div className="absolute inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm z-10">
         <div className="text-center bg-accent p-6 rounded-xl border border-red-500/20 shadow-2xl">
           <div className="w-8 h-8 mx-auto mb-3 text-red-400 bg-red-400/10 rounded-full flex items-center justify-center">
@@ -2064,7 +2103,9 @@ const MaterializeRenderSection = forwardRef<
               <div
                 className={cn(
                   "flex flex-wrap justify-center gap-x-8 gap-y-12 pb-8 relative",
-                  isMultiScreenEnabled && mobileScreens.length > 1 ? "pt-16" : "pt-8",
+                  isMultiScreenEnabled && mobileScreens.length > 1
+                    ? "pt-16"
+                    : "pt-8",
                 )}
               >
                 {mobileScreens.map((screen, index) => {
@@ -2091,8 +2132,10 @@ const MaterializeRenderSection = forwardRef<
                                 <div
                                   className="px-3 py-1.5 rounded-full text-xs font-mono transition-all shadow-sm max-w-[200px] whitespace-nowrap overflow-hidden bg-accent/50 border border-border/50 text-muted-foreground/70"
                                   style={{
-                                    maskImage: "linear-gradient(to right, black 80%, transparent 100%)",
-                                    WebkitMaskImage: "linear-gradient(to right, black 80%, transparent 100%)",
+                                    maskImage:
+                                      "linear-gradient(to right, black 80%, transparent 100%)",
+                                    WebkitMaskImage:
+                                      "linear-gradient(to right, black 80%, transparent 100%)",
                                   }}
                                 >
                                   {stripTokenFromPath(screen.path) || "/"}
@@ -2112,8 +2155,10 @@ const MaterializeRenderSection = forwardRef<
                                     <div
                                       className="px-3 py-1.5 rounded-full text-xs font-mono transition-all shadow-sm max-w-[200px] whitespace-nowrap overflow-hidden bg-accent border border-border text-muted-foreground hover:text-foreground hover:border-border/80 cursor-pointer"
                                       style={{
-                                        maskImage: "linear-gradient(to right, black 80%, transparent 100%)",
-                                        WebkitMaskImage: "linear-gradient(to right, black 80%, transparent 100%)",
+                                        maskImage:
+                                          "linear-gradient(to right, black 80%, transparent 100%)",
+                                        WebkitMaskImage:
+                                          "linear-gradient(to right, black 80%, transparent 100%)",
                                       }}
                                     >
                                       {stripTokenFromPath(screen.path) || "/"}
@@ -2133,16 +2178,21 @@ const MaterializeRenderSection = forwardRef<
                                           <button
                                             key={item.route}
                                             onClick={() => {
-                                              handleSuggestionClick(screen.id, item.route);
+                                              handleSuggestionClick(
+                                                screen.id,
+                                                item.route,
+                                              );
                                             }}
                                             className={cn(
                                               "flex items-center justify-between w-full text-left px-3 py-2 text-xs hover:bg-accent transition-colors",
                                               screen.path === item.route
                                                 ? "text-foreground bg-accent/50"
-                                                : "text-muted-foreground"
+                                                : "text-muted-foreground",
                                             )}
                                           >
-                                            <span className="font-mono">{item.route}</span>
+                                            <span className="font-mono">
+                                              {item.route}
+                                            </span>
                                             {item.group && (
                                               <span className="text-[9px] px-1.5 py-0.5 rounded bg-accent text-muted-foreground border border-border">
                                                 {item.group}
@@ -2156,8 +2206,14 @@ const MaterializeRenderSection = forwardRef<
                                       <div className="flex items-center gap-1">
                                         <Input
                                           value={tempPath}
-                                          onChange={(e) => handlePathInputChange(e.target.value)}
-                                          onKeyDown={(e) => handlePathKeyDown(screen.id, e)}
+                                          onChange={(e) =>
+                                            handlePathInputChange(
+                                              e.target.value,
+                                            )
+                                          }
+                                          onKeyDown={(e) =>
+                                            handlePathKeyDown(screen.id, e)
+                                          }
                                           className="h-7 text-xs font-mono border-border"
                                           placeholder="Custom path..."
                                         />
@@ -2165,7 +2221,9 @@ const MaterializeRenderSection = forwardRef<
                                           variant="ghost"
                                           size="icon"
                                           className="h-7 w-7 hover:bg-emerald-500/20 hover:text-emerald-400 text-emerald-500/70"
-                                          onClick={() => handleConfirmPathChange(screen.id)}
+                                          onClick={() =>
+                                            handleConfirmPathChange(screen.id)
+                                          }
                                           aria-label="Go to path"
                                         >
                                           <Check className="w-3.5 h-3.5" />
@@ -2191,7 +2249,9 @@ const MaterializeRenderSection = forwardRef<
                                       variant="ghost"
                                       size="icon"
                                       className="h-6 w-6 bg-accent border border-border rounded-full hover:bg-red-500/10 hover:text-red-400 hover:border-red-500/20 text-muted-foreground"
-                                      onClick={() => handleRemoveMobileScreen(screen.id)}
+                                      onClick={() =>
+                                        handleRemoveMobileScreen(screen.id)
+                                      }
                                       aria-label="Remove screen"
                                     >
                                       <X className="w-3 h-3" />
@@ -2251,7 +2311,9 @@ const MaterializeRenderSection = forwardRef<
                                   zoom: mobileScaleFactor,
                                   transformOrigin: "top left",
                                   // Disable pointer events during resize so mouse events reach the document
-                                  pointerEvents: isResizingMobile ? "none" : "auto",
+                                  pointerEvents: isResizingMobile
+                                    ? "none"
+                                    : "auto",
                                 }}
                                 title="React Native Preview"
                                 aria-label={`React Native Preview ${screen.path}`}
@@ -2328,7 +2390,9 @@ const MaterializeRenderSection = forwardRef<
                 ? "flex flex-col"
                 : "grid",
               // Center single screen when manually resized
-              !showWebMultiScreen && hasManuallyResizedWebFrame && "items-start justify-center",
+              !showWebMultiScreen &&
+                hasManuallyResizedWebFrame &&
+                "items-start justify-center",
             )}
             style={{
               gridTemplateColumns:
@@ -2343,7 +2407,8 @@ const MaterializeRenderSection = forwardRef<
                 const showScreenControls =
                   showWebMultiScreen && webScreens.length > 1;
                 // For single screen, enable resize. For multi-screen, only enable if not in narrow viewport
-                const enableResize = !isReadOnlyView && (!showWebMultiScreen || !isNarrowViewport);
+                const enableResize =
+                  !isReadOnlyView && (!showWebMultiScreen || !isNarrowViewport);
 
                 return (
                   <div
@@ -2351,15 +2416,19 @@ const MaterializeRenderSection = forwardRef<
                     className="bg-accent rounded-xl border border-border overflow-hidden shadow-sm flex flex-col relative"
                     style={{
                       // For multi-screen, use minHeight. For single-screen with manual resize, use explicit dimensions
-                      ...(showWebMultiScreen ? {
-                        minHeight: webFrameHeight,
-                      } : hasManuallyResizedWebFrame ? {
-                        width: webFrameWidth ?? undefined,
-                        height: webFrameHeight,
-                        maxWidth: "100%",
-                      } : {
-                        height: "100%",
-                      }),
+                      ...(showWebMultiScreen
+                        ? {
+                            minHeight: webFrameHeight,
+                          }
+                        : hasManuallyResizedWebFrame
+                          ? {
+                              width: webFrameWidth ?? undefined,
+                              height: webFrameHeight,
+                              maxWidth: "100%",
+                            }
+                          : {
+                              height: "100%",
+                            }),
                     }}
                   >
                     {/* Browser Header */}
@@ -2372,7 +2441,10 @@ const MaterializeRenderSection = forwardRef<
                             onClick={() => handleRemoveWebScreen(screen.id)}
                             aria-label="Close screen"
                           >
-                            <X className="w-1.5 h-1.5 text-transparent group-hover:text-white" strokeWidth={3} />
+                            <X
+                              className="w-1.5 h-1.5 text-transparent group-hover:text-white"
+                              strokeWidth={3}
+                            />
                           </button>
                         ) : (
                           <div className="w-2.5 h-2.5 rounded-full bg-red-500/20 border border-red-500/50"></div>
@@ -2425,13 +2497,13 @@ const MaterializeRenderSection = forwardRef<
                             className={cn(
                               "h-6 px-4 rounded-md bg-background border border-border flex items-center justify-center min-w-[200px] max-w-[400px]",
                               showWebControls &&
-                              showScreenControls &&
-                              "cursor-pointer hover:border-muted-foreground/50",
+                                showScreenControls &&
+                                "cursor-pointer hover:border-muted-foreground/50",
                             )}
                             onClick={
                               showWebControls && showScreenControls
                                 ? () =>
-                                  handleWebBadgeClick(screen.id, screen.path)
+                                    handleWebBadgeClick(screen.id, screen.path)
                                 : undefined
                             }
                           >
@@ -2516,7 +2588,9 @@ const MaterializeRenderSection = forwardRef<
                       <div
                         className="absolute bottom-0 right-0 w-4 h-4 cursor-nwse-resize z-10 group"
                         onMouseDown={(e) => {
-                          const screenEl = e.currentTarget.closest('[class*="bg-accent rounded-xl"]') as HTMLElement;
+                          const screenEl = e.currentTarget.closest(
+                            '[class*="bg-accent rounded-xl"]',
+                          ) as HTMLElement;
                           handleWebFrameCornerResize(e, screenEl);
                         }}
                       >
@@ -2905,7 +2979,7 @@ const MaterializeRenderSection = forwardRef<
                           : githubRepository.html_url
                             ? "View Repository"
                             : githubIntegration.connected &&
-                              currentUserMembership?.role !== "viewer"
+                                currentUserMembership?.role !== "viewer"
                               ? "Create Repository For Project"
                               : "Connect GitHub"}
                       </Button>
@@ -2918,7 +2992,9 @@ const MaterializeRenderSection = forwardRef<
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => handleOpenProjectSettings("deploy", "toolbar_gear")}
+                  onClick={() =>
+                    handleOpenProjectSettings("deploy", "toolbar_gear")
+                  }
                   className="h-8 w-8 p-0 bg-accent border border-border text-muted-foreground hover:text-foreground hover:border-border/80 hover:bg-accent/80 transition-all"
                   title="Project Settings"
                   disabled={!prototypeId}
@@ -2930,7 +3006,9 @@ const MaterializeRenderSection = forwardRef<
               {!isReadOnlyView && (
                 <Button
                   size="sm"
-                  onClick={() => handleOpenProjectSettings("deploy", "toolbar_deploy")}
+                  onClick={() =>
+                    handleOpenProjectSettings("deploy", "toolbar_deploy")
+                  }
                   disabled={isDeploying || !prototypeId}
                   className={cn(
                     "h-8 px-3 text-xs font-semibold shadow-sm",
@@ -3036,7 +3114,9 @@ const MaterializeRenderSection = forwardRef<
                         {isTerminalOpen ? "Hide Terminal" : "Show Terminal"}
                       </DropdownMenuItem>
                       <DropdownMenuItem
-                        onClick={() => handleOpenProjectSettings("deploy", "dropdown")}
+                        onClick={() =>
+                          handleOpenProjectSettings("deploy", "dropdown")
+                        }
                         disabled={!prototypeId}
                         className="sm:hidden focus:bg-accent/80 focus:text-foreground text-muted-foreground text-sm cursor-pointer"
                       >
@@ -3122,8 +3202,9 @@ const MaterializeRenderSection = forwardRef<
           }}
         >
           {/* Floating Add Screen button - top right of canvas */};
-          {!isReadOnlyView && isPreviewView && (
-            isCanvasPreviewEnabled ? (
+          {!isReadOnlyView &&
+            isPreviewView &&
+            (isCanvasPreviewEnabled ? (
               <div className="absolute top-3 right-3 z-20">
                 <Button
                   variant="ghost"
@@ -3139,103 +3220,112 @@ const MaterializeRenderSection = forwardRef<
                   </span>
                 </Button>
               </div>
-            ) : isMultiScreenEnabled && previewMode === "mobile" && (
-              <div className="absolute top-3 right-3 z-20">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleAddMobileScreen}
-                  className="h-8 bg-accent border border-border text-muted-foreground hover:text-foreground hover:border-border/80 hover:bg-accent/80 transition-all"
-                  title="Add another screen"
-                  disabled={!viewing_url}
-                >
-                  <Plus className="h-3.5" />
-                  <span className="hidden md:inline text-xs font-medium">
-                    Add Screen
-                  </span>
-                </Button>
-              </div>
-            )
-          )}
-          {
-            isPreviewView ? (
-              isCanvasPreviewEnabled ? (
-                <PreviewCanvas
-                  ref={canvasRef}
-                  viewingUrl={viewing_url}
-                  previewMode={previewMode}
-                  initialScreens={previewMode === "mobile"
-                    ? (initialScreens || mobileScreens).map(s => ({ id: s.id, path: s.path }))
-                    : (initialWebScreens || webScreens).map(s => ({ id: s.id, path: s.path }))
-                  }
-                  initialCanvasState={initialCanvasState}
-                  onCanvasStateChange={onCanvasStateChange}
-                  onScreensChange={(screens) => {
-                    if (previewMode === "mobile") {
-                      onScreensChange?.(screens.map(s => ({ id: s.id, path: s.path })));
-                    } else {
-                      onWebScreensChange?.(screens.map(s => ({ id: s.id, path: s.path })));
-                    }
-                  }}
-                  readOnly={isReadOnlyView}
-                  availableRoutes={availableRoutes}
-                  onIframeLoad={handleIframeLoad}
-                  onIframeError={handleIframeError}
-                />
-              ) : (
-                renderPreviewContent()
-              )
             ) : (
-              <div className="h-full w-full overflow-hidden bg-accent">
-                {codeView}
-              </div>
-            )
-          }
-        </div >
-
-        {/* Terminal Panel */}
-        {
-          !isReadOnlyView && isTerminalOpen && (
-            <div
-              className="relative border-t border-border bg-background"
-              style={{ height: `${terminalHeight}px` }}
-            >
-              {/* Terminal Header with Resize Handle */}
-              <div
-                className="absolute top-0 left-0 right-0 h-9 bg-accent border-b border-border flex items-center justify-between px-4 cursor-ns-resize hover:bg-accent/80 transition-colors group z-10"
-                onMouseDown={handleTerminalResizeStart}
-              >
-                <div className="flex items-center gap-2">
-                  <TerminalIcon className="w-3.5 h-3.5 text-muted-foreground" />
-                  <span className="text-xs font-medium text-muted-foreground group-hover:text-foreground transition-colors">
-                    Terminal Output
-                  </span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium opacity-0 group-hover:opacity-100 transition-opacity">
-                    Drag to resize
-                  </div>
+              isMultiScreenEnabled &&
+              previewMode === "mobile" && (
+                <div className="absolute top-3 right-3 z-20">
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground hover:bg-accent rounded"
-                    onClick={() => setIsTerminalOpen(false)}
+                    onClick={handleAddMobileScreen}
+                    className="h-8 bg-accent border border-border text-muted-foreground hover:text-foreground hover:border-border/80 hover:bg-accent/80 transition-all"
+                    title="Add another screen"
+                    disabled={!viewing_url}
                   >
-                    <ChevronDown className="w-4 h-4" />
+                    <Plus className="h-3.5" />
+                    <span className="hidden md:inline text-xs font-medium">
+                      Add Screen
+                    </span>
                   </Button>
                 </div>
-              </div>
+              )
+            ))}
+          {isPreviewView ? (
+            isCanvasPreviewEnabled ? (
+              <PreviewCanvas
+                ref={canvasRef}
+                viewingUrl={viewing_url}
+                previewMode={previewMode}
+                initialScreens={
+                  previewMode === "mobile"
+                    ? (initialScreens || mobileScreens).map((s) => ({
+                        id: s.id,
+                        path: s.path,
+                      }))
+                    : (initialWebScreens || webScreens).map((s) => ({
+                        id: s.id,
+                        path: s.path,
+                      }))
+                }
+                initialCanvasState={initialCanvasState}
+                onCanvasStateChange={onCanvasStateChange}
+                onScreensChange={(screens) => {
+                  if (previewMode === "mobile") {
+                    onScreensChange?.(
+                      screens.map((s) => ({ id: s.id, path: s.path })),
+                    );
+                  } else {
+                    onWebScreensChange?.(
+                      screens.map((s) => ({ id: s.id, path: s.path })),
+                    );
+                  }
+                }}
+                readOnly={isReadOnlyView}
+                availableRoutes={availableRoutes}
+                onIframeLoad={handleIframeLoad}
+                onIframeError={handleIframeError}
+              />
+            ) : (
+              renderPreviewContent()
+            )
+          ) : (
+            <div className="h-full w-full overflow-hidden bg-accent">
+              {codeView}
+            </div>
+          )}
+        </div>
 
-              {/* Terminal Content */}
-              <div className="absolute top-9 left-0 right-0 bottom-0 bg-background">
-                <Terminal
-                  className="w-full h-full"
-                  baseTunnelUrl={base_tunnel_url}
-                />
+        {/* Terminal Panel */}
+        {!isReadOnlyView && isTerminalOpen && (
+          <div
+            className="relative border-t border-border bg-background"
+            style={{ height: `${terminalHeight}px` }}
+          >
+            {/* Terminal Header with Resize Handle */}
+            <div
+              className="absolute top-0 left-0 right-0 h-9 bg-accent border-b border-border flex items-center justify-between px-4 cursor-ns-resize hover:bg-accent/80 transition-colors group z-10"
+              onMouseDown={handleTerminalResizeStart}
+            >
+              <div className="flex items-center gap-2">
+                <TerminalIcon className="w-3.5 h-3.5 text-muted-foreground" />
+                <span className="text-xs font-medium text-muted-foreground group-hover:text-foreground transition-colors">
+                  Terminal Output
+                </span>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium opacity-0 group-hover:opacity-100 transition-opacity">
+                  Drag to resize
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground hover:bg-accent rounded"
+                  onClick={() => setIsTerminalOpen(false)}
+                >
+                  <ChevronDown className="w-4 h-4" />
+                </Button>
               </div>
             </div>
-          )
-        }
+
+            {/* Terminal Content */}
+            <div className="absolute top-9 left-0 right-0 bottom-0 bg-background">
+              <Terminal
+                className="w-full h-full"
+                baseTunnelUrl={base_tunnel_url}
+              />
+            </div>
+          </div>
+        )}
 
         {/* Project Settings Modal (unified) */}
         <ProjectSettingsModal
@@ -3266,7 +3356,7 @@ const MaterializeRenderSection = forwardRef<
           viewing_url={viewing_url}
           currentRenderStatus={currentRenderStatus}
         />
-      </div >
+      </div>
     );
   },
 );

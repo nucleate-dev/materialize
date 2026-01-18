@@ -95,13 +95,7 @@ export default function LoginForm() {
         setShowVerifyEmailState(true);
       }
     },
-    [
-      setErrorMessage,
-      router,
-      setShowVerifyEmailState,
-      email,
-      password,
-    ],
+    [setErrorMessage, router, setShowVerifyEmailState, email, password],
   );
 
   const handleOAuthSignIn = useCallback(

@@ -134,15 +134,11 @@ export function TeamUpgradeModal({
           {/* Pricing Breakdown */}
           <div className="rounded-lg bg-muted border border-border p-4 space-y-2">
             <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">
-                Price per seat
-              </span>
+              <span className="text-muted-foreground">Price per seat</span>
               <span className="font-medium">${PRICE_PER_SEAT}/month</span>
             </div>
             <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">
-                Number of seats
-              </span>
+              <span className="text-muted-foreground">Number of seats</span>
               <span className="font-medium">× {seatQuantity}</span>
             </div>
             <div className="border-t border-border pt-2 flex justify-between">
@@ -158,9 +154,7 @@ export function TeamUpgradeModal({
             </p>
             <ul className="text-sm text-muted-foreground space-y-1.5">
               <li className="flex items-start gap-2">
-                <span className="text-success mt-0.5">
-                  ✓
-                </span>
+                <span className="text-success mt-0.5">✓</span>
                 <span>
                   <strong className="text-foreground">
                     {totalCredits.toLocaleString()} credits
@@ -169,29 +163,21 @@ export function TeamUpgradeModal({
                 </span>
               </li>
               <li className="flex items-start gap-2">
-                <span className="text-success mt-0.5">
-                  ✓
-                </span>
+                <span className="text-success mt-0.5">✓</span>
                 <span>Unlimited team members with Viewer roles</span>
               </li>
               <li className="flex items-start gap-2">
-                <span className="text-success mt-0.5">
-                  ✓
-                </span>
+                <span className="text-success mt-0.5">✓</span>
                 <span>
                   Multiple team members with Owner, Admin, and Editor roles
                 </span>
               </li>
               <li className="flex items-start gap-2">
-                <span className="text-success mt-0.5">
-                  ✓
-                </span>
+                <span className="text-success mt-0.5">✓</span>
                 <span>Live collaboration on projects</span>
               </li>
               <li className="flex items-start gap-2">
-                <span className="text-success mt-0.5">
-                  ✓
-                </span>
+                <span className="text-success mt-0.5">✓</span>
                 <span>Priority support</span>
               </li>
             </ul>

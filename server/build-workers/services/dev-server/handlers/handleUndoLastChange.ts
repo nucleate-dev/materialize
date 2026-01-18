@@ -113,13 +113,10 @@ export async function handleUndoLastChangeImpl(
     getCommitMessageResult.response.data?.stdout?.trim() ?? "";
 
   if (commitMessage === "Initialize development server") {
-    request.log2.warn(
-      "Attempted to undo initial development server commit",
-      {
-        prototypeId,
-        commitMessage,
-      },
-    );
+    request.log2.warn("Attempted to undo initial development server commit", {
+      prototypeId,
+      commitMessage,
+    });
     reply.code(400);
     return {
       data: null,

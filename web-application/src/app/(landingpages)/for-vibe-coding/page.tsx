@@ -63,9 +63,9 @@ const PLATFORM_OPTIONS: Array<{
   value: PrototypeFramework;
   label: string;
 }> = [
-    { value: "web_nextjs_react", label: "Web" },
-    { value: "mobile_expo_react_native", label: "Mobile" },
-  ];
+  { value: "web_nextjs_react", label: "Web" },
+  { value: "mobile_expo_react_native", label: "Mobile" },
+];
 
 export default function Home() {
   return (
@@ -139,9 +139,11 @@ function HeroSection() {
   const router = useRouter();
   const { user } = useUser();
   const posthog = usePostHog();
-  const [framework, setFramework] = useState<PrototypeFramework>(DEFAULT_FRAMEWORK);
+  const [framework, setFramework] =
+    useState<PrototypeFramework>(DEFAULT_FRAMEWORK);
 
-  const isWebPrototypeEnabled = posthog?.isFeatureEnabled("web-prototype-support") ?? false;
+  const isWebPrototypeEnabled =
+    posthog?.isFeatureEnabled("web-prototype-support") ?? false;
 
   const handleSend = async () => {
     const content = prompt.trim();
@@ -150,7 +152,11 @@ function HeroSection() {
     setIsLoading(true);
     logger.log({
       event: "client_landing_prompt_submitted",
-      properties: { has_user: Boolean(user?.id), framework, source: "landing_hero" },
+      properties: {
+        has_user: Boolean(user?.id),
+        framework,
+        source: "landing_hero",
+      },
     });
 
     try {
@@ -160,7 +166,10 @@ function HeroSection() {
         return;
       }
 
-      const result = await createPrototype({ framework, creation_source: "landing_prompt" });
+      const result = await createPrototype({
+        framework,
+        creation_source: "landing_prompt",
+      });
 
       if (result.data) {
         setChatIntent(result.data.prototype_id, content, false);
@@ -200,20 +209,46 @@ function HeroSection() {
             </div>
             <div className="px-4 pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-t border-border mt-2 pt-2 bg-accent">
               <div className="flex gap-4 items-center">
-                <span className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold">Try:</span>
-                <button onClick={() => setPrompt("Onboarding flow")} className="text-xs text-muted-foreground hover:text-foreground">Onboarding</button>
-                <button onClick={() => setPrompt("Crypto Dashboard")} className="text-xs text-muted-foreground hover:text-foreground">Dashboard</button>
+                <span className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold">
+                  Try:
+                </span>
+                <button
+                  onClick={() => setPrompt("Onboarding flow")}
+                  className="text-xs text-muted-foreground hover:text-foreground"
+                >
+                  Onboarding
+                </button>
+                <button
+                  onClick={() => setPrompt("Crypto Dashboard")}
+                  className="text-xs text-muted-foreground hover:text-foreground"
+                >
+                  Dashboard
+                </button>
               </div>
               <div className="flex items-center gap-2">
                 {isWebPrototypeEnabled && (
-                  <Select value={framework} onValueChange={(v) => setFramework(v as PrototypeFramework)}>
-                    <SelectTrigger className="h-9 w-32 border-border bg-accent text-xs"><SelectValue /></SelectTrigger>
+                  <Select
+                    value={framework}
+                    onValueChange={(v) => setFramework(v as PrototypeFramework)}
+                  >
+                    <SelectTrigger className="h-9 w-32 border-border bg-accent text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
                     <SelectContent className="bg-card border-border">
-                      {PLATFORM_OPTIONS.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+                      {PLATFORM_OPTIONS.map((o) => (
+                        <SelectItem key={o.value} value={o.value}>
+                          {o.label}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 )}
-                <Button onClick={handleSend} disabled={!prompt.trim() || isLoading} size="sm" className="bg-white text-black hover:bg-white/90">
+                <Button
+                  onClick={handleSend}
+                  disabled={!prompt.trim() || isLoading}
+                  size="sm"
+                  className="bg-white text-black hover:bg-white/90"
+                >
                   {isLoading ? "Generating..." : "Generate"}
                 </Button>
               </div>
@@ -221,7 +256,11 @@ function HeroSection() {
           </div>
         </div>
       </div>
-      <ProPlanUpsellModal open={showUpsellModal} onOpenChange={setShowUpsellModal} reason="prototype_creation_limit_reached" />
+      <ProPlanUpsellModal
+        open={showUpsellModal}
+        onOpenChange={setShowUpsellModal}
+        reason="prototype_creation_limit_reached"
+      />
     </section>
   );
 }
@@ -238,7 +277,8 @@ function BuildYourOwnWaySection() {
             Build your own way
           </h2>
           <p className="text-muted-foreground max-w-xl mx-auto">
-            Choose your platform and bring your own tools for maximum flexibility.
+            Choose your platform and bring your own tools for maximum
+            flexibility.
           </p>
         </div>
 
@@ -250,7 +290,8 @@ function BuildYourOwnWaySection() {
             </div>
             <h3 className="text-lg font-medium mb-2">Web</h3>
             <p className="text-sm text-muted-foreground leading-relaxed">
-              Build responsive web apps with Next.js, React, and modern frameworks.
+              Build responsive web apps with Next.js, React, and modern
+              frameworks.
             </p>
           </div>
 
@@ -272,7 +313,8 @@ function BuildYourOwnWaySection() {
             </div>
             <h3 className="text-lg font-medium mb-2">Shared Design Systems</h3>
             <p className="text-sm text-muted-foreground leading-relaxed">
-              Maintain consistent branding across all platforms with shared components.
+              Maintain consistent branding across all platforms with shared
+              components.
             </p>
           </div>
         </div>
@@ -287,8 +329,18 @@ function BuildYourOwnWaySection() {
             <div className="flex items-start gap-6 flex-1">
               <div className="flex-shrink-0">
                 <div className="w-14 h-14 bg-[#D97757]/20 rounded-xl flex items-center justify-center border border-[#D97757]/30">
-                  <svg viewBox="0 0 24 24" fill="none" className="w-7 h-7 text-[#D97757]" xmlns="http://www.w3.org/2000/svg">
-                    <path fillRule="evenodd" clipRule="evenodd" d="M19.16 4.38H4.84V19.62H19.16V4.38ZM17.72 17.9L12 14.5L6.28 17.9V6.1H17.72V17.9Z" fill="currentColor" />
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    className="w-7 h-7 text-[#D97757]"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path
+                      fillRule="evenodd"
+                      clipRule="evenodd"
+                      d="M19.16 4.38H4.84V19.62H19.16V4.38ZM17.72 17.9L12 14.5L6.28 17.9V6.1H17.72V17.9Z"
+                      fill="currentColor"
+                    />
                   </svg>
                 </div>
               </div>
@@ -297,7 +349,8 @@ function BuildYourOwnWaySection() {
                   Bring your own Claude Code
                 </h3>
                 <p className="text-muted-foreground leading-relaxed max-w-xl">
-                  Already have a Claude Code subscription? Connect it to Nucleate for massive savings.
+                  Already have a Claude Code subscription? Connect it to
+                  Nucleate for massive savings.
                 </p>
               </div>
             </div>
@@ -305,8 +358,12 @@ function BuildYourOwnWaySection() {
             {/* Right side - Stats and benefits */}
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6 lg:gap-8">
               <div className="text-center sm:text-left">
-                <div className="text-3xl md:text-4xl font-bold text-[#D97757] mb-1">1000x</div>
-                <div className="text-xs text-muted-foreground uppercase tracking-wider">more usage</div>
+                <div className="text-3xl md:text-4xl font-bold text-[#D97757] mb-1">
+                  1000x
+                </div>
+                <div className="text-xs text-muted-foreground uppercase tracking-wider">
+                  more usage
+                </div>
               </div>
               <div className="hidden sm:block w-px h-12 bg-border"></div>
               <div className="space-y-2">
@@ -376,10 +433,11 @@ function VariantsSection() {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`px-6 py-3 rounded-full text-sm font-medium flex items-center gap-2 transition-all duration-300 border ${activeTab === tab.id
-                ? "bg-white text-black border-white shadow-[0_0_20px_rgba(255,255,255,0.2)]"
-                : "bg-card/50 text-muted-foreground border-border hover:bg-card hover:text-foreground"
-                }`}
+              className={`px-6 py-3 rounded-full text-sm font-medium flex items-center gap-2 transition-all duration-300 border ${
+                activeTab === tab.id
+                  ? "bg-white text-black border-white shadow-[0_0_20px_rgba(255,255,255,0.2)]"
+                  : "bg-card/50 text-muted-foreground border-border hover:bg-card hover:text-foreground"
+              }`}
             >
               {tab.icon}
               {tab.label}
@@ -493,7 +551,9 @@ function VariantsSection() {
                         <h3 className="text-lg font-semibold text-foreground mb-1">
                           Midnight City
                         </h3>
-                        <p className="text-muted-foreground text-xs mb-4">M83</p>
+                        <p className="text-muted-foreground text-xs mb-4">
+                          M83
+                        </p>
                         <div className="h-1 bg-accent rounded-full overflow-hidden mb-4">
                           <div className="h-full w-2/3 bg-white shadow-[0_0_10px_white]" />
                         </div>
@@ -1132,14 +1192,20 @@ function InfrastructureSection() {
     <section className="py-24 px-6 border-t border-border bg-background">
       <div className="container mx-auto max-w-6xl">
         <div className="text-center mb-20">
-          <Badge variant="outline" className="mb-4 border-primary/20 bg-primary/10 text-primary">
+          <Badge
+            variant="outline"
+            className="mb-4 border-primary/20 bg-primary/10 text-primary"
+          >
             Enterprise Grade
           </Badge>
           <h2 className="text-4xl md:text-5xl lg:text-6xl font-medium tracking-tight mb-6">
-            Everything you need to scale <br /> <span className="text-muted-foreground">Built in.</span>
+            Everything you need to scale <br />{" "}
+            <span className="text-muted-foreground">Built in.</span>
           </h2>
           <p className="text-muted-foreground text-lg max-w-2xl mx-auto leading-relaxed">
-            Stop stitching together platforms. Nucleate gives you enterprise-grade backend infrastructure including hosting, databases, integrations and more.
+            Stop stitching together platforms. Nucleate gives you
+            enterprise-grade backend infrastructure including hosting,
+            databases, integrations and more.
           </p>
         </div>
 
@@ -1149,13 +1215,26 @@ function InfrastructureSection() {
             <div className="relative z-10 flex flex-col h-full">
               <div className="mb-auto">
                 <div className="w-12 h-12 bg-blue-500/10 rounded-xl flex items-center justify-center mb-6 border border-blue-500/20">
-                  <svg className="w-6 h-6 text-blue-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" />
+                  <svg
+                    className="w-6 h-6 text-blue-400"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"
+                    />
                   </svg>
                 </div>
-                <h3 className="text-2xl font-medium mb-3 text-foreground">Integrated with your own database</h3>
+                <h3 className="text-2xl font-medium mb-3 text-foreground">
+                  Integrated with your own database
+                </h3>
                 <p className="text-muted-foreground max-w-md text-sm leading-relaxed">
-                  Connect to your existing database or automatic integration with Supabase with one-click.
+                  Connect to your existing database or automatic integration
+                  with Supabase with one-click.
                 </p>
               </div>
 
@@ -1170,9 +1249,24 @@ function InfrastructureSection() {
                       <span className="flex-1">status</span>
                     </div>
                     {[
-                      { id: "user_2xJ89...", email: "alex@example.com", status: "active", color: "text-emerald-400" },
-                      { id: "user_9kL22...", email: "sarah@design.io", status: "pro", color: "text-purple-400" },
-                      { id: "user_1mN44...", email: "mike@startup.co", status: "offline", color: "text-zinc-500" },
+                      {
+                        id: "user_2xJ89...",
+                        email: "alex@example.com",
+                        status: "active",
+                        color: "text-emerald-400",
+                      },
+                      {
+                        id: "user_9kL22...",
+                        email: "sarah@design.io",
+                        status: "pro",
+                        color: "text-purple-400",
+                      },
+                      {
+                        id: "user_1mN44...",
+                        email: "mike@startup.co",
+                        status: "offline",
+                        color: "text-zinc-500",
+                      },
                     ].map((row, i) => (
                       <motion.div
                         key={i}
@@ -1181,9 +1275,17 @@ function InfrastructureSection() {
                         transition={{ delay: i * 0.1 + 0.2 }}
                         className="flex gap-8 items-center"
                       >
-                        <span className="w-24 text-muted-foreground">{row.id}</span>
-                        <span className="w-32 text-foreground">{row.email}</span>
-                        <span className={`flex-1 ${row.color} px-2 py-0.5 bg-accent rounded w-fit`}>{row.status}</span>
+                        <span className="w-24 text-muted-foreground">
+                          {row.id}
+                        </span>
+                        <span className="w-32 text-foreground">
+                          {row.email}
+                        </span>
+                        <span
+                          className={`flex-1 ${row.color} px-2 py-0.5 bg-accent rounded w-fit`}
+                        >
+                          {row.status}
+                        </span>
                       </motion.div>
                     ))}
                     <motion.div
@@ -1204,9 +1306,12 @@ function InfrastructureSection() {
               <div className="w-12 h-12 bg-emerald-500/10 rounded-xl flex items-center justify-center mb-6 border border-emerald-500/20">
                 <ShieldCheck className="w-6 h-6 text-emerald-400" />
               </div>
-              <h3 className="text-xl font-medium mb-3 text-foreground">Auth & User Management</h3>
+              <h3 className="text-xl font-medium mb-3 text-foreground">
+                Auth & User Management
+              </h3>
               <p className="text-muted-foreground text-sm leading-relaxed mb-8">
-                Enterprise-ready authentication with social logins, MFA, and user management built-in.
+                Enterprise-ready authentication with social logins, MFA, and
+                user management built-in.
               </p>
 
               <div className="mt-auto relative">
@@ -1219,14 +1324,22 @@ function InfrastructureSection() {
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <div className="h-8 w-full bg-accent rounded border border-border flex items-center px-3 text-[10px] text-muted-foreground">Sign in with Google</div>
-                    <div className="h-8 w-full bg-accent rounded border border-border flex items-center px-3 text-[10px] text-muted-foreground">Sign in with GitHub</div>
+                    <div className="h-8 w-full bg-accent rounded border border-border flex items-center px-3 text-[10px] text-muted-foreground">
+                      Sign in with Google
+                    </div>
+                    <div className="h-8 w-full bg-accent rounded border border-border flex items-center px-3 text-[10px] text-muted-foreground">
+                      Sign in with GitHub
+                    </div>
                   </div>
                 </div>
                 {/* Floating Elements */}
                 <motion.div
                   animate={{ y: [0, -10, 0] }}
-                  transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+                  transition={{
+                    duration: 4,
+                    repeat: Infinity,
+                    ease: "easeInOut",
+                  }}
                   className="absolute -top-6 -right-2 bg-[#1A1B1E] p-2 rounded-lg border border-emerald-500/30 text-emerald-400 shadow-xl"
                 >
                   <CheckCircle2 className="w-4 h-4" />
@@ -1242,8 +1355,12 @@ function InfrastructureSection() {
             <div className="flex flex-col h-full justify-between relative z-10">
               <div className="flex justify-between items-start">
                 <div>
-                  <h3 className="text-lg font-medium text-foreground mb-1">Global Edge Hosting</h3>
-                  <p className="text-muted-foreground text-xs">Deploy instantly to 35+ regions</p>
+                  <h3 className="text-lg font-medium text-foreground mb-1">
+                    Global Edge Hosting
+                  </h3>
+                  <p className="text-muted-foreground text-xs">
+                    Deploy instantly to 35+ regions
+                  </p>
                 </div>
                 <div className="h-8 w-8 rounded-full bg-green-500/20 flex items-center justify-center">
                   <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
@@ -1252,13 +1369,16 @@ function InfrastructureSection() {
 
               <div className="mt-6 flex gap-2">
                 <div className="px-3 py-1.5 rounded-full bg-accent border border-border text-[10px] text-muted-foreground flex items-center gap-2">
-                  <span className="w-1.5 h-1.5 rounded-full bg-green-500" /> us-east
+                  <span className="w-1.5 h-1.5 rounded-full bg-green-500" />{" "}
+                  us-east
                 </div>
                 <div className="px-3 py-1.5 rounded-full bg-accent border border-border text-[10px] text-muted-foreground flex items-center gap-2">
-                  <span className="w-1.5 h-1.5 rounded-full bg-green-500" /> eu-west
+                  <span className="w-1.5 h-1.5 rounded-full bg-green-500" />{" "}
+                  eu-west
                 </div>
                 <div className="px-3 py-1.5 rounded-full bg-accent border border-border text-[10px] text-muted-foreground flex items-center gap-2">
-                  <span className="w-1.5 h-1.5 rounded-full bg-green-500" /> asia-pac
+                  <span className="w-1.5 h-1.5 rounded-full bg-green-500" />{" "}
+                  asia-pac
                 </div>
               </div>
             </div>
@@ -1269,13 +1389,24 @@ function InfrastructureSection() {
           <div className="md:col-span-4 md:row-span-1 bg-card border border-border rounded-3xl p-8 relative overflow-hidden group hover:border-border transition-all flex items-center gap-6">
             <div className="relative w-20 h-20 shrink-0">
               <svg className="w-full h-full -rotate-90">
-                <circle cx="40" cy="40" r="36" stroke="currentColor" strokeWidth="6" className="text-accent" fill="none" />
+                <circle
+                  cx="40"
+                  cy="40"
+                  r="36"
+                  stroke="currentColor"
+                  strokeWidth="6"
+                  className="text-accent"
+                  fill="none"
+                />
                 <motion.circle
                   initial={{ pathLength: 0 }}
                   whileInView={{ pathLength: 1 }}
                   transition={{ duration: 1.5, ease: "easeOut" }}
-                  cx="40" cy="40" r="36"
-                  stroke="#3B82F6" strokeWidth="6"
+                  cx="40"
+                  cy="40"
+                  r="36"
+                  stroke="#3B82F6"
+                  strokeWidth="6"
                   fill="none"
                   strokeDasharray="1000"
                   strokeLinecap="round"
@@ -1286,9 +1417,12 @@ function InfrastructureSection() {
               </div>
             </div>
             <div>
-              <h3 className="text-lg font-medium text-foreground mb-1">Perfect SEO</h3>
+              <h3 className="text-lg font-medium text-foreground mb-1">
+                Perfect SEO
+              </h3>
               <p className="text-muted-foreground text-xs leading-relaxed">
-                Server-side rendering and automatic meta tags ensure you rank #1.
+                Server-side rendering and automatic meta tags ensure you rank
+                #1.
               </p>
             </div>
           </div>
@@ -1298,13 +1432,16 @@ function InfrastructureSection() {
             <div className="absolute inset-0 bg-gradient-to-b from-primary/5 to-transparent" />
             <BarChart3 className="w-10 h-10 text-primary mx-auto mb-3" />
             <h3 className="text-foreground font-medium">Built-in Analytics</h3>
-            <p className="text-muted-foreground text-xs mt-1">Privacy focused</p>
+            <p className="text-muted-foreground text-xs mt-1">
+              Privacy focused
+            </p>
           </div>
         </div>
 
         <div className="mt-20 pt-10 border-t border-border text-center">
           <p className="text-lg font-medium text-muted-foreground max-w-2xl mx-auto">
-            Nucleate gives you everything you need inside one familiar interface—no extra accounts, no steep learning curve.
+            Nucleate gives you everything you need inside one familiar
+            interface—no extra accounts, no steep learning curve.
           </p>
         </div>
       </div>
@@ -1321,10 +1458,14 @@ function AgentsSection() {
       <div className="container mx-auto max-w-6xl">
         <div className="text-center mb-16">
           <h2 className="text-4xl md:text-6xl font-medium tracking-tight mb-4">
-            Empowering product builders <br /> <span className="text-muted-foreground">with the most powerful coding agents</span>
+            Empowering product builders <br />{" "}
+            <span className="text-muted-foreground">
+              with the most powerful coding agents
+            </span>
           </h2>
           <p className="text-muted-foreground max-w-2xl mx-auto">
-            Nucleate does the heavy lifting for you, so you can focus on your vision instead of fighting errors.
+            Nucleate does the heavy lifting for you, so you can focus on your
+            vision instead of fighting errors.
           </p>
         </div>
 
@@ -1332,24 +1473,50 @@ function AgentsSection() {
           {/* Agent Switcher */}
           <div className="bg-card border border-border rounded-3xl p-8 flex flex-col md:flex-row gap-8 items-center">
             <div className="flex-1">
-              <h3 className="text-lg font-medium mb-3">Always the best, without switching tools</h3>
+              <h3 className="text-lg font-medium mb-3">
+                Always the best, without switching tools
+              </h3>
               <p className="text-sm text-muted-foreground leading-relaxed">
-                Nucleate integrates the frontier coding agents from the AI labs directly inside one familiar visual interface.
-                No more AI anxiety or juggling multiple platforms.
+                Nucleate integrates the frontier coding agents from the AI labs
+                directly inside one familiar visual interface. No more AI
+                anxiety or juggling multiple platforms.
               </p>
             </div>
             <div className="w-full md:w-64 bg-background/40 border border-border rounded-2xl p-2 space-y-1">
               <div className="flex items-center justify-between p-3 bg-accent rounded-xl border border-border">
                 <div className="flex items-center gap-3">
                   <div className="w-6 h-6 bg-[#D97757]/20 rounded flex items-center justify-center">
-                    <svg viewBox="0 0 24 24" fill="none" className="w-3.5 h-3.5 text-[#D97757]" xmlns="http://www.w3.org/2000/svg">
-                      <path d="M17.5 19C19.9853 19 22 16.9853 22 14.5C22 12.132 20.177 10.211 17.86 10.015C17.472 6.64 14.628 4 11.12 4C7.23 4 4.09 6.84 3.56 10.6C1.55 11.16 0 13.06 0 15.5C0 18.5376 2.46243 21 5.5 21H17.5C19.9853 21 22 18.9853 22 16.5C22 14.0147 19.9853 12 17.5 12" fill="currentColor" fillOpacity="0" />
-                      <path d="M12 4C14 4 15.8 4.8 17 6.1C18.2 4.8 20 4 22 4C24.2 4 26 5.8 26 8C26 10.2 24.2 12 22 12C21.4 12 20.8 11.9 20.3 11.7C19.8 13.6 18.1 15 16 15H8C5.8 15 4 13.2 4 11C4 8.8 5.8 7 8 7C8.6 7 9.1 7.1 9.6 7.4C10.2 5.4 12 4 14 4" fill="currentColor" style={{ display: 'none' }} />
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      className="w-3.5 h-3.5 text-[#D97757]"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <path
+                        d="M17.5 19C19.9853 19 22 16.9853 22 14.5C22 12.132 20.177 10.211 17.86 10.015C17.472 6.64 14.628 4 11.12 4C7.23 4 4.09 6.84 3.56 10.6C1.55 11.16 0 13.06 0 15.5C0 18.5376 2.46243 21 5.5 21H17.5C19.9853 21 22 18.9853 22 16.5C22 14.0147 19.9853 12 17.5 12"
+                        fill="currentColor"
+                        fillOpacity="0"
+                      />
+                      <path
+                        d="M12 4C14 4 15.8 4.8 17 6.1C18.2 4.8 20 4 22 4C24.2 4 26 5.8 26 8C26 10.2 24.2 12 22 12C21.4 12 20.8 11.9 20.3 11.7C19.8 13.6 18.1 15 16 15H8C5.8 15 4 13.2 4 11C4 8.8 5.8 7 8 7C8.6 7 9.1 7.1 9.6 7.4C10.2 5.4 12 4 14 4"
+                        fill="currentColor"
+                        style={{ display: "none" }}
+                      />
                       <g transform="translate(4,4) scale(0.66)">
-                        <path fillRule="evenodd" clipRule="evenodd" d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM4.5 9.5H19.5V14.5H4.5V9.5Z" fill="currentColor" />
+                        <path
+                          fillRule="evenodd"
+                          clipRule="evenodd"
+                          d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM4.5 9.5H19.5V14.5H4.5V9.5Z"
+                          fill="currentColor"
+                        />
                       </g>
                       {/* Anthropic Logo Reconstruction */}
-                      <path fillRule="evenodd" clipRule="evenodd" d="M19.16 4.38H4.84V19.62H19.16V4.38ZM17.72 17.9L12 14.5L6.28 17.9V6.1H17.72V17.9Z" fill="currentColor" />
+                      <path
+                        fillRule="evenodd"
+                        clipRule="evenodd"
+                        d="M19.16 4.38H4.84V19.62H19.16V4.38ZM17.72 17.9L12 14.5L6.28 17.9V6.1H17.72V17.9Z"
+                        fill="currentColor"
+                      />
                     </svg>
                   </div>
                   <span className="text-sm">Claude Code</span>
@@ -1358,25 +1525,51 @@ function AgentsSection() {
               <div className="flex items-center justify-between p-3 opacity-40">
                 <div className="flex items-center gap-3">
                   <div className="w-6 h-6 bg-accent rounded flex items-center justify-center">
-                    <svg viewBox="0 0 24 24" fill="none" className="w-3.5 h-3.5 text-foreground" xmlns="http://www.w3.org/2000/svg">
-                      <path d="M22.28 9.82a5.98 5.98 0 0 0-.51-4.91 6.05 6.05 0 0 0-6.51-2.9A6.06 6.06 0 0 0 4.98 4.18a5.98 5.98 0 0 0-4 2.9 6.05 6.05 0 0 0 .74 7.1 5.98 5.98 0 0 0 .51 4.91 6.05 6.05 0 0 0 6.51 2.9 6.06 6.06 0 0 0 10.29-2.18 5.98 5.98 0 0 0 4-2.9 6.05 6.05 0 0 0-.75-7.1Zm-9 11.23a4.05 4.05 0 0 1-3.6-2.31l.14-.14 3.42-5.91h2.93l-2.07 7.7a4.07 4.07 0 0 1-.82.66Zm5.94-3.58a4.06 4.06 0 0 1-3.37 1.25l-2.07-7.7 5.09-2.93.9 3.06a4.07 4.07 0 0 1-.55 6.32Zm-4.82-13.3a4.05 4.05 0 0 1 3.6 2.31l-.14.15-3.42 5.9h-2.93l2.08-7.7a4.07 4.07 0 0 1 .81-.66Zm-5.94 3.58a4.06 4.06 0 0 1 3.37-1.25l2.07 7.7-5.09 2.93-.9-3.06a4.07 4.07 0 0 1 .55-6.32ZM3.1 11.45A4.06 4.06 0 0 1 8.24 9l-2.07 7.7h-3.95l-.15-.43a4.07 4.07 0 0 1 1.03-4.82Zm17.8 1.1a4.06 4.06 0 0 1-5.14 2.44l2.07-7.7h3.95l.15.43a4.07 4.07 0 0 1-1.03 4.83Z" fill="currentColor" />
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      className="w-3.5 h-3.5 text-foreground"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <path
+                        d="M22.28 9.82a5.98 5.98 0 0 0-.51-4.91 6.05 6.05 0 0 0-6.51-2.9A6.06 6.06 0 0 0 4.98 4.18a5.98 5.98 0 0 0-4 2.9 6.05 6.05 0 0 0 .74 7.1 5.98 5.98 0 0 0 .51 4.91 6.05 6.05 0 0 0 6.51 2.9 6.06 6.06 0 0 0 10.29-2.18 5.98 5.98 0 0 0 4-2.9 6.05 6.05 0 0 0-.75-7.1Zm-9 11.23a4.05 4.05 0 0 1-3.6-2.31l.14-.14 3.42-5.91h2.93l-2.07 7.7a4.07 4.07 0 0 1-.82.66Zm5.94-3.58a4.06 4.06 0 0 1-3.37 1.25l-2.07-7.7 5.09-2.93.9 3.06a4.07 4.07 0 0 1-.55 6.32Zm-4.82-13.3a4.05 4.05 0 0 1 3.6 2.31l-.14.15-3.42 5.9h-2.93l2.08-7.7a4.07 4.07 0 0 1 .81-.66Zm-5.94 3.58a4.06 4.06 0 0 1 3.37-1.25l2.07 7.7-5.09 2.93-.9-3.06a4.07 4.07 0 0 1 .55-6.32ZM3.1 11.45A4.06 4.06 0 0 1 8.24 9l-2.07 7.7h-3.95l-.15-.43a4.07 4.07 0 0 1 1.03-4.82Zm17.8 1.1a4.06 4.06 0 0 1-5.14 2.44l2.07-7.7h3.95l.15.43a4.07 4.07 0 0 1-1.03 4.83Z"
+                        fill="currentColor"
+                      />
                     </svg>
                   </div>
                   <span className="text-sm">Codex</span>
                 </div>
-                <span className="text-[10px] uppercase font-bold text-muted-foreground">coming soon</span>
+                <span className="text-[10px] uppercase font-bold text-muted-foreground">
+                  coming soon
+                </span>
               </div>
               <div className="flex items-center justify-between p-3 opacity-40">
                 <div className="flex items-center gap-3">
                   <div className="w-6 h-6 bg-blue-500/20 rounded flex items-center justify-center">
-                    <svg viewBox="0 0 24 24" fill="none" className="w-3.5 h-3.5 text-blue-400" xmlns="http://www.w3.org/2000/svg">
-                      <path d="M12 2L14.4 9.6C14.7 10.5 15.5 11.3 16.4 11.6L24 14L16.4 16.4C15.5 16.7 14.7 17.5 14.4 18.4L12 26L9.6 18.4C9.3 17.5 8.5 16.7 7.6 16.4L0 14L7.6 11.6C8.5 11.3 9.3 10.5 9.6 9.6L12 2Z" fill="currentColor" transform="translate(0, -2) scale(0.9)" />
-                      <path d="M18 18L19.2 21.6C19.35 22.05 19.95 22.05 20.1 21.6L21.3 18L24.9 16.8C25.35 16.65 25.35 16.05 24.9 15.9L21.3 14.7L20.1 11.1C19.95 10.65 19.35 10.65 19.2 11.1L18 14.7L14.4 15.9C13.95 16.05 13.95 16.65 14.4 16.8L18 18Z" fill="currentColor" transform="translate(0, 0) scale(0.8)" opacity="0.6" />
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      className="w-3.5 h-3.5 text-blue-400"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <path
+                        d="M12 2L14.4 9.6C14.7 10.5 15.5 11.3 16.4 11.6L24 14L16.4 16.4C15.5 16.7 14.7 17.5 14.4 18.4L12 26L9.6 18.4C9.3 17.5 8.5 16.7 7.6 16.4L0 14L7.6 11.6C8.5 11.3 9.3 10.5 9.6 9.6L12 2Z"
+                        fill="currentColor"
+                        transform="translate(0, -2) scale(0.9)"
+                      />
+                      <path
+                        d="M18 18L19.2 21.6C19.35 22.05 19.95 22.05 20.1 21.6L21.3 18L24.9 16.8C25.35 16.65 25.35 16.05 24.9 15.9L21.3 14.7L20.1 11.1C19.95 10.65 19.35 10.65 19.2 11.1L18 14.7L14.4 15.9C13.95 16.05 13.95 16.65 14.4 16.8L18 18Z"
+                        fill="currentColor"
+                        transform="translate(0, 0) scale(0.8)"
+                        opacity="0.6"
+                      />
                     </svg>
                   </div>
                   <span className="text-sm">Gemini</span>
                 </div>
-                <span className="text-[10px] uppercase font-bold text-muted-foreground">coming soon</span>
+                <span className="text-[10px] uppercase font-bold text-muted-foreground">
+                  coming soon
+                </span>
               </div>
             </div>
           </div>
@@ -1385,16 +1578,23 @@ function AgentsSection() {
           <div className="grid md:grid-cols-2 gap-6">
             <div className="bg-card border border-border rounded-3xl p-8 flex flex-col items-center justify-center text-center">
               <span className="text-6xl font-bold mb-2">98%</span>
-              <span className="text-sm text-muted-foreground uppercase font-bold tracking-widest mb-4">less errors</span>
+              <span className="text-sm text-muted-foreground uppercase font-bold tracking-widest mb-4">
+                less errors
+              </span>
               <p className="text-sm text-muted-foreground max-w-sm leading-relaxed">
-                Nucleate automatically tests, refactors, and iterates reducing errors so you keep building instead of fixing.
+                Nucleate automatically tests, refactors, and iterates reducing
+                errors so you keep building instead of fixing.
               </p>
             </div>
             <div className="bg-card border border-border rounded-3xl p-8 flex flex-col relative overflow-hidden min-h-[300px]">
               <div className="relative z-10 mb-8">
-                <h3 className="text-lg font-bold text-foreground mb-3">Build big without breaking</h3>
+                <h3 className="text-lg font-bold text-foreground mb-3">
+                  Build big without breaking
+                </h3>
                 <p className="text-sm text-muted-foreground leading-relaxed">
-                  Nucleate handles projects 1,000 times larger than before. Its improved built-in context management can handle complexity and keep your projects running smoothly.
+                  Nucleate handles projects 1,000 times larger than before. Its
+                  improved built-in context management can handle complexity and
+                  keep your projects running smoothly.
                 </p>
               </div>
 
@@ -1403,7 +1603,9 @@ function AgentsSection() {
               <div className="absolute bottom-0 left-4 right-4 h-48 opacity-50 flex gap-2 transform translate-y-12">
                 <div className="flex-1 bg-accent border border-border rounded-t-lg"></div>
                 <div className="flex-[2] bg-accent border border-border rounded-t-lg relative flex items-center justify-center">
-                  <span className="text-5xl font-bold text-muted-foreground">1000x</span>
+                  <span className="text-5xl font-bold text-muted-foreground">
+                    1000x
+                  </span>
                 </div>
                 <div className="flex-1 bg-accent border border-border rounded-t-lg"></div>
               </div>
@@ -1419,8 +1621,13 @@ function AgentsSection() {
               <div className="w-2 h-2 rounded-full bg-pink-500"></div>
               <div className="w-2 h-2 rounded-full bg-purple-500"></div>
             </div>
-            <h3 className="text-3xl font-medium mb-4">Build with <span className="text-primary">your</span> design system</h3>
-            <p className="text-muted-foreground">Stop building from scratch. Start building on-brand.</p>
+            <h3 className="text-3xl font-medium mb-4">
+              Build with <span className="text-primary">your</span> design
+              system
+            </h3>
+            <p className="text-muted-foreground">
+              Stop building from scratch. Start building on-brand.
+            </p>
           </div>
 
           <div className="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-8 items-center opacity-80 group-hover:opacity-100 transition-opacity">
@@ -1435,10 +1642,12 @@ function AgentsSection() {
                 </div>
               </div>
               <div className="p-4 bg-accent rounded-xl border border-border text-xs font-mono text-muted-foreground">
-                .button {'{'} <br />
-                &nbsp;&nbsp;radius: 12px;<br />
-                &nbsp;&nbsp;shadow: var(--lg);<br />
-                {'}'}
+                .button {"{"} <br />
+                &nbsp;&nbsp;radius: 12px;
+                <br />
+                &nbsp;&nbsp;shadow: var(--lg);
+                <br />
+                {"}"}
               </div>
             </div>
             <div className="flex justify-center gap-4">
@@ -1468,13 +1677,17 @@ function TeamsSection() {
         <div className="text-center mb-16">
           <div className="inline-flex items-center gap-2 mb-6 px-3 py-1.5 bg-accent border border-border rounded-full">
             <Users className="w-3.5 h-3.5 text-primary" />
-            <span className="text-xs font-medium text-muted-foreground uppercase tracking-widest">Built for Teams</span>
+            <span className="text-xs font-medium text-muted-foreground uppercase tracking-widest">
+              Built for Teams
+            </span>
           </div>
           <h2 className="text-4xl md:text-6xl font-medium tracking-tight mb-4">
-            Build together <span className="text-muted-foreground">in real-time</span>
+            Build together{" "}
+            <span className="text-muted-foreground">in real-time</span>
           </h2>
           <p className="text-muted-foreground max-w-2xl mx-auto">
-            Live collaboration, shared design systems, and internal tools for teams of any size.
+            Live collaboration, shared design systems, and internal tools for
+            teams of any size.
           </p>
         </div>
 
@@ -1482,23 +1695,32 @@ function TeamsSection() {
           {/* Live Collaboration Card */}
           <div className="bg-card border border-border rounded-3xl p-8 relative overflow-hidden group hover:border-primary/30 transition-colors">
             <div className="relative z-10 mb-8">
-              <h3 className="text-lg font-bold text-foreground mb-3">Real-time collaboration</h3>
+              <h3 className="text-lg font-bold text-foreground mb-3">
+                Real-time collaboration
+              </h3>
               <p className="text-sm text-muted-foreground leading-relaxed">
-                See teammates&apos; cursors, chat in-context, and build together simultaneously.
+                See teammates&apos; cursors, chat in-context, and build together
+                simultaneously.
               </p>
             </div>
             {/* Visual: Multiple cursors with avatars */}
             <div className="relative h-32">
               <div className="absolute left-8 top-4 flex items-center gap-1">
-                <div className="w-5 h-5 rounded-full bg-indigo-500 flex items-center justify-center text-[10px] font-bold text-white">S</div>
+                <div className="w-5 h-5 rounded-full bg-indigo-500 flex items-center justify-center text-[10px] font-bold text-white">
+                  S
+                </div>
                 <div className="w-0 h-0 border-l-[6px] border-l-indigo-500 border-y-[4px] border-y-transparent"></div>
               </div>
               <div className="absolute right-12 top-12 flex items-center gap-1">
-                <div className="w-5 h-5 rounded-full bg-pink-500 flex items-center justify-center text-[10px] font-bold text-white">A</div>
+                <div className="w-5 h-5 rounded-full bg-pink-500 flex items-center justify-center text-[10px] font-bold text-white">
+                  A
+                </div>
                 <div className="w-0 h-0 border-l-[6px] border-l-pink-500 border-y-[4px] border-y-transparent"></div>
               </div>
               <div className="absolute left-1/3 bottom-4 flex items-center gap-1">
-                <div className="w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center text-[10px] font-bold text-white">M</div>
+                <div className="w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center text-[10px] font-bold text-white">
+                  M
+                </div>
                 <div className="w-0 h-0 border-l-[6px] border-l-emerald-500 border-y-[4px] border-y-transparent"></div>
               </div>
               {/* Chat bubble */}
@@ -1516,9 +1738,12 @@ function TeamsSection() {
           {/* Shared Design Systems Card */}
           <div className="bg-card border border-border rounded-3xl p-8 relative overflow-hidden group hover:border-purple-500/30 transition-colors">
             <div className="relative z-10 mb-8">
-              <h3 className="text-lg font-bold text-foreground mb-3">One design system, every project</h3>
+              <h3 className="text-lg font-bold text-foreground mb-3">
+                One design system, every project
+              </h3>
               <p className="text-sm text-muted-foreground leading-relaxed">
-                Create and share component libraries, color palettes, and typography across your team&apos;s projects.
+                Create and share component libraries, color palettes, and
+                typography across your team&apos;s projects.
               </p>
             </div>
             {/* Visual: Design system components */}
@@ -1540,7 +1765,9 @@ function TeamsSection() {
                 <span className="text-xs text-muted-foreground">Card</span>
               </div>
               <div className="mt-4 w-full text-center">
-                <span className="text-xs text-muted-foreground">Shared across 12 projects</span>
+                <span className="text-xs text-muted-foreground">
+                  Shared across 12 projects
+                </span>
               </div>
             </div>
           </div>
@@ -1548,29 +1775,42 @@ function TeamsSection() {
           {/* Internal Tools Card */}
           <div className="bg-card border border-border rounded-3xl p-8 relative overflow-hidden group hover:border-emerald-500/30 transition-colors">
             <div className="relative z-10 mb-8">
-              <h3 className="text-lg font-bold text-foreground mb-3">Internal tools in minutes</h3>
+              <h3 className="text-lg font-bold text-foreground mb-3">
+                Internal tools in minutes
+              </h3>
               <p className="text-sm text-muted-foreground leading-relaxed">
-                Build dashboards, admin panels, and workflows for your team without engineering sprints.
+                Build dashboards, admin panels, and workflows for your team
+                without engineering sprints.
               </p>
             </div>
             {/* Visual: Admin dashboard mockup */}
             <div className="bg-background/40 border border-border rounded-xl p-4">
               <div className="flex items-center gap-2 mb-4">
-                <div className="px-2 py-0.5 bg-emerald-500/20 text-emerald-400 text-[10px] font-bold rounded">INTERNAL</div>
-                <span className="text-xs text-muted-foreground">Team Dashboard</span>
+                <div className="px-2 py-0.5 bg-emerald-500/20 text-emerald-400 text-[10px] font-bold rounded">
+                  INTERNAL
+                </div>
+                <span className="text-xs text-muted-foreground">
+                  Team Dashboard
+                </span>
               </div>
               <div className="grid grid-cols-3 gap-2">
                 <div className="bg-accent rounded p-2">
                   <div className="text-lg font-bold text-foreground">248</div>
-                  <div className="text-[10px] text-muted-foreground">Active users</div>
+                  <div className="text-[10px] text-muted-foreground">
+                    Active users
+                  </div>
                 </div>
                 <div className="bg-accent rounded p-2">
                   <div className="text-lg font-bold text-foreground">12</div>
-                  <div className="text-[10px] text-muted-foreground">Projects</div>
+                  <div className="text-[10px] text-muted-foreground">
+                    Projects
+                  </div>
                 </div>
                 <div className="bg-accent rounded p-2">
                   <div className="text-lg font-bold text-foreground">99%</div>
-                  <div className="text-[10px] text-muted-foreground">Uptime</div>
+                  <div className="text-[10px] text-muted-foreground">
+                    Uptime
+                  </div>
                 </div>
               </div>
             </div>
@@ -1579,15 +1819,20 @@ function TeamsSection() {
           {/* Team Management Card */}
           <div className="bg-card border border-border rounded-3xl p-8 relative overflow-hidden group hover:border-blue-500/30 transition-colors">
             <div className="relative z-10 mb-8">
-              <h3 className="text-lg font-bold text-foreground mb-3">Scale from 2 to 200</h3>
+              <h3 className="text-lg font-bold text-foreground mb-3">
+                Scale from 2 to 200
+              </h3>
               <p className="text-sm text-muted-foreground leading-relaxed">
-                Workspaces, permissions, SSO, and audit logs. Enterprise-ready from day one.
+                Workspaces, permissions, SSO, and audit logs. Enterprise-ready
+                from day one.
               </p>
             </div>
             {/* Visual: Team members with roles */}
             <div className="space-y-3">
               <div className="flex items-center gap-3 bg-accent border border-border rounded-lg p-3">
-                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-purple-500 flex items-center justify-center text-xs font-bold text-white">JD</div>
+                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-purple-500 flex items-center justify-center text-xs font-bold text-white">
+                  JD
+                </div>
                 <div className="flex-1">
                   <div className="text-sm text-foreground">Jane Doe</div>
                   <div className="text-[10px] text-muted-foreground">Owner</div>
@@ -1595,16 +1840,22 @@ function TeamsSection() {
                 <ShieldCheck className="w-4 h-4 text-primary" />
               </div>
               <div className="flex items-center gap-3 bg-accent border border-border rounded-lg p-3">
-                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-pink-500 to-orange-500 flex items-center justify-center text-xs font-bold text-white">AS</div>
+                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-pink-500 to-orange-500 flex items-center justify-center text-xs font-bold text-white">
+                  AS
+                </div>
                 <div className="flex-1">
                   <div className="text-sm text-foreground">Alex Smith</div>
                   <div className="text-[10px] text-muted-foreground">Admin</div>
                 </div>
               </div>
               <div className="flex items-center gap-3 bg-accent border border-border rounded-lg p-3 opacity-60">
-                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center text-xs font-bold text-white">+5</div>
+                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center text-xs font-bold text-white">
+                  +5
+                </div>
                 <div className="flex-1">
-                  <div className="text-sm text-muted-foreground">5 more members...</div>
+                  <div className="text-sm text-muted-foreground">
+                    5 more members...
+                  </div>
                 </div>
               </div>
             </div>
@@ -1623,12 +1874,36 @@ function TeamsSection() {
  */
 function UseCasesSection() {
   const categories = [
-    { label: "Landing page", icon: <Layout className="w-4 h-4 text-pink-500" />, color: "from-pink-500/20" },
-    { label: "Dashboard", icon: <BarChart3 className="w-4 h-4 text-blue-500" />, color: "from-blue-500/20" },
-    { label: "Mobile", icon: <Smartphone className="w-4 h-4 text-orange-500" />, color: "from-orange-500/20" },
-    { label: "Portfolio", icon: <Palette className="w-4 h-4 text-teal-500" />, color: "from-teal-500/20" },
-    { label: "E-commerce", icon: <ShoppingBag className="w-4 h-4 text-purple-500" />, color: "from-purple-500/20" },
-    { label: "Productivity", icon: <Zap className="w-4 h-4 text-yellow-500" />, color: "from-yellow-500/20" },
+    {
+      label: "Landing page",
+      icon: <Layout className="w-4 h-4 text-pink-500" />,
+      color: "from-pink-500/20",
+    },
+    {
+      label: "Dashboard",
+      icon: <BarChart3 className="w-4 h-4 text-blue-500" />,
+      color: "from-blue-500/20",
+    },
+    {
+      label: "Mobile",
+      icon: <Smartphone className="w-4 h-4 text-orange-500" />,
+      color: "from-orange-500/20",
+    },
+    {
+      label: "Portfolio",
+      icon: <Palette className="w-4 h-4 text-teal-500" />,
+      color: "from-teal-500/20",
+    },
+    {
+      label: "E-commerce",
+      icon: <ShoppingBag className="w-4 h-4 text-purple-500" />,
+      color: "from-purple-500/20",
+    },
+    {
+      label: "Productivity",
+      icon: <Zap className="w-4 h-4 text-yellow-500" />,
+      color: "from-yellow-500/20",
+    },
   ];
 
   return (
@@ -1636,10 +1911,14 @@ function UseCasesSection() {
       <div className="container mx-auto max-w-6xl">
         <div className="text-center mb-20">
           <h2 className="text-4xl md:text-6xl font-medium tracking-tight mb-6">
-            Whatever your role <br /> <span className="text-muted-foreground">Nucleate gives you superpowers</span>
+            Whatever your role <br />{" "}
+            <span className="text-muted-foreground">
+              Nucleate gives you superpowers
+            </span>
           </h2>
           <p className="text-muted-foreground text-lg max-w-2xl mx-auto leading-relaxed">
-            From idea to live product, Nucleate adapts to the way you work turning every vision into something real & fast.
+            From idea to live product, Nucleate adapts to the way you work
+            turning every vision into something real & fast.
           </p>
         </div>
 
@@ -1700,7 +1979,7 @@ function UseCasesSection() {
                       className="w-20 h-28 bg-card border border-border rounded-xl shadow-lg relative flex flex-col items-center justify-center p-2"
                       style={{
                         transform: `rotate(${i % 2 === 0 ? 0 : 3}deg) translateY(${i % 2 === 0 ? 0 : -5}px)`,
-                        zIndex: i
+                        zIndex: i,
                       }}
                     >
                       <div className="w-8 h-8 rounded-full bg-accent mb-3" />
@@ -1719,7 +1998,9 @@ function UseCasesSection() {
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
                     <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
                   </span>
-                  <span className="text-xs text-muted-foreground font-mono tracking-wide">3 PROJECTS SHIPPED</span>
+                  <span className="text-xs text-muted-foreground font-mono tracking-wide">
+                    3 PROJECTS SHIPPED
+                  </span>
                 </div>
               </div>
             }
@@ -1736,7 +2017,9 @@ function UseCasesSection() {
                 {/* Google Search Result Mock */}
                 <div className="flex-1 bg-card rounded-lg border border-border p-4 max-w-[240px] shadow-2xl">
                   <div className="flex items-center gap-2 mb-2">
-                    <div className="w-4 h-4 rounded-full bg-pink-500/20 flex items-center justify-center text-[8px] text-pink-500">Ad</div>
+                    <div className="w-4 h-4 rounded-full bg-pink-500/20 flex items-center justify-center text-[8px] text-pink-500">
+                      Ad
+                    </div>
                     <div className="h-1.5 w-24 bg-accent rounded-full" />
                   </div>
                   <div className="space-y-2">
@@ -1747,10 +2030,14 @@ function UseCasesSection() {
                   <div className="mt-4 flex gap-2">
                     <div className="px-2 py-1 rounded bg-accent border border-border flex items-center gap-1">
                       <Star className="w-2 h-2 text-yellow-500 fill-yellow-500" />
-                      <span className="text-[8px] text-muted-foreground">4.9</span>
+                      <span className="text-[8px] text-muted-foreground">
+                        4.9
+                      </span>
                     </div>
                     <div className="px-2 py-1 rounded bg-green-500/10 border border-green-500/20 flex items-center gap-1">
-                      <span className="text-[8px] text-green-400">98/100 SEO</span>
+                      <span className="text-[8px] text-green-400">
+                        98/100 SEO
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -1758,11 +2045,33 @@ function UseCasesSection() {
                 {/* Graph */}
                 <div className="hidden md:flex flex-col items-center justify-end h-24 gap-1">
                   <div className="flex items-end gap-1 h-16">
-                    <motion.div initial={{ height: 10 }} whileInView={{ height: 40 }} transition={{ delay: 0.2 }} className="w-4 bg-pink-500/20 rounded-t-sm" />
-                    <motion.div initial={{ height: 15 }} whileInView={{ height: 50 }} transition={{ delay: 0.3 }} className="w-4 bg-pink-500/40 rounded-t-sm" />
-                    <motion.div initial={{ height: 12 }} whileInView={{ height: 60 }} transition={{ delay: 0.4 }} className="w-4 bg-pink-500/60 rounded-t-sm" />
-                    <motion.div initial={{ height: 20 }} whileInView={{ height: 80 }} transition={{ delay: 0.5 }} className="w-4 bg-pink-500 rounded-t-sm relative">
-                      <div className="absolute -top-5 left-1/2 -translate-x-1/2 bg-white text-pink-600 text-[8px] font-bold px-1 rounded shadow-sm">+40%</div>
+                    <motion.div
+                      initial={{ height: 10 }}
+                      whileInView={{ height: 40 }}
+                      transition={{ delay: 0.2 }}
+                      className="w-4 bg-pink-500/20 rounded-t-sm"
+                    />
+                    <motion.div
+                      initial={{ height: 15 }}
+                      whileInView={{ height: 50 }}
+                      transition={{ delay: 0.3 }}
+                      className="w-4 bg-pink-500/40 rounded-t-sm"
+                    />
+                    <motion.div
+                      initial={{ height: 12 }}
+                      whileInView={{ height: 60 }}
+                      transition={{ delay: 0.4 }}
+                      className="w-4 bg-pink-500/60 rounded-t-sm"
+                    />
+                    <motion.div
+                      initial={{ height: 20 }}
+                      whileInView={{ height: 80 }}
+                      transition={{ delay: 0.5 }}
+                      className="w-4 bg-pink-500 rounded-t-sm relative"
+                    >
+                      <div className="absolute -top-5 left-1/2 -translate-x-1/2 bg-white text-pink-600 text-[8px] font-bold px-1 rounded shadow-sm">
+                        +40%
+                      </div>
                     </motion.div>
                   </div>
                 </div>
@@ -1803,10 +2112,15 @@ function UseCasesSection() {
                 {/* Code Side */}
                 <div className="w-24 h-32 border-2 border-blue-500/20 rounded-lg bg-card relative flex flex-col p-3 gap-2 overflow-hidden shadow-lg group-hover:border-blue-500/40 transition-colors">
                   <div className="absolute top-0 left-0 w-full h-4 bg-blue-500/10 border-b border-blue-500/10 flex items-center px-2">
-                    <span className="text-[6px] font-mono text-blue-300">react.tsx</span>
+                    <span className="text-[6px] font-mono text-blue-300">
+                      react.tsx
+                    </span>
                   </div>
                   <div className="mt-2 space-y-1.5 opacity-80">
-                    <div className="flex gap-1 mb-1"><span className="text-pink-400 text-[6px]">const</span> <span className="text-blue-300 text-[6px]">App</span></div>
+                    <div className="flex gap-1 mb-1">
+                      <span className="text-pink-400 text-[6px]">const</span>{" "}
+                      <span className="text-blue-300 text-[6px]">App</span>
+                    </div>
                     <div className="ml-2 h-1 w-12 bg-accent rounded-full" />
                     <div className="ml-2 h-1 w-8 bg-accent rounded-full" />
                     <div className="ml-2 h-1 w-10 bg-accent rounded-full" />
@@ -1828,12 +2142,18 @@ function UseCasesSection() {
                   <div className="absolute inset-0 bg-emerald-500 blur-xl opacity-20 group-hover/btn:opacity-40 transition-opacity" />
                   <div className="bg-card border border-emerald-500/30 rounded-xl px-8 py-4 flex items-center gap-3 relative z-10 group-hover/btn:scale-105 transition-transform">
                     <Zap className="w-5 h-5 text-emerald-400 fill-emerald-400" />
-                    <span className="text-base font-bold text-foreground tracking-wide">LAUNCH STARTUP</span>
+                    <span className="text-base font-bold text-foreground tracking-wide">
+                      LAUNCH STARTUP
+                    </span>
                   </div>
                 </div>
                 <div className="flex flex-col items-center pl-8 border-l border-border">
-                  <span className="text-[10px] text-muted-foreground uppercase tracking-widest mb-1">Time to revenue</span>
-                  <span className="text-2xl font-mono text-foreground">48h</span>
+                  <span className="text-[10px] text-muted-foreground uppercase tracking-widest mb-1">
+                    Time to revenue
+                  </span>
+                  <span className="text-2xl font-mono text-foreground">
+                    48h
+                  </span>
                 </div>
               </div>
             }
@@ -1852,7 +2172,9 @@ function UseCasesSection() {
                     <div className="w-2 h-2 rounded-full bg-red-500/40" />
                     <div className="w-2 h-2 rounded-full bg-yellow-500/40" />
                     <div className="w-2 h-2 rounded-full bg-green-500/40" />
-                    <div className="ml-4 text-[8px] font-mono text-muted-foreground">index.tsx</div>
+                    <div className="ml-4 text-[8px] font-mono text-muted-foreground">
+                      index.tsx
+                    </div>
                   </div>
                   <div className="font-mono text-[10px] space-y-1.5 p-2">
                     <div className="flex gap-2">
@@ -1875,7 +2197,11 @@ function UseCasesSection() {
                       transition={{ delay: 0.6 }}
                       className="pl-4 text-foreground"
                     >
-                      <span className="text-blue-400">return</span> <span className="text-green-400">&quot;Hello World&quot;</span>;
+                      <span className="text-blue-400">return</span>{" "}
+                      <span className="text-green-400">
+                        &quot;Hello World&quot;
+                      </span>
+                      ;
                     </motion.div>
                     <div className="text-muted-foreground">{"}"}</div>
                   </div>
@@ -1887,7 +2213,9 @@ function UseCasesSection() {
 
         <div className="space-y-12">
           <div className="flex flex-col items-center gap-4">
-            <h3 className="text-2xl font-medium text-foreground">You can build literally anything</h3>
+            <h3 className="text-2xl font-medium text-foreground">
+              You can build literally anything
+            </h3>
             <div className="h-1 w-20 bg-gradient-to-r from-transparent via-border to-transparent" />
           </div>
 
@@ -1901,7 +2229,9 @@ function UseCasesSection() {
                 <div className="w-12 h-12 rounded-2xl bg-background/40 flex items-center justify-center group-hover:scale-110 transition-transform shadow-inner border border-border">
                   {cat.icon}
                 </div>
-                <span className="text-sm font-medium text-foreground group-hover:text-foreground transition-colors">{cat.label}</span>
+                <span className="text-sm font-medium text-foreground group-hover:text-foreground transition-colors">
+                  {cat.label}
+                </span>
               </motion.div>
             ))}
           </div>
@@ -1925,8 +2255,12 @@ function RoleCard({
   className?: string;
 }) {
   return (
-    <div className={`bg-card border border-border rounded-3xl p-1 overflow-hidden group hover:border-border transition-all relative ${className}`}>
-      <div className={`absolute inset-0 bg-gradient-to-br ${gradient} opacity-0 group-hover:opacity-100 transition-opacity duration-500`} />
+    <div
+      className={`bg-card border border-border rounded-3xl p-1 overflow-hidden group hover:border-border transition-all relative ${className}`}
+    >
+      <div
+        className={`absolute inset-0 bg-gradient-to-br ${gradient} opacity-0 group-hover:opacity-100 transition-opacity duration-500`}
+      />
       <div className="bg-card rounded-[22px] p-6 h-full flex flex-col relative z-10">
         <div className="mb-6 flex-1 w-full flex items-center justify-center bg-background rounded-2xl border border-border overflow-hidden min-h-[140px]">
           {ui}
@@ -1952,7 +2286,10 @@ function PricingSection() {
 
   const handleGetStarted = (productKey: string) => {
     if (productKey !== "free") {
-      logger.log({ event: "client_upgrade_checkout_clicked", properties: { source: "landing_pricing_section", plan: productKey } });
+      logger.log({
+        event: "client_upgrade_checkout_clicked",
+        properties: { source: "landing_pricing_section", plan: productKey },
+      });
     }
     if (activeTeam?.id) {
       handleCheckout(productKey, router, activeTeam.id);
@@ -1960,10 +2297,68 @@ function PricingSection() {
   };
 
   const pricingPlans = [
-    { name: "Free", price: "$0", period: "forever", description: "For trying out Nucleate", features: ["5 free projects", "15 free messages", "Fork projects for free"], cta: "Get Started", highlighted: false, productKey: "free" },
-    { name: "Plus", price: "$25", period: "per month", description: "For individuals", features: ["Everything in Free", "100 credits included", "Unlimited projects", "Export code", "1 free collaborator"], cta: "Upgrade to Plus", highlighted: false, productKey: "plus" },
-    { name: "Teams", price: "$35", period: "per seat/month", description: "For growing teams", features: ["Everything in Plus", "Shared design systems", "Live collaboration", "Internal tools", "Enterprise security"], cta: "Start with Teams", highlighted: true, productKey: "teams" },
-    { name: "Enterprise", price: "Custom", period: "", description: "For large organizations", features: ["Everything in Teams", "SSO & SAML", "Dedicated support", "Custom SLA", "Audit logs"], cta: "Contact Sales", highlighted: false, productKey: "max" },
+    {
+      name: "Free",
+      price: "$0",
+      period: "forever",
+      description: "For trying out Nucleate",
+      features: [
+        "5 free projects",
+        "15 free messages",
+        "Fork projects for free",
+      ],
+      cta: "Get Started",
+      highlighted: false,
+      productKey: "free",
+    },
+    {
+      name: "Plus",
+      price: "$25",
+      period: "per month",
+      description: "For individuals",
+      features: [
+        "Everything in Free",
+        "100 credits included",
+        "Unlimited projects",
+        "Export code",
+        "1 free collaborator",
+      ],
+      cta: "Upgrade to Plus",
+      highlighted: false,
+      productKey: "plus",
+    },
+    {
+      name: "Teams",
+      price: "$35",
+      period: "per seat/month",
+      description: "For growing teams",
+      features: [
+        "Everything in Plus",
+        "Shared design systems",
+        "Live collaboration",
+        "Internal tools",
+        "Enterprise security",
+      ],
+      cta: "Start with Teams",
+      highlighted: true,
+      productKey: "teams",
+    },
+    {
+      name: "Enterprise",
+      price: "Custom",
+      period: "",
+      description: "For large organizations",
+      features: [
+        "Everything in Teams",
+        "SSO & SAML",
+        "Dedicated support",
+        "Custom SLA",
+        "Audit logs",
+      ],
+      cta: "Contact Sales",
+      highlighted: false,
+      productKey: "max",
+    },
   ];
 
   return (
@@ -1976,20 +2371,32 @@ function PricingSection() {
             <div className="flex items-center gap-4">
               <div className="text-4xl">🎉</div>
               <div>
-                <h3 className="text-xl font-bold text-foreground">New Year Sale!</h3>
-                <p className="text-yellow-200/80 text-sm">Get 50% off your first month of Plus</p>
+                <h3 className="text-xl font-bold text-foreground">
+                  New Year Sale!
+                </h3>
+                <p className="text-yellow-200/80 text-sm">
+                  Get 50% off your first month of Plus
+                </p>
               </div>
             </div>
             <div className="flex items-center gap-3">
               <div className="bg-background/30 backdrop-blur-sm rounded-lg px-4 py-2 border border-yellow-500/20">
-                <span className="text-xs text-yellow-200/60 uppercase tracking-wide">Use code</span>
-                <p className="text-lg font-mono font-bold text-yellow-400">NEWYEAR</p>
+                <span className="text-xs text-yellow-200/60 uppercase tracking-wide">
+                  Use code
+                </span>
+                <p className="text-lg font-mono font-bold text-yellow-400">
+                  NEWYEAR
+                </p>
               </div>
               <div className="text-center">
                 <p className="text-xs text-yellow-200/60">Plus Plan</p>
                 <div className="flex items-center gap-2">
-                  <span className="text-lg text-muted-foreground line-through">$25</span>
-                  <span className="text-2xl font-bold text-foreground">$12.50</span>
+                  <span className="text-lg text-muted-foreground line-through">
+                    $25
+                  </span>
+                  <span className="text-2xl font-bold text-foreground">
+                    $12.50
+                  </span>
                 </div>
                 <p className="text-xs text-yellow-200/60">first month</p>
               </div>
@@ -1998,26 +2405,49 @@ function PricingSection() {
         </div>
 
         <div className="text-center mb-12">
-          <h2 className="text-4xl font-medium text-foreground mb-4">Simple pricing</h2>
-          <p className="text-muted-foreground">Start for free, scale as you grow.</p>
+          <h2 className="text-4xl font-medium text-foreground mb-4">
+            Simple pricing
+          </h2>
+          <p className="text-muted-foreground">
+            Start for free, scale as you grow.
+          </p>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {pricingPlans.map((plan, index) => (
-            <div key={index} className={`relative p-8 rounded-3xl flex flex-col ${plan.highlighted ? "bg-card border border-primary/50 shadow-2xl" : "border border-border"}`}>
+            <div
+              key={index}
+              className={`relative p-8 rounded-3xl flex flex-col ${plan.highlighted ? "bg-card border border-primary/50 shadow-2xl" : "border border-border"}`}
+            >
               <div className="mb-8">
-                <h3 className="text-lg font-medium text-foreground">{plan.name}</h3>
-                <p className="text-sm text-muted-foreground mt-1 h-10">{plan.description}</p>
+                <h3 className="text-lg font-medium text-foreground">
+                  {plan.name}
+                </h3>
+                <p className="text-sm text-muted-foreground mt-1 h-10">
+                  {plan.description}
+                </p>
               </div>
               <div className="mb-8 flex items-baseline gap-1">
-                <span className="text-4xl font-medium text-foreground">{plan.price}</span>
-                {plan.price !== "$0" && plan.price !== "Custom" && <span className="text-muted-foreground text-sm">/{plan.period}</span>}
+                <span className="text-4xl font-medium text-foreground">
+                  {plan.price}
+                </span>
+                {plan.price !== "$0" && plan.price !== "Custom" && (
+                  <span className="text-muted-foreground text-sm">
+                    /{plan.period}
+                  </span>
+                )}
               </div>
-              <Button onClick={() => handleGetStarted(plan.productKey)} className={`w-full h-11 rounded-full text-sm font-medium transition-all mb-8 ${plan.highlighted ? "bg-white text-black hover:bg-white/90" : "bg-accent text-foreground hover:bg-accent border border-border"}`}>
+              <Button
+                onClick={() => handleGetStarted(plan.productKey)}
+                className={`w-full h-11 rounded-full text-sm font-medium transition-all mb-8 ${plan.highlighted ? "bg-white text-black hover:bg-white/90" : "bg-accent text-foreground hover:bg-accent border border-border"}`}
+              >
                 {plan.cta}
               </Button>
               <div className="space-y-4 mt-auto">
                 {plan.features.map((feature, i) => (
-                  <div key={i} className="flex items-center gap-3 text-sm text-muted-foreground">
+                  <div
+                    key={i}
+                    className="flex items-center gap-3 text-sm text-muted-foreground"
+                  >
                     <Check className="w-4 h-4 text-muted-foreground" />
                     {feature}
                   </div>
@@ -2037,28 +2467,52 @@ function PricingSection() {
 function FAQSection() {
   const router = useRouter();
   const featuredFAQs = [
-    { q: "How does Nucleate work?", a: "Describe your app idea in plain English and Nucleate generates a working app using React Native and Expo." },
-    { q: "Do I need coding experience?", a: "Nucleate makes a working prototype in minutes just from plain English descriptions." },
-    { q: "Can I export the code?", a: "Yes, you own all generated code on paid plans." },
+    {
+      q: "How does Nucleate work?",
+      a: "Describe your app idea in plain English and Nucleate generates a working app using React Native and Expo.",
+    },
+    {
+      q: "Do I need coding experience?",
+      a: "Nucleate makes a working prototype in minutes just from plain English descriptions.",
+    },
+    {
+      q: "Can I export the code?",
+      a: "Yes, you own all generated code on paid plans.",
+    },
   ];
 
   return (
     <section className="py-24 bg-background border-t border-border">
       <div className="container mx-auto px-6 max-w-6xl">
         <div className="text-center mb-16">
-          <h2 className="text-4xl font-medium text-foreground mb-4">Questions?</h2>
-          <p className="text-muted-foreground text-lg">Quick answers to common questions about Nucleate.</p>
+          <h2 className="text-4xl font-medium text-foreground mb-4">
+            Questions?
+          </h2>
+          <p className="text-muted-foreground text-lg">
+            Quick answers to common questions about Nucleate.
+          </p>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
           {featuredFAQs.map((faq, index) => (
-            <div key={index} className="bg-card border border-border rounded-2xl p-6 hover:border-border transition-all duration-300">
-              <h3 className="text-lg font-medium text-foreground mb-3">{faq.q}</h3>
-              <p className="text-muted-foreground text-sm leading-relaxed">{faq.a}</p>
+            <div
+              key={index}
+              className="bg-card border border-border rounded-2xl p-6 hover:border-border transition-all duration-300"
+            >
+              <h3 className="text-lg font-medium text-foreground mb-3">
+                {faq.q}
+              </h3>
+              <p className="text-muted-foreground text-sm leading-relaxed">
+                {faq.a}
+              </p>
             </div>
           ))}
         </div>
         <div className="text-center">
-          <Button onClick={() => router.push("/faqs")} variant="outline" className="border-border bg-accent hover:bg-accent text-foreground rounded-full px-6 h-10">
+          <Button
+            onClick={() => router.push("/faqs")}
+            variant="outline"
+            className="border-border bg-accent hover:bg-accent text-foreground rounded-full px-6 h-10"
+          >
             View all FAQs
           </Button>
         </div>

@@ -48,7 +48,8 @@ export function TeamSelector({
 }: TeamSelectorProps) {
   const router = useRouter();
   const logger = useProductLogger();
-  const { activeTeam, setActiveTeam, teamMembers, signedAvatarUrl } = useActiveTeam();
+  const { activeTeam, setActiveTeam, teamMembers, signedAvatarUrl } =
+    useActiveTeam();
   const { teams } = useUserTeams();
   const { userPlan, loadingSubscriptionData } = useSubscriptionAccess();
   const {

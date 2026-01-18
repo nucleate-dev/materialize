@@ -1,18 +1,21 @@
-import { createClient } from "@supabase/supabase-js";
-import type { FastifyReply, FastifyRequest } from "fastify";
-import type { User } from "@supabase/supabase-js";
-import type { Database } from "../../../types/supabase.js";
+import { createClient } from '@supabase/supabase-js';
+import type { FastifyReply, FastifyRequest } from 'fastify';
+import type { User } from '@supabase/supabase-js';
+import type { Database } from '../../../types/supabase.js';
 import type {
   APIResponse,
   LLMImageGenerationRequestBody,
   LLMImageGenerationSuccessResponse,
   LLMImageGenerationErrorResponse,
-} from "../../../types/PublicAPITypes.js";
-import { HTTP_STATUS } from "../../../types/PublicAPITypes.js";
-import { getProvider } from "../providers/provider-registry.js";
-import { calculateImageGenerationCredits } from "../utils/cost-calculation.js";
-import { trackLLMUsage, checkCreditsAvailable } from "../utils/usage-tracking.js";
-import { mapProviderErrorToAPIError } from "../utils/error-mapping.js";
+} from '../../../types/PublicAPITypes.js';
+import { HTTP_STATUS } from '../../../types/PublicAPITypes.js';
+import { getProvider } from '../providers/provider-registry.js';
+import { calculateImageGenerationCredits } from '../utils/cost-calculation.js';
+import {
+  trackLLMUsage,
+  checkCreditsAvailable,
+} from '../utils/usage-tracking.js';
+import { mapProviderErrorToAPIError } from '../utils/error-mapping.js';
 
 export async function handleImageGenerationImpl(
   request: FastifyRequest<{ Body: LLMImageGenerationRequestBody }>,
@@ -20,35 +23,45 @@ export async function handleImageGenerationImpl(
   user: User,
   token: string,
 ): Promise<
-  APIResponse<LLMImageGenerationSuccessResponse, LLMImageGenerationErrorResponse>
+  APIResponse<
+    LLMImageGenerationSuccessResponse,
+    LLMImageGenerationErrorResponse
+  >
 > {
-  const { provider: providerName, model, prompt, team_id, size, quality, n } =
-    request.body;
+  const {
+    provider: providerName,
+    model,
+    prompt,
+    team_id,
+    size,
+    quality,
+    n,
+  } = request.body;
   const logger = request.log2.child({
-    function: "handleImageGenerationImpl",
+    function: 'handleImageGenerationImpl',
     userId: user.id,
     provider: providerName,
     model,
   });
 
   // 1. Validate provider (only OpenAI supports image generation)
-  if (providerName !== "openai") {
+  if (providerName !== 'openai') {
     return reply.status(HTTP_STATUS.BAD_REQUEST).send({
       data: null,
       error: {
-        error: "INVALID_PROVIDER",
-        message: "Image generation is only supported with OpenAI (DALL-E)",
+        error: 'INVALID_PROVIDER',
+        message: 'Image generation is only supported with OpenAI (DALL-E)',
       },
     });
   }
 
   // 2. Validate model
-  const validModels = ["dall-e-3", "dall-e-2"];
+  const validModels = ['dall-e-3', 'dall-e-2'];
   if (!validModels.includes(model)) {
     return reply.status(HTTP_STATUS.BAD_REQUEST).send({
       data: null,
       error: {
-        error: "INVALID_MODEL",
+        error: 'INVALID_MODEL',
         message: `Invalid model: ${model}. Supported models: dall-e-3, dall-e-2`,
       },
     });
@@ -69,25 +82,28 @@ export async function handleImageGenerationImpl(
 
   // 4. Verify team membership using RPC
   const { data: isMember, error: memberError } = await supabase.rpc(
-    "is_team_member",
+    'is_team_member',
     { p_team_id: team_id },
   );
 
   if (memberError || !isMember) {
-    logger.warn("User is not a member of the team", { teamId: team_id, memberError });
+    logger.warn('User is not a member of the team', {
+      teamId: team_id,
+      memberError,
+    });
     return reply.status(HTTP_STATUS.FORBIDDEN).send({
       data: null,
       error: {
-        error: "UNAUTHORIZED",
-        message: "You are not a member of this team",
+        error: 'UNAUTHORIZED',
+        message: 'You are not a member of this team',
       },
     });
   }
 
   // 5. Calculate estimated credits for pre-check
   const imageCount = n ?? 1;
-  const imageSize = size ?? "1024x1024";
-  const imageQuality = quality ?? "standard";
+  const imageSize = size ?? '1024x1024';
+  const imageQuality = quality ?? 'standard';
   const estimatedCredits = calculateImageGenerationCredits(
     model,
     imageSize,
@@ -96,14 +112,19 @@ export async function handleImageGenerationImpl(
   );
 
   // 6. Check credits available
-  const creditCheck = await checkCreditsAvailable(supabase, user.id, team_id, logger);
+  const creditCheck = await checkCreditsAvailable(
+    supabase,
+    user.id,
+    team_id,
+    logger,
+  );
   if (!creditCheck.hasCredits || creditCheck.remaining < estimatedCredits) {
     return reply.status(HTTP_STATUS.PAYMENT_REQUIRED).send({
       data: null,
       error: {
-        error: "INSUFFICIENT_CREDITS",
+        error: 'INSUFFICIENT_CREDITS',
         message:
-          "Insufficient credits. Please upgrade your plan or purchase more credits.",
+          'Insufficient credits. Please upgrade your plan or purchase more credits.',
       },
     });
   }
@@ -116,8 +137,8 @@ export async function handleImageGenerationImpl(
       return reply.status(HTTP_STATUS.BAD_REQUEST).send({
         data: null,
         error: {
-          error: "INVALID_PROVIDER",
-          message: "This provider does not support image generation",
+          error: 'INVALID_PROVIDER',
+          message: 'This provider does not support image generation',
         },
       });
     }
@@ -138,13 +159,20 @@ export async function handleImageGenerationImpl(
       result.images.length,
     );
 
-    const usageResult = await trackLLMUsage(supabase, user.id, team_id, creditsUsed, logger, {
-      provider: providerName,
-      model,
-      requestType: "image_generation",
-    });
+    const usageResult = await trackLLMUsage(
+      supabase,
+      user.id,
+      team_id,
+      creditsUsed,
+      logger,
+      {
+        provider: providerName,
+        model,
+        requestType: 'image_generation',
+      },
+    );
 
-    logger.info("Image generation successful", {
+    logger.info('Image generation successful', {
       imagesGenerated: result.images.length,
       creditsUsed,
     });
@@ -166,7 +194,7 @@ export async function handleImageGenerationImpl(
   } catch (error) {
     logger.error(
       error instanceof Error ? error : new Error(String(error)),
-      "Image generation failed",
+      'Image generation failed',
     );
 
     const mappedError = mapProviderErrorToAPIError(error);

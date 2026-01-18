@@ -47,7 +47,10 @@ import {
 } from "./prompts/ClaudeCodePrompts.js";
 import { broadcastToConnections } from "./websocket-broadcast.js";
 
-export const ALLOWED_ROOTS = ["/tmp/materialize-dev-server", "/tmp/source-repository"];
+export const ALLOWED_ROOTS = [
+  "/tmp/materialize-dev-server",
+  "/tmp/source-repository",
+];
 const CHAT_HEARTBEAT_INTERVAL_MS = 15000;
 
 interface ChatQueryValidationResult {
@@ -117,7 +120,10 @@ export class ChatService {
    */
   public setUserOAuthToken(token: string): void {
     this.userOAuthToken = token;
-    baseLogger.consoleLogDevOnly("info", "User OAuth token set for ChatService");
+    baseLogger.consoleLogDevOnly(
+      "info",
+      "User OAuth token set for ChatService",
+    );
   }
 
   /**
@@ -172,7 +178,7 @@ export class ChatService {
 
   private handleWebSocketConnection(
     socket: WebSocket,
-    req: FastifyRequest<{ Params: { prototypeId: string; }; }>,
+    req: FastifyRequest<{ Params: { prototypeId: string } }>,
   ): void {
     const { prototypeId } = req.params;
     const connectionId = `${prototypeId}-${Date.now()}`;
@@ -457,8 +463,9 @@ export class ChatService {
 
     // 4. TELL CONTROL PLANE THAT CHAT IS STARTING
     try {
-      await this.sandboxOrchestrationInitiatorService
-        .notifyOrchestrationStartChat(prototypeId);
+      await this.sandboxOrchestrationInitiatorService.notifyOrchestrationStartChat(
+        prototypeId,
+      );
     } catch (error) {
       const err = error instanceof Error ? error : new Error(String(error));
       logger.error(err, "Failed to notify orchestration start chat", {
@@ -600,10 +607,11 @@ export class ChatService {
         isUsingOAuthToken: this.hasUserOAuthToken(),
       });
     } finally {
-      const combinedCost = designAgentCost === undefined &&
+      const combinedCost =
+        designAgentCost === undefined &&
         handlerResult?.totalCostUsd === undefined
-        ? undefined
-        : (designAgentCost ?? 0) + (handlerResult?.totalCostUsd ?? 0);
+          ? undefined
+          : (designAgentCost ?? 0) + (handlerResult?.totalCostUsd ?? 0);
       try {
         await this.finalizeChatExecution(
           prototypeId,
@@ -620,8 +628,9 @@ export class ChatService {
         );
       }
       try {
-        await this.sandboxOrchestrationInitiatorService
-          .notifyOrchestrationEndChat(prototypeId);
+        await this.sandboxOrchestrationInitiatorService.notifyOrchestrationEndChat(
+          prototypeId,
+        );
       } catch (error) {
         const err = error instanceof Error ? error : new Error(String(error));
         logger.error(err, "Failed to notify orchestration end chat", {
@@ -646,14 +655,13 @@ export class ChatService {
     let historyContext = "";
     if (historical_messages.length > 0) {
       const formattedMessages = historical_messages
-        .map((msg: { role: string; content: string; }) => {
+        .map((msg: { role: string; content: string }) => {
           const role = msg.role === "user" ? "User" : "Assistant";
           return `${role}: ${msg.content}`;
         })
         .join("\n\n");
 
-      historyContext =
-        `\n\n## Previous Conversation Context:\n${formattedMessages}\n\n---\n\nThe above is context from a previous session. Continue the conversation naturally.`;
+      historyContext = `\n\n## Previous Conversation Context:\n${formattedMessages}\n\n---\n\nThe above is context from a previous session. Continue the conversation naturally.`;
 
       logger.consoleLogDevOnly("info", "Formatted history context", {
         contextLength: historyContext.length,
@@ -887,8 +895,7 @@ export class ChatService {
         return {
           valid: false,
           errorMessage: "Credit limit exceeded",
-          errorDetails:
-            `You have used all ${creditCheck.granted} credits available. Please upgrade your plan to continue.`,
+          errorDetails: `You have used all ${creditCheck.granted} credits available. Please upgrade your plan to continue.`,
         };
       }
 
@@ -950,13 +957,11 @@ export class ChatService {
     _prototypeId: string,
     _logger: SystemLogger,
     _isFirstMessage: boolean,
-  ): Promise<
-    {
-      designSpec: string | null;
-      designMetadata: DesignAgentMetadata | null;
-      designAgentCost?: number;
-    } | null
-  > {
+  ): Promise<{
+    designSpec: string | null;
+    designMetadata: DesignAgentMetadata | null;
+    designAgentCost?: number;
+  } | null> {
     // Design agent is disabled - GeminiDesignExpert MCP tool is the replacement
     // Claude can call it on-demand during the conversation instead of auto-triggering on first message
     return null;
@@ -993,9 +998,7 @@ export class ChatService {
           } else if (designSystem) {
             this.sessionState.designSystemId = customDesignSystemId;
             this.sessionState.designSystemRules = (
-              designSystem as Database["public"]["Tables"]["design_systems"][
-              "Row"
-              ]
+              designSystem as Database["public"]["Tables"]["design_systems"]["Row"]
             ).design_rules;
           } else {
             logger.warn("Design system not found", {
@@ -1024,12 +1027,13 @@ export class ChatService {
     );
 
     if (this.devServerService.sourceRepository) {
-      systemPromptAppend += "\n\n" +
-        getSourceRepositoryPromptAddendum(framework ?? undefined);
+      systemPromptAppend +=
+        "\n\n" + getSourceRepositoryPromptAddendum(framework ?? undefined);
     }
 
     if (this.sessionState.designSystemRules) {
-      systemPromptAppend += "\n\n## Custom Design System Rules:\n" +
+      systemPromptAppend +=
+        "\n\n## Custom Design System Rules:\n" +
         this.sessionState.designSystemRules;
     }
 
@@ -1051,13 +1055,13 @@ export class ChatService {
     }
 
     try {
-      const { data: messageRows, error: messageError } = await this
-        .supabaseClientService
-        .getClient()
-        .from("prototype_chat_messages")
-        .select("id")
-        .eq("chat_session_id", prototypeChatSessionId)
-        .limit(1);
+      const { data: messageRows, error: messageError } =
+        await this.supabaseClientService
+          .getClient()
+          .from("prototype_chat_messages")
+          .select("id")
+          .eq("chat_session_id", prototypeChatSessionId)
+          .limit(1);
 
       if (messageError) {
         logger.error(
@@ -1072,13 +1076,13 @@ export class ChatService {
         return false;
       }
 
-      const { data: sessionRows, error: sessionError } = await this
-        .supabaseClientService
-        .getClient()
-        .from("prototype_chat_sessions")
-        .select("id")
-        .eq("prototype_id", prototypeId)
-        .limit(1);
+      const { data: sessionRows, error: sessionError } =
+        await this.supabaseClientService
+          .getClient()
+          .from("prototype_chat_sessions")
+          .select("id")
+          .eq("prototype_id", prototypeId)
+          .limit(1);
 
       if (sessionError) {
         logger.error(
@@ -1145,7 +1149,6 @@ export class ChatService {
     );
   }
 
-
   private async syncFilesAndTrackUsage(
     prototypeId: string,
     socket: WebSocket,
@@ -1207,7 +1210,8 @@ export class ChatService {
       } else {
         // Calculate credits based on auth method
         // Respect user's explicit preference, fall back to auto-detect
-        const useOAuth = (data.use_oauth_token ?? this.hasUserOAuthToken()) &&
+        const useOAuth =
+          (data.use_oauth_token ?? this.hasUserOAuthToken()) &&
           this.hasUserOAuthToken();
 
         let creditsUsed: number;
@@ -1289,7 +1293,6 @@ export class ChatService {
     }
   }
 
-
   // --------------------------------------------------------------------------
   // MISCELLANEOUS UTILS
   // --------------------------------------------------------------------------
@@ -1299,5 +1302,4 @@ export class ChatService {
     }
     return absolutePath;
   }
-
 }

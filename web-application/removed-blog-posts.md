@@ -2,7 +2,6 @@
 
 This file captures titles and outlines for blog posts removed from `src/content/blog`.
 
-
 ## AI Has Replaced React Native Boilerplates
 
 - Slug: ai-replaced-react-native-boilerplates
@@ -309,13 +308,13 @@ This file captures titles and outlines for blog posts removed from `src/content/
 
 - Slug: how-to-store-local-data-react-native
 - Outline:
-    - 1. AsyncStorage
-    - 2. Expo SecureStore
-    - 3. Expo-SQLite (Key-Value Store)
-    - 4. MMKV
-    - 5. Expo-SQLite (Relational Usage)
-    - Summary: When to use what?
-    - Final Recommendation
+  - 1. AsyncStorage
+  - 2. Expo SecureStore
+  - 3. Expo-SQLite (Key-Value Store)
+  - 4. MMKV
+  - 5. Expo-SQLite (Relational Usage)
+  - Summary: When to use what?
+  - Final Recommendation
 
 ## Should You Build a Mobile App or a Web App for Your Business
 

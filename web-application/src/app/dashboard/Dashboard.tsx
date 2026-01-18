@@ -80,9 +80,9 @@ const PLATFORM_OPTIONS: Array<{
   value: PrototypeFramework;
   label: string;
 }> = [
-    { value: "web_nextjs_react", label: "Web" },
-    { value: "mobile_expo_react_native", label: "Mobile" },
-  ];
+  { value: "web_nextjs_react", label: "Web" },
+  { value: "mobile_expo_react_native", label: "Mobile" },
+];
 
 export default function DashboardPage() {
   // --- Logic / Hooks (Preserved) ---
@@ -205,7 +205,9 @@ export default function DashboardPage() {
   const processImageFiles = (files: File[]) => {
     files.forEach((file) => {
       if (!file.type.startsWith("image/")) {
-        toast.error(`Invalid file type: ${file.name}. Only images are supported.`);
+        toast.error(
+          `Invalid file type: ${file.name}. Only images are supported.`,
+        );
         return;
       }
 
@@ -394,7 +396,6 @@ export default function DashboardPage() {
 
   return (
     <div className="relative min-h-screen bg-background text-foreground selection:bg-primary/30 font-sans">
-
       <div className="container mx-auto px-4 pt-24 pb-16 max-w-4xl relative z-10">
         {/* --- Header Section --- */}
         <div className="text-center mb-12 space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-700">

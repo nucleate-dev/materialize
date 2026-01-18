@@ -55,10 +55,11 @@ import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import { toast } from "sonner";
 import type {
-  ClaudeCodePanelActiveView, Message,
+  ClaudeCodePanelActiveView,
+  Message,
   PrototypeChatSession,
   Todo,
-  UploadedImage
+  UploadedImage,
 } from "./ClaudeCodePanel";
 
 interface ClaudeCodePanelUIProps {
@@ -72,7 +73,7 @@ interface ClaudeCodePanelUIProps {
   currentRenderStatus?: RenderStatus;
   modelProvider: "claude" | "vercel";
   model: string;
-  vercelModels: Array<{ value: string; label: string; }>;
+  vercelModels: Array<{ value: string; label: string }>;
   onModelProviderChange: (value: "claude" | "vercel") => void;
   onModelChange: (value: string) => void;
   messages: Message[];
@@ -85,16 +86,16 @@ interface ClaudeCodePanelUIProps {
   isCurrentSessionMostRecent: boolean;
   isDragOver: boolean;
   uploadingImages: boolean;
-  uploadProgress: { [key: string]: number; };
+  uploadProgress: { [key: string]: number };
   scrollAreaRef:
-  | RefObject<HTMLDivElement | null>
-  | MutableRefObject<HTMLDivElement | null>;
+    | RefObject<HTMLDivElement | null>
+    | MutableRefObject<HTMLDivElement | null>;
   fileInputRef:
-  | RefObject<HTMLInputElement | null>
-  | MutableRefObject<HTMLInputElement | null>;
+    | RefObject<HTMLInputElement | null>
+    | MutableRefObject<HTMLInputElement | null>;
   textareaRef:
-  | RefObject<HTMLTextAreaElement | null>
-  | MutableRefObject<HTMLTextAreaElement | null>;
+    | RefObject<HTMLTextAreaElement | null>
+    | MutableRefObject<HTMLTextAreaElement | null>;
   switchChatSession: (value: string) => void;
   createNewChatSession: () => void;
   connect: () => void;
@@ -132,7 +133,7 @@ interface ClaudeCodePanelUIProps {
   onCollapse?: () => void;
 }
 
-function CopyMessageButton({ content }: { content: string; }) {
+function CopyMessageButton({ content }: { content: string }) {
   const [isCopied, setIsCopied] = useState(false);
 
   const handleCopy = () => {
@@ -149,7 +150,7 @@ function CopyMessageButton({ content }: { content: string; }) {
         "transition-colors",
         isCopied
           ? "text-success hover:text-success/80"
-          : "text-muted-foreground hover:text-foreground"
+          : "text-muted-foreground hover:text-foreground",
       )}
       title="Copy message"
     >
@@ -303,7 +304,6 @@ export default function ClaudeCodePanelUI({
             </span>
           </div>
 
-
           {/* Session Selector */}
           <div className="hidden sm:block">
             <Select
@@ -344,9 +344,9 @@ export default function ClaudeCodePanelUI({
                   const dateStr = isToday
                     ? "Today"
                     : date.toLocaleDateString(undefined, {
-                      month: "short",
-                      day: "numeric",
-                    });
+                        month: "short",
+                        day: "numeric",
+                      });
                   const timeStr = date.toLocaleTimeString(undefined, {
                     hour: "numeric",
                     minute: "2-digit",
@@ -376,7 +376,9 @@ export default function ClaudeCodePanelUI({
                     size="icon"
                     variant="ghost"
                     onClick={() =>
-                      onActiveViewChange(activeView === "chat" ? "context" : "chat")
+                      onActiveViewChange(
+                        activeView === "chat" ? "context" : "chat",
+                      )
                     }
                     className="h-7 w-7 text-muted-foreground hover:text-foreground"
                   >
@@ -462,7 +464,6 @@ export default function ClaudeCodePanelUI({
                 Reconnect
               </Button>
             )} */}
-
         </div>
       </div>
 
@@ -494,8 +495,8 @@ export default function ClaudeCodePanelUI({
                     How can I help you build?
                   </h3>
                   <p className="text-sm text-muted-foreground max-w-xs">
-                    Ask me to create a screen, generate components, or refactor your
-                    code.
+                    Ask me to create a screen, generate components, or refactor
+                    your code.
                   </p>
                 </div>
               ) : (
@@ -530,26 +531,27 @@ export default function ClaudeCodePanelUI({
                             </pre>
 
                             {/* User Images */}
-                            {message.imageUrls && message.imageUrls.length > 0 && (
-                              <div className="mt-3 flex flex-wrap gap-2">
-                                {message.imageUrls.map((imageUrl, idx) => (
-                                  <div
-                                    key={idx}
-                                    className="relative rounded-lg overflow-hidden border border-border group/img"
-                                  >
-                                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                                    <img
-                                      src={imageUrl}
-                                      alt={`User upload ${idx + 1}`}
-                                      className="h-16 w-auto object-cover cursor-zoom-in hover:opacity-90 transition-opacity"
-                                      onClick={() =>
-                                        window.open(imageUrl, "_blank")
-                                      }
-                                    />
-                                  </div>
-                                ))}
-                              </div>
-                            )}
+                            {message.imageUrls &&
+                              message.imageUrls.length > 0 && (
+                                <div className="mt-3 flex flex-wrap gap-2">
+                                  {message.imageUrls.map((imageUrl, idx) => (
+                                    <div
+                                      key={idx}
+                                      className="relative rounded-lg overflow-hidden border border-border group/img"
+                                    >
+                                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                                      <img
+                                        src={imageUrl}
+                                        alt={`User upload ${idx + 1}`}
+                                        className="h-16 w-auto object-cover cursor-zoom-in hover:opacity-90 transition-opacity"
+                                        onClick={() =>
+                                          window.open(imageUrl, "_blank")
+                                        }
+                                      />
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
                           </div>
                           <div className="flex items-center justify-end gap-2 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
                             <CopyMessageButton content={message.content} />
@@ -583,15 +585,16 @@ export default function ClaudeCodePanelUI({
                         <div className="my-0.5 w-fit max-w-full">
                           {(() => {
                             const toolId = message.toolCallId ?? message.id;
-                            const toolCommand = typeof message.toolInput
-                              ?.command === "string"
-                              ? message.toolInput.command
-                              : "";
+                            const toolCommand =
+                              typeof message.toolInput?.command === "string"
+                                ? message.toolInput.command
+                                : "";
                             const toolDisplayName = getToolDisplayName(
                               message.toolName,
                               message.content,
                             );
-                            const isBashTool = message.toolName?.toLowerCase()
+                            const isBashTool = message.toolName
+                              ?.toLowerCase()
                               .includes("bash");
                             const isExpandable = isBashTool && toolCommand;
                             const isExpanded =
@@ -603,7 +606,7 @@ export default function ClaudeCodePanelUI({
                                   className={cn(
                                     "flex items-center gap-2 px-3 py-1.5 rounded-md bg-accent/50 border border-border w-fit max-w-full",
                                     isExpandable &&
-                                    "cursor-pointer hover:bg-accent/70 transition-colors",
+                                      "cursor-pointer hover:bg-accent/70 transition-colors",
                                   )}
                                   role={isExpandable ? "button" : undefined}
                                   tabIndex={isExpandable ? 0 : undefined}
@@ -677,7 +680,7 @@ export default function ClaudeCodePanelUI({
                           >
                             <div className="text-muted-foreground">
                               {message.toolCallId &&
-                                expandedThinking.has(message.toolCallId) ? (
+                              expandedThinking.has(message.toolCallId) ? (
                                 <ChevronDown className="w-3.5 h-3.5" />
                               ) : (
                                 <ChevronRight className="w-3.5 h-3.5" />
@@ -830,8 +833,11 @@ export default function ClaudeCodePanelUI({
                       Current Tasks
                     </span>
                     <span className="text-[10px] text-muted-foreground font-mono">
-                      {currentTodos.filter((t) => t.status === "completed").length}/
-                      {currentTodos.length}
+                      {
+                        currentTodos.filter((t) => t.status === "completed")
+                          .length
+                      }
+                      /{currentTodos.length}
                     </span>
                   </div>
                   <div className="space-y-1.5 max-h-24 overflow-y-auto custom-scrollbar">
@@ -971,7 +977,9 @@ export default function ClaudeCodePanelUI({
                   {isClaudeOAuthEnabled && (
                     <Select
                       value={authMode}
-                      onValueChange={(value) => onAuthModeChange(value as AuthMode)}
+                      onValueChange={(value) =>
+                        onAuthModeChange(value as AuthMode)
+                      }
                       disabled={isProcessing || !isCurrentSessionMostRecent}
                     >
                       <SelectTrigger className="h-8 text-xs bg-accent/50 border-border/50 text-foreground focus:ring-0 px-2 gap-1">
@@ -1006,7 +1014,7 @@ export default function ClaudeCodePanelUI({
                     isProcessing
                       ? "bg-destructive hover:bg-destructive/90 text-white shadow-md"
                       : (!inputValue.trim() && uploadedImages.length === 0) ||
-                        !isCurrentSessionMostRecent
+                          !isCurrentSessionMostRecent
                         ? "bg-accent text-muted-foreground"
                         : "bg-primary text-primary-foreground hover:bg-primary/90 shadow-md",
                   )}

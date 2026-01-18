@@ -586,7 +586,7 @@ export interface GitHubStatusQuery {
 export interface GitHubStatusSuccessResponse {
   connected: boolean;
   account_login?: string;
-  account_type?: 'User' | 'Organization';
+  account_type?: "User" | "Organization";
   connected_at?: string;
   installation_id?: number;
   is_suspended?: boolean;
@@ -656,7 +656,6 @@ export interface GitHubRepositoriesSuccessResponse {
 export interface GitHubRepositoriesErrorResponse {
   error: string;
   message: string;
-
 }
 
 // ============================================================================

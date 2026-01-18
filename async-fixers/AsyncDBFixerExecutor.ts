@@ -177,12 +177,13 @@ export class AsyncFixerExecutor<TName extends TableName> {
     );
     console.log(`Rows fixed:               ${this.stats.rowsFixed}`);
 
-    const percentage = this.stats.totalRowsProcessed > 0
-      ? (
-        (this.stats.inconsistentRowsFound / this.stats.totalRowsProcessed) *
-        100
-      ).toFixed(2)
-      : "0.00";
+    const percentage =
+      this.stats.totalRowsProcessed > 0
+        ? (
+            (this.stats.inconsistentRowsFound / this.stats.totalRowsProcessed) *
+            100
+          ).toFixed(2)
+        : "0.00";
     console.log(`Inconsistency rate:       ${percentage}%`);
 
     if (isDryRun && this.stats.inconsistentRowsFound > 0) {

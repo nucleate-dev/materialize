@@ -71,8 +71,8 @@ export const VERCEL_MODEL_COSTS_USD: Record<
     outputUsdPer1M: 2.5,
   },
   "gemini-3-pro-image-preview": {
-    inputUsdPer1M: 2,      // $2.00 per 1M input tokens (text/image)
-    outputUsdPer1M: 12,    // $12.00 per 1M output tokens (text/thinking)
+    inputUsdPer1M: 2, // $2.00 per 1M input tokens (text/image)
+    outputUsdPer1M: 12, // $12.00 per 1M output tokens (text/thinking)
   },
 };
 
@@ -81,6 +81,6 @@ export const VERCEL_MODEL_COSTS_USD: Record<
  * These are per-image costs, not token-based.
  */
 export const GEMINI_IMAGE_COST_USD = {
-  perImage1K2K: 0.134,  // $0.134 per 1K/2K image
-  perImage4K: 0.24,     // $0.24 per 4K image
+  perImage1K2K: 0.134, // $0.134 per 1K/2K image
+  perImage4K: 0.24, // $0.24 per 4K image
 };

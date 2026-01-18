@@ -10,9 +10,7 @@ import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import { formatGrantType } from "@/lib/utils/credits/CreditUtils";
 import { usePostHog } from "posthog-js/react";
 import { handleCheckout } from "@/lib/utils/payments/CheckoutUtils";
-import {
-  handleRedirectToStripeCustomerPortal,
-} from "@/lib/utils/payments/SubscriptionManagementUtils";
+import { handleRedirectToStripeCustomerPortal } from "@/lib/utils/payments/SubscriptionManagementUtils";
 import { useActiveTeam } from "@/contexts/TeamContext";
 import { logout } from "@/lib/utils/auth/SupabaseAuthUtils";
 import {
@@ -125,9 +123,7 @@ function AccountSettings() {
 
   const handleManageBillingClick = async () => {
     if (!activeTeam?.id) {
-      alert(
-        "We couldn't find your active team. Please refresh and try again.",
-      );
+      alert("We couldn't find your active team. Please refresh and try again.");
       return;
     }
     try {

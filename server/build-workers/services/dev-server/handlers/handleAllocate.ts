@@ -65,18 +65,17 @@ export async function handleAllocateImpl(
     };
   }
   // 2. SUPABASE CLIENT INSTANTIATION:
-  materializeDevelopmentServerService.supabaseClientService
-    .refreshClientWithToken(
-      jwtToken,
-    );
+  materializeDevelopmentServerService.supabaseClientService.refreshClientWithToken(
+    jwtToken,
+  );
   request.log2.consoleLogDevOnly(
     "info",
     "Initialized authenticated Supabase client for worker",
   );
 
   // 3. SET WORKER CONTEXT:
-  const supabaseClient = materializeDevelopmentServerService
-    .supabaseClientService.getClient();
+  const supabaseClient =
+    materializeDevelopmentServerService.supabaseClientService.getClient();
   const { data: prototypeRow, error: prototypeError } = await supabaseClient
     .from("prototypes")
     .select("framework, team_id")
@@ -207,8 +206,8 @@ export async function handleAllocateImpl(
         "Starting Cloudflare tunnel setup",
       );
       try {
-        const result = await materializeDevelopmentServerService
-          .cloudflareTunnelManagementService.createTunnel(
+        const result =
+          await materializeDevelopmentServerService.cloudflareTunnelManagementService.createTunnel(
             cloudflare_credentials.cloudflare_tunnel_token,
           );
         tunnelStatus = result.status;
@@ -227,9 +226,10 @@ export async function handleAllocateImpl(
         }
       } catch (tunnelError) {
         tunnelStatus = "error";
-        tunnelMessage = tunnelError instanceof Error
-          ? tunnelError.message
-          : "Failed to start Cloudflare tunnel";
+        tunnelMessage =
+          tunnelError instanceof Error
+            ? tunnelError.message
+            : "Failed to start Cloudflare tunnel";
         request.log2.error(tunnelError, "Failed to start Cloudflare tunnel");
         throw tunnelError instanceof Error
           ? tunnelError

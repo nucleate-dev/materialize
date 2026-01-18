@@ -1,8 +1,8 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
-import { decrypt, encrypt } from "./encryptionUtils.js";
-import type { Database } from "../types/supabase.js";
-import type { SystemLogger } from "../loggers/SystemLogger.js";
-import { refreshGitHubOAuthToken } from "./githubClient.js";
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { decrypt, encrypt } from './encryptionUtils.js';
+import type { Database } from '../types/supabase.js';
+import type { SystemLogger } from '../loggers/SystemLogger.js';
+import { refreshGitHubOAuthToken } from './githubClient.js';
 
 const TOKEN_REFRESH_THRESHOLD_MS = 10 * 60 * 1000; // 10 minutes
 
@@ -29,22 +29,20 @@ export async function getValidGitHubUserAccessToken(
   const { supabaseClient, teamId, logger } = options;
 
   const { data, error } = await supabaseClient
-    .from("github_integration_tokens")
-    .select("token_encrypted, refresh_encrypted, token_expires_at")
-    .eq("team_id", teamId)
+    .from('github_integration_tokens')
+    .select('token_encrypted, refresh_encrypted, token_expires_at')
+    .eq('team_id', teamId)
     .maybeSingle();
 
   if (error) {
-    logger.error(
-      error,
-      "Failed to fetch GitHub integration token record",
-      { teamId },
-    );
-    throw new Error("Failed to fetch GitHub integration tokens");
+    logger.error(error, 'Failed to fetch GitHub integration token record', {
+      teamId,
+    });
+    throw new Error('Failed to fetch GitHub integration tokens');
   }
 
   if (!data?.token_encrypted) {
-    throw new Error("GitHub integration token missing for team");
+    throw new Error('GitHub integration token missing for team');
   }
 
   const decryptedToken = safeDecrypt(data.token_encrypted, teamId, logger);
@@ -61,7 +59,7 @@ export async function getValidGitHubUserAccessToken(
 
   if (!data.refresh_encrypted) {
     throw new Error(
-      "GitHub refresh token missing; cannot refresh expiring access token",
+      'GitHub refresh token missing; cannot refresh expiring access token',
     );
   }
 
@@ -77,24 +75,24 @@ export async function getValidGitHubUserAccessToken(
     : null;
 
   const { error: updateError } = await supabaseClient
-    .from("github_integration_tokens")
+    .from('github_integration_tokens')
     .update({
       token_encrypted: refreshedAccessTokenEncrypted,
       refresh_encrypted: refreshedRefreshEncrypted,
       token_expires_at: refreshedExpiresAt,
     })
-    .eq("team_id", teamId);
+    .eq('team_id', teamId);
 
   if (updateError) {
     logger.error(
       updateError,
-      "Failed to persist refreshed GitHub OAuth token",
+      'Failed to persist refreshed GitHub OAuth token',
       { teamId },
     );
-    throw new Error("Failed to update GitHub OAuth token");
+    throw new Error('Failed to update GitHub OAuth token');
   }
 
-  logger.info("Refreshed GitHub OAuth token for team", {
+  logger.info('Refreshed GitHub OAuth token for team', {
     teamId,
     expiresAt: refreshedExpiresAt,
   });
@@ -116,7 +114,7 @@ function needsRefreshSoon(
 
   const expiresDate = new Date(expiresAt);
   if (Number.isNaN(expiresDate.getTime())) {
-    logger.warn("GitHub token expiry timestamp invalid; forcing refresh", {
+    logger.warn('GitHub token expiry timestamp invalid; forcing refresh', {
       expiresAt,
     });
     return true;
@@ -136,9 +134,9 @@ function safeDecrypt(
   } catch (error) {
     logger.error(
       error instanceof Error ? error : new Error(String(error)),
-      "Failed to decrypt GitHub token",
+      'Failed to decrypt GitHub token',
       { teamId },
     );
-    throw new Error("Failed to decrypt GitHub token");
+    throw new Error('Failed to decrypt GitHub token');
   }
 }

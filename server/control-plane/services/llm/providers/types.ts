@@ -1,4 +1,4 @@
-import type { SystemLogger } from "../../../loggers/SystemLogger.js";
+import type { SystemLogger } from '../../../loggers/SystemLogger.js';
 
 export interface LLMProviderConfig {
   apiKey: string;
@@ -14,12 +14,12 @@ export interface CompletionRequest {
 }
 
 export interface ProviderMessage {
-  role: "user" | "assistant" | "system";
+  role: 'user' | 'assistant' | 'system';
   content: string | ProviderMessagePart[];
 }
 
 export interface ProviderMessagePart {
-  type: "text" | "image";
+  type: 'text' | 'image';
   text?: string;
   imageData?: {
     base64: string;
@@ -57,12 +57,12 @@ export interface ImageGenerationResponse {
 }
 
 export type LLMProviderErrorType =
-  | "rate_limit"
-  | "auth"
-  | "invalid_request"
-  | "content_policy"
-  | "server"
-  | "unknown";
+  | 'rate_limit'
+  | 'auth'
+  | 'invalid_request'
+  | 'content_policy'
+  | 'server'
+  | 'unknown';
 
 export interface LLMProviderError extends Error {
   type: LLMProviderErrorType;

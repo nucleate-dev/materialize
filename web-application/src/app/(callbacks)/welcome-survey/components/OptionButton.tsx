@@ -41,7 +41,10 @@ export function OptionButton({
         )}
       >
         <IconComponent
-          className={cn("w-4 h-4", isSelected ? "text-primary-foreground" : "text-muted-foreground")}
+          className={cn(
+            "w-4 h-4",
+            isSelected ? "text-primary-foreground" : "text-muted-foreground",
+          )}
         />
       </div>
       <span className="font-medium text-sm flex-1">{label}</span>
@@ -54,7 +57,9 @@ export function OptionButton({
               : "bg-transparent border-input",
           )}
         >
-          {isSelected && <Check className="w-3.5 h-3.5 text-primary-foreground" />}
+          {isSelected && (
+            <Check className="w-3.5 h-3.5 text-primary-foreground" />
+          )}
         </div>
       )}
     </button>

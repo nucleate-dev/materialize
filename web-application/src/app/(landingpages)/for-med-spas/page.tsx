@@ -49,7 +49,10 @@ function HeroSection() {
   return (
     <section className="relative min-h-[85vh] flex flex-col justify-center px-6 py-24 pt-32">
       <div className="container mx-auto max-w-5xl w-full text-center">
-        <Badge variant="outline" className="mb-6 border-rose-500/30 bg-rose-500/10 text-rose-600 dark:text-rose-300">
+        <Badge
+          variant="outline"
+          className="mb-6 border-rose-500/30 bg-rose-500/10 text-rose-600 dark:text-rose-300"
+        >
           AI Website Builder for Med Spas
         </Badge>
 
@@ -59,8 +62,8 @@ function HeroSection() {
         </h1>
 
         <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-8">
-          Build a premium website that books consultations. Update it anytime by chatting with AI.
-          No designers, no developers, no hassle.
+          Build a premium website that books consultations. Update it anytime by
+          chatting with AI. No designers, no developers, no hassle.
         </p>
 
         <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-12">
@@ -98,7 +101,9 @@ function HeroSection() {
                   <div className="w-8 h-8 bg-rose-500/20 rounded-lg flex items-center justify-center">
                     <Sparkles className="w-4 h-4 text-rose-600 dark:text-rose-400" />
                   </div>
-                  <span className="font-semibold text-foreground">Glow Med Spa</span>
+                  <span className="font-semibold text-foreground">
+                    Glow Med Spa
+                  </span>
                 </div>
                 <div className="hidden md:flex gap-6 text-sm text-muted-foreground">
                   <span>Treatments</span>
@@ -114,7 +119,8 @@ function HeroSection() {
                     Reveal Your Best Self
                   </h2>
                   <p className="text-muted-foreground mb-6 text-sm">
-                    Expert aesthetic treatments in a luxurious, welcoming environment.
+                    Expert aesthetic treatments in a luxurious, welcoming
+                    environment.
                   </p>
                   <div className="flex gap-3">
                     <div className="px-4 py-2 bg-rose-500 text-white rounded-lg text-sm font-medium">
@@ -126,8 +132,16 @@ function HeroSection() {
                   </div>
                 </div>
                 <div className="hidden md:grid grid-cols-2 gap-3">
-                  {["Injectables", "Laser Treatments", "Facials", "Body Contouring"].map((treatment) => (
-                    <div key={treatment} className="bg-background/50 border border-border rounded-lg p-3 text-sm">
+                  {[
+                    "Injectables",
+                    "Laser Treatments",
+                    "Facials",
+                    "Body Contouring",
+                  ].map((treatment) => (
+                    <div
+                      key={treatment}
+                      className="bg-background/50 border border-border rounded-lg p-3 text-sm"
+                    >
                       <CheckCircle2 className="w-4 h-4 text-rose-500 mb-2" />
                       <span className="text-foreground">{treatment}</span>
                     </div>
@@ -150,26 +164,34 @@ function PainPointsSection() {
     {
       icon: <Clock className="w-6 h-6" />,
       title: "Your website doesn't convert",
-      description: "Visitors browse but don't book. Your site looks like a brochure, not a lead machine.",
-      solution: "Nucleate builds conversion-focused sites with prominent booking CTAs and treatment pages that sell.",
+      description:
+        "Visitors browse but don't book. Your site looks like a brochure, not a lead machine.",
+      solution:
+        "Nucleate builds conversion-focused sites with prominent booking CTAs and treatment pages that sell.",
     },
     {
       icon: <DollarSign className="w-6 h-6" />,
       title: "Marketing agencies are expensive",
-      description: "$5,000-$15,000 for a custom site. Then monthly retainers for every little change.",
-      solution: "Get a premium website in minutes, free to start. Make unlimited updates yourself.",
+      description:
+        "$5,000-$15,000 for a custom site. Then monthly retainers for every little change.",
+      solution:
+        "Get a premium website in minutes, free to start. Make unlimited updates yourself.",
     },
     {
       icon: <X className="w-6 h-6" />,
       title: "Standing out is harder than ever",
-      description: "The industry grew from 1,600 to 10,000+ med spas. Competition is fierce.",
-      solution: "AI generates a unique, custom site for your brand—not a generic template everyone else uses.",
+      description:
+        "The industry grew from 1,600 to 10,000+ med spas. Competition is fierce.",
+      solution:
+        "AI generates a unique, custom site for your brand—not a generic template everyone else uses.",
     },
     {
       icon: <PenLine className="w-6 h-6" />,
       title: "Adding new treatments is a pain",
-      description: "Every time you add a service or update pricing, you're waiting on your web person.",
-      solution: "Just chat to update. Add treatments, change pricing, update photos—instantly, anytime.",
+      description:
+        "Every time you add a service or update pricing, you're waiting on your web person.",
+      solution:
+        "Just chat to update. Add treatments, change pricing, update photos—instantly, anytime.",
     },
   ];
 
@@ -181,7 +203,8 @@ function PainPointsSection() {
             Sound familiar?
           </h2>
           <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-            Most med spa owners face these exact problems with their online presence.
+            Most med spa owners face these exact problems with their online
+            presence.
           </p>
         </div>
 
@@ -197,11 +220,17 @@ function PainPointsSection() {
               <div className="w-12 h-12 bg-red-500/10 rounded-xl flex items-center justify-center mb-4 text-red-500 dark:text-red-400 group-hover:bg-red-500/20 transition-colors">
                 {point.icon}
               </div>
-              <h3 className="text-xl font-medium text-foreground mb-2">{point.title}</h3>
-              <p className="text-muted-foreground leading-relaxed mb-4">{point.description}</p>
+              <h3 className="text-xl font-medium text-foreground mb-2">
+                {point.title}
+              </h3>
+              <p className="text-muted-foreground leading-relaxed mb-4">
+                {point.description}
+              </p>
               <div className="flex items-start gap-2 pt-4 border-t border-border">
                 <CheckCircle2 className="w-5 h-5 text-emerald-500 mt-0.5 flex-shrink-0" />
-                <p className="text-sm text-emerald-600 dark:text-emerald-400">{point.solution}</p>
+                <p className="text-sm text-emerald-600 dark:text-emerald-400">
+                  {point.solution}
+                </p>
               </div>
             </motion.div>
           ))}
@@ -229,12 +258,20 @@ function WhatWeBuildSection() {
     {
       icon: <Calendar className="w-5 h-5" />,
       title: "Booking & Lead Forms",
-      items: ["Consultation requests", "Treatment inquiries", "Email notifications"],
+      items: [
+        "Consultation requests",
+        "Treatment inquiries",
+        "Email notifications",
+      ],
     },
     {
       icon: <MessageSquare className="w-5 h-5" />,
       title: "AI Chat Editing",
-      items: ["Update treatments instantly", "Change pricing", "Add before & afters"],
+      items: [
+        "Update treatments instantly",
+        "Change pricing",
+        "Add before & afters",
+      ],
     },
   ];
 
@@ -242,14 +279,18 @@ function WhatWeBuildSection() {
     <section className="py-24 px-6 border-t border-border bg-muted/30">
       <div className="container mx-auto max-w-6xl">
         <div className="text-center mb-16">
-          <Badge variant="outline" className="mb-4 border-rose-500/20 bg-rose-500/10 text-rose-600 dark:text-rose-300">
+          <Badge
+            variant="outline"
+            className="mb-4 border-rose-500/20 bg-rose-500/10 text-rose-600 dark:text-rose-300"
+          >
             What You Get
           </Badge>
           <h2 className="text-3xl md:text-5xl font-medium tracking-tight mb-6 text-foreground">
             Everything your med spa needs online
           </h2>
           <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-            A complete, premium website built for aesthetic practices. Not a template—a custom site for your med spa.
+            A complete, premium website built for aesthetic practices. Not a
+            template—a custom site for your med spa.
           </p>
         </div>
 
@@ -265,10 +306,15 @@ function WhatWeBuildSection() {
               <div className="w-10 h-10 bg-rose-500/10 rounded-xl flex items-center justify-center mb-4 text-rose-600 dark:text-rose-400">
                 {component.icon}
               </div>
-              <h3 className="text-lg font-medium text-foreground mb-4">{component.title}</h3>
+              <h3 className="text-lg font-medium text-foreground mb-4">
+                {component.title}
+              </h3>
               <ul className="space-y-2">
                 {component.items.map((item, i) => (
-                  <li key={i} className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <li
+                    key={i}
+                    className="flex items-center gap-2 text-sm text-muted-foreground"
+                  >
                     <CheckCircle2 className="w-4 h-4 text-rose-500" />
                     {item}
                   </li>
@@ -287,9 +333,18 @@ function WhatWeBuildSection() {
  */
 function AIChatSection() {
   const chatExamples = [
-    { user: "Add our new hydrafacial treatment at $250", ai: "Done! I've added Hydrafacial to your treatments page with pricing and a description. It's now visible in your treatment menu." },
-    { user: "Update Botox pricing to $12 per unit", ai: "Updated! Your Botox treatment now shows $12/unit on the treatments page." },
-    { user: "Add Dr. Martinez's credentials to the about page", ai: "Added! Dr. Martinez's bio now includes her board certifications and 10+ years of experience." },
+    {
+      user: "Add our new hydrafacial treatment at $250",
+      ai: "Done! I've added Hydrafacial to your treatments page with pricing and a description. It's now visible in your treatment menu.",
+    },
+    {
+      user: "Update Botox pricing to $12 per unit",
+      ai: "Updated! Your Botox treatment now shows $12/unit on the treatments page.",
+    },
+    {
+      user: "Add Dr. Martinez's credentials to the about page",
+      ai: "Added! Dr. Martinez's bio now includes her board certifications and 10+ years of experience.",
+    },
   ];
 
   return (
@@ -300,15 +355,19 @@ function AIChatSection() {
       <div className="container mx-auto max-w-6xl relative z-10">
         <div className="grid lg:grid-cols-2 gap-12 items-center">
           <div>
-            <Badge variant="outline" className="mb-4 border-rose-500/20 bg-rose-500/10 text-rose-600 dark:text-rose-300">
+            <Badge
+              variant="outline"
+              className="mb-4 border-rose-500/20 bg-rose-500/10 text-rose-600 dark:text-rose-300"
+            >
               The Difference
             </Badge>
             <h2 className="text-3xl md:text-5xl font-medium tracking-tight mb-6 text-foreground">
               Update your website by chatting
             </h2>
             <p className="text-muted-foreground text-lg mb-8 leading-relaxed">
-              No more waiting for your marketing agency. No more learning complicated editors.
-              Just tell Nucleate what you want to change, and it happens instantly.
+              No more waiting for your marketing agency. No more learning
+              complicated editors. Just tell Nucleate what you want to change,
+              and it happens instantly.
             </p>
 
             <div className="space-y-4">
@@ -353,7 +412,9 @@ function AIChatSection() {
                   {/* AI response */}
                   <div className="flex justify-start">
                     <div className="bg-muted border border-border rounded-2xl rounded-bl-md px-4 py-2 max-w-[80%]">
-                      <p className="text-sm text-muted-foreground">{example.ai}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {example.ai}
+                      </p>
                     </div>
                   </div>
                 </motion.div>
@@ -363,7 +424,9 @@ function AIChatSection() {
             <div className="mt-6 pt-4 border-t border-border">
               <div className="bg-muted rounded-xl px-4 py-3 flex items-center gap-3">
                 <MessageSquare className="w-4 h-4 text-muted-foreground" />
-                <span className="text-muted-foreground text-sm">Type your update...</span>
+                <span className="text-muted-foreground text-sm">
+                  Type your update...
+                </span>
               </div>
             </div>
           </div>
@@ -381,17 +444,20 @@ function FeaturesSection() {
     {
       icon: <Search className="w-6 h-6" />,
       title: "SEO Optimized",
-      description: "Show up when clients search for 'med spa near me' or 'botox in [your city]'.",
+      description:
+        "Show up when clients search for 'med spa near me' or 'botox in [your city]'.",
     },
     {
       icon: <Shield className="w-6 h-6" />,
       title: "Premium & Professional",
-      description: "A design that conveys trust and luxury—essential for aesthetic services.",
+      description:
+        "A design that conveys trust and luxury—essential for aesthetic services.",
     },
     {
       icon: <Clock className="w-6 h-6" />,
       title: "Ready in Minutes",
-      description: "Not weeks. Describe your med spa and get a complete website same day.",
+      description:
+        "Not weeks. Describe your med spa and get a complete website same day.",
     },
   ];
 
@@ -410,8 +476,12 @@ function FeaturesSection() {
               <div className="w-14 h-14 bg-rose-500/10 rounded-2xl flex items-center justify-center mb-6 text-rose-600 dark:text-rose-400 mx-auto">
                 {feature.icon}
               </div>
-              <h3 className="text-xl font-medium text-foreground mb-3">{feature.title}</h3>
-              <p className="text-muted-foreground leading-relaxed">{feature.description}</p>
+              <h3 className="text-xl font-medium text-foreground mb-3">
+                {feature.title}
+              </h3>
+              <p className="text-muted-foreground leading-relaxed">
+                {feature.description}
+              </p>
             </motion.div>
           ))}
         </div>
@@ -434,7 +504,8 @@ function CTASection() {
           Ready to attract more clients?
         </h2>
         <p className="text-muted-foreground text-lg max-w-2xl mx-auto mb-8">
-          Join med spas who&apos;ve upgraded their online presence with Nucleate.
+          Join med spas who&apos;ve upgraded their online presence with
+          Nucleate.
         </p>
 
         <Button
@@ -472,8 +543,12 @@ function FAQSection() {
     <section className="py-24 bg-muted/30 border-t border-border">
       <div className="container mx-auto px-6 max-w-6xl">
         <div className="text-center mb-16">
-          <h2 className="text-3xl md:text-4xl font-medium text-foreground mb-4">Questions?</h2>
-          <p className="text-muted-foreground text-lg">Quick answers about Nucleate for med spas.</p>
+          <h2 className="text-3xl md:text-4xl font-medium text-foreground mb-4">
+            Questions?
+          </h2>
+          <p className="text-muted-foreground text-lg">
+            Quick answers about Nucleate for med spas.
+          </p>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {faqs.map((faq, index) => (
@@ -484,8 +559,12 @@ function FAQSection() {
               transition={{ delay: index * 0.1 }}
               className="bg-card border border-border rounded-2xl p-6 hover:border-primary/30 transition-all duration-300"
             >
-              <h3 className="text-lg font-medium text-foreground mb-3">{faq.q}</h3>
-              <p className="text-muted-foreground text-sm leading-relaxed">{faq.a}</p>
+              <h3 className="text-lg font-medium text-foreground mb-3">
+                {faq.q}
+              </h3>
+              <p className="text-muted-foreground text-sm leading-relaxed">
+                {faq.a}
+              </p>
             </motion.div>
           ))}
         </div>

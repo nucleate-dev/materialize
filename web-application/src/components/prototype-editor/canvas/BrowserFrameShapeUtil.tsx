@@ -68,7 +68,7 @@ export class BrowserFrameShapeUtil extends BaseBoxShapeUtil<BrowserFrameShape> {
 
   override onResize(
     shape: BrowserFrameShape,
-    info: TLResizeInfo<BrowserFrameShape>
+    info: TLResizeInfo<BrowserFrameShape>,
   ) {
     return resizeBox(shape, info);
   }
@@ -80,8 +80,7 @@ export class BrowserFrameShapeUtil extends BaseBoxShapeUtil<BrowserFrameShape> {
     // Get viewing URL from the shape's meta
     const viewingUrl = (shape.meta?.viewingUrl as string) || "";
     const iframeSrc = this.resolveIframeSrc(viewingUrl, path);
-    const displayUrl =
-      path === "/" ? viewingUrl : `${viewingUrl}${path}`;
+    const displayUrl = path === "/" ? viewingUrl : `${viewingUrl}${path}`;
 
     return (
       <HTMLContainer

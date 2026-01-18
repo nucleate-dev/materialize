@@ -17,14 +17,22 @@ import { useQueryClient } from "@tanstack/react-query";
 import { personalTeamQueryKey } from "@/lib/react-query/queryKeys";
 
 export function TeamTab() {
-  const { activeTeam, teamMembers, currentUserMembership, setActiveTeam, signedAvatarUrl } = useActiveTeam();
+  const {
+    activeTeam,
+    teamMembers,
+    currentUserMembership,
+    setActiveTeam,
+    signedAvatarUrl,
+  } = useActiveTeam();
   const { user } = useUser();
   const { team: personalTeam } = usePersonalTeam();
   const logger = useProductLogger();
   const queryClient = useQueryClient();
 
   const [teamName, setTeamName] = useState(activeTeam?.name || "");
-  const [teamDescription, setTeamDescription] = useState(activeTeam?.description || "");
+  const [teamDescription, setTeamDescription] = useState(
+    activeTeam?.description || "",
+  );
   const [isSaving, setIsSaving] = useState(false);
   const [isLeavingTeam, setIsLeavingTeam] = useState(false);
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
@@ -197,7 +205,7 @@ export function TeamTab() {
         .from("teams")
         .update({
           name: teamName.trim(),
-          description: teamDescription.trim() || null
+          description: teamDescription.trim() || null,
         })
         .eq("id", activeTeam.id);
 

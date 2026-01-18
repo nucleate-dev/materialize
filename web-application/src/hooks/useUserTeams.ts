@@ -18,7 +18,8 @@ export function useUserTeams() {
       // Fetch all teams where the user is a member
       const { data, error } = await supabase
         .from("team_memberships")
-        .select(`
+        .select(
+          `
           role,
           team:teams (
             id,
@@ -28,7 +29,8 @@ export function useUserTeams() {
             personal_owner_user_id,
             slug
           )
-        `)
+        `,
+        )
         .eq("user_id", user.id);
 
       if (error) {

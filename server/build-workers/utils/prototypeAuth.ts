@@ -44,13 +44,11 @@ export async function checkUserHasPrototypeViewingAccess(
   prototypeId: string,
   jwtToken: string | undefined,
   log2: SystemLogger,
-): Promise<
-  {
-    user: User | null;
-    prototype: Database["public"]["Tables"]["prototypes"]["Row"];
-    isServiceRole: boolean;
-  } | null
-> {
+): Promise<{
+  user: User | null;
+  prototype: Database["public"]["Tables"]["prototypes"]["Row"];
+  isServiceRole: boolean;
+} | null> {
   try {
     // Create Supabase client with or without JWT
     const supabaseClient = createClient<Database>(
@@ -58,12 +56,12 @@ export async function checkUserHasPrototypeViewingAccess(
       process.env.SUPABASE_ANON_KEY!,
       jwtToken
         ? {
-          global: {
-            headers: {
-              Authorization: `Bearer ${jwtToken}`,
+            global: {
+              headers: {
+                Authorization: `Bearer ${jwtToken}`,
+              },
             },
-          },
-        }
+          }
         : undefined,
     );
     const { data: prototype, error } = await supabaseClient
@@ -96,14 +94,12 @@ export async function checkUserHasPrototypeEditAccess(
   prototypeId: string,
   jwtToken: string | undefined,
   log2: SystemLogger,
-): Promise<
-  {
-    user: User | null;
-    prototype: Database["public"]["Tables"]["prototypes"]["Row"];
-    canEdit: boolean;
-    isServiceRole: boolean;
-  } | null
-> {
+): Promise<{
+  user: User | null;
+  prototype: Database["public"]["Tables"]["prototypes"]["Row"];
+  canEdit: boolean;
+  isServiceRole: boolean;
+} | null> {
   try {
     // Run viewing access check and RPC concurrently
     const [viewingAccessResult, rpcCanEdit] = await Promise.all([
@@ -111,31 +107,31 @@ export async function checkUserHasPrototypeEditAccess(
       // Call RPC to check edit access
       jwtToken
         ? (async (): Promise<boolean> => {
-          const supabaseClient = createClient<Database>(
-            process.env.SUPABASE_URL!,
-            process.env.SUPABASE_ANON_KEY!,
-            {
-              global: {
-                headers: {
-                  Authorization: `Bearer ${jwtToken}`,
+            const supabaseClient = createClient<Database>(
+              process.env.SUPABASE_URL!,
+              process.env.SUPABASE_ANON_KEY!,
+              {
+                global: {
+                  headers: {
+                    Authorization: `Bearer ${jwtToken}`,
+                  },
                 },
               },
-            },
-          );
-          const { data, error } = await supabaseClient.rpc(
-            "can_edit_prototype",
-            {
-              p_prototype_id: prototypeId,
-            },
-          );
-          if (error) {
-            log2.error(error, "Error calling can_edit_prototype RPC:", {
-              functionName: "checkUserHasPrototypeEditAccess",
-            });
-            return false;
-          }
-          return data === true;
-        })()
+            );
+            const { data, error } = await supabaseClient.rpc(
+              "can_edit_prototype",
+              {
+                p_prototype_id: prototypeId,
+              },
+            );
+            if (error) {
+              log2.error(error, "Error calling can_edit_prototype RPC:", {
+                functionName: "checkUserHasPrototypeEditAccess",
+              });
+              return false;
+            }
+            return data === true;
+          })()
         : Promise.resolve(false),
     ]);
 

@@ -65,11 +65,11 @@ export async function GET() {
     if (usersError) throw usersError;
 
     // Helper to aggregate by date
-    const aggregateData = (items: { created_at: string | null; }[]) => {
+    const aggregateData = (items: { created_at: string | null }[]) => {
       const counts: Record<string, number> = {};
 
       // Initialize with 0 for our target dates
-      dates.forEach(d => {
+      dates.forEach((d) => {
         counts[d] = 0;
       });
 
@@ -95,12 +95,17 @@ export async function GET() {
     // 4. Onboarding Survey Stats
     const { data: surveyData, error: surveyError } = await supabase
       .from("user_onboarding_survey")
-      .select("role, ai_coding_experience, referral_source, use_cases, created_at");
+      .select(
+        "role, ai_coding_experience, referral_source, use_cases, created_at",
+      );
 
     if (surveyError) throw surveyError;
 
     // Aggregate survey data by different dimensions
-    const aggregateByCounts = (items: { [key: string]: string | null }[], field: string) => {
+    const aggregateByCounts = (
+      items: { [key: string]: string | null }[],
+      field: string,
+    ) => {
       const counts: Record<string, number> = {};
       items.forEach((item) => {
         const value = item[field];
@@ -136,7 +141,9 @@ export async function GET() {
       byExperience: aggregateByCounts(surveyData || [], "ai_coding_experience"),
       byReferralSource: aggregateByCounts(surveyData || [], "referral_source"),
       byUseCases: aggregateUseCases(surveyData || []),
-      daily: aggregateData((surveyData || []).map(s => ({ created_at: s.created_at }))),
+      daily: aggregateData(
+        (surveyData || []).map((s) => ({ created_at: s.created_at })),
+      ),
     };
 
     const stats = {
@@ -144,7 +151,10 @@ export async function GET() {
       messages: messagesStats,
       users: usersStats,
       // Calculate totals from the stats to ensure consistency with the graph
-      totalPrototypes: prototypesStats.reduce((acc, curr) => acc + curr.count, 0),
+      totalPrototypes: prototypesStats.reduce(
+        (acc, curr) => acc + curr.count,
+        0,
+      ),
       totalMessages: messagesStats.reduce((acc, curr) => acc + curr.count, 0),
       totalUsers: usersStats.reduce((acc, curr) => acc + curr.count, 0),
       // Onboarding survey stats

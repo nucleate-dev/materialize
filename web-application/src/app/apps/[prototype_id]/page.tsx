@@ -23,7 +23,7 @@ const SITE_BASE_URL = (
   "https://nucleate.dev"
 ).replace(/\/$/, "");
 
-function MinimalHeader({ prototype }: { prototype: Prototype; }) {
+function MinimalHeader({ prototype }: { prototype: Prototype }) {
   const visibility = normalizePrototypeVisibility(prototype.visibility);
   const visibilityLabel =
     visibility === "SELF"
@@ -65,7 +65,7 @@ function MinimalHeader({ prototype }: { prototype: Prototype; }) {
 export default function FullscreenPrototypePage({
   params,
 }: {
-  params: Promise<{ prototype_id: string; }>;
+  params: Promise<{ prototype_id: string }>;
 }) {
   const { prototype_id } = use(params);
   const logger = useProductLogger();
@@ -111,7 +111,7 @@ export default function FullscreenPrototypePage({
       }
 
       let resolvedViewingUrl =
-        (data as Prototype & { viewing_url?: string; }).viewing_url ?? "";
+        (data as Prototype & { viewing_url?: string }).viewing_url ?? "";
       const serverEndpoint = process.env.NEXT_PUBLIC_SERVER_ENDPOINT;
 
       if (serverEndpoint) {

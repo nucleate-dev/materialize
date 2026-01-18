@@ -143,7 +143,9 @@ export default function Blog({ initialPosts }: BlogProps) {
             {featuredPosts.length > 0 && (
               <div className="mb-20">
                 <div className="flex items-end justify-between mb-8">
-                  <h2 className="text-3xl font-medium text-foreground">Featured</h2>
+                  <h2 className="text-3xl font-medium text-foreground">
+                    Featured
+                  </h2>
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

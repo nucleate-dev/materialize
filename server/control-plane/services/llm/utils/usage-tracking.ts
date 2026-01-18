@@ -1,6 +1,6 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Database } from "../../../types/supabase.js";
-import type { SystemLogger } from "../../../loggers/SystemLogger.js";
+import type { SupabaseClient } from '@supabase/supabase-js';
+import type { Database } from '../../../types/supabase.js';
+import type { SystemLogger } from '../../../loggers/SystemLogger.js';
 
 export interface UsageTrackingResult {
   totalRemainingCredits: number;
@@ -11,7 +11,7 @@ export interface UsageTrackingResult {
 export interface UsageMetadata {
   provider?: string;
   model?: string;
-  requestType?: "completion" | "image_generation";
+  requestType?: 'completion' | 'image_generation';
   inputTokens?: number;
   outputTokens?: number;
 }
@@ -25,7 +25,7 @@ export async function trackLLMUsage(
   metadata?: UsageMetadata,
 ): Promise<UsageTrackingResult> {
   const localLogger = logger.child({
-    function: "trackLLMUsage",
+    function: 'trackLLMUsage',
     userId,
     teamId,
     creditsUsed,
@@ -35,17 +35,20 @@ export async function trackLLMUsage(
   try {
     // Call the consume_credits_teams RPC (same as build-workers)
     // Use empty string for prototype_id since LLM calls are not tied to a specific prototype
-    const { data, error: rpcError } = await supabase.rpc("consume_credits_teams", {
-      p_team_id: teamId,
-      p_prototype_id: "", // Empty string for non-prototype calls
-      p_credits: creditsUsed,
-    });
+    const { data, error: rpcError } = await supabase.rpc(
+      'consume_credits_teams',
+      {
+        p_team_id: teamId,
+        p_prototype_id: '', // Empty string for non-prototype calls
+        p_credits: creditsUsed,
+      },
+    );
 
     if (rpcError) {
-      localLogger.error(rpcError, "consume_credits_teams RPC failed");
+      localLogger.error(rpcError, 'consume_credits_teams RPC failed');
 
       // Fallback: insert directly into api_usage table
-      const { error: insertError } = await supabase.from("api_usage").insert({
+      const { error: insertError } = await supabase.from('api_usage').insert({
         user_id: userId,
         prototype_id: null,
         credits_used: creditsUsed,
@@ -55,7 +58,10 @@ export async function trackLLMUsage(
       });
 
       if (insertError) {
-        localLogger.error(insertError, "Failed to insert into api_usage fallback");
+        localLogger.error(
+          insertError,
+          'Failed to insert into api_usage fallback',
+        );
       }
 
       return {
@@ -73,12 +79,12 @@ export async function trackLLMUsage(
   } catch (error) {
     localLogger.error(
       error instanceof Error ? error : new Error(String(error)),
-      "Exception in trackLLMUsage",
+      'Exception in trackLLMUsage',
     );
     return {
       totalRemainingCredits: 0,
       success: false,
-      error: error instanceof Error ? error.message : "Unknown error",
+      error: error instanceof Error ? error.message : 'Unknown error',
     };
   }
 }
@@ -95,7 +101,7 @@ export async function checkCreditsAvailable(
   logger: SystemLogger,
 ): Promise<CreditCheckResult> {
   const localLogger = logger.child({
-    function: "checkCreditsAvailable",
+    function: 'checkCreditsAvailable',
     userId,
     teamId,
   });
@@ -104,13 +110,13 @@ export async function checkCreditsAvailable(
     // Query credit_grant_balances for unexpired grants
     const nowIso = new Date().toISOString();
     const { data: balances, error } = await supabase
-      .from("credit_grant_balances")
-      .select("credits_remaining")
-      .eq("team_id", teamId)
-      .gt("expires_at", nowIso);
+      .from('credit_grant_balances')
+      .select('credits_remaining')
+      .eq('team_id', teamId)
+      .gt('expires_at', nowIso);
 
     if (error) {
-      localLogger.error(error, "Error checking credit balances");
+      localLogger.error(error, 'Error checking credit balances');
       return { hasCredits: false, remaining: 0 };
     }
 
@@ -124,7 +130,7 @@ export async function checkCreditsAvailable(
   } catch (error) {
     localLogger.error(
       error instanceof Error ? error : new Error(String(error)),
-      "Exception in checkCreditsAvailable",
+      'Exception in checkCreditsAvailable',
     );
     return { hasCredits: false, remaining: 0 };
   }

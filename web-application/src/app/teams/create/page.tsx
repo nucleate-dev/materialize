@@ -151,7 +151,6 @@ export default function CreateTeamPage() {
       </button>
 
       <div className="relative z-10 min-h-screen flex flex-col items-center justify-center px-4 py-12">
-
         {/* Header */}
         <div className="text-center mb-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
           <h1 className="text-3xl md:text-4xl font-medium tracking-tight text-transparent bg-clip-text bg-gradient-to-b from-white via-white to-white/60 mb-3">
@@ -226,58 +225,59 @@ export default function CreateTeamPage() {
                     </div>
 
                     {/* Seat Selector for Team plan */}
-                    {plan.productKey === "team" &&
-                      selectedPlan === "team" && (
-                        <div className="mb-6 p-4 bg-white/5 rounded-lg border border-white/10">
-                          <div className="text-sm font-medium text-white mb-3">
-                            Number of seats
-                          </div>
-                          <div className="flex items-center gap-3">
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setSeatQuantity(Math.max(1, seatQuantity - 1));
-                              }}
-                              disabled={seatQuantity <= 1 || isCreating}
-                              className="h-9 w-9 bg-white/5 hover:bg-white/10 border border-white/20 text-white disabled:opacity-30 disabled:cursor-not-allowed"
-                            >
-                              -
-                            </Button>
-                            <Input
-                              type="number"
-                              min={1}
-                              value={seatQuantity}
-                              onChange={(e) => {
-                                const num = parseInt(e.target.value) || 1;
-                                setSeatQuantity(Math.max(1, num));
-                              }}
-                              onClick={(e) => e.stopPropagation()}
-                              className="text-center h-9 w-20 text-sm bg-[#0B0C0E] border-white/20 text-white"
-                              disabled={isCreating}
-                            />
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setSeatQuantity(seatQuantity + 1);
-                              }}
-                              disabled={isCreating}
-                              className="h-9 w-9 bg-white/5 hover:bg-white/10 border border-white/20 text-white disabled:opacity-30 disabled:cursor-not-allowed"
-                            >
-                              +
-                            </Button>
-                            <div className="text-xs text-muted-foreground ml-2">
-                              {(seatQuantity * CreditLimits.TEAM).toLocaleString()}{" "}
-                              credits/mo
-                            </div>
+                    {plan.productKey === "team" && selectedPlan === "team" && (
+                      <div className="mb-6 p-4 bg-white/5 rounded-lg border border-white/10">
+                        <div className="text-sm font-medium text-white mb-3">
+                          Number of seats
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSeatQuantity(Math.max(1, seatQuantity - 1));
+                            }}
+                            disabled={seatQuantity <= 1 || isCreating}
+                            className="h-9 w-9 bg-white/5 hover:bg-white/10 border border-white/20 text-white disabled:opacity-30 disabled:cursor-not-allowed"
+                          >
+                            -
+                          </Button>
+                          <Input
+                            type="number"
+                            min={1}
+                            value={seatQuantity}
+                            onChange={(e) => {
+                              const num = parseInt(e.target.value) || 1;
+                              setSeatQuantity(Math.max(1, num));
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                            className="text-center h-9 w-20 text-sm bg-[#0B0C0E] border-white/20 text-white"
+                            disabled={isCreating}
+                          />
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSeatQuantity(seatQuantity + 1);
+                            }}
+                            disabled={isCreating}
+                            className="h-9 w-9 bg-white/5 hover:bg-white/10 border border-white/20 text-white disabled:opacity-30 disabled:cursor-not-allowed"
+                          >
+                            +
+                          </Button>
+                          <div className="text-xs text-muted-foreground ml-2">
+                            {(
+                              seatQuantity * CreditLimits.TEAM
+                            ).toLocaleString()}{" "}
+                            credits/mo
                           </div>
                         </div>
-                      )}
+                      </div>
+                    )}
 
                     <div className="space-y-3 mt-auto">
                       {plan.features.map((feature, i) => (

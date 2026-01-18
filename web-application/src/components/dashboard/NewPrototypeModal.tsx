@@ -176,8 +176,7 @@ export default function NewPrototypeModal({
 
   const isWebPrototypeEnabled =
     posthog?.isFeatureEnabled("web-prototype-support") ?? false;
-  const isSourceRepoEnabled =
-    posthog?.isFeatureEnabled("source-repo") ?? false;
+  const isSourceRepoEnabled = posthog?.isFeatureEnabled("source-repo") ?? false;
   const isTeamsUIEnabled = posthog?.isFeatureEnabled("teams-ui") ?? false;
   const isWebFrameworkSelected = framework === "web_nextjs_react";
 
@@ -441,11 +440,7 @@ export default function NewPrototypeModal({
             if (reposResult.data?.repositories) {
               setSourceRepos(
                 reposResult.data.repositories.map(
-                  (repo: {
-                    id: number;
-                    name: string;
-                    full_name: string;
-                  }) => ({
+                  (repo: { id: number; name: string; full_name: string }) => ({
                     id: repo.id,
                     name: repo.name,
                     full_name: repo.full_name,
@@ -533,12 +528,19 @@ export default function NewPrototypeModal({
 
       const teamId = activeTeam?.id;
       if (!teamId) {
-        logger.debug("error", "No active team available for prototype creation");
+        logger.debug(
+          "error",
+          "No active team available for prototype creation",
+        );
         return;
       }
 
       const normalizedVisibility: CreatePrototypeRequestBody["visibility"] =
-        visibility === "TEAM" ? "TEAM" : visibility === "SELF" ? "SELF" : "PUBLIC";
+        visibility === "TEAM"
+          ? "TEAM"
+          : visibility === "SELF"
+            ? "SELF"
+            : "PUBLIC";
 
       const folderId = selectedFolder ?? undefined;
 
@@ -712,9 +714,7 @@ export default function NewPrototypeModal({
                 maxLength={64}
               />
               {touched && !name.trim() && (
-                <p className="text-xs text-destructive">
-                  Name is required
-                </p>
+                <p className="text-xs text-destructive">Name is required</p>
               )}
             </div>
 

@@ -47,15 +47,11 @@ export function broadcastToConnections(
     }
   }
 
-  loggerInstance.consoleLogDevOnly(
-    "info",
-    "Broadcast message to connections",
-    {
-      messageType: message.type,
-      totalConnections: connections.size,
-      successCount,
-      failureCount,
-      skippedCount,
-    },
-  );
+  loggerInstance.consoleLogDevOnly("info", "Broadcast message to connections", {
+    messageType: message.type,
+    totalConnections: connections.size,
+    successCount,
+    failureCount,
+    skippedCount,
+  });
 }

@@ -1,6 +1,6 @@
-import { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
-import { GlideClient } from "@valkey/valkey-glide";
-import { createClient } from "@supabase/supabase-js";
+import { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
+import { GlideClient } from '@valkey/valkey-glide';
+import { createClient } from '@supabase/supabase-js';
 import {
   APIResponse,
   EndChatRequestBody,
@@ -12,18 +12,18 @@ import {
   StandardErrorResponse,
   StartChatRequestBody,
   StartChatResponse,
-} from "../../types/PublicAPITypes.js";
-import { CACHE_KEYS } from "../../types/InternalTypes.js";
+} from '../../types/PublicAPITypes.js';
+import { CACHE_KEYS } from '../../types/InternalTypes.js';
 import {
   hgetallAsActiveBuild,
   hgetallAsDevBuild,
-} from "../../utils/cacheInteractionUtils.js";
-import { SystemLogger } from "../../loggers/SystemLogger.js";
-import { isDevServerInShutdownStages } from "../../utils/prototypeDevServerStatusUtils.js";
-import { validateJWTToken } from "../../utils/prototypeAuth.js";
-import { createInstallationToken } from "../../utils/githubClient.js";
-import { getValidGitHubUserAccessToken } from "../../utils/githubTokenUtils.js";
-import type { Database } from "../../types/supabase.js";
+} from '../../utils/cacheInteractionUtils.js';
+import { SystemLogger } from '../../loggers/SystemLogger.js';
+import { isDevServerInShutdownStages } from '../../utils/prototypeDevServerStatusUtils.js';
+import { validateJWTToken } from '../../utils/prototypeAuth.js';
+import { createInstallationToken } from '../../utils/githubClient.js';
+import { getValidGitHubUserAccessToken } from '../../utils/githubTokenUtils.js';
+import type { Database } from '../../types/supabase.js';
 
 export class OrchestrationService {
   private cache: GlideClient;
@@ -31,7 +31,7 @@ export class OrchestrationService {
 
   constructor(cache: GlideClient, logger: SystemLogger) {
     this.cache = cache;
-    this.logger = logger.child({ service: "OrchestrationService" });
+    this.logger = logger.child({ service: 'OrchestrationService' });
   }
 
   public registerRoutes(app: FastifyInstance): void {
@@ -39,14 +39,14 @@ export class OrchestrationService {
     app.post<{
       Body: StartChatRequestBody;
     }>(
-      "/orchestration/start-chat",
+      '/orchestration/start-chat',
       {
         schema: {
           body: {
-            type: "object",
-            required: ["prototype_id"],
+            type: 'object',
+            required: ['prototype_id'],
             properties: {
-              prototype_id: { type: "string" },
+              prototype_id: { type: 'string' },
             },
           },
         },
@@ -58,14 +58,14 @@ export class OrchestrationService {
     app.post<{
       Body: EndChatRequestBody;
     }>(
-      "/orchestration/end-chat",
+      '/orchestration/end-chat',
       {
         schema: {
           body: {
-            type: "object",
-            required: ["prototype_id"],
+            type: 'object',
+            required: ['prototype_id'],
             properties: {
-              prototype_id: { type: "string" },
+              prototype_id: { type: 'string' },
             },
           },
         },
@@ -77,14 +77,14 @@ export class OrchestrationService {
     app.post<{
       Body: RefreshGitHubInstallationTokenRequestBody;
     }>(
-      "/orchestration/refresh-github-installation-token",
+      '/orchestration/refresh-github-installation-token',
       {
         schema: {
           body: {
-            type: "object",
-            required: ["prototype_id"],
+            type: 'object',
+            required: ['prototype_id'],
             properties: {
-              prototype_id: { type: "string" },
+              prototype_id: { type: 'string' },
             },
           },
         },
@@ -104,27 +104,27 @@ export class OrchestrationService {
     prototypeId: string,
   ): Promise<{ isValid: boolean; buildId?: string; errorMessage?: string }> {
     // Extract token from x-orchestration-token header
-    const providedToken = request.headers["x-orchestration-token"];
+    const providedToken = request.headers['x-orchestration-token'];
 
-    if (!providedToken || typeof providedToken !== "string") {
-      this.logger.warn("Missing orchestration token in request", {
+    if (!providedToken || typeof providedToken !== 'string') {
+      this.logger.warn('Missing orchestration token in request', {
         prototypeId,
       });
       return {
         isValid: false,
-        errorMessage: "Missing x-orchestration-token header",
+        errorMessage: 'Missing x-orchestration-token header',
       };
     }
 
     if (
-      process.env.NODE_ENV === "development" &&
-      process.env.FARGATE_DEV_MODE === "true"
+      process.env.NODE_ENV === 'development' &&
+      process.env.FARGATE_DEV_MODE === 'true'
     ) {
       const devKey = CACHE_KEYS.protoDev(prototypeId);
       const existingDevData = await hgetallAsDevBuild(this.cache, devKey);
       if (existingDevData === null) {
         this.logger.warn(
-          "[Development mode] No active build found for prototype",
+          '[Development mode] No active build found for prototype',
           {
             prototypeId,
           },
@@ -132,18 +132,18 @@ export class OrchestrationService {
         return {
           isValid: false,
           errorMessage:
-            "[development mode] No active build found for this prototype",
+            '[development mode] No active build found for this prototype',
         };
       }
       if (existingDevData.orchestration_token !== providedToken) {
-        this.logger.warn("Invalid orchestration token provided", {
+        this.logger.warn('Invalid orchestration token provided', {
           prototypeId,
           devKey,
         });
         return {
           isValid: false,
           errorMessage:
-            "[development mode] orchestration token is not valid for this prototype",
+            '[development mode] orchestration token is not valid for this prototype',
         };
       }
       return {
@@ -157,17 +157,18 @@ export class OrchestrationService {
     );
 
     if (!currentBuildIdRaw) {
-      this.logger.warn("No active build found for prototype", { prototypeId });
+      this.logger.warn('No active build found for prototype', { prototypeId });
       return {
         isValid: false,
-        errorMessage: "No active build found for this prototype",
+        errorMessage: 'No active build found for this prototype',
       };
     }
 
     // Convert GlideString to string
-    const currentBuildId = typeof currentBuildIdRaw === "string"
-      ? currentBuildIdRaw
-      : currentBuildIdRaw.toString();
+    const currentBuildId =
+      typeof currentBuildIdRaw === 'string'
+        ? currentBuildIdRaw
+        : currentBuildIdRaw.toString();
 
     // Fetch the active build from cache
     const activeBuild = await hgetallAsActiveBuild(
@@ -177,32 +178,32 @@ export class OrchestrationService {
 
     if (!activeBuild) {
       this.logger.error(
-        new Error("Active build data not found in cache"),
-        "Build metadata missing",
+        new Error('Active build data not found in cache'),
+        'Build metadata missing',
         { prototypeId, buildId: currentBuildId },
       );
       return {
         isValid: false,
-        errorMessage: "Build metadata not found",
+        errorMessage: 'Build metadata not found',
       };
     }
 
     // Validate the token
     if (activeBuild.orchestration_token !== providedToken) {
-      this.logger.warn("Invalid orchestration token provided", {
+      this.logger.warn('Invalid orchestration token provided', {
         prototypeId,
         buildId: currentBuildId,
       });
       return {
         isValid: false,
-        errorMessage: "Invalid orchestration token",
+        errorMessage: 'Invalid orchestration token',
       };
     }
 
     // Token is valid
     this.logger.consoleLogDevOnly(
-      "info",
-      "Orchestration token validated successfully",
+      'info',
+      'Orchestration token validated successfully',
       {
         prototypeId,
         buildId: currentBuildId,
@@ -229,14 +230,13 @@ export class OrchestrationService {
 
     if (!validation.isValid) {
       const statusCode =
-        validation.errorMessage === "No active build found for this prototype"
+        validation.errorMessage === 'No active build found for this prototype'
           ? HTTP_STATUS.NOT_FOUND
           : HTTP_STATUS.UNAUTHORIZED;
 
       const errorResponse: StandardErrorResponse = {
-        error: statusCode === HTTP_STATUS.NOT_FOUND
-          ? "NOT_FOUND"
-          : "UNAUTHORIZED",
+        error:
+          statusCode === HTTP_STATUS.NOT_FOUND ? 'NOT_FOUND' : 'UNAUTHORIZED',
         message: validation.errorMessage!,
       };
       reply.status(statusCode);
@@ -250,8 +250,8 @@ export class OrchestrationService {
     let activeBuild;
     let activeBuildKey;
     if (
-      process.env.NODE_ENV === "development" &&
-      process.env.FARGATE_DEV_MODE === "true"
+      process.env.NODE_ENV === 'development' &&
+      process.env.FARGATE_DEV_MODE === 'true'
     ) {
       activeBuildKey = CACHE_KEYS.protoDev(prototype_id);
       activeBuild = await hgetallAsDevBuild(this.cache, activeBuildKey);
@@ -262,13 +262,13 @@ export class OrchestrationService {
 
     if (!activeBuild) {
       this.logger.error(
-        new Error("Active build data not found in cache"),
-        "Build metadata missing during start chat",
+        new Error('Active build data not found in cache'),
+        'Build metadata missing during start chat',
         { prototypeId: prototype_id, buildId: validation.buildId },
       );
       const errorResponse: StandardErrorResponse = {
-        error: "INTERNAL_SERVER_ERROR",
-        message: "Build metadata not found",
+        error: 'INTERNAL_SERVER_ERROR',
+        message: 'Build metadata not found',
       };
       reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR);
       return {
@@ -278,15 +278,14 @@ export class OrchestrationService {
     }
 
     if (isDevServerInShutdownStages(activeBuild.status)) {
-      this.logger.warn("Cannot start chat - build is in shutdown stage", {
+      this.logger.warn('Cannot start chat - build is in shutdown stage', {
         prototypeId: prototype_id,
         buildId: validation.buildId,
         currentStatus: activeBuild.status,
       });
       const errorResponse: StandardErrorResponse = {
-        error: "CONFLICT",
-        message:
-          `Cannot start chat while sandbox is in cleanup stages ${activeBuild.status}. Please get a new dev-server.`,
+        error: 'CONFLICT',
+        message: `Cannot start chat while sandbox is in cleanup stages ${activeBuild.status}. Please get a new dev-server.`,
       };
       reply.status(HTTP_STATUS.CONFLICT);
       return {
@@ -300,11 +299,11 @@ export class OrchestrationService {
 
     try {
       await this.cache.hset(activeBuildKey, {
-        status: "chatting",
+        status: 'chatting',
         last_touched: currentTime.toString(),
       });
 
-      this.logger.consoleLogDevOnly("info", "Updated build state to chatting", {
+      this.logger.consoleLogDevOnly('info', 'Updated build state to chatting', {
         prototypeId: prototype_id,
         buildId: validation.buildId,
         timestamp: currentTime,
@@ -312,7 +311,7 @@ export class OrchestrationService {
 
       const successResponse: StartChatResponse = {
         success: true,
-        message: "Chat session started, build state updated to chatting",
+        message: 'Chat session started, build state updated to chatting',
       };
       return reply.status(HTTP_STATUS.OK).send({
         data: successResponse,
@@ -321,13 +320,13 @@ export class OrchestrationService {
     } catch (error) {
       this.logger.error(
         error instanceof Error ? error : new Error(String(error)),
-        "Failed to update build state to chatting",
+        'Failed to update build state to chatting',
         { prototypeId: prototype_id, buildId: validation.buildId },
       );
 
       const errorResponse: StandardErrorResponse = {
-        error: "INTERNAL_SERVER_ERROR",
-        message: "Failed to update build state",
+        error: 'INTERNAL_SERVER_ERROR',
+        message: 'Failed to update build state',
       };
       return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
         data: null,
@@ -350,14 +349,13 @@ export class OrchestrationService {
 
     if (!validation.isValid) {
       const statusCode =
-        validation.errorMessage === "No active build found for this prototype"
+        validation.errorMessage === 'No active build found for this prototype'
           ? HTTP_STATUS.NOT_FOUND
           : HTTP_STATUS.UNAUTHORIZED;
 
       const errorResponse: StandardErrorResponse = {
-        error: statusCode === HTTP_STATUS.NOT_FOUND
-          ? "NOT_FOUND"
-          : "UNAUTHORIZED",
+        error:
+          statusCode === HTTP_STATUS.NOT_FOUND ? 'NOT_FOUND' : 'UNAUTHORIZED',
         message: validation.errorMessage!,
       };
       return reply.status(statusCode).send({
@@ -369,8 +367,8 @@ export class OrchestrationService {
     // Update active build state in cache
     let activeBuildKey;
     if (
-      process.env.NODE_ENV === "development" &&
-      process.env.FARGATE_DEV_MODE === "true"
+      process.env.NODE_ENV === 'development' &&
+      process.env.FARGATE_DEV_MODE === 'true'
     ) {
       activeBuildKey = CACHE_KEYS.protoDev(prototype_id);
     } else {
@@ -380,11 +378,11 @@ export class OrchestrationService {
 
     try {
       await this.cache.hset(activeBuildKey, {
-        status: "stable",
+        status: 'stable',
         last_touched: currentTime.toString(),
       });
 
-      this.logger.consoleLogDevOnly("info", "Updated build state to stable", {
+      this.logger.consoleLogDevOnly('info', 'Updated build state to stable', {
         prototypeId: prototype_id,
         buildId: validation.buildId,
         timestamp: currentTime,
@@ -392,7 +390,7 @@ export class OrchestrationService {
 
       const successResponse: EndChatResponse = {
         success: true,
-        message: "Chat session ended, build state updated to stable",
+        message: 'Chat session ended, build state updated to stable',
       };
       return reply.status(HTTP_STATUS.OK).send({
         data: successResponse,
@@ -401,13 +399,13 @@ export class OrchestrationService {
     } catch (error) {
       this.logger.error(
         error instanceof Error ? error : new Error(String(error)),
-        "Failed to update build state to stable",
+        'Failed to update build state to stable',
         { prototypeId: prototype_id, buildId: validation.buildId },
       );
 
       const errorResponse: StandardErrorResponse = {
-        error: "INTERNAL_SERVER_ERROR",
-        message: "Failed to update build state",
+        error: 'INTERNAL_SERVER_ERROR',
+        message: 'Failed to update build state',
       };
       return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
         data: null,
@@ -417,9 +415,9 @@ export class OrchestrationService {
   }
 
   private async handleRefreshGitHubInstallationToken(
-    request: FastifyRequest<
-      { Body: RefreshGitHubInstallationTokenRequestBody }
-    >,
+    request: FastifyRequest<{
+      Body: RefreshGitHubInstallationTokenRequestBody;
+    }>,
     reply: FastifyReply,
   ): Promise<
     APIResponse<
@@ -437,14 +435,13 @@ export class OrchestrationService {
 
     if (!validation.isValid) {
       const statusCode =
-        validation.errorMessage === "No active build found for this prototype"
+        validation.errorMessage === 'No active build found for this prototype'
           ? HTTP_STATUS.NOT_FOUND
           : HTTP_STATUS.UNAUTHORIZED;
 
       const errorResponse: RefreshGitHubInstallationTokenErrorResponse = {
-        error: statusCode === HTTP_STATUS.NOT_FOUND
-          ? "NOT_FOUND"
-          : "UNAUTHORIZED",
+        error:
+          statusCode === HTTP_STATUS.NOT_FOUND ? 'NOT_FOUND' : 'UNAUTHORIZED',
         message: validation.errorMessage!,
       };
       return reply.status(statusCode).send({
@@ -456,27 +453,27 @@ export class OrchestrationService {
     // Step 2: Validate user JWT token
     const authHeader = request.headers.authorization;
     if (!authHeader) {
-      this.logger.warn("Missing authorization header", {
+      this.logger.warn('Missing authorization header', {
         prototypeId: prototype_id,
       });
       return reply.status(HTTP_STATUS.UNAUTHORIZED).send({
         data: null,
         error: {
-          error: "UNAUTHORIZED",
-          message: "Missing Authorization header",
+          error: 'UNAUTHORIZED',
+          message: 'Missing Authorization header',
         },
       });
     }
 
-    const token = authHeader.split(" ")[1] ?? "";
+    const token = authHeader.split(' ')[1] ?? '';
     const { user } = await validateJWTToken(token, this.logger);
     if (!user) {
-      this.logger.warn("Invalid JWT token", { prototypeId: prototype_id });
+      this.logger.warn('Invalid JWT token', { prototypeId: prototype_id });
       return reply.status(HTTP_STATUS.UNAUTHORIZED).send({
         data: null,
         error: {
-          error: "UNAUTHORIZED",
-          message: "Invalid JWT token",
+          error: 'UNAUTHORIZED',
+          message: 'Invalid JWT token',
         },
       });
     }
@@ -498,22 +495,22 @@ export class OrchestrationService {
       // Step 4: Fetch prototype to get team_id (using user's authenticated client)
       const { data: prototype, error: prototypeError } =
         await supabaseAuthClient
-          .from("prototypes")
-          .select("team_id, github_repo_id")
-          .eq("id", prototype_id)
+          .from('prototypes')
+          .select('team_id, github_repo_id')
+          .eq('id', prototype_id)
           .single();
 
       if (prototypeError || !prototype) {
         this.logger.error(
-          prototypeError ?? new Error("Prototype not found"),
-          "Failed to fetch prototype",
+          prototypeError ?? new Error('Prototype not found'),
+          'Failed to fetch prototype',
           { prototypeId: prototype_id },
         );
         return reply.status(HTTP_STATUS.NOT_FOUND).send({
           data: null,
           error: {
-            error: "NOT_FOUND",
-            message: "Prototype not found",
+            error: 'NOT_FOUND',
+            message: 'Prototype not found',
           },
         });
       }
@@ -540,27 +537,27 @@ export class OrchestrationService {
 
       const { data: integration, error: integrationError } =
         await supabaseServiceClient
-          .from("github_integrations")
-          .select("installation_id, account_type")
-          .eq("team_id", prototype.team_id)
+          .from('github_integrations')
+          .select('installation_id, account_type')
+          .eq('team_id', prototype.team_id)
           .maybeSingle();
 
       if (integrationError || !integration) {
         this.logger.error(
-          integrationError ?? new Error("GitHub integration not found"),
-          "Failed to fetch GitHub integration",
+          integrationError ?? new Error('GitHub integration not found'),
+          'Failed to fetch GitHub integration',
           { teamId: prototype.team_id, prototypeId: prototype_id },
         );
         return reply.status(HTTP_STATUS.NOT_FOUND).send({
           data: null,
           error: {
-            error: "GITHUB_NOT_CONNECTED",
-            message: "GitHub integration not found for this team",
+            error: 'GITHUB_NOT_CONNECTED',
+            message: 'GitHub integration not found for this team',
           },
         });
       }
 
-      if (integration.account_type === "User") {
+      if (integration.account_type === 'User') {
         try {
           await getValidGitHubUserAccessToken({
             supabaseClient: supabaseServiceClient,
@@ -572,14 +569,14 @@ export class OrchestrationService {
             tokenError instanceof Error
               ? tokenError
               : new Error(String(tokenError)),
-            "Failed to refresh GitHub OAuth token before issuing installation token",
+            'Failed to refresh GitHub OAuth token before issuing installation token',
             { prototypeId: prototype_id, teamId: prototype.team_id },
           );
           return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
             data: null,
             error: {
-              error: "GITHUB_TOKEN_ERROR",
-              message: "Failed to refresh GitHub OAuth token",
+              error: 'GITHUB_TOKEN_ERROR',
+              message: 'Failed to refresh GitHub OAuth token',
             },
           });
         }
@@ -592,7 +589,7 @@ export class OrchestrationService {
           this.logger,
         );
 
-        this.logger.info("Created GitHub installation token", {
+        this.logger.info('Created GitHub installation token', {
           prototypeId: prototype_id,
           teamId: prototype.team_id,
           installationId: integration.installation_id,
@@ -610,7 +607,7 @@ export class OrchestrationService {
           tokenError instanceof Error
             ? tokenError
             : new Error(String(tokenError)),
-          "Failed to create GitHub installation token",
+          'Failed to create GitHub installation token',
           {
             installationId: integration.installation_id,
             prototypeId: prototype_id,
@@ -619,22 +616,22 @@ export class OrchestrationService {
         return reply.status(HTTP_STATUS.BAD_GATEWAY).send({
           data: null,
           error: {
-            error: "GITHUB_ERROR",
-            message: "Failed to create GitHub installation token",
+            error: 'GITHUB_ERROR',
+            message: 'Failed to create GitHub installation token',
           },
         });
       }
     } catch (error) {
       this.logger.error(
         error instanceof Error ? error : new Error(String(error)),
-        "Exception in handleRefreshGitHubInstallationToken",
+        'Exception in handleRefreshGitHubInstallationToken',
         { prototypeId: prototype_id },
       );
       return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
         data: null,
         error: {
-          error: "INTERNAL_SERVER_ERROR",
-          message: "An unexpected error occurred",
+          error: 'INTERNAL_SERVER_ERROR',
+          message: 'An unexpected error occurred',
         },
       });
     }

@@ -58,13 +58,18 @@ export function TeamProvider({ children }: { children: ReactNode }) {
 
   // Initialize with last active team from localStorage, or fall back to personal team
   useEffect(() => {
-    if (!activeTeam && !userTeamsLoading && !personalTeamLoading && personalTeam) {
+    if (
+      !activeTeam &&
+      !userTeamsLoading &&
+      !personalTeamLoading &&
+      personalTeam
+    ) {
       const lastActiveTeamId = localStorage.getItem(LAST_ACTIVE_TEAM_KEY);
 
       if (lastActiveTeamId) {
         // Check if the stored team ID is in the user's teams
         const lastActiveTeam = userTeams.find(
-          (team) => team.id === lastActiveTeamId
+          (team) => team.id === lastActiveTeamId,
         );
 
         if (lastActiveTeam) {
@@ -76,7 +81,13 @@ export function TeamProvider({ children }: { children: ReactNode }) {
       // Fall back to personal team
       setActiveTeam(personalTeam);
     }
-  }, [activeTeam, userTeamsLoading, personalTeamLoading, personalTeam, userTeams]);
+  }, [
+    activeTeam,
+    userTeamsLoading,
+    personalTeamLoading,
+    personalTeam,
+    userTeams,
+  ]);
 
   // Save active team to localStorage when it changes
   useEffect(() => {

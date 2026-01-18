@@ -107,7 +107,7 @@ export async function exchangeCodeForToken(
   const response = await fetch('https://github.com/login/oauth/access_token', {
     method: 'POST',
     headers: {
-      'Accept': 'application/json',
+      Accept: 'application/json',
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
@@ -143,7 +143,9 @@ export async function exchangeCodeForToken(
         error_description: data.error_description,
       },
     );
-    throw new Error(`GitHub OAuth error: ${data.error} - ${data.error_description}`);
+    throw new Error(
+      `GitHub OAuth error: ${data.error} - ${data.error_description}`,
+    );
   }
 
   return data as GitHubOAuthTokenResponse;
@@ -162,19 +164,19 @@ export async function refreshGitHubOAuthToken(
   const clientSecret = process.env.GITHUB_APP_CLIENT_SECRET;
 
   if (!clientId || !clientSecret) {
-    throw new Error("GitHub App client ID and secret must be configured");
+    throw new Error('GitHub App client ID and secret must be configured');
   }
 
-  const response = await fetch("https://github.com/login/oauth/access_token", {
-    method: "POST",
+  const response = await fetch('https://github.com/login/oauth/access_token', {
+    method: 'POST',
     headers: {
-      Accept: "application/json",
-      "Content-Type": "application/json",
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
     },
     body: JSON.stringify({
       client_id: clientId,
       client_secret: clientSecret,
-      grant_type: "refresh_token",
+      grant_type: 'refresh_token',
       refresh_token: refreshToken,
     }),
   });
@@ -182,8 +184,8 @@ export async function refreshGitHubOAuthToken(
   if (!response.ok) {
     const errorText = await response.text();
     logger.error(
-      new Error("Failed to refresh GitHub OAuth token"),
-      "GitHub OAuth token refresh failed",
+      new Error('Failed to refresh GitHub OAuth token'),
+      'GitHub OAuth token refresh failed',
       {
         status: response.status,
         statusText: response.statusText,
@@ -195,10 +197,10 @@ export async function refreshGitHubOAuthToken(
 
   const data = await response.json();
 
-  if ("error" in data) {
+  if ('error' in data) {
     logger.error(
-      new Error("GitHub OAuth refresh error"),
-      "GitHub returned error in token refresh response",
+      new Error('GitHub OAuth refresh error'),
+      'GitHub returned error in token refresh response',
       {
         error: data.error,
         error_description: data.error_description,
@@ -226,8 +228,8 @@ export async function getAuthenticatedUser(
 ): Promise<GitHubUser> {
   const response = await fetch(`${GITHUB_API_BASE}/user`, {
     headers: {
-      'Accept': 'application/vnd.github+json',
-      'Authorization': `Bearer ${accessToken}`,
+      Accept: 'application/vnd.github+json',
+      Authorization: `Bearer ${accessToken}`,
       'X-GitHub-Api-Version': GITHUB_API_VERSION,
     },
   });
@@ -259,8 +261,8 @@ export async function listUserInstallations(
 ): Promise<GitHubInstallation[]> {
   const response = await fetch(`${GITHUB_API_BASE}/user/installations`, {
     headers: {
-      'Accept': 'application/vnd.github+json',
-      'Authorization': `Bearer ${accessToken}`,
+      Accept: 'application/vnd.github+json',
+      Authorization: `Bearer ${accessToken}`,
       'X-GitHub-Api-Version': GITHUB_API_VERSION,
     },
   });
@@ -382,8 +384,8 @@ export async function createInstallationToken(
     {
       method: 'POST',
       headers: {
-        'Accept': 'application/vnd.github+json',
-        'Authorization': `Bearer ${appJWT.token}`,
+        Accept: 'application/vnd.github+json',
+        Authorization: `Bearer ${appJWT.token}`,
         'X-GitHub-Api-Version': GITHUB_API_VERSION,
       },
     },
@@ -400,7 +402,9 @@ export async function createInstallationToken(
         error: errorText,
       },
     );
-    throw new Error(`Failed to create GitHub installation token: ${response.status}`);
+    throw new Error(
+      `Failed to create GitHub installation token: ${response.status}`,
+    );
   }
 
   const data = await response.json();
@@ -417,20 +421,27 @@ export async function fetchRepositoryById(
   logger: SystemLogger,
 ): Promise<GitHubRepositoryInfo> {
   if (!repositoryId) {
-    throw new Error('A repository ID is required to fetch GitHub repository metadata');
+    throw new Error(
+      'A repository ID is required to fetch GitHub repository metadata',
+    );
   }
 
   if (!accessToken) {
-    throw new Error('A GitHub access token is required to fetch repository metadata');
+    throw new Error(
+      'A GitHub access token is required to fetch repository metadata',
+    );
   }
 
-  const response = await fetch(`${GITHUB_API_BASE}/repositories/${repositoryId}`, {
-    headers: {
-      'Accept': 'application/vnd.github+json',
-      'Authorization': `Bearer ${accessToken}`,
-      'X-GitHub-Api-Version': GITHUB_API_VERSION,
+  const response = await fetch(
+    `${GITHUB_API_BASE}/repositories/${repositoryId}`,
+    {
+      headers: {
+        Accept: 'application/vnd.github+json',
+        Authorization: `Bearer ${accessToken}`,
+        'X-GitHub-Api-Version': GITHUB_API_VERSION,
+      },
     },
-  });
+  );
 
   const responseText = await response.text();
 
@@ -475,14 +486,17 @@ export async function deleteAppInstallation(
 ): Promise<boolean> {
   const appJWT = generateAppJWT(logger);
 
-  const response = await fetch(`${GITHUB_API_BASE}/app/installations/${installationId}`, {
-    method: 'DELETE',
-    headers: {
-      'Accept': 'application/vnd.github+json',
-      'Authorization': `Bearer ${appJWT.token}`,
-      'X-GitHub-Api-Version': GITHUB_API_VERSION,
+  const response = await fetch(
+    `${GITHUB_API_BASE}/app/installations/${installationId}`,
+    {
+      method: 'DELETE',
+      headers: {
+        Accept: 'application/vnd.github+json',
+        Authorization: `Bearer ${appJWT.token}`,
+        'X-GitHub-Api-Version': GITHUB_API_VERSION,
+      },
     },
-  });
+  );
 
   if (response.status === 204) {
     logger.info('Successfully removed GitHub App installation', {
@@ -508,7 +522,9 @@ export async function deleteAppInstallation(
       error: errorText,
     },
   );
-  throw new Error(`Failed to delete GitHub App installation: ${response.status}`);
+  throw new Error(
+    `Failed to delete GitHub App installation: ${response.status}`,
+  );
 }
 
 // ============================================================================
@@ -529,7 +545,9 @@ export async function revokeUserToken(
   const clientSecret = process.env.GITHUB_APP_CLIENT_SECRET;
 
   if (!clientId || !clientSecret) {
-    logger.warn('GitHub App client credentials not configured, skipping token revocation');
+    logger.warn(
+      'GitHub App client credentials not configured, skipping token revocation',
+    );
     return false;
   }
 
@@ -539,8 +557,8 @@ export async function revokeUserToken(
       {
         method: 'DELETE',
         headers: {
-          'Accept': 'application/vnd.github+json',
-          'Authorization': `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString('base64')}`,
+          Accept: 'application/vnd.github+json',
+          Authorization: `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString('base64')}`,
           'X-GitHub-Api-Version': GITHUB_API_VERSION,
         },
         body: JSON.stringify({

@@ -31,15 +31,15 @@ Before generating, plan each variant's direction. Variants should be **meaningfu
 
 Pick 2-3 dimensions per variant to create distinct takes:
 
-| Dimension | Examples |
-|-----------|----------|
-| **Aesthetic** | Minimalist vs. Bold, Light vs. Dark, Playful vs. Professional |
-| **Layout** | Card-based vs. List, Grid vs. Carousel, Stacked vs. Tabbed |
-| **Density** | Spacious/airy vs. Compact/dense |
-| **Typography** | Large headlines vs. Subtle text, Serif vs. Sans |
-| **Interaction** | Swipe-based vs. Tap-based, Bottom sheet vs. Modal, Inline vs. Expandable |
-| **Visual weight** | Heavy borders/shadows vs. Flat/borderless |
-| **Navigation pattern** | Tab bar vs. Drawer, Segmented control vs. Dropdown |
+| Dimension              | Examples                                                                 |
+| ---------------------- | ------------------------------------------------------------------------ |
+| **Aesthetic**          | Minimalist vs. Bold, Light vs. Dark, Playful vs. Professional            |
+| **Layout**             | Card-based vs. List, Grid vs. Carousel, Stacked vs. Tabbed               |
+| **Density**            | Spacious/airy vs. Compact/dense                                          |
+| **Typography**         | Large headlines vs. Subtle text, Serif vs. Sans                          |
+| **Interaction**        | Swipe-based vs. Tap-based, Bottom sheet vs. Modal, Inline vs. Expandable |
+| **Visual weight**      | Heavy borders/shadows vs. Flat/borderless                                |
+| **Navigation pattern** | Tab bar vs. Drawer, Segmented control vs. Dropdown                       |
 
 ### Respecting User Intent
 
@@ -62,6 +62,7 @@ Variants: app/(tabs)/HomeVariantA.tsx
 ```
 
 For new UI (no existing file):
+
 ```
 Variants: app/(tabs)/ProfileVariantA.tsx
           app/(tabs)/ProfileVariantB.tsx
@@ -77,6 +78,7 @@ Each variant must be:
 - **Properly exported**: Default export with clear component name
 
 Inherit best practices from the `designing-react-native-uis` skill:
+
 - Spring-based animations (avoid linear easing)
 - Haptic feedback for interactions
 - Safe area handling
@@ -115,6 +117,7 @@ After generating variants, provide a brief comparison:
 ```
 
 Example:
+
 ```
 ## Variant Summary
 
@@ -142,6 +145,7 @@ NEVER do:
 **User**: "Create some variants of this settings screen"
 
 **Response**:
+
 1. Read the existing settings screen
 2. Identify: list of toggles, account section, logout button (preserve these)
 3. Plan:

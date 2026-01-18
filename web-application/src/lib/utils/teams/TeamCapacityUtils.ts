@@ -135,9 +135,7 @@ export function checkTeamCapacity(
  * @param plan - Current subscription plan
  * @returns boolean indicating if roles can be changed
  */
-export function canChangeTeamMemberRoles(
-  plan: SubscriptionPlanType,
-): boolean {
+export function canChangeTeamMemberRoles(plan: SubscriptionPlanType): boolean {
   return plan !== "free";
 }
 
@@ -157,14 +155,8 @@ interface RoleChangeCheckParams {
  * @returns boolean indicating if the role change is allowed
  */
 export function canChangeRole(params: RoleChangeCheckParams): boolean {
-  const {
-    plan,
-    currentRole,
-    newRole,
-    teamMembers,
-    teamInvites,
-    seatQuantity,
-  } = params;
+  const { plan, currentRole, newRole, teamMembers, teamInvites, seatQuantity } =
+    params;
 
   // Prevent demoting the last owner
   if (currentRole === "owner" && newRole !== "owner") {

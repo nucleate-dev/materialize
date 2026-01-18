@@ -23,7 +23,7 @@ export const CURRENT_USER_MEMBERSHIP_QUERY_KEY = "current-user-membership";
 
 export const currentUserMembershipQueryKey = (
   userId?: string | null,
-  teamId?: string | null
+  teamId?: string | null,
 ) => [
   CURRENT_USER_MEMBERSHIP_QUERY_KEY,
   userId ?? "anonymous",

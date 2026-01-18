@@ -123,7 +123,9 @@ export default function RootLayout({
           />
         </noscript>
       </head>
-      <body className={`${inter.variable} ${fraunces.variable} font-sans antialiased`}>
+      <body
+        className={`${inter.variable} ${fraunces.variable} font-sans antialiased`}
+      >
         <CSPostHogProvider>
           <QueryProvider>
             <TeamProvider>

@@ -67,7 +67,7 @@ export class PhoneFrameShapeUtil extends BaseBoxShapeUtil<PhoneFrameShape> {
 
   override onResize(
     shape: PhoneFrameShape,
-    info: TLResizeInfo<PhoneFrameShape>
+    info: TLResizeInfo<PhoneFrameShape>,
   ) {
     return resizeBox(shape, info);
   }

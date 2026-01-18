@@ -197,11 +197,12 @@ export function CreditsAndSubscriptionsTab() {
                         ? "Free forever"
                         : `${creditUsage.creditLimit} credits / month`}
                     </p>
-                    {seatQuantity !== null && currentSubscription === "team" && (
-                      <p className="text-sm text-gray-600 dark:text-muted-foreground">
-                        {seatQuantity} seat{seatQuantity !== 1 ? "s" : ""}
-                      </p>
-                    )}
+                    {seatQuantity !== null &&
+                      currentSubscription === "team" && (
+                        <p className="text-sm text-gray-600 dark:text-muted-foreground">
+                          {seatQuantity} seat{seatQuantity !== 1 ? "s" : ""}
+                        </p>
+                      )}
                   </div>
                   <div className="flex items-center gap-2 text-sm text-emerald-600 dark:text-success">
                     <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
@@ -430,7 +431,9 @@ export function CreditsAndSubscriptionsTab() {
                                     ? "bg-black dark:bg-white text-white dark:text-black hover:bg-black/90 dark:hover:bg-white/90"
                                     : "bg-black/5 dark:bg-white/5 text-gray-900 dark:text-white hover:bg-black/10 dark:hover:bg-white/10 border border-black/10 dark:border-border",
                                 )}
-                                disabled={isProcessingUpgrade || !isOwnerOrAdmin}
+                                disabled={
+                                  isProcessingUpgrade || !isOwnerOrAdmin
+                                }
                               >
                                 {isProcessingUpgrade ? (
                                   <Loader2 className="w-3 h-3 animate-spin" />

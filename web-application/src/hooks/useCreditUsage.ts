@@ -157,14 +157,14 @@ export function useCreditUsage(): CreditUsageHook {
           return;
         }
 
-        const totalUsed = freeUsageRows?.reduce(
-          (sum, row) => sum + (row.credits_used || 0),
-          0,
-        ) ?? 0;
+        const totalUsed =
+          freeUsageRows?.reduce(
+            (sum, row) => sum + (row.credits_used || 0),
+            0,
+          ) ?? 0;
         const remaining = Math.max(creditLimit - totalUsed, 0);
-        const usagePercentage = creditLimit > 0
-          ? (totalUsed / creditLimit) * 100
-          : 0;
+        const usagePercentage =
+          creditLimit > 0 ? (totalUsed / creditLimit) * 100 : 0;
 
         setState({
           creditsUsed: totalUsed,
@@ -199,9 +199,8 @@ export function useCreditUsage(): CreditUsageHook {
       const totalAvailable = totalUsed + totalRemaining;
 
       // Usage percentage should be based on total available credits, not plan limit
-      const usagePercentage = totalAvailable > 0
-        ? (totalUsed / totalAvailable) * 100
-        : 0;
+      const usagePercentage =
+        totalAvailable > 0 ? (totalUsed / totalAvailable) * 100 : 0;
 
       setState({
         creditsUsed: totalUsed,
@@ -250,17 +249,17 @@ export function useCreditUsage(): CreditUsageHook {
   const updateRemainingBalance = useCallback((remaining: number) => {
     setState((prev) => {
       // Use totalAvailableCredits for paid users with grants, creditLimit for free tier
-      const baseLimit = prev.totalAvailableCredits > 0
-        ? prev.totalAvailableCredits
-        : prev.creditLimit;
+      const baseLimit =
+        prev.totalAvailableCredits > 0
+          ? prev.totalAvailableCredits
+          : prev.creditLimit;
 
       return {
         ...prev,
         creditsRemaining: remaining,
         creditsUsed: baseLimit - remaining,
-        usagePercentage: baseLimit > 0
-          ? ((baseLimit - remaining) / baseLimit) * 100
-          : 0,
+        usagePercentage:
+          baseLimit > 0 ? ((baseLimit - remaining) / baseLimit) * 100 : 0,
         hasReachedLimit: remaining <= 0,
       };
     });
@@ -273,14 +272,13 @@ export function useCreditUsage(): CreditUsageHook {
   const updateCreditsUsed = useCallback((used: number) => {
     setState((prev) => {
       // Use totalAvailableCredits for paid users with grants, creditLimit for free tier
-      const baseLimit = prev.totalAvailableCredits > 0
-        ? prev.totalAvailableCredits
-        : prev.creditLimit;
+      const baseLimit =
+        prev.totalAvailableCredits > 0
+          ? prev.totalAvailableCredits
+          : prev.creditLimit;
 
       const remaining = Math.max(baseLimit - used, 0);
-      const usagePercentage = baseLimit > 0
-        ? (used / baseLimit) * 100
-        : 0;
+      const usagePercentage = baseLimit > 0 ? (used / baseLimit) * 100 : 0;
 
       return {
         ...prev,
@@ -309,12 +307,14 @@ export function useCreditUsage(): CreditUsageHook {
         ) {
           const used = updates.creditsUsed ?? newState.creditsUsed;
           // Use totalAvailableCredits for paid users with grants, creditLimit for free tier
-          const baseLimit = newState.totalAvailableCredits > 0
-            ? newState.totalAvailableCredits
-            : newState.creditLimit;
+          const baseLimit =
+            newState.totalAvailableCredits > 0
+              ? newState.totalAvailableCredits
+              : newState.creditLimit;
 
           newState.creditsRemaining = Math.max(baseLimit - used, 0);
-          newState.usagePercentage = baseLimit > 0 ? (used / baseLimit) * 100 : 0;
+          newState.usagePercentage =
+            baseLimit > 0 ? (used / baseLimit) * 100 : 0;
           newState.hasReachedLimit = newState.creditsRemaining <= 0;
         }
 

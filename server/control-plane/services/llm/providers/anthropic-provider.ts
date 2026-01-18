@@ -1,5 +1,5 @@
-import { anthropic } from "@ai-sdk/anthropic";
-import { generateText, type UserContent } from "ai";
+import { anthropic } from '@ai-sdk/anthropic';
+import { generateText, type UserContent } from 'ai';
 import type {
   LLMProvider,
   LLMProviderConfig,
@@ -7,9 +7,9 @@ import type {
   CompletionResponse,
   ProviderMessage,
   ProviderMessagePart,
-} from "./types.js";
-import { createProviderError } from "./types.js";
-import type { SystemLogger } from "../../../loggers/SystemLogger.js";
+} from './types.js';
+import { createProviderError } from './types.js';
+import type { SystemLogger } from '../../../loggers/SystemLogger.js';
 
 interface UsageInfo {
   promptTokens?: number;
@@ -18,14 +18,14 @@ interface UsageInfo {
 }
 
 export class AnthropicProvider implements LLMProvider {
-  readonly name = "anthropic";
+  readonly name = 'anthropic';
   readonly supportsVision = true;
   readonly supportsImageGeneration = false;
 
   private logger: SystemLogger;
 
   constructor(config: LLMProviderConfig) {
-    this.logger = config.logger.child({ provider: "anthropic" });
+    this.logger = config.logger.child({ provider: 'anthropic' });
   }
 
   async complete(request: CompletionRequest): Promise<CompletionResponse> {
@@ -65,13 +65,13 @@ export class AnthropicProvider implements LLMProvider {
 
   private convertMessages(
     messages: ProviderMessage[],
-  ): Array<{ role: "user" | "assistant"; content: string | UserContent }> {
+  ): Array<{ role: 'user' | 'assistant'; content: string | UserContent }> {
     return messages
-      .filter((msg) => msg.role !== "system")
+      .filter((msg) => msg.role !== 'system')
       .map((msg) => {
-        const role = msg.role as "user" | "assistant";
+        const role = msg.role as 'user' | 'assistant';
 
-        if (typeof msg.content === "string") {
+        if (typeof msg.content === 'string') {
           return { role, content: msg.content };
         }
 
@@ -85,28 +85,28 @@ export class AnthropicProvider implements LLMProvider {
 
   private convertMessagePart(
     part: ProviderMessagePart,
-  ): { type: "text"; text: string } | { type: "image"; image: string | URL } {
-    if (part.type === "text") {
-      return { type: "text", text: part.text ?? "" };
+  ): { type: 'text'; text: string } | { type: 'image'; image: string | URL } {
+    if (part.type === 'text') {
+      return { type: 'text', text: part.text ?? '' };
     }
 
     if (part.imageData) {
       // Use data URI format for base64 images
       const dataUri = `data:${part.imageData.mediaType};base64,${part.imageData.base64}`;
       return {
-        type: "image",
+        type: 'image',
         image: dataUri,
       };
     }
 
     if (part.imageUrl) {
       return {
-        type: "image",
+        type: 'image',
         image: new URL(part.imageUrl),
       };
     }
 
-    return { type: "text", text: "" };
+    return { type: 'text', text: '' };
   }
 
   private mapError(error: unknown): Error {
@@ -116,17 +116,17 @@ export class AnthropicProvider implements LLMProvider {
       error?: { type?: string };
     };
 
-    this.logger.error(err, "Anthropic API error");
+    this.logger.error(err, 'Anthropic API error');
 
     if (err.status === 429) {
-      return createProviderError("rate_limit", "Rate limit exceeded", {
+      return createProviderError('rate_limit', 'Rate limit exceeded', {
         statusCode: 429,
         originalError: error,
       });
     }
 
     if (err.status === 401) {
-      return createProviderError("auth", "Authentication failed", {
+      return createProviderError('auth', 'Authentication failed', {
         statusCode: 401,
         originalError: error,
       });
@@ -134,8 +134,8 @@ export class AnthropicProvider implements LLMProvider {
 
     if (err.status === 400) {
       const errorType = err.error?.type;
-      if (errorType === "invalid_request_error") {
-        return createProviderError("invalid_request", err.message, {
+      if (errorType === 'invalid_request_error') {
+        return createProviderError('invalid_request', err.message, {
           statusCode: 400,
           originalError: error,
         });
@@ -143,13 +143,13 @@ export class AnthropicProvider implements LLMProvider {
     }
 
     if (err.status && err.status >= 500) {
-      return createProviderError("server", "Provider server error", {
+      return createProviderError('server', 'Provider server error', {
         statusCode: err.status,
         originalError: error,
       });
     }
 
-    return createProviderError("unknown", err.message ?? "Unknown error", {
+    return createProviderError('unknown', err.message ?? 'Unknown error', {
       originalError: error,
     });
   }

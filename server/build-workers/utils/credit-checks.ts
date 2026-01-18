@@ -188,14 +188,16 @@ async function calculatePaidUserCreditInfo(
     return { remaining: 0, granted: 0, used: 0 };
   }
 
-  const totalGranted = balances?.reduce(
-    (sum, balance) => sum + (balance.credits_granted || 0),
-    0,
-  ) || 0;
-  const totalRemaining = balances?.reduce(
-    (sum, balance) => sum + (balance.credits_remaining || 0),
-    0,
-  ) || 0;
+  const totalGranted =
+    balances?.reduce(
+      (sum, balance) => sum + (balance.credits_granted || 0),
+      0,
+    ) || 0;
+  const totalRemaining =
+    balances?.reduce(
+      (sum, balance) => sum + (balance.credits_remaining || 0),
+      0,
+    ) || 0;
   const totalUsed = totalGranted - totalRemaining;
 
   return {

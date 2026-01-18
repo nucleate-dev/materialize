@@ -111,7 +111,7 @@ export function evaluateToolPermission(
         reason: "File path must be a non-empty string",
       };
     }
-    
+
     let resolvedPath: string | undefined;
     let withinRoot = false;
 
@@ -274,10 +274,11 @@ export function evaluateToolPermission(
       const pathCandidates =
         typeof globInput.path === "string" ? [globInput.path] : allowedRoots;
 
-      let validation: { ok: boolean; resolvedPath?: string; reason?: string } = {
-        ok: false,
-        reason: "No valid base path found",
-      };
+      let validation: { ok: boolean; resolvedPath?: string; reason?: string } =
+        {
+          ok: false,
+          reason: "No valid base path found",
+        };
 
       for (const candidate of pathCandidates) {
         const result = validatePath(candidate);
@@ -370,7 +371,10 @@ function sanitizeInputPreview(input: unknown): unknown {
   return input;
 }
 
-function normalizePathToAllowedRoot(allowedRoot: string, rawPath: string): {
+function normalizePathToAllowedRoot(
+  allowedRoot: string,
+  rawPath: string,
+): {
   resolvedPath: string;
   withinRoot: boolean;
 } {
@@ -393,8 +397,7 @@ function isPathInsideAllowedRoot(
     ? allowedRoot
     : `${allowedRoot}${path.sep}`;
   return (
-    normalizedPath === allowedRoot ||
-    normalizedPath.startsWith(allowedWithSep)
+    normalizedPath === allowedRoot || normalizedPath.startsWith(allowedWithSep)
   );
 }
 

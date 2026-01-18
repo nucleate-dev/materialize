@@ -1,15 +1,15 @@
-import { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
-import { HTTP_STATUS } from "../types/PublicAPITypes.js";
+import { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
+import { HTTP_STATUS } from '../types/PublicAPITypes.js';
 import type {
   APIResponse,
   StandardErrorResponse,
   StartDevServerRequestBody,
   StartDevServerSuccessResponse,
-} from "../types/PublicAPITypes.js";
-import { checkUserHasPrototypeEditAccess } from "../utils/prototypeAuth.js";
-import { hasExceededCreditLimit } from "../utils/subscriptionChecks.js";
-import { isEditableDevServer } from "../utils/prototypeDevServerStatusUtils.js";
-import { DispatcherService } from "./dispatcher/DispatcherService.js";
+} from '../types/PublicAPITypes.js';
+import { checkUserHasPrototypeEditAccess } from '../utils/prototypeAuth.js';
+import { hasExceededCreditLimit } from '../utils/subscriptionChecks.js';
+import { isEditableDevServer } from '../utils/prototypeDevServerStatusUtils.js';
+import { DispatcherService } from './dispatcher/DispatcherService.js';
 
 export class DevelopmentServerService {
   private supabaseUrl: string;
@@ -25,7 +25,7 @@ export class DevelopmentServerService {
 
     if (!this.supabaseUrl || !this.supabaseAnonKey) {
       throw new Error(
-        "Missing required Supabase environment variables for DevelopmentServerService",
+        'Missing required Supabase environment variables for DevelopmentServerService',
       );
     }
   }
@@ -35,14 +35,14 @@ export class DevelopmentServerService {
     app.post<{
       Body: StartDevServerRequestBody;
     }>(
-      "/files/start-dev-server",
+      '/files/start-dev-server',
       {
         schema: {
           body: {
-            type: "object",
-            required: ["prototype_id"],
+            type: 'object',
+            required: ['prototype_id'],
             properties: {
-              prototype_id: { type: "string" },
+              prototype_id: { type: 'string' },
             },
           },
         },
@@ -61,22 +61,22 @@ export class DevelopmentServerService {
       const { prototype_id } = request.body;
 
       request.log2.consoleLogDevOnly(
-        "info",
-        "[handleStartDevServer] Starting start dev server",
+        'info',
+        '[handleStartDevServer] Starting start dev server',
         {
           prototypeId: prototype_id,
         },
       );
 
       // 1. Authenticate JWT and get user info
-      const token = request.headers.authorization?.split(" ")[1];
-      if (!token || !request.headers.authorization?.startsWith("Bearer")) {
+      const token = request.headers.authorization?.split(' ')[1];
+      if (!token || !request.headers.authorization?.startsWith('Bearer')) {
         reply.status(HTTP_STATUS.UNAUTHORIZED);
         return {
           data: null,
           error: {
-            error: "Unauthorized",
-            message: "No token provided",
+            error: 'Unauthorized',
+            message: 'No token provided',
           },
         };
       }
@@ -94,8 +94,8 @@ export class DevelopmentServerService {
         return {
           data: null,
           error: {
-            error: "Unauthorized",
-            message: "Access denied for this prototype",
+            error: 'Unauthorized',
+            message: 'Access denied for this prototype',
           },
         };
       }
@@ -112,9 +112,9 @@ export class DevelopmentServerService {
         return {
           data: null,
           error: {
-            error: "Payment required",
+            error: 'Payment required',
             message:
-              "You have reached your monthly usage limit. Please upgrade to a paid plan to continue.",
+              'You have reached your monthly usage limit. Please upgrade to a paid plan to continue.',
           },
         };
       }
@@ -127,40 +127,40 @@ export class DevelopmentServerService {
       );
       if (precheckResult.error) {
         request.log2.consoleLogDevOnly(
-          "error",
-          "[handleStartDevServer] Dispatch precheck failed:",
+          'error',
+          '[handleStartDevServer] Dispatch precheck failed:',
           { precheckResponse: precheckResult },
         );
         reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR);
         return precheckResult;
       }
       request.log2.consoleLogDevOnly(
-        "info",
-        "[handleStartDevServer] Dispatch precheck response:",
+        'info',
+        '[handleStartDevServer] Dispatch precheck response:',
         { precheckResult },
       );
 
       // 3. Check if dev server already exists
       if (isEditableDevServer(precheckResult.data.status)) {
         request.log2.consoleLogDevOnly(
-          "info",
+          'info',
           "[handleStartDevServer] There's already an active dev server for this prototype",
         );
         reply.status(HTTP_STATUS.CONFLICT);
         return {
           data: null,
           error: {
-            error: "Active dev server already exists",
+            error: 'Active dev server already exists',
             message:
-              "A dev server is currently starting for this prototype. Please wait for it to complete.",
+              'A dev server is currently starting for this prototype. Please wait for it to complete.',
           },
         };
       }
 
       // 6. Dispatch dev server start request
       request.log2.consoleLogDevOnly(
-        "info",
-        "[handleStartDevServer] Dispatching dev server start request to server",
+        'info',
+        '[handleStartDevServer] Dispatching dev server start request to server',
       );
       const dispatchResult = await this.dispatcherService.dispatch(
         prototype_id,
@@ -172,15 +172,15 @@ export class DevelopmentServerService {
       if (dispatchResult.error) {
         request.log2.error(
           dispatchResult.error,
-          "[handleStartDevServer] Dispatch request failed:",
+          '[handleStartDevServer] Dispatch request failed:',
         );
         reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR);
         return dispatchResult;
       }
 
       request.log2.consoleLogDevOnly(
-        "info",
-        "[handleStartDevServer] Dispatch endpoint response:",
+        'info',
+        '[handleStartDevServer] Dispatch endpoint response:',
         { dispatchResult },
       );
 
@@ -190,9 +190,9 @@ export class DevelopmentServerService {
         return {
           data: {
             success: true,
-            status: "success",
+            status: 'success',
             viewing_url: dispatchResult.data.viewing_url,
-            message: "Files saved and dev server started successfully",
+            message: 'Files saved and dev server started successfully',
             terminal_url: dispatchResult.data.terminal_url,
           },
           error: null,
@@ -203,23 +203,23 @@ export class DevelopmentServerService {
         return {
           data: null,
           error: {
-            error: "Dev server start failed",
-            message: "Dev server start failed",
+            error: 'Dev server start failed',
+            message: 'Dev server start failed',
           },
         };
       }
     } catch (error) {
       request.log2.consoleLogDevOnly(
-        "error",
-        "[handleStartDevServer] Start dev server API error:",
+        'error',
+        '[handleStartDevServer] Start dev server API error:',
         { error },
       );
       reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR);
       return {
         data: null,
         error: {
-          error: "Internal server error",
-          message: error instanceof Error ? error.message : "Unknown error",
+          error: 'Internal server error',
+          message: error instanceof Error ? error.message : 'Unknown error',
         },
       };
     }

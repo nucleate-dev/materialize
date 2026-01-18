@@ -41,9 +41,9 @@ function requireUserAndTeamIds(
     const missing: string[] = [];
     if (!userId) missing.push("user_id");
     if (!teamId) missing.push("team_id");
-    const errorMessage = `Missing ${
-      missing.join(" and ")
-    } in Stripe metadata for ${context}`;
+    const errorMessage = `Missing ${missing.join(
+      " and ",
+    )} in Stripe metadata for ${context}`;
     console.error(errorMessage);
     posthog.capture({
       distinctId: userId ?? "unknown",
@@ -407,20 +407,18 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
 
   const { error: subscriptionUpdateError } = await supabase
     .from("subscriptions")
-    .upsert(
-      {
-        id: subscription.id, // primary key
-        team_id: teamId,
-        stripe_customer_id: getCustomerIdFromInvoice(invoice),
-        status: SubscriptionStatuses.ACTIVE,
-        current_period_start: subscriptionItem.current_period_start,
-        current_period_end: subscriptionItem.current_period_end,
-        price_id: subscriptionItem.price.id,
-        plan_id: newPlanKey,
-        stripe_subscription_item_id: subscriptionItem.id,
-        seat_quantity: seatQuantity,
-      } as Database["public"]["Tables"]["subscriptions"]["Insert"],
-    );
+    .upsert({
+      id: subscription.id, // primary key
+      team_id: teamId,
+      stripe_customer_id: getCustomerIdFromInvoice(invoice),
+      status: SubscriptionStatuses.ACTIVE,
+      current_period_start: subscriptionItem.current_period_start,
+      current_period_end: subscriptionItem.current_period_end,
+      price_id: subscriptionItem.price.id,
+      plan_id: newPlanKey,
+      stripe_subscription_item_id: subscriptionItem.id,
+      seat_quantity: seatQuantity,
+    } as Database["public"]["Tables"]["subscriptions"]["Insert"]);
   if (subscriptionUpdateError) {
     posthog.capture({
       distinctId: userId,
@@ -451,9 +449,10 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
       newPlanKey,
       seatQuantity,
     );
-    grantReason = changeType === "downgrade"
-      ? "subscription_downgrade"
-      : "subscription_renewal";
+    grantReason =
+      changeType === "downgrade"
+        ? "subscription_downgrade"
+        : "subscription_renewal";
   }
 
   // Handle reconciliation for both downgrades and upgrades
@@ -918,17 +917,15 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
   // update the database with the new subscription info. The handleInvoicePayment function should handle recording the payment
   const { error: subscriptionUpdateError } = await supabase
     .from("subscriptions")
-    .update(
-      {
-        current_period_start: subscriptionItem.current_period_start,
-        current_period_end: subscriptionItem.current_period_end,
-        price_id: subscriptionItem.price.id,
-        plan_id: newPlanKey,
-        scheduled_for_cancellation: subscription.cancel_at_period_end,
-        stripe_subscription_item_id: subscriptionItem.id,
-        seat_quantity: seatQuantity,
-      } as Database["public"]["Tables"]["subscriptions"]["Update"],
-    )
+    .update({
+      current_period_start: subscriptionItem.current_period_start,
+      current_period_end: subscriptionItem.current_period_end,
+      price_id: subscriptionItem.price.id,
+      plan_id: newPlanKey,
+      scheduled_for_cancellation: subscription.cancel_at_period_end,
+      stripe_subscription_item_id: subscriptionItem.id,
+      seat_quantity: seatQuantity,
+    } as Database["public"]["Tables"]["subscriptions"]["Update"])
     .eq("id", subscription.id);
   if (subscriptionUpdateError) {
     posthog.capture({

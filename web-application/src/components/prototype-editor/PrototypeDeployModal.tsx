@@ -13,14 +13,20 @@ import { Input } from "@/components/ui/input";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import { type PrototypeVisibility } from "@/lib/types/prototypes";
 import { Database } from "@/lib/types/supabase";
-import { SLUG_RULES, isValidSlug, normalizeSlug, normalizeSlugWhileTyping } from "@/lib/utils/slugUtils";
+import {
+  SLUG_RULES,
+  isValidSlug,
+  normalizeSlug,
+  normalizeSlugWhileTyping,
+} from "@/lib/utils/slugUtils";
 import {
   AlertTriangle,
-  Check, ChevronUp,
+  Check,
+  ChevronUp,
   Copy,
   Info,
   Loader2,
-  Rocket
+  Rocket,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -400,7 +406,11 @@ export default function PrototypeDeployModal({
                 disabled={!deploySlug}
                 className="h-10 pl-3 text-muted-foreground hover:text-foreground"
               >
-                {copied ? <Check className="w-4 h-4 text-success" /> : <Copy className="w-4 h-4" />}
+                {copied ? (
+                  <Check className="w-4 h-4 text-success" />
+                ) : (
+                  <Copy className="w-4 h-4" />
+                )}
               </Button>
               <div className="w-24 text-xs text-right">
                 {isCheckingSlug && (
@@ -435,7 +445,11 @@ export default function PrototypeDeployModal({
                   onClick={() => setShowBuildInfo(!showBuildInfo)}
                   className="text-muted-foreground hover:text-foreground transition-colors"
                 >
-                  {showBuildInfo ? <ChevronUp className="w-3.5 h-3.5" /> : <Info className="w-3.5 h-3.5" />}
+                  {showBuildInfo ? (
+                    <ChevronUp className="w-3.5 h-3.5" />
+                  ) : (
+                    <Info className="w-3.5 h-3.5" />
+                  )}
                 </button>
               </div>
               {isLoadingHistory && (
@@ -445,8 +459,17 @@ export default function PrototypeDeployModal({
 
             {showBuildInfo && (
               <div className="text-xs text-muted-foreground bg-accent/50 rounded-md p-3 space-y-2">
-                <p>Each time you make changes to your app, we automatically create a <strong className="text-foreground">build</strong> — a snapshot of your app at that moment.</p>
-                <p>When you click <strong className="text-foreground">Save &amp; deploy</strong>, we publish your latest build so anyone with the link can use it.</p>
+                <p>
+                  Each time you make changes to your app, we automatically
+                  create a <strong className="text-foreground">build</strong> —
+                  a snapshot of your app at that moment.
+                </p>
+                <p>
+                  When you click{" "}
+                  <strong className="text-foreground">Save &amp; deploy</strong>
+                  , we publish your latest build so anyone with the link can use
+                  it.
+                </p>
               </div>
             )}
 
@@ -469,10 +492,11 @@ export default function PrototypeDeployModal({
                   return (
                     <div
                       key={build.id}
-                      className={`flex items-center justify-between gap-4 p-3 rounded-lg border ${isDeployed
+                      className={`flex items-center justify-between gap-4 p-3 rounded-lg border ${
+                        isDeployed
                           ? "bg-success/10 border-success/30"
                           : "bg-accent border-border"
-                        }`}
+                      }`}
                     >
                       {/* Build ID with badges */}
                       <div className="flex items-center gap-2 min-w-0">

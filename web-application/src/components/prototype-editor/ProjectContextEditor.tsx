@@ -48,7 +48,9 @@ const ProjectContextEditor: React.FC<ProjectContextEditorProps> = ({
   const crepeRef = useRef<Crepe | null>(null);
   const initialContentRef = useRef<string>("");
   const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const autoSaveRef = useRef<(content: string) => Promise<void>>(async () => {});
+  const autoSaveRef = useRef<(content: string) => Promise<void>>(
+    async () => {},
+  );
 
   const claudeMdFile = fileSystem.state.files[CLAUDE_MD_FILENAME];
   const fileExists = Boolean(claudeMdFile);
@@ -67,28 +69,31 @@ const ProjectContextEditor: React.FC<ProjectContextEditorProps> = ({
   }, [isEditorReady]);
 
   // Auto-save function
-  const autoSave = useCallback(async (content: string) => {
-    if (!prototypeId || !fileExists || isReadOnly) return;
-    if (content === initialContentRef.current) return;
+  const autoSave = useCallback(
+    async (content: string) => {
+      if (!prototypeId || !fileExists || isReadOnly) return;
+      if (content === initialContentRef.current) return;
 
-    try {
-      const result = await fileSystem.syncFilesAndAssets({
-        filesToUpsert: [
-          { name: CLAUDE_MD_FILENAME, content },
-          { name: AGENTS_MD_FILENAME, content },
-        ],
-      });
+      try {
+        const result = await fileSystem.syncFilesAndAssets({
+          filesToUpsert: [
+            { name: CLAUDE_MD_FILENAME, content },
+            { name: AGENTS_MD_FILENAME, content },
+          ],
+        });
 
-      if (result.success) {
-        initialContentRef.current = content;
-        logger.debug("log", "CLAUDE.md auto-saved");
+        if (result.success) {
+          initialContentRef.current = content;
+          logger.debug("log", "CLAUDE.md auto-saved");
+        }
+      } catch (error) {
+        logger.debug("error", "Error auto-saving CLAUDE.md:", {
+          error: error instanceof Error ? error.message : String(error),
+        });
       }
-    } catch (error) {
-      logger.debug("error", "Error auto-saving CLAUDE.md:", {
-        error: error instanceof Error ? error.message : String(error),
-      });
-    }
-  }, [prototypeId, fileExists, isReadOnly, fileSystem, logger]);
+    },
+    [prototypeId, fileExists, isReadOnly, fileSystem, logger],
+  );
 
   // Keep autoSaveRef updated with latest autoSave function
   useEffect(() => {
@@ -164,10 +169,17 @@ const ProjectContextEditor: React.FC<ProjectContextEditorProps> = ({
 
   // Sync content when file changes externally
   useEffect(() => {
-    if (crepeRef.current && isEditorReady && claudeMdFile?.contents !== undefined) {
+    if (
+      crepeRef.current &&
+      isEditorReady &&
+      claudeMdFile?.contents !== undefined
+    ) {
       try {
         const currentContent = getEditorContent();
-        if (claudeMdFile.contents !== currentContent && claudeMdFile.contents !== initialContentRef.current) {
+        if (
+          claudeMdFile.contents !== currentContent &&
+          claudeMdFile.contents !== initialContentRef.current
+        ) {
           // File changed externally, update editor using replaceAll action
           initialContentRef.current = claudeMdFile.contents;
           crepeRef.current.editor.action(replaceAll(claudeMdFile.contents));
@@ -276,12 +288,15 @@ const ProjectContextEditor: React.FC<ProjectContextEditorProps> = ({
       )}
 
       {/* Context description */}
-      <div className={cn(
-        "px-6 py-3 border-b border-border/50",
-        userPlan === "free" && "mt-10"
-      )}>
+      <div
+        className={cn(
+          "px-6 py-3 border-b border-border/50",
+          userPlan === "free" && "mt-10",
+        )}
+      >
         <p className="text-xs text-muted-foreground">
-          This is what the AI sees and knows about your project. Add instructions, guidelines, or context to help guide code generation.
+          This is what the AI sees and knows about your project. Add
+          instructions, guidelines, or context to help guide code generation.
         </p>
       </div>
 
@@ -314,8 +329,10 @@ const ProjectContextEditor: React.FC<ProjectContextEditorProps> = ({
           --crepe-color-border: hsl(var(--border));
           --crepe-color-hover: hsl(var(--accent));
           --crepe-color-muted: hsl(var(--muted-foreground));
-          --crepe-font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-          --crepe-font-code: 'JetBrains Mono', 'Fira Code', monospace;
+          --crepe-font-family:
+            system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+            sans-serif;
+          --crepe-font-code: "JetBrains Mono", "Fira Code", monospace;
         }
 
         .milkdown-editor .milkdown {
@@ -425,7 +442,7 @@ const ProjectContextEditor: React.FC<ProjectContextEditorProps> = ({
           border: 1px solid var(--crepe-color-border);
           border-radius: 6px;
           padding: 2px;
-          box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
         }
 
         .milkdown-editor .crepe-toolbar button {
@@ -435,7 +452,6 @@ const ProjectContextEditor: React.FC<ProjectContextEditorProps> = ({
         .milkdown-editor .crepe-toolbar button:hover {
           background: var(--crepe-color-hover);
         }
-
       `}</style>
     </div>
   );
