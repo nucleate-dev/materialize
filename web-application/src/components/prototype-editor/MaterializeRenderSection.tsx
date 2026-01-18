@@ -1438,11 +1438,15 @@ const MaterializeRenderSection = forwardRef<
       let hasInitiatedBuildRequest = false;
       let buildStartToastId: string | number | null = null;
 
-      const resetBuildStartUI = () => {
+      const dismissBuildStartToast = () => {
         if (buildStartToastId !== null) {
           toast.dismiss(buildStartToastId);
           buildStartToastId = null;
         }
+      };
+
+      const resetBuildStartUI = () => {
+        dismissBuildStartToast();
         if (buildStarted) {
           setIsTerminalOpen(false);
           setActiveTerminalSession("dev-server");
@@ -1468,7 +1472,7 @@ const MaterializeRenderSection = forwardRef<
           setIsTerminalOpen(true);
           setActiveTerminalSession("build");
           buildStartToastId = toast.info(
-            "Build started! This may take 3-5 minutes...",
+            "Build started! This may take a couple of minutes...",
           );
         };
 
@@ -1496,7 +1500,9 @@ const MaterializeRenderSection = forwardRef<
         if (response.status === HTTP_STATUS.CONFLICT) {
           const warningMessage =
             result.error?.message ?? "A build is already in progress.";
-          resetBuildStartUI();
+          dismissBuildStartToast();
+          setIsTerminalOpen(true);
+          setActiveTerminalSession("build");
           toast.warning(warningMessage);
           logger.debug("info", "Build already in progress", {
             prototypeId,
@@ -1520,7 +1526,8 @@ const MaterializeRenderSection = forwardRef<
 
         if (!buildStarted) {
           const alreadyValidMessage =
-            result.data?.message ?? "There is already a valid build.";
+            result.data?.message ??
+            "There have been no changes since the last build.";
           resetBuildStartUI();
           toast.info(alreadyValidMessage);
           logger.debug("info", "Build already valid", {
