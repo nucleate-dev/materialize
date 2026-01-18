@@ -177,6 +177,9 @@ export default function InternalPrototypePage() {
   // Ref to ClaudeCodePanel for populating input
   const claudeCodePanelRef = useRef<ClaudeCodePanelRef>(null);
 
+  // Track initial team to detect team changes
+  const initialTeamId = useRef<string | undefined>(undefined);
+
   // Initialize FileSystem hook
   const defaultFile = "App.js"; // TODO update this for the new default app
   const fileSystem = useFileSystem(prototypeId, defaultFile);
@@ -323,6 +326,24 @@ export default function InternalPrototypePage() {
       document.title = "Nucleate";
     };
   }, [prototype?.name]);
+
+  // Route to dashboard if active team changes
+  useEffect(() => {
+    // Store initial team ID on first render when it's available
+    if (initialTeamId.current === undefined && activeTeam?.id !== undefined) {
+      initialTeamId.current = activeTeam.id;
+      return;
+    }
+
+    // Route to dashboard if team changes (and we have an initial team set)
+    if (
+      initialTeamId.current !== undefined &&
+      activeTeam?.id !== undefined &&
+      activeTeam.id !== initialTeamId.current
+    ) {
+      router.push("/dashboard/projects");
+    }
+  }, [activeTeam?.id, router]);
 
   // Load design systems when dialog opens
   useEffect(() => {
