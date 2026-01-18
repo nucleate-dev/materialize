@@ -3,6 +3,7 @@
 import {
   BarChart3,
   Database,
+  Eye,
   MessagesSquare,
   Rocket,
   Server,
@@ -53,6 +54,11 @@ const items = [
     title: "Live Viewer",
     url: "/live-viewer",
     icon: Smartphone,
+  },
+  {
+    title: "View Prototype",
+    url: "/view-prototype",
+    icon: Eye,
   },
   {
     title: "Chat Recreation",
