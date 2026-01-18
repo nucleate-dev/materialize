@@ -22,7 +22,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useActiveTeam } from "@/contexts/TeamContext";
-import { VIEWER_ROLE_RESTRICTION_MESSAGE } from "@/GlobalConstants";
+import { VIEWER_ROLE_RESTRICTION_MESSAGE, ENABLE_DESIGN_SYSTEM } from "@/GlobalConstants";
 import { useCreatePrototype } from "@/hooks/useCreatePrototype";
 import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import { useUser } from "@/hooks/useUser";
@@ -516,29 +516,31 @@ export default function DashboardPage() {
                   </SelectContent>
                 </Select>
                 {/* Design Style Selector */}
-                <Select
-                  value={designStyle}
-                  onValueChange={(value) =>
-                    setDesignStyle(value as DesignStyle)
-                  }
-                  disabled={isLoading}
-                >
-                  <SelectTrigger className="h-8 border-0 bg-secondary hover:bg-secondary/80 text-secondary-foreground text-xs font-medium rounded-md transition-colors gap-2 w-auto min-w-[130px] focus:ring-0">
-                    <Palette className="w-3.5 h-3.5" />
-                    <SelectValue placeholder="Style" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-popover border-border text-popover-foreground">
-                    {availableDesignStyles.map((style) => (
-                      <SelectItem
-                        key={style}
-                        value={style}
-                        className="focus:bg-accent focus:text-accent-foreground text-muted-foreground cursor-pointer text-xs py-2"
-                      >
-                        {getDesignStyleLabel(style)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                {ENABLE_DESIGN_SYSTEM && (
+                  <Select
+                    value={designStyle}
+                    onValueChange={(value) =>
+                      setDesignStyle(value as DesignStyle)
+                    }
+                    disabled={isLoading}
+                  >
+                    <SelectTrigger className="h-8 border-0 bg-secondary hover:bg-secondary/80 text-secondary-foreground text-xs font-medium rounded-md transition-colors gap-2 w-auto min-w-[130px] focus:ring-0">
+                      <Palette className="w-3.5 h-3.5" />
+                      <SelectValue placeholder="Style" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-popover border-border text-popover-foreground">
+                      {availableDesignStyles.map((style) => (
+                        <SelectItem
+                          key={style}
+                          value={style}
+                          className="focus:bg-accent focus:text-accent-foreground text-muted-foreground cursor-pointer text-xs py-2"
+                        >
+                          {getDesignStyleLabel(style)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
 
                 {/* Visibility Selector */}
                 <Select
@@ -652,29 +654,31 @@ export default function DashboardPage() {
                           ))}
                         </SelectContent>
                       </Select>
-                      <Select
-                        value={designStyle}
-                        onValueChange={(v) => setDesignStyle(v as DesignStyle)}
-                        disabled={isLoading}
-                      >
-                        <SelectTrigger className="h-9 border-border bg-secondary text-secondary-foreground text-xs w-full">
-                          <div className="flex items-center gap-2">
-                            <Palette className="w-3.5 h-3.5" />
-                            <SelectValue placeholder="Style" />
-                          </div>
-                        </SelectTrigger>
-                        <SelectContent className="bg-popover border-border text-popover-foreground">
-                          {availableDesignStyles.map((s) => (
-                            <SelectItem
-                              key={s}
-                              value={s}
-                              className="focus:bg-accent focus:text-accent-foreground text-muted-foreground text-xs"
-                            >
-                              {getDesignStyleLabel(s)}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      {ENABLE_DESIGN_SYSTEM && (
+                        <Select
+                          value={designStyle}
+                          onValueChange={(v) => setDesignStyle(v as DesignStyle)}
+                          disabled={isLoading}
+                        >
+                          <SelectTrigger className="h-9 border-border bg-secondary text-secondary-foreground text-xs w-full">
+                            <div className="flex items-center gap-2">
+                              <Palette className="w-3.5 h-3.5" />
+                              <SelectValue placeholder="Style" />
+                            </div>
+                          </SelectTrigger>
+                          <SelectContent className="bg-popover border-border text-popover-foreground">
+                            {availableDesignStyles.map((s) => (
+                              <SelectItem
+                                key={s}
+                                value={s}
+                                className="focus:bg-accent focus:text-accent-foreground text-muted-foreground text-xs"
+                              >
+                                {getDesignStyleLabel(s)}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
 
                       {/* Visibility Selector */}
                       <Select

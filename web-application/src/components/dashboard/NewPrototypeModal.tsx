@@ -74,7 +74,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { VIEWER_ROLE_RESTRICTION_MESSAGE } from "@/GlobalConstants";
+import { VIEWER_ROLE_RESTRICTION_MESSAGE, ENABLE_DESIGN_SYSTEM } from "@/GlobalConstants";
 
 interface NewPrototypeModalProps {
   open: boolean;
@@ -285,7 +285,9 @@ export default function NewPrototypeModal({
     if (open && user?.id) {
       fetchFolders();
       fetchPrototypeCount();
-      fetchDesignSystems();
+      if (ENABLE_DESIGN_SYSTEM) {
+        fetchDesignSystems();
+      }
     }
   }, [open, user, activeTeam?.id, logger]);
 
@@ -1033,45 +1035,47 @@ export default function NewPrototypeModal({
                 </div>
 
                 {/* Design Style */}
-                <div className="space-y-2">
-                  <Label
-                    htmlFor="design-style"
-                    className="text-xs font-medium text-muted-foreground"
-                  >
-                    Style
-                  </Label>
-                  <Select
-                    value={designStyle}
-                    onValueChange={(value) => {
-                      setDesignStyle(value as DesignStyle);
-                      setHasManualDesignSelection(true);
-                    }}
-                  >
-                    <SelectTrigger
-                      id="design-style"
-                      className="h-10 bg-background border-border text-foreground text-sm focus:ring-0"
+                {ENABLE_DESIGN_SYSTEM && (
+                  <div className="space-y-2">
+                    <Label
+                      htmlFor="design-style"
+                      className="text-xs font-medium text-muted-foreground"
                     >
-                      <div className="flex items-center gap-2">
-                        <Palette className="w-3.5 h-3.5 text-muted-foreground" />
-                        <SelectValue />
-                      </div>
-                    </SelectTrigger>
-                    <SelectContent className="bg-card border-border text-foreground">
-                      {availableDesignStyles.map((style) => (
-                        <SelectItem
-                          key={style}
-                          value={style}
-                          className="focus:bg-muted focus:text-foreground cursor-pointer text-sm"
-                        >
-                          {getDesignStyleLabel(style)}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+                      Style
+                    </Label>
+                    <Select
+                      value={designStyle}
+                      onValueChange={(value) => {
+                        setDesignStyle(value as DesignStyle);
+                        setHasManualDesignSelection(true);
+                      }}
+                    >
+                      <SelectTrigger
+                        id="design-style"
+                        className="h-10 bg-background border-border text-foreground text-sm focus:ring-0"
+                      >
+                        <div className="flex items-center gap-2">
+                          <Palette className="w-3.5 h-3.5 text-muted-foreground" />
+                          <SelectValue />
+                        </div>
+                      </SelectTrigger>
+                      <SelectContent className="bg-card border-border text-foreground">
+                        {availableDesignStyles.map((style) => (
+                          <SelectItem
+                            key={style}
+                            value={style}
+                            className="focus:bg-muted focus:text-foreground cursor-pointer text-sm"
+                          >
+                            {getDesignStyleLabel(style)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
 
                 {/* Custom Design System */}
-                {designSystems.length > 0 && (
+                {ENABLE_DESIGN_SYSTEM && designSystems.length > 0 && (
                   <div className="space-y-2">
                     <Label
                       htmlFor="custom-design-system"
