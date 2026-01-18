@@ -30,6 +30,9 @@ export const metadata: Metadata = {
     "canvas",
   ],
   authors: [{ name: "Nucleate" }],
+  icons: {
+    icon: "/icon.svg",
+  },
   openGraph: {
     title: "Nucleate - AI Design Engineer",
     description: "Nucleate helps you build beautiful mobile apps with AI.",

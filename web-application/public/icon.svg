@@ -1,0 +1,8 @@
+<svg width="32" height="32" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+  <!-- Light background -->
+  <rect width="32" height="32" fill="#FFFFFF" rx="4"/>
+  <!-- Atom icon in terracotta/orange color -->
+  <circle cx="16" cy="16" r="3" fill="#E67E50"/>
+  <ellipse cx="16" cy="16" rx="12" ry="5" stroke="#E67E50" stroke-width="2.5" fill="none" transform="rotate(45 16 16)"/>
+  <ellipse cx="16" cy="16" rx="12" ry="5" stroke="#E67E50" stroke-width="2.5" fill="none" transform="rotate(-45 16 16)"/>
+</svg>
