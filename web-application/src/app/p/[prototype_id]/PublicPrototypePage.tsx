@@ -744,6 +744,7 @@ export default function PrototypePage() {
               onWebScreensChange={
                 canEditPublicConfig ? handleWebScreensChange : undefined
               }
+              showToolbar={false}
               codeView={
                 <div className="flex h-full items-center justify-center text-sm text-gray-500 dark:text-muted-foreground bg-gray-50 dark:bg-background">
                   Code view is unavailable in the public prototype viewer.

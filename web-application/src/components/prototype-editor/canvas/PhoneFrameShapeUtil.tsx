@@ -36,15 +36,18 @@ export class PhoneFrameShapeUtil extends BaseBoxShapeUtil<PhoneFrameShape> {
     h: T.number,
   };
 
-  override isAspectRatioLocked(_shape: PhoneFrameShape): boolean {
+  override isAspectRatioLocked(shape: PhoneFrameShape): boolean {
+    void shape;
     return false;
   }
 
-  override canResize(_shape: PhoneFrameShape): boolean {
+  override canResize(shape: PhoneFrameShape): boolean {
+    void shape;
     return true;
   }
 
-  override canEdit(_shape: PhoneFrameShape): boolean {
+  override canEdit(shape: PhoneFrameShape): boolean {
+    void shape;
     return false;
   }
 

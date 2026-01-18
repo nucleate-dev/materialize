@@ -63,7 +63,6 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
-import { usePostHog } from "posthog-js/react";
 import { Suspense, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
@@ -164,7 +163,6 @@ function HeroSection() {
   const [showUpsellModal, setShowUpsellModal] = useState(false);
   const router = useRouter();
   const { user } = useUser();
-  const posthog = usePostHog();
   const [framework, setFramework] =
     useState<PrototypeFramework>(DEFAULT_FRAMEWORK);
   const [uploadedImages, setUploadedImages] = useState<ChatIntentImage[]>([]);

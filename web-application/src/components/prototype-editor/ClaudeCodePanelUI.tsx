@@ -81,7 +81,6 @@ interface ClaudeCodePanelUIProps {
   currentTodos: Todo[];
   uploadedImages: UploadedImage[];
   inputValue: string;
-  hasReceivedResponse: boolean;
   showScrollToBottom: boolean;
   isCurrentSessionMostRecent: boolean;
   isDragOver: boolean;
@@ -125,7 +124,6 @@ interface ClaudeCodePanelUIProps {
   onActiveViewChange: (view: ClaudeCodePanelActiveView) => void;
   fileSystem?: UseFileSystemReturn;
   isProjectContextEnabled: boolean;
-  isUsingOAuthToken: boolean;
   authMode: AuthMode;
   onAuthModeChange: (mode: AuthMode) => void;
   hasClaudeSubAvailable: boolean;
@@ -172,7 +170,6 @@ export default function ClaudeCodePanelUI({
   currentTodos,
   uploadedImages,
   inputValue,
-  hasReceivedResponse,
   showScrollToBottom,
   isCurrentSessionMostRecent,
   isDragOver,
@@ -208,7 +205,6 @@ export default function ClaudeCodePanelUI({
   onActiveViewChange,
   fileSystem,
   isProjectContextEnabled,
-  isUsingOAuthToken,
   authMode,
   onAuthModeChange,
   hasClaudeSubAvailable,

@@ -57,7 +57,6 @@ import {
   Monitor,
   MoreVertical,
   Palette,
-  PanelLeftOpen,
   Pencil,
   Plus,
   QrCode,
@@ -283,6 +282,8 @@ interface MaterializeRenderSectionProps {
   // Chat panel collapse state
   isChatCollapsed?: boolean;
   onExpandChat?: () => void;
+  // Allows consumers to hide the toolbar (e.g., readonly public viewers)
+  showToolbar?: boolean;
 }
 
 export interface MaterializeRenderSectionRef {
@@ -339,6 +340,7 @@ const MaterializeRenderSection = forwardRef<
       onCanvasStateChange,
       isChatCollapsed = false,
       onExpandChat,
+      showToolbar = true,
     },
     ref,
   ) => {
@@ -645,9 +647,6 @@ const MaterializeRenderSection = forwardRef<
       null,
     );
     const [tempPath, setTempPath] = useState<string>("");
-    const [routeSuggestions, setRouteSuggestions] = useState<
-      Array<{ route: string; group?: string }>
-    >([]);
     // Allow screen editing in public view if onScreensChange or onWebScreensChange is provided
     const canEditScreensInPublicView =
       publicView && (!!onScreensChange || !!onWebScreensChange);
@@ -2605,7 +2604,8 @@ const MaterializeRenderSection = forwardRef<
     return (
       <div className="flex flex-col h-full bg-background">
         {/* Compact Responsive Toolbar */}
-        <div className="sticky top-0 z-30 bg-background/80 backdrop-blur-xl px-4 py-3 border-b border-border">
+        {showToolbar && (
+          <div className="sticky top-0 z-30 bg-background/80 backdrop-blur-xl px-4 py-3 border-b border-border">
           <div className="flex flex-wrap items-center justify-between gap-3">
             {/* Left: View Toggles */}
             <div className="flex items-center gap-3 flex-wrap">
@@ -3170,6 +3170,7 @@ const MaterializeRenderSection = forwardRef<
             </div>
           </div>
         </div>
+        )}
 
         {/* Preview Area */}
         <div

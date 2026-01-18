@@ -152,6 +152,8 @@ const ClaudeCodePanel = forwardRef<ClaudeCodePanelRef, ClaudeCodePanelProps>(
     ref,
   ) => {
     const logger = useProductLogger();
+    void canEditPrototype;
+    void onPrototypeUpdate;
 
     // Check if project context feature is enabled
     const isProjectContextEnabled =
@@ -186,7 +188,6 @@ const ClaudeCodePanel = forwardRef<ClaudeCodePanelRef, ClaudeCodePanelProps>(
     const [expandedThinking, setExpandedThinking] = useState<Set<string>>(
       new Set(),
     );
-    const [hasReceivedResponse, setHasReceivedResponse] = useState(false);
     const [uploadedImages, setUploadedImages] = useState<UploadedImage[]>([]);
     const fileInputRef = useRef<HTMLInputElement | null>(null);
     const [queuedMessage, setQueuedMessage] = useState<string | null>(null);
@@ -226,11 +227,6 @@ const ClaudeCodePanel = forwardRef<ClaudeCodePanelRef, ClaudeCodePanelProps>(
         allChatSessions[0]?.id === prototypeChatSessionId,
       );
 
-    // Settings modal state
-    const [showSettingsModal, setShowSettingsModal] = useState(false);
-    const [isEditingTitle, setIsEditingTitle] = useState(false);
-    const [editedTitle, setEditedTitle] = useState("");
-    const [isUpdatingTitle, setIsUpdatingTitle] = useState(false);
     const [isUsingOAuthToken, setIsUsingOAuthToken] = useState(false);
     const [authMode, setAuthMode] = useState<AuthMode>("nucleate");
     const [modelProvider, setModelProvider] = useState<"claude" | "vercel">(
@@ -295,11 +291,6 @@ const ClaudeCodePanel = forwardRef<ClaudeCodePanelRef, ClaudeCodePanelProps>(
         : normalizedVisibility === "TEAM"
           ? "Team"
           : "Private";
-    const createdAtLabel = prototype?.created_at
-      ? new Date(prototype.created_at).toLocaleDateString()
-      : null;
-    const canEditName = Boolean(canEditPrototype && onPrototypeUpdate);
-
     // Helper function to format relative timestamps
     const getRelativeTime = (timestamp: number): string => {
       const now = Date.now();
@@ -429,53 +420,6 @@ const ClaudeCodePanel = forwardRef<ClaudeCodePanelRef, ClaudeCodePanelProps>(
         }
         return next;
       });
-    };
-
-    // Handle title editing
-    const handleStartTitleEdit = () => {
-      if (!canEditName || !prototype) return;
-      setEditedTitle(prototype.name);
-      setIsEditingTitle(true);
-    };
-
-    const handleCancelTitleEdit = () => {
-      setIsEditingTitle(false);
-      setEditedTitle("");
-    };
-
-    const handleSaveTitle = async () => {
-      if (
-        !canEditName ||
-        !prototype ||
-        !editedTitle.trim() ||
-        !onPrototypeUpdate
-      ) {
-        return;
-      }
-
-      try {
-        setIsUpdatingTitle(true);
-        const trimmedName = editedTitle.trim();
-        const { error } = await supabase
-          .from("prototypes")
-          .update({ name: trimmedName })
-          .eq("id", prototype.id);
-
-        if (error) {
-          throw error;
-        }
-
-        onPrototypeUpdate({ ...prototype, name: trimmedName });
-        setIsEditingTitle(false);
-        setEditedTitle("");
-      } catch (error) {
-        logger.debug("error", "Error updating prototype name:", {
-          error: error instanceof Error ? error.message : String(error),
-          stack: error instanceof Error ? error.stack : undefined,
-        });
-      } finally {
-        setIsUpdatingTitle(false);
-      }
     };
 
     // Helper function to load historical messages (extracted to be reusable)
@@ -906,7 +850,6 @@ const ClaudeCodePanel = forwardRef<ClaudeCodePanelRef, ClaudeCodePanelProps>(
           setQueuedMessage(null);
           setQueuedImages([]);
           setIsProcessing(true);
-          setHasReceivedResponse(false);
           // Clear chat intent from localStorage
           clearChatIntent();
 
@@ -1153,7 +1096,6 @@ const ClaudeCodePanel = forwardRef<ClaudeCodePanelRef, ClaudeCodePanelProps>(
           break;
 
         case ChatEvent.TOOL_START: {
-          setHasReceivedResponse(true);
           const {
             tool_name: toolName,
             tool_call_id: rawToolCallId,
@@ -1455,7 +1397,6 @@ const ClaudeCodePanel = forwardRef<ClaudeCodePanelRef, ClaudeCodePanelProps>(
           if (event.delta?.type === "text_delta") {
             const textDelta = event.delta.text || "";
             if (textDelta) {
-              setHasReceivedResponse(true); // We've received some response
               // Append to last assistant message or create new one
               setMessages((prev) => {
                 const lastMessage = prev[prev.length - 1];
@@ -2112,7 +2053,6 @@ const ClaudeCodePanel = forwardRef<ClaudeCodePanelRef, ClaudeCodePanelProps>(
         setUploadedImages([]);
         setUploadProgress({});
         setIsProcessing(true);
-        setHasReceivedResponse(false);
 
         // Send message in the format expected by CodeService
         if (ws) {
@@ -2367,7 +2307,6 @@ const ClaudeCodePanel = forwardRef<ClaudeCodePanelRef, ClaudeCodePanelProps>(
         currentTodos={currentTodos}
         uploadedImages={uploadedImages}
         inputValue={inputValue}
-        hasReceivedResponse={hasReceivedResponse}
         showScrollToBottom={showScrollToBottom}
         isCurrentSessionMostRecent={isCurrentSessionMostRecent}
         isDragOver={isDragOver}
@@ -2409,7 +2348,6 @@ const ClaudeCodePanel = forwardRef<ClaudeCodePanelRef, ClaudeCodePanelProps>(
         onActiveViewChange={setActiveView}
         fileSystem={fileSystem}
         isProjectContextEnabled={isProjectContextEnabled}
-        isUsingOAuthToken={isUsingOAuthToken}
         authMode={authMode}
         onAuthModeChange={handleAuthModeChange}
         hasClaudeSubAvailable={isUsingOAuthToken}

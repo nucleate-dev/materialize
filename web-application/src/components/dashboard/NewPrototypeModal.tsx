@@ -67,7 +67,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import {
   Tooltip,
   TooltipContent,
@@ -171,6 +171,7 @@ export default function NewPrototypeModal({
     loading: boolean;
   }>({ connected: false, loading: true });
   const [sourceRepoComboboxOpen, setSourceRepoComboboxOpen] = useState(false);
+  const sourceRepoComboboxId = useId();
 
   const isWebFrameworkSelected = framework === "web_nextjs_react";
 
@@ -852,6 +853,7 @@ export default function NewPrototypeModal({
                               type="button"
                               role="combobox"
                               aria-expanded={sourceRepoComboboxOpen}
+                              aria-controls={sourceRepoComboboxId}
                               disabled={
                                 isCreating ||
                                 githubIntegrationStatus.loading ||
@@ -892,7 +894,7 @@ export default function NewPrototypeModal({
                                 placeholder="Search repositories..."
                                 className="h-9 border-0 focus:ring-0 text-foreground"
                               />
-                              <CommandList>
+                              <CommandList id={sourceRepoComboboxId}>
                                 <CommandEmpty className="py-6 text-center text-sm text-muted-foreground">
                                   No repository found.
                                 </CommandEmpty>

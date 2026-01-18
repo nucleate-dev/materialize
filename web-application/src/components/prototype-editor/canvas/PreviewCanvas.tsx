@@ -5,7 +5,6 @@ import {
   useCallback,
   useEffect,
   useImperativeHandle,
-  useMemo,
   useRef,
   useState,
 } from "react";
@@ -14,15 +13,11 @@ import {
   TLShapeId,
   Tldraw,
   createShapeId,
-  TLStoreSnapshot,
 } from "tldraw";
 import "tldraw/tldraw.css";
 
-import { PhoneFrameShapeUtil, PhoneFrameShape } from "./PhoneFrameShapeUtil";
-import {
-  BrowserFrameShapeUtil,
-  BrowserFrameShape,
-} from "./BrowserFrameShapeUtil";
+import { PhoneFrameShapeUtil } from "./PhoneFrameShapeUtil";
+import { BrowserFrameShapeUtil } from "./BrowserFrameShapeUtil";
 import type {
   CanvasStateData,
   PreviewCanvasProps,
@@ -63,6 +58,10 @@ const PreviewCanvas = forwardRef<PreviewCanvasRef, PreviewCanvasProps>(
     },
     ref,
   ) => {
+    void onScreenPathChange;
+    void availableRoutes;
+    void onIframeLoad;
+    void onIframeError;
     const editorRef = useRef<Editor | null>(null);
     const [isInitialized, setIsInitialized] = useState(false);
     const screenIdCounter = useRef(
@@ -72,21 +71,7 @@ const PreviewCanvas = forwardRef<PreviewCanvasRef, PreviewCanvasProps>(
     // Track screen ID to shape ID mapping
     const screenToShapeMap = useRef<Map<number, TLShapeId>>(new Map());
 
-    // Debounced state change handler
     const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-    const debouncedSave = useCallback(() => {
-      if (saveTimeoutRef.current) {
-        clearTimeout(saveTimeoutRef.current);
-      }
-      saveTimeoutRef.current = setTimeout(() => {
-        if (editorRef.current && onCanvasStateChange) {
-          const state = getCanvasState();
-          if (state) {
-            onCanvasStateChange(state);
-          }
-        }
-      }, 1000);
-    }, [onCanvasStateChange]);
 
     // Get current canvas state for persistence
     const getCanvasState = useCallback((): CanvasStateData | null => {
@@ -106,33 +91,20 @@ const PreviewCanvas = forwardRef<PreviewCanvasRef, PreviewCanvasProps>(
       };
     }, [previewMode]);
 
-    // Load canvas state from persistence
-    const loadCanvasState = useCallback((state: CanvasStateData) => {
-      if (!editorRef.current) return;
-
-      const editor = editorRef.current;
-
-      try {
-        // Load the document snapshot
-        editor.loadSnapshot({
-          document: state.document,
-          session: editor.getSnapshot().session,
-        });
-
-        // Restore camera position and zoom
-        editor.setCamera({
-          x: state.camera.x,
-          y: state.camera.y,
-          z: state.zoom,
-        });
-
-        // Rebuild the screen to shape mapping
-        rebuildScreenShapeMap();
-      } catch (error) {
-        // eslint-disable-next-line no-restricted-syntax
-        console.error("Error loading canvas state:", error);
+    // Debounced state change handler
+    const debouncedSave = useCallback(() => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
       }
-    }, []);
+      saveTimeoutRef.current = setTimeout(() => {
+        if (editorRef.current && onCanvasStateChange) {
+          const state = getCanvasState();
+          if (state) {
+            onCanvasStateChange(state);
+          }
+        }
+      }, 1000);
+    }, [getCanvasState, onCanvasStateChange]);
 
     // Rebuild the mapping between screen IDs and shape IDs
     const rebuildScreenShapeMap = useCallback(() => {
@@ -149,6 +121,37 @@ const PreviewCanvas = forwardRef<PreviewCanvasRef, PreviewCanvasProps>(
         }
       }
     }, []);
+
+    // Load canvas state from persistence
+    const loadCanvasState = useCallback(
+      (state: CanvasStateData) => {
+        if (!editorRef.current) return;
+
+        const editor = editorRef.current;
+
+        try {
+          // Load the document snapshot
+          editor.loadSnapshot({
+            document: state.document,
+            session: editor.getSnapshot().session,
+          });
+
+          // Restore camera position and zoom
+          editor.setCamera({
+            x: state.camera.x,
+            y: state.camera.y,
+            z: state.zoom,
+          });
+
+          // Rebuild the screen to shape mapping
+          rebuildScreenShapeMap();
+        } catch (error) {
+          // eslint-disable-next-line no-restricted-syntax
+          console.error("Error loading canvas state:", error);
+        }
+      },
+      [rebuildScreenShapeMap],
+    );
 
     // Add a new screen
     const addScreen = useCallback(
@@ -187,7 +190,7 @@ const PreviewCanvas = forwardRef<PreviewCanvasRef, PreviewCanvasProps>(
         notifyScreensChanged();
         debouncedSave();
       },
-      [previewMode, viewingUrl, debouncedSave],
+      [debouncedSave, notifyScreensChanged, previewMode, viewingUrl],
     );
 
     // Remove a screen
@@ -203,7 +206,7 @@ const PreviewCanvas = forwardRef<PreviewCanvasRef, PreviewCanvasProps>(
           debouncedSave();
         }
       },
-      [debouncedSave],
+      [debouncedSave, notifyScreensChanged],
     );
 
     // Set all screens (replace existing)
@@ -262,7 +265,7 @@ const PreviewCanvas = forwardRef<PreviewCanvasRef, PreviewCanvasProps>(
         notifyScreensChanged();
         debouncedSave();
       },
-      [previewMode, viewingUrl, debouncedSave],
+      [debouncedSave, notifyScreensChanged, previewMode, viewingUrl],
     );
 
     // Notify parent of screen changes

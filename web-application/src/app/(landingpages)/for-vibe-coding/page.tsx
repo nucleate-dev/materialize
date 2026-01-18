@@ -53,7 +53,6 @@ import {
   Zap,
 } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { usePostHog } from "posthog-js/react";
 import { Suspense, useEffect, useState } from "react";
 
 type PrototypeFramework = Database["public"]["Enums"]["prototype_framework"];
@@ -138,7 +137,6 @@ function HeroSection() {
   const [showUpsellModal, setShowUpsellModal] = useState(false);
   const router = useRouter();
   const { user } = useUser();
-  const posthog = usePostHog();
   const [framework, setFramework] =
     useState<PrototypeFramework>(DEFAULT_FRAMEWORK);
 

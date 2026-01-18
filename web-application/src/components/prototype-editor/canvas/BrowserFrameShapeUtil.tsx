@@ -37,15 +37,18 @@ export class BrowserFrameShapeUtil extends BaseBoxShapeUtil<BrowserFrameShape> {
     h: T.number,
   };
 
-  override isAspectRatioLocked(_shape: BrowserFrameShape): boolean {
+  override isAspectRatioLocked(shape: BrowserFrameShape): boolean {
+    void shape;
     return false;
   }
 
-  override canResize(_shape: BrowserFrameShape): boolean {
+  override canResize(shape: BrowserFrameShape): boolean {
+    void shape;
     return true;
   }
 
-  override canEdit(_shape: BrowserFrameShape): boolean {
+  override canEdit(shape: BrowserFrameShape): boolean {
+    void shape;
     return false;
   }
 
@@ -75,7 +78,6 @@ export class BrowserFrameShapeUtil extends BaseBoxShapeUtil<BrowserFrameShape> {
 
   component(shape: BrowserFrameShape) {
     const { w, h, path, screenId } = shape.props;
-    const contentHeight = h - HEADER_HEIGHT;
 
     // Get viewing URL from the shape's meta
     const viewingUrl = (shape.meta?.viewingUrl as string) || "";
