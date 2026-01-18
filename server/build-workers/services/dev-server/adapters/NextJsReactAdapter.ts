@@ -309,10 +309,7 @@ echo "EXIT_CODE=$?"
           build_status: "failure",
           build_output: result.stdout || result.stderr || "Build failed with no output",
         },
-        error: {
-          error: "Next.js build failed",
-          message: `Next.js build failed with exit code ${result.code}`,
-        },
+        error: null,
       };
     }
 
@@ -334,10 +331,7 @@ echo "EXIT_CODE=$?"
           build_status: "failure",
           build_output: result.stdout || "Build output directory not found",
         },
-        error: {
-          error: "Dist directory missing",
-          message: "Next.js export did not produce a dist directory",
-        },
+        error: null,
       };
     }
 

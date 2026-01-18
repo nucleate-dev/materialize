@@ -369,10 +369,7 @@ export class ExpoReactNativeAdapter implements IDevelopmentServerAdapter {
           build_status: "failure",
           build_output: result.stdout || result.stderr || "Build failed with no output",
         },
-        error: {
-          error: "Expo build failed",
-          message: `Expo build failed with exit code ${result.code}`,
-        },
+        error: null,
       };
     }
 
@@ -387,10 +384,7 @@ export class ExpoReactNativeAdapter implements IDevelopmentServerAdapter {
             build_status: "failure",
             build_output: result.stdout || "Build output exists but is not a directory",
           },
-          error: {
-            error: "Dist is not a directory",
-            message: "Dist is not a directory",
-          },
+          error: null,
         };
       }
     } catch (error) {
@@ -401,10 +395,7 @@ export class ExpoReactNativeAdapter implements IDevelopmentServerAdapter {
           build_status: "failure",
           build_output: result.stdout || "Build output directory not found",
         },
-        error: {
-          error: "Dist is not a directory",
-          message: "Dist is not a directory",
-        },
+        error: null,
       };
     }
 

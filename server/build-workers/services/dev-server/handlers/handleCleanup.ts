@@ -166,23 +166,29 @@ export async function triggerDevServerBuildAndUploadToS3(
     log2.warn("Failed to take screenshot during build, continuing with upload");
   }
 
-  if (buildResult.error) {
-    log2.error(buildResult.error, "Build failed");
-    developmentServerService.developmentServerState.buildError =
-      buildResult.error.message;
+  // Ensure build result has data
+  if (!buildResult.data) {
+    const errorMessage = "Build returned no data";
+    log2.error(new Error(errorMessage), "Build failed");
+    developmentServerService.developmentServerState.buildError = errorMessage;
+    throw new Error(errorMessage);
+  }
+
+  // Check if build failed based on build_status
+  if (buildResult.data.build_status === "failure") {
+    const errorMessage = `Build failed: ${buildResult.data.build_output}`;
+    log2.error(new Error(errorMessage), "Build failed");
+    developmentServerService.developmentServerState.buildError = errorMessage;
 
     // Insert failed build record into history
-    const buildStatus = (buildResult.data as any)?.build_status || "failure";
-    const buildOutput = (buildResult.data as any)?.build_output || buildResult.error.message;
-
     const { error: insertFailedBuildError } = await supabase
       .from("prototype_build_history")
       .insert({
         prototype_id: prototypeId,
         build_key: "",
         deploy_key: "",
-        build_status: buildStatus as "failure",
-        build_output: buildOutput,
+        build_status: "failure",
+        build_output: buildResult.data.build_output,
       });
 
     if (insertFailedBuildError) {
@@ -191,8 +197,9 @@ export async function triggerDevServerBuildAndUploadToS3(
       });
     }
 
-    throw new Error(buildResult.error.message);
+    throw new Error(errorMessage);
   }
+
   log2.consoleLogDevOnly(
     "info",
     "Build completed successfully, state reset to not building and up",
