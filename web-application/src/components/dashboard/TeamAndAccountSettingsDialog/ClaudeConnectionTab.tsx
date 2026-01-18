@@ -19,6 +19,7 @@ import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import { handleCheckout } from "@/lib/utils/payments/CheckoutUtils";
 import { supabase } from "@/ClientConstants";
 import { SectionCard, SectionHeader } from "./SettingsHelpers";
+import { team_allowlist_attach_personal_claude_subscriptions } from "@/lib/types/TeamLevelAllowlists";
 
 export function ClaudeConnectionTab() {
   const logger = useProductLogger();
@@ -37,6 +38,9 @@ export function ClaudeConnectionTab() {
   const [tokenError, setTokenError] = useState<string | null>(null);
 
   const currentSubscription = (userPlan as string) || "free";
+  const isTeamAllowlisted = activeTeam?.id
+    ? team_allowlist_attach_personal_claude_subscriptions.has(activeTeam.id)
+    : false;
 
   const handleUpgradeClick = async (targetPlan: string) => {
     try {
@@ -184,7 +188,7 @@ export function ClaudeConnectionTab() {
             icon={Key}
           />
           <div className="p-6 space-y-6">
-            {currentSubscription === "free" ? (
+            {currentSubscription === "free" && !isTeamAllowlisted ? (
               /* Free Plan - Upgrade Required */
               <div className="space-y-4">
                 <div className="flex items-start gap-3 p-4 rounded-lg bg-purple-500/10 border border-purple-500/20">
