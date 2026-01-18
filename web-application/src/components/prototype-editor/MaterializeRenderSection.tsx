@@ -347,10 +347,6 @@ const MaterializeRenderSection = forwardRef<
     const posthog = usePostHog();
     const { activeTeam, currentUserMembership } = useActiveTeam();
 
-    // Check if multi-screen feature is enabled
-    const isMultiScreenEnabled =
-      posthog?.isFeatureEnabled("multiple-frames-view") ?? false;
-
     // GitHub integration state
     const [githubIntegration, setGithubIntegration] = useState<{
       connected: boolean;
@@ -525,9 +521,9 @@ const MaterializeRenderSection = forwardRef<
       },
     );
 
-    // Calculate scaled mobile size based on number of screens when multi-screen is enabled
+    // Calculate scaled mobile size based on number of screens
     const scaledMobileSize = React.useMemo(() => {
-      if (!isMultiScreenEnabled || mobileScreens.length <= 1) {
+      if (mobileScreens.length <= 1) {
         return mobileSize;
       }
 
@@ -559,22 +555,17 @@ const MaterializeRenderSection = forwardRef<
         width: mobileSize.width * scaleFactor,
         height: mobileSize.height * scaleFactor,
       };
-    }, [isMultiScreenEnabled, mobileScreens.length, mobileSize]);
+    }, [mobileScreens.length, mobileSize]);
 
     // Calculate scale factor for iframe content zoom
     const mobileScaleFactor = React.useMemo(() => {
-      if (!isMultiScreenEnabled || mobileScreens.length <= 1) {
+      if (mobileScreens.length <= 1) {
         return 1;
       }
       const targetWidth = scaledMobileSize.width + 16;
       const originalWidth = mobileSize.width + 16;
       return targetWidth / originalWidth;
-    }, [
-      isMultiScreenEnabled,
-      mobileScreens.length,
-      scaledMobileSize,
-      mobileSize,
-    ]);
+    }, [mobileScreens.length, scaledMobileSize, mobileSize]);
 
     // Web screens state for multi-screen web view
     const [webScreens, setWebScreens] = useState<MobileScreenConfig[]>(() => {
@@ -589,7 +580,7 @@ const MaterializeRenderSection = forwardRef<
 
     // Calculate scale factor for web iframe content zoom
     const webScaleFactor = React.useMemo(() => {
-      if (!isMultiScreenEnabled || webScreens.length <= 1) {
+      if (webScreens.length <= 1) {
         return 1;
       }
       // Scale down based on number of screens in grid
@@ -599,7 +590,7 @@ const MaterializeRenderSection = forwardRef<
         return 0.7;
       }
       return 0.6;
-    }, [isMultiScreenEnabled, webScreens.length]);
+    }, [webScreens.length]);
     const webIframeRefs = useRef<Map<number, HTMLIFrameElement>>(new Map());
 
     // Web frame sizing
@@ -2099,9 +2090,7 @@ const MaterializeRenderSection = forwardRef<
               <div
                 className={cn(
                   "flex flex-wrap justify-center gap-x-8 gap-y-12 pb-8 relative",
-                  isMultiScreenEnabled && mobileScreens.length > 1
-                    ? "pt-16"
-                    : "pt-8",
+                  mobileScreens.length > 1 ? "pt-16" : "pt-8",
                 )}
               >
                 {mobileScreens.map((screen, index) => {
@@ -2120,8 +2109,8 @@ const MaterializeRenderSection = forwardRef<
                           height: scaledMobileSize.height + 16,
                         }}
                       >
-                        {/* URL Bar / Controls - Show when multi-screen feature is enabled */}
-                        {isMultiScreenEnabled && (
+                        {/* URL Bar / Controls */}
+                        {(
                           <div className="absolute -top-12 left-1/2 -translate-x-1/2 z-20">
                             <div className="flex items-center gap-1.5">
                               {isReadOnlyView ? (
@@ -2352,7 +2341,7 @@ const MaterializeRenderSection = forwardRef<
         return resolveIframeSrc(viewing_url, basePath);
       };
 
-      const showWebMultiScreen = isMultiScreenEnabled && webScreens.length > 0;
+      const showWebMultiScreen = webScreens.length > 0;
       const showWebControls = showWebMultiScreen && !isReadOnlyView;
 
       return (
@@ -3217,7 +3206,6 @@ const MaterializeRenderSection = forwardRef<
                 </Button>
               </div>
             ) : (
-              isMultiScreenEnabled &&
               previewMode === "mobile" && (
                 <div className="absolute top-3 right-3 z-20">
                   <Button
