@@ -5,13 +5,15 @@ import { Terminal as XTerm } from "@xterm/xterm";
 import "@xterm/xterm/css/xterm.css";
 import { useEffect, useRef, useState } from "react";
 
-interface TerminalProps {
+export type TerminalSession = "build" | "dev-server" | "test";
+
+export interface TerminalProps {
   className?: string;
   baseTunnelUrl?: string | null;
   onResize?: (cols: number, rows: number) => void;
+  activeSession?: TerminalSession;
+  onSessionChange?: (session: TerminalSession) => void;
 }
-
-type TerminalSession = "build" | "dev-server" | "test";
 
 const TERMINAL_SESSIONS: TerminalSession[] = ["dev-server", "build", "test"];
 
@@ -38,9 +40,12 @@ export default function Terminal({
   className = "",
   baseTunnelUrl,
   onResize,
+  activeSession,
+  onSessionChange,
 }: TerminalProps) {
-  const [activeSession, setActiveSession] =
+  const [internalActiveSession, setInternalActiveSession] =
     useState<TerminalSession>("dev-server");
+  const resolvedActiveSession = activeSession ?? internalActiveSession;
   const terminalRefsMap = useRef<Map<TerminalSession, HTMLDivElement>>(
     new Map(),
   );
@@ -299,6 +304,19 @@ export default function Terminal({
     };
   }, [baseTunnelUrl]);
 
+  const handleSessionChange = (session: TerminalSession) => {
+    if (activeSession === undefined) {
+      setInternalActiveSession(session);
+    }
+    onSessionChange?.(session);
+  };
+
+  useEffect(() => {
+    if (activeSession !== undefined) {
+      setInternalActiveSession(activeSession);
+    }
+  }, [activeSession]);
+
   return (
     <div className={`w-full h-full flex flex-col ${className}`}>
       {/* Tab Navigation */}
@@ -310,11 +328,11 @@ export default function Terminal({
           return (
             <button
               key={session}
-              onClick={() => setActiveSession(session)}
+              onClick={() => handleSessionChange(session)}
               className={`
                 px-4 py-2 text-sm font-medium transition-colors relative
                 ${
-                  activeSession === session
+                  resolvedActiveSession === session
                     ? "text-foreground bg-background border-b-2 border-primary"
                     : "text-muted-foreground hover:text-foreground hover:bg-background/50"
                 }
@@ -344,7 +362,7 @@ export default function Terminal({
               if (el) terminalRefsMap.current.set(session, el);
             }}
             className={`w-full h-full bg-background overflow-hidden absolute inset-0 ${
-              activeSession === session ? "block" : "hidden"
+              resolvedActiveSession === session ? "block" : "hidden"
             }`}
           />
         ))}

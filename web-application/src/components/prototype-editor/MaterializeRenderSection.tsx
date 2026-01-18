@@ -82,9 +82,12 @@ import React, {
   useRef,
   useState,
 } from "react";
+import type { TerminalProps, TerminalSession } from "./Terminal";
 
 // Dynamically import Terminal to avoid SSR issues with xterm
-const Terminal = dynamic(() => import("./Terminal"), { ssr: false });
+const Terminal = dynamic<TerminalProps>(() => import("./Terminal"), {
+  ssr: false,
+});
 
 // Import the Project Settings Modal (unified modal)
 import {
@@ -665,6 +668,8 @@ const MaterializeRenderSection = forwardRef<
     const [isTerminalOpen, setIsTerminalOpen] = useState(false);
     const [terminalHeight, setTerminalHeight] = useState(250); // Default height in pixels
     const [isResizingTerminal, setIsResizingTerminal] = useState(false);
+    const [activeTerminalSession, setActiveTerminalSession] =
+      useState<TerminalSession>("dev-server");
 
     // Mobile resize state
     const [isResizingMobile, setIsResizingMobile] = useState(false);
@@ -1426,6 +1431,8 @@ const MaterializeRenderSection = forwardRef<
         );
         return;
       }
+      setIsTerminalOpen(true);
+      setActiveTerminalSession("build");
 
       try {
         // Get authentication token
@@ -3317,6 +3324,8 @@ const MaterializeRenderSection = forwardRef<
               <Terminal
                 className="w-full h-full"
                 baseTunnelUrl={base_tunnel_url}
+                activeSession={activeTerminalSession}
+                onSessionChange={setActiveTerminalSession}
               />
             </div>
           </div>
