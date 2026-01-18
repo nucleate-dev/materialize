@@ -97,6 +97,7 @@ import {
 // Import the View on Device Modal
 import {
   BuildAndDeployResponse,
+  HTTP_STATUS,
   PublicDevServerRestartSuccessResponse,
 } from "@/lib/types/SandboxAPITypes";
 import { ViewOnDeviceModal } from "./ViewOnDeviceModal";
@@ -1431,11 +1432,24 @@ const MaterializeRenderSection = forwardRef<
         );
         return;
       }
-      setIsTerminalOpen(true);
-      setActiveTerminalSession("build");
+
+      let buildStartTimeout: ReturnType<typeof setTimeout> | null = null;
+      let buildStarted = false;
+      let hasInitiatedBuildRequest = false;
+      let buildStartToastId: string | number | null = null;
+
+      const resetBuildStartUI = () => {
+        if (buildStartToastId !== null) {
+          toast.dismiss(buildStartToastId);
+          buildStartToastId = null;
+        }
+        if (buildStarted) {
+          setIsTerminalOpen(false);
+          setActiveTerminalSession("dev-server");
+        }
+      };
 
       try {
-        // Get authentication token
         const session = await supabase.auth.getSession();
         const token = session.data.session?.access_token;
 
@@ -1445,13 +1459,25 @@ const MaterializeRenderSection = forwardRef<
           return;
         }
 
-        // Clear any previous error
         setBuildError(null);
         setIsBuilding(true);
+        hasInitiatedBuildRequest = true;
 
-        toast.info("Build started! This may take 3-5 minutes...");
+        const triggerBuildFlow = () => {
+          buildStarted = true;
+          setIsTerminalOpen(true);
+          setActiveTerminalSession("build");
+          buildStartToastId = toast.info(
+            "Build started! This may take 3-5 minutes...",
+          );
+        };
 
-        // Await the build request
+        const BUILD_START_DELAY_MS = 1000;
+        buildStartTimeout = window.setTimeout(
+          triggerBuildFlow,
+          BUILD_START_DELAY_MS,
+        );
+
         const response = await fetch(
           `${sandbox_url}/dev-server/build-and-deploy`,
           {
@@ -1467,7 +1493,17 @@ const MaterializeRenderSection = forwardRef<
           StandardErrorResponse
         > = await response.json().catch(() => ({ data: null, error: null }));
 
-        setIsBuilding(false);
+        if (response.status === HTTP_STATUS.CONFLICT) {
+          const warningMessage =
+            result.error?.message ?? "A build is already in progress.";
+          resetBuildStartUI();
+          toast.warning(warningMessage);
+          logger.debug("info", "Build already in progress", {
+            prototypeId,
+            warningMessage,
+          });
+          return;
+        }
 
         if (!response.ok || result.error) {
           const errorMessage =
@@ -1477,12 +1513,25 @@ const MaterializeRenderSection = forwardRef<
           logger.debug("error", "Build and deploy failed", {
             error: errorMessage,
           });
-        } else {
-          setBuildError(null);
-          toast.success("Build and deploy completed successfully!");
+          return;
         }
+
+        setBuildError(null);
+
+        if (!buildStarted) {
+          const alreadyValidMessage =
+            result.data?.message ?? "There is already a valid build.";
+          resetBuildStartUI();
+          toast.info(alreadyValidMessage);
+          logger.debug("info", "Build already valid", {
+            prototypeId,
+            message: alreadyValidMessage,
+          });
+          return;
+        }
+
+        toast.success("Build and deploy completed successfully!");
       } catch (error) {
-        setIsBuilding(false);
         const errorMessage =
           error instanceof Error ? error.message : String(error);
         setBuildError(errorMessage);
@@ -1490,6 +1539,14 @@ const MaterializeRenderSection = forwardRef<
           error: errorMessage,
         });
         toast.error(`Failed to build: ${errorMessage}`);
+      } finally {
+        if (buildStartTimeout) {
+          clearTimeout(buildStartTimeout);
+          buildStartTimeout = null;
+        }
+        if (hasInitiatedBuildRequest) {
+          setIsBuilding(false);
+        }
       }
     };
 
