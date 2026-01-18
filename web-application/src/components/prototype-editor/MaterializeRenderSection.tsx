@@ -1526,13 +1526,12 @@ const MaterializeRenderSection = forwardRef<
 
         if (!buildStarted) {
           const alreadyValidMessage =
-            result.data?.message ??
-            "There have been no changes since the last build.";
+            "There have been no changes since the last build";
           resetBuildStartUI();
           toast.info(alreadyValidMessage);
           logger.debug("info", "Build already valid", {
             prototypeId,
-            message: alreadyValidMessage,
+            message: result.data?.message ?? alreadyValidMessage,
           });
           return;
         }
