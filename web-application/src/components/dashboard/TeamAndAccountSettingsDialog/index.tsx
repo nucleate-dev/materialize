@@ -83,8 +83,6 @@ export function TeamAndAccountsSettingsDialog({
   const isClaudeConnectionEnabled =
     posthog?.isFeatureEnabled("claude-code-cli-with-personal-token") ?? false;
   const isTeamsUIEnabled = posthog?.isFeatureEnabled("teams-ui") ?? false;
-  const isGitHubIntegrationEnabled =
-    posthog?.isFeatureEnabled("github-integration") ?? false;
 
   // Get initials for team avatar
   const getInitials = (name: string) => {
@@ -176,15 +174,11 @@ export function TeamAndAccountsSettingsDialog({
               icon: CreditCard,
             },
             { id: "people", label: "People", icon: Users },
-            ...(isGitHubIntegrationEnabled
-              ? [
-                  {
-                    id: "github" as const,
-                    label: "GitHub",
-                    icon: Github,
-                  },
-                ]
-              : []),
+            {
+              id: "github" as const,
+              label: "GitHub",
+              icon: Github,
+            },
           ],
         },
         {

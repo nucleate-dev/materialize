@@ -351,10 +351,6 @@ const MaterializeRenderSection = forwardRef<
     const isMultiScreenEnabled =
       posthog?.isFeatureEnabled("multiple-frames-view") ?? false;
 
-    // Check if GitHub integration is enabled
-    const isGithubIntegrationEnabled =
-      posthog?.isFeatureEnabled("github-integration") ?? false;
-
     // GitHub integration state
     const [githubIntegration, setGithubIntegration] = useState<{
       connected: boolean;
@@ -371,7 +367,7 @@ const MaterializeRenderSection = forwardRef<
     // Fetch GitHub integration status for the active team
     useEffect(() => {
       const fetchGithubIntegration = async () => {
-        if (!activeTeam?.id || !isGithubIntegrationEnabled) {
+        if (!activeTeam?.id) {
           setGithubIntegration({ connected: false, loading: false });
           return;
         }
@@ -401,12 +397,12 @@ const MaterializeRenderSection = forwardRef<
       };
 
       fetchGithubIntegration();
-    }, [activeTeam?.id, isGithubIntegrationEnabled, logger]);
+    }, [activeTeam?.id, logger]);
 
     // Fetch GitHub repository for this prototype
     useEffect(() => {
       const fetchGithubRepository = async () => {
-        if (!prototypeId || !isGithubIntegrationEnabled) {
+        if (!prototypeId) {
           setGithubRepository({ html_url: null, loading: false });
           return;
         }
@@ -437,7 +433,7 @@ const MaterializeRenderSection = forwardRef<
       };
 
       fetchGithubRepository();
-    }, [prototypeId, isGithubIntegrationEnabled, logger]);
+    }, [prototypeId, logger]);
 
     // Check if canvas preview mode is enabled (infinite canvas like Figma)
     const isCanvasPreviewEnabled =
@@ -2844,7 +2840,7 @@ const MaterializeRenderSection = forwardRef<
                   <TerminalIcon className="w-3.5 h-3.5" />
                 </Button>
               )}
-              {!isReadOnlyView && isGithubIntegrationEnabled && (
+              {!isReadOnlyView && (
                 <DropdownMenu
                   open={isGithubDropdownOpen}
                   onOpenChange={setIsGithubDropdownOpen}
@@ -3342,7 +3338,6 @@ const MaterializeRenderSection = forwardRef<
           framework={framework}
           onNameChange={onNameChange}
           canEditName={canEditName}
-          isGithubIntegrationEnabled={isGithubIntegrationEnabled}
           githubIntegration={githubIntegration}
           githubRepository={githubRepository}
           onCreateGitHubRepository={handleCreateGitHubRepository}

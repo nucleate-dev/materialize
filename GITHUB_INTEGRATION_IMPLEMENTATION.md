@@ -70,7 +70,6 @@ Implemented a complete team-level GitHub App integration that allows teams to co
    - Shows connection status
    - Connect/disconnect buttons with proper authorization checks
    - Handles OAuth redirect flow
-   - Feature-flagged behind `github-integration` PostHog flag
 
 #### Modified Files
 
@@ -189,18 +188,11 @@ npx supabase gen types typescript --project-id <project-ref> > path/to/types/sup
 3. Generate encryption key: `openssl rand -hex 32`
 4. Encode private key: `base64 -i path/to/private-key.pem`
 
-### 5. Enable Feature Flag
-
-In PostHog, enable the feature flag:
-
-- **Flag name**: `github-integration`
-- **Target**: Teams or users who should see the feature
-
-### 6. Deploy Backend
+### 5. Deploy Backend
 
 Deploy the control-plane service with the new environment variables.
 
-### 7. Test the Integration
+### 6. Test the Integration
 
 1. Navigate to Team Settings in the web app
 2. Click on the "GitHub" tab (should appear under Team section)
