@@ -25,6 +25,7 @@ import {
   type ChatIntentImage,
 } from "@/lib/utils/chatIntentUtils";
 import { handleCheckout } from "@/lib/utils/payments/CheckoutUtils";
+import { ENABLE_DESIGN_SYSTEM } from "@/GlobalConstants";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   Bell,
@@ -123,16 +124,18 @@ function HomeContent() {
               <Smartphone className="w-5 h-5" />{" "}
               <span className="text-sm font-medium">Expo & RN</span>
             </div>
-            <div className="flex items-center gap-2">
-              <Palette className="w-5 h-5" />{" "}
-              <span className="text-sm font-medium">Design System Aware</span>
-            </div>
+            {ENABLE_DESIGN_SYSTEM && (
+              <div className="flex items-center gap-2">
+                <Palette className="w-5 h-5" />{" "}
+                <span className="text-sm font-medium">Design System Aware</span>
+              </div>
+            )}
           </div>
         </div>
 
         <VariantsSection />
 
-        <CodebaseIntegrationSection />
+        {ENABLE_DESIGN_SYSTEM && <CodebaseIntegrationSection />}
 
         <ShippingSection />
 
@@ -975,8 +978,9 @@ function VariantsSection() {
             <span className="text-primary">your components.</span>
           </h2>
           <p className="text-muted-foreground text-xl md:text-2xl font-normal">
-            Explore variants without breaking the design system. These
-            aren&apos;t mockups — they are real components from your repo.
+            {ENABLE_DESIGN_SYSTEM
+              ? "Explore variants without breaking the design system. These aren't mockups — they are real components from your repo."
+              : "Explore instant variants. These aren't mockups — they are real components from your repo."}
           </p>
         </motion.div>
 
@@ -2080,7 +2084,7 @@ function PricingSection() {
       description: "For growing teams",
       features: [
         "Everything in Plus",
-        "Shared design systems",
+        ...(ENABLE_DESIGN_SYSTEM ? ["Shared design systems"] : []),
         "Live collaboration",
         "Internal tools",
         "Enterprise security",
@@ -2463,8 +2467,9 @@ function HowItWorksSection() {
     {
       number: 1,
       title: "Connect Repo",
-      description:
-        "Connect GitHub. Nucleate auto-detects your design system, components, and styling primitives.",
+      description: ENABLE_DESIGN_SYSTEM
+        ? "Connect GitHub. Nucleate auto-detects your design system, components, and styling primitives."
+        : "Connect GitHub. Nucleate auto-detects your components and styling primitives.",
       color: "primary",
       illustration: (
         <div className="mt-4 flex items-center justify-center md:justify-end gap-2">

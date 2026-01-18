@@ -22,6 +22,7 @@ import { Database } from "@/lib/types/supabase";
 import { captureUTMParams } from "@/lib/utils/analytics/utmTracking";
 import { setChatIntent } from "@/lib/utils/chatIntentUtils";
 import { handleCheckout } from "@/lib/utils/payments/CheckoutUtils";
+import { ENABLE_DESIGN_SYSTEM } from "@/GlobalConstants";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   ArrowRight,
@@ -275,7 +276,7 @@ function BuildYourOwnWaySection() {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+        <div className={`grid grid-cols-1 ${ENABLE_DESIGN_SYSTEM ? "md:grid-cols-3" : "md:grid-cols-2"} gap-4 mb-4`}>
           {/* Web */}
           <div className="bg-card border border-border rounded-2xl p-6 hover:border-border transition-all group">
             <div className="w-12 h-12 bg-blue-500/10 rounded-xl flex items-center justify-center mb-4 border border-blue-500/20">
@@ -300,16 +301,18 @@ function BuildYourOwnWaySection() {
           </div>
 
           {/* Shared Design Systems */}
-          <div className="bg-card border border-border rounded-2xl p-6 hover:border-border transition-all group">
-            <div className="w-12 h-12 bg-purple-500/10 rounded-xl flex items-center justify-center mb-4 border border-purple-500/20">
-              <Palette className="w-6 h-6 text-purple-400" />
+          {ENABLE_DESIGN_SYSTEM && (
+            <div className="bg-card border border-border rounded-2xl p-6 hover:border-border transition-all group">
+              <div className="w-12 h-12 bg-purple-500/10 rounded-xl flex items-center justify-center mb-4 border border-purple-500/20">
+                <Palette className="w-6 h-6 text-purple-400" />
+              </div>
+              <h3 className="text-lg font-medium mb-2">Shared Design Systems</h3>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                Maintain consistent branding across all platforms with shared
+                components.
+              </p>
             </div>
-            <h3 className="text-lg font-medium mb-2">Shared Design Systems</h3>
-            <p className="text-sm text-muted-foreground leading-relaxed">
-              Maintain consistent branding across all platforms with shared
-              components.
-            </p>
-          </div>
+          )}
         </div>
 
         {/* Bring Your Own Claude Code - Large Box */}
@@ -1607,54 +1610,56 @@ function AgentsSection() {
         </div>
 
         {/* Design System Card */}
-        <div className="bg-gradient-to-b from-card to-background border border-border rounded-3xl p-12 overflow-hidden relative group">
-          <div className="text-center mb-12">
-            <div className="flex justify-center gap-1 mb-6">
-              <div className="w-2 h-2 rounded-full bg-blue-500"></div>
-              <div className="w-2 h-2 rounded-full bg-pink-500"></div>
-              <div className="w-2 h-2 rounded-full bg-purple-500"></div>
+        {ENABLE_DESIGN_SYSTEM && (
+          <div className="bg-gradient-to-b from-card to-background border border-border rounded-3xl p-12 overflow-hidden relative group">
+            <div className="text-center mb-12">
+              <div className="flex justify-center gap-1 mb-6">
+                <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+                <div className="w-2 h-2 rounded-full bg-pink-500"></div>
+                <div className="w-2 h-2 rounded-full bg-purple-500"></div>
+              </div>
+              <h3 className="text-3xl font-medium mb-4">
+                Build with <span className="text-primary">your</span> design
+                system
+              </h3>
+              <p className="text-muted-foreground">
+                Stop building from scratch. Start building on-brand.
+              </p>
             </div>
-            <h3 className="text-3xl font-medium mb-4">
-              Build with <span className="text-primary">your</span> design
-              system
-            </h3>
-            <p className="text-muted-foreground">
-              Stop building from scratch. Start building on-brand.
-            </p>
-          </div>
 
-          <div className="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-8 items-center opacity-80 group-hover:opacity-100 transition-opacity">
-            <div className="space-y-6">
-              <div className="flex gap-4 items-center">
-                <div className="w-10 h-6 bg-accent rounded-full relative border border-border">
-                  <div className="absolute right-1 top-1 w-4 h-4 bg-primary rounded-full"></div>
+            <div className="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-8 items-center opacity-80 group-hover:opacity-100 transition-opacity">
+              <div className="space-y-6">
+                <div className="flex gap-4 items-center">
+                  <div className="w-10 h-6 bg-accent rounded-full relative border border-border">
+                    <div className="absolute right-1 top-1 w-4 h-4 bg-primary rounded-full"></div>
+                  </div>
+                  <div className="flex gap-2">
+                    <div className="w-4 h-4 bg-primary rounded-sm"></div>
+                    <div className="w-4 h-4 border border-border rounded-sm"></div>
+                  </div>
                 </div>
-                <div className="flex gap-2">
-                  <div className="w-4 h-4 bg-primary rounded-sm"></div>
-                  <div className="w-4 h-4 border border-border rounded-sm"></div>
+                <div className="p-4 bg-accent rounded-xl border border-border text-xs font-mono text-muted-foreground">
+                  .button {"{"} <br />
+                  &nbsp;&nbsp;radius: 12px;
+                  <br />
+                  &nbsp;&nbsp;shadow: var(--lg);
+                  <br />
+                  {"}"}
                 </div>
               </div>
-              <div className="p-4 bg-accent rounded-xl border border-border text-xs font-mono text-muted-foreground">
-                .button {"{"} <br />
-                &nbsp;&nbsp;radius: 12px;
-                <br />
-                &nbsp;&nbsp;shadow: var(--lg);
-                <br />
-                {"}"}
+              <div className="flex justify-center gap-4">
+                <div className="w-16 h-16 bg-teal-400 rounded-xl"></div>
+                <div className="w-16 h-16 bg-indigo-600 rounded-xl"></div>
+                <div className="w-16 h-16 bg-orange-300 rounded-xl"></div>
               </div>
-            </div>
-            <div className="flex justify-center gap-4">
-              <div className="w-16 h-16 bg-teal-400 rounded-xl"></div>
-              <div className="w-16 h-16 bg-indigo-600 rounded-xl"></div>
-              <div className="w-16 h-16 bg-orange-300 rounded-xl"></div>
-            </div>
-            <div className="space-y-4">
-              <h1 className="text-2xl font-bold">Headline Lg</h1>
-              <h2 className="text-xl font-semibold opacity-60">Headline Md</h2>
-              <h3 className="text-lg opacity-40">Headline Sm</h3>
+              <div className="space-y-4">
+                <h1 className="text-2xl font-bold">Headline Lg</h1>
+                <h2 className="text-xl font-semibold opacity-60">Headline Md</h2>
+                <h3 className="text-lg opacity-40">Headline Sm</h3>
+              </div>
             </div>
           </div>
-        </div>
+        )}
       </div>
     </section>
   );
@@ -1679,8 +1684,9 @@ function TeamsSection() {
             <span className="text-muted-foreground">in real-time</span>
           </h2>
           <p className="text-muted-foreground max-w-2xl mx-auto">
-            Live collaboration, shared design systems, and internal tools for
-            teams of any size.
+            {ENABLE_DESIGN_SYSTEM
+              ? "Live collaboration, shared design systems, and internal tools for teams of any size."
+              : "Live collaboration and internal tools for teams of any size."}
           </p>
         </div>
 
@@ -1729,41 +1735,43 @@ function TeamsSection() {
           </div>
 
           {/* Shared Design Systems Card */}
-          <div className="bg-card border border-border rounded-3xl p-8 relative overflow-hidden group hover:border-purple-500/30 transition-colors">
-            <div className="relative z-10 mb-8">
-              <h3 className="text-lg font-bold text-foreground mb-3">
-                One design system, every project
-              </h3>
-              <p className="text-sm text-muted-foreground leading-relaxed">
-                Create and share component libraries, color palettes, and
-                typography across your team&apos;s projects.
-              </p>
+          {ENABLE_DESIGN_SYSTEM && (
+            <div className="bg-card border border-border rounded-3xl p-8 relative overflow-hidden group hover:border-purple-500/30 transition-colors">
+              <div className="relative z-10 mb-8">
+                <h3 className="text-lg font-bold text-foreground mb-3">
+                  One design system, every project
+                </h3>
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  Create and share component libraries, color palettes, and
+                  typography across your team&apos;s projects.
+                </p>
+              </div>
+              {/* Visual: Design system components */}
+              <div className="flex flex-wrap gap-3">
+                <div className="flex items-center gap-2 bg-accent border border-border rounded-lg px-3 py-2">
+                  <div className="w-4 h-4 rounded bg-primary"></div>
+                  <span className="text-xs text-muted-foreground">Primary</span>
+                </div>
+                <div className="flex items-center gap-2 bg-accent border border-border rounded-lg px-3 py-2">
+                  <div className="w-4 h-4 rounded bg-pink-500"></div>
+                  <span className="text-xs text-muted-foreground">Accent</span>
+                </div>
+                <div className="flex items-center gap-2 bg-accent border border-border rounded-lg px-3 py-2">
+                  <Box className="w-4 h-4 text-muted-foreground" />
+                  <span className="text-xs text-muted-foreground">Button</span>
+                </div>
+                <div className="flex items-center gap-2 bg-accent border border-border rounded-lg px-3 py-2">
+                  <Layout className="w-4 h-4 text-muted-foreground" />
+                  <span className="text-xs text-muted-foreground">Card</span>
+                </div>
+                <div className="mt-4 w-full text-center">
+                  <span className="text-xs text-muted-foreground">
+                    Shared across 12 projects
+                  </span>
+                </div>
+              </div>
             </div>
-            {/* Visual: Design system components */}
-            <div className="flex flex-wrap gap-3">
-              <div className="flex items-center gap-2 bg-accent border border-border rounded-lg px-3 py-2">
-                <div className="w-4 h-4 rounded bg-primary"></div>
-                <span className="text-xs text-muted-foreground">Primary</span>
-              </div>
-              <div className="flex items-center gap-2 bg-accent border border-border rounded-lg px-3 py-2">
-                <div className="w-4 h-4 rounded bg-pink-500"></div>
-                <span className="text-xs text-muted-foreground">Accent</span>
-              </div>
-              <div className="flex items-center gap-2 bg-accent border border-border rounded-lg px-3 py-2">
-                <Box className="w-4 h-4 text-muted-foreground" />
-                <span className="text-xs text-muted-foreground">Button</span>
-              </div>
-              <div className="flex items-center gap-2 bg-accent border border-border rounded-lg px-3 py-2">
-                <Layout className="w-4 h-4 text-muted-foreground" />
-                <span className="text-xs text-muted-foreground">Card</span>
-              </div>
-              <div className="mt-4 w-full text-center">
-                <span className="text-xs text-muted-foreground">
-                  Shared across 12 projects
-                </span>
-              </div>
-            </div>
-          </div>
+          )}
 
           {/* Internal Tools Card */}
           <div className="bg-card border border-border rounded-3xl p-8 relative overflow-hidden group hover:border-emerald-500/30 transition-colors">
@@ -2327,7 +2335,7 @@ function PricingSection() {
       description: "For growing teams",
       features: [
         "Everything in Plus",
-        "Shared design systems",
+        ...(ENABLE_DESIGN_SYSTEM ? ["Shared design systems"] : []),
         "Live collaboration",
         "Internal tools",
         "Enterprise security",
