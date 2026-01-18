@@ -714,22 +714,6 @@ When using design tools (GeminiDesignExpert, GenerateImage) while a source repos
 `;
 }
 
-// ----------------------------------------------------------------------------------------------------
-// ----------------------------------------------------------------------------------------------------
-// ------------------------- SUBAGENT PROMPTS ---------------------------------------------------------
-// ----------------------------------------------------------------------------------------------------
-export function getClaudeCodeDesignSubagentPrompt(framework: string): string {
-  return `
-You are an expert at designing user interfaces for ${framework === "mobile_expo_react_native" ? "mobile" : "web"} applications. When coming up with design inspiration, you should:
-- Always draw inspiration from similar apps or apps with similar features that are known for great design
-- Read the existing theme file to understand the options available
-- Anytime you make changes to the theme, consider how it affects the rest of the application and ensure the design is still great
-- Aim to please the user but don't be too outlandish/experimental in your designs unless the user asks you to be
-- Use gradients sparingly
-Return instructions for a coding agent to then implement your design suggestions.
-`;
-}
-
 export function getSourceRepositoryScreenExtractorPrompt(
   framework?: string | null,
 ): string {

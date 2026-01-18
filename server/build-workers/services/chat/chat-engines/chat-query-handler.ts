@@ -13,7 +13,6 @@ import {
 } from "@anthropic-ai/claude-agent-sdk";
 import path from "path";
 import WebSocket from "ws";
-import { posthog } from "../../../loggers/index.js";
 import { DevServerStatus } from "../../../types/BuildWorkerTypes.js";
 import {
   ChatContentBlock,
@@ -46,7 +45,6 @@ import { evaluateToolPermission } from "../helpers/tool-permission-service.js";
 import { createDesignToolsMcpServer } from "../mcp/mcp-design-tools.js";
 import { createDevelopmentToolsMcpServer } from "../mcp/mcp-dev-tools.js";
 import {
-  getClaudeCodeDesignSubagentPrompt,
   getSourceRepositoryComponentHarvesterPrompt,
   getSourceRepositoryScreenExtractorPrompt,
   getSourceRepositoryThemeSyncPrompt,
@@ -621,35 +619,10 @@ export class ChatQueryHandler implements ChatEngine {
       ),
     };
 
-    const { userId } = getWorkerContext();
-    let designSubagentEnabled = false;
-    if (userId) {
-      designSubagentEnabled =
-        (await posthog.getFeatureFlag(
-          "claude-code-sdk-design-subagent",
-          userId,
-        )) === "test";
-    }
-    baseLogger.info("design subagent flag checked: ", {
-      designSubagentEnabled,
-      userIdLocal: userId,
-    });
     const agentConfigs: Record<
       string,
       { description: string; prompt: string; tools: string[] }
     > = {};
-
-    if (designSubagentEnabled) {
-      agentConfigs["ui-ux-designer"] = {
-        description: `Expert UI/UX designer for ${
-          framework === "mobile_expo_react_native"
-            ? "mobile react native"
-            : "tailwindcss web Next.js"
-        } applications. Use for design inspiration and planning great design implementation, any time the user requests a feature that has significant user interface changes.`,
-        prompt: getClaudeCodeDesignSubagentPrompt(framework),
-        tools: ["Read", "Glob", "Grep", "WebSearch", "WebFetch"],
-      };
-    }
 
     if (hasSourceRepository) {
       const sourceAgentTools = [
