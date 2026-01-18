@@ -4,6 +4,8 @@ import WebSocket from "ws";
 import { baseLogger, posthog } from "../../loggers/index.js";
 import { SystemLogger } from "../../loggers/SystemLogger.js";
 import {
+  AuthModeChangeData,
+  AuthModePreference,
   ChatClientEvent,
   ChatClientMessage,
   ChatEvent,
@@ -79,6 +81,7 @@ export class ChatService {
   private activeConnections = new Map<string, ChatConnection>();
   private aak: string | null = null;
   private userOAuthToken: string | null = null; // User's Claude subscription OAuth token
+  private isOAuthModeActive = false;
   private validAiChatSessionIds = new Set<string>(); // Track valid session IDs created during this CodeService instance's lifetime
 
   constructor(
@@ -120,6 +123,9 @@ export class ChatService {
    */
   public setUserOAuthToken(token: string): void {
     this.userOAuthToken = token;
+    this.isOAuthModeActive = true;
+    process.env.CLAUDE_CODE_OAUTH_TOKEN = token;
+    delete process.env.ANTHROPIC_API_KEY;
     baseLogger.consoleLogDevOnly(
       "info",
       "User OAuth token set for ChatService",
@@ -138,6 +144,8 @@ export class ChatService {
    */
   public clearUserOAuthToken(): void {
     this.userOAuthToken = null;
+    this.isOAuthModeActive = false;
+    delete process.env.CLAUDE_CODE_OAUTH_TOKEN;
     baseLogger.consoleLogDevOnly("info", "User OAuth token cleared");
   }
 
@@ -222,16 +230,7 @@ export class ChatService {
     });
 
     // Send initial connection confirmation
-    this.sendMessage(socket, {
-      type: ChatEvent.SYSTEM,
-      subtype: ChatSystemEventSubtype.CONNECTION,
-      data: {
-        connectionId,
-        prototypeId,
-        sessionId: this.sessionState.sessionId,
-        isUsingOAuthToken: this.hasUserOAuthToken(),
-      },
-    });
+    this.sendAuthModeStatus(socket, connectionId, prototypeId);
 
     // Handle incoming messages
     socket.on("message", async (raw: Buffer | string) => {
@@ -368,6 +367,16 @@ export class ChatService {
 
       case ChatClientEvent.HISTORY_RESPONSE:
         await this.handleHistoryResponse(socket, message.data, logger);
+        break;
+
+      case ChatClientEvent.AUTH_MODE_CHANGE:
+        await this.handleAuthModeChange(
+          socket,
+          message.data,
+          logger,
+          prototypeId,
+          connectionId,
+        );
         break;
     }
   }
@@ -604,7 +613,7 @@ export class ChatService {
         validAiChatSessionIds: this.validAiChatSessionIds,
         systemPrompt,
         getRelativePath: this.getRelativePath.bind(this),
-        isUsingOAuthToken: this.hasUserOAuthToken(),
+        isUsingOAuthToken: this.isOAuthModeActive,
       });
     } finally {
       const combinedCost =
@@ -685,6 +694,62 @@ export class ChatService {
       original_query,
       historyContext,
       logger,
+    );
+  }
+
+  private async handleAuthModeChange(
+    socket: WebSocket,
+    data: AuthModeChangeData,
+    logger: SystemLogger,
+    prototypeId: string,
+    connectionId: string,
+  ): Promise<void> {
+    const requestedMode: AuthModePreference =
+      data?.authMode === "claude_sub" ? "claude_sub" : "nucleate";
+
+    logger.consoleLogDevOnly("info", "Auth mode change requested", {
+      requestedMode,
+      hasOAuthToken: this.hasUserOAuthToken(),
+      hasAak: !!this.aak,
+    });
+
+    if (
+      (requestedMode === "claude_sub" && this.isOAuthModeActive) ||
+      (requestedMode === "nucleate" && !this.isOAuthModeActive)
+    ) {
+      this.sendAuthModeStatus(socket, connectionId, prototypeId);
+      return;
+    }
+
+    const applied = this.applyAuthEnvironment(requestedMode, logger);
+    if (!applied) {
+      const errorMessage =
+        requestedMode === "claude_sub"
+          ? "Unable to use your Claude subscription right now."
+          : "Unable to switch to Nucleate credits.";
+      this.sendMessage(socket, {
+        type: ChatEvent.ERROR,
+        error: {
+          message: errorMessage,
+        },
+      });
+      this.sendAuthModeStatus(socket, connectionId, prototypeId);
+      return;
+    }
+
+    this.isOAuthModeActive = requestedMode === "claude_sub";
+    this.sendAuthModeStatus(socket, connectionId, prototypeId);
+
+    broadcastToConnections(
+      this.activeConnections,
+      {
+        type: ChatEvent.AUTH_MODE_UPDATED,
+        data: {
+          authMode: requestedMode,
+        },
+      },
+      logger,
+      socket,
     );
   }
 
@@ -772,6 +837,51 @@ export class ChatService {
         );
       }
     }
+  }
+
+  private applyAuthEnvironment(
+    targetMode: AuthModePreference,
+    logger: SystemLogger,
+  ): boolean {
+    if (targetMode === "claude_sub") {
+      if (!this.userOAuthToken) {
+        logger.warn(
+          "Cannot switch to Claude subscription - token unavailable",
+        );
+        return false;
+      }
+      process.env.CLAUDE_CODE_OAUTH_TOKEN = this.userOAuthToken;
+      delete process.env.ANTHROPIC_API_KEY;
+      return true;
+    }
+
+    if (!this.aak) {
+      logger.warn(
+        "Cannot switch to Nucleate credits - Anthropic key unavailable",
+      );
+      return false;
+    }
+
+    process.env.ANTHROPIC_API_KEY = this.aak;
+    delete process.env.CLAUDE_CODE_OAUTH_TOKEN;
+    return true;
+  }
+
+  private sendAuthModeStatus(
+    socket: WebSocket,
+    connectionId: string,
+    prototypeId: string,
+  ): void {
+    this.sendMessage(socket, {
+      type: ChatEvent.SYSTEM,
+      subtype: ChatSystemEventSubtype.CONNECTION,
+      data: {
+        connectionId,
+        prototypeId,
+        sessionId: this.sessionState.sessionId,
+        isUsingOAuthToken: this.isOAuthModeActive,
+      },
+    });
   }
 
   // --------------------------------------------------------------------------
@@ -1211,8 +1321,8 @@ export class ChatService {
         // Calculate credits based on auth method
         // Respect user's explicit preference, fall back to auto-detect
         const useOAuth =
-          (data.use_oauth_token ?? this.hasUserOAuthToken()) &&
-          this.hasUserOAuthToken();
+          (data.use_oauth_token ?? this.isOAuthModeActive) &&
+          this.isOAuthModeActive;
 
         let creditsUsed: number;
         let costFunction: string;

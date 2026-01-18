@@ -44,7 +44,6 @@ import {
   Undo2,
   X,
 } from "lucide-react";
-import { useFeatureFlagEnabled } from "posthog-js/react";
 import type {
   ChangeEvent,
   KeyboardEvent,
@@ -126,7 +125,9 @@ interface ClaudeCodePanelUIProps {
   isProjectContextEnabled: boolean;
   authMode: AuthMode;
   onAuthModeChange: (mode: AuthMode) => void;
-  hasClaudeSubAvailable: boolean;
+  showAuthModePicker: boolean;
+  hasClaudeToken: boolean;
+  isAuthModeLoading: boolean;
   onCollapse?: () => void;
 }
 
@@ -207,11 +208,11 @@ export default function ClaudeCodePanelUI({
   isProjectContextEnabled,
   authMode,
   onAuthModeChange,
-  hasClaudeSubAvailable,
+  showAuthModePicker,
+  hasClaudeToken,
+  isAuthModeLoading,
   onCollapse,
 }: ClaudeCodePanelUIProps) {
-  const isClaudeOAuthEnabled =
-    useFeatureFlagEnabled("claude-code-cli-with-personal-token") ?? false;
   const [showCreditLimitModal, setShowCreditLimitModal] = useState(false);
   const hasShownModalRef = useRef(false);
   const [expandedToolCommands, setExpandedToolCommands] = useState<Set<string>>(
@@ -950,16 +951,27 @@ export default function ClaudeCodePanelUI({
                   </TooltipProvider>
 
                   {/* Auth Mode Selector */}
-                  {isClaudeOAuthEnabled && (
+                  {showAuthModePicker && (
                     <Select
                       value={authMode}
                       onValueChange={(value) =>
                         onAuthModeChange(value as AuthMode)
                       }
-                      disabled={isProcessing || !isCurrentSessionMostRecent}
+                      disabled={
+                        isProcessing ||
+                        !isCurrentSessionMostRecent ||
+                        isAuthModeLoading
+                      }
                     >
                       <SelectTrigger className="h-8 text-xs bg-accent/50 border-border/50 text-foreground focus:ring-0 px-2 gap-1">
-                        <SelectValue />
+                        {isAuthModeLoading ? (
+                          <div className="flex items-center gap-1 text-muted-foreground">
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                            <span className="text-xs">Loading…</span>
+                          </div>
+                        ) : (
+                          <SelectValue />
+                        )}
                       </SelectTrigger>
                       <SelectContent className="bg-background border-border">
                         <SelectItem value="nucleate" className="text-xs">
@@ -967,7 +979,7 @@ export default function ClaudeCodePanelUI({
                         </SelectItem>
                         <SelectItem
                           value="claude_sub"
-                          disabled={!hasClaudeSubAvailable}
+                          disabled={!hasClaudeToken}
                           className="text-xs data-[disabled]:opacity-100 data-[disabled]:text-muted-foreground"
                         >
                           Your Claude Sub

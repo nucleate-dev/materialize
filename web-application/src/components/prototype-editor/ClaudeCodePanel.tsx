@@ -2,6 +2,7 @@
 
 import { RenderStatus } from "@/app/dashboard/projects/[prototype_id]/InternalPrototypePage";
 import { supabase } from "@/ClientConstants";
+import { useClaudePersonalSubscriptionAccess } from "@/hooks/useClaudePersonalSubscriptionAccess";
 import { useCreditUsage } from "@/hooks/useCreditUsage";
 import { UseFileSystemReturn } from "@/hooks/useFileSystem";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
@@ -158,6 +159,19 @@ const ClaudeCodePanel = forwardRef<ClaudeCodePanelRef, ClaudeCodePanelProps>(
     // Check if project context feature is enabled
     const isProjectContextEnabled =
       useFeatureFlagEnabled("project-context") ?? false;
+    const isClaudeOAuthFeatureEnabled =
+      useFeatureFlagEnabled("claude-code-cli-with-personal-token") ?? false;
+    const {
+      isEligible: isClaudePersonalSubEligible,
+      hasClaudeToken: hasUserClaudeToken,
+      loading: isClaudeAccessLoading,
+    } = useClaudePersonalSubscriptionAccess();
+
+    const shouldShowAuthModePicker =
+      isClaudeOAuthFeatureEnabled && isClaudePersonalSubEligible;
+    const authPickerLoading =
+      shouldShowAuthModePicker && isClaudeAccessLoading;
+    const canUsePersonalClaude = shouldShowAuthModePicker && hasUserClaudeToken;
 
     // Active view state (chat or context editor)
     const [activeView, setActiveView] =
@@ -227,7 +241,9 @@ const ClaudeCodePanel = forwardRef<ClaudeCodePanelRef, ClaudeCodePanelProps>(
         allChatSessions[0]?.id === prototypeChatSessionId,
       );
 
-    const [isUsingOAuthToken, setIsUsingOAuthToken] = useState(false);
+    const [isSandboxUsingOAuthToken, setIsSandboxUsingOAuthToken] = useState<
+      boolean | null
+    >(null);
     const [authMode, setAuthMode] = useState<AuthMode>("nucleate");
     const [modelProvider, setModelProvider] = useState<"claude" | "vercel">(
       "claude",
@@ -255,29 +271,114 @@ const ClaudeCodePanel = forwardRef<ClaudeCodePanelRef, ClaudeCodePanelProps>(
       }
     }, [modelProvider, model, vercelModelOptions]);
 
-    // Load auth mode from localStorage and set default when OAuth is available
-    useEffect(() => {
-      const storedMode = getAuthMode();
-      if (storedMode) {
-        // Use stored preference if valid
-        // But only allow claude_sub if OAuth is actually available
-        if (storedMode === "claude_sub" && !isUsingOAuthToken) {
-          setAuthMode("nucleate");
-        } else {
-          setAuthMode(storedMode);
+    // Handler to change auth mode and optionally notify sandbox
+    const sendAuthModePreference = useCallback(
+      (mode: AuthMode) => {
+        if (!ws || ws.readyState !== WebSocket.OPEN) {
+          return;
         }
-      } else if (isUsingOAuthToken) {
-        // Default to claude_sub if OAuth is available and no preference stored
-        setAuthMode("claude_sub");
-        setAuthModeToStorage("claude_sub");
-      }
-    }, [isUsingOAuthToken]);
+        ws.send(
+          JSON.stringify({
+            type: ChatClientEvent.AUTH_MODE_CHANGE,
+            data: {
+              authMode: mode,
+            },
+          }),
+        );
+      },
+      [ws],
+    );
 
-    // Handler to change auth mode and save to localStorage
-    const handleAuthModeChange = useCallback((mode: AuthMode) => {
-      setAuthMode(mode);
-      setAuthModeToStorage(mode);
-    }, []);
+    const updateAuthMode = useCallback(
+      (mode: AuthMode, options?: { notifySandbox?: boolean; persist?: boolean }) => {
+        setAuthMode((prev) => {
+          if (prev === mode) {
+            return prev;
+          }
+          return mode;
+        });
+
+        if (options?.persist !== false) {
+          setAuthModeToStorage(mode);
+        }
+
+        if (options?.notifySandbox) {
+          sendAuthModePreference(mode);
+        }
+      },
+      [sendAuthModePreference],
+    );
+
+    // Load auth mode preference and set sensible defaults
+    useEffect(() => {
+      if (!shouldShowAuthModePicker) {
+        updateAuthMode("nucleate");
+        return;
+      }
+
+      if (authPickerLoading) {
+        return;
+      }
+
+      const storedMode = getAuthMode();
+      if (!storedMode) {
+        updateAuthMode(canUsePersonalClaude ? "claude_sub" : "nucleate");
+        return;
+      }
+
+      if (storedMode === "claude_sub" && !canUsePersonalClaude) {
+        updateAuthMode("nucleate");
+        return;
+      }
+
+      updateAuthMode(storedMode);
+    }, [
+      shouldShowAuthModePicker,
+      authPickerLoading,
+      canUsePersonalClaude,
+      updateAuthMode,
+    ]);
+
+    const updateAuthModeRef = useRef(updateAuthMode);
+    useEffect(() => {
+      updateAuthModeRef.current = updateAuthMode;
+    }, [updateAuthMode]);
+
+    const shouldShowAuthModePickerRef = useRef(shouldShowAuthModePicker);
+    useEffect(() => {
+      shouldShowAuthModePickerRef.current = shouldShowAuthModePicker;
+    }, [shouldShowAuthModePicker]);
+
+    const handleAuthModeSelection = useCallback(
+      (mode: AuthMode) => {
+        if (mode === authMode) {
+          return;
+        }
+        updateAuthMode(mode, { notifySandbox: true });
+      },
+      [authMode, updateAuthMode],
+    );
+
+    useEffect(() => {
+      if (isSandboxUsingOAuthToken === null) {
+        return;
+      }
+
+      if (!isSandboxUsingOAuthToken && authMode === "claude_sub") {
+        updateAuthMode("nucleate");
+      } else if (
+        isSandboxUsingOAuthToken &&
+        authMode === "nucleate" &&
+        canUsePersonalClaude
+      ) {
+        updateAuthMode("claude_sub");
+      }
+    }, [
+      isSandboxUsingOAuthToken,
+      authMode,
+      canUsePersonalClaude,
+      updateAuthMode,
+    ]);
 
     // Reset confirmation modal state
 
@@ -1043,8 +1144,17 @@ const ClaudeCodePanel = forwardRef<ClaudeCodePanelRef, ClaudeCodePanelProps>(
               isUsingOAuthToken?: boolean;
             };
             if (connectionData.isUsingOAuthToken !== undefined) {
-              setIsUsingOAuthToken(connectionData.isUsingOAuthToken);
+              setIsSandboxUsingOAuthToken(connectionData.isUsingOAuthToken);
             }
+          }
+          break;
+        case ChatEvent.AUTH_MODE_UPDATED:
+          if (shouldShowAuthModePickerRef.current) {
+            const nextMode =
+              message.data?.authMode === "claude_sub"
+                ? ("claude_sub" as AuthMode)
+                : ("nucleate" as AuthMode);
+            updateAuthModeRef.current(nextMode);
           }
           break;
 
@@ -2349,8 +2459,10 @@ const ClaudeCodePanel = forwardRef<ClaudeCodePanelRef, ClaudeCodePanelProps>(
         fileSystem={fileSystem}
         isProjectContextEnabled={isProjectContextEnabled}
         authMode={authMode}
-        onAuthModeChange={handleAuthModeChange}
-        hasClaudeSubAvailable={isUsingOAuthToken}
+        onAuthModeChange={handleAuthModeSelection}
+        showAuthModePicker={shouldShowAuthModePicker}
+        hasClaudeToken={hasUserClaudeToken}
+        isAuthModeLoading={authPickerLoading}
         onCollapse={onCollapse}
       />
     );

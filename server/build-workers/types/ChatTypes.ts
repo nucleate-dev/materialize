@@ -15,12 +15,14 @@ export enum ChatEvent {
   DESIGN_GENERATION = "design_generation",
   COLLABORATOR_MESSAGE = "collaborator_message",
   SCREEN_UPDATE = "screen_update",
+  AUTH_MODE_UPDATED = "auth_mode_updated",
 }
 
 export enum ChatClientEvent {
   QUERY = "query",
   INTERRUPT = "interrupt",
   HISTORY_RESPONSE = "history_response",
+  AUTH_MODE_CHANGE = "auth_mode_change",
 }
 
 export enum ChatSystemEventSubtype {
@@ -66,6 +68,12 @@ export interface ChatQueryData {
   use_oauth_token?: boolean; // User's preference: true = use their Claude subscription, false = use Nucleate credits
 }
 
+export type AuthModePreference = "nucleate" | "claude_sub";
+
+export interface AuthModeChangeData {
+  authMode: AuthModePreference;
+}
+
 export interface QueryMessage {
   type: ChatClientEvent.QUERY;
   data: ChatQueryData;
@@ -73,6 +81,11 @@ export interface QueryMessage {
 
 export interface InterruptMessage {
   type: ChatClientEvent.INTERRUPT;
+}
+
+export interface AuthModeChangeMessage {
+  type: ChatClientEvent.AUTH_MODE_CHANGE;
+  data: AuthModeChangeData;
 }
 
 export interface HistoricalMessage {
@@ -94,7 +107,8 @@ export interface HistoryResponseMessage {
 export type ChatClientMessage =
   | QueryMessage
   | InterruptMessage
-  | HistoryResponseMessage;
+  | HistoryResponseMessage
+  | AuthModeChangeMessage;
 
 export interface SystemConnectionMessage {
   type: ChatEvent.SYSTEM;
@@ -231,6 +245,13 @@ export interface ScreenUpdateMessage {
   data: ScreenUpdateData;
 }
 
+export interface AuthModeUpdatedMessage {
+  type: ChatEvent.AUTH_MODE_UPDATED;
+  data: {
+    authMode: AuthModePreference;
+  };
+}
+
 export type ChatServerMessage =
   | SystemConnectionMessage
   | ErrorMessage
@@ -247,4 +268,5 @@ export type ChatServerMessage =
   | HistoryRequestMessage
   | DesignGenerationMessage
   | CollaboratorMessagePayload
-  | ScreenUpdateMessage;
+  | ScreenUpdateMessage
+  | AuthModeUpdatedMessage;
