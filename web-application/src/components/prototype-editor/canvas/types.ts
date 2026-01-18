@@ -1,4 +1,4 @@
-import type { TLStoreSnapshot } from "tldraw";
+import type { TLStoreSnapshot } from "@/lib/tldraw";
 
 /**
  * Base props shared by all screen shapes (phone and browser frames)

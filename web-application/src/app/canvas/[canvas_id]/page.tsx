@@ -13,8 +13,7 @@ import {
   Tldraw,
   TLSessionStateSnapshot,
   TLStoreSnapshot,
-} from "tldraw";
-import "tldraw/tldraw.css";
+} from "@/lib/tldraw";
 
 export default function CanvasPage() {
   const { user, userIsLoading } = useUser();

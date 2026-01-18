@@ -8,7 +8,7 @@ import {
   T,
   TLBaseShape,
   TLResizeInfo,
-} from "tldraw";
+} from "@/lib/tldraw";
 import type { PhoneFrameShapeProps } from "./types";
 
 // Define the shape type

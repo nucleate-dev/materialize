@@ -13,8 +13,7 @@ import {
   TLShapeId,
   Tldraw,
   createShapeId,
-} from "tldraw";
-import "tldraw/tldraw.css";
+} from "@/lib/tldraw";
 
 import { PhoneFrameShapeUtil } from "./PhoneFrameShapeUtil";
 import { BrowserFrameShapeUtil } from "./BrowserFrameShapeUtil";
