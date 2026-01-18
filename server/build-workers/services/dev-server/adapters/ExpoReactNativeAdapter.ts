@@ -14,7 +14,7 @@ import { DEV_SERVER_PORT } from "../NucleateDevelopmentServerService.js";
 import fs from "fs/promises";
 import path from "path";
 import { execSync } from "child_process";
-import { stripAnsiSequences } from "../../terminals/TerminalAnsiUtils.js";
+import { cleanBuildOutput } from "../../terminals/TerminalAnsiUtils.js";
 
 /**
  * Adapter for Expo React Native development server.
@@ -368,7 +368,7 @@ export class ExpoReactNativeAdapter implements IDevelopmentServerAdapter {
         data: {
           output_path: "",
           build_status: "failure",
-          build_output: stripAnsiSequences(
+          build_output: cleanBuildOutput(
             result.stdout || result.stderr || "Build failed with no output"
           ),
         },
@@ -385,7 +385,7 @@ export class ExpoReactNativeAdapter implements IDevelopmentServerAdapter {
           data: {
             output_path: "",
             build_status: "failure",
-            build_output: stripAnsiSequences(
+            build_output: cleanBuildOutput(
               result.stdout || "Build output exists but is not a directory"
             ),
           },
@@ -398,7 +398,7 @@ export class ExpoReactNativeAdapter implements IDevelopmentServerAdapter {
         data: {
           output_path: "",
           build_status: "failure",
-          build_output: stripAnsiSequences(
+          build_output: cleanBuildOutput(
             result.stdout || "Build output directory not found"
           ),
         },
@@ -410,7 +410,7 @@ export class ExpoReactNativeAdapter implements IDevelopmentServerAdapter {
       data: {
         output_path: distPath,
         build_status: "success",
-        build_output: stripAnsiSequences(
+        build_output: cleanBuildOutput(
           result.stdout || "Build completed successfully"
         ),
       },
