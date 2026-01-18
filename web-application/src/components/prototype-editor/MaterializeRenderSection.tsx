@@ -452,12 +452,16 @@ const MaterializeRenderSection = forwardRef<
     );
     const [refreshKey, setRefreshKey] = useState(0);
 
-    // Update preview mode when framework changes to web
+    // Default the preview mode based on framework when it changes, but allow manual toggles afterwards
     useEffect(() => {
-      if (isWebFramework && previewMode === "mobile") {
-        setPreviewMode("web");
+      if (!framework) {
+        return;
       }
-    }, [isWebFramework, previewMode]);
+
+      setPreviewMode(
+        framework === "web_nextjs_react" ? "web" : "mobile",
+      );
+    }, [framework]);
 
     // Notify parent when preview mode changes
     useEffect(() => {
