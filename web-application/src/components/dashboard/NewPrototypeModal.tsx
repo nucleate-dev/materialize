@@ -176,7 +176,6 @@ export default function NewPrototypeModal({
 
   const isWebPrototypeEnabled =
     posthog?.isFeatureEnabled("web-prototype-support") ?? false;
-  const isSourceRepoEnabled = posthog?.isFeatureEnabled("source-repo") ?? false;
   const isTeamsUIEnabled = posthog?.isFeatureEnabled("teams-ui") ?? false;
   const isWebFrameworkSelected = framework === "web_nextjs_react";
 
@@ -393,7 +392,7 @@ export default function NewPrototypeModal({
   // Fetch GitHub integration status and repositories when modal opens
   useEffect(() => {
     async function fetchGitHubStatusAndRepos() {
-      if (!activeTeam?.id || !isSourceRepoEnabled) {
+      if (!activeTeam?.id) {
         setGithubIntegrationStatus({ connected: false, loading: false });
         return;
       }
@@ -464,10 +463,10 @@ export default function NewPrototypeModal({
       }
     }
 
-    if (open && user?.id && isSourceRepoEnabled) {
+    if (open && user?.id) {
       fetchGitHubStatusAndRepos();
     }
-  }, [open, activeTeam?.id, user, isSourceRepoEnabled, logger]);
+  }, [open, activeTeam?.id, user, logger]);
 
   useEffect(() => {
     if (framework !== "web_nextjs_react") {
@@ -840,8 +839,7 @@ export default function NewPrototypeModal({
             </div>
 
             {/* Source Repository Select */}
-            {isSourceRepoEnabled && (
-              <div className="space-y-2">
+            <div className="space-y-2">
                 <Label
                   htmlFor="source-repo-select"
                   className="text-xs font-medium text-muted-foreground"
@@ -963,7 +961,6 @@ export default function NewPrototypeModal({
                   </Tooltip>
                 </TooltipProvider>
               </div>
-            )}
 
             {/* Advanced Options Collapsible */}
             <Collapsible
