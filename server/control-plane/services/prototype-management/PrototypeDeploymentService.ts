@@ -1,25 +1,24 @@
-import { S3Client } from '@aws-sdk/client-s3';
-import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
+import { S3Client } from "@aws-sdk/client-s3";
+import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import {
+  type APIResponse,
   type CheckSlugSuccessResponse,
   type DeployRequestBody,
   type DeploySuccessResponse,
-  type APIResponse,
   HTTP_STATUS,
   StandardErrorResponse,
-} from '../../types/PublicAPITypes.js';
+} from "../../types/PublicAPITypes.js";
 import {
   checkUserHasPrototypeEditAccess,
   validateJWTToken,
-} from '../../utils/prototypeAuth.js';
-import { createClient } from '@supabase/supabase-js';
-import type { Database } from '../../types/supabase.js';
-import { posthog } from '../../server.js';
+} from "../../utils/prototypeAuth.js";
+import { createClient } from "@supabase/supabase-js";
+import type { Database } from "../../types/supabase.js";
 import {
   copyPrototypeBuildToDeploymentFolder,
   deletePrototypeDeploymentPrefixes,
   listPrototypeDeploymentPrefixes,
-} from './storageOperations.js';
+} from "./storageOperations.js";
 
 const MIN_SLUG_LENGTH = 3;
 const MAX_SLUG_LENGTH = 64;
@@ -47,15 +46,15 @@ export class PrototypeDeploymentService {
   public registerRoutes(app: FastifyInstance): void {
     // GET /deployments/check-slug
     app.get<{ Querystring: { slug: string; exclude_prototype_id?: string } }>(
-      '/deployments/check-slug',
+      "/deployments/check-slug",
       {
         schema: {
           querystring: {
-            type: 'object',
-            required: ['slug'],
+            type: "object",
+            required: ["slug"],
             properties: {
-              slug: { type: 'string' },
-              exclude_prototype_id: { type: 'string' },
+              slug: { type: "string" },
+              exclude_prototype_id: { type: "string" },
             },
           },
         },
@@ -65,18 +64,18 @@ export class PrototypeDeploymentService {
 
     // POST /deployments/deploy
     app.post<{ Body: DeployRequestBody }>(
-      '/deployments/deploy',
+      "/deployments/deploy",
       {
         schema: {
           body: {
-            type: 'object',
-            required: ['prototype_id', 'slug'],
+            type: "object",
+            required: ["prototype_id", "slug"],
             properties: {
-              prototype_id: { type: 'string' },
-              slug: { type: 'string' },
+              prototype_id: { type: "string" },
+              slug: { type: "string" },
               visibility: {
-                type: 'string',
-                enum: ['PUBLIC', 'SELF', 'TEAM_SUBSET', 'TEAM'],
+                type: "string",
+                enum: ["PUBLIC", "SELF", "TEAM_SUBSET", "TEAM"],
               },
             },
           },
@@ -104,16 +103,16 @@ export class PrototypeDeploymentService {
     }>,
     reply: FastifyReply,
   ): Promise<APIResponse<CheckSlugSuccessResponse, StandardErrorResponse>> {
-    const token = request.headers.authorization?.split(' ')[1] ?? '';
+    const token = request.headers.authorization?.split(" ")[1] ?? "";
     const { user } = await validateJWTToken(token, request.log2);
     if (!user) {
-      request.log2.warn('Unauthorized user');
+      request.log2.warn("Unauthorized user");
       reply.status(HTTP_STATUS.UNAUTHORIZED);
       return {
         data: null,
         error: {
-          error: 'Unauthorized',
-          message: 'Invalid token',
+          error: "Unauthorized",
+          message: "Invalid token",
         },
       };
     }
@@ -126,27 +125,28 @@ export class PrototypeDeploymentService {
       return {
         data: null,
         error: {
-          error: 'Invalid slug',
-          message: `Slug must be ${SLUG_RULES.min}-${SLUG_RULES.max} characters using lowercase letters, numbers, or hyphens.`,
+          error: "Invalid slug",
+          message:
+            `Slug must be ${SLUG_RULES.min}-${SLUG_RULES.max} characters using lowercase letters, numbers, or hyphens.`,
         },
       };
     }
 
     try {
-      let query = supabase.from('prototypes').select('id').eq('slug', slug);
+      let query = supabase.from("prototypes").select("id").eq("slug", slug);
       if (exclude_prototype_id) {
-        query = query.neq('id', exclude_prototype_id);
+        query = query.neq("id", exclude_prototype_id);
       }
       const { data, error } = await query.limit(1);
 
       if (error) {
-        request.log2.error(error, 'Failed to check slug availability');
+        request.log2.error(error, "Failed to check slug availability");
         reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR);
         return {
           data: null,
           error: {
-            error: 'Internal server error',
-            message: 'Unable to check slug availability',
+            error: "Internal server error",
+            message: "Unable to check slug availability",
           },
         };
       }
@@ -160,13 +160,13 @@ export class PrototypeDeploymentService {
         error: null,
       };
     } catch (error) {
-      request.log2.error(error, 'Error checking slug availability');
+      request.log2.error(error, "Error checking slug availability");
       reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR);
       return {
         data: null,
         error: {
-          error: 'Internal server error',
-          message: 'Unable to check slug availability',
+          error: "Internal server error",
+          message: "Unable to check slug availability",
         },
       };
     }
@@ -191,7 +191,7 @@ export class PrototypeDeploymentService {
     const { prototype_id, slug: rawSlug } = request.body;
 
     // 1. Authenticate user
-    const token = request.headers.authorization?.split(' ')[1];
+    const token = request.headers.authorization?.split(" ")[1];
     const authResult = await checkUserHasPrototypeEditAccess(
       prototype_id,
       token,
@@ -206,8 +206,8 @@ export class PrototypeDeploymentService {
       return {
         data: null,
         error: {
-          error: 'Unauthorized',
-          message: 'Authorization failed or access denied for this prototype',
+          error: "Unauthorized",
+          message: "Authorization failed or access denied for this prototype",
         },
       };
     }
@@ -224,27 +224,28 @@ export class PrototypeDeploymentService {
       return {
         data: null,
         error: {
-          error: 'Invalid slug',
-          message: `Slug must be ${SLUG_RULES.min}-${SLUG_RULES.max} characters using lowercase letters, numbers, or hyphens.`,
+          error: "Invalid slug",
+          message:
+            `Slug must be ${SLUG_RULES.min}-${SLUG_RULES.max} characters using lowercase letters, numbers, or hyphens.`,
         },
       };
     }
 
     // 3. Check the slug uniqueness
     const { data: slugMatches, error: slugCheckError } = await supabase
-      .from('prototypes')
-      .select('id')
-      .eq('slug', normalizedSlug)
-      .neq('id', authResult.prototype.id)
+      .from("prototypes")
+      .select("id")
+      .eq("slug", normalizedSlug)
+      .neq("id", authResult.prototype.id)
       .limit(1);
     if (slugCheckError) {
-      request.log2.error(slugCheckError, 'Failed to validate slug uniqueness');
+      request.log2.error(slugCheckError, "Failed to validate slug uniqueness");
       reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR);
       return {
         data: null,
         error: {
-          error: 'Validation failed',
-          message: 'Unable to validate slug uniqueness',
+          error: "Validation failed",
+          message: "Unable to validate slug uniqueness",
         },
       };
     }
@@ -253,8 +254,8 @@ export class PrototypeDeploymentService {
       return {
         data: null,
         error: {
-          error: 'Conflict',
-          message: 'Slug already in use',
+          error: "Conflict",
+          message: "Slug already in use",
         },
       };
     }
@@ -279,8 +280,8 @@ export class PrototypeDeploymentService {
       return {
         data: null,
         error: {
-          error: 'Deployment failed',
-          message: 'Unable to copy build artifacts for deployment',
+          error: "Deployment failed",
+          message: "Unable to copy build artifacts for deployment",
         },
       };
     }
@@ -296,7 +297,7 @@ export class PrototypeDeploymentService {
         request.log2,
       );
       if (!deleteResult) {
-        request.log2.warn('Failed to delete some old deployment folders', {
+        request.log2.warn("Failed to delete some old deployment folders", {
           prefixesToDelete,
         });
       }
@@ -305,38 +306,38 @@ export class PrototypeDeploymentService {
     // 6. Record deployment key against the latest build history entry
     const { data: latestBuildHistory, error: buildHistoryError } =
       await supabase
-        .from('prototype_build_history')
-        .select('id')
-        .eq('prototype_id', authResult.prototype.id)
-        .order('created_at', { ascending: false })
+        .from("prototype_build_history")
+        .select("id")
+        .eq("prototype_id", authResult.prototype.id)
+        .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle();
 
     if (buildHistoryError) {
       request.log2.error(
         buildHistoryError,
-        'Failed to fetch build history entry',
+        "Failed to fetch build history entry",
       );
       reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR);
       return {
         data: null,
         error: {
-          error: 'Deployment failed',
-          message: 'Unable to record deployment history',
+          error: "Deployment failed",
+          message: "Unable to record deployment history",
         },
       };
     }
 
     if (latestBuildHistory?.id) {
       const { error: updateHistoryError } = await supabase
-        .from('prototype_build_history')
+        .from("prototype_build_history")
         .update({ deploy_key: deploymentKey })
-        .eq('id', latestBuildHistory.id);
+        .eq("id", latestBuildHistory.id);
 
       if (updateHistoryError) {
         request.log2.error(
           updateHistoryError,
-          'Failed to update build history deploy key',
+          "Failed to update build history deploy key",
           {
             build_history_id: latestBuildHistory.id,
             deploymentKey,
@@ -347,23 +348,23 @@ export class PrototypeDeploymentService {
 
     // 7. Update prototype with deployment details
     const { data: updatedPrototype, error: updateError } = await supabase
-      .from('prototypes')
+      .from("prototypes")
       .update({
         slug: normalizedSlug,
         latest_deploy_key: deploymentKey,
       })
-      .eq('id', authResult.prototype.id)
-      .select('id, slug')
+      .eq("id", authResult.prototype.id)
+      .select("id, slug")
       .single();
 
     if (updateError || !updatedPrototype) {
-      request.log2.error(updateError, 'Failed to deploy prototype');
+      request.log2.error(updateError, "Failed to deploy prototype");
       reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR);
       return {
         data: null,
         error: {
-          error: 'Deployment failed',
-          message: 'Unable to deploy prototype',
+          error: "Deployment failed",
+          message: "Unable to deploy prototype",
         },
       };
     }
@@ -381,9 +382,9 @@ export class PrototypeDeploymentService {
     return slug
       .trim()
       .toLowerCase()
-      .replace(/[^a-z0-9-]+/g, '-')
-      .replace(/-+/g, '-')
-      .replace(/^-|-$/g, '');
+      .replace(/[^a-z0-9-]+/g, "-")
+      .replace(/-+/g, "-")
+      .replace(/^-|-$/g, "");
   }
 
   private isValidSlug(slug: string): boolean {
