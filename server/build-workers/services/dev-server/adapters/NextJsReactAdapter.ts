@@ -13,6 +13,7 @@ import { DEV_SERVER_PORT } from "../NucleateDevelopmentServerService.js";
 import { execSync } from "child_process";
 import fs from "fs/promises";
 import path from "path";
+import { stripAnsiSequences } from "../../terminals/TerminalAnsiUtils.js";
 
 /**
  * Adapter for running Next.js development servers inside the worker.
@@ -307,7 +308,9 @@ echo "EXIT_CODE=$?"
         data: {
           output_path: "",
           build_status: "failure",
-          build_output: result.stdout || result.stderr || "Build failed with no output",
+          build_output: stripAnsiSequences(
+            result.stdout || result.stderr || "Build failed with no output"
+          ),
         },
         error: null,
       };
@@ -329,7 +332,9 @@ echo "EXIT_CODE=$?"
         data: {
           output_path: "",
           build_status: "failure",
-          build_output: result.stdout || "Build output directory not found",
+          build_output: stripAnsiSequences(
+            result.stdout || "Build output directory not found"
+          ),
         },
         error: null,
       };
@@ -339,7 +344,9 @@ echo "EXIT_CODE=$?"
       data: {
         output_path: distPath,
         build_status: "success",
-        build_output: result.stdout || "Build completed successfully",
+        build_output: stripAnsiSequences(
+          result.stdout || "Build completed successfully"
+        ),
       },
       error: null,
     };

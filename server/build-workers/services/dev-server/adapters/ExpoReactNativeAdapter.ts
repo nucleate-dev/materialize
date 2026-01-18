@@ -14,6 +14,7 @@ import { DEV_SERVER_PORT } from "../NucleateDevelopmentServerService.js";
 import fs from "fs/promises";
 import path from "path";
 import { execSync } from "child_process";
+import { stripAnsiSequences } from "../../terminals/TerminalAnsiUtils.js";
 
 /**
  * Adapter for Expo React Native development server.
@@ -367,7 +368,9 @@ export class ExpoReactNativeAdapter implements IDevelopmentServerAdapter {
         data: {
           output_path: "",
           build_status: "failure",
-          build_output: result.stdout || result.stderr || "Build failed with no output",
+          build_output: stripAnsiSequences(
+            result.stdout || result.stderr || "Build failed with no output"
+          ),
         },
         error: null,
       };
@@ -382,7 +385,9 @@ export class ExpoReactNativeAdapter implements IDevelopmentServerAdapter {
           data: {
             output_path: "",
             build_status: "failure",
-            build_output: result.stdout || "Build output exists but is not a directory",
+            build_output: stripAnsiSequences(
+              result.stdout || "Build output exists but is not a directory"
+            ),
           },
           error: null,
         };
@@ -393,7 +398,9 @@ export class ExpoReactNativeAdapter implements IDevelopmentServerAdapter {
         data: {
           output_path: "",
           build_status: "failure",
-          build_output: result.stdout || "Build output directory not found",
+          build_output: stripAnsiSequences(
+            result.stdout || "Build output directory not found"
+          ),
         },
         error: null,
       };
@@ -403,7 +410,9 @@ export class ExpoReactNativeAdapter implements IDevelopmentServerAdapter {
       data: {
         output_path: distPath,
         build_status: "success",
-        build_output: result.stdout || "Build completed successfully",
+        build_output: stripAnsiSequences(
+          result.stdout || "Build completed successfully"
+        ),
       },
       error: null,
     };
