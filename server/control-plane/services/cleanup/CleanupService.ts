@@ -24,7 +24,8 @@ import {
   removeBuildDataFromCache,
 } from '../../utils/cacheInteractionUtils.js';
 import { deleteCloudflareTunnel } from '../../utils/cloudflareTunnelManagementUtils.js';
-import { takeScreenshotsOfKilledBuilds } from './screenshotUtils.js';
+// NOTE: Screenshot logic moved to build-workers
+// import { takeScreenshotsOfKilledBuilds } from './screenshotUtils.js';
 
 export class CleanupService {
   private cleanupIntervals: ReturnType<typeof setInterval>[];
@@ -108,11 +109,12 @@ export class CleanupService {
       );
     stats = killedBuilds.stats;
 
-    await takeScreenshotsOfKilledBuilds(
-      killedBuilds.killedPrototypeIds,
-      this.log2,
-      this.supabase,
-    );
+    // NOTE: Screenshot logic moved to build-workers (runs during build in handleCleanup)
+    // await takeScreenshotsOfKilledBuilds(
+    //   killedBuilds.killedPrototypeIds,
+    //   this.log2,
+    //   this.supabase,
+    // );
     return stats;
   }
 

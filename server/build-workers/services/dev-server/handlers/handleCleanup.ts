@@ -12,6 +12,7 @@ import { getWorkerContext } from "../../../worker.js";
 import { SystemLogger } from "../../../loggers/SystemLogger.js";
 import { uploadAllClaudeSessionsToSupabase } from "../../../utils/shared-utils.js";
 import { uploadDirectoryToS3 } from "../s3-upload-utils.js";
+import { takeScreenshotAndUpload } from "./screenshotUtils.js";
 
 export async function handleCleanup(
   request: FastifyRequest<{}>,
@@ -142,12 +143,29 @@ export async function triggerDevServerBuildAndUploadToS3(
     throw new Error("S3 client not initialized");
   }
 
-  // 2. Build the project using the adapter
+  // 2. Build the project using the adapter AND take screenshot concurrently
   developmentServerService.developmentServerState.isBuilding = true;
   developmentServerService.developmentServerState.buildStartTime = new Date();
-  const buildResult =
-    await developmentServerService.developmentServerAdapter.build(log2);
+
+  const supabase = developmentServerService.supabaseClientService.getClient();
+
+  // Run build and screenshot in parallel
+  const [buildResult, screenshotResult] = await Promise.all([
+    developmentServerService.developmentServerAdapter.build(log2),
+    takeScreenshotAndUpload(prototypeId, log2, supabase),
+  ]);
+
   developmentServerService.developmentServerState.isBuilding = false;
+
+  if (screenshotResult) {
+    log2.consoleLogDevOnly(
+      "info",
+      "Screenshot taken and uploaded successfully during build",
+    );
+  } else {
+    log2.warn("Failed to take screenshot during build, continuing with upload");
+  }
+
   if (buildResult.error) {
     log2.error(buildResult.error, "Build failed");
     developmentServerService.developmentServerState.buildError =
@@ -170,7 +188,6 @@ export async function triggerDevServerBuildAndUploadToS3(
     uploadResult.version;
 
   // 4. Insert a new build record into the prototype_build_history table and update prototypes table with latest build version key
-  const supabase = developmentServerService.supabaseClientService.getClient();
   const { error: insertHistoryError } = await supabase
     .from("prototype_build_history")
     .insert({
