@@ -30,14 +30,8 @@ begin
   values (
     new.id,
     new.email,
-    -- Construct name from full_name (OAuth/email) or first_name+last_name (SSO)
-    coalesce(
-      nullif(trim(new.raw_user_meta_data ->> 'full_name'), ''),
-      nullif(trim(
-        coalesce(new.raw_user_meta_data ->> 'first_name', '') || ' ' ||
-        coalesce(new.raw_user_meta_data ->> 'last_name', '')
-      ), '')
-    ),
+    -- For OAuth/email users, use full_name. For SSO users, name will be set later in handle_sso_identity
+    new.raw_user_meta_data ->> 'full_name',
     new.raw_user_meta_data ->> 'avatar_url',
     now(),
     v_is_sso_user
@@ -158,9 +152,17 @@ begin
       returning id into v_team_id;
     end if;
 
-    -- Mark user as SSO user
+    -- Mark user as SSO user and update name from SAML attributes in identity_data
     update public.users
-      set is_sso_user = true
+      set is_sso_user = true,
+          name = coalesce(
+            public.users.name,  -- Keep existing name if already set
+            -- Construct name from given_name + family_name (SAML attributes from identity_data)
+            nullif(trim(
+              coalesce(new.identity_data ->> 'given_name', '') || ' ' ||
+              coalesce(new.identity_data ->> 'family_name', '')
+            ), '')
+          )
       where id = new.user_id;
 
     -- Add user to team

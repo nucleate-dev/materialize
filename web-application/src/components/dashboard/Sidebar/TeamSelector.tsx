@@ -48,7 +48,7 @@ export function TeamSelector({
 }: TeamSelectorProps) {
   const router = useRouter();
   const logger = useProductLogger();
-  const { activeTeam, setActiveTeam, teamMembers, signedAvatarUrl } =
+  const { activeTeam, setActiveTeam, teamMembers, signedAvatarUrl, isCurrentUserSsoUser } =
     useActiveTeam();
   const { teams } = useUserTeams();
   const { userPlan, loadingSubscriptionData } = useSubscriptionAccess();
@@ -354,23 +354,25 @@ export function TeamSelector({
               </div>
 
               {/* Create new workspace button */}
-              <Button
-                variant="outline"
-                className="w-full justify-start"
-                onClick={() => {
-                  logger.log({
-                    event: "client_dashboard_sidebar_item_clicked",
-                    properties: {
-                      component: "TeamSelector",
-                      item: "create_team",
-                    },
-                  });
-                  router.push("/teams/create");
-                }}
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                Create new team
-              </Button>
+              {!isCurrentUserSsoUser && (
+                <Button
+                  variant="outline"
+                  className="w-full justify-start"
+                  onClick={() => {
+                    logger.log({
+                      event: "client_dashboard_sidebar_item_clicked",
+                      properties: {
+                        component: "TeamSelector",
+                        item: "create_team",
+                      },
+                    });
+                    router.push("/teams/create");
+                  }}
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Create new team
+                </Button>
+              )}
             </div>
           </DropdownMenuContent>
         </DropdownMenu>

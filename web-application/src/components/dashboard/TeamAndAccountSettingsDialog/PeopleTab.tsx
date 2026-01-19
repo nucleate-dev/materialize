@@ -63,7 +63,7 @@ interface UserUsage {
 
 export function PeopleTab() {
   const router = useRouter();
-  const { activeTeam, teamMembers, teamInvites, currentUserMembership } =
+  const { activeTeam, teamMembers, teamInvites, currentUserMembership, isActiveTeamSsoEnabled } =
     useActiveTeam();
   const { user } = useUser();
   const { currentPeriodStart, currentPeriodEnd, userPlan, seatQuantity } =
@@ -630,6 +630,20 @@ export function PeopleTab() {
           <h2 className="text-base font-medium text-gray-900 dark:text-white mb-3">
             Invite new members
           </h2>
+
+          {/* SSO Notice */}
+          {isActiveTeamSsoEnabled && (
+            <Alert className="mb-4 border-blue-200 bg-blue-50 dark:border-blue-900 dark:bg-blue-950/30">
+              <AlertDescription className="flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 text-blue-600 dark:text-blue-500 mt-0.5" />
+                <div>
+                  <p className="text-sm text-blue-900 dark:text-blue-200">
+                    <strong>SSO is enabled for this team.</strong> Team members who log in via SSO will automatically appear here as a Viewer.
+                  </p>
+                </div>
+              </AlertDescription>
+            </Alert>
+          )}
 
           {/* Seat Capacity Warning */}
           {isAtCapacity && (

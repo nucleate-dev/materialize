@@ -72,7 +72,7 @@ export function TeamAndAccountsSettingsDialog({
   defaultTab = "profile",
 }: SettingsDialogProps) {
   const { userRow } = useCustomUserRow();
-  const { activeTeam, setActiveTeam } = useActiveTeam();
+  const { activeTeam, setActiveTeam, isCurrentUserSsoUser } = useActiveTeam();
   const { teams } = useUserTeams();
   const posthog = usePostHog();
   const router = useRouter();
@@ -291,18 +291,20 @@ export function TeamAndAccountsSettingsDialog({
                     </div>
 
                     {/* Create new team button */}
-                    <div className="border-t border-border pt-2">
-                      <Button
-                        variant="ghost"
-                        className="w-full justify-start text-sm"
-                        onClick={() => {
-                          router.push("/teams/create");
-                        }}
-                      >
-                        <Plus className="w-4 h-4 mr-2" />
-                        Create new team
-                      </Button>
-                    </div>
+                    {!isCurrentUserSsoUser && (
+                      <div className="border-t border-border pt-2">
+                        <Button
+                          variant="ghost"
+                          className="w-full justify-start text-sm"
+                          onClick={() => {
+                            router.push("/teams/create");
+                          }}
+                        >
+                          <Plus className="w-4 h-4 mr-2" />
+                          Create new team
+                        </Button>
+                      </div>
+                    )}
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>

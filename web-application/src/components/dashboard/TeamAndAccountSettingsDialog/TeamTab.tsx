@@ -23,6 +23,7 @@ export function TeamTab() {
     currentUserMembership,
     setActiveTeam,
     signedAvatarUrl,
+    isCurrentUserSsoUser,
   } = useActiveTeam();
   const { user } = useUser();
   const { team: personalTeam } = usePersonalTeam();
@@ -51,8 +52,8 @@ export function TeamTab() {
   // Check if user is the personal owner (creator) of the team
   const isPersonalOwner = activeTeam?.personal_owner_user_id === user?.id;
 
-  // Disable leave team if user is last owner or personal owner
-  const canLeaveTeam = !isLastOwner && !isPersonalOwner;
+  // Disable leave team if user is last owner, personal owner, or SSO user
+  const canLeaveTeam = !isLastOwner && !isPersonalOwner && !isCurrentUserSsoUser;
 
   // Track if there are unsaved changes
   const hasUnsavedChanges =
@@ -434,11 +435,13 @@ export function TeamTab() {
                       Leave Team
                     </p>
                     <p className="text-sm text-red-800 dark:text-red-300 mt-1">
-                      {isPersonalOwner
-                        ? "You cannot leave your personal team."
-                        : isLastOwner
-                          ? "You cannot leave the team as the last owner. Transfer ownership first."
-                          : "Once you leave, you will lose access to all team projects and resources."}
+                      {isCurrentUserSsoUser
+                        ? "SSO users cannot leave their team. Please contact your administrator."
+                        : isPersonalOwner
+                          ? "You cannot leave your personal team."
+                          : isLastOwner
+                            ? "You cannot leave the team as the last owner. Transfer ownership first."
+                            : "Once you leave, you will lose access to all team projects and resources."}
                     </p>
                   </div>
                   <Button
