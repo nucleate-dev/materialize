@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,12 +17,19 @@ type PlanType = "plus" | "team";
 export default function CreateTeamPage() {
   const router = useRouter();
   const logger = useProductLogger();
-  const { setActiveTeam } = useActiveTeam();
+  const { setActiveTeam, isCurrentUserSsoUser } = useActiveTeam();
   const { user } = useUser();
   const [teamName, setTeamName] = useState("");
   const [selectedPlan, setSelectedPlan] = useState<PlanType | null>(null);
   const [seatQuantity, setSeatQuantity] = useState(1);
   const [isCreating, setIsCreating] = useState(false);
+
+  // Redirect SSO users back to dashboard
+  useEffect(() => {
+    if (isCurrentUserSsoUser) {
+      router.push("/dashboard");
+    }
+  }, [isCurrentUserSsoUser, router]);
 
   const handleCreateTeam = async () => {
     if (!teamName.trim() || !selectedPlan || !user?.id) return;
