@@ -307,91 +307,89 @@ export default function LoginForm() {
               )}
             </div>
 
-            {process.env.NEXT_PUBLIC_ENABLE_LOGIN_WITH_SSO === "true" && (
-              <div className="space-y-2">
-                {!showSsoInput ? (
-                  <div className="relative">
+            <div className="space-y-2">
+              {!showSsoInput ? (
+                <div className="relative">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="lg"
+                    className="w-full"
+                    onClick={() => setShowSsoInput(true)}
+                  >
+                    <svg
+                      className="w-4 h-4 mr-2"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"
+                      />
+                    </svg>
+                    Sign in with SSO
+                  </Button>
+                  {lastLoginMethod === "sso" && (
+                    <span className="absolute top-1/2 right-3 -translate-y-1/2 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 pointer-events-none">
+                      Last used
+                    </span>
+                  )}
+                </div>
+              ) : (
+                <form onSubmit={handleSsoSignIn} className="space-y-3">
+                  <div className="space-y-1.5">
+                    <Label
+                      htmlFor="sso-email"
+                      className="text-xs font-medium text-muted-foreground"
+                    >
+                      Work Email
+                    </Label>
+                    <Input
+                      id="sso-email"
+                      type="email"
+                      placeholder="you@company.com"
+                      autoComplete="email"
+                      required
+                      value={ssoEmail}
+                      onChange={(e) => setSsoEmail(e.target.value)}
+                      disabled={isSsoLoading}
+                      className="h-10 bg-background"
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      type="submit"
+                      size="lg"
+                      className="flex-1"
+                      disabled={isSsoLoading}
+                    >
+                      {isSsoLoading ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        "Continue with SSO"
+                      )}
+                    </Button>
                     <Button
                       type="button"
                       variant="outline"
                       size="lg"
-                      className="w-full"
-                      onClick={() => setShowSsoInput(true)}
+                      onClick={() => {
+                        setShowSsoInput(false);
+                        setSsoEmail("");
+                        setErrorMessage("");
+                      }}
+                      disabled={isSsoLoading}
                     >
-                      <svg
-                        className="w-4 h-4 mr-2"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                        xmlns="http://www.w3.org/2000/svg"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"
-                        />
-                      </svg>
-                      Sign in with SSO
+                      Cancel
                     </Button>
-                    {lastLoginMethod === "sso" && (
-                      <span className="absolute top-1/2 right-3 -translate-y-1/2 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 pointer-events-none">
-                        Last used
-                      </span>
-                    )}
                   </div>
-                ) : (
-                  <form onSubmit={handleSsoSignIn} className="space-y-3">
-                    <div className="space-y-1.5">
-                      <Label
-                        htmlFor="sso-email"
-                        className="text-xs font-medium text-muted-foreground"
-                      >
-                        Work Email
-                      </Label>
-                      <Input
-                        id="sso-email"
-                        type="email"
-                        placeholder="you@company.com"
-                        autoComplete="email"
-                        required
-                        value={ssoEmail}
-                        onChange={(e) => setSsoEmail(e.target.value)}
-                        disabled={isSsoLoading}
-                        className="h-10 bg-background"
-                      />
-                    </div>
-                    <div className="flex gap-2">
-                      <Button
-                        type="submit"
-                        size="lg"
-                        className="flex-1"
-                        disabled={isSsoLoading}
-                      >
-                        {isSsoLoading ? (
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                        ) : (
-                          "Continue with SSO"
-                        )}
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="lg"
-                        onClick={() => {
-                          setShowSsoInput(false);
-                          setSsoEmail("");
-                          setErrorMessage("");
-                        }}
-                        disabled={isSsoLoading}
-                      >
-                        Cancel
-                      </Button>
-                    </div>
-                  </form>
-                )}
-              </div>
-            )}
+                </form>
+              )}
+            </div>
           </div>
 
           <div className="text-center text-sm">
