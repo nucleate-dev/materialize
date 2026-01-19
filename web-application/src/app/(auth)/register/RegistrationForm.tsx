@@ -13,7 +13,11 @@ import {
   isValidEmailInput,
   isValidPassword,
 } from "@/lib/utils/auth/AuthFormValidationUtils";
-import { signInWithOAuth, signUp } from "@/lib/utils/auth/SupabaseAuthUtils";
+import {
+  signInWithOAuth,
+  signInWithSSO,
+  signUp,
+} from "@/lib/utils/auth/SupabaseAuthUtils";
 import { useAtom } from "jotai";
 import { Loader2, Sparkles } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -49,6 +53,9 @@ export default function RegistrationForm() {
   const [showSuccessState, setShowSuccessState] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string>("");
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [ssoEmail, setSsoEmail] = useState<string>("");
+  const [isSsoLoading, setIsSsoLoading] = useState<boolean>(false);
+  const [showSsoInput, setShowSsoInput] = useState<boolean>(false);
   const { email, password, firstName, lastName, confirmPassword } = formData;
   const { emailError, passwordError, confirmPasswordError } = formErrors;
 
@@ -216,6 +223,47 @@ export default function RegistrationForm() {
       logger,
       searchParams,
     ],
+  );
+
+  const handleSsoSignIn = useCallback(
+    async (e: FormEvent<HTMLFormElement>) => {
+      e.preventDefault();
+      setErrorMessage("");
+      setIsSsoLoading(true);
+
+      // Extract domain from email
+      const domain = ssoEmail.split("@")[1];
+      if (!domain) {
+        setErrorMessage("Please enter a valid email address");
+        setIsSsoLoading(false);
+        return;
+      }
+
+      // Store redirect parameter if present
+      const redirectParam = searchParams.get("redirect");
+      if (redirectParam) {
+        const decodedRedirect = decodeURIComponent(redirectParam);
+        setRedirectAfterLogin(decodedRedirect);
+      }
+
+      const response = await signInWithSSO({
+        domain,
+        redirectTo: "/auth/callback",
+      });
+
+      setIsSsoLoading(false);
+
+      if (response.error) {
+        setErrorMessage(response.error.message);
+        return;
+      }
+
+      // Redirect to SSO provider
+      if (response.data?.url) {
+        window.location.href = response.data.url;
+      }
+    },
+    [ssoEmail, searchParams, setRedirectAfterLogin],
   );
 
   if (showSuccessState) {
@@ -467,6 +515,83 @@ export default function RegistrationForm() {
               }}
               provider="google"
             />
+
+            <div className="space-y-2">
+              {!showSsoInput ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="lg"
+                  className="w-full"
+                  onClick={() => setShowSsoInput(true)}
+                >
+                  <svg
+                    className="w-4 h-4 mr-2"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"
+                    />
+                  </svg>
+                  Sign in with SSO
+                </Button>
+              ) : (
+                <form onSubmit={handleSsoSignIn} className="space-y-3">
+                  <div className="space-y-1.5">
+                    <Label
+                      htmlFor="sso-email"
+                      className="text-xs font-medium text-muted-foreground"
+                    >
+                      Work Email
+                    </Label>
+                    <Input
+                      id="sso-email"
+                      type="email"
+                      placeholder="you@company.com"
+                      autoComplete="email"
+                      required
+                      value={ssoEmail}
+                      onChange={(e) => setSsoEmail(e.target.value)}
+                      disabled={isSsoLoading}
+                      className="h-10 bg-background"
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      type="submit"
+                      size="lg"
+                      className="flex-1"
+                      disabled={isSsoLoading}
+                    >
+                      {isSsoLoading ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        "Continue with SSO"
+                      )}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="lg"
+                      onClick={() => {
+                        setShowSsoInput(false);
+                        setSsoEmail("");
+                        setErrorMessage("");
+                      }}
+                      disabled={isSsoLoading}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </form>
+              )}
+            </div>
           </div>
         </div>
       </div>
