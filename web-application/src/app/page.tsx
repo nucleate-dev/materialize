@@ -267,6 +267,14 @@ function HeroSection() {
     }
   };
 
+  // Keydown handler for "Enter to send"
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
+  };
+
   const removeImage = (imageId: string) => {
     setUploadedImages((prev) => prev.filter((img) => img.id !== imageId));
   };
@@ -453,6 +461,7 @@ function HeroSection() {
                   placeholder="Describe a screen or flow you want to prototype..."
                   value={prompt}
                   onChange={(e) => setPrompt(e.target.value)}
+                  onKeyDown={handleKeyDown}
                   onPaste={handlePaste}
                   disabled={isLoading}
                   className="flex-1 bg-transparent text-lg text-foreground placeholder:text-muted-foreground border-none p-0 focus-visible:ring-0 resize-none min-h-[80px]"
