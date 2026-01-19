@@ -5,7 +5,7 @@
 // To update these shared files, modify the source file and run:
 // npm run sync-types (in the control-plane directory)
 //
-// Last synced: 2026-01-18T18:46:04.545Z
+// Last synced: 2026-01-19T06:57:58.967Z
 
 // Team-level allowlists for feature gating
 // Each Set contains team UUIDs that are allowed to use specific features

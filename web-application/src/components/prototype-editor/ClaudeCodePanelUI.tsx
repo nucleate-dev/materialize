@@ -60,6 +60,7 @@ import type {
   Todo,
   UploadedImage,
 } from "./ClaudeCodePanel";
+import InlineUserQuestion from "./InlineUserQuestion";
 
 interface ClaudeCodePanelUIProps {
   prototypeId: string;
@@ -129,6 +130,7 @@ interface ClaudeCodePanelUIProps {
   hasClaudeToken: boolean;
   isAuthModeLoading: boolean;
   onCollapse?: () => void;
+  onQuestionSubmit: (questionId: string, answer: string) => void;
 }
 
 function CopyMessageButton({ content }: { content: string }) {
@@ -212,6 +214,7 @@ export default function ClaudeCodePanelUI({
   hasClaudeToken,
   isAuthModeLoading,
   onCollapse,
+  onQuestionSubmit,
 }: ClaudeCodePanelUIProps) {
   const [showCreditLimitModal, setShowCreditLimitModal] = useState(false);
   const hasShownModalRef = useRef(false);
@@ -748,6 +751,30 @@ export default function ClaudeCodePanelUI({
                               {message.designSpec}
                             </div>
                           )}
+                        </div>
+                      )}
+
+                      {/* User Question Message */}
+                      {message.type === "user_question" && (
+                        <div className="w-full">
+                          <InlineUserQuestion
+                            questionId={message.questionId || message.id}
+                            question={message.content}
+                            header={message.header || "Question"}
+                            options={message.questionOptions || []}
+                            multiSelect={message.multiSelect || false}
+                            isAnswered={message.isAnswered}
+                            answer={message.answer}
+                            onSubmit={
+                              message.isAnswered
+                                ? undefined
+                                : (answer) =>
+                                    onQuestionSubmit(
+                                      message.questionId || message.id,
+                                      answer,
+                                    )
+                            }
+                          />
                         </div>
                       )}
                     </div>

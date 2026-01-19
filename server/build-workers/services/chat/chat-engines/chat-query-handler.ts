@@ -125,6 +125,15 @@ export class ChatQueryHandler implements ChatEngine {
   private readonly devServerService: NucleateDevelopmentServerService;
   private readonly terminalService: TerminalService;
 
+  // Map of pending user questions waiting for responses
+  private pendingQuestions = new Map<
+    string,
+    {
+      resolve: (answer: string) => void;
+      reject: (error: Error) => void;
+    }
+  >();
+
   constructor(
     supabaseClientService: SupabaseClientService,
     sandboxService: SandboxService,
@@ -533,6 +542,17 @@ export class ChatQueryHandler implements ChatEngine {
       input: ToolInput,
       _options: unknown,
     ): Promise<PermissionResult> => {
+      // Handle AskUserQuestion specially - requires user interaction
+      if (toolName === "AskUserQuestion") {
+        return await this.handleAskUserQuestionTool(
+          socket,
+          activeConnections,
+          input,
+          prototypeChatSessionId,
+        );
+      }
+
+      // All other tools use static permission evaluation
       return evaluateToolPermission(ALLOWED_ROOTS, toolName, input);
     };
 
@@ -545,6 +565,7 @@ export class ChatQueryHandler implements ChatEngine {
       "WebFetch",
       "TodoWrite",
       "Skill",
+      "AskUserQuestion",
       // MCP tools from devtools server
       "mcp__devtools__SafeWrite",
       "mcp__devtools__SafeBash",
@@ -851,6 +872,238 @@ export class ChatQueryHandler implements ChatEngine {
         success: false,
         error: errorMessage,
       };
+    }
+  }
+
+  /**
+   * Handles AskUserQuestion tool by sending questions to frontend and awaiting responses.
+   *
+   * The SDK input format is:
+   * {
+   *   questions: Array<{
+   *     question: string;
+   *     header: string;
+   *     options: Array<{ label: string; description: string }>;
+   *     multiSelect: boolean;
+   *   }>;
+   * }
+   *
+   * We process questions sequentially, showing one modal at a time.
+   * The SDK expects answers as: { answers: Record<string, string> }
+   * where key = question text, value = selected label(s) joined with ", "
+   */
+  private async handleAskUserQuestionTool(
+    socket: WebSocket,
+    activeConnections: Map<string, ChatConnection>,
+    input: ToolInput,
+    prototypeChatSessionId: string,
+  ): Promise<PermissionResult> {
+    try {
+      // Extract questions from SDK input
+      const questions = (input as { questions?: unknown[] }).questions;
+
+      if (!Array.isArray(questions) || questions.length === 0) {
+        baseLogger.warn("AskUserQuestion called with no questions", { input });
+        return {
+          behavior: "deny" as const,
+          message: "AskUserQuestion requires at least one question",
+          interrupt: true,
+        };
+      }
+
+      // Validate questions array (1-4 questions)
+      if (questions.length > 4) {
+        baseLogger.warn("AskUserQuestion called with too many questions", {
+          count: questions.length,
+        });
+        return {
+          behavior: "deny" as const,
+          message: "AskUserQuestion supports maximum 4 questions",
+          interrupt: true,
+        };
+      }
+
+      // Validate each question structure
+      for (const q of questions) {
+        if (!q || typeof q !== "object") {
+          return {
+            behavior: "deny" as const,
+            message: "Invalid question format",
+            interrupt: true,
+          };
+        }
+
+        const question = q as {
+          question?: string;
+          header?: string;
+          options?: unknown[];
+          multiSelect?: boolean;
+        };
+
+        if (!question.question || typeof question.question !== "string") {
+          return {
+            behavior: "deny" as const,
+            message: "Each question must have a 'question' string field",
+            interrupt: true,
+          };
+        }
+
+        if (!question.header || typeof question.header !== "string") {
+          return {
+            behavior: "deny" as const,
+            message: "Each question must have a 'header' string field",
+            interrupt: true,
+          };
+        }
+
+        if (
+          !Array.isArray(question.options) ||
+          question.options.length < 2 ||
+          question.options.length > 4
+        ) {
+          return {
+            behavior: "deny" as const,
+            message: "Each question must have 2-4 options",
+            interrupt: true,
+          };
+        }
+      }
+
+      // Process questions sequentially
+      const allAnswers: Record<string, string> = {};
+
+      for (const q of questions) {
+        const question = q as {
+          question: string;
+          header: string;
+          options: Array<{ label: string; description: string }>;
+          multiSelect?: boolean;
+        };
+
+        const questionId = `question-${Date.now()}-${Math.random()}`;
+
+        // Create promise for answer
+        const answerPromise = new Promise<string>((resolve, reject) => {
+          this.pendingQuestions.set(questionId, { resolve, reject });
+
+          // Timeout after 5 minutes
+          setTimeout(() => {
+            if (this.pendingQuestions.has(questionId)) {
+              this.pendingQuestions.delete(questionId);
+              reject(new Error("User question timed out after 5 minutes"));
+            }
+          }, 300000);
+        });
+
+        // Persist question to database before sending to frontend
+        await persistChatMessage(
+          this.supabaseClientService,
+          prototypeChatSessionId,
+          "system",
+          question.question,
+          "user_question",
+          null,
+          {
+            question_id: questionId,
+            header: question.header,
+            options: question.options,
+            multiSelect: question.multiSelect ?? false,
+          },
+        );
+
+        // Send question to frontend
+        baseLogger.consoleLogDevOnly("info", "Sending question to frontend", {
+          questionId,
+          question: question.question,
+          optionCount: question.options.length,
+        });
+
+        broadcastToConnections(
+          activeConnections,
+          {
+            type: ChatEvent.USER_QUESTION_REQUEST,
+            data: {
+              question_id: questionId,
+              question: question.question,
+              header: question.header,
+              options: question.options,
+              multiSelect: question.multiSelect ?? false,
+            },
+          },
+          baseLogger,
+        );
+
+        // Wait for answer
+        try {
+          const answer = await answerPromise;
+          allAnswers[question.question] = answer;
+
+          baseLogger.consoleLogDevOnly("info", "Received answer for question", {
+            questionId,
+            answerLength: answer.length,
+          });
+        } catch (error) {
+          baseLogger.error(
+            error instanceof Error ? error : new Error(String(error)),
+            "Failed to get answer for question",
+            { questionId },
+          );
+          return {
+            behavior: "deny" as const,
+            message:
+              error instanceof Error
+                ? error.message
+                : "Question was not answered",
+            interrupt: true,
+          };
+        }
+      }
+
+      // Return success with answers in SDK format
+      baseLogger.consoleLogDevOnly(
+        "info",
+        "All questions answered successfully",
+        {
+          questionCount: questions.length,
+          answerKeys: Object.keys(allAnswers),
+        },
+      );
+
+      return {
+        behavior: "allow" as const,
+        updatedInput: {
+          ...input,
+          answers: allAnswers,
+        },
+      };
+    } catch (error) {
+      baseLogger.error(
+        error instanceof Error ? error : new Error(String(error)),
+        "Error handling AskUserQuestion tool",
+      );
+      return {
+        behavior: "deny" as const,
+        message: "Failed to process user question",
+        interrupt: true,
+      };
+    }
+  }
+
+  /**
+   * Resolves a pending user question with the provided answer.
+   * Called by ChatService when USER_QUESTION_RESPONSE is received.
+   */
+  public resolveUserQuestion(questionId: string, answer: string): void {
+    const pending = this.pendingQuestions.get(questionId);
+    if (pending) {
+      pending.resolve(answer);
+      this.pendingQuestions.delete(questionId);
+      baseLogger.consoleLogDevOnly("info", "Resolved user question", {
+        questionId,
+        answerLength: answer.length,
+      });
+    } else {
+      baseLogger.warn("Attempted to resolve unknown question", { questionId });
     }
   }
 

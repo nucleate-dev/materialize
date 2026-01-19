@@ -9,6 +9,8 @@ import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import type {
   ChatServerMessage,
   ScreenUpdateData,
+  UserQuestionData,
+  UserQuestionOption,
 } from "@/lib/types/ChatTypes";
 import {
   ChatClientEvent,
@@ -95,7 +97,8 @@ export interface Message {
     | "tool"
     | "thinking"
     | "usage"
-    | "design_spec";
+    | "design_spec"
+    | "user_question";
   content: string;
   timestamp: number;
   toolName?: string;
@@ -110,6 +113,13 @@ export interface Message {
   creditsUsed?: number; // For usage messages
   designSpec?: string; // For design_spec messages - the full specification
   isCollapsed?: boolean; // For design_spec messages - whether it's collapsed
+  // New fields for user_question type
+  questionId?: string;
+  header?: string;
+  questionOptions?: Array<{ label: string; description: string }>;
+  multiSelect?: boolean;
+  isAnswered?: boolean;
+  answer?: string;
 }
 
 export interface Todo {
@@ -736,6 +746,44 @@ const ClaudeCodePanel = forwardRef<ClaudeCodePanelRef, ClaudeCodePanelProps>(
                   content: dbMessage.content,
                   timestamp: new Date(dbMessage.created_at).getTime(),
                 });
+              } else if (dbMessage.message_type === "user_question") {
+                // User question message
+                const eventData =
+                  typeof dbMessage.event_data === "string"
+                    ? JSON.parse(dbMessage.event_data)
+                    : dbMessage.event_data;
+
+                uiMessages.push({
+                  id: String(dbMessage.id),
+                  type: "user_question",
+                  content: dbMessage.content,
+                  timestamp: new Date(dbMessage.created_at).getTime(),
+                  questionId: eventData?.question_id,
+                  header: eventData?.header,
+                  questionOptions: eventData?.options,
+                  multiSelect: eventData?.multiSelect ?? false,
+                  // Historical questions are always marked as answered
+                  // (we can't re-answer them, just display for reference)
+                  isAnswered: true,
+                  // Try to find the answer from the next user message
+                  // (the answer should be the immediate next user message after this question)
+                });
+              }
+            }
+
+            // After converting all database messages, match questions with their answers
+            for (let i = 0; i < uiMessages.length; i++) {
+              if (
+                uiMessages[i].type === "user_question" &&
+                uiMessages[i].isAnswered
+              ) {
+                // Look for the next user message as the answer
+                const nextUserMessage = uiMessages
+                  .slice(i + 1)
+                  .find((msg) => msg.type === "user");
+                if (nextUserMessage) {
+                  uiMessages[i].answer = nextUserMessage.content;
+                }
               }
             }
 
@@ -1467,6 +1515,31 @@ const ClaudeCodePanel = forwardRef<ClaudeCodePanelRef, ClaudeCodePanelProps>(
             screensCount: screenData.screens?.length,
           });
           onScreenUpdate?.(screenData);
+          break;
+        }
+
+        case ChatEvent.USER_QUESTION_REQUEST: {
+          const questionData = message.data as UserQuestionData;
+          logger.debug("log", "Received user question request", {
+            questionId: questionData.question_id,
+            question: questionData.question,
+          });
+
+          // Add question as a message in the chat
+          setMessages((prev) => [
+            ...prev,
+            {
+              id: `question-${questionData.question_id}`,
+              type: "user_question" as const,
+              content: questionData.question,
+              timestamp: Date.now(),
+              questionId: questionData.question_id,
+              header: questionData.header,
+              questionOptions: questionData.options,
+              multiSelect: questionData.multiSelect,
+              isAnswered: false,
+            },
+          ]);
           break;
         }
 
@@ -2403,6 +2476,55 @@ const ClaudeCodePanel = forwardRef<ClaudeCodePanelRef, ClaudeCodePanelProps>(
       }
     }, [baseTunnelUrl, logger, prototype?.id]);
 
+    const handleQuestionSubmit = useCallback(
+      (questionId: string, answer: string) => {
+        if (!ws || ws.readyState !== WebSocket.OPEN) {
+          logger.debug("warn", "Cannot submit question answer - no connection", {
+            hasWs: !!ws,
+            wsState: ws?.readyState,
+          });
+          return;
+        }
+
+        logger.debug("log", "Submitting question answer", {
+          questionId,
+          answerLength: answer.length,
+        });
+
+        // Send answer to backend
+        ws.send(
+          JSON.stringify({
+            type: ChatClientEvent.USER_QUESTION_RESPONSE,
+            data: {
+              question_id: questionId,
+              answer,
+            },
+          }),
+        );
+
+        // Update the question message to show it's been answered
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.questionId === questionId
+              ? { ...msg, isAnswered: true, answer }
+              : msg,
+          ),
+        );
+
+        // Add user's answer as a regular user message
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: Date.now().toString() + Math.random(),
+            type: "user" as const,
+            content: answer,
+            timestamp: Date.now(),
+          },
+        ]);
+      },
+      [ws, logger],
+    );
+
     return (
       <ClaudeCodePanelUI
         prototypeId={prototypeId}
@@ -2471,6 +2593,7 @@ const ClaudeCodePanel = forwardRef<ClaudeCodePanelRef, ClaudeCodePanelProps>(
         hasClaudeToken={hasUserClaudeToken}
         isAuthModeLoading={authPickerLoading}
         onCollapse={onCollapse}
+        onQuestionSubmit={handleQuestionSubmit}
       />
     );
   },

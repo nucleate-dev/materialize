@@ -16,6 +16,7 @@ export enum ChatEvent {
   COLLABORATOR_MESSAGE = "collaborator_message",
   SCREEN_UPDATE = "screen_update",
   AUTH_MODE_UPDATED = "auth_mode_updated",
+  USER_QUESTION_REQUEST = "user_question_request",
 }
 
 export enum ChatClientEvent {
@@ -23,6 +24,7 @@ export enum ChatClientEvent {
   INTERRUPT = "interrupt",
   HISTORY_RESPONSE = "history_response",
   AUTH_MODE_CHANGE = "auth_mode_change",
+  USER_QUESTION_RESPONSE = "user_question_response",
 }
 
 export enum ChatSystemEventSubtype {
@@ -108,7 +110,8 @@ export type ChatClientMessage =
   | QueryMessage
   | InterruptMessage
   | HistoryResponseMessage
-  | AuthModeChangeMessage;
+  | AuthModeChangeMessage
+  | UserQuestionResponseMessage;
 
 export interface SystemConnectionMessage {
   type: ChatEvent.SYSTEM;
@@ -175,6 +178,40 @@ export interface ToolCompleteMessage {
   data: ToolEventPayload & {
     tool_response?: unknown;
   };
+}
+
+// Question option with label and description (matches SDK format)
+export interface UserQuestionOption {
+  label: string;
+  description: string;
+}
+
+// Single question data (matches SDK format)
+export interface UserQuestionData {
+  question_id: string; // Generated UUID for tracking
+  question: string; // The question text
+  header: string; // Short label (max 12 chars) for display as chip
+  options: UserQuestionOption[]; // 2-4 options with labels and descriptions
+  multiSelect: boolean; // If true, allows multiple selections
+}
+
+// Request message sent from backend to frontend
+export interface UserQuestionRequestMessage {
+  type: ChatEvent.USER_QUESTION_REQUEST;
+  data: UserQuestionData;
+}
+
+// Answer data sent from frontend to backend
+export interface UserQuestionAnswerData {
+  question_id: string; // Matches the question_id from request
+  answer: string; // Selected label OR free text from "Other"
+  // For multiSelect: comma-separated labels (e.g., "Option A, Option B")
+}
+
+// Response message sent from frontend to backend
+export interface UserQuestionResponseMessage {
+  type: ChatClientEvent.USER_QUESTION_RESPONSE;
+  data: UserQuestionAnswerData;
 }
 
 export interface FileSyncResultData {
@@ -269,4 +306,5 @@ export type ChatServerMessage =
   | DesignGenerationMessage
   | CollaboratorMessagePayload
   | ScreenUpdateMessage
-  | AuthModeUpdatedMessage;
+  | AuthModeUpdatedMessage
+  | UserQuestionRequestMessage;

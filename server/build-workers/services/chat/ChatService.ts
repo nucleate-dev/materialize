@@ -13,6 +13,7 @@ import {
   ChatServerMessage,
   ChatSystemEventSubtype,
   HistoryResponseData,
+  UserQuestionAnswerData,
 } from "../../types/ChatTypes.js";
 import { isEligibleForPersonalClaudeSubscription } from "../../utils/eligibilityChecks.js";
 import { Database } from "../../types/supabase.js";
@@ -303,6 +304,35 @@ export class ChatService {
     this.activeConnections.delete(connectionId);
   }
 
+  /**
+   * Handles user question responses from frontend.
+   * Routes the answer back to ChatQueryHandler to resolve the pending promise.
+   */
+  private async handleUserQuestionResponse(
+    socket: WebSocket,
+    data: UserQuestionAnswerData,
+    logger: SystemLogger,
+  ): Promise<void> {
+    const { question_id, answer } = data;
+
+    logger.consoleLogDevOnly("info", "Received user question response", {
+      questionId: question_id,
+      answerLength: answer.length,
+    });
+
+    // Resolve the pending question in ChatQueryHandler
+    if (
+      this.chatQueryHandler &&
+      typeof (this.chatQueryHandler as any).resolveUserQuestion === "function"
+    ) {
+      (this.chatQueryHandler as any).resolveUserQuestion(question_id, answer);
+    } else {
+      logger.warn("ChatQueryHandler does not support resolveUserQuestion", {
+        questionId: question_id,
+      });
+    }
+  }
+
   public async shutdown(): Promise<void> {
     baseLogger.info("Shutting down CodeService");
 
@@ -378,6 +408,10 @@ export class ChatService {
           prototypeId,
           connectionId,
         );
+        break;
+
+      case ChatClientEvent.USER_QUESTION_RESPONSE:
+        await this.handleUserQuestionResponse(socket, message.data, logger);
         break;
     }
   }
