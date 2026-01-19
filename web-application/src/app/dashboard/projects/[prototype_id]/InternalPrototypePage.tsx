@@ -123,13 +123,10 @@ export default function InternalPrototypePage() {
   const [teamSettingsDialogOpen, setTeamSettingsDialogOpen] = useState(false);
   const [teamSettingsDefaultTab, setTeamSettingsDefaultTab] =
     useState<SettingsTab>("profile");
-  const openTeamSettingsDialog = useCallback(
-    (tab: SettingsTab = "profile") => {
-      setTeamSettingsDefaultTab(tab);
-      setTeamSettingsDialogOpen(true);
-    },
-    [],
-  );
+  const openTeamSettingsDialog = useCallback((tab: SettingsTab = "profile") => {
+    setTeamSettingsDefaultTab(tab);
+    setTeamSettingsDialogOpen(true);
+  }, []);
   const showClaudeConnectionSettings = useCallback(() => {
     openTeamSettingsDialog("claude");
   }, [openTeamSettingsDialog]);
@@ -524,7 +521,7 @@ export default function InternalPrototypePage() {
       setIsPublic(normalizedVisibility === "PUBLIC");
       setDeployedUrl(
         data.latest_deploy_key && data.slug
-          ? `${data.slug}.app.nucleate.dev`
+          ? `${data.slug}.nucleate.site`
           : null,
       );
 

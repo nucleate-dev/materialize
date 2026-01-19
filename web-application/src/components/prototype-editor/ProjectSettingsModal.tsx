@@ -458,7 +458,7 @@ export function ProjectSettingsModal({
           return;
         }
 
-        const deployUrl = `https://${normalizedSlug}.app.nucleate.dev`;
+        const deployUrl = `https://${normalizedSlug}.nucleate.site`;
 
         onDeploySuccess?.({
           slug: normalizedSlug,
@@ -553,7 +553,7 @@ export function ProjectSettingsModal({
   const handleCopyDeployUrl = useCallback(() => {
     if (!deploySlug) return;
 
-    const fullUrl = `https://${normalizeSlug(deploySlug)}.app.nucleate.dev`;
+    const fullUrl = `https://${normalizeSlug(deploySlug)}.nucleate.site`;
     navigator.clipboard.writeText(fullUrl);
     setDeployUrlCopied(true);
     setTimeout(() => setDeployUrlCopied(false), 2000);
@@ -1178,7 +1178,7 @@ export function ProjectSettingsModal({
                         placeholder="my-app"
                       />
                       <span className="pr-3 pl-1 text-muted-foreground text-sm whitespace-nowrap">
-                        .app.nucleate.dev
+                        .nucleate.site
                       </span>
                     </div>
                     <Button

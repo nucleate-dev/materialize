@@ -1,7 +1,7 @@
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const DEPLOY_ROOT_DOMAIN =
-  process.env.APPS_DEPLOY_ROOT_DOMAIN || "app.nucleate.dev";
+  process.env.APPS_DEPLOY_ROOT_DOMAIN || "nucleate.site";
 
 export const handler = async (event) => {
   const request = event.Records?.[0]?.cf?.request;

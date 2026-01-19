@@ -372,7 +372,7 @@ export class PrototypeDeploymentService {
     reply.status(HTTP_STATUS.OK);
     return {
       data: {
-        url: `${updatedPrototype.slug}.app.nucleate.dev`,
+        url: `${updatedPrototype.slug}.nucleate.site`,
       },
       error: null,
     };
