@@ -1437,7 +1437,7 @@ const MaterializeRenderSection = forwardRef<
         return;
       }
 
-      let buildStartTimeout: ReturnType<typeof setTimeout> | null = null;
+      let buildStartTimeout: number | null = null;
       let buildStarted = false;
       let hasInitiatedBuildRequest = false;
       let buildStartToastId: string | number | null = null;
@@ -1508,7 +1508,7 @@ const MaterializeRenderSection = forwardRef<
           setIsTerminalOpen(true);
           setActiveTerminalSession("build");
           toast.warning(warningMessage);
-          logger.debug("info", "Build already in progress", {
+          logger.debug("log", "Build already in progress", {
             prototypeId,
             warningMessage,
           });
@@ -1533,7 +1533,7 @@ const MaterializeRenderSection = forwardRef<
             "There have been no changes since the last build";
           resetBuildStartUI();
           toast.info(alreadyValidMessage);
-          logger.debug("info", "Build already valid", {
+          logger.debug("log", "Build already valid", {
             prototypeId,
             message: result.data?.message ?? alreadyValidMessage,
           });
