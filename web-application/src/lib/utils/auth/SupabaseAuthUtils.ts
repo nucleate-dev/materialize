@@ -261,26 +261,19 @@ export async function signInWithOAuth(
  * Signs in a user using Enterprise SSO.
  *
  * This function uses Supabase's `signInWithSSO` method to authenticate a user using
- * their organization's SSO provider. The user can authenticate either by providing
- * their email domain or their organization's SSO provider ID.
+ * their organization's SSO provider. The user must provide their email domain, which
+ * Supabase uses to look up the configured SSO provider.
  *
  * @param {Object} params - An object containing SSO authentication parameters.
- * @param {string} [params.domain] - The email domain of the user's organization (e.g., "acme.com").
- * @param {string} [params.providerId] - The UUID of the SSO provider configured in Supabase.
+ * @param {string} params.domain - The email domain of the user's organization (e.g., "acme.com"). Required.
  * @param {string | null} [params.redirectTo] - Optional URL to redirect after authentication.
  *
  * @returns {Promise<{data: {url: string} | null, error: AuthError | null}>} - A promise that resolves
  * to an object containing the SSO redirect URL or an error.
  *
  * @example
- * // Sign in with domain
+ * // Sign in with domain extracted from email
  * const response = await signInWithSSO({ domain: "acme.com", redirectTo: "/auth/callback" });
- *
- * // Sign in with provider ID
- * const response = await signInWithSSO({
- *   providerId: "f5b63811-907d-42ee-a6e4-76e86a08a0ab",
- *   redirectTo: "/auth/callback"
- * });
  *
  * if (response.error) {
  *   console.error("SSO sign-in failed:", response.error.message);
@@ -290,11 +283,9 @@ export async function signInWithOAuth(
  */
 export async function signInWithSSO({
   domain,
-  providerId,
   redirectTo = null,
 }: {
-  domain?: string;
-  providerId?: string;
+  domain: string;
   redirectTo?: string | null;
 }): Promise<{ data: { url: string } | null; error: AuthError | null }> {
   const baseUrl =
@@ -302,19 +293,8 @@ export async function signInWithSSO({
     (typeof window !== "undefined" ? window.location.origin : "");
   const fullRedirectUrl = `${baseUrl}${redirectTo || "/auth/callback"}`;
 
-  if (!domain && !providerId) {
-    return {
-      data: null,
-      error: {
-        name: "ValidationError",
-        message: "Either domain or providerId must be provided for SSO sign-in",
-      } as AuthError,
-    };
-  }
-
   return await supabase.auth.signInWithSSO({
     domain,
-    providerId,
     options: {
       redirectTo: fullRedirectUrl,
     },
