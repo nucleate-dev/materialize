@@ -146,7 +146,7 @@ begin
       -- Create team with SSO provider ID (handle concurrent inserts)
       insert into public.teams (name, created_by, sso_provider_id)
       values (v_team_name, new.user_id, v_sso_provider_id)
-      on conflict (sso_provider_id) do update
+      on conflict on constraint teams_sso_provider_id_key do update
         set name = public.teams.name  -- no-op to allow RETURNING
       returning id into v_team_id;
     end if;
@@ -163,11 +163,11 @@ begin
     values (
       v_team_id,
       new.user_id,
-      case
+      (case
         when exists (select 1 from public.team_memberships where team_id = v_team_id)
         then 'viewer'
         else 'owner'
-      end,
+      end)::team_role,
       now()
     )
     on conflict (team_id, user_id) do nothing;
