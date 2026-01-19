@@ -325,7 +325,8 @@ const DashboardSidebarContent = () => {
                 });
                 setSettingsDefaultTab("profile");
                 setSettingsDialogOpen(true);
-                handleMobileLinkClick();
+                // Don't close mobile sidebar here - it conflicts with dialog opening
+                // The dialog overlay will cover the sidebar anyway
               }}
             >
               {isCollapsed ? (
