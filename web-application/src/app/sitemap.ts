@@ -15,6 +15,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
   const routes = [
     "",
     "/blog",
+    "/for-vibe-coding",
     "/privacy-policy",
     "/terms-and-conditions",
     "/faqs",

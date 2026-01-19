@@ -246,7 +246,7 @@ export function TeamSelector({
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <Zap className="w-5 h-5 text-warning" />
-                      <span className="font-semibold text-sm">Turn Pro</span>
+                      <span className="font-semibold text-sm">Upgrade to Plus</span>
                     </div>
                     <Button
                       onClick={handleUpgrade}
