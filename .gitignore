@@ -192,6 +192,13 @@ venv/
 ENV/
 
 # ============================================
+# Custom SAML XML Files
+# ============================================
+supabase/saml/
+supabase/saml/**
+
+
+# ============================================
 # Custom Project-Specific
 # ============================================
 # Add any project-specific files below
