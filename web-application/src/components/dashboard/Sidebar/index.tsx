@@ -217,6 +217,10 @@ const DashboardSidebarContent = () => {
           onOpenSettings={(tab) => {
             setSettingsDefaultTab(tab);
             setSettingsDialogOpen(true);
+            // Close mobile sidebar when dialog opens
+            if (isMobile) {
+              setOpenMobile(false);
+            }
           }}
         />
       </div>
@@ -325,8 +329,10 @@ const DashboardSidebarContent = () => {
                 });
                 setSettingsDefaultTab("profile");
                 setSettingsDialogOpen(true);
-                // Don't close mobile sidebar here - it conflicts with dialog opening
-                // The dialog overlay will cover the sidebar anyway
+                // Close mobile sidebar when dialog opens
+                if (isMobile) {
+                  setOpenMobile(false);
+                }
               }}
             >
               {isCollapsed ? (
