@@ -1,0 +1,13 @@
+{
+  "keys": {
+    "given_name": {
+      "name": "given_name"
+    },
+    "family_name": {
+      "name": "family_name"
+    },
+    "full_name": {
+      "name": "name"
+    }
+  }
+}
