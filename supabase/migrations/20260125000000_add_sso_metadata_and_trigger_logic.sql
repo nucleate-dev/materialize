@@ -22,10 +22,8 @@ declare
   v_team_name text;
   v_is_sso_user boolean;
 begin
-  -- Detect if this is an SSO/SAML user (check for both 'saml' and 'sso:' patterns)
-  v_is_sso_user :=
-    coalesce(new.raw_app_meta_data ->> 'provider', '') = 'saml'
-    or coalesce(new.raw_app_meta_data ->> 'provider', '') like 'sso:%';
+  -- Detect if this is an SSO user (enterprise SSO uses 'sso:<uuid>' format)
+  v_is_sso_user := coalesce(new.raw_app_meta_data ->> 'provider', '') like 'sso:%';
 
   -- 1) Upsert into public.users (with is_sso_user flag)
   insert into public.users (id, email, name, avatar_url, created_at, is_sso_user)
@@ -104,29 +102,16 @@ declare
   v_email_domain text;
   v_team_exists boolean;
 begin
-  -- Extract SSO provider UUID from provider column (format: sso:<uuid> or saml)
-  if new.provider like 'sso:%' or new.provider = 'saml' then
-    -- Extract UUID from provider string
-    if new.provider like 'sso:%' then
-      begin
-        v_sso_provider_id := substring(new.provider from 5)::uuid;
-      exception
-        when others then
-          select email into v_user_email from auth.users where id = new.user_id;
-          raise warning 'Invalid SSO provider UUID format for user % (email: %): %', new.user_id, v_user_email, new.provider;
-          return new;
-      end;
-    else
-      -- For 'saml' provider, try to get SSO provider ID from identity_data
-      begin
-        v_sso_provider_id := (new.identity_data ->> 'sso_provider_id')::uuid;
-      exception
-        when others then
-          select email into v_user_email from auth.users where id = new.user_id;
-          raise warning 'SAML identity missing sso_provider_id for user % (email: %)', new.user_id, v_user_email;
-          return new;
-      end;
-    end if;
+  -- Extract SSO provider UUID from provider column (format: sso:<uuid>)
+  if new.provider like 'sso:%' then
+    begin
+      v_sso_provider_id := substring(new.provider from 5)::uuid;
+    exception
+      when others then
+        select email into v_user_email from auth.users where id = new.user_id;
+        raise warning 'Invalid SSO provider UUID format for user % (email: %): %', new.user_id, v_user_email, new.provider;
+        return new;
+    end;
 
     -- Get user email
     select email into v_user_email from auth.users where id = new.user_id;
