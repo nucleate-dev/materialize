@@ -118,7 +118,7 @@ export default function ShippingSection() {
                     <div className="text-sm text-muted-foreground mb-2">
                       feat: Add onboarding flow
                     </div>
-                    <div className="px-2 py-1 bg-emerald-500/20 rounded text-xs text-emerald-400 w-fit animate-scale-in" style={{ animationDelay: '300ms' }}>
+                    <div className="px-2 py-1 bg-emerald-500/20 rounded text-xs text-emerald-400 w-fit">
                       Ready to merge
                     </div>
                   </div>
@@ -138,8 +138,7 @@ export default function ShippingSection() {
                     ].map((line, i) => (
                       <div
                         key={i}
-                        className={`text-xs font-mono px-2 py-1 rounded ${line.color} opacity-0 animate-fade-in`}
-                        style={{ animationDelay: `${(i + 1) * 150}ms` }}
+                        className={`text-xs font-mono px-2 py-1 rounded ${line.color}`}
                       >
                         {line.text}
                       </div>
