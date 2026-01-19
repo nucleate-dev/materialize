@@ -183,7 +183,7 @@ function HeroSection() {
   return (
     <section className="relative min-h-[80vh] flex flex-col justify-center px-6 py-20">
       <div className="container mx-auto max-w-5xl w-full text-center">
-        <h1 className="text-5xl md:text-7xl lg:text-8xl font-medium tracking-tight text-transparent bg-clip-text bg-gradient-to-b from-white via-white to-white/60 pb-2 mb-6">
+        <h1 className="text-5xl md:text-7xl lg:text-8xl font-medium tracking-tight text-transparent bg-clip-text bg-gradient-to-b from-foreground via-foreground to-foreground/60 pb-2 mb-6">
           AI to build anything
         </h1>
         <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-12">
@@ -431,7 +431,7 @@ function VariantsSection() {
               onClick={() => setActiveTab(tab.id)}
               className={`px-6 py-3 rounded-full text-sm font-medium flex items-center gap-2 transition-all duration-300 border ${
                 activeTab === tab.id
-                  ? "bg-white text-black border-white shadow-[0_0_20px_rgba(255,255,255,0.2)]"
+                  ? "bg-foreground text-background border-foreground shadow-[0_0_20px_rgba(0,0,0,0.1)] dark:shadow-[0_0_20px_rgba(255,255,255,0.2)]"
                   : "bg-card/50 text-muted-foreground border-border hover:bg-card hover:text-foreground"
               }`}
             >
@@ -2365,46 +2365,6 @@ function PricingSection() {
   return (
     <section className="py-32 bg-background border-t border-border">
       <div className="container mx-auto px-6 max-w-6xl">
-        {/* New Year Sale Banner */}
-        <div className="mb-12 relative overflow-hidden rounded-2xl bg-gradient-to-r from-amber-500/20 via-yellow-500/20 to-amber-500/20 border border-yellow-500/30 p-6">
-          <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxIiBmaWxsPSJyZ2JhKDI1NSwyMTUsMCwwLjEpIi8+PC9zdmc+')] opacity-50"></div>
-          <div className="relative flex flex-col md:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-4">
-              <div className="text-4xl">🎉</div>
-              <div>
-                <h3 className="text-xl font-bold text-foreground">
-                  New Year Sale!
-                </h3>
-                <p className="text-yellow-200/80 text-sm">
-                  Get 50% off your first month of Plus
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3">
-              <div className="bg-background/30 backdrop-blur-sm rounded-lg px-4 py-2 border border-yellow-500/20">
-                <span className="text-xs text-yellow-200/60 uppercase tracking-wide">
-                  Use code
-                </span>
-                <p className="text-lg font-mono font-bold text-yellow-400">
-                  NEWYEAR
-                </p>
-              </div>
-              <div className="text-center">
-                <p className="text-xs text-yellow-200/60">Plus Plan</p>
-                <div className="flex items-center gap-2">
-                  <span className="text-lg text-muted-foreground line-through">
-                    $25
-                  </span>
-                  <span className="text-2xl font-bold text-foreground">
-                    $12.50
-                  </span>
-                </div>
-                <p className="text-xs text-yellow-200/60">first month</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
         <div className="text-center mb-12">
           <h2 className="text-4xl font-medium text-foreground mb-4">
             Simple pricing
@@ -2439,7 +2399,7 @@ function PricingSection() {
               </div>
               <Button
                 onClick={() => handleGetStarted(plan.productKey)}
-                className={`w-full h-11 rounded-full text-sm font-medium transition-all mb-8 ${plan.highlighted ? "bg-white text-black hover:bg-white/90" : "bg-accent text-foreground hover:bg-accent border border-border"}`}
+                className={`w-full h-11 rounded-full text-sm font-medium transition-all mb-8 ${plan.highlighted ? "bg-foreground text-background hover:bg-foreground/90" : "bg-accent text-foreground hover:bg-accent border border-border"}`}
               >
                 {plan.cta}
               </Button>
