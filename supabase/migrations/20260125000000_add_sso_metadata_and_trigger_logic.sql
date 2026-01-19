@@ -126,7 +126,7 @@ begin
 
     v_team_exists := v_team_id is not null;
 
-    -- Auto-create team if it doesn't exist
+    -- Auto-create team if it doesn't exist (idempotent for concurrent logins)
     if not v_team_exists then
       -- Generate team name from email domain or use fallback
       v_team_name := coalesce(
@@ -144,9 +144,11 @@ begin
         'Organization Team'
       );
 
-      -- Create team with SSO provider ID
+      -- Create team with SSO provider ID (handle concurrent inserts)
       insert into public.teams (name, created_by, sso_provider_id)
       values (v_team_name, new.user_id, v_sso_provider_id)
+      on conflict (sso_provider_id) do update
+        set name = public.teams.name  -- no-op to allow RETURNING
       returning id into v_team_id;
     end if;
 
@@ -156,12 +158,17 @@ begin
       where id = new.user_id;
 
     -- Add user to team
-    -- First user (who triggered auto-creation) becomes owner, subsequent users are viewers
+    -- First user becomes owner, subsequent users are viewers
+    -- Check if any memberships already exist to determine role (handles concurrent logins)
     insert into public.team_memberships (team_id, user_id, role, created_at)
     values (
       v_team_id,
       new.user_id,
-      case when v_team_exists then 'viewer' else 'owner' end,
+      case
+        when exists (select 1 from public.team_memberships where team_id = v_team_id)
+        then 'viewer'
+        else 'owner'
+      end,
       now()
     )
     on conflict (team_id, user_id) do nothing;
