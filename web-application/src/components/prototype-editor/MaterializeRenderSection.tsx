@@ -610,6 +610,10 @@ const MaterializeRenderSection = forwardRef<
     const [isResizingWebFrame, setIsResizingWebFrame] = useState(false);
     const [hasManuallyResizedWebFrame, setHasManuallyResizedWebFrame] =
       useState(false);
+    // Web mobile size mode - constrains web view iframe to mobile dimensions
+    const [isWebMobileSize, setIsWebMobileSize] = useState(false);
+    // Web full-screen mode - expands web view to fill the entire preview area
+    const [isWebFullScreen, setIsWebFullScreen] = useState(false);
 
     // Calculate responsive web frame height based on viewport
     useEffect(() => {
@@ -2447,18 +2451,18 @@ const MaterializeRenderSection = forwardRef<
           {/* Web Screens Grid */}
           <div
             className={cn(
-              "gap-4 h-full",
+              "gap-4 h-full relative",
               !showWebMultiScreen || isNarrowViewport || webScreens.length === 1
                 ? "flex flex-col"
                 : "grid",
-              // Center single screen when manually resized
-              !showWebMultiScreen &&
-                hasManuallyResizedWebFrame &&
-                "items-start justify-center",
+              // Center single screen when manually resized or in mobile size mode
+              (!showWebMultiScreen && hasManuallyResizedWebFrame) && "items-start justify-center",
+              isWebMobileSize && "items-center justify-center",
+              isWebFullScreen && "items-center justify-center",
             )}
             style={{
               gridTemplateColumns:
-                !showWebMultiScreen || isNarrowViewport
+                !showWebMultiScreen || isNarrowViewport || isWebMobileSize || isWebFullScreen
                   ? "1fr"
                   : webGridLayout.gridTemplate,
             }}
@@ -2472,25 +2476,53 @@ const MaterializeRenderSection = forwardRef<
                 const enableResize =
                   !isReadOnlyView && (!showWebMultiScreen || !isNarrowViewport);
 
+                // Mobile size dimensions for web view (iPhone 14 Pro dimensions)
+                const webMobileSizeWidth = 393;
+                const webMobileSizeHeight = 852;
+
                 return (
                   <div
                     key={`web-screen-${screen.id}`}
-                    className="bg-accent rounded-xl border border-border overflow-hidden shadow-sm flex flex-col relative"
+                    className={cn(
+                      "bg-accent rounded-xl border border-border overflow-hidden shadow-sm flex flex-col relative transition-all duration-300",
+                      isWebMobileSize && !isWebFullScreen && "mx-auto",
+                      isWebFullScreen && "absolute inset-4 z-50 mx-auto shadow-2xl"
+                    )}
                     style={{
-                      // For multi-screen, use minHeight. For single-screen with manual resize, use explicit dimensions
-                      ...(showWebMultiScreen
-                        ? {
-                            minHeight: webFrameHeight,
-                          }
-                        : hasManuallyResizedWebFrame
+                      // Full-screen mode takes priority
+                      ...(isWebFullScreen
+                        ? isWebMobileSize
                           ? {
-                              width: webFrameWidth ?? undefined,
-                              height: webFrameHeight,
+                              // Full-screen + mobile size: centered mobile width, full height
+                              width: webMobileSizeWidth,
                               maxWidth: "100%",
+                              inset: "1rem auto",
+                              left: "50%",
+                              transform: "translateX(-50%)",
                             }
                           : {
-                              height: "100%",
-                            }),
+                              // Full-screen only: fill the area
+                            }
+                        : isWebMobileSize
+                          ? {
+                              // Mobile size only: constrained dimensions
+                              width: webMobileSizeWidth,
+                              height: webMobileSizeHeight,
+                              maxWidth: "100%",
+                            }
+                          : showWebMultiScreen
+                            ? {
+                                minHeight: webFrameHeight,
+                              }
+                            : hasManuallyResizedWebFrame
+                              ? {
+                                  width: webFrameWidth ?? undefined,
+                                  height: webFrameHeight,
+                                  maxWidth: "100%",
+                                }
+                              : {
+                                  height: "100%",
+                                }),
                     }}
                   >
                     {/* Browser Header */}
@@ -2511,8 +2543,44 @@ const MaterializeRenderSection = forwardRef<
                         ) : (
                           <div className="w-2.5 h-2.5 rounded-full bg-red-500/20 border border-red-500/50"></div>
                         )}
-                        <div className="w-2.5 h-2.5 rounded-full bg-amber-500/20 border border-amber-500/50"></div>
-                        <div className="w-2.5 h-2.5 rounded-full bg-emerald-500/20 border border-emerald-500/50"></div>
+                        <TooltipProvider delayDuration={200}>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <button
+                                className={cn(
+                                  "w-2.5 h-2.5 rounded-full transition-colors",
+                                  isWebMobileSize
+                                    ? "bg-amber-500 border border-amber-500"
+                                    : "bg-amber-500/20 border border-amber-500/50 hover:bg-amber-500 hover:border-amber-500"
+                                )}
+                                onClick={() => setIsWebMobileSize(!isWebMobileSize)}
+                                aria-label={isWebMobileSize ? "Switch to desktop size" : "Switch to mobile size"}
+                              />
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>{isWebMobileSize ? "Desktop size" : "Mobile size"}</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                        <TooltipProvider delayDuration={200}>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <button
+                                className={cn(
+                                  "w-2.5 h-2.5 rounded-full transition-colors",
+                                  isWebFullScreen
+                                    ? "bg-emerald-500 border border-emerald-500"
+                                    : "bg-emerald-500/20 border border-emerald-500/50 hover:bg-emerald-500 hover:border-emerald-500"
+                                )}
+                                onClick={() => setIsWebFullScreen(!isWebFullScreen)}
+                                aria-label={isWebFullScreen ? "Exit full screen" : "Full screen"}
+                              />
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>{isWebFullScreen ? "Exit full screen" : "Full screen"}</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
                       </div>
 
                       {/* URL Bar */}
@@ -2683,9 +2751,20 @@ const MaterializeRenderSection = forwardRef<
       <div className="flex flex-col h-full bg-background">
         {/* Compact Responsive Toolbar */}
         {showToolbar && (
-          <div className="sticky top-0 z-30 bg-background/80 backdrop-blur-xl px-4 py-3 border-b border-border">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            {/* Left: View Toggles */}
+          <div
+            className={cn(
+              "z-30 bg-background/80 backdrop-blur-xl transition-all duration-300",
+              isWebFullScreen && previewMode === "web"
+                ? "absolute top-4 right-4 px-3 py-2 rounded-xl border border-border shadow-lg"
+                : "sticky top-0 px-4 py-3 border-b border-border"
+            )}
+          >
+          <div className={cn(
+            "flex flex-wrap items-center gap-3",
+            isWebFullScreen && previewMode === "web" ? "justify-end" : "justify-between"
+          )}>
+            {/* Left: View Toggles - hidden in full-screen mode */}
+            {!(isWebFullScreen && previewMode === "web") && (
             <div className="flex items-center gap-3 flex-wrap">
               {/* Expand Chat Button - shown when chat is collapsed */}
               {isChatCollapsed && onExpandChat && (
@@ -2839,6 +2918,7 @@ const MaterializeRenderSection = forwardRef<
                 </div>
               )}
             </div>
+            )}
 
             {/* Right: Actions */}
             <div className="flex items-center gap-2">
@@ -3261,7 +3341,7 @@ const MaterializeRenderSection = forwardRef<
               : "flex items-center justify-center",
           )}
           style={{
-            height: isTerminalOpen
+            height: isTerminalOpen && !(isWebFullScreen && previewMode === "web")
               ? `calc(100% - ${terminalHeight}px)`
               : "100%",
             transition: isResizingTerminal ? "none" : "height 0.2s ease-in-out",
@@ -3350,8 +3430,8 @@ const MaterializeRenderSection = forwardRef<
           )}
         </div>
 
-        {/* Terminal Panel */}
-        {!isReadOnlyView && isTerminalOpen && (
+        {/* Terminal Panel - hidden in full-screen mode */}
+        {!isReadOnlyView && isTerminalOpen && !(isWebFullScreen && previewMode === "web") && (
           <div
             className="relative border-t border-border bg-background"
             style={{ height: `${terminalHeight}px` }}
