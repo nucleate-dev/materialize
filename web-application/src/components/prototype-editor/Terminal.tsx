@@ -155,7 +155,7 @@ export default function Terminal({
   }, [onResize, baseTunnelUrl]);
 
   useEffect(() => {
-    const instance = terminalInstancesMap.current.get(activeSession);
+    const instance = terminalInstancesMap.current.get(resolvedActiveSession);
 
     // requestAnimationFrame ensures the DOM has updated from 'hidden' to 'block'
     // before we attempt to calculate the fit dimensions.
@@ -174,7 +174,7 @@ export default function Terminal({
     });
 
     return () => cancelAnimationFrame(frameId);
-  }, [activeSession, onResize]);
+  }, [resolvedActiveSession, onResize]);
 
   // Handle resize for all terminals
   useEffect(() => {

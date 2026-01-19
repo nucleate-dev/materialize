@@ -256,3 +256,47 @@ export async function signInWithOAuth(
     },
   });
 }
+
+/**
+ * Signs in a user using Enterprise SSO.
+ *
+ * This function uses Supabase's `signInWithSSO` method to authenticate a user using
+ * their organization's SSO provider. The user must provide their email domain, which
+ * Supabase uses to look up the configured SSO provider.
+ *
+ * @param {Object} params - An object containing SSO authentication parameters.
+ * @param {string} params.domain - The email domain of the user's organization (e.g., "acme.com"). Required.
+ * @param {string | null} [params.redirectTo] - Optional URL to redirect after authentication.
+ *
+ * @returns {Promise<{data: {url: string} | null, error: AuthError | null}>} - A promise that resolves
+ * to an object containing the SSO redirect URL or an error.
+ *
+ * @example
+ * // Sign in with domain extracted from email
+ * const response = await signInWithSSO({ domain: "acme.com", redirectTo: "/auth/callback" });
+ *
+ * if (response.error) {
+ *   console.error("SSO sign-in failed:", response.error.message);
+ * } else if (response.data?.url) {
+ *   window.location.href = response.data.url; // Redirect to SSO provider
+ * }
+ */
+export async function signInWithSSO({
+  domain,
+  redirectTo = null,
+}: {
+  domain: string;
+  redirectTo?: string | null;
+}): Promise<{ data: { url: string } | null; error: AuthError | null }> {
+  const baseUrl =
+    process.env.NEXT_PUBLIC_SITE_BASE_URL ||
+    (typeof window !== "undefined" ? window.location.origin : "");
+  const fullRedirectUrl = `${baseUrl}${redirectTo || "/auth/callback"}`;
+
+  return await supabase.auth.signInWithSSO({
+    domain,
+    options: {
+      redirectTo: fullRedirectUrl,
+    },
+  });
+}
