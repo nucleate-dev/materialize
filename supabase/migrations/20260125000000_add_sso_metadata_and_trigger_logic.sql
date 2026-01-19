@@ -98,6 +98,9 @@ declare
   v_sso_provider_id uuid;
   v_team_id uuid;
   v_user_email text;
+  v_team_name text;
+  v_email_domain text;
+  v_team_exists boolean;
 begin
   -- Extract SSO provider UUID from provider column (format: sso:<uuid>)
   if new.provider like 'sso:%' then
@@ -111,7 +114,7 @@ begin
         return new;
     end;
 
-    -- Get user email for error messages
+    -- Get user email
     select email into v_user_email from auth.users where id = new.user_id;
 
     -- Find team with this SSO provider
@@ -121,8 +124,30 @@ begin
       where sso_provider_id = v_sso_provider_id
       limit 1;
 
-    if v_team_id is null then
-      raise exception 'No team configured for sso_provider_id % (user: %, email: %)', v_sso_provider_id, new.user_id, v_user_email;
+    v_team_exists := v_team_id is not null;
+
+    -- Auto-create team if it doesn't exist
+    if not v_team_exists then
+      -- Generate team name from email domain or use fallback
+      v_team_name := coalesce(
+        -- Try to extract domain and capitalize first letter
+        case
+          when v_user_email is not null and position('@' in v_user_email) > 1
+          then
+            (
+              select
+                initcap(split_part(split_part(v_user_email, '@', 2), '.', 1)) || ' Team'
+            )
+          else null
+        end,
+        -- Fallback to generic name
+        'Organization Team'
+      );
+
+      -- Create team with SSO provider ID
+      insert into public.teams (name, created_by, sso_provider_id)
+      values (v_team_name, new.user_id, v_sso_provider_id)
+      returning id into v_team_id;
     end if;
 
     -- Mark user as SSO user
@@ -130,9 +155,15 @@ begin
       set is_sso_user = true
       where id = new.user_id;
 
-    -- Add user to team as viewer
+    -- Add user to team
+    -- First user (who triggered auto-creation) becomes owner, subsequent users are viewers
     insert into public.team_memberships (team_id, user_id, role, created_at)
-    values (v_team_id, new.user_id, 'viewer', now())
+    values (
+      v_team_id,
+      new.user_id,
+      case when v_team_exists then 'viewer' else 'owner' end,
+      now()
+    )
     on conflict (team_id, user_id) do nothing;
   end if;
 
