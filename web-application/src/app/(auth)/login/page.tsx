@@ -29,7 +29,7 @@ function LoginContent() {
       <div className="relative z-10">
         <PremiumHeader />
 
-        <div className="flex items-center justify-center px-4 py-8 md:py-16 min-h-[calc(100vh-80px)]">
+        <div className="flex items-center justify-center px-4 pb-8 pt-24 md:pb-16 md:pt-32 min-h-[calc(100vh-96px)] md:min-h-[calc(100vh-112px)]">
           <div className="w-full max-w-md space-y-6">
             <div className="text-center space-y-2">
               <h1 className="text-3xl md:text-5xl font-extrabold tracking-tight">
