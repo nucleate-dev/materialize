@@ -8,6 +8,7 @@ import {
 } from "@/hooks/useTeamMembers";
 import { useTeamInvites } from "@/hooks/useTeamInvites";
 import { useUserTeams } from "@/hooks/useUserTeams";
+import { useCustomUserRow } from "@/hooks/useCustomUserRow";
 import { Database } from "@/lib/types/supabase";
 import { supabase } from "@/ClientConstants";
 import {
@@ -35,6 +36,8 @@ interface TeamContextValue {
   isLoadingMembership: boolean;
   isLoadingMembers: boolean;
   isLoadingInvites: boolean;
+  isCurrentUserSsoUser: boolean;
+  isActiveTeamSsoEnabled: boolean;
 }
 
 const TeamContext = createContext<TeamContextValue | undefined>(undefined);
@@ -43,6 +46,7 @@ export function TeamProvider({ children }: { children: ReactNode }) {
   const { team: personalTeam, isLoading: personalTeamLoading } =
     usePersonalTeam();
   const { teams: userTeams, isLoading: userTeamsLoading } = useUserTeams();
+  const { userRow, isLoading: userRowLoading } = useCustomUserRow();
   const [activeTeam, setActiveTeam] = useState<Team | null>(null);
   const [signedAvatarUrl, setSignedAvatarUrl] = useState<string | null>(null);
 
@@ -56,37 +60,55 @@ export function TeamProvider({ children }: { children: ReactNode }) {
     activeTeam?.id,
   );
 
-  // Initialize with last active team from localStorage, or fall back to personal team
+  // Initialize with last active team from localStorage, or fall back appropriately
   useEffect(() => {
     if (
-      !activeTeam &&
-      !userTeamsLoading &&
-      !personalTeamLoading &&
-      personalTeam
+      activeTeam ||
+      userTeamsLoading ||
+      personalTeamLoading ||
+      userRowLoading
     ) {
-      const lastActiveTeamId = localStorage.getItem(LAST_ACTIVE_TEAM_KEY);
+      return;
+    }
 
-      if (lastActiveTeamId) {
-        // Check if the stored team ID is in the user's teams
-        const lastActiveTeam = userTeams.find(
-          (team) => team.id === lastActiveTeamId,
-        );
+    const isSsoUser = userRow?.is_sso_user ?? false;
 
-        if (lastActiveTeam) {
-          setActiveTeam(lastActiveTeam);
-          return;
-        }
+    // Try to restore last active team from localStorage
+    const lastActiveTeamId = localStorage.getItem(LAST_ACTIVE_TEAM_KEY);
+    if (lastActiveTeamId) {
+      const lastActiveTeam = userTeams.find(
+        (team) => team.id === lastActiveTeamId,
+      );
+      if (lastActiveTeam) {
+        setActiveTeam(lastActiveTeam);
+        return;
       }
+    }
 
-      // Fall back to personal team
-      setActiveTeam(personalTeam);
+    // Fall back based on user type
+    if (isSsoUser) {
+      // SSO users don't have personal teams, default to their first team (SSO team)
+      const ssoTeam = userTeams.find((team) => team.sso_provider_id !== null);
+      if (ssoTeam) {
+        setActiveTeam(ssoTeam);
+      } else if (userTeams.length > 0) {
+        // Fallback to any team if no SSO team found
+        setActiveTeam(userTeams[0]);
+      }
+    } else {
+      // Non-SSO users should have a personal team
+      if (personalTeam) {
+        setActiveTeam(personalTeam);
+      }
     }
   }, [
     activeTeam,
     userTeamsLoading,
     personalTeamLoading,
+    userRowLoading,
     personalTeam,
     userTeams,
+    userRow,
   ]);
 
   // Save active team to localStorage when it changes
@@ -123,6 +145,10 @@ export function TeamProvider({ children }: { children: ReactNode }) {
     generateSignedUrl();
   }, [activeTeam?.id, activeTeam?.avatar_url]);
 
+  // Compute SSO-related values
+  const isCurrentUserSsoUser = userRow?.is_sso_user ?? false;
+  const isActiveTeamSsoEnabled = activeTeam?.sso_provider_id !== null;
+
   return (
     <TeamContext.Provider
       value={{
@@ -136,6 +162,8 @@ export function TeamProvider({ children }: { children: ReactNode }) {
         isLoadingMembership,
         isLoadingMembers,
         isLoadingInvites,
+        isCurrentUserSsoUser,
+        isActiveTeamSsoEnabled,
       }}
     >
       {children}
