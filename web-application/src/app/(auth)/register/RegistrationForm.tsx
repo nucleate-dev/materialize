@@ -19,7 +19,7 @@ import {
   signUp,
 } from "@/lib/utils/auth/SupabaseAuthUtils";
 import { useAtom } from "jotai";
-import { Loader2, Sparkles } from "lucide-react";
+import { ArrowLeft, Loader2, Sparkles } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   ChangeEvent,
@@ -275,16 +275,32 @@ export default function RegistrationForm() {
       {/* Premium Container */}
       <div className="bg-card border border-border rounded-2xl shadow-2xl overflow-hidden">
         {/* Header */}
-        <div className="px-8 pt-8 pb-6 text-center space-y-2 border-b border-border bg-accent/30">
+        <div className="px-8 pt-8 pb-6 text-center space-y-2 border-b border-border bg-accent/30 relative">
+          {showSsoInput && (
+            <button
+              type="button"
+              onClick={() => {
+                setShowSsoInput(false);
+                setSsoEmail("");
+                setErrorMessage("");
+              }}
+              className="absolute left-8 top-8 flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span>Back</span>
+            </button>
+          )}
           <div className="mx-auto w-10 h-10 bg-background/70 rounded-xl flex items-center justify-center border border-border mb-4 shadow-inner">
             <Sparkles className="w-5 h-5 text-foreground" />
           </div>
           <h2 className="text-2xl font-medium tracking-tight text-foreground">
-            Create an account
+            {showSsoInput ? "Sign in with SSO" : "Create an account"}
           </h2>
-          <p className="text-muted-foreground text-sm">
-            Enter your details to get started with Nucleate
-          </p>
+          {!showSsoInput && (
+            <p className="text-muted-foreground text-sm">
+              Enter your details to get started with Nucleate
+            </p>
+          )}
         </div>
 
         {/* Content */}
@@ -298,7 +314,47 @@ export default function RegistrationForm() {
               {errorMessage}
             </div>
           )}
-          <form onSubmit={handleSubmit} className="space-y-5">
+
+          {showSsoInput ? (
+            // SSO Form Only
+            <form onSubmit={handleSsoSignIn} className="space-y-5">
+              <div className="space-y-1.5">
+                <Label
+                  htmlFor="sso-email"
+                  className="text-xs font-medium text-muted-foreground"
+                >
+                  Work Email
+                </Label>
+                <Input
+                  id="sso-email"
+                  type="email"
+                  placeholder="you@company.com"
+                  autoComplete="email"
+                  autoFocus
+                  required
+                  value={ssoEmail}
+                  onChange={(e) => setSsoEmail(e.target.value)}
+                  disabled={isSsoLoading}
+                  className="h-10 bg-background"
+                />
+              </div>
+              <Button
+                type="submit"
+                size="lg"
+                className="w-full"
+                disabled={isSsoLoading}
+              >
+                {isSsoLoading ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  "Sign in"
+                )}
+              </Button>
+            </form>
+          ) : (
+            // Main Registration Form
+            <>
+              <form onSubmit={handleSubmit} className="space-y-5">
             {/* Name Fields */}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
@@ -516,83 +572,32 @@ export default function RegistrationForm() {
               provider="google"
             />
 
-            <div className="space-y-2">
-              {!showSsoInput ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="lg"
-                  className="w-full"
-                  onClick={() => setShowSsoInput(true)}
-                >
-                  <svg
-                    className="w-4 h-4 mr-2"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                    xmlns="http://www.w3.org/2000/svg"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"
-                    />
-                  </svg>
-                  Sign in with SSO
-                </Button>
-              ) : (
-                <form onSubmit={handleSsoSignIn} className="space-y-3">
-                  <div className="space-y-1.5">
-                    <Label
-                      htmlFor="sso-email"
-                      className="text-xs font-medium text-muted-foreground"
-                    >
-                      Work Email
-                    </Label>
-                    <Input
-                      id="sso-email"
-                      type="email"
-                      placeholder="you@company.com"
-                      autoComplete="email"
-                      required
-                      value={ssoEmail}
-                      onChange={(e) => setSsoEmail(e.target.value)}
-                      disabled={isSsoLoading}
-                      className="h-10 bg-background"
-                    />
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      type="submit"
-                      size="lg"
-                      className="flex-1"
-                      disabled={isSsoLoading}
-                    >
-                      {isSsoLoading ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                      ) : (
-                        "Continue with SSO"
-                      )}
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="lg"
-                      onClick={() => {
-                        setShowSsoInput(false);
-                        setSsoEmail("");
-                        setErrorMessage("");
-                      }}
-                      disabled={isSsoLoading}
-                    >
-                      Cancel
-                    </Button>
-                  </div>
-                </form>
-              )}
-            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="lg"
+              className="w-full"
+              onClick={() => setShowSsoInput(true)}
+            >
+              <svg
+                className="w-4 h-4 mr-2"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"
+                />
+              </svg>
+              Sign in with SSO
+            </Button>
           </div>
+            </>
+          )}
         </div>
       </div>
     </div>
