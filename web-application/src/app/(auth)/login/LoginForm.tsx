@@ -13,7 +13,7 @@ import {
 } from "@/lib/utils/auth/SupabaseAuthUtils";
 import { Provider } from "@supabase/supabase-js";
 import { useAtom } from "jotai";
-import { Loader2, Lock } from "lucide-react";
+import { ArrowLeft, Loader2, Lock } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
@@ -196,12 +196,26 @@ export default function LoginForm() {
       {/* Premium Card Container */}
       <div className="bg-card border border-border rounded-2xl shadow-2xl overflow-hidden">
         {/* Header */}
-        <div className="px-8 pt-8 pb-6 text-center space-y-2 border-b border-border bg-accent/30">
+        <div className="px-8 pt-8 pb-6 text-center space-y-2 border-b border-border bg-accent/30 relative">
+          {showSsoInput && (
+            <button
+              type="button"
+              onClick={() => {
+                setShowSsoInput(false);
+                setSsoEmail("");
+                setErrorMessage("");
+              }}
+              className="absolute left-8 top-8 flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span>Back</span>
+            </button>
+          )}
           <div className="mx-auto w-10 h-10 bg-background/70 rounded-xl flex items-center justify-center border border-border mb-4 shadow-inner">
             <Lock className="w-5 h-5 text-foreground" />
           </div>
           <h2 className="text-2xl font-medium tracking-tight text-foreground">
-            Login
+            {showSsoInput ? "Sign in with SSO" : "Login"}
           </h2>
         </div>
 
@@ -216,99 +230,138 @@ export default function LoginForm() {
               {errorMessage}
             </div>
           )}
-          <form onSubmit={handleSubmit} className="space-y-5">
-            {/* Email Field */}
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
+
+          {showSsoInput ? (
+            // SSO Form Only
+            <form onSubmit={handleSsoSignIn} className="space-y-5">
+              <div className="space-y-1.5">
                 <Label
-                  htmlFor="email"
+                  htmlFor="sso-email"
                   className="text-xs font-medium text-muted-foreground"
                 >
-                  Email
+                  Work Email
                 </Label>
-                {lastLoginMethod === "email" && (
-                  <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                    Last used
-                  </span>
-                )}
+                <Input
+                  id="sso-email"
+                  type="email"
+                  placeholder="you@company.com"
+                  autoComplete="email"
+                  required
+                  value={ssoEmail}
+                  onChange={(e) => setSsoEmail(e.target.value)}
+                  disabled={isSsoLoading}
+                  className="h-10 bg-background"
+                />
               </div>
-              <Input
-                id="email"
-                name="email"
-                type="email"
-                placeholder="Enter your email"
-                autoComplete="email"
-                required
-                value={email}
-                onChange={handleChange}
-                disabled={isLoading}
-                className="h-10 bg-background"
-              />
-            </div>
-
-            {/* Password Field */}
-            <div className="space-y-1.5">
-              <Label
-                htmlFor="password"
-                className="text-xs font-medium text-muted-foreground"
+              <Button
+                type="submit"
+                size="lg"
+                className="w-full"
+                disabled={isSsoLoading}
               >
-                Password
-              </Label>
-              <Input
-                id="password"
-                name="password"
-                type="password"
-                placeholder="Enter your password"
-                autoComplete="current-password"
-                required
-                value={password}
-                onChange={handleChange}
-                disabled={isLoading}
-                className="h-10 bg-background"
-              />
-            </div>
+                {isSsoLoading ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  "Sign in"
+                )}
+              </Button>
+            </form>
+          ) : (
+            // Main Login Form
+            <>
+              <form onSubmit={handleSubmit} className="space-y-5">
+                {/* Email Field */}
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <Label
+                      htmlFor="email"
+                      className="text-xs font-medium text-muted-foreground"
+                    >
+                      Email
+                    </Label>
+                    {lastLoginMethod === "email" && (
+                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                        Last used
+                      </span>
+                    )}
+                  </div>
+                  <Input
+                    id="email"
+                    name="email"
+                    type="email"
+                    placeholder="Enter your email"
+                    autoComplete="email"
+                    required
+                    value={email}
+                    onChange={handleChange}
+                    disabled={isLoading}
+                    className="h-10 bg-background"
+                  />
+                </div>
 
-            <Button
-              type="submit"
-              size="lg"
-              className="w-full mt-2"
-              disabled={isLoading}
-            >
-              {isLoading ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                "Sign in"
-              )}
-            </Button>
-          </form>
+                {/* Password Field */}
+                <div className="space-y-1.5">
+                  <Label
+                    htmlFor="password"
+                    className="text-xs font-medium text-muted-foreground"
+                  >
+                    Password
+                  </Label>
+                  <Input
+                    id="password"
+                    name="password"
+                    type="password"
+                    placeholder="Enter your password"
+                    autoComplete="current-password"
+                    required
+                    value={password}
+                    onChange={handleChange}
+                    disabled={isLoading}
+                    className="h-10 bg-background"
+                  />
+                </div>
 
-          <div className="relative py-2">
-            <div className="absolute inset-0 flex items-center">
-              <Separator className="w-full" />
-            </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-card px-2 text-muted-foreground">Or</span>
-            </div>
-          </div>
+                <Button
+                  type="submit"
+                  size="lg"
+                  className="w-full mt-2"
+                  disabled={isLoading}
+                >
+                  {isLoading ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    "Sign in"
+                  )}
+                </Button>
+              </form>
 
-          <div className="grid grid-cols-1 gap-2">
-            <div className="relative">
-              <OAuthSignInButton
-                onClick={async () => {
-                  await handleOAuthSignIn("google");
-                }}
-                provider="google"
-                showOnlyLogo={false}
-              />
-              {lastLoginMethod === "google" && (
-                <span className="absolute top-1/2 right-3 -translate-y-1/2 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 pointer-events-none">
-                  Last used
-                </span>
-              )}
-            </div>
+              <div className="relative py-2">
+                <div className="absolute inset-0 flex items-center">
+                  <Separator className="w-full" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-card px-2 text-muted-foreground">
+                    Or
+                  </span>
+                </div>
+              </div>
 
-            <div className="space-y-2">
-              {!showSsoInput ? (
+              <div className="grid grid-cols-1 gap-2">
+                <div className="relative">
+                  <OAuthSignInButton
+                    onClick={async () => {
+                      await handleOAuthSignIn("google");
+                    }}
+                    provider="google"
+                    showOnlyLogo={false}
+                  />
+                  {lastLoginMethod === "google" && (
+                    <span className="absolute top-1/2 right-3 -translate-y-1/2 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 pointer-events-none">
+                      Last used
+                    </span>
+                  )}
+                </div>
+
                 <div className="relative">
                   <Button
                     type="button"
@@ -339,67 +392,18 @@ export default function LoginForm() {
                     </span>
                   )}
                 </div>
-              ) : (
-                <form onSubmit={handleSsoSignIn} className="space-y-3">
-                  <div className="space-y-1.5">
-                    <Label
-                      htmlFor="sso-email"
-                      className="text-xs font-medium text-muted-foreground"
-                    >
-                      Work Email
-                    </Label>
-                    <Input
-                      id="sso-email"
-                      type="email"
-                      placeholder="you@company.com"
-                      autoComplete="email"
-                      required
-                      value={ssoEmail}
-                      onChange={(e) => setSsoEmail(e.target.value)}
-                      disabled={isSsoLoading}
-                      className="h-10 bg-background"
-                    />
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      type="submit"
-                      size="lg"
-                      className="flex-1"
-                      disabled={isSsoLoading}
-                    >
-                      {isSsoLoading ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                      ) : (
-                        "Continue with SSO"
-                      )}
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="lg"
-                      onClick={() => {
-                        setShowSsoInput(false);
-                        setSsoEmail("");
-                        setErrorMessage("");
-                      }}
-                      disabled={isSsoLoading}
-                    >
-                      Cancel
-                    </Button>
-                  </div>
-                </form>
-              )}
-            </div>
-          </div>
+              </div>
 
-          <div className="text-center text-sm">
-            <Link
-              href="/forgot_password"
-              className="text-muted-foreground hover:text-foreground transition-colors text-xs"
-            >
-              Forgot your password?
-            </Link>
-          </div>
+              <div className="text-center text-sm">
+                <Link
+                  href="/forgot_password"
+                  className="text-muted-foreground hover:text-foreground transition-colors text-xs"
+                >
+                  Forgot your password?
+                </Link>
+              </div>
+            </>
+          )}
         </div>
       </div>
     </div>
