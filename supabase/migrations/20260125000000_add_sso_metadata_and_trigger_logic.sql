@@ -30,7 +30,14 @@ begin
   values (
     new.id,
     new.email,
-    new.raw_user_meta_data ->> 'full_name',
+    -- Construct name from full_name (OAuth/email) or first_name+last_name (SSO)
+    coalesce(
+      nullif(trim(new.raw_user_meta_data ->> 'full_name'), ''),
+      nullif(trim(
+        coalesce(new.raw_user_meta_data ->> 'first_name', '') || ' ' ||
+        coalesce(new.raw_user_meta_data ->> 'last_name', '')
+      ), '')
+    ),
     new.raw_user_meta_data ->> 'avatar_url',
     now(),
     v_is_sso_user
