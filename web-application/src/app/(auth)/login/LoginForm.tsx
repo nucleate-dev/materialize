@@ -246,6 +246,7 @@ export default function LoginForm() {
                   type="email"
                   placeholder="you@company.com"
                   autoComplete="email"
+                  autoFocus
                   required
                   value={ssoEmail}
                   onChange={(e) => setSsoEmail(e.target.value)}
