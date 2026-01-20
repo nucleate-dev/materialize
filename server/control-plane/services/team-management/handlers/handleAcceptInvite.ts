@@ -170,6 +170,42 @@ export default async function handleAcceptInviteImpl(
       };
     }
 
+    // Check if user is an SSO user
+    const { data: userRecord, error: userError } = await supabaseClient
+      .from('users')
+      .select('is_sso_user')
+      .eq('id', user.id)
+      .single();
+
+    if (userError) {
+      request.log2.error(userError, 'Failed to fetch user record');
+      reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR);
+      return {
+        data: null,
+        error: {
+          error: 'Internal server error',
+          message: 'Failed to verify user status',
+        },
+      };
+    }
+
+    if (userRecord?.is_sso_user) {
+      request.log2.warn('SSO user attempted to accept team invite', {
+        invite_id,
+        user_id: user.id,
+        user_email: user.email,
+      });
+      reply.status(HTTP_STATUS.FORBIDDEN);
+      return {
+        data: null,
+        error: {
+          error: 'SSO user cannot accept invite',
+          message:
+            'SSO users cannot accept team invites. Please create a new non-SSO account with this email to accept the invite.',
+        },
+      };
+    }
+
     // Check if user is already a member of the team
     const { data: existingMembership } = await supabaseClient
       .from('team_memberships')
