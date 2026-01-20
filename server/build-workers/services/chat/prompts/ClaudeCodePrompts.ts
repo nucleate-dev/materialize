@@ -53,10 +53,10 @@ You currently live within a monorepo. Inside the client directory is a Next.js A
 </nextjs_guidance>
 
 <code_organization_web>
-- Styling must use Tailwind CSS utility classes plus shadcn/ui primitives from "@/components/ui/*". Never use inline style objects or CSS modules unless editing globals.css or tailwind.config.
+- Styling must use Tailwind CSS utility classes plus shadcn/ui primitives from "@/components/ui/*". Never use inline style objects or CSS modules unless editing globals.css.
 - You are encouraged to install any missing shadcn components via \`npx shadcn add <component>\` (run through SafeBash) and then import from "@/components/ui"—prefer shadcn for every button, input, dialog, dropdown, etc.
 - Import the \`cn\` helper from "@/lib/utils" when conditional class merging is needed.
-- Theme tokens (colors, spacing, typography, radii) are defined in "src/theme/theme.ts" and wired into Tailwind via CSS variables (e.g., \`bg-background\`, \`text-foreground\`, \`border-border\`). When you need a new token, update the theme file instead of hardcoding hex values.
+- Theme tokens (colors, spacing, typography, radii) are defined in "app/globals.css" using Tailwind v4's @theme block and CSS variables (e.g., \`bg-background\`, \`text-foreground\`, \`border-border\`). When you need a new token, update globals.css instead of hardcoding hex values.
 - Compose UI from existing shared abstractions (e.g., "@/components/shared", "@/components/ui/button"). Reuse design tokens, spacing scale, and motion primitives already defined.
 - Use \`lucide-react\` icons via shadcn helpers (e.g., import { IconName } from "lucide-react";). Never import Expo/vector icons in this environment.
 - Access environment variables through \`process.env.NEXT_PUBLIC_*\` or helper wrappers already in the repo. Never expose secrets to the browser.
@@ -505,11 +505,16 @@ const NATIVEWIND_STACK_INFO = `
 const NEXTJS_STACK_INFO = `
 <stack_info>
 1. Framework: Next.js App Router (TypeScript). Default to Server Components; add "use client" at the top when using hooks, browser APIs, refs, or shadcn components that require it.
-2. Styling: Tailwind CSS + shadcn/ui. Use className utilities plus variants exported by "@/components/ui/*". Never use StyleSheet.create or React Native primitives.
+2. Styling: Tailwind CSS v4 + shadcn/ui. Use className utilities plus variants exported by "@/components/ui/*". Never use StyleSheet.create or React Native primitives.
 3. Import UI primitives from "@/components/ui". Do not recreate components that already exist—extend them via composition. If you need a new primitive, install it via "npx shadcn add <component> <component> <component> ... --yes --overwrite" (run with SafeBash one command at a time, you can install multiple components in one go) and wire it up before using. Always use --yes and --overwrite.
 4. Use the \`cn\` helper from "@/lib/utils" for conditional classes. Avoid template string concatenation.
-5. Theme tokens live in "src/theme/theme.ts" and map to CSS variables (e.g., bg-background, text-foreground, border-border, ring-primary). When adding colors/spacings, update the theme and tailwind config so both light/dark modes stay synchronized.
-6. Global styles belong in app/globals.css or theme files. Never modify tailwind.config or globals unless absolutely necessary and explicitly requested.
+5. CRITICAL - Tailwind CSS v4 Configuration:
+   - There is NO tailwind.config.ts file. Tailwind v4 uses CSS-based configuration.
+   - All theme customization is done in "app/globals.css" using \`@theme { }\` blocks.
+   - Color tokens are defined as CSS variables in :root and .dark selectors, then mapped in @theme (e.g., \`--color-primary: hsl(var(--primary));\`).
+   - To add new colors: add the HSL values to :root/.dark, then map them in @theme with the --color-* prefix.
+   - Use semantic color classes like bg-primary, text-foreground, border-border (these map to the @theme definitions).
+6. Global styles and theme tokens all live in app/globals.css. Modify this file to add new theme tokens or adjust existing ones.
 7. When accessing browser-only APIs (window, document, localStorage, IntersectionObserver, etc.), wrap logic in useEffect/useMemo and ensure the component is marked "use client".
 8. Icons: use lucide-react. Load fonts through \`next/font\` or utilities already present.
 9. Use SafeWrite/SafeBash tools exactly as documented. Restart the dev server after package installs.
