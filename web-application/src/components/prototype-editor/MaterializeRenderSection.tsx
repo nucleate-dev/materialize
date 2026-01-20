@@ -66,6 +66,7 @@ import {
   RotateCcw,
   Settings,
   Smartphone,
+  Tablet,
   Terminal as TerminalIcon,
   X,
   Zap,
@@ -280,7 +281,7 @@ interface MaterializeRenderSectionProps {
   initialWebScreens?: PublicDisplayConfigScreen[];
   onWebScreensChange?: (screens: MobileScreenConfig[]) => void;
   // Preview mode change callback
-  onPreviewModeChange?: (mode: "mobile" | "web") => void;
+  onPreviewModeChange?: (mode: "mobile" | "web" | "tablet") => void;
   // Canvas mode props (infinite canvas like Figma)
   initialCanvasState?: CanvasStateData;
   onCanvasStateChange?: (state: CanvasStateData) => void;
@@ -296,7 +297,7 @@ export interface MaterializeRenderSectionRef {
   updateScreens: (data: ScreenUpdateData) => void;
 }
 
-type PreviewMode = "web" | "mobile";
+type PreviewMode = "web" | "mobile" | "tablet";
 
 const MaterializeRenderSection = forwardRef<
   MaterializeRenderSectionRef,
@@ -472,6 +473,7 @@ const MaterializeRenderSection = forwardRef<
       onPreviewModeChange?.(previewMode);
     }, [previewMode, onPreviewModeChange]);
     const [mobileSize, setMobileSize] = useState({ width: 320, height: 640 });
+    const [tabletSize, setTabletSize] = useState({ width: 768, height: 1024 });
     const [hasManuallyResized, setHasManuallyResized] = useState(false);
 
     // Calculate responsive mobile size based on viewport height and width
@@ -512,6 +514,44 @@ const MaterializeRenderSection = forwardRef<
       calculateSize();
       window.addEventListener("resize", calculateSize);
       return () => window.removeEventListener("resize", calculateSize);
+    }, [hasManuallyResized]);
+
+    // Calculate responsive tablet size based on viewport height and width
+    useEffect(() => {
+      const calculateTabletSize = () => {
+        if (hasManuallyResized) return;
+
+        const vh = window.innerHeight;
+        const vw = window.innerWidth;
+
+        // UI overhead for header, padding, etc
+        const uiOverhead = 120;
+        const availableHeight = Math.max(0, vh - uiOverhead);
+
+        // Standard tablet aspect ratio (iPad-like: 3:4)
+        const aspectRatio = 768 / 1024;
+
+        // Calculate size based on available height (use 80% to leave breathing room)
+        let newHeight = availableHeight * 0.8;
+
+        // Also consider viewport width to ensure tablet fits horizontally
+        const maxHeightBasedOnWidth = (vw - 150) / aspectRatio;
+
+        // Use the smaller of the two constraints
+        newHeight = Math.min(newHeight, maxHeightBasedOnWidth);
+
+        // Clamp to reasonable bounds
+        newHeight = Math.max(400, newHeight);
+        newHeight = Math.min(1024, newHeight);
+
+        const newWidth = newHeight * aspectRatio;
+
+        setTabletSize({ width: newWidth, height: newHeight });
+      };
+
+      calculateTabletSize();
+      window.addEventListener("resize", calculateTabletSize);
+      return () => window.removeEventListener("resize", calculateTabletSize);
     }, [hasManuallyResized]);
 
     const [isIframeLoading, setIsIframeLoading] = useState(false);
@@ -1273,6 +1313,11 @@ const MaterializeRenderSection = forwardRef<
           }
         },
         updateScreens: (data: ScreenUpdateData) => {
+          // Handle preview mode change if specified
+          if (data.previewMode) {
+            setPreviewMode(data.previewMode);
+          }
+
           // Use canvas ref if in canvas mode
           if (isCanvasPreviewEnabled && canvasRef.current) {
             switch (data.action) {
@@ -1301,17 +1346,25 @@ const MaterializeRenderSection = forwardRef<
           }
 
           // Legacy mode - use state-based screen management
+          // Use the target preview mode (from data or current state)
+          const targetPreviewMode = data.previewMode || previewMode;
           const setScreens =
-            previewMode === "mobile" ? setMobileScreens : setWebScreens;
+            targetPreviewMode === "mobile" || targetPreviewMode === "tablet"
+              ? setMobileScreens
+              : setWebScreens;
           const nextIdRef =
-            previewMode === "mobile" ? nextMobileScreenId : nextWebScreenId;
+            targetPreviewMode === "mobile" || targetPreviewMode === "tablet"
+              ? nextMobileScreenId
+              : nextWebScreenId;
 
           switch (data.action) {
             case "add":
               if (data.path) {
                 // Enforce max 4 screens
                 const currentScreens =
-                  previewMode === "mobile" ? mobileScreens : webScreens;
+                  targetPreviewMode === "mobile" || targetPreviewMode === "tablet"
+                    ? mobileScreens
+                    : webScreens;
                 if (currentScreens.length >= 4) {
                   logger.debug(
                     "warn",
@@ -2417,6 +2470,243 @@ const MaterializeRenderSection = forwardRef<
         );
       }
 
+      if (previewMode === "tablet") {
+        return (
+          <div className="w-full h-full overflow-auto bg-background">
+            <div className="min-h-full flex items-center justify-center">
+              <div
+                className={cn(
+                  "flex flex-wrap justify-center gap-x-8 gap-y-12 pb-8 relative",
+                  mobileScreens.length > 1 ? "pt-16" : "pt-8",
+                )}
+              >
+                {mobileScreens.map((screen, index) => {
+                  const iframeSrc = resolveIframeSrc(viewing_url, screen.path);
+                  const isPrimaryScreen = index === 0;
+
+                  return (
+                    <div
+                      key={`tablet-screen-${screen.id}`}
+                      className="flex flex-col items-center gap-2 pt-2"
+                    >
+                      <div
+                        className="relative mx-auto select-none"
+                        style={{
+                          width: tabletSize.width + 24,
+                          height: tabletSize.height + 24,
+                        }}
+                      >
+                        {/* URL Bar / Controls */}
+                        <div className="absolute -top-12 left-1/2 -translate-x-1/2 z-20">
+                          <div className="flex items-center gap-1.5">
+                            {isReadOnlyView ? (
+                              <div
+                                className="px-3 py-1.5 rounded-full text-xs font-mono transition-all shadow-sm max-w-[250px] whitespace-nowrap overflow-hidden bg-accent/50 border border-border/50 text-muted-foreground/70"
+                                style={{
+                                  maskImage:
+                                    "linear-gradient(to right, black 80%, transparent 100%)",
+                                  WebkitMaskImage:
+                                    "linear-gradient(to right, black 80%, transparent 100%)",
+                                }}
+                              >
+                                {stripTokenFromPath(screen.path) || "/"}
+                              </div>
+                            ) : (
+                              <Popover
+                                open={editingScreenId === screen.id}
+                                onOpenChange={(open) => {
+                                  if (open) {
+                                    handleBadgeClick(screen.id, screen.path);
+                                  } else {
+                                    handleCancelEdit();
+                                  }
+                                }}
+                              >
+                                <PopoverTrigger asChild>
+                                  <div
+                                    className="px-3 py-1.5 rounded-full text-xs font-mono transition-all shadow-sm max-w-[250px] whitespace-nowrap overflow-hidden bg-accent border border-border text-muted-foreground hover:text-foreground hover:border-border/80 cursor-pointer"
+                                    style={{
+                                      maskImage:
+                                        "linear-gradient(to right, black 80%, transparent 100%)",
+                                      WebkitMaskImage:
+                                        "linear-gradient(to right, black 80%, transparent 100%)",
+                                    }}
+                                  >
+                                    {stripTokenFromPath(screen.path) || "/"}
+                                  </div>
+                                </PopoverTrigger>
+                                <PopoverContent
+                                  className="w-56 p-0"
+                                  align="center"
+                                  sideOffset={8}
+                                >
+                                  {availableRoutes.length > 0 && (
+                                    <div className="max-h-48 overflow-y-auto">
+                                      <div className="px-2 py-1.5 text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+                                        Available Routes
+                                      </div>
+                                      {availableRoutes.map((item) => (
+                                        <button
+                                          key={item.route}
+                                          onClick={() => {
+                                            handleSuggestionClick(
+                                              screen.id,
+                                              item.route,
+                                            );
+                                          }}
+                                          className={cn(
+                                            "flex items-center justify-between w-full text-left px-3 py-2 text-xs hover:bg-accent transition-colors",
+                                            screen.path === item.route
+                                              ? "text-foreground bg-accent/50"
+                                              : "text-muted-foreground",
+                                          )}
+                                        >
+                                          <span className="font-mono">
+                                            {item.route}
+                                          </span>
+                                          {item.group && (
+                                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-accent text-muted-foreground border border-border">
+                                              {item.group}
+                                            </span>
+                                          )}
+                                        </button>
+                                      ))}
+                                    </div>
+                                  )}
+                                  <div className="border-t border-border p-2">
+                                    <div className="flex items-center gap-1">
+                                      <Input
+                                        value={tempPath}
+                                        onChange={(e) =>
+                                          handlePathInputChange(e.target.value)
+                                        }
+                                        onKeyDown={(e) =>
+                                          handlePathKeyDown(screen.id, e)
+                                        }
+                                        className="h-7 text-xs font-mono border-border"
+                                        placeholder="Custom path..."
+                                      />
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-7 w-7 hover:bg-emerald-500/20 hover:text-emerald-400 text-emerald-500/70"
+                                        onClick={() =>
+                                          handleConfirmPathChange(screen.id)
+                                        }
+                                        aria-label="Go to path"
+                                      >
+                                        <Check className="w-3.5 h-3.5" />
+                                      </Button>
+                                    </div>
+                                  </div>
+                                </PopoverContent>
+                              </Popover>
+                            )}
+                            {!isReadOnlyView && (
+                              <>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-6 w-6 bg-accent border border-border rounded-full hover:bg-accent/80 text-muted-foreground"
+                                  onClick={() => refreshScreen(screen.id)}
+                                  aria-label="Refresh screen"
+                                >
+                                  <RefreshCw className="w-3 h-3" />
+                                </Button>
+                                {mobileScreens.length > 1 && (
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-6 w-6 bg-accent border border-border rounded-full hover:bg-red-500/10 hover:text-red-400 hover:border-red-500/20 text-muted-foreground"
+                                    onClick={() =>
+                                      handleRemoveMobileScreen(screen.id)
+                                    }
+                                    aria-label="Remove screen"
+                                  >
+                                    <X className="w-3 h-3" />
+                                  </Button>
+                                )}
+                              </>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Tablet Frame */}
+                        <div
+                          className="relative bg-[#1C1C1E] shadow-2xl"
+                          style={{
+                            width: tabletSize.width + 24,
+                            height: tabletSize.height + 24,
+                            borderRadius: "2rem",
+                            border: "1px solid rgba(255,255,255,0.1)",
+                            boxShadow:
+                              "0 25px 50px -12px rgba(0, 0, 0, 0.5), inset 0 0 0 1px rgba(0,0,0,0.5)",
+                          }}
+                        >
+                          {/* Camera */}
+                          <div className="absolute top-3 left-1/2 -translate-x-1/2 w-2 h-2 bg-[#333] rounded-full"></div>
+
+                          {/* Screen Content */}
+                          <div
+                            className="absolute bg-white overflow-hidden"
+                            style={{
+                              width: tabletSize.width,
+                              height: tabletSize.height,
+                              top: "12px",
+                              left: "12px",
+                              borderRadius: "1.5rem",
+                            }}
+                          >
+                            <div className="relative w-full h-full bg-white">
+                              <iframe
+                                key={`tablet-${screen.id}-${refreshKey}`}
+                                ref={(c) => {
+                                  if (c) {
+                                    iframeRefs.current.set(screen.id, c);
+                                    if (isPrimaryScreen) {
+                                      webPreviewRef.current =
+                                        c.contentWindow ?? null;
+                                    }
+                                  } else {
+                                    iframeRefs.current.delete(screen.id);
+                                  }
+                                }}
+                                className="w-full h-full"
+                                style={{
+                                  pointerEvents: isResizingMobile
+                                    ? "none"
+                                    : "auto",
+                                }}
+                                title="Tablet Preview"
+                                aria-label={`Tablet Preview ${screen.path}`}
+                                src={iframeSrc}
+                                sandbox="allow-scripts allow-same-origin allow-forms allow-downloads allow-modals allow-popups allow-presentation"
+                                allow="microphone; camera;"
+                                onLoad={handleIframeLoad}
+                                onError={handleIframeError}
+                              />
+                              {isIframeLoading && (
+                                <ConnectionLoadingOverlay mode="mobile" />
+                              )}
+                              {iframeError && (
+                                <ConnectionErrorOverlay mode="mobile" />
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Home Button */}
+                          <div className="absolute bottom-2 left-1/2 -translate-x-1/2 w-8 h-8 border border-white/20 rounded-full"></div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        );
+      }
+
       // Helper to resolve iframe src with path
       const resolveWebIframeSrc = (basePath: string) => {
         return resolveIframeSrc(viewing_url, basePath);
@@ -2840,6 +3130,81 @@ const MaterializeRenderSection = forwardRef<
 
                   <ConnectionStatusIndicator />
 
+                  {/* Device Type Toggle - only show in preview view */}
+                  {isPreviewView && (
+                    <>
+                      <div className="h-4 w-px bg-border mx-1" />
+                      <div className="bg-accent p-1 rounded-lg border border-border flex items-center gap-0.5">
+                        <TooltipProvider delayDuration={200}>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleModeChange("mobile")}
+                                className={cn(
+                                  "h-7 w-7 rounded-md transition-all",
+                                  previewMode === "mobile"
+                                    ? "bg-white text-black shadow-sm"
+                                    : "text-muted-foreground hover:text-foreground hover:bg-accent",
+                                )}
+                              >
+                                <Smartphone className="w-3.5 h-3.5" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Mobile</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                        <TooltipProvider delayDuration={200}>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleModeChange("tablet")}
+                                className={cn(
+                                  "h-7 w-7 rounded-md transition-all",
+                                  previewMode === "tablet"
+                                    ? "bg-white text-black shadow-sm"
+                                    : "text-muted-foreground hover:text-foreground hover:bg-accent",
+                                )}
+                              >
+                                <Tablet className="w-3.5 h-3.5" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Tablet</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                        <TooltipProvider delayDuration={200}>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleModeChange("web")}
+                                className={cn(
+                                  "h-7 w-7 rounded-md transition-all",
+                                  previewMode === "web"
+                                    ? "bg-white text-black shadow-sm"
+                                    : "text-muted-foreground hover:text-foreground hover:bg-accent",
+                                )}
+                              >
+                                <Monitor className="w-3.5 h-3.5" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Desktop</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      </div>
+                    </>
+                  )}
+
                   {/* Canvas Zoom Controls - only show when canvas mode is enabled and in preview view */}
                   {isCanvasPreviewEnabled && isPreviewView && (
                     <>
@@ -3194,6 +3559,18 @@ const MaterializeRenderSection = forwardRef<
                   >
                     <Smartphone className="w-4 h-4 mr-2 opacity-70" />
                     Mobile View
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => handleModeChange("tablet")}
+                    className={cn(
+                      "focus:bg-accent/80 focus:text-foreground text-sm cursor-pointer",
+                      previewMode === "tablet"
+                        ? "bg-accent/50 text-foreground"
+                        : "text-muted-foreground",
+                    )}
+                  >
+                    <Tablet className="w-4 h-4 mr-2 opacity-70" />
+                    Tablet View
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     onClick={() => handleModeChange("web")}

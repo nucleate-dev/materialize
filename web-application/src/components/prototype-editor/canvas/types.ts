@@ -33,7 +33,7 @@ export interface CanvasStateData {
   /** Camera position */
   camera: { x: number; y: number };
   /** Current preview mode */
-  previewMode: "mobile" | "web";
+  previewMode: "mobile" | "web" | "tablet";
   /** ISO timestamp of last modification */
   lastModified: string;
 }
@@ -96,7 +96,7 @@ export interface PreviewCanvasProps {
   /** Base URL for the preview (e.g., sandbox URL) */
   viewingUrl: string;
   /** Current preview mode - determines which shape type to use */
-  previewMode: "mobile" | "web";
+  previewMode: "mobile" | "web" | "tablet";
   /** Initial screen configurations */
   initialScreens?: ScreenConfig[];
   /** Initial canvas state to restore */

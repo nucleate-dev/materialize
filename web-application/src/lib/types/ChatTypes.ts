@@ -247,6 +247,7 @@ export interface ScreenUpdateData {
   screens?: Array<{ path: string }>; // For "set" action
   path?: string; // For "add" action
   screenId?: number; // For "remove" action
+  previewMode?: "mobile" | "web" | "tablet"; // Device preview mode
 }
 
 export interface ScreenUpdateMessage {

@@ -64,7 +64,7 @@ interface ClaudeCodePanelProps {
   currentRenderStatus?: RenderStatus;
   currentViewingPath?: string;
   visibleScreens?: Array<{ id: number; path: string }>;
-  previewMode?: "mobile" | "web";
+  previewMode?: "mobile" | "web" | "tablet";
   onScreenUpdate?: (data: ScreenUpdateData) => void;
   fileSystem?: UseFileSystemReturn;
   // External WebSocket management (required - InternalPrototypePage manages connection)

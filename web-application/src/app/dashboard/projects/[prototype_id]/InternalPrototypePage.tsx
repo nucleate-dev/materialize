@@ -175,7 +175,7 @@ export default function InternalPrototypePage() {
   const [webScreensState, setWebScreensState] = useState<MobileScreenConfig[]>(
     [],
   );
-  const [previewMode, setPreviewMode] = useState<"mobile" | "web">("mobile");
+  const [previewMode, setPreviewMode] = useState<"mobile" | "web" | "tablet">("mobile");
 
   // Canvas state for infinite canvas mode
   const [canvasState, setCanvasState] = useState<CanvasStateData | null>(null);

@@ -283,7 +283,7 @@ export function createDevelopmentToolsMcpServer(
         ? [
             tool(
               "UpdatePreviewScreens",
-              "Add, remove, or set preview screens shown to the user. Use this to help users compare design variants side-by-side. PROACTIVELY use this when creating design variants (e.g., after creating /pricing-v1 and /pricing-v2, use this to show them side-by-side). Maximum 4 screens allowed.",
+              "Add, remove, or set preview screens shown to the user. Use this to help users compare design variants side-by-side. PROACTIVELY use this when creating design variants (e.g., after creating /pricing-v1 and /pricing-v2, use this to show them side-by-side). Maximum 4 screens allowed. You can also change the preview mode (mobile/web/tablet) - prefer mobile or web for best user experience.",
               {
                 action: z
                   .enum(["add", "remove", "set"])
@@ -309,17 +309,25 @@ export function createDevelopmentToolsMcpServer(
                   .describe(
                     "Array of screen paths for 'set' action (max 4 screens). Required when action is 'set'.",
                   ),
+                previewMode: z
+                  .enum(["mobile", "web", "tablet"])
+                  .optional()
+                  .describe(
+                    "Device preview mode. Prefer 'mobile' or 'web' for best user experience. Use 'tablet' only when specifically requested.",
+                  ),
               },
               async ({
                 action,
                 path,
                 screenId,
                 screens,
+                previewMode,
               }: {
                 action: "add" | "remove" | "set";
                 path?: string;
                 screenId?: number;
                 screens?: Array<{ path: string }>;
+                previewMode?: "mobile" | "web" | "tablet";
               }): Promise<CallToolResult> => {
                 // Validate action-specific parameters
                 if (action === "add" && !path) {
@@ -377,6 +385,7 @@ export function createDevelopmentToolsMcpServer(
                   path,
                   screenId,
                   screens,
+                  previewMode,
                 };
                 broadcastScreenUpdate(updateData);
 
@@ -392,6 +401,11 @@ export function createDevelopmentToolsMcpServer(
                   case "set":
                     message = `Screens set to: ${screens?.map((s) => s.path).join(", ")}`;
                     break;
+                }
+
+                // Add preview mode to message if specified
+                if (previewMode) {
+                  message += ` (preview mode: ${previewMode})`;
                 }
 
                 return {

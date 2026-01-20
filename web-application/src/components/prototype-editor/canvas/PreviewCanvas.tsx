@@ -31,8 +31,8 @@ const customShapeUtils = [PhoneFrameShapeUtil, BrowserFrameShapeUtil];
 const GRID_SPACING = 50;
 
 // Default positions for new shapes
-const getDefaultPosition = (index: number, previewMode: "mobile" | "web") => {
-  const baseWidth = previewMode === "mobile" ? 336 : 800;
+const getDefaultPosition = (index: number, previewMode: "mobile" | "web" | "tablet") => {
+  const baseWidth = previewMode === "mobile" ? 336 : previewMode === "tablet" ? 792 : 800;
   const spacing = baseWidth + GRID_SPACING;
   return {
     x: index * spacing + 100,
