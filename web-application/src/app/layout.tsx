@@ -4,7 +4,7 @@ import { TeamProvider } from "@/contexts/TeamContext";
 import type { Metadata } from "next";
 import { Fraunces, Inter } from "next/font/google";
 import Script from "next/script";
-import { Toaster } from "sonner";
+import { Toaster } from "@/components/ui/sonner";
 import "./globals.css";
 import { CSPostHogProvider, QueryProvider } from "./providers";
 
