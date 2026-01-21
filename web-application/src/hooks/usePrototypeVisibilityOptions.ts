@@ -1,6 +1,7 @@
 import { Database } from "@/lib/types/supabase";
 import { useSubscriptionAccess } from "./useSubscriptionAccess";
 import { useState } from "react";
+import { Globe, Share2, Lock, LucideIcon } from "lucide-react";
 
 export type PrototypeVisibility = Database["public"]["Enums"]["visibility_level"];
 
@@ -9,6 +10,7 @@ export interface VisibilityOption {
   label: string;
   description: string;
   isLocked: boolean;
+  icon: LucideIcon;
 }
 
 export interface UsePrototypeVisibilityOptionsReturn {
@@ -45,18 +47,21 @@ export function usePrototypeVisibilityOptions(): UsePrototypeVisibilityOptionsRe
       label: "Public",
       description: "Anyone with the link can view",
       isLocked: false,
+      icon: Globe,
     },
     {
       value: "TEAM",
       label: "Team",
       description: "Only team members can view",
       isLocked: isFreePlan,
+      icon: Share2,
     },
     {
       value: "SELF",
       label: "Private",
       description: "Only you can view",
       isLocked: isFreePlan,
+      icon: Lock,
     },
   ];
 

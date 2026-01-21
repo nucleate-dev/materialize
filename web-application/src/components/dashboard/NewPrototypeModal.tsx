@@ -783,29 +783,24 @@ export default function NewPrototypeModal({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="bg-card border-border text-foreground">
-                  {visibilityOptions.map((option) => (
-                    <SelectItem
-                      key={option.value}
-                      value={option.value}
-                      className="focus:bg-muted focus:text-foreground cursor-pointer"
-                    >
-                      <div className="flex items-center gap-2">
-                        {option.value === "PUBLIC" && (
-                          <Globe className="w-4 h-4 text-primary" />
-                        )}
-                        {option.value === "TEAM" && (
-                          <Share2 className="w-4 h-4 text-info" />
-                        )}
-                        {option.value === "SELF" && (
-                          <Lock className="w-4 h-4 text-muted-foreground" />
-                        )}
-                        <span>{option.label}</span>
-                        {option.isLocked && (
-                          <Lock className="w-3.5 h-3.5 text-muted-foreground ml-auto" />
-                        )}
-                      </div>
-                    </SelectItem>
-                  ))}
+                  {visibilityOptions.map((option) => {
+                    const Icon = option.icon;
+                    return (
+                      <SelectItem
+                        key={option.value}
+                        value={option.value}
+                        className="focus:bg-muted focus:text-foreground cursor-pointer"
+                      >
+                        <div className="flex items-center gap-2">
+                          <Icon className="w-4 h-4 text-muted-foreground" />
+                          <span>{option.label}</span>
+                          {option.isLocked && (
+                            <Lock className="w-3.5 h-3.5 text-muted-foreground ml-auto" />
+                          )}
+                        </div>
+                      </SelectItem>
+                    );
+                  })}
                 </SelectContent>
               </Select>
             </div>

@@ -422,26 +422,29 @@ export default function HeroSection() {
                   >
                     <SelectTrigger className="h-9 w-32 border-border bg-accent text-xs">
                       <div className="flex items-center gap-1.5">
-                        {visibility === "PUBLIC" && <Globe className="w-3 h-3" />}
-                        {visibility === "TEAM" && <Share2 className="w-3 h-3" />}
-                        {visibility === "SELF" && <Lock className="w-3 h-3" />}
+                        {(() => {
+                          const selectedOption = visibilityOptions.find(opt => opt.value === visibility);
+                          const Icon = selectedOption?.icon;
+                          return Icon ? <Icon className="w-3 h-3" /> : null;
+                        })()}
                         <SelectValue />
                       </div>
                     </SelectTrigger>
                     <SelectContent className="bg-card border-border">
-                      {visibilityOptions.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                          <div className="flex items-center gap-2">
-                            {option.value === "PUBLIC" && <Globe className="w-3 h-3" />}
-                            {option.value === "TEAM" && <Share2 className="w-3 h-3" />}
-                            {option.value === "SELF" && <Lock className="w-3 h-3" />}
-                            <span>{option.label}</span>
-                            {option.isLocked && (
-                              <Lock className="w-3 h-3 text-muted-foreground/50 ml-auto" />
-                            )}
-                          </div>
-                        </SelectItem>
-                      ))}
+                      {visibilityOptions.map((option) => {
+                        const Icon = option.icon;
+                        return (
+                          <SelectItem key={option.value} value={option.value}>
+                            <div className="flex items-center gap-2">
+                              <Icon className="w-3 h-3" />
+                              <span>{option.label}</span>
+                              {option.isLocked && (
+                                <Lock className="w-3 h-3 text-muted-foreground/50 ml-auto" />
+                              )}
+                            </div>
+                          </SelectItem>
+                        );
+                      })}
                     </SelectContent>
                   </Select>
                 )}
