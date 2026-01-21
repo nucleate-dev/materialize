@@ -57,10 +57,7 @@ import {
 } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
-import {
-  usePrototypeVisibilityOptions,
-  type PrototypeVisibility,
-} from "@/hooks/usePrototypeVisibilityOptions";
+import { usePrototypeVisibilityOptions } from "@/hooks/usePrototypeVisibilityOptions";
 
 type PrototypeFramework = Database["public"]["Enums"]["prototype_framework"];
 
@@ -141,13 +138,18 @@ function HeroSection() {
   const { createPrototype } = useCreatePrototype();
   const [prompt, setPrompt] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [showUpsellModal, setShowUpsellModal] = useState(false);
   const router = useRouter();
   const { user } = useUser();
   const [framework, setFramework] =
     useState<PrototypeFramework>(DEFAULT_FRAMEWORK);
-  const visibilityOptions = usePrototypeVisibilityOptions();
-  const [visibility, setVisibility] = useState<PrototypeVisibility>("PUBLIC");
+  const {
+    visibilityOptions,
+    visibility,
+    handleVisibilityChange,
+    showUpsellModal,
+    setShowUpsellModal,
+    isFreePlan,
+  } = usePrototypeVisibilityOptions();
 
   const handleSend = async () => {
     const content = prompt.trim();
@@ -235,7 +237,7 @@ function HeroSection() {
                 {user && (
                   <Select
                     value={visibility}
-                    onValueChange={(v) => setVisibility(v as PrototypeVisibility)}
+                    onValueChange={handleVisibilityChange}
                   >
                     <SelectTrigger className="h-9 w-32 border-border bg-accent text-xs">
                       <div className="flex items-center gap-1.5">
@@ -253,6 +255,9 @@ function HeroSection() {
                             {option.value === "TEAM" && <Share2 className="w-3 h-3" />}
                             {option.value === "SELF" && <Lock className="w-3 h-3" />}
                             <span>{option.label}</span>
+                            {option.isLocked && (
+                              <Lock className="w-3 h-3 text-muted-foreground/50 ml-auto" />
+                            )}
                           </div>
                         </SelectItem>
                       ))}

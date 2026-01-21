@@ -36,10 +36,10 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { usePrototypeVisibilityOptions } from "@/hooks/usePrototypeVisibilityOptions";
 import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import { cn } from "@/lib/classNames";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
-import { type PrototypeVisibility } from "@/lib/types/prototypes";
 import type {
   APIResponse,
   CreatePrototypeErrorResponse,
@@ -141,12 +141,16 @@ export default function NewPrototypeModal({
   const [selectedFolder, setSelectedFolder] = useState<string | null>(null);
   const [isLoadingFolders, setIsLoadingFolders] = useState(false);
   const { userPlan } = useSubscriptionAccess();
-  const [visibility, setVisibility] = useState<PrototypeVisibility>(
-    userPlan === "free" ? "PUBLIC" : "SELF",
-  );
+  const {
+    visibilityOptions,
+    visibility,
+    handleVisibilityChange,
+    showUpsellModal,
+    setShowUpsellModal,
+    isFreePlan,
+  } = usePrototypeVisibilityOptions();
   const [prototypeCount, setPrototypeCount] = useState(0);
   const [isLoadingCount, setIsLoadingCount] = useState(false);
-  const [showUpsellModal, setShowUpsellModal] = useState(false);
   const [designStyle, setDesignStyle] = useState<DesignStyle>("stylesheets");
   const [customDesignSystemId, setCustomDesignSystemId] = useState<
     string | null
@@ -175,8 +179,6 @@ export default function NewPrototypeModal({
 
   const isWebFrameworkSelected = framework === "web_nextjs_react";
 
-  // Check if team is on free plan
-  const isFreePlan = userPlan === "free";
   const availableDesignStyles = isWebFrameworkSelected
     ? WEB_DESIGN_STYLE_OPTIONS
     : DESIGN_STYLE_OPTIONS;
@@ -583,7 +585,6 @@ export default function NewPrototypeModal({
         });
         setName("");
         setSelectedFolder(null);
-        setVisibility(userPlan === "free" ? "PUBLIC" : "SELF");
         setDesignStyle("stylesheets");
         setCustomDesignSystemId(null);
         setFramework(DEFAULT_FRAMEWORK);
@@ -773,22 +774,7 @@ export default function NewPrototypeModal({
               </div>
               <Select
                 value={visibility}
-                onValueChange={(value) =>
-                  setVisibility(() => {
-                    const nextVisibility = value as PrototypeVisibility;
-
-                    // Check if trying to select a locked option
-                    if (
-                      isFreePlan &&
-                      (nextVisibility === "SELF" || nextVisibility === "TEAM")
-                    ) {
-                      setShowUpsellModal(true);
-                      return visibility; // Keep current value
-                    }
-
-                    return nextVisibility;
-                  })
-                }
+                onValueChange={handleVisibilityChange}
                 disabled={isCreating}
               >
                 <SelectTrigger
@@ -798,41 +784,29 @@ export default function NewPrototypeModal({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="bg-card border-border text-foreground">
-                  <SelectItem
-                    value="PUBLIC"
-                    className="focus:bg-muted focus:text-foreground cursor-pointer"
-                  >
-                    <div className="flex items-center gap-2">
-                      <Globe className="w-4 h-4 text-primary" />
-                      <span>Public</span>
-                    </div>
-                  </SelectItem>
-                  {activeTeam && (
+                  {visibilityOptions.map((option) => (
                     <SelectItem
-                      value="TEAM"
+                      key={option.value}
+                      value={option.value}
                       className="focus:bg-muted focus:text-foreground cursor-pointer"
                     >
                       <div className="flex items-center gap-2">
-                        <Share2 className="w-4 h-4 text-info" />
-                        <span>{activeTeam.name}</span>
-                        {isFreePlan && (
+                        {option.value === "PUBLIC" && (
+                          <Globe className="w-4 h-4 text-primary" />
+                        )}
+                        {option.value === "TEAM" && (
+                          <Share2 className="w-4 h-4 text-info" />
+                        )}
+                        {option.value === "SELF" && (
+                          <Lock className="w-4 h-4 text-muted-foreground" />
+                        )}
+                        <span>{option.label}</span>
+                        {option.isLocked && (
                           <Lock className="w-3.5 h-3.5 text-muted-foreground ml-auto" />
                         )}
                       </div>
                     </SelectItem>
-                  )}
-                  <SelectItem
-                    value="SELF"
-                    className="focus:bg-muted focus:text-foreground cursor-pointer"
-                  >
-                    <div className="flex items-center gap-2">
-                      <Lock className="w-4 h-4 text-muted-foreground" />
-                      <span>Private</span>
-                      {isFreePlan && (
-                        <Lock className="w-3.5 h-3.5 text-muted-foreground ml-auto" />
-                      )}
-                    </div>
-                  </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
