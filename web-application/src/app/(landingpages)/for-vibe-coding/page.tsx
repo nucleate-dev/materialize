@@ -165,6 +165,7 @@ function HeroSection() {
       const result = await createPrototype({
         framework,
         creation_source: "landing_prompt",
+        visibility: "PUBLIC",
       });
 
       if (result.data) {

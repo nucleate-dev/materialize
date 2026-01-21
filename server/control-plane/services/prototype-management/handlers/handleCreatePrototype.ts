@@ -81,7 +81,7 @@ export async function handleCreatePrototypeImpl(
       framework,
       source_repo_id,
     } = request.body;
-    let { visibility } = request.body;
+    const { visibility } = request.body;
 
     // update logger context
     request.log2 = request.log2.child({
@@ -123,9 +123,6 @@ export async function handleCreatePrototypeImpl(
         creationSource: creation_source,
       },
     );
-    if (!visibility) {
-      visibility = 'PUBLIC';
-    }
     if (visibility !== 'PUBLIC' && limitCheck.plan === 'free') {
       const errorResponse: CreatePrototypeErrorResponse = {
         error: 'INVALID_REQUEST',
@@ -269,8 +266,7 @@ export async function handleCreatePrototypeImpl(
         description,
         owner_id: user.id,
         folder_id,
-        visibility:
-          visibility || (limitCheck.plan === 'plus' ? 'SELF' : 'PUBLIC'),
+        visibility,
         design_style: resolvedDesignStyle,
         custom_design_system: forkPrototypeId
           ? null
