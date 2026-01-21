@@ -421,14 +421,7 @@ export default function HeroSection() {
                     onValueChange={handleVisibilityChange}
                   >
                     <SelectTrigger className="h-9 w-32 border-border bg-accent text-xs">
-                      <div className="flex items-center gap-1.5">
-                        {(() => {
-                          const selectedOption = visibilityOptions.find(opt => opt.value === visibility);
-                          const Icon = selectedOption?.icon;
-                          return Icon ? <Icon className="w-3 h-3" /> : null;
-                        })()}
-                        <SelectValue />
-                      </div>
+                      <SelectValue />
                     </SelectTrigger>
                     <SelectContent className="bg-card border-border">
                       {visibilityOptions.map((option) => {
