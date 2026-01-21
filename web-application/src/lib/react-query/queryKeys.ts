@@ -43,3 +43,10 @@ export const teamInvitesQueryKey = (teamId?: string | null) => [
   TEAM_INVITES_QUERY_KEY,
   teamId ?? "no-team",
 ];
+
+export const TEAM_SETTINGS_QUERY_KEY = "team-settings";
+
+export const teamSettingsQueryKey = (teamId?: string | null) => [
+  TEAM_SETTINGS_QUERY_KEY,
+  teamId ?? "no-team",
+];
