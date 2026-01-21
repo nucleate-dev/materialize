@@ -59,7 +59,6 @@ export default function HeroSection() {
     handleVisibilityChange,
     showUpsellModal,
     setShowUpsellModal,
-    isFreePlan,
   } = usePrototypeVisibilityOptions();
 
   // Process image files

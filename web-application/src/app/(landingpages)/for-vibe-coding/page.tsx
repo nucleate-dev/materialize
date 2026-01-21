@@ -148,7 +148,6 @@ function HeroSection() {
     handleVisibilityChange,
     showUpsellModal,
     setShowUpsellModal,
-    isFreePlan,
   } = usePrototypeVisibilityOptions();
 
   const handleSend = async () => {

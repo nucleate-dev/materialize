@@ -103,7 +103,6 @@ export default function DashboardPage() {
     handleVisibilityChange,
     showUpsellModal,
     setShowUpsellModal,
-    isFreePlan,
   } = usePrototypeVisibilityOptions();
   const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
   const [isSurveyChecking, setIsSurveyChecking] = useState(true);

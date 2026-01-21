@@ -147,7 +147,6 @@ export default function NewPrototypeModal({
     handleVisibilityChange,
     showUpsellModal,
     setShowUpsellModal,
-    isFreePlan,
   } = usePrototypeVisibilityOptions();
   const [prototypeCount, setPrototypeCount] = useState(0);
   const [isLoadingCount, setIsLoadingCount] = useState(false);
