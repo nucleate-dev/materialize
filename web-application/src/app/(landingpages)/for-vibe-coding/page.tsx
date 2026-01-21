@@ -33,6 +33,7 @@ import {
   Check,
   CheckCircle2,
   ChevronLeft,
+  Globe,
   Layers,
   Layout,
   Lock,
@@ -41,6 +42,7 @@ import {
   Palette,
   Play,
   RefreshCw,
+  Share2,
   ShieldCheck,
   ShoppingBag,
   Smartphone,
@@ -55,6 +57,10 @@ import {
 } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
+import {
+  usePrototypeVisibilityOptions,
+  type PrototypeVisibility,
+} from "@/hooks/usePrototypeVisibilityOptions";
 
 type PrototypeFramework = Database["public"]["Enums"]["prototype_framework"];
 
@@ -140,6 +146,8 @@ function HeroSection() {
   const { user } = useUser();
   const [framework, setFramework] =
     useState<PrototypeFramework>(DEFAULT_FRAMEWORK);
+  const visibilityOptions = usePrototypeVisibilityOptions();
+  const [visibility, setVisibility] = useState<PrototypeVisibility>("PUBLIC");
 
   const handleSend = async () => {
     const content = prompt.trim();
@@ -165,7 +173,7 @@ function HeroSection() {
       const result = await createPrototype({
         framework,
         creation_source: "landing_prompt",
-        visibility: "PUBLIC",
+        visibility,
       });
 
       if (result.data) {
@@ -223,6 +231,34 @@ function HeroSection() {
                 </button>
               </div>
               <div className="flex items-center gap-2">
+                {/* Visibility Selector - Only show if user is logged in */}
+                {user && (
+                  <Select
+                    value={visibility}
+                    onValueChange={(v) => setVisibility(v as PrototypeVisibility)}
+                  >
+                    <SelectTrigger className="h-9 w-32 border-border bg-accent text-xs">
+                      <div className="flex items-center gap-1.5">
+                        {visibility === "PUBLIC" && <Globe className="w-3 h-3" />}
+                        {visibility === "TEAM" && <Share2 className="w-3 h-3" />}
+                        {visibility === "SELF" && <Lock className="w-3 h-3" />}
+                        <SelectValue />
+                      </div>
+                    </SelectTrigger>
+                    <SelectContent className="bg-card border-border">
+                      {visibilityOptions.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          <div className="flex items-center gap-2">
+                            {option.value === "PUBLIC" && <Globe className="w-3 h-3" />}
+                            {option.value === "TEAM" && <Share2 className="w-3 h-3" />}
+                            {option.value === "SELF" && <Lock className="w-3 h-3" />}
+                            <span>{option.label}</span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
                 <Select
                   value={framework}
                   onValueChange={(v) => setFramework(v as PrototypeFramework)}

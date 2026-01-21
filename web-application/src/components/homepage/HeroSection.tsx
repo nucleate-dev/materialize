@@ -20,10 +20,14 @@ import {
   type ChatIntentImage,
 } from "@/lib/utils/chatIntentUtils";
 import { motion } from "framer-motion";
-import { Paperclip, Sparkles, X } from "lucide-react";
+import { Globe, Lock, Paperclip, Share2, Sparkles, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
+import {
+  usePrototypeVisibilityOptions,
+  type PrototypeVisibility,
+} from "@/hooks/usePrototypeVisibilityOptions";
 
 type PrototypeFramework = Database["public"]["Enums"]["prototype_framework"];
 
@@ -53,6 +57,8 @@ export default function HeroSection() {
   const [uploadedImages, setUploadedImages] = useState<ChatIntentImage[]>([]);
   const [isDragOver, setIsDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const visibilityOptions = usePrototypeVisibilityOptions();
+  const [visibility, setVisibility] = useState<PrototypeVisibility>("PUBLIC");
 
   // Process image files
   const processImageFiles = (files: File[]) => {
@@ -187,7 +193,7 @@ export default function HeroSection() {
       const result = await createPrototype({
         framework,
         creation_source: "landing_prompt",
-        visibility: "PUBLIC",
+        visibility,
       });
 
       if (result.data) {
@@ -407,6 +413,34 @@ export default function HeroSection() {
                 >
                   <Paperclip className="w-4 h-4" />
                 </Button>
+                {/* Visibility Selector - Only show if user is logged in */}
+                {user && (
+                  <Select
+                    value={visibility}
+                    onValueChange={(v) => setVisibility(v as PrototypeVisibility)}
+                  >
+                    <SelectTrigger className="h-9 w-32 border-border bg-accent text-xs">
+                      <div className="flex items-center gap-1.5">
+                        {visibility === "PUBLIC" && <Globe className="w-3 h-3" />}
+                        {visibility === "TEAM" && <Share2 className="w-3 h-3" />}
+                        {visibility === "SELF" && <Lock className="w-3 h-3" />}
+                        <SelectValue />
+                      </div>
+                    </SelectTrigger>
+                    <SelectContent className="bg-card border-border">
+                      {visibilityOptions.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          <div className="flex items-center gap-2">
+                            {option.value === "PUBLIC" && <Globe className="w-3 h-3" />}
+                            {option.value === "TEAM" && <Share2 className="w-3 h-3" />}
+                            {option.value === "SELF" && <Lock className="w-3 h-3" />}
+                            <span>{option.label}</span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
                 <Select
                   value={framework}
                   onValueChange={(v) => setFramework(v as PrototypeFramework)}
