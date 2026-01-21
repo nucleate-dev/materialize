@@ -1226,6 +1226,38 @@ export type Database = {
           },
         ]
       }
+      team_settings: {
+        Row: {
+          created_at: string
+          setting_key: Database["public"]["Enums"]["team_setting_key"]
+          setting_value: Database["public"]["Enums"]["team_setting_value"]
+          team_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          setting_key: Database["public"]["Enums"]["team_setting_key"]
+          setting_value: Database["public"]["Enums"]["team_setting_value"]
+          team_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          setting_key?: Database["public"]["Enums"]["team_setting_key"]
+          setting_value?: Database["public"]["Enums"]["team_setting_value"]
+          team_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_settings_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       teams: {
         Row: {
           avatar_url: string | null
@@ -1518,6 +1550,10 @@ export type Database = {
       subscription_status: "active" | "past_due" | "canceled"
       team_invite_status: "pending" | "accepted" | "cancelled"
       team_role: "owner" | "admin" | "editor" | "viewer"
+      team_setting_key: "block_public_prototypes"
+      team_setting_value:
+        | "team_setting_generic_value_true"
+        | "team_setting_generic_value_false"
       tunnel_status: "creating" | "idle" | "allocated"
       visibility_level: "SELF" | "TEAM_SUBSET" | "TEAM" | "PUBLIC"
     }
@@ -1656,6 +1692,11 @@ export const Constants = {
       subscription_status: ["active", "past_due", "canceled"],
       team_invite_status: ["pending", "accepted", "cancelled"],
       team_role: ["owner", "admin", "editor", "viewer"],
+      team_setting_key: ["block_public_prototypes"],
+      team_setting_value: [
+        "team_setting_generic_value_true",
+        "team_setting_generic_value_false",
+      ],
       tunnel_status: ["creating", "idle", "allocated"],
       visibility_level: ["SELF", "TEAM_SUBSET", "TEAM", "PUBLIC"],
     },
