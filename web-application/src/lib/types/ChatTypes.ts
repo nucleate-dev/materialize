@@ -5,7 +5,7 @@
 // To update these shared files, modify the source file and run:
 // npm run sync-types (in the control-plane directory)
 //
-// Last synced: 2026-01-18T18:46:04.542Z
+// Last synced: 2026-01-21T01:33:09.806Z
 
 export enum ChatEvent {
   AUTHENTICATED = "authenticated",
@@ -247,7 +247,7 @@ export interface ScreenUpdateData {
   screens?: Array<{ path: string }>; // For "set" action
   path?: string; // For "add" action
   screenId?: number; // For "remove" action
-  previewMode?: "mobile" | "web" | "tablet"; // Device preview mode
+  previewMode?: "mobile" | "web" | "tablet"; // Device preview mode (prefer mobile or web)
 }
 
 export interface ScreenUpdateMessage {
