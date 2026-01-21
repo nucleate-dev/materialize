@@ -162,7 +162,7 @@ export async function handleCreatePrototypeImpl(
       const { data: sourcePrototype, error: sourcePrototypeError } =
         await supabase
           .from('prototypes')
-          .select('design_style, framework')
+          .select('design_style, framework, visibility, team_id')
           .eq('id', forkPrototypeId)
           .single();
 
@@ -172,6 +172,32 @@ export async function handleCreatePrototypeImpl(
           '[handleCreatePrototype] Failed to fetch source prototype design system',
         );
       } else if (sourcePrototype) {
+        // Validate cross-team forking restrictions
+        // Non-public prototypes cannot be forked to a different team
+        if (
+          sourcePrototype.visibility !== 'PUBLIC' &&
+          sourcePrototype.team_id !== team_id
+        ) {
+          request.log2.warn(
+            '[handleCreatePrototype] Attempted to fork non-public prototype to different team',
+            {
+              sourcePrototypeId: forkPrototypeId,
+              sourceTeamId: sourcePrototype.team_id,
+              targetTeamId: team_id,
+              visibility: sourcePrototype.visibility,
+            },
+          );
+          const errorResponse: CreatePrototypeErrorResponse = {
+            error: 'FORBIDDEN',
+            message:
+              'This prototype is private and cannot be duplicated outside of its original team',
+          };
+          return reply.status(HTTP_STATUS.FORBIDDEN).send({
+            data: null,
+            error: errorResponse,
+          });
+        }
+
         if (!resolvedDesignStyle) {
           resolvedDesignStyle = sourcePrototype.design_style;
         }
