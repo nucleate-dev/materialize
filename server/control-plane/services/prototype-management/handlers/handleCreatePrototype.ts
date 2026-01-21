@@ -231,6 +231,11 @@ export async function handleCreatePrototypeImpl(
     );
 
     const version = getVersion();
+    // NOTE: When forking a prototype, we intentionally do NOT copy the following fields:
+    // - slug: Each prototype gets its own unique slug (auto-generated or NULL)
+    // - latest_build_key: Set to a new version, not copied from source
+    // - latest_deploy_key: Left as NULL/default, not copied from source
+    // - github_repo_id: Not copied, each prototype has its own GitHub integration
     const { data: newPrototype, error: prototypeInsertError } = await supabase
       .from('prototypes')
       .insert({
