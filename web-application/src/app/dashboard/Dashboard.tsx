@@ -657,65 +657,38 @@ export default function DashboardPage() {
                       {/* Visibility Selector */}
                       <Select
                         value={visibility}
-                        onValueChange={(v) => {
-                          const nextVisibility = v as PrototypeVisibility;
-
-                          // Check if trying to select a locked option
-                          if (
-                            isFreePlan &&
-                            (nextVisibility === "SELF" ||
-                              nextVisibility === "TEAM")
-                          ) {
-                            setShowUpsellModal(true);
-                            return;
-                          }
-
-                          setVisibility(nextVisibility);
-                        }}
+                        onValueChange={handleVisibilityChange}
                         disabled={isLoading}
                       >
                         <SelectTrigger className="h-9 border-border bg-secondary text-secondary-foreground text-xs w-full">
                           <div className="flex items-center gap-2">
-                            <Share2 className="w-3.5 h-3.5" />
+                            {(() => {
+                              const selectedOption = visibilityOptions.find(opt => opt.value === visibility);
+                              const Icon = selectedOption?.icon;
+                              return Icon ? <Icon className="w-3.5 h-3.5" /> : null;
+                            })()}
                             <SelectValue placeholder="Visibility" />
                           </div>
                         </SelectTrigger>
                         <SelectContent className="bg-popover border-border text-popover-foreground">
-                          <SelectItem
-                            value="PUBLIC"
-                            className="focus:bg-accent focus:text-accent-foreground text-muted-foreground text-xs"
-                          >
-                            <div className="flex items-center gap-2">
-                              <Globe className="w-3.5 h-3.5" />
-                              <span>Public</span>
-                            </div>
-                          </SelectItem>
-                          {activeTeam && (
-                            <SelectItem
-                              value="TEAM"
-                              className="focus:bg-accent focus:text-accent-foreground text-muted-foreground text-xs"
-                            >
-                              <div className="flex items-center gap-2">
-                                <Share2 className="w-3.5 h-3.5" />
-                                <span>{activeTeam.name}</span>
-                                {isFreePlan && (
-                                  <Lock className="w-3 h-3 text-muted-foreground/50 ml-auto" />
-                                )}
-                              </div>
-                            </SelectItem>
-                          )}
-                          <SelectItem
-                            value="SELF"
-                            className="focus:bg-accent focus:text-accent-foreground text-muted-foreground text-xs"
-                          >
-                            <div className="flex items-center gap-2">
-                              <Lock className="w-3.5 h-3.5" />
-                              <span>Private</span>
-                              {isFreePlan && (
-                                <Lock className="w-3 h-3 text-muted-foreground/50 ml-auto" />
-                              )}
-                            </div>
-                          </SelectItem>
+                          {visibilityOptions.map((option) => {
+                            const Icon = option.icon;
+                            return (
+                              <SelectItem
+                                key={option.value}
+                                value={option.value}
+                                className="focus:bg-accent focus:text-accent-foreground text-muted-foreground text-xs"
+                              >
+                                <div className="flex items-center gap-2">
+                                  <Icon className="w-3.5 h-3.5" />
+                                  <span>{option.value === "TEAM" && activeTeam ? activeTeam.name : option.label}</span>
+                                  {option.isLocked && (
+                                    <Lock className="w-3 h-3 text-muted-foreground/50 ml-auto" />
+                                  )}
+                                </div>
+                              </SelectItem>
+                            );
+                          })}
                         </SelectContent>
                       </Select>
                     </div>

@@ -15,6 +15,7 @@ import {
   clearAcceptInviteIntent,
   getAcceptInviteIntent,
 } from "@/lib/utils/acceptInviteIntentUtils";
+import type { ChatIntent } from "@/lib/utils/chatIntentUtils";
 import { handleRedirectToPaymentsPage } from "@/lib/utils/payments/CheckoutUtils";
 import { Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -39,7 +40,7 @@ export default function AuthCallback() {
 
       // Read intents from localStorage inside useEffect to ensure they're available
       let productId: string | null = null;
-      let chatIntent: { message: string; prototype_id?: string } | null = null;
+      let chatIntent: ChatIntent | null = null;
       let acceptInviteIntent: { invite_id: string } | null = null;
 
       if (typeof window !== "undefined") {
@@ -50,10 +51,7 @@ export default function AuthCallback() {
             const storedIntent = localStorage.getItem("chat_intent");
             if (storedIntent) {
               try {
-                chatIntent = JSON.parse(storedIntent) as {
-                  message: string;
-                  prototype_id?: string;
-                };
+                chatIntent = JSON.parse(storedIntent) as ChatIntent;
               } catch (e) {
                 logger.debug("error", "Failed to parse chat_intent", {
                   error: e instanceof Error ? e.message : String(e),
