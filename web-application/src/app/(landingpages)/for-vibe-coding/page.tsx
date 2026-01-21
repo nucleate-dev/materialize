@@ -165,7 +165,7 @@ function HeroSection() {
 
     try {
       if (!user?.id) {
-        setChatIntent(undefined, content, false);
+        setChatIntent(undefined, content, false, visibility);
         router.push("/login");
         return;
       }
@@ -177,7 +177,7 @@ function HeroSection() {
       });
 
       if (result.data) {
-        setChatIntent(result.data.prototype_id, content, false);
+        setChatIntent(result.data.prototype_id, content, false, visibility);
         router.push(`/dashboard/projects/${result.data.prototype_id}`);
       } else if (result.error?.error === "PROTOTYPE_LIMIT_REACHED") {
         setShowUpsellModal(true);

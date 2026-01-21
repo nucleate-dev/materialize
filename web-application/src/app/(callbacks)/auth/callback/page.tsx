@@ -173,6 +173,7 @@ export default function AuthCallback() {
                 name: "New Prototype",
                 creation_source: "auth_callback_chat_intent",
                 team_id: teamId,
+                visibility: chatIntent.visibility,
               };
 
               const response = await fetch(

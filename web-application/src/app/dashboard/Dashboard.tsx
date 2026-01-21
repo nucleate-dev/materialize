@@ -314,7 +314,7 @@ export default function DashboardPage() {
 
     try {
       if (!user?.id) {
-        setChatIntent(undefined, content, false, imagesToSend);
+        setChatIntent(undefined, content, false, visibility, imagesToSend);
         router.push("/login");
         return;
       }
@@ -336,7 +336,7 @@ export default function DashboardPage() {
             source: "dashboard_prompt",
           },
         });
-        setChatIntent(result.data.prototype_id, content, false, imagesToSend);
+        setChatIntent(result.data.prototype_id, content, false, visibility, imagesToSend);
         setUploadedImages([]);
         router.push(`/dashboard/projects/${result.data.prototype_id}`);
       } else if (result.error?.error === "PROTOTYPE_LIMIT_REACHED") {
