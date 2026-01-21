@@ -54,7 +54,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 type Prototype = Database["public"]["Tables"]["prototypes"]["Row"];
@@ -268,6 +268,7 @@ export function ProjectSettingsModal({
   // ===== DEPLOY STATE =====
   const [deploySlug, setDeploySlug] = useState("");
   const [deployVisibility] = useState<PrototypeVisibility>("PUBLIC");
+  const hasInitializedDeploySlug = useRef(false);
   const [isCheckingSlug, setIsCheckingSlug] = useState(false);
   const [slugAvailable, setSlugAvailable] = useState<boolean | null>(null);
   const [slugError, setSlugError] = useState<string | null>(null);
@@ -304,8 +305,16 @@ export function ProjectSettingsModal({
 
   // Initialize deploy state when modal opens
   useEffect(() => {
-    if (!open || !prototype) return;
+    if (!open) {
+      // Reset the flag when modal closes so we re-initialize next time
+      hasInitializedDeploySlug.current = false;
+      return;
+    }
 
+    if (!prototype || hasInitializedDeploySlug.current) return;
+
+    // Only initialize once per modal open
+    hasInitializedDeploySlug.current = true;
     const suggestedSlug =
       prototype.slug || normalizeSlug(prototype.name ?? "") || prototype.id;
     setDeploySlug(suggestedSlug);
