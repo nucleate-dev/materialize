@@ -13,8 +13,12 @@ export function getNucleateChatServiceSystemPrompt(
   previewMode?: "mobile" | "web",
 ): string {
   const isWebFramework = framework === "web_nextjs_react";
-  let stackInfo: string;
 
+  const basePrompt = isWebFramework
+    ? WEB_BASE_SYSTEM_PROMPT
+    : MOBILE_BASE_SYSTEM_PROMPT;
+
+  let stackInfo: string;
   if (isWebFramework) {
     stackInfo = NEXTJS_STACK_INFO;
   } else {
@@ -30,13 +34,10 @@ export function getNucleateChatServiceSystemPrompt(
     }
   }
 
-  const basePrompt = isWebFramework
-    ? WEB_BASE_SYSTEM_PROMPT
-    : MOBILE_BASE_SYSTEM_PROMPT;
-
   const screenContext = getScreenContextSection(visibleScreens, previewMode);
 
-  return basePrompt + " " + stackInfo + " " + SHARED_SECTIONS + screenContext;
+  return basePrompt + "\n\n" + stackInfo + "\n\n" + SHARED_SECTIONS + "\n\n" +
+    screenContext;
 }
 
 // Base system prompt shared across all design styles
