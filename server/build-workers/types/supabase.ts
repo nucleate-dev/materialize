@@ -833,69 +833,6 @@ export type Database = {
           },
         ]
       }
-      prototype_source_repo_pull_requests: {
-        Row: {
-          base_branch: string
-          branch_name: string
-          created_at: string
-          github_pull_request_number: number
-          github_pull_request_url: string
-          head_sha: string | null
-          id: string
-          pr_body: string | null
-          pr_title: string
-          prototype_chat_session_id: string | null
-          prototype_id: string
-          status: Database["public"]["Enums"]["source_repo_pull_request_status"]
-          updated_at: string
-        }
-        Insert: {
-          base_branch: string
-          branch_name: string
-          created_at?: string
-          github_pull_request_number: number
-          github_pull_request_url: string
-          head_sha?: string | null
-          id?: string
-          pr_body?: string | null
-          pr_title: string
-          prototype_chat_session_id?: string | null
-          prototype_id: string
-          status?: Database["public"]["Enums"]["source_repo_pull_request_status"]
-          updated_at?: string
-        }
-        Update: {
-          base_branch?: string
-          branch_name?: string
-          created_at?: string
-          github_pull_request_number?: number
-          github_pull_request_url?: string
-          head_sha?: string | null
-          id?: string
-          pr_body?: string | null
-          pr_title?: string
-          prototype_chat_session_id?: string | null
-          prototype_id?: string
-          status?: Database["public"]["Enums"]["source_repo_pull_request_status"]
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "prototype_source_repo_pull_requests_prototype_chat_session_id_fkey"
-            columns: ["prototype_chat_session_id"]
-            isOneToOne: false
-            referencedRelation: "prototype_chat_sessions"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "prototype_source_repo_pull_requests_prototype_id_fkey"
-            columns: ["prototype_id"]
-            isOneToOne: false
-            referencedRelation: "prototypes"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       prototype_env_var_secrets: {
         Row: {
           created_at: string
@@ -1019,6 +956,72 @@ export type Database = {
             foreignKeyName: "prototype_sensitive_metadata_prototype_id_fkey"
             columns: ["prototype_id"]
             isOneToOne: true
+            referencedRelation: "prototypes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      prototype_source_repo_pull_requests: {
+        Row: {
+          base_branch: string
+          branch_name: string
+          created_at: string
+          github_pull_request_number: number
+          github_pull_request_url: string
+          github_repo_id: number | null
+          head_sha: string | null
+          id: string
+          pr_body: string | null
+          pr_title: string
+          prototype_chat_session_id: string | null
+          prototype_id: string
+          status: Database["public"]["Enums"]["pull_request_status"]
+          updated_at: string
+        }
+        Insert: {
+          base_branch: string
+          branch_name: string
+          created_at?: string
+          github_pull_request_number: number
+          github_pull_request_url: string
+          github_repo_id?: number | null
+          head_sha?: string | null
+          id?: string
+          pr_body?: string | null
+          pr_title: string
+          prototype_chat_session_id?: string | null
+          prototype_id: string
+          status?: Database["public"]["Enums"]["pull_request_status"]
+          updated_at?: string
+        }
+        Update: {
+          base_branch?: string
+          branch_name?: string
+          created_at?: string
+          github_pull_request_number?: number
+          github_pull_request_url?: string
+          github_repo_id?: number | null
+          head_sha?: string | null
+          id?: string
+          pr_body?: string | null
+          pr_title?: string
+          prototype_chat_session_id?: string | null
+          prototype_id?: string
+          status?: Database["public"]["Enums"]["pull_request_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prototype_source_repo_pull_reque_prototype_chat_session_id_fkey"
+            columns: ["prototype_chat_session_id"]
+            isOneToOne: false
+            referencedRelation: "prototype_chat_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prototype_source_repo_pull_requests_prototype_id_fkey"
+            columns: ["prototype_id"]
+            isOneToOne: false
             referencedRelation: "prototypes"
             referencedColumns: ["id"]
           },
@@ -1609,7 +1612,7 @@ export type Database = {
       file_type: "text" | "asset"
       prototype_build_status: "in_progress" | "success" | "failure"
       prototype_framework: "mobile_expo_react_native" | "web_nextjs_react"
-      source_repo_pull_request_status: "open" | "closed" | "merged"
+      pull_request_status: "open" | "closed" | "merged"
       subscription_plan_type: "free" | "team" | "pro" | "plus" | "max"
       subscription_status: "active" | "past_due" | "canceled"
       team_invite_status: "pending" | "accepted" | "cancelled"
@@ -1752,6 +1755,7 @@ export const Constants = {
       file_type: ["text", "asset"],
       prototype_build_status: ["in_progress", "success", "failure"],
       prototype_framework: ["mobile_expo_react_native", "web_nextjs_react"],
+      pull_request_status: ["open", "closed", "merged"],
       subscription_plan_type: ["free", "team", "pro", "plus", "max"],
       subscription_status: ["active", "past_due", "canceled"],
       team_invite_status: ["pending", "accepted", "cancelled"],
