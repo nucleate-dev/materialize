@@ -33,7 +33,7 @@ export default function ForFoundersSection() {
       <div className="absolute top-1/2 left-1/4 w-[400px] h-[400px] bg-emerald-600/10 rounded-full blur-[120px] pointer-events-none" />
 
       <div className="container mx-auto px-6 max-w-[1600px] relative z-10">
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_2fr] gap-16 items-center">
+        <div className="grid grid-cols-1 lg:grid-cols-[2fr_3fr] gap-16 items-center">
           {/* Left: Benefits */}
           <div>
             <Badge

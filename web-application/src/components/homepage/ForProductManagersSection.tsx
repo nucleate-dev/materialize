@@ -32,7 +32,7 @@ export default function ForProductManagersSection() {
       <div className="absolute top-1/2 right-1/4 w-[400px] h-[400px] bg-purple-600/10 rounded-full blur-[120px] pointer-events-none" />
 
       <div className="container mx-auto px-6 max-w-[1600px] relative z-10">
-        <div className="grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-16 items-center">
+        <div className="grid grid-cols-1 lg:grid-cols-[3fr_2fr] gap-16 items-center">
           {/* Left: Screenshot */}
           <div className="order-2 lg:order-1">
             <ClickableImage
