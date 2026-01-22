@@ -5,12 +5,13 @@ import PublicPrototypePage from "./PublicPrototypePage";
 export async function generateMetadata({
   params,
 }: {
-  params: { prototype_id: string };
+  params: Promise<{ prototype_id: string }>;
 }): Promise<Metadata> {
+  const { prototype_id } = await params;
   const { data: prototype } = await supabase
     .from("prototypes")
     .select("name")
-    .eq("id", params.prototype_id)
+    .eq("id", prototype_id)
     .single();
 
   return {
