@@ -50,6 +50,7 @@ import {
 import {
   getNucleateChatServiceSystemPrompt,
   getSourceRepositoryComponentHarvesterPrompt,
+  getSourceRepositoryPRAgentPrompt,
   getSourceRepositoryScreenExtractorPrompt,
   getSourceRepositoryThemeSyncPrompt,
 } from "../prompts/ClaudeCodePrompts.js";
@@ -706,6 +707,12 @@ export class ChatQueryHandler implements ChatEngine {
         description:
           "Component cataloger who searches the source repo for reusable UI components, copies them into the sandbox, and documents what is now available for the main agent.",
         prompt: getSourceRepositoryComponentHarvesterPrompt(framework),
+        tools: sourceAgentTools,
+      };
+      agentConfigs["source-repo-pr-agent"] = {
+        description:
+          "Specialist that takes UI changes from the prototype sandbox and recreates them pixel-perfectly in the source repository, wiring up real business logic instead of dummy data. Use this when the user wants to push their prototype changes to the source repo as a PR.",
+        prompt: getSourceRepositoryPRAgentPrompt(framework),
         tools: sourceAgentTools,
       };
     }
