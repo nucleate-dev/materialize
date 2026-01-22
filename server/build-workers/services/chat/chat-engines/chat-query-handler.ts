@@ -45,10 +45,10 @@ import { evaluateToolPermission } from "../helpers/tool-permission-service.js";
 import { createDesignToolsMcpServer } from "../mcp/mcp-design-tools.js";
 import { createDevelopmentToolsMcpServer } from "../mcp/mcp-dev-tools.js";
 import {
+  getNucleateChatServiceSystemPrompt,
   getSourceRepositoryComponentHarvesterPrompt,
   getSourceRepositoryScreenExtractorPrompt,
   getSourceRepositoryThemeSyncPrompt,
-  getSystemPromptForDesignStyle,
 } from "../prompts/ClaudeCodePrompts.js";
 import { broadcastToConnections } from "../websocket-broadcast.js";
 import {
@@ -286,8 +286,8 @@ export class ChatQueryHandler implements ChatEngine {
       );
 
       // Check if session is valid for resumption
-      const isValidSessionId =
-        ai_chat_session_id && validAiChatSessionIds.has(ai_chat_session_id);
+      const isValidSessionId = ai_chat_session_id &&
+        validAiChatSessionIds.has(ai_chat_session_id);
 
       // Handle invalid session ID
       if (
@@ -337,8 +337,7 @@ export class ChatQueryHandler implements ChatEngine {
 
       // Execute query and stream responses
       // Respect user's explicit preference, fall back to auto-detect
-      const useOAuth =
-        (data.use_oauth_token ?? context.isUsingOAuthToken) &&
+      const useOAuth = (data.use_oauth_token ?? context.isUsingOAuthToken) &&
         context.isUsingOAuthToken;
 
       const streamContext: StreamContext = {
@@ -380,8 +379,9 @@ export class ChatQueryHandler implements ChatEngine {
       // Clear the abort controller on error
       sessionState.abortController = null;
 
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
+      const errorMessage = error instanceof Error
+        ? error.message
+        : String(error);
 
       baseLogger.error(
         error instanceof Error ? error : new Error(String(error)),
@@ -480,24 +480,24 @@ export class ChatQueryHandler implements ChatEngine {
     }>,
     prototypeChatSessionId: string,
   ): Promise<void> {
-    const userMessageText =
-      typeof messageContent === "string"
-        ? messageContent
-        : messageContent
-            .filter((block) => block.type === "text")
-            .map((block) => block.text || "")
-            .join("\n");
+    const userMessageText = typeof messageContent === "string"
+      ? messageContent
+      : messageContent
+        .filter((block) => block.type === "text")
+        .map((block) => block.text || "")
+        .join("\n");
 
     const hasImages = imagesFromContent.length > 0;
     const userMessageDisplay = hasImages
       ? `${userMessageText} [with ${imagesFromContent.length} image${
-          imagesFromContent.length > 1 ? "s" : ""
-        }]`
+        imagesFromContent.length > 1 ? "s" : ""
+      }]`
       : userMessageText;
 
     // Include image metadata in event_data if images were uploaded
-    const eventData =
-      imageMetadata.length > 0 ? { images: imageMetadata } : null;
+    const eventData = imageMetadata.length > 0
+      ? { images: imageMetadata }
+      : null;
 
     await persistChatMessage(
       this.supabaseClientService,
@@ -602,11 +602,11 @@ export class ChatQueryHandler implements ChatEngine {
         // Screen update broadcast callback (only enabled if visibleScreens is provided)
         visibleScreens
           ? (data: ScreenUpdateData): void => {
-              broadcastToConnections(activeConnections, {
-                type: ChatEvent.SCREEN_UPDATE,
-                data,
-              });
-            }
+            broadcastToConnections(activeConnections, {
+              type: ChatEvent.SCREEN_UPDATE,
+              data,
+            });
+          }
           : undefined,
         // Get visible screens count callback
         visibleScreens ? (): number => visibleScreens.length : undefined,
@@ -653,8 +653,9 @@ export class ChatQueryHandler implements ChatEngine {
       };
     }
 
-    const agents =
-      Object.keys(agentConfigs).length > 0 ? agentConfigs : undefined;
+    const agents = Object.keys(agentConfigs).length > 0
+      ? agentConfigs
+      : undefined;
 
     return {
       ...options,
@@ -668,9 +669,12 @@ export class ChatQueryHandler implements ChatEngine {
       systemPrompt: {
         type: "preset" as const,
         preset: "claude_code" as const,
-        append:
-          systemPromptOverride ??
-          getSystemPromptForDesignStyle(undefined, framework, visibleScreens),
+        append: systemPromptOverride ??
+          getNucleateChatServiceSystemPrompt(
+            undefined,
+            framework,
+            visibleScreens,
+          ),
       },
       settingSources: [
         "project", // For Project CLAUDE.MD
@@ -755,8 +759,8 @@ export class ChatQueryHandler implements ChatEngine {
           normalizedCwd = path.join(WORK_DIR, cwd);
         }
       }
-      const { response: responseRaw } =
-        await this.sandboxService.runCommandInternal({
+      const { response: responseRaw } = await this.sandboxService
+        .runCommandInternal({
           command,
           args,
           cwd: normalizedCwd,
@@ -840,8 +844,9 @@ export class ChatQueryHandler implements ChatEngine {
         };
       }
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
+      const errorMessage = error instanceof Error
+        ? error.message
+        : String(error);
       baseLogger.error(
         error instanceof Error ? error : new Error(errorMessage),
         "MCP Write tool: failed to write file",
@@ -867,9 +872,11 @@ export class ChatQueryHandler implements ChatEngine {
     try {
       if (input.hook_event_name === "PreToolUse") {
         baseLogger.debug(
-          `PreToolUse Hook called for tool ${input.tool_name} with args: ${JSON.stringify(
-            input.tool_input,
-          )}`,
+          `PreToolUse Hook called for tool ${input.tool_name} with args: ${
+            JSON.stringify(
+              input.tool_input,
+            )
+          }`,
         );
         const permission = evaluateToolPermission(
           ALLOWED_ROOTS,
@@ -1069,8 +1076,7 @@ export class ChatQueryHandler implements ChatEngine {
       // MCP stream fix: Keep input stream open until result message arrives
       // This prevents premature MCP server connection closure during multi-turn conversations
       if (ChatQueryHandler.ENABLE_MCP_STREAM_FIX) {
-        const maxChecks =
-          ChatQueryHandler.MCP_STREAM_MAX_WAIT_MS /
+        const maxChecks = ChatQueryHandler.MCP_STREAM_MAX_WAIT_MS /
           ChatQueryHandler.MCP_STREAM_POLL_INTERVAL_MS;
 
         for (let i = 0; i < maxChecks; i++) {
@@ -1080,7 +1086,7 @@ export class ChatQueryHandler implements ChatEngine {
           }
 
           await new Promise((resolve) =>
-            setTimeout(resolve, ChatQueryHandler.MCP_STREAM_POLL_INTERVAL_MS),
+            setTimeout(resolve, ChatQueryHandler.MCP_STREAM_POLL_INTERVAL_MS)
           );
 
           // Check if result message has arrived
@@ -1195,8 +1201,8 @@ export class ChatQueryHandler implements ChatEngine {
             usage?.cache_creation_output_tokens ?? 0;
 
           // Combine Claude costs with accumulated Gemini design tool costs
-          const combinedCostUsd =
-            (total_cost_usd ?? 0) + bufferState.accumulatedGeminiCostUsd;
+          const combinedCostUsd = (total_cost_usd ?? 0) +
+            bufferState.accumulatedGeminiCostUsd;
 
           // Store combined cost for usage tracking in finally block
           totalCostUsd = combinedCostUsd;

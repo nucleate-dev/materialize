@@ -24,11 +24,9 @@ import {
 import { useActiveTeam } from "@/contexts/TeamContext";
 import { VIEWER_ROLE_RESTRICTION_MESSAGE, ENABLE_DESIGN_SYSTEM } from "@/GlobalConstants";
 import { useCreatePrototype } from "@/hooks/useCreatePrototype";
-import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import { useUser } from "@/hooks/useUser";
 import { redirectAfterLoginAtom } from "@/lib/atoms/sidebar";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
-import { type PrototypeVisibility } from "@/lib/types/prototypes";
 import { Database } from "@/lib/types/supabase";
 import {
   setChatIntent,
@@ -36,6 +34,7 @@ import {
 } from "@/lib/utils/chatIntentUtils";
 import { checkSurveyCompleted } from "@/lib/utils/survey/SurveyUtils";
 import { Palette } from "lucide-react";
+import { usePrototypeVisibilityOptions } from "@/hooks/usePrototypeVisibilityOptions";
 import { useAtom } from "jotai";
 import {
   ChevronDown,
@@ -92,16 +91,20 @@ export default function DashboardPage() {
   const router = useRouter();
   const { user } = useUser();
   const { activeTeam, currentUserMembership } = useActiveTeam();
-  const { userPlan } = useSubscriptionAccess();
   const [redirectAfterLogin, setRedirectAfterLogin] = useAtom(
     redirectAfterLoginAtom,
   );
   const [designStyle, setDesignStyle] = useState<DesignStyle>("stylesheets");
   const [framework, setFramework] =
     useState<PrototypeFramework>(DEFAULT_FRAMEWORK);
-  const [visibility, setVisibility] = useState<PrototypeVisibility>("PUBLIC");
+  const {
+    visibilityOptions,
+    visibility,
+    handleVisibilityChange,
+    showUpsellModal,
+    setShowUpsellModal,
+  } = usePrototypeVisibilityOptions();
   const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
-  const [showUpsellModal, setShowUpsellModal] = useState(false);
   const [isSurveyChecking, setIsSurveyChecking] = useState(true);
   const [hasCheckedIntent, setHasCheckedIntent] = useState(false);
   const [uploadedImages, setUploadedImages] = useState<ChatIntentImage[]>([]);
@@ -109,9 +112,6 @@ export default function DashboardPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const isWebFrameworkSelected = framework === "web_nextjs_react";
-
-  // Check if team is on free plan
-  const isFreePlan = userPlan === "free";
   const availableDesignStyles = isWebFrameworkSelected
     ? WEB_DESIGN_STYLE_OPTIONS
     : DESIGN_STYLE_OPTIONS;
@@ -314,7 +314,7 @@ export default function DashboardPage() {
 
     try {
       if (!user?.id) {
-        setChatIntent(undefined, content, false, imagesToSend);
+        setChatIntent(undefined, content, false, visibility, imagesToSend);
         router.push("/login");
         return;
       }
@@ -336,7 +336,7 @@ export default function DashboardPage() {
             source: "dashboard_prompt",
           },
         });
-        setChatIntent(result.data.prototype_id, content, false, imagesToSend);
+        setChatIntent(result.data.prototype_id, content, false, visibility, imagesToSend);
         setUploadedImages([]);
         router.push(`/dashboard/projects/${result.data.prototype_id}`);
       } else if (result.error?.error === "PROTOTYPE_LIMIT_REACHED") {
@@ -545,62 +545,31 @@ export default function DashboardPage() {
                 {/* Visibility Selector */}
                 <Select
                   value={visibility}
-                  onValueChange={(value) => {
-                    const nextVisibility = value as PrototypeVisibility;
-
-                    // Check if trying to select a locked option
-                    if (
-                      isFreePlan &&
-                      (nextVisibility === "SELF" || nextVisibility === "TEAM")
-                    ) {
-                      setShowUpsellModal(true);
-                      return;
-                    }
-
-                    setVisibility(nextVisibility);
-                  }}
+                  onValueChange={handleVisibilityChange}
                   disabled={isLoading}
                 >
                   <SelectTrigger className="h-8 border-0 bg-secondary hover:bg-secondary/80 text-secondary-foreground text-xs font-medium rounded-md transition-colors gap-2 w-auto min-w-[120px] focus:ring-0">
-                    <Share2 className="w-3.5 h-3.5" />
                     <SelectValue placeholder="Visibility" />
                   </SelectTrigger>
                   <SelectContent className="bg-popover border-border text-popover-foreground">
-                    <SelectItem
-                      value="PUBLIC"
-                      className="focus:bg-accent focus:text-accent-foreground text-muted-foreground cursor-pointer text-xs py-2"
-                    >
-                      <div className="flex items-center gap-2">
-                        <Globe className="w-3.5 h-3.5" />
-                        <span>Public</span>
-                      </div>
-                    </SelectItem>
-                    {activeTeam && (
-                      <SelectItem
-                        value="TEAM"
-                        className="focus:bg-accent focus:text-accent-foreground text-muted-foreground cursor-pointer text-xs py-2"
-                      >
-                        <div className="flex items-center gap-2">
-                          <Share2 className="w-3.5 h-3.5" />
-                          <span>{activeTeam.name}</span>
-                          {isFreePlan && (
-                            <Lock className="w-3 h-3 text-muted-foreground/50 ml-auto" />
-                          )}
-                        </div>
-                      </SelectItem>
-                    )}
-                    <SelectItem
-                      value="SELF"
-                      className="focus:bg-accent focus:text-accent-foreground text-muted-foreground cursor-pointer text-xs py-2"
-                    >
-                      <div className="flex items-center gap-2">
-                        <Lock className="w-3.5 h-3.5" />
-                        <span>Private</span>
-                        {isFreePlan && (
-                          <Lock className="w-3 h-3 text-muted-foreground/50 ml-auto" />
-                        )}
-                      </div>
-                    </SelectItem>
+                    {visibilityOptions.map((option) => {
+                      const Icon = option.icon;
+                      return (
+                        <SelectItem
+                          key={option.value}
+                          value={option.value}
+                          className="focus:bg-accent focus:text-accent-foreground text-muted-foreground cursor-pointer text-xs py-2"
+                        >
+                          <div className="flex items-center gap-2">
+                            <Icon className="w-3.5 h-3.5" />
+                            <span>{option.value === "TEAM" && activeTeam ? activeTeam.name : option.label}</span>
+                            {option.isLocked && (
+                              <Lock className="w-3 h-3 text-muted-foreground/50 ml-auto" />
+                            )}
+                          </div>
+                        </SelectItem>
+                      );
+                    })}
                   </SelectContent>
                 </Select>
               </div>
@@ -683,65 +652,31 @@ export default function DashboardPage() {
                       {/* Visibility Selector */}
                       <Select
                         value={visibility}
-                        onValueChange={(v) => {
-                          const nextVisibility = v as PrototypeVisibility;
-
-                          // Check if trying to select a locked option
-                          if (
-                            isFreePlan &&
-                            (nextVisibility === "SELF" ||
-                              nextVisibility === "TEAM")
-                          ) {
-                            setShowUpsellModal(true);
-                            return;
-                          }
-
-                          setVisibility(nextVisibility);
-                        }}
+                        onValueChange={handleVisibilityChange}
                         disabled={isLoading}
                       >
                         <SelectTrigger className="h-9 border-border bg-secondary text-secondary-foreground text-xs w-full">
-                          <div className="flex items-center gap-2">
-                            <Share2 className="w-3.5 h-3.5" />
-                            <SelectValue placeholder="Visibility" />
-                          </div>
+                          <SelectValue placeholder="Visibility" />
                         </SelectTrigger>
                         <SelectContent className="bg-popover border-border text-popover-foreground">
-                          <SelectItem
-                            value="PUBLIC"
-                            className="focus:bg-accent focus:text-accent-foreground text-muted-foreground text-xs"
-                          >
-                            <div className="flex items-center gap-2">
-                              <Globe className="w-3.5 h-3.5" />
-                              <span>Public</span>
-                            </div>
-                          </SelectItem>
-                          {activeTeam && (
-                            <SelectItem
-                              value="TEAM"
-                              className="focus:bg-accent focus:text-accent-foreground text-muted-foreground text-xs"
-                            >
-                              <div className="flex items-center gap-2">
-                                <Share2 className="w-3.5 h-3.5" />
-                                <span>{activeTeam.name}</span>
-                                {isFreePlan && (
-                                  <Lock className="w-3 h-3 text-muted-foreground/50 ml-auto" />
-                                )}
-                              </div>
-                            </SelectItem>
-                          )}
-                          <SelectItem
-                            value="SELF"
-                            className="focus:bg-accent focus:text-accent-foreground text-muted-foreground text-xs"
-                          >
-                            <div className="flex items-center gap-2">
-                              <Lock className="w-3.5 h-3.5" />
-                              <span>Private</span>
-                              {isFreePlan && (
-                                <Lock className="w-3 h-3 text-muted-foreground/50 ml-auto" />
-                              )}
-                            </div>
-                          </SelectItem>
+                          {visibilityOptions.map((option) => {
+                            const Icon = option.icon;
+                            return (
+                              <SelectItem
+                                key={option.value}
+                                value={option.value}
+                                className="focus:bg-accent focus:text-accent-foreground text-muted-foreground text-xs"
+                              >
+                                <div className="flex items-center gap-2">
+                                  <Icon className="w-3.5 h-3.5" />
+                                  <span>{option.value === "TEAM" && activeTeam ? activeTeam.name : option.label}</span>
+                                  {option.isLocked && (
+                                    <Lock className="w-3 h-3 text-muted-foreground/50 ml-auto" />
+                                  )}
+                                </div>
+                              </SelectItem>
+                            );
+                          })}
                         </SelectContent>
                       </Select>
                     </div>

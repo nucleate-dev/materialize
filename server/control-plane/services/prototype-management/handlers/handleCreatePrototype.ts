@@ -81,7 +81,7 @@ export async function handleCreatePrototypeImpl(
       framework,
       source_repo_id,
     } = request.body;
-    let { visibility } = request.body;
+    const { visibility } = request.body;
 
     // update logger context
     request.log2 = request.log2.child({
@@ -123,9 +123,6 @@ export async function handleCreatePrototypeImpl(
         creationSource: creation_source,
       },
     );
-    if (!visibility) {
-      visibility = 'PUBLIC';
-    }
     if (visibility !== 'PUBLIC' && limitCheck.plan === 'free') {
       const errorResponse: CreatePrototypeErrorResponse = {
         error: 'INVALID_REQUEST',
@@ -162,7 +159,7 @@ export async function handleCreatePrototypeImpl(
       const { data: sourcePrototype, error: sourcePrototypeError } =
         await supabase
           .from('prototypes')
-          .select('design_style, framework')
+          .select('design_style, framework, visibility, team_id')
           .eq('id', forkPrototypeId)
           .single();
 
@@ -172,6 +169,32 @@ export async function handleCreatePrototypeImpl(
           '[handleCreatePrototype] Failed to fetch source prototype design system',
         );
       } else if (sourcePrototype) {
+        // Validate cross-team forking restrictions
+        // Non-public prototypes cannot be forked to a different team
+        if (
+          sourcePrototype.visibility !== 'PUBLIC' &&
+          sourcePrototype.team_id !== team_id
+        ) {
+          request.log2.warn(
+            '[handleCreatePrototype] Attempted to fork non-public prototype to different team',
+            {
+              sourcePrototypeId: forkPrototypeId,
+              sourceTeamId: sourcePrototype.team_id,
+              targetTeamId: team_id,
+              visibility: sourcePrototype.visibility,
+            },
+          );
+          const errorResponse: CreatePrototypeErrorResponse = {
+            error: 'FORBIDDEN',
+            message:
+              'This prototype is private and cannot be duplicated outside of its original team',
+          };
+          return reply.status(HTTP_STATUS.FORBIDDEN).send({
+            data: null,
+            error: errorResponse,
+          });
+        }
+
         if (!resolvedDesignStyle) {
           resolvedDesignStyle = sourcePrototype.design_style;
         }
@@ -231,6 +254,11 @@ export async function handleCreatePrototypeImpl(
     );
 
     const version = getVersion();
+    // NOTE: When forking a prototype, we intentionally do NOT copy the following fields:
+    // - slug: Each prototype gets its own unique slug (auto-generated or NULL)
+    // - latest_build_key: Set to a new version, not copied from source
+    // - latest_deploy_key: Left as NULL/default, not copied from source
+    // - github_repo_id: Not copied, each prototype has its own GitHub integration
     const { data: newPrototype, error: prototypeInsertError } = await supabase
       .from('prototypes')
       .insert({
@@ -238,8 +266,7 @@ export async function handleCreatePrototypeImpl(
         description,
         owner_id: user.id,
         folder_id,
-        visibility:
-          visibility || (limitCheck.plan === 'plus' ? 'SELF' : 'PUBLIC'),
+        visibility,
         design_style: resolvedDesignStyle,
         custom_design_system: forkPrototypeId
           ? null

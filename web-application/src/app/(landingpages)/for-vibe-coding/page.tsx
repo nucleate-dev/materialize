@@ -33,6 +33,7 @@ import {
   Check,
   CheckCircle2,
   ChevronLeft,
+  Globe,
   Layers,
   Layout,
   Lock,
@@ -41,6 +42,7 @@ import {
   Palette,
   Play,
   RefreshCw,
+  Share2,
   ShieldCheck,
   ShoppingBag,
   Smartphone,
@@ -55,6 +57,7 @@ import {
 } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
+import { usePrototypeVisibilityOptions } from "@/hooks/usePrototypeVisibilityOptions";
 
 type PrototypeFramework = Database["public"]["Enums"]["prototype_framework"];
 
@@ -135,11 +138,17 @@ function HeroSection() {
   const { createPrototype } = useCreatePrototype();
   const [prompt, setPrompt] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [showUpsellModal, setShowUpsellModal] = useState(false);
   const router = useRouter();
   const { user } = useUser();
   const [framework, setFramework] =
     useState<PrototypeFramework>(DEFAULT_FRAMEWORK);
+  const {
+    visibilityOptions,
+    visibility,
+    handleVisibilityChange,
+    showUpsellModal,
+    setShowUpsellModal,
+  } = usePrototypeVisibilityOptions();
 
   const handleSend = async () => {
     const content = prompt.trim();
@@ -157,7 +166,7 @@ function HeroSection() {
 
     try {
       if (!user?.id) {
-        setChatIntent(undefined, content, false);
+        setChatIntent(undefined, content, false, visibility);
         router.push("/login");
         return;
       }
@@ -165,10 +174,11 @@ function HeroSection() {
       const result = await createPrototype({
         framework,
         creation_source: "landing_prompt",
+        visibility,
       });
 
       if (result.data) {
-        setChatIntent(result.data.prototype_id, content, false);
+        setChatIntent(result.data.prototype_id, content, false, visibility);
         router.push(`/dashboard/projects/${result.data.prototype_id}`);
       } else if (result.error?.error === "PROTOTYPE_LIMIT_REACHED") {
         setShowUpsellModal(true);
@@ -222,6 +232,33 @@ function HeroSection() {
                 </button>
               </div>
               <div className="flex items-center gap-2">
+                {/* Visibility Selector - Only show if user is logged in */}
+                {user && (
+                  <Select
+                    value={visibility}
+                    onValueChange={handleVisibilityChange}
+                  >
+                    <SelectTrigger className="h-9 w-32 border-border bg-accent text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="bg-card border-border">
+                      {visibilityOptions.map((option) => {
+                        const Icon = option.icon;
+                        return (
+                          <SelectItem key={option.value} value={option.value}>
+                            <div className="flex items-center gap-2">
+                              <Icon className="w-3 h-3" />
+                              <span>{option.label}</span>
+                              {option.isLocked && (
+                                <Lock className="w-3 h-3 text-muted-foreground/50 ml-auto" />
+                              )}
+                            </div>
+                          </SelectItem>
+                        );
+                      })}
+                    </SelectContent>
+                  </Select>
+                )}
                 <Select
                   value={framework}
                   onValueChange={(v) => setFramework(v as PrototypeFramework)}

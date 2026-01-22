@@ -20,10 +20,11 @@ import {
   type ChatIntentImage,
 } from "@/lib/utils/chatIntentUtils";
 import { motion } from "framer-motion";
-import { Paperclip, Sparkles, X } from "lucide-react";
+import { Globe, Lock, Paperclip, Share2, Sparkles, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
+import { usePrototypeVisibilityOptions } from "@/hooks/usePrototypeVisibilityOptions";
 
 type PrototypeFramework = Database["public"]["Enums"]["prototype_framework"];
 
@@ -45,7 +46,6 @@ export default function HeroSection() {
   const { createPrototype } = useCreatePrototype();
   const [prompt, setPrompt] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [showUpsellModal, setShowUpsellModal] = useState(false);
   const router = useRouter();
   const { user } = useUser();
   const [framework, setFramework] =
@@ -53,6 +53,13 @@ export default function HeroSection() {
   const [uploadedImages, setUploadedImages] = useState<ChatIntentImage[]>([]);
   const [isDragOver, setIsDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const {
+    visibilityOptions,
+    visibility,
+    handleVisibilityChange,
+    showUpsellModal,
+    setShowUpsellModal,
+  } = usePrototypeVisibilityOptions();
 
   // Process image files
   const processImageFiles = (files: File[]) => {
@@ -179,7 +186,7 @@ export default function HeroSection() {
 
     try {
       if (!user?.id) {
-        setChatIntent(undefined, content, false, imagesToSend);
+        setChatIntent(undefined, content, false, visibility, imagesToSend);
         router.push("/login");
         return;
       }
@@ -187,10 +194,11 @@ export default function HeroSection() {
       const result = await createPrototype({
         framework,
         creation_source: "landing_prompt",
+        visibility,
       });
 
       if (result.data) {
-        setChatIntent(result.data.prototype_id, content, false, imagesToSend);
+        setChatIntent(result.data.prototype_id, content, false, visibility, imagesToSend);
         setUploadedImages([]);
         router.push(`/dashboard/projects/${result.data.prototype_id}`);
       } else if (result.error?.error === "PROTOTYPE_LIMIT_REACHED") {
@@ -406,6 +414,33 @@ export default function HeroSection() {
                 >
                   <Paperclip className="w-4 h-4" />
                 </Button>
+                {/* Visibility Selector - Only show if user is logged in */}
+                {user && (
+                  <Select
+                    value={visibility}
+                    onValueChange={handleVisibilityChange}
+                  >
+                    <SelectTrigger className="h-9 w-32 border-border bg-accent text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="bg-card border-border">
+                      {visibilityOptions.map((option) => {
+                        const Icon = option.icon;
+                        return (
+                          <SelectItem key={option.value} value={option.value}>
+                            <div className="flex items-center gap-2">
+                              <Icon className="w-3 h-3" />
+                              <span>{option.label}</span>
+                              {option.isLocked && (
+                                <Lock className="w-3 h-3 text-muted-foreground/50 ml-auto" />
+                              )}
+                            </div>
+                          </SelectItem>
+                        );
+                      })}
+                    </SelectContent>
+                  </Select>
+                )}
                 <Select
                   value={framework}
                   onValueChange={(v) => setFramework(v as PrototypeFramework)}
