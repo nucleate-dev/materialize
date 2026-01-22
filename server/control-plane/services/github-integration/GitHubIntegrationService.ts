@@ -1914,6 +1914,57 @@ export class GitHubIntegrationService {
                   updatedFields: Object.keys(updateData),
                 },
               );
+
+              // If repository was renamed, update PR URLs in prototype_source_repo_pull_requests
+              if (
+                (action === 'renamed' || action === 'transferred') &&
+                updateData.full_name &&
+                existingRepo.full_name !== updateData.full_name
+              ) {
+                // Fetch all PRs for this repo and update their URLs
+                const { data: affectedPrs, error: prFetchError } =
+                  await supabaseServiceClient
+                    .from('prototype_source_repo_pull_requests')
+                    .select('id, github_pull_request_number, github_pull_request_url')
+                    .eq('github_repo_id', githubRepoId);
+
+                if (prFetchError) {
+                  request.log2.error(
+                    prFetchError,
+                    'Failed to fetch PRs for URL update after repo rename',
+                    { githubRepoId },
+                  );
+                } else if (affectedPrs && affectedPrs.length > 0) {
+                  let updatedCount = 0;
+                  for (const pr of affectedPrs) {
+                    const newUrl = `https://github.com/${updateData.full_name}/pull/${pr.github_pull_request_number}`;
+                    const { error: prUpdateError } = await supabaseServiceClient
+                      .from('prototype_source_repo_pull_requests')
+                      .update({ github_pull_request_url: newUrl })
+                      .eq('id', pr.id);
+
+                    if (prUpdateError) {
+                      request.log2.error(
+                        prUpdateError,
+                        'Failed to update PR URL after repo rename',
+                        { prId: pr.id, oldUrl: pr.github_pull_request_url, newUrl },
+                      );
+                    } else {
+                      updatedCount++;
+                    }
+                  }
+                  request.log2.info(
+                    'Updated PR URLs after repository rename',
+                    {
+                      githubRepoId,
+                      oldFullName: existingRepo.full_name,
+                      newFullName: updateData.full_name,
+                      totalPrs: affectedPrs.length,
+                      updatedCount,
+                    },
+                  );
+                }
+              }
             }
           }
         } else if (action === 'deleted') {
@@ -1939,13 +1990,14 @@ export class GitHubIntegrationService {
       } else if (event === 'pull_request') {
         // Handle pull request events for source repo PRs created by Nucleate
         const prNumber = payload.pull_request?.number;
+        const githubRepoId = payload.repository?.id;
         const repoFullName = payload.repository?.full_name;
         const action = payload.action;
 
-        if (!prNumber || !repoFullName) {
+        if (!prNumber || !githubRepoId) {
           request.log2.warn(
             'Pull request webhook missing required fields, skipping',
-            { event, action, prNumber, repoFullName },
+            { event, action, prNumber, githubRepoId },
           );
           return reply.status(HTTP_STATUS.OK).send({ received: true });
         }
@@ -1953,26 +2005,26 @@ export class GitHubIntegrationService {
         request.log2.info('Pull request event received', {
           action,
           prNumber,
+          githubRepoId,
           repoFullName,
           prUrl: payload.pull_request?.html_url,
         });
 
-        // Look up the PR in our source repo PRs table by matching the URL pattern
-        // The github_pull_request_url contains the full URL like https://github.com/owner/repo/pull/123
-        const expectedUrlPattern = `https://github.com/${repoFullName}/pull/${prNumber}`;
-
+        // Look up the PR in our source repo PRs table by stable identifiers (repo ID + PR number)
+        // This survives repository renames, unlike URL-based matching
         const { data: existingPr, error: prLookupError } =
           await supabaseServiceClient
             .from('prototype_source_repo_pull_requests')
             .select('id, status, github_pull_request_url')
-            .eq('github_pull_request_url', expectedUrlPattern)
+            .eq('github_repo_id', githubRepoId)
+            .eq('github_pull_request_number', prNumber)
             .maybeSingle();
 
         if (prLookupError) {
           request.log2.error(
             prLookupError,
             'Failed to look up source repo PR from webhook',
-            { prNumber, repoFullName, expectedUrlPattern },
+            { prNumber, githubRepoId, repoFullName },
           );
           return reply.status(HTTP_STATUS.OK).send({ received: true });
         }
@@ -1981,7 +2033,7 @@ export class GitHubIntegrationService {
           // PR not created by Nucleate, ignore
           request.log2.info(
             'Pull request event for non-Nucleate PR, ignoring',
-            { prNumber, repoFullName },
+            { prNumber, githubRepoId, repoFullName },
           );
           return reply.status(HTTP_STATUS.OK).send({ received: true });
         }
