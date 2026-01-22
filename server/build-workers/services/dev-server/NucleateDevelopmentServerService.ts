@@ -44,29 +44,32 @@ import type { ChatQueryData } from "../../types/ChatTypes.js";
 import type { SystemLogger } from "../../loggers/SystemLogger.js";
 import { WORK_DIR } from "../../worker.js";
 import {
-  SourceRepoPullRequestInput,
   createSourceRepoPullRequest as handleCreateSourceRepoPullRequest,
+  SourceRepoPullRequestInput,
 } from "./handlers/handleCreateSourceRepoPullRequest.js";
 
 export const S3_BUCKET = process.env.S3_BUCKET || "materialize-sites";
 export const DEV_SERVER_PORT = 19006;
-export const DEFAULT_PROTOTYPE_FRAMEWORK: Database["public"]["Enums"]["prototype_framework"] =
-  "mobile_expo_react_native";
+export const DEFAULT_PROTOTYPE_FRAMEWORK:
+  Database["public"]["Enums"]["prototype_framework"] =
+    "mobile_expo_react_native";
 
 export class NucleateDevelopmentServerService {
   public readonly sandboxService: SandboxService;
-  public readonly cloudflareTunnelManagementService: CloudflareTunnelManagementService;
+  public readonly cloudflareTunnelManagementService:
+    CloudflareTunnelManagementService;
   public chatService: ChatService;
   public readonly supabaseClientService: SupabaseClientService;
   public readonly fileSyncService: FileSyncService;
   public readonly terminalService: TerminalService;
-  public readonly sandboxOrchestrationInitiatorService: SandboxOrchestrationInitiatorService;
+  public readonly sandboxOrchestrationInitiatorService:
+    SandboxOrchestrationInitiatorService;
   public developmentServerAdapter: IDevelopmentServerAdapter;
   public s3Client: S3Client | undefined;
   public prototypeFramework: Database["public"]["Enums"]["prototype_framework"];
   public cloudflareTunnelHostname: string | null;
   public githubRepository: {
-    installationToken: string;
+    installationToken: string; // THIS INSTALLATION TOKEN APPLIES TO BOTH SOURCE REPO AND PROTOTYPE REPO, and gets refreshed regularly. TODO: move it to a shared state between both repos
     repositoryUrl: string;
     repositoryOwner: string;
     repositoryName: string;
@@ -206,8 +209,8 @@ export class NucleateDevelopmentServerService {
           return;
         }
 
-        const tokenData =
-          await this.sandboxOrchestrationInitiatorService.refreshGitHubInstallationToken(
+        const tokenData = await this.sandboxOrchestrationInitiatorService
+          .refreshGitHubInstallationToken(
             prototypeId,
             userJwtToken,
           );
@@ -335,7 +338,8 @@ export class NucleateDevelopmentServerService {
 
     try {
       // Update the remote URL with the fresh installation token
-      const authenticatedUrl = `https://x-access-token:${this.githubRepository.installationToken}@github.com/${this.githubRepository.fullName}.git`;
+      const authenticatedUrl =
+        `https://x-access-token:${this.githubRepository.installationToken}@github.com/${this.githubRepository.fullName}.git`;
 
       const updateRemoteResult = await this.sandboxService.runCommandInternal({
         command: "sh",
@@ -408,7 +412,8 @@ export class NucleateDevelopmentServerService {
     }
 
     try {
-      const authenticatedUrl = `https://x-access-token:${this.githubRepository.installationToken}@github.com/${this.githubRepository.fullName}.git`;
+      const authenticatedUrl =
+        `https://x-access-token:${this.githubRepository.installationToken}@github.com/${this.githubRepository.fullName}.git`;
       const updateRemoteResult = await this.sandboxService.runCommandInternal({
         command: "sh",
         args: [
@@ -460,12 +465,12 @@ export class NucleateDevelopmentServerService {
   private buildCommitMessageArg(data: ChatQueryData): string | null {
     const userMessage = this.extractCommitMessageText(data);
     const normalized = userMessage.replace(/\s+/g, " ").trim();
-    const baseMessage =
-      normalized.length > 0 ? normalized : "Automated chat commit";
-    const truncated =
-      baseMessage.length > 180
-        ? `${baseMessage.slice(0, 177)}...`
-        : baseMessage;
+    const baseMessage = normalized.length > 0
+      ? normalized
+      : "Automated chat commit";
+    const truncated = baseMessage.length > 180
+      ? `${baseMessage.slice(0, 177)}...`
+      : baseMessage;
 
     const escaped = truncated
       .replace(/\\/g, "\\\\")
