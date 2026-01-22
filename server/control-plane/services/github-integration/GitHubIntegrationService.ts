@@ -80,6 +80,22 @@ interface GitHubWebhookPayload {
       };
     };
   };
+  pull_request?: {
+    id?: number;
+    number?: number;
+    html_url?: string;
+    state?: string;
+    merged?: boolean;
+    merged_at?: string;
+    closed_at?: string;
+    head?: {
+      sha?: string;
+      ref?: string;
+    };
+    base?: {
+      ref?: string;
+    };
+  };
 }
 
 const formatGitHubRepoCreateError = (
@@ -1918,6 +1934,132 @@ export class GitHubIntegrationService {
               'Successfully deleted repository metadata after GitHub deletion',
               { githubRepoId, fullName: existingRepo.full_name },
             );
+          }
+        }
+      } else if (event === 'pull_request') {
+        // Handle pull request events for source repo PRs created by Nucleate
+        const prNumber = payload.pull_request?.number;
+        const repoFullName = payload.repository?.full_name;
+        const action = payload.action;
+
+        if (!prNumber || !repoFullName) {
+          request.log2.warn(
+            'Pull request webhook missing required fields, skipping',
+            { event, action, prNumber, repoFullName },
+          );
+          return reply.status(HTTP_STATUS.OK).send({ received: true });
+        }
+
+        request.log2.info('Pull request event received', {
+          action,
+          prNumber,
+          repoFullName,
+          prUrl: payload.pull_request?.html_url,
+        });
+
+        // Look up the PR in our source repo PRs table by matching the URL pattern
+        // The github_pull_request_url contains the full URL like https://github.com/owner/repo/pull/123
+        const expectedUrlPattern = `https://github.com/${repoFullName}/pull/${prNumber}`;
+
+        const { data: existingPr, error: prLookupError } =
+          await supabaseServiceClient
+            .from('prototype_source_repo_pull_requests')
+            .select('id, status, github_pull_request_url')
+            .eq('github_pull_request_url', expectedUrlPattern)
+            .maybeSingle();
+
+        if (prLookupError) {
+          request.log2.error(
+            prLookupError,
+            'Failed to look up source repo PR from webhook',
+            { prNumber, repoFullName, expectedUrlPattern },
+          );
+          return reply.status(HTTP_STATUS.OK).send({ received: true });
+        }
+
+        if (!existingPr) {
+          // PR not created by Nucleate, ignore
+          request.log2.info(
+            'Pull request event for non-Nucleate PR, ignoring',
+            { prNumber, repoFullName },
+          );
+          return reply.status(HTTP_STATUS.OK).send({ received: true });
+        }
+
+        // Determine the new status based on the webhook action
+        let newStatus: string | null = null;
+
+        if (action === 'closed') {
+          // Check if merged or just closed
+          if (payload.pull_request?.merged) {
+            newStatus = 'merged';
+          } else {
+            newStatus = 'closed';
+          }
+        } else if (action === 'reopened') {
+          newStatus = 'open';
+        }
+        // Other actions like 'synchronize', 'edited', 'labeled' don't change status
+
+        if (newStatus && newStatus !== existingPr.status) {
+          const updateData: {
+            status: string;
+            head_sha?: string;
+          } = { status: newStatus };
+
+          // Update head SHA if provided
+          if (payload.pull_request?.head?.sha) {
+            updateData.head_sha = payload.pull_request.head.sha;
+          }
+
+          const { error: updateError } = await supabaseServiceClient
+            .from('prototype_source_repo_pull_requests')
+            .update(updateData)
+            .eq('id', existingPr.id);
+
+          if (updateError) {
+            request.log2.error(
+              updateError,
+              'Failed to update source repo PR status from webhook',
+              {
+                prId: existingPr.id,
+                prNumber,
+                repoFullName,
+                oldStatus: existingPr.status,
+                newStatus,
+              },
+            );
+          } else {
+            request.log2.info(
+              'Successfully updated source repo PR status from webhook',
+              {
+                prId: existingPr.id,
+                prNumber,
+                repoFullName,
+                oldStatus: existingPr.status,
+                newStatus,
+              },
+            );
+          }
+        } else if (action === 'synchronize' && payload.pull_request?.head?.sha) {
+          // Update head SHA on force push / new commits
+          const { error: updateError } = await supabaseServiceClient
+            .from('prototype_source_repo_pull_requests')
+            .update({ head_sha: payload.pull_request.head.sha })
+            .eq('id', existingPr.id);
+
+          if (updateError) {
+            request.log2.error(
+              updateError,
+              'Failed to update source repo PR head SHA from webhook',
+              { prId: existingPr.id, prNumber },
+            );
+          } else {
+            request.log2.info('Updated source repo PR head SHA from webhook', {
+              prId: existingPr.id,
+              prNumber,
+              newSha: payload.pull_request.head.sha,
+            });
           }
         }
       }
