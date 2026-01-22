@@ -1,5 +1,4 @@
 import { CheckCircle2, Github } from "lucide-react";
-import { ENABLE_DESIGN_SYSTEM } from "@/GlobalConstants";
 
 /**
  * HOW IT WORKS SECTION - Server Component
@@ -9,24 +8,23 @@ export default function HowItWorksSection() {
   const steps = [
     {
       number: 1,
-      title: "Connect Repo",
-      description: ENABLE_DESIGN_SYSTEM
-        ? "Connect GitHub. Nucleate auto-detects your design system, components, and styling primitives."
-        : "Connect GitHub. Nucleate auto-detects your components and styling primitives.",
+      title: "Connect GitHub",
+      description:
+        "Nucleate reads your components and design tokens. One time, zero config.",
       color: "primary",
     },
     {
       number: 2,
-      title: "Prototype & Explore",
+      title: "Describe what you want",
       description:
-        "Describe a flow. Generate variants and screens using your real system components instantly.",
+        "Chat with Nucleate like you'd brief a designer. It generates variants instantly.",
       color: "purple",
     },
     {
       number: 3,
-      title: "Ship Real Code",
+      title: "Ship or iterate",
       description:
-        "Export production-ready web or mobile code. Or, have Nucleate open a PR directly against your repo.",
+        "Share with users, get feedback, iterate. When ready, ship as a PR.",
       color: "emerald",
     },
   ];

@@ -181,14 +181,19 @@ export function ProjectSettingsModal({
     }
 
     const fetchOwner = async () => {
+      if (!prototype.owner_id) {
+        setOwnerEmail(null);
+        return;
+      }
+
       const { data } = await supabase
         .from("users")
-        .select("email, full_name")
+        .select("email")
         .eq("id", prototype.owner_id)
         .single();
 
       if (data) {
-        setOwnerEmail(data.full_name || data.email || null);
+        setOwnerEmail(data.email || null);
       }
     };
 
@@ -1306,7 +1311,9 @@ export function ProjectSettingsModal({
                       </p>
                       <p className="text-sm text-foreground font-mono">
                         {createdAtLabel ||
-                          new Date(prototype!.created_at).toLocaleDateString()}
+                          (prototype?.created_at
+                            ? new Date(prototype.created_at).toLocaleDateString()
+                            : "N/A")}
                       </p>
                     </div>
                   )}
