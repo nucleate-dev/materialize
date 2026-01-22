@@ -702,7 +702,7 @@ const MaterializeRenderSection = forwardRef<
     );
     const [tempPath, setTempPath] = useState<string>("");
     const [routeSuggestions, setRouteSuggestions] = useState<
-      Array<{ route: string; group?: string }>
+      Array<{ route: string; group?: string; }>
     >([]);
     // Allow screen editing in public view if onScreensChange or onWebScreensChange is provided
     const canEditScreensInPublicView =
@@ -1152,7 +1152,7 @@ const MaterializeRenderSection = forwardRef<
     const availableRoutes = React.useMemo(() => {
       if (!files) return [];
 
-      const routes: Array<{ route: string; group?: string }> = [];
+      const routes: Array<{ route: string; group?: string; }> = [];
       Object.keys(files).forEach((filePath) => {
         // Look for files in app/ directory that could be routes
         if (filePath.startsWith("app/")) {
@@ -2154,7 +2154,7 @@ const MaterializeRenderSection = forwardRef<
     };
 
     // Connection loading overlay for iframe
-    const ConnectionLoadingOverlay = ({ mode }: { mode: PreviewMode }) => (
+    const ConnectionLoadingOverlay = ({ mode }: { mode: PreviewMode; }) => (
       <div className="absolute inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm z-10">
         <div className="text-center bg-accent p-6 rounded-xl border border-border shadow-2xl">
           <Loader2 className="w-6 h-6 animate-spin mx-auto mb-3 text-muted-foreground" />
@@ -2171,7 +2171,7 @@ const MaterializeRenderSection = forwardRef<
     );
 
     // Error overlay for iframe
-    const ConnectionErrorOverlay = ({ mode }: { mode: PreviewMode }) => (
+    const ConnectionErrorOverlay = ({ mode }: { mode: PreviewMode; }) => (
       <div className="absolute inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm z-10">
         <div className="text-center bg-accent p-6 rounded-xl border border-red-500/20 shadow-2xl">
           <div className="w-8 h-8 mx-auto mb-3 text-red-400 bg-red-400/10 rounded-full flex items-center justify-center">
@@ -2734,11 +2734,6 @@ const MaterializeRenderSection = forwardRef<
                 disabled={!viewing_url}
               >
                 <Plus className="h-3.5 w-3.5" />
-                {webScreens.length < 2 && (
-                  <span className="hidden md:inline text-xs font-medium ml-1">
-                    Add Screen
-                  </span>
-                )}
               </Button>
             </div>
           )}
@@ -2788,36 +2783,36 @@ const MaterializeRenderSection = forwardRef<
                       ...(isWebFullScreen
                         ? isWebMobileSize
                           ? {
-                              // Full-screen + mobile size: centered mobile width, full height
-                              width: webMobileSizeWidth,
-                              maxWidth: "100%",
-                              inset: "1rem auto",
-                              left: "50%",
-                              transform: "translateX(-50%)",
-                            }
+                            // Full-screen + mobile size: centered mobile width, full height
+                            width: webMobileSizeWidth,
+                            maxWidth: "100%",
+                            inset: "1rem auto",
+                            left: "50%",
+                            transform: "translateX(-50%)",
+                          }
                           : {
-                              // Full-screen only: fill the area
-                            }
+                            // Full-screen only: fill the area
+                          }
                         : isWebMobileSize
                           ? {
-                              // Mobile size only: constrained dimensions
-                              width: webMobileSizeWidth,
-                              height: webMobileSizeHeight,
-                              maxWidth: "100%",
-                            }
+                            // Mobile size only: constrained dimensions
+                            width: webMobileSizeWidth,
+                            height: webMobileSizeHeight,
+                            maxWidth: "100%",
+                          }
                           : showWebMultiScreen
                             ? {
-                                minHeight: webFrameHeight,
-                              }
+                              minHeight: webFrameHeight,
+                            }
                             : hasManuallyResizedWebFrame
                               ? {
-                                  width: webFrameWidth ?? undefined,
-                                  height: webFrameHeight,
-                                  maxWidth: "100%",
-                                }
+                                width: webFrameWidth ?? undefined,
+                                height: webFrameHeight,
+                                maxWidth: "100%",
+                              }
                               : {
-                                  height: "100%",
-                                }),
+                                height: "100%",
+                              }),
                     }}
                   >
                     {/* Browser Header */}
@@ -2922,13 +2917,13 @@ const MaterializeRenderSection = forwardRef<
                             className={cn(
                               "h-6 px-4 rounded-md bg-background border border-border flex items-center justify-center min-w-[200px] max-w-[400px]",
                               showWebControls &&
-                                showScreenControls &&
-                                "cursor-pointer hover:border-muted-foreground/50",
+                              showScreenControls &&
+                              "cursor-pointer hover:border-muted-foreground/50",
                             )}
                             onClick={
                               showWebControls && showScreenControls
                                 ? () =>
-                                    handleWebBadgeClick(screen.id, screen.path)
+                                  handleWebBadgeClick(screen.id, screen.path)
                                 : undefined
                             }
                           >
@@ -3054,111 +3049,56 @@ const MaterializeRenderSection = forwardRef<
                 : "sticky top-0 px-4 py-3 border-b border-border"
             )}
           >
-          <div className={cn(
-            "flex flex-wrap items-center gap-3",
-            isWebFullScreen && previewMode === "web" ? "justify-end" : "justify-between"
-          )}>
-            {/* Left: View Toggles - hidden in full-screen mode */}
-            {!(isWebFullScreen && previewMode === "web") && (
-            <div className="flex items-center gap-3 flex-wrap">
-              {/* Expand Chat Button - shown when chat is collapsed */}
-              {isChatCollapsed && onExpandChat && (
-                <TooltipProvider delayDuration={200}>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={onExpandChat}
-                        className="h-8 w-8 rounded-lg bg-primary/10 text-primary hover:bg-primary/20 border border-primary/20"
-                      >
-                        <MessageSquare className="w-4 h-4" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>Open Chat</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              )}
-
-              {!isReadOnlyView && (
-                <>
-                  <div className="bg-accent p-1 rounded-lg border border-border flex items-center gap-1">
+            <div className={cn(
+              "flex flex-wrap items-center gap-3",
+              isWebFullScreen && previewMode === "web" ? "justify-end" : "justify-between"
+            )}>
+              {/* Left: View Toggles - hidden in full-screen mode */}
+              {!(isWebFullScreen && previewMode === "web") && (
+                <div className="flex items-center gap-3 flex-wrap">
+                  {/* Expand Chat Button - shown when chat is collapsed */}
+                  {isChatCollapsed && onExpandChat && (
                     <TooltipProvider delayDuration={200}>
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <Button
                             variant="ghost"
                             size="icon"
-                            onClick={() => handlePreviewToggle(true)}
-                            className={cn(
-                              "h-7 w-7 rounded-md transition-all",
-                              isPreviewView
-                                ? "bg-white text-black shadow-sm"
-                                : "text-muted-foreground hover:text-foreground hover:bg-accent",
-                            )}
+                            onClick={onExpandChat}
+                            className="h-8 w-8 rounded-lg bg-primary/10 text-primary hover:bg-primary/20 border border-primary/20"
                           >
-                            <Eye className="w-3.5 h-3.5" />
+                            <MessageSquare className="w-4 h-4" />
                           </Button>
                         </TooltipTrigger>
                         <TooltipContent>
-                          <p>Preview</p>
+                          <p>Open Chat</p>
                         </TooltipContent>
                       </Tooltip>
                     </TooltipProvider>
-                    <TooltipProvider delayDuration={200}>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handlePreviewToggle(false)}
-                            className={cn(
-                              "h-7 w-7 rounded-md transition-all",
-                              !isPreviewView
-                                ? "bg-white text-black shadow-sm"
-                                : "text-muted-foreground hover:text-foreground hover:bg-accent",
-                            )}
-                          >
-                            <Code2 className="w-3.5 h-3.5" />
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p>Code</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  </div>
+                  )}
 
-                  <div className="h-4 w-px bg-border mx-1" />
-
-                  <ConnectionStatusIndicator />
-
-                  {/* Device Type Toggle - only show in preview view */}
-                  {isPreviewView && (
+                  {!isReadOnlyView && (
                     <>
-                      <div className="h-4 w-px bg-border mx-1" />
-                      <div className="bg-accent p-1 rounded-lg border border-border flex items-center gap-0.5">
+                      <div className="bg-accent p-1 rounded-lg border border-border flex items-center gap-1">
                         <TooltipProvider delayDuration={200}>
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                onClick={() => handleModeChange("mobile")}
+                                onClick={() => handlePreviewToggle(true)}
                                 className={cn(
                                   "h-7 w-7 rounded-md transition-all",
-                                  previewMode === "mobile"
+                                  isPreviewView
                                     ? "bg-white text-black shadow-sm"
                                     : "text-muted-foreground hover:text-foreground hover:bg-accent",
                                 )}
                               >
-                                <Smartphone className="w-3.5 h-3.5" />
+                                <Eye className="w-3.5 h-3.5" />
                               </Button>
                             </TooltipTrigger>
                             <TooltipContent>
-                              <p>Mobile</p>
+                              <p>Preview</p>
                             </TooltipContent>
                           </Tooltip>
                         </TooltipProvider>
@@ -3168,550 +3108,605 @@ const MaterializeRenderSection = forwardRef<
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                onClick={() => handleModeChange("tablet")}
+                                onClick={() => handlePreviewToggle(false)}
                                 className={cn(
                                   "h-7 w-7 rounded-md transition-all",
-                                  previewMode === "tablet"
+                                  !isPreviewView
                                     ? "bg-white text-black shadow-sm"
                                     : "text-muted-foreground hover:text-foreground hover:bg-accent",
                                 )}
                               >
-                                <Tablet className="w-3.5 h-3.5" />
+                                <Code2 className="w-3.5 h-3.5" />
                               </Button>
                             </TooltipTrigger>
                             <TooltipContent>
-                              <p>Tablet</p>
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                        <TooltipProvider delayDuration={200}>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => handleModeChange("web")}
-                                className={cn(
-                                  "h-7 w-7 rounded-md transition-all",
-                                  previewMode === "web"
-                                    ? "bg-white text-black shadow-sm"
-                                    : "text-muted-foreground hover:text-foreground hover:bg-accent",
-                                )}
-                              >
-                                <Monitor className="w-3.5 h-3.5" />
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              <p>Desktop</p>
+                              <p>Code</p>
                             </TooltipContent>
                           </Tooltip>
                         </TooltipProvider>
                       </div>
-                    </>
-                  )}
 
-                  {/* Canvas Zoom Controls - only show when canvas mode is enabled and in preview view */}
-                  {isCanvasPreviewEnabled && isPreviewView && (
-                    <>
                       <div className="h-4 w-px bg-border mx-1" />
-                      <div className="flex items-center gap-1 bg-accent p-1 rounded-lg border border-border">
-                        <TooltipProvider delayDuration={200}>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-6 w-6 text-muted-foreground hover:text-foreground"
-                                onClick={handleZoomOut}
-                              >
-                                <ZoomOut className="w-3.5 h-3.5" />
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              <p>Zoom out</p>
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                        <span className="text-xs text-muted-foreground font-mono w-12 text-center">
-                          {Math.round(canvasZoom * 100)}%
+
+                      <ConnectionStatusIndicator />
+
+                      {/* Device Type Toggle - only show in preview view */}
+                      {isPreviewView && (
+                        <>
+                          <div className="h-4 w-px bg-border mx-1" />
+                          <div className="bg-accent p-1 rounded-lg border border-border flex items-center gap-0.5">
+                            <TooltipProvider delayDuration={200}>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => handleModeChange("mobile")}
+                                    className={cn(
+                                      "h-7 w-7 rounded-md transition-all",
+                                      previewMode === "mobile"
+                                        ? "bg-white text-black shadow-sm"
+                                        : "text-muted-foreground hover:text-foreground hover:bg-accent",
+                                    )}
+                                  >
+                                    <Smartphone className="w-3.5 h-3.5" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Mobile</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                            <TooltipProvider delayDuration={200}>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => handleModeChange("tablet")}
+                                    className={cn(
+                                      "h-7 w-7 rounded-md transition-all",
+                                      previewMode === "tablet"
+                                        ? "bg-white text-black shadow-sm"
+                                        : "text-muted-foreground hover:text-foreground hover:bg-accent",
+                                    )}
+                                  >
+                                    <Tablet className="w-3.5 h-3.5" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Tablet</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                            <TooltipProvider delayDuration={200}>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => handleModeChange("web")}
+                                    className={cn(
+                                      "h-7 w-7 rounded-md transition-all",
+                                      previewMode === "web"
+                                        ? "bg-white text-black shadow-sm"
+                                        : "text-muted-foreground hover:text-foreground hover:bg-accent",
+                                    )}
+                                  >
+                                    <Monitor className="w-3.5 h-3.5" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Desktop</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          </div>
+                        </>
+                      )}
+
+                      {/* Canvas Zoom Controls - only show when canvas mode is enabled and in preview view */}
+                      {isCanvasPreviewEnabled && isPreviewView && (
+                        <>
+                          <div className="h-4 w-px bg-border mx-1" />
+                          <div className="flex items-center gap-1 bg-accent p-1 rounded-lg border border-border">
+                            <TooltipProvider delayDuration={200}>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-6 w-6 text-muted-foreground hover:text-foreground"
+                                    onClick={handleZoomOut}
+                                  >
+                                    <ZoomOut className="w-3.5 h-3.5" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Zoom out</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                            <span className="text-xs text-muted-foreground font-mono w-12 text-center">
+                              {Math.round(canvasZoom * 100)}%
+                            </span>
+                            <TooltipProvider delayDuration={200}>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-6 w-6 text-muted-foreground hover:text-foreground"
+                                    onClick={handleZoomIn}
+                                  >
+                                    <ZoomIn className="w-3.5 h-3.5" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Zoom in</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                            <div className="h-4 w-px bg-border mx-0.5" />
+                            <TooltipProvider delayDuration={200}>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-6 w-6 text-muted-foreground hover:text-foreground"
+                                    onClick={handleZoomToFit}
+                                  >
+                                    <Maximize className="w-3.5 h-3.5" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Zoom to fit</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          </div>
+                        </>
+                      )}
+
+                      {mobileHint && isMobileLayout && (
+                        <span className="text-xs text-muted-foreground animate-pulse">
+                          {mobileHint}
                         </span>
-                        <TooltipProvider delayDuration={200}>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-6 w-6 text-muted-foreground hover:text-foreground"
-                                onClick={handleZoomIn}
-                              >
-                                <ZoomIn className="w-3.5 h-3.5" />
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              <p>Zoom in</p>
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                        <div className="h-4 w-px bg-border mx-0.5" />
-                        <TooltipProvider delayDuration={200}>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-6 w-6 text-muted-foreground hover:text-foreground"
-                                onClick={handleZoomToFit}
-                              >
-                                <Maximize className="w-3.5 h-3.5" />
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              <p>Zoom to fit</p>
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                      </div>
+                      )}
                     </>
                   )}
-
-                  {mobileHint && isMobileLayout && (
-                    <span className="text-xs text-muted-foreground animate-pulse">
-                      {mobileHint}
-                    </span>
+                  {canEditScreensInPublicView && (
+                    <div className="flex items-center gap-1.5 px-3 py-1.5 bg-warning/10 border border-warning/30 rounded-full text-foreground text-xs font-medium">
+                      <Pencil className="w-3 h-3 text-warning" />
+                      Editing public view
+                    </div>
                   )}
-                </>
-              )}
-              {canEditScreensInPublicView && (
-                <div className="flex items-center gap-1.5 px-3 py-1.5 bg-warning/10 border border-warning/30 rounded-full text-foreground text-xs font-medium">
-                  <Pencil className="w-3 h-3 text-warning" />
-                  Editing public view
                 </div>
               )}
-            </div>
-            )}
 
-            {/* Right: Actions */}
-            <div className="flex items-center gap-2">
-              {!isReadOnlyView && !isPreviewView && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleExport}
-                  disabled={isExporting}
-                  className="hidden sm:flex h-8 bg-accent border border-border text-muted-foreground hover:text-foreground hover:border-border/80 hover:bg-accent/80 transition-all"
-                  title="Export project files"
-                >
-                  {isExporting ? (
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  ) : (
-                    <Download className="w-3.5 h-3.5" />
-                  )}
-                  <span className="ml-2 hidden md:inline text-xs font-medium">
-                    Export
-                  </span>
-                </Button>
-              )}
-              {!isReadOnlyView &&
-                (isWebFramework ? (
+              {/* Right: Actions */}
+              <div className="flex items-center gap-2">
+                {!isReadOnlyView && !isPreviewView && (
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => handleOpenBrowserPreview("toolbar_button")}
+                    onClick={handleExport}
+                    disabled={isExporting}
                     className="hidden sm:flex h-8 bg-accent border border-border text-muted-foreground hover:text-foreground hover:border-border/80 hover:bg-accent/80 transition-all"
-                    title="Open in new tab"
-                    disabled={!viewing_url}
+                    title="Export project files"
                   >
-                    <ExternalLink className="w-3.5 h-3.5" />
+                    {isExporting ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Download className="w-3.5 h-3.5" />
+                    )}
                     <span className="ml-2 hidden md:inline text-xs font-medium">
-                      Browser
+                      Export
                     </span>
                   </Button>
-                ) : (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleOpenViewOnDevice("toolbar_button")}
-                    className="h-8 bg-accent border border-border text-muted-foreground hover:text-foreground hover:border-border/80 hover:bg-accent/80 transition-all"
-                    title="View on Device"
-                    disabled={!viewing_url}
-                  >
-                    <QrCode className="w-3.5 h-3.5" />
-                    <span className="ml-2 hidden md:inline text-xs font-medium">
-                      Device
-                    </span>
-                  </Button>
-                ))}
-              {!isReadOnlyView && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setIsTerminalOpen(!isTerminalOpen)}
-                  className={cn(
-                    "hidden sm:flex h-8 border transition-all",
-                    isTerminalOpen
-                      ? "bg-white text-black border-transparent hover:bg-white/90"
-                      : "bg-accent border-border text-muted-foreground hover:text-foreground hover:border-border/80 hover:bg-accent/80",
-                  )}
-                  title="Toggle Terminal"
-                >
-                  <TerminalIcon className="w-3.5 h-3.5" />
-                </Button>
-              )}
-              {!isReadOnlyView && (
-                <DropdownMenu
-                  open={isGithubDropdownOpen}
-                  onOpenChange={setIsGithubDropdownOpen}
-                >
-                  <DropdownMenuTrigger asChild>
+                )}
+                {!isReadOnlyView &&
+                  (isWebFramework ? (
                     <Button
                       variant="ghost"
                       size="sm"
+                      onClick={() => handleOpenBrowserPreview("toolbar_button")}
                       className="hidden sm:flex h-8 bg-accent border border-border text-muted-foreground hover:text-foreground hover:border-border/80 hover:bg-accent/80 transition-all"
-                      title="GitHub integration"
-                      disabled={!prototypeId}
+                      title="Open in new tab"
+                      disabled={!viewing_url}
                     >
-                      <svg
-                        className="w-4 h-4"
-                        viewBox="0 0 16 16"
-                        fill="currentColor"
-                        xmlns="http://www.w3.org/2000/svg"
-                      >
-                        <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z" />
-                      </svg>
+                      <ExternalLink className="w-3.5 h-3.5" />
+                      <span className="ml-2 hidden md:inline text-xs font-medium">
+                        Browser
+                      </span>
                     </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent
-                    align="end"
-                    className="w-80 bg-accent border-border text-foreground p-4"
+                  ) : (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleOpenViewOnDevice("toolbar_button")}
+                      className="h-8 bg-accent border border-border text-muted-foreground hover:text-foreground hover:border-border/80 hover:bg-accent/80 transition-all"
+                      title="View on Device"
+                      disabled={!viewing_url}
+                    >
+                      <QrCode className="w-3.5 h-3.5" />
+                      <span className="ml-2 hidden md:inline text-xs font-medium">
+                        Device
+                      </span>
+                    </Button>
+                  ))}
+                {!isReadOnlyView && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setIsTerminalOpen(!isTerminalOpen)}
+                    className={cn(
+                      "hidden sm:flex h-8 border transition-all",
+                      isTerminalOpen
+                        ? "bg-white text-black border-transparent hover:bg-white/90"
+                        : "bg-accent border-border text-muted-foreground hover:text-foreground hover:border-border/80 hover:bg-accent/80",
+                    )}
+                    title="Toggle Terminal"
                   >
-                    <div className="space-y-3">
-                      <h3 className="text-sm font-semibold text-foreground">
-                        GitHub
-                      </h3>
-                      <p className="text-xs text-muted-foreground leading-relaxed">
-                        Sync your project 2-way with GitHub to collaborate at
-                        source.
-                      </p>
-
-                      {githubRepoError && (
-                        <Alert className="border-rose-500/20 bg-rose-500/10">
-                          <AlertDescription className="text-xs text-rose-600 dark:text-rose-400">
-                            {githubRepoError}
-                          </AlertDescription>
-                        </Alert>
-                      )}
-
-                      {/* Show alert if user doesn't have permission */}
-                      {!githubIntegration.connected &&
-                        !githubRepository.html_url &&
-                        currentUserMembership?.role !== "admin" &&
-                        currentUserMembership?.role !== "owner" && (
-                          <Alert className="border-warning/30 bg-warning/10">
-                            <AlertDescription className="text-xs text-foreground">
-                              Please reach out to a team admin to connect a
-                              GitHub account first.
-                            </AlertDescription>
-                          </Alert>
-                        )}
-
-                      {githubIntegration.connected &&
-                        !githubRepository.html_url &&
-                        currentUserMembership?.role === "viewer" && (
-                          <Alert className="border-warning/30 bg-warning/10">
-                            <AlertDescription className="text-xs text-foreground">
-                              You need edit permissions to create a GitHub
-                              repository for this project.
-                            </AlertDescription>
-                          </Alert>
-                        )}
-
-                      {githubRepository.html_url &&
-                        currentUserMembership?.role === "viewer" && (
-                          <Alert className="border-warning/30 bg-warning/10">
-                            <AlertDescription className="text-xs text-foreground">
-                              You don&apos;t have permission to access this
-                              repository.
-                            </AlertDescription>
-                          </Alert>
-                        )}
-
+                    <TerminalIcon className="w-3.5 h-3.5" />
+                  </Button>
+                )}
+                {!isReadOnlyView && (
+                  <DropdownMenu
+                    open={isGithubDropdownOpen}
+                    onOpenChange={setIsGithubDropdownOpen}
+                  >
+                    <DropdownMenuTrigger asChild>
                       <Button
-                        className="w-full bg-white text-black hover:bg-white/90 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                        variant="ghost"
                         size="sm"
-                        disabled={
-                          githubIntegration.loading ||
-                          githubRepository.loading ||
-                          (!githubIntegration.connected &&
-                            currentUserMembership?.role !== "admin" &&
-                            currentUserMembership?.role !== "owner") ||
-                          (githubIntegration.connected &&
-                            !githubRepository.html_url &&
-                            currentUserMembership?.role === "viewer") ||
-                          (!!githubRepository.html_url &&
-                            currentUserMembership?.role === "viewer")
-                        }
-                        onClick={() => {
-                          if (githubRepository.html_url) {
-                            // Open GitHub repository in new tab
-                            window.open(
-                              githubRepository.html_url,
-                              "_blank",
-                              "noopener,noreferrer",
-                            );
-                            setIsGithubDropdownOpen(false);
-                          } else if (
-                            githubIntegration.connected &&
-                            currentUserMembership?.role !== "viewer"
-                          ) {
-                            // Create GitHub repository and connect to sandbox
-                            handleCreateGitHubRepository();
-                          } else if (
-                            !githubIntegration.connected &&
-                            (currentUserMembership?.role === "admin" ||
-                              currentUserMembership?.role === "owner")
-                          ) {
-                            // Navigate to dashboard with githubConnected param to open settings dialog
-                            window.location.href =
-                              "/dashboard?githubConnected=true";
-                          } else {
-                            // This shouldn't happen due to button disabled state
-                            setIsGithubDropdownOpen(false);
-                          }
-                        }}
+                        className="hidden sm:flex h-8 bg-accent border border-border text-muted-foreground hover:text-foreground hover:border-border/80 hover:bg-accent/80 transition-all"
+                        title="GitHub integration"
+                        disabled={!prototypeId}
                       >
                         <svg
-                          className="w-4 h-4 mr-2"
+                          className="w-4 h-4"
                           viewBox="0 0 16 16"
                           fill="currentColor"
                           xmlns="http://www.w3.org/2000/svg"
                         >
                           <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z" />
                         </svg>
-                        {githubIntegration.loading || githubRepository.loading
-                          ? "Loading..."
-                          : githubRepository.html_url
-                            ? "View Repository"
-                            : githubIntegration.connected &&
-                                currentUserMembership?.role !== "viewer"
-                              ? "Create Repository For Project"
-                              : "Connect GitHub"}
                       </Button>
-                    </div>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              )}
-              {/* Project Settings (Gear icon) */}
-              {!isReadOnlyView && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() =>
-                    handleOpenProjectSettings("deploy", "toolbar_gear")
-                  }
-                  className="h-8 w-8 p-0 bg-accent border border-border text-muted-foreground hover:text-foreground hover:border-border/80 hover:bg-accent/80 transition-all"
-                  title="Project Settings"
-                  disabled={!prototypeId}
-                >
-                  <Settings className="w-3.5 h-3.5" />
-                </Button>
-              )}
-              {/* Deploy Button - opens modal */}
-              {!isReadOnlyView && (
-                <Button
-                  size="sm"
-                  onClick={() =>
-                    handleOpenProjectSettings("deploy", "toolbar_deploy")
-                  }
-                  disabled={isDeploying || !prototypeId}
-                  className={cn(
-                    "h-8 px-3 text-xs font-semibold shadow-sm",
-                    deploymentUrl
-                      ? "bg-success hover:bg-success/90 text-white"
-                      : "bg-primary hover:bg-primary/90 text-primary-foreground",
-                  )}
-                >
-                  {isDeploying ? (
-                    <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" />
-                  ) : (
-                    <Rocket className="w-3.5 h-3.5 mr-2" />
-                  )}
-                  {deploymentUrl ? "Manage deploy" : "Deploy"}
-                </Button>
-              )}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent
+                      align="end"
+                      className="w-80 bg-accent border-border text-foreground p-4"
+                    >
+                      <div className="space-y-3">
+                        <h3 className="text-sm font-semibold text-foreground">
+                          GitHub
+                        </h3>
+                        <p className="text-xs text-muted-foreground leading-relaxed">
+                          Sync your project 2-way with GitHub to collaborate at
+                          source.
+                        </p>
+
+                        {githubRepoError && (
+                          <Alert className="border-rose-500/20 bg-rose-500/10">
+                            <AlertDescription className="text-xs text-rose-600 dark:text-rose-400">
+                              {githubRepoError}
+                            </AlertDescription>
+                          </Alert>
+                        )}
+
+                        {/* Show alert if user doesn't have permission */}
+                        {!githubIntegration.connected &&
+                          !githubRepository.html_url &&
+                          currentUserMembership?.role !== "admin" &&
+                          currentUserMembership?.role !== "owner" && (
+                            <Alert className="border-warning/30 bg-warning/10">
+                              <AlertDescription className="text-xs text-foreground">
+                                Please reach out to a team admin to connect a
+                                GitHub account first.
+                              </AlertDescription>
+                            </Alert>
+                          )}
+
+                        {githubIntegration.connected &&
+                          !githubRepository.html_url &&
+                          currentUserMembership?.role === "viewer" && (
+                            <Alert className="border-warning/30 bg-warning/10">
+                              <AlertDescription className="text-xs text-foreground">
+                                You need edit permissions to create a GitHub
+                                repository for this project.
+                              </AlertDescription>
+                            </Alert>
+                          )}
+
+                        {githubRepository.html_url &&
+                          currentUserMembership?.role === "viewer" && (
+                            <Alert className="border-warning/30 bg-warning/10">
+                              <AlertDescription className="text-xs text-foreground">
+                                You don&apos;t have permission to access this
+                                repository.
+                              </AlertDescription>
+                            </Alert>
+                          )}
+
+                        <Button
+                          className="w-full bg-white text-black hover:bg-white/90 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                          size="sm"
+                          disabled={
+                            githubIntegration.loading ||
+                            githubRepository.loading ||
+                            (!githubIntegration.connected &&
+                              currentUserMembership?.role !== "admin" &&
+                              currentUserMembership?.role !== "owner") ||
+                            (githubIntegration.connected &&
+                              !githubRepository.html_url &&
+                              currentUserMembership?.role === "viewer") ||
+                            (!!githubRepository.html_url &&
+                              currentUserMembership?.role === "viewer")
+                          }
+                          onClick={() => {
+                            if (githubRepository.html_url) {
+                              // Open GitHub repository in new tab
+                              window.open(
+                                githubRepository.html_url,
+                                "_blank",
+                                "noopener,noreferrer",
+                              );
+                              setIsGithubDropdownOpen(false);
+                            } else if (
+                              githubIntegration.connected &&
+                              currentUserMembership?.role !== "viewer"
+                            ) {
+                              // Create GitHub repository and connect to sandbox
+                              handleCreateGitHubRepository();
+                            } else if (
+                              !githubIntegration.connected &&
+                              (currentUserMembership?.role === "admin" ||
+                                currentUserMembership?.role === "owner")
+                            ) {
+                              // Navigate to dashboard with githubConnected param to open settings dialog
+                              window.location.href =
+                                "/dashboard?githubConnected=true";
+                            } else {
+                              // This shouldn't happen due to button disabled state
+                              setIsGithubDropdownOpen(false);
+                            }
+                          }}
+                        >
+                          <svg
+                            className="w-4 h-4 mr-2"
+                            viewBox="0 0 16 16"
+                            fill="currentColor"
+                            xmlns="http://www.w3.org/2000/svg"
+                          >
+                            <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z" />
+                          </svg>
+                          {githubIntegration.loading || githubRepository.loading
+                            ? "Loading..."
+                            : githubRepository.html_url
+                              ? "View Repository"
+                              : githubIntegration.connected &&
+                                currentUserMembership?.role !== "viewer"
+                                ? "Create Repository For Project"
+                                : "Connect GitHub"}
+                        </Button>
+                      </div>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
+                {/* Project Settings (Gear icon) */}
+                {!isReadOnlyView && (
                   <Button
                     variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 bg-accent border border-border text-muted-foreground hover:text-foreground hover:border-border/80 hover:bg-accent/80 transition-all"
-                    title="Actions"
+                    size="sm"
+                    onClick={() =>
+                      handleOpenProjectSettings("deploy", "toolbar_gear")
+                    }
+                    className="h-8 w-8 p-0 bg-accent border border-border text-muted-foreground hover:text-foreground hover:border-border/80 hover:bg-accent/80 transition-all"
+                    title="Project Settings"
+                    disabled={!prototypeId}
                   >
-                    <MoreVertical className="w-4 h-4" />
+                    <Settings className="w-3.5 h-3.5" />
                   </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent
-                  align="end"
-                  className="w-48 bg-accent border-border text-foreground"
-                >
-                  <DropdownMenuItem
-                    onClick={() => handleModeChange("mobile")}
+                )}
+                {/* Deploy Button - opens modal */}
+                {!isReadOnlyView && (
+                  <Button
+                    size="sm"
+                    onClick={() =>
+                      handleOpenProjectSettings("deploy", "toolbar_deploy")
+                    }
+                    disabled={isDeploying || !prototypeId}
                     className={cn(
-                      "focus:bg-accent/80 focus:text-foreground text-sm cursor-pointer",
-                      previewMode === "mobile"
-                        ? "bg-accent/50 text-foreground"
-                        : "text-muted-foreground",
+                      "h-8 px-3 text-xs font-semibold shadow-sm",
+                      deploymentUrl
+                        ? "bg-success hover:bg-success/90 text-white"
+                        : "bg-primary hover:bg-primary/90 text-primary-foreground",
                     )}
                   >
-                    <Smartphone className="w-4 h-4 mr-2 opacity-70" />
-                    Mobile View
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => handleModeChange("tablet")}
-                    className={cn(
-                      "focus:bg-accent/80 focus:text-foreground text-sm cursor-pointer",
-                      previewMode === "tablet"
-                        ? "bg-accent/50 text-foreground"
-                        : "text-muted-foreground",
+                    {isDeploying ? (
+                      <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" />
+                    ) : (
+                      <Rocket className="w-3.5 h-3.5 mr-2" />
                     )}
-                  >
-                    <Tablet className="w-4 h-4 mr-2 opacity-70" />
-                    Tablet View
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => handleModeChange("web")}
-                    className={cn(
-                      "focus:bg-accent/80 focus:text-foreground text-sm cursor-pointer",
-                      previewMode === "web"
-                        ? "bg-accent/50 text-foreground"
-                        : "text-muted-foreground",
-                    )}
-                  >
-                    <Monitor className="w-4 h-4 mr-2 opacity-70" />
-                    Web View
-                  </DropdownMenuItem>
-                  {!isReadOnlyView && !isPreviewView && (
-                    <>
-                      <DropdownMenuSeparator className="bg-border sm:hidden" />
-                      <DropdownMenuItem
-                        onClick={handleExport}
-                        disabled={isExporting}
-                        className="sm:hidden focus:bg-accent/80 focus:text-foreground text-muted-foreground text-sm cursor-pointer"
-                      >
-                        {isExporting ? (
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        ) : (
-                          <Download className="w-4 h-4 mr-2 opacity-70" />
-                        )}
-                        {isExporting ? "Exporting..." : "Export"}
-                      </DropdownMenuItem>
-                    </>
-                  )}
-                  {!isReadOnlyView && isWebFramework && (
-                    <DropdownMenuItem
-                      onClick={() => handleOpenBrowserPreview("dropdown")}
-                      disabled={!viewing_url}
-                      className="sm:hidden focus:bg-accent/80 focus:text-foreground text-muted-foreground text-sm cursor-pointer"
+                    {deploymentUrl ? "Manage deploy" : "Deploy"}
+                  </Button>
+                )}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 bg-accent border border-border text-muted-foreground hover:text-foreground hover:border-border/80 hover:bg-accent/80 transition-all"
+                      title="Actions"
                     >
-                      <ExternalLink className="w-4 h-4 mr-2 opacity-70" />
-                      Browser
+                      <MoreVertical className="w-4 h-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent
+                    align="end"
+                    className="w-48 bg-accent border-border text-foreground"
+                  >
+                    <DropdownMenuItem
+                      onClick={() => handleModeChange("mobile")}
+                      className={cn(
+                        "focus:bg-accent/80 focus:text-foreground text-sm cursor-pointer",
+                        previewMode === "mobile"
+                          ? "bg-accent/50 text-foreground"
+                          : "text-muted-foreground",
+                      )}
+                    >
+                      <Smartphone className="w-4 h-4 mr-2 opacity-70" />
+                      Mobile View
                     </DropdownMenuItem>
-                  )}
-                  {ENABLE_DESIGN_SYSTEM &&
-                    designSystemLabel &&
-                    onDesignSystemClick && (
+                    <DropdownMenuItem
+                      onClick={() => handleModeChange("tablet")}
+                      className={cn(
+                        "focus:bg-accent/80 focus:text-foreground text-sm cursor-pointer",
+                        previewMode === "tablet"
+                          ? "bg-accent/50 text-foreground"
+                          : "text-muted-foreground",
+                      )}
+                    >
+                      <Tablet className="w-4 h-4 mr-2 opacity-70" />
+                      Tablet View
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => handleModeChange("web")}
+                      className={cn(
+                        "focus:bg-accent/80 focus:text-foreground text-sm cursor-pointer",
+                        previewMode === "web"
+                          ? "bg-accent/50 text-foreground"
+                          : "text-muted-foreground",
+                      )}
+                    >
+                      <Monitor className="w-4 h-4 mr-2 opacity-70" />
+                      Web View
+                    </DropdownMenuItem>
+                    {!isReadOnlyView && !isPreviewView && (
                       <>
-                        <DropdownMenuSeparator className="bg-border" />
+                        <DropdownMenuSeparator className="bg-border sm:hidden" />
                         <DropdownMenuItem
-                          onClick={onDesignSystemClick}
-                          className="focus:bg-accent/80 focus:text-foreground text-muted-foreground text-sm cursor-pointer"
+                          onClick={handleExport}
+                          disabled={isExporting}
+                          className="sm:hidden focus:bg-accent/80 focus:text-foreground text-muted-foreground text-sm cursor-pointer"
                         >
-                          <Palette className="w-4 h-4 mr-2 opacity-70" />
-                          Change design system
+                          {isExporting ? (
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          ) : (
+                            <Download className="w-4 h-4 mr-2 opacity-70" />
+                          )}
+                          {isExporting ? "Exporting..." : "Export"}
                         </DropdownMenuItem>
                       </>
                     )}
-                  {!isReadOnlyView && (
-                    <>
-                      <DropdownMenuSeparator className="bg-border" />
+                    {!isReadOnlyView && isWebFramework && (
                       <DropdownMenuItem
-                        onClick={() => setIsTerminalOpen(!isTerminalOpen)}
+                        onClick={() => handleOpenBrowserPreview("dropdown")}
+                        disabled={!viewing_url}
                         className="sm:hidden focus:bg-accent/80 focus:text-foreground text-muted-foreground text-sm cursor-pointer"
                       >
-                        <TerminalIcon className="w-4 h-4 mr-2 opacity-70" />
-                        {isTerminalOpen ? "Hide Terminal" : "Show Terminal"}
+                        <ExternalLink className="w-4 h-4 mr-2 opacity-70" />
+                        Browser
                       </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={() =>
-                          handleOpenProjectSettings("deploy", "dropdown")
-                        }
-                        disabled={!prototypeId}
-                        className="sm:hidden focus:bg-accent/80 focus:text-foreground text-muted-foreground text-sm cursor-pointer"
-                      >
-                        <Settings className="w-4 h-4 mr-2 opacity-70" />
-                        Project Settings
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={handleRestartDevServer}
-                        disabled={!prototypeId || isRestartingDevServer}
-                        className="focus:bg-accent/80 focus:text-foreground text-muted-foreground text-sm cursor-pointer"
-                      >
-                        {isRestartingDevServer ? (
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        ) : (
-                          <RefreshCw className="w-4 h-4 mr-2 opacity-70" />
-                        )}
-                        {isRestartingDevServer
-                          ? "Restarting..."
-                          : "Restart Dev Server"}
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={handleBuildAndDeploy}
-                        disabled={!sandbox_url || !prototypeId || isBuilding}
-                        className="focus:bg-accent/80 focus:text-foreground text-muted-foreground text-sm cursor-pointer"
-                      >
-                        {isBuilding ? (
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        ) : (
-                          <Hammer className="w-4 h-4 mr-2 opacity-70" />
-                        )}
-                        {isBuilding ? "Building..." : "Build"}
-                      </DropdownMenuItem>
-                    </>
-                  )}
-                  {onClone && (
-                    <>
-                      <DropdownMenuSeparator className="bg-border" />
-                      <DropdownMenuItem
-                        onClick={onClone}
-                        disabled={isCloningPrototype}
-                        className="focus:bg-accent/80 focus:text-foreground text-muted-foreground text-sm cursor-pointer"
-                      >
-                        {isCloningPrototype ? (
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        ) : (
-                          <Copy className="w-4 h-4 mr-2 opacity-70" />
-                        )}
-                        {isCloningPrototype ? "Cloning..." : "Clone"}
-                      </DropdownMenuItem>
-                    </>
-                  )}
-                  {onResetToDefault && (
-                    <>
-                      <DropdownMenuSeparator className="bg-border" />
-                      <DropdownMenuItem
-                        onClick={onResetToDefault}
-                        className="text-red-400 focus:text-red-300 focus:bg-red-500/10 text-sm cursor-pointer"
-                      >
-                        <RotateCcw className="w-4 h-4 mr-2 opacity-70" />
-                        Reset to Default
-                      </DropdownMenuItem>
-                    </>
-                  )}
-                </DropdownMenuContent>
-              </DropdownMenu>
+                    )}
+                    {ENABLE_DESIGN_SYSTEM &&
+                      designSystemLabel &&
+                      onDesignSystemClick && (
+                        <>
+                          <DropdownMenuSeparator className="bg-border" />
+                          <DropdownMenuItem
+                            onClick={onDesignSystemClick}
+                            className="focus:bg-accent/80 focus:text-foreground text-muted-foreground text-sm cursor-pointer"
+                          >
+                            <Palette className="w-4 h-4 mr-2 opacity-70" />
+                            Change design system
+                          </DropdownMenuItem>
+                        </>
+                      )}
+                    {!isReadOnlyView && (
+                      <>
+                        <DropdownMenuSeparator className="bg-border" />
+                        <DropdownMenuItem
+                          onClick={() => setIsTerminalOpen(!isTerminalOpen)}
+                          className="sm:hidden focus:bg-accent/80 focus:text-foreground text-muted-foreground text-sm cursor-pointer"
+                        >
+                          <TerminalIcon className="w-4 h-4 mr-2 opacity-70" />
+                          {isTerminalOpen ? "Hide Terminal" : "Show Terminal"}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() =>
+                            handleOpenProjectSettings("deploy", "dropdown")
+                          }
+                          disabled={!prototypeId}
+                          className="sm:hidden focus:bg-accent/80 focus:text-foreground text-muted-foreground text-sm cursor-pointer"
+                        >
+                          <Settings className="w-4 h-4 mr-2 opacity-70" />
+                          Project Settings
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={handleRestartDevServer}
+                          disabled={!prototypeId || isRestartingDevServer}
+                          className="focus:bg-accent/80 focus:text-foreground text-muted-foreground text-sm cursor-pointer"
+                        >
+                          {isRestartingDevServer ? (
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          ) : (
+                            <RefreshCw className="w-4 h-4 mr-2 opacity-70" />
+                          )}
+                          {isRestartingDevServer
+                            ? "Restarting..."
+                            : "Restart Dev Server"}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={handleBuildAndDeploy}
+                          disabled={!sandbox_url || !prototypeId || isBuilding}
+                          className="focus:bg-accent/80 focus:text-foreground text-muted-foreground text-sm cursor-pointer"
+                        >
+                          {isBuilding ? (
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          ) : (
+                            <Hammer className="w-4 h-4 mr-2 opacity-70" />
+                          )}
+                          {isBuilding ? "Building..." : "Build"}
+                        </DropdownMenuItem>
+                      </>
+                    )}
+                    {onClone && (
+                      <>
+                        <DropdownMenuSeparator className="bg-border" />
+                        <DropdownMenuItem
+                          onClick={onClone}
+                          disabled={isCloningPrototype}
+                          className="focus:bg-accent/80 focus:text-foreground text-muted-foreground text-sm cursor-pointer"
+                        >
+                          {isCloningPrototype ? (
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          ) : (
+                            <Copy className="w-4 h-4 mr-2 opacity-70" />
+                          )}
+                          {isCloningPrototype ? "Cloning..." : "Clone"}
+                        </DropdownMenuItem>
+                      </>
+                    )}
+                    {onResetToDefault && (
+                      <>
+                        <DropdownMenuSeparator className="bg-border" />
+                        <DropdownMenuItem
+                          onClick={onResetToDefault}
+                          className="text-red-400 focus:text-red-300 focus:bg-red-500/10 text-sm cursor-pointer"
+                        >
+                          <RotateCcw className="w-4 h-4 mr-2 opacity-70" />
+                          Reset to Default
+                        </DropdownMenuItem>
+                      </>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
             </div>
           </div>
-        </div>
         )}
 
         {/* Preview Area */}
@@ -3743,9 +3738,6 @@ const MaterializeRenderSection = forwardRef<
                   disabled={!viewing_url}
                 >
                   <Plus className="h-3.5 w-3.5" />
-                  <span className="hidden md:inline text-xs font-medium ml-1">
-                    Add Screen
-                  </span>
                 </Button>
               </div>
             ) : (
@@ -3760,9 +3752,6 @@ const MaterializeRenderSection = forwardRef<
                     disabled={!viewing_url}
                   >
                     <Plus className="h-3.5" />
-                    <span className="hidden md:inline text-xs font-medium">
-                      Add Screen
-                    </span>
                   </Button>
                 </div>
               )
@@ -3776,13 +3765,13 @@ const MaterializeRenderSection = forwardRef<
                 initialScreens={
                   previewMode === "mobile"
                     ? (initialScreens || mobileScreens).map((s) => ({
-                        id: s.id,
-                        path: s.path,
-                      }))
+                      id: s.id,
+                      path: s.path,
+                    }))
                     : (initialWebScreens || webScreens).map((s) => ({
-                        id: s.id,
-                        path: s.path,
-                      }))
+                      id: s.id,
+                      path: s.path,
+                    }))
                 }
                 initialCanvasState={initialCanvasState}
                 onCanvasStateChange={onCanvasStateChange}
