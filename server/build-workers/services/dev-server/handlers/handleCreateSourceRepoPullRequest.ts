@@ -76,10 +76,10 @@ export async function createSourceRepoPullRequest(
   }
 
   const workerContext = getWorkerContext();
-  const { prototypeId, userName, userEmail } = workerContext;
-  if (!prototypeId || !userName || !userEmail) {
+  const { prototypeId } = workerContext;
+  if (!prototypeId) {
     throw new Error(
-      "Missing worker context for source repository PR creation (need prototype, user name, and email).",
+      "Missing worker context for source repository PR creation (need prototype ID).",
     );
   }
 
@@ -104,11 +104,11 @@ export async function createSourceRepoPullRequest(
     );
     await runSourceRepoCommand(
       service,
-      `git config user.email "${escapeForDoubleQuotes(userEmail)}"`,
+      `git config user.email "bot@nucleate.dev"`,
     );
     await runSourceRepoCommand(
       service,
-      `git config user.name "${escapeForDoubleQuotes(userName)}"`,
+      `git config user.name "Nucleate"`,
     );
 
     await runSourceRepoCommand(service, `git checkout -B ${branchName}`);
