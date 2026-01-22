@@ -82,14 +82,44 @@ export async function handleAllocateImpl(
     .select("framework, team_id")
     .eq("id", user_details.prototypeId)
     .single();
-  const prototypeTeamId = prototypeRow?.team_id ?? undefined;
+  const prototypeTeamId = prototypeRow?.team_id ?? null;
+
+  let userName: string | null = null;
+  let userEmail: string | null = null;
+  try {
+    const { data: userRow, error: userFetchError } = await supabaseClient
+      .from("users")
+      .select("name, email")
+      .eq("id", user_details.userId)
+      .single();
+    if (userFetchError) {
+      request.log2.warn(userFetchError, "Failed to fetch user metadata", {
+        userId: user_details.userId,
+      });
+    } else if (userRow) {
+      userName = userRow.name;
+      userEmail = userRow.email;
+    }
+  } catch (error) {
+    request.log2.warn(
+      error instanceof Error ? error : new Error(String(error)),
+      "Unexpected error fetching user metadata",
+      { userId: user_details.userId },
+    );
+  }
 
   // Import setWorkerContext dynamically to avoid circular dependency
   const { setWorkerContext } = await import("../../../worker.js");
+  const resolvedTeamId = prototypeTeamId ?? "__unknown_team__";
+  const resolvedUserName = userName?.trim() || "Nucleate User";
+  const resolvedUserEmail = userEmail?.trim() || "noreply@nucleate.dev";
+
   setWorkerContext(
     user_details.userId,
     user_details.prototypeId,
-    prototypeTeamId,
+    resolvedTeamId,
+    resolvedUserName,
+    resolvedUserEmail,
   );
   // Also update current request's logger
   request.log2 = request.log2.child({

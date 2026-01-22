@@ -32,20 +32,31 @@ export { baseLogger, posthogLogger };
 // --- Configuration ---
 const PORT = parseInt(process.env.PORT || "3002", 10);
 export const WORK_DIR = process.env.WORK_DIR || "/tmp/materialize-dev-server";
+export const SOURCE_REPO_DIR = "/tmp/source-repository";
 
 // Store worker context (set by /allocate endpoint)
 let workerContext: {
   userId?: string;
   prototypeId?: string;
   teamId?: string;
+  userName?: string;
+  userEmail?: string;
 } = {};
 
 export function setWorkerContext(
   userId: string,
   prototypeId: string,
   teamId?: string,
+  userName?: string | null,
+  userEmail?: string | null,
 ): void {
-  workerContext = { userId, prototypeId, teamId };
+  workerContext = {
+    userId,
+    prototypeId,
+    teamId,
+    userName: userName ?? undefined,
+    userEmail: userEmail ?? undefined,
+  };
 
   // Update logger contexts so all future child loggers inherit this context
   baseLogger.setContext({ userId, prototypeId, teamId });
@@ -56,6 +67,8 @@ export function getWorkerContext(): {
   userId?: string;
   prototypeId?: string;
   teamId?: string;
+  userName?: string;
+  userEmail?: string;
 } {
   return workerContext;
 }
@@ -65,6 +78,8 @@ export function resetWorkerContext(): void {
     userId: undefined,
     prototypeId: undefined,
     teamId: undefined,
+    userName: undefined,
+    userEmail: undefined,
   };
 
   // Clear logger contexts
