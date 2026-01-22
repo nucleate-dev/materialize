@@ -644,5 +644,25 @@ async function cloneSourceRepositoryToTmp(
     repositoryFullName: sourceRepo.fullName,
   });
 
+  try {
+    await developmentServerService.terminalService
+      .asyncSendInputWithCompletionDetectionOrTimeout(
+        "dev-server",
+        "cd /tmp/source-repository && git remote remove origin",
+        { timeout: 15000, bypassValidation: true },
+      );
+    log2.info("Removed origin remote for source repository clone", {
+      prototypeId,
+    });
+  } catch (remoteError) {
+    log2.warn(
+      remoteError instanceof Error
+        ? remoteError
+        : new Error(String(remoteError)),
+      "Failed to remove origin remote after source repository clone",
+      { prototypeId },
+    );
+  }
+
   return tokenData;
 }
