@@ -649,7 +649,6 @@ async function cloneSourceRepositoryToTmp(
     prototypeId,
     repositoryFullName: sourceRepo.fullName,
   });
-  developmentServerService.setSourceRepositoryInstallationToken(tokenData);
 
   try {
     await developmentServerService.terminalService

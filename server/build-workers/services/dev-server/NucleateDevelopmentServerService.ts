@@ -43,6 +43,10 @@ import { handleConnectGitHubImpl } from "./handlers/handleConnectGitHub.js";
 import type { ChatQueryData } from "../../types/ChatTypes.js";
 import type { SystemLogger } from "../../loggers/SystemLogger.js";
 import { WORK_DIR } from "../../worker.js";
+import {
+  SourceRepoPullRequestInput,
+  createSourceRepoPullRequest as handleCreateSourceRepoPullRequest,
+} from "./handlers/handleCreateSourceRepoPullRequest.js";
 
 export const S3_BUCKET = process.env.S3_BUCKET || "materialize-sites";
 export const DEV_SERVER_PORT = 19006;
@@ -493,6 +497,13 @@ export class NucleateDevelopmentServerService {
     }
 
     return "";
+  }
+
+  public async createSourceRepositoryPullRequest(
+    input: SourceRepoPullRequestInput,
+    logger: SystemLogger,
+  ): Promise<{ branchName: string; pullRequestUrl: string }> {
+    return handleCreateSourceRepoPullRequest(this, input, logger);
   }
 
   private async allocate(

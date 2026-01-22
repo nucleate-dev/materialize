@@ -43,7 +43,10 @@ import {
 } from "../helpers/message-handlers.js";
 import { evaluateToolPermission } from "../helpers/tool-permission-service.js";
 import { createDesignToolsMcpServer } from "../mcp/mcp-design-tools.js";
-import { createDevelopmentToolsMcpServer } from "../mcp/mcp-dev-tools.js";
+import {
+  createDevelopmentToolsMcpServer,
+  SourceRepoPullRequestToolHandler,
+} from "../mcp/mcp-dev-tools.js";
 import {
   getNucleateChatServiceSystemPrompt,
   getSourceRepositoryComponentHarvesterPrompt,
@@ -560,6 +563,59 @@ export class ChatQueryHandler implements ChatEngine {
       allowedToolsDefault.push("mcp__devtools__UpdatePreviewScreens");
     }
 
+    const sourceRepoPullRequestHandler: SourceRepoPullRequestToolHandler | undefined =
+      hasSourceRepository
+        ? async (input) => {
+          try {
+            const result =
+              await this.devServerService.createSourceRepositoryPullRequest(
+                {
+                  branchName: input.branch_name,
+                  commitMessage: input.commit_message,
+                  prTitle: input.pr_title,
+                  prDescription: input.pr_description,
+                  prototypeChatSessionId,
+                },
+                baseLogger,
+              );
+            return {
+              content: [
+                {
+                  type: "text",
+                  text: JSON.stringify(
+                    {
+                      message: "Source repository pull request created",
+                      branch: result.branchName,
+                      pull_request_url: result.pullRequestUrl,
+                    },
+                    null,
+                    2,
+                  ),
+                },
+              ],
+            };
+          } catch (error) {
+            const errorMessage = error instanceof Error
+              ? error.message
+              : String(error);
+            return {
+              isError: true,
+              content: [
+                {
+                  type: "text",
+                  text:
+                    `Failed to create source repository pull request: ${errorMessage}`,
+                },
+              ],
+            };
+          }
+        }
+        : undefined;
+
+    if (sourceRepoPullRequestHandler) {
+      allowedToolsDefault.push("mcp__devtools__CreateSourceRepoPullRequest");
+    }
+
     const mcpServers: Record<string, McpSdkServerConfigWithInstance> = {
       devtools: createDevelopmentToolsMcpServer(
         async (command: string, args: string[], cwd?: string) => {
@@ -610,6 +666,7 @@ export class ChatQueryHandler implements ChatEngine {
           : undefined,
         // Get visible screens count callback
         visibleScreens ? (): number => visibleScreens.length : undefined,
+        sourceRepoPullRequestHandler,
       ),
       design: createDesignToolsMcpServer(
         baseLogger,

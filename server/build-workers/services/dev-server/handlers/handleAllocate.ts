@@ -35,10 +35,10 @@ export async function handleAllocateImpl(
     hasSourceRepository: !!source_repository,
     sourceRepositoryDetails: source_repository
       ? {
-          githubRepoId: source_repository.github_repo_id,
-          fullName: source_repository.full_name,
-          repositoryName: source_repository.repository_name,
-        }
+        githubRepoId: source_repository.github_repo_id,
+        fullName: source_repository.full_name,
+        repositoryName: source_repository.repository_name,
+      }
       : undefined,
   });
 
@@ -66,17 +66,18 @@ export async function handleAllocateImpl(
     };
   }
   // 2. SUPABASE CLIENT INSTANTIATION:
-  materializeDevelopmentServerService.supabaseClientService.refreshClientWithToken(
-    jwtToken,
-  );
+  materializeDevelopmentServerService.supabaseClientService
+    .refreshClientWithToken(
+      jwtToken,
+    );
   request.log2.consoleLogDevOnly(
     "info",
     "Initialized authenticated Supabase client for worker",
   );
 
   // 3. SET WORKER CONTEXT:
-  const supabaseClient =
-    materializeDevelopmentServerService.supabaseClientService.getClient();
+  const supabaseClient = materializeDevelopmentServerService
+    .supabaseClientService.getClient();
   const { data: prototypeRow, error: prototypeError } = await supabaseClient
     .from("prototypes")
     .select("framework, team_id")
@@ -93,7 +94,7 @@ export async function handleAllocateImpl(
       .eq("id", user_details.userId)
       .single();
     if (userFetchError) {
-      request.log2.warn(userFetchError, "Failed to fetch user metadata", {
+      request.log2.error(userFetchError, "Failed to fetch user metadata", {
         userId: user_details.userId,
       });
     } else if (userRow) {
@@ -101,7 +102,7 @@ export async function handleAllocateImpl(
       userEmail = userRow.email;
     }
   } catch (error) {
-    request.log2.warn(
+    request.log2.error(
       error instanceof Error ? error : new Error(String(error)),
       "Unexpected error fetching user metadata",
       { userId: user_details.userId },
@@ -157,14 +158,14 @@ export async function handleAllocateImpl(
         .maybeSingle();
 
       if (tokenError) {
-      request.log2.consoleLogDevOnly(
-        "warn",
-        "Failed to query user OAuth token",
-        {
-          error: tokenError.message,
-          code: tokenError.code,
-        },
-      );
+        request.log2.consoleLogDevOnly(
+          "warn",
+          "Failed to query user OAuth token",
+          {
+            error: tokenError.message,
+            code: tokenError.code,
+          },
+        );
       } else if (tokenData?.oauth_token) {
         // Set up environment for Claude SDK OAuth authentication
         process.env.CLAUDE_CODE_OAUTH_TOKEN = tokenData.oauth_token;
@@ -270,8 +271,8 @@ export async function handleAllocateImpl(
         "Starting Cloudflare tunnel setup",
       );
       try {
-        const result =
-          await materializeDevelopmentServerService.cloudflareTunnelManagementService.createTunnel(
+        const result = await materializeDevelopmentServerService
+          .cloudflareTunnelManagementService.createTunnel(
             cloudflare_credentials.cloudflare_tunnel_token,
           );
         tunnelStatus = result.status;
@@ -290,10 +291,9 @@ export async function handleAllocateImpl(
         }
       } catch (tunnelError) {
         tunnelStatus = "error";
-        tunnelMessage =
-          tunnelError instanceof Error
-            ? tunnelError.message
-            : "Failed to start Cloudflare tunnel";
+        tunnelMessage = tunnelError instanceof Error
+          ? tunnelError.message
+          : "Failed to start Cloudflare tunnel";
         request.log2.error(tunnelError, "Failed to start Cloudflare tunnel");
         throw tunnelError instanceof Error
           ? tunnelError
@@ -309,9 +309,10 @@ export async function handleAllocateImpl(
     }
 
     // 8. SET ORCHESTRATION TOKEN IN SandboxOrchestrationInitiatorService:
-    materializeDevelopmentServerService.sandboxOrchestrationInitiatorService.setOrchestrationToken(
-      keys.orchestration_token,
-    );
+    materializeDevelopmentServerService.sandboxOrchestrationInitiatorService
+      .setOrchestrationToken(
+        keys.orchestration_token,
+      );
 
     reply.status(200);
     return {

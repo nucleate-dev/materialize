@@ -46,6 +46,17 @@ export type TerminalServiceInstance = {
     | undefined;
 };
 
+export interface SourceRepoPullRequestToolInput {
+  branch_name?: string;
+  commit_message: string;
+  pr_title: string;
+  pr_description: string;
+}
+
+export type SourceRepoPullRequestToolHandler = (
+  input: SourceRepoPullRequestToolInput,
+) => Promise<CallToolResult>;
+
 export function createDevelopmentToolsMcpServer(
   runCommand: CommandRunner,
   writeFile: FileWriter,
@@ -53,6 +64,7 @@ export function createDevelopmentToolsMcpServer(
   restartDevServer: DevServerRestartCallback,
   broadcastScreenUpdate?: ScreenUpdateBroadcaster,
   getVisibleScreensCount?: GetVisibleScreensCount,
+  sourceRepoPullRequestTool?: SourceRepoPullRequestToolHandler,
 ): McpSdkServerConfigWithInstance {
   return createSdkMcpServer({
     name: "devtools",
@@ -276,6 +288,45 @@ export function createDevelopmentToolsMcpServer(
           }
         },
       ),
+
+      ...(sourceRepoPullRequestTool
+        ? [
+            tool(
+              "CreateSourceRepoPullRequest",
+              "Create or update a pull request in the linked source repository. This tool stages the current changes, commits them, pushes to GitHub, and opens a pull request using the provided title and description.",
+              {
+                branch_name: z
+                  .string()
+                  .min(1)
+                  .max(200)
+                  .optional()
+                  .describe(
+                    "Optional branch name for the PR. If omitted, a timestamped branch is created automatically. All branch names will be prefixed with nucleate-.",
+                  ),
+                commit_message: z
+                  .string()
+                  .min(5)
+                  .max(500)
+                  .describe(
+                    "Commit message for the source repository changes being pushed.",
+                  ),
+                pr_title: z
+                  .string()
+                  .min(5)
+                  .max(300)
+                  .describe("Pull request title."),
+                pr_description: z
+                  .string()
+                  .min(10)
+                  .max(5000)
+                  .describe("Pull request description/body."),
+              },
+              async (input): Promise<CallToolResult> => {
+                return sourceRepoPullRequestTool(input);
+              },
+            ),
+          ]
+        : []),
 
       // --- UpdatePreviewScreens Tool ---
       // Only include this tool if the broadcast callback is provided
