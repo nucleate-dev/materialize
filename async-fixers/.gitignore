@@ -6,6 +6,7 @@ dist/
 *.js
 *.js.map
 !backfills/*.js
+!legacy-fixer-scripts/*.js
 
 # Environment variables
 .env
