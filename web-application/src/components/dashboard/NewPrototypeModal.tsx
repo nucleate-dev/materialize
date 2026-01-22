@@ -114,7 +114,7 @@ const isDesignStyle = (value: unknown): value is DesignStyle =>
   typeof value === "string" &&
   DESIGN_STYLE_OPTIONS.includes(value as DesignStyle);
 
-const DEFAULT_FRAMEWORK: PrototypeFramework = "mobile_expo_react_native";
+const DEFAULT_FRAMEWORK: PrototypeFramework = "web_nextjs_react";
 const PLATFORM_OPTIONS: Array<{
   value: PrototypeFramework;
   label: string;
