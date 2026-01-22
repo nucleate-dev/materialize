@@ -12,7 +12,11 @@ import { SystemLogger } from "../../../loggers/SystemLogger.js";
 import { restoreClaudeSessionsFromSupabase } from "../../../utils/shared-utils.js";
 import { ChatService } from "../../chat/ChatService.js";
 import { syncPrototypeEnvVarsToDisk } from "../utils/envVarUtils.js";
-import { getWorkerContext, WORK_DIR } from "../../../worker.js";
+import {
+  SOURCE_REPO_DIR,
+  getWorkerContext,
+  WORK_DIR,
+} from "../../../worker.js";
 import { DEFAULT_PROTOTYPE_FRAMEWORK } from "../NucleateDevelopmentServerService.js";
 import { NextJsReactAdapter } from "../adapters/NextJsReactAdapter.js";
 import { SupabaseClientService } from "../../SupabaseClientService.js";
@@ -618,7 +622,7 @@ async function cloneSourceRepositoryToTmp(
   // Clone source repository using terminal command
   // Note: Don't remove the directory itself (owned by root), just clean contents and clone
   const cloneCommand =
-    `mkdir -p /tmp/source-repository && find /tmp/source-repository -mindepth 1 -delete && git clone ${authenticatedUrl} /tmp/source-repository`;
+    `mkdir -p ${SOURCE_REPO_DIR} && find ${SOURCE_REPO_DIR} -mindepth 1 -delete && git clone ${authenticatedUrl} ${SOURCE_REPO_DIR}`;
 
   try {
     const cloneResult = await developmentServerService.terminalService
@@ -641,16 +645,17 @@ async function cloneSourceRepositoryToTmp(
     throw new Error(`Failed to clone source repository: ${errorMessage}`);
   }
 
-  log2.info("Cloned source repository into /tmp/source-repository", {
+  log2.info("Cloned source repository into source repo directory", {
     prototypeId,
     repositoryFullName: sourceRepo.fullName,
   });
+  developmentServerService.setSourceRepositoryInstallationToken(tokenData);
 
   try {
     await developmentServerService.terminalService
       .asyncSendInputWithCompletionDetectionOrTimeout(
         "dev-server",
-        "cd /tmp/source-repository && git remote remove origin",
+        `cd ${SOURCE_REPO_DIR} && git remote remove origin`,
         { timeout: 15000, bypassValidation: true },
       );
     log2.info("Removed origin remote for source repository clone", {

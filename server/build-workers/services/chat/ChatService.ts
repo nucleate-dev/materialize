@@ -17,7 +17,7 @@ import {
 import { isEligibleForPersonalClaudeSubscription } from "../../utils/eligibilityChecks.js";
 import { Database } from "../../types/supabase.js";
 import { hasRemainingCredits } from "../../utils/credit-checks.js";
-import { getWorkerContext, WORK_DIR } from "../../worker.js";
+import { SOURCE_REPO_DIR, getWorkerContext, WORK_DIR } from "../../worker.js";
 import { ClaudeTokenService } from "../auth/claude-token-service.js";
 import { NucleateDevelopmentServerService } from "../dev-server/NucleateDevelopmentServerService.js";
 import { FileSyncService } from "../FileSyncService.js";
@@ -50,10 +50,7 @@ import {
 } from "./prompts/ClaudeCodePrompts.js";
 import { broadcastToConnections } from "./websocket-broadcast.js";
 
-export const ALLOWED_ROOTS = [
-  "/tmp/materialize-dev-server",
-  "/tmp/source-repository",
-];
+export const ALLOWED_ROOTS = [WORK_DIR, SOURCE_REPO_DIR];
 const CHAT_HEARTBEAT_INTERVAL_MS = 15000;
 
 interface ChatQueryValidationResult {

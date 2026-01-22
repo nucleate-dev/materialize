@@ -7,7 +7,11 @@ import {
   DevServerStatus,
 } from "../../../types/BuildWorkerTypes.js";
 import { NucleateDevelopmentServerService } from "../NucleateDevelopmentServerService.js";
-import { getWorkerContext, resetWorkerContext } from "../../../worker.js";
+import {
+  SOURCE_REPO_DIR,
+  getWorkerContext,
+  resetWorkerContext,
+} from "../../../worker.js";
 import { clearAllClaudeSessions } from "../../../utils/shared-utils.js";
 import { runCommandAsRoot } from "../../../utils/rootCommandUtils.js";
 
@@ -52,26 +56,26 @@ export async function handleResetSandbox(
       throw new Error(`Failed to reset project files: ${errorMessage}`);
     }
 
-    // Step 2: Clear /tmp/source-repository contents (but keep the directory itself)
+    // Step 2: Clear source repository contents (but keep the directory itself)
     try {
       await runCommandAsRoot(
         "bash",
-        ["-lc", "find /tmp/source-repository -mindepth 1 -delete"],
+        ["-lc", `find ${SOURCE_REPO_DIR} -mindepth 1 -delete`],
         { timeoutMs: 60000 },
       );
       request.log2.consoleLogDevOnly(
         "info",
-        "/tmp/source-repository contents cleared successfully",
+        "Source repository contents cleared successfully",
       );
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
       request.log2.error(
         new Error(errorMessage),
-        "Failed to clear /tmp/source-repository contents",
+        "Failed to clear source repository contents",
       );
       throw new Error(
-        `Failed to clear /tmp/source-repository contents: ${errorMessage}`,
+        `Failed to clear source repository contents: ${errorMessage}`,
       );
     }
 
