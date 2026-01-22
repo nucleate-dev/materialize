@@ -15,14 +15,15 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useActiveTeam } from "@/contexts/TeamContext";
+import { ENABLE_DESIGN_SYSTEM } from "@/GlobalConstants";
 import { useCreatePrototype } from "@/hooks/useCreatePrototype";
+import { usePrototypeVisibilityOptions } from "@/hooks/usePrototypeVisibilityOptions";
 import { useUser } from "@/hooks/useUser";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import { Database } from "@/lib/types/supabase";
 import { captureUTMParams } from "@/lib/utils/analytics/utmTracking";
 import { setChatIntent } from "@/lib/utils/chatIntentUtils";
 import { handleCheckout } from "@/lib/utils/payments/CheckoutUtils";
-import { ENABLE_DESIGN_SYSTEM } from "@/GlobalConstants";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   ArrowRight,
@@ -32,18 +33,14 @@ import {
   Camera,
   Check,
   CheckCircle2,
-  ChevronLeft,
-  Globe,
-  Layers,
+  ChevronLeft, Layers,
   Layout,
   Lock,
   MessageCircle,
   Music2,
   Palette,
   Play,
-  RefreshCw,
-  Share2,
-  ShieldCheck,
+  RefreshCw, ShieldCheck,
   ShoppingBag,
   Smartphone,
   Sparkles,
@@ -53,11 +50,10 @@ import {
   Tv,
   Users,
   X,
-  Zap,
+  Zap
 } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
-import { usePrototypeVisibilityOptions } from "@/hooks/usePrototypeVisibilityOptions";
 
 type PrototypeFramework = Database["public"]["Enums"]["prototype_framework"];
 
@@ -66,9 +62,9 @@ const PLATFORM_OPTIONS: Array<{
   value: PrototypeFramework;
   label: string;
 }> = [
-  { value: "web_nextjs_react", label: "Web" },
-  { value: "mobile_expo_react_native", label: "Mobile" },
-];
+    { value: "web_nextjs_react", label: "Web" },
+    { value: "mobile_expo_react_native", label: "Mobile" },
+  ];
 
 export default function Home() {
   return (
@@ -466,11 +462,10 @@ function VariantsSection() {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`px-6 py-3 rounded-full text-sm font-medium flex items-center gap-2 transition-all duration-300 border ${
-                activeTab === tab.id
+              className={`px-6 py-3 rounded-full text-sm font-medium flex items-center gap-2 transition-all duration-300 border ${activeTab === tab.id
                   ? "bg-foreground text-background border-foreground shadow-[0_0_20px_rgba(0,0,0,0.1)] dark:shadow-[0_0_20px_rgba(255,255,255,0.2)]"
                   : "bg-card/50 text-muted-foreground border-border hover:bg-card hover:text-foreground"
-              }`}
+                }`}
             >
               {tab.icon}
               {tab.label}

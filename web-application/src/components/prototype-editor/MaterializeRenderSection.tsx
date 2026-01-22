@@ -65,6 +65,7 @@ import {
   Rocket,
   RotateCcw,
   Settings,
+  Share2,
   Smartphone,
   Tablet,
   Terminal as TerminalIcon,
@@ -485,15 +486,18 @@ const MaterializeRenderSection = forwardRef<
         const vh = window.innerHeight;
         const vw = window.innerWidth;
 
-        // UI overhead for header, padding, etc
-        const uiOverhead = 120;
+        // UI overhead includes: toolbar (~70px), URL bar above phone (48px), padding (32-64px)
+        // Increased from 120 to account for new toolbar and spacing
+        const uiOverhead = 180;
         const availableHeight = Math.max(0, vh - uiOverhead);
 
         // Standard phone aspect ratio (width / height)
         const aspectRatio = 320 / 640;
 
-        // Calculate size based on available height (use 85% to leave some breathing room)
-        let newHeight = availableHeight * 0.85;
+        // On smaller viewports (mobile), use less of available height to ensure fit
+        // On larger viewports, can use more
+        const heightPercentage = vw < 768 ? 0.75 : 0.85;
+        let newHeight = availableHeight * heightPercentage;
 
         // Also consider viewport width to ensure phone fits horizontally
         // Account for padding/margins (100px total) and phone frame border (16px)
@@ -503,7 +507,7 @@ const MaterializeRenderSection = forwardRef<
         newHeight = Math.min(newHeight, maxHeightBasedOnWidth);
 
         // Clamp to reasonable bounds - much smaller minimum for mobile devices
-        newHeight = Math.max(300, newHeight); // Minimum 300px instead of 640px
+        newHeight = Math.max(280, newHeight); // Minimum 280px for very small screens
         newHeight = Math.min(1000, newHeight); // Maximum 1000px
 
         const newWidth = newHeight * aspectRatio;
@@ -525,15 +529,16 @@ const MaterializeRenderSection = forwardRef<
         const vh = window.innerHeight;
         const vw = window.innerWidth;
 
-        // UI overhead for header, padding, etc
-        const uiOverhead = 120;
+        // UI overhead includes: toolbar (~70px), URL bar above device (48px), padding (32-64px)
+        const uiOverhead = 180;
         const availableHeight = Math.max(0, vh - uiOverhead);
 
         // Standard tablet aspect ratio (iPad-like: 3:4)
         const aspectRatio = 768 / 1024;
 
-        // Calculate size based on available height (use 80% to leave breathing room)
-        let newHeight = availableHeight * 0.8;
+        // On smaller viewports, use less of available height to ensure fit
+        const heightPercentage = vw < 768 ? 0.7 : 0.8;
+        let newHeight = availableHeight * heightPercentage;
 
         // Also consider viewport width to ensure tablet fits horizontally
         const maxHeightBasedOnWidth = (vw - 150) / aspectRatio;
@@ -542,7 +547,7 @@ const MaterializeRenderSection = forwardRef<
         newHeight = Math.min(newHeight, maxHeightBasedOnWidth);
 
         // Clamp to reasonable bounds
-        newHeight = Math.max(400, newHeight);
+        newHeight = Math.max(350, newHeight); // Lower minimum for small screens
         newHeight = Math.min(1024, newHeight);
 
         const newWidth = newHeight * aspectRatio;
@@ -662,15 +667,17 @@ const MaterializeRenderSection = forwardRef<
         if (hasManuallyResizedWebFrame) return;
 
         const vh = window.innerHeight;
+        const vw = window.innerWidth;
         // Account for toolbar, padding, and other UI elements
-        const uiOverhead = 140;
+        const uiOverhead = 180;
         const availableHeight = Math.max(0, vh - uiOverhead);
 
-        // Use 90% of available height
-        let newHeight = availableHeight * 0.9;
+        // On smaller viewports, use less of available height
+        const heightPercentage = vw < 768 ? 0.8 : 0.9;
+        let newHeight = availableHeight * heightPercentage;
 
         // Clamp to reasonable bounds
-        newHeight = Math.max(400, newHeight); // Minimum reasonable height
+        newHeight = Math.max(350, newHeight); // Lower minimum for mobile
         newHeight = Math.min(1200, newHeight); // Maximum reasonable height
 
         setWebFrameHeight(newHeight);
@@ -3287,94 +3294,80 @@ const MaterializeRenderSection = forwardRef<
 
               {/* Right: Actions */}
               <div className="flex items-center gap-2">
-                {!isReadOnlyView && !isPreviewView && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={handleExport}
-                    disabled={isExporting}
-                    className="hidden sm:flex h-8 bg-accent border border-border text-muted-foreground hover:text-foreground hover:border-border/80 hover:bg-accent/80 transition-all"
-                    title="Export project files"
-                  >
-                    {isExporting ? (
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    ) : (
-                      <Download className="w-3.5 h-3.5" />
-                    )}
-                    <span className="ml-2 hidden md:inline text-xs font-medium">
-                      Export
-                    </span>
-                  </Button>
-                )}
+                {/* Browser/Device - Icon only, always visible */}
                 {!isReadOnlyView &&
                   (isWebFramework ? (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleOpenBrowserPreview("toolbar_button")}
-                      className="hidden sm:flex h-8 bg-accent border border-border text-muted-foreground hover:text-foreground hover:border-border/80 hover:bg-accent/80 transition-all"
-                      title="Open in new tab"
-                      disabled={!viewing_url}
-                    >
-                      <ExternalLink className="w-3.5 h-3.5" />
-                      <span className="ml-2 hidden md:inline text-xs font-medium">
-                        Browser
-                      </span>
-                    </Button>
+                    <TooltipProvider delayDuration={200}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleOpenBrowserPreview("toolbar_button")}
+                            className="h-8 w-8 bg-accent border border-border text-muted-foreground hover:text-foreground hover:border-border/80 hover:bg-accent/80 transition-all"
+                            disabled={!viewing_url}
+                          >
+                            <ExternalLink className="w-3.5 h-3.5" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Open in browser</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
                   ) : (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleOpenViewOnDevice("toolbar_button")}
-                      className="h-8 bg-accent border border-border text-muted-foreground hover:text-foreground hover:border-border/80 hover:bg-accent/80 transition-all"
-                      title="View on Device"
-                      disabled={!viewing_url}
-                    >
-                      <QrCode className="w-3.5 h-3.5" />
-                      <span className="ml-2 hidden md:inline text-xs font-medium">
-                        Device
-                      </span>
-                    </Button>
+                    <TooltipProvider delayDuration={200}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleOpenViewOnDevice("toolbar_button")}
+                            className="h-8 w-8 bg-accent border border-border text-muted-foreground hover:text-foreground hover:border-border/80 hover:bg-accent/80 transition-all"
+                            disabled={!viewing_url}
+                          >
+                            <QrCode className="w-3.5 h-3.5" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>View on device</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
                   ))}
-                {!isReadOnlyView && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setIsTerminalOpen(!isTerminalOpen)}
-                    className={cn(
-                      "hidden sm:flex h-8 border transition-all",
-                      isTerminalOpen
-                        ? "bg-white text-black border-transparent hover:bg-white/90"
-                        : "bg-accent border-border text-muted-foreground hover:text-foreground hover:border-border/80 hover:bg-accent/80",
-                    )}
-                    title="Toggle Terminal"
-                  >
-                    <TerminalIcon className="w-3.5 h-3.5" />
-                  </Button>
-                )}
+
+                {/* GitHub - Icon only, always visible */}
                 {!isReadOnlyView && (
                   <DropdownMenu
                     open={isGithubDropdownOpen}
                     onOpenChange={setIsGithubDropdownOpen}
                   >
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="hidden sm:flex h-8 bg-accent border border-border text-muted-foreground hover:text-foreground hover:border-border/80 hover:bg-accent/80 transition-all"
-                        title="GitHub integration"
-                        disabled={!prototypeId}
-                      >
-                        <svg
-                          className="w-4 h-4"
-                          viewBox="0 0 16 16"
-                          fill="currentColor"
-                          xmlns="http://www.w3.org/2000/svg"
-                        >
-                          <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z" />
-                        </svg>
-                      </Button>
-                    </DropdownMenuTrigger>
+                    <TooltipProvider delayDuration={200}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 bg-accent border border-border text-muted-foreground hover:text-foreground hover:border-border/80 hover:bg-accent/80 transition-all"
+                              disabled={!prototypeId}
+                            >
+                              <svg
+                                className="w-4 h-4"
+                                viewBox="0 0 16 16"
+                                fill="currentColor"
+                                xmlns="http://www.w3.org/2000/svg"
+                              >
+                                <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z" />
+                              </svg>
+                            </Button>
+                          </DropdownMenuTrigger>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>GitHub integration</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
                     <DropdownMenuContent
                       align="end"
                       className="w-80 bg-accent border-border text-foreground p-4"
@@ -3495,22 +3488,27 @@ const MaterializeRenderSection = forwardRef<
                     </DropdownMenuContent>
                   </DropdownMenu>
                 )}
-                {/* Project Settings (Gear icon) */}
+
+                {/* Share Button - NEW */}
                 {!isReadOnlyView && (
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={() =>
-                      handleOpenProjectSettings("deploy", "toolbar_gear")
+                      handleOpenProjectSettings("share", "toolbar_share")
                     }
-                    className="h-8 w-8 p-0 bg-accent border border-border text-muted-foreground hover:text-foreground hover:border-border/80 hover:bg-accent/80 transition-all"
-                    title="Project Settings"
                     disabled={!prototypeId}
+                    className="h-8 px-3 bg-accent border border-border text-muted-foreground hover:text-foreground hover:border-border/80 hover:bg-accent/80 transition-all"
+                    title="Share project"
                   >
-                    <Settings className="w-3.5 h-3.5" />
+                    <Share2 className="w-3.5 h-3.5" />
+                    <span className="ml-2 hidden md:inline text-xs font-medium">
+                      Share
+                    </span>
                   </Button>
                 )}
-                {/* Deploy Button - opens modal */}
+
+                {/* Deploy Button - Primary CTA */}
                 {!isReadOnlyView && (
                   <Button
                     size="sm"
@@ -3533,13 +3531,38 @@ const MaterializeRenderSection = forwardRef<
                     {deploymentUrl ? "Manage deploy" : "Deploy"}
                   </Button>
                 )}
+
+                {/* Project Settings - Icon only, next to More */}
+                {!isReadOnlyView && (
+                  <TooltipProvider delayDuration={200}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() =>
+                            handleOpenProjectSettings("details", "toolbar_gear")
+                          }
+                          className="h-8 w-8 bg-accent border border-border text-muted-foreground hover:text-foreground hover:border-border/80 hover:bg-accent/80 transition-all"
+                          disabled={!prototypeId}
+                        >
+                          <Settings className="w-3.5 h-3.5" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Project settings</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                )}
+                {/* More Menu - Overflow actions */}
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button
                       variant="ghost"
                       size="icon"
                       className="h-8 w-8 bg-accent border border-border text-muted-foreground hover:text-foreground hover:border-border/80 hover:bg-accent/80 transition-all"
-                      title="Actions"
+                      title="More actions"
                     >
                       <MoreVertical className="w-4 h-4" />
                     </Button>
@@ -3548,69 +3571,34 @@ const MaterializeRenderSection = forwardRef<
                     align="end"
                     className="w-48 bg-accent border-border text-foreground"
                   >
-                    <DropdownMenuItem
-                      onClick={() => handleModeChange("mobile")}
-                      className={cn(
-                        "focus:bg-accent/80 focus:text-foreground text-sm cursor-pointer",
-                        previewMode === "mobile"
-                          ? "bg-accent/50 text-foreground"
-                          : "text-muted-foreground",
-                      )}
-                    >
-                      <Smartphone className="w-4 h-4 mr-2 opacity-70" />
-                      Mobile View
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={() => handleModeChange("tablet")}
-                      className={cn(
-                        "focus:bg-accent/80 focus:text-foreground text-sm cursor-pointer",
-                        previewMode === "tablet"
-                          ? "bg-accent/50 text-foreground"
-                          : "text-muted-foreground",
-                      )}
-                    >
-                      <Tablet className="w-4 h-4 mr-2 opacity-70" />
-                      Tablet View
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={() => handleModeChange("web")}
-                      className={cn(
-                        "focus:bg-accent/80 focus:text-foreground text-sm cursor-pointer",
-                        previewMode === "web"
-                          ? "bg-accent/50 text-foreground"
-                          : "text-muted-foreground",
-                      )}
-                    >
-                      <Monitor className="w-4 h-4 mr-2 opacity-70" />
-                      Web View
-                    </DropdownMenuItem>
-                    {!isReadOnlyView && !isPreviewView && (
-                      <>
-                        <DropdownMenuSeparator className="bg-border sm:hidden" />
-                        <DropdownMenuItem
-                          onClick={handleExport}
-                          disabled={isExporting}
-                          className="sm:hidden focus:bg-accent/80 focus:text-foreground text-muted-foreground text-sm cursor-pointer"
-                        >
-                          {isExporting ? (
-                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                          ) : (
-                            <Download className="w-4 h-4 mr-2 opacity-70" />
-                          )}
-                          {isExporting ? "Exporting..." : "Export"}
-                        </DropdownMenuItem>
-                      </>
-                    )}
-                    {!isReadOnlyView && isWebFramework && (
+                    {/* Terminal - moved from main toolbar */}
+                    {!isReadOnlyView && (
                       <DropdownMenuItem
-                        onClick={() => handleOpenBrowserPreview("dropdown")}
-                        disabled={!viewing_url}
-                        className="sm:hidden focus:bg-accent/80 focus:text-foreground text-muted-foreground text-sm cursor-pointer"
+                        onClick={() => setIsTerminalOpen(!isTerminalOpen)}
+                        className="focus:bg-accent/80 focus:text-foreground text-muted-foreground text-sm cursor-pointer"
                       >
-                        <ExternalLink className="w-4 h-4 mr-2 opacity-70" />
-                        Browser
+                        <TerminalIcon className="w-4 h-4 mr-2 opacity-70" />
+                        {isTerminalOpen ? "Hide Terminal" : "Show Terminal"}
                       </DropdownMenuItem>
                     )}
+
+                    {/* Export - moved from main toolbar */}
+                    {!isReadOnlyView && !isPreviewView && (
+                      <DropdownMenuItem
+                        onClick={handleExport}
+                        disabled={isExporting}
+                        className="focus:bg-accent/80 focus:text-foreground text-muted-foreground text-sm cursor-pointer"
+                      >
+                        {isExporting ? (
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        ) : (
+                          <Download className="w-4 h-4 mr-2 opacity-70" />
+                        )}
+                        {isExporting ? "Exporting..." : "Export"}
+                      </DropdownMenuItem>
+                    )}
+
+                    {/* Design System */}
                     {ENABLE_DESIGN_SYSTEM &&
                       designSystemLabel &&
                       onDesignSystemClick && (
@@ -3625,26 +3613,11 @@ const MaterializeRenderSection = forwardRef<
                           </DropdownMenuItem>
                         </>
                       )}
+
+                    {/* Advanced Actions */}
                     {!isReadOnlyView && (
                       <>
                         <DropdownMenuSeparator className="bg-border" />
-                        <DropdownMenuItem
-                          onClick={() => setIsTerminalOpen(!isTerminalOpen)}
-                          className="sm:hidden focus:bg-accent/80 focus:text-foreground text-muted-foreground text-sm cursor-pointer"
-                        >
-                          <TerminalIcon className="w-4 h-4 mr-2 opacity-70" />
-                          {isTerminalOpen ? "Hide Terminal" : "Show Terminal"}
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={() =>
-                            handleOpenProjectSettings("deploy", "dropdown")
-                          }
-                          disabled={!prototypeId}
-                          className="sm:hidden focus:bg-accent/80 focus:text-foreground text-muted-foreground text-sm cursor-pointer"
-                        >
-                          <Settings className="w-4 h-4 mr-2 opacity-70" />
-                          Project Settings
-                        </DropdownMenuItem>
                         <DropdownMenuItem
                           onClick={handleRestartDevServer}
                           disabled={!prototypeId || isRestartingDevServer}
