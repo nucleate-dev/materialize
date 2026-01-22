@@ -72,25 +72,57 @@ export default function ForFoundersSection() {
           </div>
 
           {/* Right: Screenshot */}
-          <Link
-            href="https://www.nucleate.dev/p/2f7b405b-b48c-4cd1-a186-62407593b9e5"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="relative group cursor-pointer block"
-          >
-            <div className="rounded-2xl border-2 border-border overflow-hidden bg-card shadow-2xl hover:shadow-emerald-500/20 hover:border-emerald-500/50 transition-all duration-300">
-              <Image
-                src="/images/founders-1.png"
-                alt="Founder dashboard showing multiple projects and rapid iteration demonstrating speed and capital efficiency"
-                width={2400}
-                height={1800}
-                className="w-full h-auto"
-              />
+          <div className="relative">
+            <Link
+              href="https://www.nucleate.dev/p/2f7b405b-b48c-4cd1-a186-62407593b9e5"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="relative group cursor-pointer block"
+            >
+              <div className="rounded-2xl border-2 border-border overflow-hidden bg-card shadow-2xl hover:shadow-emerald-500/20 hover:border-emerald-500/50 transition-all duration-300">
+                <Image
+                  src="/images/founders-1.png"
+                  alt="Founder dashboard showing multiple projects and rapid iteration demonstrating speed and capital efficiency"
+                  width={2400}
+                  height={1800}
+                  className="w-full h-auto"
+                />
+              </div>
+              <div className="absolute bottom-4 right-4 bg-black/80 text-white text-xs px-3 py-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
+                Click to view live demo
+              </div>
+            </Link>
+
+            {/* Hand-drawn arrow annotation */}
+            <div className="absolute -left-32 top-[15%] hidden xl:flex items-center gap-3 animate-bounce-slow">
+              <span className="text-2xl font-handwritten text-emerald-400 whitespace-nowrap animate-pulse font-bold">
+                Click me!
+              </span>
+              <svg
+                width="100"
+                height="80"
+                viewBox="0 0 100 80"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+                className="text-emerald-400 -mr-8"
+              >
+                {/* Hand-drawn curved arrow pointing right */}
+                <path
+                  d="M10 40 Q30 25, 50 35 T80 40"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  fill="none"
+                />
+                {/* Arrow head pointing right into image */}
+                <path
+                  d="M75 35 L85 40 L75 45 L78 40 Z"
+                  fill="currentColor"
+                />
+              </svg>
             </div>
-            <div className="absolute bottom-4 right-4 bg-black/80 text-white text-xs px-3 py-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
-              Click to view live demo
-            </div>
-          </Link>
+          </div>
         </div>
       </div>
     </section>

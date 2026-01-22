@@ -2,7 +2,7 @@ import { MetaPixelPageView } from "@/components/MetaPixelPageView";
 import { ThemeProvider } from "@/components/theme-provider";
 import { TeamProvider } from "@/contexts/TeamContext";
 import type { Metadata } from "next";
-import { Fraunces, Inter } from "next/font/google";
+import { Caveat, Fraunces, Inter } from "next/font/google";
 import Script from "next/script";
 import { Toaster } from "@/components/ui/sonner";
 import "./globals.css";
@@ -16,6 +16,11 @@ const inter = Inter({
 const fraunces = Fraunces({
   subsets: ["latin"],
   variable: "--font-fraunces",
+});
+
+const caveat = Caveat({
+  subsets: ["latin"],
+  variable: "--font-caveat",
 });
 
 export const metadata: Metadata = {
@@ -125,7 +130,7 @@ export default function RootLayout({
         </noscript>
       </head>
       <body
-        className={`${inter.variable} ${fraunces.variable} font-sans antialiased`}
+        className={`${inter.variable} ${fraunces.variable} ${caveat.variable} font-sans antialiased`}
       >
         <CSPostHogProvider>
           <QueryProvider>

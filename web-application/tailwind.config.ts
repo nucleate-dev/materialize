@@ -12,6 +12,7 @@ const config: Config = {
       fontFamily: {
         sans: ["var(--font-inter)", "system-ui", "sans-serif"],
         serif: ["var(--font-fraunces)", "Georgia", "serif"],
+        handwritten: ["var(--font-caveat)", "'Comic Sans MS'", "cursive"],
       },
       colors: {
         current: "currentColor",
@@ -344,6 +345,16 @@ const config: Config = {
           "0%": { opacity: "0", transform: "scale(0.95)" },
           "100%": { opacity: "1", transform: "scale(1)" }
         },
+        "bounce-slow": {
+          "0%, 100%": {
+            transform: "translateY(-5%)",
+            animationTimingFunction: "cubic-bezier(0.8, 0, 1, 1)"
+          },
+          "50%": {
+            transform: "translateY(0)",
+            animationTimingFunction: "cubic-bezier(0, 0, 0.2, 1)"
+          }
+        },
       },
       animation: {
         "ping-once": "ping 5s cubic-bezier(0, 0, 0.2, 1)",
@@ -357,6 +368,7 @@ const config: Config = {
         "fade-in": "fade-in 0.6s ease-out",
         "fade-in-up": "fade-in-up 0.6s ease-out",
         "scale-in": "scale-in 0.6s ease-out",
+        "bounce-slow": "bounce-slow 2s ease-in-out infinite",
       },
       backgroundImage: {
         "gradient-radial": "radial-gradient(var(--tw-gradient-stops))",
