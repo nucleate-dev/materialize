@@ -574,6 +574,44 @@ export function ProjectSettingsModal({
     setTimeout(() => setDeployUrlCopied(false), 2000);
   }, [deploySlug]);
 
+  const [isSavingSlug, setIsSavingSlug] = useState(false);
+
+  const handleSaveSlug = useCallback(async () => {
+    if (!prototype || !deploySlug) return;
+
+    const normalizedSlug = normalizeSlug(deploySlug);
+    if (!normalizedSlug || !isValidSlug(normalizedSlug)) {
+      setSlugError(
+        `Slug must be ${SLUG_RULES.min}-${SLUG_RULES.max} characters using lowercase letters, numbers, or hyphens.`,
+      );
+      return;
+    }
+
+    if (slugAvailable !== true) {
+      return;
+    }
+
+    setIsSavingSlug(true);
+    try {
+      const { error } = await supabase
+        .from("prototypes")
+        .update({ slug: normalizedSlug })
+        .eq("id", prototype.id);
+
+      if (error) {
+        setSlugError("Failed to save slug");
+        return;
+      }
+
+      setIsEditingSlug(false);
+      toast.success("URL updated");
+    } catch {
+      setSlugError("Failed to save slug");
+    } finally {
+      setIsSavingSlug(false);
+    }
+  }, [prototype, deploySlug, slugAvailable]);
+
   // ===== ENVIRONMENT VARIABLES STATE =====
   const envPrefix =
     framework === "web_nextjs_react" ? "NEXT_PUBLIC_" : "EXPO_PUBLIC_";
@@ -1173,113 +1211,128 @@ export function ProjectSettingsModal({
 
                 {/* Deploy URL */}
                 <div className="space-y-3">
-                  <p className="text-sm uppercase tracking-wide text-muted-foreground">
-                    URL
-                  </p>
                   {isEditingSlug ? (
                     <>
-                      <div className="flex items-center gap-2">
-                        <div className="flex items-center flex-1 bg-accent border border-border rounded-md">
-                          <span className="pl-3 pr-1 text-muted-foreground text-sm">
-                            https://
-                          </span>
-                          <Input
-                            value={deploySlug}
-                            onChange={(e) => {
-                              setDeploySlug(
-                                normalizeSlugWhileTyping(e.target.value),
-                              );
-                              setSlugAvailable(null);
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm uppercase tracking-wide text-muted-foreground">
+                          URL
+                        </p>
+                        <div className="flex items-center gap-2">
+                          <div className="text-xs">
+                            {isCheckingSlug && (
+                              <span className="inline-flex items-center gap-1 text-muted-foreground">
+                                <Loader2 className="w-3 h-3 animate-spin" />{" "}
+                                Checking
+                              </span>
+                            )}
+                            {!isCheckingSlug && slugAvailable === true && (
+                              <span className="inline-flex items-center gap-1 text-success">
+                                <Check className="w-3 h-3" /> Available
+                              </span>
+                            )}
+                            {!isCheckingSlug && slugAvailable === false && (
+                              <span className="inline-flex items-center gap-1 text-warning">
+                                <AlertTriangle className="w-3 h-3" /> Taken
+                              </span>
+                            )}
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 hover:bg-success/20 hover:text-success"
+                            onClick={handleSaveSlug}
+                            disabled={
+                              isCheckingSlug ||
+                              slugAvailable !== true ||
+                              isSavingSlug
+                            }
+                          >
+                            {isSavingSlug ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <Check className="w-4 h-4" />
+                            )}
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 hover:bg-destructive/20 hover:text-destructive"
+                            onClick={() => {
+                              // Reset to original slug
+                              const originalSlug =
+                                prototype?.slug ||
+                                normalizeSlug(prototype?.name ?? "") ||
+                                prototype?.id ||
+                                "";
+                              setDeploySlug(originalSlug);
+                              setIsEditingSlug(false);
                               setSlugError(null);
+                              setSlugAvailable(null);
                             }}
-                            className="border-0 bg-transparent text-foreground focus-visible:ring-0 focus-visible:ring-offset-0 px-0 h-9"
-                            placeholder="my-app"
-                            autoFocus
-                          />
-                          <span className="pr-3 pl-1 text-muted-foreground text-sm whitespace-nowrap">
-                            .nucleate.site
-                          </span>
+                          >
+                            <X className="w-4 h-4" />
+                          </Button>
                         </div>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-9 w-9 hover:bg-success/20 hover:text-success"
-                          onClick={() => setIsEditingSlug(false)}
-                          disabled={isCheckingSlug || slugAvailable !== true}
-                        >
-                          <Check className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-9 w-9 hover:bg-destructive/20 hover:text-destructive"
-                          onClick={() => {
-                            // Reset to original slug
-                            const originalSlug =
-                              prototype?.slug ||
-                              normalizeSlug(prototype?.name ?? "") ||
-                              prototype?.id ||
-                              "";
-                            setDeploySlug(originalSlug);
-                            setIsEditingSlug(false);
-                            setSlugError(null);
+                      </div>
+                      <div className="flex items-center bg-accent border border-border rounded-md">
+                        <span className="pl-3 pr-1 text-muted-foreground text-sm">
+                          https://
+                        </span>
+                        <Input
+                          value={deploySlug}
+                          onChange={(e) => {
+                            setDeploySlug(
+                              normalizeSlugWhileTyping(e.target.value),
+                            );
                             setSlugAvailable(null);
+                            setSlugError(null);
                           }}
-                        >
-                          <X className="w-4 h-4" />
-                        </Button>
-                        <div className="w-24 text-xs text-right">
-                          {isCheckingSlug && (
-                            <span className="inline-flex items-center gap-1 text-muted-foreground">
-                              <Loader2 className="w-3 h-3 animate-spin" />{" "}
-                              Checking
-                            </span>
-                          )}
-                          {!isCheckingSlug && slugAvailable === true && (
-                            <span className="inline-flex items-center gap-1 text-success">
-                              <Check className="w-3 h-3" /> Available
-                            </span>
-                          )}
-                          {!isCheckingSlug && slugAvailable === false && (
-                            <span className="inline-flex items-center gap-1 text-warning">
-                              <AlertTriangle className="w-3 h-3" /> Taken
-                            </span>
-                          )}
-                        </div>
+                          className="border-0 bg-transparent text-foreground focus-visible:ring-0 focus-visible:ring-offset-0 px-0 h-9"
+                          placeholder="my-app"
+                          autoFocus
+                        />
+                        <span className="pr-3 pl-1 text-muted-foreground text-sm whitespace-nowrap">
+                          .nucleate.site
+                        </span>
                       </div>
                       {slugError && (
                         <p className="text-xs text-warning">{slugError}</p>
                       )}
                     </>
                   ) : (
-                    <div className="flex items-center gap-2">
-                      <div className="flex-1 h-9 px-3 flex items-center bg-accent border border-border rounded-md">
-                        <span className="text-sm text-foreground truncate">
-                          https://{normalizeSlug(deploySlug)}.nucleate.site
-                        </span>
+                    <>
+                      <p className="text-sm uppercase tracking-wide text-muted-foreground">
+                        URL
+                      </p>
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1 h-9 px-3 flex items-center bg-accent border border-border rounded-md">
+                          <span className="text-sm text-foreground truncate">
+                            https://{normalizeSlug(deploySlug)}.nucleate.site
+                          </span>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-9 w-9 text-muted-foreground hover:text-foreground"
+                          onClick={() => setIsEditingSlug(true)}
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={handleCopyDeployUrl}
+                          disabled={!deploySlug}
+                          className="h-9 w-9 text-muted-foreground hover:text-foreground"
+                        >
+                          {deployUrlCopied ? (
+                            <Check className="w-4 h-4 text-success" />
+                          ) : (
+                            <Copy className="w-4 h-4" />
+                          )}
+                        </Button>
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-9 w-9 text-muted-foreground hover:text-foreground"
-                        onClick={() => setIsEditingSlug(true)}
-                      >
-                        <Pencil className="w-4 h-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={handleCopyDeployUrl}
-                        disabled={!deploySlug}
-                        className="h-9 w-9 text-muted-foreground hover:text-foreground"
-                      >
-                        {deployUrlCopied ? (
-                          <Check className="w-4 h-4 text-success" />
-                        ) : (
-                          <Copy className="w-4 h-4" />
-                        )}
-                      </Button>
-                    </div>
+                    </>
                   )}
                 </div>
 
