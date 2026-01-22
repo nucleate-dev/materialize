@@ -174,6 +174,7 @@ export async function createSourceRepoPullRequest(
         base_branch: sourceRepo.defaultBranch,
         pr_title: input.prTitle,
         pr_body: input.prDescription,
+        github_repo_id: sourceRepo.githubRepoId,
         github_pull_request_number: pullRequestNumber,
         github_pull_request_url: pullRequestUrl,
         head_sha: headSha,
