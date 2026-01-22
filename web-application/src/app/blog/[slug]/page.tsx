@@ -28,11 +28,16 @@ export async function generateMetadata({
     };
   }
 
+  const url = `https://nucleate.dev/blog/${slug}`;
+
   return {
     title: `${post.title} | Nucleate Blog`,
     description: post.excerpt,
     keywords: post.tags,
     authors: [{ name: post.author }],
+    alternates: {
+      canonical: url,
+    },
     openGraph: {
       title: post.title,
       description: post.excerpt,
@@ -40,6 +45,7 @@ export async function generateMetadata({
       publishedTime: post.publishedAt,
       authors: [post.author],
       tags: post.tags,
+      url: url,
     },
     twitter: {
       card: "summary_large_image",

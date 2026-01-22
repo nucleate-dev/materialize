@@ -170,6 +170,31 @@ export function ProjectSettingsModal({
     setEditedName(prototype?.name ?? "");
   }, [prototype?.name]);
 
+  // ===== OWNER STATE =====
+  const [ownerEmail, setOwnerEmail] = useState<string | null>(null);
+
+  // Fetch owner information
+  useEffect(() => {
+    if (!prototype?.owner_id) {
+      setOwnerEmail(null);
+      return;
+    }
+
+    const fetchOwner = async () => {
+      const { data } = await supabase
+        .from("users")
+        .select("email, full_name")
+        .eq("id", prototype.owner_id)
+        .single();
+
+      if (data) {
+        setOwnerEmail(data.full_name || data.email || null);
+      }
+    };
+
+    fetchOwner();
+  }, [prototype?.owner_id]);
+
   const handleSaveName = async () => {
     if (!prototype || !editedName.trim()) return;
 
@@ -193,6 +218,29 @@ export function ProjectSettingsModal({
     } finally {
       setIsSavingName(false);
     }
+  };
+
+  // Helper to determine platform from framework
+  const getPlatform = (fw: string | null | undefined): string => {
+    if (!fw) return "Unknown";
+    const lowerFw = fw.toLowerCase();
+    if (lowerFw.includes("react-native") || lowerFw.includes("expo")) {
+      return "Mobile";
+    }
+    return "Web";
+  };
+
+  // Helper to get friendly framework name
+  const getFrameworkName = (fw: string | null | undefined): string => {
+    if (!fw) return "Unknown";
+    const lowerFw = fw.toLowerCase();
+    if (lowerFw.includes("expo") || lowerFw.includes("react-native")) {
+      return "Expo React Native";
+    }
+    if (lowerFw.includes("next")) {
+      return "Next.js";
+    }
+    return fw;
   };
 
   // ===== SHARE STATE =====
@@ -1165,30 +1213,100 @@ export function ProjectSettingsModal({
                   )}
                 </div>
 
-                {/* Meta Info */}
+                {/* Visibility */}
+                <div className="space-y-3">
+                  <p className="text-sm font-medium text-muted-foreground">
+                    Visibility
+                  </p>
+                  <Select
+                    value={prototype?.visibility || "SELF"}
+                    onValueChange={async (value: PrototypeVisibility) => {
+                      if (!prototype) return;
+                      try {
+                        await supabase
+                          .from("prototypes")
+                          .update({ visibility: value })
+                          .eq("id", prototype.id);
+                        onVisibilityChange?.(value === "PUBLIC");
+                        toast.success("Visibility updated");
+                      } catch {
+                        toast.error("Failed to update visibility");
+                      }
+                    }}
+                  >
+                    <SelectTrigger className="h-10">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="SELF">Private</SelectItem>
+                      <SelectItem value="PUBLIC">Public</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Meta Info Grid */}
                 <div className="grid grid-cols-2 gap-4">
-                  {visibilityLabel && (
-                    <div className="space-y-2">
-                      <p className="text-sm font-medium text-muted-foreground">
-                        Visibility
+                  {/* Platform */}
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium text-muted-foreground">
+                      Platform
+                    </p>
+                    <p className="text-sm text-foreground">
+                      {getPlatform(framework || prototype?.framework)}
+                    </p>
+                  </div>
+
+                  {/* Framework */}
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium text-muted-foreground">
+                      Framework
+                    </p>
+                    <p className="text-sm text-foreground">
+                      {getFrameworkName(framework || prototype?.framework)}
+                    </p>
+                  </div>
+
+                  {/* Source Repository */}
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium text-muted-foreground">
+                      Source Repository
+                    </p>
+                    {githubRepository?.html_url ? (
+                      <a
+                        href={githubRepository.html_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sm text-primary hover:underline inline-flex items-center gap-1"
+                      >
+                        View on GitHub
+                        <ExternalLink className="w-3 h-3" />
+                      </a>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">
+                        Does Not Exist
                       </p>
-                      <div className="flex">
-                        <Badge
-                          variant="outline"
-                          className="bg-accent/50 border-border text-foreground"
-                        >
-                          {visibilityLabel}
-                        </Badge>
-                      </div>
-                    </div>
-                  )}
-                  {createdAtLabel && (
+                    )}
+                  </div>
+
+                  {/* Owner */}
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium text-muted-foreground">
+                      Owner
+                    </p>
+                    <p className="text-sm text-foreground">
+                      {ownerEmail || "Unknown"}
+                    </p>
+                  </div>
+
+                  {/* Created */}
+                  {(createdAtLabel || prototype?.created_at) && (
                     <div className="space-y-2">
                       <p className="text-sm font-medium text-muted-foreground">
                         Created
                       </p>
                       <p className="text-sm text-foreground font-mono">
-                        {createdAtLabel}
+                        {createdAtLabel ||
+                          new Date(prototype!.created_at).toLocaleDateString()}
                       </p>
                     </div>
                   )}

@@ -101,9 +101,9 @@ function getDefaultTeamSettingValue(
 ): TeamSettingValue {
   switch (settingKey) {
     case "block_public_prototypes":
-      return "team_settings_false";
+      return "team_setting_generic_value_false";
     default:
-      return "team_settings_false";
+      return "team_setting_generic_value_false";
   }
 }
 

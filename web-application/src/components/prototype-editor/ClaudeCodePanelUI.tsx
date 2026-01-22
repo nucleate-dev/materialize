@@ -129,6 +129,7 @@ interface ClaudeCodePanelUIProps {
   hasClaudeToken: boolean;
   isAuthModeLoading: boolean;
   onCollapse?: () => void;
+  onPrototypeNameClick?: () => void;
 }
 
 function CopyMessageButton({ content }: { content: string }) {
@@ -212,6 +213,7 @@ export default function ClaudeCodePanelUI({
   hasClaudeToken,
   isAuthModeLoading,
   onCollapse,
+  onPrototypeNameClick,
 }: ClaudeCodePanelUIProps) {
   const [showCreditLimitModal, setShowCreditLimitModal] = useState(false);
   const hasShownModalRef = useRef(false);
@@ -291,12 +293,13 @@ export default function ClaudeCodePanelUI({
       <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-accent/50 h-14 shrink-0">
         <div className="flex items-center gap-3 flex-1 overflow-hidden">
           <div className="flex items-center gap-2 overflow-hidden">
-            <span
-              className="text-sm font-medium text-foreground truncate max-w-[120px]"
+            <button
+              onClick={onPrototypeNameClick}
+              className="text-sm font-medium text-foreground truncate max-w-[120px] hover:text-primary transition-colors cursor-pointer"
               title={prototypeTitle}
             >
               {prototypeTitle}
-            </span>
+            </button>
           </div>
 
           {/* Session Selector */}

@@ -22,6 +22,30 @@ interface BlogPostProps {
 }
 
 export default function BlogPost({ post }: BlogPostProps) {
+  // Generate JSON-LD structured data for SEO
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Article",
+    headline: post.title,
+    description: post.excerpt,
+    author: {
+      "@type": "Person",
+      name: post.author || "Nucleate",
+    },
+    publisher: {
+      "@type": "Organization",
+      name: "Nucleate",
+      logo: {
+        "@type": "ImageObject",
+        url: "https://nucleate.dev/logo.png",
+      },
+    },
+    datePublished: post.publishedAt,
+    dateModified: post.publishedAt,
+    keywords: post.tags.join(", "),
+    articleSection: post.category,
+    inLanguage: "en-US",
+  };
   const getCategoryIcon = (category: string) => {
     switch (category) {
       case "tutorial":
@@ -48,8 +72,15 @@ export default function BlogPost({ post }: BlogPostProps) {
   const CategoryIcon = getCategoryIcon(post.category);
 
   return (
-    <main className="relative min-h-screen bg-background text-foreground selection:bg-primary/30 font-sans">
-      <GridBackground />
+    <>
+      {/* JSON-LD structured data for SEO */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
+
+      <main className="relative min-h-screen bg-background text-foreground selection:bg-primary/30 font-sans">
+        <GridBackground />
 
       <div className="relative z-10">
         <PremiumHeader />
@@ -157,5 +188,6 @@ export default function BlogPost({ post }: BlogPostProps) {
         </div>
       </div>
     </main>
+    </>
   );
 }

@@ -83,6 +83,7 @@ interface ClaudeCodePanelProps {
   onCollapse?: () => void;
   isFreePlan?: boolean;
   onShowClaudeConnectionSettings?: () => void;
+  onPrototypeNameClick?: () => void;
 }
 
 export interface Message {
@@ -153,6 +154,7 @@ const ClaudeCodePanel = forwardRef<ClaudeCodePanelRef, ClaudeCodePanelProps>(
       onCollapse,
       isFreePlan = false,
       onShowClaudeConnectionSettings,
+      onPrototypeNameClick,
     },
     ref,
   ) => {
@@ -2471,6 +2473,7 @@ const ClaudeCodePanel = forwardRef<ClaudeCodePanelRef, ClaudeCodePanelProps>(
         hasClaudeToken={hasUserClaudeToken}
         isAuthModeLoading={authPickerLoading}
         onCollapse={onCollapse}
+        onPrototypeNameClick={onPrototypeNameClick}
       />
     );
   },
