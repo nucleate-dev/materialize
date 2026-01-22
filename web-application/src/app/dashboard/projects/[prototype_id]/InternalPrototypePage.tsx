@@ -1257,6 +1257,7 @@ export default function InternalPrototypePage() {
                 onCollapse={() => setIsChatCollapsed(true)}
                 isFreePlan={isFreePlan}
                 onShowClaudeConnectionSettings={showClaudeConnectionSettings}
+                onPrototypeNameClick={() => materializeRenderRef.current?.openProjectSettings("details")}
               />
             </div>
           </div>

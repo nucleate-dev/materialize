@@ -295,6 +295,7 @@ interface MaterializeRenderSectionProps {
 export interface MaterializeRenderSectionRef {
   forceRefresh: () => void;
   updateScreens: (data: ScreenUpdateData) => void;
+  openProjectSettings: (tab?: ProjectSettingsTab) => void;
 }
 
 type PreviewMode = "web" | "mobile" | "tablet";
@@ -1403,6 +1404,9 @@ const MaterializeRenderSection = forwardRef<
               break;
           }
         },
+        openProjectSettings: (tab?: ProjectSettingsTab) => {
+          handleOpenProjectSettings(tab || "details", "chat_panel_name_click");
+        },
       }),
       [
         forceRefresh,
@@ -1411,6 +1415,7 @@ const MaterializeRenderSection = forwardRef<
         webScreens,
         logger,
         isCanvasPreviewEnabled,
+        handleOpenProjectSettings,
       ],
     );
 
