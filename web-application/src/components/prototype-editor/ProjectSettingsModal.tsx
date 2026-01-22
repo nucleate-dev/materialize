@@ -269,6 +269,7 @@ export function ProjectSettingsModal({
   const [deploySlug, setDeploySlug] = useState("");
   const [deployVisibility] = useState<PrototypeVisibility>("PUBLIC");
   const hasInitializedDeploySlug = useRef(false);
+  const [isEditingSlug, setIsEditingSlug] = useState(false);
   const [isCheckingSlug, setIsCheckingSlug] = useState(false);
   const [slugAvailable, setSlugAvailable] = useState<boolean | null>(null);
   const [slugError, setSlugError] = useState<string | null>(null);
@@ -351,9 +352,14 @@ export function ProjectSettingsModal({
     fetchBuildHistory();
   }, [open, prototype, logger]);
 
-  // Slug validation effect
+  // Slug validation effect - only runs when editing
   useEffect(() => {
-    if (!open || !prototype) return;
+    if (!open || !prototype || !isEditingSlug) {
+      setSlugAvailable(null);
+      setSlugError(null);
+      setIsCheckingSlug(false);
+      return;
+    }
 
     if (!deploySlug) {
       setSlugAvailable(null);
@@ -430,7 +436,7 @@ export function ProjectSettingsModal({
       controller.abort();
       clearTimeout(timeoutId);
     };
-  }, [deploySlug, open, prototype]);
+  }, [deploySlug, open, prototype, isEditingSlug]);
 
   const handleDeploy = useCallback(async () => {
     if (!prototype) return;
@@ -968,6 +974,7 @@ export function ProjectSettingsModal({
     onOpenChange(newOpen);
     if (!newOpen) {
       setIsEditingName(false);
+      setIsEditingSlug(false);
       setEnvVarFormError(null);
       setEnvSyncWarning(null);
       setEnvSyncError(null);
@@ -1169,60 +1176,110 @@ export function ProjectSettingsModal({
                   <p className="text-sm uppercase tracking-wide text-muted-foreground">
                     URL
                   </p>
-                  <div className="flex items-center gap-2">
-                    <div className="flex items-center flex-1 bg-accent border border-border rounded-md">
-                      <span className="pl-3 pr-1 text-muted-foreground text-sm">
-                        https://
-                      </span>
-                      <Input
-                        value={deploySlug}
-                        onChange={(e) => {
-                          setDeploySlug(
-                            normalizeSlugWhileTyping(e.target.value),
-                          );
-                          setSlugAvailable(null);
-                          setSlugError(null);
-                        }}
-                        className="border-0 bg-transparent text-foreground focus-visible:ring-0 focus-visible:ring-offset-0 px-0 h-9"
-                        placeholder="my-app"
-                      />
-                      <span className="pr-3 pl-1 text-muted-foreground text-sm whitespace-nowrap">
-                        .nucleate.site
-                      </span>
+                  {isEditingSlug ? (
+                    <>
+                      <div className="flex items-center gap-2">
+                        <div className="flex items-center flex-1 bg-accent border border-border rounded-md">
+                          <span className="pl-3 pr-1 text-muted-foreground text-sm">
+                            https://
+                          </span>
+                          <Input
+                            value={deploySlug}
+                            onChange={(e) => {
+                              setDeploySlug(
+                                normalizeSlugWhileTyping(e.target.value),
+                              );
+                              setSlugAvailable(null);
+                              setSlugError(null);
+                            }}
+                            className="border-0 bg-transparent text-foreground focus-visible:ring-0 focus-visible:ring-offset-0 px-0 h-9"
+                            placeholder="my-app"
+                            autoFocus
+                          />
+                          <span className="pr-3 pl-1 text-muted-foreground text-sm whitespace-nowrap">
+                            .nucleate.site
+                          </span>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-9 w-9 hover:bg-success/20 hover:text-success"
+                          onClick={() => setIsEditingSlug(false)}
+                          disabled={isCheckingSlug || slugAvailable !== true}
+                        >
+                          <Check className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-9 w-9 hover:bg-destructive/20 hover:text-destructive"
+                          onClick={() => {
+                            // Reset to original slug
+                            const originalSlug =
+                              prototype?.slug ||
+                              normalizeSlug(prototype?.name ?? "") ||
+                              prototype?.id ||
+                              "";
+                            setDeploySlug(originalSlug);
+                            setIsEditingSlug(false);
+                            setSlugError(null);
+                            setSlugAvailable(null);
+                          }}
+                        >
+                          <X className="w-4 h-4" />
+                        </Button>
+                        <div className="w-24 text-xs text-right">
+                          {isCheckingSlug && (
+                            <span className="inline-flex items-center gap-1 text-muted-foreground">
+                              <Loader2 className="w-3 h-3 animate-spin" />{" "}
+                              Checking
+                            </span>
+                          )}
+                          {!isCheckingSlug && slugAvailable === true && (
+                            <span className="inline-flex items-center gap-1 text-success">
+                              <Check className="w-3 h-3" /> Available
+                            </span>
+                          )}
+                          {!isCheckingSlug && slugAvailable === false && (
+                            <span className="inline-flex items-center gap-1 text-warning">
+                              <AlertTriangle className="w-3 h-3" /> Taken
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      {slugError && (
+                        <p className="text-xs text-warning">{slugError}</p>
+                      )}
+                    </>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 h-9 px-3 flex items-center bg-accent border border-border rounded-md">
+                        <span className="text-sm text-foreground truncate">
+                          https://{normalizeSlug(deploySlug)}.nucleate.site
+                        </span>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-9 w-9 text-muted-foreground hover:text-foreground"
+                        onClick={() => setIsEditingSlug(true)}
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={handleCopyDeployUrl}
+                        disabled={!deploySlug}
+                        className="h-9 w-9 text-muted-foreground hover:text-foreground"
+                      >
+                        {deployUrlCopied ? (
+                          <Check className="w-4 h-4 text-success" />
+                        ) : (
+                          <Copy className="w-4 h-4" />
+                        )}
+                      </Button>
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={handleCopyDeployUrl}
-                      disabled={!deploySlug}
-                      className="h-9 px-3 text-muted-foreground hover:text-foreground"
-                    >
-                      {deployUrlCopied ? (
-                        <Check className="w-4 h-4 text-success" />
-                      ) : (
-                        <Copy className="w-4 h-4" />
-                      )}
-                    </Button>
-                    <div className="w-24 text-xs text-right">
-                      {isCheckingSlug && (
-                        <span className="inline-flex items-center gap-1 text-muted-foreground">
-                          <Loader2 className="w-3 h-3 animate-spin" /> Checking
-                        </span>
-                      )}
-                      {!isCheckingSlug && slugAvailable === true && (
-                        <span className="inline-flex items-center gap-1 text-success">
-                          <Check className="w-3 h-3" /> Available
-                        </span>
-                      )}
-                      {!isCheckingSlug && slugAvailable === false && (
-                        <span className="inline-flex items-center gap-1 text-warning">
-                          <AlertTriangle className="w-3 h-3" /> Taken
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  {slugError && (
-                    <p className="text-xs text-warning">{slugError}</p>
                   )}
                 </div>
 
@@ -1326,8 +1383,7 @@ export function ProjectSettingsModal({
                     onClick={handleDeploy}
                     disabled={Boolean(
                       isDeploying ||
-                      isCheckingSlug ||
-                      slugAvailable !== true ||
+                      isEditingSlug ||
                       slugError ||
                       (!hasSlugChanged && isLatestBuildDeployed),
                     )}
