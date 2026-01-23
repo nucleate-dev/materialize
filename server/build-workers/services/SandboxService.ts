@@ -35,9 +35,10 @@ import { SOURCE_REPO_DIR, WORK_DIR } from "../worker.js";
 // - Consider different limits for different operation types (git clone is more expensive than mkdir)
 
 const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10MB limit for file reads
-const ALLOWED_WRITE_BASE_DIRS = new Set(
-  [WORK_DIR, SOURCE_REPO_DIR].map((dir) => path.resolve(dir)),
-);
+
+function getAllowedWriteBaseDirs(): Set<string> {
+  return new Set([WORK_DIR, SOURCE_REPO_DIR].map((dir) => path.resolve(dir)));
+}
 
 interface MakeDirResult {
   success: boolean;
@@ -450,7 +451,8 @@ export class SandboxService {
     try {
       const baseDir = options?.baseDir ?? WORK_DIR;
       const normalizedBaseDir = path.resolve(baseDir);
-      if (!ALLOWED_WRITE_BASE_DIRS.has(normalizedBaseDir)) {
+      const allowedBaseDirs = getAllowedWriteBaseDirs();
+      if (!allowedBaseDirs.has(normalizedBaseDir)) {
         throw new Error(
           `Write attempted outside allowed directories: ${normalizedBaseDir}`,
         );

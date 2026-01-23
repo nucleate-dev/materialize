@@ -32,7 +32,7 @@ import { NucleateDevelopmentServerService } from "../../dev-server/NucleateDevel
 import { SandboxService } from "../../SandboxService.js";
 import { SupabaseClientService } from "../../SupabaseClientService.js";
 import { TerminalService } from "../../terminals/TerminalService.js";
-import { ALLOWED_ROOTS } from "../ChatService.js";
+import { getAllowedRoots } from "../ChatService.js";
 import {
   costFunctionV3,
   CURRENT_COST_FUNCTION_NAME,
@@ -70,7 +70,6 @@ import {
 
 const HISTORY_MESSAGE_REQUEST_COUNT = 6;
 const SOURCE_REPO_PR_TOOL_NAME = "mcp__devtools__CreateSourceRepoPullRequest";
-const WRITE_ALLOWED_ROOTS = [WORK_DIR, SOURCE_REPO_DIR];
 
 function isPathInsideRoot(root: string, targetPath: string): boolean {
   const normalizedRoot = path.resolve(root);
@@ -551,12 +550,13 @@ export class ChatQueryHandler implements ChatEngine {
     hasSourceRepository: boolean = false,
     onGeminiUsage?: (costUsd: number) => void,
   ): Promise<Options & { resume?: string }> {
+    const allowedRoots = getAllowedRoots();
     const canUseTool: CanUseTool = async (
       toolName: ToolName,
       input: ToolInput,
       _options: unknown,
     ): Promise<PermissionResult> => {
-      return evaluateToolPermission(ALLOWED_ROOTS, toolName, input);
+      return evaluateToolPermission(allowedRoots, toolName, input);
     };
 
     const allowedToolsDefault = [
@@ -583,8 +583,8 @@ export class ChatQueryHandler implements ChatEngine {
       allowedToolsDefault.push("mcp__devtools__UpdatePreviewScreens");
     }
 
-    const sourceRepoPullRequestHandler =
-      this.buildSourceRepoPullRequestToolHandler(
+    const sourceRepoPullRequestHandler = this
+      .buildSourceRepoPullRequestToolHandler(
         hasSourceRepository,
         prototypeChatSessionId,
       );
@@ -791,8 +791,8 @@ export class ChatQueryHandler implements ChatEngine {
 
     return async (input) => {
       try {
-        const result =
-          await this.devServerService.createSourceRepositoryPullRequest(
+        const result = await this.devServerService
+          .createSourceRepositoryPullRequest(
             {
               branchName: input.branch_name,
               commitMessage: input.commit_message,
@@ -919,7 +919,8 @@ export class ChatQueryHandler implements ChatEngine {
       const absolutePath = path.isAbsolute(filePath)
         ? path.resolve(filePath)
         : path.resolve(WORK_DIR, filePath);
-      const targetRoot = WRITE_ALLOWED_ROOTS.find((root) =>
+      const allowedRoots = getAllowedRoots();
+      const targetRoot = allowedRoots.find((root) =>
         isPathInsideRoot(root, absolutePath)
       );
 
@@ -996,7 +997,7 @@ export class ChatQueryHandler implements ChatEngine {
           }`,
         );
         const permission = evaluateToolPermission(
-          ALLOWED_ROOTS,
+          getAllowedRoots(),
           input.tool_name as ToolName,
           (input.tool_input ?? {}) as ToolInput,
         );

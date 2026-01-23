@@ -50,7 +50,9 @@ import {
 } from "./prompts/ClaudeCodePrompts.js";
 import { broadcastToConnections } from "./websocket-broadcast.js";
 
-export const ALLOWED_ROOTS = [WORK_DIR, SOURCE_REPO_DIR];
+export function getAllowedRoots(): string[] {
+  return [WORK_DIR, SOURCE_REPO_DIR];
+}
 const CHAT_HEARTBEAT_INTERVAL_MS = 15000;
 
 interface ChatQueryValidationResult {
