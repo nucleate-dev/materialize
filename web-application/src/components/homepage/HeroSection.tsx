@@ -19,7 +19,6 @@ import {
   setChatIntent,
   type ChatIntentImage,
 } from "@/lib/utils/chatIntentUtils";
-import { motion } from "framer-motion";
 import { Globe, Lock, Paperclip, Share2, Sparkles, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
@@ -231,71 +230,29 @@ export default function HeroSection() {
 
   return (
     <section className="relative min-h-[85vh] flex flex-col justify-center px-6 pt-20 pb-12 overflow-hidden">
-      {/* Floating gradient orbs */}
-      <motion.div
-        animate={{ y: [0, -30, 0], opacity: [0.3, 0.5, 0.3] }}
-        transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
-        className="absolute top-1/4 left-1/4 w-[400px] h-[400px] bg-primary/20 rounded-full blur-[120px] pointer-events-none"
-      />
-      <motion.div
-        animate={{ y: [0, 20, 0], opacity: [0.2, 0.4, 0.2] }}
-        transition={{
-          duration: 10,
-          repeat: Infinity,
-          ease: "easeInOut",
-          delay: 1,
-        }}
-        className="absolute bottom-1/4 right-1/4 w-[350px] h-[350px] bg-primary/15 rounded-full blur-[100px] pointer-events-none"
-      />
-      <motion.div
-        animate={{ y: [0, -15, 0], x: [0, 10, 0] }}
-        transition={{
-          duration: 12,
-          repeat: Infinity,
-          ease: "easeInOut",
-          delay: 2,
-        }}
-        className="absolute top-1/2 right-1/3 w-[200px] h-[200px] bg-primary/10 rounded-full blur-[80px] pointer-events-none"
-      />
+      {/* Static gradient orbs */}
+      <div className="absolute top-1/4 left-1/4 w-[400px] h-[400px] bg-primary/20 rounded-full blur-[120px] pointer-events-none opacity-40" />
+      <div className="absolute bottom-1/4 right-1/4 w-[350px] h-[350px] bg-primary/15 rounded-full blur-[100px] pointer-events-none opacity-30" />
 
       <div className="container mx-auto max-w-5xl w-full text-center relative z-10">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3 }}
+        <Badge
+          variant="outline"
+          className="mb-6 border-primary/30 bg-primary/10 text-primary px-4 py-1"
         >
-          <Badge
-            variant="outline"
-            className="mb-6 border-primary/30 bg-primary/10 text-primary px-4 py-1"
-          >
-            Prototyping for Production Teams
-          </Badge>
-        </motion.div>
+          Prototyping for Production Teams
+        </Badge>
 
-        <motion.h1
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.35, delay: 0.1 }}
-          className="text-5xl md:text-7xl lg:text-8xl font-medium tracking-tight text-foreground mb-6"
-        >
+        <h1 className="text-5xl md:text-7xl lg:text-8xl font-medium tracking-tight text-foreground mb-6">
           The AI Design Engineer
-        </motion.h1>
+        </h1>
 
-        <motion.p
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3, delay: 0.2 }}
-          className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-12 leading-relaxed"
-        >
+        <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-12 leading-relaxed">
           Nucleate ingests your codebase&apos;s styles and components, so every
           prototype is on-brand. Explore variants quickly, then export real
           code.
-        </motion.p>
+        </p>
 
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.35, delay: 0.1 }}
+        <div
           className="max-w-3xl mx-auto relative group"
           onDragEnter={handleDragEnter}
           onDragLeave={handleDragLeave}
@@ -336,16 +293,7 @@ export default function HeroSection() {
           <div className="absolute -inset-0.5 bg-gradient-to-r from-primary/30 to-primary/20 rounded-2xl blur opacity-20 group-hover:opacity-40 transition duration-500"></div>
           <div className="relative bg-card border border-border rounded-xl overflow-hidden shadow-2xl flex flex-col focus-within:border-primary/30">
             <div className="px-4 pt-4 flex gap-3">
-              <motion.div
-                animate={{ rotate: [0, 10, -10, 0] }}
-                transition={{
-                  duration: 4,
-                  repeat: Infinity,
-                  ease: "easeInOut",
-                }}
-              >
-                <Sparkles className="w-5 h-5 text-muted-foreground mt-1" />
-              </motion.div>
+              <Sparkles className="w-5 h-5 text-muted-foreground mt-1" />
               <div className="flex-1 flex flex-col">
                 <Textarea
                   placeholder="Describe a screen or flow you want to prototype..."
@@ -388,18 +336,14 @@ export default function HeroSection() {
                 <span className="text-xs text-muted-foreground uppercase tracking-widest font-bold">
                   Try:
                 </span>
-                {suggestionChips.map((chip, index) => (
-                  <motion.button
+                {suggestionChips.map((chip) => (
+                  <button
                     key={chip.label}
-                    initial={{ opacity: 0, x: -10 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ duration: 0.2, delay: 0.1 + index * 0.05 }}
-                    whileHover={{ scale: 1.05 }}
                     onClick={() => setPrompt(chip.prompt)}
                     className="text-xs text-muted-foreground hover:text-foreground transition-colors"
                   >
                     {chip.label}
-                  </motion.button>
+                  </button>
                 ))}
               </div>
               <div className="flex items-center gap-2">
@@ -456,23 +400,18 @@ export default function HeroSection() {
                     ))}
                   </SelectContent>
                 </Select>
-                <motion.div
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
+                <Button
+                  onClick={handleSend}
+                  disabled={!prompt.trim() || isLoading}
+                  size="sm"
+                  className="bg-primary text-primary-foreground hover:bg-primary/90 px-6"
                 >
-                  <Button
-                    onClick={handleSend}
-                    disabled={!prompt.trim() || isLoading}
-                    size="sm"
-                    className="bg-primary text-primary-foreground hover:bg-primary/90 px-6"
-                  >
-                    {isLoading ? "Loading..." : "Create prototype"}
-                  </Button>
-                </motion.div>
+                  {isLoading ? "Loading..." : "Create prototype"}
+                </Button>
               </div>
             </div>
           </div>
-        </motion.div>
+        </div>
       </div>
       <ProPlanUpsellModal
         open={showUpsellModal}

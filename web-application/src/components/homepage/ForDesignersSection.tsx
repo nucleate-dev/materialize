@@ -76,7 +76,6 @@ export default function ForDesignersSection() {
             alt="Designer workflow showing AI generating multiple design variants with chat interface and live preview"
             width={2400}
             height={1800}
-            priority
             hoverColor="primary"
           />
         </div>

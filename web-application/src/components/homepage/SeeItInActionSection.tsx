@@ -59,22 +59,9 @@ export default function SeeItInActionSection() {
 
   return (
     <section className="py-24 bg-background border-y border-border relative overflow-hidden">
-      {/* Animated background accents */}
-      <motion.div
-        animate={{ y: [0, 30, 0], x: [0, -20, 0] }}
-        transition={{ duration: 15, repeat: Infinity, ease: "easeInOut" }}
-        className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-primary/5 blur-[120px] rounded-full pointer-events-none"
-      />
-      <motion.div
-        animate={{ y: [0, -40, 0], x: [0, 30, 0] }}
-        transition={{
-          duration: 18,
-          repeat: Infinity,
-          ease: "easeInOut",
-          delay: 2,
-        }}
-        className="absolute bottom-0 right-1/4 w-[500px] h-[500px] bg-purple-600/5 blur-[120px] rounded-full pointer-events-none"
-      />
+      {/* Static background accents */}
+      <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-primary/5 blur-[120px] rounded-full pointer-events-none" />
+      <div className="absolute bottom-0 right-1/4 w-[500px] h-[500px] bg-purple-600/5 blur-[120px] rounded-full pointer-events-none" />
 
       <div className="container mx-auto px-6 max-w-7xl relative z-10">
         <motion.div
