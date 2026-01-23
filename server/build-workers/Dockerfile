@@ -45,6 +45,16 @@ RUN apt-get clean && \
     && chmod +x /usr/local/bin/cloudflared \
     && rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*
 
+# Install GitHub CLI (gh) for source repo PR automation
+RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
+      | dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg \
+      && chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg \
+      && echo "deb [arch=amd64 signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" \
+        > /etc/apt/sources.list.d/github-cli.list \
+      && apt-get update \
+      && apt-get install -y --no-install-recommends gh \
+      && rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*
+
 # Environment setup for Node + Watchman + PTY
 ENV TERM=xterm-256color
 ENV SHELL=/bin/bash

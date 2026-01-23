@@ -29,6 +29,11 @@ if command -v dnf >/dev/null 2>&1; then
   command -v git >/dev/null 2>&1 || sudo dnf install -y git
   command -v lsof >/dev/null 2>&1 || sudo dnf install -y lsof
   sudo dnf install -y amazon-cloudwatch-agent
+  if ! command -v gh >/dev/null 2>&1; then
+    sudo dnf install -y dnf-plugins-core
+    sudo dnf config-manager --add-repo https://cli.github.com/packages/rpm/gh-cli.repo
+    sudo dnf install -y gh
+  fi
 
   # Install Chrome dependencies for Puppeteer
   echo "==> Installing Chrome dependencies for Puppeteer..."
@@ -94,6 +99,11 @@ else
   command -v git >/dev/null 2>&1 || sudo yum install -y git
   command -v lsof >/dev/null 2>&1 || sudo yum install -y lsof
   sudo yum install -y amazon-cloudwatch-agent
+  if ! command -v gh >/dev/null 2>&1; then
+    sudo yum install -y yum-utils
+    sudo yum-config-manager --add-repo https://cli.github.com/packages/rpm/gh-cli.repo
+    sudo yum install -y gh
+  fi
 
   # Install Chrome dependencies for Puppeteer
   echo "==> Installing Chrome dependencies for Puppeteer..."
