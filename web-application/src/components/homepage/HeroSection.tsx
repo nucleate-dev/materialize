@@ -19,7 +19,7 @@ import {
   setChatIntent,
   type ChatIntentImage,
 } from "@/lib/utils/chatIntentUtils";
-import { Globe, Lock, Paperclip, Share2, Sparkles, X } from "lucide-react";
+import { Lock, Paperclip, Sparkles, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
