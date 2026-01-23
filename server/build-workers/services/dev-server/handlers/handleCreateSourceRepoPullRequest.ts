@@ -42,6 +42,7 @@ function normalizeBranchName(branchName?: string | null): string {
 
 async function runSourceRepoCommand(
   service: NucleateDevelopmentServerService,
+  terminalSessionId: string,
   command: string,
   options?: { timeoutMs?: number; allowFailure?: boolean },
 ): Promise<string> {
@@ -50,6 +51,7 @@ async function runSourceRepoCommand(
     args: ["-c", `cd ${SOURCE_REPO_DIR} && ${command}`],
     timeout_ms: options?.timeoutMs ?? 60000,
     strip_ansi: true,
+    session_id: terminalSessionId,
   });
 
   if (response.error || response.data?.status !== "success") {
@@ -87,7 +89,7 @@ export async function createSourceRepoPullRequest(
     service.githubInstallationToken?.installationToken ?? null;
   if (!installationToken) {
     throw new Error(
-      "Source repository installation token is not available. Please restart the dev server.",
+      "Source repository installation token is not available.",
     );
   }
 
@@ -95,30 +97,40 @@ export async function createSourceRepoPullRequest(
   const remoteUrl =
     `https://x-access-token:${installationToken}@github.com/${sourceRepo.fullName}.git`;
 
+  const terminalSession = service.terminalService.getOrCreateTerminalSession(
+    "source-repo-pr",
+    "generic",
+  );
+  await new Promise((resolve) => setTimeout(resolve, 200));
+
   try {
-    await runSourceRepoCommand(service, "git remote remove origin", {
-      allowFailure: true,
-    });
     await runSourceRepoCommand(
       service,
-      `git remote add origin ${remoteUrl}`,
+      terminalSession.id,
+      `cd ${SOURCE_REPO_DIR} && git remote remove origin && git remote add origin ${remoteUrl}`,
     );
     await runSourceRepoCommand(
       service,
+      terminalSession.id,
       `git config user.email "bot@nucleate.dev"`,
     );
     await runSourceRepoCommand(
       service,
+      terminalSession.id,
       `git config user.name "Nucleate"`,
     );
-
-    await runSourceRepoCommand(service, `git checkout -B ${branchName}`);
-    await runSourceRepoCommand(service, "git add -A");
+    await runSourceRepoCommand(
+      service,
+      terminalSession.id,
+      `git checkout -B ${branchName}`,
+    );
+    await runSourceRepoCommand(service, terminalSession.id, "git add -A");
 
     try {
       // Use printf piped to git commit -F - to safely handle multiline commit messages.
       await runSourceRepoCommand(
         service,
+        terminalSession.id,
         `printf '%s' '${
           escapeForSingleQuotes(input.commitMessage)
         }' | git commit -F -`,
@@ -135,12 +147,17 @@ export async function createSourceRepoPullRequest(
       throw error instanceof Error ? error : new Error(errorMessage);
     }
 
-    await runSourceRepoCommand(service, `git push -u origin ${branchName}`);
+    await runSourceRepoCommand(
+      service,
+      terminalSession.id,
+      `git push -u origin ${branchName}`,
+    );
 
     // Sanitize PR title to single line; use printf piped to --body-file - for multiline body.
     const sanitizedTitle = sanitizeSingleLine(input.prTitle);
     const prStdout = await runSourceRepoCommand(
       service,
+      terminalSession.id,
       `printf '%s' '${
         escapeForSingleQuotes(input.prDescription)
       }' | GITHUB_TOKEN=${installationToken} gh pr create --title "${
@@ -162,7 +179,11 @@ export async function createSourceRepoPullRequest(
     const pullRequestUrl = prUrlMatch[0];
     const pullRequestNumber = Number(prUrlMatch[1]);
     const headSha = (
-      await runSourceRepoCommand(service, "git rev-parse HEAD")
+      await runSourceRepoCommand(
+        service,
+        terminalSession.id,
+        "git rev-parse HEAD",
+      )
     ).trim();
 
     const supabaseClient = service.supabaseClientService.getClient();
@@ -197,6 +218,11 @@ export async function createSourceRepoPullRequest(
 
     return { branchName, pullRequestUrl };
   } finally {
-    await runSourceRepoCommand(service, "git remote remove origin");
+    await runSourceRepoCommand(
+      service,
+      terminalSession.id,
+      "git remote remove origin",
+    );
+    service.terminalService.closeSession(terminalSession.id);
   }
 }
