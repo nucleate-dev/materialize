@@ -198,7 +198,7 @@ const NEXTJS_STACK_INFO = `
 <stack_info>
 1. Framework: Next.js App Router (TypeScript). Default to Server Components; add "use client" at the top when using hooks, browser APIs, refs, or shadcn components that require it.
 2. Styling: Tailwind CSS v4 + shadcn/ui. Use className utilities plus variants exported by "@/components/ui/*". Never use StyleSheet.create or React Native primitives.
-3. Import UI primitives from "@/components/ui". Do not recreate components that already exist—extend them via composition. If you need a new primitive, install it via "npx shadcn add <component> <component> <component> ... --yes --overwrite" (run with SafeBash one command at a time, you can install multiple components in one go) and wire it up before using. Always use --yes and --overwrite.
+3. Import UI primitives from "@/components/ui". Do not recreate components that already exist—extend them via composition. If you need a new primitive, install it in the client directory via "npx --yes shadcn add <component> <component> <component> ... --overwrite" (run with SafeBash one command at a time, you can install multiple components in one go) and wire it up before using. Always use --yes and --overwrite.
 4. Use the \`cn\` helper from "@/lib/utils" for conditional classes. Avoid template string concatenation.
 5. CRITICAL - Tailwind CSS v4 Configuration:
    - There is NO tailwind.config.ts file. Tailwind v4 uses CSS-based configuration.
