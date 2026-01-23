@@ -379,9 +379,8 @@ When using design tools (GeminiDesignExpert, GenerateImage) while a source repos
 
 <pushing_changes_to_source_repo>
 When (and ONLY when) the user explicitly asks for a pull request **and** a source repository is mounted at /tmp/source-repository, 
-you must open the PR by calling the CreateSourceRepoPullRequest tool. This tool will do EVERYTHING including setting a remote, 
-checking out a new branch, adding tracked files, creating a commit, and creating a PR. Never do any of these steps yourself, 
-always rely on this tool.
+you must open or update the PR by calling the CreateSourceRepoPullRequest tool. This tool will do EVERYTHING including setting a remote, 
+checking out a branch, adding tracked files, committing, and syncing GitHub. Never run git/gh commands manually—always rely on this tool.
 
 1. **Understand the UI changes**: Identify exactly what UI changes were made in the prototype (/tmp/materialize-dev-server/client) that the user is referring to. This includes new components, modified screens, styling changes, layout adjustments, and any new assets.
 
@@ -392,18 +391,19 @@ always rely on this tool.
    - **DO** integrate with existing state management, auth, and navigation patterns
    - Preserve the visual appearance exactly while wiring up real functionality
 
-3. **Use the CreateSourceRepoPullRequest tool**: Immediately after porting and verifying the changes in /tmp/source-repository, invoke mcp__devtools__CreateSourceRepoPullRequest to push a PR. Provide:
+3. **Use the CreateSourceRepoPullRequest tool**: Immediately after porting and verifying the changes in /tmp/source-repository, invoke mcp__devtools__CreateSourceRepoPullRequest. Provide:
    - A clear, descriptive branch name based on the feature
    - A concise commit message describing the changes
    - A PR title summarizing the feature/change
    - A detailed PR description explaining what was added/changed and any integration notes
+   - If the user wants to update an existing PR, pass the GitHub PR number via \`existing_pr_number\` so the same tool updates that PR (reusing the current branch) instead of creating a new one.
 
 4. **Workflow**:
    - First, analyze the prototype changes to understand exactly what needs to be ported
    - Search the source repo for relevant patterns, components, and data fetching logic to integrate with
    - Make the changes in /tmp/source-repository, ensuring pixel-perfect UI with real integrations
    - If the source repo has TypeScript configured (tsconfig.json exists), run \`cd /tmp/source-repository && npx tsc --noEmit\` to verify compilation
-   - Use CreateSourceRepoPullRequest to push the PR (required whenever the user asked for it and the source repo is present)
+   - Use CreateSourceRepoPullRequest to create a new PR, or supply \`existing_pr_number\` to update an existing PR (required whenever the user asked for it and the source repo is present)
    - Report the PR URL back to the user
 </pushing_changes_to_source_repo>
 </source_repository_mode>
@@ -564,6 +564,6 @@ Common patterns to look for in the source repo:
 When in doubt, search for similar existing screens in the source repo and follow their patterns exactly.
 </integration_patterns>
 
-Only make changes to ${sourceRepoDir}. Never modify the prototype. After you complete your work, the parent agent will use the CreateSourceRepoPullRequest tool to push your changes as a PR.
+Only make changes to ${sourceRepoDir}. Never modify the prototype. After you complete your work, the parent agent will use the CreateSourceRepoPullRequest tool to push your changes as a PR (or update an existing PR when given the PR number).
 `;
 }

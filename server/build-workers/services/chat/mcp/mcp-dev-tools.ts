@@ -51,6 +51,7 @@ export interface SourceRepoPullRequestToolInput {
   commit_message: string;
   pr_title: string;
   pr_description: string;
+  existing_pr_number?: number;
 }
 
 export type SourceRepoPullRequestToolHandler = (
@@ -300,7 +301,7 @@ export function createDevelopmentToolsMcpServer(
         ? [
           tool(
             "CreateSourceRepoPullRequest",
-            "Create or update a pull request in the linked source repository. This tool sets the remote with authenticated installation token, creates a new branch, stages the current changes, commits them, pushes to GitHub, and opens a pull request using the provided title and description.",
+            "Create or update a pull request in the linked source repository. This tool sets the remote with an authenticated installation token, checks out the target branch, stages the current changes, commits them, pushes to GitHub, and either creates a new PR or updates an existing one.",
             {
               branch_name: z
                 .string()
@@ -327,6 +328,14 @@ export function createDevelopmentToolsMcpServer(
                 .min(10)
                 .max(5000)
                 .describe("Pull request description/body."),
+              existing_pr_number: z
+                .number()
+                .int()
+                .positive()
+                .optional()
+                .describe(
+                  "Optional GitHub pull request number. Provide this to update the existing PR (branch, title, body) instead of creating a new one.",
+                ),
             },
             async (input): Promise<CallToolResult> => {
               return sourceRepoPullRequestTool(input);

@@ -7,6 +7,7 @@ export interface SourceRepoPullRequestInput {
   commitMessage: string;
   prTitle: string;
   prDescription: string;
+  existingPullRequestNumber?: number | null;
   prototypeChatSessionId?: string | null;
 }
 
@@ -93,7 +94,11 @@ export async function createSourceRepoPullRequest(
     );
   }
 
-  const branchName = normalizeBranchName(input.branchName);
+  const requestedBranchName = normalizeBranchName(input.branchName);
+  let branchName = requestedBranchName;
+  let pullRequestUrl: string | null = null;
+  let pullRequestNumber = input.existingPullRequestNumber ?? null;
+  let baseBranch = sourceRepo.defaultBranch;
   const remoteUrl =
     `https://x-access-token:${installationToken}@github.com/${sourceRepo.fullName}.git`;
 
@@ -103,11 +108,41 @@ export async function createSourceRepoPullRequest(
   );
   await new Promise((resolve) => setTimeout(resolve, 200));
 
+  if (pullRequestNumber !== null) {
+    const prMetadataRaw = await runSourceRepoCommand(
+      service,
+      terminalSession.id,
+      `GITHUB_TOKEN=${installationToken} gh pr view ${pullRequestNumber} --json headRefName,url,baseRefName`,
+    );
+    let prMetadata: {
+      headRefName?: string;
+      url?: string;
+      baseRefName?: string;
+    };
+    try {
+      prMetadata = JSON.parse(prMetadataRaw);
+    } catch (error) {
+      throw new Error(
+        `Failed to parse existing PR metadata. Raw output: ${
+          prMetadataRaw.slice(0, 200)
+        }`,
+      );
+    }
+    if (!prMetadata.headRefName) {
+      throw new Error(
+        `Unable to determine branch name for PR #${pullRequestNumber}.`,
+      );
+    }
+    branchName = prMetadata.headRefName;
+    pullRequestUrl = prMetadata.url ?? null;
+    baseBranch = prMetadata.baseRefName ?? baseBranch;
+  }
+
   try {
     await runSourceRepoCommand(
       service,
       terminalSession.id,
-      `cd ${SOURCE_REPO_DIR} && git remote add origin ${remoteUrl}`,
+      `cd ${SOURCE_REPO_DIR} && git remote remove origin && git remote add origin ${remoteUrl}`,
     );
     await runSourceRepoCommand(
       service,
@@ -119,11 +154,25 @@ export async function createSourceRepoPullRequest(
       terminalSession.id,
       `git config user.name "Nucleate"`,
     );
-    await runSourceRepoCommand(
-      service,
-      terminalSession.id,
-      `git checkout -B ${branchName}`,
-    );
+    if (pullRequestNumber !== null) {
+      await runSourceRepoCommand(
+        service,
+        terminalSession.id,
+        `git fetch origin ${branchName}`,
+        { allowFailure: true },
+      );
+      await runSourceRepoCommand(
+        service,
+        terminalSession.id,
+        `git checkout -B ${branchName} origin/${branchName}`,
+      );
+    } else {
+      await runSourceRepoCommand(
+        service,
+        terminalSession.id,
+        `git checkout -B ${branchName}`,
+      );
+    }
     await runSourceRepoCommand(service, terminalSession.id, "git add -A");
 
     try {
@@ -155,29 +204,62 @@ export async function createSourceRepoPullRequest(
 
     // Sanitize PR title to single line; use printf piped to --body-file - for multiline body.
     const sanitizedTitle = sanitizeSingleLine(input.prTitle);
-    const prStdout = await runSourceRepoCommand(
-      service,
-      terminalSession.id,
-      `printf '%s' '${
-        escapeForSingleQuotes(input.prDescription)
-      }' | GITHUB_TOKEN=${installationToken} gh pr create --title "${
-        escapeForDoubleQuotes(sanitizedTitle)
-      }" --body-file - --head ${branchName} --base ${sourceRepo.defaultBranch}`,
-      { timeoutMs: 120000 },
-    );
 
-    const prUrlMatch = prStdout.match(
-      /https:\/\/github\.com\/\S+\/pull\/(\d+)/,
-    );
-    if (!prUrlMatch) {
-      throw new Error(
-        `Failed to parse pull request URL from gh output: ${
-          prStdout.slice(0, 200)
-        }`,
+    if (pullRequestNumber !== null) {
+      await runSourceRepoCommand(
+        service,
+        terminalSession.id,
+        `printf '%s' '${
+          escapeForSingleQuotes(input.prDescription)
+        }' | GITHUB_TOKEN=${installationToken} gh pr edit ${pullRequestNumber} --title "${
+          escapeForDoubleQuotes(sanitizedTitle)
+        }" --body-file -`,
+        { timeoutMs: 120000 },
       );
+      if (!pullRequestUrl) {
+        const prUrlRaw = await runSourceRepoCommand(
+          service,
+          terminalSession.id,
+          `GITHUB_TOKEN=${installationToken} gh pr view ${pullRequestNumber} --json url`,
+        );
+        try {
+          const parsed = JSON.parse(prUrlRaw);
+          pullRequestUrl = parsed?.url ?? null;
+        } catch {
+          // Fall back to best-effort match
+          const match = prUrlRaw.match(/https:\/\/github\.com\/\S+/);
+          pullRequestUrl = match ? match[0] : null;
+        }
+      }
+    } else {
+      const prStdout = await runSourceRepoCommand(
+        service,
+        terminalSession.id,
+        `printf '%s' '${
+          escapeForSingleQuotes(input.prDescription)
+        }' | GITHUB_TOKEN=${installationToken} gh pr create --title "${
+          escapeForDoubleQuotes(sanitizedTitle)
+        }" --body-file - --head ${branchName} --base ${baseBranch}`,
+        { timeoutMs: 120000 },
+      );
+
+      const prUrlMatch = prStdout.match(
+        /https:\/\/github\.com\/\S+\/pull\/(\d+)/,
+      );
+      if (!prUrlMatch) {
+        throw new Error(
+          `Failed to parse pull request URL from gh output: ${
+            prStdout.slice(0, 200)
+          }`,
+        );
+      }
+      pullRequestUrl = prUrlMatch[0];
+      pullRequestNumber = Number(prUrlMatch[1]);
     }
-    const pullRequestUrl = prUrlMatch[0];
-    const pullRequestNumber = Number(prUrlMatch[1]);
+
+    if (!pullRequestNumber || !pullRequestUrl) {
+      throw new Error("Failed to determine pull request metadata.");
+    }
     const headSha = (
       await runSourceRepoCommand(
         service,
@@ -187,34 +269,92 @@ export async function createSourceRepoPullRequest(
     ).trim();
 
     const supabaseClient = service.supabaseClientService.getClient();
-    const { data: row, error } = await supabaseClient
-      .from("prototype_source_repo_pull_requests")
-      .insert({
-        prototype_id: prototypeId,
-        prototype_chat_session_id: input.prototypeChatSessionId ?? null,
-        branch_name: branchName,
-        base_branch: sourceRepo.defaultBranch,
-        pr_title: input.prTitle,
-        pr_body: input.prDescription,
-        github_repo_id: sourceRepo.githubRepoId,
-        github_pull_request_number: pullRequestNumber,
-        github_pull_request_url: pullRequestUrl,
-        head_sha: headSha,
-        status: "open",
-      })
-      .select()
-      .single();
+    let row;
+    if (input.existingPullRequestNumber) {
+      const { data, error } = await supabaseClient
+        .from("prototype_source_repo_pull_requests")
+        .update({
+          prototype_chat_session_id: input.prototypeChatSessionId ?? null,
+          branch_name: branchName,
+          base_branch: baseBranch,
+          pr_title: input.prTitle,
+          pr_body: input.prDescription,
+          github_repo_id: sourceRepo.githubRepoId,
+          github_pull_request_url: pullRequestUrl,
+          head_sha: headSha,
+          status: "open",
+        })
+        .eq("prototype_id", prototypeId)
+        .eq("github_pull_request_number", pullRequestNumber)
+        .select()
+        .single();
 
-    if (error || !row) {
-      throw error ??
-        new Error("Failed to persist source repository PR metadata.");
+      if (error && error.code !== "PGRST116") {
+        throw error;
+      }
+      if (data) {
+        row = data;
+      } else {
+        const insertResult = await supabaseClient
+          .from("prototype_source_repo_pull_requests")
+          .insert({
+            prototype_id: prototypeId,
+            prototype_chat_session_id: input.prototypeChatSessionId ?? null,
+            branch_name: branchName,
+            base_branch: baseBranch,
+            pr_title: input.prTitle,
+            pr_body: input.prDescription,
+            github_repo_id: sourceRepo.githubRepoId,
+            github_pull_request_number: pullRequestNumber,
+            github_pull_request_url: pullRequestUrl,
+            head_sha: headSha,
+            status: "open",
+          })
+          .select()
+          .single();
+        if (insertResult.error || !insertResult.data) {
+          throw insertResult.error ??
+            new Error("Failed to persist source repository PR metadata.");
+        }
+        row = insertResult.data;
+      }
+    } else {
+      const { data, error } = await supabaseClient
+        .from("prototype_source_repo_pull_requests")
+        .insert({
+          prototype_id: prototypeId,
+          prototype_chat_session_id: input.prototypeChatSessionId ?? null,
+          branch_name: branchName,
+          base_branch: baseBranch,
+          pr_title: input.prTitle,
+          pr_body: input.prDescription,
+          github_repo_id: sourceRepo.githubRepoId,
+          github_pull_request_number: pullRequestNumber,
+          github_pull_request_url: pullRequestUrl,
+          head_sha: headSha,
+          status: "open",
+        })
+        .select()
+        .single();
+
+      if (error || !data) {
+        throw error ??
+          new Error("Failed to persist source repository PR metadata.");
+      }
+      row = data;
     }
 
-    logger.consoleLogDevOnly("info", "Created source repository PR", {
-      prototypeId,
-      branchName,
-      pullRequestUrl,
-    });
+    logger.consoleLogDevOnly(
+      "info",
+      input.existingPullRequestNumber
+        ? "Updated source repository PR"
+        : "Created source repository PR",
+      {
+        prototypeId,
+        branchName,
+        pullRequestUrl,
+      },
+    );
 
     return { branchName, pullRequestUrl };
   } finally {

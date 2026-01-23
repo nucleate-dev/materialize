@@ -792,6 +792,7 @@ export class ChatQueryHandler implements ChatEngine {
               commitMessage: input.commit_message,
               prTitle: input.pr_title,
               prDescription: input.pr_description,
+              existingPullRequestNumber: input.existing_pr_number,
               prototypeChatSessionId,
             },
             baseLogger,
@@ -803,7 +804,9 @@ export class ChatQueryHandler implements ChatEngine {
               type: "text",
               text: JSON.stringify(
                 {
-                  message: "Source repository pull request created",
+                  message: input.existing_pr_number
+                    ? "Source repository pull request updated"
+                    : "Source repository pull request created",
                   branch: result.branchName,
                   pull_request_url: result.pullRequestUrl,
                 },
