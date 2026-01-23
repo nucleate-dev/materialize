@@ -247,9 +247,9 @@ export default function HeroSection() {
         </h1>
 
         <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-12 leading-relaxed">
-          Nucleate ingests your codebase&apos;s styles and components, so every
-          prototype is on-brand. Explore variants quickly, then export real
-          code.
+          Go from idea to working prototype in minutes, always on-brand with
+          your design system. Explore variants quickly, iterate with real
+          interactions, and ship to your codebase when ready.
         </p>
 
         <div
