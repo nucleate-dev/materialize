@@ -396,14 +396,14 @@ checking out a branch, adding tracked files, committing, and syncing GitHub. Nev
    - A concise commit message describing the changes
    - A PR title summarizing the feature/change
    - A detailed PR description explaining what was added/changed and any integration notes
-   - If the user wants to update an existing PR, pass the GitHub PR number via \`existing_pr_number\` so the same tool updates that PR (reusing the current branch) instead of creating a new one.
+   - If the user wants to update an existing PR, first call mcp__devtools__ListSourceRepoPullRequests to see open PRs created via Nucleate, then pass the selected GitHub PR number via \`existing_pr_number\` so the same tool updates that PR (reusing the current branch) instead of creating a new one.
 
 4. **Workflow**:
    - First, analyze the prototype changes to understand exactly what needs to be ported
    - Search the source repo for relevant patterns, components, and data fetching logic to integrate with
    - Make the changes in /tmp/source-repository, ensuring pixel-perfect UI with real integrations
    - If the source repo has TypeScript configured (tsconfig.json exists), run \`cd /tmp/source-repository && npx tsc --noEmit\` to verify compilation
-   - Use CreateSourceRepoPullRequest to create a new PR, or supply \`existing_pr_number\` to update an existing PR (required whenever the user asked for it and the source repo is present)
+   - Use CreateSourceRepoPullRequest to create a new PR, or call ListSourceRepoPullRequests to discover the correct PR number and supply \`existing_pr_number\` to update it (required whenever the user asked for it and the source repo is present)
    - Report the PR URL back to the user
 </pushing_changes_to_source_repo>
 </source_repository_mode>
@@ -564,6 +564,6 @@ Common patterns to look for in the source repo:
 When in doubt, search for similar existing screens in the source repo and follow their patterns exactly.
 </integration_patterns>
 
-Only make changes to ${sourceRepoDir}. Never modify the prototype. After you complete your work, the parent agent will use the CreateSourceRepoPullRequest tool to push your changes as a PR (or update an existing PR when given the PR number).
+Only make changes to ${sourceRepoDir}. Never modify the prototype. After you complete your work, the parent agent will use the CreateSourceRepoPullRequest tool to push your changes as a PR (or update an existing PR when given the PR number) and can call ListSourceRepoPullRequests to confirm which PR numbers are currently open.
 `;
 }

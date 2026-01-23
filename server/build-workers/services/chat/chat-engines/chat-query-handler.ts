@@ -45,6 +45,7 @@ import { evaluateToolPermission } from "../helpers/tool-permission-service.js";
 import { createDesignToolsMcpServer } from "../mcp/mcp-design-tools.js";
 import {
   createDevelopmentToolsMcpServer,
+  SourceRepoPullRequestListToolHandler,
   SourceRepoPullRequestToolHandler,
 } from "../mcp/mcp-dev-tools.js";
 import {
@@ -65,6 +66,8 @@ import {
 
 const HISTORY_MESSAGE_REQUEST_COUNT = 6;
 const SOURCE_REPO_PR_TOOL_NAME = "mcp__devtools__CreateSourceRepoPullRequest";
+const SOURCE_REPO_PR_LIST_TOOL_NAME =
+  "mcp__devtools__ListSourceRepoPullRequests";
 
 function isPathInsideRoot(root: string, targetPath: string): boolean {
   const normalizedRoot = path.resolve(root);
@@ -583,9 +586,14 @@ export class ChatQueryHandler implements ChatEngine {
         hasSourceRepository,
         prototypeChatSessionId,
       );
+    const listSourceRepoPullRequestsHandler = this
+      .buildSourceRepoPullRequestListToolHandler(hasSourceRepository);
 
     if (sourceRepoPullRequestHandler) {
       allowedToolsDefault.push(SOURCE_REPO_PR_TOOL_NAME);
+    }
+    if (listSourceRepoPullRequestsHandler) {
+      allowedToolsDefault.push(SOURCE_REPO_PR_LIST_TOOL_NAME);
     }
 
     const mcpServers: Record<string, McpSdkServerConfigWithInstance> = {
@@ -639,6 +647,7 @@ export class ChatQueryHandler implements ChatEngine {
         // Get visible screens count callback
         visibleScreens ? (): number => visibleScreens.length : undefined,
         sourceRepoPullRequestHandler,
+        listSourceRepoPullRequestsHandler,
       ),
       design: createDesignToolsMcpServer(
         baseLogger,
@@ -827,6 +836,53 @@ export class ChatQueryHandler implements ChatEngine {
               type: "text",
               text:
                 `Failed to create source repository pull request: ${errorMessage}`,
+            },
+          ],
+        };
+      }
+    };
+  }
+
+  private buildSourceRepoPullRequestListToolHandler(
+    hasSourceRepository: boolean,
+  ): SourceRepoPullRequestListToolHandler | undefined {
+    if (!hasSourceRepository) {
+      return undefined;
+    }
+
+    return async () => {
+      try {
+        const pullRequests = await this.devServerService
+          .listOpenSourceRepositoryPullRequests(baseLogger);
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify(
+                {
+                  message: pullRequests.length
+                    ? "Open source repository pull requests"
+                    : "No open source repository pull requests found",
+                  pull_requests: pullRequests,
+                  count: pullRequests.length,
+                },
+                null,
+                2,
+              ),
+            },
+          ],
+        };
+      } catch (error) {
+        const errorMessage = error instanceof Error
+          ? error.message
+          : String(error);
+        return {
+          isError: true,
+          content: [
+            {
+              type: "text",
+              text:
+                `Failed to list source repository pull requests: ${errorMessage}`,
             },
           ],
         };

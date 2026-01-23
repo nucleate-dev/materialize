@@ -58,6 +58,8 @@ export type SourceRepoPullRequestToolHandler = (
   input: SourceRepoPullRequestToolInput,
 ) => Promise<CallToolResult>;
 
+export type SourceRepoPullRequestListToolHandler = () => Promise<CallToolResult>;
+
 export function createDevelopmentToolsMcpServer(
   runCommand: CommandRunner,
   writeFile: FileWriter,
@@ -66,6 +68,7 @@ export function createDevelopmentToolsMcpServer(
   broadcastScreenUpdate?: ScreenUpdateBroadcaster,
   getVisibleScreensCount?: GetVisibleScreensCount,
   sourceRepoPullRequestTool?: SourceRepoPullRequestToolHandler,
+  listSourceRepoPullRequestsTool?: SourceRepoPullRequestListToolHandler,
 ): McpSdkServerConfigWithInstance {
   return createSdkMcpServer({
     name: "devtools",
@@ -339,6 +342,19 @@ export function createDevelopmentToolsMcpServer(
             },
             async (input): Promise<CallToolResult> => {
               return sourceRepoPullRequestTool(input);
+            },
+          ),
+        ]
+        : []),
+
+      ...(listSourceRepoPullRequestsTool
+        ? [
+          tool(
+            "ListSourceRepoPullRequests",
+            "List open source repository pull requests created via Nucleate for this prototype. Use this before updating a PR to discover branch names and PR numbers.",
+            {},
+            async (): Promise<CallToolResult> => {
+              return listSourceRepoPullRequestsTool();
             },
           ),
         ]

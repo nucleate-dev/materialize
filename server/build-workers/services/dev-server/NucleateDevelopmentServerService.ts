@@ -47,6 +47,10 @@ import {
   createSourceRepoPullRequest as handleCreateSourceRepoPullRequest,
   SourceRepoPullRequestInput,
 } from "./handlers/handleCreateSourceRepoPullRequest.js";
+import {
+  listNucleateSourceRepoPullRequests,
+  SourceRepoPullRequestSummary,
+} from "./handlers/handleListNucleateSourceRepoPullRequests.js";
 
 export const S3_BUCKET = process.env.S3_BUCKET || "materialize-sites";
 export const DEV_SERVER_PORT = 19006;
@@ -524,6 +528,12 @@ export class NucleateDevelopmentServerService {
     logger: SystemLogger,
   ): Promise<{ branchName: string; pullRequestUrl: string }> {
     return handleCreateSourceRepoPullRequest(this, input, logger);
+  }
+
+  public async listOpenSourceRepositoryPullRequests(
+    logger: SystemLogger,
+  ): Promise<SourceRepoPullRequestSummary[]> {
+    return listNucleateSourceRepoPullRequests(this, logger);
   }
 
   private async allocate(
