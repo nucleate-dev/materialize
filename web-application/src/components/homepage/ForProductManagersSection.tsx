@@ -1,5 +1,4 @@
 import { Badge } from "@/components/ui/badge";
-import { BarChart3, Zap, DollarSign, Rocket } from "lucide-react";
 import ClickableImage from "./ClickableImage";
 
 /**
@@ -7,25 +6,6 @@ import ClickableImage from "./ClickableImage";
  * Benefit-focused messaging for PM persona
  */
 export default function ForProductManagersSection() {
-  const benefits = [
-    {
-      icon: <BarChart3 className="w-5 h-5" />,
-      text: "Validate before you commit engineering to 3-week sprints",
-    },
-    {
-      icon: <Zap className="w-5 h-5" />,
-      text: "Test 5 concepts with users this week, not next quarter",
-    },
-    {
-      icon: <DollarSign className="w-5 h-5" />,
-      text: "Stop wasting sprints on features users will hate",
-    },
-    {
-      icon: <Rocket className="w-5 h-5" />,
-      text: "Ship winning prototypes as PRs—no rework, instant velocity",
-    },
-  ];
-
   return (
     <section className="py-24 bg-card/30 border-t border-border relative overflow-hidden">
       {/* Background gradient */}
@@ -36,8 +16,8 @@ export default function ForProductManagersSection() {
           {/* Left: Screenshot */}
           <div className="order-2 lg:order-1">
             <ClickableImage
-              src="/images/nucleate-product-manager-pricing.png"
-              alt="Product manager validating pricing and monetization strategies with real prototypes before engineering builds"
+              src="/images/founders-1.png"
+              alt="Product manager validating ideas with real prototypes before engineering builds"
               width={2400}
               height={1800}
               hoverColor="purple"
@@ -57,28 +37,11 @@ export default function ForProductManagersSection() {
               Test ideas before you build them.
             </h2>
 
-            <p className="text-lg text-muted-foreground mb-10 leading-relaxed">
-              Stop guessing what users want. Generate working prototypes in
-              hours, test with real users, and ship what actually works—all
-              before engineering writes a line of code.
+            <p className="text-lg text-muted-foreground leading-relaxed">
+              Generate working prototypes in hours, test with real users, and
+              ship what actually works—all before engineering writes a line of
+              code.
             </p>
-
-            <div className="space-y-6">
-              {benefits.map((benefit, index) => (
-                <div
-                  key={index}
-                  className="flex items-start gap-4 animate-fade-in-up"
-                  style={{ animationDelay: `${index * 100}ms` }}
-                >
-                  <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400">
-                    {benefit.icon}
-                  </div>
-                  <p className="text-foreground text-base pt-1.5">
-                    {benefit.text}
-                  </p>
-                </div>
-              ))}
-            </div>
           </div>
         </div>
       </div>

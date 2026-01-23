@@ -98,7 +98,7 @@ export default function Home() {
 
         <ForProductManagersSection />
 
-        <ForFoundersSection />
+        {/* <ForFoundersSection /> */}
 
         <SeeItInActionSection />
 
