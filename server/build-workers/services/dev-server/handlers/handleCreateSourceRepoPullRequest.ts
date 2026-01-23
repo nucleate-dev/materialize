@@ -107,7 +107,7 @@ export async function createSourceRepoPullRequest(
     await runSourceRepoCommand(
       service,
       terminalSession.id,
-      `cd ${SOURCE_REPO_DIR} && git remote remove origin && git remote add origin ${remoteUrl}`,
+      `cd ${SOURCE_REPO_DIR} && git remote add origin ${remoteUrl}`,
     );
     await runSourceRepoCommand(
       service,
