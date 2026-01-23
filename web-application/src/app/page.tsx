@@ -7,16 +7,16 @@ import { Github, Code2, Smartphone, Palette } from "lucide-react";
 import { Suspense } from "react";
 
 // Server components (no "use client" needed)
-import CodebaseIntegrationSection from "@/components/homepage/CodebaseIntegrationSection";
-import ShippingSection from "@/components/homepage/ShippingSection";
-import ProblemSection from "@/components/homepage/ProblemSection";
+import ForDesignersSection from "@/components/homepage/ForDesignersSection";
+import ForProductManagersSection from "@/components/homepage/ForProductManagersSection";
+import ForFoundersSection from "@/components/homepage/ForFoundersSection";
 import HowItWorksSection from "@/components/homepage/HowItWorksSection";
 import DifferentiationSection from "@/components/homepage/DifferentiationSection";
 import FAQSection from "@/components/homepage/FAQSection";
 
 // Client components (have "use client" in their files)
 import HeroSection from "@/components/homepage/HeroSection";
-import VariantsSection from "@/components/homepage/VariantsSection";
+import SeeItInActionSection from "@/components/homepage/SeeItInActionSection";
 import PricingSection from "@/components/homepage/PricingSection";
 import UTMTracker from "@/components/homepage/UTMTracker";
 
@@ -94,13 +94,13 @@ export default function Home() {
           </div>
         </div>
 
-        <VariantsSection />
+        <ForDesignersSection />
 
-        {ENABLE_DESIGN_SYSTEM && <CodebaseIntegrationSection />}
+        <ForProductManagersSection />
 
-        <ShippingSection />
+        <ForFoundersSection />
 
-        <ProblemSection />
+        <SeeItInActionSection />
 
         <HowItWorksSection />
 

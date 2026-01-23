@@ -954,10 +954,10 @@ export default function InternalPrototypePage() {
   );
 
   // Callback for visibility changes from the modal
-  const handleVisibilityChange = useCallback((newIsPublic: boolean) => {
-    setIsPublic(newIsPublic);
+  const handleVisibilityChange = useCallback((newVisibility: PrototypeVisibility) => {
+    setIsPublic(newVisibility === "PUBLIC");
     setPrototype((prev) =>
-      prev ? { ...prev, visibility: newIsPublic ? "PUBLIC" : "SELF" } : null,
+      prev ? { ...prev, visibility: newVisibility } : null,
     );
   }, []);
 
