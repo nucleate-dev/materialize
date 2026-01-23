@@ -255,7 +255,7 @@ interface MaterializeRenderSectionProps {
   // Project settings modal props
   prototype?: Database["public"]["Tables"]["prototypes"]["Row"] | null;
   isPublic?: boolean;
-  onVisibilityChange?: (isPublic: boolean) => void;
+  onVisibilityChange?: (visibility: import("@/lib/types/prototypes").PrototypeVisibility) => void;
   userPlan?: string | null;
   onNameChange?: (name: string) => void;
   canEditName?: boolean;

@@ -99,7 +99,7 @@ interface ProjectSettingsModalProps {
   }) => void;
   // For share functionality
   isPublic: boolean;
-  onVisibilityChange?: (isPublic: boolean) => void;
+  onVisibilityChange?: (visibility: PrototypeVisibility) => void;
   userPlan?: string | null;
   // For env vars
   framework?: string;
@@ -270,7 +270,7 @@ export function ProjectSettingsModal({
           .from("prototypes")
           .update({ visibility: "PUBLIC" })
           .eq("id", prototype.id);
-        onVisibilityChange?.(true);
+        onVisibilityChange?.("PUBLIC");
       }
 
       await navigator.clipboard.writeText(
@@ -310,7 +310,7 @@ export function ProjectSettingsModal({
         .update({ visibility: newVisibility })
         .eq("id", prototype.id);
 
-      onVisibilityChange?.(checked);
+      onVisibilityChange?.(newVisibility);
       logger.log({
         event: "client_prototype_editor_share_visibility_changed",
         properties: {
@@ -1247,7 +1247,7 @@ export function ProjectSettingsModal({
                           .from("prototypes")
                           .update({ visibility: value })
                           .eq("id", prototype.id);
-                        onVisibilityChange?.(value === "PUBLIC");
+                        onVisibilityChange?.(value);
                         toast.success("Visibility updated");
                       } catch {
                         toast.error("Failed to update visibility");
