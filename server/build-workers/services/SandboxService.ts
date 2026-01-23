@@ -24,7 +24,7 @@ import {
 } from "../types/BuildWorkerTypes.js";
 import { resolvePathWithinProject } from "../utils/shared-utils.js";
 import { TerminalService } from "./terminals/TerminalService.js";
-import { WORK_DIR } from "../worker.js";
+import { SOURCE_REPO_DIR, WORK_DIR } from "../worker.js";
 
 // TODO: Add rate limiting to prevent abuse of sandbox operations
 // Ideas:
@@ -35,6 +35,9 @@ import { WORK_DIR } from "../worker.js";
 // - Consider different limits for different operation types (git clone is more expensive than mkdir)
 
 const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10MB limit for file reads
+const ALLOWED_WRITE_BASE_DIRS = new Set(
+  [WORK_DIR, SOURCE_REPO_DIR].map((dir) => path.resolve(dir)),
+);
 
 interface MakeDirResult {
   success: boolean;
@@ -446,17 +449,26 @@ export class SandboxService {
   ): Promise<WriteFileResult> {
     try {
       const baseDir = options?.baseDir ?? WORK_DIR;
+      const normalizedBaseDir = path.resolve(baseDir);
+      if (!ALLOWED_WRITE_BASE_DIRS.has(normalizedBaseDir)) {
+        throw new Error(
+          `Write attempted outside allowed directories: ${normalizedBaseDir}`,
+        );
+      }
       // Combine path and filename
       const fullRelativePath = path.join(relativePath, filename);
 
       // Security: Validate path is within workDir
-      const resolvedPath = resolvePathWithinProject(baseDir, fullRelativePath);
+      const resolvedPath = resolvePathWithinProject(
+        normalizedBaseDir,
+        fullRelativePath,
+      );
 
       baseLogger.consoleLogDevOnly("info", "Writing file", {
         path: fullRelativePath,
         resolvedPath,
         contentLength: contents.length,
-        baseDir,
+        baseDir: normalizedBaseDir,
       });
 
       // Auto-create parent directory if it doesn't exist
