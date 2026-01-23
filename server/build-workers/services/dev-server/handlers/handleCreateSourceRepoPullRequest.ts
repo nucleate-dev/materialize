@@ -108,6 +108,12 @@ export async function createSourceRepoPullRequest(
   );
   await new Promise((resolve) => setTimeout(resolve, 200));
 
+  await runSourceRepoCommand(
+    service,
+    terminalSession.id,
+    `cd ${SOURCE_REPO_DIR} && git remote add origin ${remoteUrl}`,
+  );
+
   if (pullRequestNumber !== null) {
     const prMetadataRaw = await runSourceRepoCommand(
       service,
@@ -142,7 +148,7 @@ export async function createSourceRepoPullRequest(
     await runSourceRepoCommand(
       service,
       terminalSession.id,
-      `cd ${SOURCE_REPO_DIR} && git remote remove origin && git remote add origin ${remoteUrl}`,
+      `cd ${SOURCE_REPO_DIR} && git remote add origin ${remoteUrl}`,
     );
     await runSourceRepoCommand(
       service,
@@ -154,7 +160,7 @@ export async function createSourceRepoPullRequest(
       terminalSession.id,
       `git config user.name "Nucleate"`,
     );
-    if (pullRequestNumber !== null) {
+    if (pullRequestNumber !== null) { // existing PR then fetch current branch and check that out
       await runSourceRepoCommand(
         service,
         terminalSession.id,
@@ -166,7 +172,7 @@ export async function createSourceRepoPullRequest(
         terminalSession.id,
         `git checkout -B ${branchName} origin/${branchName}`,
       );
-    } else {
+    } else { // otherwise create a new branch
       await runSourceRepoCommand(
         service,
         terminalSession.id,
@@ -258,7 +264,9 @@ export async function createSourceRepoPullRequest(
     }
 
     if (!pullRequestNumber || !pullRequestUrl) {
-      throw new Error("Failed to determine pull request metadata.");
+      throw new Error(
+        "Successfully pushed or updated PR, but failed to determine PR metadata.",
+      );
     }
     const headSha = (
       await runSourceRepoCommand(
@@ -269,7 +277,6 @@ export async function createSourceRepoPullRequest(
     ).trim();
 
     const supabaseClient = service.supabaseClientService.getClient();
-    let row;
     if (input.existingPullRequestNumber) {
       const { data, error } = await supabaseClient
         .from("prototype_source_repo_pull_requests")
