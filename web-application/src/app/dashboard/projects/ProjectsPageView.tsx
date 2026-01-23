@@ -109,6 +109,10 @@ export default function ProjectsPageView({
                 prototypeName={prototype.name}
                 prototypeId={prototype.id}
                 framework={prototype.framework}
+                visibility={prototype.visibility}
+                ownerName={prototype.owner?.name}
+                ownerEmail={prototype.owner?.email}
+                ownerAvatarUrl={prototype.owner?.avatar_url}
                 lastModified={
                   formatDate(prototype.updated_at) ||
                   formatDate(prototype.created_at)

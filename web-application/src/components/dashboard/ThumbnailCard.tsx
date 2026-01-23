@@ -8,12 +8,15 @@ import {
   Eye,
   FileBox,
   Folder,
+  Globe,
   Layout,
   Loader2,
+  Lock,
   Monitor,
   MoreHorizontal,
   Pencil,
   Smartphone,
+  Users,
 } from "lucide-react";
 import React from "react";
 
@@ -23,6 +26,10 @@ export interface ThumbnailCardProps {
   lastModified?: string;
   type: "folder" | "prototype" | "canvas";
   framework?: string | null;
+  visibility?: string | null;
+  ownerName?: string | null;
+  ownerEmail?: string | null;
+  ownerAvatarUrl?: string | null;
   onClick?: () => void;
   onView?: () => void;
   onEdit?: () => void;
@@ -36,6 +43,10 @@ const ThumbnailCard: React.FC<ThumbnailCardProps> = ({
   lastModified,
   type,
   framework,
+  visibility,
+  ownerName,
+  ownerEmail,
+  ownerAvatarUrl,
   onClick,
   onView,
   onEdit,
@@ -81,11 +92,39 @@ const ThumbnailCard: React.FC<ThumbnailCardProps> = ({
     }
   };
 
+  // Get visibility config for prototypes
+  const getVisibilityConfig = () => {
+    switch (visibility) {
+      case "PUBLIC":
+        return {
+          label: "Public",
+          icon: Globe,
+          className: "bg-green-500/10 text-green-600 border-green-500/20",
+        };
+      case "TEAM_SUBSET":
+      case "TEAM":
+        return {
+          label: "Team",
+          icon: Users,
+          className: "bg-blue-500/10 text-blue-600 border-blue-500/20",
+        };
+      case "SELF":
+      default:
+        return {
+          label: "Private",
+          icon: Lock,
+          className: "bg-zinc-500/10 text-zinc-500 border-zinc-500/20",
+        };
+    }
+  };
+
   const {
     label: typeLabel,
     icon: TypeIcon,
     color: typeColor,
   } = getTypeConfig();
+  const visibilityConfig = getVisibilityConfig();
+  const VisibilityIcon = visibilityConfig.icon;
   const EditIcon = type === "folder" ? ArrowUpRight : Pencil;
   const editLabel = type === "folder" ? "Open" : "Edit";
 
@@ -95,7 +134,7 @@ const ThumbnailCard: React.FC<ThumbnailCardProps> = ({
       onClick={handleEdit}
     >
       {/* --- Thumbnail Area --- */}
-      <div className="relative aspect-[9/16] w-full rounded-xl border border-border bg-muted overflow-hidden transition-all duration-300 group-hover:border-border/80 group-hover:shadow-md">
+      <div className="relative aspect-[4/3] w-full rounded-xl border border-border bg-muted overflow-hidden transition-all duration-300 group-hover:border-border/80 group-hover:shadow-md">
         {/* Loading State */}
         {loading && (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-muted z-20">
@@ -181,29 +220,70 @@ const ThumbnailCard: React.FC<ThumbnailCardProps> = ({
 
       {/* --- Info Section --- */}
       <div className="flex flex-col px-1 space-y-1.5">
-        <div className="flex items-start justify-between gap-2">
+        {/* Title Row with Visibility Badge (for prototypes) */}
+        <div className="flex items-center justify-between gap-2">
           <h3 className="font-medium text-sm text-foreground/90 truncate group-hover:text-foreground transition-colors">
             {name}
           </h3>
-          {/* Type Indicator (Pill) */}
-          <div
-            className={cn(
-              "flex items-center gap-1.5 px-1.5 py-0.5 rounded text-[11px] font-medium bg-muted border border-border",
-              typeColor,
-            )}
-          >
-            <TypeIcon className="w-3.5 h-3.5" />
-            <span className="hidden xs:inline">{typeLabel}</span>
-          </div>
+
+          {/* Visibility Badge for prototypes, Type Indicator for others */}
+          {type === "prototype" && visibility ? (
+            <span className={cn(
+              "inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[11px] font-medium uppercase tracking-wider shrink-0",
+              visibilityConfig.className
+            )}>
+              <VisibilityIcon className="w-3 h-3" />
+              {visibilityConfig.label}
+            </span>
+          ) : (
+            <div
+              className={cn(
+                "flex items-center gap-1.5 px-1.5 py-0.5 rounded text-[11px] font-medium bg-muted border border-border",
+                typeColor,
+              )}
+            >
+              <TypeIcon className="w-3.5 h-3.5" />
+              <span className="hidden xs:inline">{typeLabel}</span>
+            </div>
+          )}
         </div>
 
-        {/* Metadata */}
-        {lastModified && (
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <Calendar className="w-3 h-3 opacity-70" />
-            <span>{lastModified}</span>
-          </div>
-        )}
+        {/* Metadata Row */}
+        <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+          {/* Owner with Avatar (for prototypes) or Last Modified */}
+          {type === "prototype" && (ownerName || ownerEmail) ? (
+            <div className="flex items-center gap-2 truncate">
+              {/* Avatar */}
+              <div className="w-5 h-5 rounded-full bg-gradient-to-br from-primary/80 to-primary flex items-center justify-center text-[10px] font-medium text-primary-foreground shrink-0 overflow-hidden">
+                {ownerAvatarUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={ownerAvatarUrl}
+                    alt={ownerName || ownerEmail || "User"}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  (ownerName || ownerEmail || "U").charAt(0).toUpperCase()
+                )}
+              </div>
+              <span className="truncate">
+                {ownerName || ownerEmail}
+              </span>
+            </div>
+          ) : lastModified ? (
+            <div className="flex items-center gap-1.5">
+              <Calendar className="w-3 h-3 opacity-70" />
+              <span>{lastModified}</span>
+            </div>
+          ) : null}
+
+          {/* Last Modified (when owner is shown) */}
+          {type === "prototype" && (ownerName || ownerEmail) && lastModified && (
+            <span className="shrink-0">
+              {lastModified}
+            </span>
+          )}
+        </div>
       </div>
     </div>
   );

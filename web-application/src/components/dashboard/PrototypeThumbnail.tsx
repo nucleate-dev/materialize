@@ -9,6 +9,10 @@ export interface PrototypeThumbnailProps {
   prototypeName: string;
   prototypeId: string;
   framework: string | null;
+  visibility?: string | null;
+  ownerName?: string | null;
+  ownerEmail?: string | null;
+  ownerAvatarUrl?: string | null;
   lastModified?: string;
   onView?: () => void;
   onEdit?: () => void;
@@ -19,6 +23,10 @@ const PrototypeThumbnail: React.FC<PrototypeThumbnailProps> = ({
   prototypeName,
   prototypeId,
   framework,
+  visibility,
+  ownerName,
+  ownerEmail,
+  ownerAvatarUrl,
   lastModified,
   onView,
   onEdit,
@@ -70,6 +78,10 @@ const PrototypeThumbnail: React.FC<PrototypeThumbnailProps> = ({
       lastModified={lastModified}
       type="prototype"
       framework={framework}
+      visibility={visibility}
+      ownerName={ownerName}
+      ownerEmail={ownerEmail}
+      ownerAvatarUrl={ownerAvatarUrl}
       onView={onView}
       onEdit={isViewer ? undefined : onEdit}
       onSettings={onSettings}
