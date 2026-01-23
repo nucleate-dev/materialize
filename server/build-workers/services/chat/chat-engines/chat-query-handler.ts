@@ -22,7 +22,12 @@ import {
   ScreenUpdateData,
 } from "../../../types/ChatTypes.js";
 import { Database } from "../../../types/supabase.js";
-import { baseLogger, getWorkerContext, WORK_DIR } from "../../../worker.js";
+import {
+  baseLogger,
+  getWorkerContext,
+  SOURCE_REPO_DIR,
+  WORK_DIR,
+} from "../../../worker.js";
 import { NucleateDevelopmentServerService } from "../../dev-server/NucleateDevelopmentServerService.js";
 import { SandboxService } from "../../SandboxService.js";
 import { SupabaseClientService } from "../../SupabaseClientService.js";
@@ -64,6 +69,20 @@ import {
 } from "./chat-engine.js";
 
 const HISTORY_MESSAGE_REQUEST_COUNT = 6;
+const SOURCE_REPO_PR_TOOL_NAME = "mcp__devtools__CreateSourceRepoPullRequest";
+const WRITE_ALLOWED_ROOTS = [WORK_DIR, SOURCE_REPO_DIR];
+
+function isPathInsideRoot(root: string, targetPath: string): boolean {
+  const normalizedRoot = path.resolve(root);
+  const normalizedTarget = path.resolve(targetPath);
+  if (normalizedRoot === normalizedTarget) {
+    return true;
+  }
+  const rootWithSep = normalizedRoot.endsWith(path.sep)
+    ? normalizedRoot
+    : `${normalizedRoot}${path.sep}`;
+  return normalizedTarget.startsWith(rootWithSep);
+}
 
 type ToolName =
   | "Bash"
@@ -564,57 +583,14 @@ export class ChatQueryHandler implements ChatEngine {
       allowedToolsDefault.push("mcp__devtools__UpdatePreviewScreens");
     }
 
-    const sourceRepoPullRequestHandler: SourceRepoPullRequestToolHandler | undefined =
-      hasSourceRepository
-        ? async (input) => {
-          try {
-            const result =
-              await this.devServerService.createSourceRepositoryPullRequest(
-                {
-                  branchName: input.branch_name,
-                  commitMessage: input.commit_message,
-                  prTitle: input.pr_title,
-                  prDescription: input.pr_description,
-                  prototypeChatSessionId,
-                },
-                baseLogger,
-              );
-            return {
-              content: [
-                {
-                  type: "text",
-                  text: JSON.stringify(
-                    {
-                      message: "Source repository pull request created",
-                      branch: result.branchName,
-                      pull_request_url: result.pullRequestUrl,
-                    },
-                    null,
-                    2,
-                  ),
-                },
-              ],
-            };
-          } catch (error) {
-            const errorMessage = error instanceof Error
-              ? error.message
-              : String(error);
-            return {
-              isError: true,
-              content: [
-                {
-                  type: "text",
-                  text:
-                    `Failed to create source repository pull request: ${errorMessage}`,
-                },
-              ],
-            };
-          }
-        }
-        : undefined;
+    const sourceRepoPullRequestHandler =
+      this.buildSourceRepoPullRequestToolHandler(
+        hasSourceRepository,
+        prototypeChatSessionId,
+      );
 
     if (sourceRepoPullRequestHandler) {
-      allowedToolsDefault.push("mcp__devtools__CreateSourceRepoPullRequest");
+      allowedToolsDefault.push(SOURCE_REPO_PR_TOOL_NAME);
     }
 
     const mcpServers: Record<string, McpSdkServerConfigWithInstance> = {
@@ -685,11 +661,13 @@ export class ChatQueryHandler implements ChatEngine {
     if (hasSourceRepository) {
       const sourceAgentTools = [
         "Read",
+        "Edit",
         "Glob",
         "Grep",
         "TodoWrite",
         "mcp__devtools__SafeBash",
         "mcp__devtools__SafeWrite",
+        ...(sourceRepoPullRequestHandler ? [SOURCE_REPO_PR_TOOL_NAME] : []),
       ];
       agentConfigs["source-screen-extractor"] = {
         description:
@@ -803,6 +781,62 @@ export class ChatQueryHandler implements ChatEngine {
     };
   }
 
+  private buildSourceRepoPullRequestToolHandler(
+    hasSourceRepository: boolean,
+    prototypeChatSessionId: string,
+  ): SourceRepoPullRequestToolHandler | undefined {
+    if (!hasSourceRepository) {
+      return undefined;
+    }
+
+    return async (input) => {
+      try {
+        const result =
+          await this.devServerService.createSourceRepositoryPullRequest(
+            {
+              branchName: input.branch_name,
+              commitMessage: input.commit_message,
+              prTitle: input.pr_title,
+              prDescription: input.pr_description,
+              prototypeChatSessionId,
+            },
+            baseLogger,
+          );
+
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify(
+                {
+                  message: "Source repository pull request created",
+                  branch: result.branchName,
+                  pull_request_url: result.pullRequestUrl,
+                },
+                null,
+                2,
+              ),
+            },
+          ],
+        };
+      } catch (error) {
+        const errorMessage = error instanceof Error
+          ? error.message
+          : String(error);
+        return {
+          isError: true,
+          content: [
+            {
+              type: "text",
+              text:
+                `Failed to create source repository pull request: ${errorMessage}`,
+            },
+          ],
+        };
+      }
+    };
+  }
+
   /**
    * Executes sandbox command for MCP tools
    */
@@ -882,16 +916,35 @@ export class ChatQueryHandler implements ChatEngine {
     error?: string;
   }> {
     try {
-      // Parse the file path to get directory and filename
-      const resolvedPath = path.resolve(WORK_DIR, filePath);
-      const relativePath = path.relative(WORK_DIR, path.dirname(resolvedPath));
-      const filename = path.basename(resolvedPath);
+      const absolutePath = path.isAbsolute(filePath)
+        ? path.resolve(filePath)
+        : path.resolve(WORK_DIR, filePath);
+      const targetRoot = WRITE_ALLOWED_ROOTS.find((root) =>
+        isPathInsideRoot(root, absolutePath)
+      );
 
-      // Use SandboxService's writeFile method
+      if (!targetRoot) {
+        throw new Error(
+          `SafeWrite target ${absolutePath} is outside allowed directories`,
+        );
+      }
+
+      const parentDir = path.dirname(absolutePath);
+      const relativePath = path.relative(targetRoot, parentDir);
+      if (relativePath.startsWith("..")) {
+        throw new Error(
+          `SafeWrite target ${absolutePath} escapes ${targetRoot}`,
+        );
+      }
+
+      const filename = path.basename(absolutePath);
+
+      // Use SandboxService's writeFile method with the resolved base directory
       const result = await this.sandboxService.writeFile(
         relativePath,
         filename,
         content,
+        { baseDir: targetRoot },
       );
 
       if (result.success) {

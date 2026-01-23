@@ -434,7 +434,7 @@ export class SandboxService {
   /**
    * Write a file to the sandbox
    * Auto-creates parent directories if they don't exist
-   * @param relativePath - Directory path relative to workDir
+   * @param relativePath - Directory path relative to baseDir (defaults to workDir)
    * @param filename - Name of the file to write
    * @param contents - File contents (plain text or base64 for binary)
    */
@@ -442,18 +442,21 @@ export class SandboxService {
     relativePath: string,
     filename: string,
     contents: string,
+    options?: { baseDir?: string },
   ): Promise<WriteFileResult> {
     try {
+      const baseDir = options?.baseDir ?? WORK_DIR;
       // Combine path and filename
       const fullRelativePath = path.join(relativePath, filename);
 
       // Security: Validate path is within workDir
-      const resolvedPath = resolvePathWithinProject(WORK_DIR, fullRelativePath);
+      const resolvedPath = resolvePathWithinProject(baseDir, fullRelativePath);
 
       baseLogger.consoleLogDevOnly("info", "Writing file", {
         path: fullRelativePath,
         resolvedPath,
         contentLength: contents.length,
+        baseDir,
       });
 
       // Auto-create parent directory if it doesn't exist

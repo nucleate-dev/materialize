@@ -368,7 +368,7 @@ When using design tools (GeminiDesignExpert, GenerateImage) while a source repos
 </design_tools_with_source_repo>
 
 <pushing_changes_to_source_repo>
-When the user expresses satisfaction with a change and asks to push it to the source repository as a PR:
+When (and ONLY when) the user explicitly asks for a pull request **and** a source repository is mounted at /tmp/source-repository, you must open the PR by calling the CreateSourceRepoPullRequest tool. Never attempt to push a PR if the source repo is absent—tell the user you need it connected first.
 
 1. **Understand the UI changes**: Identify exactly what UI changes were made in the prototype (/tmp/materialize-dev-server/client) that the user is referring to. This includes new components, modified screens, styling changes, layout adjustments, and any new assets.
 
@@ -379,7 +379,7 @@ When the user expresses satisfaction with a change and asks to push it to the so
    - **DO** integrate with existing state management, auth, and navigation patterns
    - Preserve the visual appearance exactly while wiring up real functionality
 
-3. **Use the CreateSourceRepoPullRequest tool**: After making changes to /tmp/source-repository, use the mcp__devtools__CreateSourceRepoPullRequest tool to push a PR with:
+3. **Use the CreateSourceRepoPullRequest tool**: Immediately after porting and verifying the changes in /tmp/source-repository, invoke mcp__devtools__CreateSourceRepoPullRequest to push a PR. Provide:
    - A clear, descriptive branch name based on the feature
    - A concise commit message describing the changes
    - A PR title summarizing the feature/change
@@ -390,7 +390,7 @@ When the user expresses satisfaction with a change and asks to push it to the so
    - Search the source repo for relevant patterns, components, and data fetching logic to integrate with
    - Make the changes in /tmp/source-repository, ensuring pixel-perfect UI with real integrations
    - If the source repo has TypeScript configured (tsconfig.json exists), run \`cd /tmp/source-repository && npx tsc --noEmit\` to verify compilation
-   - Use CreateSourceRepoPullRequest to push the PR
+   - Use CreateSourceRepoPullRequest to push the PR (required whenever the user asked for it and the source repo is present)
    - Report the PR URL back to the user
 </pushing_changes_to_source_repo>
 </source_repository_mode>
