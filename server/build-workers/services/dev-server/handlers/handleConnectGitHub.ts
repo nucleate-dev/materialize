@@ -122,12 +122,14 @@ export async function handleConnectGitHubImpl(
 
     // Store GitHub info in developmentServerService
     developmentServerService.githubRepository = {
-      installationToken: tokenData.installation_token,
       repositoryUrl: githubRepo.html_url,
       repositoryOwner: githubRepo.owner_login,
       repositoryName: githubRepo.repo_name,
       defaultBranch: githubRepo.default_branch || "main",
       fullName: githubRepo.full_name,
+    };
+    developmentServerService.githubInstallationToken = {
+      installationToken: tokenData.installation_token,
       tokenExpiresAt: tokenData.expires_at,
     };
 

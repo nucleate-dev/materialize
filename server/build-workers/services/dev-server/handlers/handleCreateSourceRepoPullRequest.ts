@@ -83,7 +83,8 @@ export async function createSourceRepoPullRequest(
     );
   }
 
-  const installationToken = service.githubRepository?.installationToken ?? null;
+  const installationToken =
+    service.githubInstallationToken?.installationToken ?? null;
   if (!installationToken) {
     throw new Error(
       "Source repository installation token is not available. Please restart the dev server.",

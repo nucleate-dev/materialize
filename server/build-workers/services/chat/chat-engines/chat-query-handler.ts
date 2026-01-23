@@ -22,12 +22,7 @@ import {
   ScreenUpdateData,
 } from "../../../types/ChatTypes.js";
 import { Database } from "../../../types/supabase.js";
-import {
-  baseLogger,
-  getWorkerContext,
-  SOURCE_REPO_DIR,
-  WORK_DIR,
-} from "../../../worker.js";
+import { baseLogger, getWorkerContext, WORK_DIR } from "../../../worker.js";
 import { NucleateDevelopmentServerService } from "../../dev-server/NucleateDevelopmentServerService.js";
 import { SandboxService } from "../../SandboxService.js";
 import { SupabaseClientService } from "../../SupabaseClientService.js";

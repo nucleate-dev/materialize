@@ -48,6 +48,22 @@ export async function handleStartDevServerImpl(
   } | null = null;
   let githubTokenJobStarted = false;
 
+  const applyInstallationToken = (
+    tokenData: { installation_token: string; expires_at: string } | null,
+  ): void => {
+    if (!tokenData) {
+      return;
+    }
+    developmentServerService.githubInstallationToken = {
+      installationToken: tokenData.installation_token,
+      tokenExpiresAt: tokenData.expires_at,
+    };
+    if (!githubTokenJobStarted) {
+      developmentServerService.startGitHubTokenRefreshJob(prototype_id);
+      githubTokenJobStarted = true;
+    }
+  };
+
   if (sourceRepository) {
     try {
       cachedInstallationToken = await cloneSourceRepositoryToTmp(
@@ -55,7 +71,7 @@ export async function handleStartDevServerImpl(
         developmentServerService,
         request.log2,
       );
-      githubTokenJobStarted = true;
+      applyInstallationToken(cachedInstallationToken);
     } catch (error) {
       request.log2.error(
         error instanceof Error ? error : new Error(String(error)),
@@ -193,14 +209,13 @@ export async function handleStartDevServerImpl(
 
       // Store GitHub info in developmentServerService
       developmentServerService.githubRepository = {
-        installationToken: tokenData.installation_token,
         repositoryUrl: githubRepo.html_url,
         repositoryOwner: githubRepo.owner_login,
         repositoryName: githubRepo.repo_name,
         defaultBranch: githubRepo.default_branch || "main",
         fullName: githubRepo.full_name,
-        tokenExpiresAt: tokenData.expires_at,
       };
+      applyInstallationToken(tokenData);
 
       request.log2.info("GitHub repository configured for prototype", {
         prototypeId: prototype_id,
@@ -403,12 +418,6 @@ export async function handleStartDevServerImpl(
       },
     );
 
-    // Start GitHub token refresh job if needed for this prototype
-    if (hasGitHubRepo && !githubTokenJobStarted) {
-      developmentServerService.startGitHubTokenRefreshJob(prototype_id);
-      githubTokenJobStarted = true;
-    }
-
     reply.code(HTTP_STATUS.OK);
     return {
       data: {
@@ -541,9 +550,16 @@ async function cloneGithubRepository(
   log2: SystemLogger,
 ): Promise<void> {
   const githubRepo = developmentServerService.githubRepository;
+  const installationToken =
+    developmentServerService.githubInstallationToken?.installationToken;
   if (!githubRepo) {
     throw new Error(
       "GitHub repository info not set in developmentServerService",
+    );
+  }
+  if (!installationToken) {
+    throw new Error(
+      "GitHub installation token not available for cloning repository",
     );
   }
 
@@ -569,7 +585,7 @@ async function cloneGithubRepository(
   // Construct the authenticated GitHub URL with the installation token
   // Format: https://x-access-token:<token>@github.com/<owner>/<repo>.git
   const authenticatedUrl =
-    `https://x-access-token:${githubRepo.installationToken}@github.com/${githubRepo.fullName}.git`;
+    `https://x-access-token:${installationToken}@github.com/${githubRepo.fullName}.git`;
 
   // Clone the repository directly into WORK_DIR
   // Use find to remove all contents including hidden files
@@ -613,8 +629,6 @@ async function cloneSourceRepositoryToTmp(
       prototypeId,
       userJwtToken,
     );
-
-  developmentServerService.startGitHubTokenRefreshJob(prototypeId);
 
   const authenticatedUrl =
     `https://x-access-token:${tokenData.installation_token}@github.com/${sourceRepo.fullName}.git`;

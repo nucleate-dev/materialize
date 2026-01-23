@@ -69,12 +69,14 @@ export class NucleateDevelopmentServerService {
   public prototypeFramework: Database["public"]["Enums"]["prototype_framework"];
   public cloudflareTunnelHostname: string | null;
   public githubRepository: {
-    installationToken: string; // THIS INSTALLATION TOKEN APPLIES TO BOTH SOURCE REPO AND PROTOTYPE REPO, and gets refreshed regularly. TODO: move it to a shared state between both repos
     repositoryUrl: string;
     repositoryOwner: string;
     repositoryName: string;
     defaultBranch: string;
     fullName: string;
+  } | null = null;
+  public githubInstallationToken: {
+    installationToken: string;
     tokenExpiresAt: string;
   } | null = null;
   public sourceRepository: {
@@ -215,11 +217,10 @@ export class NucleateDevelopmentServerService {
             userJwtToken,
           );
 
-        if (this.githubRepository) {
-          this.githubRepository.installationToken =
-            tokenData.installation_token;
-          this.githubRepository.tokenExpiresAt = tokenData.expires_at;
-        }
+        this.githubInstallationToken = {
+          installationToken: tokenData.installation_token,
+          tokenExpiresAt: tokenData.expires_at,
+        };
 
         // Note: baseLogger is imported from loggers/index.js
         const { baseLogger } = await import("../../loggers/index.js");
@@ -335,11 +336,17 @@ export class NucleateDevelopmentServerService {
       logger.warn("Cannot push to GitHub: no repository attached");
       return;
     }
+    const installationToken =
+      this.githubInstallationToken?.installationToken;
+    if (!installationToken) {
+      logger.warn("Cannot push to GitHub: installation token unavailable");
+      return;
+    }
 
     try {
       // Update the remote URL with the fresh installation token
       const authenticatedUrl =
-        `https://x-access-token:${this.githubRepository.installationToken}@github.com/${this.githubRepository.fullName}.git`;
+        `https://x-access-token:${installationToken}@github.com/${this.githubRepository.fullName}.git`;
 
       const updateRemoteResult = await this.sandboxService.runCommandInternal({
         command: "sh",
@@ -412,8 +419,16 @@ export class NucleateDevelopmentServerService {
     }
 
     try {
+      const installationToken =
+        this.githubInstallationToken?.installationToken;
+      if (!installationToken) {
+        logger.warn(
+          "Cannot fetch GitHub changes: installation token unavailable",
+        );
+        return;
+      }
       const authenticatedUrl =
-        `https://x-access-token:${this.githubRepository.installationToken}@github.com/${this.githubRepository.fullName}.git`;
+        `https://x-access-token:${installationToken}@github.com/${this.githubRepository.fullName}.git`;
       const updateRemoteResult = await this.sandboxService.runCommandInternal({
         command: "sh",
         args: [
