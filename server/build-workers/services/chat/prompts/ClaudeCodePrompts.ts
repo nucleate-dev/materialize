@@ -1,3 +1,5 @@
+import { WORK_DIR } from "../../../worker.js";
+
 /**
  * Returns the appropriate system prompt based on the design style
  * @param designStyle - The design style from the prototype (tamagui, nativewind, stylesheets, custom)
@@ -333,22 +335,30 @@ export function getSourceRepositoryPromptAddendum(
   framework?: string | null,
 ): string {
   const isWeb = framework === "web_nextjs_react";
-  const targetLabel = isWeb ? "Next.js web" : "React Native / Expo mobile";
-  const repoHints = isWeb
-    ? `Look inside /tmp/source-repository/app, /tmp/source-repository/src, /tmp/source-repository/components, and any packages/* directories that contain the web client.`
-    : `Look inside /tmp/source-repository/app, /tmp/source-repository/src, /tmp/source-repository/components, or packages/mobile-* directories that contain the mobile client.`;
+  const repoHints = `Look inside /tmp/source-repository for a ${
+    isWeb ? "web" : "mobile"
+  } client (may be a monorepo with subdirectories). If there is no ${
+    isWeb ? "web" : "mobile"
+  } client, then search for the app the user may be referring to.`;
 
   return `
 <source_repository_mode>
-A ${targetLabel} source repository is mounted at /tmp/source-repository. The prototype sandbox you can edit lives in /tmp/materialize-dev-server/client. Your mission is to keep prototypes pixel-identical to the source repo by reusing its screens, components, styles, and design primitives instead of inventing net-new UI.
+A source repository (containing a project that user wants to refer to somewhere inside) is mounted at /tmp/source-repository. The prototype sandbox you can edit lives in /tmp/materialize-dev-server/client. Your mission is to keep prototypes pixel-identical to the source repo by reusing its screens, components, styles, and design primitives instead of inventing net-new UI.
 
 ${repoHints}
 
-<required_flow>
-1. Starting screen extraction: When the user names a starting screen or flow, locate the matching screen in the source repo, copy that screen plus every dependency it imports into /tmp/materialize-dev-server/client, stub all backend/API/network calls with deterministic dummy data, and run \`cd /tmp/materialize-dev-server/client && npx tsc --noEmit\` to confirm the sandbox builds cleanly before proceeding.
-2. Theme + token alignment: Inspect the sandbox's existing theme files (Tailwind config, theme.ts, RN theme providers, etc.). If the sandbox tokens differ from the source repo, harvest the source repo's canonical tokens and overwrite/update the sandbox theme definitions so future work uses the correct palette, typography, spacing, motion tokens, and component-level styling primitives.
-3. Component-first implementation: Before writing new components, search the source repo for equivalent reusable pieces (cards, forms, buttons, modals, screens) and copy them into the sandbox (respecting the sandbox's directory conventions). Only author new UI when no reusable component exists. Always replace backend calls with dummy data when porting components.
-</required_flow>
+<ABSOLUTELY REQUIRED required_flow>
+1. If the source repo has a CLAUDE.md or AGENTS.md file, read it to understand the context of the repo
+2. If the source repo is a monorepo, identify the sub-repo the user is referring to (likely a ${
+    isWeb ? "Next.js web app" : "React Native / Expo mobile app"
+  } but not guaranteed to be that)
+3. **MOST IMPORTANT STEP**: Theme + token alignment. YOU MUST, absolutely MUST, start by matching theme tokens. Inspect the source repo's theme files, screens, and components and understand the theme tokens. Then populate/modify the theme files in the prototype at ${WORK_DIR}/client ${
+    isWeb ? "app/globals.css" : ""
+  } so that the prototype uses the exact same color palette, typography scales, spacing, motion curves, and component-level styling primitives as the source repo. This is non-negotiable.
+4. Starting screen extraction: When the user names a starting screen or flow or component, locate the component/screen/flow in the source repo, copy that screen plus every dependency it imports into /tmp/materialize-dev-server/client, stub all backend/API/network calls with deterministic dummy data, and run \`cd /tmp/materialize-dev-server/client && npx tsc --noEmit\` to confirm the sandbox builds cleanly before proceeding.
+5. IMPORTANT: Component-first implementation: Before writing new components, search the source repo for equivalent reusable pieces (cards, forms, buttons, modals, screens) and copy them into the sandbox (respecting the sandbox's directory conventions). Only author new UI when no reusable component exists. Always replace backend calls with dummy data when porting components.
+Use the sub-agents provided to you that are specialized in the above tasks. Use them one by one, not concurrently, so you follow the above steps in order. 
+</ABSOLUTELY REQUIRED required_flow>
 
 While building any new flow:
 - Assume the user expects the prototype to look like it shipped inside their repo.
@@ -368,11 +378,14 @@ When using design tools (GeminiDesignExpert, GenerateImage) while a source repos
 </design_tools_with_source_repo>
 
 <pushing_changes_to_source_repo>
-When (and ONLY when) the user explicitly asks for a pull request **and** a source repository is mounted at /tmp/source-repository, you must open the PR by calling the CreateSourceRepoPullRequest tool. Never attempt to push a PR if the source repo is absent—tell the user you need it connected first.
+When (and ONLY when) the user explicitly asks for a pull request **and** a source repository is mounted at /tmp/source-repository, 
+you must open the PR by calling the CreateSourceRepoPullRequest tool. This tool will do EVERYTHING including setting a remote, 
+checking out a new branch, adding tracked files, creating a commit, and creating a PR. Never do any of these steps yourself, 
+always rely on this tool.
 
 1. **Understand the UI changes**: Identify exactly what UI changes were made in the prototype (/tmp/materialize-dev-server/client) that the user is referring to. This includes new components, modified screens, styling changes, layout adjustments, and any new assets.
 
-2. **Translate to source repo**: The changes in the source repo must be a pixel-perfect recreation of the prototype UI, BUT:
+2. **Translate to source repo**: The goal is to apply the prototype the user likes to the source repo (their company's main project). The changes in the source repo must be a pixel-perfect recreation of the prototype UI, BUT:
    - **DO NOT** use dummy data or mocked API calls
    - **DO** connect to the real business logic, API endpoints, and server calls that exist in the source repo
    - **DO** use the source repo's existing data fetching patterns (React Query, SWR, fetch, etc.)
@@ -497,6 +510,7 @@ Your tasks:
 1. **Analyze the prototype changes**: Read the relevant files in ${prototypeDir} to understand exactly what UI was created or modified. Note components, styling, layout, animations, and any props/state.
 
 2. **Study the source repo integration points**: Search ${sourceRepoDir} for:
+   - Relevant files that need to be modified with the user's changes
    - Existing data fetching patterns (hooks, queries, API clients)
    - Authentication and authorization patterns
    - State management (Redux, Zustand, Context, etc.)

@@ -35,14 +35,14 @@ export type FileWriter = (
 export type TerminalServiceInstance = {
   getSession: (sessionId: string) =>
     | {
-        id: string;
-        state: string;
-        buffer: Array<{
-          type: string;
-          payload: { [key: string]: unknown };
-          timestamp: number;
-        }>;
-      }
+      id: string;
+      state: string;
+      buffer: Array<{
+        type: string;
+        payload: { [key: string]: unknown };
+        timestamp: number;
+      }>;
+    }
     | undefined;
 };
 
@@ -108,14 +108,17 @@ export function createDevelopmentToolsMcpServer(
                 content: [
                   {
                     type: "text",
-                    text: `Failed to write file: ${result.error ?? "Unknown error"}`,
+                    text: `Failed to write file: ${
+                      result.error ?? "Unknown error"
+                    }`,
                   },
                 ],
               };
             }
           } catch (error) {
-            const errorMessage =
-              error instanceof Error ? error.message : String(error);
+            const errorMessage = error instanceof Error
+              ? error.message
+              : String(error);
             return {
               isError: true,
               content: [
@@ -153,7 +156,8 @@ export function createDevelopmentToolsMcpServer(
               content: [
                 {
                   type: "text",
-                  text: "Dev-server terminal session not found. The terminal may not have been started yet.",
+                  text:
+                    "Dev-server terminal session not found. The terminal may not have been started yet.",
                 },
               ],
             };
@@ -169,7 +173,8 @@ export function createDevelopmentToolsMcpServer(
               content: [
                 {
                   type: "text",
-                  text: `Dev-server terminal (state: ${session.state}) has no output yet.`,
+                  text:
+                    `Dev-server terminal (state: ${session.state}) has no output yet.`,
                 },
               ],
             };
@@ -220,8 +225,9 @@ export function createDevelopmentToolsMcpServer(
               ],
             };
           } catch (error) {
-            const errorMessage =
-              error instanceof Error ? error.message : String(error);
+            const errorMessage = error instanceof Error
+              ? error.message
+              : String(error);
             return {
               isError: true,
               content: [
@@ -274,8 +280,9 @@ export function createDevelopmentToolsMcpServer(
             }
             return { content: [{ type: "text", text: result.stdout }] };
           } catch (error) {
-            const errorMessage =
-              error instanceof Error ? error.message : String(error);
+            const errorMessage = error instanceof Error
+              ? error.message
+              : String(error);
             return {
               isError: true,
               content: [
@@ -291,180 +298,183 @@ export function createDevelopmentToolsMcpServer(
 
       ...(sourceRepoPullRequestTool
         ? [
-            tool(
-              "CreateSourceRepoPullRequest",
-              "Create or update a pull request in the linked source repository. This tool stages the current changes, commits them, pushes to GitHub, and opens a pull request using the provided title and description.",
-              {
-                branch_name: z
-                  .string()
-                  .min(1)
-                  .max(200)
-                  .optional()
-                  .describe(
-                    "Optional branch name for the PR. If omitted, a timestamped branch is created automatically. All branch names will be prefixed with nucleate-.",
-                  ),
-                commit_message: z
-                  .string()
-                  .min(5)
-                  .max(500)
-                  .describe(
-                    "Commit message for the source repository changes being pushed.",
-                  ),
-                pr_title: z
-                  .string()
-                  .min(5)
-                  .max(300)
-                  .describe("Pull request title."),
-                pr_description: z
-                  .string()
-                  .min(10)
-                  .max(5000)
-                  .describe("Pull request description/body."),
-              },
-              async (input): Promise<CallToolResult> => {
-                return sourceRepoPullRequestTool(input);
-              },
-            ),
-          ]
+          tool(
+            "CreateSourceRepoPullRequest",
+            "Create or update a pull request in the linked source repository. This tool sets the remote with authenticated installation token, creates a new branch, stages the current changes, commits them, pushes to GitHub, and opens a pull request using the provided title and description.",
+            {
+              branch_name: z
+                .string()
+                .min(1)
+                .max(200)
+                .optional()
+                .describe(
+                  "Optional branch name for the PR. If omitted, a timestamped branch is created automatically. All branch names will be prefixed with nucleate-.",
+                ),
+              commit_message: z
+                .string()
+                .min(5)
+                .max(500)
+                .describe(
+                  "Commit message for the source repository changes being pushed.",
+                ),
+              pr_title: z
+                .string()
+                .min(5)
+                .max(300)
+                .describe("Pull request title."),
+              pr_description: z
+                .string()
+                .min(10)
+                .max(5000)
+                .describe("Pull request description/body."),
+            },
+            async (input): Promise<CallToolResult> => {
+              return sourceRepoPullRequestTool(input);
+            },
+          ),
+        ]
         : []),
 
       // --- UpdatePreviewScreens Tool ---
       // Only include this tool if the broadcast callback is provided
       ...(broadcastScreenUpdate
         ? [
-            tool(
-              "UpdatePreviewScreens",
-              "Add, remove, or set preview screens shown to the user. Use this to help users compare design variants side-by-side. PROACTIVELY use this when creating design variants (e.g., after creating /pricing-v1 and /pricing-v2, use this to show them side-by-side). Maximum 4 screens allowed. You can also change the preview mode (mobile/web/tablet) - prefer mobile or web for best user experience.",
-              {
-                action: z
-                  .enum(["add", "remove", "set"])
-                  .describe(
-                    "Action: 'add' adds a new screen, 'remove' removes a screen by ID, 'set' replaces all screens with a new set",
-                  ),
-                path: z
-                  .string()
-                  .optional()
-                  .describe(
-                    "Path for 'add' action (e.g., '/pricing-v1'). Required when action is 'add'.",
-                  ),
-                screenId: z
-                  .number()
-                  .optional()
-                  .describe(
-                    "Screen ID for 'remove' action. Required when action is 'remove'.",
-                  ),
-                screens: z
-                  .array(z.object({ path: z.string() }))
-                  .max(4)
-                  .optional()
-                  .describe(
-                    "Array of screen paths for 'set' action (max 4 screens). Required when action is 'set'.",
-                  ),
-                previewMode: z
-                  .enum(["mobile", "web", "tablet"])
-                  .optional()
-                  .describe(
-                    "Device preview mode. Prefer 'mobile' or 'web' for best user experience. Use 'tablet' only when specifically requested.",
-                  ),
-              },
-              async ({
+          tool(
+            "UpdatePreviewScreens",
+            "Add, remove, or set preview screens shown to the user. Use this to help users compare design variants side-by-side. PROACTIVELY use this when creating design variants (e.g., after creating /pricing-v1 and /pricing-v2, use this to show them side-by-side). Maximum 4 screens allowed. You can also change the preview mode (mobile/web/tablet) - prefer mobile or web for best user experience.",
+            {
+              action: z
+                .enum(["add", "remove", "set"])
+                .describe(
+                  "Action: 'add' adds a new screen, 'remove' removes a screen by ID, 'set' replaces all screens with a new set",
+                ),
+              path: z
+                .string()
+                .optional()
+                .describe(
+                  "Path for 'add' action (e.g., '/pricing-v1'). Required when action is 'add'.",
+                ),
+              screenId: z
+                .number()
+                .optional()
+                .describe(
+                  "Screen ID for 'remove' action. Required when action is 'remove'.",
+                ),
+              screens: z
+                .array(z.object({ path: z.string() }))
+                .max(4)
+                .optional()
+                .describe(
+                  "Array of screen paths for 'set' action (max 4 screens). Required when action is 'set'.",
+                ),
+              previewMode: z
+                .enum(["mobile", "web", "tablet"])
+                .optional()
+                .describe(
+                  "Device preview mode. Prefer 'mobile' or 'web' for best user experience. Use 'tablet' only when specifically requested.",
+                ),
+            },
+            async ({
+              action,
+              path,
+              screenId,
+              screens,
+              previewMode,
+            }: {
+              action: "add" | "remove" | "set";
+              path?: string;
+              screenId?: number;
+              screens?: Array<{ path: string }>;
+              previewMode?: "mobile" | "web" | "tablet";
+            }): Promise<CallToolResult> => {
+              // Validate action-specific parameters
+              if (action === "add" && !path) {
+                return {
+                  isError: true,
+                  content: [
+                    {
+                      type: "text",
+                      text: "Path is required for 'add' action",
+                    },
+                  ],
+                };
+              }
+              if (action === "remove" && screenId === undefined) {
+                return {
+                  isError: true,
+                  content: [
+                    {
+                      type: "text",
+                      text: "screenId is required for 'remove' action",
+                    },
+                  ],
+                };
+              }
+              if (action === "set" && (!screens || screens.length === 0)) {
+                return {
+                  isError: true,
+                  content: [
+                    {
+                      type: "text",
+                      text: "screens array is required for 'set' action",
+                    },
+                  ],
+                };
+              }
+
+              // Enforce max 4 screens for add action
+              if (action === "add" && getVisibleScreensCount) {
+                const currentCount = getVisibleScreensCount();
+                if (currentCount >= 4) {
+                  return {
+                    content: [
+                      {
+                        type: "text",
+                        text:
+                          "Cannot add screen: maximum of 4 screens allowed. Use 'set' action to replace screens or 'remove' to free up space.",
+                      },
+                    ],
+                  };
+                }
+              }
+
+              // Broadcast screen update to client
+              const updateData: ScreenUpdateData = {
                 action,
                 path,
                 screenId,
                 screens,
                 previewMode,
-              }: {
-                action: "add" | "remove" | "set";
-                path?: string;
-                screenId?: number;
-                screens?: Array<{ path: string }>;
-                previewMode?: "mobile" | "web" | "tablet";
-              }): Promise<CallToolResult> => {
-                // Validate action-specific parameters
-                if (action === "add" && !path) {
-                  return {
-                    isError: true,
-                    content: [
-                      {
-                        type: "text",
-                        text: "Path is required for 'add' action",
-                      },
-                    ],
-                  };
-                }
-                if (action === "remove" && screenId === undefined) {
-                  return {
-                    isError: true,
-                    content: [
-                      {
-                        type: "text",
-                        text: "screenId is required for 'remove' action",
-                      },
-                    ],
-                  };
-                }
-                if (action === "set" && (!screens || screens.length === 0)) {
-                  return {
-                    isError: true,
-                    content: [
-                      {
-                        type: "text",
-                        text: "screens array is required for 'set' action",
-                      },
-                    ],
-                  };
-                }
+              };
+              broadcastScreenUpdate(updateData);
 
-                // Enforce max 4 screens for add action
-                if (action === "add" && getVisibleScreensCount) {
-                  const currentCount = getVisibleScreensCount();
-                  if (currentCount >= 4) {
-                    return {
-                      content: [
-                        {
-                          type: "text",
-                          text: "Cannot add screen: maximum of 4 screens allowed. Use 'set' action to replace screens or 'remove' to free up space.",
-                        },
-                      ],
-                    };
-                  }
-                }
+              // Return success message based on action
+              let message: string;
+              switch (action) {
+                case "add":
+                  message = `Screen added with path: ${path}`;
+                  break;
+                case "remove":
+                  message = `Screen with ID ${screenId} removed`;
+                  break;
+                case "set":
+                  message = `Screens set to: ${
+                    screens?.map((s) => s.path).join(", ")
+                  }`;
+                  break;
+              }
 
-                // Broadcast screen update to client
-                const updateData: ScreenUpdateData = {
-                  action,
-                  path,
-                  screenId,
-                  screens,
-                  previewMode,
-                };
-                broadcastScreenUpdate(updateData);
+              // Add preview mode to message if specified
+              if (previewMode) {
+                message += ` (preview mode: ${previewMode})`;
+              }
 
-                // Return success message based on action
-                let message: string;
-                switch (action) {
-                  case "add":
-                    message = `Screen added with path: ${path}`;
-                    break;
-                  case "remove":
-                    message = `Screen with ID ${screenId} removed`;
-                    break;
-                  case "set":
-                    message = `Screens set to: ${screens?.map((s) => s.path).join(", ")}`;
-                    break;
-                }
-
-                // Add preview mode to message if specified
-                if (previewMode) {
-                  message += ` (preview mode: ${previewMode})`;
-                }
-
-                return {
-                  content: [{ type: "text", text: message }],
-                };
-              },
-            ),
-          ]
+              return {
+                content: [{ type: "text", text: message }],
+              };
+            },
+          ),
+        ]
         : []),
     ],
   });

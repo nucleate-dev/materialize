@@ -662,7 +662,6 @@ export class ChatQueryHandler implements ChatEngine {
         "TodoWrite",
         "mcp__devtools__SafeBash",
         "mcp__devtools__SafeWrite",
-        ...(sourceRepoPullRequestHandler ? [SOURCE_REPO_PR_TOOL_NAME] : []),
       ];
       agentConfigs["source-screen-extractor"] = {
         description:
