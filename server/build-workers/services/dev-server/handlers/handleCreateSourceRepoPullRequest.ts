@@ -11,6 +11,12 @@ export interface SourceRepoPullRequestInput {
   prototypeChatSessionId?: string | null;
 }
 
+export interface PrepareSourceRepoBranchInput {
+  branchName?: string | null;
+  baseBranch?: string | null;
+  existingPullRequestNumber?: number | null;
+}
+
 function escapeForDoubleQuotes(value: string): string {
   return value
     .replace(/\\/g, "\\\\")
@@ -365,6 +371,129 @@ export async function createSourceRepoPullRequest(
       service,
       terminalSession.id,
       "git remote remove origin",
+    );
+    service.terminalService.closeSession(terminalSession.id);
+  }
+}
+
+export async function prepareSourceRepoBranch(
+  service: NucleateDevelopmentServerService,
+  input: PrepareSourceRepoBranchInput,
+  logger: SystemLogger,
+): Promise<{ branchName: string; baseBranch: string; pullRequestNumber?: number | null }> {
+  const sourceRepo = service.sourceRepository;
+  if (!sourceRepo) {
+    throw new Error("No source repository is configured for this sandbox.");
+  }
+
+  const workerContext = getWorkerContext();
+  const { prototypeId } = workerContext;
+  if (!prototypeId) {
+    throw new Error(
+      "Missing worker context for source repository branch preparation (need prototype ID).",
+    );
+  }
+
+  const installationToken =
+    service.githubInstallationToken?.installationToken ?? null;
+  if (!installationToken) {
+    throw new Error(
+      "Source repository installation token is not available.",
+    );
+  }
+
+  const remoteUrl =
+    `https://x-access-token:${installationToken}@github.com/${sourceRepo.fullName}.git`;
+
+  const terminalSession = service.terminalService.getOrCreateTerminalSession(
+    "source-repo-pr",
+    "generic",
+  );
+  await new Promise((resolve) => setTimeout(resolve, 200));
+
+  let branchName = normalizeBranchName(input.branchName);
+  let baseBranch = input.baseBranch?.trim() || sourceRepo.defaultBranch;
+  let pullRequestNumber = input.existingPullRequestNumber ?? null;
+
+  if (pullRequestNumber !== null) {
+    const prMetadataRaw = await runSourceRepoCommand(
+      service,
+      terminalSession.id,
+      `GITHUB_TOKEN=${installationToken} gh pr view ${pullRequestNumber} --json headRefName,baseRefName`,
+    );
+    let prMetadata: {
+      headRefName?: string;
+      baseRefName?: string;
+    };
+    try {
+      prMetadata = JSON.parse(prMetadataRaw);
+    } catch {
+      throw new Error(
+        `Failed to parse metadata for PR #${pullRequestNumber}. Raw output: ${
+          prMetadataRaw.slice(0, 200)
+        }`,
+      );
+    }
+    if (!prMetadata.headRefName) {
+      throw new Error(
+        `Unable to determine branch for PR #${pullRequestNumber}.`,
+      );
+    }
+    branchName = prMetadata.headRefName;
+    baseBranch = prMetadata.baseRefName ?? baseBranch;
+  }
+
+  try {
+    await runSourceRepoCommand(
+      service,
+      terminalSession.id,
+      `if git remote get-url origin >/dev/null 2>&1; then git remote set-url origin ${remoteUrl}; else git remote add origin ${remoteUrl}; fi`,
+    );
+
+    if (pullRequestNumber !== null) {
+      await runSourceRepoCommand(
+        service,
+        terminalSession.id,
+        `git fetch origin ${branchName}`,
+      );
+      await runSourceRepoCommand(
+        service,
+        terminalSession.id,
+        `git checkout -B ${branchName} origin/${branchName}`,
+      );
+    } else {
+      await runSourceRepoCommand(
+        service,
+        terminalSession.id,
+        `git fetch origin ${baseBranch}`,
+      );
+      await runSourceRepoCommand(
+        service,
+        terminalSession.id,
+        `git checkout -B ${branchName} origin/${baseBranch}`,
+      );
+    }
+
+    logger.consoleLogDevOnly(
+      "info",
+      pullRequestNumber !== null
+        ? "Checked out existing PR branch in source repository"
+        : "Prepared new branch for source repository changes",
+      {
+        prototypeId,
+        branchName,
+        baseBranch,
+        pullRequestNumber,
+      },
+    );
+
+    return { branchName, baseBranch, pullRequestNumber };
+  } finally {
+    await runSourceRepoCommand(
+      service,
+      terminalSession.id,
+      "git remote remove origin",
+      { allowFailure: true },
     );
     service.terminalService.closeSession(terminalSession.id);
   }

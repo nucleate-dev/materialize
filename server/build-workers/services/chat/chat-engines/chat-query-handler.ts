@@ -45,6 +45,7 @@ import { evaluateToolPermission } from "../helpers/tool-permission-service.js";
 import { createDesignToolsMcpServer } from "../mcp/mcp-design-tools.js";
 import {
   createDevelopmentToolsMcpServer,
+  SourceRepoBranchPreparationHandler,
   SourceRepoPullRequestListToolHandler,
   SourceRepoPullRequestToolHandler,
 } from "../mcp/mcp-dev-tools.js";
@@ -68,6 +69,8 @@ const HISTORY_MESSAGE_REQUEST_COUNT = 6;
 const SOURCE_REPO_PR_TOOL_NAME = "mcp__devtools__CreateSourceRepoPullRequest";
 const SOURCE_REPO_PR_LIST_TOOL_NAME =
   "mcp__devtools__ListSourceRepoPullRequests";
+const SOURCE_REPO_PREP_BRANCH_TOOL_NAME =
+  "mcp__devtools__PrepareSourceRepoBranch";
 
 function isPathInsideRoot(root: string, targetPath: string): boolean {
   const normalizedRoot = path.resolve(root);
@@ -588,12 +591,17 @@ export class ChatQueryHandler implements ChatEngine {
       );
     const listSourceRepoPullRequestsHandler = this
       .buildSourceRepoPullRequestListToolHandler(hasSourceRepository);
+    const prepareSourceRepoBranchHandler = this
+      .buildSourceRepoBranchPreparationHandler(hasSourceRepository);
 
     if (sourceRepoPullRequestHandler) {
       allowedToolsDefault.push(SOURCE_REPO_PR_TOOL_NAME);
     }
     if (listSourceRepoPullRequestsHandler) {
       allowedToolsDefault.push(SOURCE_REPO_PR_LIST_TOOL_NAME);
+    }
+    if (prepareSourceRepoBranchHandler) {
+      allowedToolsDefault.push(SOURCE_REPO_PREP_BRANCH_TOOL_NAME);
     }
 
     const mcpServers: Record<string, McpSdkServerConfigWithInstance> = {
@@ -647,6 +655,7 @@ export class ChatQueryHandler implements ChatEngine {
         // Get visible screens count callback
         visibleScreens ? (): number => visibleScreens.length : undefined,
         sourceRepoPullRequestHandler,
+        prepareSourceRepoBranchHandler,
         listSourceRepoPullRequestsHandler,
       ),
       design: createDesignToolsMcpServer(
@@ -883,6 +892,62 @@ export class ChatQueryHandler implements ChatEngine {
               type: "text",
               text:
                 `Failed to list source repository pull requests: ${errorMessage}`,
+            },
+          ],
+        };
+      }
+    };
+  }
+
+  private buildSourceRepoBranchPreparationHandler(
+    hasSourceRepository: boolean,
+  ): SourceRepoBranchPreparationHandler | undefined {
+    if (!hasSourceRepository) {
+      return undefined;
+    }
+
+    return async (input) => {
+      try {
+        const result = await this.devServerService
+          .prepareSourceRepositoryBranch(
+            {
+              branchName: input.branch_name,
+              baseBranch: input.base_branch,
+              existingPullRequestNumber: input.existing_pr_number,
+            },
+            baseLogger,
+          );
+
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify(
+                {
+                  message: result.pullRequestNumber
+                    ? "Checked out existing PR branch"
+                    : "Prepared new branch for source repository changes",
+                  branch: result.branchName,
+                  base_branch: result.baseBranch,
+                  pull_request_number: result.pullRequestNumber,
+                },
+                null,
+                2,
+              ),
+            },
+          ],
+        };
+      } catch (error) {
+        const errorMessage = error instanceof Error
+          ? error.message
+          : String(error);
+        return {
+          isError: true,
+          content: [
+            {
+              type: "text",
+              text:
+                `Failed to prepare source repository branch: ${errorMessage}`,
             },
           ],
         };

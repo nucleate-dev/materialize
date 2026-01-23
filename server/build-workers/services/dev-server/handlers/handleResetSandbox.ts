@@ -1,16 +1,16 @@
 import { FastifyReply, FastifyRequest } from "fastify";
 import {
-  SandboxAPIResponse,
-  StandardErrorResponse,
+  DevServerStatus,
   HTTP_STATUS,
   ResetSandboxSuccessResponse,
-  DevServerStatus,
+  SandboxAPIResponse,
+  StandardErrorResponse,
 } from "../../../types/BuildWorkerTypes.js";
 import { NucleateDevelopmentServerService } from "../NucleateDevelopmentServerService.js";
 import {
-  SOURCE_REPO_DIR,
   getWorkerContext,
   resetWorkerContext,
+  SOURCE_REPO_DIR,
 } from "../../../worker.js";
 import { clearAllClaudeSessions } from "../../../utils/shared-utils.js";
 import { runCommandAsRoot } from "../../../utils/rootCommandUtils.js";
@@ -47,8 +47,9 @@ export async function handleResetSandbox(
         "Project files reset successfully",
       );
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
+      const errorMessage = error instanceof Error
+        ? error.message
+        : String(error);
       request.log2.error(
         new Error(errorMessage),
         "Failed to reset project files",
@@ -68,8 +69,9 @@ export async function handleResetSandbox(
         "Source repository contents cleared successfully",
       );
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
+      const errorMessage = error instanceof Error
+        ? error.message
+        : String(error);
       request.log2.error(
         new Error(errorMessage),
         "Failed to clear source repository contents",
@@ -102,8 +104,9 @@ export async function handleResetSandbox(
         });
       }
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
+      const errorMessage = error instanceof Error
+        ? error.message
+        : String(error);
       request.log2.error(
         new Error(errorMessage),
         "Failed to clear Claude sessions",
@@ -120,8 +123,9 @@ export async function handleResetSandbox(
         DevServerStatus.STOPPED;
       request.log2.consoleLogDevOnly("info", "Dev server stopped successfully");
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
+      const errorMessage = error instanceof Error
+        ? error.message
+        : String(error);
       request.log2.error(new Error(errorMessage), "Failed to stop dev server");
     }
 

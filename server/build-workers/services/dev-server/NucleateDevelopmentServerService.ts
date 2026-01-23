@@ -45,6 +45,8 @@ import type { SystemLogger } from "../../loggers/SystemLogger.js";
 import { WORK_DIR } from "../../worker.js";
 import {
   createSourceRepoPullRequest as handleCreateSourceRepoPullRequest,
+  prepareSourceRepoBranch,
+  PrepareSourceRepoBranchInput,
   SourceRepoPullRequestInput,
 } from "./handlers/handleCreateSourceRepoPullRequest.js";
 import {
@@ -534,6 +536,13 @@ export class NucleateDevelopmentServerService {
     logger: SystemLogger,
   ): Promise<SourceRepoPullRequestSummary[]> {
     return listNucleateSourceRepoPullRequests(this, logger);
+  }
+
+  public async prepareSourceRepositoryBranch(
+    input: PrepareSourceRepoBranchInput,
+    logger: SystemLogger,
+  ): Promise<{ branchName: string; baseBranch: string; pullRequestNumber?: number | null }> {
+    return prepareSourceRepoBranch(this, input, logger);
   }
 
   private async allocate(

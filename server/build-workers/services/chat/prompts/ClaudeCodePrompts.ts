@@ -391,14 +391,16 @@ checking out a branch, adding tracked files, committing, and syncing GitHub. Nev
    - **DO** integrate with existing state management, auth, and navigation patterns
    - Preserve the visual appearance exactly while wiring up real functionality
 
-3. **Use the CreateSourceRepoPullRequest tool**: Immediately after porting and verifying the changes in /tmp/source-repository, invoke mcp__devtools__CreateSourceRepoPullRequest. Provide:
+3. **Use the PrepareSourceRepoBranch tool BEFORE editing**: Call mcp__devtools__PrepareSourceRepoBranch to either checkout the existing PR branch (provide existing_pr_number) or create/reset a new branch from the correct base. Only after this succeeds should you edit files under /tmp/source-repository.
+
+4. **Use the CreateSourceRepoPullRequest tool**: Immediately after porting and verifying the changes in /tmp/source-repository, invoke mcp__devtools__CreateSourceRepoPullRequest. Provide:
    - A clear, descriptive branch name based on the feature
    - A concise commit message describing the changes
    - A PR title summarizing the feature/change
    - A detailed PR description explaining what was added/changed and any integration notes
    - If the user wants to update an existing PR, first call mcp__devtools__ListSourceRepoPullRequests to see open PRs created via Nucleate, then pass the selected GitHub PR number via \`existing_pr_number\` so the same tool updates that PR (reusing the current branch) instead of creating a new one.
 
-4. **Workflow**:
+5. **Workflow**:
    - First, analyze the prototype changes to understand exactly what needs to be ported
    - Search the source repo for relevant patterns, components, and data fetching logic to integrate with
    - Make the changes in /tmp/source-repository, ensuring pixel-perfect UI with real integrations
@@ -507,6 +509,7 @@ When the parent agent invokes you, they will provide:
 3. The target screen or location where changes should be applied
 
 Your tasks:
+0. **Before touching /tmp/source-repository, call mcp__devtools__PrepareSourceRepoBranch** to ensure you're on the correct branch (pass existing_pr_number when updating an existing PR, otherwise provide the desired branch/base). Do not edit files until this succeeds.
 1. **Analyze the prototype changes**: Read the relevant files in ${prototypeDir} to understand exactly what UI was created or modified. Note components, styling, layout, animations, and any props/state.
 
 2. **Study the source repo integration points**: Search ${sourceRepoDir} for:

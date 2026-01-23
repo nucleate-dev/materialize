@@ -58,6 +58,14 @@ export type SourceRepoPullRequestToolHandler = (
   input: SourceRepoPullRequestToolInput,
 ) => Promise<CallToolResult>;
 
+export type SourceRepoBranchPreparationHandler = (
+  input: {
+    branch_name?: string;
+    base_branch?: string;
+    existing_pr_number?: number;
+  },
+) => Promise<CallToolResult>;
+
 export type SourceRepoPullRequestListToolHandler = () => Promise<CallToolResult>;
 
 export function createDevelopmentToolsMcpServer(
@@ -68,6 +76,7 @@ export function createDevelopmentToolsMcpServer(
   broadcastScreenUpdate?: ScreenUpdateBroadcaster,
   getVisibleScreensCount?: GetVisibleScreensCount,
   sourceRepoPullRequestTool?: SourceRepoPullRequestToolHandler,
+  prepareSourceRepoBranchTool?: SourceRepoBranchPreparationHandler,
   listSourceRepoPullRequestsTool?: SourceRepoPullRequestListToolHandler,
 ): McpSdkServerConfigWithInstance {
   return createSdkMcpServer({
@@ -299,6 +308,44 @@ export function createDevelopmentToolsMcpServer(
           }
         },
       ),
+
+      ...(prepareSourceRepoBranchTool
+        ? [
+          tool(
+            "PrepareSourceRepoBranch",
+            "Checkout an existing PR branch or create/reset a new branch in the source repository before making edits. Call this BEFORE editing any files in /tmp/source-repository.",
+            {
+              branch_name: z
+                .string()
+                .min(1)
+                .max(200)
+                .optional()
+                .describe(
+                  "Desired branch name when creating a new PR branch. Will be normalized and prefixed with nucleate- if needed.",
+                ),
+              base_branch: z
+                .string()
+                .min(1)
+                .max(200)
+                .optional()
+                .describe(
+                  "Optional base branch to branch off from when creating a new branch. Defaults to the repository's default branch.",
+                ),
+              existing_pr_number: z
+                .number()
+                .int()
+                .positive()
+                .optional()
+                .describe(
+                  "Set this to the GitHub PR number to checkout that PR's branch instead of creating a new one.",
+                ),
+            },
+            async (input): Promise<CallToolResult> => {
+              return prepareSourceRepoBranchTool(input);
+            },
+          ),
+        ]
+        : []),
 
       ...(sourceRepoPullRequestTool
         ? [
