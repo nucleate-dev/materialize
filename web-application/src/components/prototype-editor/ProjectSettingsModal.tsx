@@ -22,6 +22,8 @@ import {
 import { cn } from "@/lib/classNames";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import type { PrototypeVisibility } from "@/lib/types/prototypes";
+import { usePrototypeVisibilityOptions } from "@/hooks/usePrototypeVisibilityOptions";
+import ProPlanUpsellModal from "@/components/prototype-editor/ProPlanUpsellModal";
 import type {
   APIResponse,
   StandardErrorResponse,
@@ -149,6 +151,11 @@ export function ProjectSettingsModal({
   createdAtLabel,
 }: ProjectSettingsModalProps) {
   const logger = useProductLogger();
+  const {
+    visibilityOptions,
+    showUpsellModal,
+    setShowUpsellModal,
+  } = usePrototypeVisibilityOptions();
 
   // Tab state
   const [activeTab, setActiveTab] = useState<ProjectSettingsTab>(initialTab);
@@ -1227,6 +1234,14 @@ export function ProjectSettingsModal({
                     value={prototype?.visibility || "SELF"}
                     onValueChange={async (value: PrototypeVisibility) => {
                       if (!prototype) return;
+                      // Check if trying to select a locked option
+                      const option = visibilityOptions.find(
+                        (opt) => opt.value === value,
+                      );
+                      if (option?.isLocked) {
+                        setShowUpsellModal(true);
+                        return;
+                      }
                       try {
                         await supabase
                           .from("prototypes")
@@ -1243,8 +1258,24 @@ export function ProjectSettingsModal({
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="SELF">Private</SelectItem>
-                      <SelectItem value="PUBLIC">Public</SelectItem>
+                      {visibilityOptions.map((option) => {
+                        const Icon = option.icon;
+                        return (
+                          <SelectItem
+                            key={option.value}
+                            value={option.value}
+                            className="focus:bg-muted focus:text-foreground cursor-pointer"
+                          >
+                            <div className="flex items-center gap-2">
+                              <Icon className="w-4 h-4 text-muted-foreground" />
+                              <span>{option.label}</span>
+                              {option.isLocked && (
+                                <Lock className="w-3.5 h-3.5 text-muted-foreground ml-auto" />
+                              )}
+                            </div>
+                          </SelectItem>
+                        );
+                      })}
                     </SelectContent>
                   </Select>
                 </div>
@@ -2216,6 +2247,12 @@ export function ProjectSettingsModal({
           </div>
         </Tabs>
       </DialogContent>
+
+      <ProPlanUpsellModal
+        open={showUpsellModal}
+        onOpenChange={setShowUpsellModal}
+        reason="visibility_restriction"
+      />
     </Dialog>
   );
 }
