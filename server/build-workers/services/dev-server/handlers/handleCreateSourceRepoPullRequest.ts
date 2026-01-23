@@ -133,7 +133,7 @@ export async function createSourceRepoPullRequest(
     };
     try {
       prMetadata = JSON.parse(prMetadataRaw);
-    } catch (error) {
+    } catch {
       throw new Error(
         `Failed to parse existing PR metadata. Raw output: ${
           prMetadataRaw.slice(0, 200)
@@ -166,23 +166,16 @@ export async function createSourceRepoPullRequest(
       terminalSession.id,
       `git config user.name "Nucleate"`,
     );
-    if (pullRequestNumber !== null) { // existing PR then fetch current branch and check that out
+    const currentBranch = (
       await runSourceRepoCommand(
         service,
         terminalSession.id,
-        `git fetch origin ${branchName}`,
-        { allowFailure: true },
-      );
-      await runSourceRepoCommand(
-        service,
-        terminalSession.id,
-        `git checkout -B ${branchName} origin/${branchName}`,
-      );
-    } else { // otherwise create a new branch
-      await runSourceRepoCommand(
-        service,
-        terminalSession.id,
-        `git checkout -B ${branchName}`,
+        "git rev-parse --abbrev-ref HEAD",
+      )
+    ).trim();
+    if (currentBranch !== branchName) {
+      throw new Error(
+        `Source repository is currently on branch "${currentBranch}", but PR operations expect "${branchName}". Run the PrepareSourceRepoBranch tool (mcp__devtools__PrepareSourceRepoBranch) to switch branches before creating or updating a PR.`,
       );
     }
     await runSourceRepoCommand(service, terminalSession.id, "git add -A");
@@ -380,7 +373,9 @@ export async function prepareSourceRepoBranch(
   service: NucleateDevelopmentServerService,
   input: PrepareSourceRepoBranchInput,
   logger: SystemLogger,
-): Promise<{ branchName: string; baseBranch: string; pullRequestNumber?: number | null }> {
+): Promise<
+  { branchName: string; baseBranch: string; pullRequestNumber?: number | null }
+> {
   const sourceRepo = service.sourceRepository;
   if (!sourceRepo) {
     throw new Error("No source repository is configured for this sandbox.");
@@ -413,7 +408,7 @@ export async function prepareSourceRepoBranch(
 
   let branchName = normalizeBranchName(input.branchName);
   let baseBranch = input.baseBranch?.trim() || sourceRepo.defaultBranch;
-  let pullRequestNumber = input.existingPullRequestNumber ?? null;
+  const pullRequestNumber = input.existingPullRequestNumber ?? null;
 
   if (pullRequestNumber !== null) {
     const prMetadataRaw = await runSourceRepoCommand(
