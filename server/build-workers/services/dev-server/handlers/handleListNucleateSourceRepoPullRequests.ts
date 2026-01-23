@@ -4,15 +4,11 @@ import type { NucleateDevelopmentServerService } from "../NucleateDevelopmentSer
 
 export interface SourceRepoPullRequestSummary {
   branchName: string;
-  baseBranch: string;
   pullRequestNumber: number;
   pullRequestUrl: string | null;
   title: string;
   body: string | null;
-  headSha: string | null;
-  prototypeChatSessionId: string | null;
   updatedAt: string | null;
-  createdAt: string | null;
 }
 
 export async function listNucleateSourceRepoPullRequests(
@@ -31,7 +27,7 @@ export async function listNucleateSourceRepoPullRequests(
   const { data, error } = await supabaseClient
     .from("prototype_source_repo_pull_requests")
     .select(
-      "branch_name,base_branch,pr_title,pr_body,github_pull_request_number,github_pull_request_url,head_sha,prototype_chat_session_id,status,updated_at,created_at",
+      "branch_name,pr_title,pr_body,github_pull_request_number,github_pull_request_url,status,updated_at",
     )
     .eq("prototype_id", prototypeId)
     .eq("status", "open")
@@ -44,15 +40,11 @@ export async function listNucleateSourceRepoPullRequests(
   const rows = data ?? [];
   const summaries: SourceRepoPullRequestSummary[] = rows.map((row) => ({
     branchName: row.branch_name,
-    baseBranch: row.base_branch,
     pullRequestNumber: row.github_pull_request_number,
     pullRequestUrl: row.github_pull_request_url ?? null,
     title: row.pr_title ?? "",
     body: row.pr_body ?? null,
-    headSha: row.head_sha,
-    prototypeChatSessionId: row.prototype_chat_session_id,
     updatedAt: row.updated_at ?? null,
-    createdAt: row.created_at ?? null,
   }));
 
   logger.consoleLogDevOnly("info", "Listed open source repository PRs", {
