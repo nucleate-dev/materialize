@@ -299,9 +299,7 @@ export async function createSourceRepoPullRequest(
       if (error && error.code !== "PGRST116") {
         throw error;
       }
-      if (data) {
-        row = data;
-      } else {
+      if (!data) {
         const insertResult = await supabaseClient
           .from("prototype_source_repo_pull_requests")
           .insert({
@@ -323,7 +321,6 @@ export async function createSourceRepoPullRequest(
           throw insertResult.error ??
             new Error("Failed to persist source repository PR metadata.");
         }
-        row = insertResult.data;
       }
     } else {
       const { data, error } = await supabaseClient
@@ -348,7 +345,6 @@ export async function createSourceRepoPullRequest(
         throw error ??
           new Error("Failed to persist source repository PR metadata.");
       }
-      row = data;
     }
 
     logger.consoleLogDevOnly(
