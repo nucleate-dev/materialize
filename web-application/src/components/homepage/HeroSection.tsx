@@ -243,7 +243,7 @@ export default function HeroSection() {
         </Badge>
 
         <h1 className="text-5xl md:text-7xl lg:text-8xl font-medium tracking-tight text-foreground mb-6">
-          The AI Design Engineer
+          Test Title
         </h1>
 
         <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-12 leading-relaxed">
