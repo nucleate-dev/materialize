@@ -803,10 +803,23 @@ export class ChatService {
   }
 
   private async handleInterrupt(): Promise<void> {
-    // baseLogger.consoleLogDevOnly("info", "Interrupt requested", {
-    //   sessionId: this.sessionState.sessionId,
-    //   hasAbortController: !!this.sessionState.abortController,
-    // });
+    // CRITICAL: Notify control plane FIRST, before anything that could crash.
+    // This ensures sandbox cleanup happens even if the abort causes a crash.
+    const { prototypeId } = getWorkerContext();
+    if (prototypeId) {
+      try {
+        await this.sandboxOrchestrationInitiatorService.notifyOrchestrationEndChat(
+          prototypeId,
+        );
+      } catch (error) {
+        // Log but don't block - the abort still needs to happen
+        baseLogger.error(
+          error instanceof Error ? error : new Error(String(error)),
+          "Failed to notify end-chat during interrupt",
+          { prototypeId },
+        );
+      }
+    }
 
     if (this.sessionState.abortController) {
       try {
