@@ -7,6 +7,7 @@ import { twMerge } from "tailwind-merge";
  * @param inputs - Class values to be merged
  * @returns Merged class string
  */
+// This is commonly used throughout the app for conditional styling
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
