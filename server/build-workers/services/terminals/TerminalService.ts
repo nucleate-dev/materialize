@@ -25,17 +25,17 @@ import {
 import { TerminalCommandValidator } from "./TerminalCommandValidationUtils.js";
 import { randomUUID } from "crypto";
 import {
-  TerminalUserIdentity,
   resolveTerminalUserIdentity,
+  TerminalUserIdentity,
 } from "./TerminalUserUtils.js";
 // import type { fastifyWebsocket } from "@fastify/websocket";
 
 const TERMINAL_BUFFER_LIMIT = 5000;
 const HEARTBEAT_INTERVAL_MS = 15000;
-const LAUNCH_TEST_TERMINAL_AS_ROOT =
-  false && process.env.NODE_ENV === "development";
-const TERMINAL_VALIDATION_DISABLED =
-  true && process.env.NODE_ENV === "development";
+const LAUNCH_TEST_TERMINAL_AS_ROOT = false &&
+  process.env.NODE_ENV === "development";
+const TERMINAL_VALIDATION_DISABLED = true &&
+  process.env.NODE_ENV === "development";
 const ETERNAL_TERMINAL_BUCKET = "terminal-sessions";
 const DEFAULT_TRACKED_SESSION_IDS = ["dev-server", "test", "build"];
 
@@ -305,8 +305,8 @@ export class TerminalService {
     const requestedCwd = options.cwd ?? this.workDir;
     let cwd: string;
     if (TERMINAL_VALIDATION_DISABLED && this.commandValidator) {
-      const { resolvedPath: normalizedCwd, withinRoot } =
-        this.commandValidator.normalizePathToAllowedRoot(requestedCwd);
+      const { resolvedPath: normalizedCwd, withinRoot } = this.commandValidator
+        .normalizePathToAllowedRoot(requestedCwd);
       cwd = withinRoot ? normalizedCwd : this.allowedRoot;
       if (!withinRoot) {
         baseLogger.warn(
@@ -338,8 +338,7 @@ export class TerminalService {
 
     // Default to interactive mode for bash to prevent immediate exit
     const requestedArgs = options.args ?? ["-i"];
-    const argsUnsafe =
-      requestedArgs.length === 0 ||
+    const argsUnsafe = requestedArgs.length === 0 ||
       requestedArgs.some(
         (arg) => ["-c", "--command"].includes(arg) || arg.includes("-c"),
       );
@@ -367,8 +366,7 @@ export class TerminalService {
       // Only drop privileges if:
       // 1. We have a valid terminal user identity AND
       // 2. Either this is NOT the "test" terminal OR LAUNCH_TERMINALS_AS_ROOT is false
-      const shouldDropPrivileges =
-        this.terminalUserIdentity &&
+      const shouldDropPrivileges = this.terminalUserIdentity &&
         (sessionId !== "test" || !LAUNCH_TEST_TERMINAL_AS_ROOT);
 
       if (shouldDropPrivileges) {
@@ -477,14 +475,14 @@ export class TerminalService {
 
     // Skip validation if explicitly bypassed by trusted internal services
     if (options?.bypassValidation === true) {
-      baseLogger.consoleLogDevOnly(
-        "debug",
-        "Terminal input bypassing validation (trusted internal command)",
-        {
-          sessionId,
-          inputPreview: input.slice(0, 100),
-        },
-      );
+      // baseLogger.consoleLogDevOnly(
+      //   "debug",
+      //   "Terminal input bypassing validation (trusted internal command)",
+      //   {
+      //     sessionId,
+      //     inputPreview: input.slice(0, 100),
+      //   },
+      // );
       session.updatedAt = Date.now();
       try {
         session.pty.write(input);
@@ -506,8 +504,8 @@ export class TerminalService {
     // Normal validation flow for user input
     if (TERMINAL_VALIDATION_DISABLED && this.commandValidator) {
       const currentBuffer = this.sessionInputBuffers.get(session.id) ?? "";
-      const { outputToWrite, newBuffer, error } =
-        this.commandValidator.processAndValidateInput(
+      const { outputToWrite, newBuffer, error } = this.commandValidator
+        .processAndValidateInput(
           session.id,
           session.cwd,
           input,
@@ -582,7 +580,8 @@ export class TerminalService {
     // We print a start marker to help chop off the command echo at the top,
     // and an end marker with the exit code at the bottom.
     // checks for shell (bash/sh/zsh) compatibility
-    const wrappedInput = `printf "${startMarker}\\n"; ${input}; printf "${endMarkerWithExitPrefix}%s\\n" $?`;
+    const wrappedInput =
+      `printf "${startMarker}\\n"; ${input}; printf "${endMarkerWithExitPrefix}%s\\n" $?`;
 
     return new Promise((resolve, reject) => {
       let buffer = "";
@@ -951,11 +950,10 @@ export class TerminalService {
       }
     }
 
-    const username =
-      this.terminalUserIdentity?.username ?? process.env.USER ?? "root";
+    const username = this.terminalUserIdentity?.username ?? process.env.USER ??
+      "root";
 
-    env.PATH =
-      env.PATH ??
+    env.PATH = env.PATH ??
       "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin";
     env.TERM = env.TERM ?? "xterm-256color";
     env.HOME = this.terminalUserIdentity?.homeDir ?? this.workDir;
@@ -1006,8 +1004,9 @@ export class TerminalService {
         }
       }, 5000);
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : JSON.stringify(error);
+      const message = error instanceof Error
+        ? error.message
+        : JSON.stringify(error);
       baseLogger.warn("Failed to kill terminal process cleanly", {
         sessionId: session.id,
         terminalType: session.type,
@@ -1022,8 +1021,8 @@ export class TerminalService {
     reply: FastifyReply,
   ): Promise<TerminalCreateResponse> {
     try {
-      const sessionType: TerminalSessionType =
-        request.body.session_type ?? "generic";
+      const sessionType: TerminalSessionType = request.body.session_type ??
+        "generic";
 
       // Generate unique session ID
       let sessionId = uuidv4();
@@ -1047,8 +1046,9 @@ export class TerminalService {
         session_type: session.type,
       });
     } catch (error: unknown) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
+      const errorMessage = error instanceof Error
+        ? error.message
+        : String(error);
       baseLogger.error(
         new Error(errorMessage),
         "Unexpected error in handleTerminalCreateRoute",
@@ -1077,8 +1077,9 @@ export class TerminalService {
         return response;
       }
     } catch (error: unknown) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
+      const errorMessage = error instanceof Error
+        ? error.message
+        : String(error);
       baseLogger.error(
         new Error(errorMessage),
         "Unexpected error in handleTerminalInfo",
@@ -1108,8 +1109,9 @@ export class TerminalService {
         return response;
       }
     } catch (error: unknown) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
+      const errorMessage = error instanceof Error
+        ? error.message
+        : String(error);
       baseLogger.error(
         new Error(errorMessage),
         "Unexpected error in handleTerminalClose",
@@ -1150,11 +1152,11 @@ export class TerminalService {
       this.sendInput(sessionId, input);
       return reply.code(200).send({ status: "success" });
     } catch (error: unknown) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
+      const errorMessage = error instanceof Error
+        ? error.message
+        : String(error);
       const isNotFound = errorMessage.includes("not found");
-      const isValidationError =
-        error instanceof Error &&
+      const isValidationError = error instanceof Error &&
         (error.name === "TerminalInputValidationError" ||
           errorMessage.toLowerCase().includes("rejected"));
 
@@ -1209,8 +1211,9 @@ export class TerminalService {
       this.resizeSession(sessionId, cols, rows);
       return reply.code(200).send({ status: "success" });
     } catch (error: unknown) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
+      const errorMessage = error instanceof Error
+        ? error.message
+        : String(error);
       const isNotFound = errorMessage.includes("not found");
 
       if (isNotFound) {
@@ -1235,9 +1238,9 @@ export class TerminalService {
     req: FastifyRequest,
   ): void {
     const { sessionId } = req.params as { sessionId: string };
-    baseLogger.consoleLogDevOnly("info", "handleWebSocketConnection", {
-      sessionId,
-    });
+    // baseLogger.consoleLogDevOnly("info", "handleWebSocketConnection", {
+    //   sessionId,
+    // });
     // Attach the WebSocket to the session
     // This handles sending existing buffer, status, and setting up event listeners
     this.attachWebSocket(sessionId, socket, {
@@ -1263,10 +1266,9 @@ export class TerminalService {
                 JSON.stringify({
                   event: "error",
                   data: {
-                    error:
-                      error instanceof Error
-                        ? error.message
-                        : "Terminal input rejected",
+                    error: error instanceof Error
+                      ? error.message
+                      : "Terminal input rejected",
                   },
                 }),
               );
@@ -1307,10 +1309,9 @@ export class TerminalService {
                 JSON.stringify({
                   event: "error",
                   data: {
-                    error:
-                      inputError instanceof Error
-                        ? inputError.message
-                        : "Terminal input rejected",
+                    error: inputError instanceof Error
+                      ? inputError.message
+                      : "Terminal input rejected",
                   },
                 }),
               );
@@ -1329,13 +1330,12 @@ export class TerminalService {
       defaultType?: TerminalSessionType;
     } = {},
   ): void {
-    const session =
-      this.sessions.get(sessionId) ||
+    const session = this.sessions.get(sessionId) ||
       (options.allowCreate
         ? this.getOrCreateTerminalSession(
-            sessionId,
-            options.defaultType ?? "generic",
-          )
+          sessionId,
+          options.defaultType ?? "generic",
+        )
         : undefined);
 
     if (!session) {

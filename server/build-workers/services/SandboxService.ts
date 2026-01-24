@@ -132,21 +132,22 @@ export class SandboxService {
       // Security: Validate path is within workDir
       const resolvedPath = resolvePathWithinProject(WORK_DIR, relativePath);
 
-      baseLogger.consoleLogDevOnly("info", "Creating directory", {
-        path: relativePath,
-        resolvedPath,
-        recursive,
-      });
+      // baseLogger.consoleLogDevOnly("info", "Creating directory", {
+      //   path: relativePath,
+      //   resolvedPath,
+      //   recursive,
+      // });
 
       await fs.mkdir(resolvedPath, { recursive });
 
-      baseLogger.consoleLogDevOnly("info", "Directory created successfully", {
-        path: relativePath,
-      });
+      // baseLogger.consoleLogDevOnly("info", "Directory created successfully", {
+      //   path: relativePath,
+      // });
       return { success: true };
     } catch (error: unknown) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
+      const errorMessage = error instanceof Error
+        ? error.message
+        : String(error);
       baseLogger.error(new Error(errorMessage), "Failed to create directory", {
         path: relativePath,
         recursive,
@@ -182,9 +183,9 @@ export class SandboxService {
     if (session_id) {
       // Use existing session
       sessionId = session_id;
-      baseLogger.consoleLogDevOnly("info", "Using existing terminal session", {
-        sessionId,
-      });
+      // baseLogger.consoleLogDevOnly("info", "Using existing terminal session", {
+      //   sessionId,
+      // });
     } else {
       // Create new temporary session
       sessionId = `temp-${Date.now()}`;
@@ -193,18 +194,19 @@ export class SandboxService {
           cwd: cwd || WORK_DIR,
         });
         shouldCleanupSession = true;
-        baseLogger.consoleLogDevOnly(
-          "info",
-          "Created temporary terminal session",
-          { sessionId },
-        );
+        // baseLogger.consoleLogDevOnly(
+        //   "info",
+        //   "Created temporary terminal session",
+        //   { sessionId },
+        // );
 
         // Give the PTY time to fully initialize before writing to it
         // This prevents "PTY exited immediately after spawn" errors
         await new Promise((resolve) => setTimeout(resolve, 150));
       } catch (error) {
-        const errorMessage =
-          error instanceof Error ? error.message : String(error);
+        const errorMessage = error instanceof Error
+          ? error.message
+          : String(error);
         baseLogger.error(
           new Error(errorMessage),
           "Failed to create terminal session",
@@ -236,17 +238,19 @@ export class SandboxService {
       // Build the full command
       const argsString = args && args.length > 0 ? " " + args.join(" ") : "";
       const cwdPrefix = cwd ? `cd ${cwd} && ` : "";
-      const fullCommand = `${envString ? envString + " " : ""}${cwdPrefix}${command}${argsString}`;
+      const fullCommand = `${
+        envString ? envString + " " : ""
+      }${cwdPrefix}${command}${argsString}`;
 
-      baseLogger.consoleLogDevOnly("info", "Executing command in terminal", {
-        command: fullCommand,
-        sessionId,
-        timeoutMs,
-      });
+      // baseLogger.consoleLogDevOnly("info", "Executing command in terminal", {
+      //   command: fullCommand,
+      //   sessionId,
+      //   timeoutMs,
+      // });
 
       // Use asyncSendInput which handles command completion detection
-      const result =
-        await this.terminalService.asyncSendInputWithCompletionDetectionOrTimeout(
+      const result = await this.terminalService
+        .asyncSendInputWithCompletionDetectionOrTimeout(
           sessionId,
           fullCommand,
           {
@@ -261,12 +265,12 @@ export class SandboxService {
         cleanOutput = stripAnsiSequences(cleanOutput);
       }
 
-      baseLogger.consoleLogDevOnly("info", "Command completed successfully", {
-        command,
-        sessionId,
-        exitCode: result.exitCode,
-        outputLength: cleanOutput.length,
-      });
+      // baseLogger.consoleLogDevOnly("info", "Command completed successfully", {
+      //   command,
+      //   sessionId,
+      //   exitCode: result.exitCode,
+      //   outputLength: cleanOutput.length,
+      // });
 
       // Cleanup temp session if needed
       if (shouldCleanupSession) {
@@ -298,8 +302,9 @@ export class SandboxService {
         };
       }
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
+      const errorMessage = error instanceof Error
+        ? error.message
+        : String(error);
       const isTimeout = errorMessage.includes("timed out");
 
       baseLogger.error(
@@ -381,15 +386,16 @@ export class SandboxService {
       // Security: Validate path is within workDir
       const resolvedPath = resolvePathWithinProject(WORK_DIR, relativePath);
 
-      baseLogger.consoleLogDevOnly("info", "Reading file", {
-        path: relativePath,
-        resolvedPath,
-      });
+      // baseLogger.consoleLogDevOnly("info", "Reading file", {
+      //   path: relativePath,
+      //   resolvedPath,
+      // });
 
       // Check file size first to prevent memory exhaustion
       const stats = await fs.stat(resolvedPath);
       if (stats.size > MAX_FILE_SIZE_BYTES) {
-        const errorMsg = `File too large: ${stats.size} bytes (max ${MAX_FILE_SIZE_BYTES} bytes)`;
+        const errorMsg =
+          `File too large: ${stats.size} bytes (max ${MAX_FILE_SIZE_BYTES} bytes)`;
         baseLogger.error(new Error(errorMsg), "File size limit exceeded", {
           path: relativePath,
           size: stats.size,
@@ -407,27 +413,28 @@ export class SandboxService {
       if (isBinary) {
         // Base64 encode binary files
         contents = buffer.toString("base64");
-        baseLogger.consoleLogDevOnly(
-          "info",
-          "File read successfully (binary)",
-          {
-            path: relativePath,
-            size: stats.size,
-          },
-        );
+        // baseLogger.consoleLogDevOnly(
+        //   "info",
+        //   "File read successfully (binary)",
+        //   {
+        //     path: relativePath,
+        //     size: stats.size,
+        //   },
+        // );
       } else {
         // Return text files as UTF-8
         contents = buffer.toString("utf-8");
-        baseLogger.consoleLogDevOnly("info", "File read successfully (text)", {
-          path: relativePath,
-          size: stats.size,
-        });
+        // baseLogger.consoleLogDevOnly("info", "File read successfully (text)", {
+        //   path: relativePath,
+        //   size: stats.size,
+        // });
       }
 
       return { success: true, contents, isBinary };
     } catch (error: unknown) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
+      const errorMessage = error instanceof Error
+        ? error.message
+        : String(error);
       baseLogger.error(new Error(errorMessage), "Failed to read file", {
         path: relativePath,
       });
@@ -466,12 +473,12 @@ export class SandboxService {
         fullRelativePath,
       );
 
-      baseLogger.consoleLogDevOnly("info", "Writing file", {
-        path: fullRelativePath,
-        resolvedPath,
-        contentLength: contents.length,
-        baseDir: normalizedBaseDir,
-      });
+      // baseLogger.consoleLogDevOnly("info", "Writing file", {
+      //   path: fullRelativePath,
+      //   resolvedPath,
+      //   contentLength: contents.length,
+      //   baseDir: normalizedBaseDir,
+      // });
 
       // Auto-create parent directory if it doesn't exist
       const parentDir = path.dirname(resolvedPath);
@@ -480,13 +487,14 @@ export class SandboxService {
       // Write file
       await fs.writeFile(resolvedPath, contents, "utf-8");
 
-      baseLogger.consoleLogDevOnly("info", "File written successfully", {
-        path: fullRelativePath,
-      });
+      // baseLogger.consoleLogDevOnly("info", "File written successfully", {
+      //   path: fullRelativePath,
+      // });
       return { success: true };
     } catch (error: unknown) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
+      const errorMessage = error instanceof Error
+        ? error.message
+        : String(error);
       baseLogger.error(new Error(errorMessage), "Failed to write file", {
         path: relativePath,
         filename,
@@ -556,8 +564,9 @@ export class SandboxService {
         return { success: false, error: result.stderr, output: result.stdout };
       }
     } catch (error: unknown) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
+      const errorMessage = error instanceof Error
+        ? error.message
+        : String(error);
       baseLogger.error(new Error(errorMessage), "Git checkout failed", {
         gitUrl,
         targetPath,
@@ -771,8 +780,9 @@ export class SandboxService {
         };
       }
     } catch (error: unknown) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
+      const errorMessage = error instanceof Error
+        ? error.message
+        : String(error);
       baseLogger.error(
         new Error(errorMessage),
         "Unexpected error in handleSandboxMakeDir",
@@ -826,8 +836,7 @@ export class SandboxService {
         };
       } else {
         // Check if it's a file not found error
-        const isNotFound =
-          result.error?.includes("ENOENT") ||
+        const isNotFound = result.error?.includes("ENOENT") ||
           result.error?.includes("no such file");
 
         if (isNotFound) {
@@ -855,8 +864,9 @@ export class SandboxService {
         }
       }
     } catch (error: unknown) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
+      const errorMessage = error instanceof Error
+        ? error.message
+        : String(error);
       baseLogger.error(
         new Error(errorMessage),
         "Unexpected error in handleSandboxReadFile",
@@ -927,8 +937,9 @@ export class SandboxService {
         };
       }
     } catch (error: unknown) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
+      const errorMessage = error instanceof Error
+        ? error.message
+        : String(error);
       baseLogger.error(
         new Error(errorMessage),
         "Unexpected error in handleSandboxWriteFile",
@@ -981,8 +992,7 @@ export class SandboxService {
         };
       } else {
         // Check if it's a validation error (invalid URL, private IP, etc.)
-        const isValidationError =
-          result.error?.includes("Invalid git URL") ||
+        const isValidationError = result.error?.includes("Invalid git URL") ||
           result.error?.includes("private IP");
 
         if (isValidationError) {
@@ -1016,8 +1026,9 @@ export class SandboxService {
         }
       }
     } catch (error: unknown) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
+      const errorMessage = error instanceof Error
+        ? error.message
+        : String(error);
       baseLogger.error(
         new Error(errorMessage),
         "Unexpected error in handleSandboxGitCheckout",
