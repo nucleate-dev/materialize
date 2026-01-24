@@ -148,11 +148,16 @@ export async function triggerDevServerBuildAndUploadToS3(
   developmentServerService.developmentServerState.buildStartTime = new Date();
 
   const supabase = developmentServerService.supabaseClientService.getClient();
+  const isWebPrototype =
+    developmentServerService.prototypeFramework === "web_nextjs_react";
+  const screenshotAspect = isWebPrototype ? "web" : "mobile";
 
   // Run build and screenshot in parallel
   const [buildResult, screenshotResult] = await Promise.all([
     developmentServerService.developmentServerAdapter.build(log2),
-    takeScreenshotAndUpload(prototypeId, log2, supabase),
+    takeScreenshotAndUpload(prototypeId, log2, supabase, {
+      aspect: screenshotAspect,
+    }),
   ]);
 
   developmentServerService.developmentServerState.isBuilding = false;

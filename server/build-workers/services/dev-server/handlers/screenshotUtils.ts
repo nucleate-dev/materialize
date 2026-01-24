@@ -4,6 +4,12 @@ import { SystemLogger } from "../../../loggers/SystemLogger.js";
 import { Database } from "../../../types/supabase.js";
 import { DEV_SERVER_PORT } from "../NucleateDevelopmentServerService.js";
 
+type ScreenshotAspect = "mobile" | "web";
+
+interface ScreenshotOptions {
+  aspect?: ScreenshotAspect;
+}
+
 /**
  * Takes a screenshot of the local dev server and uploads it to Supabase
  * @param prototypeId - The ID of the prototype
@@ -15,13 +21,15 @@ export async function takeScreenshotAndUpload(
   prototypeId: string,
   log2: SystemLogger,
   supabase: SupabaseClient<Database>,
+  options: ScreenshotOptions = {},
 ): Promise<boolean> {
   let browser: puppeteer.Browser | undefined;
   let page: puppeteer.Page | undefined;
+  const aspect = options.aspect ?? "mobile";
 
   try {
     // Launch browser
-    const browserResult = await launchBrowser(log2);
+    const browserResult = await launchBrowser(log2, aspect);
     browser = browserResult?.browser;
     page = browserResult?.page;
 
@@ -85,6 +93,7 @@ export async function takeScreenshotAndUpload(
 
 async function launchBrowser(
   log2: SystemLogger,
+  aspect: ScreenshotAspect,
 ): Promise<{ browser: puppeteer.Browser; page: puppeteer.Page } | null> {
   try {
     // Launch with minimal Chrome dependencies
@@ -130,12 +139,22 @@ async function launchBrowser(
 
     const page = await browser.newPage();
 
-    // Set mobile phone viewport (iPhone 8)
-    await page.setViewport({
-      width: 375,
-      height: 667,
-      deviceScaleFactor: 2,
-    });
+    // Choose viewport based on desired aspect ratio
+    if (aspect === "web") {
+      // Web prototypes prefer a desktop-sized viewport
+      await page.setViewport({
+        width: 1280,
+        height: 720,
+        deviceScaleFactor: 1,
+      });
+    } else {
+      // Default to a mobile-sized viewport (iPhone 8-ish)
+      await page.setViewport({
+        width: 375,
+        height: 667,
+        deviceScaleFactor: 2,
+      });
+    }
     await page.emulateMediaFeatures([
       { name: "prefers-color-scheme", value: "light" },
     ]);
