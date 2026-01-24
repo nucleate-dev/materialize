@@ -2,6 +2,7 @@
 import { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import {
   BuildAndDeployResponse,
+  BuildStatusResponse,
   DevServerStatus,
   PublicAllocateRequest,
   PublicAllocateSuccessResponse,
@@ -40,6 +41,7 @@ import { handleRefetchEnvImpl } from "./handlers/handleRefetchEnv.js";
 import type { Database } from "../../types/supabase.js";
 import { SandboxOrchestrationInitiatorService } from "../SandboxOrchestrationInitiatorService.js";
 import { handleConnectGitHubImpl } from "./handlers/handleConnectGitHub.js";
+import { handleBuildStatusImpl } from "./handlers/handleBuildStatus.js";
 import type { ChatQueryData } from "../../types/ChatTypes.js";
 import type { SystemLogger } from "../../loggers/SystemLogger.js";
 import { WORK_DIR } from "../../worker.js";
@@ -147,6 +149,7 @@ export class NucleateDevelopmentServerService {
     app.delete("/cleanup", this.cleanup.bind(this));
 
     app.post("/dev-server/build-and-deploy", this.buildAndDeploy.bind(this));
+    app.get("/dev-server/build-status", this.getBuildStatus.bind(this));
 
     // ----------- INTERNAL TOOLS ONLY -----------
     // Reset sandbox to clean state (clears files, Claude sessions, and worker context)
@@ -592,6 +595,15 @@ export class NucleateDevelopmentServerService {
     SandboxAPIResponse<BuildAndDeployResponse, StandardErrorResponse>
   > {
     return handleBuildAndDeployImpl(request, reply, this);
+  }
+
+  private async getBuildStatus(
+    request: FastifyRequest,
+    reply: FastifyReply,
+  ): Promise<
+    SandboxAPIResponse<BuildStatusResponse, StandardErrorResponse>
+  > {
+    return handleBuildStatusImpl(request, reply, this);
   }
 
   private async resetSandbox(

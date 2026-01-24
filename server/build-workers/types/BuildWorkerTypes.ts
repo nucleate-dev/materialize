@@ -70,6 +70,13 @@ export interface BuildAndDeployResponse {
   message: string;
 }
 
+export interface BuildStatusResponse {
+  is_build_valid: boolean;
+  is_building: boolean;
+  build_start_time: string;
+  last_updated_time: string;
+}
+
 export interface ResetSandboxSuccessResponse {
   prototype_id: string | null;
   message: string;
