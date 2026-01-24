@@ -1,6 +1,7 @@
 import { NucleateDevelopmentServerService } from "../NucleateDevelopmentServerService.js";
 import type { SystemLogger } from "../../../loggers/SystemLogger.js";
 import { getWorkerContext, SOURCE_REPO_DIR } from "../../../worker.js";
+import { log } from "console";
 
 export interface SourceRepoPullRequestInput {
   branchName?: string | null;
@@ -170,14 +171,20 @@ export async function createSourceRepoPullRequest(
       terminalSession.id,
       `git config user.name "Nucleate"`,
     );
-    const currentBranch = (
-      await runSourceRepoCommand(
-        service,
-        terminalSession.id,
-        "git rev-parse --abbrev-ref HEAD",
-      )
-    ).trim();
+    const currentBranch = (await service.sandboxService.runCommandInternal({
+      command: "git ",
+      args: [`rev-parse --abbrev-ref HEAD`],
+      timeout_ms: 60000,
+      strip_ansi: true,
+      session_id: terminalSession.id,
+      cwd: SOURCE_REPO_DIR,
+    })).response.data?.stdout.trim();
     if (currentBranch !== branchName) {
+      logger.consoleLogDevOnly(
+        "info",
+        `current branch !== branchName`,
+        { currentBranch, branchName },
+      );
       throw new Error(
         `Source repository is currently on branch "${currentBranch}", but PR operations expect "${branchName}". Run the PrepareSourceRepoBranch tool (mcp__devtools__PrepareSourceRepoBranch) to switch branches before creating or updating a PR.`,
       );
