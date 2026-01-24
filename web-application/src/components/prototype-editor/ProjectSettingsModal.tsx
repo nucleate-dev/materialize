@@ -342,21 +342,25 @@ export function ProjectSettingsModal({
       created_at: string;
     }>
   >([]);
+  const [latestDeployKey, setLatestDeployKey] = useState<string | null>(
+    prototype?.latest_deploy_key ?? null,
+  );
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [deployUrlCopied, setDeployUrlCopied] = useState(false);
   const [showBuildInfo, setShowBuildInfo] = useState(false);
+  const [buildHistoryVersion, setBuildHistoryVersion] = useState(0);
 
   // Check if latest build is deployed
   const isLatestBuildDeployed = useMemo(() => {
-    if (!prototype || buildHistory.length === 0) return false;
+    if (!prototype || buildHistory.length === 0 || !latestDeployKey)
+      return false;
 
     const latestBuild = buildHistory[0];
     return (
       latestBuild.deploy_key &&
-      prototype.latest_deploy_key &&
-      latestBuild.deploy_key === prototype.latest_deploy_key
+      latestBuild.deploy_key === latestDeployKey
     );
-  }, [prototype, buildHistory]);
+  }, [prototype, buildHistory, latestDeployKey]);
 
   // Check if slug has changed from the original
   const hasSlugChanged = useMemo(() => {
@@ -385,32 +389,64 @@ export function ProjectSettingsModal({
 
   // Fetch build history when modal opens
   useEffect(() => {
-    if (!open || !prototype) return;
+    if (!open || !prototype?.id) return;
 
-    const fetchBuildHistory = async () => {
-      setIsLoadingHistory(true);
+    let isActive = true;
+    setIsLoadingHistory(true);
+
+    const fetchBuildData = async () => {
       try {
-        const { data, error } = await supabase
-          .from("prototype_build_history")
-          .select("id, build_key, deploy_key, created_at")
-          .eq("prototype_id", prototype.id)
-          .order("created_at", { ascending: false });
+        const [historyResult, latestDeployKeyResult] = await Promise.all([
+          supabase
+            .from("prototype_build_history")
+            .select("id, build_key, deploy_key, created_at")
+            .eq("prototype_id", prototype.id)
+            .order("created_at", { ascending: false }),
+          supabase
+            .from("prototypes")
+            .select("latest_deploy_key")
+            .eq("id", prototype.id)
+            .single(),
+        ]);
 
-        if (error) {
-          logger.debug("error", "Failed to fetch build history", { error });
-          return;
+        if (!isActive) return;
+
+        if (historyResult.error) {
+          logger.debug("error", "Failed to fetch build history", {
+            error: historyResult.error,
+          });
+        } else {
+          setBuildHistory(historyResult.data ?? []);
         }
 
-        setBuildHistory(data ?? []);
+        if (latestDeployKeyResult.error) {
+          logger.debug("error", "Failed to fetch latest deploy key", {
+            error: latestDeployKeyResult.error,
+          });
+        } else {
+          setLatestDeployKey(latestDeployKeyResult.data?.latest_deploy_key ?? null);
+        }
       } catch (error) {
-        logger.debug("error", "Error fetching build history", { error });
+        if (isActive) {
+          logger.debug("error", "Error fetching build data", { error });
+        }
       } finally {
-        setIsLoadingHistory(false);
+        if (isActive) {
+          setIsLoadingHistory(false);
+        }
       }
     };
 
-    fetchBuildHistory();
-  }, [open, prototype, logger]);
+    fetchBuildData();
+
+    return () => {
+      isActive = false;
+    };
+  }, [open, prototype?.id, logger, buildHistoryVersion]);
+
+  useEffect(() => {
+    setLatestDeployKey(prototype?.latest_deploy_key ?? null);
+  }, [prototype?.latest_deploy_key]);
 
   // Slug validation effect - only runs when editing
   useEffect(() => {
@@ -594,19 +630,10 @@ export function ProjectSettingsModal({
       setSlugError(null);
       setSlugAvailable(true);
 
-      // Trigger build-and-deploy on sandbox
-      if (normalizedSandboxUrl) {
-        fetch(`${normalizedSandboxUrl}/build-and-deploy`, {
-          method: "POST",
-        }).catch((err) => {
-          logger.debug("error", "Failed to trigger build-and-deploy", {
-            error: err instanceof Error ? err.message : String(err),
-          });
-        });
-        toast.success(
-          "Deploy started! Expect your new deploy to be up in about 3-5 minutes.",
-        );
-      }
+      toast.success(
+        "Deploy started! Expect your new deploy to be up in about 3-5 minutes.",
+      );
+      setBuildHistoryVersion((version) => version + 1);
     } catch (error) {
       setSlugError(
         error instanceof Error ? error.message : "Unable to deploy app",
@@ -618,7 +645,6 @@ export function ProjectSettingsModal({
     prototype,
     deploySlug,
     deployVisibility,
-    normalizedSandboxUrl,
     logger,
     onDeploySuccess,
     hasSlugChanged,
