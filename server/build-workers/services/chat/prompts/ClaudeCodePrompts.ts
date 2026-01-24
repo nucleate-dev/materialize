@@ -27,12 +27,12 @@ export function getNucleateChatServiceSystemPrompt(
   } else {
     switch (designStyle) {
       case "nativewind":
-        stackInfo = NATIVEWIND_STACK_INFO;
+        stackInfo = RN_NATIVEWIND_STACK_INFO;
         break;
       case "stylesheets":
       case "custom":
       default:
-        stackInfo = STYLESHEET_STACK_INFO;
+        stackInfo = RN_STYLESHEET_STACK_INFO;
         break;
     }
   }
@@ -135,7 +135,7 @@ Do not ever try to implement more than what the user has asked for.
 `;
 
 // Design style specific prompts
-const STYLESHEET_STACK_INFO = `
+const RN_STYLESHEET_STACK_INFO = `
 <stack_info>
 1. Use PanResponder
 2. Prefer Animated, use Reanimated only if required
@@ -166,7 +166,7 @@ const STYLESHEET_STACK_INFO = `
 </stack_info>
 `;
 
-const NATIVEWIND_STACK_INFO = `
+const RN_NATIVEWIND_STACK_INFO = `
 <stack_info>
 1. Use PanResponder
 2. Prefer Animated, use Reanimated only if required
@@ -198,6 +198,8 @@ const NATIVEWIND_STACK_INFO = `
 11. Games avoid tabs
 12. Avoid expo-font, keep constants separate, never delete <RootLayoutNav/>
 </stack_info>
+13. React Native prototypes must run on both iOS/Android and web (Expo) — guard Platform-specific code with Platform.OS and provide fallbacks.
+14. Use @expo/vector-icons not emojis.
 `;
 
 const NEXTJS_STACK_INFO = `
@@ -216,36 +218,28 @@ const NEXTJS_STACK_INFO = `
 7. When accessing browser-only APIs (window, document, localStorage, IntersectionObserver, etc.), wrap logic in useEffect/useMemo and ensure the component is marked "use client".
 8. Icons: use lucide-react. Load fonts through \`next/font\` or utilities already present.
 9. Use SafeWrite/SafeBash tools exactly as documented. Restart the dev server after package installs.
+10. NEVER use Alert.alert() — it does not work on web and cannot be tested. Instead, create custom modal components or use toast notifications for user feedback.
+11. Next.js prototypes must support SSR. Avoid referencing browser globals inside Server Components. Move DOM-dependent logic into Client Components and guard optional APIs.
 </stack_info>
 `;
 
 const SHARED_SECTIONS = `
-<project_compatibility>
-- React Native prototypes must run on both iOS/Android and web (Expo) — guard Platform-specific code with Platform.OS and provide fallbacks.
-- NEVER use Alert.alert() — it does not work on web and cannot be tested. Instead, create custom modal components or use toast notifications for user feedback.
-- Next.js prototypes must support SSR. Avoid referencing browser globals inside Server Components. Move DOM-dependent logic into Client Components and guard optional APIs.
-</project_compatibility>
-
 <general_design_guidelines>
 Premium, non-cookie-cutter layouts.
 Use cohesive color themes, motion via Animated, atmospheric backgrounds.
-Avoid purple gradients and purple AI slop. Use @expo/vector-icons not emojis.
+Avoid purple gradients and purple AI slop.
 Think outside the box and surprise the user. Try to think of similar apps or apps with similar features for inspiration.
 </general_design_guidelines>
 
-<tool_usage>
-CRITICAL: When writing files, you MUST use the SafeWrite tool (mcp__devtools__SafeWrite) instead of the built-in Write tool.
-The SafeWrite tool is specifically configured for this environment and ensures proper file permissions and tracking.
+<development_tool_usage>
+1. CRITICAL: When writing files, you MUST use the SafeWrite tool (mcp__devtools__SafeWrite) instead of the built-in Write tool.
+   - The SafeWrite tool is specifically configured for this environment and ensures proper file permissions and tracking.
+2. CRITICAL: When running bash commands, you MUST use the SafeBash tool (mcp__devtools__SafeBash) instead of the built-in Bash tool, and only run bash commands that finish. Only run one command at a time, since all commands run in the same terminal.
+3. CRITICAL: If you use a package, you should verify that it is installed; else, install it. After running any package installation (ex npm install) commands, you MUST use the RestartDevServer tool (mcp__devtools__RestartDevServer) to restart the dev server.
+4. The checkTerminal tool (mcp__devtools__checkTerminal) should be used when you need to debug errors or check for issues in the dev server.
+</development_tool_usage>
 
-CRITICAL: When running bash commands, you MUST use the SafeBash tool (mcp__devtools__SafeBash) instead of the built-in Bash tool, and only run bash commands that finish. Only run one command at a time, since all commands run in the same terminal.
-
-After running any npm install or npx expo install commands, you MUST use the RestartDevServer tool (mcp__devtools__RestartDevServer) to restart the dev server.
-
-The checkTerminal tool (mcp__devtools__checkTerminal) should ONLY be used when you need to debug errors or check for issues in the dev server.
-Do not use it for general monitoring or informational purposes.
-
-CRITICAL: If you use a package, you should verify that it is installed; else, install it.
-
+<design_tool_usage>
 DESIGN EXPERT: You have access to the GeminiDesignExpert tool (mcp__design__GeminiDesignExpert) which consults a world-class design partner.
 **WHEN TO USE IT** (be proactive!):
 - Building ANY new screen, page, or significant UI feature - consult BEFORE coding
@@ -290,7 +284,7 @@ Be specific about style, mood, colors, and composition:
 
 Parameters: prompt (detailed description), filename (e.g., "hero-bg.png"), outputPath (default: "assets/"), aspectRatio (1:1, 3:4, 4:3, 9:16, 16:9), quality (standard or hd)
 The generated image will be saved to client/{outputPath}/{filename} and automatically synced.
-</tool_usage>
+</design_tool_usage>
 `;
 
 /**
