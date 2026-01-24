@@ -1406,55 +1406,26 @@ export class GitHubIntegrationService {
           });
         }
       } else if (integration.account_type === 'User') {
-        const { data: tokenRecord, error: tokenError } =
-          await supabaseServiceClient
-            .from('github_integration_tokens')
-            .select('token_encrypted')
-            .eq('team_id', teamId)
-            .maybeSingle();
-
-        if (tokenError) {
+        try {
+          const tokenResult = await getValidGitHubUserAccessToken({
+            supabaseClient: supabaseServiceClient,
+            teamId,
+            logger: request.log2,
+          });
+          githubAccessToken = tokenResult.accessToken;
+        } catch (tokenError) {
           request.log2.error(
-            tokenError,
-            'Failed to fetch GitHub token for repo creation',
+            tokenError instanceof Error
+              ? tokenError
+              : new Error(String(tokenError)),
+            'Failed to acquire valid GitHub OAuth token for repo creation',
             { teamId },
           );
           return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
             data: null,
             error: {
-              error: 'Database Error',
-              message: 'Failed to load GitHub credentials',
-            },
-          });
-        }
-
-        if (!tokenRecord?.token_encrypted) {
-          request.log2.warn('GitHub integration token missing for team', {
-            teamId,
-          });
-          return reply.status(HTTP_STATUS.BAD_REQUEST).send({
-            data: null,
-            error: {
-              error: 'Integration Missing',
-              message: 'GitHub credentials not found for this team',
-            },
-          });
-        }
-
-        try {
-          githubAccessToken = decrypt(tokenRecord.token_encrypted);
-        } catch (decryptError) {
-          request.log2.error(
-            decryptError instanceof Error
-              ? decryptError
-              : new Error(String(decryptError)),
-            'Failed to decrypt GitHub token for repo creation',
-          );
-          return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
-            data: null,
-            error: {
               error: 'Token Error',
-              message: 'Failed to decrypt GitHub token',
+              message: 'Failed to acquire GitHub credentials for this team',
             },
           });
         }
