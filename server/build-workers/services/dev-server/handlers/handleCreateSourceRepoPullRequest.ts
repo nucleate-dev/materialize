@@ -3,7 +3,7 @@ import type { SystemLogger } from "../../../loggers/SystemLogger.js";
 import { getWorkerContext, SOURCE_REPO_DIR } from "../../../worker.js";
 
 export interface SourceRepoPullRequestInput {
-  branchName?: string | null;
+  branchName: string;
   commitMessage: string;
   prTitle: string;
   prDescription: string;
@@ -12,7 +12,7 @@ export interface SourceRepoPullRequestInput {
 }
 
 export interface PrepareSourceRepoBranchInput {
-  branchName?: string | null;
+  branchName: string | null;
   baseBranch?: string | null;
   existingPullRequestNumber?: number | null;
 }
@@ -36,10 +36,8 @@ function sanitizeSingleLine(value: string): string {
   return value.replace(/[\r\n]+/g, " ").trim();
 }
 
-function normalizeBranchName(branchName?: string | null): string {
-  const fallback = `nucleate-${Date.now()}`;
-  const trimmed = branchName?.trim();
-  let normalized = trimmed && trimmed.length > 0 ? trimmed : fallback;
+function normalizeBranchName(branchName: string): string {
+  let normalized = branchName?.trim();
   normalized = normalized.replace(/\s+/g, "-").replace(/[^A-Za-z0-9/_-]/g, "-");
   if (!normalized.startsWith("nucleate-")) {
     normalized = `nucleate-${normalized}`;

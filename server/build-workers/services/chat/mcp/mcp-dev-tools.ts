@@ -66,7 +66,9 @@ export type SourceRepoBranchPreparationHandler = (
   },
 ) => Promise<CallToolResult>;
 
-export type SourceRepoPullRequestListToolHandler = () => Promise<CallToolResult>;
+export type SourceRepoPullRequestListToolHandler = () => Promise<
+  CallToolResult
+>;
 
 export function createDevelopmentToolsMcpServer(
   runCommand: CommandRunner,
@@ -319,9 +321,8 @@ export function createDevelopmentToolsMcpServer(
                 .string()
                 .min(1)
                 .max(200)
-                .optional()
                 .describe(
-                  "Desired branch name when creating a new PR branch. Will be normalized and prefixed with nucleate- if needed.",
+                  "Desired branch name when creating a new PR branch. Will be normalized to remove spaces and prefixed with nucleate- if needed.",
                 ),
               base_branch: z
                 .string()
@@ -357,9 +358,8 @@ export function createDevelopmentToolsMcpServer(
                 .string()
                 .min(1)
                 .max(200)
-                .optional()
                 .describe(
-                  "Optional branch name for the PR. If omitted, a timestamped branch is created automatically. All branch names will be prefixed with nucleate-.",
+                  "Branch name for the PR. The tool will error if the branch name is not the same as the prepared branch name.",
                 ),
               commit_message: z
                 .string()
