@@ -56,7 +56,15 @@ export default function ProjectsPageContainer() {
 
         const { data, error } = await supabase
           .from("prototypes")
-          .select("*")
+          .select(`
+            *,
+            owner:users!owner_id (
+              id,
+              name,
+              email,
+              avatar_url
+            )
+          `)
           .eq("team_id", activeTeam.id)
           .order("updated_at", { ascending: false })
           .range(from, to);
