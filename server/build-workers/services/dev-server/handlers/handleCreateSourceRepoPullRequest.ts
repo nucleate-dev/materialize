@@ -124,7 +124,7 @@ export async function createSourceRepoPullRequest(
     const prMetadataRaw = await runSourceRepoCommand(
       service,
       terminalSession.id,
-      `GITHUB_TOKEN=${installationToken} gh pr view ${pullRequestNumber} --json headRefName,url,baseRefName`,
+      `GH_TOKEN=${installationToken} gh pr view ${pullRequestNumber} --json headRefName,url,baseRefName`,
     );
     let prMetadata: {
       headRefName?: string;
@@ -216,7 +216,7 @@ export async function createSourceRepoPullRequest(
         terminalSession.id,
         `printf '%s' '${
           escapeForSingleQuotes(input.prDescription)
-        }' | GITHUB_TOKEN=${installationToken} gh pr edit ${pullRequestNumber} --title "${
+        }' | GH_TOKEN=${installationToken} gh pr edit ${pullRequestNumber} --title "${
           escapeForDoubleQuotes(sanitizedTitle)
         }" --body-file -`,
         { timeoutMs: 120000 },
@@ -225,7 +225,7 @@ export async function createSourceRepoPullRequest(
         const prUrlRaw = await runSourceRepoCommand(
           service,
           terminalSession.id,
-          `GITHUB_TOKEN=${installationToken} gh pr view ${pullRequestNumber} --json url`,
+          `GH_TOKEN=${installationToken} gh pr view ${pullRequestNumber} --json url`,
         );
         try {
           const parsed = JSON.parse(prUrlRaw);
@@ -242,7 +242,7 @@ export async function createSourceRepoPullRequest(
         terminalSession.id,
         `printf '%s' '${
           escapeForSingleQuotes(input.prDescription)
-        }' | GITHUB_TOKEN=${installationToken} gh pr create --title "${
+        }' | GH_TOKEN=${installationToken} gh pr create --title "${
           escapeForDoubleQuotes(sanitizedTitle)
         }" --body-file - --head ${branchName} --base ${baseBranch}`,
         { timeoutMs: 120000 },
@@ -420,7 +420,7 @@ export async function prepareSourceRepoBranch(
     const prMetadataRaw = await runSourceRepoCommand(
       service,
       terminalSession.id,
-      `GITHUB_TOKEN=${installationToken} gh pr view ${pullRequestNumber} --json headRefName,baseRefName`,
+      `GH_TOKEN=${installationToken} gh pr view ${pullRequestNumber} --json headRefName,baseRefName`,
     );
     let prMetadata: {
       headRefName?: string;
