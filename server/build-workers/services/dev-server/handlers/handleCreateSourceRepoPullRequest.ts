@@ -1,7 +1,6 @@
 import { NucleateDevelopmentServerService } from "../NucleateDevelopmentServerService.js";
 import type { SystemLogger } from "../../../loggers/SystemLogger.js";
 import { getWorkerContext, SOURCE_REPO_DIR } from "../../../worker.js";
-import { log } from "console";
 
 export interface SourceRepoPullRequestInput {
   branchName?: string | null;
