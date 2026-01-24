@@ -406,6 +406,12 @@ export async function prepareSourceRepoBranch(
   );
   await new Promise((resolve) => setTimeout(resolve, 200));
 
+  await runSourceRepoCommand(
+    service,
+    terminalSession.id,
+    `cd ${SOURCE_REPO_DIR} && git remote add origin ${remoteUrl}`,
+  );
+
   let branchName = normalizeBranchName(input.branchName);
   let baseBranch = input.baseBranch?.trim() || sourceRepo.defaultBranch;
   const pullRequestNumber = input.existingPullRequestNumber ?? null;
@@ -439,12 +445,6 @@ export async function prepareSourceRepoBranch(
   }
 
   try {
-    await runSourceRepoCommand(
-      service,
-      terminalSession.id,
-      `if git remote get-url origin >/dev/null 2>&1; then git remote set-url origin ${remoteUrl}; else git remote add origin ${remoteUrl}; fi`,
-    );
-
     if (pullRequestNumber !== null) {
       await runSourceRepoCommand(
         service,
