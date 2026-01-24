@@ -53,6 +53,7 @@ import {
   Rocket,
   RotateCcw,
   Share2,
+  Hammer,
   Trash2,
   X,
 } from "lucide-react";
@@ -97,6 +98,8 @@ interface ProjectSettingsModalProps {
     url: string;
     visibility: PrototypeVisibility;
   }) => void;
+  onBuild?: () => Promise<void> | void;
+  isBuilding?: boolean;
   // For share functionality
   isPublic: boolean;
   onVisibilityChange?: (visibility: PrototypeVisibility) => void;
@@ -137,6 +140,8 @@ export function ProjectSettingsModal({
   prototypeId,
   normalizedSandboxUrl,
   onDeploySuccess,
+  onBuild,
+  isBuilding = false,
   isPublic,
   onVisibilityChange,
   userPlan,
@@ -349,6 +354,30 @@ export function ProjectSettingsModal({
   const [deployUrlCopied, setDeployUrlCopied] = useState(false);
   const [showBuildInfo, setShowBuildInfo] = useState(false);
   const [buildHistoryVersion, setBuildHistoryVersion] = useState(0);
+  const resolvedPrototypeId = prototypeId ?? prototype?.id ?? null;
+  const isBuildDisabled =
+    !onBuild || !normalizedSandboxUrl || !resolvedPrototypeId || isBuilding;
+
+  const handleBuildClick = useCallback(() => {
+    if (isBuildDisabled || !onBuild) {
+      return;
+    }
+
+    onOpenChange(false);
+
+    try {
+      const maybePromise = onBuild();
+      Promise.resolve(maybePromise).catch((error) => {
+        logger.debug("error", "Build triggered from settings modal failed", {
+          error: error instanceof Error ? error.message : String(error),
+        });
+      });
+    } catch (error) {
+      logger.debug("error", "Failed to trigger build from settings modal", {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }, [isBuildDisabled, onBuild, onOpenChange, logger]);
 
   // Check if latest build is deployed
   const isLatestBuildDeployed = useMemo(() => {
@@ -1610,7 +1639,24 @@ export function ProjectSettingsModal({
                 </div>
 
                 {/* Deploy Button */}
-                <div className="flex justify-end pt-4">
+                <div className="flex justify-end gap-2 pt-4">
+                  <Button
+                    variant="outline"
+                    onClick={handleBuildClick}
+                    disabled={isBuildDisabled}
+                  >
+                    {isBuilding ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                        Building...
+                      </>
+                    ) : (
+                      <>
+                        <Hammer className="w-4 h-4 mr-2" />
+                        Build
+                      </>
+                    )}
+                  </Button>
                   <Button
                     onClick={handleDeploy}
                     disabled={Boolean(
