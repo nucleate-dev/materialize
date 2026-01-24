@@ -1,29 +1,29 @@
-import { ECSClient, StopTaskCommand } from '@aws-sdk/client-ecs';
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { GlideClient } from '@valkey/valkey-glide';
-import axios, { AxiosError } from 'axios';
-import { CONFIG } from '../../config.js';
-import { cryptoRandomId, SystemLogger } from '../../loggers/SystemLogger.js';
-import { baseLogger } from '../../server.js';
+import { ECSClient, StopTaskCommand } from "@aws-sdk/client-ecs";
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
+import { GlideClient } from "@valkey/valkey-glide";
+import axios, { AxiosError } from "axios";
+import { CONFIG } from "../../config.js";
+import { cryptoRandomId, SystemLogger } from "../../loggers/SystemLogger.js";
+import { baseLogger } from "../../server.js";
 import {
-  SandboxAPIResponse,
   PublicDevServerStopSuccessResponse,
+  SandboxAPIResponse,
   StandardErrorResponse as BuildWorkerStandardErrorResponse,
-} from '../../types/BuildWorkerTypes.js';
+} from "../../types/BuildWorkerTypes.js";
 import {
   type ActiveBuild,
+  CACHE_PATTERNS,
   type CleanupOperationResult,
   type CleanupStats,
   type IdleBuildInfo,
-  CACHE_PATTERNS,
   isActiveBuildType,
-} from '../../types/InternalTypes.js';
+} from "../../types/InternalTypes.js";
 import {
   activeBuildToStringRecord,
   hgetallAsActiveBuild,
   removeBuildDataFromCache,
-} from '../../utils/cacheInteractionUtils.js';
-import { deleteCloudflareTunnel } from '../../utils/cloudflareTunnelManagementUtils.js';
+} from "../../utils/cacheInteractionUtils.js";
+import { deleteCloudflareTunnel } from "../../utils/cloudflareTunnelManagementUtils.js";
 // NOTE: Screenshot logic moved to build-workers
 // import { takeScreenshotsOfKilledBuilds } from './screenshotUtils.js';
 
@@ -43,14 +43,14 @@ export class CleanupService {
     );
     this.cleanupIntervals = [];
     this.log2 = baseLogger.child({
-      route: 'CleanupService',
+      route: "CleanupService",
     });
     this.startCleanupServices();
   }
 
   // Start cleanup services
   private startCleanupServices(): void {
-    if (process.env.NODE_ENV === 'development') {
+    if (process.env.NODE_ENV === "development") {
       // TO TEST CHANGES TO THIS FILE, COMMENT OUT THIS EARLY RETURN
       return;
     }
@@ -66,17 +66,17 @@ export class CleanupService {
             stats.successfulCleanups > 0 ||
             stats.failedCleanups > 0
           ) {
-            this.log2.info('Cleanup cycle completed with stats', {
+            this.log2.info("Cleanup cycle completed with stats", {
               stats,
             });
           }
         } catch (error) {
-          this.log2.error(error, 'Error in cleanupIdleActiveBuilds');
+          this.log2.error(error, "Error in cleanupIdleActiveBuilds");
         }
       }, CONFIG.CLEANUP_INTERVAL_HOT_RELOAD),
     );
 
-    this.log2.info('Cleanup services started');
+    this.log2.info("Cleanup services started");
   }
 
   // Stop cleanup services
@@ -88,8 +88,8 @@ export class CleanupService {
 
   private async cleanupIdleActiveBuilds(): Promise<CleanupStats> {
     // 1. get all active builds
-    const { totalBuildsScanned, idleBuilds } =
-      await this.getAllIdleActiveBuildsForCleanup();
+    const { totalBuildsScanned, idleBuilds } = await this
+      .getAllIdleActiveBuildsForCleanup();
     let stats: CleanupStats = {
       totalBuildsScanned,
       idleBuildsFound: idleBuilds.length,
@@ -102,8 +102,8 @@ export class CleanupService {
 
     // 2. For each idle build, clean it up
     stats.idleBuildsFound = idleBuilds.length;
-    const killedBuilds =
-      await this.dispatchKillRequestsAndCleanFargateTasksForIdleBuilds(
+    const killedBuilds = await this
+      .dispatchKillRequestsAndCleanFargateTasksForIdleBuilds(
         idleBuilds,
         stats,
       );
@@ -138,21 +138,21 @@ export class CleanupService {
         continue;
       }
       if (!isActiveBuildType(build)) {
-        this.log2.warn('Invalid build data found in cache for key', {
+        this.log2.warn("Invalid build data found in cache for key", {
           buildKey,
         });
         continue;
       }
 
       // Skip if already cleaning or LLM is actively executing
-      if (build.status === 'cleaning' || build.status === 'chatting') {
+      if (build.status === "cleaning" || build.status === "chatting") {
         continue;
       }
 
       const timeSinceLastTouch = currentTime - build.last_touched;
       if (timeSinceLastTouch > idleTimeoutSeconds) {
         // Extract build ID from key: "active_build:build_id" -> "build_id"
-        const buildId = buildKey.replace('active_build:', '');
+        const buildId = buildKey.replace("active_build:", "");
         idleBuilds.push({ build, buildId, buildKey });
       }
     }
@@ -166,7 +166,7 @@ export class CleanupService {
   ): Promise<{ stats: CleanupStats; killedPrototypeIds: string[] }> {
     const killedPrototypeIds: string[] = [];
     for (const { build, buildId, buildKey } of idleBuilds) {
-      const prototypeId = buildId.split('_')[1];
+      const prototypeId = buildId.split("_")[1];
       const cleanupResult = await this.cleanupSingleBuild(
         build,
         buildId,
@@ -194,7 +194,7 @@ export class CleanupService {
     // 1. Set status to cleaning, so a cleanup service running on another EC2 instance doesn't try to clean up the same build
     const cleaningBuild: ActiveBuild = {
       ...build,
-      status: 'cleaning',
+      status: "cleaning",
     };
     const cacheUpdateResult = await this.setCacheActiveBuildData(
       buildKey,
@@ -205,17 +205,17 @@ export class CleanupService {
       return {
         success: false,
         buildInProgress: false,
-        error: 'Failed to set build status to cleaning',
+        error: "Failed to set build status to cleaning",
       };
     }
 
     // 2. Extract prototype ID from build ID (assuming format: build_{prototypeId}_{timestamp}_{random})
-    const prototypeId = buildId.split('_')[1];
+    const prototypeId = buildId.split("_")[1];
 
     // 3. Validate build data. If no fargate task arn or private IP, clean up build from cache appropriately
     if (!build.fargate_task_arn) {
       this.log2.error(
-        new Error('Build has no Fargate task ARN, removing build from cache'),
+        new Error("Build has no Fargate task ARN, removing build from cache"),
         undefined,
         { buildId },
       );
@@ -234,13 +234,13 @@ export class CleanupService {
         buildInProgress: false,
         error: removedFromCache
           ? undefined
-          : 'Failed to remove build from cache',
+          : "Failed to remove build from cache",
       };
     } else if (!build.fargate_private_ip) {
       // no private IP to dispatch kill request to (but we have arn), just terminate fargate task and remove build from cache
       this.log2.error(
         new Error(
-          'Build/cache has no Fargate private IP, terminating task without build steps or tunnel cleanup',
+          "Build/cache has no Fargate private IP, terminating task without build steps or tunnel cleanup",
         ),
         undefined,
         { buildId },
@@ -256,13 +256,13 @@ export class CleanupService {
         // reset status back to stable since we didn't kill the build
         const activeBuild: ActiveBuild = {
           ...build,
-          status: 'stable',
+          status: "stable",
         };
         await this.setCacheActiveBuildData(buildKey, activeBuild, buildId);
         return {
           success: false,
           buildInProgress: false,
-          error: 'Failed to terminate Fargate task',
+          error: "Failed to terminate Fargate task",
         };
       }
       await this.attemptToCleanUpTunnels(
@@ -280,7 +280,7 @@ export class CleanupService {
         buildInProgress: false,
         error: removedFromCache
           ? undefined
-          : 'Failed to remove build from cache',
+          : "Failed to remove build from cache",
       };
     }
 
@@ -297,8 +297,8 @@ export class CleanupService {
       if (newCleanAttempts >= 3) {
         // Force cleanup after 3 failed attempts to prevent containers from getting stuck
         this.log2.error(
-          new Error('Max cleanup attempts reached - forcing cleanup'),
-          'Fargate container stuck in bad state, forcing cleanup',
+          new Error("Max cleanup attempts reached - forcing cleanup"),
+          "Fargate container stuck in bad state, forcing cleanup",
           {
             fargate_task_arn: build.fargate_task_arn,
             prototype_id: prototypeId,
@@ -311,7 +311,7 @@ export class CleanupService {
         // Reset the status back to building and increment clean_attempts
         const activeBuild: ActiveBuild = {
           ...build,
-          status: 'building',
+          status: "building",
           clean_attempts: newCleanAttempts,
         };
         const setCacheResult = await this.setCacheActiveBuildData(
@@ -324,13 +324,13 @@ export class CleanupService {
             success: false,
             buildInProgress: true,
             error:
-              'Build still in progress, failed to increment clean attempts and reset status to building',
+              "Build still in progress, failed to increment clean attempts and reset status to building",
           };
         }
         return {
           success: false,
           buildInProgress: true,
-          error: 'Build still in progress, incremented clean attempts',
+          error: "Build still in progress, incremented clean attempts",
         };
       }
     }
@@ -346,13 +346,13 @@ export class CleanupService {
       );
       const activeBuild: ActiveBuild = {
         ...build,
-        status: 'stable',
+        status: "stable",
       };
       await this.setCacheActiveBuildData(buildKey, activeBuild, buildId);
       return {
         success: false,
         buildInProgress: false,
-        error: 'Failed to terminate Fargate task, leaving build as active',
+        error: "Failed to terminate Fargate task, leaving build as active",
       };
     }
     //killedPrototypeIds.push(prototypeId);
@@ -373,7 +373,7 @@ export class CleanupService {
     return {
       success: removedFromCache,
       buildInProgress: false,
-      error: removedFromCache ? undefined : 'Failed to remove build from cache',
+      error: removedFromCache ? undefined : "Failed to remove build from cache",
     };
   }
 
@@ -412,7 +412,7 @@ export class CleanupService {
       await this.cache.hset(buildKey, activeBuildToStringRecord(activeBuild));
       return true;
     } catch (error) {
-      this.log2.error(error, 'Failed to update cache active build data', {
+      this.log2.error(error, "Failed to update cache active build data", {
         buildId,
       });
       return false;
@@ -426,7 +426,7 @@ export class CleanupService {
     shouldWaitForSuccessfulBuild: boolean = true, // internal tools sometimes we don't care
   ): Promise<CleanupOperationResult> {
     return await this.log2.time(
-      'cleanup_dispatch_kill_dev_server_latency',
+      "cleanup_dispatch_kill_dev_server_latency",
       async () => {
         return await this.dispatchKillDevServerRequestImpl(
           prototypeId,
@@ -443,8 +443,8 @@ export class CleanupService {
     shouldWaitForSuccessfulBuild: boolean = true,
   ): Promise<CleanupOperationResult> {
     this.log2.consoleLogDevOnly(
-      'info',
-      'cleanup endpoint is: ' + `http://${fargatePrivateIp}:3002/cleanup`,
+      "info",
+      "cleanup endpoint is: " + `http://${fargatePrivateIp}:3002/cleanup`,
     );
     try {
       const response = await axios.delete<
@@ -456,7 +456,7 @@ export class CleanupService {
         data: {},
         timeout: 3000, // 3 second timeout -- we require an immediate response from the worker
         headers: {
-          'x-trace-id': this.log2.getTraceId(),
+          "x-trace-id": this.log2.getTraceId(),
         },
       });
 
@@ -485,43 +485,42 @@ export class CleanupService {
         };
       }
     } catch (error: unknown) {
-      this.log2.error(error, 'Failed to kill dev server for prototype', {
+      this.log2.error(error, "Failed to kill dev server for prototype", {
         prototypeId,
         fargatePrivateIp,
       });
 
       // Check if the error was due to timeout
       const isTimeout =
-        (error instanceof AxiosError && error.code === 'ECONNABORTED') ||
-        (error instanceof Error && error.message.includes('timeout'));
+        (error instanceof AxiosError && error.code === "ECONNABORTED") ||
+        (error instanceof Error && error.message.includes("timeout"));
 
       // Check if worker is completely unresponsive (connection refused, etc.)
-      const isConnectionError =
-        error instanceof AxiosError &&
-        (error.code === 'ECONNREFUSED' ||
-          error.code === 'ENOTFOUND' ||
-          error.code === 'EHOSTUNREACH');
+      const isConnectionError = error instanceof AxiosError &&
+        (error.code === "ECONNREFUSED" ||
+          error.code === "ENOTFOUND" ||
+          error.code === "EHOSTUNREACH");
 
       if (isConnectionError) {
         this.log2.warn(
-          'Worker appears to be completely unresponsive, allowing cleanup',
+          "Worker appears to be completely unresponsive, allowing cleanup",
           {
             prototypeId,
             fargatePrivateIp,
-            errorCode: error instanceof AxiosError ? error.code : 'unknown',
+            errorCode: error instanceof AxiosError ? error.code : "unknown",
           },
         );
 
         return {
           success: true, // Allow cleanup of dead workers
           buildInProgress: false,
-          error: error instanceof Error ? error.message : 'Connection error',
+          error: error instanceof Error ? error.message : "Connection error",
         };
       }
 
       if (isTimeout) {
         this.log2.warn(
-          'Dev server stop request timed out, assuming build in progress',
+          "Dev server stop request timed out, assuming build in progress",
           {
             prototypeId,
             fargatePrivateIp,
@@ -530,7 +529,7 @@ export class CleanupService {
 
         return {
           success: false,
-          error: error instanceof Error ? error.message : 'Timeout error',
+          error: error instanceof Error ? error.message : "Timeout error",
           buildInProgress: true,
         };
       }
@@ -538,7 +537,7 @@ export class CleanupService {
       // Other HTTP errors - might be server error, allow cleanup
       return {
         success: true,
-        error: error instanceof Error ? error.message : 'Unknown error',
+        error: error instanceof Error ? error.message : "Unknown error",
         buildInProgress: false,
       };
     }
@@ -552,18 +551,18 @@ export class CleanupService {
       const command = new StopTaskCommand({
         cluster: process.env.ECS_CLUSTER_NAME!,
         task: taskArn,
-        reason: 'Cleanup service - idle timeout',
+        reason: "Cleanup service - idle timeout",
       });
 
       await this.ecsClient.send(command);
       return { success: true, buildInProgress: false };
     } catch (error) {
-      this.log2.error(error, 'Failed to terminate Fargate task', {
+      this.log2.error(error, "Failed to terminate Fargate task", {
         taskArn,
       });
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
+        error: error instanceof Error ? error.message : "Unknown error",
         buildInProgress: false,
       };
     }
@@ -572,28 +571,28 @@ export class CleanupService {
   // Helper method to scan for keys matching a pattern
   private async scanKeys(pattern: string): Promise<string[]> {
     const keys: string[] = [];
-    let cursor = '0';
+    let cursor = "0";
 
     do {
       try {
         const result = (await this.cache.customCommand([
-          'SCAN',
+          "SCAN",
           cursor,
-          'MATCH',
+          "MATCH",
           pattern,
-          'COUNT',
-          '100',
+          "COUNT",
+          "100",
         ])) as [string, string[]];
 
         cursor = result[0];
         keys.push(...result[1]);
       } catch (error) {
-        this.log2.error(error, 'Error scanning keys with pattern', {
+        this.log2.error(error, "Error scanning keys with pattern", {
           pattern,
         });
         break;
       }
-    } while (cursor !== '0');
+    } while (cursor !== "0");
 
     return keys;
   }
