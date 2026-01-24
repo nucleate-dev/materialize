@@ -154,11 +154,6 @@ export async function createSourceRepoPullRequest(
     await runSourceRepoCommand(
       service,
       terminalSession.id,
-      `cd ${SOURCE_REPO_DIR} && git remote add origin ${remoteUrl}`,
-    );
-    await runSourceRepoCommand(
-      service,
-      terminalSession.id,
       `git config user.email "bot@nucleate.dev"`,
     );
     await runSourceRepoCommand(
@@ -422,12 +417,23 @@ export async function prepareSourceRepoBranch(
       terminalSession.id,
       `GH_TOKEN=${installationToken} gh pr view ${pullRequestNumber} --json headRefName,baseRefName`,
     );
+
+    // Strip any ANSI escape codes and spinner output before the JSON
+    const jsonMatch = prMetadataRaw.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      throw new Error(
+        `Failed to parse metadata for PR #${pullRequestNumber}. Raw output: ${
+          prMetadataRaw.slice(0, 200)
+        }`,
+      );
+    }
+
     let prMetadata: {
       headRefName?: string;
       baseRefName?: string;
     };
     try {
-      prMetadata = JSON.parse(prMetadataRaw);
+      prMetadata = JSON.parse(jsonMatch[0]);
     } catch {
       throw new Error(
         `Failed to parse metadata for PR #${pullRequestNumber}. Raw output: ${
