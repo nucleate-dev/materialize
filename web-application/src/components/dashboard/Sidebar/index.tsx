@@ -197,7 +197,7 @@ const DashboardSidebarContent = () => {
               <div className="relative flex items-center gap-2">
                 <div className="absolute inset-0 bg-gradient-to-r from-primary/20 to-secondary/20 dark:from-primary/30 dark:to-secondary/30 rounded-lg blur-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                 <Atom className="relative w-5 h-5 text-primary transition-transform duration-300 group-hover:scale-110 flex-shrink-0" />
-                <span className="relative text-base font-bold text-gray-900 dark:text-foreground transition-transform duration-300 group-hover:scale-105">
+                <span className="relative text-base font-bold text-sidebar-foreground transition-transform duration-300 group-hover:scale-105">
                   Nucleate
                 </span>
               </div>

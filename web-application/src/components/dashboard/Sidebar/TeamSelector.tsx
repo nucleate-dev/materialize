@@ -197,7 +197,7 @@ export function TeamSelector({
           <DropdownMenuContent
             side="right"
             align="start"
-            className="w-[480px] p-0 bg-sidebar border-sidebar-border"
+            className="w-[480px] max-w-[calc(100vw-2rem)] p-0 bg-sidebar text-sidebar-foreground border-sidebar-border"
           >
             {/* Team Header */}
             <div className="px-6 pt-6 pb-4">

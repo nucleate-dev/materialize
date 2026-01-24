@@ -12,10 +12,12 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useSidebar } from "@/components/ui/sidebar";
 import { logout } from "@/lib/utils/auth/SupabaseAuthUtils";
-import { TEAM_ACCOUNT_CREDITS_SETTINGS_PATH } from "@/GlobalConstants";
+import {
+  SHOW_WHITEBOARDS,
+  TEAM_ACCOUNT_CREDITS_SETTINGS_PATH,
+} from "@/GlobalConstants";
 import {
   ChevronDown,
-  Folder,
   LogOut,
   Menu,
   MoreHorizontal,
@@ -59,18 +61,16 @@ const MobileHeader = () => {
       label: "Projects",
       active: pathname?.includes("projects"),
     },
-    {
-      href: "/dashboard/folders",
-      icon: Folder,
-      label: "Folders",
-      active: pathname?.includes("folders"),
-    },
-    {
-      href: "/dashboard/whiteboards",
-      icon: SquareStack,
-      label: "Whiteboards",
-      active: pathname?.includes("whiteboards"),
-    },
+    ...(SHOW_WHITEBOARDS
+      ? [
+          {
+            href: "/dashboard/whiteboards",
+            icon: SquareStack,
+            label: "Whiteboards",
+            active: pathname?.includes("whiteboards"),
+          },
+        ]
+      : []),
   ];
 
   // Get current active item
