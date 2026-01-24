@@ -574,6 +574,11 @@ export function ProjectSettingsModal({
       return;
     }
 
+    if (hasSlugChanged) {
+      setSlugError("Please save your updated URL before deploying.");
+      return;
+    }
+
     try {
       setIsDeploying(true);
       logger.log({
@@ -586,33 +591,6 @@ export function ProjectSettingsModal({
         },
       });
 
-      // Case 1: Slug changed but latest build is already deployed
-      if (hasSlugChanged && isLatestBuildDeployed) {
-        const { error } = await supabase
-          .from("prototypes")
-          .update({ slug: normalizedSlug })
-          .eq("id", prototype.id);
-
-        if (error) {
-          setSlugError("Failed to update slug");
-          return;
-        }
-
-        const deployUrl = `https://${normalizedSlug}.nucleate.site`;
-
-        onDeploySuccess?.({
-          slug: normalizedSlug,
-          url: deployUrl,
-          visibility: deployVisibility,
-        });
-
-        setSlugError(null);
-        setSlugAvailable(true);
-        toast.success("Slug updated successfully!");
-        return;
-      }
-
-      // Case 2: Latest build is not deployed
       const session = await supabase.auth.getSession();
       const token = session.data.session?.access_token;
 
@@ -1579,7 +1557,7 @@ export function ProjectSettingsModal({
                       <p>
                         When you click{" "}
                         <strong className="text-foreground">
-                          Save &amp; deploy
+                          Deploy latest build
                         </strong>
                         , we publish your latest build so anyone with the link
                         can use it.
@@ -1663,7 +1641,7 @@ export function ProjectSettingsModal({
                       isDeploying ||
                       isEditingSlug ||
                       slugError ||
-                      (!hasSlugChanged && isLatestBuildDeployed),
+                      isLatestBuildDeployed,
                     )}
                     className="bg-primary hover:bg-primary/90 text-primary-foreground"
                   >
@@ -1675,7 +1653,7 @@ export function ProjectSettingsModal({
                     ) : (
                       <>
                         <Rocket className="w-4 h-4 mr-2" />
-                        Save &amp; deploy
+                        Deploy latest build
                       </>
                     )}
                   </Button>
