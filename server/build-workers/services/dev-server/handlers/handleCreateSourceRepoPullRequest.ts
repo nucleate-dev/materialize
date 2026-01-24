@@ -179,7 +179,7 @@ export async function createSourceRepoPullRequest(
       session_id: terminalSession.id,
       cwd: SOURCE_REPO_DIR,
     })).response.data?.stdout.trim();
-    if (currentBranch !== branchName) {
+    if (!currentBranch?.includes(branchName)) {
       logger.consoleLogDevOnly(
         "info",
         `current branch !== branchName`,
@@ -421,7 +421,7 @@ export async function prepareSourceRepoBranch(
     `https://x-access-token:${installationToken}@github.com/${sourceRepo.fullName}.git`;
 
   const terminalSession = service.terminalService.getOrCreateTerminalSession(
-    "source-repo-pr",
+    "source-repo-pr-prepare",
     "generic",
   );
   await new Promise((resolve) => setTimeout(resolve, 200));

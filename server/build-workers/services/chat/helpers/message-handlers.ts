@@ -41,10 +41,9 @@ export function getToolDisplayName(
   }
 
   if (normalized.includes("read") && toolInput?.file_path) {
-    const fileName =
-      sanitizeFilePath(toolInput.file_path as string)
-        .split("/")
-        .pop() || toolInput.file_path;
+    const fileName = sanitizeFilePath(toolInput.file_path as string)
+      .split("/")
+      .pop() || toolInput.file_path;
     return `Reading ${fileName}`;
   }
   if (normalized.includes("glob") && toolInput?.pattern) {
@@ -54,31 +53,27 @@ export function getToolDisplayName(
     return `Searching code for "${toolInput.pattern}"`;
   }
   if (normalized.includes("list") && toolInput?.path) {
-    const pathName =
-      sanitizeFilePath(toolInput.path as string)
-        .split("/")
-        .pop() || toolInput.path;
+    const pathName = sanitizeFilePath(toolInput.path as string)
+      .split("/")
+      .pop() || toolInput.path;
     return `Listing ${pathName}`;
   }
   if (normalized.includes("write") && toolInput?.file_path) {
-    const fileName =
-      sanitizeFilePath(toolInput.file_path as string)
-        .split("/")
-        .pop() || toolInput.file_path;
+    const fileName = sanitizeFilePath(toolInput.file_path as string)
+      .split("/")
+      .pop() || toolInput.file_path;
     return `Writing ${fileName}`;
   }
   if (normalized.includes("edit") && toolInput?.file_path) {
-    const fileName =
-      sanitizeFilePath(toolInput.file_path as string)
-        .split("/")
-        .pop() || toolInput.file_path;
+    const fileName = sanitizeFilePath(toolInput.file_path as string)
+      .split("/")
+      .pop() || toolInput.file_path;
     return `Editing ${fileName}`;
   }
   if (normalized.includes("delete") && toolInput?.file_path) {
-    const fileName =
-      sanitizeFilePath(toolInput.file_path as string)
-        .split("/")
-        .pop() || toolInput.file_path;
+    const fileName = sanitizeFilePath(toolInput.file_path as string)
+      .split("/")
+      .pop() || toolInput.file_path;
     return `Deleting ${fileName}`;
   }
 
@@ -90,8 +85,9 @@ export function getToolDisplayName(
   if (normalized.includes("edit")) return "Editing";
   if (normalized.includes("bash")) return "Running command";
   if (normalized.includes("delete")) return "Deleting";
-  if (normalized.includes("RestartDevServer"))
+  if (normalized.includes("RestartDevServer")) {
     return "Restarting development server";
+  }
   return toolName;
 }
 
@@ -120,26 +116,26 @@ export async function persistChatMessage(
   const supabase = supabaseClientService.getClient();
 
   try {
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
+    // const {
+    //   data: { user },
+    //   error: authError,
+    // } = await supabase.auth.getUser();
 
-    baseLogger.consoleLogDevOnly("debug", "Attempting to persist message", {
-      chatSessionId,
-      role,
-      messageType,
-      eventType,
-      hasEventData: !!eventData,
-      eventDataType: eventData ? typeof eventData : null,
-      creditsUsed,
-      costFunction,
-      provider,
-      model,
-      isAuthenticated: !!user,
-      userId: user?.id,
-      authError: authError?.message,
-    });
+    // baseLogger.consoleLogDevOnly("debug", "Attempting to persist message", {
+    //   chatSessionId,
+    //   role,
+    //   messageType,
+    //   eventType,
+    //   hasEventData: !!eventData,
+    //   eventDataType: eventData ? typeof eventData : null,
+    //   creditsUsed,
+    //   costFunction,
+    //   provider,
+    //   model,
+    //   isAuthenticated: !!user,
+    //   userId: user?.id,
+    //   authError: authError?.message,
+    // });
 
     const mergedEventData = {
       ...(eventData ?? {}),
@@ -166,12 +162,12 @@ export async function persistChatMessage(
         eventType,
       });
     } else {
-      baseLogger.consoleLogDevOnly("info", "Persisted chat message", {
-        chatSessionId,
-        role,
-        messageType,
-        eventType,
-      });
+      // baseLogger.consoleLogDevOnly("info", "Persisted chat message", {
+      //   chatSessionId,
+      //   role,
+      //   messageType,
+      //   eventType,
+      // });
     }
   } catch (error) {
     baseLogger.error(

@@ -160,9 +160,9 @@ export class FileSyncService {
           });
         });
 
-      baseLogger.consoleLogDevOnly("info", "Initialized file watcher", {
-        workDir: WORK_DIR,
-      });
+      // baseLogger.consoleLogDevOnly("info", "Initialized file watcher", {
+      //   workDir: WORK_DIR,
+      // });
     } catch (error) {
       baseLogger.warn("Failed to initialize file watcher", {
         workDir: WORK_DIR,
@@ -315,13 +315,13 @@ export class FileSyncService {
     };
 
     try {
-      baseLogger.consoleLogDevOnly("info", "Starting file sync", {
-        prototypeId,
-        mode,
-      });
+      // baseLogger.consoleLogDevOnly("info", "Starting file sync", {
+      //   prototypeId,
+      //   mode,
+      // });
 
-      const { files, assets, deletedFiles, deletedAssets } =
-        await this.loadSyncTargets(mode);
+      const { files, assets, deletedFiles, deletedAssets } = await this
+        .loadSyncTargets(mode);
 
       await this.processDeletions(
         [...deletedFiles, ...deletedAssets],
@@ -367,19 +367,19 @@ export class FileSyncService {
   private async loadAllSyncTargets(): Promise<SyncTargets> {
     this.resetTrackedChanges();
 
-    baseLogger.consoleLogDevOnly(
-      "info",
-      "Scanning directory for full sync targets",
-      {
-        workDir: WORK_DIR,
-      },
-    );
+    // baseLogger.consoleLogDevOnly(
+    //   "info",
+    //   "Scanning directory for full sync targets",
+    //   {
+    //     workDir: WORK_DIR,
+    //   },
+    // );
 
     const allFiles = await this.scanDirectory(WORK_DIR);
 
-    baseLogger.consoleLogDevOnly("info", "Scanned directory for files", {
-      fileCount: allFiles.length,
-    });
+    // baseLogger.consoleLogDevOnly("info", "Scanned directory for files", {
+    //   fileCount: allFiles.length,
+    // });
 
     const { textFiles, binaryFiles } = this.partitionFilesByType(allFiles);
 
@@ -512,17 +512,17 @@ export class FileSyncService {
           .in("name", textFilesToDelete);
 
         if (error) {
-          baseLogger.error(error, "Failed to bulk delete text files", {
-            count: textFilesToDelete.length,
-          });
+          // baseLogger.error(error, "Failed to bulk delete text files", {
+          //   count: textFilesToDelete.length,
+          // });
           result.errors.push(
             `Failed to bulk delete ${textFilesToDelete.length} text files: ${error.message}`,
           );
         } else {
           result.filesDeleted += textFilesToDelete.length;
-          baseLogger.consoleLogDevOnly("info", "Bulk deleted text files", {
-            count: textFilesToDelete.length,
-          });
+          // baseLogger.consoleLogDevOnly("info", "Bulk deleted text files", {
+          //   count: textFilesToDelete.length,
+          // });
         }
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
@@ -557,10 +557,9 @@ export class FileSyncService {
       } catch (storageError) {
         baseLogger.warn("Error during bulk asset storage deletion", {
           count: binaryFilesToDelete.length,
-          error:
-            storageError instanceof Error
-              ? storageError.message
-              : String(storageError),
+          error: storageError instanceof Error
+            ? storageError.message
+            : String(storageError),
         });
         // Continue to database deletion
       }
@@ -587,9 +586,9 @@ export class FileSyncService {
           );
         } else {
           result.assetsDeleted += binaryFilesToDelete.length;
-          baseLogger.consoleLogDevOnly("info", "Bulk deleted assets", {
-            count: binaryFilesToDelete.length,
-          });
+          // baseLogger.consoleLogDevOnly("info", "Bulk deleted assets", {
+          //   count: binaryFilesToDelete.length,
+          // });
         }
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
@@ -620,15 +619,15 @@ export class FileSyncService {
       BATCH_CONFIG.FILE_UPSERT_BATCH_SIZE,
     );
 
-    baseLogger.consoleLogDevOnly(
-      "info",
-      "Processing text files with bulk upsert",
-      {
-        totalFiles: textFiles.length,
-        batches: chunks.length,
-        batchSize: BATCH_CONFIG.FILE_UPSERT_BATCH_SIZE,
-      },
-    );
+    // baseLogger.consoleLogDevOnly(
+    //   "info",
+    //   "Processing text files with bulk upsert",
+    //   {
+    //     totalFiles: textFiles.length,
+    //     batches: chunks.length,
+    //     batchSize: BATCH_CONFIG.FILE_UPSERT_BATCH_SIZE,
+    //   },
+    // );
 
     for (let i = 0; i < chunks.length; i++) {
       const chunk = chunks[i];
@@ -651,8 +650,9 @@ export class FileSyncService {
                 updated_at: new Date().toISOString(),
               };
             } catch (error) {
-              const message =
-                error instanceof Error ? error.message : String(error);
+              const message = error instanceof Error
+                ? error.message
+                : String(error);
               baseLogger.error(new Error(message), "Failed to read text file", {
                 path: filePath,
               });
@@ -665,8 +665,9 @@ export class FileSyncService {
         const fileData = (await Promise.all(fileDataPromises)).filter(
           (
             data,
-          ): data is Database["public"]["Tables"]["prototype_files"]["Insert"] =>
-            data !== null,
+          ): data is Database["public"]["Tables"]["prototype_files"][
+            "Insert"
+          ] => data !== null,
         );
 
         if (fileData.length === 0) {
@@ -691,10 +692,10 @@ export class FileSyncService {
           if (!error) {
             result.filesUpdated += fileData.length;
             success = true;
-            baseLogger.consoleLogDevOnly("info", "Bulk upserted text files", {
-              batchIndex: i + 1,
-              filesCount: fileData.length,
-            });
+            // baseLogger.consoleLogDevOnly("info", "Bulk upserted text files", {
+            //   batchIndex: i + 1,
+            //   filesCount: fileData.length,
+            // });
           } else {
             retries--;
             const attempt = 4 - retries;
@@ -707,12 +708,14 @@ export class FileSyncService {
 
             if (retries === 0) {
               result.errors.push(
-                `Failed to bulk upsert batch ${i + 1} (${fileData.length} files): ${error.message}`,
+                `Failed to bulk upsert batch ${
+                  i + 1
+                } (${fileData.length} files): ${error.message}`,
               );
             } else {
               // Exponential backoff
               await new Promise((resolve) =>
-                setTimeout(resolve, Math.pow(2, 3 - retries) * 100),
+                setTimeout(resolve, Math.pow(2, 3 - retries) * 100)
               );
             }
           }
@@ -730,7 +733,7 @@ export class FileSyncService {
       // Small delay between batches to avoid overwhelming the database
       if (i < chunks.length - 1) {
         await new Promise((resolve) =>
-          setTimeout(resolve, BATCH_CONFIG.BATCH_DELAY_MS),
+          setTimeout(resolve, BATCH_CONFIG.BATCH_DELAY_MS)
         );
       }
     }
@@ -752,16 +755,16 @@ export class FileSyncService {
     const BATCH_SIZE = 50; // Process 50 files at a time
     const chunks = this.chunkArray(binaryFiles, BATCH_SIZE);
 
-    baseLogger.consoleLogDevOnly(
-      "info",
-      "Processing binary files with bulk operations",
-      {
-        totalFiles: binaryFiles.length,
-        batches: chunks.length,
-        batchSize: BATCH_SIZE,
-        uploadConcurrency: BATCH_CONFIG.ASSET_UPLOAD_CONCURRENCY,
-      },
-    );
+    // baseLogger.consoleLogDevOnly(
+    //   "info",
+    //   "Processing binary files with bulk operations",
+    //   {
+    //     totalFiles: binaryFiles.length,
+    //     batches: chunks.length,
+    //     batchSize: BATCH_SIZE,
+    //     uploadConcurrency: BATCH_CONFIG.ASSET_UPLOAD_CONCURRENCY,
+    //   },
+    // );
 
     for (let batchIndex = 0; batchIndex < chunks.length; batchIndex++) {
       const batch = chunks[batchIndex];
@@ -789,7 +792,9 @@ export class FileSyncService {
                   size: stats.size,
                 });
                 result.errors.push(
-                  `Skipped ${filePath}: file too large (${Math.round(stats.size / 1024 / 1024)}MB)`,
+                  `Skipped ${filePath}: file too large (${
+                    Math.round(stats.size / 1024 / 1024)
+                  }MB)`,
                 );
                 return;
               }
@@ -830,14 +835,15 @@ export class FileSyncService {
                     );
                   } else {
                     await new Promise((resolve) =>
-                      setTimeout(resolve, Math.pow(2, 3 - retries) * 100),
+                      setTimeout(resolve, Math.pow(2, 3 - retries) * 100)
                     );
                   }
                 }
               }
             } catch (error) {
-              const message =
-                error instanceof Error ? error.message : String(error);
+              const message = error instanceof Error
+                ? error.message
+                : String(error);
               baseLogger.error(
                 new Error(message),
                 "Failed to process binary file",
@@ -865,14 +871,14 @@ export class FileSyncService {
           if (!dbError) {
             result.assetsUpdated += successfulUploads.length;
             success = true;
-            baseLogger.consoleLogDevOnly(
-              "info",
-              "Bulk upserted asset metadata",
-              {
-                batchIndex: batchIndex + 1,
-                assetsCount: successfulUploads.length,
-              },
-            );
+            // baseLogger.consoleLogDevOnly(
+            //   "info",
+            //   "Bulk upserted asset metadata",
+            //   {
+            //     batchIndex: batchIndex + 1,
+            //     assetsCount: successfulUploads.length,
+            //   },
+            // );
           } else {
             retries--;
             const attempt = 4 - retries;
@@ -889,12 +895,14 @@ export class FileSyncService {
 
             if (retries === 0) {
               result.errors.push(
-                `Failed to bulk upsert metadata for batch ${batchIndex + 1} (${successfulUploads.length} assets): ${dbError.message}`,
+                `Failed to bulk upsert metadata for batch ${
+                  batchIndex + 1
+                } (${successfulUploads.length} assets): ${dbError.message}`,
               );
             } else {
               // Exponential backoff
               await new Promise((resolve) =>
-                setTimeout(resolve, Math.pow(2, 3 - retries) * 100),
+                setTimeout(resolve, Math.pow(2, 3 - retries) * 100)
               );
             }
           }
@@ -904,7 +912,7 @@ export class FileSyncService {
       // Small delay between batches to avoid overwhelming storage/database
       if (batchIndex < chunks.length - 1) {
         await new Promise((resolve) =>
-          setTimeout(resolve, BATCH_CONFIG.BATCH_DELAY_MS),
+          setTimeout(resolve, BATCH_CONFIG.BATCH_DELAY_MS)
         );
       }
     }
@@ -1099,13 +1107,13 @@ export class FileSyncService {
     };
 
     try {
-      baseLogger.consoleLogDevOnly("info", "Starting selective file sync", {
-        prototypeId,
-        fileNamesCount: fileNames.length,
-        assetNamesCount: assetNames.length,
-        deletedFileNamesCount: deletedFileNames.length,
-        deletedAssetNamesCount: deletedAssetNames.length,
-      });
+      // baseLogger.consoleLogDevOnly("info", "Starting selective file sync", {
+      //   prototypeId,
+      //   fileNamesCount: fileNames.length,
+      //   assetNamesCount: assetNames.length,
+      //   deletedFileNamesCount: deletedFileNames.length,
+      //   deletedAssetNamesCount: deletedAssetNames.length,
+      // });
 
       // Step 1: Delete specified files from disk
       if (deletedFileNames.length > 0) {
@@ -1123,8 +1131,9 @@ export class FileSyncService {
               "code" in error &&
               error.code !== "ENOENT"
             ) {
-              const message =
-                error instanceof Error ? error.message : String(error);
+              const message = error instanceof Error
+                ? error.message
+                : String(error);
               baseLogger.warn("Failed to delete file from disk", {
                 fileName,
                 error: message,
@@ -1138,9 +1147,9 @@ export class FileSyncService {
             }
           }
         }
-        baseLogger.consoleLogDevOnly("info", "Files deleted from disk", {
-          count: result.filesDeleted,
-        });
+        // baseLogger.consoleLogDevOnly("info", "Files deleted from disk", {
+        //   count: result.filesDeleted,
+        // });
       }
 
       // Step 2: Delete specified assets from disk
@@ -1159,8 +1168,9 @@ export class FileSyncService {
               "code" in error &&
               error.code !== "ENOENT"
             ) {
-              const message =
-                error instanceof Error ? error.message : String(error);
+              const message = error instanceof Error
+                ? error.message
+                : String(error);
               baseLogger.warn("Failed to delete asset from disk", {
                 assetName,
                 error: message,
@@ -1174,9 +1184,9 @@ export class FileSyncService {
             }
           }
         }
-        baseLogger.consoleLogDevOnly("info", "Assets deleted from disk", {
-          count: result.assetsDeleted,
-        });
+        // baseLogger.consoleLogDevOnly("info", "Assets deleted from disk", {
+        //   count: result.assetsDeleted,
+        // });
       }
 
       // Step 3: Fetch specified files from Supabase
@@ -1190,7 +1200,8 @@ export class FileSyncService {
             .in("name", fileNames);
 
           if (error) {
-            const errorMsg = `Failed to fetch files from Supabase: ${error.message}`;
+            const errorMsg =
+              `Failed to fetch files from Supabase: ${error.message}`;
             baseLogger.error(new Error(errorMsg), "File fetch failed", {
               prototypeId,
             });
@@ -1207,8 +1218,9 @@ export class FileSyncService {
                 this.updatedFiles.delete(file.name);
                 this.deletedFiles.delete(file.name);
               } catch (error) {
-                const message =
-                  error instanceof Error ? error.message : String(error);
+                const message = error instanceof Error
+                  ? error.message
+                  : String(error);
                 baseLogger.error(
                   new Error(message),
                   "Failed to write file to disk",
@@ -1217,13 +1229,14 @@ export class FileSyncService {
                 result.errors.push(`Failed to write ${file.name}: ${message}`);
               }
             }
-            baseLogger.consoleLogDevOnly("info", "Files written to disk", {
-              count: result.filesUpdated,
-            });
+            // baseLogger.consoleLogDevOnly("info", "Files written to disk", {
+            //   count: result.filesUpdated,
+            // });
           }
         } catch (error) {
-          const message =
-            error instanceof Error ? error.message : String(error);
+          const message = error instanceof Error
+            ? error.message
+            : String(error);
           baseLogger.error(
             new Error(message),
             "Error fetching files from Supabase",
@@ -1244,7 +1257,8 @@ export class FileSyncService {
             .in("name", assetNames);
 
           if (error) {
-            const errorMsg = `Failed to fetch assets from Supabase: ${error.message}`;
+            const errorMsg =
+              `Failed to fetch assets from Supabase: ${error.message}`;
             baseLogger.error(new Error(errorMsg), "Asset fetch failed", {
               prototypeId,
             });
@@ -1261,11 +1275,11 @@ export class FileSyncService {
                 chunk.map(async (asset) => {
                   try {
                     // Download from storage
-                    const { data, error: downloadError } =
-                      await this.supabaseClientService
-                        .getClient()
-                        .storage.from("prototype-assets")
-                        .download(asset.prototype_id + "/" + asset.name);
+                    const { data, error: downloadError } = await this
+                      .supabaseClientService
+                      .getClient()
+                      .storage.from("prototype-assets")
+                      .download(asset.prototype_id + "/" + asset.name);
 
                     if (downloadError || !data) {
                       baseLogger.warn("Failed to download asset", {
@@ -1273,7 +1287,9 @@ export class FileSyncService {
                         error: JSON.stringify(downloadError),
                       });
                       result.errors.push(
-                        `Failed to download asset ${asset.name}: ${JSON.stringify(downloadError)}`,
+                        `Failed to download asset ${asset.name}: ${
+                          JSON.stringify(downloadError)
+                        }`,
                       );
                       return;
                     }
@@ -1290,8 +1306,9 @@ export class FileSyncService {
                     this.updatedAssets.delete(asset.name);
                     this.deletedAssets.delete(asset.name);
                   } catch (error) {
-                    const message =
-                      error instanceof Error ? error.message : String(error);
+                    const message = error instanceof Error
+                      ? error.message
+                      : String(error);
                     baseLogger.error(
                       new Error(message),
                       "Failed to process asset",
@@ -1304,13 +1321,14 @@ export class FileSyncService {
                 }),
               );
             }
-            baseLogger.consoleLogDevOnly("info", "Assets written to disk", {
-              count: result.assetsUpdated,
-            });
+            // baseLogger.consoleLogDevOnly("info", "Assets written to disk", {
+            //   count: result.assetsUpdated,
+            // });
           }
         } catch (error) {
-          const message =
-            error instanceof Error ? error.message : String(error);
+          const message = error instanceof Error
+            ? error.message
+            : String(error);
           baseLogger.error(
             new Error(message),
             "Error fetching assets from Supabase",
@@ -1362,7 +1380,8 @@ export class FileSyncService {
           .order("name", { ascending: true });
 
         if (error) {
-          const errorMsg = `Failed to fetch files batch at offset ${offset}: ${error.message}`;
+          const errorMsg =
+            `Failed to fetch files batch at offset ${offset}: ${error.message}`;
           baseLogger.error(new Error(errorMsg), "File batch fetch failed", {
             error,
             offset,
@@ -1386,14 +1405,16 @@ export class FileSyncService {
           // Small delay to avoid rate limiting
           if (hasMore) {
             await new Promise((resolve) =>
-              setTimeout(resolve, BATCH_CONFIG.BATCH_DELAY_MS),
+              setTimeout(resolve, BATCH_CONFIG.BATCH_DELAY_MS)
             );
           }
         } else {
           hasMore = false;
         }
       } catch (err) {
-        const errorMsg = `Error fetching files batch: ${err instanceof Error ? err.message : String(err)}`;
+        const errorMsg = `Error fetching files batch: ${
+          err instanceof Error ? err.message : String(err)
+        }`;
         baseLogger.error(new Error(errorMsg), "File batch fetch error", {
           offset,
         });
@@ -1430,7 +1451,8 @@ export class FileSyncService {
           .order("name", { ascending: true });
 
         if (error) {
-          const errorMsg = `Failed to fetch assets batch at offset ${offset}: ${error.message}`;
+          const errorMsg =
+            `Failed to fetch assets batch at offset ${offset}: ${error.message}`;
           baseLogger.error(new Error(errorMsg), "Asset batch fetch failed", {
             error,
             offset,
@@ -1455,14 +1477,16 @@ export class FileSyncService {
           // Small delay to avoid rate limiting
           if (hasMore) {
             await new Promise((resolve) =>
-              setTimeout(resolve, BATCH_CONFIG.BATCH_DELAY_MS),
+              setTimeout(resolve, BATCH_CONFIG.BATCH_DELAY_MS)
             );
           }
         } else {
           hasMore = false;
         }
       } catch (err) {
-        const errorMsg = `Error fetching asset metadata batch: ${err instanceof Error ? err.message : String(err)}`;
+        const errorMsg = `Error fetching asset metadata batch: ${
+          err instanceof Error ? err.message : String(err)
+        }`;
         baseLogger.error(new Error(errorMsg), "Asset metadata batch error", {
           offset,
         });
@@ -1508,7 +1532,9 @@ export class FileSyncService {
                   error: error?.message ?? "unknown error",
                 });
                 errors.push(
-                  `Failed to download asset ${asset.name}: ${error?.message ?? "unknown error"}`,
+                  `Failed to download asset ${asset.name}: ${
+                    error?.message ?? "unknown error"
+                  }`,
                 );
                 return null;
               }
@@ -1526,7 +1552,9 @@ export class FileSyncService {
                 error: err instanceof Error ? err.message : String(err),
               });
               errors.push(
-                `Error downloading asset ${asset.name}: ${err instanceof Error ? err.message : String(err)}`,
+                `Error downloading asset ${asset.name}: ${
+                  err instanceof Error ? err.message : String(err)
+                }`,
               );
               return null;
             }
@@ -1550,11 +1578,13 @@ export class FileSyncService {
         // Small delay between batches to avoid overwhelming storage
         if (processedCount < assetMetadata.length) {
           await new Promise((resolve) =>
-            setTimeout(resolve, BATCH_CONFIG.BATCH_DELAY_MS),
+            setTimeout(resolve, BATCH_CONFIG.BATCH_DELAY_MS)
           );
         }
       } catch (err) {
-        const errorMsg = `Error downloading asset batch: ${err instanceof Error ? err.message : String(err)}`;
+        const errorMsg = `Error downloading asset batch: ${
+          err instanceof Error ? err.message : String(err)
+        }`;
         baseLogger.error(new Error(errorMsg), "Asset download batch error");
         errors.push(errorMsg);
         // Continue with next batch despite error

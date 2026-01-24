@@ -41,15 +41,15 @@ export const OAUTH_COST_FUNCTION_NAME = "oauth_flat_fee_v1";
  */
 export function calculateOAuthCredits(
   promptLength: number,
-  logger?: SystemLogger,
+  _logger?: SystemLogger,
 ): number {
   for (const tier of OAUTH_CREDIT_TIERS) {
     if (promptLength <= tier.maxLength) {
-      logger?.consoleLogDevOnly("info", "Calculated OAuth credits", {
-        promptLength,
-        credits: tier.credits,
-        tier: tier.maxLength === Infinity ? "very_long" : `<=${tier.maxLength}`,
-      });
+      // logger?.consoleLogDevOnly("info", "Calculated OAuth credits", {
+      //   promptLength,
+      //   credits: tier.credits,
+      //   tier: tier.maxLength === Infinity ? "very_long" : `<=${tier.maxLength}`,
+      // });
       return tier.credits;
     }
   }

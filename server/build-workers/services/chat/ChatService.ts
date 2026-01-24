@@ -1,7 +1,7 @@
 import { Options } from "@anthropic-ai/claude-agent-sdk";
 import { FastifyInstance, FastifyRequest } from "fastify";
 import WebSocket from "ws";
-import { baseLogger, posthog } from "../../loggers/index.js";
+import { baseLogger } from "../../loggers/index.js";
 import { SystemLogger } from "../../loggers/SystemLogger.js";
 import {
   AuthModeChangeData,
@@ -17,7 +17,7 @@ import {
 import { isEligibleForPersonalClaudeSubscription } from "../../utils/eligibilityChecks.js";
 import { Database } from "../../types/supabase.js";
 import { hasRemainingCredits } from "../../utils/credit-checks.js";
-import { SOURCE_REPO_DIR, getWorkerContext, WORK_DIR } from "../../worker.js";
+import { getWorkerContext, SOURCE_REPO_DIR, WORK_DIR } from "../../worker.js";
 import { ClaudeTokenService } from "../auth/claude-token-service.js";
 import { NucleateDevelopmentServerService } from "../dev-server/NucleateDevelopmentServerService.js";
 import { FileSyncService } from "../FileSyncService.js";
@@ -35,12 +35,12 @@ import {
 import { ChatQueryHandler } from "./chat-engines/chat-query-handler.js";
 import {
   costFunctionV3,
-  CURRENT_COST_FUNCTION_NAME,
+  // CURRENT_COST_FUNCTION_NAME,
 } from "./cost/cost-calculation.js";
 import {
   calculateOAuthCredits,
   getPromptLengthFromQueryData,
-  OAUTH_COST_FUNCTION_NAME,
+  // OAUTH_COST_FUNCTION_NAME,
 } from "./cost/oauth-credit-calculation.js";
 import { trackApiUsageBuildWorker } from "./cost/usage-tracking.js";
 import { persistChatMessage } from "./helpers/message-handlers.js";
@@ -115,7 +115,7 @@ export class ChatService {
 
   public setAak(key: string): void {
     this.aak = key;
-    baseLogger.consoleLogDevOnly("info", "Anthropic API key set");
+    // baseLogger.consoleLogDevOnly("info", "Anthropic API key set");
   }
 
   /**
@@ -127,10 +127,10 @@ export class ChatService {
     this.isOAuthModeActive = true;
     process.env.CLAUDE_CODE_OAUTH_TOKEN = token;
     delete process.env.ANTHROPIC_API_KEY;
-    baseLogger.consoleLogDevOnly(
-      "info",
-      "User OAuth token set for ChatService",
-    );
+    // baseLogger.consoleLogDevOnly(
+    //   "info",
+    //   "User OAuth token set for ChatService",
+    // );
   }
 
   /**
@@ -147,7 +147,7 @@ export class ChatService {
     this.userOAuthToken = null;
     this.isOAuthModeActive = false;
     delete process.env.CLAUDE_CODE_OAUTH_TOKEN;
-    baseLogger.consoleLogDevOnly("info", "User OAuth token cleared");
+    // baseLogger.consoleLogDevOnly("info", "User OAuth token cleared");
   }
 
   /**
@@ -158,14 +158,14 @@ export class ChatService {
     for (const sessionId of sessionIds) {
       this.validAiChatSessionIds.add(sessionId);
     }
-    baseLogger.consoleLogDevOnly(
-      "info",
-      "Registered valid session IDs from restored sessions",
-      {
-        count: sessionIds.length,
-        sessionIds,
-      },
-    );
+    // baseLogger.consoleLogDevOnly(
+    //   "info",
+    //   "Registered valid session IDs from restored sessions",
+    //   {
+    //     count: sessionIds.length,
+    //     sessionIds,
+    //   },
+    // );
   }
 
   // ---------------------------------------------------------------------------
@@ -497,32 +497,32 @@ export class ChatService {
 
     // 5. DETERMINE APPROPRIATE CHAT HANDLER FOR THE USER
     // 5a. Check if the user has a claude subscription token to determine whether to use CLI mode
-    let useCliMode = false;
-    if (userId) {
-      try {
-        const isFeatureEnabled = await posthog.isFeatureEnabled(
-          "claude-code-cli-with-personal-token",
-          userId,
-        );
-        if (isFeatureEnabled) {
-          const userToken = await this.claudeTokenService.getUserToken(userId);
-          useCliMode = !!userToken;
-        }
-        logger.consoleLogDevOnly(
-          "info",
-          "Checked user Claude subscription token",
-          {
-            userId,
-            isFeatureEnabled,
-            hasToken: useCliMode,
-          },
-        );
-      } catch (error) {
-        logger.warn("Failed to check user Claude subscription token", {
-          error: error instanceof Error ? error.message : String(error),
-        });
-      }
-    }
+    // let useCliMode = false;
+    // if (userId) {
+    //   try {
+    //     const isFeatureEnabled = await posthog.isFeatureEnabled(
+    //       "claude-code-cli-with-personal-token",
+    //       userId,
+    //     );
+    //     if (isFeatureEnabled) {
+    //       const userToken = await this.claudeTokenService.getUserToken(userId);
+    //       useCliMode = !!userToken;
+    //     }
+    //     logger.consoleLogDevOnly(
+    //       "info",
+    //       "Checked user Claude subscription token",
+    //       {
+    //         userId,
+    //         isFeatureEnabled,
+    //         hasToken: useCliMode,
+    //       },
+    //     );
+    //   } catch (error) {
+    //     logger.warn("Failed to check user Claude subscription token", {
+    //       error: error instanceof Error ? error.message : String(error),
+    //     });
+    //   }
+    // }
     // 5. PREPARE SESSION STATE
     this.prepareSessionStateForQuery(data, logger);
 
@@ -599,11 +599,11 @@ export class ChatService {
     );
 
     // 8. DISPATCH REQUEST TO SDK ENGINE
-    logger.consoleLogDevOnly("info", "Dispatching chat query to SDK handler", {
-      prototypeId,
-      hasPrototypeChatSessionId: !!this.sessionState.prototypeChatSessionId,
-      sessionId: this.sessionState.sessionId,
-    });
+    // logger.consoleLogDevOnly("info", "Dispatching chat query to SDK handler", {
+    //   prototypeId,
+    //   hasPrototypeChatSessionId: !!this.sessionState.prototypeChatSessionId,
+    //   sessionId: this.sessionState.sessionId,
+    // });
     let handlerResult: ChatEngineResult | void = undefined;
     const designAgentCost = designPreparation?.designAgentCost;
     try {
@@ -658,9 +658,9 @@ export class ChatService {
   ): Promise<void> {
     const { historical_messages, original_query } = data;
 
-    logger.consoleLogDevOnly("info", "Received history response from client", {
-      messageCount: historical_messages.length,
-    });
+    // logger.consoleLogDevOnly("info", "Received history response from client", {
+    //   messageCount: historical_messages.length,
+    // });
 
     // Format historical messages for system prompt
     let historyContext = "";
@@ -675,15 +675,15 @@ export class ChatService {
       historyContext =
         `\n\n## Previous Conversation Context:\n${formattedMessages}\n\n---\n\nThe above is context from a previous session. Continue the conversation naturally.`;
 
-      logger.consoleLogDevOnly("info", "Formatted history context", {
-        contextLength: historyContext.length,
-        messageCount: historical_messages.length,
-      });
+      // logger.consoleLogDevOnly("info", "Formatted history context", {
+      //   contextLength: historyContext.length,
+      //   messageCount: historical_messages.length,
+      // });
     } else {
-      logger.consoleLogDevOnly(
-        "info",
-        "No historical messages provided - starting fresh session",
-      );
+      // logger.consoleLogDevOnly(
+      //   "info",
+      //   "No historical messages provided - starting fresh session",
+      // );
     }
 
     // Now process the original query with history context appended to system prompt
@@ -711,11 +711,11 @@ export class ChatService {
       ? "claude_sub"
       : "nucleate";
 
-    logger.consoleLogDevOnly("info", "Auth mode change requested", {
-      requestedMode,
-      hasOAuthToken: this.hasUserOAuthToken(),
-      hasAak: !!this.aak,
-    });
+    // logger.consoleLogDevOnly("info", "Auth mode change requested", {
+    //   requestedMode,
+    //   hasOAuthToken: this.hasUserOAuthToken(),
+    //   hasAak: !!this.aak,
+    // });
 
     if (
       (requestedMode === "claude_sub" && this.isOAuthModeActive) ||
@@ -728,14 +728,14 @@ export class ChatService {
     if (requestedMode === "claude_sub") {
       const { teamId, userId } = getWorkerContext();
       if (!teamId || !userId) {
-        logger.consoleLogDevOnly(
-          "warn",
-          "Cannot enable personal Claude subscription without team/user context",
-          {
-            teamId,
-            userId,
-          },
-        );
+        // logger.consoleLogDevOnly(
+        //   "warn",
+        //   "Cannot enable personal Claude subscription without team/user context",
+        //   {
+        //     teamId,
+        //     userId,
+        //   },
+        // );
         this.sendMessage(socket, {
           type: ChatEvent.ERROR,
           error: {
@@ -755,11 +755,11 @@ export class ChatService {
       });
 
       if (!eligible) {
-        logger.consoleLogDevOnly(
-          "warn",
-          "Team attempted to use personal Claude subscription without eligibility",
-          { teamId, userId },
-        );
+        // logger.consoleLogDevOnly(
+        //   "warn",
+        //   "Team attempted to use personal Claude subscription without eligibility",
+        //   { teamId, userId },
+        // );
         this.sendMessage(socket, {
           type: ChatEvent.ERROR,
           error: {
@@ -804,10 +804,10 @@ export class ChatService {
   }
 
   private async handleInterrupt(): Promise<void> {
-    baseLogger.consoleLogDevOnly("info", "Interrupt requested", {
-      sessionId: this.sessionState.sessionId,
-      hasAbortController: !!this.sessionState.abortController,
-    });
+    // baseLogger.consoleLogDevOnly("info", "Interrupt requested", {
+    //   sessionId: this.sessionState.sessionId,
+    //   hasAbortController: !!this.sessionState.abortController,
+    // });
 
     if (this.sessionState.abortController) {
       try {
@@ -815,10 +815,10 @@ export class ChatService {
         this.sessionState.abortController.abort();
         this.sessionState.abortController = null;
 
-        baseLogger.consoleLogDevOnly(
-          "info",
-          "Claude Code query interrupted successfully",
-        );
+        // baseLogger.consoleLogDevOnly(
+        //   "info",
+        //   "Claude Code query interrupted successfully",
+        // );
 
         // Persist interrupt event to database
         if (this.sessionState.prototypeChatSessionId) {
@@ -968,10 +968,10 @@ export class ChatService {
 
     if (prototype_chat_session_id) {
       this.sessionState.prototypeChatSessionId = prototype_chat_session_id;
-      logger.consoleLogDevOnly("info", "Using chat session ID from client", {
-        chatSessionId: prototype_chat_session_id,
-        claudeCodeSessionId: ai_chat_session_id,
-      });
+      // logger.consoleLogDevOnly("info", "Using chat session ID from client", {
+      //   chatSessionId: prototype_chat_session_id,
+      //   claudeCodeSessionId: ai_chat_session_id,
+      // });
       if (previousPrototypeChatSessionId !== prototype_chat_session_id) {
         this.sessionState.firstMessageStatus = null;
       }
@@ -984,13 +984,13 @@ export class ChatService {
     }
 
     if (ai_chat_session_id === null) {
-      logger.consoleLogDevOnly(
-        "info",
-        "Client requested new session - clearing internal state",
-        {
-          previousSessionId: this.sessionState.sessionId,
-        },
-      );
+      // logger.consoleLogDevOnly(
+      //   "info",
+      //   "Client requested new session - clearing internal state",
+      //   {
+      //     previousSessionId: this.sessionState.sessionId,
+      //   },
+      // );
       this.sessionState.sessionId = null;
       this.sessionState.firstMessageStatus = null; // Is this supposed to be here? --sourish
     }
@@ -1083,10 +1083,10 @@ export class ChatService {
   ): Promise<void> {
     const options = (data.options ?? {}) as Options;
 
-    logger.consoleLogDevOnly("info", "Processing query with history context", {
-      hasHistoryContext: historyContext.length > 0,
-      historyContextLength: historyContext.length,
-    });
+    // logger.consoleLogDevOnly("info", "Processing query with history context", {
+    //   hasHistoryContext: historyContext.length > 0,
+    //   historyContextLength: historyContext.length,
+    // });
 
     // For queries with history, we always start a fresh session (don't try to resume)
     // The history context provides continuity instead of session resumption
@@ -1142,7 +1142,7 @@ export class ChatService {
       if (!customDesignSystemId) {
         this.sessionState.designSystemId = null;
         this.sessionState.designSystemRules = null;
-        logger.consoleLogDevOnly("info", "Design system cleared");
+        // logger.consoleLogDevOnly("info", "Design system cleared");
       } else {
         try {
           const { data: designSystem, error } = await this.supabaseClientService
@@ -1264,13 +1264,13 @@ export class ChatService {
         isFirst,
       };
 
-      logger.consoleLogDevOnly("info", "First message detection result", {
-        prototypeId,
-        prototypeChatSessionId,
-        messageRows,
-        sessionRows,
-        isFirst,
-      });
+      // logger.consoleLogDevOnly("info", "First message detection result", {
+      //   prototypeId,
+      //   prototypeChatSessionId,
+      //   messageRows,
+      //   sessionRows,
+      //   isFirst,
+      // });
 
       return isFirst;
     } catch (error) {
@@ -1321,26 +1321,26 @@ export class ChatService {
     logger: SystemLogger,
   ): Promise<void> {
     try {
-      logger.consoleLogDevOnly(
-        "info",
-        "Syncing file changes to Supabase (incremental sync)",
-        {
-          prototypeId,
-        },
-      );
+      // logger.consoleLogDevOnly(
+      //   "info",
+      //   "Syncing file changes to Supabase (incremental sync)",
+      //   {
+      //     prototypeId,
+      //   },
+      // );
       const syncResult = await this.fileSyncService.syncFilesToSupabase(
         prototypeId,
         "tracked",
       );
 
       if (syncResult.success) {
-        logger.consoleLogDevOnly("info", "File sync completed successfully", {
-          prototypeId,
-          filesUpdated: syncResult.filesUpdated,
-          filesDeleted: syncResult.filesDeleted,
-          assetsUpdated: syncResult.assetsUpdated,
-          assetsDeleted: syncResult.assetsDeleted,
-        });
+        // logger.consoleLogDevOnly("info", "File sync completed successfully", {
+        //   prototypeId,
+        //   filesUpdated: syncResult.filesUpdated,
+        //   filesDeleted: syncResult.filesDeleted,
+        //   assetsUpdated: syncResult.assetsUpdated,
+        //   assetsDeleted: syncResult.assetsDeleted,
+        // });
       } else {
         logger.error(
           new Error("File sync completed with errors"),
@@ -1378,29 +1378,29 @@ export class ChatService {
           this.isOAuthModeActive;
 
         let creditsUsed: number;
-        let costFunction: string;
+        // let costFunction: string;
 
         if (useOAuth) {
           // OAuth user: flat fee based on prompt length
           const promptLength = getPromptLengthFromQueryData(data);
           creditsUsed = calculateOAuthCredits(promptLength, logger);
-          costFunction = OAUTH_COST_FUNCTION_NAME;
+          // costFunction = OAUTH_COST_FUNCTION_NAME;
         } else {
           // API key user: token-based pricing
           creditsUsed = costFunctionV3(totalCostUsd) ?? 1.0;
-          costFunction = CURRENT_COST_FUNCTION_NAME;
+          // costFunction = CURRENT_COST_FUNCTION_NAME;
         }
 
-        logger.consoleLogDevOnly("info", "Tracking API usage", {
-          userId: user.id,
-          prototypeId,
-          totalCostUsd,
-          creditsUsed,
-          costFunction,
-          isOAuthUser: useOAuth,
-          userPreference: data.use_oauth_token,
-          hasOAuthToken: this.hasUserOAuthToken(),
-        });
+        // logger.consoleLogDevOnly("info", "Tracking API usage", {
+        //   userId: user.id,
+        //   prototypeId,
+        //   totalCostUsd,
+        //   creditsUsed,
+        //   costFunction,
+        //   isOAuthUser: useOAuth,
+        //   userPreference: data.use_oauth_token,
+        //   hasOAuthToken: this.hasUserOAuthToken(),
+        // });
 
         const { teamId } = getWorkerContext();
         if (!teamId) {
@@ -1435,14 +1435,14 @@ export class ChatService {
             logger,
           );
 
-          logger.consoleLogDevOnly("info", "API usage tracked successfully", {
-            userId: user.id,
-            prototypeId,
-            totalCostUsd,
-            creditsUsed,
-            costFunction,
-            totalRemainingCredits,
-          });
+          // logger.consoleLogDevOnly("info", "API usage tracked successfully", {
+          //   userId: user.id,
+          //   prototypeId,
+          //   totalCostUsd,
+          //   creditsUsed,
+          //   costFunction,
+          //   totalRemainingCredits,
+          // });
         }
       }
     } catch (usageError) {

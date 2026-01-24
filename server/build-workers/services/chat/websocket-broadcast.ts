@@ -21,23 +21,23 @@ export function broadcastToConnections(
   excludeSocket?: WebSocket,
 ): void {
   const loggerInstance = logger || baseLogger;
-  let successCount = 0;
-  let failureCount = 0;
-  let skippedCount = 0;
+  // let successCount = 0;
+  // let failureCount = 0;
+  // let skippedCount = 0;
 
   for (const [connectionId, connection] of connections.entries()) {
     // Skip the excluded socket if provided
     if (excludeSocket && connection.socket === excludeSocket) {
-      skippedCount++;
+      // skippedCount++;
       continue;
     }
 
     if (connection.socket.readyState === WebSocket.OPEN) {
       try {
         connection.socket.send(JSON.stringify(message));
-        successCount++;
+        // successCount++;
       } catch (error) {
-        failureCount++;
+        // failureCount++;
         loggerInstance.error(
           error instanceof Error ? error : new Error(String(error)),
           "Failed to broadcast WebSocket message to connection",
@@ -47,11 +47,11 @@ export function broadcastToConnections(
     }
   }
 
-  loggerInstance.consoleLogDevOnly("info", "Broadcast message to connections", {
-    messageType: message.type,
-    totalConnections: connections.size,
-    successCount,
-    failureCount,
-    skippedCount,
-  });
+  // loggerInstance.consoleLogDevOnly("info", "Broadcast message to connections", {
+  //   messageType: message.type,
+  //   totalConnections: connections.size,
+  //   successCount,
+  //   failureCount,
+  //   skippedCount,
+  // });
 }
