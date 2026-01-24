@@ -46,7 +46,6 @@ import { trackApiUsageBuildWorker } from "./cost/usage-tracking.js";
 import { persistChatMessage } from "./helpers/message-handlers.js";
 import {
   getNucleateChatServiceSystemPrompt,
-  getSourceRepositoryPromptAddendum,
 } from "./prompts/ClaudeCodePrompts.js";
 import { broadcastToConnections } from "./websocket-broadcast.js";
 
@@ -1189,12 +1188,9 @@ export class ChatService {
       framework ?? undefined,
       visibleScreens,
       previewMode,
+      this.devServerService.sourceRepository !== null &&
+        this.devServerService.sourceRepository !== undefined,
     );
-
-    if (this.devServerService.sourceRepository) {
-      systemPromptAppend += "\n\n" +
-        getSourceRepositoryPromptAddendum(framework ?? undefined);
-    }
 
     if (this.sessionState.designSystemRules) {
       systemPromptAppend += "\n\n## Custom Design System Rules:\n" +
