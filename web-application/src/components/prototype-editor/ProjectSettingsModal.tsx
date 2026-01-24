@@ -630,9 +630,6 @@ export function ProjectSettingsModal({
       setSlugError(null);
       setSlugAvailable(true);
 
-      toast.success(
-        "Deploy started! Expect your new deploy to be up in about 3-5 minutes.",
-      );
       setBuildHistoryVersion((version) => version + 1);
     } catch (error) {
       setSlugError(
