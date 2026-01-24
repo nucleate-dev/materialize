@@ -129,6 +129,12 @@ export async function createCloudflareTunnelForContainer(
               },
               {
                 hostname,
+                path: '/dev-server/build-status',
+                service: `http://localhost:3002`,
+                originRequest: {},
+              },
+              {
+                hostname,
                 service: `http://127.0.0.1:19006`,
                 originRequest: {},
               },

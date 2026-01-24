@@ -53,6 +53,7 @@ import {
   Rocket,
   RotateCcw,
   Share2,
+  Hammer,
   Trash2,
   X,
 } from "lucide-react";
@@ -97,6 +98,8 @@ interface ProjectSettingsModalProps {
     url: string;
     visibility: PrototypeVisibility;
   }) => void;
+  onBuild?: () => Promise<void> | void;
+  isBuilding?: boolean;
   // For share functionality
   isPublic: boolean;
   onVisibilityChange?: (visibility: PrototypeVisibility) => void;
@@ -137,6 +140,8 @@ export function ProjectSettingsModal({
   prototypeId,
   normalizedSandboxUrl,
   onDeploySuccess,
+  onBuild,
+  isBuilding = false,
   isPublic,
   onVisibilityChange,
   userPlan,
@@ -342,21 +347,49 @@ export function ProjectSettingsModal({
       created_at: string;
     }>
   >([]);
+  const [latestDeployKey, setLatestDeployKey] = useState<string | null>(
+    prototype?.latest_deploy_key ?? null,
+  );
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [deployUrlCopied, setDeployUrlCopied] = useState(false);
   const [showBuildInfo, setShowBuildInfo] = useState(false);
+  const [buildHistoryVersion, setBuildHistoryVersion] = useState(0);
+  const resolvedPrototypeId = prototypeId ?? prototype?.id ?? null;
+  const isBuildDisabled =
+    !onBuild || !normalizedSandboxUrl || !resolvedPrototypeId || isBuilding;
+
+  const handleBuildClick = useCallback(() => {
+    if (isBuildDisabled || !onBuild) {
+      return;
+    }
+
+    onOpenChange(false);
+
+    try {
+      const maybePromise = onBuild();
+      Promise.resolve(maybePromise).catch((error) => {
+        logger.debug("error", "Build triggered from settings modal failed", {
+          error: error instanceof Error ? error.message : String(error),
+        });
+      });
+    } catch (error) {
+      logger.debug("error", "Failed to trigger build from settings modal", {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }, [isBuildDisabled, onBuild, onOpenChange, logger]);
 
   // Check if latest build is deployed
   const isLatestBuildDeployed = useMemo(() => {
-    if (!prototype || buildHistory.length === 0) return false;
+    if (!prototype || buildHistory.length === 0 || !latestDeployKey)
+      return false;
 
     const latestBuild = buildHistory[0];
     return (
       latestBuild.deploy_key &&
-      prototype.latest_deploy_key &&
-      latestBuild.deploy_key === prototype.latest_deploy_key
+      latestBuild.deploy_key === latestDeployKey
     );
-  }, [prototype, buildHistory]);
+  }, [prototype, buildHistory, latestDeployKey]);
 
   // Check if slug has changed from the original
   const hasSlugChanged = useMemo(() => {
@@ -385,32 +418,64 @@ export function ProjectSettingsModal({
 
   // Fetch build history when modal opens
   useEffect(() => {
-    if (!open || !prototype) return;
+    if (!open || !prototype?.id) return;
 
-    const fetchBuildHistory = async () => {
-      setIsLoadingHistory(true);
+    let isActive = true;
+    setIsLoadingHistory(true);
+
+    const fetchBuildData = async () => {
       try {
-        const { data, error } = await supabase
-          .from("prototype_build_history")
-          .select("id, build_key, deploy_key, created_at")
-          .eq("prototype_id", prototype.id)
-          .order("created_at", { ascending: false });
+        const [historyResult, latestDeployKeyResult] = await Promise.all([
+          supabase
+            .from("prototype_build_history")
+            .select("id, build_key, deploy_key, created_at")
+            .eq("prototype_id", prototype.id)
+            .order("created_at", { ascending: false }),
+          supabase
+            .from("prototypes")
+            .select("latest_deploy_key")
+            .eq("id", prototype.id)
+            .single(),
+        ]);
 
-        if (error) {
-          logger.debug("error", "Failed to fetch build history", { error });
-          return;
+        if (!isActive) return;
+
+        if (historyResult.error) {
+          logger.debug("error", "Failed to fetch build history", {
+            error: historyResult.error,
+          });
+        } else {
+          setBuildHistory(historyResult.data ?? []);
         }
 
-        setBuildHistory(data ?? []);
+        if (latestDeployKeyResult.error) {
+          logger.debug("error", "Failed to fetch latest deploy key", {
+            error: latestDeployKeyResult.error,
+          });
+        } else {
+          setLatestDeployKey(latestDeployKeyResult.data?.latest_deploy_key ?? null);
+        }
       } catch (error) {
-        logger.debug("error", "Error fetching build history", { error });
+        if (isActive) {
+          logger.debug("error", "Error fetching build data", { error });
+        }
       } finally {
-        setIsLoadingHistory(false);
+        if (isActive) {
+          setIsLoadingHistory(false);
+        }
       }
     };
 
-    fetchBuildHistory();
-  }, [open, prototype, logger]);
+    fetchBuildData();
+
+    return () => {
+      isActive = false;
+    };
+  }, [open, prototype?.id, logger, buildHistoryVersion]);
+
+  useEffect(() => {
+    setLatestDeployKey(prototype?.latest_deploy_key ?? null);
+  }, [prototype?.latest_deploy_key]);
 
   // Slug validation effect - only runs when editing
   useEffect(() => {
@@ -509,6 +574,11 @@ export function ProjectSettingsModal({
       return;
     }
 
+    if (hasSlugChanged) {
+      setSlugError("Please save your updated URL before deploying.");
+      return;
+    }
+
     try {
       setIsDeploying(true);
       logger.log({
@@ -521,33 +591,6 @@ export function ProjectSettingsModal({
         },
       });
 
-      // Case 1: Slug changed but latest build is already deployed
-      if (hasSlugChanged && isLatestBuildDeployed) {
-        const { error } = await supabase
-          .from("prototypes")
-          .update({ slug: normalizedSlug })
-          .eq("id", prototype.id);
-
-        if (error) {
-          setSlugError("Failed to update slug");
-          return;
-        }
-
-        const deployUrl = `https://${normalizedSlug}.nucleate.site`;
-
-        onDeploySuccess?.({
-          slug: normalizedSlug,
-          url: deployUrl,
-          visibility: deployVisibility,
-        });
-
-        setSlugError(null);
-        setSlugAvailable(true);
-        toast.success("Slug updated successfully!");
-        return;
-      }
-
-      // Case 2: Latest build is not deployed
       const session = await supabase.auth.getSession();
       const token = session.data.session?.access_token;
 
@@ -594,19 +637,7 @@ export function ProjectSettingsModal({
       setSlugError(null);
       setSlugAvailable(true);
 
-      // Trigger build-and-deploy on sandbox
-      if (normalizedSandboxUrl) {
-        fetch(`${normalizedSandboxUrl}/build-and-deploy`, {
-          method: "POST",
-        }).catch((err) => {
-          logger.debug("error", "Failed to trigger build-and-deploy", {
-            error: err instanceof Error ? err.message : String(err),
-          });
-        });
-        toast.success(
-          "Deploy started! Expect your new deploy to be up in about 3-5 minutes.",
-        );
-      }
+      setBuildHistoryVersion((version) => version + 1);
     } catch (error) {
       setSlugError(
         error instanceof Error ? error.message : "Unable to deploy app",
@@ -618,7 +649,6 @@ export function ProjectSettingsModal({
     prototype,
     deploySlug,
     deployVisibility,
-    normalizedSandboxUrl,
     logger,
     onDeploySuccess,
     hasSlugChanged,
@@ -1527,7 +1557,7 @@ export function ProjectSettingsModal({
                       <p>
                         When you click{" "}
                         <strong className="text-foreground">
-                          Save &amp; deploy
+                          Deploy latest build
                         </strong>
                         , we publish your latest build so anyone with the link
                         can use it.
@@ -1587,14 +1617,31 @@ export function ProjectSettingsModal({
                 </div>
 
                 {/* Deploy Button */}
-                <div className="flex justify-end pt-4">
+                <div className="flex justify-end gap-2 pt-4">
+                  <Button
+                    variant="outline"
+                    onClick={handleBuildClick}
+                    disabled={isBuildDisabled}
+                  >
+                    {isBuilding ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                        Building...
+                      </>
+                    ) : (
+                      <>
+                        <Hammer className="w-4 h-4 mr-2" />
+                        Build
+                      </>
+                    )}
+                  </Button>
                   <Button
                     onClick={handleDeploy}
                     disabled={Boolean(
                       isDeploying ||
                       isEditingSlug ||
                       slugError ||
-                      (!hasSlugChanged && isLatestBuildDeployed),
+                      isLatestBuildDeployed,
                     )}
                     className="bg-primary hover:bg-primary/90 text-primary-foreground"
                   >
@@ -1606,7 +1653,7 @@ export function ProjectSettingsModal({
                     ) : (
                       <>
                         <Rocket className="w-4 h-4 mr-2" />
-                        Save &amp; deploy
+                        Deploy latest build
                       </>
                     )}
                   </Button>
