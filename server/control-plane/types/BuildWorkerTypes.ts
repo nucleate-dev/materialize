@@ -5,7 +5,7 @@
 // To update these types, modify the source file and run:
 // npm run sync-build-worker-types
 //
-// Last synced: 2026-01-22T05:53:27.762Z
+// Last synced: 2026-01-24T07:22:07.555Z
 
 import { Database } from "./supabase.js";
 
@@ -77,6 +77,13 @@ export enum DevServerStatus {
 
 export interface BuildAndDeployResponse {
   message: string;
+}
+
+export interface BuildStatusResponse {
+  is_build_valid: boolean;
+  is_building: boolean;
+  build_start_time: string;
+  last_updated_time: string;
 }
 
 export interface ResetSandboxSuccessResponse {

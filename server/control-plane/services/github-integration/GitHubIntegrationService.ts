@@ -98,6 +98,8 @@ interface GitHubWebhookPayload {
   };
 }
 
+type PullRequestStatus = Database['public']['Enums']['pull_request_status'];
+
 const formatGitHubRepoCreateError = (
   responseText: string,
   status: number,
@@ -2039,7 +2041,7 @@ export class GitHubIntegrationService {
         }
 
         // Determine the new status based on the webhook action
-        let newStatus: string | null = null;
+        let newStatus: PullRequestStatus | null = null;
 
         if (action === 'closed') {
           // Check if merged or just closed
@@ -2055,7 +2057,7 @@ export class GitHubIntegrationService {
 
         if (newStatus && newStatus !== existingPr.status) {
           const updateData: {
-            status: string;
+            status: PullRequestStatus;
             head_sha?: string;
           } = { status: newStatus };
 
