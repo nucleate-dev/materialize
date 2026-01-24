@@ -126,13 +126,22 @@ export async function createSourceRepoPullRequest(
       terminalSession.id,
       `GH_TOKEN=${installationToken} gh pr view ${pullRequestNumber} --json headRefName,url,baseRefName`,
     );
+    // Strip any ANSI escape codes and spinner output before the JSON
+    const jsonMatch = prMetadataRaw.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      throw new Error(
+        `Failed to parse metadata for PR #${pullRequestNumber}. Raw output: ${
+          prMetadataRaw.slice(0, 200)
+        }`,
+      );
+    }
     let prMetadata: {
       headRefName?: string;
       url?: string;
       baseRefName?: string;
     };
     try {
-      prMetadata = JSON.parse(prMetadataRaw);
+      prMetadata = JSON.parse(jsonMatch[0]);
     } catch {
       throw new Error(
         `Failed to parse existing PR metadata. Raw output: ${
@@ -222,8 +231,17 @@ export async function createSourceRepoPullRequest(
           terminalSession.id,
           `GH_TOKEN=${installationToken} gh pr view ${pullRequestNumber} --json url`,
         );
+        // Strip any ANSI escape codes and spinner output before the JSON
+        const jsonMatch = prUrlRaw.match(/\{[\s\S]*\}/);
+        if (!jsonMatch) {
+          throw new Error(
+            `Failed to parse metadata for PR #${pullRequestNumber}. Raw output: ${
+              prUrlRaw.slice(0, 200)
+            }`,
+          );
+        }
         try {
-          const parsed = JSON.parse(prUrlRaw);
+          const parsed = JSON.parse(jsonMatch[0]);
           pullRequestUrl = parsed?.url ?? null;
         } catch {
           // Fall back to best-effort match
