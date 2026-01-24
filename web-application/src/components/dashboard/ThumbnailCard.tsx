@@ -129,6 +129,7 @@ const ThumbnailCard: React.FC<ThumbnailCardProps> = ({
   const editLabel = type === "folder" ? "Open" : "Edit";
 
   return (
+    // Framed artifacts approach: outer card with border and padding creates gallery-like presentation
     <div className="group relative rounded-xl border border-border bg-card p-3 transition-all duration-300 ease-[cubic-bezier(0.25,0.1,0.25,1.0)] hover:-translate-y-1 hover:shadow-xl hover:border-primary/20">
       {/* Loading State */}
       {loading && (
