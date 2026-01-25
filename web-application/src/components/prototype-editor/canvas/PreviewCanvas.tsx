@@ -14,7 +14,7 @@ import { DraggableScreen } from "./DraggableScreen";
 import { CanvasToolbar, type CanvasToolMode } from "./CanvasToolbar";
 import { usePanZoom } from "./usePanZoom";
 import { getDefaultPosition, getDefaultDimensions } from "./utils";
-import { CANVAS } from "./constants";
+import { CANVAS, MIN_DIMENSIONS } from "./constants";
 import type {
   CanvasStateData,
   PreviewCanvasProps,
@@ -294,6 +294,32 @@ const PreviewCanvas = forwardRef<PreviewCanvasRef, PreviewCanvasProps>(
       debouncedSave();
     }, [debouncedSave]);
 
+    // Handle screen resize
+    const handleScreenResize = useCallback(
+      (screenId: number, deltaWidth: number, deltaHeight: number) => {
+        setScreensState((prev) =>
+          prev.map((s) =>
+            s.id === screenId
+              ? {
+                  ...s,
+                  position: {
+                    ...s.position,
+                    width: Math.max(MIN_DIMENSIONS.WIDTH, s.position.width + deltaWidth),
+                    height: Math.max(MIN_DIMENSIONS.HEIGHT, s.position.height + deltaHeight),
+                  },
+                }
+              : s
+          )
+        );
+      },
+      []
+    );
+
+    // Handle screen resize end
+    const handleScreenResizeEnd = useCallback(() => {
+      debouncedSave();
+    }, [debouncedSave]);
+
     // Handle double-click on screen
     const handleScreenDoubleClick = useCallback(
       (screenId: number) => {
@@ -530,6 +556,8 @@ const PreviewCanvas = forwardRef<PreviewCanvasRef, PreviewCanvasProps>(
               key={screen.id}
               x={screen.position.x}
               y={screen.position.y}
+              width={screen.position.width}
+              height={screen.position.height}
               zoom={zoom}
               readOnly={readOnly || effectiveToolMode === "pan"}
               previewMode={screen.previewMode}
@@ -540,6 +568,10 @@ const PreviewCanvas = forwardRef<PreviewCanvasRef, PreviewCanvasProps>(
                 handleScreenDrag(screen.id, deltaX, deltaY)
               }
               onDragEnd={handleScreenDragEnd}
+              onResize={(deltaWidth, deltaHeight) =>
+                handleScreenResize(screen.id, deltaWidth, deltaHeight)
+              }
+              onResizeEnd={handleScreenResizeEnd}
               onDoubleClick={() => handleScreenDoubleClick(screen.id)}
             >
               {renderFrame(screen)}

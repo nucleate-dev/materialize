@@ -46,6 +46,12 @@ export const CANVAS = {
   SAVE_DEBOUNCE_MS: 1000,
 } as const;
 
+// Minimum dimensions for resizable screens
+export const MIN_DIMENSIONS = {
+  WIDTH: 200,
+  HEIGHT: 200,
+} as const;
+
 // Frame dimensions by preview mode
 export const FRAME_DIMENSIONS = {
   mobile: {
