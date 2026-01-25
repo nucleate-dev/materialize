@@ -263,6 +263,7 @@ export class ChatQueryHandler implements ChatEngine {
         imagesFromContent,
         imageMetadata,
         sessionState.prototypeChatSessionId,
+        data.user_id,
       );
 
       // Create shared state for assistant message buffering
@@ -502,6 +503,7 @@ export class ChatQueryHandler implements ChatEngine {
       name?: string;
     }>,
     prototypeChatSessionId: string,
+    userId?: string | null,
   ): Promise<void> {
     const userMessageText = typeof messageContent === "string"
       ? messageContent
@@ -521,9 +523,6 @@ export class ChatQueryHandler implements ChatEngine {
     const eventData = imageMetadata.length > 0
       ? { images: imageMetadata }
       : null;
-
-    // Get userId from worker context to track message sender
-    const { userId } = getWorkerContext();
 
     await persistChatMessage(
       this.supabaseClientService,
