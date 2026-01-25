@@ -12,6 +12,7 @@ import { encrypt } from "../../../utils/encryptionUtils.js";
 
 interface SupabaseConnectStartRequestBody {
     teamId: string;
+    organizationSlug?: string;
 }
 
 interface SupabaseConnectStartSuccessResponse {
@@ -55,6 +56,7 @@ interface SupabaseOAuthStatePayload {
     userId: string;
     createdAt: number;
     nonce: string;
+    codeVerifier: string;
 }
 
 interface SupabaseTokenResponse {
@@ -80,7 +82,6 @@ interface SupabaseOrganizationSummary {
 }
 
 const STATE_TTL_MS = 15 * 60 * 1000;
-const DEFAULT_SCOPE = "organizations.read projects.read";
 
 /**
  * SupabaseIntegrationService handles Supabase OAuth connections
@@ -105,6 +106,9 @@ export class SupabaseIntegrationService {
                             teamId: {
                                 type: "string",
                                 format: "uuid",
+                            },
+                            organizationSlug: {
+                                type: "string",
                             },
                         },
                     },
@@ -172,7 +176,7 @@ export class SupabaseIntegrationService {
             });
         }
 
-        const { teamId } = request.body;
+        const { teamId, organizationSlug } = request.body;
 
         const supabaseClient = createClient<Database>(
             process.env.SUPABASE_URL!,
@@ -204,8 +208,14 @@ export class SupabaseIntegrationService {
         }
 
         try {
-            const state = createOAuthState(teamId, user.id);
-            const authorizationUrl = buildAuthorizationUrl(state);
+            const codeVerifier = createCodeVerifier();
+            const codeChallenge = createCodeChallenge(codeVerifier);
+            const state = createOAuthState(teamId, user.id, codeVerifier);
+            const authorizationUrl = buildAuthorizationUrl({
+                state,
+                codeChallenge,
+                organizationSlug,
+            });
 
             return reply.status(HTTP_STATUS.OK).send({
                 data: {
@@ -296,6 +306,7 @@ export class SupabaseIntegrationService {
         try {
             const tokenResponse = await exchangeCodeForToken(
                 code,
+                payload.codeVerifier,
                 request.log2,
             );
             if (!tokenResponse.access_token) {
@@ -524,18 +535,18 @@ export class SupabaseIntegrationService {
     }
 }
 
-const base64UrlEncode = (value: string): string =>
-    Buffer.from(value)
+const base64UrlEncodeBuffer = (value: Buffer): string =>
+    value
         .toString("base64")
         .replace(/\+/g, "-")
         .replace(/\//g, "_")
         .replace(/=+$/, "");
 
-const base64UrlDecode = (value: string): string => {
+const base64UrlDecodeToBuffer = (value: string): Buffer => {
     const padded = value.replace(/-/g, "+").replace(/_/g, "/");
     const padLength = (4 - (padded.length % 4)) % 4;
     const paddedValue = padded + "=".repeat(padLength);
-    return Buffer.from(paddedValue, "base64").toString("utf8");
+    return Buffer.from(paddedValue, "base64");
 };
 
 const getSupabaseOAuthConfig = () => {
@@ -560,7 +571,15 @@ const getSupabaseOAuthConfig = () => {
     };
 };
 
-const buildAuthorizationUrl = (state: string): string => {
+const buildAuthorizationUrl = ({
+    state,
+    codeChallenge,
+    organizationSlug,
+}: {
+    state: string;
+    codeChallenge: string;
+    organizationSlug?: string;
+}): string => {
     const { clientId, redirectUrl, managementBaseUrl } =
         getSupabaseOAuthConfig();
     const authorizeUrl = new URL("oauth/authorize", managementBaseUrl);
@@ -569,70 +588,105 @@ const buildAuthorizationUrl = (state: string): string => {
     authorizeUrl.searchParams.set("redirect_uri", redirectUrl);
     authorizeUrl.searchParams.set("response_type", "code");
     authorizeUrl.searchParams.set("state", state);
-    authorizeUrl.searchParams.set("scope", DEFAULT_SCOPE);
-    authorizeUrl.searchParams.set("access_type", "offline");
+    authorizeUrl.searchParams.set("code_challenge", codeChallenge);
+    authorizeUrl.searchParams.set("code_challenge_method", "S256");
+    if (organizationSlug) {
+        authorizeUrl.searchParams.set("organization_slug", organizationSlug);
+    }
 
     return authorizeUrl.toString();
 };
 
-const createOAuthState = (teamId: string, userId: string): string => {
+const buildStateCipherKey = (clientSecret: string): Buffer =>
+    crypto.createHash("sha256").update(clientSecret).digest();
+
+const encryptStatePayload = (
+    payload: SupabaseOAuthStatePayload,
+    clientSecret: string,
+): string => {
+    const iv = crypto.randomBytes(12);
+    const key = buildStateCipherKey(clientSecret);
+    const cipher = crypto.createCipheriv("aes-256-gcm", key, iv);
+    const encrypted = Buffer.concat([
+        cipher.update(JSON.stringify(payload), "utf8"),
+        cipher.final(),
+    ]);
+    const tag = cipher.getAuthTag();
+
+    return [
+        base64UrlEncodeBuffer(iv),
+        base64UrlEncodeBuffer(encrypted),
+        base64UrlEncodeBuffer(tag),
+    ].join(".");
+};
+
+const decryptStatePayload = (
+    state: string,
+    clientSecret: string,
+): SupabaseOAuthStatePayload | null => {
+    const [ivEncoded, payloadEncoded, tagEncoded] = state.split(".");
+    if (!ivEncoded || !payloadEncoded || !tagEncoded) {
+        return null;
+    }
+
+    try {
+        const iv = base64UrlDecodeToBuffer(ivEncoded);
+        const encrypted = base64UrlDecodeToBuffer(payloadEncoded);
+        const tag = base64UrlDecodeToBuffer(tagEncoded);
+        const key = buildStateCipherKey(clientSecret);
+
+        const decipher = crypto.createDecipheriv("aes-256-gcm", key, iv);
+        decipher.setAuthTag(tag);
+        const decrypted = Buffer.concat([
+            decipher.update(encrypted),
+            decipher.final(),
+        ]);
+        return JSON.parse(decrypted.toString("utf8")) as SupabaseOAuthStatePayload;
+    } catch {
+        return null;
+    }
+};
+
+const createCodeVerifier = (): string =>
+    base64UrlEncodeBuffer(crypto.randomBytes(32));
+
+const createCodeChallenge = (codeVerifier: string): string =>
+    base64UrlEncodeBuffer(
+        crypto.createHash("sha256").update(codeVerifier).digest(),
+    );
+
+const createOAuthState = (
+    teamId: string,
+    userId: string,
+    codeVerifier: string,
+): string => {
     const { clientSecret } = getSupabaseOAuthConfig();
     const payload: SupabaseOAuthStatePayload = {
         teamId,
         userId,
         createdAt: Date.now(),
         nonce: crypto.randomBytes(16).toString("hex"),
+        codeVerifier,
     };
 
-    const payloadBase64 = base64UrlEncode(JSON.stringify(payload));
-    const signature = crypto
-        .createHmac("sha256", clientSecret)
-        .update(payloadBase64)
-        .digest("base64url");
-
-    return `${payloadBase64}.${signature}`;
+    return encryptStatePayload(payload, clientSecret);
 };
 
 const parseOAuthState = (
     state: string,
 ): SupabaseOAuthStatePayload | null => {
-    if (!state || !process.env.SUPABASE_OAUTH_CLIENT_SECRET) {
+    const clientSecret = process.env.SUPABASE_OAUTH_CLIENT_SECRET;
+    if (!state || !clientSecret) {
         return null;
     }
 
-    const [payloadBase64, signature] = state.split(".");
-    if (!payloadBase64 || !signature) {
-        return null;
-    }
-
-    const expectedSignature = crypto
-        .createHmac("sha256", process.env.SUPABASE_OAUTH_CLIENT_SECRET)
-        .update(payloadBase64)
-        .digest("base64url");
-
-    if (signature.length !== expectedSignature.length) {
-        return null;
-    }
-
-    const isValidSignature = crypto.timingSafeEqual(
-        Buffer.from(signature),
-        Buffer.from(expectedSignature),
-    );
-
-    if (!isValidSignature) {
-        return null;
-    }
-
-    let payload: SupabaseOAuthStatePayload;
-    try {
-        payload = JSON.parse(
-            base64UrlDecode(payloadBase64),
-        ) as SupabaseOAuthStatePayload;
-    } catch {
-        return null;
-    }
-
-    if (!payload?.teamId || !payload?.userId || !payload?.createdAt) {
+    const payload = decryptStatePayload(state, clientSecret);
+    if (
+        !payload?.teamId ||
+        !payload?.userId ||
+        !payload?.createdAt ||
+        !payload?.codeVerifier
+    ) {
         return null;
     }
 
@@ -645,6 +699,7 @@ const parseOAuthState = (
 
 const exchangeCodeForToken = async (
     code: string,
+    codeVerifier: string,
     log2: FastifyRequest["log2"],
 ): Promise<SupabaseTokenResponse> => {
     const { clientId, clientSecret, redirectUrl, managementBaseUrl } =
@@ -655,14 +710,21 @@ const exchangeCodeForToken = async (
         grant_type: "authorization_code",
         code,
         redirect_uri: redirectUrl,
-        client_id: clientId,
-        client_secret: clientSecret,
     });
+    if (codeVerifier) {
+        body.set("code_verifier", codeVerifier);
+    }
+
+    const authToken = Buffer.from(`${clientId}:${clientSecret}`).toString(
+        "base64",
+    );
 
     const response = await fetch(tokenUrl.toString(), {
         method: "POST",
         headers: {
+            Authorization: `Basic ${authToken}`,
             "Content-Type": "application/x-www-form-urlencoded",
+            Accept: "application/json",
         },
         body: body.toString(),
     });
