@@ -1140,6 +1140,7 @@ const ClaudeCodePanel = forwardRef<ClaudeCodePanelRef, ClaudeCodePanelProps>(
                   preview_mode: previewMode,
                   design_style: prototype?.design_style,
                   use_oauth_token: authMode === "claude_sub",
+                  user_id: currentUserInfo?.id ?? null,
                 },
               }),
             );
@@ -1152,6 +1153,7 @@ const ClaudeCodePanel = forwardRef<ClaudeCodePanelRef, ClaudeCodePanelProps>(
       currentRenderStatus,
       isConnected,
       isProcessing,
+      currentUserInfo,
       ws,
       logger,
       prototypeChatSessionId,
@@ -2331,6 +2333,7 @@ const ClaudeCodePanel = forwardRef<ClaudeCodePanelRef, ClaudeCodePanelProps>(
                 visible_screens: visibleScreens,
                 preview_mode: previewMode,
                 use_oauth_token: authMode === "claude_sub",
+                user_id: currentUserInfo?.id ?? null,
                 image_metadata: uploadedImageMetadata.map((img) => ({
                   storage_path: img.storage_path,
                   media_type: img.media_type,
