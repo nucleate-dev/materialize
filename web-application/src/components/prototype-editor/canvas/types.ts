@@ -1,9 +1,15 @@
 /**
+ * Preview mode for a screen
+ */
+export type PreviewMode = "mobile" | "web" | "tablet";
+
+/**
  * Screen state with position information
  */
 export interface ScreenState {
   id: number;
   path: string;
+  previewMode: PreviewMode;
   position: {
     x: number;
     y: number;

@@ -50,12 +50,14 @@ export function clamp(value: number, min: number, max: number): number {
 
 /**
  * Calculate zoom to fit bounds within viewport
+ * maxZoom defaults to 1 (100%) - we zoom out to fit but don't zoom in past 100%
  */
 export function calculateZoomToFit(
   bounds: { minX: number; minY: number; maxX: number; maxY: number },
   viewportWidth: number,
   viewportHeight: number,
-  padding: number = 50
+  padding: number = 50,
+  maxZoom: number = 1
 ): { zoom: number; camera: { x: number; y: number } } {
   const boundsWidth = bounds.maxX - bounds.minX;
   const boundsHeight = bounds.maxY - bounds.minY;
@@ -69,7 +71,8 @@ export function calculateZoomToFit(
 
   const scaleX = availableWidth / boundsWidth;
   const scaleY = availableHeight / boundsHeight;
-  const zoom = clamp(Math.min(scaleX, scaleY), CANVAS.MIN_ZOOM, CANVAS.MAX_ZOOM);
+  // Cap zoom at maxZoom (default 100%) - only zoom out if needed, don't zoom in
+  const zoom = clamp(Math.min(scaleX, scaleY), CANVAS.MIN_ZOOM, maxZoom);
 
   // Center the bounds in the viewport
   const centerX = (bounds.minX + bounds.maxX) / 2;

@@ -41,7 +41,7 @@ export const CanvasToolbar = memo(function CanvasToolbar({
 }: CanvasToolbarProps) {
   return (
     <div
-      className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-1 bg-popover/95 backdrop-blur-sm border border-border rounded-lg shadow-lg px-1.5 py-1 z-50"
+      className="absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-1 bg-popover/95 backdrop-blur-sm border border-border rounded-lg shadow-lg px-1.5 py-1 z-50"
       style={{ pointerEvents: "auto" }}
     >
       {/* Tool Selection */}

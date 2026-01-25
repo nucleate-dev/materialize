@@ -3134,8 +3134,8 @@ const MaterializeRenderSection = forwardRef<
 
                       <ConnectionStatusIndicator />
 
-                      {/* Device Type Toggle - only show in preview view */}
-                      {isPreviewView && (
+                      {/* Device Type Toggle - only show in preview view when canvas mode is disabled */}
+                      {isPreviewView && !isCanvasPreviewEnabled && (
                         <>
                           <div className="h-4 w-px bg-border mx-1" />
                           <div className="bg-accent p-1 rounded-lg border border-border flex items-center gap-0.5">

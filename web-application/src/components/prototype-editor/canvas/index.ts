@@ -4,6 +4,7 @@ export { PhoneFrame } from "./PhoneFrame";
 export { BrowserFrame } from "./BrowserFrame";
 export { DraggableScreen } from "./DraggableScreen";
 export { CanvasToolbar, type CanvasToolMode } from "./CanvasToolbar";
+export { ScreenModeSelector } from "./ScreenModeSelector";
 
 // Hooks
 export { usePanZoom } from "./usePanZoom";
@@ -26,6 +27,7 @@ export type {
   CanvasStateData,
   PreviewCanvasProps,
   PreviewCanvasRef,
+  PreviewMode,
   ScreenConfig,
   ScreenState,
   PrototypeContextData,

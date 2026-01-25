@@ -133,7 +133,8 @@ export function usePanZoom({
         bounds,
         rect.width,
         rect.height,
-        100 // More padding for single screen focus
+        100, // More padding for single screen focus
+        1.5 // Allow zooming in up to 150% when focusing on a single screen
       );
       updateState(newZoom, newCamera);
     },

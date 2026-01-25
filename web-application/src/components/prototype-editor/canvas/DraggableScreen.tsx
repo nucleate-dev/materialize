@@ -6,6 +6,8 @@ import {
   useRef,
   MouseEvent as ReactMouseEvent,
 } from "react";
+import { ScreenModeSelector } from "./ScreenModeSelector";
+import type { PreviewMode } from "./types";
 
 interface DraggableScreenProps {
   children: ReactNode;
@@ -13,6 +15,8 @@ interface DraggableScreenProps {
   y: number;
   zoom: number;
   readOnly: boolean;
+  previewMode: PreviewMode;
+  onPreviewModeChange: (mode: PreviewMode) => void;
   onDrag: (deltaX: number, deltaY: number) => void;
   onDragEnd: () => void;
   onDoubleClick: () => void;
@@ -27,6 +31,8 @@ export function DraggableScreen({
   y,
   zoom,
   readOnly,
+  previewMode,
+  onPreviewModeChange,
   onDrag,
   onDragEnd,
   onDoubleClick,
@@ -40,8 +46,8 @@ export function DraggableScreen({
       if (e.button !== 0 || readOnly) return;
 
       const target = e.target as HTMLElement;
-      // Don't start drag if clicking on iframe
-      if (target.tagName === "IFRAME") return;
+      // Don't start drag if clicking on iframe or mode selector
+      if (target.tagName === "IFRAME" || target.closest(".screen-mode-selector")) return;
 
       e.preventDefault();
       e.stopPropagation();
@@ -79,8 +85,8 @@ export function DraggableScreen({
   const handleDoubleClick = useCallback(
     (e: ReactMouseEvent) => {
       const target = e.target as HTMLElement;
-      // Don't trigger on iframe double-click
-      if (target.tagName === "IFRAME") return;
+      // Don't trigger on iframe double-click or mode selector
+      if (target.tagName === "IFRAME" || target.closest(".screen-mode-selector")) return;
 
       e.preventDefault();
       e.stopPropagation();
@@ -101,6 +107,24 @@ export function DraggableScreen({
       onMouseDown={handleMouseDown}
       onDoubleClick={handleDoubleClick}
     >
+      {/* Mode selector in top-right corner */}
+      {!readOnly && (
+        <div
+          className="screen-mode-selector"
+          style={{
+            position: "absolute",
+            top: -36,
+            right: 0,
+            zIndex: 40,
+          }}
+        >
+          <ScreenModeSelector
+            mode={previewMode}
+            onChange={onPreviewModeChange}
+            disabled={readOnly}
+          />
+        </div>
+      )}
       {children}
     </div>
   );

@@ -19,6 +19,7 @@ import type {
   CanvasStateData,
   PreviewCanvasProps,
   PreviewCanvasRef,
+  PreviewMode,
   ScreenConfig,
   ScreenState,
 } from "./types";
@@ -135,7 +136,12 @@ const PreviewCanvas = forwardRef<PreviewCanvasRef, PreviewCanvasProps>(
     // Load canvas state from persistence
     const loadCanvasState = useCallback(
       (state: CanvasStateData) => {
-        setScreensState(state.screens);
+        // Migrate old state format: add previewMode to screens that don't have it
+        const migratedScreens = state.screens.map((screen) => ({
+          ...screen,
+          previewMode: screen.previewMode || state.previewMode || previewMode,
+        }));
+        setScreensState(migratedScreens);
         setPanZoom(state.zoom);
         setCamera(state.camera);
 
@@ -145,7 +151,7 @@ const PreviewCanvas = forwardRef<PreviewCanvasRef, PreviewCanvasProps>(
             Math.max(...state.screens.map((s) => s.id), 0) + 1;
         }
       },
-      [setPanZoom, setCamera]
+      [setPanZoom, setCamera, previewMode]
     );
 
     // Add a new screen
@@ -158,6 +164,7 @@ const PreviewCanvas = forwardRef<PreviewCanvasRef, PreviewCanvasProps>(
         const newScreen: ScreenState = {
           id: newScreenId,
           path,
+          previewMode,
           position: {
             x: position.x,
             y: position.y,
@@ -196,6 +203,7 @@ const PreviewCanvas = forwardRef<PreviewCanvasRef, PreviewCanvasProps>(
           return {
             id: config.id,
             path: config.path,
+            previewMode,
             position: {
               x: position.x,
               y: position.y,
@@ -294,6 +302,30 @@ const PreviewCanvas = forwardRef<PreviewCanvasRef, PreviewCanvasProps>(
       [zoomToScreen]
     );
 
+    // Handle screen preview mode change
+    const handleScreenPreviewModeChange = useCallback(
+      (screenId: number, newMode: PreviewMode) => {
+        const newDimensions = getDefaultDimensions(newMode);
+        setScreensState((prev) =>
+          prev.map((s) =>
+            s.id === screenId
+              ? {
+                  ...s,
+                  previewMode: newMode,
+                  position: {
+                    ...s.position,
+                    width: newDimensions.width,
+                    height: newDimensions.height,
+                  },
+                }
+              : s
+          )
+        );
+        debouncedSave();
+      },
+      [debouncedSave]
+    );
+
     // Handle mouse down on canvas
     const handleCanvasMouseDown = useCallback(
       (e: React.MouseEvent) => {
@@ -384,16 +416,30 @@ const PreviewCanvas = forwardRef<PreviewCanvasRef, PreviewCanvasProps>(
     useEffect(() => {
       if (isInitialized) return;
 
-      if (initialCanvasState) {
+      // Check if initialCanvasState has valid screens
+      const hasValidCanvasState =
+        initialCanvasState &&
+        initialCanvasState.screens &&
+        initialCanvasState.screens.length > 0;
+
+      let screensToUse: ScreenState[];
+
+      if (hasValidCanvasState) {
+        // Load from saved state
         loadCanvasState(initialCanvasState);
+        screensToUse = initialCanvasState.screens.map((screen) => ({
+          ...screen,
+          previewMode: screen.previewMode || initialCanvasState.previewMode || previewMode,
+        }));
       } else {
         // Create initial screens from props
         const dimensions = getDefaultDimensions(previewMode);
-        const newScreens: ScreenState[] = initialScreens.map((config, index) => {
+        screensToUse = initialScreens.map((config, index) => {
           const position = getDefaultPosition(index, previewMode);
           return {
             id: config.id,
             path: config.path,
+            previewMode,
             position: {
               x: position.x,
               y: position.y,
@@ -402,14 +448,14 @@ const PreviewCanvas = forwardRef<PreviewCanvasRef, PreviewCanvasProps>(
             },
           };
         });
-        setScreensState(newScreens);
-
-        // Zoom to fit after a short delay
-        setTimeout(() => {
-          const bounds = calculateBounds(newScreens);
-          panZoomToFit(bounds);
-        }, 100);
+        setScreensState(screensToUse);
       }
+
+      // Always zoom to fit after initial load to ensure screens are visible
+      setTimeout(() => {
+        const bounds = calculateBounds(screensToUse);
+        panZoomToFit(bounds);
+      }, 100);
 
       setIsInitialized(true);
     }, [
@@ -431,7 +477,7 @@ const PreviewCanvas = forwardRef<PreviewCanvasRef, PreviewCanvasProps>(
       };
     }, []);
 
-    // Render frame based on preview mode
+    // Render frame based on screen's preview mode
     const renderFrame = (screen: ScreenState) => {
       const frameProps = {
         screenId: screen.id,
@@ -442,7 +488,7 @@ const PreviewCanvas = forwardRef<PreviewCanvasRef, PreviewCanvasProps>(
         refreshKey,
       };
 
-      if (previewMode === "mobile" || previewMode === "tablet") {
+      if (screen.previewMode === "mobile" || screen.previewMode === "tablet") {
         return <PhoneFrame {...frameProps} />;
       }
       return <BrowserFrame {...frameProps} />;
@@ -486,6 +532,10 @@ const PreviewCanvas = forwardRef<PreviewCanvasRef, PreviewCanvasProps>(
               y={screen.position.y}
               zoom={zoom}
               readOnly={readOnly || effectiveToolMode === "pan"}
+              previewMode={screen.previewMode}
+              onPreviewModeChange={(mode) =>
+                handleScreenPreviewModeChange(screen.id, mode)
+              }
               onDrag={(deltaX, deltaY) =>
                 handleScreenDrag(screen.id, deltaX, deltaY)
               }
