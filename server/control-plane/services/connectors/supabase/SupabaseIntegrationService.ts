@@ -5,50 +5,22 @@ import type { Database } from "../../../types/supabase.js";
 import {
     type APIResponse,
     HTTP_STATUS,
+    type StandardErrorResponse,
+    type SupabaseConnectStartRequestBody,
+    type SupabaseConnectStartSuccessResponse,
+    type SupabaseIntegrationsQuery,
+    type SupabaseIntegrationSummary,
+    type SupabaseIntegrationsSuccessResponse,
 } from "../../../types/PublicAPITypes.js";
 import { validateJWTToken } from "../../../utils/prototypeAuth.js";
 import { userIsTeamAdminOrOwner } from "../../../utils/teamUtils.js";
 import { encrypt } from "../../../utils/encryptionUtils.js";
-
-interface SupabaseConnectStartRequestBody {
-    teamId: string;
-    organizationSlug?: string;
-}
-
-interface SupabaseConnectStartSuccessResponse {
-    authorizationUrl: string;
-}
-
-interface SupabaseConnectStartErrorResponse {
-    error: string;
-    message: string;
-}
 
 interface SupabaseOAuthCallbackQuery {
     code?: string;
     state?: string;
     error?: string;
     error_description?: string;
-}
-
-interface SupabaseIntegrationsQuery {
-    teamId: string;
-}
-
-interface SupabaseIntegrationSummary {
-    id: string;
-    supabase_organization_id: string;
-    supabase_organization_name: string | null;
-    connected_at: string;
-}
-
-interface SupabaseIntegrationsSuccessResponse {
-    integrations: SupabaseIntegrationSummary[];
-}
-
-interface SupabaseIntegrationsErrorResponse {
-    error: string;
-    message: string;
 }
 
 interface SupabaseOAuthStatePayload {
@@ -159,10 +131,7 @@ export class SupabaseIntegrationService {
         request: FastifyRequest<{ Body: SupabaseConnectStartRequestBody }>,
         reply: FastifyReply,
     ): Promise<
-        APIResponse<
-            SupabaseConnectStartSuccessResponse,
-            SupabaseConnectStartErrorResponse
-        >
+        APIResponse<SupabaseConnectStartSuccessResponse, StandardErrorResponse>
     > {
         const token = request.headers.authorization?.split(" ")[1] ?? "";
         const { user } = await validateJWTToken(token, request.log2);
@@ -470,10 +439,7 @@ export class SupabaseIntegrationService {
         request: FastifyRequest<{ Querystring: SupabaseIntegrationsQuery }>,
         reply: FastifyReply,
     ): Promise<
-        APIResponse<
-            SupabaseIntegrationsSuccessResponse,
-            SupabaseIntegrationsErrorResponse
-        >
+        APIResponse<SupabaseIntegrationsSuccessResponse, StandardErrorResponse>
     > {
         const token = request.headers.authorization?.split(" ")[1] ?? "";
         const { user } = await validateJWTToken(token, request.log2);
@@ -549,7 +515,14 @@ const base64UrlDecodeToBuffer = (value: string): Buffer => {
     return Buffer.from(paddedValue, "base64");
 };
 
-const getSupabaseOAuthConfig = () => {
+interface SupabaseOAuthConfig {
+    clientId: string;
+    clientSecret: string;
+    redirectUrl: string;
+    managementBaseUrl: string;
+}
+
+const getSupabaseOAuthConfig = (): SupabaseOAuthConfig => {
     const clientId = process.env.SUPABASE_OAUTH_CLIENT_ID;
     const clientSecret = process.env.SUPABASE_OAUTH_CLIENT_SECRET;
     const redirectUrl = process.env.SUPABASE_OAUTH_REDIRECT_URL;
