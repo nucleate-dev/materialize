@@ -163,6 +163,18 @@ else
     acl
 fi
 
+# 1a. Install cloudflared for HTTPS tunnels
+if ! command -v cloudflared >/dev/null 2>&1; then
+  echo "==> Installing cloudflared..."
+  CLOUDFLARED_ARCH="amd64"
+  if [ "$(uname -m)" = "aarch64" ]; then
+    CLOUDFLARED_ARCH="arm64"
+  fi
+  curl -L -o /tmp/cloudflared "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-${CLOUDFLARED_ARCH}"
+  chmod +x /tmp/cloudflared
+  sudo mv /tmp/cloudflared /usr/local/bin/cloudflared
+fi
+
 # 2. Install watchman for build-workers
 echo "==> Installing watchman from prebuilt binary..."
 WATCHMAN_VERSION="2024.01.15.00"
