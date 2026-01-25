@@ -281,6 +281,7 @@ export type Database = {
           connected_by_user_id: string | null
           id: string
           metadata: Json
+          status: Database["public"]["Enums"]["connector_status"]
           supabase_organization_id: string
           supabase_organization_name: string | null
           team_id: string
@@ -291,6 +292,7 @@ export type Database = {
           connected_by_user_id?: string | null
           id?: string
           metadata?: Json
+          status?: Database["public"]["Enums"]["connector_status"]
           supabase_organization_id: string
           supabase_organization_name?: string | null
           team_id: string
@@ -301,6 +303,7 @@ export type Database = {
           connected_by_user_id?: string | null
           id?: string
           metadata?: Json
+          status?: Database["public"]["Enums"]["connector_status"]
           supabase_organization_id?: string
           supabase_organization_name?: string | null
           team_id?: string
@@ -1710,6 +1713,7 @@ export type Database = {
     }
     Enums: {
       chat_role: "user" | "assistant" | "system"
+      connector_status: "active" | "disconnected" | "token_expired"
       design_style: "tamagui" | "stylesheets" | "nativewind" | "custom"
       file_type: "text" | "asset"
       prototype_build_status: "in_progress" | "success" | "failure"
@@ -1853,6 +1857,7 @@ export const Constants = {
   public: {
     Enums: {
       chat_role: ["user", "assistant", "system"],
+      connector_status: ["active", "disconnected", "token_expired"],
       design_style: ["tamagui", "stylesheets", "nativewind", "custom"],
       file_type: ["text", "asset"],
       prototype_build_status: ["in_progress", "success", "failure"],
