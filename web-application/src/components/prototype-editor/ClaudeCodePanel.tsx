@@ -111,6 +111,7 @@ export interface Message {
   creditsUsed?: number; // For usage messages
   designSpec?: string; // For design_spec messages - the full specification
   isCollapsed?: boolean; // For design_spec messages - whether it's collapsed
+  createdAt?: string; // ISO timestamp from the database (used for pagination)
 }
 
 export interface Todo {
@@ -129,6 +130,8 @@ export interface UploadedImage {
 export interface ClaudeCodePanelRef {
   populateInput: (message: string) => void;
 }
+
+const CHAT_MESSAGES_PAGE_SIZE = 30;
 
 const ClaudeCodePanel = forwardRef<ClaudeCodePanelRef, ClaudeCodePanelProps>(
   (
@@ -223,6 +226,10 @@ const ClaudeCodePanel = forwardRef<ClaudeCodePanelRef, ClaudeCodePanelProps>(
     const [uploadProgress, setUploadProgress] = useState<{
       [key: string]: number;
     }>({});
+    const [hasMoreHistoricalMessages, setHasMoreHistoricalMessages] =
+      useState(true);
+    const [isLoadingOlderMessages, setIsLoadingOlderMessages] = useState(false);
+    const earliestMessageCursorRef = useRef<string | null>(null);
 
     // Expose populateInput method to parent via ref
     useImperativeHandle(
@@ -534,8 +541,21 @@ const ClaudeCodePanel = forwardRef<ClaudeCodePanelRef, ClaudeCodePanelProps>(
 
     // Helper function to load historical messages (extracted to be reusable)
     const loadHistoricalMessages = useCallback(
-      async (chatSessionId: string) => {
+      async (
+        chatSessionId: string,
+        options: { append?: boolean; before?: string | null } = {},
+      ) => {
+        const { append = false, before = null } = options;
+
+        if (!append) {
+          earliestMessageCursorRef.current = null;
+        }
+
         try {
+          if (append) {
+            setIsLoadingOlderMessages(true);
+          }
+
           // Fetch the chat session to check if it's corrupted
           const { data: chatSession, error: sessionError } = await supabase
             .from("prototype_chat_sessions")
@@ -549,12 +569,19 @@ const ClaudeCodePanel = forwardRef<ClaudeCodePanelRef, ClaudeCodePanelProps>(
             });
           }
 
+          let messageQuery = supabase
+            .from("prototype_chat_messages")
+            .select("*")
+            .eq("chat_session_id", chatSessionId);
+
+          if (before) {
+            messageQuery = messageQuery.lt("created_at", before);
+          }
+
           const { data: historicalMessages, error: messagesError } =
-            await supabase
-              .from("prototype_chat_messages")
-              .select("*")
-              .eq("chat_session_id", chatSessionId)
-              .order("created_at", { ascending: true });
+            await messageQuery
+              .order("created_at", { ascending: false })
+              .limit(CHAT_MESSAGES_PAGE_SIZE);
 
           if (messagesError) {
             logger.debug("error", "Failed to fetch historical messages", {
@@ -563,209 +590,266 @@ const ClaudeCodePanel = forwardRef<ClaudeCodePanelRef, ClaudeCodePanelProps>(
             return;
           }
 
+          const messagesInChronologicalOrder =
+            historicalMessages?.slice().reverse() ?? [];
+
           // Check if session is corrupted (has messages but no session_id)
-          const hasMessages =
-            historicalMessages && historicalMessages.length > 0;
+          const hasMessages = messagesInChronologicalOrder.length > 0;
           const hasNullSessionId = !chatSession?.session_id;
           const isCorrupted = hasMessages && hasNullSessionId;
 
-          if (isCorrupted) {
+          if (isCorrupted && !append) {
             logger.debug("warn", "Detected corrupted chat session", {
               chatSessionId,
-              messageCount: historicalMessages?.length,
+              messageCount: messagesInChronologicalOrder.length,
             });
-            setIsCorruptedSession(true);
-          } else {
-            setIsCorruptedSession(false);
           }
+          setIsCorruptedSession(isCorrupted);
 
-          if (historicalMessages && historicalMessages.length > 0) {
-            // Convert database messages to UI message format
-            const uiMessages: Message[] = [];
+          // Convert database messages to UI message format
+          const uiMessages: Message[] = [];
 
-            for (const dbMessage of historicalMessages) {
-              // Handle different message types
-              if (dbMessage.message_type === "text") {
-                // Regular text message (user or assistant)
-                const message: Message = {
-                  id: String(dbMessage.id),
-                  type: dbMessage.role as "user" | "assistant",
-                  content: dbMessage.content,
-                  timestamp: new Date(dbMessage.created_at).getTime(),
-                };
+          for (const dbMessage of messagesInChronologicalOrder) {
+            // Handle different message types
+            if (dbMessage.message_type === "text") {
+              // Regular text message (user or assistant)
+              const message: Message = {
+                id: String(dbMessage.id),
+                type: dbMessage.role as "user" | "assistant",
+                content: dbMessage.content,
+                timestamp: new Date(dbMessage.created_at).getTime(),
+                createdAt: dbMessage.created_at,
+              };
 
-                // Check if this message has images in event_data
-                if (dbMessage.event_data) {
-                  try {
-                    const eventData =
-                      typeof dbMessage.event_data === "string"
-                        ? JSON.parse(dbMessage.event_data)
-                        : dbMessage.event_data;
+              // Check if this message has images in event_data
+              if (dbMessage.event_data) {
+                try {
+                  const eventData =
+                    typeof dbMessage.event_data === "string"
+                      ? JSON.parse(dbMessage.event_data)
+                      : dbMessage.event_data;
 
-                    if (eventData.images && Array.isArray(eventData.images)) {
-                      // Regenerate signed URLs for each image (fresh URLs for viewing)
-                      const imageUrls: string[] = [];
-                      for (const imageMetadata of eventData.images) {
-                        try {
-                          const { data: signedUrlData, error: urlError } =
-                            await supabase.storage
-                              .from("chat-images")
-                              .createSignedUrl(
-                                imageMetadata.storage_path,
-                                3600,
-                              ); // 1 hour expiry for viewing
+                  if (eventData.images && Array.isArray(eventData.images)) {
+                    // Regenerate signed URLs for each image (fresh URLs for viewing)
+                    const imageUrls: string[] = [];
+                    for (const imageMetadata of eventData.images) {
+                      try {
+                        const { data: signedUrlData, error: urlError } =
+                          await supabase.storage
+                            .from("chat-images")
+                            .createSignedUrl(imageMetadata.storage_path, 3600); // 1 hour expiry for viewing
 
-                          if (urlError) {
-                            logger.debug(
-                              "error",
-                              "Failed to create signed URL for historical image",
-                              {
-                                storagePath: imageMetadata.storage_path,
-                                error: urlError.message,
-                              },
-                            );
-                            continue;
-                          }
-
-                          if (signedUrlData?.signedUrl) {
-                            imageUrls.push(signedUrlData.signedUrl);
-                          }
-                        } catch (error) {
+                        if (urlError) {
                           logger.debug(
                             "error",
-                            "Exception while getting signed URL for historical image",
+                            "Failed to create signed URL for historical image",
                             {
                               storagePath: imageMetadata.storage_path,
-                              error:
-                                error instanceof Error
-                                  ? error.message
-                                  : String(error),
+                              error: urlError.message,
                             },
                           );
+                          continue;
                         }
-                      }
 
-                      if (imageUrls.length > 0) {
-                        message.imageUrls = imageUrls;
+                        if (signedUrlData?.signedUrl) {
+                          imageUrls.push(signedUrlData.signedUrl);
+                        }
+                      } catch (error) {
+                        logger.debug(
+                          "error",
+                          "Exception while getting signed URL for historical image",
+                          {
+                            storagePath: imageMetadata.storage_path,
+                            error:
+                              error instanceof Error
+                                ? error.message
+                                : String(error),
+                          },
+                        );
                       }
                     }
-                  } catch (error) {
-                    logger.debug(
-                      "error",
-                      "Failed to parse event_data for images",
-                      {
-                        error:
-                          error instanceof Error
-                            ? error.message
-                            : String(error),
-                      },
-                    );
+
+                    if (imageUrls.length > 0) {
+                      message.imageUrls = imageUrls;
+                    }
                   }
-                }
-
-                uiMessages.push(message);
-
-                // If this is an assistant message with credits_used, add a usage message
-                if (
-                  dbMessage.role === "assistant" &&
-                  dbMessage.credits_used !== null &&
-                  dbMessage.credits_used !== undefined
-                ) {
-                  const creditsUsed = dbMessage.credits_used;
-                  const roundedCredits = Math.round(creditsUsed * 10) / 10;
-
-                  uiMessages.push({
-                    id: `usage-${dbMessage.id}`,
-                    type: "usage",
-                    content: `${roundedCredits} credit${roundedCredits !== 1 ? "s" : ""}`,
-                    timestamp: new Date(dbMessage.created_at).getTime(),
-                    creditsUsed,
+                } catch (error) {
+                  logger.debug("error", "Failed to parse event_data for images", {
+                    error:
+                      error instanceof Error ? error.message : String(error),
                   });
                 }
-              } else if (
-                dbMessage.message_type === "tool_use" &&
-                dbMessage.event_type === "tool_start"
-              ) {
-                // Tool start event
-                const eventData = dbMessage.event_data as ToolEventData;
-                uiMessages.push({
-                  id: `tool-${eventData?.tool_call_id || dbMessage.id}`,
-                  type: "tool",
-                  content: dbMessage.content,
-                  timestamp: new Date(dbMessage.created_at).getTime(),
-                  toolName: eventData?.tool_name,
-                  toolCallId: eventData?.tool_call_id,
-                  isComplete: false, // Will be updated if we find a matching tool_complete
-                  status: "running",
-                  toolInput: eventData?.tool_input,
-                });
-              } else if (
-                dbMessage.message_type === "tool_result" &&
-                dbMessage.event_type === "tool_complete"
-              ) {
-                // Tool complete event - find and update the matching tool_start message
-                const eventData = dbMessage.event_data as ToolEventData;
-                const toolCallId = eventData?.tool_call_id;
+              }
 
-                // Find the matching tool message and mark it as complete
-                const toolMessageIndex = uiMessages.findIndex(
-                  (msg) =>
-                    msg.type === "tool" &&
-                    msg.toolCallId === toolCallId &&
-                    !msg.isComplete,
-                );
+              uiMessages.push(message);
 
-                if (toolMessageIndex !== -1) {
-                  uiMessages[toolMessageIndex] = {
-                    ...uiMessages[toolMessageIndex],
-                    isComplete: true,
-                    status: "success",
-                  };
-                }
-              } else if (dbMessage.message_type === "error") {
-                // Error message
+              // If this is an assistant message with credits_used, add a usage message
+              if (
+                dbMessage.role === "assistant" &&
+                dbMessage.credits_used !== null &&
+                dbMessage.credits_used !== undefined
+              ) {
+                const creditsUsed = dbMessage.credits_used;
+                const roundedCredits = Math.round(creditsUsed * 10) / 10;
+
                 uiMessages.push({
-                  id: String(dbMessage.id),
-                  type: "error",
-                  content: dbMessage.content,
+                  id: `usage-${dbMessage.id}`,
+                  type: "usage",
+                  content: `${roundedCredits} credit${roundedCredits !== 1 ? "s" : ""}`,
                   timestamp: new Date(dbMessage.created_at).getTime(),
-                });
-              } else if (dbMessage.message_type === "system") {
-                // System message
-                uiMessages.push({
-                  id: String(dbMessage.id),
-                  type: "system",
-                  content: dbMessage.content,
-                  timestamp: new Date(dbMessage.created_at).getTime(),
+                  creditsUsed,
+                  createdAt: dbMessage.created_at,
                 });
               }
-            }
-
-            // Add corruption warning message if session is corrupted
-            if (isCorrupted) {
+            } else if (
+              dbMessage.message_type === "tool_use" &&
+              dbMessage.event_type === "tool_start"
+            ) {
+              // Tool start event
+              const eventData = dbMessage.event_data as ToolEventData;
               uiMessages.push({
-                id: `corruption-warning-${Date.now()}`,
+                id: `tool-${eventData?.tool_call_id || dbMessage.id}`,
+                type: "tool",
+                content: dbMessage.content,
+                timestamp: new Date(dbMessage.created_at).getTime(),
+                toolName: eventData?.tool_name,
+                toolCallId: eventData?.tool_call_id,
+                isComplete: false, // Will be updated if we find a matching tool_complete
+                status: "running",
+                toolInput: eventData?.tool_input,
+                createdAt: dbMessage.created_at,
+              });
+            } else if (
+              dbMessage.message_type === "tool_result" &&
+              dbMessage.event_type === "tool_complete"
+            ) {
+              // Tool complete event - find and update the matching tool_start message
+              const eventData = dbMessage.event_data as ToolEventData;
+              const toolCallId = eventData?.tool_call_id;
+
+              // Find the matching tool message and mark it as complete
+              const toolMessageIndex = uiMessages.findIndex(
+                (msg) =>
+                  msg.type === "tool" &&
+                  msg.toolCallId === toolCallId &&
+                  !msg.isComplete,
+              );
+
+              if (toolMessageIndex !== -1) {
+                uiMessages[toolMessageIndex] = {
+                  ...uiMessages[toolMessageIndex],
+                  isComplete: true,
+                  status: "success",
+                };
+              }
+            } else if (dbMessage.message_type === "error") {
+              // Error message
+              uiMessages.push({
+                id: String(dbMessage.id),
+                type: "error",
+                content: dbMessage.content,
+                timestamp: new Date(dbMessage.created_at).getTime(),
+                createdAt: dbMessage.created_at,
+              });
+            } else if (dbMessage.message_type === "system") {
+              // System message
+              uiMessages.push({
+                id: String(dbMessage.id),
                 type: "system",
-                content:
-                  "Chat session has been corrupted. Nucleate won't be able to see previous messages before this point.",
-                timestamp: Date.now(),
+                content: dbMessage.content,
+                timestamp: new Date(dbMessage.created_at).getTime(),
+                createdAt: dbMessage.created_at,
               });
             }
+          }
 
-            setMessages(uiMessages);
-            logger.debug("log", "Loaded historical messages", {
-              count: uiMessages.length,
-              isCorrupted,
+          // Add corruption warning message if session is corrupted (only once)
+          if (isCorrupted && !append) {
+            uiMessages.push({
+              id: `corruption-warning-${Date.now()}`,
+              type: "system",
+              content:
+                "Chat session has been corrupted. Nucleate won't be able to see previous messages before this point.",
+              timestamp: Date.now(),
             });
           }
+
+          if (uiMessages.length > 0) {
+            const nextCursor = uiMessages[0]?.createdAt ?? null;
+            if (nextCursor) {
+              earliestMessageCursorRef.current = nextCursor;
+            }
+
+            if (append) {
+              setMessages((prev) => [...uiMessages, ...prev]);
+            } else {
+              setMessages(uiMessages);
+            }
+          } else if (!append) {
+            setMessages([]);
+            earliestMessageCursorRef.current = null;
+          }
+
+          setHasMoreHistoricalMessages(
+            (historicalMessages?.length ?? 0) === CHAT_MESSAGES_PAGE_SIZE,
+          );
+
+          logger.debug("log", "Loaded historical messages", {
+            count: uiMessages.length,
+            isCorrupted,
+            append,
+          });
         } catch (error) {
           logger.debug("error", "Error loading historical messages", {
             error: error instanceof Error ? error.message : String(error),
           });
+        } finally {
+          if (append) {
+            setIsLoadingOlderMessages(false);
+          }
         }
       },
       [logger],
     );
+
+    const loadOlderMessages = useCallback(async () => {
+      if (
+        !prototypeChatSessionId ||
+        isLoadingOlderMessages ||
+        !hasMoreHistoricalMessages
+      ) {
+        return;
+      }
+
+      const beforeCursor = earliestMessageCursorRef.current;
+      if (!beforeCursor) {
+        return;
+      }
+
+      const scrollContainer = scrollAreaRef.current?.querySelector(
+        "[data-radix-scroll-area-viewport]",
+      ) as HTMLElement | null;
+      const previousScrollHeight = scrollContainer?.scrollHeight ?? 0;
+      const previousScrollTop = scrollContainer?.scrollTop ?? 0;
+
+      await loadHistoricalMessages(prototypeChatSessionId, {
+        append: true,
+        before: beforeCursor,
+      });
+
+      if (scrollContainer) {
+        requestAnimationFrame(() => {
+          const newScrollHeight = scrollContainer.scrollHeight;
+          scrollContainer.scrollTop =
+            newScrollHeight - previousScrollHeight + previousScrollTop;
+        });
+      }
+    }, [
+      hasMoreHistoricalMessages,
+      isLoadingOlderMessages,
+      loadHistoricalMessages,
+      prototypeChatSessionId,
+    ]);
 
     // Fetch or create prototype_chat_session on mount
     useEffect(() => {
@@ -1075,11 +1159,25 @@ const ClaudeCodePanel = forwardRef<ClaudeCodePanelRef, ClaudeCodePanelProps>(
 
         setIsNearBottom(nearBottom);
         setShowScrollToBottom(!nearBottom && messages.length > 0);
+
+        if (
+          scrollTop < 150 &&
+          hasMoreHistoricalMessages &&
+          !isLoadingOlderMessages &&
+          scrollHeight > clientHeight
+        ) {
+          void loadOlderMessages();
+        }
       };
 
       scrollContainer.addEventListener("scroll", handleScroll);
       return () => scrollContainer.removeEventListener("scroll", handleScroll);
-    }, [messages.length]);
+    }, [
+      hasMoreHistoricalMessages,
+      isLoadingOlderMessages,
+      loadOlderMessages,
+      messages.length,
+    ]);
 
     // Auto-resize textarea based on content
     useEffect(() => {
@@ -2303,6 +2401,8 @@ const ClaudeCodePanel = forwardRef<ClaudeCodePanelRef, ClaudeCodePanelProps>(
         setMessages([]);
         setCurrentTodos([]); // Clear todos when creating new session
         setIsCorruptedSession(false); // Clear corruption flag for new session
+        setHasMoreHistoricalMessages(false);
+        earliestMessageCursorRef.current = null;
 
         // Add new session to the list
         setAllChatSessions((prev) => [newSession, ...prev]);
@@ -2429,6 +2529,7 @@ const ClaudeCodePanel = forwardRef<ClaudeCodePanelRef, ClaudeCodePanelProps>(
         showScrollToBottom={showScrollToBottom}
         isCurrentSessionMostRecent={isCurrentSessionMostRecent}
         isDragOver={isDragOver}
+        isLoadingOlderMessages={isLoadingOlderMessages}
         uploadingImages={uploadingImages}
         uploadProgress={uploadProgress}
         scrollAreaRef={scrollAreaRef}

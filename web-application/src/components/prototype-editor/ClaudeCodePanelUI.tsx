@@ -83,6 +83,7 @@ interface ClaudeCodePanelUIProps {
   showScrollToBottom: boolean;
   isCurrentSessionMostRecent: boolean;
   isDragOver: boolean;
+  isLoadingOlderMessages: boolean;
   uploadingImages: boolean;
   uploadProgress: { [key: string]: number };
   scrollAreaRef:
@@ -175,6 +176,7 @@ export default function ClaudeCodePanelUI({
   showScrollToBottom,
   isCurrentSessionMostRecent,
   isDragOver,
+  isLoadingOlderMessages,
   uploadingImages,
   uploadProgress,
   scrollAreaRef,
@@ -466,6 +468,12 @@ export default function ClaudeCodePanelUI({
             ref={scrollAreaRef}
           >
             <div className="py-4 space-y-3">
+              {isLoadingOlderMessages && messages.length > 0 && (
+                <div className="flex items-center justify-center gap-2 py-2 text-xs text-muted-foreground">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  <span>Loading earlier messages...</span>
+                </div>
+              )}
               {messages.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-[50vh] text-center opacity-0 animate-in fade-in duration-700">
                   <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary/10 to-accent/10 flex items-center justify-center mb-4 border border-primary/20">
