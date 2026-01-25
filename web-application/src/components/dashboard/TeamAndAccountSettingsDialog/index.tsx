@@ -33,6 +33,7 @@ import {
   Check,
   Plus,
   Github,
+  Database,
 } from "lucide-react";
 import { useCustomUserRow } from "@/hooks/useCustomUserRow";
 import { usePostHog } from "posthog-js/react";
@@ -50,6 +51,7 @@ import { CreditsAndSubscriptionsTab } from "./CreditsAndSubscriptionsTab";
 import { TeamTab } from "./TeamTab";
 import { PeopleTab } from "./PeopleTab";
 import { GitHubIntegrationTab } from "./GitHubIntegrationTab";
+import { SupabaseBackendIntegrationTab } from "./SupabaseBackendIntegrationTab";
 import { useClaudePersonalSubscriptionAccess } from "@/hooks/useClaudePersonalSubscriptionAccess";
 
 export type SettingsTab =
@@ -58,7 +60,8 @@ export type SettingsTab =
   | "claude"
   | "team"
   | "people"
-  | "github";
+  | "github"
+  | "supabase-backend";
 
 interface SettingsDialogProps {
   open: boolean;
@@ -87,6 +90,8 @@ export function TeamAndAccountsSettingsDialog({
     posthog?.isFeatureEnabled("claude-code-cli-with-personal-token") ?? false;
   const canShowClaudeTab =
     isClaudeFeatureEnabled && isClaudePersonalEligible && !claudeAccessLoading;
+  const isSupabaseBackendConnectorEnabled =
+    posthog?.isFeatureEnabled("supabase-backend-connector") ?? false;
 
   // Get initials for team avatar
   const getInitials = (name: string) => {
@@ -106,17 +111,28 @@ export function TeamAndAccountsSettingsDialog({
     if (open) {
       if (defaultTab === "claude" && !canShowClaudeTab) {
         setActiveTab("profile");
+      } else if (
+        defaultTab === "supabase-backend" &&
+        !isSupabaseBackendConnectorEnabled
+      ) {
+        setActiveTab("profile");
       } else {
         setActiveTab(defaultTab);
       }
     }
-  }, [open, defaultTab, canShowClaudeTab]);
+  }, [open, defaultTab, canShowClaudeTab, isSupabaseBackendConnectorEnabled]);
 
   useEffect(() => {
     if (!canShowClaudeTab && activeTab === "claude") {
       setActiveTab("profile");
     }
-  }, [canShowClaudeTab, activeTab]);
+    if (
+      !isSupabaseBackendConnectorEnabled &&
+      activeTab === "supabase-backend"
+    ) {
+      setActiveTab("profile");
+    }
+  }, [canShowClaudeTab, isSupabaseBackendConnectorEnabled, activeTab]);
 
   // Fetch subscriptions for all teams
   useEffect(() => {
@@ -212,6 +228,15 @@ export function TeamAndAccountsSettingsDialog({
           label: "GitHub",
           icon: Github,
         },
+        ...(isSupabaseBackendConnectorEnabled
+          ? [
+              {
+                id: "supabase-backend" as const,
+                label: "Supabase (backend)",
+                icon: Database,
+              },
+            ]
+          : []),
       ],
     },
   ];
@@ -400,6 +425,10 @@ export function TeamAndAccountsSettingsDialog({
               {activeTab === "team" && <TeamTab />}
               {activeTab === "people" && <PeopleTab />}
               {activeTab === "github" && <GitHubIntegrationTab />}
+              {isSupabaseBackendConnectorEnabled &&
+                activeTab === "supabase-backend" && (
+                  <SupabaseBackendIntegrationTab />
+                )}
             </div>
           </div>
         </DialogContent>
