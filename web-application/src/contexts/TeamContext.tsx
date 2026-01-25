@@ -147,7 +147,9 @@ export function TeamProvider({ children }: { children: ReactNode }) {
 
   // Compute SSO-related values
   const isCurrentUserSsoUser = userRow?.is_sso_user ?? false;
-  const isActiveTeamSsoEnabled = activeTeam?.sso_provider_id !== null;
+  const isActiveTeamSsoEnabled =
+    activeTeam?.sso_provider_id !== null &&
+    activeTeam?.sso_provider_id !== undefined;
 
   return (
     <TeamContext.Provider
