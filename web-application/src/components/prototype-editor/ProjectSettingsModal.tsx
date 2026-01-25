@@ -29,7 +29,6 @@ import type {
   StandardErrorResponse,
 } from "@/lib/types/serverAPITypes";
 import { Database } from "@/lib/types/supabase";
-import { IsUserPlanSubscribed } from "@/lib/utils/payments/SubscriptionManagementUtils";
 import {
   isValidSlug,
   normalizeSlug,
@@ -269,25 +268,16 @@ export function ProjectSettingsModal({
 
     setIsCopying(true);
     try {
-      // Make public if not already
-      if (!isPublic) {
-        await supabase
-          .from("prototypes")
-          .update({ visibility: "PUBLIC" })
-          .eq("id", prototype.id);
-        onVisibilityChange?.("PUBLIC");
-      }
-
       await navigator.clipboard.writeText(
         window.location.href.replace("dashboard/projects", "p"),
       );
 
-      toast.success("Copied!");
+      toast.success("Link copied!");
       logger.log({
         event: "client_prototype_editor_share_link_copied",
         properties: {
           prototype_id: prototype.id,
-          visibility_before: isPublic ? "PUBLIC" : "SELF",
+          visibility: prototype.visibility,
         },
       });
 
@@ -302,32 +292,9 @@ export function ProjectSettingsModal({
     }
   };
 
-  const handleVisibilityToggle = async (checked: boolean) => {
-    if (!prototype) return;
-    if (!checked && !IsUserPlanSubscribed(userPlan ?? "")) {
-      return;
-    }
-
-    try {
-      const newVisibility: PrototypeVisibility = checked ? "PUBLIC" : "SELF";
-      await supabase
-        .from("prototypes")
-        .update({ visibility: newVisibility })
-        .eq("id", prototype.id);
-
-      onVisibilityChange?.(newVisibility);
-      logger.log({
-        event: "client_prototype_editor_share_visibility_changed",
-        properties: {
-          prototype_id: prototype.id,
-          visibility: newVisibility,
-        },
-      });
-    } catch (err) {
-      logger.debug("error", "Failed to update visibility:", {
-        error: err instanceof Error ? err.message : String(err),
-      });
-    }
+  const handleOpenShareLink = () => {
+    const url = window.location.href.replace("dashboard/projects", "p");
+    window.open(url, "_blank", "noopener,noreferrer");
   };
 
   // ===== DEPLOY STATE =====
@@ -1674,47 +1641,65 @@ export function ProjectSettingsModal({
                   </p>
                 </div>
 
-                {/* Visibility Toggle */}
-                <div className="flex items-center justify-between p-4 bg-accent border border-border rounded-lg">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      {isPublic ? (
-                        <Globe className="w-4 h-4 text-primary" />
-                      ) : (
-                        <Lock className="w-4 h-4 text-muted-foreground" />
-                      )}
-                      <p className="font-medium text-sm">Make Public</p>
-                    </div>
-                    <p className="text-sm text-muted-foreground mt-1.5 ml-6">
-                      {isPublic
-                        ? "Anyone with the link can view"
-                        : "Only you can view"}
-                    </p>
-                    {!IsUserPlanSubscribed(userPlan ?? "") && !isPublic && (
-                      <p className="text-sm text-warning mt-1.5 ml-6">
-                        Upgrade to Plus to restrict access
-                      </p>
-                    )}
-                  </div>
-                  <label
-                    className={cn(
-                      "relative inline-flex items-center",
-                      !IsUserPlanSubscribed(userPlan ?? "") && !isPublic
-                        ? "opacity-50 cursor-not-allowed"
-                        : "cursor-pointer",
-                    )}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={isPublic}
-                      onChange={(e) => handleVisibilityToggle(e.target.checked)}
-                      disabled={
-                        !IsUserPlanSubscribed(userPlan ?? "") && !isPublic
+                {/* Visibility Dropdown */}
+                <div className="space-y-3">
+                  <p className="text-sm font-medium text-muted-foreground">
+                    Visibility
+                  </p>
+                  <Select
+                    value={prototype?.visibility || "SELF"}
+                    onValueChange={async (value: PrototypeVisibility) => {
+                      if (!prototype) return;
+                      const option = visibilityOptions.find(
+                        (opt) => opt.value === value,
+                      );
+                      if (option?.isLocked) {
+                        setShowUpsellModal(true);
+                        return;
                       }
-                      className="sr-only peer"
-                    />
-                    <div className="w-10 h-6 bg-muted peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[3px] after:left-[3px] after:bg-white after:rounded-full after:h-[18px] after:w-[18px] after:transition-all peer-checked:bg-primary peer-disabled:cursor-not-allowed"></div>
-                  </label>
+                      try {
+                        await supabase
+                          .from("prototypes")
+                          .update({ visibility: value })
+                          .eq("id", prototype.id);
+                        onVisibilityChange?.(value);
+                        toast.success("Visibility updated");
+                        logger.log({
+                          event: "client_prototype_editor_share_visibility_changed",
+                          properties: {
+                            prototype_id: prototype.id,
+                            visibility: value,
+                          },
+                        });
+                      } catch {
+                        toast.error("Failed to update visibility");
+                      }
+                    }}
+                  >
+                    <SelectTrigger className="h-10">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {visibilityOptions.map((option) => {
+                        const Icon = option.icon;
+                        return (
+                          <SelectItem
+                            key={option.value}
+                            value={option.value}
+                            className="focus:bg-muted focus:text-foreground cursor-pointer"
+                          >
+                            <div className="flex items-center gap-2">
+                              <Icon className="w-4 h-4 text-muted-foreground" />
+                              <span>{option.label}</span>
+                              {option.isLocked && (
+                                <Lock className="w-3.5 h-3.5 text-muted-foreground ml-auto" />
+                              )}
+                            </div>
+                          </SelectItem>
+                        );
+                      })}
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 {/* Share Link */}
@@ -1722,7 +1707,7 @@ export function ProjectSettingsModal({
                   <p className="text-sm font-medium text-muted-foreground">
                     Share Link
                   </p>
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2">
                     <Input
                       value={
                         typeof window !== "undefined"
@@ -1736,30 +1721,37 @@ export function ProjectSettingsModal({
                       className="flex-1 bg-accent border-border text-foreground h-10 text-sm"
                     />
                     <Button
+                      variant="outline"
+                      size="icon"
                       onClick={handleCopyLink}
-                      disabled={isCopying || hasCopied}
-                      className={cn(
-                        "flex items-center gap-2 h-10 px-4",
-                        hasCopied
-                          ? "bg-success text-white hover:bg-success/90"
-                          : "bg-primary text-primary-foreground hover:bg-primary/90",
-                      )}
+                      disabled={isCopying}
+                      className="h-10 w-10"
                     >
                       {isCopying ? (
                         <Loader2 className="w-4 h-4 animate-spin" />
                       ) : hasCopied ? (
-                        <Check className="w-4 h-4" />
+                        <Check className="w-4 h-4 text-success" />
                       ) : (
                         <Copy className="w-4 h-4" />
                       )}
-                      {isCopying ? "..." : hasCopied ? "Copied!" : "Copy"}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={handleOpenShareLink}
+                      className="h-10 w-10"
+                    >
+                      <ExternalLink className="w-4 h-4" />
                     </Button>
                   </div>
-                  {!isPublic && (
-                    <p className="text-sm text-warning">
-                      Copying the link will automatically make this project
-                      public
-                    </p>
+                  {prototype?.visibility === "SELF" && (
+                    <div className="flex items-start gap-2 p-3 bg-warning/10 border border-warning/30 rounded-lg">
+                      <AlertTriangle className="w-4 h-4 text-warning mt-0.5 flex-shrink-0" />
+                      <p className="text-sm text-warning">
+                        This project is private. Only you and team admins/owners
+                        can view it.
+                      </p>
+                    </div>
                   )}
                 </div>
               </div>
