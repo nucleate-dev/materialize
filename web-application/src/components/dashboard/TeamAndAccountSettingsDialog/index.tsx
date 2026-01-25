@@ -187,11 +187,6 @@ export function TeamAndAccountsSettingsDialog({
           icon: CreditCard,
         },
         { id: "people", label: "People", icon: Users },
-        {
-          id: "github" as const,
-          label: "GitHub",
-          icon: Github,
-        },
       ],
     },
     {
@@ -207,6 +202,16 @@ export function TeamAndAccountsSettingsDialog({
               },
             ]
           : []),
+      ],
+    },
+    {
+      label: "Connectors",
+      tabs: [
+        {
+          id: "github" as const,
+          label: "GitHub",
+          icon: Github,
+        },
       ],
     },
   ];
