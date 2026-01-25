@@ -1,7 +1,25 @@
 // Canvas components for infinite canvas preview
 export { PreviewCanvas } from "./PreviewCanvas";
-export { PhoneFrameShapeUtil } from "./PhoneFrameShapeUtil";
-export { BrowserFrameShapeUtil } from "./BrowserFrameShapeUtil";
+export { PhoneFrame } from "./PhoneFrame";
+export { BrowserFrame } from "./BrowserFrame";
+export { DraggableScreen } from "./DraggableScreen";
+export { CanvasToolbar, type CanvasToolMode } from "./CanvasToolbar";
+
+// Hooks
+export { usePanZoom } from "./usePanZoom";
+
+// Utilities
+export {
+  resolveIframeSrc,
+  getDefaultPosition,
+  getDefaultDimensions,
+  clamp,
+  calculateZoomToFit,
+  zoomTowardsPoint,
+} from "./utils";
+
+// Constants
+export { PHONE_FRAME, BROWSER_FRAME, TABLET_FRAME, CANVAS, FRAME_DIMENSIONS } from "./constants";
 
 // Types
 export type {
@@ -9,13 +27,7 @@ export type {
   PreviewCanvasProps,
   PreviewCanvasRef,
   ScreenConfig,
-  ScreenShapeProps,
-  PhoneFrameShapeProps,
-  BrowserFrameShapeProps,
+  ScreenState,
   PrototypeContextData,
   ScreenUpdateAction,
 } from "./types";
-
-// Shape types
-export type { PhoneFrameShape } from "./PhoneFrameShapeUtil";
-export type { BrowserFrameShape } from "./BrowserFrameShapeUtil";

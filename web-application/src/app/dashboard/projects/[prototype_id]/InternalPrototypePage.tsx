@@ -273,7 +273,7 @@ export default function InternalPrototypePage() {
         // Cast to Json type for Supabase compatibility
         const contextToSave = {
           canvas: {
-            document: state.document,
+            screens: state.screens,
             zoom: state.zoom,
             camera: state.camera,
             previewMode: state.previewMode,

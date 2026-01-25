@@ -8,37 +8,20 @@ import {
   useRef,
   useState,
 } from "react";
-import {
-  Editor,
-  TLShapeId,
-  Tldraw,
-  createShapeId,
-} from "@/lib/tldraw";
-
-import { PhoneFrameShapeUtil } from "./PhoneFrameShapeUtil";
-import { BrowserFrameShapeUtil } from "./BrowserFrameShapeUtil";
+import { PhoneFrame } from "./PhoneFrame";
+import { BrowserFrame } from "./BrowserFrame";
+import { DraggableScreen } from "./DraggableScreen";
+import { CanvasToolbar, type CanvasToolMode } from "./CanvasToolbar";
+import { usePanZoom } from "./usePanZoom";
+import { getDefaultPosition, getDefaultDimensions } from "./utils";
+import { CANVAS } from "./constants";
 import type {
   CanvasStateData,
   PreviewCanvasProps,
   PreviewCanvasRef,
   ScreenConfig,
+  ScreenState,
 } from "./types";
-
-// Custom shape utils array
-const customShapeUtils = [PhoneFrameShapeUtil, BrowserFrameShapeUtil];
-
-// Grid spacing for initial shape placement
-const GRID_SPACING = 50;
-
-// Default positions for new shapes
-const getDefaultPosition = (index: number, previewMode: "mobile" | "web" | "tablet") => {
-  const baseWidth = previewMode === "mobile" ? 336 : previewMode === "tablet" ? 792 : 800;
-  const spacing = baseWidth + GRID_SPACING;
-  return {
-    x: index * spacing + 100,
-    y: 100,
-  };
-};
 
 const PreviewCanvas = forwardRef<PreviewCanvasRef, PreviewCanvasProps>(
   (
@@ -49,46 +32,54 @@ const PreviewCanvas = forwardRef<PreviewCanvasRef, PreviewCanvasProps>(
       initialCanvasState,
       onCanvasStateChange,
       onScreensChange,
-      onScreenPathChange,
       readOnly = false,
-      availableRoutes = [],
-      onIframeLoad,
-      onIframeError,
     },
-    ref,
+    ref
   ) => {
-    void onScreenPathChange;
-    void availableRoutes;
-    void onIframeLoad;
-    void onIframeError;
-    const editorRef = useRef<Editor | null>(null);
+    const containerRef = useRef<HTMLDivElement>(null);
+    const [screens, setScreensState] = useState<ScreenState[]>([]);
     const [isInitialized, setIsInitialized] = useState(false);
+    const [refreshKey, setRefreshKey] = useState(0);
+    const [toolMode, setToolMode] = useState<CanvasToolMode>("select");
+    const [isSpacePressed, setIsSpacePressed] = useState(false);
     const screenIdCounter = useRef(
-      Math.max(...initialScreens.map((s) => s.id), 0) + 1,
+      Math.max(...initialScreens.map((s) => s.id), 0) + 1
     );
+    const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-    // Track screen ID to shape ID mapping
-    const screenToShapeMap = useRef<Map<number, TLShapeId>>(new Map());
+    // Effective tool mode (space key temporarily activates pan)
+    const effectiveToolMode = isSpacePressed ? "pan" : toolMode;
 
-    const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+    // Initialize pan/zoom
+    const {
+      zoom,
+      camera,
+      setZoom: setPanZoom,
+      setCamera,
+      zoomIn,
+      zoomOut,
+      zoomToFit: panZoomToFit,
+      zoomToBounds,
+      getTransformStyle,
+      startPan,
+    } = usePanZoom({
+      containerRef,
+      initialZoom: initialCanvasState?.zoom ?? 1,
+      initialCamera: initialCanvasState?.camera ?? { x: 0, y: 0 },
+    });
 
     // Get current canvas state for persistence
     const getCanvasState = useCallback((): CanvasStateData | null => {
-      if (!editorRef.current) return null;
-
-      const editor = editorRef.current;
-      const snapshot = editor.getSnapshot();
-      const camera = editor.getCamera();
-      const zoom = editor.getZoomLevel();
+      if (!isInitialized) return null;
 
       return {
-        document: snapshot.document,
+        screens,
         zoom,
-        camera: { x: camera.x, y: camera.y },
+        camera,
         previewMode,
         lastModified: new Date().toISOString(),
       };
-    }, [previewMode]);
+    }, [screens, zoom, camera, previewMode, isInitialized]);
 
     // Debounced state change handler
     const debouncedSave = useCallback(() => {
@@ -96,256 +87,229 @@ const PreviewCanvas = forwardRef<PreviewCanvasRef, PreviewCanvasProps>(
         clearTimeout(saveTimeoutRef.current);
       }
       saveTimeoutRef.current = setTimeout(() => {
-        if (editorRef.current && onCanvasStateChange) {
+        if (onCanvasStateChange) {
           const state = getCanvasState();
           if (state) {
             onCanvasStateChange(state);
           }
         }
-      }, 1000);
+      }, CANVAS.SAVE_DEBOUNCE_MS);
     }, [getCanvasState, onCanvasStateChange]);
 
-    // Rebuild the mapping between screen IDs and shape IDs
-    const rebuildScreenShapeMap = useCallback(() => {
-      if (!editorRef.current) return;
-
-      const editor = editorRef.current;
-      screenToShapeMap.current.clear();
-
-      const allShapes = editor.getCurrentPageShapes();
-      for (const shape of allShapes) {
-        if (shape.type === "phone-frame" || shape.type === "browser-frame") {
-          const props = shape.props as { screenId: number };
-          screenToShapeMap.current.set(props.screenId, shape.id);
+    // Notify parent of screen changes
+    const notifyScreensChanged = useCallback(
+      (currentScreens: ScreenState[]) => {
+        if (onScreensChange) {
+          const configs: ScreenConfig[] = currentScreens.map((s) => ({
+            id: s.id,
+            path: s.path,
+          }));
+          onScreensChange(configs);
         }
+        debouncedSave();
+      },
+      [onScreensChange, debouncedSave]
+    );
+
+    // Calculate bounds of all screens
+    const calculateBounds = useCallback((screenList: ScreenState[]) => {
+      if (screenList.length === 0) {
+        return { minX: 0, minY: 0, maxX: 100, maxY: 100 };
       }
+
+      let minX = Infinity;
+      let minY = Infinity;
+      let maxX = -Infinity;
+      let maxY = -Infinity;
+
+      for (const screen of screenList) {
+        minX = Math.min(minX, screen.position.x);
+        minY = Math.min(minY, screen.position.y);
+        maxX = Math.max(maxX, screen.position.x + screen.position.width);
+        maxY = Math.max(maxY, screen.position.y + screen.position.height);
+      }
+
+      return { minX, minY, maxX, maxY };
     }, []);
 
     // Load canvas state from persistence
     const loadCanvasState = useCallback(
       (state: CanvasStateData) => {
-        if (!editorRef.current) return;
+        setScreensState(state.screens);
+        setPanZoom(state.zoom);
+        setCamera(state.camera);
 
-        const editor = editorRef.current;
-
-        try {
-          // Load the document snapshot
-          editor.loadSnapshot({
-            document: state.document,
-            session: editor.getSnapshot().session,
-          });
-
-          // Restore camera position and zoom
-          editor.setCamera({
-            x: state.camera.x,
-            y: state.camera.y,
-            z: state.zoom,
-          });
-
-          // Rebuild the screen to shape mapping
-          rebuildScreenShapeMap();
-        } catch (error) {
-          // eslint-disable-next-line no-restricted-syntax
-          console.error("Error loading canvas state:", error);
+        // Update screen ID counter
+        if (state.screens.length > 0) {
+          screenIdCounter.current =
+            Math.max(...state.screens.map((s) => s.id), 0) + 1;
         }
       },
-      [rebuildScreenShapeMap],
+      [setPanZoom, setCamera]
     );
-
-    // Notify parent of screen changes
-    const notifyScreensChanged = useCallback(() => {
-      if (!editorRef.current || !onScreensChange) return;
-
-      const editor = editorRef.current;
-      const shapes = editor.getCurrentPageShapes();
-      const screens: ScreenConfig[] = [];
-
-      for (const shape of shapes) {
-        if (shape.type === "phone-frame" || shape.type === "browser-frame") {
-          const props = shape.props as { screenId: number; path: string };
-          screens.push({
-            id: props.screenId,
-            path: props.path,
-          });
-        }
-      }
-
-      onScreensChange(screens);
-    }, [onScreensChange]);
 
     // Add a new screen
     const addScreen = useCallback(
       (path: string) => {
-        if (!editorRef.current) return;
-
-        const editor = editorRef.current;
         const newScreenId = screenIdCounter.current++;
-        const shapeId = createShapeId();
-        const existingShapes = editor.getCurrentPageShapes().length;
-        const position = getDefaultPosition(existingShapes, previewMode);
+        const dimensions = getDefaultDimensions(previewMode);
+        const position = getDefaultPosition(screens.length, previewMode);
 
-        const shapeType =
-          previewMode === "mobile" ? "phone-frame" : "browser-frame";
-        const defaultProps =
-          previewMode === "mobile" ? { w: 336, h: 656 } : { w: 800, h: 600 };
+        const newScreen: ScreenState = {
+          id: newScreenId,
+          path,
+          position: {
+            x: position.x,
+            y: position.y,
+            width: dimensions.width,
+            height: dimensions.height,
+          },
+        };
 
-        editor.createShape({
-          id: shapeId,
-          type: shapeType,
-          x: position.x,
-          y: position.y,
-          props: {
-            screenId: newScreenId,
-            path,
-            ...defaultProps,
-          },
-          meta: {
-            viewingUrl,
-          },
+        setScreensState((prev) => {
+          const updated = [...prev, newScreen];
+          notifyScreensChanged(updated);
+          return updated;
         });
-
-        screenToShapeMap.current.set(newScreenId, shapeId);
-
-        // Notify parent of screen change
-        notifyScreensChanged();
-        debouncedSave();
       },
-      [debouncedSave, notifyScreensChanged, previewMode, viewingUrl],
+      [screens.length, previewMode, notifyScreensChanged]
     );
 
     // Remove a screen
     const removeScreen = useCallback(
       (screenId: number) => {
-        if (!editorRef.current) return;
-
-        const shapeId = screenToShapeMap.current.get(screenId);
-        if (shapeId) {
-          editorRef.current.deleteShape(shapeId);
-          screenToShapeMap.current.delete(screenId);
-          notifyScreensChanged();
-          debouncedSave();
-        }
+        setScreensState((prev) => {
+          const updated = prev.filter((s) => s.id !== screenId);
+          notifyScreensChanged(updated);
+          return updated;
+        });
       },
-      [debouncedSave, notifyScreensChanged],
+      [notifyScreensChanged]
     );
 
     // Set all screens (replace existing)
     const setScreens = useCallback(
-      (screens: ScreenConfig[]) => {
-        if (!editorRef.current) return;
-
-        const editor = editorRef.current;
-
-        // Delete all existing screen shapes
-        const existingShapes = editor.getCurrentPageShapes();
-        const screenShapeIds = existingShapes
-          .filter((s) => s.type === "phone-frame" || s.type === "browser-frame")
-          .map((s) => s.id);
-
-        if (screenShapeIds.length > 0) {
-          editor.deleteShapes(screenShapeIds);
-        }
-
-        screenToShapeMap.current.clear();
-
-        // Create new shapes for each screen
-        const shapeType =
-          previewMode === "mobile" ? "phone-frame" : "browser-frame";
-        const defaultProps =
-          previewMode === "mobile" ? { w: 336, h: 656 } : { w: 800, h: 600 };
-
-        screens.forEach((screen, index) => {
-          const shapeId = createShapeId();
+      (screenConfigs: ScreenConfig[]) => {
+        const dimensions = getDefaultDimensions(previewMode);
+        const newScreens: ScreenState[] = screenConfigs.map((config, index) => {
           const position = getDefaultPosition(index, previewMode);
-
-          editor.createShape({
-            id: shapeId,
-            type: shapeType,
-            x: position.x,
-            y: position.y,
-            props: {
-              screenId: screen.id,
-              path: screen.path,
-              ...defaultProps,
+          return {
+            id: config.id,
+            path: config.path,
+            position: {
+              x: position.x,
+              y: position.y,
+              width: dimensions.width,
+              height: dimensions.height,
             },
-            meta: {
-              viewingUrl,
-            },
-          });
-
-          screenToShapeMap.current.set(screen.id, shapeId);
+          };
         });
 
+        setScreensState(newScreens);
+
         // Update screen ID counter
-        if (screens.length > 0) {
+        if (screenConfigs.length > 0) {
           screenIdCounter.current =
-            Math.max(...screens.map((s) => s.id), 0) + 1;
+            Math.max(...screenConfigs.map((s) => s.id), 0) + 1;
         }
 
-        notifyScreensChanged();
-        debouncedSave();
+        notifyScreensChanged(newScreens);
       },
-      [debouncedSave, notifyScreensChanged, previewMode, viewingUrl],
+      [previewMode, notifyScreensChanged]
     );
 
-    // Zoom to fit all shapes
+    // Zoom to fit all screens
     const zoomToFit = useCallback(() => {
-      if (!editorRef.current) return;
-      editorRef.current.zoomToFit({ animation: { duration: 300 } });
-    }, []);
+      const bounds = calculateBounds(screens);
+      panZoomToFit(bounds);
+    }, [screens, calculateBounds, panZoomToFit]);
 
     // Zoom to a specific screen
-    const zoomToScreen = useCallback((screenId: number) => {
-      if (!editorRef.current) return;
-
-      const shapeId = screenToShapeMap.current.get(screenId);
-      if (shapeId) {
-        const shape = editorRef.current.getShape(shapeId);
-        if (shape) {
-          editorRef.current.zoomToBounds(
-            editorRef.current.getShapePageBounds(shape)!,
-            { animation: { duration: 300 } },
-          );
+    const zoomToScreen = useCallback(
+      (screenId: number) => {
+        const screen = screens.find((s) => s.id === screenId);
+        if (screen) {
+          const bounds = {
+            minX: screen.position.x,
+            minY: screen.position.y,
+            maxX: screen.position.x + screen.position.width,
+            maxY: screen.position.y + screen.position.height,
+          };
+          zoomToBounds(bounds);
         }
-      }
-    }, []);
+      },
+      [screens, zoomToBounds]
+    );
 
     // Force refresh all iframes
     const forceRefresh = useCallback(() => {
-      // This will be handled by updating the viewingUrl meta on all shapes
-      if (!editorRef.current) return;
-
-      const editor = editorRef.current;
-      const shapes = editor.getCurrentPageShapes();
-
-      for (const shape of shapes) {
-        if (shape.type === "phone-frame" || shape.type === "browser-frame") {
-          // Update the shape to trigger a re-render
-          editor.updateShape({
-            id: shape.id,
-            type: shape.type,
-            meta: {
-              ...shape.meta,
-              refreshKey: Date.now(),
-            },
-          });
-        }
-      }
+      setRefreshKey((prev) => prev + 1);
     }, []);
 
     // Get current zoom level
     const getZoom = useCallback(() => {
-      return editorRef.current?.getZoomLevel() ?? 1;
-    }, []);
+      return zoom;
+    }, [zoom]);
 
     // Set zoom level
-    const setZoom = useCallback((zoom: number) => {
-      if (!editorRef.current) return;
-      editorRef.current.setCamera({
-        ...editorRef.current.getCamera(),
-        z: zoom,
-      });
-    }, []);
+    const setZoom = useCallback(
+      (newZoom: number) => {
+        setPanZoom(newZoom);
+        debouncedSave();
+      },
+      [setPanZoom, debouncedSave]
+    );
+
+    // Handle screen drag
+    const handleScreenDrag = useCallback(
+      (screenId: number, deltaX: number, deltaY: number) => {
+        setScreensState((prev) =>
+          prev.map((s) =>
+            s.id === screenId
+              ? {
+                  ...s,
+                  position: {
+                    ...s.position,
+                    x: s.position.x + deltaX,
+                    y: s.position.y + deltaY,
+                  },
+                }
+              : s
+          )
+        );
+      },
+      []
+    );
+
+    // Handle screen drag end
+    const handleScreenDragEnd = useCallback(() => {
+      debouncedSave();
+    }, [debouncedSave]);
+
+    // Handle double-click on screen
+    const handleScreenDoubleClick = useCallback(
+      (screenId: number) => {
+        zoomToScreen(screenId);
+      },
+      [zoomToScreen]
+    );
+
+    // Handle mouse down on canvas
+    const handleCanvasMouseDown = useCallback(
+      (e: React.MouseEvent) => {
+        // In pan mode, start panning from anywhere
+        if (effectiveToolMode === "pan") {
+          startPan(e);
+          return;
+        }
+
+        // In select mode, only pan if clicking directly on background
+        if (e.target === e.currentTarget) {
+          startPan(e);
+        }
+      },
+      [effectiveToolMode, startPan]
+    );
 
     // Expose methods via ref
     useImperativeHandle(
@@ -373,122 +337,90 @@ const PreviewCanvas = forwardRef<PreviewCanvasRef, PreviewCanvasProps>(
         forceRefresh,
         getZoom,
         setZoom,
-      ],
+      ]
     );
 
-    // Handle editor mount
-    const handleEditorMount = useCallback(
-      (editor: Editor) => {
-        editorRef.current = editor;
-
-        // Configure editor for read-only mode if needed
-        if (readOnly) {
-          editor.updateInstanceState({ isReadonly: true });
+    // Keyboard shortcuts
+    useEffect(() => {
+      const handleKeyDown = (e: KeyboardEvent) => {
+        // Ignore if typing in an input
+        if (
+          e.target instanceof HTMLInputElement ||
+          e.target instanceof HTMLTextAreaElement
+        ) {
+          return;
         }
 
-        // Load initial state if provided
-        if (initialCanvasState) {
-          loadCanvasState(initialCanvasState);
-          setIsInitialized(true);
-        } else {
-          // Create initial shapes from initialScreens
-          const shapeType =
-            previewMode === "mobile" ? "phone-frame" : "browser-frame";
-          const defaultProps =
-            previewMode === "mobile" ? { w: 336, h: 656 } : { w: 800, h: 600 };
+        switch (e.key.toLowerCase()) {
+          case "v":
+            setToolMode("select");
+            break;
+          case "h":
+            setToolMode("pan");
+            break;
+          case " ":
+            e.preventDefault();
+            setIsSpacePressed(true);
+            break;
+        }
+      };
 
-          initialScreens.forEach((screen, index) => {
-            const shapeId = createShapeId();
-            const position = getDefaultPosition(index, previewMode);
+      const handleKeyUp = (e: KeyboardEvent) => {
+        if (e.key === " ") {
+          setIsSpacePressed(false);
+        }
+      };
 
-            editor.createShape({
-              id: shapeId,
-              type: shapeType,
+      window.addEventListener("keydown", handleKeyDown);
+      window.addEventListener("keyup", handleKeyUp);
+
+      return () => {
+        window.removeEventListener("keydown", handleKeyDown);
+        window.removeEventListener("keyup", handleKeyUp);
+      };
+    }, []);
+
+    // Initialize screens on mount
+    useEffect(() => {
+      if (isInitialized) return;
+
+      if (initialCanvasState) {
+        loadCanvasState(initialCanvasState);
+      } else {
+        // Create initial screens from props
+        const dimensions = getDefaultDimensions(previewMode);
+        const newScreens: ScreenState[] = initialScreens.map((config, index) => {
+          const position = getDefaultPosition(index, previewMode);
+          return {
+            id: config.id,
+            path: config.path,
+            position: {
               x: position.x,
               y: position.y,
-              props: {
-                screenId: screen.id,
-                path: screen.path,
-                ...defaultProps,
-              },
-              meta: {
-                viewingUrl,
-              },
-            });
-
-            screenToShapeMap.current.set(screen.id, shapeId);
-          });
-
-          // Zoom to fit initial shapes
-          setTimeout(() => {
-            editor.zoomToFit({ animation: { duration: 0 } });
-          }, 100);
-
-          setIsInitialized(true);
-        }
-
-        // Set up store listener for auto-save
-        const unsubscribe = editor.store.listen(
-          () => {
-            debouncedSave();
-          },
-          { scope: "document" },
-        );
-
-        // Double-click to zoom to shape
-        editor.on("event", (event) => {
-          if (
-            event.name === "double_click" &&
-            event.target === "shape" &&
-            "shape" in event
-          ) {
-            const shape = event.shape;
-            if (shape) {
-              const bounds = editor.getShapePageBounds(shape);
-              if (bounds) {
-                editor.zoomToBounds(bounds, {
-                  animation: { duration: 300 },
-                });
-              }
-            }
-          }
-        });
-
-        return () => {
-          unsubscribe();
-        };
-      },
-      [
-        readOnly,
-        initialCanvasState,
-        loadCanvasState,
-        previewMode,
-        initialScreens,
-        viewingUrl,
-        debouncedSave,
-      ],
-    );
-
-    // Update viewingUrl on all shapes when it changes
-    useEffect(() => {
-      if (!editorRef.current || !isInitialized) return;
-
-      const editor = editorRef.current;
-      const shapes = editor.getCurrentPageShapes();
-
-      for (const shape of shapes) {
-        if (shape.type === "phone-frame" || shape.type === "browser-frame") {
-          editor.updateShape({
-            id: shape.id,
-            type: shape.type,
-            meta: {
-              ...shape.meta,
-              viewingUrl,
+              width: dimensions.width,
+              height: dimensions.height,
             },
-          });
-        }
+          };
+        });
+        setScreensState(newScreens);
+
+        // Zoom to fit after a short delay
+        setTimeout(() => {
+          const bounds = calculateBounds(newScreens);
+          panZoomToFit(bounds);
+        }, 100);
       }
-    }, [viewingUrl, isInitialized]);
+
+      setIsInitialized(true);
+    }, [
+      isInitialized,
+      initialCanvasState,
+      initialScreens,
+      previewMode,
+      loadCanvasState,
+      calculateBounds,
+      panZoomToFit,
+    ]);
 
     // Cleanup on unmount
     useEffect(() => {
@@ -499,24 +431,85 @@ const PreviewCanvas = forwardRef<PreviewCanvasRef, PreviewCanvasProps>(
       };
     }, []);
 
+    // Render frame based on preview mode
+    const renderFrame = (screen: ScreenState) => {
+      const frameProps = {
+        screenId: screen.id,
+        path: screen.path,
+        viewingUrl,
+        width: screen.position.width,
+        height: screen.position.height,
+        refreshKey,
+      };
+
+      if (previewMode === "mobile" || previewMode === "tablet") {
+        return <PhoneFrame {...frameProps} />;
+      }
+      return <BrowserFrame {...frameProps} />;
+    };
+
+    // Determine cursor based on tool mode
+    const getCursor = () => {
+      if (readOnly) return "default";
+      if (effectiveToolMode === "pan") return "grab";
+      return "default";
+    };
+
     return (
       <div
+        ref={containerRef}
         className="preview-canvas-container"
         style={{
           width: "100%",
           height: "100%",
           position: "relative",
+          overflow: "hidden",
+          backgroundColor: "hsl(var(--background))",
+          cursor: getCursor(),
         }}
+        onMouseDown={handleCanvasMouseDown}
       >
-        <Tldraw
-          shapeUtils={customShapeUtils}
-          hideUi
-          inferDarkMode
-          onMount={handleEditorMount}
+        {/* Canvas content with pan/zoom transform */}
+        <div
+          className="preview-canvas-content"
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            ...getTransformStyle(),
+          }}
+        >
+          {screens.map((screen) => (
+            <DraggableScreen
+              key={screen.id}
+              x={screen.position.x}
+              y={screen.position.y}
+              zoom={zoom}
+              readOnly={readOnly || effectiveToolMode === "pan"}
+              onDrag={(deltaX, deltaY) =>
+                handleScreenDrag(screen.id, deltaX, deltaY)
+              }
+              onDragEnd={handleScreenDragEnd}
+              onDoubleClick={() => handleScreenDoubleClick(screen.id)}
+            >
+              {renderFrame(screen)}
+            </DraggableScreen>
+          ))}
+        </div>
+
+        {/* Floating Toolbar */}
+        <CanvasToolbar
+          toolMode={toolMode}
+          onToolModeChange={setToolMode}
+          zoom={zoom}
+          onZoomIn={zoomIn}
+          onZoomOut={zoomOut}
+          onZoomToFit={zoomToFit}
+          readOnly={readOnly}
         />
       </div>
     );
-  },
+  }
 );
 
 PreviewCanvas.displayName = "PreviewCanvas";

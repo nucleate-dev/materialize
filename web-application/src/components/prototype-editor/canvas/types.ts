@@ -1,33 +1,24 @@
-import type { TLStoreSnapshot } from "@/lib/tldraw";
-
 /**
- * Base props shared by all screen shapes (phone and browser frames)
+ * Screen state with position information
  */
-export interface ScreenShapeProps {
-  screenId: number;
+export interface ScreenState {
+  id: number;
   path: string;
-  w: number;
-  h: number;
+  position: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  };
 }
 
 /**
- * Props specific to the phone frame shape
- * Phone-specific props can be added here (e.g., deviceType: 'iphone' | 'android')
- */
-export type PhoneFrameShapeProps = ScreenShapeProps;
-
-/**
- * Props specific to the browser frame shape
- * Browser-specific props can be added here (e.g., showTrafficLights: boolean)
- */
-export type BrowserFrameShapeProps = ScreenShapeProps;
-
-/**
  * Canvas state that gets persisted to the database
+ * Simple, WebSocket-friendly format (~200-500 bytes)
  */
 export interface CanvasStateData {
-  /** tldraw's serialized store snapshot */
-  document: TLStoreSnapshot;
+  /** Array of screen configurations with positions */
+  screens: ScreenState[];
   /** Current zoom level (1 = 100%) */
   zoom: number;
   /** Camera position */

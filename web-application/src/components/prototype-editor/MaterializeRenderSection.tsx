@@ -53,7 +53,6 @@ import {
   Eye,
   Hammer,
   Loader2,
-  Maximize,
   MessageSquare,
   Monitor,
   MoreVertical,
@@ -71,8 +70,6 @@ import {
   Terminal as TerminalIcon,
   X,
   Zap,
-  ZoomIn,
-  ZoomOut,
 } from "lucide-react";
 import dynamic from "next/dynamic";
 import React, {
@@ -433,9 +430,6 @@ const MaterializeRenderSection = forwardRef<
 
     // Canvas ref for infinite canvas mode
     const canvasRef = useRef<PreviewCanvasRef>(null);
-
-    // Zoom state for canvas mode
-    const [canvasZoom, setCanvasZoom] = useState(1);
 
     // Determine if this is a web-only framework
     const isWebFramework = framework === "web_nextjs_react";
@@ -1883,37 +1877,6 @@ const MaterializeRenderSection = forwardRef<
       }
     };
 
-    // Canvas zoom handlers
-    const handleZoomIn = useCallback(() => {
-      if (canvasRef.current) {
-        const currentZoom = canvasRef.current.getZoom();
-        const newZoom = Math.min(currentZoom * 1.25, 4); // Max 400%
-        canvasRef.current.setZoom(newZoom);
-        setCanvasZoom(newZoom);
-      }
-    }, []);
-
-    const handleZoomOut = useCallback(() => {
-      if (canvasRef.current) {
-        const currentZoom = canvasRef.current.getZoom();
-        const newZoom = Math.max(currentZoom / 1.25, 0.1); // Min 10%
-        canvasRef.current.setZoom(newZoom);
-        setCanvasZoom(newZoom);
-      }
-    }, []);
-
-    const handleZoomToFit = useCallback(() => {
-      if (canvasRef.current) {
-        canvasRef.current.zoomToFit();
-        // Update zoom state after a short delay to get the new zoom level
-        setTimeout(() => {
-          if (canvasRef.current) {
-            setCanvasZoom(canvasRef.current.getZoom());
-          }
-        }, 350);
-      }
-    }, []);
-
     const handleAddCanvasScreen = useCallback(() => {
       if (canvasRef.current) {
         canvasRef.current.addScreen("/");
@@ -3239,70 +3202,6 @@ const MaterializeRenderSection = forwardRef<
                                 </TooltipTrigger>
                                 <TooltipContent>
                                   <p>Desktop</p>
-                                </TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-                          </div>
-                        </>
-                      )}
-
-                      {/* Canvas Zoom Controls - only show when canvas mode is enabled and in preview view */}
-                      {isCanvasPreviewEnabled && isPreviewView && (
-                        <>
-                          <div className="h-4 w-px bg-border mx-1" />
-                          <div className="flex items-center gap-1 bg-accent p-1 rounded-lg border border-border">
-                            <TooltipProvider delayDuration={200}>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-6 w-6 text-muted-foreground hover:text-foreground"
-                                    onClick={handleZoomOut}
-                                  >
-                                    <ZoomOut className="w-3.5 h-3.5" />
-                                  </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  <p>Zoom out</p>
-                                </TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-                            <span className="text-xs text-muted-foreground font-mono w-12 text-center">
-                              {Math.round(canvasZoom * 100)}%
-                            </span>
-                            <TooltipProvider delayDuration={200}>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-6 w-6 text-muted-foreground hover:text-foreground"
-                                    onClick={handleZoomIn}
-                                  >
-                                    <ZoomIn className="w-3.5 h-3.5" />
-                                  </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  <p>Zoom in</p>
-                                </TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-                            <div className="h-4 w-px bg-border mx-0.5" />
-                            <TooltipProvider delayDuration={200}>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-6 w-6 text-muted-foreground hover:text-foreground"
-                                    onClick={handleZoomToFit}
-                                  >
-                                    <Maximize className="w-3.5 h-3.5" />
-                                  </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  <p>Zoom to fit</p>
                                 </TooltipContent>
                               </Tooltip>
                             </TooltipProvider>
