@@ -3630,7 +3630,7 @@ const MaterializeRenderSection = forwardRef<
             transition: isResizingTerminal ? "none" : "height 0.2s ease-in-out",
           }}
         >
-          {/* Floating Add Screen button - top right of canvas */};
+          {/* Floating Add Screen button - top right of canvas */}
           {!isReadOnlyView &&
             isPreviewView &&
             (isCanvasPreviewEnabled ? (
