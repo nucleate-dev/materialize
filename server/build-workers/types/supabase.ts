@@ -745,6 +745,7 @@ export type Database = {
           phase: string | null
           role: Database["public"]["Enums"]["chat_role"]
           sequence: number | null
+          user_id: string | null
         }
         Insert: {
           chat_session_id?: string | null
@@ -761,6 +762,7 @@ export type Database = {
           phase?: string | null
           role: Database["public"]["Enums"]["chat_role"]
           sequence?: number | null
+          user_id?: string | null
         }
         Update: {
           chat_session_id?: string | null
@@ -777,6 +779,7 @@ export type Database = {
           phase?: string | null
           role?: Database["public"]["Enums"]["chat_role"]
           sequence?: number | null
+          user_id?: string | null
         }
         Relationships: [
           {
@@ -784,6 +787,13 @@ export type Database = {
             columns: ["chat_session_id"]
             isOneToOne: false
             referencedRelation: "prototype_chat_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prototype_chat_messages_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
             referencedColumns: ["id"]
           },
         ]

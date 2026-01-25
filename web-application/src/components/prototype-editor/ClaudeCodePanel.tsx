@@ -4,6 +4,7 @@ import { RenderStatus } from "@/app/dashboard/projects/[prototype_id]/InternalPr
 import { supabase } from "@/ClientConstants";
 import { useClaudePersonalSubscriptionAccess } from "@/hooks/useClaudePersonalSubscriptionAccess";
 import { useCreditUsage } from "@/hooks/useCreditUsage";
+import { useCustomUserRow } from "@/hooks/useCustomUserRow";
 import { UseFileSystemReturn } from "@/hooks/useFileSystem";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import type {
@@ -86,6 +87,12 @@ interface ClaudeCodePanelProps {
   onPrototypeNameClick?: () => void;
 }
 
+export interface MessageUser {
+  id: string;
+  name: string | null;
+  avatar_url: string | null;
+}
+
 export interface Message {
   id: string;
   type:
@@ -112,6 +119,7 @@ export interface Message {
   designSpec?: string; // For design_spec messages - the full specification
   isCollapsed?: boolean; // For design_spec messages - whether it's collapsed
   createdAt?: string; // ISO timestamp from the database (used for pagination)
+  user?: MessageUser; // User info for messages sent by users
 }
 
 export interface Todo {
@@ -188,6 +196,16 @@ const ClaudeCodePanel = forwardRef<ClaudeCodePanelRef, ClaudeCodePanelProps>(
 
     // Track credit usage for paywall
     const creditUsage = useCreditUsage();
+
+    // Get current user info for message attribution
+    const { userRow: currentUser } = useCustomUserRow();
+    const currentUserInfo: MessageUser | undefined = currentUser
+      ? {
+          id: currentUser.id,
+          name: currentUser.name,
+          avatar_url: currentUser.avatar_url,
+        }
+      : undefined;
 
     // Always use external WebSocket (InternalPrototypePage is the source of truth)
     const ws = externalWS;
@@ -571,7 +589,7 @@ const ClaudeCodePanel = forwardRef<ClaudeCodePanelRef, ClaudeCodePanelProps>(
 
           let messageQuery = supabase
             .from("prototype_chat_messages")
-            .select("*")
+            .select("*, users:user_id(id, name, avatar_url)")
             .eq("chat_session_id", chatSessionId);
 
           if (before) {
@@ -610,6 +628,13 @@ const ClaudeCodePanel = forwardRef<ClaudeCodePanelRef, ClaudeCodePanelProps>(
           const uiMessages: Message[] = [];
 
           for (const dbMessage of messagesInChronologicalOrder) {
+            // Extract user info from joined query result
+            const userInfo = dbMessage.users as {
+              id: string;
+              name: string | null;
+              avatar_url: string | null;
+            } | null;
+
             // Handle different message types
             if (dbMessage.message_type === "text") {
               // Regular text message (user or assistant)
@@ -619,6 +644,16 @@ const ClaudeCodePanel = forwardRef<ClaudeCodePanelRef, ClaudeCodePanelProps>(
                 content: dbMessage.content,
                 timestamp: new Date(dbMessage.created_at).getTime(),
                 createdAt: dbMessage.created_at,
+                // Include user info for user messages
+                ...(dbMessage.role === "user" && userInfo
+                  ? {
+                      user: {
+                        id: userInfo.id,
+                        name: userInfo.name,
+                        avatar_url: userInfo.avatar_url,
+                      },
+                    }
+                  : {}),
               };
 
               // Check if this message has images in event_data
@@ -972,6 +1007,7 @@ const ClaudeCodePanel = forwardRef<ClaudeCodePanelRef, ClaudeCodePanelProps>(
             imageUrls: chatIntent.images?.map(
               (img) => `data:${img.mediaType};base64,${img.base64}`,
             ),
+            user: currentUserInfo,
           },
         ]);
 
@@ -2104,6 +2140,7 @@ const ClaudeCodePanel = forwardRef<ClaudeCodePanelRef, ClaudeCodePanelProps>(
             content: displayMessage,
             timestamp: Date.now(),
             isQueued: true,
+            user: currentUserInfo,
           },
         ]);
 
@@ -2255,6 +2292,7 @@ const ClaudeCodePanel = forwardRef<ClaudeCodePanelRef, ClaudeCodePanelProps>(
             content: displayMessage,
             timestamp: Date.now(),
             imageUrls: uploadedImageMetadata.map((img) => img.signed_url),
+            user: currentUserInfo,
           },
         ]);
         logger.log({

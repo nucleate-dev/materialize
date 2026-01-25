@@ -522,6 +522,9 @@ export class ChatQueryHandler implements ChatEngine {
       ? { images: imageMetadata }
       : null;
 
+    // Get userId from worker context to track message sender
+    const { userId } = getWorkerContext();
+
     await persistChatMessage(
       this.supabaseClientService,
       prototypeChatSessionId,
@@ -530,6 +533,11 @@ export class ChatQueryHandler implements ChatEngine {
       "text",
       null,
       eventData,
+      null, // creditsUsed
+      null, // costFunction
+      null, // provider
+      null, // model
+      userId ?? null, // userId
     );
   }
 
