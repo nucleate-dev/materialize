@@ -214,17 +214,17 @@ export default function HeroSection() {
     {
       label: "Paywall variant",
       prompt:
-        "Personal health dashboard. Widgets for heart rate graph, sleep quality score with moon icon, daily caloric intake vs burn, hydration water level tracker, and recovery battery percentage. Activity rings and step counter.\n\nCreate also the other screens.\n\nMobile dashboard, Bento Grid layout, Soft Neo-Brutalism. Dark mode, deep charcoal background, rounded cards with vivid pastel accents (salmon, periwinkle, yellow). Bold all-caps sans-serif typography, modular fintech SaaS aesthetic with high contrast.",
+        "Subscription paywall screen with three pricing tiers. Free tier with basic features, Pro tier highlighted as 'Most Popular' with advanced features, and Enterprise tier for teams. Each card shows monthly/annual toggle, feature list with checkmarks, and CTA button. Include trust badges and 'No credit card required' text. Modern gradient background with glassmorphism cards.",
     },
     {
       label: "Onboarding",
       prompt:
-        "Personal health dashboard. Widgets for heart rate graph, sleep quality score with moon icon, daily caloric intake vs burn, hydration water level tracker, and recovery battery percentage. Activity rings and step counter.\n\nCreate also the other screens.\n\nMobile dashboard, Bento Grid layout, Soft Neo-Brutalism. Dark mode, deep charcoal background, rounded cards with vivid pastel accents (salmon, periwinkle, yellow). Bold all-caps sans-serif typography, modular fintech SaaS aesthetic with high contrast.",
+        "Multi-step onboarding flow with 4 screens. Step 1: Welcome screen with app logo and 'Get Started' button. Step 2: Select your interests (grid of category cards with icons). Step 3: Notification preferences with toggle switches. Step 4: Success screen with confetti animation and 'Start Exploring' CTA. Include progress indicator at top and skip button.",
     },
     {
       label: "Landing Page",
       prompt:
-        "Personal health dashboard. Widgets for heart rate graph, sleep quality score with moon icon, daily caloric intake vs burn, hydration water level tracker, and recovery battery percentage. Activity rings and step counter.\n\nCreate also the other screens.\n\nMobile dashboard, Bento Grid layout, Soft Neo-Brutalism. Dark mode, deep charcoal background, rounded cards with vivid pastel accents (salmon, periwinkle, yellow). Bold all-caps sans-serif typography, modular fintech SaaS aesthetic with high contrast.",
+        "SaaS landing page with hero section featuring bold headline, subtitle, email capture form, and CTA button. Below hero: feature grid with icons, social proof section with customer logos, pricing comparison table, testimonials carousel, and FAQ accordion. Modern design with gradient accents and smooth scroll animations.",
     },
   ];
 
@@ -406,7 +406,7 @@ export default function HeroSection() {
                   size="sm"
                   className="bg-primary text-primary-foreground hover:bg-primary/90 px-6"
                 >
-                  {isLoading ? "Loading..." : "Create prototype"}
+                  {isLoading ? "Loading..." : "Create"}
                 </Button>
               </div>
             </div>
