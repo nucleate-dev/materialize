@@ -454,12 +454,6 @@ export function SupabaseBackendIntegrationTab() {
                                     )}
                                   </div>
                                   <p className="text-xs text-gray-500 dark:text-gray-400">
-                                    Org ID:{" "}
-                                    <span className="font-mono">
-                                      {integration.supabase_organization_id}
-                                    </span>
-                                  </p>
-                                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                                     Connected on{" "}
                                     {integration.connected_at
                                       ? new Date(
