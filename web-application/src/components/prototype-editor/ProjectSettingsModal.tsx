@@ -318,6 +318,11 @@ export function ProjectSettingsModal({
     prototype?.latest_deploy_key ?? null,
   );
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  const [buildStatus, setBuildStatus] = useState<{
+    is_build_valid: boolean;
+    is_building: boolean;
+  } | null>(null);
+  const [isLoadingBuildStatus, setIsLoadingBuildStatus] = useState(false);
   const [deployUrlCopied, setDeployUrlCopied] = useState(false);
   const [showBuildInfo, setShowBuildInfo] = useState(false);
   const [buildHistoryVersion, setBuildHistoryVersion] = useState(0);
@@ -443,6 +448,73 @@ export function ProjectSettingsModal({
   useEffect(() => {
     setLatestDeployKey(prototype?.latest_deploy_key ?? null);
   }, [prototype?.latest_deploy_key]);
+
+  // Fetch build status when modal opens (if sandbox URL is present)
+  useEffect(() => {
+    if (!open || !normalizedSandboxUrl) {
+      setBuildStatus(null);
+      return;
+    }
+
+    let isActive = true;
+    setIsLoadingBuildStatus(true);
+
+    const fetchBuildStatus = async () => {
+      try {
+        const session = await supabase.auth.getSession();
+        const token = session.data.session?.access_token;
+
+        if (!token) {
+          if (isActive) {
+            setIsLoadingBuildStatus(false);
+          }
+          return;
+        }
+
+        const response = await fetch(
+          `${normalizedSandboxUrl}/dev-server/build-status`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          },
+        );
+
+        if (!isActive) return;
+
+        if (!response.ok) {
+          logger.debug("error", "Failed to fetch build status", {
+            status: response.status,
+          });
+          setBuildStatus(null);
+          return;
+        }
+
+        const result = await response.json();
+        if (result.data) {
+          setBuildStatus({
+            is_build_valid: result.data.is_build_valid,
+            is_building: result.data.is_building,
+          });
+        }
+      } catch (error) {
+        if (isActive) {
+          logger.debug("error", "Error fetching build status", { error });
+          setBuildStatus(null);
+        }
+      } finally {
+        if (isActive) {
+          setIsLoadingBuildStatus(false);
+        }
+      }
+    };
+
+    fetchBuildStatus();
+
+    return () => {
+      isActive = false;
+    };
+  }, [open, normalizedSandboxUrl, logger]);
 
   // Slug validation effect - only runs when editing
   useEffect(() => {
@@ -1361,6 +1433,41 @@ export function ProjectSettingsModal({
                   Create a production build of your project to share with live
                   users.
                 </p>
+
+                {/* Build Status Alerts - Priority order: building > not valid > not deployed */}
+                {!isLoadingBuildStatus && buildStatus?.is_building && (
+                  <div className="flex items-start gap-2 p-3 bg-warning/10 border border-warning/30 rounded-lg">
+                    <Loader2 className="w-4 h-4 text-warning mt-0.5 flex-shrink-0 animate-spin" />
+                    <p className="text-sm text-warning">
+                      A build is currently in progress. Please wait for it to
+                      complete before deploying.
+                    </p>
+                  </div>
+                )}
+                {!isLoadingBuildStatus &&
+                  !buildStatus?.is_building &&
+                  buildStatus?.is_build_valid === false && (
+                    <div className="flex items-start gap-2 p-3 bg-warning/10 border border-warning/30 rounded-lg">
+                      <AlertTriangle className="w-4 h-4 text-warning mt-0.5 flex-shrink-0" />
+                      <p className="text-sm text-warning">
+                        There have been changes since the last build. Create a
+                        new build to include your latest changes.
+                      </p>
+                    </div>
+                  )}
+                {!isLoadingBuildStatus &&
+                  !buildStatus?.is_building &&
+                  buildStatus?.is_build_valid !== false &&
+                  buildHistory.length > 0 &&
+                  !isLatestBuildDeployed && (
+                    <div className="flex items-start gap-2 p-3 bg-warning/10 border border-warning/30 rounded-lg">
+                      <AlertTriangle className="w-4 h-4 text-warning mt-0.5 flex-shrink-0" />
+                      <p className="text-sm text-warning">
+                        There have been changes since the latest deployment.
+                        Deploy the latest build to publish your updates.
+                      </p>
+                    </div>
+                  )}
 
                 {/* Deploy URL */}
                 <div className="space-y-3">

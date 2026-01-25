@@ -3,6 +3,7 @@
 import { RenderStatus } from "@/app/dashboard/projects/[prototype_id]/InternalPrototypePage";
 import ProPlanUpsellModal from "@/components/prototype-editor/ProPlanUpsellModal";
 import ProjectContextEditor from "@/components/prototype-editor/ProjectContextEditor";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
@@ -83,6 +84,7 @@ interface ClaudeCodePanelUIProps {
   showScrollToBottom: boolean;
   isCurrentSessionMostRecent: boolean;
   isDragOver: boolean;
+  isLoadingOlderMessages: boolean;
   uploadingImages: boolean;
   uploadProgress: { [key: string]: number };
   scrollAreaRef:
@@ -175,6 +177,7 @@ export default function ClaudeCodePanelUI({
   showScrollToBottom,
   isCurrentSessionMostRecent,
   isDragOver,
+  isLoadingOlderMessages,
   uploadingImages,
   uploadProgress,
   scrollAreaRef,
@@ -466,6 +469,12 @@ export default function ClaudeCodePanelUI({
             ref={scrollAreaRef}
           >
             <div className="py-4 space-y-3">
+              {isLoadingOlderMessages && messages.length > 0 && (
+                <div className="flex items-center justify-center gap-2 py-2 text-xs text-muted-foreground">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  <span>Loading earlier messages...</span>
+                </div>
+              )}
               {messages.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-[50vh] text-center opacity-0 animate-in fade-in duration-700">
                   <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary/10 to-accent/10 flex items-center justify-center mb-4 border border-primary/20">
@@ -491,54 +500,84 @@ export default function ClaudeCodePanelUI({
                     >
                       {/* User Message */}
                       {message.type === "user" && (
-                        <div className="relative max-w-[85%]">
-                          <div
-                            className={cn(
-                              "rounded-2xl rounded-tr-sm px-4 py-3 text-sm leading-relaxed shadow-sm border",
-                              message.isQueued
-                                ? "bg-warning/10 border-warning/30 text-foreground"
-                                : "bg-card border-border text-foreground",
-                            )}
-                          >
-                            {message.isQueued && (
-                              <div className="flex items-center gap-2 mb-2 text-xs font-medium opacity-80 pb-2 border-b border-warning/30">
-                                <Loader2 className="w-3 h-3 animate-spin" />
-                                <span>Queued - waiting for connection</span>
+                        <div className="flex items-start gap-2 max-w-[85%]">
+                          {/* Message content */}
+                          <div className="flex-1">
+                            {/* User name above message */}
+                            {message.user?.name && (
+                              <div className="flex items-center justify-end gap-1 mb-1">
+                                <span className="text-xs font-medium text-muted-foreground">
+                                  {message.user.name}
+                                </span>
                               </div>
                             )}
-                            <pre className="whitespace-pre-wrap break-words font-sans">
-                              {sanitizeText(message.content)}
-                            </pre>
-
-                            {/* User Images */}
-                            {message.imageUrls &&
-                              message.imageUrls.length > 0 && (
-                                <div className="mt-3 flex flex-wrap gap-2">
-                                  {message.imageUrls.map((imageUrl, idx) => (
-                                    <div
-                                      key={idx}
-                                      className="relative rounded-lg overflow-hidden border border-border group/img"
-                                    >
-                                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                                      <img
-                                        src={imageUrl}
-                                        alt={`User upload ${idx + 1}`}
-                                        className="h-16 w-auto object-cover cursor-zoom-in hover:opacity-90 transition-opacity"
-                                        onClick={() =>
-                                          window.open(imageUrl, "_blank")
-                                        }
-                                      />
-                                    </div>
-                                  ))}
+                            <div
+                              className={cn(
+                                "rounded-2xl rounded-tr-sm px-4 py-3 text-sm leading-relaxed shadow-sm border",
+                                message.isQueued
+                                  ? "bg-warning/10 border-warning/30 text-foreground"
+                                  : "bg-card border-border text-foreground",
+                              )}
+                            >
+                              {message.isQueued && (
+                                <div className="flex items-center gap-2 mb-2 text-xs font-medium opacity-80 pb-2 border-b border-warning/30">
+                                  <Loader2 className="w-3 h-3 animate-spin" />
+                                  <span>Queued - waiting for connection</span>
                                 </div>
                               )}
+                              <pre className="whitespace-pre-wrap break-words font-sans">
+                                {sanitizeText(message.content)}
+                              </pre>
+
+                              {/* User Images */}
+                              {message.imageUrls &&
+                                message.imageUrls.length > 0 && (
+                                  <div className="mt-3 flex flex-wrap gap-2">
+                                    {message.imageUrls.map((imageUrl, idx) => (
+                                      <div
+                                        key={idx}
+                                        className="relative rounded-lg overflow-hidden border border-border group/img"
+                                      >
+                                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                                        <img
+                                          src={imageUrl}
+                                          alt={`User upload ${idx + 1}`}
+                                          className="h-16 w-auto object-cover cursor-zoom-in hover:opacity-90 transition-opacity"
+                                          onClick={() =>
+                                            window.open(imageUrl, "_blank")
+                                          }
+                                        />
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                            </div>
+                            <div className="flex items-center justify-end gap-2 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <CopyMessageButton content={message.content} />
+                              <span className="text-[10px] text-muted-foreground">
+                                {getRelativeTime(message.timestamp)}
+                              </span>
+                            </div>
                           </div>
-                          <div className="flex items-center justify-end gap-2 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <CopyMessageButton content={message.content} />
-                            <span className="text-[10px] text-muted-foreground">
-                              {getRelativeTime(message.timestamp)}
-                            </span>
-                          </div>
+                          {/* User Avatar */}
+                          {message.user && (
+                            <Avatar className="h-7 w-7 shrink-0">
+                              <AvatarImage
+                                src={message.user.avatar_url ?? undefined}
+                                alt={message.user.name ?? "User"}
+                              />
+                              <AvatarFallback className="text-xs bg-primary/10 text-primary">
+                                {message.user.name
+                                  ? message.user.name
+                                      .split(" ")
+                                      .map((n) => n[0])
+                                      .join("")
+                                      .toUpperCase()
+                                      .slice(0, 2)
+                                  : "U"}
+                              </AvatarFallback>
+                            </Avatar>
+                          )}
                         </div>
                       )}
 

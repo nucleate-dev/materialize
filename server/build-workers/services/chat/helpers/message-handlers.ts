@@ -103,6 +103,7 @@ export async function persistChatMessage(
   costFunction?: string | null,
   provider?: string | null,
   model?: string | null,
+  userId?: string | null,
 ): Promise<void> {
   if (!chatSessionId) {
     baseLogger.warn("Cannot persist message - no chat session ID", {
@@ -152,6 +153,7 @@ export async function persistChatMessage(
       event_data: mergedEventData ? JSON.stringify(mergedEventData) : null,
       credits_used: creditsUsed ?? null,
       cost_function: costFunction ?? null,
+      user_id: userId ?? null,
     });
 
     if (error) {
