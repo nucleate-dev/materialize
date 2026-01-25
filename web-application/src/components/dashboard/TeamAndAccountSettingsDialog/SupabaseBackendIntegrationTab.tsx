@@ -13,35 +13,16 @@ import { useActiveTeam } from "@/contexts/TeamContext";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import { SectionCard, SectionHeader } from "./SettingsHelpers";
 import { useCurrentUserMembership } from "@/hooks/useCurrentUserMembership";
-import type { APIResponse } from "@/lib/types/serverAPITypes";
+import type {
+  APIResponse,
+  StandardErrorResponse,
+  SupabaseConnectStartSuccessResponse,
+  SupabaseIntegrationSummary,
+  SupabaseIntegrationsSuccessResponse,
+} from "@/lib/types/serverAPITypes";
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_SERVER_ENDPOINT || "http://localhost:3000";
-
-interface SupabaseIntegration {
-  id: string;
-  supabase_organization_id: string;
-  supabase_organization_name: string | null;
-  connected_at: string;
-}
-
-interface SupabaseConnectStartSuccessResponse {
-  authorizationUrl: string;
-}
-
-interface SupabaseConnectStartErrorResponse {
-  error: string;
-  message: string;
-}
-
-interface SupabaseIntegrationsSuccessResponse {
-  integrations: SupabaseIntegration[];
-}
-
-interface SupabaseIntegrationsErrorResponse {
-  error: string;
-  message: string;
-}
 
 export function SupabaseBackendIntegrationTab() {
   const logger = useProductLogger();
@@ -51,7 +32,7 @@ export function SupabaseBackendIntegrationTab() {
   const isOwnerOrAdmin =
     membership?.role === "owner" || membership?.role === "admin";
 
-  const [integrations, setIntegrations] = useState<SupabaseIntegration[]>([]);
+  const [integrations, setIntegrations] = useState<SupabaseIntegrationSummary[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isConnecting, setIsConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -89,7 +70,7 @@ export function SupabaseBackendIntegrationTab() {
 
       const result: APIResponse<
         SupabaseIntegrationsSuccessResponse,
-        SupabaseIntegrationsErrorResponse
+        StandardErrorResponse
       > = await response.json();
 
       if (result.data) {
@@ -158,7 +139,7 @@ export function SupabaseBackendIntegrationTab() {
 
       const result: APIResponse<
         SupabaseConnectStartSuccessResponse,
-        SupabaseConnectStartErrorResponse
+        StandardErrorResponse
       > = await response.json();
 
       if (result.data?.authorizationUrl) {

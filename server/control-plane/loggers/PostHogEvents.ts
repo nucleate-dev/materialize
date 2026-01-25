@@ -58,6 +58,7 @@ export type PostHogEvent =
   | 'client_new_prototype_modal_opened'
   | 'client_new_prototype_modal_submitted'
   | 'client_pro_plan_upsell_modal_opened'
+  | 'client_supabase_backend_connect_started'
   | 'client_dashboard_prototype_creation_success'
   | 'client_dashboard_prototype_limit_hit'
   | 'client_dashboard_prompt_submitted'
@@ -169,6 +170,8 @@ export const PostHogEvents: Record<PostHogEvent, PostHogEvent> = Object.freeze({
     'client_prototype_editor_view_on_device_link_copied',
   client_prototype_editor_view_on_device_opened:
     'client_prototype_editor_view_on_device_opened',
+  client_supabase_backend_connect_started:
+    'client_supabase_backend_connect_started',
   client_team_created: 'client_team_created',
   client_team_invite_accepted: 'client_team_invite_accepted',
   client_team_invite_accepting: 'client_team_invite_accepting',
