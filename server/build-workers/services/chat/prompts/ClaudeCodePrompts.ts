@@ -372,30 +372,32 @@ When using design tools (GeminiDesignExpert, GenerateImage) while a source repos
 When (and ONLY when) the user explicitly asks for a pull request **and** a source repository is mounted at /tmp/source-repository, 
 you must open or update the PR by calling the CreateSourceRepoPullRequest tool. This tool will do EVERYTHING including setting a remote, adding tracked files, committing, and syncing GitHub. Never run git/gh commands manually—always rely on this tool.
 
-0. **Use the PrepareSourceRepoBranch tool BEFORE editing**: Call mcp__devtools__PrepareSourceRepoBranch to either checkout the existing PR branch (provide existing_pr_number) or create/reset a new branch from the correct base. Only after this succeeds should you edit files under /tmp/source-repository.
-
-1. **Understand the UI changes**: Identify exactly what UI changes were made in the prototype (/tmp/materialize-dev-server/client) that the user is referring to. This includes new components, modified screens, styling changes, layout adjustments, and any new assets.
-
-2. **Translate to source repo**: The goal is to apply the prototype the user likes to the source repo (their company's main project). The changes in the source repo must be a pixel-perfect recreation of the prototype UI, BUT:
+0. Use the mcp__devtools__ListSourceRepoPullRequests tool to see existing PRs created via Nucleate if the user wants to update an existing PR
+1. **Use the PrepareSourceRepoBranch tool BEFORE editing**: Call mcp__devtools__PrepareSourceRepoBranch to either checkout the existing PR branch (provide existing_pr_number) or create/reset a new branch from the correct base. Only after this succeeds should you edit files under /tmp/source-repository.
+2. **Understand the UI changes**: Identify exactly what UI changes were made in the prototype (/tmp/materialize-dev-server/client) that the user is referring to. This includes new components, modified screens, styling changes, layout adjustments, and any new assets.
+3. **Translate to source repo**: The goal is to apply the prototype the user likes to the source repo (their company's main project). The changes in the source repo must be a pixel-perfect recreation of the prototype UI, BUT:
    - **DO NOT** use dummy data or mocked API calls
    - **DO** connect to the real business logic, API endpoints, and server calls that exist in the source repo
    - **DO** use the source repo's existing data fetching patterns (React Query, SWR, fetch, etc.)
    - **DO** integrate with existing state management, auth, and navigation patterns
    - Preserve the visual appearance exactly while wiring up real functionality
-
-3. **Use the CreateSourceRepoPullRequest tool**: Immediately after porting and verifying the changes in /tmp/source-repository, invoke mcp__devtools__CreateSourceRepoPullRequest. Provide:
+4. **Check pixel-perfect match**: Review the changes to the source repo:
+   - Review the final state of the source repo changes and ensure it is a pixel-perfect match to the prototype UI. If it's not, then loop to the previous step and fix it again
+   - Review that the source repo implementation follows the best practices of the source repo (styling conventions, source repo theme tokens, source repo components, etc)
+   - Review that the source repo implementation uses real data fetching and business logic instead of dummy data and that the logic is accurate
+5. **Use the CreateSourceRepoPullRequest tool**: Immediately after porting and verifying the changes in /tmp/source-repository, invoke mcp__devtools__CreateSourceRepoPullRequest. Provide:
    - A clear, descriptive branch name based on the feature
    - A concise commit message describing the changes
    - A PR title summarizing the feature/change
    - A detailed PR description explaining what was added/changed and any integration notes
    - If the user wants to update an existing PR, first call mcp__devtools__ListSourceRepoPullRequests to see open PRs created via Nucleate, then pass the selected GitHub PR number via \`existing_pr_number\` so the same tool updates that PR (reusing the current branch) instead of creating a new one.
-
-4. **Workflow**:
+6. **Workflow**:
    - Always checkout a new branch with the PrepareSourceRepoBranch tool before making changes. To edit an existing PR, use the ListSourceRepoPullRequests tool to find the PR number, and pass it to the PrepareSourceRepoBranch tool. 
    - First, analyze the prototype changes to understand exactly what needs to be ported
    - Search the source repo for relevant patterns, components, and data fetching logic to integrate with
    - Make the changes in /tmp/source-repository on the new branch, ensuring pixel-perfect UI with real integrations
    - If the source repo has TypeScript configured (tsconfig.json exists), run \`cd /tmp/source-repository && npx tsc --noEmit\` to verify compilation
+   - Verify the changes in the source repo are a pixel perfect match to the prototype
    - Use CreateSourceRepoPullRequest to create a new PR, or supply \`existing_pr_number\` to update it (required whenever the user asked for it and the source repo is present)
    - Report the PR URL back to the user
 </pushing_changes_to_source_repo>
