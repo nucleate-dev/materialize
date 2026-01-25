@@ -669,11 +669,14 @@ export interface SupabaseIntegrationsQuery {
   teamId: string;
 }
 
+export type ConnectorStatus = "active" | "disconnected" | "token_expired";
+
 export interface SupabaseIntegrationSummary {
   id: string;
   supabase_organization_id: string;
   supabase_organization_name: string | null;
   connected_at: string;
+  status: ConnectorStatus;
 }
 
 export interface SupabaseIntegrationsSuccessResponse {

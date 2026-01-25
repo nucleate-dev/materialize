@@ -8,13 +8,17 @@ import {
   Check,
   Database,
   Loader2,
+  Pencil,
+  X,
 } from "lucide-react";
+import { Input } from "@/components/ui/input";
 import { useActiveTeam } from "@/contexts/TeamContext";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import { SectionCard, SectionHeader } from "./SettingsHelpers";
 import { useCurrentUserMembership } from "@/hooks/useCurrentUserMembership";
 import type {
   APIResponse,
+  ConnectorStatus,
   StandardErrorResponse,
   SupabaseConnectStartSuccessResponse,
   SupabaseIntegrationSummary,
@@ -23,6 +27,37 @@ import type {
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_SERVER_ENDPOINT || "http://localhost:3000";
+
+const getStatusBadge = (
+  status: ConnectorStatus,
+): { label: string; className: string } => {
+  switch (status) {
+    case "active":
+      return {
+        label: "Active",
+        className:
+          "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
+      };
+    case "disconnected":
+      return {
+        label: "Disconnected",
+        className:
+          "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
+      };
+    case "token_expired":
+      return {
+        label: "Token Expired",
+        className:
+          "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
+      };
+    default:
+      return {
+        label: "Unknown",
+        className:
+          "bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-400",
+      };
+  }
+};
 
 export function SupabaseBackendIntegrationTab() {
   const logger = useProductLogger();
@@ -37,6 +72,9 @@ export function SupabaseBackendIntegrationTab() {
   const [isConnecting, setIsConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [connectSuccess, setConnectSuccess] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
 
   const fetchIntegrations = useCallback(async () => {
     if (!activeTeam?.id) return;
@@ -197,7 +235,63 @@ export function SupabaseBackendIntegrationTab() {
     void fetchIntegrations();
   }, [fetchIntegrations]);
 
+  const startEditing = (integration: SupabaseIntegrationSummary) => {
+    setEditingId(integration.id);
+    setEditValue(
+      integration.supabase_organization_name ||
+        integration.supabase_organization_id,
+    );
+  };
+
+  const cancelEditing = () => {
+    setEditingId(null);
+    setEditValue("");
+  };
+
+  const saveOrgName = async (integrationId: string) => {
+    if (!editValue.trim()) return;
+
+    setIsSaving(true);
+    try {
+      const supabase = (await import("@/ClientConstants")).supabase;
+      const { error: updateError } = await supabase
+        .from("connectors_supabase_integrations")
+        .update({ supabase_organization_name: editValue.trim() })
+        .eq("id", integrationId);
+
+      if (updateError) {
+        throw new Error(updateError.message);
+      }
+
+      // Update local state
+      setIntegrations((prev) =>
+        prev.map((i) =>
+          i.id === integrationId
+            ? { ...i, supabase_organization_name: editValue.trim() }
+            : i,
+        ),
+      );
+      setEditingId(null);
+      setEditValue("");
+    } catch (err) {
+      logger.debug("error", "Failed to update organization name", {
+        error: err instanceof Error ? err.message : String(err),
+      });
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Failed to update organization name",
+      );
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const hasIntegrations = integrations.length > 0;
+  const activeIntegrations = integrations.filter((i) => i.status === "active");
+  const disconnectedIntegrations = integrations.filter(
+    (i) => i.status === "disconnected" || i.status === "token_expired",
+  );
 
   return (
     <div className="relative min-h-screen text-gray-900 dark:text-white font-sans">
@@ -242,48 +336,162 @@ export function SupabaseBackendIntegrationTab() {
                   <>
                     {hasIntegrations ? (
                       <div className="space-y-4">
-                        <div className="flex items-start gap-3 p-4 rounded-lg bg-green-500/10 border border-green-500/20">
-                          <Check className="w-5 h-5 text-green-600 dark:text-green-400 mt-0.5 shrink-0" />
-                          <div className="flex-1">
-                            <p className="font-medium text-green-700 dark:text-green-300 mb-1">
-                              Supabase Connected
-                            </p>
-                            <p className="text-sm text-green-600 dark:text-green-400">
-                              {integrations.length} organization
-                              {integrations.length === 1 ? "" : "s"} connected.
-                            </p>
+                        {activeIntegrations.length > 0 && (
+                          <div className="flex items-start gap-3 p-4 rounded-lg bg-green-500/10 border border-green-500/20">
+                            <Check className="w-5 h-5 text-green-600 dark:text-green-400 mt-0.5 shrink-0" />
+                            <div className="flex-1">
+                              <p className="font-medium text-green-700 dark:text-green-300 mb-1">
+                                Supabase Connected
+                              </p>
+                              <p className="text-sm text-green-600 dark:text-green-400">
+                                {activeIntegrations.length} organization
+                                {activeIntegrations.length === 1 ? "" : "s"}{" "}
+                                connected.
+                              </p>
+                            </div>
                           </div>
-                        </div>
+                        )}
+
+                        {disconnectedIntegrations.length > 0 && (
+                          <div className="flex items-start gap-3 p-4 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                            <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
+                            <div className="flex-1">
+                              <p className="font-medium text-amber-700 dark:text-amber-300 mb-1">
+                                Reconnection Required
+                              </p>
+                              <p className="text-sm text-amber-600 dark:text-amber-400">
+                                {disconnectedIntegrations.length} organization
+                                {disconnectedIntegrations.length === 1
+                                  ? " has"
+                                  : "s have"}{" "}
+                                been disconnected. Please reconnect to restore
+                                access.
+                              </p>
+                            </div>
+                          </div>
+                        )}
 
                         <div className="space-y-3">
-                          {integrations.map((integration) => (
-                            <div
-                              key={integration.id}
-                              className="flex items-start gap-3 p-4 rounded-lg border border-black/10 dark:border-border bg-white/60 dark:bg-muted/30"
-                            >
-                              <Database className="w-5 h-5 text-gray-600 dark:text-muted-foreground mt-0.5 shrink-0" />
-                              <div className="flex-1">
-                                <p className="font-medium text-gray-900 dark:text-white">
-                                  {integration.supabase_organization_name ||
-                                    integration.supabase_organization_id}
-                                </p>
-                                <p className="text-xs text-gray-500 dark:text-gray-400">
-                                  Org ID:{" "}
-                                  <span className="font-mono">
-                                    {integration.supabase_organization_id}
-                                  </span>
-                                </p>
-                                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                                  Connected on{" "}
-                                  {integration.connected_at
-                                    ? new Date(
-                                        integration.connected_at,
-                                      ).toLocaleDateString()
-                                    : "Unknown"}
-                                </p>
+                          {integrations.map((integration) => {
+                            const statusBadge = getStatusBadge(
+                              integration.status,
+                            );
+                            const isDisconnected =
+                              integration.status !== "active";
+                            const isEditing = editingId === integration.id;
+
+                            return (
+                              <div
+                                key={integration.id}
+                                className={`flex items-start gap-3 p-4 rounded-lg border ${
+                                  isDisconnected
+                                    ? "border-amber-500/30 bg-amber-50/50 dark:bg-amber-900/10"
+                                    : "border-black/10 dark:border-border bg-white/60 dark:bg-muted/30"
+                                }`}
+                              >
+                                <Database
+                                  className={`w-5 h-5 mt-0.5 shrink-0 ${
+                                    isDisconnected
+                                      ? "text-amber-600 dark:text-amber-400"
+                                      : "text-gray-600 dark:text-muted-foreground"
+                                  }`}
+                                />
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-2 mb-1">
+                                    {isEditing ? (
+                                      <div className="flex items-center gap-2 flex-1">
+                                        <Input
+                                          value={editValue}
+                                          onChange={(e) =>
+                                            setEditValue(e.target.value)
+                                          }
+                                          onKeyDown={(e) => {
+                                            if (e.key === "Enter") {
+                                              void saveOrgName(integration.id);
+                                            } else if (e.key === "Escape") {
+                                              cancelEditing();
+                                            }
+                                          }}
+                                          className="h-7 text-sm"
+                                          autoFocus
+                                          disabled={isSaving}
+                                        />
+                                        <Button
+                                          size="sm"
+                                          variant="ghost"
+                                          onClick={() =>
+                                            void saveOrgName(integration.id)
+                                          }
+                                          disabled={isSaving}
+                                          className="h-7 px-2"
+                                        >
+                                          {isSaving ? (
+                                            <Loader2 className="w-4 h-4 animate-spin" />
+                                          ) : (
+                                            <Check className="w-4 h-4 text-green-600" />
+                                          )}
+                                        </Button>
+                                        <Button
+                                          size="sm"
+                                          variant="ghost"
+                                          onClick={cancelEditing}
+                                          disabled={isSaving}
+                                          className="h-7 px-2"
+                                        >
+                                          <X className="w-4 h-4 text-gray-500" />
+                                        </Button>
+                                      </div>
+                                    ) : (
+                                      <>
+                                        <p className="font-medium text-gray-900 dark:text-white">
+                                          {integration.supabase_organization_name ||
+                                            integration.supabase_organization_id}
+                                        </p>
+                                        {isOwnerOrAdmin && (
+                                          <button
+                                            onClick={() =>
+                                              startEditing(integration)
+                                            }
+                                            className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                                            title="Edit organization name"
+                                          >
+                                            <Pencil className="w-3.5 h-3.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300" />
+                                          </button>
+                                        )}
+                                      </>
+                                    )}
+                                    {!isEditing && (
+                                      <span
+                                        className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusBadge.className}`}
+                                      >
+                                        {statusBadge.label}
+                                      </span>
+                                    )}
+                                  </div>
+                                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                                    Org ID:{" "}
+                                    <span className="font-mono">
+                                      {integration.supabase_organization_id}
+                                    </span>
+                                  </p>
+                                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                    Connected on{" "}
+                                    {integration.connected_at
+                                      ? new Date(
+                                          integration.connected_at,
+                                        ).toLocaleDateString()
+                                      : "Unknown"}
+                                  </p>
+                                  {isDisconnected && (
+                                    <p className="text-xs text-amber-600 dark:text-amber-400 mt-2">
+                                      This integration needs to be reconnected.
+                                      Click &quot;Connect Supabase&quot; below.
+                                    </p>
+                                  )}
+                                </div>
                               </div>
-                            </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       </div>
                     ) : (

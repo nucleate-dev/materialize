@@ -470,7 +470,7 @@ export class SupabaseIntegrationService {
         const { data, error } = await supabaseClient
             .from("connectors_supabase_integrations")
             .select(
-                "id, supabase_organization_id, supabase_organization_name, connected_at",
+                "id, supabase_organization_id, supabase_organization_name, connected_at, status",
             )
             .eq("team_id", teamId)
             .order("connected_at", { ascending: false });
@@ -479,9 +479,7 @@ export class SupabaseIntegrationService {
             request.log2.consoleLogDevOnly(
                 "error",
                 "Failed to fetch Supabase integrations",
-                {
-                    error: error.message,
-                },
+                { error: error.message },
             );
             return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
                 data: null,
@@ -499,6 +497,7 @@ export class SupabaseIntegrationService {
             error: null,
         });
     }
+
 }
 
 const base64UrlEncodeBuffer = (value: Buffer): string =>

@@ -5,7 +5,7 @@
 // To update these shared files, modify the source file and run:
 // npm run sync-types (in the control-plane directory)
 //
-// Last synced: 2026-01-25T22:35:20.803Z
+// Last synced: 2026-01-25T23:03:34.983Z
 
 // Public API types for the Control Plane Server
 // These types define the request and response schemas for all public endpoints
@@ -678,11 +678,14 @@ export interface SupabaseIntegrationsQuery {
   teamId: string;
 }
 
+export type ConnectorStatus = "active" | "disconnected" | "token_expired";
+
 export interface SupabaseIntegrationSummary {
   id: string;
   supabase_organization_id: string;
   supabase_organization_name: string | null;
   connected_at: string;
+  status: ConnectorStatus;
 }
 
 export interface SupabaseIntegrationsSuccessResponse {
