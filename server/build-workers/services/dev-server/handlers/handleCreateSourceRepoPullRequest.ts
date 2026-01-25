@@ -12,7 +12,7 @@ export interface SourceRepoPullRequestInput {
 }
 
 export interface PrepareSourceRepoBranchInput {
-  branchName: string | null;
+  branchName: string;
   baseBranch?: string | null;
   existingPullRequestNumber?: number | null;
 }

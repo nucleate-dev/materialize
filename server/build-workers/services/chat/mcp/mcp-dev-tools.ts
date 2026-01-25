@@ -47,7 +47,7 @@ export type TerminalServiceInstance = {
 };
 
 export interface SourceRepoPullRequestToolInput {
-  branch_name?: string;
+  branch_name: string;
   commit_message: string;
   pr_title: string;
   pr_description: string;
@@ -60,7 +60,7 @@ export type SourceRepoPullRequestToolHandler = (
 
 export type SourceRepoBranchPreparationHandler = (
   input: {
-    branch_name?: string;
+    branch_name: string;
     base_branch?: string;
     existing_pr_number?: number;
   },
