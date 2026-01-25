@@ -69,9 +69,12 @@ export async function getValidGitHubUserAccessToken(
   const refreshedExpiresAt = refreshed.expires_in
     ? new Date(Date.now() + refreshed.expires_in * 1000).toISOString()
     : null;
-  const refreshedAccessTokenEncrypted = encrypt(refreshed.access_token);
+  const refreshedAccessTokenEncrypted = encrypt(
+    refreshed.access_token,
+    'github',
+  );
   const refreshedRefreshEncrypted = refreshed.refresh_token
-    ? encrypt(refreshed.refresh_token)
+    ? encrypt(refreshed.refresh_token, 'github')
     : null;
 
   const { error: updateError } = await supabaseClient
@@ -130,7 +133,7 @@ function safeDecrypt(
   logger: SystemLogger,
 ): string {
   try {
-    return decrypt(encryptedValue);
+    return decrypt(encryptedValue, 'github');
   } catch (error) {
     logger.error(
       error instanceof Error ? error : new Error(String(error)),

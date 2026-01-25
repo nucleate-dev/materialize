@@ -20,6 +20,7 @@ import { CleanupService } from './services/cleanup/CleanupService.js';
 import { DevelopmentServerService } from './services/DevelopmentServerService.js';
 import { DispatcherService } from './services/dispatcher/DispatcherService.js';
 import { GitHubIntegrationService } from './services/github-integration/GitHubIntegrationService.js';
+import { SupabaseIntegrationService } from './services/connectors/supabase/SupabaseIntegrationService.js';
 import { IdleContainerAllocationSystemService } from './services/idle-container-allocation-system/IdleContainerAllocationSystemService.js';
 import { LLMService } from './services/llm/LLMService.js';
 import { OrchestrationService } from './services/orchestration/OrchestrationService.js';
@@ -167,6 +168,7 @@ let prototypeManagementService: PrototypeManagementService;
 let developmentServerService: DevelopmentServerService;
 let orchestrationService: OrchestrationService;
 let githubIntegrationService: GitHubIntegrationService;
+let supabaseIntegrationService: SupabaseIntegrationService;
 let internalToolsService: InternalCacheManagementService;
 let internalDevServerManagementService: InternalControlPlaneDevelopmentService;
 let internalProductionDeploymentService: InternalProductionDeploymentService;
@@ -271,6 +273,10 @@ const start = async (): Promise<void> => {
     // Create GitHub integration service and register routes
     githubIntegrationService = new GitHubIntegrationService();
     githubIntegrationService.registerRoutes(fastify);
+
+    // Create Supabase integration service and register routes
+    supabaseIntegrationService = new SupabaseIntegrationService();
+    supabaseIntegrationService.registerRoutes(fastify);
 
     // Create internal tools service and register routes
     internalToolsService = new InternalCacheManagementService(cacheClient);
