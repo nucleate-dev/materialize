@@ -534,8 +534,19 @@ export default function InternalPrototypePage() {
       }
 
       // 2. FETCH CURRENT VIEWING URL FROM SERVER
-      const session = await supabase.auth.getSession();
-      const token = session.data.session?.access_token;
+      // Refresh the Supabase session to ensure the server receives a long-lived token
+      const { data: refreshedSession, error: refreshError } =
+        await supabase.auth.refreshSession();
+      if (refreshError) {
+        logger.debug("error", "Error refreshing Supabase session", {
+          error: refreshError.message,
+        });
+      }
+      let token = refreshedSession.session?.access_token;
+      if (!token) {
+        const fallbackSession = await supabase.auth.getSession();
+        token = fallbackSession.data.session?.access_token;
+      }
       const headers: HeadersInit = {
         "Content-Type": "application/json",
       };
