@@ -710,10 +710,8 @@ const exchangeCodeForToken = async (
         grant_type: "authorization_code",
         code,
         redirect_uri: redirectUrl,
+        code_verifier: codeVerifier,
     });
-    if (codeVerifier) {
-        body.set("code_verifier", codeVerifier);
-    }
 
     const authToken = Buffer.from(`${clientId}:${clientSecret}`).toString(
         "base64",
@@ -748,6 +746,65 @@ const exchangeCodeForToken = async (
         log2.consoleLogDevOnly(
             "error",
             "Failed to parse Supabase OAuth token response",
+            {
+                error: error instanceof Error ? error.message : String(error),
+            },
+        );
+        throw new Error("invalid_token_response");
+    }
+};
+
+/**
+ * Refresh a Supabase access token using the refresh token.
+ * Use decrypt(refreshTokenEncrypted, "supabase") to get the refresh token from DB first.
+ * After refresh, encrypt and store the new tokens in the database.
+ */
+export const refreshAccessToken = async (
+    refreshToken: string,
+    log2: FastifyRequest["log2"],
+): Promise<SupabaseTokenResponse> => {
+    const { clientId, clientSecret, managementBaseUrl } =
+        getSupabaseOAuthConfig();
+    const tokenUrl = new URL("oauth/token", managementBaseUrl);
+
+    const body = new URLSearchParams({
+        grant_type: "refresh_token",
+        refresh_token: refreshToken,
+    });
+
+    const authToken = Buffer.from(`${clientId}:${clientSecret}`).toString(
+        "base64",
+    );
+
+    const response = await fetch(tokenUrl.toString(), {
+        method: "POST",
+        headers: {
+            Authorization: `Basic ${authToken}`,
+            "Content-Type": "application/x-www-form-urlencoded",
+            Accept: "application/json",
+        },
+        body: body.toString(),
+    });
+
+    const responseText = await response.text();
+    if (!response.ok) {
+        log2.consoleLogDevOnly(
+            "error",
+            "Supabase OAuth token refresh failed",
+            {
+                status: response.status,
+                response: responseText.slice(0, 500),
+            },
+        );
+        throw new Error("token_refresh_failed");
+    }
+
+    try {
+        return JSON.parse(responseText) as SupabaseTokenResponse;
+    } catch (error) {
+        log2.consoleLogDevOnly(
+            "error",
+            "Failed to parse Supabase OAuth token refresh response",
             {
                 error: error instanceof Error ? error.message : String(error),
             },
