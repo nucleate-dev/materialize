@@ -4,15 +4,11 @@ import { supabase } from "@/ClientConstants";
 import ProPlanUpsellModal from "@/components/prototype-editor/ProPlanUpsellModal";
 import { Button } from "@/components/ui/button";
 import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
-import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -54,7 +50,6 @@ import { User } from "@supabase/supabase-js";
 import {
   AlertTriangle,
   Check,
-  ChevronDown,
   ChevronsUpDown,
   Code,
   Folder,
@@ -63,8 +58,12 @@ import {
   Lock,
   Palette,
   Rocket,
-  Share2,
   Sparkles,
+  Smartphone,
+  Monitor,
+  ArrowRight,
+  Settings,
+  X,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useId, useState } from "react";
@@ -99,7 +98,6 @@ const WEB_DESIGN_STYLE_OPTIONS: DesignStyle[] = ["stylesheets"];
 const DESIGN_STYLE_LABELS: Partial<Record<DesignStyle, string>> = {
   stylesheets: "React Native StyleSheet",
   nativewind: "NativeWind",
-
   custom: "Custom",
 };
 
@@ -118,9 +116,11 @@ const DEFAULT_FRAMEWORK: PrototypeFramework = "web_nextjs_react";
 const PLATFORM_OPTIONS: Array<{
   value: PrototypeFramework;
   label: string;
+  icon: typeof Monitor | typeof Smartphone;
+  description: string;
 }> = [
-  { value: "web_nextjs_react", label: "Web" },
-  { value: "mobile_expo_react_native", label: "Mobile" },
+  { value: "web_nextjs_react", label: "Web", icon: Monitor, description: "Next.js & React" },
+  { value: "mobile_expo_react_native", label: "Mobile", icon: Smartphone, description: "React Native" },
 ];
 
 export default function NewPrototypeModal({
@@ -281,8 +281,6 @@ export default function NewPrototypeModal({
           error: error instanceof Error ? error.message : String(error),
           stack: error instanceof Error ? error.stack : undefined,
         });
-      } finally {
-        // no-op
       }
     }
 
@@ -622,16 +620,21 @@ export default function NewPrototypeModal({
   return (
     <>
       <Dialog open={open} onOpenChange={onClose}>
-        <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto bg-card border border-border text-foreground shadow-2xl">
-          <DialogHeader className="text-center space-y-3 pb-2">
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto relative">
+          <DialogHeader className="text-center space-y-4 pb-6">
             <div className="flex items-center justify-center">
-              <div className="p-2.5 bg-muted border border-border rounded-xl shadow-inner">
-                <Sparkles className="w-5 h-5 text-primary" />
+              <div className="p-3 bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/30 rounded-2xl shadow-lg shadow-primary/10">
+                <Sparkles className="w-6 h-6 text-primary" />
               </div>
             </div>
-            <DialogTitle className="text-xl font-medium tracking-tight text-foreground">
-              Create New Project
-            </DialogTitle>
+            <div className="space-y-2">
+              <DialogTitle className="text-2xl font-semibold tracking-tight">
+                Create New Project
+              </DialogTitle>
+              <DialogDescription className="text-sm text-muted-foreground">
+                Choose your platform and get started in seconds
+              </DialogDescription>
+            </div>
             {userPlan === "free" && (
               <div className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
                 {isLoadingCount ? (
@@ -681,284 +684,270 @@ export default function NewPrototypeModal({
             </div>
           )}
 
-          <form
-            onSubmit={handleSubmit}
-            className={cn(
-              "space-y-5",
-              userPlan === "free" &&
-                prototypeCount >= 5 &&
-                "opacity-50 pointer-events-none",
-            )}
-          >
-            {/* Project Name Input */}
-            <div className="space-y-2">
-              <Label
-                htmlFor="prototype-name"
-                className="text-xs font-medium text-muted-foreground"
-              >
-                Project Name
-              </Label>
-              <Input
-                id="prototype-name"
-                type="text"
-                placeholder="e.g. Fitness Tracker App"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className={cn(
-                  "h-11 bg-background border-border text-foreground focus:border-primary placeholder:text-muted-foreground/50 transition-all",
-                  touched &&
-                    !name.trim() &&
-                    "border-destructive/50 focus-visible:ring-destructive/20",
-                )}
-                autoFocus
-                maxLength={64}
-              />
-              {touched && !name.trim() && (
-                <p className="text-xs text-destructive">Name is required</p>
+          <div className="flex gap-0 relative">
+            {/* Main Content */}
+            <div
+              className={cn(
+                "transition-all duration-300 ease-in-out",
+                showAdvanced ? "w-1/2 pr-3" : "w-full"
               )}
-            </div>
-
-            {/* Platform Select */}
-            <div className="space-y-2">
-                <Label
-                  htmlFor="platform-select"
-                  className="text-xs font-medium text-muted-foreground"
-                >
-                  Platform
-                </Label>
-                <Select
-                  value={framework}
-                  onValueChange={(value) =>
-                    setFramework(value as PrototypeFramework)
-                  }
-                  disabled={isCreating}
-                >
-                  <SelectTrigger
-                    id="platform-select"
-                    className="h-11 bg-background border-border text-foreground focus:ring-0"
-                  >
-                    <div className="flex items-center gap-2">
-                      <Rocket className="w-4 h-4 text-muted-foreground" />
-                      <SelectValue />
-                    </div>
-                  </SelectTrigger>
-                  <SelectContent className="bg-card border-border text-foreground">
-                    {PLATFORM_OPTIONS.map((option) => (
-                      <SelectItem
-                        key={option.value}
-                        value={option.value}
-                        className="focus:bg-muted focus:text-foreground cursor-pointer"
-                      >
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-            {/* Visibility Select */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label
-                  htmlFor="prototype-visibility"
-                  className="text-xs font-medium text-muted-foreground"
-                >
-                  Visibility
-                </Label>
-                {!IsUserPlanSubscribed(userPlan) && (
-                  <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
-                    Upgrade for Private
-                  </span>
+            >
+              <form
+                onSubmit={handleSubmit}
+                className={cn(
+                  "space-y-6",
+                  userPlan === "free" &&
+                    prototypeCount >= 5 &&
+                    "opacity-50 pointer-events-none",
                 )}
-              </div>
-              <Select
-                value={visibility}
-                onValueChange={handleVisibilityChange}
-                disabled={isCreating}
               >
-                <SelectTrigger
-                  id="prototype-visibility"
-                  className="h-11 bg-background border-border text-foreground focus:ring-0"
-                >
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="bg-card border-border text-foreground">
-                  {visibilityOptions.map((option) => {
-                    const Icon = option.icon;
-                    return (
-                      <SelectItem
-                        key={option.value}
-                        value={option.value}
-                        className="focus:bg-muted focus:text-foreground cursor-pointer"
-                      >
-                        <div className="flex items-center gap-2">
-                          <Icon className="w-4 h-4 text-muted-foreground" />
-                          <span>{option.label}</span>
-                          {option.isLocked && (
-                            <Lock className="w-3.5 h-3.5 text-muted-foreground ml-auto" />
-                          )}
-                        </div>
-                      </SelectItem>
-                    );
-                  })}
-                </SelectContent>
-              </Select>
-            </div>
+                {/* Project Name */}
+                <div className="space-y-2">
+                  <Label htmlFor="prototype-name" className="text-sm font-medium">
+                    Project Name
+                  </Label>
+                  <Input
+                    id="prototype-name"
+                    type="text"
+                    placeholder="My Awesome Project"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    className={cn(
+                      "h-12 text-base transition-all",
+                      touched &&
+                        !name.trim() &&
+                        "border-destructive focus-visible:ring-destructive"
+                    )}
+                    autoFocus
+                    maxLength={64}
+                  />
+                  {touched && !name.trim() && (
+                    <p className="text-xs text-destructive flex items-center gap-1.5 mt-1.5">
+                      <span className="w-1 h-1 rounded-full bg-destructive" />
+                      Please enter a project name
+                    </p>
+                  )}
+                </div>
 
-            {/* Source Repository Select */}
-            <div className="space-y-2">
-                <Label
-                  htmlFor="source-repo-select"
-                  className="text-xs font-medium text-muted-foreground"
-                >
-                  Source Repository (Optional)
-                </Label>
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <div>
-                        <Popover
-                          open={sourceRepoComboboxOpen}
-                          onOpenChange={setSourceRepoComboboxOpen}
+                {/* Platform Selection - Card Based */}
+                <div className="space-y-3">
+                  <Label className="text-sm font-medium">Choose Platform</Label>
+                  <div className="grid grid-cols-2 gap-3">
+                    {PLATFORM_OPTIONS.map((option) => {
+                      const Icon = option.icon;
+                      const isSelected = framework === option.value;
+                      return (
+                        <button
+                          key={option.value}
+                          type="button"
+                          onClick={() => setFramework(option.value)}
+                          className={cn(
+                            "relative p-4 rounded-xl border-2 transition-all hover:shadow-md group",
+                            isSelected
+                              ? "border-primary bg-primary/5 shadow-sm"
+                              : "border-border bg-card hover:border-primary/50"
+                          )}
                         >
-                          <PopoverTrigger asChild>
-                            <button
-                              type="button"
-                              role="combobox"
-                              aria-expanded={sourceRepoComboboxOpen}
-                              aria-controls={sourceRepoComboboxId}
-                              disabled={
-                                isCreating ||
-                                githubIntegrationStatus.loading ||
-                                !githubIntegrationStatus.connected ||
-                                isLoadingSourceRepos
-                              }
+                          <div className="flex flex-col items-center gap-3">
+                            <div
                               className={cn(
-                                "h-11 w-full bg-background border border-border text-foreground rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50",
-                                "flex items-center justify-between",
+                                "p-3 rounded-lg transition-colors",
+                                isSelected
+                                  ? "bg-primary/10"
+                                  : "bg-muted group-hover:bg-primary/5"
                               )}
                             >
-                              <div className="flex items-center gap-2">
-                                <Code className="w-4 h-4 text-muted-foreground" />
-                                <span className="truncate">
-                                  {isLoadingSourceRepos ? (
-                                    <span className="flex items-center gap-2">
-                                      <Loader2 className="w-3 h-3 animate-spin" />
-                                      Loading repositories...
-                                    </span>
-                                  ) : sourceRepoId ? (
-                                    sourceRepos.find(
-                                      (repo) => repo.id === sourceRepoId,
-                                    )?.full_name || "None"
-                                  ) : (
-                                    "None"
-                                  )}
-                                </span>
-                              </div>
-                              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                            </button>
-                          </PopoverTrigger>
-                          <PopoverContent
-                            className="w-[--radix-popover-trigger-width] p-0 bg-card border-border"
-                            align="start"
-                          >
-                            <Command className="bg-card">
-                              <CommandInput
-                                placeholder="Search repositories..."
-                                className="h-9 border-0 focus:ring-0 text-foreground"
+                              <Icon
+                                className={cn(
+                                  "w-6 h-6 transition-colors",
+                                  isSelected
+                                    ? "text-primary"
+                                    : "text-muted-foreground group-hover:text-primary"
+                                )}
                               />
-                              <CommandList id={sourceRepoComboboxId}>
-                                <CommandEmpty className="py-6 text-center text-sm text-muted-foreground">
-                                  No repository found.
-                                </CommandEmpty>
-                                <CommandGroup>
-                                  <CommandItem
-                                    value="none"
-                                    onSelect={() => {
-                                      setSourceRepoId(null);
-                                      setSourceRepoComboboxOpen(false);
-                                    }}
-                                    className="cursor-pointer text-foreground hover:bg-muted"
-                                  >
-                                    <Check
-                                      className={cn(
-                                        "mr-2 h-4 w-4",
-                                        sourceRepoId === null
-                                          ? "opacity-100"
-                                          : "opacity-0",
-                                      )}
-                                    />
-                                    None
-                                  </CommandItem>
-                                  {sourceRepos.map((repo) => (
-                                    <CommandItem
-                                      key={repo.id}
-                                      value={repo.full_name}
-                                      onSelect={() => {
-                                        setSourceRepoId(repo.id);
-                                        setSourceRepoComboboxOpen(false);
-                                      }}
-                                      className="cursor-pointer text-foreground hover:bg-muted"
-                                    >
-                                      <Check
-                                        className={cn(
-                                          "mr-2 h-4 w-4",
-                                          sourceRepoId === repo.id
-                                            ? "opacity-100"
-                                            : "opacity-0",
-                                        )}
-                                      />
-                                      {repo.full_name}
-                                    </CommandItem>
-                                  ))}
-                                </CommandGroup>
-                              </CommandList>
-                            </Command>
-                          </PopoverContent>
-                        </Popover>
-                      </div>
-                    </TooltipTrigger>
-                    {!githubIntegrationStatus.connected &&
-                      !githubIntegrationStatus.loading && (
+                            </div>
+                            <div className="text-center">
+                              <div
+                                className={cn(
+                                  "font-medium text-sm",
+                                  isSelected
+                                    ? "text-primary"
+                                    : "text-foreground"
+                                )}
+                              >
+                                {option.label}
+                              </div>
+                              <div className="text-xs text-muted-foreground mt-0.5">
+                                {option.description}
+                              </div>
+                            </div>
+                          </div>
+                          {isSelected && (
+                            <div className="absolute top-2 right-2">
+                              <div className="w-5 h-5 rounded-full bg-primary flex items-center justify-center">
+                                <ArrowRight className="w-3 h-3 text-primary-foreground" />
+                              </div>
+                            </div>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Visibility Selection - Card Based */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-sm font-medium">Project Visibility</Label>
+                    {!IsUserPlanSubscribed(userPlan) && (
+                      <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+                        Upgrade for Private
+                      </span>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    {visibilityOptions.map((option) => {
+                      const Icon = option.icon;
+                      const isSelected = visibility === option.value;
+                      return (
+                        <button
+                          key={option.value}
+                          type="button"
+                          onClick={() => handleVisibilityChange(option.value)}
+                          disabled={option.isLocked}
+                          className={cn(
+                            "relative p-4 rounded-xl border-2 transition-all hover:shadow-md group",
+                            isSelected
+                              ? "border-primary bg-primary/5 shadow-sm"
+                              : "border-border bg-card hover:border-primary/50",
+                            option.isLocked && "opacity-60 cursor-not-allowed"
+                          )}
+                        >
+                          <div className="flex items-center gap-3">
+                            <div
+                              className={cn(
+                                "p-2.5 rounded-lg transition-colors",
+                                isSelected
+                                  ? "bg-primary/10"
+                                  : "bg-muted group-hover:bg-primary/5"
+                              )}
+                            >
+                              <Icon
+                                className={cn(
+                                  "w-5 h-5 transition-colors",
+                                  isSelected
+                                    ? "text-primary"
+                                    : "text-muted-foreground group-hover:text-primary"
+                                )}
+                              />
+                            </div>
+                            <div className="flex-1 text-left">
+                              <div
+                                className={cn(
+                                  "font-medium text-sm flex items-center gap-1.5",
+                                  isSelected
+                                    ? "text-primary"
+                                    : "text-foreground"
+                                )}
+                              >
+                                {option.label}
+                                {option.isLocked && (
+                                  <Lock className="w-3 h-3 text-muted-foreground" />
+                                )}
+                              </div>
+                              <div className="text-xs text-muted-foreground mt-0.5">
+                                {option.value === "PUBLIC" && "Anyone can view"}
+                                {option.value === "SELF" && "Only you can view"}
+                                {option.value === "TEAM" && "Team members can view"}
+                              </div>
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Footer with Advanced Options Button */}
+                <div className="pt-2 flex items-center justify-between gap-3">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowAdvanced(!showAdvanced)}
+                    className="text-xs text-muted-foreground hover:text-foreground"
+                  >
+                    <Settings className="w-3.5 h-3.5 mr-1.5" />
+                    {showAdvanced ? "Hide" : "Configure"} Advanced Options
+                  </Button>
+
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div>
+                          <Button
+                            type="submit"
+                            disabled={
+                              isCreating ||
+                              !name.trim() ||
+                              (userPlan === "free" && prototypeCount >= 5) ||
+                              isViewer
+                            }
+                            className="h-11 px-6 text-base font-medium shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30 transition-all"
+                          >
+                            {isCreating ? (
+                              <>
+                                <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                                Creating...
+                              </>
+                            ) : (
+                              <>
+                                <Rocket className="w-4 h-4 mr-2" />
+                                Create
+                              </>
+                            )}
+                          </Button>
+                        </div>
+                      </TooltipTrigger>
+                      {isViewer && (
                         <TooltipContent>
-                          <p>
-                            Connect GitHub to prototype on a source repository
-                          </p>
+                          <p>{VIEWER_ROLE_RESTRICTION_MESSAGE}</p>
                         </TooltipContent>
                       )}
-                  </Tooltip>
-                </TooltipProvider>
-              </div>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
+              </form>
+            </div>
 
-            {/* Advanced Options Collapsible */}
-            <Collapsible
-              open={showAdvanced}
-              onOpenChange={setShowAdvanced}
-              className="border-t border-border pt-4"
+            {/* Advanced Options Slide-Over Panel */}
+            <div
+              className={cn(
+                "absolute right-0 top-0 h-full w-1/2 pl-3 transition-all duration-300 ease-in-out",
+                showAdvanced
+                  ? "translate-x-0 opacity-100"
+                  : "translate-x-full opacity-0 pointer-events-none"
+              )}
             >
-              <CollapsibleTrigger asChild>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  className="flex items-center justify-between w-full p-0 h-auto text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-transparent transition-colors"
-                >
-                  <span>Advanced Options</span>
-                  <ChevronDown
-                    className={cn(
-                      "w-3 h-3 transition-transform duration-200",
-                      showAdvanced && "rotate-180",
-                    )}
-                  />
-                </Button>
-              </CollapsibleTrigger>
+              <div className="h-full bg-muted/30 border-l border-border rounded-lg p-4 space-y-4 overflow-y-auto">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-sm font-semibold text-foreground">
+                    Advanced Settings
+                  </h3>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowAdvanced(false)}
+                    className="h-6 w-6 p-0"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </Button>
+                </div>
 
-              <CollapsibleContent className="space-y-4 pt-4 animate-in slide-in-from-top-2">
                 {/* Folder Select */}
                 <div className="space-y-2">
-                  <Label
-                    htmlFor="project-select"
-                    className="text-xs font-medium text-muted-foreground"
-                  >
+                  <Label htmlFor="folder-select" className="text-xs font-medium">
                     Folder
                   </Label>
                   <Select
@@ -969,35 +958,22 @@ export default function NewPrototypeModal({
                       setHasManualDesignSelection(false);
                     }}
                   >
-                    <SelectTrigger className="h-10 bg-background border-border text-foreground text-sm focus:ring-0">
-                      <div className="flex items-center gap-2 truncate">
+                    <SelectTrigger id="folder-select" className="h-9 text-sm">
+                      <div className="flex items-center gap-2">
                         <Folder className="w-3.5 h-3.5 text-muted-foreground" />
                         <SelectValue placeholder="Select folder..." />
                       </div>
                     </SelectTrigger>
-                    <SelectContent className="bg-card border-border text-foreground">
-                      <SelectItem
-                        value="none"
-                        className="focus:bg-muted focus:text-foreground cursor-pointer text-sm"
-                      >
-                        No folder
-                      </SelectItem>
+                    <SelectContent>
+                      <SelectItem value="none">No folder</SelectItem>
                       {isLoadingFolders ? (
                         <div className="px-2 py-2 text-xs text-muted-foreground flex items-center gap-2">
-                          <Loader2 className="w-3 h-3 animate-spin" />{" "}
-                          Loading...
+                          <Loader2 className="w-3 h-3 animate-spin" /> Loading...
                         </div>
                       ) : (
-                        folders.map((project) => (
-                          <SelectItem
-                            key={project.id}
-                            value={project.id}
-                            className="focus:bg-muted focus:text-foreground cursor-pointer text-sm"
-                          >
-                            <div className="flex items-center gap-2">
-                              <Folder className="w-3.5 h-3.5 text-muted-foreground" />
-                              {project.name}
-                            </div>
+                        folders.map((folder) => (
+                          <SelectItem key={folder.id} value={folder.id}>
+                            {folder.name}
                           </SelectItem>
                         ))
                       )}
@@ -1008,10 +984,7 @@ export default function NewPrototypeModal({
                 {/* Design Style */}
                 {ENABLE_DESIGN_SYSTEM && (
                   <div className="space-y-2">
-                    <Label
-                      htmlFor="design-style"
-                      className="text-xs font-medium text-muted-foreground"
-                    >
+                    <Label htmlFor="design-style" className="text-xs font-medium">
                       Style
                     </Label>
                     <Select
@@ -1021,22 +994,15 @@ export default function NewPrototypeModal({
                         setHasManualDesignSelection(true);
                       }}
                     >
-                      <SelectTrigger
-                        id="design-style"
-                        className="h-10 bg-background border-border text-foreground text-sm focus:ring-0"
-                      >
+                      <SelectTrigger id="design-style" className="h-9 text-sm">
                         <div className="flex items-center gap-2">
                           <Palette className="w-3.5 h-3.5 text-muted-foreground" />
                           <SelectValue />
                         </div>
                       </SelectTrigger>
-                      <SelectContent className="bg-card border-border text-foreground">
+                      <SelectContent>
                         {availableDesignStyles.map((style) => (
-                          <SelectItem
-                            key={style}
-                            value={style}
-                            className="focus:bg-muted focus:text-foreground cursor-pointer text-sm"
-                          >
+                          <SelectItem key={style} value={style}>
                             {getDesignStyleLabel(style)}
                           </SelectItem>
                         ))}
@@ -1050,38 +1016,24 @@ export default function NewPrototypeModal({
                   <div className="space-y-2">
                     <Label
                       htmlFor="custom-design-system"
-                      className="text-xs font-medium text-muted-foreground"
+                      className="text-xs font-medium"
                     >
                       Design System
                     </Label>
                     <Select
                       value={customDesignSystemId ?? "none"}
                       onValueChange={(value) => {
-                        setCustomDesignSystemId(
-                          value === "none" ? null : value,
-                        );
+                        setCustomDesignSystemId(value === "none" ? null : value);
                         setHasManualDesignSelection(true);
                       }}
                     >
-                      <SelectTrigger
-                        id="custom-design-system"
-                        className="h-10 bg-background border-border text-foreground text-sm focus:ring-0"
-                      >
+                      <SelectTrigger id="custom-design-system" className="h-9 text-sm">
                         <SelectValue placeholder="None" />
                       </SelectTrigger>
-                      <SelectContent className="bg-card border-border text-foreground">
-                        <SelectItem
-                          value="none"
-                          className="focus:bg-muted focus:text-foreground cursor-pointer text-sm"
-                        >
-                          None
-                        </SelectItem>
+                      <SelectContent>
+                        <SelectItem value="none">None</SelectItem>
                         {designSystems.map((system) => (
-                          <SelectItem
-                            key={system.id}
-                            value={String(system.id)}
-                            className="focus:bg-muted focus:text-foreground cursor-pointer text-sm"
-                          >
+                          <SelectItem key={system.id} value={String(system.id)}>
                             {system.name}
                           </SelectItem>
                         ))}
@@ -1089,45 +1041,132 @@ export default function NewPrototypeModal({
                     </Select>
                   </div>
                 )}
-              </CollapsibleContent>
-            </Collapsible>
 
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div className="w-full">
-                    <Button
-                      type="submit"
-                      disabled={
-                        isCreating ||
-                        !name.trim() ||
-                        (userPlan === "free" && prototypeCount >= 5) ||
-                        isViewer
-                      }
-                      className="w-full h-11 bg-primary text-primary-foreground hover:bg-primary/90 font-medium rounded-lg"
-                    >
-                      {isCreating ? (
-                        <>
-                          <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                          Creating...
-                        </>
-                      ) : (
-                        <>
-                          <Rocket className="w-4 h-4 mr-2" />
-                          Create Project
-                        </>
-                      )}
-                    </Button>
-                  </div>
-                </TooltipTrigger>
-                {isViewer && (
-                  <TooltipContent>
-                    <p>{VIEWER_ROLE_RESTRICTION_MESSAGE}</p>
-                  </TooltipContent>
-                )}
-              </Tooltip>
-            </TooltipProvider>
-          </form>
+                {/* Source Repository Select */}
+                <div className="space-y-2">
+                  <Label
+                    htmlFor="source-repo-select"
+                    className="text-xs font-medium"
+                  >
+                    Source Repository
+                  </Label>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div>
+                          <Popover
+                            open={sourceRepoComboboxOpen}
+                            onOpenChange={setSourceRepoComboboxOpen}
+                          >
+                            <PopoverTrigger asChild>
+                              <button
+                                type="button"
+                                role="combobox"
+                                aria-expanded={sourceRepoComboboxOpen}
+                                aria-controls={sourceRepoComboboxId}
+                                disabled={
+                                  isCreating ||
+                                  githubIntegrationStatus.loading ||
+                                  !githubIntegrationStatus.connected ||
+                                  isLoadingSourceRepos
+                                }
+                                className={cn(
+                                  "h-9 w-full bg-background border border-border text-foreground rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50",
+                                  "flex items-center justify-between",
+                                )}
+                              >
+                                <div className="flex items-center gap-2 truncate">
+                                  <Code className="w-3.5 h-3.5 text-muted-foreground" />
+                                  <span className="truncate text-xs">
+                                    {isLoadingSourceRepos ? (
+                                      <span className="flex items-center gap-2">
+                                        <Loader2 className="w-3 h-3 animate-spin" />
+                                        Loading...
+                                      </span>
+                                    ) : sourceRepoId ? (
+                                      sourceRepos.find(
+                                        (repo) => repo.id === sourceRepoId,
+                                      )?.full_name || "None"
+                                    ) : (
+                                      "None"
+                                    )}
+                                  </span>
+                                </div>
+                                <ChevronsUpDown className="ml-2 h-3.5 w-3.5 shrink-0 opacity-50" />
+                              </button>
+                            </PopoverTrigger>
+                            <PopoverContent
+                              className="w-[--radix-popover-trigger-width] p-0"
+                              align="start"
+                            >
+                              <Command>
+                                <CommandInput
+                                  placeholder="Search repositories..."
+                                  className="h-9 border-0 focus:ring-0 text-sm"
+                                />
+                                <CommandList id={sourceRepoComboboxId}>
+                                  <CommandEmpty className="py-6 text-center text-sm text-muted-foreground">
+                                    No repository found.
+                                  </CommandEmpty>
+                                  <CommandGroup>
+                                    <CommandItem
+                                      value="none"
+                                      onSelect={() => {
+                                        setSourceRepoId(null);
+                                        setSourceRepoComboboxOpen(false);
+                                      }}
+                                      className="cursor-pointer text-sm"
+                                    >
+                                      <Check
+                                        className={cn(
+                                          "mr-2 h-3.5 w-3.5",
+                                          sourceRepoId === null
+                                            ? "opacity-100"
+                                            : "opacity-0",
+                                        )}
+                                      />
+                                      None
+                                    </CommandItem>
+                                    {sourceRepos.map((repo) => (
+                                      <CommandItem
+                                        key={repo.id}
+                                        value={repo.full_name}
+                                        onSelect={() => {
+                                          setSourceRepoId(repo.id);
+                                          setSourceRepoComboboxOpen(false);
+                                        }}
+                                        className="cursor-pointer text-sm"
+                                      >
+                                        <Check
+                                          className={cn(
+                                            "mr-2 h-3.5 w-3.5",
+                                            sourceRepoId === repo.id
+                                              ? "opacity-100"
+                                              : "opacity-0",
+                                          )}
+                                        />
+                                        {repo.full_name}
+                                      </CommandItem>
+                                    ))}
+                                  </CommandGroup>
+                                </CommandList>
+                              </Command>
+                            </PopoverContent>
+                          </Popover>
+                        </div>
+                      </TooltipTrigger>
+                      {!githubIntegrationStatus.connected &&
+                        !githubIntegrationStatus.loading && (
+                          <TooltipContent>
+                            <p>Connect GitHub to prototype on a source repository</p>
+                          </TooltipContent>
+                        )}
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
+              </div>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
 
