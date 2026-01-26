@@ -54,6 +54,106 @@ export class SupabaseTokenRefreshError extends Error {
 }
 
 /**
+ * Custom error class for Management API call failures due to revoked access.
+ */
+export class SupabaseAccessRevokedError extends Error {
+  public readonly integrationId: string;
+
+  constructor(integrationId: string) {
+    super(
+      "Supabase OAuth access has been revoked. Please reconnect your Supabase organization.",
+    );
+    this.name = "SupabaseAccessRevokedError";
+    this.integrationId = integrationId;
+  }
+}
+
+interface ExecuteWithRevocationDetectionOptions<T> {
+  supabaseClient: SupabaseClient<Database>;
+  logger: SystemLogger;
+  integrationId: string;
+  operation: () => Promise<T>;
+}
+
+/**
+ * Wraps a Supabase Management API call and detects if access has been revoked.
+ * If revoked (401/403), marks the integration as disconnected and throws SupabaseAccessRevokedError.
+ */
+export async function executeWithRevocationDetection<T>(
+  options: ExecuteWithRevocationDetectionOptions<T>,
+): Promise<T> {
+  const { supabaseClient, logger, integrationId, operation } = options;
+
+  try {
+    return await operation();
+  } catch (error) {
+    // Check if this is a revocation error (401/403)
+    const isRevoked = isRevokedAccessError(error);
+
+    if (isRevoked) {
+      logger.warn(
+        "Supabase Management API call failed due to revoked access",
+        { integrationId },
+      );
+      await markIntegrationAsDisconnected(supabaseClient, integrationId, logger);
+      throw new SupabaseAccessRevokedError(integrationId);
+    }
+
+    // Re-throw other errors as-is
+    throw error;
+  }
+}
+
+/**
+ * Checks if an error indicates revoked OAuth access (401 or 403).
+ * Handles various error formats from supabase-management-js.
+ */
+function isRevokedAccessError(error: unknown): boolean {
+  if (!error) return false;
+
+  // Check for SupabaseManagementAPIError which has a response property
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "response" in error &&
+    typeof (error as { response?: { status?: number } }).response === "object"
+  ) {
+    const status = (error as { response: { status?: number } }).response?.status;
+    if (status === 401 || status === 403) {
+      return true;
+    }
+  }
+
+  // Check for status directly on the error
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "status" in error
+  ) {
+    const status = (error as { status?: number }).status;
+    if (status === 401 || status === 403) {
+      return true;
+    }
+  }
+
+  // Check error message for common auth failure patterns
+  if (error instanceof Error) {
+    const message = error.message.toLowerCase();
+    if (
+      message.includes("unauthorized") ||
+      message.includes("forbidden") ||
+      message.includes("invalid token") ||
+      message.includes("token expired") ||
+      message.includes("access denied")
+    ) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+/**
  * Returns a decrypted Supabase OAuth access token for the given integration.
  * If the token is expired or will expire within 10 minutes, it is refreshed
  * (and the database is updated) before returning.

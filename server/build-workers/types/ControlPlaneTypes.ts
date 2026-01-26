@@ -5,7 +5,7 @@
 // To update these shared files, modify the source file and run:
 // npm run sync-types (in the control-plane directory)
 //
-// Last synced: 2026-01-25T23:03:34.983Z
+// Last synced: 2026-01-26T05:26:48.789Z
 
 // Public API types for the Control Plane Server
 // These types define the request and response schemas for all public endpoints
@@ -219,6 +219,7 @@ export interface DeploySuccessResponse {
 
 export const HTTP_STATUS = {
   OK: 200,
+  CREATED: 201,
   BAD_REQUEST: 400,
   UNAUTHORIZED: 401,
   PAYMENT_REQUIRED: 402,
@@ -690,6 +691,39 @@ export interface SupabaseIntegrationSummary {
 
 export interface SupabaseIntegrationsSuccessResponse {
   integrations: SupabaseIntegrationSummary[];
+}
+
+// GET /connectors/supabase/projects
+export interface SupabaseProjectsQuery {
+  teamId: string;
+}
+
+export interface SupabaseProjectSummary {
+  id: string;
+  name: string;
+  organization_id: string;
+  region: string;
+  created_at: string;
+  database?: {
+    host: string;
+    version: string;
+  };
+}
+
+export interface SupabaseProjectsSuccessResponse {
+  projects: SupabaseProjectSummary[];
+}
+
+// POST /connectors/supabase/projects
+export interface SupabaseCreateProjectRequestBody {
+  teamId: string;
+  organizationId: string;
+  name: string;
+  region: string;
+}
+
+export interface SupabaseCreateProjectSuccessResponse {
+  project: SupabaseProjectSummary;
 }
 
 // ============================================================================

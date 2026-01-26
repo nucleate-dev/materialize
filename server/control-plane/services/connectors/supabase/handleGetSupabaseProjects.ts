@@ -11,7 +11,12 @@ import {
 } from "../../../types/PublicAPITypes.js";
 import type { Database } from "../../../types/supabase.js";
 import { validateJWTToken } from "../../../utils/prototypeAuth.js";
-import { getValidSupabaseAccessToken } from "./supabaseTokenUtils.js";
+import {
+    getValidSupabaseAccessToken,
+    executeWithRevocationDetection,
+    SupabaseAccessRevokedError,
+    SupabaseTokenRefreshError,
+} from "./supabaseTokenUtils.js";
 
 interface IntegrationRecord {
     id: string;
@@ -125,18 +130,48 @@ export async function handleGetSupabaseProjectsImpl(
         ),
     );
 
-    // Collect all projects, logging any failures
+    // Collect all projects, tracking revoked integrations
     const allProjects: SupabaseProjectSummary[] = [];
+    const revokedIntegrationIds: string[] = [];
+
     for (let i = 0; i < projectResults.length; i++) {
         const result = projectResults[i];
         if (result.status === "fulfilled") {
-            allProjects.push(...result.value);
+            allProjects.push(...result.value.projects);
+            if (result.value.revoked) {
+                revokedIntegrationIds.push(result.value.integrationId);
+            }
         } else {
-            request.log2.warn(
-                "Failed to fetch projects for integration",
-                { integrationId: integrations[i].id, reason: String(result.reason) },
-            );
+            // Check if this was a revocation error
+            if (result.reason instanceof SupabaseAccessRevokedError) {
+                revokedIntegrationIds.push(result.reason.integrationId);
+            } else {
+                request.log2.warn(
+                    "Failed to fetch projects for integration",
+                    { integrationId: integrations[i].id, reason: String(result.reason) },
+                );
+            }
         }
+    }
+
+    // If all integrations were revoked, return an error
+    if (revokedIntegrationIds.length === integrations.length && integrations.length > 0) {
+        return reply.status(HTTP_STATUS.BAD_REQUEST).send({
+            data: null,
+            error: {
+                error: "Integration Disconnected",
+                message:
+                    "All connected Supabase organizations have been disconnected. Please reconnect your Supabase organization in team settings.",
+            },
+        });
+    }
+
+    // If some integrations were revoked, log it but return partial results
+    if (revokedIntegrationIds.length > 0) {
+        request.log2.info(
+            "Some Supabase integrations were disconnected during project fetch",
+            { revokedIntegrationIds },
+        );
     }
 
     return reply.status(HTTP_STATUS.OK).send({
@@ -145,23 +180,57 @@ export async function handleGetSupabaseProjectsImpl(
     });
 }
 
+interface FetchProjectsResult {
+    projects: SupabaseProjectSummary[];
+    revoked: boolean;
+    integrationId: string;
+}
+
 async function fetchProjectsForIntegration(
     integration: IntegrationRecord,
     supabaseClient: ReturnType<typeof createClient<Database>>,
     request: FastifyRequest,
-): Promise<SupabaseProjectSummary[]> {
+): Promise<FetchProjectsResult> {
     // Get valid (and refreshed if needed) access token
-    const { accessToken } = await getValidSupabaseAccessToken({
+    let accessToken: string;
+    try {
+        const tokenResult = await getValidSupabaseAccessToken({
+            supabaseClient,
+            logger: request.log2,
+            integrationId: integration.id,
+        });
+        accessToken = tokenResult.accessToken;
+    } catch (error) {
+        // Token refresh detected revoked access - already marked as disconnected
+        if (
+            error instanceof SupabaseTokenRefreshError &&
+            error.isRevoked
+        ) {
+            return {
+                projects: [],
+                revoked: true,
+                integrationId: integration.id,
+            };
+        }
+        throw error;
+    }
+
+    const managementClient = new SupabaseManagementAPI({ accessToken });
+
+    // Wrap the API call to detect revocation
+    const projects = await executeWithRevocationDetection({
         supabaseClient,
         logger: request.log2,
         integrationId: integration.id,
+        operation: () => managementClient.getProjects(),
     });
 
-    const managementClient = new SupabaseManagementAPI({ accessToken });
-    const projects = await managementClient.getProjects();
-
     if (!projects) {
-        return [];
+        return {
+            projects: [],
+            revoked: false,
+            integrationId: integration.id,
+        };
     }
 
     // Filter projects to only those belonging to this integration's organization
@@ -169,14 +238,18 @@ async function fetchProjectsForIntegration(
         (p) => p.organization_id === integration.supabase_organization_id,
     );
 
-    return orgProjects.map((p) => ({
-        id: p.id,
-        name: p.name,
-        organization_id: p.organization_id,
-        region: p.region,
-        created_at: p.created_at,
-        database: p.database
-            ? { host: p.database.host, version: p.database.version }
-            : undefined,
-    }));
+    return {
+        projects: orgProjects.map((p) => ({
+            id: p.id,
+            name: p.name,
+            organization_id: p.organization_id,
+            region: p.region,
+            created_at: p.created_at,
+            database: p.database
+                ? { host: p.database.host, version: p.database.version }
+                : undefined,
+        })),
+        revoked: false,
+        integrationId: integration.id,
+    };
 }

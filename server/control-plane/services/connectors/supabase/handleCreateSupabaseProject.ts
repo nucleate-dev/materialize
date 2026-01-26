@@ -11,7 +11,12 @@ import {
 } from "../../../types/PublicAPITypes.js";
 import type { Database } from "../../../types/supabase.js";
 import { validateJWTToken } from "../../../utils/prototypeAuth.js";
-import { getValidSupabaseAccessToken } from "./supabaseTokenUtils.js";
+import {
+    getValidSupabaseAccessToken,
+    executeWithRevocationDetection,
+    SupabaseAccessRevokedError,
+    SupabaseTokenRefreshError,
+} from "./supabaseTokenUtils.js";
 
 /**
  * Generate a secure random password for the database.
@@ -140,6 +145,17 @@ export async function handleCreateSupabaseProjectImpl(
         });
         accessToken = tokenResult.accessToken;
     } catch (error) {
+        // Check if token refresh failed due to revoked access
+        if (error instanceof SupabaseTokenRefreshError && error.isRevoked) {
+            return reply.status(HTTP_STATUS.BAD_REQUEST).send({
+                data: null,
+                error: {
+                    error: "Integration Disconnected",
+                    message:
+                        "Your Supabase organization has been disconnected. Please reconnect in team settings.",
+                },
+            });
+        }
         request.log2.error(
             error instanceof Error ? error : new Error(String(error)),
             "Failed to get valid Supabase access token for project creation",
@@ -161,14 +177,31 @@ export async function handleCreateSupabaseProjectImpl(
 
     let createdProject;
     try {
-        createdProject = await managementClient.createProject({
-            organization_id: organizationId,
-            name,
-            region: region as "us-east-1",
-            db_pass: dbPassword,
-            plan: "free",
+        createdProject = await executeWithRevocationDetection({
+            supabaseClient: supabaseServiceClient,
+            logger: request.log2,
+            integrationId: integration.id,
+            operation: () =>
+                managementClient.createProject({
+                    organization_id: organizationId,
+                    name,
+                    region: region as "us-east-1",
+                    db_pass: dbPassword,
+                    plan: "free",
+                }),
         });
     } catch (error) {
+        // Check if API call failed due to revoked access
+        if (error instanceof SupabaseAccessRevokedError) {
+            return reply.status(HTTP_STATUS.BAD_REQUEST).send({
+                data: null,
+                error: {
+                    error: "Integration Disconnected",
+                    message:
+                        "Your Supabase organization has been disconnected. Please reconnect in team settings.",
+                },
+            });
+        }
         request.log2.error(
             error instanceof Error ? error : new Error(String(error)),
             "Failed to create Supabase project",
