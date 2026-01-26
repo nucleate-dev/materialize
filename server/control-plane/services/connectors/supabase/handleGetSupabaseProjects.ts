@@ -50,6 +50,36 @@ export async function handleGetSupabaseProjectsImpl(
         },
     );
 
+    // Verify user has appropriate team role (owner, admin, or editor)
+    const { data: hasAccess, error: accessError } = await supabaseClient.rpc(
+        "is_team_member_with_edit_privileges",
+        { p_team_id: teamId },
+    );
+
+    if (accessError) {
+        request.log2.error(
+            accessError,
+            "Failed to verify team membership for Supabase projects",
+        );
+        return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
+            data: null,
+            error: {
+                error: "Database Error",
+                message: "Failed to verify team membership",
+            },
+        });
+    }
+
+    if (!hasAccess) {
+        return reply.status(HTTP_STATUS.FORBIDDEN).send({
+            data: null,
+            error: {
+                error: "Forbidden",
+                message: "You must be a team owner, admin, or editor to view Supabase projects",
+            },
+        });
+    }
+
     // Fetch all integrations for this team
     const { data: integrations, error: integrationsError } = await supabaseClient
         .from("connectors_supabase_integrations")
