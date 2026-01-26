@@ -683,6 +683,27 @@ export interface SupabaseIntegrationsSuccessResponse {
   integrations: SupabaseIntegrationSummary[];
 }
 
+// GET /connectors/supabase/projects
+export interface SupabaseProjectsQuery {
+  teamId: string;
+}
+
+export interface SupabaseProjectSummary {
+  id: string;
+  name: string;
+  organization_id: string;
+  region: string;
+  created_at: string;
+  database?: {
+    host: string;
+    version: string;
+  };
+}
+
+export interface SupabaseProjectsSuccessResponse {
+  projects: SupabaseProjectSummary[];
+}
+
 // ============================================================================
 // TYPE GUARDS
 // ============================================================================

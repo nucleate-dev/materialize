@@ -7,10 +7,13 @@ import {
     type SupabaseConnectStartSuccessResponse,
     type SupabaseIntegrationsQuery,
     type SupabaseIntegrationsSuccessResponse,
+    type SupabaseProjectsQuery,
+    type SupabaseProjectsSuccessResponse,
 } from "../../../types/PublicAPITypes.js";
 import { handleSupabaseConnectStartImpl } from "./handleSupabaseConnectStart.js";
 import { handleSupabaseOAuthCallbackImpl } from "./handleSupabaseOAuthCallback.js";
 import { handleGetSupabaseIntegrationsImpl } from "./handleGetSupabaseIntegrations.js";
+import { handleGetSupabaseProjectsImpl } from "./handleGetSupabaseProjects.js";
 
 export interface SupabaseOAuthCallbackQuery {
     code?: string;
@@ -34,6 +37,7 @@ export interface SupabaseOAuthStatePayload {
  * - POST /connectors/supabase/connect/start
  * - GET /connectors/supabase/oauth/callback
  * - GET /connectors/supabase/integrations
+ * - GET /connectors/supabase/projects
  */
 export class SupabaseIntegrationService {
     constructor() {}
@@ -97,6 +101,25 @@ export class SupabaseIntegrationService {
             },
             this.handleGetIntegrations.bind(this),
         );
+
+        app.get<{ Querystring: SupabaseProjectsQuery }>(
+            "/connectors/supabase/projects",
+            {
+                schema: {
+                    querystring: {
+                        type: "object",
+                        required: ["teamId"],
+                        properties: {
+                            teamId: {
+                                type: "string",
+                                format: "uuid",
+                            },
+                        },
+                    },
+                },
+            },
+            this.handleGetProjects.bind(this),
+        );
     }
 
     private async handleConnectStart(
@@ -122,6 +145,15 @@ export class SupabaseIntegrationService {
         APIResponse<SupabaseIntegrationsSuccessResponse, StandardErrorResponse>
     > {
         return handleGetSupabaseIntegrationsImpl(request, reply);
+    }
+
+    private async handleGetProjects(
+        request: FastifyRequest<{ Querystring: SupabaseProjectsQuery }>,
+        reply: FastifyReply,
+    ): Promise<
+        APIResponse<SupabaseProjectsSuccessResponse, StandardErrorResponse>
+    > {
+        return handleGetSupabaseProjectsImpl(request, reply);
     }
 }
 
