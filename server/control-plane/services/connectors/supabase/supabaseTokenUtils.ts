@@ -37,6 +37,23 @@ interface SupabaseTokenResponse {
 }
 
 /**
+ * Custom error class for token refresh failures that includes HTTP status.
+ * Used to detect when a user has revoked OAuth access.
+ */
+export class SupabaseTokenRefreshError extends Error {
+  public readonly statusCode: number;
+  public readonly isRevoked: boolean;
+
+  constructor(message: string, statusCode: number) {
+    super(message);
+    this.name = "SupabaseTokenRefreshError";
+    this.statusCode = statusCode;
+    // 401 Unauthorized or 403 Forbidden indicates revoked access
+    this.isRevoked = statusCode === 401 || statusCode === 403;
+  }
+}
+
+/**
  * Returns a decrypted Supabase OAuth access token for the given integration.
  * If the token is expired or will expire within 10 minutes, it is refreshed
  * (and the database is updated) before returning.
@@ -98,7 +115,17 @@ export async function getValidSupabaseAccessToken(
     integrationId,
     logger,
   );
-  const refreshed = await refreshSupabaseAccessToken(refreshToken, logger);
+
+  let refreshed: SupabaseTokenResponse;
+  try {
+    refreshed = await refreshSupabaseAccessToken(refreshToken, logger);
+  } catch (error) {
+    // If the token refresh failed due to revoked access, update the integration status
+    if (error instanceof SupabaseTokenRefreshError && error.isRevoked) {
+      await markIntegrationAsDisconnected(supabaseClient, integrationId, logger);
+    }
+    throw error;
+  }
 
   if (refreshed.error) {
     logger.error(
@@ -233,6 +260,31 @@ function safeDecrypt(
   }
 }
 
+/**
+ * Mark a Supabase integration as disconnected when OAuth access has been revoked.
+ */
+async function markIntegrationAsDisconnected(
+  supabaseClient: SupabaseClient<Database>,
+  integrationId: string,
+  logger: SystemLogger,
+): Promise<void> {
+  const { error } = await supabaseClient
+    .from("connectors_supabase_integrations")
+    .update({ status: "disconnected" })
+    .eq("id", integrationId);
+
+  if (error) {
+    logger.error(error, "Failed to mark Supabase integration as disconnected", {
+      integrationId,
+    });
+    // Don't throw here - we still want to propagate the original error
+  } else {
+    logger.info("Marked Supabase integration as disconnected due to revoked access", {
+      integrationId,
+    });
+  }
+}
+
 function getSupabaseOAuthConfig(): SupabaseOAuthConfig {
   const clientId = process.env.SUPABASE_OAUTH_CLIENT_ID;
   const clientSecret = process.env.SUPABASE_OAUTH_CLIENT_SECRET;
@@ -282,16 +334,23 @@ async function refreshSupabaseAccessToken(
 
   const responseText = await response.text();
   if (!response.ok) {
+    const isRevoked = response.status === 401 || response.status === 403;
     logger.error(
       new Error("Supabase OAuth token refresh failed"),
       "Supabase OAuth token refresh failed",
-      { status: response.status },
+      { status: response.status, isRevoked },
     );
     logger.consoleLogDevOnly("error", "Supabase OAuth token refresh failed", {
       status: response.status,
+      isRevoked,
       response: responseText.slice(0, 500),
     });
-    throw new Error("token_refresh_failed");
+    throw new SupabaseTokenRefreshError(
+      isRevoked
+        ? "Supabase OAuth access has been revoked"
+        : "Supabase OAuth token refresh failed",
+      response.status,
+    );
   }
 
   try {
