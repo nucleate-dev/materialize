@@ -1,5 +1,5 @@
-import crypto from 'crypto';
-import type { SystemLogger } from '../loggers/SystemLogger.js';
+import crypto from "crypto";
+import type { SystemLogger } from "../../../loggers/SystemLogger.js";
 
 /**
  * GitHub API client for GitHub App integration
@@ -17,8 +17,8 @@ import type { SystemLogger } from '../loggers/SystemLogger.js';
  * - GITHUB_APP_PRIVATE_KEY_B64 (base64-encoded PEM private key)
  */
 
-const GITHUB_API_BASE = 'https://api.github.com';
-const GITHUB_API_VERSION = '2022-11-28';
+const GITHUB_API_BASE = "https://api.github.com";
+const GITHUB_API_VERSION = "2022-11-28";
 
 // ============================================================================
 // Types
@@ -39,7 +39,7 @@ export interface GitHubUser {
   name: string | null;
   email: string | null;
   avatar_url: string;
-  type: 'User' | 'Organization';
+  type: "User" | "Organization";
 }
 
 export interface GitHubInstallation {
@@ -47,11 +47,11 @@ export interface GitHubInstallation {
   account: {
     login: string;
     id: number;
-    type: 'User' | 'Organization';
+    type: "User" | "Organization";
   };
   app_id: number;
   app_slug: string;
-  target_type: 'User' | 'Organization';
+  target_type: "User" | "Organization";
   created_at: string;
   updated_at: string;
   suspended_at: string | null;
@@ -101,14 +101,14 @@ export async function exchangeCodeForToken(
   const clientSecret = process.env.GITHUB_APP_CLIENT_SECRET;
 
   if (!clientId || !clientSecret) {
-    throw new Error('GitHub App client ID and secret must be configured');
+    throw new Error("GitHub App client ID and secret must be configured");
   }
 
-  const response = await fetch('https://github.com/login/oauth/access_token', {
-    method: 'POST',
+  const response = await fetch("https://github.com/login/oauth/access_token", {
+    method: "POST",
     headers: {
-      Accept: 'application/json',
-      'Content-Type': 'application/json',
+      Accept: "application/json",
+      "Content-Type": "application/json",
     },
     body: JSON.stringify({
       client_id: clientId,
@@ -120,8 +120,8 @@ export async function exchangeCodeForToken(
   if (!response.ok) {
     const errorText = await response.text();
     logger.error(
-      new Error('Failed to exchange code for token'),
-      'GitHub OAuth token exchange failed',
+      new Error("Failed to exchange code for token"),
+      "GitHub OAuth token exchange failed",
       {
         status: response.status,
         statusText: response.statusText,
@@ -134,10 +134,10 @@ export async function exchangeCodeForToken(
   const data = await response.json();
 
   // GitHub returns an error field if something went wrong
-  if ('error' in data) {
+  if ("error" in data) {
     logger.error(
-      new Error('GitHub OAuth error'),
-      'GitHub returned error in token response',
+      new Error("GitHub OAuth error"),
+      "GitHub returned error in token response",
       {
         error: data.error,
         error_description: data.error_description,
@@ -164,19 +164,19 @@ export async function refreshGitHubOAuthToken(
   const clientSecret = process.env.GITHUB_APP_CLIENT_SECRET;
 
   if (!clientId || !clientSecret) {
-    throw new Error('GitHub App client ID and secret must be configured');
+    throw new Error("GitHub App client ID and secret must be configured");
   }
 
-  const response = await fetch('https://github.com/login/oauth/access_token', {
-    method: 'POST',
+  const response = await fetch("https://github.com/login/oauth/access_token", {
+    method: "POST",
     headers: {
-      Accept: 'application/json',
-      'Content-Type': 'application/json',
+      Accept: "application/json",
+      "Content-Type": "application/json",
     },
     body: JSON.stringify({
       client_id: clientId,
       client_secret: clientSecret,
-      grant_type: 'refresh_token',
+      grant_type: "refresh_token",
       refresh_token: refreshToken,
     }),
   });
@@ -184,8 +184,8 @@ export async function refreshGitHubOAuthToken(
   if (!response.ok) {
     const errorText = await response.text();
     logger.error(
-      new Error('Failed to refresh GitHub OAuth token'),
-      'GitHub OAuth token refresh failed',
+      new Error("Failed to refresh GitHub OAuth token"),
+      "GitHub OAuth token refresh failed",
       {
         status: response.status,
         statusText: response.statusText,
@@ -197,10 +197,10 @@ export async function refreshGitHubOAuthToken(
 
   const data = await response.json();
 
-  if ('error' in data) {
+  if ("error" in data) {
     logger.error(
-      new Error('GitHub OAuth refresh error'),
-      'GitHub returned error in token refresh response',
+      new Error("GitHub OAuth refresh error"),
+      "GitHub returned error in token refresh response",
       {
         error: data.error,
         error_description: data.error_description,
@@ -228,17 +228,17 @@ export async function getAuthenticatedUser(
 ): Promise<GitHubUser> {
   const response = await fetch(`${GITHUB_API_BASE}/user`, {
     headers: {
-      Accept: 'application/vnd.github+json',
+      Accept: "application/vnd.github+json",
       Authorization: `Bearer ${accessToken}`,
-      'X-GitHub-Api-Version': GITHUB_API_VERSION,
+      "X-GitHub-Api-Version": GITHUB_API_VERSION,
     },
   });
 
   if (!response.ok) {
     const errorText = await response.text();
     logger.error(
-      new Error('Failed to fetch authenticated user'),
-      'GitHub API: get user failed',
+      new Error("Failed to fetch authenticated user"),
+      "GitHub API: get user failed",
       {
         status: response.status,
         error: errorText,
@@ -261,17 +261,17 @@ export async function listUserInstallations(
 ): Promise<GitHubInstallation[]> {
   const response = await fetch(`${GITHUB_API_BASE}/user/installations`, {
     headers: {
-      Accept: 'application/vnd.github+json',
+      Accept: "application/vnd.github+json",
       Authorization: `Bearer ${accessToken}`,
-      'X-GitHub-Api-Version': GITHUB_API_VERSION,
+      "X-GitHub-Api-Version": GITHUB_API_VERSION,
     },
   });
 
   if (!response.ok) {
     const errorText = await response.text();
     logger.error(
-      new Error('Failed to list user installations'),
-      'GitHub API: list installations failed',
+      new Error("Failed to list user installations"),
+      "GitHub API: list installations failed",
       {
         status: response.status,
         error: errorText,
@@ -299,19 +299,19 @@ export function generateAppJWT(logger: SystemLogger): GitHubAppJWT {
   const privateKeyB64 = process.env.GITHUB_APP_PRIVATE_KEY_B64;
 
   if (!appId || !privateKeyB64) {
-    throw new Error('GitHub App ID and private key must be configured');
+    throw new Error("GitHub App ID and private key must be configured");
   }
 
   // Decode base64 private key
   let privateKey: string;
   try {
-    privateKey = Buffer.from(privateKeyB64, 'base64').toString('utf8');
+    privateKey = Buffer.from(privateKeyB64, "base64").toString("utf8");
   } catch (error) {
     logger.error(
       error instanceof Error ? error : new Error(String(error)),
-      'Failed to decode GitHub App private key from base64',
+      "Failed to decode GitHub App private key from base64",
     );
-    throw new Error('Invalid GitHub App private key format');
+    throw new Error("Invalid GitHub App private key format");
   }
 
   // JWT payload
@@ -326,8 +326,8 @@ export function generateAppJWT(logger: SystemLogger): GitHubAppJWT {
 
   // Create JWT header
   const header = {
-    alg: 'RS256',
-    typ: 'JWT',
+    alg: "RS256",
+    typ: "JWT",
   };
 
   // Encode header and payload
@@ -337,11 +337,11 @@ export function generateAppJWT(logger: SystemLogger): GitHubAppJWT {
   // Create signature
   const signatureInput = `${encodedHeader}.${encodedPayload}`;
   const signature = crypto
-    .createSign('RSA-SHA256')
+    .createSign("RSA-SHA256")
     .update(signatureInput)
-    .sign(privateKey, 'base64');
+    .sign(privateKey, "base64");
 
-  const encodedSignature = base64UrlEncode(Buffer.from(signature, 'base64'));
+  const encodedSignature = base64UrlEncode(Buffer.from(signature, "base64"));
 
   const token = `${signatureInput}.${encodedSignature}`;
 
@@ -355,12 +355,12 @@ export function generateAppJWT(logger: SystemLogger): GitHubAppJWT {
  * Base64 URL encode (without padding).
  */
 function base64UrlEncode(input: string | Buffer): string {
-  const buffer = typeof input === 'string' ? Buffer.from(input, 'utf8') : input;
+  const buffer = typeof input === "string" ? Buffer.from(input, "utf8") : input;
   return buffer
-    .toString('base64')
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=+$/, '');
+    .toString("base64")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
 }
 
 // ============================================================================
@@ -382,11 +382,11 @@ export async function createInstallationToken(
   const response = await fetch(
     `${GITHUB_API_BASE}/app/installations/${installationId}/access_tokens`,
     {
-      method: 'POST',
+      method: "POST",
       headers: {
-        Accept: 'application/vnd.github+json',
+        Accept: "application/vnd.github+json",
         Authorization: `Bearer ${appJWT.token}`,
-        'X-GitHub-Api-Version': GITHUB_API_VERSION,
+        "X-GitHub-Api-Version": GITHUB_API_VERSION,
       },
     },
   );
@@ -394,8 +394,8 @@ export async function createInstallationToken(
   if (!response.ok) {
     const errorText = await response.text();
     logger.error(
-      new Error('Failed to create installation token'),
-      'GitHub API: create installation token failed',
+      new Error("Failed to create installation token"),
+      "GitHub API: create installation token failed",
       {
         installationId,
         status: response.status,
@@ -422,13 +422,13 @@ export async function fetchRepositoryById(
 ): Promise<GitHubRepositoryInfo> {
   if (!repositoryId) {
     throw new Error(
-      'A repository ID is required to fetch GitHub repository metadata',
+      "A repository ID is required to fetch GitHub repository metadata",
     );
   }
 
   if (!accessToken) {
     throw new Error(
-      'A GitHub access token is required to fetch repository metadata',
+      "A GitHub access token is required to fetch repository metadata",
     );
   }
 
@@ -436,9 +436,9 @@ export async function fetchRepositoryById(
     `${GITHUB_API_BASE}/repositories/${repositoryId}`,
     {
       headers: {
-        Accept: 'application/vnd.github+json',
+        Accept: "application/vnd.github+json",
         Authorization: `Bearer ${accessToken}`,
-        'X-GitHub-Api-Version': GITHUB_API_VERSION,
+        "X-GitHub-Api-Version": GITHUB_API_VERSION,
       },
     },
   );
@@ -447,8 +447,8 @@ export async function fetchRepositoryById(
 
   if (!response.ok) {
     logger.error(
-      new Error('Failed to fetch GitHub repository by ID'),
-      'GitHub API: repository fetch failed',
+      new Error("Failed to fetch GitHub repository by ID"),
+      "GitHub API: repository fetch failed",
       {
         repositoryId,
         status: response.status,
@@ -465,10 +465,10 @@ export async function fetchRepositoryById(
   } catch (error) {
     logger.error(
       error instanceof Error ? error : new Error(String(error)),
-      'Failed to parse GitHub repository response',
+      "Failed to parse GitHub repository response",
       { repositoryId, response: responseText.slice(0, 200) },
     );
-    throw new Error('Failed to parse GitHub repository response');
+    throw new Error("Failed to parse GitHub repository response");
   }
 }
 
@@ -489,24 +489,24 @@ export async function deleteAppInstallation(
   const response = await fetch(
     `${GITHUB_API_BASE}/app/installations/${installationId}`,
     {
-      method: 'DELETE',
+      method: "DELETE",
       headers: {
-        Accept: 'application/vnd.github+json',
+        Accept: "application/vnd.github+json",
         Authorization: `Bearer ${appJWT.token}`,
-        'X-GitHub-Api-Version': GITHUB_API_VERSION,
+        "X-GitHub-Api-Version": GITHUB_API_VERSION,
       },
     },
   );
 
   if (response.status === 204) {
-    logger.info('Successfully removed GitHub App installation', {
+    logger.info("Successfully removed GitHub App installation", {
       installationId,
     });
     return true;
   }
 
   if (response.status === 404) {
-    logger.warn('GitHub App installation already removed', {
+    logger.warn("GitHub App installation already removed", {
       installationId,
     });
     return true;
@@ -514,8 +514,8 @@ export async function deleteAppInstallation(
 
   const errorText = await response.text();
   logger.error(
-    new Error('Failed to remove GitHub App installation'),
-    'GitHub API: delete installation failed',
+    new Error("Failed to remove GitHub App installation"),
+    "GitHub API: delete installation failed",
     {
       installationId,
       status: response.status,
@@ -546,7 +546,7 @@ export async function revokeUserToken(
 
   if (!clientId || !clientSecret) {
     logger.warn(
-      'GitHub App client credentials not configured, skipping token revocation',
+      "GitHub App client credentials not configured, skipping token revocation",
     );
     return false;
   }
@@ -555,11 +555,13 @@ export async function revokeUserToken(
     const response = await fetch(
       `${GITHUB_API_BASE}/applications/${clientId}/token`,
       {
-        method: 'DELETE',
+        method: "DELETE",
         headers: {
-          Accept: 'application/vnd.github+json',
-          Authorization: `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString('base64')}`,
-          'X-GitHub-Api-Version': GITHUB_API_VERSION,
+          Accept: "application/vnd.github+json",
+          Authorization: `Basic ${
+            Buffer.from(`${clientId}:${clientSecret}`).toString("base64")
+          }`,
+          "X-GitHub-Api-Version": GITHUB_API_VERSION,
         },
         body: JSON.stringify({
           access_token: accessToken,
@@ -568,11 +570,11 @@ export async function revokeUserToken(
     );
 
     if (response.status === 204) {
-      logger.info('Successfully revoked GitHub user token');
+      logger.info("Successfully revoked GitHub user token");
       return true;
     } else {
       const errorText = await response.text();
-      logger.warn('Failed to revoke GitHub user token', {
+      logger.warn("Failed to revoke GitHub user token", {
         status: response.status,
         error: errorText,
       });
@@ -581,7 +583,7 @@ export async function revokeUserToken(
   } catch (error) {
     logger.error(
       error instanceof Error ? error : new Error(String(error)),
-      'Exception while revoking GitHub token',
+      "Exception while revoking GitHub token",
     );
     return false;
   }
