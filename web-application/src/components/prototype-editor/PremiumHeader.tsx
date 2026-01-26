@@ -44,8 +44,8 @@ export default function PremiumHeader() {
     >
       <div className="container mx-auto px-6">
         <nav className="flex items-center justify-between">
-          {/* Logo */}
-          <div className="flex items-center space-x-3">
+          {/* Logo and Navigation */}
+          <div className="flex items-center space-x-6">
             <Link
               href={user ? "/dashboard" : "/"}
               className="flex items-center gap-2 text-2xl font-bold text-foreground hover:opacity-80 transition-opacity duration-200"
@@ -53,10 +53,6 @@ export default function PremiumHeader() {
               <Atom className="w-6 h-6 text-primary" />
               <span>Nucleate</span>
             </Link>
-          </div>
-
-          {/* CTA Buttons */}
-          <div className="flex items-center space-x-3">
             <Link
               href="/blog"
               onClick={() => logHeaderClick("blog", { destination: "/blog" })}
@@ -75,6 +71,10 @@ export default function PremiumHeader() {
             >
               For Vibe Coding
             </Link>
+          </div>
+
+          {/* Auth Buttons */}
+          <div className="flex items-center space-x-3">
             {userIsLoading ? (
               <div className="px-4 py-2 rounded-full text-sm border border-border text-muted-foreground">
                 Loading...

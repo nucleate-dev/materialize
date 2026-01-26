@@ -182,7 +182,7 @@ export default function InternalPrototypePage() {
   const canvasSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Resizable divider state
-  const [leftPanelWidth, setLeftPanelWidth] = useState(32); // percentage
+  const [leftPanelWidth, setLeftPanelWidth] = useState(25); // percentage
   const [isDragging, setIsDragging] = useState(false);
   const [isChatCollapsed, setIsChatCollapsed] = useState(false);
 
