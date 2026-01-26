@@ -5,6 +5,8 @@ import {
     type StandardErrorResponse,
     type SupabaseConnectStartRequestBody,
     type SupabaseConnectStartSuccessResponse,
+    type SupabaseCreateProjectRequestBody,
+    type SupabaseCreateProjectSuccessResponse,
     type SupabaseIntegrationsQuery,
     type SupabaseIntegrationsSuccessResponse,
     type SupabaseProjectsQuery,
@@ -14,6 +16,7 @@ import { handleSupabaseConnectStartImpl } from "./handleSupabaseConnectStart.js"
 import { handleSupabaseOAuthCallbackImpl } from "./handleSupabaseOAuthCallback.js";
 import { handleGetSupabaseIntegrationsImpl } from "./handleGetSupabaseIntegrations.js";
 import { handleGetSupabaseProjectsImpl } from "./handleGetSupabaseProjects.js";
+import { handleCreateSupabaseProjectImpl } from "./handleCreateSupabaseProject.js";
 
 export interface SupabaseOAuthCallbackQuery {
     code?: string;
@@ -38,6 +41,7 @@ export interface SupabaseOAuthStatePayload {
  * - GET /connectors/supabase/oauth/callback
  * - GET /connectors/supabase/integrations
  * - GET /connectors/supabase/projects
+ * - POST /connectors/supabase/projects
  */
 export class SupabaseIntegrationService {
     constructor() {}
@@ -120,6 +124,35 @@ export class SupabaseIntegrationService {
             },
             this.handleGetProjects.bind(this),
         );
+
+        app.post<{ Body: SupabaseCreateProjectRequestBody }>(
+            "/connectors/supabase/projects",
+            {
+                schema: {
+                    body: {
+                        type: "object",
+                        required: ["teamId", "organizationId", "name", "region"],
+                        properties: {
+                            teamId: {
+                                type: "string",
+                                format: "uuid",
+                            },
+                            organizationId: {
+                                type: "string",
+                            },
+                            name: {
+                                type: "string",
+                                minLength: 1,
+                            },
+                            region: {
+                                type: "string",
+                            },
+                        },
+                    },
+                },
+            },
+            this.handleCreateProject.bind(this),
+        );
     }
 
     private async handleConnectStart(
@@ -154,6 +187,15 @@ export class SupabaseIntegrationService {
         APIResponse<SupabaseProjectsSuccessResponse, StandardErrorResponse>
     > {
         return handleGetSupabaseProjectsImpl(request, reply);
+    }
+
+    private async handleCreateProject(
+        request: FastifyRequest<{ Body: SupabaseCreateProjectRequestBody }>,
+        reply: FastifyReply,
+    ): Promise<
+        APIResponse<SupabaseCreateProjectSuccessResponse, StandardErrorResponse>
+    > {
+        return handleCreateSupabaseProjectImpl(request, reply);
     }
 }
 

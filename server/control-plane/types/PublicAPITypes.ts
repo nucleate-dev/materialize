@@ -210,6 +210,7 @@ export interface DeploySuccessResponse {
 
 export const HTTP_STATUS = {
   OK: 200,
+  CREATED: 201,
   BAD_REQUEST: 400,
   UNAUTHORIZED: 401,
   PAYMENT_REQUIRED: 402,
@@ -702,6 +703,18 @@ export interface SupabaseProjectSummary {
 
 export interface SupabaseProjectsSuccessResponse {
   projects: SupabaseProjectSummary[];
+}
+
+// POST /connectors/supabase/projects
+export interface SupabaseCreateProjectRequestBody {
+  teamId: string;
+  organizationId: string;
+  name: string;
+  region: string;
+}
+
+export interface SupabaseCreateProjectSuccessResponse {
+  project: SupabaseProjectSummary;
 }
 
 // ============================================================================
