@@ -1,36 +1,36 @@
-import { AutoScalingClient } from '@aws-sdk/client-auto-scaling';
-import { EC2Client } from '@aws-sdk/client-ec2';
-import { ECSClient } from '@aws-sdk/client-ecs';
-import { S3Client } from '@aws-sdk/client-s3';
-import { STSClient } from '@aws-sdk/client-sts';
-import cors from '@fastify/cors';
-import { GlideClient } from '@valkey/valkey-glide';
-import 'dotenv/config';
-import type { FastifyReply, FastifyRequest } from 'fastify';
-import Fastify from 'fastify';
-import rawBody from 'fastify-raw-body';
-import { PostHog } from 'posthog-node';
-import { InternalCacheManagementService } from './internal-services/InternalCacheManagementService.js';
-import { InternalCleanupServiceManagement } from './internal-services/InternalCleanupServiceManagement.js';
-import { InternalControlPlaneDevelopmentService } from './internal-services/InternalControlPlaneDevelopmentService.js';
-import { InternalProductionDeploymentService } from './internal-services/InternalProductionDeploymentService.js';
-import { PostHogLogger } from './loggers/PostHogLogger.js';
-import { genRequestIds, SystemLogger } from './loggers/SystemLogger.js';
-import { CleanupService } from './services/cleanup/CleanupService.js';
-import { DevelopmentServerService } from './services/DevelopmentServerService.js';
-import { DispatcherService } from './services/dispatcher/DispatcherService.js';
-import { GitHubIntegrationService } from './services/github-integration/GitHubIntegrationService.js';
-import { SupabaseIntegrationService } from './services/connectors/supabase/SupabaseIntegrationService.js';
-import { IdleContainerAllocationSystemService } from './services/idle-container-allocation-system/IdleContainerAllocationSystemService.js';
-import { LLMService } from './services/llm/LLMService.js';
-import { OrchestrationService } from './services/orchestration/OrchestrationService.js';
-import { PrototypeDeploymentService } from './services/prototype-management/PrototypeDeploymentService.js';
-import { PrototypeManagementService } from './services/prototype-management/PrototypeManagementService.js';
-import { StripeManagementService } from './services/StripeManagementService.js';
-import { TeamManagementService } from './services/team-management/TeamManagementService.js';
+import { AutoScalingClient } from "@aws-sdk/client-auto-scaling";
+import { EC2Client } from "@aws-sdk/client-ec2";
+import { ECSClient } from "@aws-sdk/client-ecs";
+import { S3Client } from "@aws-sdk/client-s3";
+import { STSClient } from "@aws-sdk/client-sts";
+import cors from "@fastify/cors";
+import { GlideClient } from "@valkey/valkey-glide";
+import "dotenv/config";
+import type { FastifyReply, FastifyRequest } from "fastify";
+import Fastify from "fastify";
+import rawBody from "fastify-raw-body";
+import { PostHog } from "posthog-node";
+import { InternalCacheManagementService } from "./internal-services/InternalCacheManagementService.js";
+import { InternalCleanupServiceManagement } from "./internal-services/InternalCleanupServiceManagement.js";
+import { InternalControlPlaneDevelopmentService } from "./internal-services/InternalControlPlaneDevelopmentService.js";
+import { InternalProductionDeploymentService } from "./internal-services/InternalProductionDeploymentService.js";
+import { PostHogLogger } from "./loggers/PostHogLogger.js";
+import { genRequestIds, SystemLogger } from "./loggers/SystemLogger.js";
+import { CleanupService } from "./services/cleanup/CleanupService.js";
+import { DevelopmentServerService } from "./services/DevelopmentServerService.js";
+import { DispatcherService } from "./services/dispatcher/DispatcherService.js";
+import { GitHubIntegrationService } from "./services/connectors/github-integration/GitHubIntegrationService.js";
+import { SupabaseIntegrationService } from "./services/connectors/supabase/SupabaseIntegrationService.js";
+import { IdleContainerAllocationSystemService } from "./services/idle-container-allocation-system/IdleContainerAllocationSystemService.js";
+import { LLMService } from "./services/llm/LLMService.js";
+import { OrchestrationService } from "./services/orchestration/OrchestrationService.js";
+import { PrototypeDeploymentService } from "./services/prototype-management/PrototypeDeploymentService.js";
+import { PrototypeManagementService } from "./services/prototype-management/PrototypeManagementService.js";
+import { StripeManagementService } from "./services/StripeManagementService.js";
+import { TeamManagementService } from "./services/team-management/TeamManagementService.js";
 
 // Extend FastifyRequest to include our custom loggers and raw body
-declare module 'fastify' {
+declare module "fastify" {
   interface FastifyRequest {
     log2: SystemLogger;
     posthogLogger: PostHogLogger;
@@ -43,18 +43,18 @@ export const posthog = new PostHog(process.env.POSTHOG_KEY!, {
 });
 
 export const baseLogger = new SystemLogger({
-  service: 'control-plane',
-  env: process.env.NODE_ENV || 'development',
-  metricNamespace: 'Materialize/Service',
-  redactKeys: ['authorization', 'cookie', 'x-api-key'],
+  service: "control-plane",
+  env: process.env.NODE_ENV || "development",
+  metricNamespace: "Materialize/Service",
+  redactKeys: ["authorization", "cookie", "x-api-key"],
   posthog,
 });
 
 export const posthogLogger = new PostHogLogger({
   posthog,
   context: {
-    server: 'control-plane',
-    env: process.env.NODE_ENV || 'development',
+    server: "control-plane",
+    env: process.env.NODE_ENV || "development",
   },
 });
 
@@ -91,11 +91,11 @@ const initializeClients = async (): Promise<{
       username: process.env.CACHE_USERNAME!,
       password: process.env.CACHE_PASSWORD!,
     },
-    clientName: 'control-plane',
+    clientName: "control-plane",
     requestTimeout: 2000,
   });
   const s3Client = new S3Client({
-    region: process.env.AWS_REGION || 'us-east-2',
+    region: process.env.AWS_REGION || "us-east-2",
   });
   const stsClient = new STSClient({ region: process.env.AWS_REGION });
 
@@ -117,17 +117,17 @@ const fastify = Fastify({
 fastify.register(cors, {
   origin: true,
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
   allowedHeaders: [
-    'Content-Type',
-    'Authorization',
-    'x-internal-signature',
-    'x-internal-timestamp',
-    'x-orchestration-token',
+    "Content-Type",
+    "Authorization",
+    "x-internal-signature",
+    "x-internal-timestamp",
+    "x-orchestration-token",
   ],
 });
 
-fastify.addHook('onRequest', async (req) => {
+fastify.addHook("onRequest", async (req) => {
   const { requestId, traceId } = genRequestIds(
     req.headers as Record<string, string | string[] | undefined>,
   );
@@ -145,16 +145,16 @@ fastify.addHook('onRequest', async (req) => {
   });
 });
 
-fastify.addHook('onClose', async () => {
+fastify.addHook("onClose", async () => {
   try {
     baseLogger.consoleLogDevOnly(
-      'info',
-      'Flushing PostHog events before shutdown...',
+      "info",
+      "Flushing PostHog events before shutdown...",
     );
     await posthog.shutdown();
-    baseLogger.consoleLogDevOnly('info', 'PostHog events flushed successfully');
+    baseLogger.consoleLogDevOnly("info", "PostHog events flushed successfully");
   } catch (error) {
-    fastify.log.error(error, 'Failed to flush PostHog events during shutdown');
+    fastify.log.error(error, "Failed to flush PostHog events during shutdown");
   }
 });
 
@@ -177,24 +177,24 @@ let llmService: LLMService;
 let cache: GlideClient;
 
 // Health check
-fastify.get('/health', async (request: FastifyRequest, reply: FastifyReply) => {
+fastify.get("/health", async (request: FastifyRequest, reply: FastifyReply) => {
   try {
     const result = await cache.ping();
-    if (result === 'PONG') {
+    if (result === "PONG") {
       return reply.status(200).send({
-        status: 'healthy',
+        status: "healthy",
         timestamp: new Date().toISOString(),
       });
     } else {
       return reply.status(500).send({
-        error: 'Internal Server Error',
+        error: "Internal Server Error",
         message: `Cache ping returned: ${result}`,
       });
     }
   } catch (error) {
     return reply.status(500).send({
-      error: 'Internal Server Error',
-      message: error instanceof Error ? error.message : 'Unknown error',
+      error: "Internal Server Error",
+      message: error instanceof Error ? error.message : "Unknown error",
     });
   }
 });
@@ -215,11 +215,11 @@ const start = async (): Promise<void> => {
     cache = cacheClient;
 
     await fastify.register(rawBody, {
-      field: 'rawBody', // adds request.rawBody
+      field: "rawBody", // adds request.rawBody
       global: false, // only for routes that set config.rawBody = true
-      encoding: 'utf8',
+      encoding: "utf8",
       runFirst: true, // run before other preParsing hooks
-      routes: ['/github/webhooks'],
+      routes: ["/github/webhooks"],
     });
 
     // Create cleanup service with cache and ECS client
@@ -309,9 +309,9 @@ const start = async (): Promise<void> => {
 
     await fastify.listen({
       port: 3000,
-      host: '0.0.0.0',
+      host: "0.0.0.0",
     });
-    fastify.log.info('Control plane server started successfully');
+    fastify.log.info("Control plane server started successfully");
   } catch (err) {
     fastify.log.error(err);
     process.exit(1);
@@ -319,7 +319,7 @@ const start = async (): Promise<void> => {
 };
 
 const close = async (): Promise<void> => {
-  fastify.log.info('Shutting down...');
+  fastify.log.info("Shutting down...");
   try {
     // Stop cleanup services
     if (cleanupService) {
@@ -331,12 +331,12 @@ const close = async (): Promise<void> => {
     }
     await fastify.close();
   } catch (error) {
-    fastify.log.error(error, 'Error during shutdown');
+    fastify.log.error(error, "Error during shutdown");
   } finally {
     process.exit(0);
   }
 };
-process.on('SIGINT', close);
-process.on('SIGTERM', close);
+process.on("SIGINT", close);
+process.on("SIGTERM", close);
 
 start();

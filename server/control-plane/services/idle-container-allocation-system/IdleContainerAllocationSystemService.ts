@@ -1,27 +1,27 @@
-import type { ECSClient, RunTaskCommandInput } from '@aws-sdk/client-ecs';
+import type { ECSClient, RunTaskCommandInput } from "@aws-sdk/client-ecs";
 import {
   DescribeTasksCommand,
   RunTaskCommand,
   StopTaskCommand,
   waitUntilTasksRunning,
-} from '@aws-sdk/client-ecs';
+} from "@aws-sdk/client-ecs";
 import {
   AssumeRoleCommand,
   // GetCallerIdentityCommand,
   STSClient,
-} from '@aws-sdk/client-sts';
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { GlideClient } from '@valkey/valkey-glide';
-import axios from 'axios';
-import { randomBytes } from 'crypto';
-import type { SystemLogger } from '../../loggers/SystemLogger.js'; // adjust your path
+} from "@aws-sdk/client-sts";
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
+import { GlideClient } from "@valkey/valkey-glide";
+import axios from "axios";
+import { randomBytes } from "crypto";
+import type { SystemLogger } from "../../loggers/SystemLogger.js"; // adjust your path
 import {
   AllocationSourceRepository,
-  StandardErrorResponse as BuildWorkerStandardErrorResponse,
   PublicAllocateRequest,
   PublicAllocateSuccessResponse,
   SandboxAPIResponse,
-} from '../../types/BuildWorkerTypes.js';
+  StandardErrorResponse as BuildWorkerStandardErrorResponse,
+} from "../../types/BuildWorkerTypes.js";
 import {
   ActiveBuild,
   BUILD_TIMEOUTS,
@@ -29,16 +29,16 @@ import {
   FargateInstanceInfo,
   IdleBuild,
   IdleContainerStatus,
-} from '../../types/InternalTypes.js';
-import { Database } from '../../types/supabase.js';
-import { updateBuildTunnelInfo } from '../../utils/cacheInteractionUtils.js';
-import { deleteCloudflareTunnel } from '../../utils/cloudflareTunnelManagementUtils.js';
+} from "../../types/InternalTypes.js";
+import { Database } from "../../types/supabase.js";
+import { updateBuildTunnelInfo } from "../../utils/cacheInteractionUtils.js";
+import { deleteCloudflareTunnel } from "../../utils/cloudflareTunnelManagementUtils.js";
 import {
   createInstallationToken,
   fetchRepositoryById,
-} from '../../utils/githubClient.js';
-import { getValidGitHubUserAccessToken } from '../../utils/githubTokenUtils.js';
-import { IdleCloudflareTunnelSystem } from './IdleCloudflareTunnelSystem.js';
+} from "../connectors/github/githubClient.js";
+import { getValidGitHubUserAccessToken } from "../connectors/github/githubTokenUtils.js";
+import { IdleCloudflareTunnelSystem } from "./IdleCloudflareTunnelSystem.js";
 
 const MAX_IDLE_FARGATE_BUILDS: number = 1;
 
@@ -61,7 +61,7 @@ export class IdleContainerAllocationSystemService {
     this.ecsClient = opts.ecsClient;
     this.stsClient = opts.stsClient;
     this.log2 = opts.log2.child({
-      route: 'IdleContainerAllocationSystemService',
+      route: "IdleContainerAllocationSystemService",
     });
     this.cloudflareTunnelSystem = new IdleCloudflareTunnelSystem({
       log2: this.log2,
@@ -78,7 +78,7 @@ export class IdleContainerAllocationSystemService {
     this.maintenanceTimer = setInterval(
       () =>
         this.ensureIdleCapacity().catch((e) =>
-          this.log2.error(e, 'Idle maintenance failed'),
+          this.log2.error(e, "Idle maintenance failed")
         ),
       5 * 60 * 1000, // every 5 minutes
     );
@@ -90,13 +90,13 @@ export class IdleContainerAllocationSystemService {
   }
 
   private async ensureIdleCapacity(): Promise<void> {
-    if (process.env.NODE_ENV === 'development') return; // no idle containers in development mode
+    if (process.env.NODE_ENV === "development") return; // no idle containers in development mode
     const currentIdle = await this.cache.llen(CACHE_KEYS.idleBuildsListKey);
     const toCreate = MAX_IDLE_FARGATE_BUILDS - currentIdle;
     if (toCreate === 0) return;
     else if (toCreate > 0) {
       this.log2.consoleLogDevOnly(
-        'info',
+        "info",
         `Refreshing idle container capacity: Creating ${toCreate} idle builds to reach max ${MAX_IDLE_FARGATE_BUILDS}`,
       );
       await Promise.all(
@@ -149,7 +149,7 @@ export class IdleContainerAllocationSystemService {
   ): Promise<FargateInstanceInfo> {
     // If we are in development mode, we need to use the development container.
     // There will never be any idle development containers. Just directly allocate a new container.
-    if (process.env.NODE_ENV === 'development') {
+    if (process.env.NODE_ENV === "development") {
       return await this.launchFargateInstanceForDispatcherDirectly(
         prototypeId,
         this.log2,
@@ -161,15 +161,15 @@ export class IdleContainerAllocationSystemService {
     }
 
     // 1. Try to pop an idle container from the pool
-    const taskArn = (await this.cache.rpop(CACHE_KEYS.idleBuildsListKey)) as  // NOTE: this is an atomic operation
-      | string
-      | null;
+    const taskArn = (await this.cache.rpop(CACHE_KEYS.idleBuildsListKey)) as // NOTE: this is an atomic operation
+    | string
+    | null;
 
     // 2. No idle containers found. Fallback to direct launch and replenish in background
     if (!taskArn) {
       this.log2.consoleLogDevOnly(
-        'info',
-        '[ContainerAlloc] No idle containers found, falling back to direct launch',
+        "info",
+        "[ContainerAlloc] No idle containers found, falling back to direct launch",
         { prototypeId },
       );
       if (MAX_IDLE_FARGATE_BUILDS > 0) {
@@ -177,8 +177,8 @@ export class IdleContainerAllocationSystemService {
         this.launchIdleContainer().catch((err) =>
           this.log2.error(
             err,
-            '[ContainerAlloc] Failed to replenish idle container',
-          ),
+            "[ContainerAlloc] Failed to replenish idle container",
+          )
         );
       }
       const info = await this.launchFargateInstanceForDispatcherDirectly(
@@ -198,7 +198,7 @@ export class IdleContainerAllocationSystemService {
     await this.cache.del([idleKey]);
     // Replenish idle pool in background
     this.launchIdleContainer().catch((err) =>
-      this.log2.error(err, '[IdleAlloc] Failed to replenish idle container'),
+      this.log2.error(err, "[IdleAlloc] Failed to replenish idle container")
     );
 
     // 4. If the idle container is not usable, clean it up in the background and fallback to direct launch
@@ -218,23 +218,24 @@ export class IdleContainerAllocationSystemService {
     }
 
     // 5. Assign idle container to prototype
-    let privateIp: string = '';
-    if (taskData.status === 'creating') {
+    let privateIp: string = "";
+    if (taskData.status === "creating") {
       // Status = "creating" → wait until container is ready, then assign prototype
       this.log2.consoleLogDevOnly(
-        'info',
+        "info",
         `[ContainerAlloc] Waiting for idle container ${taskArn} to finish creating`,
       );
-      privateIp =
-        await this.waitForFargateTaskToBeReadyAndGetPrivateIP(taskArn);
-    } else if (taskData.status === 'ready') {
+      privateIp = await this.waitForFargateTaskToBeReadyAndGetPrivateIP(
+        taskArn,
+      );
+    } else if (taskData.status === "ready") {
       privateIp = taskData.fargate_private_ip;
     }
 
     if (!privateIp) {
       // clean up unusable container and fallback to direct launch
       this.log2.error(
-        new Error('failed to get private IP for idle container'),
+        new Error("failed to get private IP for idle container"),
         `[ContainerAlloc] Idle container ${taskArn} failed to get private IP`,
       );
       this.terminateFargateTask(taskArn);
@@ -248,8 +249,8 @@ export class IdleContainerAllocationSystemService {
       );
     }
     this.log2.consoleLogDevOnly(
-      'info',
-      '[ContainerAlloc] Allocating idle container to prototype',
+      "info",
+      "[ContainerAlloc] Allocating idle container to prototype",
       {
         prototypeId,
         taskArn,
@@ -259,13 +260,13 @@ export class IdleContainerAllocationSystemService {
     const info: FargateInstanceInfo = {
       taskArn,
       privateIp,
-      terminalTunnelId: '',
-      terminalTunnelHostname: '',
-      orchestrationToken: '',
+      terminalTunnelId: "",
+      terminalTunnelHostname: "",
+      orchestrationToken: "",
     };
     try {
-      const tunnelInfo =
-        await this.scopeS3PermissionsAndTerminalTunnelsForContainer(
+      const tunnelInfo = await this
+        .scopeS3PermissionsAndTerminalTunnelsForContainer(
           info,
           activeBuildKey,
           prototypeId,
@@ -276,24 +277,24 @@ export class IdleContainerAllocationSystemService {
     } catch (error) {
       this.log2.error(
         error,
-        'Failed to scope S3 permissions for container and initialize S3client',
+        "Failed to scope S3 permissions for container and initialize S3client",
       );
       this.terminateFargateTask(taskArn);
       throw new Error(
-        'Could not allocate a container: failed to scope S3 permissions for container',
+        "Could not allocate a container: failed to scope S3 permissions for container",
       );
     }
   }
 
   /** Launch one idle build (with PROTOTYPE_ID=idle) */
   private async launchIdleContainer(): Promise<void> {
-    if (process.env.NODE_ENV === 'development') return; // no idle containers in development mode
+    if (process.env.NODE_ENV === "development") return; // no idle containers in development mode
 
     let taskArn: string;
     try {
       taskArn = await this.launchFargateInstanceNotReady(this.log2);
     } catch (error) {
-      this.log2.error(error, 'Failed to launch idle container');
+      this.log2.error(error, "Failed to launch idle container");
       return;
     }
 
@@ -302,14 +303,14 @@ export class IdleContainerAllocationSystemService {
     try {
       await this.cache.hset(idleKey, {
         fargate_task_arn: taskArn,
-        fargate_private_ip: '',
-        status: 'creating',
+        fargate_private_ip: "",
+        status: "creating",
       });
       await this.cache.lpush(CACHE_KEYS.idleBuildsListKey, [taskArn]);
     } catch (error) {
       this.log2.error(
         error,
-        'Failed to set initial idle container state in cache',
+        "Failed to set initial idle container state in cache",
       );
       // If we can't write to cache, terminate the task to avoid leaks
       await this.terminateFargateTask(taskArn);
@@ -317,10 +318,11 @@ export class IdleContainerAllocationSystemService {
     }
 
     // Wait for container to become ready
-    const privateIp =
-      await this.waitForFargateTaskToBeReadyAndGetPrivateIP(taskArn);
+    const privateIp = await this.waitForFargateTaskToBeReadyAndGetPrivateIP(
+      taskArn,
+    );
     if (!privateIp) {
-      this.log2.error('Failed to get private IP for idle container');
+      this.log2.error("Failed to get private IP for idle container");
       await this.terminateFargateTask(taskArn);
       await this.cache.del([idleKey]);
       return;
@@ -330,8 +332,8 @@ export class IdleContainerAllocationSystemService {
       const exists = await this.cache.exists([idleKey]);
       if (!exists) {
         this.log2.consoleLogDevOnly(
-          'info',
-          'Idle container Fargate Task is ready, but idle container is already popped from the cache for use',
+          "info",
+          "Idle container Fargate Task is ready, but idle container is already popped from the cache for use",
           { idleKey },
         );
         return;
@@ -339,11 +341,11 @@ export class IdleContainerAllocationSystemService {
       await this.cache.hset(idleKey, {
         fargate_task_arn: taskArn,
         fargate_private_ip: privateIp,
-        status: 'ready',
+        status: "ready",
       });
       this.log2.consoleLogDevOnly(
-        'info',
-        'Idle container launched and marked ready',
+        "info",
+        "Idle container launched and marked ready",
         {
           taskArn,
           privateIp,
@@ -353,7 +355,7 @@ export class IdleContainerAllocationSystemService {
     } catch (error) {
       this.log2.error(
         error,
-        'Failed to update idle container state to ready in cache, deleting and cleaning up fargate task',
+        "Failed to update idle container state to ready in cache, deleting and cleaning up fargate task",
       );
       await this.terminateFargateTask(taskArn);
       await this.cache.del([idleKey]);
@@ -367,14 +369,14 @@ export class IdleContainerAllocationSystemService {
       const command = new StopTaskCommand({
         cluster: process.env.ECS_CLUSTER_NAME!,
         task: taskArn,
-        reason: 'Idle container cleanup',
+        reason: "Idle container cleanup",
       });
       await this.ecsClient.send(command);
-      this.log2.consoleLogDevOnly('info', 'Terminated Fargate task', {
+      this.log2.consoleLogDevOnly("info", "Terminated Fargate task", {
         taskArn,
       });
     } catch (error) {
-      this.log2.error(error, 'Failed to terminate Fargate task');
+      this.log2.error(error, "Failed to terminate Fargate task");
     }
   }
 
@@ -395,21 +397,22 @@ export class IdleContainerAllocationSystemService {
         status: newBuildCacheData.status,
         last_touched: newBuildCacheData.last_touched.toString(),
       });
-      const privateIp =
-        await this.waitForFargateTaskToBeReadyAndGetPrivateIP(taskArn);
+      const privateIp = await this.waitForFargateTaskToBeReadyAndGetPrivateIP(
+        taskArn,
+      );
       if (!privateIp) {
-        throw new Error('Failed to get private IP for idle container');
+        throw new Error("Failed to get private IP for idle container");
       }
       const info: FargateInstanceInfo = {
         taskArn,
         privateIp,
-        terminalTunnelId: '',
-        terminalTunnelHostname: '',
-        orchestrationToken: '',
+        terminalTunnelId: "",
+        terminalTunnelHostname: "",
+        orchestrationToken: "",
       };
       try {
-        const tunnelInfo =
-          await this.scopeS3PermissionsAndTerminalTunnelsForContainer(
+        const tunnelInfo = await this
+          .scopeS3PermissionsAndTerminalTunnelsForContainer(
             info,
             activeBuildKey,
             prototypeId,
@@ -420,18 +423,18 @@ export class IdleContainerAllocationSystemService {
       } catch (error) {
         this.log2.error(
           error,
-          'Failed to scope S3 permissions for container and initialize S3client',
+          "Failed to scope S3 permissions for container and initialize S3client",
         );
         this.terminateFargateTask(taskArn);
         throw new Error(
-          'Could not allocate a container: failed to scope S3 permissions for container',
+          "Could not allocate a container: failed to scope S3 permissions for container",
         );
       }
     } catch (error) {
-      log2.error(error, 'Failed to launch Fargate task:');
+      log2.error(error, "Failed to launch Fargate task:");
       throw new Error(
         `Failed to launch Fargate instance: ${
-          error instanceof Error ? error.message : 'Unknown error'
+          error instanceof Error ? error.message : "Unknown error"
         }`,
       );
     }
@@ -448,20 +451,20 @@ export class IdleContainerAllocationSystemService {
       const response = await this.ecsClient.send(command);
       if (!response.tasks || response.tasks.length === 0) {
         log2.error(
-          new Error('No task was created'),
-          'Failed to launch Fargate task:',
+          new Error("No task was created"),
+          "Failed to launch Fargate task:",
           { response },
         );
-        throw new Error('No task was created');
+        throw new Error("No task was created");
       }
       // save taskArn to the cache immediately to prevent case where server/request fails before cache is updated
       // this edge case could result in an eternally running fargate task
       return response.tasks[0].taskArn!;
     } catch (error) {
-      log2.error(error, 'Failed to launch Fargate task:');
+      log2.error(error, "Failed to launch Fargate task:");
       throw new Error(
         `Failed to launch Fargate instance: ${
-          error instanceof Error ? error.message : 'Unknown error'
+          error instanceof Error ? error.message : "Unknown error"
         }`,
       );
     }
@@ -489,80 +492,78 @@ export class IdleContainerAllocationSystemService {
     const describeResponse = await this.ecsClient.send(describeCommand);
     const task = describeResponse.tasks?.[0];
     const eni = task?.attachments?.[0]?.details?.find(
-      (detail) => detail.name === 'networkInterfaceId',
+      (detail) => detail.name === "networkInterfaceId",
     )?.value;
-    if (!eni) return '';
+    if (!eni) return "";
     const privateIpDetail = task?.attachments?.[0]?.details?.find(
-      (detail) => detail.name === 'privateIPv4Address',
+      (detail) => detail.name === "privateIPv4Address",
     );
-    return privateIpDetail?.value || '';
+    return privateIpDetail?.value || "";
   }
 
   private getFargateRunTaskCommandConfiguration(): RunTaskCommandInput {
     return {
       cluster: process.env.ECS_CLUSTER_NAME!,
-      taskDefinition:
-        process.env.NODE_ENV === 'production'
-          ? 'fastify-build-worker'
-          : 'materialize-development-containers',
-      launchType: 'FARGATE' as const,
+      taskDefinition: process.env.NODE_ENV === "production"
+        ? "fastify-build-worker"
+        : "materialize-development-containers",
+      launchType: "FARGATE" as const,
       networkConfiguration: {
         awsvpcConfiguration: {
-          subnets: process.env.ECS_SUBNETS?.split(',') || [],
-          securityGroups: process.env.ECS_SECURITY_GROUPS?.split(',') || [],
-          assignPublicIp: 'ENABLED' as const,
+          subnets: process.env.ECS_SUBNETS?.split(",") || [],
+          securityGroups: process.env.ECS_SECURITY_GROUPS?.split(",") || [],
+          assignPublicIp: "ENABLED" as const,
         },
       },
       overrides: {
         containerOverrides: [
           {
-            name:
-              process.env.NODE_ENV === 'production'
-                ? 'materialize-fargate-build-worker-container'
-                : 'materialize-build-worker-container-development',
+            name: process.env.NODE_ENV === "production"
+              ? "materialize-fargate-build-worker-container"
+              : "materialize-build-worker-container-development",
             environment: [
               {
-                name: 'AWS_REGION',
-                value: 'us-east-2',
+                name: "AWS_REGION",
+                value: "us-east-2",
               },
               {
-                name: 'PORT',
-                value: '3002',
+                name: "PORT",
+                value: "3002",
               },
               {
-                name: 'NODE_ENV',
+                name: "NODE_ENV",
                 value: process.env.NODE_ENV!,
               },
               {
-                name: 'NUCLEATE_SERVER_ENDPOINT',
-                value: 'https://api.nucleate.dev',
+                name: "NUCLEATE_SERVER_ENDPOINT",
+                value: "https://api.nucleate.dev",
               },
               {
-                name: 'S3_BUCKET',
-                value: 'materialize-sites',
+                name: "S3_BUCKET",
+                value: "materialize-sites",
               },
               {
-                name: 'SUPABASE_URL',
+                name: "SUPABASE_URL",
                 value: process.env.SUPABASE_URL!,
               },
               {
-                name: 'SUPABASE_ANON_KEY',
+                name: "SUPABASE_ANON_KEY",
                 value: process.env.SUPABASE_ANON_KEY!,
               },
               {
-                name: 'ANTHROPIC_API_KEY',
+                name: "ANTHROPIC_API_KEY",
                 value: process.env.ANTHROPIC_API_KEY!,
               },
               {
-                name: 'POSTHOG_KEY',
+                name: "POSTHOG_KEY",
                 value: process.env.POSTHOG_KEY!,
               },
               {
-                name: 'POSTHOG_HOST',
+                name: "POSTHOG_HOST",
                 value: process.env.POSTHOG_HOST!,
               },
               {
-                name: 'GOOGLE_GENERATIVE_AI_API_KEY',
+                name: "GOOGLE_GENERATIVE_AI_API_KEY",
                 value: process.env.GOOGLE_AI_API_KEY!,
               },
             ],
@@ -571,8 +572,8 @@ export class IdleContainerAllocationSystemService {
       },
       tags: [
         {
-          key: 'Service',
-          value: 'materialize-build-worker',
+          key: "Service",
+          value: "materialize-build-worker",
         },
       ],
     };
@@ -609,7 +610,7 @@ export class IdleContainerAllocationSystemService {
   ): Promise<
     Pick<
       FargateInstanceInfo,
-      'terminalTunnelId' | 'terminalTunnelHostname' | 'orchestrationToken'
+      "terminalTunnelId" | "terminalTunnelHostname" | "orchestrationToken"
     >
   > {
     // Assume AWS STS role for S3 access
@@ -631,7 +632,7 @@ export class IdleContainerAllocationSystemService {
         new AssumeRoleCommand({
           RoleArn: process.env.S3_PROTOTYPE_ACCESS_ROLE_ARN!,
           RoleSessionName: `proto-${prototypeId}`,
-          Tags: [{ Key: 'PrototypeId', Value: prototypeId }],
+          Tags: [{ Key: "PrototypeId", Value: prototypeId }],
           DurationSeconds: 3600 * 12, // 12 hours, refresh as needed
         }),
       );
@@ -653,9 +654,9 @@ export class IdleContainerAllocationSystemService {
 
     if (!out.Credentials) {
       const error = new Error(
-        'STS AssumeRole succeeded but returned no credentials',
+        "STS AssumeRole succeeded but returned no credentials",
       );
-      this.log2.error(error, 'Missing credentials from STS response', {
+      this.log2.error(error, "Missing credentials from STS response", {
         prototypeId,
         roleArn: process.env.S3_PROTOTYPE_ACCESS_ROLE_ARN,
       });
@@ -665,8 +666,8 @@ export class IdleContainerAllocationSystemService {
     // Retrieve Cloudflare tunnel
     let tunnelConfig;
     try {
-      tunnelConfig =
-        await this.cloudflareTunnelSystem.retrieveIdleTunnelForAllocation(
+      tunnelConfig = await this.cloudflareTunnelSystem
+        .retrieveIdleTunnelForAllocation(
           prototypeId,
         );
     } catch (error) {
@@ -686,8 +687,8 @@ export class IdleContainerAllocationSystemService {
 
     // Store tunnel info in cache with wss:// prefix
     this.log2.consoleLogDevOnly(
-      'debug',
-      'updating cache with cloudflare tunnel final Tunnel config',
+      "debug",
+      "updating cache with cloudflare tunnel final Tunnel config",
       {
         tunnelId: tunnelConfig.tunnel_id,
         hostname: tunnelConfig.hostname,
@@ -697,18 +698,18 @@ export class IdleContainerAllocationSystemService {
     const tunnelHostnameWithProtocol = `wss://${tunnelConfig.hostname}`;
 
     // Generate orchestration token for authenticating container orchestration requests
-    const orchestrationToken = randomBytes(32).toString('hex');
+    const orchestrationToken = randomBytes(32).toString("hex");
 
     try {
       await updateBuildTunnelInfo(
         this.cache,
         activeBuildKey,
-        tunnelConfig.tunnel_id || '',
+        tunnelConfig.tunnel_id || "",
         tunnelHostnameWithProtocol,
         orchestrationToken,
       );
     } catch (error) {
-      this.log2.error(error, 'Failed to update build tunnel info in cache', {
+      this.log2.error(error, "Failed to update build tunnel info in cache", {
         activeBuildKey,
         tunnelId: tunnelConfig.tunnel_id,
         tunnelHostname: tunnelHostnameWithProtocol,
@@ -734,10 +735,10 @@ export class IdleContainerAllocationSystemService {
       },
       user_details: {
         prototypeId,
-        userId: userId || 'unknown',
+        userId: userId || "unknown",
       },
       cloudflare_credentials: {
-        cloudflare_tunnel_token: tunnelConfig.token || '',
+        cloudflare_tunnel_token: tunnelConfig.token || "",
         cloudflare_tunnel_hostname: tunnelConfig.hostname ?? undefined,
       },
       keys: {
@@ -756,7 +757,7 @@ export class IdleContainerAllocationSystemService {
         >
       >(`http://${info.privateIp}:3002/allocate`, creds, {
         headers: {
-          'content-type': 'application/json',
+          "content-type": "application/json",
           Authorization: `Bearer ${jwt}`,
         },
       });
@@ -772,7 +773,7 @@ export class IdleContainerAllocationSystemService {
         );
         throw new Error(
           `Worker allocation failed: ${
-            allocationResponse.data.error.message || 'Unknown error from worker'
+            allocationResponse.data.error.message || "Unknown error from worker"
           }`,
         );
       }
@@ -789,7 +790,7 @@ export class IdleContainerAllocationSystemService {
         } catch (error) {
           this.log2.error(
             error,
-            'Failed to delete Cloudflare tunnel after allocation failure',
+            "Failed to delete Cloudflare tunnel after allocation failure",
           );
         }
       }
@@ -797,7 +798,7 @@ export class IdleContainerAllocationSystemService {
       if (axios.isAxiosError(error)) {
         this.log2.error(
           error,
-          'Axios request failed when allocating to worker',
+          "Axios request failed when allocating to worker",
           {
             workerIp: info.privateIp,
             prototypeId,
@@ -815,7 +816,7 @@ export class IdleContainerAllocationSystemService {
     }
 
     return {
-      terminalTunnelId: tunnelConfig.tunnel_id || '',
+      terminalTunnelId: tunnelConfig.tunnel_id || "",
       terminalTunnelHostname: tunnelHostnameWithProtocol,
       orchestrationToken: orchestrationToken,
     };
@@ -840,12 +841,12 @@ export class IdleContainerAllocationSystemService {
       const idleCount = await this.cache.llen(CACHE_KEYS.idleBuildsListKey);
 
       if (idleCount === 0) {
-        this.log2.consoleLogDevOnly('info', 'No idle containers to refresh');
+        this.log2.consoleLogDevOnly("info", "No idle containers to refresh");
         return { terminated: 0, launched: 0, errors: [] };
       }
 
       this.log2.consoleLogDevOnly(
-        'info',
+        "info",
         `Refreshing ${idleCount} idle containers`,
       );
 
@@ -866,12 +867,12 @@ export class IdleContainerAllocationSystemService {
           await this.cache.del([idleKey]);
           terminatedCount++;
           this.log2.consoleLogDevOnly(
-            'info',
+            "info",
             `Terminated idle container ${taskArn}`,
           );
         } catch (error) {
           const errorMsg = `Failed to terminate idle container ${taskArn}: ${
-            error instanceof Error ? error.message : 'Unknown error'
+            error instanceof Error ? error.message : "Unknown error"
           }`;
           this.log2.error(error, errorMsg);
           errors.push(errorMsg);
@@ -880,7 +881,7 @@ export class IdleContainerAllocationSystemService {
 
       // Launch new idle containers to replace the terminated ones (without waiting)
       this.log2.consoleLogDevOnly(
-        'info',
+        "info",
         `Launching ${terminatedCount} new idle containers`,
       );
 
@@ -889,7 +890,7 @@ export class IdleContainerAllocationSystemService {
           this.log2.error(
             error,
             `Failed to launch replacement idle container: ${
-              error instanceof Error ? error.message : 'Unknown error'
+              error instanceof Error ? error.message : "Unknown error"
             }`,
           );
         });
@@ -898,7 +899,7 @@ export class IdleContainerAllocationSystemService {
       launchedCount = terminatedCount; // Initiated (not necessarily completed)
 
       this.log2.consoleLogDevOnly(
-        'info',
+        "info",
         `Idle container refresh complete: terminated ${terminatedCount}, initiated launch of ${launchedCount}`,
         { errors: errors.length > 0 ? errors : undefined },
       );
@@ -910,7 +911,7 @@ export class IdleContainerAllocationSystemService {
       };
     } catch (error) {
       const errorMsg = `Failed to refresh idle containers: ${
-        error instanceof Error ? error.message : 'Unknown error'
+        error instanceof Error ? error.message : "Unknown error"
       }`;
       this.log2.error(error, errorMsg);
       errors.push(errorMsg);
@@ -927,8 +928,8 @@ export class IdleContainerAllocationSystemService {
     jwt: string,
   ): Promise<AllocationSourceRepository | null> {
     this.log2.consoleLogDevOnly(
-      'info',
-      'fetchSourceRepositoryForAllocation started',
+      "info",
+      "fetchSourceRepositoryForAllocation started",
       { prototypeId },
     );
 
@@ -946,14 +947,14 @@ export class IdleContainerAllocationSystemService {
     try {
       const { data: sensitiveMetadata, error: metadataError } =
         await supabaseRlsClient
-          .from('prototype_sensitive_metadata')
-          .select('source_repo_id')
-          .eq('prototype_id', prototypeId)
+          .from("prototype_sensitive_metadata")
+          .select("source_repo_id")
+          .eq("prototype_id", prototypeId)
           .maybeSingle();
 
       this.log2.consoleLogDevOnly(
-        'info',
-        'Fetched prototype_sensitive_metadata',
+        "info",
+        "Fetched prototype_sensitive_metadata",
         {
           prototypeId,
           hasData: !!sensitiveMetadata,
@@ -965,7 +966,7 @@ export class IdleContainerAllocationSystemService {
       if (metadataError) {
         this.log2.error(
           metadataError,
-          'Failed to fetch prototype sensitive metadata for source repository lookup',
+          "Failed to fetch prototype sensitive metadata for source repository lookup",
           { prototypeId },
         );
         return null;
@@ -973,8 +974,8 @@ export class IdleContainerAllocationSystemService {
 
       if (!sensitiveMetadata?.source_repo_id) {
         this.log2.consoleLogDevOnly(
-          'info',
-          'No source_repo_id found in sensitive metadata, returning null',
+          "info",
+          "No source_repo_id found in sensitive metadata, returning null",
           { prototypeId },
         );
         return null;
@@ -983,19 +984,19 @@ export class IdleContainerAllocationSystemService {
       const sourceRepoId = sensitiveMetadata.source_repo_id;
 
       this.log2.consoleLogDevOnly(
-        'info',
-        'Source repo ID found, fetching prototype team',
+        "info",
+        "Source repo ID found, fetching prototype team",
         { prototypeId, sourceRepoId },
       );
 
       const { data: prototypeRecord, error: prototypeError } =
         await supabaseRlsClient
-          .from('prototypes')
-          .select('team_id')
-          .eq('id', prototypeId)
+          .from("prototypes")
+          .select("team_id")
+          .eq("id", prototypeId)
           .maybeSingle();
 
-      this.log2.consoleLogDevOnly('info', 'Fetched prototype team_id', {
+      this.log2.consoleLogDevOnly("info", "Fetched prototype team_id", {
         prototypeId,
         hasData: !!prototypeRecord,
         teamId: prototypeRecord?.team_id,
@@ -1005,7 +1006,7 @@ export class IdleContainerAllocationSystemService {
       if (prototypeError) {
         this.log2.error(
           prototypeError,
-          'Failed to fetch prototype team for source repository lookup',
+          "Failed to fetch prototype team for source repository lookup",
           { prototypeId },
         );
         return null;
@@ -1013,7 +1014,7 @@ export class IdleContainerAllocationSystemService {
 
       if (!prototypeRecord?.team_id) {
         this.log2.warn(
-          'Prototype missing team_id, cannot fetch GitHub repository metadata',
+          "Prototype missing team_id, cannot fetch GitHub repository metadata",
           { prototypeId, sourceRepoId },
         );
         return null;
@@ -1022,19 +1023,19 @@ export class IdleContainerAllocationSystemService {
       const teamId = prototypeRecord.team_id;
 
       this.log2.consoleLogDevOnly(
-        'info',
-        'Fetching GitHub integration for team',
+        "info",
+        "Fetching GitHub integration for team",
         { prototypeId, teamId, sourceRepoId },
       );
 
       const { data: integration, error: integrationError } =
         await supabaseRlsClient
-          .from('github_integrations')
-          .select('account_type, installation_id')
-          .eq('team_id', teamId)
+          .from("github_integrations")
+          .select("account_type, installation_id")
+          .eq("team_id", teamId)
           .maybeSingle();
 
-      this.log2.consoleLogDevOnly('info', 'Fetched GitHub integration', {
+      this.log2.consoleLogDevOnly("info", "Fetched GitHub integration", {
         prototypeId,
         teamId,
         hasData: !!integration,
@@ -1046,7 +1047,7 @@ export class IdleContainerAllocationSystemService {
       if (integrationError) {
         this.log2.error(
           integrationError,
-          'Failed to fetch GitHub integration for source repository lookup',
+          "Failed to fetch GitHub integration for source repository lookup",
           { prototypeId, teamId },
         );
         return null;
@@ -1054,7 +1055,7 @@ export class IdleContainerAllocationSystemService {
 
       if (!integration) {
         this.log2.warn(
-          'No GitHub integration configured for team, skipping repository metadata fetch',
+          "No GitHub integration configured for team, skipping repository metadata fetch",
           { prototypeId, teamId, sourceRepoId },
         );
         return null;
@@ -1062,13 +1063,13 @@ export class IdleContainerAllocationSystemService {
 
       let githubAccessToken: string | null = null;
 
-      this.log2.consoleLogDevOnly('info', 'Acquiring GitHub access token', {
+      this.log2.consoleLogDevOnly("info", "Acquiring GitHub access token", {
         prototypeId,
         accountType: integration.account_type,
         installationId: integration.installation_id,
       });
 
-      if (integration.account_type === 'Organization') {
+      if (integration.account_type === "Organization") {
         try {
           const installationToken = await createInstallationToken(
             integration.installation_id,
@@ -1076,8 +1077,8 @@ export class IdleContainerAllocationSystemService {
           );
           githubAccessToken = installationToken.token;
           this.log2.consoleLogDevOnly(
-            'info',
-            'Successfully created installation token',
+            "info",
+            "Successfully created installation token",
             { prototypeId, teamId },
           );
         } catch (installationTokenError) {
@@ -1085,7 +1086,7 @@ export class IdleContainerAllocationSystemService {
             installationTokenError instanceof Error
               ? installationTokenError
               : new Error(String(installationTokenError)),
-            'Failed to create installation token for source repository metadata fetch',
+            "Failed to create installation token for source repository metadata fetch",
             {
               prototypeId,
               teamId,
@@ -1095,7 +1096,7 @@ export class IdleContainerAllocationSystemService {
           );
           return null;
         }
-      } else if (integration.account_type === 'User') {
+      } else if (integration.account_type === "User") {
         try {
           const tokenResult = await getValidGitHubUserAccessToken({
             supabaseClient: this.supabaseServiceRoleClient,
@@ -1104,8 +1105,8 @@ export class IdleContainerAllocationSystemService {
           });
           githubAccessToken = tokenResult.accessToken;
           this.log2.consoleLogDevOnly(
-            'info',
-            'Acquired valid GitHub OAuth token for user integration',
+            "info",
+            "Acquired valid GitHub OAuth token for user integration",
             {
               prototypeId,
               teamId,
@@ -1117,14 +1118,14 @@ export class IdleContainerAllocationSystemService {
             tokenError instanceof Error
               ? tokenError
               : new Error(String(tokenError)),
-            'Failed to acquire valid GitHub OAuth token for repository metadata fetch',
+            "Failed to acquire valid GitHub OAuth token for repository metadata fetch",
             { prototypeId, teamId, sourceRepoId },
           );
           return null;
         }
       } else {
         this.log2.warn(
-          'Unsupported GitHub integration account type for repository metadata fetch',
+          "Unsupported GitHub integration account type for repository metadata fetch",
           {
             prototypeId,
             teamId,
@@ -1137,15 +1138,15 @@ export class IdleContainerAllocationSystemService {
 
       if (!githubAccessToken) {
         this.log2.warn(
-          'Unable to acquire GitHub access token, skipping repository metadata fetch',
+          "Unable to acquire GitHub access token, skipping repository metadata fetch",
           { prototypeId, teamId, sourceRepoId },
         );
         return null;
       }
 
       this.log2.consoleLogDevOnly(
-        'info',
-        'Fetching repository metadata from GitHub',
+        "info",
+        "Fetching repository metadata from GitHub",
         { prototypeId, sourceRepoId },
       );
 
@@ -1157,8 +1158,8 @@ export class IdleContainerAllocationSystemService {
         );
 
         this.log2.consoleLogDevOnly(
-          'info',
-          'Successfully fetched repository metadata from GitHub',
+          "info",
+          "Successfully fetched repository metadata from GitHub",
           {
             prototypeId,
             repositoryFullName: repoInfo.full_name,
@@ -1166,7 +1167,7 @@ export class IdleContainerAllocationSystemService {
           },
         );
 
-        this.log2.info('Source repository configured for worker allocation', {
+        this.log2.info("Source repository configured for worker allocation", {
           prototypeId,
           repositoryFullName: repoInfo.full_name,
           githubRepoId: repoInfo.id,
@@ -1176,15 +1177,15 @@ export class IdleContainerAllocationSystemService {
           github_repo_id: repoInfo.id,
           installation_id: integration.installation_id,
           repository_url: repoInfo.html_url,
-          repository_owner: repoInfo.owner?.login ?? '',
+          repository_owner: repoInfo.owner?.login ?? "",
           repository_name: repoInfo.name,
           default_branch: repoInfo.default_branch,
           full_name: repoInfo.full_name,
         };
 
         this.log2.consoleLogDevOnly(
-          'info',
-          'Returning source repository data for allocation',
+          "info",
+          "Returning source repository data for allocation",
           { prototypeId, result },
         );
 
@@ -1194,7 +1195,7 @@ export class IdleContainerAllocationSystemService {
           repoFetchError instanceof Error
             ? repoFetchError
             : new Error(String(repoFetchError)),
-          'Failed to fetch GitHub repository metadata for allocation',
+          "Failed to fetch GitHub repository metadata for allocation",
           { prototypeId, teamId, sourceRepoId },
         );
         return null;
@@ -1202,7 +1203,7 @@ export class IdleContainerAllocationSystemService {
     } catch (error) {
       this.log2.error(
         error instanceof Error ? error : new Error(String(error)),
-        'Unexpected error while fetching source repository data',
+        "Unexpected error while fetching source repository data",
         { prototypeId },
       );
       return null;
