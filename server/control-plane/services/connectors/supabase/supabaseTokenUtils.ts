@@ -72,43 +72,131 @@ interface ExecuteWithRevocationDetectionOptions<T> {
   supabaseClient: SupabaseClient<Database>;
   logger: SystemLogger;
   integrationId: string;
-  operation: () => Promise<T>;
+  /** Function that executes the API call. Receives accessToken as parameter. */
+  operation: (accessToken: string) => Promise<T>;
 }
 
 /**
- * Wraps a Supabase Management API call and detects if access has been revoked.
- * If revoked (401/403), marks the integration as disconnected and throws SupabaseAccessRevokedError.
+ * Wraps a Supabase Management API call with automatic retry on auth failure.
+ *
+ * On 401/403:
+ * 1. Forces a token refresh
+ * 2. Retries the operation once with the new token
+ * 3. If retry also fails with 401/403, marks integration as disconnected
+ *
+ * This handles cases where tokens expire mid-request or have transient auth issues,
+ * while still detecting true revocations.
  */
 export async function executeWithRevocationDetection<T>(
   options: ExecuteWithRevocationDetectionOptions<T>,
 ): Promise<T> {
   const { supabaseClient, logger, integrationId, operation } = options;
 
-  try {
-    return await operation();
-  } catch (error) {
-    // Check if this is a revocation error (401/403)
-    const isRevoked = isRevokedAccessError(error);
+  // Get the current access token
+  const { accessToken } = await getValidSupabaseAccessToken({
+    supabaseClient,
+    logger,
+    integrationId,
+  });
 
-    if (isRevoked) {
-      logger.warn(
-        "Supabase Management API call failed due to revoked access",
-        { integrationId },
-      );
-      await markIntegrationAsDisconnected(supabaseClient, integrationId, logger);
-      throw new SupabaseAccessRevokedError(integrationId);
+  try {
+    return await operation(accessToken);
+  } catch (error) {
+    // Check if this is an auth error (401/403)
+    if (!isAuthError(error)) {
+      // Not an auth error, re-throw as-is
+      throw error;
     }
 
-    // Re-throw other errors as-is
-    throw error;
+    logger.info(
+      "Supabase Management API returned auth error, attempting token refresh and retry",
+      { integrationId },
+    );
+
+    // Force a token refresh by fetching with a very short threshold
+    let refreshedToken: string;
+    try {
+      refreshedToken = await forceTokenRefresh(supabaseClient, logger, integrationId);
+    } catch (refreshError) {
+      // Token refresh failed - if it's due to revocation, mark as disconnected
+      if (refreshError instanceof SupabaseTokenRefreshError && refreshError.isRevoked) {
+        // Already marked as disconnected by getValidSupabaseAccessToken
+        throw new SupabaseAccessRevokedError(integrationId);
+      }
+      throw refreshError;
+    }
+
+    // Retry the operation with the refreshed token
+    try {
+      return await operation(refreshedToken);
+    } catch (retryError) {
+      // If retry also fails with auth error, it's truly revoked
+      if (isAuthError(retryError)) {
+        logger.warn(
+          "Supabase Management API call failed after token refresh - marking as disconnected",
+          { integrationId },
+        );
+        await markIntegrationAsDisconnected(supabaseClient, integrationId, logger);
+        throw new SupabaseAccessRevokedError(integrationId);
+      }
+      throw retryError;
+    }
   }
 }
 
 /**
- * Checks if an error indicates revoked OAuth access (401 or 403).
+ * Forces a token refresh regardless of expiration time.
+ */
+async function forceTokenRefresh(
+  supabaseClient: SupabaseClient<Database>,
+  logger: SystemLogger,
+  integrationId: string,
+): Promise<string> {
+  const { data, error } = await supabaseClient
+    .from("connectors_supabase_integration_tokens")
+    .select("refresh_token_encrypted")
+    .eq("integration_id", integrationId)
+    .maybeSingle();
+
+  if (error || !data?.refresh_token_encrypted) {
+    throw new Error("Failed to fetch refresh token for forced refresh");
+  }
+
+  const refreshToken = decrypt(data.refresh_token_encrypted, "supabase");
+  const refreshed = await refreshSupabaseAccessTokenInternal(refreshToken, logger);
+
+  if (refreshed.error || !refreshed.access_token) {
+    throw new Error("Token refresh failed");
+  }
+
+  // Update the stored tokens
+  const refreshedExpiresAt = refreshed.expires_in
+    ? new Date(Date.now() + refreshed.expires_in * 1000).toISOString()
+    : null;
+  const refreshedAccessTokenEncrypted = encrypt(refreshed.access_token, "supabase");
+  const refreshedRefreshEncrypted = refreshed.refresh_token
+    ? encrypt(refreshed.refresh_token, "supabase")
+    : data.refresh_token_encrypted;
+
+  await supabaseClient
+    .from("connectors_supabase_integration_tokens")
+    .update({
+      access_token_encrypted: refreshedAccessTokenEncrypted,
+      refresh_token_encrypted: refreshedRefreshEncrypted,
+      token_expires_at: refreshedExpiresAt,
+    })
+    .eq("integration_id", integrationId);
+
+  logger.info("Forced token refresh completed", { integrationId });
+
+  return refreshed.access_token;
+}
+
+/**
+ * Checks if an error is an auth error (401 or 403).
  * Handles various error formats from supabase-management-js.
  */
-function isRevokedAccessError(error: unknown): boolean {
+function isAuthError(error: unknown): boolean {
   if (!error) return false;
 
   // Check for SupabaseManagementAPIError which has a response property
@@ -218,7 +306,7 @@ export async function getValidSupabaseAccessToken(
 
   let refreshed: SupabaseTokenResponse;
   try {
-    refreshed = await refreshSupabaseAccessToken(refreshToken, logger);
+    refreshed = await refreshSupabaseAccessTokenInternal(refreshToken, logger);
   } catch (error) {
     // If the token refresh failed due to revoked access, update the integration status
     if (error instanceof SupabaseTokenRefreshError && error.isRevoked) {
@@ -405,7 +493,7 @@ function getSupabaseOAuthConfig(): SupabaseOAuthConfig {
   };
 }
 
-async function refreshSupabaseAccessToken(
+async function refreshSupabaseAccessTokenInternal(
   refreshToken: string,
   logger: SystemLogger,
 ): Promise<SupabaseTokenResponse> {

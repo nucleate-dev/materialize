@@ -12,10 +12,8 @@ import {
 import type { Database } from "../../../types/supabase.js";
 import { validateJWTToken } from "../../../utils/prototypeAuth.js";
 import {
-    getValidSupabaseAccessToken,
     executeWithRevocationDetection,
     SupabaseAccessRevokedError,
-    SupabaseTokenRefreshError,
 } from "./supabaseTokenUtils.js";
 
 /**
@@ -130,65 +128,33 @@ export async function handleCreateSupabaseProjectImpl(
         });
     }
 
-    // Get valid access token for the integration
+    // Use service role client for token operations
     const supabaseServiceClient = createClient<Database>(
         process.env.SUPABASE_URL!,
         process.env.SUPABASE_SERVICE_ROLE_KEY!,
     );
 
-    let accessToken: string;
-    try {
-        const tokenResult = await getValidSupabaseAccessToken({
-            supabaseClient: supabaseServiceClient,
-            logger: request.log2,
-            integrationId: integration.id,
-        });
-        accessToken = tokenResult.accessToken;
-    } catch (error) {
-        // Check if token refresh failed due to revoked access
-        if (error instanceof SupabaseTokenRefreshError && error.isRevoked) {
-            return reply.status(HTTP_STATUS.BAD_REQUEST).send({
-                data: null,
-                error: {
-                    error: "Integration Disconnected",
-                    message:
-                        "Your Supabase organization has been disconnected. Please reconnect in team settings.",
-                },
-            });
-        }
-        request.log2.error(
-            error instanceof Error ? error : new Error(String(error)),
-            "Failed to get valid Supabase access token for project creation",
-        );
-        return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
-            data: null,
-            error: {
-                error: "Token Error",
-                message: "Failed to authenticate with Supabase",
-            },
-        });
-    }
-
     // Generate a secure database password
     const dbPassword = generateSecurePassword();
 
     // Create the project via Supabase Management API
-    const managementClient = new SupabaseManagementAPI({ accessToken });
-
+    // executeWithRevocationDetection handles token fetching, refresh, and retry
     let createdProject;
     try {
         createdProject = await executeWithRevocationDetection({
             supabaseClient: supabaseServiceClient,
             logger: request.log2,
             integrationId: integration.id,
-            operation: () =>
-                managementClient.createProject({
+            operation: async (accessToken) => {
+                const managementClient = new SupabaseManagementAPI({ accessToken });
+                return managementClient.createProject({
                     organization_id: organizationId,
                     name,
                     region: region as "us-east-1",
                     db_pass: dbPassword,
                     plan: "free",
-                }),
+                });
+            },
         });
     } catch (error) {
         // Check if API call failed due to revoked access
