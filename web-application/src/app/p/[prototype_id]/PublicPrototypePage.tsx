@@ -7,6 +7,10 @@ import DashboardSidebar from "@/components/dashboard/Sidebar";
 import MaterializeRenderSection, {
   type MaterializeRenderSectionRef,
 } from "@/components/prototype-editor/MaterializeRenderSection";
+import type {
+  CanvasStateData,
+  PrototypeContextData,
+} from "@/components/prototype-editor/canvas/types";
 import PublicPrototypeHeader from "@/components/prototype-editor/PublicPrototypeHeader";
 import { Button } from "@/components/ui/button";
 import type {
@@ -43,6 +47,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
+import { usePostHog } from "posthog-js/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
@@ -98,8 +103,15 @@ export default function PrototypePage() {
   const params = useParams<{ prototype_id: string }>();
   const prototypeId = params?.prototype_id;
   const logger = useProductLogger();
+  const posthog = usePostHog();
+
+  // Check if canvas preview mode is enabled (infinite canvas like Figma)
+  const isCanvasPreviewEnabled =
+    posthog?.isFeatureEnabled("canvas-preview-mode") ?? false;
 
   const [prototype, setPrototype] = useState<Prototype | null>(null);
+  // Canvas state for infinite canvas mode (from prototype_context)
+  const [canvasState, setCanvasState] = useState<CanvasStateData | null>(null);
   const [viewingUrl, setViewingUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -164,8 +176,11 @@ export default function PrototypePage() {
   );
 
   // Check if there are unsaved changes (mobile or web)
+  // In canvas mode, changes are auto-saved so we don't show the save button
   const hasUnsavedChanges = useMemo(() => {
     if (!canEditPublicConfig) return false;
+    // Canvas mode auto-saves, no manual save needed
+    if (isCanvasPreviewEnabled) return false;
 
     // Check mobile screens
     if (currentScreens.length > 0) {
@@ -181,6 +196,7 @@ export default function PrototypePage() {
     return false;
   }, [
     canEditPublicConfig,
+    isCanvasPreviewEnabled,
     currentScreens,
     currentWebScreens,
     savedConfig,
@@ -220,7 +236,24 @@ export default function PrototypePage() {
 
   // Initialize saved config from prototype
   useEffect(() => {
-    if (prototype?.public_display_config) {
+    if (!prototype) return;
+
+    // When canvas preview mode is enabled, load from prototype_context.canvas
+    if (isCanvasPreviewEnabled && prototype.prototype_context) {
+      const context = prototype.prototype_context as PrototypeContextData;
+      if (context.canvas) {
+        logger.debug(
+          "log",
+          "[PublicPrototypePage] Loading canvas state from prototype_context:",
+          { canvas: context.canvas },
+        );
+        setCanvasState(context.canvas);
+        return;
+      }
+    }
+
+    // Fall back to public_display_config for legacy mode
+    if (prototype.public_display_config) {
       const rawConfig = prototype.public_display_config;
 
       if (isValidPublicDisplayConfig(rawConfig)) {
@@ -239,13 +272,13 @@ export default function PrototypePage() {
         // Reset to default by not setting savedConfig (will use component defaults)
         setSavedConfig(null);
       }
-    } else if (prototype) {
+    } else {
       logger.debug(
         "log",
         "[PublicPrototypePage] No public_display_config found on prototype",
       );
     }
-  }, [logger, prototype]);
+  }, [isCanvasPreviewEnabled, logger, prototype]);
 
   // Handle screens change from MaterializeRenderSection
   const handleScreensChange = useCallback(
@@ -266,6 +299,64 @@ export default function PrototypePage() {
     },
     [canEditPublicConfig],
   );
+
+  // Ref for debounced canvas state saves
+  const canvasSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Handle canvas state changes with debounced auto-save (for canvas mode)
+  const handleCanvasStateChange = useCallback(
+    (state: CanvasStateData) => {
+      if (!canEditPublicConfig || !isCanvasPreviewEnabled) return;
+
+      // Update local state immediately
+      setCanvasState(state);
+
+      // Clear any existing timeout
+      if (canvasSaveTimeoutRef.current) {
+        clearTimeout(canvasSaveTimeoutRef.current);
+      }
+
+      // Debounce the save to prevent excessive database writes
+      canvasSaveTimeoutRef.current = setTimeout(async () => {
+        if (!prototypeId) return;
+
+        // Save to prototype_context (same field as internal editor)
+        const contextToSave = {
+          canvas: {
+            screens: state.screens,
+            zoom: state.zoom,
+            camera: state.camera,
+            previewMode: state.previewMode,
+            lastModified: state.lastModified,
+          },
+        };
+
+        const { error } = await supabase
+          .from("prototypes")
+          .update({
+            prototype_context:
+              contextToSave as unknown as Database["public"]["Tables"]["prototypes"]["Update"]["prototype_context"],
+          })
+          .eq("id", prototypeId);
+
+        if (error) {
+          logger.debug("error", "Failed to save canvas state:", { error });
+        } else {
+          logger.debug("log", "Canvas state saved successfully (public view)");
+        }
+      }, 1000);
+    },
+    [canEditPublicConfig, isCanvasPreviewEnabled, prototypeId, logger],
+  );
+
+  // Cleanup canvas save timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (canvasSaveTimeoutRef.current) {
+        clearTimeout(canvasSaveTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // Save public display config
   const handleSaveConfig = useCallback(async () => {
@@ -566,6 +657,10 @@ export default function PrototypePage() {
               initialWebScreens={initialWebScreens}
               onWebScreensChange={
                 canEditPublicConfig ? handleWebScreensChange : undefined
+              }
+              initialCanvasState={canvasState ?? undefined}
+              onCanvasStateChange={
+                canEditPublicConfig ? handleCanvasStateChange : undefined
               }
               showToolbar={false}
               codeView={
