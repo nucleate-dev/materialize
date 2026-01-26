@@ -41,6 +41,7 @@ const SETTINGS_TABS: SettingsTab[] = [
   "team",
   "people",
   "github",
+  "supabase-backend",
 ];
 
 const isValidSettingsTab = (value: string | null): value is SettingsTab => {
@@ -77,15 +78,19 @@ const DashboardSidebarContent = () => {
   // Auto-open settings dialog after GitHub OAuth redirect
   useEffect(() => {
     const githubConnected = searchParams.get("githubConnected");
+    const supabaseConnected = searchParams.get("supabaseConnected");
 
-    if (githubConnected !== null) {
-      // Open settings dialog with GitHub tab when redirected from OAuth
-      setSettingsDefaultTab("github");
+    if (githubConnected !== null || supabaseConnected !== null) {
+      // Open settings dialog with connector tab when redirected from OAuth
+      setSettingsDefaultTab(
+        githubConnected !== null ? "github" : "supabase-backend",
+      );
       setSettingsDialogOpen(true);
 
       // Clean up URL params
       const url = new URL(window.location.href);
       url.searchParams.delete("githubConnected");
+      url.searchParams.delete("supabaseConnected");
       url.searchParams.delete("error");
       url.searchParams.delete("teamId");
       window.history.replaceState({}, "", url.toString());

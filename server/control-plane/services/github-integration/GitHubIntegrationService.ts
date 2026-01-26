@@ -574,9 +574,9 @@ export class GitHubIntegrationService {
       }
 
       // 5. Encrypt tokens
-      const tokenEncrypted = encrypt(tokenResponse.access_token);
+      const tokenEncrypted = encrypt(tokenResponse.access_token, 'github');
       const refreshEncrypted = tokenResponse.refresh_token
-        ? encrypt(tokenResponse.refresh_token)
+        ? encrypt(tokenResponse.refresh_token, 'github')
         : null;
 
       // Calculate token expiration (if provided)
@@ -919,7 +919,7 @@ export class GitHubIntegrationService {
       // Attempt to revoke the token (best effort)
       if (tokenData?.token_encrypted) {
         try {
-          const accessToken = decrypt(tokenData.token_encrypted);
+          const accessToken = decrypt(tokenData.token_encrypted, 'github');
           await revokeUserToken(accessToken, request.log2);
         } catch (revokeError) {
           // Log but don't fail the disconnect operation
