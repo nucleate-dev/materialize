@@ -1,7 +1,7 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
-import { decrypt, encrypt } from './encryptionUtils.js';
-import type { Database } from '../types/supabase.js';
-import type { SystemLogger } from '../loggers/SystemLogger.js';
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { decrypt, encrypt } from "../../../utils/encryptionUtils.js";
+import type { Database } from "../../../types/supabase.js";
+import type { SystemLogger } from "../../../loggers/SystemLogger.js";
 
 const TOKEN_REFRESH_THRESHOLD_MS = 10 * 60 * 1000; // 10 minutes
 
@@ -48,26 +48,26 @@ export async function getValidSupabaseAccessToken(
   const integrationId = await resolveIntegrationId(options);
 
   const { data, error } = await supabaseClient
-    .from('connectors_supabase_integration_tokens')
+    .from("connectors_supabase_integration_tokens")
     .select(
-      'access_token_encrypted, refresh_token_encrypted, token_expires_at, token_type, token_scopes',
+      "access_token_encrypted, refresh_token_encrypted, token_expires_at, token_type, token_scopes",
     )
-    .eq('integration_id', integrationId)
+    .eq("integration_id", integrationId)
     .maybeSingle();
 
   if (error) {
     logger.error(
       error,
-      'Failed to fetch Supabase integration token record',
+      "Failed to fetch Supabase integration token record",
       {
         integrationId,
       },
     );
-    throw new Error('Failed to fetch Supabase integration tokens');
+    throw new Error("Failed to fetch Supabase integration tokens");
   }
 
   if (!data?.access_token_encrypted) {
-    throw new Error('Supabase integration token missing');
+    throw new Error("Supabase integration token missing");
   }
 
   const decryptedToken = safeDecrypt(
@@ -89,7 +89,7 @@ export async function getValidSupabaseAccessToken(
 
   if (!data.refresh_token_encrypted) {
     throw new Error(
-      'Supabase refresh token missing; cannot refresh expiring access token',
+      "Supabase refresh token missing; cannot refresh expiring access token",
     );
   }
 
@@ -103,14 +103,14 @@ export async function getValidSupabaseAccessToken(
   if (refreshed.error) {
     logger.error(
       new Error(refreshed.error_description ?? refreshed.error),
-      'Supabase token refresh returned an error',
+      "Supabase token refresh returned an error",
       { integrationId },
     );
-    throw new Error('Supabase token refresh returned an error');
+    throw new Error("Supabase token refresh returned an error");
   }
 
   if (!refreshed.access_token) {
-    throw new Error('Supabase token refresh returned no access token');
+    throw new Error("Supabase token refresh returned no access token");
   }
 
   const refreshedExpiresAt = refreshed.expires_in
@@ -118,14 +118,14 @@ export async function getValidSupabaseAccessToken(
     : null;
   const refreshedAccessTokenEncrypted = encrypt(
     refreshed.access_token,
-    'supabase',
+    "supabase",
   );
   const refreshedRefreshEncrypted = refreshed.refresh_token
-    ? encrypt(refreshed.refresh_token, 'supabase')
+    ? encrypt(refreshed.refresh_token, "supabase")
     : data.refresh_token_encrypted;
 
   const { error: updateError } = await supabaseClient
-    .from('connectors_supabase_integration_tokens')
+    .from("connectors_supabase_integration_tokens")
     .update({
       access_token_encrypted: refreshedAccessTokenEncrypted,
       refresh_token_encrypted: refreshedRefreshEncrypted,
@@ -133,18 +133,18 @@ export async function getValidSupabaseAccessToken(
       token_type: refreshed.token_type ?? data.token_type ?? null,
       token_scopes: refreshed.scope ?? data.token_scopes ?? null,
     })
-    .eq('integration_id', integrationId);
+    .eq("integration_id", integrationId);
 
   if (updateError) {
     logger.error(
       updateError,
-      'Failed to persist refreshed Supabase OAuth token',
+      "Failed to persist refreshed Supabase OAuth token",
       { integrationId },
     );
-    throw new Error('Failed to update Supabase OAuth token');
+    throw new Error("Failed to update Supabase OAuth token");
   }
 
-  logger.info('Refreshed Supabase OAuth token for integration', {
+  logger.info("Refreshed Supabase OAuth token for integration", {
     integrationId,
     expiresAt: refreshedExpiresAt,
   });
@@ -167,28 +167,28 @@ async function resolveIntegrationId(
   const { teamId, supabaseOrganizationId, supabaseClient, logger } = options;
   if (!teamId || !supabaseOrganizationId) {
     throw new Error(
-      'Supabase integration identifier missing; provide integrationId or teamId + supabaseOrganizationId',
+      "Supabase integration identifier missing; provide integrationId or teamId + supabaseOrganizationId",
     );
   }
 
   const { data, error } = await supabaseClient
-    .from('connectors_supabase_integrations')
-    .select('id')
-    .eq('team_id', teamId)
-    .eq('supabase_organization_id', supabaseOrganizationId)
+    .from("connectors_supabase_integrations")
+    .select("id")
+    .eq("team_id", teamId)
+    .eq("supabase_organization_id", supabaseOrganizationId)
     .maybeSingle();
 
   if (error) {
     logger.error(
       error,
-      'Failed to fetch Supabase integration record',
+      "Failed to fetch Supabase integration record",
       { teamId, supabaseOrganizationId },
     );
-    throw new Error('Failed to fetch Supabase integration');
+    throw new Error("Failed to fetch Supabase integration");
   }
 
   if (!data?.id) {
-    throw new Error('Supabase integration missing for team');
+    throw new Error("Supabase integration missing for team");
   }
 
   return data.id;
@@ -205,7 +205,7 @@ function needsRefreshSoon(
 
   const expiresDate = new Date(expiresAt);
   if (Number.isNaN(expiresDate.getTime())) {
-    logger.warn('Supabase token expiry timestamp invalid; forcing refresh', {
+    logger.warn("Supabase token expiry timestamp invalid; forcing refresh", {
       integrationId,
       expiresAt,
     });
@@ -222,14 +222,14 @@ function safeDecrypt(
   logger: SystemLogger,
 ): string {
   try {
-    return decrypt(encryptedValue, 'supabase');
+    return decrypt(encryptedValue, "supabase");
   } catch (error) {
     logger.error(
       error instanceof Error ? error : new Error(String(error)),
-      'Failed to decrypt Supabase token',
+      "Failed to decrypt Supabase token",
       { integrationId },
     );
-    throw new Error('Failed to decrypt Supabase token');
+    throw new Error("Failed to decrypt Supabase token");
   }
 }
 
@@ -239,10 +239,10 @@ function getSupabaseOAuthConfig(): SupabaseOAuthConfig {
   const managementBaseUrl = process.env.SUPABASE_MANAGEMENT_API_BASE_URL;
 
   if (!clientId || !clientSecret || !managementBaseUrl) {
-    throw new Error('Supabase OAuth configuration is incomplete');
+    throw new Error("Supabase OAuth configuration is incomplete");
   }
 
-  const normalizedBaseUrl = managementBaseUrl.endsWith('/')
+  const normalizedBaseUrl = managementBaseUrl.endsWith("/")
     ? managementBaseUrl
     : `${managementBaseUrl}/`;
 
@@ -259,23 +259,23 @@ async function refreshSupabaseAccessToken(
 ): Promise<SupabaseTokenResponse> {
   const { clientId, clientSecret, managementBaseUrl } =
     getSupabaseOAuthConfig();
-  const tokenUrl = new URL('oauth/token', managementBaseUrl);
+  const tokenUrl = new URL("oauth/token", managementBaseUrl);
 
   const body = new URLSearchParams({
-    grant_type: 'refresh_token',
+    grant_type: "refresh_token",
     refresh_token: refreshToken,
   });
 
   const authToken = Buffer.from(`${clientId}:${clientSecret}`).toString(
-    'base64',
+    "base64",
   );
 
   const response = await fetch(tokenUrl.toString(), {
-    method: 'POST',
+    method: "POST",
     headers: {
       Authorization: `Basic ${authToken}`,
-      'Content-Type': 'application/x-www-form-urlencoded',
-      Accept: 'application/json',
+      "Content-Type": "application/x-www-form-urlencoded",
+      Accept: "application/json",
     },
     body: body.toString(),
   });
@@ -283,15 +283,15 @@ async function refreshSupabaseAccessToken(
   const responseText = await response.text();
   if (!response.ok) {
     logger.error(
-      new Error('Supabase OAuth token refresh failed'),
-      'Supabase OAuth token refresh failed',
+      new Error("Supabase OAuth token refresh failed"),
+      "Supabase OAuth token refresh failed",
       { status: response.status },
     );
-    logger.consoleLogDevOnly('error', 'Supabase OAuth token refresh failed', {
+    logger.consoleLogDevOnly("error", "Supabase OAuth token refresh failed", {
       status: response.status,
       response: responseText.slice(0, 500),
     });
-    throw new Error('token_refresh_failed');
+    throw new Error("token_refresh_failed");
   }
 
   try {
@@ -299,8 +299,8 @@ async function refreshSupabaseAccessToken(
   } catch (error) {
     logger.error(
       error instanceof Error ? error : new Error(String(error)),
-      'Failed to parse Supabase OAuth token refresh response',
+      "Failed to parse Supabase OAuth token refresh response",
     );
-    throw new Error('invalid_token_response');
+    throw new Error("invalid_token_response");
   }
 }

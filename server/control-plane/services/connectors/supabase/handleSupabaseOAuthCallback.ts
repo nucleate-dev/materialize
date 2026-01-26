@@ -1,0 +1,529 @@
+import { FastifyReply, FastifyRequest } from "fastify";
+import {
+    buildStateCipherKey,
+    getSupabaseOAuthConfig,
+    SupabaseOAuthCallbackQuery,
+    SupabaseOAuthStatePayload,
+} from "./SupabaseIntegrationService.js";
+import { createClient } from "@supabase/supabase-js";
+import { Database } from "../../../types/supabase.js";
+import { userIsTeamAdminOrOwner } from "../../../utils/teamUtils.js";
+import { encrypt } from "../../../utils/encryptionUtils.js";
+import crypto from "crypto";
+
+interface SupabaseTokenResponse {
+    access_token?: string;
+    refresh_token?: string;
+    expires_in?: number;
+    token_type?: string;
+    scope?: string;
+    organization_id?: string;
+    organization_name?: string;
+    org_id?: string;
+    organization?: {
+        id?: string;
+        name?: string;
+    };
+    error?: string;
+    error_description?: string;
+}
+
+interface SupabaseOrganizationSummary {
+    id: string;
+    name?: string | null;
+}
+
+const STATE_TTL_MS = 15 * 60 * 1000;
+
+export async function handleSupabaseOAuthCallbackImpl(
+    request: FastifyRequest<{ Querystring: SupabaseOAuthCallbackQuery }>,
+    reply: FastifyReply,
+): Promise<void> {
+    const { code, state, error, error_description } = request.query;
+
+    if (error) {
+        const payload = state ? parseOAuthState(state) : null;
+        return reply.redirect(
+            buildClientCallbackUrl({
+                teamId: payload?.teamId,
+                supabaseConnected: "0",
+                error: error_description || error,
+            }),
+        );
+    }
+
+    if (!code || !state) {
+        return reply.redirect(
+            buildClientCallbackUrl({
+                supabaseConnected: "0",
+                error: "missing_params",
+            }),
+        );
+    }
+
+    const payload = parseOAuthState(state);
+    if (!payload) {
+        return reply.redirect(
+            buildClientCallbackUrl({
+                supabaseConnected: "0",
+                error: "invalid_state",
+            }),
+        );
+    }
+
+    const { teamId, userId } = payload;
+    request.log2 = request.log2.child({ teamId, userId });
+
+    const supabaseServiceClient = createClient<Database>(
+        process.env.SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    );
+
+    const isOwnerOrAdmin = await userIsTeamAdminOrOwner(
+        teamId,
+        userId,
+        supabaseServiceClient,
+        request.log2,
+    );
+    if (!isOwnerOrAdmin) {
+        return reply.redirect(
+            buildClientCallbackUrl({
+                teamId,
+                supabaseConnected: "0",
+                error: "forbidden",
+            }),
+        );
+    }
+
+    try {
+        const tokenResponse = await exchangeCodeForToken(
+            code,
+            payload.codeVerifier,
+            request.log2,
+        );
+        if (!tokenResponse.access_token) {
+            return reply.redirect(
+                buildClientCallbackUrl({
+                    teamId,
+                    supabaseConnected: "0",
+                    error: tokenResponse.error || "missing_access_token",
+                }),
+            );
+        }
+
+        const accessToken = tokenResponse.access_token;
+        let { id: organizationId, name: organizationName } =
+            extractOrganizationDetails(tokenResponse);
+
+        if (!organizationId) {
+            const organizations = await fetchOrganizations(
+                accessToken,
+                request.log2,
+            );
+            if (organizations.length === 1) {
+                organizationId = organizations[0].id;
+                organizationName = organizations[0].name ?? null;
+            } else {
+                return reply.redirect(
+                    buildClientCallbackUrl({
+                        teamId,
+                        supabaseConnected: "0",
+                        error: "missing_org",
+                    }),
+                );
+            }
+        }
+
+        if (!organizationId) {
+            return reply.redirect(
+                buildClientCallbackUrl({
+                    teamId,
+                    supabaseConnected: "0",
+                    error: "missing_org",
+                }),
+            );
+        }
+
+        if (organizationId && !organizationName) {
+            const organization = await fetchOrganizationById(
+                accessToken,
+                organizationId,
+                request.log2,
+            );
+            organizationName = organization?.name ?? null;
+        }
+
+        const { data: integration, error: integrationError } =
+            await supabaseServiceClient
+                .from("connectors_supabase_integrations")
+                .upsert(
+                    {
+                        team_id: teamId,
+                        supabase_organization_id: organizationId,
+                        supabase_organization_name: organizationName,
+                        connected_by_user_id: userId,
+                        metadata: {
+                            scope: tokenResponse.scope ?? null,
+                            token_type: tokenResponse.token_type ?? null,
+                        },
+                        connected_at: new Date().toISOString(),
+                    },
+                    {
+                        onConflict: "team_id,supabase_organization_id",
+                    },
+                )
+                .select()
+                .single();
+
+        if (integrationError || !integration) {
+            request.log2.consoleLogDevOnly(
+                "error",
+                "Failed to persist Supabase integration metadata",
+                {
+                    error: integrationError?.message,
+                },
+            );
+            return reply.redirect(
+                buildClientCallbackUrl({
+                    teamId,
+                    supabaseConnected: "0",
+                    error: "integration_save_failed",
+                }),
+            );
+        }
+
+        const accessTokenEncrypted = encrypt(accessToken, "supabase");
+        const refreshTokenEncrypted = tokenResponse.refresh_token
+            ? encrypt(tokenResponse.refresh_token, "supabase")
+            : null;
+        const expiresAt = tokenResponse.expires_in
+            ? new Date(Date.now() + tokenResponse.expires_in * 1000)
+                .toISOString()
+            : null;
+
+        const { error: tokenError } = await supabaseServiceClient
+            .from("connectors_supabase_integration_tokens")
+            .upsert(
+                {
+                    integration_id: integration.id,
+                    access_token_encrypted: accessTokenEncrypted,
+                    refresh_token_encrypted: refreshTokenEncrypted,
+                    token_type: tokenResponse.token_type ?? null,
+                    token_scopes: tokenResponse.scope ?? null,
+                    token_expires_at: expiresAt,
+                },
+                {
+                    onConflict: "integration_id",
+                },
+            );
+
+        if (tokenError) {
+            request.log2.consoleLogDevOnly(
+                "error",
+                "Failed to persist Supabase integration tokens",
+                {
+                    error: tokenError.message,
+                },
+            );
+            return reply.redirect(
+                buildClientCallbackUrl({
+                    teamId,
+                    supabaseConnected: "0",
+                    error: "token_save_failed",
+                }),
+            );
+        }
+
+        return reply.redirect(
+            buildClientCallbackUrl({
+                teamId,
+                supabaseConnected: "1",
+            }),
+        );
+    } catch (err) {
+        request.log2.consoleLogDevOnly(
+            "error",
+            "Unexpected error handling Supabase OAuth callback",
+            {
+                error: err instanceof Error ? err.message : String(err),
+            },
+        );
+        return reply.redirect(
+            buildClientCallbackUrl({
+                teamId,
+                supabaseConnected: "0",
+                error: "internal_error",
+            }),
+        );
+    }
+}
+
+const parseOAuthState = (
+    state: string,
+): SupabaseOAuthStatePayload | null => {
+    const clientSecret = process.env.SUPABASE_OAUTH_CLIENT_SECRET;
+    if (!state || !clientSecret) {
+        return null;
+    }
+
+    const payload = decryptStatePayload(state, clientSecret);
+    if (
+        !payload?.teamId ||
+        !payload?.userId ||
+        !payload?.createdAt ||
+        !payload?.codeVerifier
+    ) {
+        return null;
+    }
+
+    if (Date.now() - payload.createdAt > STATE_TTL_MS) {
+        return null;
+    }
+
+    return payload;
+};
+
+const decryptStatePayload = (
+    state: string,
+    clientSecret: string,
+): SupabaseOAuthStatePayload | null => {
+    const [ivEncoded, payloadEncoded, tagEncoded] = state.split(".");
+    if (!ivEncoded || !payloadEncoded || !tagEncoded) {
+        return null;
+    }
+
+    try {
+        const iv = base64UrlDecodeToBuffer(ivEncoded);
+        const encrypted = base64UrlDecodeToBuffer(payloadEncoded);
+        const tag = base64UrlDecodeToBuffer(tagEncoded);
+        const key = buildStateCipherKey(clientSecret);
+
+        const decipher = crypto.createDecipheriv("aes-256-gcm", key, iv);
+        decipher.setAuthTag(tag);
+        const decrypted = Buffer.concat([
+            decipher.update(encrypted),
+            decipher.final(),
+        ]);
+        return JSON.parse(
+            decrypted.toString("utf8"),
+        ) as SupabaseOAuthStatePayload;
+    } catch {
+        return null;
+    }
+};
+
+const base64UrlDecodeToBuffer = (value: string): Buffer => {
+    const padded = value.replace(/-/g, "+").replace(/_/g, "/");
+    const padLength = (4 - (padded.length % 4)) % 4;
+    const paddedValue = padded + "=".repeat(padLength);
+    return Buffer.from(paddedValue, "base64");
+};
+
+const exchangeCodeForToken = async (
+    code: string,
+    codeVerifier: string,
+    log2: FastifyRequest["log2"],
+): Promise<SupabaseTokenResponse> => {
+    const { clientId, clientSecret, redirectUrl, managementBaseUrl } =
+        getSupabaseOAuthConfig();
+    const tokenUrl = new URL("oauth/token", managementBaseUrl);
+
+    const body = new URLSearchParams({
+        grant_type: "authorization_code",
+        code,
+        redirect_uri: redirectUrl,
+        code_verifier: codeVerifier,
+    });
+
+    const authToken = Buffer.from(`${clientId}:${clientSecret}`).toString(
+        "base64",
+    );
+
+    const response = await fetch(tokenUrl.toString(), {
+        method: "POST",
+        headers: {
+            Authorization: `Basic ${authToken}`,
+            "Content-Type": "application/x-www-form-urlencoded",
+            Accept: "application/json",
+        },
+        body: body.toString(),
+    });
+
+    const responseText = await response.text();
+    if (!response.ok) {
+        log2.consoleLogDevOnly(
+            "error",
+            "Supabase OAuth token exchange failed",
+            {
+                status: response.status,
+                response: responseText.slice(0, 500),
+            },
+        );
+        throw new Error("token_exchange_failed");
+    }
+
+    try {
+        return JSON.parse(responseText) as SupabaseTokenResponse;
+    } catch (error) {
+        log2.consoleLogDevOnly(
+            "error",
+            "Failed to parse Supabase OAuth token response",
+            {
+                error: error instanceof Error ? error.message : String(error),
+            },
+        );
+        throw new Error("invalid_token_response");
+    }
+};
+
+const extractOrganizationDetails = (
+    tokenResponse: SupabaseTokenResponse,
+): { id: string | null; name: string | null } => {
+    const orgId = tokenResponse.organization_id ??
+        tokenResponse.org_id ??
+        tokenResponse.organization?.id ??
+        null;
+    const orgName = tokenResponse.organization_name ??
+        tokenResponse.organization?.name ?? null;
+
+    return { id: orgId, name: orgName };
+};
+
+const fetchOrganizations = async (
+    accessToken: string,
+    log2: FastifyRequest["log2"],
+): Promise<SupabaseOrganizationSummary[]> => {
+    const { managementBaseUrl } = getSupabaseOAuthConfig();
+    const organizationsUrl = new URL("organizations", managementBaseUrl);
+
+    const response = await fetch(organizationsUrl.toString(), {
+        method: "GET",
+        headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
+        },
+    });
+
+    if (!response.ok) {
+        log2.consoleLogDevOnly(
+            "error",
+            "Failed to fetch Supabase organizations",
+            {
+                status: response.status,
+            },
+        );
+        return [];
+    }
+
+    const data = (await response.json()) as unknown;
+    return normalizeOrganizationsResponse(data);
+};
+
+const normalizeOrganizationsResponse = (
+    data: unknown,
+): SupabaseOrganizationSummary[] => {
+    if (Array.isArray(data)) {
+        return data as SupabaseOrganizationSummary[];
+    }
+
+    if (data && typeof data === "object") {
+        const record = data as {
+            organizations?: SupabaseOrganizationSummary[];
+            data?: SupabaseOrganizationSummary[] | {
+                organizations?: SupabaseOrganizationSummary[];
+            };
+        };
+
+        if (Array.isArray(record.organizations)) {
+            return record.organizations;
+        }
+
+        if (Array.isArray(record.data)) {
+            return record.data;
+        }
+
+        if (record.data && typeof record.data === "object") {
+            const nested = record.data as {
+                organizations?: SupabaseOrganizationSummary[];
+            };
+            if (Array.isArray(nested.organizations)) {
+                return nested.organizations;
+            }
+        }
+    }
+
+    return [];
+};
+
+const fetchOrganizationById = async (
+    accessToken: string,
+    organizationId: string,
+    log2: FastifyRequest["log2"],
+): Promise<SupabaseOrganizationSummary | null> => {
+    const { managementBaseUrl } = getSupabaseOAuthConfig();
+    const organizationUrl = new URL(
+        `organizations/${organizationId}`,
+        managementBaseUrl,
+    );
+
+    const response = await fetch(organizationUrl.toString(), {
+        method: "GET",
+        headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
+        },
+    });
+
+    if (!response.ok) {
+        log2.consoleLogDevOnly(
+            "error",
+            "Failed to fetch Supabase organization detail",
+            {
+                status: response.status,
+            },
+        );
+        return null;
+    }
+
+    const data = (await response.json()) as unknown;
+    const normalized = normalizeOrganizationsResponse(data);
+    if (normalized.length > 0) {
+        return normalized[0];
+    }
+
+    if (data && typeof data === "object") {
+        const record = data as {
+            id?: string;
+            name?: string;
+            data?: { id?: string; name?: string };
+        };
+        if (record.id) {
+            return { id: record.id, name: record.name };
+        }
+        if (record.data?.id) {
+            return { id: record.data.id, name: record.data.name };
+        }
+    }
+
+    return null;
+};
+
+const buildClientCallbackUrl = (
+    params: Record<string, string | null | undefined>,
+): string => {
+    const callbackBaseUrl = getCallbackBaseUrl();
+    const callbackUrl = new URL("/connectors/supabase", callbackBaseUrl);
+    Object.entries(params).forEach(([key, value]) => {
+        if (value) {
+            callbackUrl.searchParams.set(key, value);
+        }
+    });
+    return callbackUrl.toString();
+};
+
+const getCallbackBaseUrl = (): string => {
+    if (process.env.NODE_ENV === "development") {
+        return "http://localhost:3000";
+    }
+    return process.env.SITE_BASE_URL || "http://localhost:3000";
+};
