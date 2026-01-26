@@ -19,7 +19,7 @@ import { genRequestIds, SystemLogger } from "./loggers/SystemLogger.js";
 import { CleanupService } from "./services/cleanup/CleanupService.js";
 import { DevelopmentServerService } from "./services/DevelopmentServerService.js";
 import { DispatcherService } from "./services/dispatcher/DispatcherService.js";
-import { GitHubIntegrationService } from "./services/connectors/github-integration/GitHubIntegrationService.js";
+import { GitHubIntegrationService } from "./services/connectors/github/GitHubIntegrationService.js";
 import { SupabaseIntegrationService } from "./services/connectors/supabase/SupabaseIntegrationService.js";
 import { IdleContainerAllocationSystemService } from "./services/idle-container-allocation-system/IdleContainerAllocationSystemService.js";
 import { LLMService } from "./services/llm/LLMService.js";
