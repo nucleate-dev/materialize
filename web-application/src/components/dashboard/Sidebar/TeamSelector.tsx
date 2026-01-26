@@ -10,6 +10,11 @@ import {
   DropdownMenuContent,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Drawer,
+  DrawerContent,
+  DrawerTrigger,
+} from "@/components/ui/drawer";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -21,6 +26,7 @@ import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import { useCreditUsage } from "@/hooks/useCreditUsage";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import { handleCheckout } from "@/lib/utils/payments/CheckoutUtils";
+import { useIsMobile } from "@/hooks/use-mobile";
 import {
   ChevronDown,
   Settings,
@@ -48,6 +54,7 @@ export function TeamSelector({
 }: TeamSelectorProps) {
   const router = useRouter();
   const logger = useProductLogger();
+  const isMobile = useIsMobile();
   const { activeTeam, setActiveTeam, teamMembers, signedAvatarUrl, isCurrentUserSsoUser } =
     useActiveTeam();
   const { teams } = useUserTeams();
@@ -57,6 +64,8 @@ export function TeamSelector({
     totalAvailableCredits,
     loading: creditsLoading,
   } = useCreditUsage();
+
+  const [open, setOpen] = useState(false);
 
   const isFree = userPlan === "free";
   const [teamSubscriptions, setTeamSubscriptions] = useState<
@@ -120,6 +129,7 @@ export function TeamSelector({
   const teamInitials = getInitials(teamName);
 
   const handleUpgrade = () => {
+    setOpen(false);
     logger.log({
       event: "client_dashboard_sidebar_item_clicked",
       properties: {
@@ -134,6 +144,7 @@ export function TeamSelector({
   };
 
   const handleSettings = () => {
+    setOpen(false);
     logger.log({
       event: "client_dashboard_settings_clicked",
       properties: {
@@ -144,6 +155,7 @@ export function TeamSelector({
   };
 
   const handleInviteMembers = () => {
+    setOpen(false);
     logger.log({
       event: "client_dashboard_sidebar_item_clicked",
       properties: {
@@ -154,44 +166,258 @@ export function TeamSelector({
     onOpenSettings?.("people");
   };
 
+  const handleCreditsClick = () => {
+    setOpen(false);
+    logger.log({
+      event: "client_dashboard_sidebar_item_clicked",
+      properties: {
+        component: "TeamSelector",
+        item: "credits",
+      },
+    });
+    onOpenSettings?.("credits");
+  };
+
+  const handleTeamSwitch = (team: (typeof teams)[0]) => {
+    setOpen(false);
+    const isPersonal = team.personal_owner_user_id !== null;
+    logger.log({
+      event: "client_dashboard_sidebar_item_clicked",
+      properties: {
+        component: "TeamSelector",
+        item: "switch_team",
+        team_id: team.id,
+        is_personal: isPersonal,
+      },
+    });
+    setActiveTeam(team);
+  };
+
+  const handleCreateTeam = () => {
+    setOpen(false);
+    logger.log({
+      event: "client_dashboard_sidebar_item_clicked",
+      properties: {
+        component: "TeamSelector",
+        item: "create_team",
+      },
+    });
+    router.push("/teams/create");
+  };
+
+  // Shared trigger button
+  const triggerButton = (
+    <SidebarMenuButton
+      tooltip={isCollapsed ? teamName : undefined}
+      className={cn(
+        "h-auto border border-sidebar-border bg-sidebar-accent/50 hover:bg-sidebar-accent",
+        isCollapsed
+          ? "justify-center py-1 px-0"
+          : "justify-between py-1.5",
+      )}
+    >
+      {isCollapsed ? (
+        <Avatar className="w-8 h-8 rounded-lg">
+          <AvatarImage src={signedAvatarUrl || undefined} />
+          <AvatarFallback className="rounded-lg bg-primary/10 text-sm font-bold text-primary">
+            {teamInitials}
+          </AvatarFallback>
+        </Avatar>
+      ) : (
+        <>
+          <div className="flex items-center gap-2.5 min-w-0">
+            <Avatar className="w-8 h-8 rounded-lg shrink-0">
+              <AvatarImage src={signedAvatarUrl || undefined} />
+              <AvatarFallback className="rounded-lg bg-primary/10 text-sm font-bold text-primary">
+                {teamInitials}
+              </AvatarFallback>
+            </Avatar>
+            <span className="text-sm font-medium truncate">
+              {teamName}
+            </span>
+          </div>
+          <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" />
+        </>
+      )}
+    </SidebarMenuButton>
+  );
+
+  // Shared content for both dropdown and drawer
+  const selectorContent = (
+    <>
+      {/* Team Header */}
+      <div className="px-6 pt-6 pb-4">
+        <div className="flex items-center gap-3">
+          <Avatar className="w-14 h-14 rounded-xl">
+            <AvatarImage src={signedAvatarUrl || undefined} />
+            <AvatarFallback className="rounded-xl bg-primary/10 text-xl font-bold text-primary">
+              {teamInitials}
+            </AvatarFallback>
+          </Avatar>
+          <div className="flex-1">
+            <div className="text-lg font-semibold">{teamName}</div>
+            <p className="text-sm text-muted-foreground">
+              {isFree ? "Free Plan" : `${userPlan} Plan`} •{" "}
+              {teamMembers.length}{" "}
+              {teamMembers.length === 1 ? "member" : "members"}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div className="px-6 pb-6 space-y-4">
+        {/* Settings and Invite buttons */}
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={handleSettings}
+            className="flex-1"
+          >
+            <Settings className="w-4 h-4 mr-2" />
+            Settings
+          </Button>
+          <Button
+            variant="outline"
+            onClick={handleInviteMembers}
+            className="flex-1"
+          >
+            <UserPlus className="w-4 h-4 mr-2" />
+            Invite members
+          </Button>
+        </div>
+
+        {/* Upgrade section (only for free users) */}
+        {isFree && !loadingSubscriptionData && (
+          <div className="bg-gradient-to-r from-warning/10 to-primary/10 border border-warning/20 rounded-lg p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Zap className="w-5 h-5 text-warning" />
+                <span className="font-semibold text-sm">Upgrade to Plus</span>
+              </div>
+              <Button
+                onClick={handleUpgrade}
+                size="sm"
+                className="bg-primary hover:bg-primary/90"
+              >
+                Upgrade
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Credits section */}
+        {!creditsLoading && (
+          <button
+            onClick={handleCreditsClick}
+            className="w-full bg-accent/50 rounded-lg p-4 space-y-3 hover:bg-accent/70 transition-colors cursor-pointer text-left"
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium">Credits</span>
+              <div className="flex items-center gap-1 text-sm">
+                <span className="font-semibold">{creditsRemaining}</span>
+                <span className="text-muted-foreground">left</span>
+                <ChevronRight className="w-4 h-4 text-muted-foreground" />
+              </div>
+            </div>
+            <Progress value={usagePercentage} className="h-2" />
+            {isFree && (
+              <p className="text-xs text-muted-foreground">
+                Daily credits reset at midnight UTC
+              </p>
+            )}
+          </button>
+        )}
+
+        {/* All workspaces section */}
+        <div className="space-y-2">
+          <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1">
+            All workspaces
+          </h3>
+          <div className="space-y-1">
+            {teams.map((team) => {
+              const isActive = activeTeam?.id === team.id;
+              const teamInitialsLocal = getInitials(team.name);
+              const teamPlan = teamSubscriptions[team.id] || "free";
+              const teamIsFree = teamPlan === "free";
+
+              return (
+                <button
+                  key={team.id}
+                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-accent/50 transition-colors"
+                  onClick={() => handleTeamSwitch(team)}
+                >
+                  <Avatar className="w-8 h-8 rounded-lg shrink-0">
+                    <AvatarFallback className="rounded-lg bg-primary/10 text-sm font-bold text-primary">
+                      {teamInitialsLocal}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1 text-left">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium">
+                        {team.name}
+                      </span>
+                      {teamIsFree && (
+                        <Badge variant="secondary" className="text-xs">
+                          FREE
+                        </Badge>
+                      )}
+                      {!teamIsFree && (
+                        <Badge
+                          variant="secondary"
+                          className="text-xs uppercase"
+                        >
+                          {teamPlan}
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                  {isActive && <Check className="w-4 h-4 text-primary" />}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Create new workspace button */}
+        {!isCurrentUserSsoUser && (
+          <Button
+            variant="outline"
+            className="w-full justify-start"
+            onClick={handleCreateTeam}
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Create new team
+          </Button>
+        )}
+      </div>
+    </>
+  );
+
+  // Mobile: use Drawer (bottom sheet)
+  if (isMobile) {
+    return (
+      <SidebarMenu>
+        <SidebarMenuItem>
+          <Drawer open={open} onOpenChange={setOpen}>
+            <DrawerTrigger asChild>
+              {triggerButton}
+            </DrawerTrigger>
+            <DrawerContent className="max-h-[85vh] overflow-y-auto">
+              {selectorContent}
+            </DrawerContent>
+          </Drawer>
+        </SidebarMenuItem>
+      </SidebarMenu>
+    );
+  }
+
+  // Desktop: use DropdownMenu
   return (
     <SidebarMenu>
       <SidebarMenuItem>
-        <DropdownMenu>
+        <DropdownMenu open={open} onOpenChange={setOpen}>
           <DropdownMenuTrigger asChild>
-            <SidebarMenuButton
-              tooltip={isCollapsed ? teamName : undefined}
-              className={cn(
-                "h-auto border border-sidebar-border bg-sidebar-accent/50 hover:bg-sidebar-accent",
-                isCollapsed
-                  ? "justify-center py-1 px-0"
-                  : "justify-between py-1.5",
-              )}
-            >
-              {isCollapsed ? (
-                <Avatar className="w-8 h-8 rounded-lg">
-                  <AvatarImage src={signedAvatarUrl || undefined} />
-                  <AvatarFallback className="rounded-lg bg-primary/10 text-sm font-bold text-primary">
-                    {teamInitials}
-                  </AvatarFallback>
-                </Avatar>
-              ) : (
-                <>
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <Avatar className="w-8 h-8 rounded-lg shrink-0">
-                      <AvatarImage src={signedAvatarUrl || undefined} />
-                      <AvatarFallback className="rounded-lg bg-primary/10 text-sm font-bold text-primary">
-                        {teamInitials}
-                      </AvatarFallback>
-                    </Avatar>
-                    <span className="text-sm font-medium truncate">
-                      {teamName}
-                    </span>
-                  </div>
-                  <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" />
-                </>
-              )}
-            </SidebarMenuButton>
+            {triggerButton}
           </DropdownMenuTrigger>
 
           <DropdownMenuContent
@@ -199,181 +425,7 @@ export function TeamSelector({
             align="start"
             className="w-[480px] max-w-[calc(100vw-2rem)] p-0 bg-sidebar text-sidebar-foreground border-sidebar-border"
           >
-            {/* Team Header */}
-            <div className="px-6 pt-6 pb-4">
-              <div className="flex items-center gap-3">
-                <Avatar className="w-14 h-14 rounded-xl">
-                  <AvatarImage src={signedAvatarUrl || undefined} />
-                  <AvatarFallback className="rounded-xl bg-primary/10 text-xl font-bold text-primary">
-                    {teamInitials}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="flex-1">
-                  <div className="text-lg font-semibold">{teamName}</div>
-                  <p className="text-sm text-muted-foreground">
-                    {isFree ? "Free Plan" : `${userPlan} Plan`} •{" "}
-                    {teamMembers.length}{" "}
-                    {teamMembers.length === 1 ? "member" : "members"}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="px-6 pb-6 space-y-4">
-              {/* Settings and Invite buttons */}
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  onClick={handleSettings}
-                  className="flex-1"
-                >
-                  <Settings className="w-4 h-4 mr-2" />
-                  Settings
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={handleInviteMembers}
-                  className="flex-1"
-                >
-                  <UserPlus className="w-4 h-4 mr-2" />
-                  Invite members
-                </Button>
-              </div>
-
-              {/* Upgrade section (only for free users) */}
-              {isFree && !loadingSubscriptionData && (
-                <div className="bg-gradient-to-r from-warning/10 to-primary/10 border border-warning/20 rounded-lg p-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Zap className="w-5 h-5 text-warning" />
-                      <span className="font-semibold text-sm">Upgrade to Plus</span>
-                    </div>
-                    <Button
-                      onClick={handleUpgrade}
-                      size="sm"
-                      className="bg-primary hover:bg-primary/90"
-                    >
-                      Upgrade
-                    </Button>
-                  </div>
-                </div>
-              )}
-
-              {/* Credits section */}
-              {!creditsLoading && (
-                <button
-                  onClick={() => {
-                    logger.log({
-                      event: "client_dashboard_sidebar_item_clicked",
-                      properties: {
-                        component: "TeamSelector",
-                        item: "credits",
-                      },
-                    });
-                    onOpenSettings?.("credits");
-                  }}
-                  className="w-full bg-accent/50 rounded-lg p-4 space-y-3 hover:bg-accent/70 transition-colors cursor-pointer text-left"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium">Credits</span>
-                    <div className="flex items-center gap-1 text-sm">
-                      <span className="font-semibold">{creditsRemaining}</span>
-                      <span className="text-muted-foreground">left</span>
-                      <ChevronRight className="w-4 h-4 text-muted-foreground" />
-                    </div>
-                  </div>
-                  <Progress value={usagePercentage} className="h-2" />
-                  {isFree && (
-                    <p className="text-xs text-muted-foreground">
-                      Daily credits reset at midnight UTC
-                    </p>
-                  )}
-                </button>
-              )}
-
-              {/* All workspaces section */}
-              <div className="space-y-2">
-                <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1">
-                  All workspaces
-                </h3>
-                <div className="space-y-1">
-                  {teams.map((team) => {
-                    const isActive = activeTeam?.id === team.id;
-                    const teamInitialsLocal = getInitials(team.name);
-                    const isPersonal = team.personal_owner_user_id !== null;
-                    const teamPlan = teamSubscriptions[team.id] || "free";
-                    const teamIsFree = teamPlan === "free";
-
-                    return (
-                      <button
-                        key={team.id}
-                        className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-accent/50 transition-colors"
-                        onClick={() => {
-                          logger.log({
-                            event: "client_dashboard_sidebar_item_clicked",
-                            properties: {
-                              component: "TeamSelector",
-                              item: "switch_team",
-                              team_id: team.id,
-                              is_personal: isPersonal,
-                            },
-                          });
-                          setActiveTeam(team);
-                        }}
-                      >
-                        <Avatar className="w-8 h-8 rounded-lg shrink-0">
-                          <AvatarFallback className="rounded-lg bg-primary/10 text-sm font-bold text-primary">
-                            {teamInitialsLocal}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="flex-1 text-left">
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm font-medium">
-                              {team.name}
-                            </span>
-                            {teamIsFree && (
-                              <Badge variant="secondary" className="text-xs">
-                                FREE
-                              </Badge>
-                            )}
-                            {!teamIsFree && (
-                              <Badge
-                                variant="secondary"
-                                className="text-xs uppercase"
-                              >
-                                {teamPlan}
-                              </Badge>
-                            )}
-                          </div>
-                        </div>
-                        {isActive && <Check className="w-4 h-4 text-primary" />}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Create new workspace button */}
-              {!isCurrentUserSsoUser && (
-                <Button
-                  variant="outline"
-                  className="w-full justify-start"
-                  onClick={() => {
-                    logger.log({
-                      event: "client_dashboard_sidebar_item_clicked",
-                      properties: {
-                        component: "TeamSelector",
-                        item: "create_team",
-                      },
-                    });
-                    router.push("/teams/create");
-                  }}
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  Create new team
-                </Button>
-              )}
-            </div>
+            {selectorContent}
           </DropdownMenuContent>
         </DropdownMenu>
       </SidebarMenuItem>

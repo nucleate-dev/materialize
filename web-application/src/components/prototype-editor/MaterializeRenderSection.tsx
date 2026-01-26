@@ -23,6 +23,12 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+  Drawer,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+} from "@/components/ui/drawer";
 import { useActiveTeam } from "@/contexts/TeamContext";
 import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import { type ScreenUpdateData } from "@/lib/types/ChatTypes";
@@ -713,6 +719,7 @@ const MaterializeRenderSection = forwardRef<
     const [isProjectSettingsOpen, setIsProjectSettingsOpen] = useState(false);
     const [projectSettingsTab, setProjectSettingsTab] =
       useState<ProjectSettingsTab>("deploy");
+    const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
     const logPrototypeEvent = useCallback(
       (event: PostHogEvent, properties?: Record<string, unknown>) => {
@@ -3043,8 +3050,315 @@ const MaterializeRenderSection = forwardRef<
 
     return (
       <div className="flex flex-col h-full bg-background">
-        {/* Compact Responsive Toolbar */}
-        {showToolbar && (
+        {/* Mobile Toolbar */}
+        {showToolbar && isMobileLayout && (
+          <div className="z-30 bg-background/80 backdrop-blur-xl sticky top-0 px-3 py-2 border-b border-border">
+            <div className="flex items-center justify-between">
+              {/* Left: Preview/Code toggle */}
+              {!isReadOnlyView && (
+                <div className="flex items-center gap-2">
+                  <div className="bg-accent p-1 rounded-lg border border-border flex items-center gap-1">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handlePreviewToggle(true)}
+                      className={cn(
+                        "h-7 w-7 rounded-md transition-all",
+                        isPreviewView
+                          ? "bg-white text-black shadow-sm"
+                          : "text-muted-foreground hover:text-foreground hover:bg-accent",
+                      )}
+                    >
+                      <Eye className="w-3.5 h-3.5" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handlePreviewToggle(false)}
+                      className={cn(
+                        "h-7 w-7 rounded-md transition-all",
+                        !isPreviewView
+                          ? "bg-white text-black shadow-sm"
+                          : "text-muted-foreground hover:text-foreground hover:bg-accent",
+                      )}
+                    >
+                      <Code2 className="w-3.5 h-3.5" />
+                    </Button>
+                  </div>
+                  <ConnectionStatusIndicator />
+                </div>
+              )}
+              {isReadOnlyView && <div />}
+
+              {/* Right: Ellipsis menu button */}
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setIsMobileMenuOpen(true)}
+                className="h-8 w-8 bg-accent border border-border text-muted-foreground hover:text-foreground hover:border-border/80 hover:bg-accent/80 transition-all"
+              >
+                <MoreVertical className="w-4 h-4" />
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Mobile Actions Bottom Sheet */}
+        <Drawer open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
+          <DrawerContent className="bg-background border-border">
+            <DrawerHeader className="border-b border-border">
+              <DrawerTitle className="text-foreground">Actions</DrawerTitle>
+            </DrawerHeader>
+            <div className="p-4 space-y-1 max-h-[70vh] overflow-y-auto">
+              {/* Primary Actions */}
+              {!isReadOnlyView && (
+                <>
+                  <button
+                    className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-accent text-foreground text-left"
+                    onClick={() => {
+                      handleOpenProjectSettings("share", "mobile_menu_share");
+                      setIsMobileMenuOpen(false);
+                    }}
+                    disabled={!prototypeId}
+                  >
+                    <Share2 className="w-5 h-5 text-muted-foreground" />
+                    <span>Share</span>
+                  </button>
+                  <button
+                    className={cn(
+                      "w-full flex items-center gap-3 p-3 rounded-lg text-left",
+                      deploymentUrl
+                        ? "bg-success/10 text-success hover:bg-success/20"
+                        : "hover:bg-accent text-foreground"
+                    )}
+                    onClick={() => {
+                      handleOpenProjectSettings("deploy", "mobile_menu_deploy");
+                      setIsMobileMenuOpen(false);
+                    }}
+                    disabled={isDeploying || !prototypeId}
+                  >
+                    {isDeploying ? (
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                    ) : (
+                      <Rocket className="w-5 h-5 text-muted-foreground" />
+                    )}
+                    <span>{deploymentUrl ? "Manage Deploy" : "Deploy"}</span>
+                  </button>
+                  {isWebFramework ? (
+                    <button
+                      className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-accent text-foreground text-left"
+                      onClick={() => {
+                        handleOpenBrowserPreview("mobile_menu");
+                        setIsMobileMenuOpen(false);
+                      }}
+                      disabled={!viewing_url}
+                    >
+                      <ExternalLink className="w-5 h-5 text-muted-foreground" />
+                      <span>Open in Browser</span>
+                    </button>
+                  ) : (
+                    <button
+                      className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-accent text-foreground text-left"
+                      onClick={() => {
+                        handleOpenViewOnDevice("mobile_menu");
+                        setIsMobileMenuOpen(false);
+                      }}
+                      disabled={!viewing_url}
+                    >
+                      <QrCode className="w-5 h-5 text-muted-foreground" />
+                      <span>View on Device</span>
+                    </button>
+                  )}
+                </>
+              )}
+
+              {/* Device Mode Section */}
+              {!isReadOnlyView && isPreviewView && !isCanvasPreviewEnabled && (
+                <>
+                  <div className="h-px bg-border my-2" />
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide px-3 py-2">Device Mode</p>
+                  <div className="flex gap-2 px-3">
+                    <Button
+                      variant={previewMode === "mobile" ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => {
+                        handleModeChange("mobile");
+                      }}
+                      className={cn(
+                        "flex-1",
+                        previewMode === "mobile" && "bg-white text-black"
+                      )}
+                    >
+                      <Smartphone className="w-4 h-4 mr-2" />
+                      Mobile
+                    </Button>
+                    <Button
+                      variant={previewMode === "tablet" ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => {
+                        handleModeChange("tablet");
+                      }}
+                      className={cn(
+                        "flex-1",
+                        previewMode === "tablet" && "bg-white text-black"
+                      )}
+                    >
+                      <Tablet className="w-4 h-4 mr-2" />
+                      Tablet
+                    </Button>
+                    <Button
+                      variant={previewMode === "web" ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => {
+                        handleModeChange("web");
+                      }}
+                      className={cn(
+                        "flex-1",
+                        previewMode === "web" && "bg-white text-black"
+                      )}
+                    >
+                      <Monitor className="w-4 h-4 mr-2" />
+                      Desktop
+                    </Button>
+                  </div>
+                </>
+              )}
+
+              {/* Tools Section */}
+              {!isReadOnlyView && (
+                <>
+                  <div className="h-px bg-border my-2" />
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide px-3 py-2">Tools</p>
+                  <button
+                    className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-accent text-foreground text-left"
+                    onClick={() => {
+                      setIsTerminalOpen(!isTerminalOpen);
+                      setIsMobileMenuOpen(false);
+                    }}
+                  >
+                    <TerminalIcon className="w-5 h-5 text-muted-foreground" />
+                    <span>{isTerminalOpen ? "Hide Terminal" : "Show Terminal"}</span>
+                  </button>
+                  {!isPreviewView && (
+                    <button
+                      className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-accent text-foreground text-left"
+                      onClick={() => {
+                        handleExport();
+                        setIsMobileMenuOpen(false);
+                      }}
+                      disabled={isExporting}
+                    >
+                      {isExporting ? (
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                      ) : (
+                        <Download className="w-5 h-5 text-muted-foreground" />
+                      )}
+                      <span>{isExporting ? "Exporting..." : "Export"}</span>
+                    </button>
+                  )}
+                  <button
+                    className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-accent text-foreground text-left"
+                    onClick={() => {
+                      handleRestartDevServer();
+                      setIsMobileMenuOpen(false);
+                    }}
+                    disabled={!prototypeId || isRestartingDevServer}
+                  >
+                    {isRestartingDevServer ? (
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                    ) : (
+                      <RefreshCw className="w-5 h-5 text-muted-foreground" />
+                    )}
+                    <span>{isRestartingDevServer ? "Restarting..." : "Restart Dev Server"}</span>
+                  </button>
+                  <button
+                    className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-accent text-foreground text-left"
+                    onClick={() => {
+                      handleBuildAndDeploy();
+                      setIsMobileMenuOpen(false);
+                    }}
+                    disabled={!sandbox_url || !prototypeId || isBuilding}
+                  >
+                    {isBuilding ? (
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                    ) : (
+                      <Hammer className="w-5 h-5 text-muted-foreground" />
+                    )}
+                    <span>{isBuilding ? "Building..." : "Build"}</span>
+                  </button>
+                </>
+              )}
+
+              {/* Settings Section */}
+              {!isReadOnlyView && (
+                <>
+                  <div className="h-px bg-border my-2" />
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide px-3 py-2">Settings</p>
+                  <button
+                    className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-accent text-foreground text-left"
+                    onClick={() => {
+                      handleOpenProjectSettings("details", "mobile_menu_settings");
+                      setIsMobileMenuOpen(false);
+                    }}
+                    disabled={!prototypeId}
+                  >
+                    <Settings className="w-5 h-5 text-muted-foreground" />
+                    <span>Project Settings</span>
+                  </button>
+                  {ENABLE_DESIGN_SYSTEM && designSystemLabel && onDesignSystemClick && (
+                    <button
+                      className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-accent text-foreground text-left"
+                      onClick={() => {
+                        onDesignSystemClick();
+                        setIsMobileMenuOpen(false);
+                      }}
+                    >
+                      <Palette className="w-5 h-5 text-muted-foreground" />
+                      <span>Design System</span>
+                    </button>
+                  )}
+                  {onClone && (
+                    <button
+                      className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-accent text-foreground text-left"
+                      onClick={() => {
+                        onClone();
+                        setIsMobileMenuOpen(false);
+                      }}
+                      disabled={isCloningPrototype}
+                    >
+                      {isCloningPrototype ? (
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                      ) : (
+                        <Copy className="w-5 h-5 text-muted-foreground" />
+                      )}
+                      <span>{isCloningPrototype ? "Cloning..." : "Clone"}</span>
+                    </button>
+                  )}
+                </>
+              )}
+
+              {/* Destructive Actions */}
+              {onResetToDefault && (
+                <>
+                  <div className="h-px bg-border my-2" />
+                  <button
+                    className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-red-500/10 text-red-400 text-left"
+                    onClick={() => {
+                      onResetToDefault();
+                      setIsMobileMenuOpen(false);
+                    }}
+                  >
+                    <RotateCcw className="w-5 h-5" />
+                    <span>Reset to Default</span>
+                  </button>
+                </>
+              )}
+            </div>
+          </DrawerContent>
+        </Drawer>
+
+        {/* Desktop Toolbar */}
+        {showToolbar && !isMobileLayout && (
           <div
             className={cn(
               "z-30 bg-background/80 backdrop-blur-xl transition-all duration-300",

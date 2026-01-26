@@ -1172,46 +1172,10 @@ export default function InternalPrototypePage() {
 
   return (
     <div className="h-screen flex flex-col overflow-hidden bg-[#0B0C0E] text-white">
-      {/* Mobile Panel Toggle */}
-      {isMobile && (
-        <div className="bg-[#141517] border-b border-white/5 p-2">
-          <div className="flex items-center justify-center space-x-2">
-            <Button
-              variant={activePanel === "chat" ? "default" : "ghost"}
-              size="sm"
-              onClick={() => setActivePanel("chat")}
-              className={cn(
-                "flex items-center gap-2 transition-all",
-                activePanel === "chat"
-                  ? "bg-white text-black"
-                  : "text-[#8A8F98] hover:text-white hover:bg-white/10",
-              )}
-            >
-              <MessageSquare className="w-4 h-4" />
-              Chat
-            </Button>
-            <Button
-              variant={activePanel === "preview" ? "default" : "ghost"}
-              size="sm"
-              onClick={() => setActivePanel("preview")}
-              className={cn(
-                "flex items-center gap-2 transition-all",
-                activePanel === "preview"
-                  ? "bg-white text-black"
-                  : "text-[#8A8F98] hover:text-white hover:bg-white/10",
-              )}
-            >
-              <Smartphone className="w-4 h-4" />
-              Preview
-            </Button>
-          </div>
-        </div>
-      )}
-
       {/* Main content area */}
       <div
         className={`flex-1 flex overflow-hidden min-h-0 ${isMobile ? "flex-col" : ""} ${isDragging ? "select-none" : ""}`}
-        style={isMobile ? { height: "calc(100dvh - 120px)" } : {}}
+        style={isMobile ? { height: "calc(100dvh - 60px)", paddingBottom: "60px" } : {}}
         onTouchStart={isMobile ? onTouchStart : undefined}
         onTouchMove={isMobile ? onTouchMove : undefined}
         onTouchEnd={isMobile ? onTouchEnd : undefined}
@@ -1654,6 +1618,42 @@ export default function InternalPrototypePage() {
         onOpenChange={setTeamSettingsDialogOpen}
         defaultTab={teamSettingsDefaultTab}
       />
+
+      {/* Mobile Bottom Navigation */}
+      {isMobile && (
+        <div className="fixed bottom-0 left-0 right-0 z-50 bg-[#141517] border-t border-white/5 p-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))]">
+          <div className="flex items-center justify-center space-x-2">
+            <Button
+              variant={activePanel === "chat" ? "default" : "ghost"}
+              size="sm"
+              onClick={() => setActivePanel("chat")}
+              className={cn(
+                "flex items-center gap-2 transition-all",
+                activePanel === "chat"
+                  ? "bg-white text-black"
+                  : "text-[#8A8F98] hover:text-white hover:bg-white/10",
+              )}
+            >
+              <MessageSquare className="w-4 h-4" />
+              Chat
+            </Button>
+            <Button
+              variant={activePanel === "preview" ? "default" : "ghost"}
+              size="sm"
+              onClick={() => setActivePanel("preview")}
+              className={cn(
+                "flex items-center gap-2 transition-all",
+                activePanel === "preview"
+                  ? "bg-white text-black"
+                  : "text-[#8A8F98] hover:text-white hover:bg-white/10",
+              )}
+            >
+              <Smartphone className="w-4 h-4" />
+              Preview
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
