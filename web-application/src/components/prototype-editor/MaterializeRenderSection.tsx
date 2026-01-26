@@ -5,6 +5,12 @@ import { ENABLE_DESIGN_SYSTEM } from "@/GlobalConstants";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
+  Drawer,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+} from "@/components/ui/drawer";
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -23,12 +29,6 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import {
-  Drawer,
-  DrawerContent,
-  DrawerHeader,
-  DrawerTitle,
-} from "@/components/ui/drawer";
 import { useActiveTeam } from "@/contexts/TeamContext";
 import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import { type ScreenUpdateData } from "@/lib/types/ChatTypes";
@@ -3127,9 +3127,7 @@ const MaterializeRenderSection = forwardRef<
                   <button
                     className={cn(
                       "w-full flex items-center gap-3 p-3 rounded-lg text-left",
-                      deploymentUrl
-                        ? "bg-success/10 text-success hover:bg-success/20"
-                        : "hover:bg-accent text-foreground"
+                      "hover:bg-accent text-foreground"
                     )}
                     onClick={() => {
                       handleOpenProjectSettings("deploy", "mobile_menu_deploy");
@@ -3142,7 +3140,7 @@ const MaterializeRenderSection = forwardRef<
                     ) : (
                       <Rocket className="w-5 h-5 text-muted-foreground" />
                     )}
-                    <span>{deploymentUrl ? "Manage Deploy" : "Deploy"}</span>
+                    <span>{deploymentUrl ? "Manage" : "Deploy"}</span>
                   </button>
                   {isWebFramework ? (
                     <button
@@ -3765,9 +3763,7 @@ const MaterializeRenderSection = forwardRef<
                     disabled={isDeploying || !prototypeId}
                     className={cn(
                       "h-8 px-3 text-xs font-semibold shadow-sm",
-                      deploymentUrl
-                        ? "bg-success hover:bg-success/90 text-white"
-                        : "bg-primary hover:bg-primary/90 text-primary-foreground",
+                      "bg-primary hover:bg-primary/90 text-primary-foreground",
                     )}
                   >
                     {isDeploying ? (
@@ -3775,7 +3771,7 @@ const MaterializeRenderSection = forwardRef<
                     ) : (
                       <Rocket className="w-3.5 h-3.5 mr-2" />
                     )}
-                    {deploymentUrl ? "Manage deploy" : "Deploy"}
+                    {deploymentUrl ? "Manage" : "Deploy"}
                   </Button>
                 )}
 
