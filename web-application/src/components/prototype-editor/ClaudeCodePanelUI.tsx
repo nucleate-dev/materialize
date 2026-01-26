@@ -583,11 +583,12 @@ export default function ClaudeCodePanelUI({
 
                       {/* Assistant Message */}
                       {message.type === "assistant" && (
-                        <div className="w-full max-w-none px-1">
+                        <div className="w-full max-w-none px-1 overflow-hidden">
                           <div
                             className="prose prose-sm prose-gray dark:prose-invert max-w-none break-words
                         prose-pre:bg-accent/50
                         prose-pre:border prose-pre:border-border
+                        prose-pre:overflow-x-auto prose-pre:max-w-full
                         prose-code:text-primary
                         prose-code:bg-primary/10 prose-code:px-1 prose-code:rounded
                         prose-code:before:content-none prose-code:after:content-none"
@@ -663,7 +664,7 @@ export default function ClaudeCodePanelUI({
                                           : "bg-success",
                                     )}
                                   />
-                                  <code className="text-xs font-mono text-muted-foreground truncate max-w-[200px] sm:max-w-md">
+                                  <code className="text-xs font-mono text-muted-foreground truncate max-w-[200px] sm:max-w-md break-all">
                                     {sanitizeText(toolDisplayName)}
                                   </code>
                                   {message.status === "running" && (
@@ -677,7 +678,7 @@ export default function ClaudeCodePanelUI({
                                   )}
                                 </div>
                                 {isExpanded && (
-                                  <div className="ml-5 mt-1 rounded-md border border-border bg-background/60 px-3 py-2 text-xs font-mono text-foreground/80 whitespace-pre-wrap">
+                                  <div className="ml-5 mt-1 rounded-md border border-border bg-background/60 px-3 py-2 text-xs font-mono text-foreground/80 whitespace-pre-wrap break-all overflow-x-auto">
                                     {sanitizeText(toolCommand)}
                                   </div>
                                 )}
@@ -718,7 +719,7 @@ export default function ClaudeCodePanelUI({
                           {message.toolCallId &&
                             expandedThinking.has(message.toolCallId) && (
                               <div className="ml-2 pl-4 border-l border-border mt-0.5 py-0.5">
-                                <div className="text-xs font-mono text-muted-foreground whitespace-pre-wrap leading-relaxed bg-accent/50 p-2.5 rounded-md border border-border">
+                                <div className="text-xs font-mono text-muted-foreground whitespace-pre-wrap break-all overflow-x-auto leading-relaxed bg-accent/50 p-2.5 rounded-md border border-border">
                                   {sanitizeText(message.content)}
                                   {message.toolInput && (
                                     <div className="mt-3 pt-3 border-t border-dashed border-border">
