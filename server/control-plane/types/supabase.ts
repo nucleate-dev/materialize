@@ -1717,7 +1717,10 @@ export type Database = {
       design_style: "tamagui" | "stylesheets" | "nativewind" | "custom"
       file_type: "text" | "asset"
       prototype_build_status: "in_progress" | "success" | "failure"
-      prototype_framework: "mobile_expo_react_native" | "web_nextjs_react"
+      prototype_framework:
+        | "mobile_expo_react_native"
+        | "web_nextjs_react"
+        | "web_vite_react"
       pull_request_status: "open" | "closed" | "merged"
       subscription_plan_type: "free" | "team" | "pro" | "plus" | "max"
       subscription_status: "active" | "past_due" | "canceled"
@@ -1861,7 +1864,11 @@ export const Constants = {
       design_style: ["tamagui", "stylesheets", "nativewind", "custom"],
       file_type: ["text", "asset"],
       prototype_build_status: ["in_progress", "success", "failure"],
-      prototype_framework: ["mobile_expo_react_native", "web_nextjs_react"],
+      prototype_framework: [
+        "mobile_expo_react_native",
+        "web_nextjs_react",
+        "web_vite_react",
+      ],
       pull_request_status: ["open", "closed", "merged"],
       subscription_plan_type: ["free", "team", "pro", "plus", "max"],
       subscription_status: ["active", "past_due", "canceled"],
