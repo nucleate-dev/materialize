@@ -100,6 +100,7 @@ export class FileSyncService {
     ".git",
     ".next",
     "dist",
+    "dist-ssr",
     "build",
     ".cache",
     "tmp",
@@ -115,6 +116,12 @@ export class FileSyncService {
     ".webpack",
     ".yarn",
     ".pnpm-store",
+    ".supabase",
+    ".convex",
+    "logs",
+    ".vscode",
+    ".idea",
+    "_generated",
   ]);
 
   private readonly skipFileNames = new Set([
@@ -124,10 +131,34 @@ export class FileSyncService {
     ".env",
     ".eslintcache",
     ".stylelintcache",
+    ".gitconfig",
+    ".bash_history",
+    "next-env.d.ts",
+    ".pnp",
+    ".pnp.cjs",
+    ".pnp.loader.mjs",
   ]);
   // File patterns/suffixes to skip (for pattern matching)
   private readonly skipFileSuffixes = [
     ".tsbuildinfo", // TypeScript incremental build info files
+    ".local", // Vite local config files (e.g., vite.config.ts.local)
+    ".pem", // SSL certificates
+    ".log", // Log files
+    ".suo", // Visual Studio user options
+    ".njsproj", // Node.js project files
+    ".sln", // Visual Studio solution files
+  ];
+
+  // File prefixes to skip (for pattern matching)
+  private readonly skipFilePrefixes = [
+    ".env.", // Environment files like .env.local, .env.development
+  ];
+
+  // File patterns to skip (contains matching)
+  private readonly skipFilePatterns = [
+    "-debug.log", // Debug logs (npm-debug.log, yarn-debug.log, etc.)
+    ".ntvs", // Node.js Tools for Visual Studio
+    ".sw", // Vim swap files (.swp, .swo, etc.)
   ];
 
   constructor(supabaseClientService: SupabaseClientService) {
@@ -283,8 +314,18 @@ export class FileSyncService {
       return true;
     }
 
-    // Check file suffix patterns (e.g., *.tsbuildinfo)
+    // Check file suffix patterns (e.g., *.tsbuildinfo, *.local)
     if (this.skipFileSuffixes.some((suffix) => entryName.endsWith(suffix))) {
+      return true;
+    }
+
+    // Check file prefix patterns (e.g., .env.*)
+    if (this.skipFilePrefixes.some((prefix) => entryName.startsWith(prefix))) {
+      return true;
+    }
+
+    // Check file contains patterns (e.g., *-debug.log*, *.ntvs*, *.sw?)
+    if (this.skipFilePatterns.some((pattern) => entryName.includes(pattern))) {
       return true;
     }
 
