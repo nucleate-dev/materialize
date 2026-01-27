@@ -81,7 +81,7 @@ export class ViteReactAdapter implements IDevelopmentServerAdapter {
         ];
 
         const isReady = readyPatterns.some((pattern) =>
-          cleanedOutput.includes(pattern),
+          cleanedOutput.includes(pattern)
         );
 
         if (isReady) {
@@ -93,10 +93,9 @@ export class ViteReactAdapter implements IDevelopmentServerAdapter {
           });
           resolve({
             data: {
-              tunnel_url:
-                process.env.FARGATE_DEV_MODE === "true"
-                  ? `${this.configuredTunnelUrl}:${DEV_SERVER_PORT}`
-                  : `${this.configuredTunnelUrl}`,
+              tunnel_url: process.env.FARGATE_DEV_MODE === "true"
+                ? `${this.configuredTunnelUrl}:${DEV_SERVER_PORT}`
+                : `${this.configuredTunnelUrl}`,
             },
             error: null,
           });
@@ -308,7 +307,7 @@ echo "EXIT_CODE=$?"
           output_path: "",
           build_status: "failure",
           build_output: cleanBuildOutput(
-            result.stdout || result.stderr || "Build failed with no output"
+            result.stdout || result.stderr || "Build failed with no output",
           ),
         },
         error: null,
@@ -332,7 +331,7 @@ echo "EXIT_CODE=$?"
           output_path: "",
           build_status: "failure",
           build_output: cleanBuildOutput(
-            result.stdout || "Build output directory not found"
+            result.stdout || "Build output directory not found",
           ),
         },
         error: null,
@@ -344,7 +343,7 @@ echo "EXIT_CODE=$?"
         output_path: distPath,
         build_status: "success",
         build_output: cleanBuildOutput(
-          result.stdout || "Build completed successfully"
+          result.stdout || "Build completed successfully",
         ),
       },
       error: null,
