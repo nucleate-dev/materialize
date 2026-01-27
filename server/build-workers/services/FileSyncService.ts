@@ -158,8 +158,10 @@ export class FileSyncService {
   private readonly skipFilePatterns = [
     "-debug.log", // Debug logs (npm-debug.log, yarn-debug.log, etc.)
     ".ntvs", // Node.js Tools for Visual Studio
-    ".sw", // Vim swap files (.swp, .swo, etc.)
   ];
+
+  // Vim swap file suffixes (.swp, .swo, .swn, etc.)
+  private readonly vimSwapSuffixes = [".swp", ".swo", ".swn", ".swm", ".swl"];
 
   constructor(supabaseClientService: SupabaseClientService) {
     this.supabaseClientService = supabaseClientService;
@@ -324,8 +326,13 @@ export class FileSyncService {
       return true;
     }
 
-    // Check file contains patterns (e.g., *-debug.log*, *.ntvs*, *.sw?)
+    // Check file contains patterns (e.g., *-debug.log*, *.ntvs*)
     if (this.skipFilePatterns.some((pattern) => entryName.includes(pattern))) {
+      return true;
+    }
+
+    // Check vim swap file suffixes (.swp, .swo, etc.)
+    if (this.vimSwapSuffixes.some((suffix) => entryName.endsWith(suffix))) {
       return true;
     }
 
