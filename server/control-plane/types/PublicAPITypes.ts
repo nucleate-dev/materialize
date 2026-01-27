@@ -731,3 +731,76 @@ export function isStandardErrorResponse(
     "message" in response
   );
 }
+
+// ============================================================================
+// FILE OPERATIONS ENDPOINTS
+// ============================================================================
+
+// POST /files/list
+export interface ListFilesRequestBody {
+  prototype_id: string;
+}
+
+export interface FileListItem {
+  name: string;
+  type: 'text' | 'binary';
+  updated_at: string;
+}
+
+export interface ListFilesSuccessResponse {
+  files: FileListItem[];
+}
+
+// POST /files/read
+export interface ReadFileRequestBody {
+  prototype_id: string;
+  file_path: string;
+}
+
+export interface ReadFileSuccessResponse {
+  file_path: string;
+  content: string;
+  type: 'text' | 'binary';
+}
+
+// POST /files/write
+export interface WriteFileRequestBody {
+  prototype_id: string;
+  file_path: string;
+  content: string; // For binary files, this should be base64 encoded
+}
+
+export interface WriteFileSuccessResponse {
+  success: true;
+  file_path: string;
+  message: string;
+}
+
+// POST /files/delete
+export interface DeleteFileRequestBody {
+  prototype_id: string;
+  file_path: string;
+}
+
+export interface DeleteFileSuccessResponse {
+  success: true;
+  file_path: string;
+  message: string;
+}
+
+// POST /files/read-multiple
+export interface ReadMultipleFilesRequestBody {
+  prototype_id: string;
+  file_paths: string[];
+}
+
+export interface ReadMultipleFilesFileResult {
+  file_path: string;
+  content: string | null;
+  type: 'text' | 'binary';
+  error?: string;
+}
+
+export interface ReadMultipleFilesSuccessResponse {
+  files: ReadMultipleFilesFileResult[];
+}

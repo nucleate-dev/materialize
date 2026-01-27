@@ -52,6 +52,7 @@ import { TeamTab } from "./TeamTab";
 import { PeopleTab } from "./PeopleTab";
 import { GitHubIntegrationTab } from "./GitHubIntegrationTab";
 import { SupabaseBackendIntegrationTab } from "./SupabaseBackendIntegrationTab";
+import { ApiKeysTab } from "./ApiKeysTab";
 import { useClaudePersonalSubscriptionAccess } from "@/hooks/useClaudePersonalSubscriptionAccess";
 
 export type SettingsTab =
@@ -61,7 +62,8 @@ export type SettingsTab =
   | "team"
   | "people"
   | "github"
-  | "supabase-backend";
+  | "supabase-backend"
+  | "api-keys";
 
 interface SettingsDialogProps {
   open: boolean;
@@ -92,6 +94,8 @@ export function TeamAndAccountsSettingsDialog({
     isClaudeFeatureEnabled && isClaudePersonalEligible && !claudeAccessLoading;
   const isSupabaseBackendConnectorEnabled =
     posthog?.isFeatureEnabled("supabase-backend-connector") ?? false;
+  const isApiKeysEnabled =
+    posthog?.isFeatureEnabled("mcp-api-keys") ?? false;
 
   // Get initials for team avatar
   const getInitials = (name: string) => {
@@ -116,11 +120,13 @@ export function TeamAndAccountsSettingsDialog({
         !isSupabaseBackendConnectorEnabled
       ) {
         setActiveTab("profile");
+      } else if (defaultTab === "api-keys" && !isApiKeysEnabled) {
+        setActiveTab("profile");
       } else {
         setActiveTab(defaultTab);
       }
     }
-  }, [open, defaultTab, canShowClaudeTab, isSupabaseBackendConnectorEnabled]);
+  }, [open, defaultTab, canShowClaudeTab, isSupabaseBackendConnectorEnabled, isApiKeysEnabled]);
 
   useEffect(() => {
     if (!canShowClaudeTab && activeTab === "claude") {
@@ -132,7 +138,10 @@ export function TeamAndAccountsSettingsDialog({
     ) {
       setActiveTab("profile");
     }
-  }, [canShowClaudeTab, isSupabaseBackendConnectorEnabled, activeTab]);
+    if (!isApiKeysEnabled && activeTab === "api-keys") {
+      setActiveTab("profile");
+    }
+  }, [canShowClaudeTab, isSupabaseBackendConnectorEnabled, isApiKeysEnabled, activeTab]);
 
   // Fetch subscriptions for all teams
   useEffect(() => {
@@ -203,6 +212,15 @@ export function TeamAndAccountsSettingsDialog({
           icon: CreditCard,
         },
         { id: "people", label: "People", icon: Users },
+        ...(isApiKeysEnabled
+          ? [
+              {
+                id: "api-keys" as const,
+                label: "API Keys",
+                icon: Key,
+              },
+            ]
+          : []),
       ],
     },
     {
@@ -429,6 +447,7 @@ export function TeamAndAccountsSettingsDialog({
                 activeTab === "supabase-backend" && (
                   <SupabaseBackendIntegrationTab />
                 )}
+              {isApiKeysEnabled && activeTab === "api-keys" && <ApiKeysTab />}
             </div>
           </div>
         </DialogContent>

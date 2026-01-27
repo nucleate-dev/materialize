@@ -28,6 +28,8 @@ import { PrototypeDeploymentService } from "./services/prototype-management/Prot
 import { PrototypeManagementService } from "./services/prototype-management/PrototypeManagementService.js";
 import { StripeManagementService } from "./services/StripeManagementService.js";
 import { TeamManagementService } from "./services/team-management/TeamManagementService.js";
+import { FileOperationsService } from "./services/file-operations/FileOperationsService.js";
+import { ApiKeyService } from "./services/api-keys/ApiKeyService.js";
 
 // Extend FastifyRequest to include our custom loggers and raw body
 declare module "fastify" {
@@ -174,6 +176,8 @@ let internalDevServerManagementService: InternalControlPlaneDevelopmentService;
 let internalProductionDeploymentService: InternalProductionDeploymentService;
 let internalCleanupServiceManagement: InternalCleanupServiceManagement;
 let llmService: LLMService;
+let fileOperationsService: FileOperationsService;
+let apiKeyService: ApiKeyService;
 let cache: GlideClient;
 
 // Health check
@@ -306,6 +310,14 @@ const start = async (): Promise<void> => {
     // Create LLM service and register routes
     llmService = new LLMService();
     llmService.registerRoutes(fastify);
+
+    // Create file operations service and register routes
+    fileOperationsService = new FileOperationsService();
+    fileOperationsService.registerRoutes(fastify);
+
+    // Create API key service and register routes
+    apiKeyService = new ApiKeyService();
+    apiKeyService.registerRoutes(fastify);
 
     await fastify.listen({
       port: 3000,

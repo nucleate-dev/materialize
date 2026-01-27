@@ -1,4 +1,8 @@
 export type PostHogEvent =
+  | 'client_api_key_create_started'
+  | 'client_api_key_create_success'
+  | 'client_api_key_revoke_started'
+  | 'client_api_key_revoke_success'
   | 'client_auth_callback_login_completed'
   | 'client_team_invite_redirect_to_login'
   | 'client_team_invite_accepting'
@@ -76,6 +80,10 @@ export type PostHogEvent =
   | 'server_stripe_webhook_subscription_payment_completed';
 
 export const PostHogEvents: Record<PostHogEvent, PostHogEvent> = Object.freeze({
+  client_api_key_create_started: 'client_api_key_create_started',
+  client_api_key_create_success: 'client_api_key_create_success',
+  client_api_key_revoke_started: 'client_api_key_revoke_started',
+  client_api_key_revoke_success: 'client_api_key_revoke_success',
   client_auth_callback_login_completed: 'client_auth_callback_login_completed',
   client_checkout_payment_completed: 'client_checkout_payment_completed',
   client_dashboard_logout_clicked: 'client_dashboard_logout_clicked',

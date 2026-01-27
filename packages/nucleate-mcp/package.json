@@ -1,0 +1,48 @@
+{
+  "name": "@nucleate/mcp-server",
+  "version": "0.1.0",
+  "description": "MCP server for Nucleate - manage prototypes, dev servers, and files from Claude Code or other MCP clients",
+  "type": "module",
+  "main": "dist/server.js",
+  "types": "dist/server.d.ts",
+  "bin": {
+    "nucleate-mcp": "./bin/nucleate-mcp.js"
+  },
+  "files": [
+    "dist",
+    "bin"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist",
+    "start": "node dist/server.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.24.1",
+    "@nucleate/mcp-core": "*",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.24",
+    "typescript": "^5.9.3"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": [
+    "nucleate",
+    "mcp",
+    "model-context-protocol",
+    "ai",
+    "claude",
+    "claude-code",
+    "prototypes"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/nucleate-dev/nucleate"
+  },
+  "license": "MIT"
+}
