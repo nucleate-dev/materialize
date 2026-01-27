@@ -458,9 +458,12 @@ const PreviewCanvas = forwardRef<PreviewCanvasRef, PreviewCanvasProps>(
           previewMode: screen.previewMode || initialCanvasState.previewMode || previewMode,
         }));
       } else {
-        // Create initial screens from props
+        // Create initial screens from props, or use a default screen if none provided
         const dimensions = getDefaultDimensions(previewMode);
-        screensToUse = initialScreens.map((config, index) => {
+        const screensToCreate = initialScreens.length > 0
+          ? initialScreens
+          : [{ id: 0, path: "/" }];
+        screensToUse = screensToCreate.map((config, index) => {
           const position = getDefaultPosition(index, previewMode);
           return {
             id: config.id,
@@ -477,11 +480,28 @@ const PreviewCanvas = forwardRef<PreviewCanvasRef, PreviewCanvasProps>(
         setScreensState(screensToUse);
       }
 
-      // Always zoom to fit after initial load to ensure screens are visible
-      setTimeout(() => {
-        const bounds = calculateBounds(screensToUse);
-        panZoomToFit(bounds);
-      }, 100);
+      // Zoom to fit after initial load - wait for container to have dimensions
+      const attemptZoomToFit = (attempts = 0) => {
+        const container = containerRef.current;
+        if (!container) {
+          if (attempts < 10) {
+            setTimeout(() => attemptZoomToFit(attempts + 1), 50);
+          }
+          return;
+        }
+
+        const rect = container.getBoundingClientRect();
+        if (rect.width > 0 && rect.height > 0) {
+          const bounds = calculateBounds(screensToUse);
+          panZoomToFit(bounds);
+        } else if (attempts < 10) {
+          // Container not ready yet, retry
+          setTimeout(() => attemptZoomToFit(attempts + 1), 50);
+        }
+      };
+
+      // Start attempting after a brief delay to allow initial render
+      setTimeout(() => attemptZoomToFit(), 50);
 
       setIsInitialized(true);
     }, [

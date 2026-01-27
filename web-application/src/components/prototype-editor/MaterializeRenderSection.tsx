@@ -2397,10 +2397,13 @@ const MaterializeRenderSection = forwardRef<
                                 style={{
                                   zoom: mobileScaleFactor,
                                   transformOrigin: "top left",
-                                  // Disable pointer events during resize so mouse events reach the document
-                                  pointerEvents: isResizingMobile
-                                    ? "none"
-                                    : "auto",
+                                  // Disable pointer events during any resize so mouse events reach the document
+                                  pointerEvents:
+                                    isResizingMobile ||
+                                    isResizingWebFrame ||
+                                    isResizingTerminal
+                                      ? "none"
+                                      : "auto",
                                 }}
                                 title="React Native Preview"
                                 aria-label={`React Native Preview ${screen.path}`}
@@ -2641,9 +2644,13 @@ const MaterializeRenderSection = forwardRef<
                                 }}
                                 className="w-full h-full"
                                 style={{
-                                  pointerEvents: isResizingMobile
-                                    ? "none"
-                                    : "auto",
+                                  // Disable pointer events during any resize so mouse events reach the document
+                                  pointerEvents:
+                                    isResizingMobile ||
+                                    isResizingWebFrame ||
+                                    isResizingTerminal
+                                      ? "none"
+                                      : "auto",
                                 }}
                                 title="Tablet Preview"
                                 aria-label={`Tablet Preview ${screen.path}`}
@@ -2998,8 +3005,13 @@ const MaterializeRenderSection = forwardRef<
                         style={{
                           zoom: webScaleFactor,
                           transformOrigin: "top left",
-                          // Disable pointer events during resize so mouse events reach the document
-                          pointerEvents: isResizingWebFrame ? "none" : "auto",
+                          // Disable pointer events during any resize so mouse events reach the document
+                          pointerEvents:
+                            isResizingMobile ||
+                            isResizingWebFrame ||
+                            isResizingTerminal
+                              ? "none"
+                              : "auto",
                         }}
                         title={`Web Preview ${screen.path}`}
                         src={iframeSrc}
