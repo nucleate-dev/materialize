@@ -160,8 +160,8 @@ export class FileSyncService {
     ".ntvs", // Node.js Tools for Visual Studio
   ];
 
-  // Vim swap file suffixes (.swp, .swo, .swn, etc.)
-  private readonly vimSwapSuffixes = [".swp", ".swo", ".swn", ".swm", ".swl"];
+  // Vim swap file pattern: .sw followed by a single letter (a-z, covers .swa through .swz and .swp, .swo, etc.)
+  private readonly vimSwapPattern = /\.sw[a-z]$/;
 
   constructor(supabaseClientService: SupabaseClientService) {
     this.supabaseClientService = supabaseClientService;
@@ -331,8 +331,8 @@ export class FileSyncService {
       return true;
     }
 
-    // Check vim swap file suffixes (.swp, .swo, etc.)
-    if (this.vimSwapSuffixes.some((suffix) => entryName.endsWith(suffix))) {
+    // Check vim swap files (.swa through .swz)
+    if (this.vimSwapPattern.test(entryName)) {
       return true;
     }
 
