@@ -1,3 +1,4 @@
+import axios from "axios";
 import { NucleateDevelopmentServerService } from "../NucleateDevelopmentServerService.js";
 import type { SystemLogger } from "../../../loggers/SystemLogger.js";
 import { getWorkerContext, SOURCE_REPO_DIR } from "../../../worker.js";
@@ -17,14 +18,6 @@ export interface PrepareSourceRepoBranchInput {
   existingPullRequestNumber?: number | null;
 }
 
-function escapeForDoubleQuotes(value: string): string {
-  return value
-    .replace(/\\/g, "\\\\")
-    .replace(/"/g, '\\"')
-    .replace(/\$/g, "\\$")
-    .replace(/`/g, "\\`");
-}
-
 function escapeForSingleQuotes(value: string): string {
   // In single-quoted shell strings, only single quotes need escaping.
   // Pattern: end current quote, add escaped single quote, start new quote.
@@ -34,6 +27,35 @@ function escapeForSingleQuotes(value: string): string {
 function sanitizeSingleLine(value: string): string {
   // Collapse any newlines/carriage returns to spaces for single-line fields like PR title.
   return value.replace(/[\r\n]+/g, " ").trim();
+}
+
+async function githubApiRequest<T>(
+  method: "get" | "post" | "patch",
+  path: string,
+  token: string,
+  data?: unknown,
+): Promise<T> {
+  try {
+    const response = await axios.request<T>({
+      method,
+      url: `https://api.github.com${path}`,
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
+      },
+      data,
+    });
+    return response.data;
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      const status = error.response?.status ?? "unknown";
+      const message = (error.response?.data as { message?: string } | undefined)
+        ?.message ?? error.message;
+      throw new Error(`GitHub API request failed (${status}): ${message}`);
+    }
+    throw error instanceof Error ? error : new Error(String(error));
+  }
 }
 
 function normalizeBranchName(branchName: string): string {
@@ -103,6 +125,12 @@ export async function createSourceRepoPullRequest(
   let pullRequestUrl: string | null = null;
   let pullRequestNumber = input.existingPullRequestNumber ?? null;
   let baseBranch = sourceRepo.defaultBranch;
+  const [repoOwner, repoName] = sourceRepo.fullName.split("/");
+  if (!repoOwner || !repoName) {
+    throw new Error(
+      `Invalid GitHub repository full name "${sourceRepo.fullName}".`,
+    );
+  }
   const remoteUrl =
     `https://x-access-token:${installationToken}@github.com/${sourceRepo.fullName}.git`;
 
@@ -119,42 +147,23 @@ export async function createSourceRepoPullRequest(
   );
 
   if (pullRequestNumber !== null) {
-    const prMetadataRaw = await runSourceRepoCommand(
-      service,
-      terminalSession.id,
-      `GH_TOKEN=${installationToken} gh pr view ${pullRequestNumber} --json headRefName,url,baseRefName`,
+    const prMetadata = await githubApiRequest<{
+      head?: { ref?: string };
+      base?: { ref?: string };
+      html_url?: string;
+    }>(
+      "get",
+      `/repos/${repoOwner}/${repoName}/pulls/${pullRequestNumber}`,
+      installationToken,
     );
-    // Strip any ANSI escape codes and spinner output before the JSON
-    const jsonMatch = prMetadataRaw.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
-      throw new Error(
-        `Failed to parse metadata for PR #${pullRequestNumber}. Raw output: ${
-          prMetadataRaw.slice(0, 200)
-        }`,
-      );
-    }
-    let prMetadata: {
-      headRefName?: string;
-      url?: string;
-      baseRefName?: string;
-    };
-    try {
-      prMetadata = JSON.parse(jsonMatch[0]);
-    } catch {
-      throw new Error(
-        `Failed to parse existing PR metadata. Raw output: ${
-          prMetadataRaw.slice(0, 200)
-        }`,
-      );
-    }
-    if (!prMetadata.headRefName) {
+    if (!prMetadata.head?.ref) {
       throw new Error(
         `Unable to determine branch name for PR #${pullRequestNumber}.`,
       );
     }
-    branchName = prMetadata.headRefName;
-    pullRequestUrl = prMetadata.url ?? null;
-    baseBranch = prMetadata.baseRefName ?? baseBranch;
+    branchName = prMetadata.head.ref;
+    pullRequestUrl = prMetadata.html_url ?? null;
+    baseBranch = prMetadata.base?.ref ?? baseBranch;
   }
 
   try {
@@ -219,64 +228,34 @@ export async function createSourceRepoPullRequest(
     const sanitizedTitle = sanitizeSingleLine(input.prTitle);
 
     if (pullRequestNumber !== null) {
-      await runSourceRepoCommand(
-        service,
-        terminalSession.id,
-        `printf '%s' '${
-          escapeForSingleQuotes(input.prDescription)
-        }' | GH_TOKEN=${installationToken} gh pr edit ${pullRequestNumber} --title "${
-          escapeForDoubleQuotes(sanitizedTitle)
-        }" --body-file -`,
-        { timeoutMs: 120000 },
+      const updatedPr = await githubApiRequest<{ html_url?: string }>(
+        "patch",
+        `/repos/${repoOwner}/${repoName}/pulls/${pullRequestNumber}`,
+        installationToken,
+        {
+          title: sanitizedTitle,
+          body: input.prDescription,
+          base: baseBranch,
+        },
       );
-      if (!pullRequestUrl) {
-        const prUrlRaw = await runSourceRepoCommand(
-          service,
-          terminalSession.id,
-          `GH_TOKEN=${installationToken} gh pr view ${pullRequestNumber} --json url`,
-        );
-        // Strip any ANSI escape codes and spinner output before the JSON
-        const jsonMatch = prUrlRaw.match(/\{[\s\S]*\}/);
-        if (!jsonMatch) {
-          throw new Error(
-            `Failed to parse metadata for PR #${pullRequestNumber}. Raw output: ${
-              prUrlRaw.slice(0, 200)
-            }`,
-          );
-        }
-        try {
-          const parsed = JSON.parse(jsonMatch[0]);
-          pullRequestUrl = parsed?.url ?? null;
-        } catch {
-          // Fall back to best-effort match
-          const match = prUrlRaw.match(/https:\/\/github\.com\/\S+/);
-          pullRequestUrl = match ? match[0] : null;
-        }
-      }
+      pullRequestUrl = pullRequestUrl ?? updatedPr.html_url ?? null;
     } else {
-      const prStdout = await runSourceRepoCommand(
-        service,
-        terminalSession.id,
-        `printf '%s' '${
-          escapeForSingleQuotes(input.prDescription)
-        }' | GH_TOKEN=${installationToken} gh pr create --title "${
-          escapeForDoubleQuotes(sanitizedTitle)
-        }" --body-file - --head ${branchName} --base ${baseBranch}`,
-        { timeoutMs: 120000 },
+      const createdPr = await githubApiRequest<{
+        html_url?: string;
+        number?: number;
+      }>(
+        "post",
+        `/repos/${repoOwner}/${repoName}/pulls`,
+        installationToken,
+        {
+          title: sanitizedTitle,
+          body: input.prDescription,
+          head: branchName,
+          base: baseBranch,
+        },
       );
-
-      const prUrlMatch = prStdout.match(
-        /https:\/\/github\.com\/\S+\/pull\/(\d+)/,
-      );
-      if (!prUrlMatch) {
-        throw new Error(
-          `Failed to parse pull request URL from gh output: ${
-            prStdout.slice(0, 200)
-          }`,
-        );
-      }
-      pullRequestUrl = prUrlMatch[0];
-      pullRequestNumber = Number(prUrlMatch[1]);
+      pullRequestUrl = createdPr.html_url ?? null;
+      pullRequestNumber = createdPr.number ?? null;
     }
 
     if (!pullRequestNumber || !pullRequestUrl) {
