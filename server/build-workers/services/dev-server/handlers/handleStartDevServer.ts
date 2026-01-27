@@ -19,6 +19,7 @@ import {
 } from "../../../worker.js";
 import { DEFAULT_PROTOTYPE_FRAMEWORK } from "../NucleateDevelopmentServerService.js";
 import { NextJsReactAdapter } from "../adapters/NextJsReactAdapter.js";
+import { ViteReactAdapter } from "../adapters/ViteReactAdapter.js";
 import { SupabaseClientService } from "../../SupabaseClientService.js";
 
 export async function handleStartDevServerImpl(
@@ -118,15 +119,15 @@ export async function handleStartDevServerImpl(
 
   const hasGitHubRepo = prototypeRow.github_repo_id !== null;
 
-  // if web, set the adapter to the NextJsReactAdapter with the correct tunnel hostname
+  // if web, set the adapter to the appropriate adapter with the correct tunnel hostname
   const resolvedFramework = developmentServerService.prototypeFramework ??
     DEFAULT_PROTOTYPE_FRAMEWORK;
-  if (resolvedFramework === "web_nextjs_react") {
+  if (resolvedFramework === "web_nextjs_react" || resolvedFramework === "web_vite_react") {
     const tunnelHostname = developmentServerService.cloudflareTunnelHostname;
     if (!tunnelHostname) {
       request.log2.error(
         new Error("Missing Cloudflare tunnel hostname"),
-        "Cannot start Next.js dev server without tunnel hostname",
+        `Cannot start ${resolvedFramework} dev server without tunnel hostname`,
       );
       reply.code(HTTP_STATUS.INTERNAL_SERVER_ERROR);
       return {
@@ -137,10 +138,17 @@ export async function handleStartDevServerImpl(
         },
       };
     }
-    developmentServerService.developmentServerAdapter = new NextJsReactAdapter(
-      developmentServerService.terminalService,
-      tunnelHostname,
-    );
+    if (resolvedFramework === "web_vite_react") {
+      developmentServerService.developmentServerAdapter = new ViteReactAdapter(
+        developmentServerService.terminalService,
+        tunnelHostname,
+      );
+    } else {
+      developmentServerService.developmentServerAdapter = new NextJsReactAdapter(
+        developmentServerService.terminalService,
+        tunnelHostname,
+      );
+    }
   }
 
   if (
