@@ -53,6 +53,7 @@ const ALL_STARTER_APPS = [
   "starter-app-stylesheets",
   "starter-app-tamagui",
   "web-starter-app-nextjs",
+  "web-starter-app-vite",
 ];
 
 // Check for specific app argument (non-flag arguments)
@@ -288,7 +289,7 @@ async function uploadFilesToS3(files, basePath, s3Prefix) {
 }
 
 /**
- * Build a web app (React Native or Next.js)
+ * Build a web app (React Native, Next.js, or Vite)
  */
 function buildApp(appDir, appName) {
   console.log(`🏗️  Building ${appName}...`);
@@ -296,10 +297,13 @@ function buildApp(appDir, appName) {
   const clientDir = path.join(appDir, "client");
   console.log(`   Working directory: ${clientDir}`);
 
-  // Check if this is a Next.js app
+  // Check app type
   const isNextJs =
     appName.includes("nextjs") ||
     fs.existsSync(path.join(clientDir, "next.config.ts"));
+  const isVite =
+    appName.includes("vite") ||
+    fs.existsSync(path.join(clientDir, "vite.config.ts"));
 
   try {
     // First, ensure dependencies are installed
@@ -333,6 +337,23 @@ function buildApp(appDir, appName) {
       fs.renameSync(outDir, distDir);
 
       console.log(`   ✅ Build completed successfully for ${appName}`);
+      return distDir;
+    } else if (isVite) {
+      // Vite build
+      console.log("   🚀 Running Vite build...");
+      execSync("npm run build", {
+        cwd: clientDir,
+        stdio: "inherit",
+      });
+
+      console.log(`   ✅ Build completed successfully for ${appName}`);
+
+      // Verify dist directory exists
+      const distDir = path.join(clientDir, "dist");
+      if (!fs.existsSync(distDir)) {
+        throw new Error(`Build output directory not found: ${distDir}`);
+      }
+
       return distDir;
     } else {
       // React Native Expo build
