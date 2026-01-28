@@ -55,10 +55,11 @@ RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
       && apt-get install -y --no-install-recommends gh \
       && rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*
 
-# Install Bun runtime for Vite projects
-RUN curl -fsSL https://bun.sh/install | bash \
-      && ln -s /root/.bun/bin/bun /usr/local/bin/bun \
-      && ln -s /root/.bun/bin/bunx /usr/local/bin/bunx
+# Install Bun runtime for Vite projects (shared install for non-root users)
+RUN BUN_INSTALL=/usr/local/bun curl -fsSL https://bun.sh/install | bash \
+      && ln -s /usr/local/bun/bin/bun /usr/local/bin/bun \
+      && ln -s /usr/local/bun/bin/bunx /usr/local/bin/bunx \
+      && chmod -R a+rX /usr/local/bun
 
 # Environment setup for Node + Watchman + PTY
 ENV TERM=xterm-256color
@@ -71,7 +72,7 @@ ENV WATCHPACK_POLLING=true
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NEXT_SHARP_PATH=/usr/lib/x86_64-linux-gnu/libvips.so.42
 # Bun settings
-ENV BUN_INSTALL=/root/.bun
+ENV BUN_INSTALL=/usr/local/bun
 ENV BUN_INSTALL_CACHE_DIR=/tmp/materialize-dev-server/.bun-cache
 ENV PATH="$BUN_INSTALL/bin:$PATH"
 

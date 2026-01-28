@@ -191,11 +191,12 @@ cd ..
 rm -rf watchman*
 ldconfig /usr/local/lib
 
-# 3. Install Bun runtime for Vite projects
+# 3. Install Bun runtime for Vite projects (shared install for non-root users)
 echo "==> Installing Bun runtime..."
-curl -fsSL https://bun.sh/install | bash
-ln -sf /root/.bun/bin/bun /usr/local/bin/bun
-ln -sf /root/.bun/bin/bunx /usr/local/bin/bunx
+BUN_INSTALL=/usr/local/bun curl -fsSL https://bun.sh/install | bash
+ln -sf /usr/local/bun/bin/bun /usr/local/bin/bun
+ln -sf /usr/local/bun/bin/bunx /usr/local/bin/bunx
+chmod -R a+rX /usr/local/bun
 
 # 4. Install global npm packages for build-workers
 echo "==> Installing @expo/ngrok globally..."
@@ -243,7 +244,16 @@ export EXPO_NO_TELEMETRY=1
 export CHOKIDAR_USEPOLLING=1
 export CHOKIDAR_INTERVAL=100
 export WATCHPACK_POLLING=true
+export BUN_INSTALL=/usr/local/bun
+export PATH="$BUN_INSTALL/bin:$PATH"
 EOF
+
+# Make Bun available for all users (including materialize-user)
+cat > /etc/profile.d/bun.sh << 'EOF'
+export BUN_INSTALL=/usr/local/bun
+export PATH="$BUN_INSTALL/bin:$PATH"
+EOF
+chmod 644 /etc/profile.d/bun.sh
 
 echo "✅ System prerequisites installed successfully"
 
