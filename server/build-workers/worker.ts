@@ -240,6 +240,21 @@ const close = async (): Promise<void> => {
 
 process.on("SIGINT", close);
 process.on("SIGTERM", close);
+process.on("uncaughtException", (error) => {
+  baseLogger.error(error, "Build worker crashed with uncaughtException");
+  // Give logger a moment to flush before exit
+  setTimeout(() => process.exit(1), 500).unref();
+});
+process.on("unhandledRejection", (reason) => {
+  baseLogger.error(
+    reason instanceof Error ? reason : new Error(String(reason)),
+    "Build worker crashed with unhandledRejection",
+  );
+  setTimeout(() => process.exit(1), 500).unref();
+});
+process.on("exit", (code) => {
+  baseLogger.warn("Build worker exiting", { code });
+});
 
 // --- Start Server ---
 const start = async (): Promise<void> => {
