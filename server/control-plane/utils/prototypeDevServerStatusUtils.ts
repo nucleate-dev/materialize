@@ -11,6 +11,15 @@ export function isEditableDevServer(status: BuildStatus | null): boolean {
   );
 }
 
+export function isRunningDevServer(status: BuildStatus | null): boolean {
+  return (
+    status === "stable" ||
+    status === "error" ||
+    status === "chatting" ||
+    status === "building"
+  );
+}
+
 export function isDispatchInProgress(status: BuildStatus | null): boolean {
   return (
     status === "updating" || status === "creating" || status === "chatting"

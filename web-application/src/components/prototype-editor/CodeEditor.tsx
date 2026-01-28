@@ -70,7 +70,6 @@ interface CodeEditorProps {
   prototypeId: string;
   language?: string;
   readOnly?: boolean;
-  onViewingUrlUpdate?: (url: string) => void;
   onBuildingStateChange?: (isBuilding: boolean) => void;
   saveMode?: "single-file" | "all-files";
   currentRenderStatus?: RenderStatus;
@@ -173,7 +172,6 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
   prototypeId,
   language = "typescript",
   readOnly = false,
-  // onViewingUrlUpdate is available via props if needed
   onBuildingStateChange,
   saveMode = "single-file",
   currentRenderStatus,

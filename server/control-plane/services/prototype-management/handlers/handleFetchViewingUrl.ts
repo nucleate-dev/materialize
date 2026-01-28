@@ -7,7 +7,9 @@ import {
   StandardErrorResponse,
 } from "../../../types/PublicAPITypes.js";
 import { checkUserHasPrototypeEditAccess } from "../../../utils/prototypeAuth.js";
-import { isEditableDevServer } from "../../../utils/prototypeDevServerStatusUtils.js";
+import {
+  isRunningDevServer,
+} from "../../../utils/prototypeDevServerStatusUtils.js";
 import { getCloudfrontScreenshotUrl } from "../../cleanup/screenshotUtils.js";
 import { DispatcherService } from "../../dispatcher/DispatcherService.js";
 
@@ -51,7 +53,7 @@ export default async function handleFetchViewingUrlImpl(
 
         if (precheckResult.data && precheckResult.data.viewing_url) {
           // Type guard to check if it's a success response
-          const isEditable = isEditableDevServer(precheckResult.data.status);
+          const isEditable = isRunningDevServer(precheckResult.data.status);
           let staticViewingUrl = precheckResult.data.viewing_url;
           if (
             !isEditable &&

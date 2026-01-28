@@ -1286,7 +1286,6 @@ export default function InternalPrototypePage() {
               prototypeId={prototypeId}
               files={fileSystem.state.files}
               assets={fileSystem.state.assets}
-              onViewingUrlUpdate={setViewingUrl}
               currentRenderStatus={currentRenderStatus}
               onRenderStatusChange={setCurrentRenderStatus}
               designSystemLabel={
@@ -1387,7 +1386,6 @@ export default function InternalPrototypePage() {
                             <CodeEditor
                               fileSystem={fileSystem}
                               prototypeId={prototypeId}
-                              onViewingUrlUpdate={setViewingUrl}
                               currentRenderStatus={currentRenderStatus}
                               onFilesSaved={handleFilesSaved}
                             />
@@ -1413,7 +1411,6 @@ export default function InternalPrototypePage() {
                         <CodeEditor
                           fileSystem={fileSystem}
                           prototypeId={prototypeId}
-                          onViewingUrlUpdate={setViewingUrl}
                           currentRenderStatus={currentRenderStatus}
                           onFilesSaved={handleFilesSaved}
                         />

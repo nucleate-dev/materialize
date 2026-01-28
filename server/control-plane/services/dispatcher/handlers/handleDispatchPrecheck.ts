@@ -16,7 +16,9 @@ import {
   hgetallAsActiveBuild,
   hgetallAsDevBuild,
 } from "../../../utils/cacheInteractionUtils.js";
-import { isEditableDevServer } from "../../../utils/prototypeDevServerStatusUtils.js";
+import {
+  isRunningDevServer,
+} from "../../../utils/prototypeDevServerStatusUtils.js";
 import { SystemLogger } from "../../../loggers/SystemLogger.js";
 
 export async function handleDispatchPrecheckImpl(
@@ -99,7 +101,7 @@ export async function handleDispatchPrecheckImpl(
           data: {
             status: existingBuild.status,
             viewing_url: normalizeUrl(
-              isEditableDevServer(existingBuild.status)
+              isRunningDevServer(existingBuild.status)
                 ? existingBuild.url
                 : getS3Url(prototype_id),
             ),

@@ -223,7 +223,6 @@ interface MaterializeRenderSectionProps {
   prototypeId?: string;
   files?: Record<string, PrototypeFile>;
   assets?: Record<string, PrototypeAsset>;
-  onViewingUrlUpdate?: (url: string) => void;
   // New render status props
   currentRenderStatus?: RenderStatus;
   onRenderStatusChange: (status: RenderStatus) => void;

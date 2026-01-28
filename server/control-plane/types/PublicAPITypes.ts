@@ -47,7 +47,7 @@ export type PrototypeAssetInputWithContent = PrototypeAssetInput & {
 export type BuildStatus =
   | "creating"
   | "chatting"
-  | "updating"
+  | "updating" // this actually only refers to STARTING dev server, never use for anything else
   | "error"
   | "stable"
   | "cleaning"
