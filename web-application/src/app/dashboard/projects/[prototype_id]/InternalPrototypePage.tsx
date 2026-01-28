@@ -757,6 +757,11 @@ export default function InternalPrototypePage() {
             let newStatus: RenderStatus;
             if (data.data.source === "editable_instance") {
               newStatus = "Connecting..";
+            } else if (
+              data.data.status === "creating" ||
+              data.data.status === "updating"
+            ) {
+              newStatus = "Starting Dev Server..";
             } else {
               newStatus = "Static build";
             }
