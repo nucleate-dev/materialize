@@ -94,7 +94,11 @@ export function EnvironmentVariablesModal({
 
   // Determine the appropriate environment variable prefix based on framework
   const envPrefix =
-    framework === "web_nextjs_react" ? "NEXT_PUBLIC_" : "EXPO_PUBLIC_";
+    framework === "web_nextjs_react"
+      ? "NEXT_PUBLIC_"
+      : framework === "web_vite_react"
+        ? "VITE_"
+        : "EXPO_PUBLIC_";
 
   const [envVars, setEnvVars] = useState<PrototypeEnvVar[]>([]);
   const [isLoadingEnvVars, setIsLoadingEnvVars] = useState(false);

@@ -22,7 +22,10 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useActiveTeam } from "@/contexts/TeamContext";
-import { VIEWER_ROLE_RESTRICTION_MESSAGE, ENABLE_DESIGN_SYSTEM } from "@/GlobalConstants";
+import {
+  VIEWER_ROLE_RESTRICTION_MESSAGE,
+  ENABLE_DESIGN_SYSTEM,
+} from "@/GlobalConstants";
 import { useCreatePrototype } from "@/hooks/useCreatePrototype";
 import { useUser } from "@/hooks/useUser";
 import { redirectAfterLoginAtom } from "@/lib/atoms/sidebar";
@@ -73,12 +76,12 @@ const WEB_DESIGN_STYLE_LABELS: Partial<Record<DesignStyle, string>> = {
   stylesheets: "Tailwind + Shadcn",
 };
 
-const DEFAULT_FRAMEWORK: PrototypeFramework = "web_nextjs_react";
+const DEFAULT_FRAMEWORK: PrototypeFramework = "web_vite_react";
 const PLATFORM_OPTIONS: Array<{
   value: PrototypeFramework;
   label: string;
 }> = [
-  { value: "web_nextjs_react", label: "Web" },
+  { value: "web_vite_react", label: "Web" },
   { value: "mobile_expo_react_native", label: "Mobile" },
 ];
 
@@ -111,7 +114,8 @@ export default function DashboardPage() {
   const [isDragOver, setIsDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const isWebFrameworkSelected = framework === "web_nextjs_react";
+  const isWebFrameworkSelected =
+    framework === "web_nextjs_react" || framework === "web_vite_react";
   const availableDesignStyles = isWebFrameworkSelected
     ? WEB_DESIGN_STYLE_OPTIONS
     : DESIGN_STYLE_OPTIONS;
@@ -191,7 +195,10 @@ export default function DashboardPage() {
   }, [redirectAfterLogin, setRedirectAfterLogin, router]);
 
   useEffect(() => {
-    if (framework === "web_nextjs_react" && designStyle !== "stylesheets") {
+    if (
+      (framework === "web_nextjs_react" || framework === "web_vite_react") &&
+      designStyle !== "stylesheets"
+    ) {
       setDesignStyle("stylesheets");
     }
   }, [framework, designStyle]);
@@ -336,7 +343,13 @@ export default function DashboardPage() {
             source: "dashboard_prompt",
           },
         });
-        setChatIntent(result.data.prototype_id, content, false, visibility, imagesToSend);
+        setChatIntent(
+          result.data.prototype_id,
+          content,
+          false,
+          visibility,
+          imagesToSend,
+        );
         setUploadedImages([]);
         router.push(`/dashboard/projects/${result.data.prototype_id}`);
       } else if (result.error?.error === "PROTOTYPE_LIMIT_REACHED") {
@@ -562,7 +575,11 @@ export default function DashboardPage() {
                         >
                           <div className="flex items-center gap-2">
                             <Icon className="w-3.5 h-3.5" />
-                            <span>{option.value === "TEAM" && activeTeam ? activeTeam.name : option.label}</span>
+                            <span>
+                              {option.value === "TEAM" && activeTeam
+                                ? activeTeam.name
+                                : option.label}
+                            </span>
                             {option.isLocked && (
                               <Lock className="w-3 h-3 text-muted-foreground/50 ml-auto" />
                             )}
@@ -626,7 +643,9 @@ export default function DashboardPage() {
                       {ENABLE_DESIGN_SYSTEM && (
                         <Select
                           value={designStyle}
-                          onValueChange={(v) => setDesignStyle(v as DesignStyle)}
+                          onValueChange={(v) =>
+                            setDesignStyle(v as DesignStyle)
+                          }
                           disabled={isLoading}
                         >
                           <SelectTrigger className="h-9 border-border bg-secondary text-secondary-foreground text-xs w-full">
@@ -669,7 +688,11 @@ export default function DashboardPage() {
                               >
                                 <div className="flex items-center gap-2">
                                   <Icon className="w-3.5 h-3.5" />
-                                  <span>{option.value === "TEAM" && activeTeam ? activeTeam.name : option.label}</span>
+                                  <span>
+                                    {option.value === "TEAM" && activeTeam
+                                      ? activeTeam.name
+                                      : option.label}
+                                  </span>
                                   {option.isLocked && (
                                     <Lock className="w-3 h-3 text-muted-foreground/50 ml-auto" />
                                   )}

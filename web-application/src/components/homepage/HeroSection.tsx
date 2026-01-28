@@ -27,12 +27,12 @@ import { usePrototypeVisibilityOptions } from "@/hooks/usePrototypeVisibilityOpt
 
 type PrototypeFramework = Database["public"]["Enums"]["prototype_framework"];
 
-const DEFAULT_FRAMEWORK: PrototypeFramework = "web_nextjs_react";
+const DEFAULT_FRAMEWORK: PrototypeFramework = "web_vite_react";
 const PLATFORM_OPTIONS: Array<{
   value: PrototypeFramework;
   label: string;
 }> = [
-  { value: "web_nextjs_react", label: "Web" },
+  { value: "web_vite_react", label: "Web" },
   { value: "mobile_expo_react_native", label: "Mobile" },
 ];
 
@@ -197,7 +197,13 @@ export default function HeroSection() {
       });
 
       if (result.data) {
-        setChatIntent(result.data.prototype_id, content, false, visibility, imagesToSend);
+        setChatIntent(
+          result.data.prototype_id,
+          content,
+          false,
+          visibility,
+          imagesToSend,
+        );
         setUploadedImages([]);
         router.push(`/dashboard/projects/${result.data.prototype_id}`);
       } else if (result.error?.error === "PROTOTYPE_LIMIT_REACHED") {

@@ -155,11 +155,8 @@ export function ProjectSettingsModal({
   createdAtLabel,
 }: ProjectSettingsModalProps) {
   const logger = useProductLogger();
-  const {
-    visibilityOptions,
-    showUpsellModal,
-    setShowUpsellModal,
-  } = usePrototypeVisibilityOptions();
+  const { visibilityOptions, showUpsellModal, setShowUpsellModal } =
+    usePrototypeVisibilityOptions();
 
   // Tab state
   const [activeTab, setActiveTab] = useState<ProjectSettingsTab>(initialTab);
@@ -357,10 +354,7 @@ export function ProjectSettingsModal({
       return false;
 
     const latestBuild = buildHistory[0];
-    return (
-      latestBuild.deploy_key &&
-      latestBuild.deploy_key === latestDeployKey
-    );
+    return latestBuild.deploy_key && latestBuild.deploy_key === latestDeployKey;
   }, [prototype, buildHistory, latestDeployKey]);
 
   // Check if slug has changed from the original
@@ -425,7 +419,9 @@ export function ProjectSettingsModal({
             error: latestDeployKeyResult.error,
           });
         } else {
-          setLatestDeployKey(latestDeployKeyResult.data?.latest_deploy_key ?? null);
+          setLatestDeployKey(
+            latestDeployKeyResult.data?.latest_deploy_key ?? null,
+          );
         }
       } catch (error) {
         if (isActive) {
@@ -743,7 +739,11 @@ export function ProjectSettingsModal({
 
   // ===== ENVIRONMENT VARIABLES STATE =====
   const envPrefix =
-    framework === "web_nextjs_react" ? "NEXT_PUBLIC_" : "EXPO_PUBLIC_";
+    framework === "web_nextjs_react"
+      ? "NEXT_PUBLIC_"
+      : framework === "web_vite_react"
+        ? "VITE_"
+        : "EXPO_PUBLIC_";
 
   const [envVars, setEnvVars] = useState<PrototypeEnvVar[]>([]);
   const [isLoadingEnvVars, setIsLoadingEnvVars] = useState(false);
@@ -1412,7 +1412,9 @@ export function ProjectSettingsModal({
                       <p className="text-sm text-foreground font-mono">
                         {createdAtLabel ||
                           (prototype?.created_at
-                            ? new Date(prototype.created_at).toLocaleDateString()
+                            ? new Date(
+                                prototype.created_at,
+                              ).toLocaleDateString()
                             : "N/A")}
                       </p>
                     </div>
@@ -1772,7 +1774,8 @@ export function ProjectSettingsModal({
                         onVisibilityChange?.(value);
                         toast.success("Visibility updated");
                         logger.log({
-                          event: "client_prototype_editor_share_visibility_changed",
+                          event:
+                            "client_prototype_editor_share_visibility_changed",
                           properties: {
                             prototype_id: prototype.id,
                             visibility: value,

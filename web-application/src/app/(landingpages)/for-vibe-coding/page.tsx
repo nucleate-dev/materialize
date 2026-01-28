@@ -33,14 +33,16 @@ import {
   Camera,
   Check,
   CheckCircle2,
-  ChevronLeft, Layers,
+  ChevronLeft,
+  Layers,
   Layout,
   Lock,
   MessageCircle,
   Music2,
   Palette,
   Play,
-  RefreshCw, ShieldCheck,
+  RefreshCw,
+  ShieldCheck,
   ShoppingBag,
   Smartphone,
   Sparkles,
@@ -50,7 +52,7 @@ import {
   Tv,
   Users,
   X,
-  Zap
+  Zap,
 } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
@@ -62,9 +64,9 @@ const PLATFORM_OPTIONS: Array<{
   value: PrototypeFramework;
   label: string;
 }> = [
-    { value: "web_nextjs_react", label: "Web" },
-    { value: "mobile_expo_react_native", label: "Mobile" },
-  ];
+  { value: "web_vite_react", label: "Web" },
+  { value: "mobile_expo_react_native", label: "Mobile" },
+];
 
 export default function Home() {
   return (
@@ -309,7 +311,9 @@ function BuildYourOwnWaySection() {
           </p>
         </div>
 
-        <div className={`grid grid-cols-1 ${ENABLE_DESIGN_SYSTEM ? "md:grid-cols-3" : "md:grid-cols-2"} gap-4 mb-4`}>
+        <div
+          className={`grid grid-cols-1 ${ENABLE_DESIGN_SYSTEM ? "md:grid-cols-3" : "md:grid-cols-2"} gap-4 mb-4`}
+        >
           {/* Web */}
           <div className="bg-card border border-border rounded-2xl p-6 hover:border-border transition-all group">
             <div className="w-12 h-12 bg-blue-500/10 rounded-xl flex items-center justify-center mb-4 border border-blue-500/20">
@@ -339,7 +343,9 @@ function BuildYourOwnWaySection() {
               <div className="w-12 h-12 bg-purple-500/10 rounded-xl flex items-center justify-center mb-4 border border-purple-500/20">
                 <Palette className="w-6 h-6 text-purple-400" />
               </div>
-              <h3 className="text-lg font-medium mb-2">Shared Design Systems</h3>
+              <h3 className="text-lg font-medium mb-2">
+                Shared Design Systems
+              </h3>
               <p className="text-sm text-muted-foreground leading-relaxed">
                 Maintain consistent branding across all platforms with shared
                 components.
@@ -462,10 +468,11 @@ function VariantsSection() {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`px-6 py-3 rounded-full text-sm font-medium flex items-center gap-2 transition-all duration-300 border ${activeTab === tab.id
+              className={`px-6 py-3 rounded-full text-sm font-medium flex items-center gap-2 transition-all duration-300 border ${
+                activeTab === tab.id
                   ? "bg-foreground text-background border-foreground shadow-[0_0_20px_rgba(0,0,0,0.1)] dark:shadow-[0_0_20px_rgba(255,255,255,0.2)]"
                   : "bg-card/50 text-muted-foreground border-border hover:bg-card hover:text-foreground"
-                }`}
+              }`}
             >
               {tab.icon}
               {tab.label}
@@ -1686,7 +1693,9 @@ function AgentsSection() {
               </div>
               <div className="space-y-4">
                 <h1 className="text-2xl font-bold">Headline Lg</h1>
-                <h2 className="text-xl font-semibold opacity-60">Headline Md</h2>
+                <h2 className="text-xl font-semibold opacity-60">
+                  Headline Md
+                </h2>
                 <h3 className="text-lg opacity-40">Headline Sm</h3>
               </div>
             </div>

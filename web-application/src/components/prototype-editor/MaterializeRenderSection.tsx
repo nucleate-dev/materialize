@@ -244,7 +244,9 @@ interface MaterializeRenderSectionProps {
   // Project settings modal props
   prototype?: Database["public"]["Tables"]["prototypes"]["Row"] | null;
   isPublic?: boolean;
-  onVisibilityChange?: (visibility: import("@/lib/types/prototypes").PrototypeVisibility) => void;
+  onVisibilityChange?: (
+    visibility: import("@/lib/types/prototypes").PrototypeVisibility,
+  ) => void;
   userPlan?: string | null;
   onNameChange?: (name: string) => void;
   canEditName?: boolean;
@@ -438,7 +440,8 @@ const MaterializeRenderSection = forwardRef<
     const canvasRef = useRef<PreviewCanvasRef>(null);
 
     // Determine if this is a web-only framework
-    const isWebFramework = framework === "web_nextjs_react";
+    const isWebFramework =
+      framework === "web_nextjs_react" || framework === "web_vite_react";
 
     const [previewMode, setPreviewMode] = useState<PreviewMode>(
       isWebFramework ? "web" : "mobile",
@@ -452,7 +455,9 @@ const MaterializeRenderSection = forwardRef<
       }
 
       setPreviewMode(
-        framework === "web_nextjs_react" ? "web" : "mobile",
+        framework === "web_nextjs_react" || framework === "web_vite_react"
+          ? "web"
+          : "mobile",
       );
     }, [framework]);
 
@@ -695,7 +700,7 @@ const MaterializeRenderSection = forwardRef<
     );
     const [tempPath, setTempPath] = useState<string>("");
     const [routeSuggestions, setRouteSuggestions] = useState<
-      Array<{ route: string; group?: string; }>
+      Array<{ route: string; group?: string }>
     >([]);
     // Allow screen editing in public view if onScreensChange or onWebScreensChange is provided
     const canEditScreensInPublicView =
@@ -1146,7 +1151,7 @@ const MaterializeRenderSection = forwardRef<
     const availableRoutes = React.useMemo(() => {
       if (!files) return [];
 
-      const routes: Array<{ route: string; group?: string; }> = [];
+      const routes: Array<{ route: string; group?: string }> = [];
       Object.keys(files).forEach((filePath) => {
         // Look for files in app/ directory that could be routes
         if (filePath.startsWith("app/")) {
@@ -1357,7 +1362,8 @@ const MaterializeRenderSection = forwardRef<
               if (data.path) {
                 // Enforce max 4 screens
                 const currentScreens =
-                  targetPreviewMode === "mobile" || targetPreviewMode === "tablet"
+                  targetPreviewMode === "mobile" ||
+                  targetPreviewMode === "tablet"
                     ? mobileScreens
                     : webScreens;
                 if (currentScreens.length >= 4) {
@@ -2117,7 +2123,7 @@ const MaterializeRenderSection = forwardRef<
     };
 
     // Connection loading overlay for iframe
-    const ConnectionLoadingOverlay = ({ mode }: { mode: PreviewMode; }) => (
+    const ConnectionLoadingOverlay = ({ mode }: { mode: PreviewMode }) => (
       <div className="absolute inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm z-10">
         <div className="text-center bg-accent p-6 rounded-xl border border-border shadow-2xl">
           <Loader2 className="w-6 h-6 animate-spin mx-auto mb-3 text-muted-foreground" />
@@ -2134,7 +2140,7 @@ const MaterializeRenderSection = forwardRef<
     );
 
     // Error overlay for iframe
-    const ConnectionErrorOverlay = ({ mode }: { mode: PreviewMode; }) => (
+    const ConnectionErrorOverlay = ({ mode }: { mode: PreviewMode }) => (
       <div className="absolute inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm z-10">
         <div className="text-center bg-accent p-6 rounded-xl border border-red-500/20 shadow-2xl">
           <div className="w-8 h-8 mx-auto mb-3 text-red-400 bg-red-400/10 rounded-full flex items-center justify-center">
@@ -2212,7 +2218,7 @@ const MaterializeRenderSection = forwardRef<
                         }}
                       >
                         {/* URL Bar / Controls */}
-                        {(
+                        {
                           <div className="absolute -top-12 left-1/2 -translate-x-1/2 z-20">
                             <div className="flex items-center gap-1.5">
                               {isReadOnlyView ? (
@@ -2348,7 +2354,7 @@ const MaterializeRenderSection = forwardRef<
                               )}
                             </div>
                           </div>
-                        )}
+                        }
 
                         {/* Phone Frame */}
                         <div
@@ -2716,13 +2722,18 @@ const MaterializeRenderSection = forwardRef<
                 ? "flex flex-col"
                 : "grid",
               // Center single screen when manually resized or in mobile size mode
-              (!showWebMultiScreen && hasManuallyResizedWebFrame) && "items-start justify-center",
+              !showWebMultiScreen &&
+                hasManuallyResizedWebFrame &&
+                "items-start justify-center",
               isWebMobileSize && "items-center justify-center",
               isWebFullScreen && "items-center justify-center",
             )}
             style={{
               gridTemplateColumns:
-                !showWebMultiScreen || isNarrowViewport || isWebMobileSize || isWebFullScreen
+                !showWebMultiScreen ||
+                isNarrowViewport ||
+                isWebMobileSize ||
+                isWebFullScreen
                   ? "1fr"
                   : webGridLayout.gridTemplate,
             }}
@@ -2746,43 +2757,44 @@ const MaterializeRenderSection = forwardRef<
                     className={cn(
                       "bg-accent rounded-xl border border-border overflow-hidden shadow-sm flex flex-col relative transition-all duration-300",
                       isWebMobileSize && !isWebFullScreen && "mx-auto",
-                      isWebFullScreen && "absolute inset-4 z-50 mx-auto shadow-2xl"
+                      isWebFullScreen &&
+                        "absolute inset-4 z-50 mx-auto shadow-2xl",
                     )}
                     style={{
                       // Full-screen mode takes priority
                       ...(isWebFullScreen
                         ? isWebMobileSize
                           ? {
-                            // Full-screen + mobile size: centered mobile width, full height
-                            width: webMobileSizeWidth,
-                            maxWidth: "100%",
-                            inset: "1rem auto",
-                            left: "50%",
-                            transform: "translateX(-50%)",
-                          }
+                              // Full-screen + mobile size: centered mobile width, full height
+                              width: webMobileSizeWidth,
+                              maxWidth: "100%",
+                              inset: "1rem auto",
+                              left: "50%",
+                              transform: "translateX(-50%)",
+                            }
                           : {
-                            // Full-screen only: fill the area
-                          }
+                              // Full-screen only: fill the area
+                            }
                         : isWebMobileSize
                           ? {
-                            // Mobile size only: constrained dimensions
-                            width: webMobileSizeWidth,
-                            height: webMobileSizeHeight,
-                            maxWidth: "100%",
-                          }
+                              // Mobile size only: constrained dimensions
+                              width: webMobileSizeWidth,
+                              height: webMobileSizeHeight,
+                              maxWidth: "100%",
+                            }
                           : showWebMultiScreen
                             ? {
-                              minHeight: webFrameHeight,
-                            }
+                                minHeight: webFrameHeight,
+                              }
                             : hasManuallyResizedWebFrame
                               ? {
-                                width: webFrameWidth ?? undefined,
-                                height: webFrameHeight,
-                                maxWidth: "100%",
-                              }
+                                  width: webFrameWidth ?? undefined,
+                                  height: webFrameHeight,
+                                  maxWidth: "100%",
+                                }
                               : {
-                                height: "100%",
-                              }),
+                                  height: "100%",
+                                }),
                     }}
                   >
                     {/* Browser Header */}
@@ -2811,14 +2823,24 @@ const MaterializeRenderSection = forwardRef<
                                   "w-2.5 h-2.5 rounded-full transition-colors",
                                   isWebMobileSize
                                     ? "bg-amber-500 border border-amber-500"
-                                    : "bg-amber-500/20 border border-amber-500/50 hover:bg-amber-500 hover:border-amber-500"
+                                    : "bg-amber-500/20 border border-amber-500/50 hover:bg-amber-500 hover:border-amber-500",
                                 )}
-                                onClick={() => setIsWebMobileSize(!isWebMobileSize)}
-                                aria-label={isWebMobileSize ? "Switch to desktop size" : "Switch to mobile size"}
+                                onClick={() =>
+                                  setIsWebMobileSize(!isWebMobileSize)
+                                }
+                                aria-label={
+                                  isWebMobileSize
+                                    ? "Switch to desktop size"
+                                    : "Switch to mobile size"
+                                }
                               />
                             </TooltipTrigger>
                             <TooltipContent>
-                              <p>{isWebMobileSize ? "Desktop size" : "Mobile size"}</p>
+                              <p>
+                                {isWebMobileSize
+                                  ? "Desktop size"
+                                  : "Mobile size"}
+                              </p>
                             </TooltipContent>
                           </Tooltip>
                         </TooltipProvider>
@@ -2830,14 +2852,24 @@ const MaterializeRenderSection = forwardRef<
                                   "w-2.5 h-2.5 rounded-full transition-colors",
                                   isWebFullScreen
                                     ? "bg-emerald-500 border border-emerald-500"
-                                    : "bg-emerald-500/20 border border-emerald-500/50 hover:bg-emerald-500 hover:border-emerald-500"
+                                    : "bg-emerald-500/20 border border-emerald-500/50 hover:bg-emerald-500 hover:border-emerald-500",
                                 )}
-                                onClick={() => setIsWebFullScreen(!isWebFullScreen)}
-                                aria-label={isWebFullScreen ? "Exit full screen" : "Full screen"}
+                                onClick={() =>
+                                  setIsWebFullScreen(!isWebFullScreen)
+                                }
+                                aria-label={
+                                  isWebFullScreen
+                                    ? "Exit full screen"
+                                    : "Full screen"
+                                }
                               />
                             </TooltipTrigger>
                             <TooltipContent>
-                              <p>{isWebFullScreen ? "Exit full screen" : "Full screen"}</p>
+                              <p>
+                                {isWebFullScreen
+                                  ? "Exit full screen"
+                                  : "Full screen"}
+                              </p>
                             </TooltipContent>
                           </Tooltip>
                         </TooltipProvider>
@@ -2845,7 +2877,9 @@ const MaterializeRenderSection = forwardRef<
 
                       {/* URL Bar */}
                       <div className="flex-1 flex justify-center">
-                        {showWebControls && showScreenControls && !isReadOnlyView ? (
+                        {showWebControls &&
+                        showScreenControls &&
+                        !isReadOnlyView ? (
                           <Popover
                             open={editingWebScreenId === screen.id}
                             onOpenChange={(open) => {
@@ -2857,9 +2891,7 @@ const MaterializeRenderSection = forwardRef<
                             }}
                           >
                             <PopoverTrigger asChild>
-                              <div
-                                className="h-6 px-4 rounded-md bg-background border border-border flex items-center justify-center min-w-[200px] max-w-[400px] cursor-pointer hover:border-muted-foreground/50"
-                              >
+                              <div className="h-6 px-4 rounded-md bg-background border border-border flex items-center justify-center min-w-[200px] max-w-[400px] cursor-pointer hover:border-muted-foreground/50">
                                 <span className="text-[10px] text-muted-foreground font-mono truncate opacity-60">
                                   {stripTokenFromPath(screen.path) || "/"}
                                 </span>
@@ -2879,13 +2911,15 @@ const MaterializeRenderSection = forwardRef<
                                     <button
                                       key={item.route}
                                       onClick={() => {
-                                        const normalized = stripTokenFromPath(normalizePath(item.route));
+                                        const normalized = stripTokenFromPath(
+                                          normalizePath(item.route),
+                                        );
                                         setWebScreens((prev) =>
                                           prev.map((s) =>
                                             s.id === screen.id
                                               ? { ...s, path: normalized }
-                                              : s
-                                          )
+                                              : s,
+                                          ),
                                         );
                                         setEditingWebScreenId(null);
                                         setTempPath("");
@@ -2942,9 +2976,7 @@ const MaterializeRenderSection = forwardRef<
                             </PopoverContent>
                           </Popover>
                         ) : (
-                          <div
-                            className="h-6 px-4 rounded-md bg-background border border-border flex items-center justify-center min-w-[200px] max-w-[400px]"
-                          >
+                          <div className="h-6 px-4 rounded-md bg-background border border-border flex items-center justify-center min-w-[200px] max-w-[400px]">
                             <span className="text-[10px] text-muted-foreground font-mono truncate opacity-60">
                               {stripTokenFromPath(screen.path) || "/"}
                             </span>
@@ -3139,7 +3171,7 @@ const MaterializeRenderSection = forwardRef<
                   <button
                     className={cn(
                       "w-full flex items-center gap-3 p-3 rounded-lg text-left",
-                      "hover:bg-accent text-foreground"
+                      "hover:bg-accent text-foreground",
                     )}
                     onClick={() => {
                       handleOpenProjectSettings("deploy", "mobile_menu_deploy");
@@ -3186,7 +3218,9 @@ const MaterializeRenderSection = forwardRef<
               {!isReadOnlyView && isPreviewView && !isCanvasPreviewEnabled && (
                 <>
                   <div className="h-px bg-border my-2" />
-                  <p className="text-xs text-muted-foreground uppercase tracking-wide px-3 py-2">Device Mode</p>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide px-3 py-2">
+                    Device Mode
+                  </p>
                   <div className="flex gap-2 px-3">
                     <Button
                       variant={previewMode === "mobile" ? "default" : "outline"}
@@ -3196,7 +3230,7 @@ const MaterializeRenderSection = forwardRef<
                       }}
                       className={cn(
                         "flex-1",
-                        previewMode === "mobile" && "bg-white text-black"
+                        previewMode === "mobile" && "bg-white text-black",
                       )}
                     >
                       <Smartphone className="w-4 h-4 mr-2" />
@@ -3210,7 +3244,7 @@ const MaterializeRenderSection = forwardRef<
                       }}
                       className={cn(
                         "flex-1",
-                        previewMode === "tablet" && "bg-white text-black"
+                        previewMode === "tablet" && "bg-white text-black",
                       )}
                     >
                       <Tablet className="w-4 h-4 mr-2" />
@@ -3224,7 +3258,7 @@ const MaterializeRenderSection = forwardRef<
                       }}
                       className={cn(
                         "flex-1",
-                        previewMode === "web" && "bg-white text-black"
+                        previewMode === "web" && "bg-white text-black",
                       )}
                     >
                       <Monitor className="w-4 h-4 mr-2" />
@@ -3238,7 +3272,9 @@ const MaterializeRenderSection = forwardRef<
               {!isReadOnlyView && (
                 <>
                   <div className="h-px bg-border my-2" />
-                  <p className="text-xs text-muted-foreground uppercase tracking-wide px-3 py-2">Tools</p>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide px-3 py-2">
+                    Tools
+                  </p>
                   <button
                     className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-accent text-foreground text-left"
                     onClick={() => {
@@ -3247,7 +3283,9 @@ const MaterializeRenderSection = forwardRef<
                     }}
                   >
                     <TerminalIcon className="w-5 h-5 text-muted-foreground" />
-                    <span>{isTerminalOpen ? "Hide Terminal" : "Show Terminal"}</span>
+                    <span>
+                      {isTerminalOpen ? "Hide Terminal" : "Show Terminal"}
+                    </span>
                   </button>
                   {!isPreviewView && (
                     <button
@@ -3279,7 +3317,11 @@ const MaterializeRenderSection = forwardRef<
                     ) : (
                       <RefreshCw className="w-5 h-5 text-muted-foreground" />
                     )}
-                    <span>{isRestartingDevServer ? "Restarting..." : "Restart Dev Server"}</span>
+                    <span>
+                      {isRestartingDevServer
+                        ? "Restarting..."
+                        : "Restart Dev Server"}
+                    </span>
                   </button>
                   <button
                     className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-accent text-foreground text-left"
@@ -3303,11 +3345,16 @@ const MaterializeRenderSection = forwardRef<
               {!isReadOnlyView && (
                 <>
                   <div className="h-px bg-border my-2" />
-                  <p className="text-xs text-muted-foreground uppercase tracking-wide px-3 py-2">Settings</p>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide px-3 py-2">
+                    Settings
+                  </p>
                   <button
                     className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-accent text-foreground text-left"
                     onClick={() => {
-                      handleOpenProjectSettings("details", "mobile_menu_settings");
+                      handleOpenProjectSettings(
+                        "details",
+                        "mobile_menu_settings",
+                      );
                       setIsMobileMenuOpen(false);
                     }}
                     disabled={!prototypeId}
@@ -3315,18 +3362,20 @@ const MaterializeRenderSection = forwardRef<
                     <Settings className="w-5 h-5 text-muted-foreground" />
                     <span>Project Settings</span>
                   </button>
-                  {ENABLE_DESIGN_SYSTEM && designSystemLabel && onDesignSystemClick && (
-                    <button
-                      className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-accent text-foreground text-left"
-                      onClick={() => {
-                        onDesignSystemClick();
-                        setIsMobileMenuOpen(false);
-                      }}
-                    >
-                      <Palette className="w-5 h-5 text-muted-foreground" />
-                      <span>Design System</span>
-                    </button>
-                  )}
+                  {ENABLE_DESIGN_SYSTEM &&
+                    designSystemLabel &&
+                    onDesignSystemClick && (
+                      <button
+                        className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-accent text-foreground text-left"
+                        onClick={() => {
+                          onDesignSystemClick();
+                          setIsMobileMenuOpen(false);
+                        }}
+                      >
+                        <Palette className="w-5 h-5 text-muted-foreground" />
+                        <span>Design System</span>
+                      </button>
+                    )}
                   {onClone && (
                     <button
                       className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-accent text-foreground text-left"
@@ -3374,13 +3423,17 @@ const MaterializeRenderSection = forwardRef<
               "z-30 bg-background/80 backdrop-blur-xl transition-all duration-300",
               isWebFullScreen && previewMode === "web"
                 ? "absolute top-4 right-4 px-3 py-2 rounded-xl border border-border shadow-lg"
-                : "sticky top-0 px-4 py-3 border-b border-border"
+                : "sticky top-0 px-4 py-3 border-b border-border",
             )}
           >
-            <div className={cn(
-              "flex flex-wrap items-center gap-3",
-              isWebFullScreen && previewMode === "web" ? "justify-end" : "justify-between"
-            )}>
+            <div
+              className={cn(
+                "flex flex-wrap items-center gap-3",
+                isWebFullScreen && previewMode === "web"
+                  ? "justify-end"
+                  : "justify-between",
+              )}
+            >
               {/* Left: View Toggles - hidden in full-screen mode */}
               {!(isWebFullScreen && previewMode === "web") && (
                 <div className="flex items-center gap-3 flex-wrap">
@@ -3560,7 +3613,9 @@ const MaterializeRenderSection = forwardRef<
                           <Button
                             variant="ghost"
                             size="icon"
-                            onClick={() => handleOpenBrowserPreview("toolbar_button")}
+                            onClick={() =>
+                              handleOpenBrowserPreview("toolbar_button")
+                            }
                             className="h-8 w-8 bg-accent border border-border text-muted-foreground hover:text-foreground hover:border-border/80 hover:bg-accent/80 transition-all"
                             disabled={!viewing_url}
                           >
@@ -3579,7 +3634,9 @@ const MaterializeRenderSection = forwardRef<
                           <Button
                             variant="ghost"
                             size="icon"
-                            onClick={() => handleOpenViewOnDevice("toolbar_button")}
+                            onClick={() =>
+                              handleOpenViewOnDevice("toolbar_button")
+                            }
                             className="h-8 w-8 bg-accent border border-border text-muted-foreground hover:text-foreground hover:border-border/80 hover:bg-accent/80 transition-all"
                             disabled={!viewing_url}
                           >
@@ -3737,7 +3794,7 @@ const MaterializeRenderSection = forwardRef<
                             : githubRepository.html_url
                               ? "View Repository"
                               : githubIntegration.connected &&
-                                currentUserMembership?.role !== "viewer"
+                                  currentUserMembership?.role !== "viewer"
                                 ? "Create Repository For Project"
                                 : "Connect GitHub"}
                         </Button>
@@ -3946,9 +4003,10 @@ const MaterializeRenderSection = forwardRef<
               : "flex items-center justify-center",
           )}
           style={{
-            height: isTerminalOpen && !(isWebFullScreen && previewMode === "web")
-              ? `calc(100% - ${terminalHeight}px)`
-              : "100%",
+            height:
+              isTerminalOpen && !(isWebFullScreen && previewMode === "web")
+                ? `calc(100% - ${terminalHeight}px)`
+                : "100%",
             transition: isResizingTerminal ? "none" : "height 0.2s ease-in-out",
           }}
         >
@@ -3993,13 +4051,13 @@ const MaterializeRenderSection = forwardRef<
                 initialScreens={
                   previewMode === "mobile"
                     ? (initialScreens || mobileScreens).map((s) => ({
-                      id: s.id,
-                      path: s.path,
-                    }))
+                        id: s.id,
+                        path: s.path,
+                      }))
                     : (initialWebScreens || webScreens).map((s) => ({
-                      id: s.id,
-                      path: s.path,
-                    }))
+                        id: s.id,
+                        path: s.path,
+                      }))
                 }
                 initialCanvasState={initialCanvasState}
                 onCanvasStateChange={onCanvasStateChange}
@@ -4030,48 +4088,50 @@ const MaterializeRenderSection = forwardRef<
         </div>
 
         {/* Terminal Panel - hidden in full-screen mode */}
-        {!isReadOnlyView && isTerminalOpen && !(isWebFullScreen && previewMode === "web") && (
-          <div
-            className="relative border-t border-border bg-background"
-            style={{ height: `${terminalHeight}px` }}
-          >
-            {/* Terminal Header with Resize Handle */}
+        {!isReadOnlyView &&
+          isTerminalOpen &&
+          !(isWebFullScreen && previewMode === "web") && (
             <div
-              className="absolute top-0 left-0 right-0 h-9 bg-accent border-b border-border flex items-center justify-between px-4 cursor-ns-resize hover:bg-accent/80 transition-colors group z-10"
-              onMouseDown={handleTerminalResizeStart}
+              className="relative border-t border-border bg-background"
+              style={{ height: `${terminalHeight}px` }}
             >
-              <div className="flex items-center gap-2">
-                <TerminalIcon className="w-3.5 h-3.5 text-muted-foreground" />
-                <span className="text-xs font-medium text-muted-foreground group-hover:text-foreground transition-colors">
-                  Terminal Output
-                </span>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium opacity-0 group-hover:opacity-100 transition-opacity">
-                  Drag to resize
+              {/* Terminal Header with Resize Handle */}
+              <div
+                className="absolute top-0 left-0 right-0 h-9 bg-accent border-b border-border flex items-center justify-between px-4 cursor-ns-resize hover:bg-accent/80 transition-colors group z-10"
+                onMouseDown={handleTerminalResizeStart}
+              >
+                <div className="flex items-center gap-2">
+                  <TerminalIcon className="w-3.5 h-3.5 text-muted-foreground" />
+                  <span className="text-xs font-medium text-muted-foreground group-hover:text-foreground transition-colors">
+                    Terminal Output
+                  </span>
                 </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground hover:bg-accent rounded"
-                  onClick={() => setIsTerminalOpen(false)}
-                >
-                  <ChevronDown className="w-4 h-4" />
-                </Button>
+                <div className="flex items-center gap-3">
+                  <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium opacity-0 group-hover:opacity-100 transition-opacity">
+                    Drag to resize
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground hover:bg-accent rounded"
+                    onClick={() => setIsTerminalOpen(false)}
+                  >
+                    <ChevronDown className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+
+              {/* Terminal Content */}
+              <div className="absolute top-9 left-0 right-0 bottom-0 bg-background">
+                <Terminal
+                  className="w-full h-full"
+                  baseTunnelUrl={base_tunnel_url}
+                  activeSession={activeTerminalSession}
+                  onSessionChange={setActiveTerminalSession}
+                />
               </div>
             </div>
-
-            {/* Terminal Content */}
-            <div className="absolute top-9 left-0 right-0 bottom-0 bg-background">
-              <Terminal
-                className="w-full h-full"
-                baseTunnelUrl={base_tunnel_url}
-                activeSession={activeTerminalSession}
-                onSessionChange={setActiveTerminalSession}
-              />
-            </div>
-          </div>
-        )}
+          )}
 
         {/* Project Settings Modal (unified) */}
         <ProjectSettingsModal

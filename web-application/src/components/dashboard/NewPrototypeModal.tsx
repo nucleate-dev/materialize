@@ -74,7 +74,10 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { VIEWER_ROLE_RESTRICTION_MESSAGE, ENABLE_DESIGN_SYSTEM } from "@/GlobalConstants";
+import {
+  VIEWER_ROLE_RESTRICTION_MESSAGE,
+  ENABLE_DESIGN_SYSTEM,
+} from "@/GlobalConstants";
 
 interface NewPrototypeModalProps {
   open: boolean;
@@ -114,12 +117,12 @@ const isDesignStyle = (value: unknown): value is DesignStyle =>
   typeof value === "string" &&
   DESIGN_STYLE_OPTIONS.includes(value as DesignStyle);
 
-const DEFAULT_FRAMEWORK: PrototypeFramework = "web_nextjs_react";
+const DEFAULT_FRAMEWORK: PrototypeFramework = "web_vite_react";
 const PLATFORM_OPTIONS: Array<{
   value: PrototypeFramework;
   label: string;
 }> = [
-  { value: "web_nextjs_react", label: "Web" },
+  { value: "web_vite_react", label: "Web" },
   { value: "mobile_expo_react_native", label: "Mobile" },
 ];
 
@@ -176,7 +179,8 @@ export default function NewPrototypeModal({
   const [sourceRepoComboboxOpen, setSourceRepoComboboxOpen] = useState(false);
   const sourceRepoComboboxId = useId();
 
-  const isWebFrameworkSelected = framework === "web_nextjs_react";
+  const isWebFrameworkSelected =
+    framework === "web_nextjs_react" || framework === "web_vite_react";
 
   const availableDesignStyles = isWebFrameworkSelected
     ? WEB_DESIGN_STYLE_OPTIONS
@@ -323,7 +327,7 @@ export default function NewPrototypeModal({
       return;
     }
 
-    if (framework === "web_nextjs_react") {
+    if (framework === "web_nextjs_react" || framework === "web_vite_react") {
       return;
     }
 
@@ -471,7 +475,7 @@ export default function NewPrototypeModal({
   }, [open, activeTeam?.id, user, logger]);
 
   useEffect(() => {
-    if (framework !== "web_nextjs_react") {
+    if (framework !== "web_nextjs_react" && framework !== "web_vite_react") {
       return;
     }
 
@@ -720,41 +724,41 @@ export default function NewPrototypeModal({
 
             {/* Platform Select */}
             <div className="space-y-2">
-                <Label
-                  htmlFor="platform-select"
-                  className="text-xs font-medium text-muted-foreground"
+              <Label
+                htmlFor="platform-select"
+                className="text-xs font-medium text-muted-foreground"
+              >
+                Platform
+              </Label>
+              <Select
+                value={framework}
+                onValueChange={(value) =>
+                  setFramework(value as PrototypeFramework)
+                }
+                disabled={isCreating}
+              >
+                <SelectTrigger
+                  id="platform-select"
+                  className="h-11 bg-background border-border text-foreground focus:ring-0"
                 >
-                  Platform
-                </Label>
-                <Select
-                  value={framework}
-                  onValueChange={(value) =>
-                    setFramework(value as PrototypeFramework)
-                  }
-                  disabled={isCreating}
-                >
-                  <SelectTrigger
-                    id="platform-select"
-                    className="h-11 bg-background border-border text-foreground focus:ring-0"
-                  >
-                    <div className="flex items-center gap-2">
-                      <Rocket className="w-4 h-4 text-muted-foreground" />
-                      <SelectValue />
-                    </div>
-                  </SelectTrigger>
-                  <SelectContent className="bg-card border-border text-foreground">
-                    {PLATFORM_OPTIONS.map((option) => (
-                      <SelectItem
-                        key={option.value}
-                        value={option.value}
-                        className="focus:bg-muted focus:text-foreground cursor-pointer"
-                      >
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+                  <div className="flex items-center gap-2">
+                    <Rocket className="w-4 h-4 text-muted-foreground" />
+                    <SelectValue />
+                  </div>
+                </SelectTrigger>
+                <SelectContent className="bg-card border-border text-foreground">
+                  {PLATFORM_OPTIONS.map((option) => (
+                    <SelectItem
+                      key={option.value}
+                      value={option.value}
+                      className="focus:bg-muted focus:text-foreground cursor-pointer"
+                    >
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
             {/* Visibility Select */}
             <div className="space-y-2">
@@ -807,75 +811,95 @@ export default function NewPrototypeModal({
 
             {/* Source Repository Select */}
             <div className="space-y-2">
-                <Label
-                  htmlFor="source-repo-select"
-                  className="text-xs font-medium text-muted-foreground"
-                >
-                  Source Repository (Optional)
-                </Label>
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <div>
-                        <Popover
-                          open={sourceRepoComboboxOpen}
-                          onOpenChange={setSourceRepoComboboxOpen}
-                        >
-                          <PopoverTrigger asChild>
-                            <button
-                              type="button"
-                              role="combobox"
-                              aria-expanded={sourceRepoComboboxOpen}
-                              aria-controls={sourceRepoComboboxId}
-                              disabled={
-                                isCreating ||
-                                githubIntegrationStatus.loading ||
-                                !githubIntegrationStatus.connected ||
-                                isLoadingSourceRepos
-                              }
-                              className={cn(
-                                "h-11 w-full bg-background border border-border text-foreground rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50",
-                                "flex items-center justify-between",
-                              )}
-                            >
-                              <div className="flex items-center gap-2">
-                                <Code className="w-4 h-4 text-muted-foreground" />
-                                <span className="truncate">
-                                  {isLoadingSourceRepos ? (
-                                    <span className="flex items-center gap-2">
-                                      <Loader2 className="w-3 h-3 animate-spin" />
-                                      Loading repositories...
-                                    </span>
-                                  ) : sourceRepoId ? (
-                                    sourceRepos.find(
-                                      (repo) => repo.id === sourceRepoId,
-                                    )?.full_name || "None"
-                                  ) : (
-                                    "None"
-                                  )}
-                                </span>
-                              </div>
-                              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                            </button>
-                          </PopoverTrigger>
-                          <PopoverContent
-                            className="w-[--radix-popover-trigger-width] p-0 bg-card border-border"
-                            align="start"
+              <Label
+                htmlFor="source-repo-select"
+                className="text-xs font-medium text-muted-foreground"
+              >
+                Source Repository (Optional)
+              </Label>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div>
+                      <Popover
+                        open={sourceRepoComboboxOpen}
+                        onOpenChange={setSourceRepoComboboxOpen}
+                      >
+                        <PopoverTrigger asChild>
+                          <button
+                            type="button"
+                            role="combobox"
+                            aria-expanded={sourceRepoComboboxOpen}
+                            aria-controls={sourceRepoComboboxId}
+                            disabled={
+                              isCreating ||
+                              githubIntegrationStatus.loading ||
+                              !githubIntegrationStatus.connected ||
+                              isLoadingSourceRepos
+                            }
+                            className={cn(
+                              "h-11 w-full bg-background border border-border text-foreground rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50",
+                              "flex items-center justify-between",
+                            )}
                           >
-                            <Command className="bg-card">
-                              <CommandInput
-                                placeholder="Search repositories..."
-                                className="h-9 border-0 focus:ring-0 text-foreground"
-                              />
-                              <CommandList id={sourceRepoComboboxId}>
-                                <CommandEmpty className="py-6 text-center text-sm text-muted-foreground">
-                                  No repository found.
-                                </CommandEmpty>
-                                <CommandGroup>
+                            <div className="flex items-center gap-2">
+                              <Code className="w-4 h-4 text-muted-foreground" />
+                              <span className="truncate">
+                                {isLoadingSourceRepos ? (
+                                  <span className="flex items-center gap-2">
+                                    <Loader2 className="w-3 h-3 animate-spin" />
+                                    Loading repositories...
+                                  </span>
+                                ) : sourceRepoId ? (
+                                  sourceRepos.find(
+                                    (repo) => repo.id === sourceRepoId,
+                                  )?.full_name || "None"
+                                ) : (
+                                  "None"
+                                )}
+                              </span>
+                            </div>
+                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                          </button>
+                        </PopoverTrigger>
+                        <PopoverContent
+                          className="w-[--radix-popover-trigger-width] p-0 bg-card border-border"
+                          align="start"
+                        >
+                          <Command className="bg-card">
+                            <CommandInput
+                              placeholder="Search repositories..."
+                              className="h-9 border-0 focus:ring-0 text-foreground"
+                            />
+                            <CommandList id={sourceRepoComboboxId}>
+                              <CommandEmpty className="py-6 text-center text-sm text-muted-foreground">
+                                No repository found.
+                              </CommandEmpty>
+                              <CommandGroup>
+                                <CommandItem
+                                  value="none"
+                                  onSelect={() => {
+                                    setSourceRepoId(null);
+                                    setSourceRepoComboboxOpen(false);
+                                  }}
+                                  className="cursor-pointer text-foreground hover:bg-muted"
+                                >
+                                  <Check
+                                    className={cn(
+                                      "mr-2 h-4 w-4",
+                                      sourceRepoId === null
+                                        ? "opacity-100"
+                                        : "opacity-0",
+                                    )}
+                                  />
+                                  None
+                                </CommandItem>
+                                {sourceRepos.map((repo) => (
                                   <CommandItem
-                                    value="none"
+                                    key={repo.id}
+                                    value={repo.full_name}
                                     onSelect={() => {
-                                      setSourceRepoId(null);
+                                      setSourceRepoId(repo.id);
                                       setSourceRepoComboboxOpen(false);
                                     }}
                                     className="cursor-pointer text-foreground hover:bg-muted"
@@ -883,52 +907,32 @@ export default function NewPrototypeModal({
                                     <Check
                                       className={cn(
                                         "mr-2 h-4 w-4",
-                                        sourceRepoId === null
+                                        sourceRepoId === repo.id
                                           ? "opacity-100"
                                           : "opacity-0",
                                       )}
                                     />
-                                    None
+                                    {repo.full_name}
                                   </CommandItem>
-                                  {sourceRepos.map((repo) => (
-                                    <CommandItem
-                                      key={repo.id}
-                                      value={repo.full_name}
-                                      onSelect={() => {
-                                        setSourceRepoId(repo.id);
-                                        setSourceRepoComboboxOpen(false);
-                                      }}
-                                      className="cursor-pointer text-foreground hover:bg-muted"
-                                    >
-                                      <Check
-                                        className={cn(
-                                          "mr-2 h-4 w-4",
-                                          sourceRepoId === repo.id
-                                            ? "opacity-100"
-                                            : "opacity-0",
-                                        )}
-                                      />
-                                      {repo.full_name}
-                                    </CommandItem>
-                                  ))}
-                                </CommandGroup>
-                              </CommandList>
-                            </Command>
-                          </PopoverContent>
-                        </Popover>
-                      </div>
-                    </TooltipTrigger>
-                    {!githubIntegrationStatus.connected &&
-                      !githubIntegrationStatus.loading && (
-                        <TooltipContent>
-                          <p>
-                            Connect GitHub to prototype on a source repository
-                          </p>
-                        </TooltipContent>
-                      )}
-                  </Tooltip>
-                </TooltipProvider>
-              </div>
+                                ))}
+                              </CommandGroup>
+                            </CommandList>
+                          </Command>
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                  </TooltipTrigger>
+                  {!githubIntegrationStatus.connected &&
+                    !githubIntegrationStatus.loading && (
+                      <TooltipContent>
+                        <p>
+                          Connect GitHub to prototype on a source repository
+                        </p>
+                      </TooltipContent>
+                    )}
+                </Tooltip>
+              </TooltipProvider>
+            </div>
 
             {/* Advanced Options Collapsible */}
             <Collapsible
