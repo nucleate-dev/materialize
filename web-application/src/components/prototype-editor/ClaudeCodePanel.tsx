@@ -818,10 +818,15 @@ const ClaudeCodePanel = forwardRef<ClaudeCodePanelRef, ClaudeCodePanelProps>(
             if (append) {
               setMessages((prev) => [...uiMessages, ...prev]);
             } else {
-              setMessages(uiMessages);
+              // Preserve queued messages when replacing historical messages
+              setMessages((prev) => {
+                const queuedMessages = prev.filter((msg) => msg.isQueued);
+                return [...uiMessages, ...queuedMessages];
+              });
             }
           } else if (!append) {
-            setMessages([]);
+            // Preserve queued messages when clearing
+            setMessages((prev) => prev.filter((msg) => msg.isQueued));
             earliestMessageCursorRef.current = null;
           }
 
