@@ -1,25 +1,25 @@
-import { S3Client } from '@aws-sdk/client-s3';
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { FastifyReply, FastifyRequest } from 'fastify';
-import { SystemLogger } from '../../../loggers/SystemLogger.js';
+import { S3Client } from "@aws-sdk/client-s3";
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
+import { FastifyReply, FastifyRequest } from "fastify";
+import { SystemLogger } from "../../../loggers/SystemLogger.js";
 import {
   DesignStyle,
   PrototypeAssetInsert,
   PrototypeFileInsert,
-} from '../../../types/InternalTypes.js';
+} from "../../../types/InternalTypes.js";
 import {
   APIResponse,
   CreatePrototypeErrorResponse,
   CreatePrototypeRequestBody,
   CreatePrototypeSuccessResponse,
   HTTP_STATUS,
-} from '../../../types/PublicAPITypes.js';
-import { Database, TablesInsert } from '../../../types/supabase.js';
+} from "../../../types/PublicAPITypes.js";
+import { Database, TablesInsert } from "../../../types/supabase.js";
 import {
   checkUserHasPrototypeViewingAccess,
   validateJWTToken,
-} from '../../../utils/prototypeAuth.js';
-import { hasExceededPrototypeCreationLimit } from '../../../utils/subscriptionChecks.js';
+} from "../../../utils/prototypeAuth.js";
+import { hasExceededPrototypeCreationLimit } from "../../../utils/subscriptionChecks.js";
 import {
   copyAllAssetsInSupabaseStorage,
   copyDefaultAppToVersionedPrototype,
@@ -30,22 +30,22 @@ import {
   deletePrototypeS3Builds,
   deletePrototypeThumbnailFromSupabaseStorage,
   getDefaultAppFilesFromS3,
-  getVersion,
   getPrototypeViewingUrl,
+  getVersion,
   uploadDefaultAssetsToSupabaseStorage,
-} from '../storageOperations.js';
+} from "../storageOperations.js";
 
 const VALID_DESIGN_STYLES: DesignStyle[] = [
-  'tamagui',
-  'stylesheets',
-  'nativewind',
+  "tamagui",
+  "stylesheets",
+  "nativewind",
 ];
-type PrototypeFramework = Database['public']['Enums']['prototype_framework'];
+type PrototypeFramework = Database["public"]["Enums"]["prototype_framework"];
 const VALID_FRAMEWORKS: PrototypeFramework[] = [
-  'mobile_expo_react_native',
-  'web_nextjs_react',
+  "mobile_expo_react_native",
+  "web_nextjs_react",
 ];
-const DEFAULT_FRAMEWORK: PrototypeFramework = 'mobile_expo_react_native';
+const DEFAULT_FRAMEWORK: PrototypeFramework = "mobile_expo_react_native";
 
 export async function handleCreatePrototypeImpl(
   request: FastifyRequest<{ Body: CreatePrototypeRequestBody }>,
@@ -56,15 +56,15 @@ export async function handleCreatePrototypeImpl(
 > {
   try {
     // 1. JWT Token validation and user authentication
-    const token = request.headers.authorization?.split(' ')[1] ?? '';
+    const token = request.headers.authorization?.split(" ")[1] ?? "";
     const { user } = await validateJWTToken(token, request.log2);
     if (!user) {
       return reply.status(HTTP_STATUS.UNAUTHORIZED).send({
         data: null,
         error: {
           success: false,
-          error: 'UNAUTHORIZED',
-          message: 'Invalid authentication token',
+          error: "UNAUTHORIZED",
+          message: "Invalid authentication token",
         },
       });
     }
@@ -89,8 +89,8 @@ export async function handleCreatePrototypeImpl(
       creationSource: creation_source,
     });
     request.log2.consoleLogDevOnly(
-      'info',
-      '[handleCreatePrototype] Authenticated user for prototype creation',
+      "info",
+      "[handleCreatePrototype] Authenticated user for prototype creation",
       {
         userId: user.id,
         creationSource: creation_source,
@@ -109,24 +109,24 @@ export async function handleCreatePrototypeImpl(
         data: null,
         error: {
           success: false,
-          error: 'PROTOTYPE_LIMIT_REACHED',
-          message: 'Prototype limit reached',
+          error: "PROTOTYPE_LIMIT_REACHED",
+          message: "Prototype limit reached",
         },
       });
     }
     request.log2.consoleLogDevOnly(
-      'info',
-      '[handleCreatePrototype] Prototype limit verification complete',
+      "info",
+      "[handleCreatePrototype] Prototype limit verification complete",
       {
         plan: limitCheck.plan,
         exceeded: limitCheck.exceeded,
         creationSource: creation_source,
       },
     );
-    if (visibility !== 'PUBLIC' && limitCheck.plan === 'free') {
+    if (visibility !== "PUBLIC" && limitCheck.plan === "free") {
       const errorResponse: CreatePrototypeErrorResponse = {
-        error: 'INVALID_REQUEST',
-        message: 'Free tier users can only make public prototypes',
+        error: "INVALID_REQUEST",
+        message: "Free tier users can only make public prototypes",
       };
       return reply.status(HTTP_STATUS.BAD_REQUEST).send({
         data: null,
@@ -149,8 +149,8 @@ export async function handleCreatePrototypeImpl(
 
     // Resolve design system configuration for the new prototype
     let resolvedDesignStyle: DesignStyle | null = design_style ?? null;
-    let resolvedCustomDesignSystem: string | null =
-      custom_design_system ?? null;
+    let resolvedCustomDesignSystem: string | null = custom_design_system ??
+      null;
 
     const requestedFramework = framework;
     let resolvedFramework: PrototypeFramework = DEFAULT_FRAMEWORK;
@@ -158,25 +158,25 @@ export async function handleCreatePrototypeImpl(
     if (forkPrototypeId) {
       const { data: sourcePrototype, error: sourcePrototypeError } =
         await supabase
-          .from('prototypes')
-          .select('design_style, framework, visibility, team_id')
-          .eq('id', forkPrototypeId)
+          .from("prototypes")
+          .select("design_style, framework, visibility, team_id")
+          .eq("id", forkPrototypeId)
           .single();
 
       if (sourcePrototypeError) {
         request.log2.error(
           sourcePrototypeError,
-          '[handleCreatePrototype] Failed to fetch source prototype design system',
+          "[handleCreatePrototype] Failed to fetch source prototype design system",
         );
       } else if (sourcePrototype) {
         // Validate cross-team forking restrictions
         // Non-public prototypes cannot be forked to a different team
         if (
-          sourcePrototype.visibility !== 'PUBLIC' &&
+          sourcePrototype.visibility !== "PUBLIC" &&
           sourcePrototype.team_id !== team_id
         ) {
           request.log2.warn(
-            '[handleCreatePrototype] Attempted to fork non-public prototype to different team',
+            "[handleCreatePrototype] Attempted to fork non-public prototype to different team",
             {
               sourcePrototypeId: forkPrototypeId,
               sourceTeamId: sourcePrototype.team_id,
@@ -185,9 +185,9 @@ export async function handleCreatePrototypeImpl(
             },
           );
           const errorResponse: CreatePrototypeErrorResponse = {
-            error: 'FORBIDDEN',
+            error: "FORBIDDEN",
             message:
-              'This prototype is private and cannot be duplicated outside of its original team',
+              "This prototype is private and cannot be duplicated outside of its original team",
           };
           return reply.status(HTTP_STATUS.FORBIDDEN).send({
             data: null,
@@ -214,15 +214,15 @@ export async function handleCreatePrototypeImpl(
 
     if (!resolvedDesignStyle && folder_id) {
       const { data: folderData, error: projectError } = await supabase
-        .from('folders')
-        .select('default_design_style, custom_design_system')
-        .eq('id', folder_id)
+        .from("folders")
+        .select("default_design_style, custom_design_system")
+        .eq("id", folder_id)
         .single();
 
       if (projectError) {
         request.log2.error(
           projectError,
-          '[handleCreatePrototype] Failed to fetch project for default design system',
+          "[handleCreatePrototype] Failed to fetch project for default design system",
         );
       } else if (folderData) {
         // 1. Use the folder's default_design_style if it's valid
@@ -239,11 +239,11 @@ export async function handleCreatePrototypeImpl(
     }
 
     if (!resolvedDesignStyle) {
-      resolvedDesignStyle = 'stylesheets';
+      resolvedDesignStyle = "stylesheets";
     }
     request.log2.consoleLogDevOnly(
-      'info',
-      '[handleCreatePrototype] Resolved design + framework configuration',
+      "info",
+      "[handleCreatePrototype] Resolved design + framework configuration",
       {
         resolvedDesignStyle,
         resolvedFramework,
@@ -260,33 +260,35 @@ export async function handleCreatePrototypeImpl(
     // - latest_deploy_key: Left as NULL/default, not copied from source
     // - github_repo_id: Not copied, each prototype has its own GitHub integration
     const { data: newPrototype, error: prototypeInsertError } = await supabase
-      .from('prototypes')
-      .insert({
-        name,
-        description,
-        owner_id: user.id,
-        folder_id,
-        visibility,
-        design_style: resolvedDesignStyle,
-        custom_design_system: forkPrototypeId
-          ? null
-          : resolvedCustomDesignSystem,
-        framework: resolvedFramework,
-        latest_build_key: version,
-        team_id: team_id,
-      } satisfies TablesInsert<'prototypes'>)
+      .from("prototypes")
+      .insert(
+        {
+          name,
+          description,
+          owner_id: user.id,
+          folder_id,
+          visibility,
+          design_style: resolvedDesignStyle,
+          custom_design_system: forkPrototypeId
+            ? null
+            : resolvedCustomDesignSystem,
+          framework: resolvedFramework,
+          latest_build_key: version,
+          team_id: team_id,
+        } satisfies TablesInsert<"prototypes">,
+      )
       .select()
       .single();
 
     if (prototypeInsertError) {
       request.log2.error(
         new Error(prototypeInsertError.message),
-        '[handleCreatePrototype] Error creating prototype:' +
+        "[handleCreatePrototype] Error creating prototype:" +
           prototypeInsertError.message,
       );
       const errorResponse: CreatePrototypeErrorResponse = {
-        error: 'DATABASE_ERROR',
-        message: 'Failed to create prototype in database',
+        error: "DATABASE_ERROR",
+        message: "Failed to create prototype in database",
       };
       return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
         data: null,
@@ -296,8 +298,8 @@ export async function handleCreatePrototypeImpl(
 
     const newPrototypeId = newPrototype.id;
     request.log2.consoleLogDevOnly(
-      'info',
-      '[handleCreatePrototype] Inserted prototype row',
+      "info",
+      "[handleCreatePrototype] Inserted prototype row",
       {
         prototypeId: newPrototypeId,
         resolvedFramework,
@@ -308,8 +310,8 @@ export async function handleCreatePrototypeImpl(
       // 5. Handle prototype files and S3 operations
       if (forkPrototypeId) {
         request.log2.consoleLogDevOnly(
-          'info',
-          '[handleCreatePrototype] Forking prototype files/assets',
+          "info",
+          "[handleCreatePrototype] Forking prototype files/assets",
           {
             sourcePrototypeId: forkPrototypeId,
             newPrototypeId,
@@ -326,8 +328,8 @@ export async function handleCreatePrototypeImpl(
         );
       } else {
         request.log2.consoleLogDevOnly(
-          'info',
-          '[handleCreatePrototype] Copying default starter files/assets',
+          "info",
+          "[handleCreatePrototype] Copying default starter files/assets",
           {
             newPrototypeId,
             designStyle: resolvedDesignStyle,
@@ -346,16 +348,18 @@ export async function handleCreatePrototypeImpl(
       }
 
       const { error: buildHistoryError } = await supabase
-        .from('prototype_build_history')
-        .insert({
-          prototype_id: newPrototypeId,
-          build_key: version,
-          deploy_key: '',
-        } satisfies TablesInsert<'prototype_build_history'>);
+        .from("prototype_build_history")
+        .insert(
+          {
+            prototype_id: newPrototypeId,
+            build_key: version,
+            deploy_key: "",
+          } satisfies TablesInsert<"prototype_build_history">,
+        );
       if (buildHistoryError) {
         request.log2.error(
           buildHistoryError,
-          '[handleCreatePrototype] Failed to insert prototype_build_history entry',
+          "[handleCreatePrototype] Failed to insert prototype_build_history entry",
           {
             newPrototypeId,
             version,
@@ -366,15 +370,17 @@ export async function handleCreatePrototypeImpl(
       // Insert into prototype_sensitive_metadata if source_repo_id is provided
       if (source_repo_id) {
         const { error: sensitiveMetadataError } = await supabase
-          .from('prototype_sensitive_metadata')
-          .insert({
-            prototype_id: newPrototypeId,
-            source_repo_id: source_repo_id,
-          } satisfies TablesInsert<'prototype_sensitive_metadata'>);
+          .from("prototype_sensitive_metadata")
+          .insert(
+            {
+              prototype_id: newPrototypeId,
+              source_repo_id: source_repo_id,
+            } satisfies TablesInsert<"prototype_sensitive_metadata">,
+          );
         if (sensitiveMetadataError) {
           request.log2.error(
             sensitiveMetadataError,
-            '[handleCreatePrototype] Failed to insert prototype_sensitive_metadata entry',
+            "[handleCreatePrototype] Failed to insert prototype_sensitive_metadata entry",
             {
               newPrototypeId,
               source_repo_id,
@@ -384,8 +390,8 @@ export async function handleCreatePrototypeImpl(
           // The prototype is already created successfully
         } else {
           request.log2.consoleLogDevOnly(
-            'info',
-            '[handleCreatePrototype] Created prototype_sensitive_metadata',
+            "info",
+            "[handleCreatePrototype] Created prototype_sensitive_metadata",
             {
               newPrototypeId,
               source_repo_id,
@@ -397,8 +403,8 @@ export async function handleCreatePrototypeImpl(
       // 6. Get viewing URL and return success
       const viewingUrl = getPrototypeViewingUrl(newPrototypeId);
       request.log2.consoleLogDevOnly(
-        'info',
-        '[handleCreatePrototype] Returning success response',
+        "info",
+        "[handleCreatePrototype] Returning success response",
         {
           newPrototypeId,
           viewingUrl,
@@ -412,7 +418,7 @@ export async function handleCreatePrototypeImpl(
         error: null,
       });
     } catch (error) {
-      request.log2.error(error, 'Error during prototype setup:');
+      request.log2.error(error, "Error during prototype setup:");
       await Promise.allSettled([
         deletePrototypeS3Builds(s3Client, newPrototypeId, request.log2),
         deletePrototypeAssetsFromStorage(
@@ -426,13 +432,12 @@ export async function handleCreatePrototypeImpl(
           request.log2,
         ),
       ]);
-      await supabase.from('prototypes').delete().eq('id', newPrototypeId);
+      await supabase.from("prototypes").delete().eq("id", newPrototypeId);
       const errorResponse: CreatePrototypeErrorResponse = {
-        error: 'S3_ERROR',
-        message:
-          error instanceof Error
-            ? error.message
-            : 'Failed to set up prototype files and S3 storage',
+        error: "S3_ERROR",
+        message: error instanceof Error
+          ? error.message
+          : "Failed to set up prototype files and S3 storage",
       };
       return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
         data: null,
@@ -440,10 +445,10 @@ export async function handleCreatePrototypeImpl(
       });
     }
   } catch (error) {
-    request.log2.error(error, '[handleCreatePrototype] Unexpected error:');
+    request.log2.error(error, "[handleCreatePrototype] Unexpected error:");
     const errorResponse: CreatePrototypeErrorResponse = {
-      error: 'DATABASE_ERROR',
-      message: 'An unexpected error occurred',
+      error: "DATABASE_ERROR",
+      message: "An unexpected error occurred",
     };
     return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
       data: null,
@@ -471,13 +476,13 @@ async function forkPrototype(
   );
   if (!accessResult?.prototype) {
     log2.warn(
-      '[forkPrototype] User attempted to fork prototype without access',
+      "[forkPrototype] User attempted to fork prototype without access",
       {
         sourcePrototypeId,
         newPrototypeId,
       },
     );
-    throw new Error('Access denied for source prototype');
+    throw new Error("Access denied for source prototype");
   }
   const sourceBuildKey = accessResult.prototype.latest_build_key;
 
@@ -494,17 +499,17 @@ async function forkPrototype(
     envVarResult,
   ] = await Promise.all([
     supabase
-      .from('prototype_files')
-      .select('*')
-      .eq('prototype_id', sourcePrototypeId),
+      .from("prototype_files")
+      .select("*")
+      .eq("prototype_id", sourcePrototypeId),
     supabase
-      .from('prototype_assets')
-      .select('*')
-      .eq('prototype_id', sourcePrototypeId),
+      .from("prototype_assets")
+      .select("*")
+      .eq("prototype_id", sourcePrototypeId),
     copyS3BucketContentsVersioned(
       s3Client,
       sourcePrototypeId,
-      sourceBuildKey ?? 'latest',
+      sourceBuildKey ?? "latest",
       newPrototypeId,
       targetVersion,
       log2,
@@ -515,9 +520,9 @@ async function forkPrototype(
       newPrototypeId,
     ),
     supabase
-      .from('prototype_env_vars')
-      .select('name,is_public,prototype_env_var_secrets(secret_value)')
-      .eq('prototype_id', sourcePrototypeId),
+      .from("prototype_env_vars")
+      .select("name,is_public,prototype_env_var_secrets(secret_value)")
+      .eq("prototype_id", sourcePrototypeId),
   ]);
   if (
     filesResult.error ||
@@ -528,7 +533,7 @@ async function forkPrototype(
   ) {
     log2.error(
       filesResult.error,
-      '[forkPrototype] Failed to copy prototype storage items or fetch prototype files/assets/env vars',
+      "[forkPrototype] Failed to copy prototype storage items or fetch prototype files/assets/env vars",
     );
     throw new Error(
       filesResult.error?.message ||
@@ -536,13 +541,13 @@ async function forkPrototype(
         thumbnailCopyResult.error ||
         s3CopyResult.error ||
         envVarResult.error?.message ||
-        'Failed copy operations or fetching protototype files+assets',
+        "Failed copy operations or fetching protototype files+assets",
     );
   }
 
   const [filesInsertResult, assetsInsertResult, assetsStorageCopyResult] =
     await Promise.all([
-      supabase.from('prototype_files').insert(
+      supabase.from("prototype_files").insert(
         filesResult.data.map(
           (file) =>
             ({
@@ -552,7 +557,7 @@ async function forkPrototype(
             }) as PrototypeFileInsert,
         ),
       ),
-      supabase.from('prototype_assets').insert(
+      supabase.from("prototype_assets").insert(
         assetsResult.data.map(
           (asset) =>
             ({
@@ -577,7 +582,7 @@ async function forkPrototype(
       filesInsertResult.error ||
         assetsInsertResult.error ||
         assetsStorageCopyResult.error,
-      '[forkPrototype] Failed to insert files or assets',
+      "[forkPrototype] Failed to insert files or assets",
     );
     throw new Error(
       `Failed to copy prototype files or assets: ${
@@ -594,22 +599,22 @@ async function forkPrototype(
           prototype_id: newPrototypeId,
           name: envVar.name!,
           is_public: envVar.is_public ?? false,
-        }) satisfies TablesInsert<'prototype_env_vars'>,
+        }) satisfies TablesInsert<"prototype_env_vars">,
     );
 
     if (envVarPayload.length > 0) {
       const { data: insertedEnvVars, error: envInsertError } = await supabase
-        .from('prototype_env_vars')
+        .from("prototype_env_vars")
         .insert(envVarPayload)
-        .select('id,name');
+        .select("id,name");
       if (envInsertError) {
         log2.error(
           envInsertError,
-          '[forkPrototype] Failed to copy prototype env vars',
+          "[forkPrototype] Failed to copy prototype env vars",
         );
         throw new Error(
           envInsertError.message ||
-            'Failed to copy prototype environment variables',
+            "Failed to copy prototype environment variables",
         );
       }
 
@@ -624,7 +629,7 @@ async function forkPrototype(
             .map((entry) => [entry.name, entry.secret as string]),
         );
 
-        const secretPayload: TablesInsert<'prototype_env_var_secrets'>[] = [];
+        const secretPayload: TablesInsert<"prototype_env_var_secrets">[] = [];
         insertedEnvVars.forEach((envVar) => {
           const secretValue = secretByName.get(envVar.name);
           if (!secretValue) {
@@ -638,16 +643,16 @@ async function forkPrototype(
 
         if (secretPayload.length > 0) {
           const { error: envSecretInsertError } = await supabase
-            .from('prototype_env_var_secrets')
+            .from("prototype_env_var_secrets")
             .upsert(secretPayload);
           if (envSecretInsertError) {
             log2.error(
               envSecretInsertError,
-              '[forkPrototype] Failed to copy prototype env var secrets',
+              "[forkPrototype] Failed to copy prototype env var secrets",
             );
             throw new Error(
               envSecretInsertError.message ||
-                'Failed to copy prototype environment variable secrets',
+                "Failed to copy prototype environment variable secrets",
             );
           }
         }
@@ -670,8 +675,8 @@ export async function copyAllDefaultsForNewPrototype(
   log2: SystemLogger,
 ): Promise<void> {
   log2.consoleLogDevOnly(
-    'info',
-    '[copyAllDefaultsForNewPrototype] Starting default asset copy',
+    "info",
+    "[copyAllDefaultsForNewPrototype] Starting default asset copy",
     {
       newPrototypeId,
       designStyle: newPrototypeDesignStyle,
@@ -679,8 +684,8 @@ export async function copyAllDefaultsForNewPrototype(
     },
   );
   // Get default app files from S3 raw files
-  const [defaultFilesResult, s3CopyResult, thumbnailCopyResult] =
-    await Promise.all([
+  const [defaultFilesResult, s3CopyResult, thumbnailCopyResult] = await Promise
+    .all([
       getDefaultAppFilesFromS3(
         s3Client,
         newPrototypeId,
@@ -699,8 +704,8 @@ export async function copyAllDefaultsForNewPrototype(
       copyDefaultPrototypeThumbnail(supabase, newPrototypeId),
     ]);
   log2.consoleLogDevOnly(
-    'info',
-    '[copyAllDefaultsForNewPrototype] Default asset copy results',
+    "info",
+    "[copyAllDefaultsForNewPrototype] Default asset copy results",
     {
       newPrototypeId,
       defaultFilesSuccess: defaultFilesResult.success,
@@ -720,7 +725,7 @@ export async function copyAllDefaultsForNewPrototype(
       defaultFilesResult.error ||
         s3CopyResult.error ||
         thumbnailCopyResult.error,
-      '[createNewPrototype] Failed to get default files from S3 or copy thumbnail',
+      "[createNewPrototype] Failed to get default files from S3 or copy thumbnail",
     );
     throw new Error(
       `Failed to get default files from S3 or copy thumbnail: ${
@@ -736,8 +741,8 @@ export async function copyAllDefaultsForNewPrototype(
     assetsInsertResult,
     supabaseStorageAssetUploadResult,
   ] = await Promise.all([
-    supabase.from('prototype_files').insert(defaultFilesResult.files ?? []),
-    supabase.from('prototype_assets').insert(
+    supabase.from("prototype_files").insert(defaultFilesResult.files ?? []),
+    supabase.from("prototype_assets").insert(
       (defaultFilesResult.assets ?? []).map(
         (asset): PrototypeAssetInsert => ({
           prototype_id: asset.prototype_id,
@@ -752,8 +757,8 @@ export async function copyAllDefaultsForNewPrototype(
     ),
   ]);
   log2.consoleLogDevOnly(
-    'info',
-    '[copyAllDefaultsForNewPrototype] Database insert results',
+    "info",
+    "[copyAllDefaultsForNewPrototype] Database insert results",
     {
       newPrototypeId,
       filesError: filesInsertResult.error?.message,
@@ -770,7 +775,7 @@ export async function copyAllDefaultsForNewPrototype(
       filesInsertResult.error ||
         assetsInsertResult.error ||
         supabaseStorageAssetUploadResult.error,
-      '[createNewPrototype] Failed to insert default files or assets',
+      "[createNewPrototype] Failed to insert default files or assets",
     );
     throw new Error(
       `Failed to insert default files or assets: ${
@@ -781,8 +786,8 @@ export async function copyAllDefaultsForNewPrototype(
     );
   }
   log2.consoleLogDevOnly(
-    'info',
-    '[copyAllDefaultsForNewPrototype] Completed default setup',
+    "info",
+    "[copyAllDefaultsForNewPrototype] Completed default setup",
     {
       newPrototypeId,
       version,
