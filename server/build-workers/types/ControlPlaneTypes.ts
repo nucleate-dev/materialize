@@ -5,7 +5,7 @@
 // To update these shared files, modify the source file and run:
 // npm run sync-types (in the control-plane directory)
 //
-// Last synced: 2026-01-27T20:24:52.719Z
+// Last synced: 2026-01-28T21:42:21.777Z
 
 // Public API types for the Control Plane Server
 // These types define the request and response schemas for all public endpoints
@@ -56,7 +56,7 @@ export type PrototypeAssetInputWithContent = PrototypeAssetInput & {
 export type BuildStatus =
   | "creating"
   | "chatting"
-  | "updating"
+  | "updating" // this actually only refers to STARTING dev server, never use for anything else
   | "error"
   | "stable"
   | "cleaning"
@@ -752,7 +752,7 @@ export interface ListFilesRequestBody {
 
 export interface FileListItem {
   name: string;
-  type: 'text' | 'binary';
+  type: "text" | "binary";
   updated_at: string;
 }
 
@@ -769,7 +769,7 @@ export interface ReadFileRequestBody {
 export interface ReadFileSuccessResponse {
   file_path: string;
   content: string;
-  type: 'text' | 'binary';
+  type: "text" | "binary";
 }
 
 // POST /files/write
@@ -806,7 +806,7 @@ export interface ReadMultipleFilesRequestBody {
 export interface ReadMultipleFilesFileResult {
   file_path: string;
   content: string | null;
-  type: 'text' | 'binary';
+  type: "text" | "binary";
   error?: string;
 }
 
