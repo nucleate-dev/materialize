@@ -55,6 +55,7 @@ const ALL_STARTER_APPS = [
   "web-starter-app-nextjs",
   "web-starter-app-vite",
 ];
+const BUN_ALLOWED_STARTERS = ["web-starter-app-vite"];
 
 // Check for specific app argument (non-flag arguments)
 const appArgs = process.argv.slice(2).filter((arg) => !arg.startsWith("--"));
@@ -304,11 +305,12 @@ function buildApp(appDir, appName) {
   const isVite =
     appName.includes("vite") ||
     fs.existsSync(path.join(clientDir, "vite.config.ts"));
+  const useBun = BUN_ALLOWED_STARTERS.includes(appName);
 
   try {
     // First, ensure dependencies are installed
     console.log("   📦 Installing dependencies...");
-    execSync("npm install", {
+    execSync(useBun ? "bun install" : "npm install", {
       cwd: clientDir,
       stdio: "inherit",
     });
@@ -341,7 +343,7 @@ function buildApp(appDir, appName) {
     } else if (isVite) {
       // Vite build
       console.log("   🚀 Running Vite build...");
-      execSync("npm run build", {
+      execSync(useBun ? "bun run build" : "npm run build", {
         cwd: clientDir,
         stdio: "inherit",
       });
