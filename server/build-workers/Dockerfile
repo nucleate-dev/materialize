@@ -72,7 +72,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 ENV NEXT_SHARP_PATH=/usr/lib/x86_64-linux-gnu/libvips.so.42
 # Bun settings
 ENV BUN_INSTALL=/root/.bun
-ENV BUN_INSTALL_CACHE_DIR=/tmp/bun-cache
+ENV BUN_INSTALL_CACHE_DIR=/tmp/materialize-dev-server/.bun-cache
 ENV PATH="$BUN_INSTALL/bin:$PATH"
 
 # Copy package files first for caching
@@ -83,8 +83,6 @@ COPY tsconfig.json ./
 RUN mkdir -p /tmp/npm-cache && chmod 777 /tmp/npm-cache
 ENV NPM_CONFIG_CACHE=/tmp/npm-cache
 
-# Setup bun cache (faster installs)
-RUN mkdir -p /tmp/bun-cache && chmod 777 /tmp/bun-cache
 
 # Global + project dependencies
 RUN npm install -g @expo/ngrok@^4.1.0 typescript shadcn@latest

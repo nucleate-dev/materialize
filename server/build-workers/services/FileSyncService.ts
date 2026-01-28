@@ -123,6 +123,7 @@ export class FileSyncService {
     ".idea",
     "_generated",
     ".bun",
+    ".bun-cache",
   ]);
 
   private readonly skipFileNames = new Set([

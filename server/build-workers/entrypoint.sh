@@ -19,7 +19,7 @@ mkdir -p "${NPM_CACHE}"
 chown -R "${TERMINAL_USER}:${TERMINAL_GROUP}" "${NPM_CACHE}"
 chmod 770 "${NPM_CACHE}"
 
-BUN_CACHE="${WORK_DIR}/.bun"
+BUN_CACHE="${WORK_DIR}/.bun-cache"
 mkdir -p "${BUN_CACHE}"
 chown -R "${TERMINAL_USER}:${TERMINAL_GROUP}" "${BUN_CACHE}"
 chmod 770 "${BUN_CACHE}"

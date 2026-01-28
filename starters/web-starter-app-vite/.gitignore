@@ -14,6 +14,7 @@
 # bun (any level)
 **/bun.lockb
 **/.bun/
+**/.bun-cache/
 
 # testing (any level)
 **/coverage/
