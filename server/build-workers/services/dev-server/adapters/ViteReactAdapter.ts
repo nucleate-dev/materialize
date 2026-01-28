@@ -234,7 +234,7 @@ export class ViteReactAdapter implements IDevelopmentServerAdapter {
       const commandString = `
 cd ${this.clientDir} && \
 NODE_ENV=production NODE_OPTIONS="--max-old-space-size=2048" \
-npx vite build && \
+bunx vite build && \
 echo "EXIT_CODE=$?"
 `;
 
@@ -418,7 +418,7 @@ echo "EXIT_CODE=$?"
     return `
 cd ${this.clientDir} && \
 ${envVars} \
-npx vite --host 0.0.0.0 --port ${DEV_SERVER_PORT}
+bunx vite --host 0.0.0.0 --port ${DEV_SERVER_PORT}
 `.trim();
   }
 }

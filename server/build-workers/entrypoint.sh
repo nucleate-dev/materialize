@@ -19,6 +19,11 @@ mkdir -p "${NPM_CACHE}"
 chown -R "${TERMINAL_USER}:${TERMINAL_GROUP}" "${NPM_CACHE}"
 chmod 770 "${NPM_CACHE}"
 
+BUN_CACHE="${WORK_DIR}/.bun"
+mkdir -p "${BUN_CACHE}"
+chown -R "${TERMINAL_USER}:${TERMINAL_GROUP}" "${BUN_CACHE}"
+chmod 770 "${BUN_CACHE}"
+
 if command -v setfacl >/dev/null 2>&1; then
   setfacl -m "u:${TERMINAL_USER}:rwx" "${WORK_DIR}" || true
   setfacl -d -m "u:${TERMINAL_USER}:rwx" "${WORK_DIR}" || true

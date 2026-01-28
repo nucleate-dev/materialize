@@ -122,6 +122,7 @@ export class FileSyncService {
     ".vscode",
     ".idea",
     "_generated",
+    ".bun",
   ]);
 
   private readonly skipFileNames = new Set([
@@ -137,6 +138,7 @@ export class FileSyncService {
     ".pnp",
     ".pnp.cjs",
     ".pnp.loader.mjs",
+    "bun.lockb",
   ]);
   // File patterns/suffixes to skip (for pattern matching)
   private readonly skipFileSuffixes = [

@@ -83,7 +83,7 @@ Never create new projects - rather you should be UPDATING the current project as
 
 <code_organization>
 - Styling must use Tailwind CSS utility classes plus shadcn/ui primitives from "@/components/ui/*". Never use inline style objects or CSS modules unless editing index.css.
-- You are encouraged to install any missing shadcn components via \`npx --yes shadcn@latest add <component> <component> <component> --overwrite\` (run through SafeBash) and then import from "@/components/ui"—prefer shadcn for every button, input, dialog, dropdown, etc.
+- You are encouraged to install any missing shadcn components via \`bunx --bun shadcn@latest add <component> <component> <component> --overwrite\` (run through SafeBash) and then import from "@/components/ui"—prefer shadcn for every button, input, dialog, dropdown, etc.
 - Import the \`cn\` helper from "@/lib/utils" when conditional class merging is needed.
 - IMPORTANT: you must use application theme tokens in your code. Theme tokens (colors, spacing, typography, radii) are defined in "src/index.css" using Tailwind v4's @theme block and CSS variables (e.g., \`bg-background\`, \`text-foreground\`, \`border-border\`). When you need a new token, update index.css instead of hardcoding hex values.
 - Compose UI from existing shared abstractions (e.g., "@/components/shared", "@/components/ui/button"). Reuse design tokens, spacing scale, and motion primitives already defined.
@@ -243,7 +243,7 @@ const VITE_STACK_INFO = `
 <stack_info>
 1. Framework: Vite + React (TypeScript). This is a Single Page Application (SPA) with client-side rendering only. No server components or SSR.
 2. Styling: Tailwind CSS v4 + shadcn/ui. Use className utilities plus variants exported by "@/components/ui/*". Never use StyleSheet.create or React Native primitives.
-3. Import UI primitives from "@/components/ui". Do not recreate components that already exist—extend them via composition. If you need a new primitive, install it in the client directory via "npx --yes shadcn@latest add <component> <component> <component> ... --overwrite" (run with SafeBash one command at a time, you can install multiple components in one go) and wire it up before using. Always use --yes and --overwrite.
+3. Import UI primitives from "@/components/ui". Do not recreate components that already exist—extend them via composition. If you need a new primitive, install it in the client directory via "bunx --bun shadcn@latest add <component> <component> <component> ... --overwrite" (run with SafeBash one command at a time, you can install multiple components in one go) and wire it up before using. Always use --bun and --overwrite.
 4. Use the \`cn\` helper from "@/lib/utils" for conditional classes. Avoid template string concatenation.
 5. CRITICAL - Tailwind CSS v4 Configuration:
    - There is NO tailwind.config.ts file. Tailwind v4 uses CSS-based configuration.
@@ -267,7 +267,8 @@ const VITE_STACK_INFO = `
 9. Use SafeWrite/SafeBash tools exactly as documented. Restart the dev server after package installs.
 10. NEVER use Alert.alert() — it does not work on web and cannot be tested. Instead, create custom modal components or use toast notifications for user feedback.
 11. Environment variables: Use \`import.meta.env.VITE_*\` to access environment variables. All client-side env vars must be prefixed with VITE_.
-12. CRITICAL - Build Verification: After making major changes (new pages, significant component updates, routing changes, or installing packages), run \`cd /tmp/materialize-dev-server/client && npm run build\` via SafeBash to verify the app builds successfully. If the build fails, analyze the errors and fix them before proceeding. This ensures TypeScript errors and missing imports are caught early.
+12. CRITICAL - Build Verification: After making major changes (new pages, significant component updates, routing changes, or installing packages), run \`cd /tmp/materialize-dev-server/client && bun run build\` via SafeBash to verify the app builds successfully. If the build fails, analyze the errors and fix them before proceeding. This ensures TypeScript errors and missing imports are caught early.
+13. Package Management: This project uses **bun** as the package manager. Use \`bun install\` to install dependencies, \`bun add <package>\` to add new packages, and \`bun run <script>\` to run scripts.
 </stack_info>
 `;
 

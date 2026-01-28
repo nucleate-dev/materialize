@@ -55,6 +55,11 @@ RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
       && apt-get install -y --no-install-recommends gh \
       && rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*
 
+# Install Bun runtime for Vite projects
+RUN curl -fsSL https://bun.sh/install | bash \
+      && ln -s /root/.bun/bin/bun /usr/local/bin/bun \
+      && ln -s /root/.bun/bin/bunx /usr/local/bin/bunx
+
 # Environment setup for Node + Watchman + PTY
 ENV TERM=xterm-256color
 ENV SHELL=/bin/bash
@@ -65,6 +70,10 @@ ENV WATCHPACK_POLLING=true
 # Next.js optimization settings
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NEXT_SHARP_PATH=/usr/lib/x86_64-linux-gnu/libvips.so.42
+# Bun settings
+ENV BUN_INSTALL=/root/.bun
+ENV BUN_INSTALL_CACHE_DIR=/tmp/bun-cache
+ENV PATH="$BUN_INSTALL/bin:$PATH"
 
 # Copy package files first for caching
 COPY package*.json ./
@@ -73,6 +82,9 @@ COPY tsconfig.json ./
 # Setup npm cache (faster installs)
 RUN mkdir -p /tmp/npm-cache && chmod 777 /tmp/npm-cache
 ENV NPM_CONFIG_CACHE=/tmp/npm-cache
+
+# Setup bun cache (faster installs)
+RUN mkdir -p /tmp/bun-cache && chmod 777 /tmp/bun-cache
 
 # Global + project dependencies
 RUN npm install -g @expo/ngrok@^4.1.0 typescript shadcn@latest

@@ -11,6 +11,10 @@
 !**/.yarn/versions
 **/.npm-cache/
 
+# bun (any level)
+**/bun.lockb
+**/.bun/
+
 # testing (any level)
 **/coverage/
 

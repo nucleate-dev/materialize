@@ -941,6 +941,8 @@ export class TerminalService {
       "TZ",
       "NEXT_TELEMETRY_DISABLED",
       "NEXT_SHARP_PATH",
+      "BUN_INSTALL",
+      "BUN_INSTALL_CACHE_DIR",
     ];
 
     const env: NodeJS.ProcessEnv = {};
