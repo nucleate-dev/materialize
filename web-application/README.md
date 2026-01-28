@@ -28,7 +28,7 @@ npm run pull-prototype abc123 ./my-prototype
 
 This will:
 
-- Fetch all files for the prototype from Supabase .
+- Fetch all files for the prototype from Supabase
 - Create the files in the specified local directory
 - Maintain the original file structure
 
