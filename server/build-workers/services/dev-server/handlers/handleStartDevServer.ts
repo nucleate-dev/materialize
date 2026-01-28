@@ -324,13 +324,17 @@ export async function handleStartDevServerImpl(
   );
 
   // 2. Install dependencies with sandboxService runCommandInternal
-  request.log2.consoleLogDevOnly("info", "Installing dependencies", {
+  // Use bun for Vite projects, npm for everything else
+  const useBun = resolvedFramework === "web_vite_react";
+  const packageManager = useBun ? "bun" : "npm";
+
+  request.log2.consoleLogDevOnly("info", `Installing dependencies with ${packageManager}`, {
     prototypeId: prototype_id,
   });
 
-  const npmInstallResult = await developmentServerService.sandboxService
+  const installResult = await developmentServerService.sandboxService
     .runCommandInternal({
-      command: "npm",
+      command: packageManager,
       args: ["install"],
       cwd: `${WORK_DIR}/client`,
       session_id: "dev-server",
@@ -338,30 +342,30 @@ export async function handleStartDevServerImpl(
       strip_ansi: true,
     });
 
-  if (npmInstallResult.response.error) {
+  if (installResult.response.error) {
     request.log2.error(
-      new Error(npmInstallResult.response.error.error),
-      "npm install failed, continuing anyway",
+      new Error(installResult.response.error.error),
+      `${packageManager} install failed, continuing anyway`,
       {
         prototypeId: prototype_id,
-        errorMessage: npmInstallResult.response.error.message,
+        errorMessage: installResult.response.error.message,
       },
     );
-  } else if (npmInstallResult.response.data?.status === "timeout") {
-    request.log2.warn("npm install timed out, continuing anyway", {
+  } else if (installResult.response.data?.status === "timeout") {
+    request.log2.warn(`${packageManager} install timed out, continuing anyway`, {
       prototypeId: prototype_id,
-      stdout: npmInstallResult.response.data.stdout,
+      stdout: installResult.response.data.stdout,
     });
-  } else if (npmInstallResult.response.data?.status === "success") {
-    const stdout = npmInstallResult.response.data.stdout;
-    // Check for common npm error indicators in output
+  } else if (installResult.response.data?.status === "success") {
+    const stdout = installResult.response.data.stdout;
+    // Check for common error indicators in output
     const hasErrors = stdout.includes("ERR!") ||
       stdout.includes("error") ||
       stdout.includes("failed");
 
     if (hasErrors) {
       request.log2.warn(
-        "npm install completed but output contains error indicators, continuing anyway",
+        `${packageManager} install completed but output contains error indicators, continuing anyway`,
         {
           prototypeId: prototype_id,
           stdout,
@@ -370,7 +374,7 @@ export async function handleStartDevServerImpl(
     } else {
       request.log2.consoleLogDevOnly(
         "info",
-        "npm install completed successfully",
+        `${packageManager} install completed successfully`,
         {
           prototypeId: prototype_id,
         },
