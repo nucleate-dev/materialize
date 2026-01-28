@@ -743,7 +743,7 @@ export interface ListFilesRequestBody {
 
 export interface FileListItem {
   name: string;
-  type: 'text' | 'binary';
+  type: "text" | "binary";
   updated_at: string;
 }
 
@@ -760,7 +760,7 @@ export interface ReadFileRequestBody {
 export interface ReadFileSuccessResponse {
   file_path: string;
   content: string;
-  type: 'text' | 'binary';
+  type: "text" | "binary";
 }
 
 // POST /files/write
@@ -797,7 +797,7 @@ export interface ReadMultipleFilesRequestBody {
 export interface ReadMultipleFilesFileResult {
   file_path: string;
   content: string | null;
-  type: 'text' | 'binary';
+  type: "text" | "binary";
   error?: string;
 }
 
