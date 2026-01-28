@@ -44,8 +44,9 @@ type PrototypeFramework = Database["public"]["Enums"]["prototype_framework"];
 const VALID_FRAMEWORKS: PrototypeFramework[] = [
   "mobile_expo_react_native",
   "web_nextjs_react",
+  "web_vite_react",
 ];
-const DEFAULT_FRAMEWORK: PrototypeFramework = "mobile_expo_react_native";
+const DEFAULT_FRAMEWORK: PrototypeFramework = "web_vite_react";
 
 export async function handleCreatePrototypeImpl(
   request: FastifyRequest<{ Body: CreatePrototypeRequestBody }>,
@@ -97,7 +98,8 @@ export async function handleCreatePrototypeImpl(
       },
     );
 
-    // 3. Check prototype limits for free users (5 max)
+    // 3. Paywall User
+    // 3a. Check prototype limits for free users (5 max)
     const limitCheck = await hasExceededPrototypeCreationLimit(
       token,
       user.id,
@@ -114,15 +116,7 @@ export async function handleCreatePrototypeImpl(
         },
       });
     }
-    request.log2.consoleLogDevOnly(
-      "info",
-      "[handleCreatePrototype] Prototype limit verification complete",
-      {
-        plan: limitCheck.plan,
-        exceeded: limitCheck.exceeded,
-        creationSource: creation_source,
-      },
-    );
+    // 3b. Check prototype visibility for users (free cannot be non-PUBLIC)
     if (visibility !== "PUBLIC" && limitCheck.plan === "free") {
       const errorResponse: CreatePrototypeErrorResponse = {
         error: "INVALID_REQUEST",

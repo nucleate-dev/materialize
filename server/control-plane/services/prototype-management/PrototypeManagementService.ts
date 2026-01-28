@@ -105,7 +105,11 @@ export class PrototypeManagementService {
               },
               framework: {
                 type: "string",
-                enum: ["mobile_expo_react_native", "web_nextjs_react"],
+                enum: [
+                  "mobile_expo_react_native",
+                  "web_nextjs_react",
+                  "web_vite_react",
+                ],
               },
               source_repo_id: { type: "number" },
             },

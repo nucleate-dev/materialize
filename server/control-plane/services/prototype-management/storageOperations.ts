@@ -5,23 +5,23 @@ import {
   ListObjectsV2Command,
   ListObjectsV2CommandOutput,
   S3Client,
-} from '@aws-sdk/client-s3';
-import { SupabaseClient } from '@supabase/supabase-js';
-import { SystemLogger } from '../../loggers/SystemLogger.js';
+} from "@aws-sdk/client-s3";
+import { SupabaseClient } from "@supabase/supabase-js";
+import { SystemLogger } from "../../loggers/SystemLogger.js";
 import type {
   DefaultFilesResult,
   DesignStyle,
   PrototypeAssetRow,
   PrototypeFileInsert,
   S3CopyResult,
-} from '../../types/InternalTypes.js';
-import type { Database } from '../../types/supabase.js';
+} from "../../types/InternalTypes.js";
+import type { Database } from "../../types/supabase.js";
 
-type PrototypeFramework = Database['public']['Enums']['prototype_framework'];
+type PrototypeFramework = Database["public"]["Enums"]["prototype_framework"];
 
-const S3_PROTOTYPE_BUCKET = 'materialize-sites';
-const SUPABASE_PROTOTYPE_ASSETS_BUCKET = 'prototype-assets';
-const SUPABASE_CHAT_IMAGES_BUCKET = 'chat_images';
+const S3_PROTOTYPE_BUCKET = "materialize-sites";
+const SUPABASE_PROTOTYPE_ASSETS_BUCKET = "prototype-assets";
+const SUPABASE_CHAT_IMAGES_BUCKET = "chat_images";
 const S3_COPY_CONCURRENCY = 10;
 const SUPABASE_STORAGE_CONCURRENCY = 5;
 const S3_DOWNLOAD_CONCURRENCY = 20;
@@ -55,31 +55,31 @@ async function mapWithConcurrency<T, R>(
  * Get content type for file based on extension
  */
 function getContentType(fileName: string): string {
-  const ext = fileName.toLowerCase().split('.').pop();
+  const ext = fileName.toLowerCase().split(".").pop();
   switch (ext) {
-    case 'js':
-    case 'jsx':
-      return 'application/javascript';
-    case 'ts':
-    case 'tsx':
-      return 'application/typescript';
-    case 'json':
-      return 'application/json';
-    case 'css':
-      return 'text/css';
-    case 'html':
-      return 'text/html';
-    case 'png':
-      return 'image/png';
-    case 'jpg':
-    case 'jpeg':
-      return 'image/jpeg';
-    case 'gif':
-      return 'image/gif';
-    case 'svg':
-      return 'image/svg+xml';
+    case "js":
+    case "jsx":
+      return "application/javascript";
+    case "ts":
+    case "tsx":
+      return "application/typescript";
+    case "json":
+      return "application/json";
+    case "css":
+      return "text/css";
+    case "html":
+      return "text/html";
+    case "png":
+      return "image/png";
+    case "jpg":
+    case "jpeg":
+      return "image/jpeg";
+    case "gif":
+      return "image/gif";
+    case "svg":
+      return "image/svg+xml";
     default:
-      return 'text/plain';
+      return "text/plain";
   }
 }
 
@@ -104,7 +104,7 @@ export async function copyAllAssetsInSupabaseStorage(
   return {
     success: firstError ? false : true,
     error: firstError
-      ? firstError.error?.message || 'Unknown error during copy'
+      ? firstError.error?.message || "Unknown error during copy"
       : undefined,
     copiedObjects: copyResults.length,
   };
@@ -116,7 +116,7 @@ export async function copyPrototypeThumbnailInSupabaseStorage(
   targetPrototypeId: string,
 ): Promise<S3CopyResult> {
   const { error } = await supabase.storage
-    .from('prototype-thumbnails')
+    .from("prototype-thumbnails")
     .copy(`${sourcePrototypeId}.png`, `${targetPrototypeId}.png`);
   return {
     success: error ? false : true,
@@ -130,8 +130,8 @@ export async function copyDefaultPrototypeThumbnail(
   targetPrototypeId: string,
 ): Promise<S3CopyResult> {
   const { error } = await supabase.storage
-    .from('prototype-thumbnails')
-    .copy('default-prototype-thumbnail.png', `${targetPrototypeId}.png`);
+    .from("prototype-thumbnails")
+    .copy("default-prototype-thumbnail.png", `${targetPrototypeId}.png`);
   return {
     success: error ? false : true,
     error: error ? error.message : undefined,
@@ -140,7 +140,7 @@ export async function copyDefaultPrototypeThumbnail(
 }
 
 export function getVersion(): string {
-  return 'v' + Date.now().toString();
+  return "v" + Date.now().toString();
 }
 
 /**
@@ -155,8 +155,8 @@ export async function copyS3BucketContentsVersioned(
   log2: SystemLogger,
 ): Promise<S3CopyResult> {
   log2.consoleLogDevOnly(
-    'info',
-    '[copyS3BucketContentsVersioned] Copying latest build for fork',
+    "info",
+    "[copyS3BucketContentsVersioned] Copying latest build for fork",
     {
       sourcePrototypeId,
       targetPrototypeId,
@@ -170,8 +170,8 @@ export async function copyS3BucketContentsVersioned(
     log2,
   );
   log2.consoleLogDevOnly(
-    'info',
-    '[copyS3BucketContentsVersioned] Copy completed',
+    "info",
+    "[copyS3BucketContentsVersioned] Copy completed",
     {
       version: targetVersion,
       versionedSuccess: versionedResult.success,
@@ -198,7 +198,7 @@ async function copyS3BucketContents(
   let continuationToken: string | undefined = undefined;
   let successfulCopies = 0;
   let failedCopies = 0;
-  log2.consoleLogDevOnly('info', '[copyS3BucketContents] Starting copy', {
+  log2.consoleLogDevOnly("info", "[copyS3BucketContents] Starting copy", {
     sourcePrefix,
     destinationPrefix,
   });
@@ -212,7 +212,7 @@ async function copyS3BucketContents(
       }),
     );
     continuationToken = listResult.NextContinuationToken;
-    log2.consoleLogDevOnly('debug', '[copyS3BucketContents] Listed objects', {
+    log2.consoleLogDevOnly("debug", "[copyS3BucketContents] Listed objects", {
       keyCount: listResult.KeyCount ?? 0,
       isTruncated: listResult.IsTruncated,
       continuationToken,
@@ -236,9 +236,11 @@ async function copyS3BucketContents(
           await s3Client.send(
             new CopyObjectCommand({
               Bucket: S3_PROTOTYPE_BUCKET,
-              CopySource: `${S3_PROTOTYPE_BUCKET}/${encodeURIComponent(
-                sourceKey,
-              )}`,
+              CopySource: `${S3_PROTOTYPE_BUCKET}/${
+                encodeURIComponent(
+                  sourceKey,
+                )
+              }`,
               Key: destinationKey,
             }),
           );
@@ -253,12 +255,10 @@ async function copyS3BucketContents(
       },
     );
 
-    copyResults.forEach((r) =>
-      r.success ? successfulCopies++ : failedCopies++,
-    );
+    copyResults.forEach((r) => r.success ? successfulCopies++ : failedCopies++);
   } while (continuationToken);
 
-  log2.consoleLogDevOnly('info', '[copyS3BucketContents] Copy summary', {
+  log2.consoleLogDevOnly("info", "[copyS3BucketContents] Copy summary", {
     successfulCopies,
     failedCopies,
     sourcePrefix,
@@ -288,8 +288,8 @@ export async function copyDefaultAppToVersionedPrototype(
     framework,
   );
   log2.consoleLogDevOnly(
-    'info',
-    '[copyDefaultAppToVersionedPrototype] Copying default dist files',
+    "info",
+    "[copyDefaultAppToVersionedPrototype] Copying default dist files",
     {
       prototypeId,
       designStyle,
@@ -304,8 +304,8 @@ export async function copyDefaultAppToVersionedPrototype(
     log2,
   );
   log2.consoleLogDevOnly(
-    'info',
-    '[copyDefaultAppToVersionedPrototype] Copy finished',
+    "info",
+    "[copyDefaultAppToVersionedPrototype] Copy finished",
     {
       prototypeId,
       success: copyResult.success,
@@ -327,8 +327,8 @@ export async function uploadDefaultAssetsToSupabaseStorage(
   log2: SystemLogger,
 ): Promise<S3CopyResult> {
   log2.consoleLogDevOnly(
-    'info',
-    '[uploadDefaultAssetsToSupabaseStorage] Uploading default assets',
+    "info",
+    "[uploadDefaultAssetsToSupabaseStorage] Uploading default assets",
     {
       prototypeId: assets[0]?.prototype_id,
       assetCount: assets.length,
@@ -346,8 +346,8 @@ export async function uploadDefaultAssetsToSupabaseStorage(
           upsert: true,
         });
       if (error) {
-        log2.error(error, 'Error uploading to Supabase Storage:', {
-          functionName: 'uploadAssetToSupabaseStorage',
+        log2.error(error, "Error uploading to Supabase Storage:", {
+          functionName: "uploadAssetToSupabaseStorage",
         });
         return { success: false, error: error.message };
       }
@@ -358,8 +358,8 @@ export async function uploadDefaultAssetsToSupabaseStorage(
     },
   );
   log2.consoleLogDevOnly(
-    'info',
-    '[uploadDefaultAssetsToSupabaseStorage] Upload results',
+    "info",
+    "[uploadDefaultAssetsToSupabaseStorage] Upload results",
     {
       prototypeId: assets[0]?.prototype_id,
       successCount: uploadResults.filter((r) => r.success).length,
@@ -383,15 +383,15 @@ export async function copyPrototypeBuildToDeploymentFolder(
   deploymentKey: string,
   log2: SystemLogger,
 ): Promise<S3CopyResult> {
-  const normalizedBuildKey =
-    (buildKey && buildKey.replace(/^\/+|\/+$/g, '')) || 'latest';
-  const normalizedDeploymentKey = deploymentKey.replace(/^\/+|\/+$/g, '');
+  const normalizedBuildKey = (buildKey && buildKey.replace(/^\/+|\/+$/g, "")) ||
+    "latest";
+  const normalizedDeploymentKey = deploymentKey.replace(/^\/+|\/+$/g, "");
   const sourcePrefix = `${prototypeId}/${normalizedBuildKey}/`;
   const destinationPrefix = `${prototypeId}/${normalizedDeploymentKey}/`;
 
   log2.consoleLogDevOnly(
-    'info',
-    '[copyPrototypeBuildToDeploymentFolder] Copying build to deployment prefix',
+    "info",
+    "[copyPrototypeBuildToDeploymentFolder] Copying build to deployment prefix",
     {
       prototypeId,
       buildKey: normalizedBuildKey,
@@ -410,8 +410,8 @@ export async function copyPrototypeBuildToDeploymentFolder(
 
   if (!copyResult.success) {
     log2.error(
-      new Error(copyResult.error || 'Unknown copy error'),
-      '[copyPrototypeBuildToDeploymentFolder] Failed to copy build to deployment prefix',
+      new Error(copyResult.error || "Unknown copy error"),
+      "[copyPrototypeBuildToDeploymentFolder] Failed to copy build to deployment prefix",
       {
         prototypeId,
         buildKey: normalizedBuildKey,
@@ -422,8 +422,8 @@ export async function copyPrototypeBuildToDeploymentFolder(
     );
   } else {
     log2.consoleLogDevOnly(
-      'info',
-      '[copyPrototypeBuildToDeploymentFolder] Copy completed',
+      "info",
+      "[copyPrototypeBuildToDeploymentFolder] Copy completed",
       {
         prototypeId,
         buildKey: normalizedBuildKey,
@@ -468,7 +468,7 @@ async function deleteObjectsWithPrefix(
       );
     } catch (error) {
       hasError = true;
-      log2.error(error, '[deleteObjectsWithPrefix] Failed to delete batch', {
+      log2.error(error, "[deleteObjectsWithPrefix] Failed to delete batch", {
         prefix,
       });
     }
@@ -504,7 +504,7 @@ export async function listPrototypeDeploymentPrefixes(
     }
   } while (continuationToken);
 
-  log2.consoleLogDevOnly('info', '[listPrototypeDeploymentPrefixes] Found', {
+  log2.consoleLogDevOnly("info", "[listPrototypeDeploymentPrefixes] Found", {
     prototypeId,
     prefixes: Array.from(deploymentPrefixes),
   });
@@ -520,8 +520,8 @@ export async function deletePrototypeDeploymentPrefixes(
     return true;
   }
   log2.consoleLogDevOnly(
-    'info',
-    '[deletePrototypeDeploymentPrefixes] Deleting old deployment folders',
+    "info",
+    "[deletePrototypeDeploymentPrefixes] Deleting old deployment folders",
     { prefixes },
   );
   const results = await Promise.all(
@@ -542,28 +542,33 @@ export function getDefaultAppFilesSourcePrefixes(
   framework?: PrototypeFramework,
 ): Record<string, string> {
   // Use development prefixes when NODE_ENV is development
-  const envPrefix =
-    process.env.NODE_ENV === 'development' ? 'development-' : '';
+  const envPrefix = process.env.NODE_ENV === "development"
+    ? "development-"
+    : "";
 
-  let rawFilesPrefix = '';
-  let distFilesPrefix = '';
+  let rawFilesPrefix = "";
+  let distFilesPrefix = "";
 
-  if (framework === 'web_nextjs_react') {
+  if (framework === "web_nextjs_react") {
     rawFilesPrefix = `${envPrefix}web-starter-app-nextjs-raw-files/`;
     distFilesPrefix = `${envPrefix}web-starter-app-nextjs/`;
+    return { rawFilesPrefix, distFilesPrefix };
+  } else if (framework === "web_vite_react") {
+    rawFilesPrefix = `${envPrefix}web-starter-app-vite-raw-files/`;
+    distFilesPrefix = `${envPrefix}web-starter-app-vite/`;
     return { rawFilesPrefix, distFilesPrefix };
   }
 
   switch (designStyle) {
-    case 'tamagui':
+    case "tamagui":
       rawFilesPrefix = `${envPrefix}starter-app-tamagui-raw-files/`;
       distFilesPrefix = `${envPrefix}starter-app-tamagui/`;
       break;
-    case 'stylesheets':
+    case "stylesheets":
       rawFilesPrefix = `${envPrefix}starter-app-stylesheets-raw-files/`;
       distFilesPrefix = `${envPrefix}starter-app-stylesheets/`;
       break;
-    case 'nativewind':
+    case "nativewind":
       rawFilesPrefix = `${envPrefix}starter-app-nativewind-raw-files/`;
       distFilesPrefix = `${envPrefix}starter-app-nativewind/`;
       break;
@@ -585,8 +590,8 @@ export async function getDefaultAppFilesFromS3(
     framework,
   );
   log2.consoleLogDevOnly(
-    'info',
-    '[getDefaultAppFilesFromS3] Fetching starter files',
+    "info",
+    "[getDefaultAppFilesFromS3] Fetching starter files",
     {
       prototypeId,
       designStyle,
@@ -603,11 +608,11 @@ export async function getDefaultAppFilesFromS3(
     );
 
     const keys = (listResult.Contents ?? [])
-      .map((obj) => obj.Key?.replace(sourcePrefix, ''))
+      .map((obj) => obj.Key?.replace(sourcePrefix, ""))
       .filter((key): key is string => Boolean(key));
     log2.consoleLogDevOnly(
-      'info',
-      '[getDefaultAppFilesFromS3] Listed starter files',
+      "info",
+      "[getDefaultAppFilesFromS3] Listed starter files",
       {
         keyCount: keys.length,
         prototypeId,
@@ -617,9 +622,9 @@ export async function getDefaultAppFilesFromS3(
     if (keys.length === 0) {
       log2.error(
         null,
-        '[getDefaultAppFilesFromS3] No default app files found in S3!',
+        "[getDefaultAppFilesFromS3] No default app files found in S3!",
       );
-      return { success: false, error: 'No default app files found in S3' };
+      return { success: false, error: "No default app files found in S3" };
     }
 
     const results = await mapWithConcurrency(
@@ -633,15 +638,15 @@ export async function getDefaultAppFilesFromS3(
         const obj = await s3Client.send(getCommand);
         if (!obj.Body) throw new Error(`No body returned for ${fileName}`);
 
-        const isAsset =
-          /\.(png|jpg|jpeg|gif|ico|svg|ttf|woff|woff2|eot)$/i.test(fileName);
+        const isAsset = /\.(png|jpg|jpeg|gif|ico|svg|ttf|woff|woff2|eot)$/i
+          .test(fileName);
 
         if (isAsset) {
           const buffer = Buffer.from(await obj.Body.transformToByteArray());
-          return { type: 'asset' as const, name: fileName, contents: buffer };
+          return { type: "asset" as const, name: fileName, contents: buffer };
         } else {
           const contents = await obj.Body.transformToString();
-          return { type: 'file' as const, name: fileName, contents };
+          return { type: "file" as const, name: fileName, contents };
         }
       },
     );
@@ -650,7 +655,7 @@ export async function getDefaultAppFilesFromS3(
       [];
 
     results.forEach((result) => {
-      if (result.type === 'file') {
+      if (result.type === "file") {
         files.push({
           prototype_id: prototypeId,
           name: result.name,
@@ -665,8 +670,8 @@ export async function getDefaultAppFilesFromS3(
       }
     });
     log2.consoleLogDevOnly(
-      'info',
-      '[getDefaultAppFilesFromS3] Prepared default files',
+      "info",
+      "[getDefaultAppFilesFromS3] Prepared default files",
       {
         prototypeId,
         fileCount: files.length,
@@ -676,13 +681,12 @@ export async function getDefaultAppFilesFromS3(
 
     return { success: true, files, assets };
   } catch (error) {
-    log2.error(error, '[getDefaultAppFilesFromS3] Critical error');
+    log2.error(error, "[getDefaultAppFilesFromS3] Critical error");
     return {
       success: false,
-      error:
-        error instanceof Error
-          ? error.message
-          : 'Failed to get default app files',
+      error: error instanceof Error
+        ? error.message
+        : "Failed to get default app files",
     };
   }
 }
@@ -727,7 +731,7 @@ export async function deletePrototypeS3Builds(
 
     return true;
   } catch (error) {
-    log2.error(error, '[cleanupPrototypeS3Objects] Error');
+    log2.error(error, "[cleanupPrototypeS3Objects] Error");
     return false;
   }
 }
@@ -738,12 +742,12 @@ export async function deletePrototypeThumbnailFromSupabaseStorage(
   log2: SystemLogger,
 ): Promise<boolean> {
   const removeResult = await supabase.storage
-    .from('prototype-thumbnails')
+    .from("prototype-thumbnails")
     .remove([`${prototypeId}.png`]);
   if (removeResult.error) {
     log2.error(
       removeResult.error,
-      '[deletePrototypeThumbnailFromSupabaseStorage] Supabase error',
+      "[deletePrototypeThumbnailFromSupabaseStorage] Supabase error",
     );
     return false;
   }
@@ -761,7 +765,7 @@ export async function deletePrototypeAssetsFromStorage(
   try {
     // Recursively list all files with the prototypeId prefix
     const allFiles: string[] = [];
-    const listFilesRecursively = async (path: string = ''): Promise<void> => {
+    const listFilesRecursively = async (path: string = ""): Promise<void> => {
       const { data: items, error: listError } = await supabase.storage
         .from(SUPABASE_PROTOTYPE_ASSETS_BUCKET)
         .list(path);
@@ -786,13 +790,13 @@ export async function deletePrototypeAssetsFromStorage(
 
     if (allFiles.length === 0) {
       log2.consoleLogDevOnly(
-        'info',
-        '[deletePrototypeAssetsFromStorage] No files found',
+        "info",
+        "[deletePrototypeAssetsFromStorage] No files found",
       );
       return true;
     }
 
-    log2.consoleLogDevOnly('info', 'Deleting files from Supabase Storage', {
+    log2.consoleLogDevOnly("info", "Deleting files from Supabase Storage", {
       filePaths: allFiles,
       totalFiles: allFiles.length,
     });
@@ -818,7 +822,7 @@ export async function deletePrototypeAssetsFromStorage(
 
     return true;
   } catch (error) {
-    log2.error(error, '[deletePrototypeAssetsFromStorage] Error');
+    log2.error(error, "[deletePrototypeAssetsFromStorage] Error");
     return false;
   }
 }
@@ -835,7 +839,7 @@ export async function deletePrototypeChatImagesFromStorage(
   try {
     // Recursively list all files under {prototypeId}/
     const allFiles: string[] = [];
-    const listFilesRecursively = async (path: string = ''): Promise<void> => {
+    const listFilesRecursively = async (path: string = ""): Promise<void> => {
       const { data: items, error: listError } = await supabase.storage
         .from(SUPABASE_CHAT_IMAGES_BUCKET)
         .list(path);
@@ -860,8 +864,8 @@ export async function deletePrototypeChatImagesFromStorage(
 
     if (allFiles.length === 0) {
       log2.consoleLogDevOnly(
-        'info',
-        '[deletePrototypeChatImagesFromStorage] No files found',
+        "info",
+        "[deletePrototypeChatImagesFromStorage] No files found",
         {
           prototypeId,
         },
@@ -870,8 +874,8 @@ export async function deletePrototypeChatImagesFromStorage(
     }
 
     log2.consoleLogDevOnly(
-      'info',
-      'Deleting chat images from Supabase Storage',
+      "info",
+      "Deleting chat images from Supabase Storage",
       {
         filePaths: allFiles,
         totalFiles: allFiles.length,
@@ -899,7 +903,7 @@ export async function deletePrototypeChatImagesFromStorage(
 
     return true;
   } catch (error) {
-    log2.error(error, '[deletePrototypeChatImagesFromStorage] Error');
+    log2.error(error, "[deletePrototypeChatImagesFromStorage] Error");
     return false;
   }
 }
