@@ -14,6 +14,56 @@ export type Database = {
   }
   public: {
     Tables: {
+      api_keys: {
+        Row: {
+          created_at: string | null
+          expires_at: string | null
+          id: string
+          key_hash: string
+          key_prefix: string
+          last_used_at: string | null
+          name: string
+          revoked_at: string | null
+          scopes: string
+          team_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          expires_at?: string | null
+          id?: string
+          key_hash: string
+          key_prefix: string
+          last_used_at?: string | null
+          name: string
+          revoked_at?: string | null
+          scopes?: string
+          team_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          expires_at?: string | null
+          id?: string
+          key_hash?: string
+          key_prefix?: string
+          last_used_at?: string | null
+          name?: string
+          revoked_at?: string | null
+          scopes?: string
+          team_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "api_keys_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       api_usage: {
         Row: {
           created_at: string | null
@@ -1710,6 +1760,15 @@ export type Database = {
       }
       is_team_owner: { Args: { p_team_id: string }; Returns: boolean }
       is_team_owner_or_admin: { Args: { p_team_id: string }; Returns: boolean }
+      validate_api_key: {
+        Args: { p_key_hash: string }
+        Returns: {
+          key_id: string
+          scopes: string
+          team_id: string
+          user_id: string
+        }[]
+      }
     }
     Enums: {
       chat_role: "user" | "assistant" | "system"
