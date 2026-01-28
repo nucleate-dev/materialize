@@ -4,20 +4,20 @@ import {
   DispatchPrecheckRequestBody,
   DispatchPrecheckSuccessResponse,
   StandardErrorResponse,
-} from '../../../types/PublicAPITypes.js';
-import { checkUserHasPrototypeEditAccess } from '../../../utils/prototypeAuth.js';
+} from "../../../types/PublicAPITypes.js";
+import { checkUserHasPrototypeEditAccess } from "../../../utils/prototypeAuth.js";
 import {
   CACHE_KEYS,
   isActiveBuildType,
   S3_URL_TEMPLATE,
-} from '../../../types/InternalTypes.js';
-import { GlideClient } from '@valkey/valkey-glide';
+} from "../../../types/InternalTypes.js";
+import { GlideClient } from "@valkey/valkey-glide";
 import {
   hgetallAsActiveBuild,
   hgetallAsDevBuild,
-} from '../../../utils/cacheInteractionUtils.js';
-import { isEditableDevServer } from '../../../utils/prototypeDevServerStatusUtils.js';
-import { SystemLogger } from '../../../loggers/SystemLogger.js';
+} from "../../../utils/cacheInteractionUtils.js";
+import { isEditableDevServer } from "../../../utils/prototypeDevServerStatusUtils.js";
+import { SystemLogger } from "../../../loggers/SystemLogger.js";
 
 export async function handleDispatchPrecheckImpl(
   body: DispatchPrecheckRequestBody,
@@ -34,8 +34,8 @@ export async function handleDispatchPrecheckImpl(
   // FOR DEVELOPMENT PURPOSES: if env is dev, fargate dev mode is enabled, and an ip is provided, skip
   // all auth & cache management logic and just dispatch to the provided ip directly
   if (
-    process.env.NODE_ENV === 'development' &&
-    process.env.FARGATE_DEV_MODE === 'true' &&
+    process.env.NODE_ENV === "development" &&
+    process.env.FARGATE_DEV_MODE === "true" &&
     process.env.FARGATE_DEV_IP
   ) {
     const devKey = CACHE_KEYS.protoDev(prototype_id);
@@ -43,9 +43,9 @@ export async function handleDispatchPrecheckImpl(
     return {
       data: {
         status: (existingDevData?.status as BuildStatus) || null,
-        viewing_url: existingDevData?.url || '',
-        terminal_tunnel_hostname:
-          existingDevData?.terminal_tunnel_hostname || null,
+        viewing_url: existingDevData?.url || "",
+        terminal_tunnel_hostname: existingDevData?.terminal_tunnel_hostname ||
+          null,
       },
       error: null,
     };
@@ -62,15 +62,15 @@ export async function handleDispatchPrecheckImpl(
     return {
       data: null,
       error: {
-        error: 'Unauthorized',
+        error: "Unauthorized",
         message:
-          'Invalid JWT, user not authenticated, or user does not have permissions to edit this prototype',
+          "Invalid JWT, user not authenticated, or user does not have permissions to edit this prototype",
       },
     };
   }
   // update logger context
   log2 = log2.child({
-    userId: authResult.user?.id || 'service-role',
+    userId: authResult.user?.id || "service-role",
     prototypeId: prototype_id,
   });
 
@@ -89,8 +89,8 @@ export async function handleDispatchPrecheckImpl(
           return {
             data: null,
             error: {
-              error: 'Internal Server Error',
-              message: 'Invalid build data in storage',
+              error: "Internal Server Error",
+              message: "Invalid build data in storage",
             },
           };
         }
@@ -103,8 +103,8 @@ export async function handleDispatchPrecheckImpl(
                 ? existingBuild.url
                 : getS3Url(prototype_id),
             ),
-            terminal_tunnel_hostname:
-              existingBuild.terminal_tunnel_hostname || null,
+            terminal_tunnel_hostname: existingBuild.terminal_tunnel_hostname ||
+              null,
           },
           error: null,
         };
@@ -121,12 +121,12 @@ export async function handleDispatchPrecheckImpl(
       error: null,
     };
   } catch (error) {
-    log2.error(error, '[handleDispatchPrecheck] Precheck failed');
+    log2.error(error, "[handleDispatchPrecheck] Precheck failed");
     const e = error instanceof Error ? error : new Error(String(error));
     return {
       data: null,
       error: {
-        error: 'Internal Server Error',
+        error: "Internal Server Error",
         message: e.message,
       },
     };
@@ -141,9 +141,9 @@ function getS3Url(prototypeId: string): string {
 function normalizeUrl(url: string): string {
   // Ensure URL has protocol (https://) for iframe loading
   // If URL starts with exp://, replace it with https://
-  if (url && url.startsWith('exp://')) {
-    return url.replace('exp://', 'https://');
+  if (url && url.startsWith("exp://")) {
+    return url.replace("exp://", "https://");
   }
   // Otherwise, if URL doesn't start with http, prepend https://
-  return url && !url.startsWith('http') ? `https://${url}` : url;
+  return url && !url.startsWith("http") ? `https://${url}` : url;
 }

@@ -175,7 +175,9 @@ export default function InternalPrototypePage() {
   const [webScreensState, setWebScreensState] = useState<MobileScreenConfig[]>(
     [],
   );
-  const [previewMode, setPreviewMode] = useState<"mobile" | "web" | "tablet">("mobile");
+  const [previewMode, setPreviewMode] = useState<"mobile" | "web" | "tablet">(
+    "mobile",
+  );
 
   // Canvas state for infinite canvas mode
   const [canvasState, setCanvasState] = useState<CanvasStateData | null>(null);
@@ -965,12 +967,15 @@ export default function InternalPrototypePage() {
   );
 
   // Callback for visibility changes from the modal
-  const handleVisibilityChange = useCallback((newVisibility: PrototypeVisibility) => {
-    setIsPublic(newVisibility === "PUBLIC");
-    setPrototype((prev) =>
-      prev ? { ...prev, visibility: newVisibility } : null,
-    );
-  }, []);
+  const handleVisibilityChange = useCallback(
+    (newVisibility: PrototypeVisibility) => {
+      setIsPublic(newVisibility === "PUBLIC");
+      setPrototype((prev) =>
+        prev ? { ...prev, visibility: newVisibility } : null,
+      );
+    },
+    [],
+  );
 
   // Callback for name changes from the modal
   const handleNameChange = useCallback((newName: string) => {
@@ -1175,7 +1180,11 @@ export default function InternalPrototypePage() {
       {/* Main content area */}
       <div
         className={`flex-1 flex overflow-hidden min-h-0 ${isMobile ? "flex-col" : ""} ${isDragging ? "select-none" : ""}`}
-        style={isMobile ? { height: "calc(100dvh - 60px)", paddingBottom: "60px" } : {}}
+        style={
+          isMobile
+            ? { height: "calc(100dvh - 60px)", paddingBottom: "60px" }
+            : {}
+        }
         onTouchStart={isMobile ? onTouchStart : undefined}
         onTouchMove={isMobile ? onTouchMove : undefined}
         onTouchEnd={isMobile ? onTouchEnd : undefined}
@@ -1232,7 +1241,9 @@ export default function InternalPrototypePage() {
                 onCollapse={() => setIsChatCollapsed(true)}
                 isFreePlan={isFreePlan}
                 onShowClaudeConnectionSettings={showClaudeConnectionSettings}
-                onPrototypeNameClick={() => materializeRenderRef.current?.openProjectSettings("details")}
+                onPrototypeNameClick={() =>
+                  materializeRenderRef.current?.openProjectSettings("details")
+                }
               />
             </div>
           </div>

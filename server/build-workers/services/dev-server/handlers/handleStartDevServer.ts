@@ -13,8 +13,8 @@ import { restoreClaudeSessionsFromSupabase } from "../../../utils/shared-utils.j
 import { ChatService } from "../../chat/ChatService.js";
 import { syncPrototypeEnvVarsToDisk } from "../utils/envVarUtils.js";
 import {
-  SOURCE_REPO_DIR,
   getWorkerContext,
+  SOURCE_REPO_DIR,
   WORK_DIR,
 } from "../../../worker.js";
 import { DEFAULT_PROTOTYPE_FRAMEWORK } from "../NucleateDevelopmentServerService.js";
@@ -122,7 +122,10 @@ export async function handleStartDevServerImpl(
   // if web, set the adapter to the appropriate adapter with the correct tunnel hostname
   const resolvedFramework = developmentServerService.prototypeFramework ??
     DEFAULT_PROTOTYPE_FRAMEWORK;
-  if (resolvedFramework === "web_nextjs_react" || resolvedFramework === "web_vite_react") {
+  if (
+    resolvedFramework === "web_nextjs_react" ||
+    resolvedFramework === "web_vite_react"
+  ) {
     const tunnelHostname = developmentServerService.cloudflareTunnelHostname;
     if (!tunnelHostname) {
       request.log2.error(
@@ -144,10 +147,11 @@ export async function handleStartDevServerImpl(
         tunnelHostname,
       );
     } else {
-      developmentServerService.developmentServerAdapter = new NextJsReactAdapter(
-        developmentServerService.terminalService,
-        tunnelHostname,
-      );
+      developmentServerService.developmentServerAdapter =
+        new NextJsReactAdapter(
+          developmentServerService.terminalService,
+          tunnelHostname,
+        );
     }
   }
 
@@ -558,8 +562,8 @@ async function cloneGithubRepository(
   log2: SystemLogger,
 ): Promise<void> {
   const githubRepo = developmentServerService.githubRepository;
-  const installationToken =
-    developmentServerService.githubInstallationToken?.installationToken;
+  const installationToken = developmentServerService.githubInstallationToken
+    ?.installationToken;
   if (!githubRepo) {
     throw new Error(
       "GitHub repository info not set in developmentServerService",
