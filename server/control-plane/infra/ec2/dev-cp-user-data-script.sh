@@ -191,11 +191,17 @@ cd ..
 rm -rf watchman*
 ldconfig /usr/local/lib
 
-# 3. Install global npm packages for build-workers
+# 3. Install Bun runtime for Vite projects
+echo "==> Installing Bun runtime..."
+curl -fsSL https://bun.sh/install | bash
+ln -sf /root/.bun/bin/bun /usr/local/bin/bun
+ln -sf /root/.bun/bin/bunx /usr/local/bin/bunx
+
+# 4. Install global npm packages for build-workers
 echo "==> Installing @expo/ngrok globally..."
 npm install -g @expo/ngrok@^4.1.0 typescript shadcn@latest
 
-# 4. Create application directories
+# 5. Create application directories
 echo "==> Creating application directories..."
 mkdir -p ${REMOTE_BASE}
 mkdir -p ${BUILD_WORKERS_BASE}
@@ -204,7 +210,7 @@ chown ${USER}:${USER} ${REMOTE_BASE}
 chown ${USER}:${USER} ${BUILD_WORKERS_BASE}
 chown ${USER}:${USER} /tmp/logs
 
-# 4a. Create materialize-user to mirror Fargate containers
+# 5a. Create materialize-user to mirror Fargate containers
 echo "==> Creating materialize-user for sandbox parity..."
 MATERIALIZE_USER="materialize-user"
 MATERIALIZE_GROUP="materialize-user"
@@ -230,7 +236,7 @@ setfacl -R -m g:${MATERIALIZE_GROUP}:rwX /tmp/source-repository
 setfacl -R -d -m u:${MATERIALIZE_USER}:rwX /tmp/source-repository
 setfacl -R -d -m g:${MATERIALIZE_GROUP}:rwX /tmp/source-repository
 
-# 5. Set environment variables for build-workers
+# 6. Set environment variables for build-workers
 echo "==> Setting environment variables in ec2-user's profile..."
 cat >> /home/${USER}/.bashrc << 'EOF'
 export EXPO_NO_TELEMETRY=1
@@ -241,7 +247,7 @@ EOF
 
 echo "✅ System prerequisites installed successfully"
 
-# 6. Configure CloudWatch Agent
+# 7. Configure CloudWatch Agent
 echo "==> Configuring CloudWatch Agent..."
 
 # Write CloudWatch Agent configuration
@@ -280,7 +286,7 @@ sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl \
 
 echo "✅ CloudWatch Agent configured and started successfully"
 
-# 7. Schedule auto-termination in 3 hours
+# 8. Schedule auto-termination in 3 hours
 echo "==> Scheduling auto-termination in 3 hours..."
 shutdown -h +180
 
