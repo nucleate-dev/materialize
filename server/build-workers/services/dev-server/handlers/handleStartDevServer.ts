@@ -328,9 +328,13 @@ export async function handleStartDevServerImpl(
   const useBun = resolvedFramework === "web_vite_react";
   const packageManager = useBun ? "bun" : "npm";
 
-  request.log2.consoleLogDevOnly("info", `Installing dependencies with ${packageManager}`, {
-    prototypeId: prototype_id,
-  });
+  request.log2.consoleLogDevOnly(
+    "info",
+    `Installing dependencies with ${packageManager}`,
+    {
+      prototypeId: prototype_id,
+    },
+  );
 
   const installResult = await developmentServerService.sandboxService
     .runCommandInternal({
@@ -352,10 +356,13 @@ export async function handleStartDevServerImpl(
       },
     );
   } else if (installResult.response.data?.status === "timeout") {
-    request.log2.warn(`${packageManager} install timed out, continuing anyway`, {
-      prototypeId: prototype_id,
-      stdout: installResult.response.data.stdout,
-    });
+    request.log2.warn(
+      `${packageManager} install timed out, continuing anyway`,
+      {
+        prototypeId: prototype_id,
+        stdout: installResult.response.data.stdout,
+      },
+    );
   } else if (installResult.response.data?.status === "success") {
     const stdout = installResult.response.data.stdout;
     // Check for common error indicators in output
