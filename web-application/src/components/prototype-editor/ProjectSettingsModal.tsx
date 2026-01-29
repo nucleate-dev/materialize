@@ -673,6 +673,7 @@ export function ProjectSettingsModal({
       setSlugAvailable(true);
 
       setBuildHistoryVersion((version) => version + 1);
+      toast.success("Deployment successful!");
     } catch (error) {
       setSlugError(
         error instanceof Error ? error.message : "Unable to deploy app",
@@ -1652,8 +1653,8 @@ export function ProjectSettingsModal({
                       {buildHistory.slice(0, 3).map((build, index) => {
                         const isDeployed =
                           build.deploy_key &&
-                          prototype?.latest_deploy_key &&
-                          build.deploy_key === prototype.latest_deploy_key;
+                          latestDeployKey &&
+                          build.deploy_key === latestDeployKey;
                         const isLatest = index === 0;
                         const buildDate = new Date(build.created_at);
 
