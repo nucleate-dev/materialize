@@ -335,6 +335,12 @@ export class CleanupService {
           };
         }
       }
+    } else {
+      await this.dispatchKillCloudflaredTunnelOnlyRequest(
+        prototypeId,
+        build.fargate_private_ip,
+      );
+      await new Promise((resolve) => setTimeout(resolve, 3000)); // sleep so tunnel disconnection can register with Cloudflare
     }
 
     // 5. Kill the fargate task using the task arn (only if safe to do so)
@@ -356,11 +362,6 @@ export class CleanupService {
         buildInProgress: false,
         error: "Failed to terminate Fargate task, leaving build as active",
       };
-    }
-    // killedPrototypeIds.push(prototypeId);
-
-    if (!shouldWaitForSuccessfulBuild) {
-      await new Promise((resolve) => setTimeout(resolve, 2000)); // sleep so cloudflare can register tunnel is down
     }
 
     // 5.5 Delete the cloudflare tunnel for the build if it exists
@@ -546,6 +547,45 @@ export class CleanupService {
         error: error instanceof Error ? error.message : "Unknown error",
         buildInProgress: false,
       };
+    }
+  }
+
+  private async dispatchKillCloudflaredTunnelOnlyRequest(
+    prototypeId: string,
+    fargatePrivateIp: string,
+  ): Promise<void> {
+    this.log2.consoleLogDevOnly(
+      "info",
+      "cleanup endpoint is: " +
+        `http://${fargatePrivateIp}:3002/cleanup-tunnel-only`,
+    );
+    try {
+      const response = await axios.delete<
+        SandboxAPIResponse<
+          PublicDevServerStopSuccessResponse,
+          BuildWorkerStandardErrorResponse
+        >
+      >(`http://${fargatePrivateIp}:3002/cleanup-tunnel-only`, {
+        data: {},
+        timeout: 3000, // 3 second timeout -- we require an immediate response from the worker
+        headers: {
+          "x-trace-id": this.log2.getTraceId(),
+        },
+      });
+
+      this.log2.consoleLogDevOnly(
+        "info",
+        "cleanup-tunnel-only response: " + response.data,
+      );
+    } catch (error: unknown) {
+      this.log2.error(
+        error,
+        "Failed to kill cloudflared tunnel only for prototype",
+        {
+          prototypeId,
+          fargatePrivateIp,
+        },
+      );
     }
   }
 
