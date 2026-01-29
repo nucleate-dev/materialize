@@ -1523,7 +1523,7 @@ export class ChatService {
     const TITLE_GENERATION_CREDITS = 0.05;
 
     // Run async without blocking
-    (async () => {
+    (async (): Promise<void> => {
       try {
         // Check if prototype has the default name
         const { data: prototype, error: fetchError } = await this
