@@ -16,6 +16,8 @@ interface BrowserFrameProps {
   onClone?: (screenId: number, path: string) => void;
   onAIAction?: (screenId: number, path: string, action: AIActionType) => void;
   showActions?: boolean;
+  onLoad?: () => void;
+  onError?: () => void;
 }
 
 /**
@@ -32,10 +34,12 @@ export const BrowserFrame = memo(function BrowserFrame({
   onClone,
   onAIAction,
   showActions = true,
+  onLoad,
+  onError,
 }: BrowserFrameProps) {
   const [isHovered, setIsHovered] = useState(false);
   const iframeSrc = resolveIframeSrc(viewingUrl, path);
-  const displayUrl = path === "/" ? viewingUrl : `${viewingUrl}${path}`;
+  const displayPath = path || "/";
 
   return (
     <div
@@ -142,7 +146,7 @@ export const BrowserFrame = memo(function BrowserFrame({
                 whiteSpace: "nowrap",
               }}
             >
-              {displayUrl || "No URL"}
+              {displayPath}
             </span>
           </div>
         </div>
@@ -172,6 +176,8 @@ export const BrowserFrame = memo(function BrowserFrame({
             sandbox="allow-scripts allow-same-origin allow-forms allow-downloads allow-modals allow-popups allow-presentation"
             allow="microphone; camera;"
             data-screen-id={screenId}
+            onLoad={onLoad}
+            onError={onError}
           />
         ) : (
           <div

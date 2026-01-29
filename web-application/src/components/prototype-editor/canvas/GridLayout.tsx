@@ -77,7 +77,7 @@ export function GridLayout({
   renderScreen,
 }: GridLayoutProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [columns, setColumns] = useState(GRID_LAYOUT.DEFAULT_COLUMNS);
+  const [columns, setColumns] = useState<number>(GRID_LAYOUT.DEFAULT_COLUMNS);
   const [dragState, setDragState] = useState<DragState>(initialDragState);
   const [announcement, setAnnouncement] = useState("");
 

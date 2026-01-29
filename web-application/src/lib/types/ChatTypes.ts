@@ -5,7 +5,7 @@
 // To update these shared files, modify the source file and run:
 // npm run sync-types (in the control-plane directory)
 //
-// Last synced: 2026-01-28T21:42:21.776Z
+// Last synced: 2026-01-29T07:58:49.689Z
 
 export enum ChatEvent {
   AUTHENTICATED = "authenticated",
@@ -25,6 +25,7 @@ export enum ChatEvent {
   COLLABORATOR_MESSAGE = "collaborator_message",
   SCREEN_UPDATE = "screen_update",
   AUTH_MODE_UPDATED = "auth_mode_updated",
+  PROTOTYPE_TITLE_UPDATED = "prototype_title_updated",
 }
 
 export enum ChatClientEvent {
@@ -263,6 +264,14 @@ export interface AuthModeUpdatedMessage {
   };
 }
 
+export interface PrototypeTitleUpdatedMessage {
+  type: ChatEvent.PROTOTYPE_TITLE_UPDATED;
+  data: {
+    prototypeId: string;
+    title: string;
+  };
+}
+
 export type ChatServerMessage =
   | SystemConnectionMessage
   | ErrorMessage
@@ -280,4 +289,5 @@ export type ChatServerMessage =
   | DesignGenerationMessage
   | CollaboratorMessagePayload
   | ScreenUpdateMessage
-  | AuthModeUpdatedMessage;
+  | AuthModeUpdatedMessage
+  | PrototypeTitleUpdatedMessage;

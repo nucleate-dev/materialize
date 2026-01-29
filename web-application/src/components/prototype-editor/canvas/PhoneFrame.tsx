@@ -16,6 +16,8 @@ interface PhoneFrameProps {
   onClone?: (screenId: number, path: string) => void;
   onAIAction?: (screenId: number, path: string, action: AIActionType) => void;
   showActions?: boolean;
+  onLoad?: () => void;
+  onError?: () => void;
 }
 
 /**
@@ -32,6 +34,8 @@ export const PhoneFrame = memo(function PhoneFrame({
   onClone,
   onAIAction,
   showActions = true,
+  onLoad,
+  onError,
 }: PhoneFrameProps) {
   const [isHovered, setIsHovered] = useState(false);
   const screenWidth = width - PHONE_FRAME.PADDING * 2;
@@ -185,6 +189,8 @@ export const PhoneFrame = memo(function PhoneFrame({
               sandbox="allow-scripts allow-same-origin allow-forms allow-downloads allow-modals allow-popups allow-presentation"
               allow="microphone; camera;"
               data-screen-id={screenId}
+              onLoad={onLoad}
+              onError={onError}
             />
           ) : (
             <div

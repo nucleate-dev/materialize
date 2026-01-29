@@ -42,6 +42,8 @@ const PreviewCanvas = forwardRef<PreviewCanvasRef, PreviewCanvasProps>(
       onClone,
       onAIAction,
       onGlobalAIAction,
+      onIframeLoad,
+      onIframeError,
     },
     ref
   ) => {
@@ -627,6 +629,8 @@ const PreviewCanvas = forwardRef<PreviewCanvasRef, PreviewCanvasProps>(
         onClone,
         onAIAction,
         showActions: !readOnly,
+        onLoad: onIframeLoad,
+        onError: onIframeError,
       };
 
       if (screen.previewMode === "mobile" || screen.previewMode === "tablet") {

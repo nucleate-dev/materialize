@@ -5,7 +5,7 @@ export { BrowserFrame } from "./BrowserFrame";
 export { DraggableScreen } from "./DraggableScreen";
 export { GridLayout } from "./GridLayout";
 export { GridScreen } from "./GridScreen";
-export { CanvasToolbar, type CanvasToolMode, type GlobalAIAction } from "./CanvasToolbar";
+export { CanvasToolbar, type CanvasToolMode } from "./CanvasToolbar";
 export { ScreenModeSelector } from "./ScreenModeSelector";
 export { ScreenActions, type AIActionType } from "./ScreenActions";
 

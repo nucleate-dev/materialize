@@ -5,7 +5,7 @@
 // To update these shared files, modify the source file and run:
 // npm run sync-types (in the control-plane directory)
 //
-// Last synced: 2026-01-28T21:42:21.778Z
+// Last synced: 2026-01-29T07:58:49.692Z
 
 export type PostHogEvent =
   | 'client_api_key_create_started'
