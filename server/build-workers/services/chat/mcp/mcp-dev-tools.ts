@@ -413,12 +413,12 @@ export function createDevelopmentToolsMcpServer(
         ? [
           tool(
             "UpdatePreviewScreens",
-            "Add, remove, or set preview screens shown to the user. Use this to help users compare design variants side-by-side. PROACTIVELY use this when creating design variants (e.g., after creating /pricing-v1 and /pricing-v2, use this to show them side-by-side). Maximum 4 screens allowed. You can also change the preview mode (mobile/web/tablet) - prefer mobile or web for best user experience.",
+            "Control preview screens shown to the user. Actions: 'add' (new screen), 'remove' (by ID), 'set' (replace all). Use this to help users compare design variants side-by-side. PROACTIVELY use this when creating design variants (e.g., after creating /pricing-v1 and /pricing-v2, use this to show them side-by-side). Maximum 4 screens.",
             {
               action: z
                 .enum(["add", "remove", "set"])
                 .describe(
-                  "Action: 'add' adds a new screen, 'remove' removes a screen by ID, 'set' replaces all screens with a new set",
+                  "Action: 'add' adds a new screen, 'remove' removes by ID, 'set' replaces all screens",
                 ),
               path: z
                 .string()
@@ -443,7 +443,13 @@ export function createDevelopmentToolsMcpServer(
                 .enum(["mobile", "web", "tablet"])
                 .optional()
                 .describe(
-                  "Device preview mode. Prefer 'mobile' or 'web' for best user experience. Use 'tablet' only when specifically requested.",
+                  "Device preview mode. Prefer 'mobile' or 'web' for best user experience.",
+                ),
+              layoutMode: z
+                .enum(["grid", "freeform"])
+                .optional()
+                .describe(
+                  "Canvas layout mode. 'grid' shows screens in an organized grid, 'freeform' allows free positioning.",
                 ),
             },
             async ({
@@ -452,12 +458,14 @@ export function createDevelopmentToolsMcpServer(
               screenId,
               screens,
               previewMode,
+              layoutMode,
             }: {
               action: "add" | "remove" | "set";
               path?: string;
               screenId?: number;
               screens?: Array<{ path: string }>;
               previewMode?: "mobile" | "web" | "tablet";
+              layoutMode?: "grid" | "freeform";
             }): Promise<CallToolResult> => {
               // Validate action-specific parameters
               if (action === "add" && !path) {
@@ -493,7 +501,6 @@ export function createDevelopmentToolsMcpServer(
                   ],
                 };
               }
-
               // Enforce max 4 screens for add action
               if (action === "add" && getVisibleScreensCount) {
                 const currentCount = getVisibleScreensCount();
@@ -517,6 +524,7 @@ export function createDevelopmentToolsMcpServer(
                 screenId,
                 screens,
                 previewMode,
+                layoutMode,
               };
               broadcastScreenUpdate(updateData);
 
@@ -536,9 +544,12 @@ export function createDevelopmentToolsMcpServer(
                   break;
               }
 
-              // Add preview mode to message if specified
+              // Add mode info to message if specified
               if (previewMode) {
-                message += ` (preview mode: ${previewMode})`;
+                message += ` (preview: ${previewMode})`;
+              }
+              if (layoutMode) {
+                message += ` (layout: ${layoutMode})`;
               }
 
               return {

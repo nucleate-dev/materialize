@@ -248,11 +248,10 @@ export interface CollaboratorMessagePayload {
 }
 
 export interface ScreenUpdateData {
-  action: "add" | "remove" | "set" | "reorder";
+  action: "add" | "remove" | "set";
   screens?: Array<{ path: string }>; // For "set" action
   path?: string; // For "add" action
   screenId?: number; // For "remove" action
-  screenOrder?: number[]; // For "reorder" action - new order of screen IDs
   previewMode?: "mobile" | "web" | "tablet"; // Device preview mode (prefer mobile or web)
   layoutMode?: "grid" | "freeform"; // Canvas layout mode
 }

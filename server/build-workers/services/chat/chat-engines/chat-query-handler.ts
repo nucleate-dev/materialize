@@ -307,6 +307,7 @@ export class ChatQueryHandler implements ChatEngine {
         (costUsd: number) => {
           bufferState.accumulatedGeminiCostUsd += costUsd;
         },
+        data.current_viewing_path,
       );
 
       // Check if session is valid for resumption
@@ -557,6 +558,7 @@ export class ChatQueryHandler implements ChatEngine {
     visibleScreens?: Array<{ id: number; path: string }>,
     hasSourceRepository: boolean = false,
     onGeminiUsage?: (costUsd: number) => void,
+    currentViewingPath?: string,
   ): Promise<Options & { resume?: string }> {
     const allowedRoots = getAllowedRoots();
     const canUseTool: CanUseTool = async (
@@ -735,6 +737,9 @@ export class ChatQueryHandler implements ChatEngine {
             undefined,
             framework,
             visibleScreens,
+            undefined, // previewMode
+            false, // hasSourceRepository
+            currentViewingPath,
           ),
       },
       settingSources: [

@@ -609,6 +609,10 @@ export class ChatService {
       framework,
       data.visible_screens,
       data.preview_mode,
+      data.current_viewing_path,
+      data.layout_mode,
+      data.screen_order,
+      data.focused_screen_id,
     );
 
     // 8. DISPATCH REQUEST TO SDK ENGINE
@@ -1163,6 +1167,10 @@ export class ChatService {
     framework: Database["public"]["Enums"]["prototype_framework"] | null,
     visibleScreens?: Array<{ id: number; path: string }>,
     previewMode?: "mobile" | "web",
+    currentViewingPath?: string,
+    layoutMode?: "grid" | "freeform",
+    screenOrder?: number[],
+    focusedScreenId?: number,
   ): Promise<string> {
     if (customDesignSystemId !== this.sessionState.designSystemId) {
       if (!customDesignSystemId) {
@@ -1217,6 +1225,10 @@ export class ChatService {
       previewMode,
       this.devServerService.sourceRepository !== null &&
         this.devServerService.sourceRepository !== undefined,
+      currentViewingPath,
+      layoutMode,
+      screenOrder,
+      focusedScreenId,
     );
 
     if (this.sessionState.designSystemRules) {

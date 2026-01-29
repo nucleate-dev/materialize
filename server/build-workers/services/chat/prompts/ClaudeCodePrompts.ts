@@ -1,11 +1,22 @@
 import { WORK_DIR } from "../../../worker.js";
 
 /**
+ * Canvas/screen context options for the system prompt
+ */
+export interface ScreenContextOptions {
+  visibleScreens?: Array<{ id: number; path: string }>;
+  previewMode?: "mobile" | "web";
+  currentViewingPath?: string;
+  layoutMode?: "grid" | "freeform";
+  screenOrder?: number[];
+  focusedScreenId?: number;
+}
+
+/**
  * Returns the appropriate system prompt based on the design style
  * @param designStyle - The design style from the prototype (tamagui, nativewind, stylesheets, custom)
  * @param framework - The prototype framework (mobile_expo_react_native, web_nextjs_react)
- * @param visibleScreens - Currently visible screens in multi-screen mode
- * @param previewMode - Current preview mode (mobile or web)
+ * @param screenContext - Canvas and screen context options
  * @returns The complete system prompt with design-specific instructions
  */
 export function getNucleateChatServiceSystemPrompt(
@@ -14,6 +25,10 @@ export function getNucleateChatServiceSystemPrompt(
   visibleScreens?: Array<{ id: number; path: string }>,
   previewMode?: "mobile" | "web",
   hasSourceRepository?: boolean,
+  currentViewingPath?: string,
+  layoutMode?: "grid" | "freeform",
+  screenOrder?: number[],
+  focusedScreenId?: number,
 ): string {
   const basePrompt = constructBaseSystemPrompt(framework ?? "web_vite_react");
 
@@ -35,13 +50,22 @@ export function getNucleateChatServiceSystemPrompt(
     }
   }
 
-  const screenContext = getScreenContextSection(visibleScreens, previewMode);
+  const screenContext = getScreenContextSection({
+    visibleScreens,
+    previewMode,
+    currentViewingPath,
+    layoutMode,
+    screenOrder,
+    focusedScreenId,
+  });
   const sourceRepositoryAddendum = hasSourceRepository
     ? getSourceRepositoryPromptAddendum(framework)
     : "";
 
+  // Order matters for prompt caching: static content first, dynamic content last
+  // screenContext contains dynamic state (visible screens, focused screen) so it goes at the end
   return basePrompt + "\n\n" + stackInfo + "\n\n" + SHARED_SECTIONS + "\n\n" +
-    screenContext + "\n\n" + sourceRepositoryAddendum;
+    sourceRepositoryAddendum + (sourceRepositoryAddendum ? "\n\n" : "") + screenContext;
 }
 
 function constructBaseSystemPrompt(framework: string): string {
@@ -339,25 +363,47 @@ The generated image will be saved to client/{outputPath}/{filename} and automati
 /**
  * Generates screen context for the system prompt when multi-screen mode is active
  */
-function getScreenContextSection(
-  visibleScreens?: Array<{ id: number; path: string }>,
-  previewMode?: "mobile" | "web",
-): string {
+function getScreenContextSection(opts: ScreenContextOptions): string {
+  const { visibleScreens, previewMode, currentViewingPath, layoutMode, screenOrder, focusedScreenId } = opts;
+
   if (!visibleScreens || visibleScreens.length === 0) {
     return "";
   }
 
-  const screensList = visibleScreens
-    .map((s) => `- Screen ${s.id}: ${s.path}`)
+  // Determine the focused/primary screen
+  const focusedScreen = focusedScreenId !== undefined
+    ? visibleScreens.find(s => s.id === focusedScreenId)
+    : null;
+  const primaryPath = currentViewingPath || focusedScreen?.path || visibleScreens[0]?.path || "/";
+
+  // Build screen list, respecting order if provided
+  const orderedScreens = screenOrder && screenOrder.length > 0
+    ? screenOrder.map(id => visibleScreens.find(s => s.id === id)).filter((s): s is { id: number; path: string } => s !== undefined)
+    : visibleScreens;
+
+  const screensList = orderedScreens
+    .map((s, idx) => {
+      const isFocused = focusedScreenId !== undefined ? s.id === focusedScreenId : s.path === primaryPath;
+      const focusLabel = isFocused ? " (FOCUSED - user is looking at this)" : "";
+      const orderLabel = layoutMode === "grid" ? ` [position ${idx + 1}]` : "";
+      return `- Screen ${s.id}: ${s.path}${orderLabel}${focusLabel}`;
+    })
     .join("\n");
+
+  const layoutInfo = layoutMode === "grid"
+    ? `\n**Layout:** Grid mode - screens are arranged in an organized grid.`
+    : layoutMode === "freeform"
+    ? `\n**Layout:** Freeform mode - screens can be freely positioned on the canvas.`
+    : "";
 
   return `
 <multi_screen_preview>
 ## Current Preview Screens
-The user is viewing ${visibleScreens.length} screen(s) in ${
-    previewMode || "mobile"
-  } mode:
+The user is viewing ${visibleScreens.length} screen(s) in ${previewMode || "mobile"} mode:
 ${screensList}
+${layoutInfo}
+
+**Focused Screen:** The user is currently looking at \`${primaryPath}\`${focusedScreenId !== undefined ? ` (Screen ${focusedScreenId})` : ""}. When they ask for changes without specifying a path, apply changes to this screen.
 
 You have access to the UpdatePreviewScreens tool (mcp__devtools__UpdatePreviewScreens) to control what screens the user sees:
 - **add**: Add a new screen at a specific path (e.g., add "/pricing-v2" to show alongside current screens)
@@ -369,6 +415,11 @@ You have access to the UpdatePreviewScreens tool (mcp__devtools__UpdatePreviewSc
 - Do NOT create new routes like "/landing-page" or "/nyc-itinerary" unless the user explicitly asks for a new page/route or you need to preserve existing content
 - The user sees what's on screen - if they ask for "a landing page", they want it WHERE they're looking, not at a new URL
 - Only create new routes when: (1) user explicitly requests a new page/route, (2) user asks for variants/comparisons, or (3) you need to preserve existing content the user wants to keep
+
+**When to ask for clarification:**
+- If the user says "add a contact section" and the current page already has significant content, briefly ask: "Should I add this as a section on the current page, or create a separate /contact page?"
+- If they say "create a pricing page" but they're viewing "/", just replace the content - they want it on the screen they see
+- When in doubt about replacing vs. adding, prefer adding to the current page unless it would break the existing design
 
 **Best Practices for Design Variants:**
 - When creating design variants (e.g., different pricing page designs), put them on DIFFERENT routes (e.g., /pricing-v1, /pricing-v2)
