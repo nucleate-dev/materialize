@@ -285,53 +285,55 @@ export class CleanupService {
     }
 
     // 4. dispatch a request to the fargate instance to kill the build
-    const killResult = await this.dispatchKillDevServerRequest(
-      prototypeId,
-      build.fargate_private_ip,
-      shouldWaitForSuccessfulBuild,
-    );
-    if (killResult.buildInProgress) {
-      // Increment clean attempts counter
-      const newCleanAttempts = (build.clean_attempts || 0) + 1;
-      // Check if we've exceeded max cleanup attempts
-      if (newCleanAttempts >= 3) {
-        // Force cleanup after 3 failed attempts to prevent containers from getting stuck
-        this.log2.error(
-          new Error("Max cleanup attempts reached - forcing cleanup"),
-          "Fargate container stuck in bad state, forcing cleanup",
-          {
-            fargate_task_arn: build.fargate_task_arn,
-            prototype_id: prototypeId,
+    if (shouldWaitForSuccessfulBuild) {
+      const killResult = await this.dispatchKillDevServerRequest(
+        prototypeId,
+        build.fargate_private_ip,
+        shouldWaitForSuccessfulBuild,
+      );
+      if (killResult.buildInProgress) {
+        // Increment clean attempts counter
+        const newCleanAttempts = (build.clean_attempts || 0) + 1;
+        // Check if we've exceeded max cleanup attempts
+        if (newCleanAttempts >= 3) {
+          // Force cleanup after 3 failed attempts to prevent containers from getting stuck
+          this.log2.error(
+            new Error("Max cleanup attempts reached - forcing cleanup"),
+            "Fargate container stuck in bad state, forcing cleanup",
+            {
+              fargate_task_arn: build.fargate_task_arn,
+              prototype_id: prototypeId,
+              clean_attempts: newCleanAttempts,
+              utc_timestamp: new Date().toISOString(),
+              unix_timestamp: new Date().getTime(),
+            },
+          );
+        } else {
+          // Reset the status back to building and increment clean_attempts
+          const activeBuild: ActiveBuild = {
+            ...build,
+            status: "building",
             clean_attempts: newCleanAttempts,
-            utc_timestamp: new Date().toISOString(),
-            unix_timestamp: new Date().getTime(),
-          },
-        );
-      } else {
-        // Reset the status back to building and increment clean_attempts
-        const activeBuild: ActiveBuild = {
-          ...build,
-          status: "building",
-          clean_attempts: newCleanAttempts,
-        };
-        const setCacheResult = await this.setCacheActiveBuildData(
-          buildKey,
-          activeBuild,
-          buildId,
-        );
-        if (!setCacheResult) {
+          };
+          const setCacheResult = await this.setCacheActiveBuildData(
+            buildKey,
+            activeBuild,
+            buildId,
+          );
+          if (!setCacheResult) {
+            return {
+              success: false,
+              buildInProgress: true,
+              error:
+                "Build still in progress, failed to increment clean attempts and reset status to building",
+            };
+          }
           return {
             success: false,
             buildInProgress: true,
-            error:
-              "Build still in progress, failed to increment clean attempts and reset status to building",
+            error: "Build still in progress, incremented clean attempts",
           };
         }
-        return {
-          success: false,
-          buildInProgress: true,
-          error: "Build still in progress, incremented clean attempts",
-        };
       }
     }
 
@@ -355,7 +357,11 @@ export class CleanupService {
         error: "Failed to terminate Fargate task, leaving build as active",
       };
     }
-    //killedPrototypeIds.push(prototypeId);
+    // killedPrototypeIds.push(prototypeId);
+
+    if (!shouldWaitForSuccessfulBuild) {
+      await new Promise((resolve) => setTimeout(resolve, 2000)); // sleep so cloudflare can register tunnel is down
+    }
 
     // 5.5 Delete the cloudflare tunnel for the build if it exists
     await this.attemptToCleanUpTunnels(
