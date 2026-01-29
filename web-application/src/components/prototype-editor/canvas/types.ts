@@ -61,6 +61,16 @@ export interface ScreenUpdateAction {
 }
 
 /**
+ * AI action types for screen actions menu
+ */
+export type AIActionType = "redesign" | "suggest-improvements" | "copy-alternatives";
+
+/**
+ * Global AI action types for canvas-wide actions
+ */
+export type GlobalAIAction = "generate-prd" | "critique-designs";
+
+/**
  * Ref interface for PreviewCanvas component
  */
 export interface PreviewCanvasRef {
@@ -112,4 +122,12 @@ export interface PreviewCanvasProps {
   onIframeLoad?: () => void;
   /** Callback when iframe errors */
   onIframeError?: () => void;
+  /** Callback when screenshot is requested for a screen */
+  onScreenshot?: (screenId: number, path: string) => void;
+  /** Callback when clone is requested for a screen */
+  onClone?: (screenId: number, path: string) => void;
+  /** Callback when an AI action is requested for a screen */
+  onAIAction?: (screenId: number, path: string, action: AIActionType) => void;
+  /** Callback when a global AI action is requested */
+  onGlobalAIAction?: (action: GlobalAIAction) => void;
 }

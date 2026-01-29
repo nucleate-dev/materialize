@@ -1,8 +1,9 @@
 "use client";
 
-import { memo } from "react";
+import { memo, useState } from "react";
 import { PHONE_FRAME } from "./constants";
 import { resolveIframeSrc } from "./utils";
+import { ScreenActions, type AIActionType } from "./ScreenActions";
 
 interface PhoneFrameProps {
   screenId: number;
@@ -11,6 +12,10 @@ interface PhoneFrameProps {
   width: number;
   height: number;
   refreshKey?: number;
+  onScreenshot?: (screenId: number, path: string) => void;
+  onClone?: (screenId: number, path: string) => void;
+  onAIAction?: (screenId: number, path: string, action: AIActionType) => void;
+  showActions?: boolean;
 }
 
 /**
@@ -23,13 +28,33 @@ export const PhoneFrame = memo(function PhoneFrame({
   width,
   height,
   refreshKey,
+  onScreenshot,
+  onClone,
+  onAIAction,
+  showActions = true,
 }: PhoneFrameProps) {
+  const [isHovered, setIsHovered] = useState(false);
   const screenWidth = width - PHONE_FRAME.PADDING * 2;
   const screenHeight = height - PHONE_FRAME.PADDING * 2;
   const iframeSrc = resolveIframeSrc(viewingUrl, path);
 
   return (
-    <div className="phone-frame-wrapper" style={{ position: "relative" }}>
+    <div
+      className="phone-frame-wrapper"
+      style={{ position: "relative" }}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
+      {/* Screen Actions - visible on hover */}
+      {showActions && isHovered && (
+        <ScreenActions
+          screenId={screenId}
+          path={path}
+          onScreenshot={onScreenshot}
+          onClone={onClone}
+          onAIAction={onAIAction}
+        />
+      )}
       {/* Path Badge - Positioned above the frame */}
       <div
         style={{

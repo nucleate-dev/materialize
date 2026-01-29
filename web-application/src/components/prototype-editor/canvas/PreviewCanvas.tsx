@@ -34,6 +34,10 @@ const PreviewCanvas = forwardRef<PreviewCanvasRef, PreviewCanvasProps>(
       onCanvasStateChange,
       onScreensChange,
       readOnly = false,
+      onScreenshot,
+      onClone,
+      onAIAction,
+      onGlobalAIAction,
     },
     ref
   ) => {
@@ -532,6 +536,10 @@ const PreviewCanvas = forwardRef<PreviewCanvasRef, PreviewCanvasProps>(
         width: screen.position.width,
         height: screen.position.height,
         refreshKey,
+        onScreenshot,
+        onClone,
+        onAIAction,
+        showActions: !readOnly,
       };
 
       if (screen.previewMode === "mobile" || screen.previewMode === "tablet") {
@@ -608,6 +616,7 @@ const PreviewCanvas = forwardRef<PreviewCanvasRef, PreviewCanvasProps>(
           onZoomOut={zoomOut}
           onZoomToFit={zoomToFit}
           readOnly={readOnly}
+          onGlobalAIAction={onGlobalAIAction}
         />
       </div>
     );
