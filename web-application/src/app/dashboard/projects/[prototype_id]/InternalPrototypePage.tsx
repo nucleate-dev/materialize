@@ -18,6 +18,7 @@ import MaterializeRenderSection, {
 import type {
   CanvasStateData,
   PrototypeContextData,
+  AIActionType,
 } from "@/components/prototype-editor/canvas/types";
 import ProPlanUpsellModal from "@/components/prototype-editor/ProPlanUpsellModal";
 import { SurveyOverlay } from "@/components/survey/SurveyOverlay";
@@ -987,6 +988,44 @@ export default function InternalPrototypePage() {
     setPrototype((prev) => (prev ? { ...prev, name: newName } : null));
   }, []);
 
+  // Callback for per-screen AI actions from the render section
+  const handleScreenAIAction = useCallback(
+    (
+      screenId: number,
+      path: string,
+      action: AIActionType,
+      screenshotDataUrl?: string,
+    ) => {
+      // Generate the appropriate prompt based on the action type
+      const prompts: Record<AIActionType, string> = {
+        redesign: `Please redesign the screen at path "${path}". Analyze the current design and suggest improvements to make it more modern, user-friendly, and visually appealing. Consider layout, typography, colors, and overall UX.`,
+        "suggest-improvements": `Please analyze the screen at path "${path}" and suggest specific improvements. Focus on:
+- UX/usability issues
+- Visual design improvements
+- Accessibility concerns
+- Mobile responsiveness
+- Performance optimizations
+Provide actionable recommendations.`,
+        "copy-alternatives": `Please review the text/copy on the screen at path "${path}" and generate alternative versions. For each piece of text you identify:
+- Provide 2-3 alternative phrasings
+- Consider tone (professional, friendly, urgent)
+- Optimize for clarity and engagement
+- Keep accessibility in mind`,
+      };
+
+      const prompt = prompts[action];
+
+      // Send the message with the screenshot to the chat panel
+      if (claudeCodePanelRef.current) {
+        claudeCodePanelRef.current.sendMessageWithImage(
+          prompt,
+          screenshotDataUrl,
+        );
+      }
+    },
+    [],
+  );
+
   const handleDeleteRequest = useCallback(
     (path: string, type: "file" | "folder" | "asset") => {
       // Collect all files/assets to delete
@@ -1332,6 +1371,7 @@ export default function InternalPrototypePage() {
               onStartDevServer={handleTriggerFetchAndStartDevServer}
               isChatCollapsed={isChatCollapsed}
               onExpandChat={() => setIsChatCollapsed(false)}
+              onScreenAIAction={handleScreenAIAction}
               codeView={
                 <div className={`flex h-full ${isMobile ? "flex-col" : ""}`}>
                   {isMobile ? (
