@@ -1,19 +1,19 @@
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { SystemLogger } from '../../loggers/SystemLogger.js';
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
+import { SystemLogger } from "../../loggers/SystemLogger.js";
 import {
   createCloudflareTunnelForContainer,
   deleteCloudflareTunnel,
-} from '../../utils/cloudflareTunnelManagementUtils.js';
+} from "../../utils/cloudflareTunnelManagementUtils.js";
 import type {
   Database,
   TablesInsert,
   TablesUpdate,
-} from '../../types/supabase.js';
+} from "../../types/supabase.js";
 
 const MAX_IDLE_TUNNELS: number = 0;
 
 export type CloudflareTunnel =
-  Database['public']['Tables']['cloudflare_tunnels']['Row'];
+  Database["public"]["Tables"]["cloudflare_tunnels"]["Row"];
 
 export class IdleCloudflareTunnelSystem {
   private readonly log2: SystemLogger;
@@ -22,7 +22,7 @@ export class IdleCloudflareTunnelSystem {
 
   constructor(opts: { log2: SystemLogger }) {
     this.log2 = opts.log2.child({
-      route: 'IdleContainerAllocationSystem',
+      route: "IdleContainerAllocationSystem",
     });
     this.supabase = createClient(
       process.env.SUPABASE_URL!,
@@ -36,7 +36,7 @@ export class IdleCloudflareTunnelSystem {
     this.maintenanceTimer = setInterval(
       () =>
         this.ensureIdleTunnelCapacity().catch((e) =>
-          this.log2.error(e, 'Idle maintenance failed'),
+          this.log2.error(e, "Idle maintenance failed")
         ),
       10 * 60 * 1000, // every 10 minutes
     );
@@ -45,20 +45,21 @@ export class IdleCloudflareTunnelSystem {
 
   private async ensureIdleTunnelCapacity(): Promise<void> {
     const { count } = await this.supabase
-      .from('cloudflare_tunnels')
-      .select('*', { count: 'exact', head: true })
-      .in('status', ['idle', 'creating']);
+      .from("cloudflare_tunnels")
+      .select("*", { count: "exact", head: true })
+      .in("status", ["idle", "creating"]);
     const currentIdle = count || 0;
     const toCreate = MAX_IDLE_TUNNELS - currentIdle;
     if (toCreate === 0) return;
     else if (toCreate > 0) {
       this.log2.consoleLogDevOnly(
-        'info',
+        "info",
         `Refreshing idle tunnels and hostnames: Creating ${toCreate} idle tunnels to reach max ${MAX_IDLE_TUNNELS}`,
       );
       await Promise.all(
-        Array.from({ length: toCreate }, () =>
-          this.launchIdleTunnelAndHostname(),
+        Array.from(
+          { length: toCreate },
+          () => this.launchIdleTunnelAndHostname(),
         ),
       );
     } else {
@@ -70,19 +71,19 @@ export class IdleCloudflareTunnelSystem {
 
       // 1. Load #toRemove idle tunnels and hostnames to remove from supabase
       const { data: tunnelsToRemove, error: fetchError } = await this.supabase
-        .from('cloudflare_tunnels')
-        .select('*')
-        .in('status', ['idle', 'creating'])
-        .order('created_at', { ascending: false })
+        .from("cloudflare_tunnels")
+        .select("*")
+        .in("status", ["idle", "creating"])
+        .order("created_at", { ascending: false })
         .limit(toRemove);
 
       if (fetchError) {
-        this.log2.error(fetchError, 'Failed to fetch idle tunnels for cleanup');
+        this.log2.error(fetchError, "Failed to fetch idle tunnels for cleanup");
         return;
       }
 
       if (!tunnelsToRemove || tunnelsToRemove.length === 0) {
-        this.log2.warn('No idle tunnels found to clean up');
+        this.log2.warn("No idle tunnels found to clean up");
         return;
       }
 
@@ -113,58 +114,62 @@ export class IdleCloudflareTunnelSystem {
   private async launchIdleTunnelAndHostname(): Promise<void> {
     // 1. Immediately add a placeholder entry in supabase idle pool with status 'creating'
     this.log2.consoleLogDevOnly(
-      'info',
-      '[launchIdleTunnelAndHostname] Creating placeholder entry for idle tunnel',
+      "info",
+      "[launchIdleTunnelAndHostname] Creating placeholder entry for idle tunnel",
     );
     const { data: placeholderEntry, error: insertError } = await this.supabase
-      .from('cloudflare_tunnels')
-      .insert({
-        status: 'creating',
-      } satisfies TablesInsert<'cloudflare_tunnels'>)
-      .select('*')
+      .from("cloudflare_tunnels")
+      .insert(
+        {
+          status: "creating",
+        } satisfies TablesInsert<"cloudflare_tunnels">,
+      )
+      .select("*")
       .single();
 
     if (insertError) {
       this.log2.error(
         insertError,
-        'Failed to create placeholder entry for idle tunnel',
+        "Failed to create placeholder entry for idle tunnel",
       );
-      throw insertError || new Error('Failed to create placeholder entry');
+      throw insertError || new Error("Failed to create placeholder entry");
     }
 
     try {
       this.log2.consoleLogDevOnly(
-        'info',
-        '[launchIdleTunnelAndHostname]Creating new tunnel and hostname in cloudflare',
+        "info",
+        "[launchIdleTunnelAndHostname]Creating new tunnel and hostname in cloudflare",
       );
       // 2. Create a new tunnel and hostname in cloudflare using the cloudflareTunnelManagementUtils.ts
       const tunnelName = placeholderEntry.id;
       if (!tunnelName) {
-        throw new Error('Placeholder tunnel entry missing id');
+        throw new Error("Placeholder tunnel entry missing id");
       }
       const { tunnelId, token, hostname, cnameTarget } =
         await createCloudflareTunnelForContainer(tunnelName, this.log2);
 
       // 3. Update all the tunnel information in the supabase idle pool (tunnel_id, hostname, token, DNS, etc.) and set status to 'idle'
       this.log2.consoleLogDevOnly(
-        'info',
-        '[launchIdleTunnelAndHostname] supabase idle pool with tunnel information',
+        "info",
+        "[launchIdleTunnelAndHostname] supabase idle pool with tunnel information",
       );
       const { error: updateError } = await this.supabase
-        .from('cloudflare_tunnels')
-        .update({
-          tunnel_id: tunnelId,
-          hostname: hostname,
-          token: token,
-          cname_target: cnameTarget,
-          status: 'idle',
-        } satisfies TablesUpdate<'cloudflare_tunnels'>)
-        .eq('id', placeholderEntry.id);
+        .from("cloudflare_tunnels")
+        .update(
+          {
+            tunnel_id: tunnelId,
+            hostname: hostname,
+            token: token,
+            cname_target: cnameTarget,
+            status: "idle",
+          } satisfies TablesUpdate<"cloudflare_tunnels">,
+        )
+        .eq("id", placeholderEntry.id);
 
       if (updateError) {
         this.log2.error(
           updateError,
-          'Failed to update idle tunnel entry with tunnel information',
+          "Failed to update idle tunnel entry with tunnel information",
         );
         await deleteCloudflareTunnel(
           tunnelId,
@@ -175,14 +180,14 @@ export class IdleCloudflareTunnelSystem {
           this.log2.error(
             cleanupError,
             `Failed to cleanup tunnel ${tunnelId} after database update failure`,
-          ),
+          )
         );
         throw updateError;
       }
 
       this.log2.consoleLogDevOnly(
-        'info',
-        'Successfully created replenished idle tunnel and hostname',
+        "info",
+        "Successfully created replenished idle tunnel and hostname",
         {
           tunnelId,
           hostname,
@@ -191,9 +196,9 @@ export class IdleCloudflareTunnelSystem {
     } catch (error) {
       // If anything fails, delete the placeholder entry
       await this.supabase
-        .from('cloudflare_tunnels')
+        .from("cloudflare_tunnels")
         .delete()
-        .eq('id', placeholderEntry.id);
+        .eq("id", placeholderEntry.id);
       throw error;
     }
   }
@@ -203,22 +208,22 @@ export class IdleCloudflareTunnelSystem {
   ): Promise<CloudflareTunnel> {
     // Use atomic RPC function to retrieve and allocate the oldest idle tunnel
     // This prevents race conditions where two concurrent requests could get the same tunnel
-    const { data, error } = await this.supabase.rpc('allocate_idle_tunnel', {
+    const { data, error } = await this.supabase.rpc("allocate_idle_tunnel", {
       p_prototype_id: prototypeId,
     });
 
     if (error) {
       // Check if this is the "no idle tunnel" error
-      if (error.message?.includes('NO_IDLE_TUNNEL')) {
+      if (error.message?.includes("NO_IDLE_TUNNEL")) {
         this.log2.warn(
-          'No idle tunnels found, falling back to direct launch, which is not yet implemented',
+          "No idle tunnels found, falling back to direct launch, which is not yet implemented",
         );
         return await this.launchTunnelForAllocationDirectly(prototypeId);
       } else {
         // Some other error occurred
         this.log2.error(
           error,
-          '[retrieveIdleTunnelForAllocation] Failed to allocate idle tunnel in supabase rpc function',
+          "[retrieveIdleTunnelForAllocation] Failed to allocate idle tunnel in supabase rpc function",
         );
         throw error;
       }
@@ -227,14 +232,14 @@ export class IdleCloudflareTunnelSystem {
     // The RPC function returns a single cloudflare_tunnels record
     if (!data) {
       this.log2.warn(
-        '[retrieveIdleTunnelForAllocation] Unexpected null response from allocate_idle_tunnel in supabase rpc function and direct launch is not supported yet',
+        "[retrieveIdleTunnelForAllocation] Unexpected null response from allocate_idle_tunnel in supabase rpc function and direct launch is not supported yet",
       );
       return await this.launchTunnelForAllocationDirectly(prototypeId);
     }
 
     // Launch a new idle tunnel in the background to replenish the pool
     this.launchIdleTunnelAndHostname().catch((e) =>
-      this.log2.error(e, 'Failed to launch idle tunnel and hostname'),
+      this.log2.error(e, "Failed to launch idle tunnel and hostname")
     );
 
     return data;
@@ -248,36 +253,38 @@ export class IdleCloudflareTunnelSystem {
     // This is a fallback mechanism to ensure that we always have a tunnel available for allocation
 
     this.log2.warn(
-      'No idle tunnels available, launching tunnel directly for immediate allocation',
+      "No idle tunnels available, launching tunnel directly for immediate allocation",
     );
 
     // 1. Create a placeholder entry in the database with status 'creating'
     const { data: placeholderEntry, error: insertError } = await this.supabase
-      .from('cloudflare_tunnels')
-      .insert({
-        status: 'creating',
-        prototype_id: prototypeId,
-      } satisfies TablesInsert<'cloudflare_tunnels'>)
-      .select('*')
+      .from("cloudflare_tunnels")
+      .insert(
+        {
+          status: "creating",
+          prototype_id: prototypeId,
+        } satisfies TablesInsert<"cloudflare_tunnels">,
+      )
+      .select("*")
       .single();
 
     if (insertError || !placeholderEntry) {
       this.log2.error(
         insertError,
-        'Failed to create placeholder entry for direct tunnel launch',
+        "Failed to create placeholder entry for direct tunnel launch",
       );
-      throw insertError || new Error('Failed to create placeholder entry');
+      throw insertError || new Error("Failed to create placeholder entry");
     }
 
     try {
       // 2. Create the tunnel and hostname in Cloudflare
       const tunnelName = placeholderEntry.id;
       if (!tunnelName) {
-        throw new Error('Placeholder tunnel entry missing id');
+        throw new Error("Placeholder tunnel entry missing id");
       }
 
       this.log2.consoleLogDevOnly(
-        'info',
+        "info",
         `Creating tunnel directly for immediate allocation: ${tunnelName}`,
       );
 
@@ -287,23 +294,25 @@ export class IdleCloudflareTunnelSystem {
       // 3. Update the database entry with tunnel info and set status to 'allocated'
       // Note: We set it to 'allocated' instead of 'idle' since this is for immediate use
       const { data: allocatedTunnel, error: updateError } = await this.supabase
-        .from('cloudflare_tunnels')
-        .update({
-          tunnel_id: tunnelId,
-          hostname: hostname,
-          token: token,
-          cname_target: cnameTarget,
-          status: 'allocated',
-          prototype_id: prototypeId,
-        } satisfies TablesUpdate<'cloudflare_tunnels'>)
-        .eq('id', placeholderEntry.id)
-        .select('*')
+        .from("cloudflare_tunnels")
+        .update(
+          {
+            tunnel_id: tunnelId,
+            hostname: hostname,
+            token: token,
+            cname_target: cnameTarget,
+            status: "allocated",
+            prototype_id: prototypeId,
+          } satisfies TablesUpdate<"cloudflare_tunnels">,
+        )
+        .eq("id", placeholderEntry.id)
+        .select("*")
         .single();
 
       if (updateError || !allocatedTunnel) {
         this.log2.error(
           updateError,
-          'Failed to update tunnel entry after direct creation',
+          "Failed to update tunnel entry after direct creation",
         );
         // Clean up the Cloudflare tunnel since we couldn't update the database
         await deleteCloudflareTunnel(
@@ -315,14 +324,14 @@ export class IdleCloudflareTunnelSystem {
           this.log2.error(
             cleanupError,
             `Failed to cleanup tunnel ${tunnelId} after database update failure`,
-          ),
+          )
         );
-        throw updateError || new Error('Failed to update tunnel entry');
+        throw updateError || new Error("Failed to update tunnel entry");
       }
 
       this.log2.consoleLogDevOnly(
-        'info',
-        'Successfully created tunnel directly for allocation',
+        "info",
+        "Successfully created tunnel directly for allocation",
         {
           tunnelId,
           hostname,
@@ -339,9 +348,9 @@ export class IdleCloudflareTunnelSystem {
     } catch (error) {
       // Clean up the placeholder entry on any failure
       await this.supabase
-        .from('cloudflare_tunnels')
+        .from("cloudflare_tunnels")
         .delete()
-        .eq('id', placeholderEntry.id);
+        .eq("id", placeholderEntry.id);
       throw error;
     }
   }
