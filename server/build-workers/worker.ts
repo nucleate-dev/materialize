@@ -14,6 +14,7 @@ import { SandboxService } from "./services/SandboxService.js";
 import { SupabaseClientService } from "./services/SupabaseClientService.js";
 import { TerminalService } from "./services/terminals/TerminalService.js";
 import { SandboxOrchestrationInitiatorService } from "./services/SandboxOrchestrationInitiatorService.js";
+import { AIDocumentService } from "./services/ai-document/index.js";
 
 // Load environment variables
 dotenv.config();
@@ -157,6 +158,9 @@ const chatService = new ChatService(
 // Now set the chatService reference in NucleateDevelopmentServerService
 nucleateDevelopmentServerService.chatService = chatService;
 
+// Initialize AI Document Service for PRD/critique generation
+const aiDocumentService = new AIDocumentService(supabaseClientService);
+
 app.addHook("onRequest", async (req) => {
   const { requestId, traceId } = genRequestIds(
     req.headers as Record<string, string | string[] | undefined>,
@@ -219,6 +223,9 @@ sandboxService.registerRoutes(app);
 
 // Setup Claude Code SDK routes
 chatService.registerRoutes(app);
+
+// Setup AI document generation routes
+aiDocumentService.registerRoutes(app);
 
 // --- Graceful Shutdown Handling ---
 const close = async (): Promise<void> => {

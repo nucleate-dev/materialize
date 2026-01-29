@@ -108,7 +108,7 @@ import {
 import { ViewOnDeviceModal } from "./ViewOnDeviceModal";
 
 // Import PreviewCanvas for infinite canvas mode
-import type { CanvasStateData, PreviewCanvasRef } from "./canvas";
+import type { CanvasStateData, PreviewCanvasRef, AIActionType, GlobalAIAction } from "./canvas";
 import { PreviewCanvas } from "./canvas";
 
 export interface MobileScreenConfig {
@@ -281,6 +281,10 @@ interface MaterializeRenderSectionProps {
   onExpandChat?: () => void;
   // Allows consumers to hide the toolbar (e.g., readonly public viewers)
   showToolbar?: boolean;
+  // Screen AI action callback - sends AI action requests to parent (e.g., chat panel)
+  onScreenAIAction?: (screenId: number, path: string, action: AIActionType, screenshotDataUrl?: string) => void;
+  // Global AI action callback - canvas-wide actions like PRD generation
+  onGlobalAIAction?: (action: GlobalAIAction, screenshotDataUrls?: string[]) => void;
 }
 
 export interface MaterializeRenderSectionRef {
@@ -339,6 +343,8 @@ const MaterializeRenderSection = forwardRef<
       isChatCollapsed = false,
       onExpandChat,
       showToolbar = true,
+      onScreenAIAction,
+      onGlobalAIAction,
     },
     ref,
   ) => {
@@ -1984,6 +1990,178 @@ const MaterializeRenderSection = forwardRef<
       setIframeError(true);
       onRenderStatusChange("Disconnected");
     }, [onRenderStatusChange]);
+
+    // Screen action handlers for ScreenActions component
+    const handleScreenScreenshot = useCallback(
+      async (screenId: number, path: string) => {
+        // Find the iframe element for this screen
+        const iframe = document.querySelector(
+          `iframe[data-screen-id="${screenId}"]`
+        ) as HTMLIFrameElement | null;
+
+        if (!iframe) {
+          toast.error("Could not find screen to screenshot");
+          return;
+        }
+
+        try {
+          // For cross-origin iframes, we need to use the sandbox API to take a screenshot
+          if (sandbox_url) {
+            const screenshotUrl = `${sandbox_url}/api/screenshot?path=${encodeURIComponent(path)}`;
+            const response = await fetch(screenshotUrl);
+            if (response.ok) {
+              const blob = await response.blob();
+              const url = URL.createObjectURL(blob);
+
+              // Create download link
+              const a = document.createElement("a");
+              a.href = url;
+              a.download = `screenshot-${path.replace(/\//g, "-") || "home"}-${Date.now()}.png`;
+              document.body.appendChild(a);
+              a.click();
+              document.body.removeChild(a);
+              URL.revokeObjectURL(url);
+
+              toast.success("Screenshot saved");
+            } else {
+              throw new Error("Screenshot failed");
+            }
+          } else {
+            // Fallback: copy the viewing URL to clipboard
+            const fullUrl = `${viewing_url}${path}`;
+            await navigator.clipboard.writeText(fullUrl);
+            toast.info("Screenshot not available", {
+              description: "URL copied to clipboard instead",
+            });
+          }
+        } catch {
+          toast.error("Failed to take screenshot");
+        }
+      },
+      [sandbox_url, viewing_url]
+    );
+
+    const handleScreenClone = useCallback(
+      (screenId: number, path: string) => {
+        if (previewMode === "mobile" || previewMode === "tablet") {
+          // Clone mobile screen
+          if (mobileScreens.length >= 4) {
+            toast.warning("Maximum screens reached", {
+              description: "Mobile view supports up to 4 screens.",
+            });
+            return;
+          }
+          setMobileScreens((prev) => [
+            ...prev,
+            { id: nextMobileScreenId.current++, path },
+          ]);
+          toast.success("Screen cloned");
+        } else {
+          // Clone web screen
+          if (webScreens.length >= 4) {
+            toast.warning("Maximum screens reached", {
+              description: "Web view supports up to 4 screens.",
+            });
+            return;
+          }
+          setWebScreens((prev) => [
+            ...prev,
+            { id: nextWebScreenId.current++, path },
+          ]);
+          toast.success("Screen cloned");
+        }
+      },
+      [previewMode, mobileScreens.length, webScreens.length]
+    );
+
+    const handleScreenAIAction = useCallback(
+      async (screenId: number, path: string, action: AIActionType) => {
+        // Take a screenshot first if we have sandbox access
+        let screenshotDataUrl: string | undefined;
+
+        if (sandbox_url) {
+          try {
+            const screenshotUrl = `${sandbox_url}/api/screenshot?path=${encodeURIComponent(path)}`;
+            const response = await fetch(screenshotUrl);
+            if (response.ok) {
+              const blob = await response.blob();
+              // Convert to data URL for passing to parent
+              screenshotDataUrl = await new Promise<string>((resolve) => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve(reader.result as string);
+                reader.readAsDataURL(blob);
+              });
+            }
+          } catch {
+            // Continue without screenshot
+          }
+        }
+
+        // Call the parent callback with the action
+        if (onScreenAIAction) {
+          onScreenAIAction(screenId, path, action, screenshotDataUrl);
+        } else {
+          // Default behavior: show a toast indicating the action
+          const actionLabels: Record<AIActionType, string> = {
+            redesign: "Redesign this screen",
+            "suggest-improvements": "Suggest improvements",
+            "copy-alternatives": "Generate copy alternatives",
+          };
+          toast.info(`AI Action: ${actionLabels[action]}`, {
+            description: `For screen at ${path}. Connect onScreenAIAction prop to enable.`,
+          });
+        }
+      },
+      [sandbox_url, onScreenAIAction]
+    );
+
+    const handleGlobalAIAction = useCallback(
+      async (action: GlobalAIAction) => {
+        // Collect screenshots from all visible screens
+        let screenshotDataUrls: string[] = [];
+
+        if (sandbox_url) {
+          const screens = previewMode === "web" ? webScreens : mobileScreens;
+
+          try {
+            // Take screenshots of all screens in parallel
+            const screenshotPromises = screens.map(async (screen) => {
+              const screenshotUrl = `${sandbox_url}/api/screenshot?path=${encodeURIComponent(screen.path)}`;
+              const response = await fetch(screenshotUrl);
+              if (response.ok) {
+                const blob = await response.blob();
+                return new Promise<string>((resolve) => {
+                  const reader = new FileReader();
+                  reader.onloadend = () => resolve(reader.result as string);
+                  reader.readAsDataURL(blob);
+                });
+              }
+              return null;
+            });
+
+            const results = await Promise.all(screenshotPromises);
+            screenshotDataUrls = results.filter((url): url is string => url !== null);
+          } catch {
+            // Continue without screenshots
+          }
+        }
+
+        // Call the parent callback with the action
+        if (onGlobalAIAction) {
+          onGlobalAIAction(action, screenshotDataUrls);
+        } else {
+          // Default behavior: show a toast indicating the action
+          const actionLabels: Record<GlobalAIAction, string> = {
+            "generate-prd": "Generate PRD",
+            "critique-designs": "Critique designs",
+          };
+          toast.info(`AI Action: ${actionLabels[action]}`, {
+            description: `Connect onGlobalAIAction prop to enable this feature.`,
+          });
+        }
+      },
+      [sandbox_url, previewMode, webScreens, mobileScreens, onGlobalAIAction]
+    );
 
     // Start loading when viewing_url changes
     useEffect(() => {
@@ -4074,6 +4252,10 @@ const MaterializeRenderSection = forwardRef<
                 availableRoutes={availableRoutes}
                 onIframeLoad={handleIframeLoad}
                 onIframeError={handleIframeError}
+                onScreenshot={handleScreenScreenshot}
+                onClone={handleScreenClone}
+                onAIAction={handleScreenAIAction}
+                onGlobalAIAction={handleGlobalAIAction}
               />
             ) : (
               renderPreviewContent()

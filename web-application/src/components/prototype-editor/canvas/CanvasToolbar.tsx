@@ -1,12 +1,15 @@
 "use client";
 
-import { memo } from "react";
+import { memo, useState } from "react";
 import {
   MousePointer2,
   Hand,
   ZoomIn,
   ZoomOut,
   Maximize,
+  Sparkles,
+  FileText,
+  GitCompare,
 } from "lucide-react";
 import {
   Tooltip,
@@ -14,8 +17,16 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import type { GlobalAIAction } from "./types";
 
 export type CanvasToolMode = "select" | "pan";
+export type { GlobalAIAction };
 
 interface CanvasToolbarProps {
   toolMode: CanvasToolMode;
@@ -25,6 +36,7 @@ interface CanvasToolbarProps {
   onZoomOut: () => void;
   onZoomToFit: () => void;
   readOnly?: boolean;
+  onGlobalAIAction?: (action: GlobalAIAction) => void;
 }
 
 /**
@@ -38,7 +50,10 @@ export const CanvasToolbar = memo(function CanvasToolbar({
   onZoomOut,
   onZoomToFit,
   readOnly = false,
+  onGlobalAIAction,
 }: CanvasToolbarProps) {
+  const [isAIMenuOpen, setIsAIMenuOpen] = useState(false);
+
   return (
     <div
       className="absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-1 bg-popover/95 backdrop-blur-sm border border-border rounded-lg shadow-lg px-1.5 py-1 z-50"
@@ -145,6 +160,58 @@ export const CanvasToolbar = memo(function CanvasToolbar({
           </TooltipContent>
         </Tooltip>
       </TooltipProvider>
+
+      {/* AI Actions */}
+      {!readOnly && onGlobalAIAction && (
+        <>
+          <div className="h-5 w-px bg-border mx-1" />
+          <DropdownMenu open={isAIMenuOpen} onOpenChange={setIsAIMenuOpen}>
+            <TooltipProvider delayDuration={200}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      className="p-1.5 rounded-md text-purple-400 hover:text-purple-300 hover:bg-purple-500/20 transition-colors"
+                    >
+                      <Sparkles className="w-4 h-4" />
+                    </button>
+                  </DropdownMenuTrigger>
+                </TooltipTrigger>
+                <TooltipContent side="top">
+                  <p>AI Tools</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            <DropdownMenuContent
+              align="center"
+              side="top"
+              sideOffset={8}
+              className="w-48"
+            >
+              <DropdownMenuItem
+                onClick={() => {
+                  onGlobalAIAction("generate-prd");
+                  setIsAIMenuOpen(false);
+                }}
+                className="flex items-center gap-2 cursor-pointer"
+              >
+                <FileText size={14} className="text-blue-400" />
+                <span>Generate PRD</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => {
+                  onGlobalAIAction("critique-designs");
+                  setIsAIMenuOpen(false);
+                }}
+                className="flex items-center gap-2 cursor-pointer"
+              >
+                <GitCompare size={14} className="text-green-400" />
+                <span>Critique designs</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </>
+      )}
     </div>
   );
 });

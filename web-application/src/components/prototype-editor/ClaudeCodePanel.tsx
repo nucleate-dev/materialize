@@ -137,6 +137,7 @@ export interface UploadedImage {
 
 export interface ClaudeCodePanelRef {
   populateInput: (message: string) => void;
+  sendMessageWithImage: (message: string, imageDataUrl?: string) => void;
 }
 
 const CHAT_MESSAGES_PAGE_SIZE = 30;
@@ -233,6 +234,9 @@ const ClaudeCodePanel = forwardRef<ClaudeCodePanelRef, ClaudeCodePanelProps>(
     const fileInputRef = useRef<HTMLInputElement | null>(null);
     const [queuedMessage, setQueuedMessage] = useState<string | null>(null);
     const [queuedImages, setQueuedImages] = useState<UploadedImage[]>([]);
+    // State for programmatic messages (from AI actions)
+    const [pendingProgrammaticMessage, setPendingProgrammaticMessage] =
+      useState<{ message: string; imageDataUrl?: string } | null>(null);
     const hasProcessedChatIntent = useRef(false);
     const queueTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     const [showScrollToBottom, setShowScrollToBottom] = useState(false);
@@ -249,7 +253,7 @@ const ClaudeCodePanel = forwardRef<ClaudeCodePanelRef, ClaudeCodePanelProps>(
     const [isLoadingOlderMessages, setIsLoadingOlderMessages] = useState(false);
     const earliestMessageCursorRef = useRef<string | null>(null);
 
-    // Expose populateInput method to parent via ref
+    // Expose methods to parent via ref
     useImperativeHandle(
       ref,
       () => ({
@@ -259,6 +263,10 @@ const ClaudeCodePanel = forwardRef<ClaudeCodePanelRef, ClaudeCodePanelProps>(
           setTimeout(() => {
             textareaRef.current?.focus();
           }, 0);
+        },
+        sendMessageWithImage: (message: string, imageDataUrl?: string) => {
+          // Set pending message state, which will be processed by useEffect
+          setPendingProgrammaticMessage({ message, imageDataUrl });
         },
       }),
       [],
@@ -2358,6 +2366,51 @@ const ClaudeCodePanel = forwardRef<ClaudeCodePanelRef, ClaudeCodePanelProps>(
         setIsProcessing(false);
       }
     };
+
+    // Ref to track if we should auto-send after state updates
+    const shouldAutoSendRef = useRef(false);
+
+    // Process programmatic messages from AI actions - Phase 1: Set state
+    useEffect(() => {
+      if (!pendingProgrammaticMessage) return;
+
+      const { message, imageDataUrl } = pendingProgrammaticMessage;
+
+      // Parse the data URL to extract base64 and media type
+      let images: UploadedImage[] = [];
+      if (imageDataUrl) {
+        const match = imageDataUrl.match(
+          /^data:(image\/[a-zA-Z+]+);base64,(.+)$/,
+        );
+        if (match) {
+          const mediaType = match[1];
+          const base64 = match[2];
+          images = [
+            {
+              id: `ai-action-${Date.now()}`,
+              base64,
+              mediaType,
+              name: `screenshot-${Date.now()}.png`,
+            },
+          ];
+        }
+      }
+
+      // Set input and images, mark for auto-send
+      setInputValue(message);
+      setUploadedImages(images);
+      shouldAutoSendRef.current = true;
+      setPendingProgrammaticMessage(null);
+    }, [pendingProgrammaticMessage]);
+
+    // Phase 2: Auto-send when inputValue is set and we're flagged to send
+    useEffect(() => {
+      if (shouldAutoSendRef.current && inputValue.trim()) {
+        shouldAutoSendRef.current = false;
+        sendQuery();
+      }
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [inputValue]);
 
     // Interrupt current query
     const interruptQuery = () => {

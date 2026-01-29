@@ -1,8 +1,9 @@
 "use client";
 
-import { memo } from "react";
+import { memo, useState } from "react";
 import { BROWSER_FRAME } from "./constants";
 import { resolveIframeSrc } from "./utils";
+import { ScreenActions, type AIActionType } from "./ScreenActions";
 
 interface BrowserFrameProps {
   screenId: number;
@@ -11,6 +12,10 @@ interface BrowserFrameProps {
   width: number;
   height: number;
   refreshKey?: number;
+  onScreenshot?: (screenId: number, path: string) => void;
+  onClone?: (screenId: number, path: string) => void;
+  onAIAction?: (screenId: number, path: string, action: AIActionType) => void;
+  showActions?: boolean;
 }
 
 /**
@@ -23,7 +28,12 @@ export const BrowserFrame = memo(function BrowserFrame({
   width,
   height,
   refreshKey,
+  onScreenshot,
+  onClone,
+  onAIAction,
+  showActions = true,
 }: BrowserFrameProps) {
+  const [isHovered, setIsHovered] = useState(false);
   const iframeSrc = resolveIframeSrc(viewingUrl, path);
   const displayUrl = path === "/" ? viewingUrl : `${viewingUrl}${path}`;
 
@@ -40,8 +50,21 @@ export const BrowserFrame = memo(function BrowserFrame({
         overflow: "hidden",
         display: "flex",
         flexDirection: "column",
+        position: "relative",
       }}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
     >
+      {/* Screen Actions - visible on hover */}
+      {showActions && isHovered && (
+        <ScreenActions
+          screenId={screenId}
+          path={path}
+          onScreenshot={onScreenshot}
+          onClone={onClone}
+          onAIAction={onAIAction}
+        />
+      )}
       {/* Browser Header */}
       <div
         style={{

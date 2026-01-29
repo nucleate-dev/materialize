@@ -18,7 +18,13 @@ import MaterializeRenderSection, {
 import type {
   CanvasStateData,
   PrototypeContextData,
+  AIActionType,
+  GlobalAIAction,
 } from "@/components/prototype-editor/canvas/types";
+import {
+  DocumentGenerationModal,
+  type AIDocumentScreen,
+} from "@/components/prototype-editor/DocumentGenerationModal";
 import ProPlanUpsellModal from "@/components/prototype-editor/ProPlanUpsellModal";
 import { SurveyOverlay } from "@/components/survey/SurveyOverlay";
 import {
@@ -182,6 +188,14 @@ export default function InternalPrototypePage() {
   // Canvas state for infinite canvas mode
   const [canvasState, setCanvasState] = useState<CanvasStateData | null>(null);
   const canvasSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Document generation modal state (for PRD and design critique)
+  const [isDocumentModalOpen, setIsDocumentModalOpen] = useState(false);
+  const [documentModalType, setDocumentModalType] =
+    useState<GlobalAIAction | null>(null);
+  const [documentModalScreens, setDocumentModalScreens] = useState<
+    AIDocumentScreen[]
+  >([]);
 
   // Resizable divider state
   const [leftPanelWidth, setLeftPanelWidth] = useState(25); // percentage
@@ -987,6 +1001,77 @@ export default function InternalPrototypePage() {
     setPrototype((prev) => (prev ? { ...prev, name: newName } : null));
   }, []);
 
+  // Callback for per-screen AI actions from the render section
+  const handleScreenAIAction = useCallback(
+    (
+      screenId: number,
+      path: string,
+      action: AIActionType,
+      screenshotDataUrl?: string,
+    ) => {
+      // Generate the appropriate prompt based on the action type
+      const prompts: Record<AIActionType, string> = {
+        redesign: `Please redesign the screen at path "${path}". Analyze the current design and suggest improvements to make it more modern, user-friendly, and visually appealing. Consider layout, typography, colors, and overall UX.`,
+        "suggest-improvements": `Please analyze the screen at path "${path}" and suggest specific improvements. Focus on:
+- UX/usability issues
+- Visual design improvements
+- Accessibility concerns
+- Mobile responsiveness
+- Performance optimizations
+Provide actionable recommendations.`,
+        "copy-alternatives": `Please review the text/copy on the screen at path "${path}" and generate alternative versions. For each piece of text you identify:
+- Provide 2-3 alternative phrasings
+- Consider tone (professional, friendly, urgent)
+- Optimize for clarity and engagement
+- Keep accessibility in mind`,
+      };
+
+      const prompt = prompts[action];
+
+      // Send the message with the screenshot to the chat panel
+      if (claudeCodePanelRef.current) {
+        claudeCodePanelRef.current.sendMessageWithImage(
+          prompt,
+          screenshotDataUrl,
+        );
+      }
+    },
+    [],
+  );
+
+  // Callback for global AI actions (PRD generation, design critique)
+  const handleGlobalAIAction = useCallback(
+    (action: GlobalAIAction, screenshotDataUrls?: string[]) => {
+      // Get current screens to build the screen data for the modal
+      const currentScreens =
+        previewMode === "web" ? webScreensState : mobileScreensState;
+
+      // Build screen data with paths and screenshots
+      const screenData: AIDocumentScreen[] = currentScreens.map(
+        (screen, index) => ({
+          path: screen.path,
+          screenshotDataUrl: screenshotDataUrls?.[index] || "",
+        }),
+      );
+
+      // Filter out screens without screenshots
+      const screensWithData = screenData.filter((s) => s.screenshotDataUrl);
+
+      if (screensWithData.length === 0) {
+        // No screenshots available, still open modal but it will show error
+        setDocumentModalScreens(
+          currentScreens.map((s) => ({ path: s.path, screenshotDataUrl: "" })),
+        );
+      } else {
+        setDocumentModalScreens(screensWithData);
+      }
+
+      setDocumentModalType(action);
+      setIsDocumentModalOpen(true);
+    },
+    [previewMode, webScreensState, mobileScreensState],
+  );
+
   const handleDeleteRequest = useCallback(
     (path: string, type: "file" | "folder" | "asset") => {
       // Collect all files/assets to delete
@@ -1332,6 +1417,8 @@ export default function InternalPrototypePage() {
               onStartDevServer={handleTriggerFetchAndStartDevServer}
               isChatCollapsed={isChatCollapsed}
               onExpandChat={() => setIsChatCollapsed(false)}
+              onScreenAIAction={handleScreenAIAction}
+              onGlobalAIAction={handleGlobalAIAction}
               codeView={
                 <div className={`flex h-full ${isMobile ? "flex-col" : ""}`}>
                   {isMobile ? (
@@ -1630,6 +1717,18 @@ export default function InternalPrototypePage() {
         open={teamSettingsDialogOpen}
         onOpenChange={setTeamSettingsDialogOpen}
         defaultTab={teamSettingsDefaultTab}
+      />
+
+      {/* Document Generation Modal (PRD, Design Critique) */}
+      <DocumentGenerationModal
+        isOpen={isDocumentModalOpen}
+        onOpenChange={setIsDocumentModalOpen}
+        documentType={documentModalType}
+        prototypeId={prototypeId}
+        prototypeName={prototype?.name}
+        screens={documentModalScreens}
+        sandboxUrl={normalizedSandboxUrl || ""}
+        framework={prototype?.framework ?? undefined}
       />
 
       {/* Mobile Bottom Navigation */}

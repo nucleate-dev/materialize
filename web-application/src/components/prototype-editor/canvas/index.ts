@@ -3,8 +3,9 @@ export { PreviewCanvas } from "./PreviewCanvas";
 export { PhoneFrame } from "./PhoneFrame";
 export { BrowserFrame } from "./BrowserFrame";
 export { DraggableScreen } from "./DraggableScreen";
-export { CanvasToolbar, type CanvasToolMode } from "./CanvasToolbar";
+export { CanvasToolbar, type CanvasToolMode, type GlobalAIAction } from "./CanvasToolbar";
 export { ScreenModeSelector } from "./ScreenModeSelector";
+export { ScreenActions, type AIActionType } from "./ScreenActions";
 
 // Hooks
 export { usePanZoom } from "./usePanZoom";
@@ -32,4 +33,5 @@ export type {
   ScreenState,
   PrototypeContextData,
   ScreenUpdateAction,
+  AIActionType,
 } from "./types";
