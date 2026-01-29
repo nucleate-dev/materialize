@@ -10,6 +10,8 @@ import {
   Sparkles,
   FileText,
   GitCompare,
+  LayoutGrid,
+  Move,
 } from "lucide-react";
 import {
   Tooltip,
@@ -23,7 +25,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import type { GlobalAIAction } from "./types";
+import type { GlobalAIAction, LayoutMode } from "./types";
 
 export type CanvasToolMode = "select" | "pan";
 export type { GlobalAIAction };
@@ -36,6 +38,8 @@ interface CanvasToolbarProps {
   onZoomOut: () => void;
   onZoomToFit: () => void;
   readOnly?: boolean;
+  layoutMode?: LayoutMode;
+  onLayoutModeChange?: (mode: LayoutMode) => void;
   onGlobalAIAction?: (action: GlobalAIAction) => void;
 }
 
@@ -50,6 +54,8 @@ export const CanvasToolbar = memo(function CanvasToolbar({
   onZoomOut,
   onZoomToFit,
   readOnly = false,
+  layoutMode = "grid",
+  onLayoutModeChange,
   onGlobalAIAction,
 }: CanvasToolbarProps) {
   const [isAIMenuOpen, setIsAIMenuOpen] = useState(false);
@@ -58,22 +64,77 @@ export const CanvasToolbar = memo(function CanvasToolbar({
     <div
       className="absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-1 bg-popover/95 backdrop-blur-sm border border-border rounded-lg shadow-lg px-1.5 py-1 z-50"
       style={{ pointerEvents: "auto" }}
+      role="toolbar"
+      aria-label="Canvas controls"
     >
-      {/* Tool Selection */}
-      {!readOnly && (
+      {/* Layout Mode Toggle */}
+      {!readOnly && onLayoutModeChange && (
+        <>
+          <TooltipProvider delayDuration={200}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={() => onLayoutModeChange("grid")}
+                  aria-label="Grid layout"
+                  aria-pressed={layoutMode === "grid"}
+                  className={`p-1.5 rounded-md transition-colors ${
+                    layoutMode === "grid"
+                      ? "bg-accent text-foreground"
+                      : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
+                  }`}
+                >
+                  <LayoutGrid className="w-4 h-4" aria-hidden="true" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="top">
+                <p>Grid layout</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+
+          <TooltipProvider delayDuration={200}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={() => onLayoutModeChange("freeform")}
+                  aria-label="Freeform layout"
+                  aria-pressed={layoutMode === "freeform"}
+                  className={`p-1.5 rounded-md transition-colors ${
+                    layoutMode === "freeform"
+                      ? "bg-accent text-foreground"
+                      : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
+                  }`}
+                >
+                  <Move className="w-4 h-4" aria-hidden="true" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="top">
+                <p>Freeform layout</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+
+          <div className="h-5 w-px bg-border mx-1" aria-hidden="true" />
+        </>
+      )}
+
+      {/* Tool Selection - only in freeform mode */}
+      {!readOnly && layoutMode === "freeform" && (
         <>
           <TooltipProvider delayDuration={200}>
             <Tooltip>
               <TooltipTrigger asChild>
                 <button
                   onClick={() => onToolModeChange("select")}
+                  aria-label="Select tool (V)"
+                  aria-pressed={toolMode === "select"}
                   className={`p-1.5 rounded-md transition-colors ${
                     toolMode === "select"
                       ? "bg-accent text-foreground"
                       : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
                   }`}
                 >
-                  <MousePointer2 className="w-4 h-4" />
+                  <MousePointer2 className="w-4 h-4" aria-hidden="true" />
                 </button>
               </TooltipTrigger>
               <TooltipContent side="top">
@@ -87,13 +148,15 @@ export const CanvasToolbar = memo(function CanvasToolbar({
               <TooltipTrigger asChild>
                 <button
                   onClick={() => onToolModeChange("pan")}
+                  aria-label="Pan tool (H)"
+                  aria-pressed={toolMode === "pan"}
                   className={`p-1.5 rounded-md transition-colors ${
                     toolMode === "pan"
                       ? "bg-accent text-foreground"
                       : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
                   }`}
                 >
-                  <Hand className="w-4 h-4" />
+                  <Hand className="w-4 h-4" aria-hidden="true" />
                 </button>
               </TooltipTrigger>
               <TooltipContent side="top">
@@ -102,7 +165,7 @@ export const CanvasToolbar = memo(function CanvasToolbar({
             </Tooltip>
           </TooltipProvider>
 
-          <div className="h-5 w-px bg-border mx-1" />
+          <div className="h-5 w-px bg-border mx-1" aria-hidden="true" />
         </>
       )}
 
@@ -112,9 +175,10 @@ export const CanvasToolbar = memo(function CanvasToolbar({
           <TooltipTrigger asChild>
             <button
               onClick={onZoomOut}
+              aria-label="Zoom out"
               className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-colors"
             >
-              <ZoomOut className="w-4 h-4" />
+              <ZoomOut className="w-4 h-4" aria-hidden="true" />
             </button>
           </TooltipTrigger>
           <TooltipContent side="top">
@@ -123,7 +187,11 @@ export const CanvasToolbar = memo(function CanvasToolbar({
         </Tooltip>
       </TooltipProvider>
 
-      <span className="text-xs text-muted-foreground font-mono w-12 text-center select-none">
+      <span
+        className="text-xs text-muted-foreground font-mono w-12 text-center select-none"
+        aria-live="polite"
+        aria-label={`Zoom level ${Math.round(zoom * 100)} percent`}
+      >
         {Math.round(zoom * 100)}%
       </span>
 
@@ -132,9 +200,10 @@ export const CanvasToolbar = memo(function CanvasToolbar({
           <TooltipTrigger asChild>
             <button
               onClick={onZoomIn}
+              aria-label="Zoom in"
               className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-colors"
             >
-              <ZoomIn className="w-4 h-4" />
+              <ZoomIn className="w-4 h-4" aria-hidden="true" />
             </button>
           </TooltipTrigger>
           <TooltipContent side="top">
@@ -143,16 +212,17 @@ export const CanvasToolbar = memo(function CanvasToolbar({
         </Tooltip>
       </TooltipProvider>
 
-      <div className="h-5 w-px bg-border mx-1" />
+      <div className="h-5 w-px bg-border mx-1" aria-hidden="true" />
 
       <TooltipProvider delayDuration={200}>
         <Tooltip>
           <TooltipTrigger asChild>
             <button
               onClick={onZoomToFit}
+              aria-label="Zoom to fit all screens"
               className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-colors"
             >
-              <Maximize className="w-4 h-4" />
+              <Maximize className="w-4 h-4" aria-hidden="true" />
             </button>
           </TooltipTrigger>
           <TooltipContent side="top">
@@ -164,16 +234,17 @@ export const CanvasToolbar = memo(function CanvasToolbar({
       {/* AI Actions */}
       {!readOnly && onGlobalAIAction && (
         <>
-          <div className="h-5 w-px bg-border mx-1" />
+          <div className="h-5 w-px bg-border mx-1" aria-hidden="true" />
           <DropdownMenu open={isAIMenuOpen} onOpenChange={setIsAIMenuOpen}>
             <TooltipProvider delayDuration={200}>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <DropdownMenuTrigger asChild>
                     <button
+                      aria-label="AI Tools"
                       className="p-1.5 rounded-md text-purple-400 hover:text-purple-300 hover:bg-purple-500/20 transition-colors"
                     >
-                      <Sparkles className="w-4 h-4" />
+                      <Sparkles className="w-4 h-4" aria-hidden="true" />
                     </button>
                   </DropdownMenuTrigger>
                 </TooltipTrigger>
@@ -195,7 +266,7 @@ export const CanvasToolbar = memo(function CanvasToolbar({
                 }}
                 className="flex items-center gap-2 cursor-pointer"
               >
-                <FileText size={14} className="text-blue-400" />
+                <FileText size={14} className="text-blue-400" aria-hidden="true" />
                 <span>Generate PRD</span>
               </DropdownMenuItem>
               <DropdownMenuItem
@@ -205,7 +276,7 @@ export const CanvasToolbar = memo(function CanvasToolbar({
                 }}
                 className="flex items-center gap-2 cursor-pointer"
               >
-                <GitCompare size={14} className="text-green-400" />
+                <GitCompare size={14} className="text-green-400" aria-hidden="true" />
                 <span>Critique designs</span>
               </DropdownMenuItem>
             </DropdownMenuContent>

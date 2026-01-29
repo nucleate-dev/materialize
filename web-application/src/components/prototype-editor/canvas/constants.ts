@@ -46,6 +46,23 @@ export const CANVAS = {
   SAVE_DEBOUNCE_MS: 1000,
 } as const;
 
+// Grid layout settings
+export const GRID_LAYOUT = {
+  /** Default number of columns */
+  DEFAULT_COLUMNS: 3,
+  /** Gap between grid items in pixels */
+  GAP: 32,
+  /** Padding around the grid container */
+  PADDING: 32,
+  /** Breakpoints for responsive columns (viewport width -> columns) */
+  BREAKPOINTS: [
+    { minWidth: 2400, columns: 4 },
+    { minWidth: 1800, columns: 3 },
+    { minWidth: 1200, columns: 2 },
+    { minWidth: 0, columns: 1 },
+  ],
+} as const;
+
 // Minimum dimensions for resizable screens
 export const MIN_DIMENSIONS = {
   WIDTH: 200,
