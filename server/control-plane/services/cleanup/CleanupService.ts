@@ -289,7 +289,6 @@ export class CleanupService {
       const killResult = await this.dispatchKillDevServerRequest(
         prototypeId,
         build.fargate_private_ip,
-        shouldWaitForSuccessfulBuild,
       );
       if (killResult.buildInProgress) {
         // Increment clean attempts counter
@@ -430,7 +429,6 @@ export class CleanupService {
   private async dispatchKillDevServerRequest(
     prototypeId: string,
     fargatePrivateIp: string,
-    shouldWaitForSuccessfulBuild: boolean = true, // internal tools sometimes we don't care
   ): Promise<CleanupOperationResult> {
     return await this.log2.time(
       "cleanup_dispatch_kill_dev_server_latency",
@@ -438,7 +436,6 @@ export class CleanupService {
         return await this.dispatchKillDevServerRequestImpl(
           prototypeId,
           fargatePrivateIp,
-          shouldWaitForSuccessfulBuild,
         );
       },
     );
@@ -447,7 +444,6 @@ export class CleanupService {
   private async dispatchKillDevServerRequestImpl(
     prototypeId: string,
     fargatePrivateIp: string,
-    shouldWaitForSuccessfulBuild: boolean = true,
   ): Promise<CleanupOperationResult> {
     this.log2.consoleLogDevOnly(
       "info",
@@ -466,15 +462,6 @@ export class CleanupService {
           "x-trace-id": this.log2.getTraceId(),
         },
       });
-
-      if (!shouldWaitForSuccessfulBuild) {
-        // from internal tools requests. We just want to kill the task, we don't care about the response/version_id/S3 build/screenshot
-        await new Promise((resolve) => setTimeout(resolve, 5000)); // sleep so tunnel can be cleaned up and files can persist
-        return {
-          success: true,
-          buildInProgress: false,
-        };
-      }
 
       // Parse the actual response body to understand what happened
       const responseData = response.data;
