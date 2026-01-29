@@ -37,7 +37,9 @@ const PreviewCanvas = forwardRef<PreviewCanvasRef, PreviewCanvasProps>(
       initialCanvasState,
       onCanvasStateChange,
       onScreensChange,
+      onScreenPathChange,
       readOnly = false,
+      availableRoutes = [],
       onScreenshot,
       onClone,
       onAIAction,
@@ -443,6 +445,24 @@ const PreviewCanvas = forwardRef<PreviewCanvasRef, PreviewCanvasProps>(
       [debouncedSave]
     );
 
+    // Handle screen path change
+    const handleScreenPathChange = useCallback(
+      (screenId: number, newPath: string) => {
+        setScreensState((prev) => {
+          const updated = prev.map((s) =>
+            s.id === screenId ? { ...s, path: newPath } : s
+          );
+          notifyScreensChanged(updated);
+          return updated;
+        });
+        // Also notify parent if callback is provided
+        if (onScreenPathChange) {
+          onScreenPathChange(screenId, newPath);
+        }
+      },
+      [notifyScreensChanged, onScreenPathChange]
+    );
+
     // Handle mouse down on canvas
     const handleCanvasMouseDown = useCallback(
       (e: React.MouseEvent) => {
@@ -631,6 +651,9 @@ const PreviewCanvas = forwardRef<PreviewCanvasRef, PreviewCanvasProps>(
         showActions: !readOnly,
         onLoad: onIframeLoad,
         onError: onIframeError,
+        availableRoutes,
+        onPathChange: handleScreenPathChange,
+        readOnly,
       };
 
       if (screen.previewMode === "mobile" || screen.previewMode === "tablet") {

@@ -364,6 +364,12 @@ You have access to the UpdatePreviewScreens tool (mcp__devtools__UpdatePreviewSc
 - **remove**: Remove a screen by its ID
 - **set**: Replace all screens with a new set of screens (max 4)
 
+**CRITICAL - Default to Current Path:**
+- When the user asks for a SINGLE thing (e.g., "create a landing page", "build an itinerary", "make a dashboard"), you should modify the CURRENT screen path they are viewing (usually "/" or the first screen listed above)
+- Do NOT create new routes like "/landing-page" or "/nyc-itinerary" unless the user explicitly asks for a new page/route or you need to preserve existing content
+- The user sees what's on screen - if they ask for "a landing page", they want it WHERE they're looking, not at a new URL
+- Only create new routes when: (1) user explicitly requests a new page/route, (2) user asks for variants/comparisons, or (3) you need to preserve existing content the user wants to keep
+
 **Best Practices for Design Variants:**
 - When creating design variants (e.g., different pricing page designs), put them on DIFFERENT routes (e.g., /pricing-v1, /pricing-v2)
 - PROACTIVELY use the UpdatePreviewScreens tool to show variants side-by-side after creating them
