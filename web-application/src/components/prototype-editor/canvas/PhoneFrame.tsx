@@ -21,8 +21,6 @@ interface PhoneFrameProps {
   width: number;
   height: number;
   refreshKey?: number;
-  onScreenshot?: (screenId: number, path: string) => void;
-  onClone?: (screenId: number, path: string) => void;
   onAIAction?: (screenId: number, path: string, action: AIActionType) => void;
   showActions?: boolean;
   onLoad?: () => void;
@@ -50,8 +48,6 @@ export const PhoneFrame = memo(function PhoneFrame({
   width,
   height,
   refreshKey,
-  onScreenshot,
-  onClone,
   onAIAction,
   showActions = true,
   onLoad,
@@ -116,8 +112,6 @@ export const PhoneFrame = memo(function PhoneFrame({
         <ScreenActions
           screenId={screenId}
           path={path}
-          onScreenshot={onScreenshot}
-          onClone={onClone}
           onAIAction={onAIAction}
         />
       )}

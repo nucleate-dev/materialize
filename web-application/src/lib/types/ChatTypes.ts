@@ -75,6 +75,9 @@ export interface ChatQueryData {
   }>;
   visible_screens?: Array<{ id: number; path: string }>; // All visible preview screens (for multi-screen mode)
   preview_mode?: "mobile" | "web"; // Current preview mode
+  layout_mode?: "grid" | "freeform"; // Canvas layout mode
+  screen_order?: number[]; // Order of screen IDs in grid mode
+  focused_screen_id?: number; // Screen ID the user is currently focused on/looking at
   use_oauth_token?: boolean; // User's preference: true = use their Claude subscription, false = use Nucleate credits
   user_id?: string | null; // ID of the user sending the message (for message attribution)
 }
@@ -245,11 +248,13 @@ export interface CollaboratorMessagePayload {
 }
 
 export interface ScreenUpdateData {
-  action: "add" | "remove" | "set";
+  action: "add" | "remove" | "set" | "reorder";
   screens?: Array<{ path: string }>; // For "set" action
   path?: string; // For "add" action
   screenId?: number; // For "remove" action
+  screenOrder?: number[]; // For "reorder" action - new order of screen IDs
   previewMode?: "mobile" | "web" | "tablet"; // Device preview mode (prefer mobile or web)
+  layoutMode?: "grid" | "freeform"; // Canvas layout mode
 }
 
 export interface ScreenUpdateMessage {

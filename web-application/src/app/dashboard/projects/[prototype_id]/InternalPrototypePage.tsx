@@ -1310,6 +1310,12 @@ Provide actionable recommendations.`,
                     : webScreensState
                 }
                 previewMode={previewMode}
+                layoutMode={canvasState?.layoutMode}
+                screenOrder={canvasState?.screenOrder}
+                focusedScreenId={
+                  (previewMode === "mobile" ? mobileScreensState : webScreensState)
+                    ?.find((s) => s.path === currentViewingPath)?.id
+                }
                 onScreenUpdate={handleScreenUpdate}
                 fileSystem={fileSystem}
                 externalWS={claudeCodeWS}

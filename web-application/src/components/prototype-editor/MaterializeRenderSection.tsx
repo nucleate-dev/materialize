@@ -1325,6 +1325,11 @@ const MaterializeRenderSection = forwardRef<
 
           // Use canvas ref if in canvas mode
           if (isCanvasPreviewEnabled && canvasRef.current) {
+            // Handle layout mode change if specified
+            if (data.layoutMode) {
+              canvasRef.current.setLayoutMode(data.layoutMode);
+            }
+
             switch (data.action) {
               case "add":
                 if (data.path) {
@@ -1344,6 +1349,11 @@ const MaterializeRenderSection = forwardRef<
                       path: s.path,
                     })),
                   );
+                }
+                break;
+              case "reorder":
+                if (data.screenOrder && data.screenOrder.length > 0) {
+                  canvasRef.current.reorderScreens(data.screenOrder);
                 }
                 break;
             }
@@ -4252,8 +4262,6 @@ const MaterializeRenderSection = forwardRef<
                 availableRoutes={availableRoutes}
                 onIframeLoad={handleIframeLoad}
                 onIframeError={handleIframeError}
-                onScreenshot={handleScreenScreenshot}
-                onClone={handleScreenClone}
                 onAIAction={handleScreenAIAction}
                 onGlobalAIAction={handleGlobalAIAction}
               />

@@ -66,6 +66,9 @@ interface ClaudeCodePanelProps {
   currentViewingPath?: string;
   visibleScreens?: Array<{ id: number; path: string }>;
   previewMode?: "mobile" | "web" | "tablet";
+  layoutMode?: "grid" | "freeform";
+  screenOrder?: number[];
+  focusedScreenId?: number;
   onScreenUpdate?: (data: ScreenUpdateData) => void;
   fileSystem?: UseFileSystemReturn;
   // External WebSocket management (required - InternalPrototypePage manages connection)
@@ -154,6 +157,9 @@ const ClaudeCodePanel = forwardRef<ClaudeCodePanelRef, ClaudeCodePanelProps>(
       currentViewingPath,
       visibleScreens,
       previewMode,
+      layoutMode,
+      screenOrder,
+      focusedScreenId,
       onScreenUpdate,
       fileSystem,
       externalWS,
@@ -1150,6 +1156,9 @@ const ClaudeCodePanel = forwardRef<ClaudeCodePanelRef, ClaudeCodePanelProps>(
                   current_viewing_path: currentViewingPath,
                   visible_screens: visibleScreens,
                   preview_mode: previewMode,
+                  layout_mode: layoutMode,
+                  screen_order: screenOrder,
+                  focused_screen_id: focusedScreenId,
                   design_style: prototype?.design_style,
                   use_oauth_token: authMode === "claude_sub",
                   user_id: currentUserInfo?.id ?? null,
@@ -2359,6 +2368,9 @@ const ClaudeCodePanel = forwardRef<ClaudeCodePanelRef, ClaudeCodePanelProps>(
                 current_viewing_path: currentViewingPath,
                 visible_screens: visibleScreens,
                 preview_mode: previewMode,
+                layout_mode: layoutMode,
+                screen_order: screenOrder,
+                focused_screen_id: focusedScreenId,
                 use_oauth_token: authMode === "claude_sub",
                 user_id: currentUserInfo?.id ?? null,
                 image_metadata: uploadedImageMetadata.map((img) => ({

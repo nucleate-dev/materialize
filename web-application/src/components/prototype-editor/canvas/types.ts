@@ -89,6 +89,10 @@ export interface PreviewCanvasRef {
   removeScreen: (screenId: number) => void;
   /** Replace all screens with new configuration */
   setScreens: (screens: ScreenConfig[]) => void;
+  /** Reorder screens in grid mode */
+  reorderScreens: (screenOrder: number[]) => void;
+  /** Set the layout mode */
+  setLayoutMode: (mode: LayoutMode) => void;
   /** Get the current canvas state for persistence (returns null if editor not ready) */
   getState: () => CanvasStateData | null;
   /** Restore canvas state from database */
@@ -131,10 +135,6 @@ export interface PreviewCanvasProps {
   onIframeLoad?: () => void;
   /** Callback when iframe errors */
   onIframeError?: () => void;
-  /** Callback when screenshot is requested for a screen */
-  onScreenshot?: (screenId: number, path: string) => void;
-  /** Callback when clone is requested for a screen */
-  onClone?: (screenId: number, path: string) => void;
   /** Callback when an AI action is requested for a screen */
   onAIAction?: (screenId: number, path: string, action: AIActionType) => void;
   /** Callback when a global AI action is requested */

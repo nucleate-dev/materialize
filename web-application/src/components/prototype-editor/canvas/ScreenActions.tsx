@@ -2,8 +2,6 @@
 
 import { memo, useState, useCallback } from "react";
 import {
-  Camera,
-  Copy,
   Sparkles,
   Wand2,
   Lightbulb,
@@ -28,41 +26,21 @@ export type { AIActionType };
 export interface ScreenActionsProps {
   screenId: number;
   path: string;
-  onScreenshot?: (screenId: number, path: string) => void;
-  onClone?: (screenId: number, path: string) => void;
   onAIAction?: (screenId: number, path: string, action: AIActionType) => void;
   disabled?: boolean;
 }
 
 /**
  * Quick actions overlay for screen frames.
- * Shows on hover with: Screenshot, Clone, and AI actions menu.
+ * Shows on hover with AI actions menu.
  */
 export const ScreenActions = memo(function ScreenActions({
   screenId,
   path,
-  onScreenshot,
-  onClone,
   onAIAction,
   disabled = false,
 }: ScreenActionsProps) {
   const [isAIMenuOpen, setIsAIMenuOpen] = useState(false);
-
-  const handleScreenshot = useCallback(
-    (e: React.MouseEvent) => {
-      e.stopPropagation();
-      onScreenshot?.(screenId, path);
-    },
-    [screenId, path, onScreenshot]
-  );
-
-  const handleClone = useCallback(
-    (e: React.MouseEvent) => {
-      e.stopPropagation();
-      onClone?.(screenId, path);
-    },
-    [screenId, path, onClone]
-  );
 
   const handleAIAction = useCallback(
     (action: AIActionType) => {
@@ -89,76 +67,6 @@ export const ScreenActions = memo(function ScreenActions({
         onClick={(e) => e.stopPropagation()}
         onMouseDown={(e) => e.stopPropagation()}
       >
-        {/* Screenshot button */}
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              onClick={handleScreenshot}
-              className="screen-action-button"
-              style={{
-                width: 28,
-                height: 28,
-                borderRadius: 6,
-                backgroundColor: "rgba(0, 0, 0, 0.7)",
-                border: "1px solid rgba(255, 255, 255, 0.1)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                cursor: "pointer",
-                transition: "all 0.15s ease",
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = "rgba(0, 0, 0, 0.85)";
-                e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.2)";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = "rgba(0, 0, 0, 0.7)";
-                e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.1)";
-              }}
-            >
-              <Camera size={14} color="white" strokeWidth={2} />
-            </button>
-          </TooltipTrigger>
-          <TooltipContent side="bottom" sideOffset={4}>
-            <p className="text-xs">Screenshot</p>
-          </TooltipContent>
-        </Tooltip>
-
-        {/* Clone button */}
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              onClick={handleClone}
-              className="screen-action-button"
-              style={{
-                width: 28,
-                height: 28,
-                borderRadius: 6,
-                backgroundColor: "rgba(0, 0, 0, 0.7)",
-                border: "1px solid rgba(255, 255, 255, 0.1)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                cursor: "pointer",
-                transition: "all 0.15s ease",
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = "rgba(0, 0, 0, 0.85)";
-                e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.2)";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = "rgba(0, 0, 0, 0.7)";
-                e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.1)";
-              }}
-            >
-              <Copy size={14} color="white" strokeWidth={2} />
-            </button>
-          </TooltipTrigger>
-          <TooltipContent side="bottom" sideOffset={4}>
-            <p className="text-xs">Clone screen</p>
-          </TooltipContent>
-        </Tooltip>
-
         {/* AI Actions dropdown */}
         <DropdownMenu open={isAIMenuOpen} onOpenChange={setIsAIMenuOpen}>
           <Tooltip>

@@ -40,8 +40,6 @@ const PreviewCanvas = forwardRef<PreviewCanvasRef, PreviewCanvasProps>(
       onScreenPathChange,
       readOnly = false,
       availableRoutes = [],
-      onScreenshot,
-      onClone,
       onAIAction,
       onGlobalAIAction,
       onIframeLoad,
@@ -487,6 +485,8 @@ const PreviewCanvas = forwardRef<PreviewCanvasRef, PreviewCanvasProps>(
         addScreen,
         removeScreen,
         setScreens,
+        reorderScreens: handleReorder,
+        setLayoutMode: handleLayoutModeChange,
         getState: getCanvasState,
         loadState: loadCanvasState,
         zoomToFit,
@@ -499,6 +499,8 @@ const PreviewCanvas = forwardRef<PreviewCanvasRef, PreviewCanvasProps>(
         addScreen,
         removeScreen,
         setScreens,
+        handleReorder,
+        handleLayoutModeChange,
         getCanvasState,
         loadCanvasState,
         zoomToFit,
@@ -637,7 +639,7 @@ const PreviewCanvas = forwardRef<PreviewCanvasRef, PreviewCanvasProps>(
     }, []);
 
     // Render frame based on screen's preview mode
-    const renderFrame = (screen: ScreenState) => {
+    const renderFrame = (screen: ScreenState, showHoverActions = true) => {
       const frameProps = {
         screenId: screen.id,
         path: screen.path,
@@ -645,10 +647,8 @@ const PreviewCanvas = forwardRef<PreviewCanvasRef, PreviewCanvasProps>(
         width: screen.position.width,
         height: screen.position.height,
         refreshKey,
-        onScreenshot,
-        onClone,
         onAIAction,
-        showActions: !readOnly,
+        showActions: showHoverActions && !readOnly,
         onLoad: onIframeLoad,
         onError: onIframeError,
         availableRoutes,
@@ -677,6 +677,8 @@ const PreviewCanvas = forwardRef<PreviewCanvasRef, PreviewCanvasProps>(
         height={screen.position.height}
         readOnly={readOnly}
         previewMode={screen.previewMode}
+        screenId={screen.id}
+        path={screen.path}
         onPreviewModeChange={(mode) =>
           handleScreenPreviewModeChange(screen.id, mode)
         }
@@ -684,8 +686,10 @@ const PreviewCanvas = forwardRef<PreviewCanvasRef, PreviewCanvasProps>(
           handleScreenResize(screen.id, deltaWidth, deltaHeight)
         }
         onResizeEnd={handleScreenResizeEnd}
+        onAIAction={onAIAction}
       >
-        {renderFrame(screen)}
+        {/* Don't show hover actions in grid mode - AI button is in toolbar */}
+        {renderFrame(screen, false)}
       </GridScreen>
     );
 

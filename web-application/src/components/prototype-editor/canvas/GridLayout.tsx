@@ -21,6 +21,8 @@ interface GridLayoutProps {
   onScreenResizeEnd: () => void;
   onScreenPreviewModeChange: (screenId: number, mode: PreviewMode) => void;
   renderScreen: (screen: ScreenState) => ReactNode;
+  /** Callback to resize a single web screen to fill container */
+  onSingleWebScreenResize?: (screenId: number, width: number, height: number) => void;
 }
 
 interface DragState {
@@ -51,15 +53,27 @@ const initialDragState: DragState = {
 };
 
 /**
- * Calculate number of columns based on viewport width
+ * Calculate number of columns based on viewport width and screen count
  */
-function getColumnsForWidth(width: number): number {
+function getColumnsForWidth(width: number, screenCount: number): number {
+  // For 2 screens, always show side by side (2 columns minimum)
+  if (screenCount === 2) {
+    return 2;
+  }
+
+  // For 1 screen, always use 1 column (will be centered)
+  if (screenCount === 1) {
+    return 1;
+  }
+
+  // For 3+ screens, use breakpoints
   for (const bp of GRID_LAYOUT.BREAKPOINTS) {
     if (width >= bp.minWidth) {
-      return bp.columns;
+      // Ensure we don't have more columns than screens
+      return Math.min(bp.columns, screenCount);
     }
   }
-  return GRID_LAYOUT.DEFAULT_COLUMNS;
+  return Math.min(GRID_LAYOUT.DEFAULT_COLUMNS, screenCount);
 }
 
 /**
@@ -75,9 +89,11 @@ export function GridLayout({
   onScreenResizeEnd,
   onScreenPreviewModeChange,
   renderScreen,
+  onSingleWebScreenResize,
 }: GridLayoutProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [columns, setColumns] = useState<number>(GRID_LAYOUT.DEFAULT_COLUMNS);
+  const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
   const [dragState, setDragState] = useState<DragState>(initialDragState);
   const [announcement, setAnnouncement] = useState("");
 
@@ -89,26 +105,58 @@ export function GridLayout({
       .filter((s): s is ScreenState => s !== undefined);
   }, [screens, screenOrder]);
 
+  // Calculate if we should expand a single web screen to fill the container
+  const isSingleWebScreen = orderedScreens.length === 1 && orderedScreens[0]?.previewMode === "web";
+
+  // Get the screen to render, potentially with expanded dimensions for single web screen
+  const getScreenForRender = useCallback((screen: ScreenState): ScreenState => {
+    if (!isSingleWebScreen || screen.previewMode !== "web") {
+      return screen;
+    }
+
+    // Calculate expanded dimensions for single web screen
+    // Leave padding on all sides
+    const padding = GRID_LAYOUT.PADDING * 2;
+    const topPadding = 60; // Space for mode selector and path badge
+    const availableWidth = (containerSize.width - padding) / zoom;
+    const availableHeight = (containerSize.height - padding - topPadding) / zoom;
+
+    if (availableWidth > screen.position.width || availableHeight > screen.position.height) {
+      return {
+        ...screen,
+        position: {
+          ...screen.position,
+          width: Math.max(screen.position.width, availableWidth),
+          height: Math.max(screen.position.height, availableHeight),
+        },
+      };
+    }
+
+    return screen;
+  }, [isSingleWebScreen, containerSize, zoom]);
+
   // Calculate item positions for drop detection
   const itemRefs = useRef<Map<number, HTMLDivElement>>(new Map());
 
-  // Update columns on resize
+  // Update columns and container size on resize
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
 
-    const updateColumns = () => {
+    const updateLayout = () => {
       const width = container.clientWidth;
-      setColumns(getColumnsForWidth(width));
+      const height = container.clientHeight;
+      setContainerSize({ width, height });
+      setColumns(getColumnsForWidth(width, orderedScreens.length));
     };
 
-    updateColumns();
+    updateLayout();
 
-    const resizeObserver = new ResizeObserver(updateColumns);
+    const resizeObserver = new ResizeObserver(updateLayout);
     resizeObserver.observe(container);
 
     return () => resizeObserver.disconnect();
-  }, []);
+  }, [orderedScreens.length]);
 
   // Set cursor to grabbing during drag
   useEffect(() => {
@@ -363,13 +411,23 @@ export function GridLayout({
         role="list"
         aria-label={`Screen grid with ${orderedScreens.length} screens`}
         style={{
-          display: "grid",
-          gridTemplateColumns: `repeat(${columns}, 1fr)`,
-          gap: GRID_LAYOUT.GAP,
-          alignItems: "start",
+          display: orderedScreens.length === 1 ? "flex" : "grid",
+          ...(orderedScreens.length === 1
+            ? {
+                justifyContent: "center",
+                alignItems: "center",
+                minHeight: "100%",
+              }
+            : {
+                gridTemplateColumns: `repeat(${columns}, auto)`,
+                justifyContent: "center",
+                gap: GRID_LAYOUT.GAP,
+                alignItems: "start",
+              }),
           transform: `scale(${zoom})`,
-          transformOrigin: "top left",
+          transformOrigin: "top center",
           width: `${100 / zoom}%`,
+          padding: orderedScreens.length === 1 ? 0 : undefined,
         }}
       >
         {orderedScreens.map((screen, index) => {
@@ -424,7 +482,7 @@ export function GridLayout({
                   }}
                 />
               )}
-              {renderScreen(screen)}
+              {renderScreen(getScreenForRender(screen))}
             </div>
           );
         })}
