@@ -238,7 +238,7 @@ export function createDesignToolsMcpServer(
             .string()
             .optional()
             .describe(
-              "Directory path relative to project root (default: assets/)",
+              "Directory path relative to project root (default: public/)",
             ),
           aspectRatio: z
             .enum(["1:1", "3:4", "4:3", "9:16", "16:9"])
@@ -335,7 +335,7 @@ export function createDesignToolsMcpServer(
             const generatedImage = imageFiles[0];
 
             // Construct output path - app code lives in client/ subdirectory
-            const targetDir = outputPath ?? "assets";
+            const targetDir = outputPath ?? "public";
             const relativePath = join("client", targetDir, filename);
             const fullPath = join(workDir, relativePath);
 
