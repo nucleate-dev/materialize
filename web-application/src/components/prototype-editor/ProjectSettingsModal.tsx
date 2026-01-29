@@ -1462,12 +1462,12 @@ export function ProjectSettingsModal({
                   !buildStatus?.is_building &&
                   buildStatus?.is_build_valid !== false &&
                   buildHistory.length > 0 &&
+                  latestDeployKey &&
                   !isLatestBuildDeployed && (
                     <div className="flex items-start gap-2 p-3 bg-warning/10 border border-warning/30 rounded-lg">
                       <AlertTriangle className="w-4 h-4 text-warning mt-0.5 flex-shrink-0" />
                       <p className="text-sm text-warning">
-                        There have been changes since the latest deployment.
-                        Deploy the latest build to publish your updates.
+                        There are new builds since deployment. Deploy to update.
                       </p>
                     </div>
                   )}

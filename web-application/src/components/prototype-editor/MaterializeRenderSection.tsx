@@ -3183,7 +3183,7 @@ const MaterializeRenderSection = forwardRef<
                     ) : (
                       <Rocket className="w-5 h-5 text-muted-foreground" />
                     )}
-                    <span>{deploymentUrl ? "Manage" : "Deploy"}</span>
+                    <span>{deploymentUrl ? "Live" : "Deploy"}</span>
                   </button>
                   {isWebFramework ? (
                     <button
@@ -3815,9 +3815,6 @@ const MaterializeRenderSection = forwardRef<
                     title="Share project"
                   >
                     <Share2 className="w-3.5 h-3.5" />
-                    <span className="ml-2 hidden md:inline text-xs font-medium">
-                      Share
-                    </span>
                   </Button>
                 )}
 
@@ -3831,15 +3828,17 @@ const MaterializeRenderSection = forwardRef<
                     disabled={isDeploying || !prototypeId}
                     className={cn(
                       "h-8 px-3 text-xs font-semibold shadow-sm",
-                      "bg-primary hover:bg-primary/90 text-primary-foreground",
+                      deploymentUrl
+                        ? "border border-border text-foreground bg-accent hover:bg-accent/80"
+                        : "bg-primary hover:bg-primary/90 text-primary-foreground",
                     )}
                   >
                     {isDeploying ? (
-                      <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" />
+                      <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" />
                     ) : (
-                      <Rocket className="w-3.5 h-3.5 mr-2" />
+                      <Rocket className="w-3.5 h-3.5 mr-1" />
                     )}
-                    {deploymentUrl ? "Manage" : "Deploy"}
+                    {deploymentUrl ? "Live" : "Deploy"}
                   </Button>
                 )}
 
