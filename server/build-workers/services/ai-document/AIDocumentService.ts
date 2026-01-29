@@ -34,9 +34,8 @@ const DOCUMENT_MODEL = "gemini-2.5-flash";
 
 /**
  * Credit cost per document generation
- * This is a fixed cost since document generation is a premium feature
  */
-const CREDITS_PER_DOCUMENT = 2;
+const CREDITS_PER_DOCUMENT = 0.3;
 
 /**
  * Configuration for document titles based on type

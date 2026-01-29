@@ -16,6 +16,7 @@ export enum ChatEvent {
   COLLABORATOR_MESSAGE = "collaborator_message",
   SCREEN_UPDATE = "screen_update",
   AUTH_MODE_UPDATED = "auth_mode_updated",
+  PROTOTYPE_TITLE_UPDATED = "prototype_title_updated",
 }
 
 export enum ChatClientEvent {
@@ -254,6 +255,14 @@ export interface AuthModeUpdatedMessage {
   };
 }
 
+export interface PrototypeTitleUpdatedMessage {
+  type: ChatEvent.PROTOTYPE_TITLE_UPDATED;
+  data: {
+    prototypeId: string;
+    title: string;
+  };
+}
+
 export type ChatServerMessage =
   | SystemConnectionMessage
   | ErrorMessage
@@ -271,4 +280,5 @@ export type ChatServerMessage =
   | DesignGenerationMessage
   | CollaboratorMessagePayload
   | ScreenUpdateMessage
-  | AuthModeUpdatedMessage;
+  | AuthModeUpdatedMessage
+  | PrototypeTitleUpdatedMessage;

@@ -44,6 +44,7 @@ import {
 } from "./cost/oauth-credit-calculation.js";
 import { trackApiUsageBuildWorker } from "./cost/usage-tracking.js";
 import { persistChatMessage } from "./helpers/message-handlers.js";
+import { generatePrototypeTitle } from "./helpers/title-generation-service.js";
 import {
   getNucleateChatServiceSystemPrompt,
 } from "./prompts/ClaudeCodePrompts.js";
@@ -83,6 +84,7 @@ export class ChatService {
   private userOAuthToken: string | null = null; // User's Claude subscription OAuth token
   private isOAuthModeActive = false;
   private validAiChatSessionIds = new Set<string>(); // Track valid session IDs created during this CodeService instance's lifetime
+  private hasAttemptedTitleGeneration = false; // Prevent multiple title generation attempts
 
   constructor(
     supabaseClientService: SupabaseClientService,
@@ -327,6 +329,7 @@ export class ChatService {
     this.activeConnections.clear();
     this.validAiChatSessionIds.clear(); // Clear valid session IDs on shutdown
     this.userOAuthToken = null; // Clear OAuth token on shutdown
+    this.hasAttemptedTitleGeneration = false; // Reset title generation flag
     this.sessionState = {
       sessionId: null,
       prototypeChatSessionId: null,
@@ -533,6 +536,17 @@ export class ChatService {
         this.sessionState.prototypeChatSessionId,
         logger,
       );
+    }
+
+    // 6a. GENERATE PROTOTYPE TITLE FOR NEW PROTOTYPES (async, non-blocking)
+    if (isFirstMessage && !this.hasAttemptedTitleGeneration) {
+      this.hasAttemptedTitleGeneration = true;
+      // Extract user message text
+      const userMessageText = this.extractUserMessageText(data);
+      if (userMessageText) {
+        // Fire off async title generation (don't await)
+        this.maybeGeneratePrototypeTitle(prototypeId, userMessageText, logger);
+      }
     }
 
     const designPreparation = await this.prepareFirstMessageDesignContext(
@@ -1473,5 +1487,124 @@ export class ChatService {
       return absolutePath.slice(WORK_DIR.length + 1);
     }
     return absolutePath;
+  }
+
+  /**
+   * Extract the text content from user's message data.
+   */
+  private extractUserMessageText(data: ChatQueryData): string | null {
+    // Try to get text from content blocks first
+    if (data.content && Array.isArray(data.content)) {
+      const textBlocks = data.content
+        .filter((block) => block.type === "text" && block.text)
+        .map((block) => block.text)
+        .join(" ");
+      if (textBlocks.trim()) {
+        return textBlocks.trim();
+      }
+    }
+    // Fall back to prompt field
+    if (data.prompt?.trim()) {
+      return data.prompt.trim();
+    }
+    return null;
+  }
+
+  /**
+   * Async title generation for new prototypes.
+   * Checks if prototype has default name and generates a title from user's first message.
+   * Non-blocking - errors are logged but don't affect the main chat flow.
+   */
+  private maybeGeneratePrototypeTitle(
+    prototypeId: string,
+    userMessage: string,
+    logger: SystemLogger,
+  ): void {
+    const TITLE_GENERATION_CREDITS = 0.05;
+
+    // Run async without blocking
+    (async () => {
+      try {
+        // Check if prototype has the default name
+        const { data: prototype, error: fetchError } = await this
+          .supabaseClientService
+          .getClient()
+          .from("prototypes")
+          .select("name")
+          .eq("id", prototypeId)
+          .single();
+
+        if (fetchError || !prototype) {
+          logger.warn("Failed to fetch prototype for title generation", {
+            prototypeId,
+            error: fetchError?.message,
+          });
+          return;
+        }
+
+        // Only generate title if prototype has the default name
+        if (prototype.name !== "New Prototype") {
+          return;
+        }
+
+        // Generate title
+        const newTitle = await generatePrototypeTitle(userMessage, logger);
+        if (!newTitle) {
+          return;
+        }
+
+        // Update prototype name in database
+        const { error: updateError } = await this.supabaseClientService
+          .getClient()
+          .from("prototypes")
+          .update({ name: newTitle })
+          .eq("id", prototypeId);
+
+        if (updateError) {
+          logger.error(updateError, "Failed to update prototype title", {
+            prototypeId,
+            newTitle,
+          });
+          return;
+        }
+
+        // Track credit usage
+        const { userId, teamId } = getWorkerContext();
+        if (userId && teamId) {
+          await trackApiUsageBuildWorker(
+            this.supabaseClientService.getClient(),
+            userId,
+            prototypeId,
+            logger,
+            TITLE_GENERATION_CREDITS,
+            teamId,
+          );
+        }
+
+        // Broadcast title update to connected clients
+        broadcastToConnections(
+          this.activeConnections,
+          {
+            type: ChatEvent.PROTOTYPE_TITLE_UPDATED,
+            data: {
+              prototypeId,
+              title: newTitle,
+            },
+          },
+          logger,
+        );
+
+        logger.info("Generated and updated prototype title", {
+          prototypeId,
+          newTitle,
+        });
+      } catch (error) {
+        logger.error(
+          error instanceof Error ? error : new Error(String(error)),
+          "Error in title generation flow",
+          { prototypeId },
+        );
+      }
+    })();
   }
 }

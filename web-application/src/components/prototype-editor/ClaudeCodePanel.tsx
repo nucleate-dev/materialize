@@ -172,7 +172,6 @@ const ClaudeCodePanel = forwardRef<ClaudeCodePanelRef, ClaudeCodePanelProps>(
   ) => {
     const logger = useProductLogger();
     void canEditPrototype;
-    void onPrototypeUpdate;
 
     // Check if project context feature is enabled
     const isProjectContextEnabled =
@@ -1618,6 +1617,21 @@ const ClaudeCodePanel = forwardRef<ClaudeCodePanelRef, ClaudeCodePanelProps>(
             screensCount: screenData.screens?.length,
           });
           onScreenUpdate?.(screenData);
+          break;
+        }
+
+        case ChatEvent.PROTOTYPE_TITLE_UPDATED: {
+          // Server generated a title for a new prototype
+          const { title } = message.data as { prototypeId: string; title: string };
+          logger.debug("log", "Received prototype title update", {
+            title,
+          });
+          if (prototype && onPrototypeUpdate) {
+            onPrototypeUpdate({
+              ...prototype,
+              name: title,
+            });
+          }
           break;
         }
 
