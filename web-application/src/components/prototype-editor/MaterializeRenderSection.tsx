@@ -3829,7 +3829,7 @@ const MaterializeRenderSection = forwardRef<
                     className={cn(
                       "h-8 px-3 text-xs font-semibold shadow-sm",
                       deploymentUrl
-                        ? "border border-border text-foreground bg-accent hover:bg-accent/80"
+                        ? "bg-success hover:bg-success/90 text-success-foreground"
                         : "bg-primary hover:bg-primary/90 text-primary-foreground",
                     )}
                   >
