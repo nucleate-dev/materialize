@@ -5,18 +5,22 @@ import {
   useCallback,
   useEffect,
   useImperativeHandle,
+  useMemo,
   useRef,
   useState,
 } from "react";
 import { PhoneFrame } from "./PhoneFrame";
 import { BrowserFrame } from "./BrowserFrame";
 import { DraggableScreen } from "./DraggableScreen";
+import { GridLayout } from "./GridLayout";
+import { GridScreen } from "./GridScreen";
 import { CanvasToolbar, type CanvasToolMode } from "./CanvasToolbar";
 import { usePanZoom } from "./usePanZoom";
 import { getDefaultPosition, getDefaultDimensions } from "./utils";
 import { CANVAS, MIN_DIMENSIONS } from "./constants";
 import type {
   CanvasStateData,
+  LayoutMode,
   PreviewCanvasProps,
   PreviewCanvasRef,
   PreviewMode,
@@ -47,6 +51,12 @@ const PreviewCanvas = forwardRef<PreviewCanvasRef, PreviewCanvasProps>(
     const [refreshKey, setRefreshKey] = useState(0);
     const [toolMode, setToolMode] = useState<CanvasToolMode>("select");
     const [isSpacePressed, setIsSpacePressed] = useState(false);
+    const [layoutMode, setLayoutMode] = useState<LayoutMode>(
+      initialCanvasState?.layoutMode ?? "grid"
+    );
+    const [screenOrder, setScreenOrder] = useState<number[]>(
+      initialCanvasState?.screenOrder ?? []
+    );
     const screenIdCounter = useRef(
       Math.max(...initialScreens.map((s) => s.id), 0) + 1
     );
@@ -54,6 +64,17 @@ const PreviewCanvas = forwardRef<PreviewCanvasRef, PreviewCanvasProps>(
 
     // Effective tool mode (space key temporarily activates pan)
     const effectiveToolMode = isSpacePressed ? "pan" : toolMode;
+
+    // Ensure screenOrder is valid (contains all screen IDs)
+    const validScreenOrder = useMemo(() => {
+      const screenIds = new Set(screens.map(s => s.id));
+      const orderedIds = screenOrder.filter(id => screenIds.has(id));
+      // Add any screens not in the order (e.g., newly added)
+      const missingIds = screens
+        .filter(s => !screenOrder.includes(s.id))
+        .map(s => s.id);
+      return [...orderedIds, ...missingIds];
+    }, [screens, screenOrder]);
 
     // Initialize pan/zoom
     const {
@@ -83,8 +104,10 @@ const PreviewCanvas = forwardRef<PreviewCanvasRef, PreviewCanvasProps>(
         camera,
         previewMode,
         lastModified: new Date().toISOString(),
+        layoutMode,
+        screenOrder,
       };
-    }, [screens, zoom, camera, previewMode, isInitialized]);
+    }, [screens, zoom, camera, previewMode, isInitialized, layoutMode, screenOrder]);
 
     // Debounced state change handler
     const debouncedSave = useCallback(() => {
@@ -137,6 +160,47 @@ const PreviewCanvas = forwardRef<PreviewCanvasRef, PreviewCanvasProps>(
       return { minX, minY, maxX, maxY };
     }, []);
 
+    // Derive screen order from positions (left-to-right, top-to-bottom)
+    const deriveOrderFromPositions = useCallback((screenList: ScreenState[]): number[] => {
+      if (screenList.length === 0) return [];
+
+      // Sort by y first (row), then by x (column within row)
+      // Use a tolerance for y to group items in the same row
+      const ROW_TOLERANCE = 50;
+
+      const sorted = [...screenList].sort((a, b) => {
+        const rowA = Math.floor(a.position.y / ROW_TOLERANCE);
+        const rowB = Math.floor(b.position.y / ROW_TOLERANCE);
+        if (rowA !== rowB) return rowA - rowB;
+        return a.position.x - b.position.x;
+      });
+
+      return sorted.map(s => s.id);
+    }, []);
+
+    // Handle layout mode change
+    const handleLayoutModeChange = useCallback((newMode: LayoutMode) => {
+      if (newMode === layoutMode) return;
+
+      if (newMode === "grid") {
+        // Switching to grid: derive order from current positions
+        const newOrder = deriveOrderFromPositions(screens);
+        setScreenOrder(newOrder);
+      } else {
+        // Switching to freeform: keep current grid positions as absolute positions
+        // The screens already have position data, no change needed
+      }
+
+      setLayoutMode(newMode);
+      debouncedSave();
+    }, [layoutMode, screens, deriveOrderFromPositions, debouncedSave]);
+
+    // Handle screen order change (from grid drag-to-reorder)
+    const handleReorder = useCallback((newOrder: number[]) => {
+      setScreenOrder(newOrder);
+      debouncedSave();
+    }, [debouncedSave]);
+
     // Load canvas state from persistence
     const loadCanvasState = useCallback(
       (state: CanvasStateData) => {
@@ -149,13 +213,25 @@ const PreviewCanvas = forwardRef<PreviewCanvasRef, PreviewCanvasProps>(
         setPanZoom(state.zoom);
         setCamera(state.camera);
 
+        // Load layout mode (default to grid for new/migrated states)
+        setLayoutMode(state.layoutMode ?? "grid");
+
+        // Load or derive screen order
+        if (state.screenOrder && state.screenOrder.length > 0) {
+          setScreenOrder(state.screenOrder);
+        } else {
+          // Derive order from positions for migrated states
+          const derivedOrder = deriveOrderFromPositions(migratedScreens);
+          setScreenOrder(derivedOrder);
+        }
+
         // Update screen ID counter
         if (state.screens.length > 0) {
           screenIdCounter.current =
             Math.max(...state.screens.map((s) => s.id), 0) + 1;
         }
       },
-      [setPanZoom, setCamera, previewMode]
+      [setPanZoom, setCamera, previewMode, deriveOrderFromPositions]
     );
 
     // Add a new screen
@@ -182,6 +258,9 @@ const PreviewCanvas = forwardRef<PreviewCanvasRef, PreviewCanvasProps>(
           notifyScreensChanged(updated);
           return updated;
         });
+
+        // Add to screen order (append to end)
+        setScreenOrder((prev) => [...prev, newScreenId]);
       },
       [screens.length, previewMode, notifyScreensChanged]
     );
@@ -194,6 +273,9 @@ const PreviewCanvas = forwardRef<PreviewCanvasRef, PreviewCanvasProps>(
           notifyScreensChanged(updated);
           return updated;
         });
+
+        // Remove from screen order
+        setScreenOrder((prev) => prev.filter((id) => id !== screenId));
       },
       [notifyScreensChanged]
     );
@@ -218,6 +300,9 @@ const PreviewCanvas = forwardRef<PreviewCanvasRef, PreviewCanvasProps>(
         });
 
         setScreensState(newScreens);
+
+        // Update screen order to match new screens
+        setScreenOrder(screenConfigs.map((s) => s.id));
 
         // Update screen ID counter
         if (screenConfigs.length > 0) {
@@ -482,6 +567,8 @@ const PreviewCanvas = forwardRef<PreviewCanvasRef, PreviewCanvasProps>(
           };
         });
         setScreensState(screensToUse);
+        // Initialize screen order
+        setScreenOrder(screensToCreate.map((s) => s.id));
       }
 
       // Zoom to fit after initial load - wait for container to have dimensions
@@ -555,6 +642,26 @@ const PreviewCanvas = forwardRef<PreviewCanvasRef, PreviewCanvasProps>(
       return "default";
     };
 
+    // Render a screen in grid mode
+    const renderGridScreen = (screen: ScreenState) => (
+      <GridScreen
+        key={screen.id}
+        width={screen.position.width}
+        height={screen.position.height}
+        readOnly={readOnly}
+        previewMode={screen.previewMode}
+        onPreviewModeChange={(mode) =>
+          handleScreenPreviewModeChange(screen.id, mode)
+        }
+        onResize={(deltaWidth, deltaHeight) =>
+          handleScreenResize(screen.id, deltaWidth, deltaHeight)
+        }
+        onResizeEnd={handleScreenResizeEnd}
+      >
+        {renderFrame(screen)}
+      </GridScreen>
+    );
+
     return (
       <div
         ref={containerRef}
@@ -563,49 +670,64 @@ const PreviewCanvas = forwardRef<PreviewCanvasRef, PreviewCanvasProps>(
           width: "100%",
           height: "100%",
           position: "relative",
-          overflow: "hidden",
+          overflow: layoutMode === "grid" ? "auto" : "hidden",
           backgroundColor: "hsl(var(--background))",
           cursor: getCursor(),
         }}
-        onMouseDown={handleCanvasMouseDown}
+        onMouseDown={layoutMode === "freeform" ? handleCanvasMouseDown : undefined}
       >
-        {/* Canvas content with pan/zoom transform */}
-        <div
-          className="preview-canvas-content"
-          style={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-            ...getTransformStyle(),
-          }}
-        >
-          {screens.map((screen) => (
-            <DraggableScreen
-              key={screen.id}
-              x={screen.position.x}
-              y={screen.position.y}
-              width={screen.position.width}
-              height={screen.position.height}
-              zoom={zoom}
-              readOnly={readOnly || effectiveToolMode === "pan"}
-              previewMode={screen.previewMode}
-              onPreviewModeChange={(mode) =>
-                handleScreenPreviewModeChange(screen.id, mode)
-              }
-              onDrag={(deltaX, deltaY) =>
-                handleScreenDrag(screen.id, deltaX, deltaY)
-              }
-              onDragEnd={handleScreenDragEnd}
-              onResize={(deltaWidth, deltaHeight) =>
-                handleScreenResize(screen.id, deltaWidth, deltaHeight)
-              }
-              onResizeEnd={handleScreenResizeEnd}
-              onDoubleClick={() => handleScreenDoubleClick(screen.id)}
-            >
-              {renderFrame(screen)}
-            </DraggableScreen>
-          ))}
-        </div>
+        {layoutMode === "grid" ? (
+          /* Grid layout mode */
+          <GridLayout
+            screens={screens}
+            screenOrder={validScreenOrder}
+            zoom={zoom}
+            readOnly={readOnly}
+            onReorder={handleReorder}
+            onScreenResize={handleScreenResize}
+            onScreenResizeEnd={handleScreenResizeEnd}
+            onScreenPreviewModeChange={handleScreenPreviewModeChange}
+            renderScreen={renderGridScreen}
+          />
+        ) : (
+          /* Freeform layout mode */
+          <div
+            className="preview-canvas-content"
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              ...getTransformStyle(),
+            }}
+          >
+            {screens.map((screen) => (
+              <DraggableScreen
+                key={screen.id}
+                x={screen.position.x}
+                y={screen.position.y}
+                width={screen.position.width}
+                height={screen.position.height}
+                zoom={zoom}
+                readOnly={readOnly || effectiveToolMode === "pan"}
+                previewMode={screen.previewMode}
+                onPreviewModeChange={(mode) =>
+                  handleScreenPreviewModeChange(screen.id, mode)
+                }
+                onDrag={(deltaX, deltaY) =>
+                  handleScreenDrag(screen.id, deltaX, deltaY)
+                }
+                onDragEnd={handleScreenDragEnd}
+                onResize={(deltaWidth, deltaHeight) =>
+                  handleScreenResize(screen.id, deltaWidth, deltaHeight)
+                }
+                onResizeEnd={handleScreenResizeEnd}
+                onDoubleClick={() => handleScreenDoubleClick(screen.id)}
+              >
+                {renderFrame(screen)}
+              </DraggableScreen>
+            ))}
+          </div>
+        )}
 
         {/* Floating Toolbar */}
         <CanvasToolbar
@@ -616,6 +738,8 @@ const PreviewCanvas = forwardRef<PreviewCanvasRef, PreviewCanvasProps>(
           onZoomOut={zoomOut}
           onZoomToFit={zoomToFit}
           readOnly={readOnly}
+          layoutMode={layoutMode}
+          onLayoutModeChange={handleLayoutModeChange}
           onGlobalAIAction={onGlobalAIAction}
         />
       </div>

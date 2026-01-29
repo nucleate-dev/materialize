@@ -4,6 +4,11 @@
 export type PreviewMode = "mobile" | "web" | "tablet";
 
 /**
+ * Layout mode for the canvas
+ */
+export type LayoutMode = "grid" | "freeform";
+
+/**
  * Screen state with position information
  */
 export interface ScreenState {
@@ -33,6 +38,10 @@ export interface CanvasStateData {
   previewMode: "mobile" | "web" | "tablet";
   /** ISO timestamp of last modification */
   lastModified: string;
+  /** Layout mode - grid or freeform (defaults to grid) */
+  layoutMode?: LayoutMode;
+  /** Order of screen IDs for grid layout */
+  screenOrder?: number[];
 }
 
 /**
