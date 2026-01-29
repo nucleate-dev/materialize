@@ -266,7 +266,7 @@ export class AIDocumentService {
     // Build content with images
     const content: Array<
       | { type: "text"; text: string }
-      | { type: "image"; image: string; mimeType?: string }
+      | { type: "image"; image: string; mediaType?: string }
     > = [];
 
     // Add the text prompt first
@@ -279,11 +279,11 @@ export class AIDocumentService {
         /^data:(image\/[^;]+);base64,(.+)$/,
       );
       if (matches) {
-        const [, mimeType, base64Data] = matches;
+        const [, mediaType, base64Data] = matches;
         content.push({
           type: "image",
           image: base64Data,
-          mimeType: mimeType,
+          mediaType: mediaType,
         });
       }
     }
