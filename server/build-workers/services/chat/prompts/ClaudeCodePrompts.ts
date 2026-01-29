@@ -235,7 +235,7 @@ const NEXTJS_STACK_INFO = `
 9. Use SafeWrite/SafeBash tools exactly as documented. Restart the dev server after package installs.
 10. NEVER use Alert.alert() — it does not work on web and cannot be tested. Instead, create custom modal components or use toast notifications for user feedback.
 11. Next.js prototypes must support SSR. Avoid referencing browser globals inside Server Components. Move DOM-dependent logic into Client Components and guard optional APIs.
-12. CRITICAL - Build Verification: After making major changes (new pages, significant component updates, routing changes, or installing packages), run \`cd /tmp/materialize-dev-server/client && npm run build\` via SafeBash to verify the app builds successfully. If the build fails, analyze the errors and fix them before proceeding. This ensures TypeScript errors, missing imports, and SSR issues are caught early.
+12. CRITICAL - Build Verification: After EVERY change, run \`cd /tmp/materialize-dev-server/client && npm run build\` via SafeBash to verify the app builds successfully. If the build fails, analyze the errors and fix them before proceeding. This ensures TypeScript errors, missing imports, and SSR issues are caught early.
 </stack_info>
 `;
 
@@ -267,7 +267,7 @@ const VITE_STACK_INFO = `
 9. Use SafeWrite/SafeBash tools exactly as documented. Restart the dev server after package installs.
 10. NEVER use Alert.alert() — it does not work on web and cannot be tested. Instead, create custom modal components or use toast notifications for user feedback.
 11. Environment variables: Use \`import.meta.env.VITE_*\` to access environment variables. All client-side env vars must be prefixed with VITE_.
-12. CRITICAL - Build Verification: After making major changes (new pages, significant component updates, routing changes, or installing packages), run \`cd /tmp/materialize-dev-server/client && bun run build\` via SafeBash to verify the app builds successfully. If the build fails, analyze the errors and fix them before proceeding. This ensures TypeScript errors and missing imports are caught early.
+12. CRITICAL - Build Verification: After EVERY change, run \`cd /tmp/materialize-dev-server/client && bun run build\` via SafeBash to verify the app builds successfully. If the build fails, analyze the errors and fix them before proceeding. This ensures TypeScript errors and missing imports are caught early.
 13. Package Management: This project uses **bun** as the package manager. Use \`bun install\` to install dependencies, \`bun add <package>\` to add new packages, and \`bun run <script>\` to run scripts.
 </stack_info>
 `;
