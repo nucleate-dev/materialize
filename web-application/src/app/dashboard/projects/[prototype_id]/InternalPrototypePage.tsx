@@ -19,7 +19,12 @@ import type {
   CanvasStateData,
   PrototypeContextData,
   AIActionType,
+  GlobalAIAction,
 } from "@/components/prototype-editor/canvas/types";
+import {
+  DocumentGenerationModal,
+  type AIDocumentScreen,
+} from "@/components/prototype-editor/DocumentGenerationModal";
 import ProPlanUpsellModal from "@/components/prototype-editor/ProPlanUpsellModal";
 import { SurveyOverlay } from "@/components/survey/SurveyOverlay";
 import {
@@ -183,6 +188,14 @@ export default function InternalPrototypePage() {
   // Canvas state for infinite canvas mode
   const [canvasState, setCanvasState] = useState<CanvasStateData | null>(null);
   const canvasSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Document generation modal state (for PRD and design critique)
+  const [isDocumentModalOpen, setIsDocumentModalOpen] = useState(false);
+  const [documentModalType, setDocumentModalType] =
+    useState<GlobalAIAction | null>(null);
+  const [documentModalScreens, setDocumentModalScreens] = useState<
+    AIDocumentScreen[]
+  >([]);
 
   // Resizable divider state
   const [leftPanelWidth, setLeftPanelWidth] = useState(25); // percentage
@@ -1026,6 +1039,39 @@ Provide actionable recommendations.`,
     [],
   );
 
+  // Callback for global AI actions (PRD generation, design critique)
+  const handleGlobalAIAction = useCallback(
+    (action: GlobalAIAction, screenshotDataUrls?: string[]) => {
+      // Get current screens to build the screen data for the modal
+      const currentScreens =
+        previewMode === "web" ? webScreensState : mobileScreensState;
+
+      // Build screen data with paths and screenshots
+      const screenData: AIDocumentScreen[] = currentScreens.map(
+        (screen, index) => ({
+          path: screen.path,
+          screenshotDataUrl: screenshotDataUrls?.[index] || "",
+        }),
+      );
+
+      // Filter out screens without screenshots
+      const screensWithData = screenData.filter((s) => s.screenshotDataUrl);
+
+      if (screensWithData.length === 0) {
+        // No screenshots available, still open modal but it will show error
+        setDocumentModalScreens(
+          currentScreens.map((s) => ({ path: s.path, screenshotDataUrl: "" })),
+        );
+      } else {
+        setDocumentModalScreens(screensWithData);
+      }
+
+      setDocumentModalType(action);
+      setIsDocumentModalOpen(true);
+    },
+    [previewMode, webScreensState, mobileScreensState],
+  );
+
   const handleDeleteRequest = useCallback(
     (path: string, type: "file" | "folder" | "asset") => {
       // Collect all files/assets to delete
@@ -1372,6 +1418,7 @@ Provide actionable recommendations.`,
               isChatCollapsed={isChatCollapsed}
               onExpandChat={() => setIsChatCollapsed(false)}
               onScreenAIAction={handleScreenAIAction}
+              onGlobalAIAction={handleGlobalAIAction}
               codeView={
                 <div className={`flex h-full ${isMobile ? "flex-col" : ""}`}>
                   {isMobile ? (
@@ -1670,6 +1717,18 @@ Provide actionable recommendations.`,
         open={teamSettingsDialogOpen}
         onOpenChange={setTeamSettingsDialogOpen}
         defaultTab={teamSettingsDefaultTab}
+      />
+
+      {/* Document Generation Modal (PRD, Design Critique) */}
+      <DocumentGenerationModal
+        isOpen={isDocumentModalOpen}
+        onOpenChange={setIsDocumentModalOpen}
+        documentType={documentModalType}
+        prototypeId={prototypeId}
+        prototypeName={prototype?.name}
+        screens={documentModalScreens}
+        sandboxUrl={normalizedSandboxUrl || ""}
+        framework={prototype?.framework ?? undefined}
       />
 
       {/* Mobile Bottom Navigation */}
