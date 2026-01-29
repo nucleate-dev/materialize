@@ -668,7 +668,7 @@ export default function InternalPrototypePage() {
       // Set new debounced timer -- THIS IS NECESSARY TO PREVENT MULTIPLE REQUESTS FROM BEING SENT TO THE SERVER ON PAGE LOAD
       debounceTimer = setTimeout(() => {
         fetchPrototypeAndStartDevServer();
-      }, 300);
+      }, 200);
     }
 
     return () => {
