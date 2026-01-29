@@ -29,6 +29,7 @@ import { handleAllocateImpl } from "./handlers/handleAllocate.js";
 import { handleUpdateFilesImpl } from "./handlers/handleUpdateFiles.js";
 import { handleStartDevServerImpl } from "./handlers/handleStartDevServer.js";
 import { handleCleanup } from "./handlers/handleCleanup.js";
+import { handleCleanupTunnelOnly } from "./handlers/handleCleanupTunnelOnly.js";
 import { handleRestartDevServerImpl } from "./handlers/handleRestartDevServer.js";
 import { handleBuildAndDeployImpl } from "./handlers/handleBuildAndDeploy.js";
 import { handleResetSandbox } from "./handlers/handleResetSandbox.js";
@@ -162,6 +163,7 @@ export class NucleateDevelopmentServerService {
     app.post("/dev-server/connect-github", this.connectGitHub.bind(this));
 
     app.delete("/cleanup", this.cleanup.bind(this));
+    app.delete("/cleanup-tunnel-only", this.cleanupTunnelOnly.bind(this));
 
     app.post("/dev-server/build-and-deploy", this.buildAndDeploy.bind(this));
     app.get("/dev-server/build-status", this.getBuildStatus.bind(this));
@@ -591,6 +593,15 @@ export class NucleateDevelopmentServerService {
     >
   > {
     return handleCleanup(request, reply, this);
+  }
+
+  private async cleanupTunnelOnly(
+    request: FastifyRequest,
+    reply: FastifyReply,
+  ): Promise<
+    SandboxAPIResponse<BuildAndDeployResponse, StandardErrorResponse>
+  > {
+    return handleCleanupTunnelOnly(request, reply, this);
   }
 
   private async restartDevServerV2(
