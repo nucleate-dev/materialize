@@ -152,7 +152,7 @@ export default function DesignerDemo() {
                 </button>
               </div>
               <div className={`${currentVariant.input} p-3 text-sm text-muted-foreground transition-all duration-300`}>
-                What's on your mind?
+                What&apos;s on your mind?
               </div>
             </div>
           </div>

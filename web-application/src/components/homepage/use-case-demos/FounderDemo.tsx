@@ -2,14 +2,13 @@
 
 import { useEffect, useState } from "react";
 
+const phases = ["sketch", "wireframe", "styled", "polished"] as const;
+
 /**
  * Founder Demo - Shows an idea transforming into a working prototype
  */
 export default function FounderDemo() {
   const [phase, setPhase] = useState<"sketch" | "wireframe" | "styled" | "polished">("sketch");
-  const [progress, setProgress] = useState(0);
-
-  const phases = ["sketch", "wireframe", "styled", "polished"] as const;
 
   useEffect(() => {
     const phaseDurations = {
@@ -23,11 +22,9 @@ export default function FounderDemo() {
       const currentIndex = phases.indexOf(phase);
       if (currentIndex < phases.length - 1) {
         setPhase(phases[currentIndex + 1]);
-        setProgress(((currentIndex + 1) / (phases.length - 1)) * 100);
       } else {
         // Reset
         setPhase("sketch");
-        setProgress(0);
       }
     }, phaseDurations[phase]);
 
@@ -169,7 +166,7 @@ export default function FounderDemo() {
         {/* Task preview */}
         <div className="p-4">
           <div className={`p-3 ${styles.card} transition-all duration-500`}>
-            <div className={`text-xs font-semibold mb-2 ${styles.text}`}>Today's Tasks</div>
+            <div className={`text-xs font-semibold mb-2 ${styles.text}`}>Today&apos;s Tasks</div>
             <div className="space-y-2">
               {["Design homepage", "Review feedback", "Ship v1.0"].map((task, i) => (
                 <div

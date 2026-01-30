@@ -183,7 +183,7 @@ export default function PMDemo() {
             <div>
               <div className="text-xs font-medium text-blue-400 mb-1">User Feedback</div>
               <div className="text-sm text-foreground/80">
-                "The onboarding flow was smooth! Would love a skip option."
+                &quot;The onboarding flow was smooth! Would love a skip option.&quot;
               </div>
             </div>
           </div>
