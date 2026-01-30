@@ -30,7 +30,7 @@ export const PLATFORM_OPTIONS: PlatformOption[] = [
   },
   {
     value: "mobile_expo_react_native",
-    label: "Mobile",
+    label: "Mobile (beta)",
     description: "Create native iOS and Android apps with Expo and React Native",
     icon: Smartphone,
   },
