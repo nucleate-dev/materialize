@@ -333,9 +333,9 @@ export default function VariantsSection() {
               )}
 
               {activeTab === "paywalls" && (
-                <div className="flex gap-8 justify-center h-full items-center p-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 h-full items-center justify-items-center p-4 md:p-8">
                   {/* Variant 1: Dark Mode / Value Prop (Gymverse Scale) */}
-                  <div className="w-[300px] aspect-[9/19] bg-slate-900 rounded-[2.5rem] border-[8px] border-zinc-900 relative shadow-2xl overflow-hidden flex flex-col font-sans">
+                  <div className="w-full max-w-[300px] aspect-[9/19] bg-slate-900 rounded-[2.5rem] border-[8px] border-zinc-900 relative shadow-2xl overflow-hidden flex flex-col font-sans">
                     {/* Status Bar */}
                     <div className="px-6 py-4 flex justify-between items-center text-white text-xs font-bold">
                       <span>9:41</span>
@@ -443,7 +443,7 @@ export default function VariantsSection() {
                   </div>
 
                   {/* Variant 2: Light Mode / Green Timeline */}
-                  <div className="w-[300px] aspect-[9/19] bg-white rounded-[2.5rem] border-[8px] border-zinc-900 relative shadow-2xl overflow-hidden flex flex-col font-sans z-10 scale-105">
+                  <div className="w-full max-w-[300px] aspect-[9/19] bg-white rounded-[2.5rem] border-[8px] border-zinc-900 relative shadow-2xl overflow-hidden flex flex-col font-sans z-10 scale-105">
                     <div className="p-6 flex-1 flex flex-col">
                       <div className="flex justify-center items-center gap-2 mb-4 text-green-600">
                         <CheckCircle2 className="w-4 h-4 fill-green-600 text-white" />
@@ -546,7 +546,7 @@ export default function VariantsSection() {
                   </div>
 
                   {/* Variant 3: Clean / Red CTA */}
-                  <div className="w-[300px] aspect-[9/19] bg-white rounded-[2.5rem] border-[8px] border-zinc-900 relative shadow-2xl overflow-hidden flex flex-col font-sans">
+                  <div className="w-full max-w-[300px] aspect-[9/19] bg-white rounded-[2.5rem] border-[8px] border-zinc-900 relative shadow-2xl overflow-hidden flex flex-col font-sans">
                     <div className="p-6 flex flex-col h-full">
                       <div className="text-center mt-6 mb-8">
                         <h3 className="text-xl font-bold text-slate-900">
@@ -642,9 +642,9 @@ export default function VariantsSection() {
               )}
 
               {activeTab === "onboarding" && (
-                <div className="flex gap-8 justify-center h-full items-center p-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 h-full items-center justify-items-center p-4 md:p-8">
                   {/* Screen 1: Survey (Source) */}
-                  <div className="w-[300px] aspect-[9/19] bg-white rounded-[2.5rem] border-[8px] border-zinc-900 relative shadow-2xl overflow-hidden flex flex-col font-sans">
+                  <div className="w-full max-w-[300px] aspect-[9/19] bg-white rounded-[2.5rem] border-[8px] border-zinc-900 relative shadow-2xl overflow-hidden flex flex-col font-sans">
                     <div className="px-6 pt-2 pb-4">
                       <div className="flex items-center gap-4 mb-6">
                         <ChevronLeft className="w-6 h-6 text-slate-900" />
@@ -706,7 +706,7 @@ export default function VariantsSection() {
                   </div>
 
                   {/* Screen 2: Binary Choice (Experience) */}
-                  <div className="w-[300px] aspect-[9/19] bg-white rounded-[2.5rem] border-[8px] border-zinc-900 relative shadow-2xl overflow-hidden flex flex-col font-sans scale-105 z-10">
+                  <div className="w-full max-w-[300px] aspect-[9/19] bg-white rounded-[2.5rem] border-[8px] border-zinc-900 relative shadow-2xl overflow-hidden flex flex-col font-sans scale-105 z-10">
                     <div className="px-6 pt-2 pb-4">
                       <div className="flex items-center gap-4 mb-6">
                         <ChevronLeft className="w-6 h-6 text-slate-900" />
@@ -743,7 +743,7 @@ export default function VariantsSection() {
                   </div>
 
                   {/* Screen 3: Chart (Potential) */}
-                  <div className="w-[300px] aspect-[9/19] bg-white rounded-[2.5rem] border-[8px] border-zinc-900 relative shadow-2xl overflow-hidden flex flex-col font-sans">
+                  <div className="w-full max-w-[300px] aspect-[9/19] bg-white rounded-[2.5rem] border-[8px] border-zinc-900 relative shadow-2xl overflow-hidden flex flex-col font-sans">
                     <div className="px-6 pt-2 pb-4">
                       <div className="flex items-center gap-4 mb-6">
                         <ChevronLeft className="w-6 h-6 text-slate-900" />
