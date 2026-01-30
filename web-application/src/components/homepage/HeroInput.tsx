@@ -1,0 +1,392 @@
+"use client";
+
+import ProPlanUpsellModal from "@/components/prototype-editor/ProPlanUpsellModal";
+import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { useCreatePrototype } from "@/hooks/useCreatePrototype";
+import { useUser } from "@/hooks/useUser";
+import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
+import {
+  setChatIntent,
+  type ChatIntentImage,
+} from "@/lib/utils/chatIntentUtils";
+import { Lock, Paperclip, Sparkles, X } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useRef, useState } from "react";
+import { toast } from "sonner";
+import { usePrototypeVisibilityOptions } from "@/hooks/usePrototypeVisibilityOptions";
+import {
+  usePrototypePlatformOptions,
+  type PrototypeFramework,
+} from "@/hooks/usePrototypePlatformOptions";
+
+export default function HeroInput() {
+  const logger = useProductLogger();
+  const { createPrototype } = useCreatePrototype();
+  const [prompt, setPrompt] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const router = useRouter();
+  const { user } = useUser();
+  const { platformOptions, framework, setFramework } = usePrototypePlatformOptions();
+  const [uploadedImages, setUploadedImages] = useState<ChatIntentImage[]>([]);
+  const [isDragOver, setIsDragOver] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const {
+    visibilityOptions,
+    visibility,
+    handleVisibilityChange,
+    showUpsellModal,
+    setShowUpsellModal,
+  } = usePrototypeVisibilityOptions();
+
+  // Process image files
+  const processImageFiles = (files: File[]) => {
+    files.forEach((file) => {
+      if (!file.type.startsWith("image/")) {
+        toast.error(
+          `Invalid file type: ${file.name}. Only images are supported.`,
+        );
+        return;
+      }
+
+      if (file.size > 3 * 1024 * 1024) {
+        toast.error(`Image too large: ${file.name}. Maximum size is 3MB.`);
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64String = reader.result as string;
+        const base64Data = base64String.split(",")[1];
+
+        setUploadedImages((prev) => [
+          ...prev,
+          {
+            id: `${Date.now()}-${Math.random()}`,
+            base64: base64Data,
+            mediaType: file.type,
+            name: file.name,
+          },
+        ]);
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleImageSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (!files) return;
+    processImageFiles(Array.from(files));
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
+  const handleDragEnter = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.dataTransfer.types.includes("Files")) {
+      setIsDragOver(true);
+    }
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.currentTarget === e.target) {
+      setIsDragOver(false);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
+    const files = Array.from(e.dataTransfer.files);
+    if (files.length > 0) {
+      processImageFiles(files);
+    }
+  };
+
+  const handlePaste = (e: React.ClipboardEvent) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+
+    const imageFiles: File[] = [];
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      if (item.type.startsWith("image/")) {
+        const file = item.getAsFile();
+        if (file) {
+          imageFiles.push(file);
+        }
+      }
+    }
+
+    if (imageFiles.length > 0) {
+      e.preventDefault();
+      processImageFiles(imageFiles);
+    }
+  };
+
+  // Keydown handler for "Enter to send"
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
+  };
+
+  const removeImage = (imageId: string) => {
+    setUploadedImages((prev) => prev.filter((img) => img.id !== imageId));
+  };
+
+  const handleSend = async () => {
+    const content = prompt.trim();
+    if (!content || isLoading) return;
+
+    setIsLoading(true);
+    logger.log({
+      event: "client_landing_prompt_submitted",
+      properties: {
+        has_user: Boolean(user?.id),
+        framework,
+        source: "landing_hero",
+      },
+    });
+
+    const imagesToSend = uploadedImages.length > 0 ? uploadedImages : undefined;
+
+    try {
+      if (!user?.id) {
+        setChatIntent(undefined, content, false, visibility, imagesToSend);
+        router.push("/login");
+        return;
+      }
+
+      const result = await createPrototype({
+        framework,
+        creation_source: "landing_prompt",
+        visibility,
+      });
+
+      if (result.data) {
+        setChatIntent(
+          result.data.prototype_id,
+          content,
+          false,
+          visibility,
+          imagesToSend,
+        );
+        setUploadedImages([]);
+        router.push(`/dashboard/projects/${result.data.prototype_id}`);
+      } else if (result.error?.error === "PROTOTYPE_LIMIT_REACHED") {
+        setShowUpsellModal(true);
+      }
+    } catch (err) {
+      logger.debug("error", "Error creating prototype", { error: err });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const suggestionChips = [
+    {
+      label: "Landing page variant",
+      prompt:
+        "SaaS landing page with hero section featuring bold headline, subtitle, email capture form, and CTA button. Below hero: feature grid with icons, social proof section with customer logos, pricing comparison table, testimonials carousel, and FAQ accordion. Modern design with gradient accents and smooth scroll animations.",
+    },
+    {
+      label: "Mobile onboarding",
+      prompt:
+        "Multi-step onboarding flow with 4 screens. Step 1: Welcome screen with app logo and 'Get Started' button. Step 2: Select your interests (grid of category cards with icons). Step 3: Notification preferences with toggle switches. Step 4: Success screen with confetti animation and 'Start Exploring' CTA. Include progress indicator at top and skip button.",
+    },
+    {
+      label: "Pricing page A/B",
+      prompt:
+        "Subscription pricing page with three pricing tiers. Free tier with basic features, Pro tier highlighted as 'Most Popular' with advanced features, and Enterprise tier for teams. Each card shows monthly/annual toggle, feature list with checkmarks, and CTA button. Include trust badges and 'No credit card required' text. Modern gradient background with glassmorphism cards.",
+    },
+  ];
+
+  return (
+    <>
+        <div
+          className="max-w-3xl mx-auto relative group"
+          onDragEnter={handleDragEnter}
+          onDragLeave={handleDragLeave}
+          onDragOver={handleDragOver}
+          onDrop={handleDrop}
+        >
+          {/* Drag Overlay */}
+          {isDragOver && (
+            <div className="absolute inset-0 bg-primary/10 backdrop-blur-sm z-50 flex items-center justify-center border-2 border-dashed border-primary rounded-xl pointer-events-none">
+              <div className="bg-background/90 rounded-2xl px-8 py-6 shadow-2xl border border-primary/20">
+                <div className="flex flex-col items-center gap-3">
+                  <div className="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center">
+                    <Paperclip className="w-8 h-8 text-primary" />
+                  </div>
+                  <div className="text-center">
+                    <p className="text-lg font-semibold text-foreground mb-1">
+                      Drop images here
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      Upload images to attach to your message
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Hidden file input */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            onChange={handleImageSelect}
+            className="hidden"
+          />
+
+          <div className="absolute -inset-0.5 bg-gradient-to-r from-primary/30 to-primary/20 rounded-2xl blur opacity-20 group-hover:opacity-40 transition duration-500"></div>
+          <div className="relative bg-card border border-border rounded-xl overflow-hidden shadow-2xl flex flex-col focus-within:border-primary/30">
+            <div className="px-4 pt-4 flex gap-3">
+              <Sparkles className="w-5 h-5 text-muted-foreground mt-1" />
+              <div className="flex-1 flex flex-col">
+                <Textarea
+                  placeholder="Describe a screen or flow you want to prototype..."
+                  value={prompt}
+                  onChange={(e) => setPrompt(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  onPaste={handlePaste}
+                  disabled={isLoading}
+                  className="flex-1 bg-transparent text-lg text-foreground placeholder:text-muted-foreground border-none p-0 focus-visible:ring-0 resize-none min-h-[80px]"
+                />
+
+                {/* Uploaded Images Preview */}
+                {uploadedImages.length > 0 && (
+                  <div className="flex gap-2 mt-3 pb-2 overflow-x-auto">
+                    {uploadedImages.map((image) => (
+                      <div
+                        key={image.id}
+                        className="relative group/img shrink-0"
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={`data:${image.mediaType};base64,${image.base64}`}
+                          alt={image.name}
+                          className="h-16 w-16 object-cover rounded-md border border-border"
+                        />
+                        <button
+                          onClick={() => removeImage(image.id)}
+                          className="absolute -top-1.5 -right-1.5 bg-background text-muted-foreground rounded-full p-0.5 border border-border shadow-sm opacity-0 group-hover/img:opacity-100 transition-opacity"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="px-4 pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-t border-border mt-2 pt-2 bg-accent/50">
+              <div className="flex gap-4 items-center">
+                <span className="text-xs text-muted-foreground uppercase tracking-widest font-bold">
+                  Try:
+                </span>
+                {suggestionChips.map((chip) => (
+                  <button
+                    key={chip.label}
+                    onClick={() => setPrompt(chip.prompt)}
+                    className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    {chip.label}
+                  </button>
+                ))}
+              </div>
+              <div className="flex items-center gap-2">
+                {/* Attach Image Button */}
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="ghost"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isLoading}
+                  className="h-9 w-9 text-muted-foreground hover:text-foreground"
+                >
+                  <Paperclip className="w-4 h-4" />
+                </Button>
+                {/* Visibility Selector - Only show if user is logged in */}
+                {user && (
+                  <Select
+                    value={visibility}
+                    onValueChange={handleVisibilityChange}
+                  >
+                    <SelectTrigger className="h-9 w-32 border-border bg-accent text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="bg-card border-border">
+                      {visibilityOptions.map((option) => {
+                        const Icon = option.icon;
+                        return (
+                          <SelectItem key={option.value} value={option.value}>
+                            <div className="flex items-center gap-2">
+                              <Icon className="w-3 h-3" />
+                              <span>{option.label}</span>
+                              {option.isLocked && (
+                                <Lock className="w-3 h-3 text-muted-foreground/50 ml-auto" />
+                              )}
+                            </div>
+                          </SelectItem>
+                        );
+                      })}
+                    </SelectContent>
+                  </Select>
+                )}
+                <Select
+                  value={framework}
+                  onValueChange={(v) => setFramework(v as PrototypeFramework)}
+                >
+                  <SelectTrigger className="h-9 w-32 border-border bg-accent text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-card border-border">
+                    {platformOptions.map((o) => (
+                      <SelectItem key={o.value} value={o.value}>
+                        {o.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button
+                  onClick={handleSend}
+                  disabled={!prompt.trim() || isLoading}
+                  size="sm"
+                  className="bg-primary text-primary-foreground hover:bg-primary/90 px-6"
+                >
+                  {isLoading ? "Loading..." : "Create"}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      <ProPlanUpsellModal
+        open={showUpsellModal}
+        onOpenChange={setShowUpsellModal}
+        reason="prototype_creation_limit_reached"
+      />
+    </>
+  );
+}
