@@ -38,30 +38,31 @@ import {
 import { checkSurveyCompleted } from "@/lib/utils/survey/SurveyUtils";
 import { Palette } from "lucide-react";
 import { usePrototypeVisibilityOptions } from "@/hooks/usePrototypeVisibilityOptions";
+import {
+  usePrototypePlatformOptions,
+  type PrototypeFramework,
+} from "@/hooks/usePrototypePlatformOptions";
 import { useAtom } from "jotai";
 import {
   ChevronDown,
   Command,
   Cpu,
-  Globe,
   Layers,
   LayoutTemplate,
   Loader2,
   Lock,
   Paperclip,
   Rocket,
-  Share2,
   Sparkles,
   Wand2,
   X,
-} from "lucide-react"; // Kept Lucide
+} from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 // --- Types ---
 type DesignStyle = Database["public"]["Enums"]["design_style"];
-type PrototypeFramework = Database["public"]["Enums"]["prototype_framework"];
 
 const DESIGN_STYLE_OPTIONS: DesignStyle[] = ["stylesheets", "nativewind"];
 const WEB_DESIGN_STYLE_OPTIONS: DesignStyle[] = ["stylesheets"];
@@ -76,15 +77,6 @@ const WEB_DESIGN_STYLE_LABELS: Partial<Record<DesignStyle, string>> = {
   stylesheets: "Tailwind + Shadcn",
 };
 
-const DEFAULT_FRAMEWORK: PrototypeFramework = "web_vite_react";
-const PLATFORM_OPTIONS: Array<{
-  value: PrototypeFramework;
-  label: string;
-}> = [
-  { value: "web_vite_react", label: "Web" },
-  { value: "mobile_expo_react_native", label: "Mobile" },
-];
-
 export default function DashboardPage() {
   // --- Logic / Hooks (Preserved) ---
   const logger = useProductLogger();
@@ -98,8 +90,12 @@ export default function DashboardPage() {
     redirectAfterLoginAtom,
   );
   const [designStyle, setDesignStyle] = useState<DesignStyle>("stylesheets");
-  const [framework, setFramework] =
-    useState<PrototypeFramework>(DEFAULT_FRAMEWORK);
+  const {
+    platformOptions,
+    framework,
+    setFramework,
+    isWebFramework: isWebFrameworkSelected,
+  } = usePrototypePlatformOptions();
   const {
     visibilityOptions,
     visibility,
@@ -114,8 +110,6 @@ export default function DashboardPage() {
   const [isDragOver, setIsDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const isWebFrameworkSelected =
-    framework === "web_nextjs_react" || framework === "web_vite_react";
   const availableDesignStyles = isWebFrameworkSelected
     ? WEB_DESIGN_STYLE_OPTIONS
     : DESIGN_STYLE_OPTIONS;
@@ -517,7 +511,7 @@ export default function DashboardPage() {
                     <SelectValue placeholder="Platform" />
                   </SelectTrigger>
                   <SelectContent className="bg-popover border-border text-popover-foreground">
-                    {PLATFORM_OPTIONS.map((option) => (
+                    {platformOptions.map((option) => (
                       <SelectItem
                         key={option.value}
                         value={option.value}
@@ -629,7 +623,7 @@ export default function DashboardPage() {
                           </div>
                         </SelectTrigger>
                         <SelectContent className="bg-popover border-border text-popover-foreground">
-                          {PLATFORM_OPTIONS.map((option) => (
+                          {platformOptions.map((option) => (
                             <SelectItem
                               key={option.value}
                               value={option.value}

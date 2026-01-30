@@ -37,6 +37,11 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { usePrototypeVisibilityOptions } from "@/hooks/usePrototypeVisibilityOptions";
+import {
+  PLATFORM_OPTIONS,
+  DEFAULT_FRAMEWORK,
+  type PrototypeFramework,
+} from "@/hooks/usePrototypePlatformOptions";
 import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import { cn } from "@/lib/classNames";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
@@ -58,12 +63,10 @@ import {
   ChevronsUpDown,
   Code,
   Folder,
-  Globe,
   Loader2,
   Lock,
   Palette,
   Rocket,
-  Share2,
   Sparkles,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -88,7 +91,6 @@ interface NewPrototypeModalProps {
 }
 
 type DesignStyle = Database["public"]["Enums"]["design_style"];
-type PrototypeFramework = Database["public"]["Enums"]["prototype_framework"];
 type DesignSystemRow = Database["public"]["Tables"]["design_systems"]["Row"];
 type FolderOption = {
   id: string;
@@ -117,14 +119,6 @@ const isDesignStyle = (value: unknown): value is DesignStyle =>
   typeof value === "string" &&
   DESIGN_STYLE_OPTIONS.includes(value as DesignStyle);
 
-const DEFAULT_FRAMEWORK: PrototypeFramework = "web_vite_react";
-const PLATFORM_OPTIONS: Array<{
-  value: PrototypeFramework;
-  label: string;
-}> = [
-  { value: "web_vite_react", label: "Web" },
-  { value: "mobile_expo_react_native", label: "Mobile" },
-];
 
 export default function NewPrototypeModal({
   open,

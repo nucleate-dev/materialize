@@ -18,9 +18,12 @@ import { useActiveTeam } from "@/contexts/TeamContext";
 import { ENABLE_DESIGN_SYSTEM } from "@/GlobalConstants";
 import { useCreatePrototype } from "@/hooks/useCreatePrototype";
 import { usePrototypeVisibilityOptions } from "@/hooks/usePrototypeVisibilityOptions";
+import {
+  usePrototypePlatformOptions,
+  type PrototypeFramework,
+} from "@/hooks/usePrototypePlatformOptions";
 import { useUser } from "@/hooks/useUser";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
-import { Database } from "@/lib/types/supabase";
 import { captureUTMParams } from "@/lib/utils/analytics/utmTracking";
 import { setChatIntent } from "@/lib/utils/chatIntentUtils";
 import { handleCheckout } from "@/lib/utils/payments/CheckoutUtils";
@@ -56,17 +59,6 @@ import {
 } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
-
-type PrototypeFramework = Database["public"]["Enums"]["prototype_framework"];
-
-const DEFAULT_FRAMEWORK: PrototypeFramework = "mobile_expo_react_native";
-const PLATFORM_OPTIONS: Array<{
-  value: PrototypeFramework;
-  label: string;
-}> = [
-  { value: "web_vite_react", label: "Web" },
-  { value: "mobile_expo_react_native", label: "Mobile" },
-];
 
 export default function Home() {
   return (
@@ -138,8 +130,8 @@ function HeroSection() {
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
   const { user } = useUser();
-  const [framework, setFramework] =
-    useState<PrototypeFramework>(DEFAULT_FRAMEWORK);
+  const { platformOptions, framework, setFramework } =
+    usePrototypePlatformOptions("mobile_expo_react_native");
   const {
     visibilityOptions,
     visibility,
@@ -265,7 +257,7 @@ function HeroSection() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent className="bg-card border-border">
-                    {PLATFORM_OPTIONS.map((o) => (
+                    {platformOptions.map((o) => (
                       <SelectItem key={o.value} value={o.value}>
                         {o.label}
                       </SelectItem>

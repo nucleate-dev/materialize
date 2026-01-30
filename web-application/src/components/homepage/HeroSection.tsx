@@ -14,7 +14,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { useCreatePrototype } from "@/hooks/useCreatePrototype";
 import { useUser } from "@/hooks/useUser";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
-import { Database } from "@/lib/types/supabase";
 import {
   setChatIntent,
   type ChatIntentImage,
@@ -24,17 +23,10 @@ import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { usePrototypeVisibilityOptions } from "@/hooks/usePrototypeVisibilityOptions";
-
-type PrototypeFramework = Database["public"]["Enums"]["prototype_framework"];
-
-const DEFAULT_FRAMEWORK: PrototypeFramework = "web_vite_react";
-const PLATFORM_OPTIONS: Array<{
-  value: PrototypeFramework;
-  label: string;
-}> = [
-  { value: "web_vite_react", label: "Web" },
-  { value: "mobile_expo_react_native", label: "Mobile" },
-];
+import {
+  usePrototypePlatformOptions,
+  type PrototypeFramework,
+} from "@/hooks/usePrototypePlatformOptions";
 
 /**
  * HERO SECTION - Client Component
@@ -47,8 +39,7 @@ export default function HeroSection() {
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
   const { user } = useUser();
-  const [framework, setFramework] =
-    useState<PrototypeFramework>(DEFAULT_FRAMEWORK);
+  const { platformOptions, framework, setFramework } = usePrototypePlatformOptions();
   const [uploadedImages, setUploadedImages] = useState<ChatIntentImage[]>([]);
   const [isDragOver, setIsDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -399,7 +390,7 @@ export default function HeroSection() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent className="bg-card border-border">
-                    {PLATFORM_OPTIONS.map((o) => (
+                    {platformOptions.map((o) => (
                       <SelectItem key={o.value} value={o.value}>
                         {o.label}
                       </SelectItem>
