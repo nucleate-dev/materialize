@@ -4,6 +4,10 @@ import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import { Atom } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import {
+  UseCasesMegaMenuDesktop,
+  MobileNavigation,
+} from "@/components/navigation/UseCasesMegaMenu";
 
 export default function PremiumHeader() {
   const { user, userIsLoading } = useUser();
@@ -45,7 +49,7 @@ export default function PremiumHeader() {
       <div className="container mx-auto px-6">
         <nav className="flex items-center justify-between">
           {/* Logo and Navigation */}
-          <div className="flex items-center space-x-6">
+          <div className="flex items-center space-x-4">
             <Link
               href={user ? "/dashboard" : "/"}
               className="flex items-center gap-2 text-2xl font-bold text-foreground hover:opacity-80 transition-opacity duration-200"
@@ -53,28 +57,23 @@ export default function PremiumHeader() {
               <Atom className="w-6 h-6 text-primary" />
               <span>Nucleate</span>
             </Link>
-            <Link
-              href="/blog"
-              onClick={() => logHeaderClick("blog", { destination: "/blog" })}
-              className="hidden md:block transition-all duration-200 text-sm font-medium text-muted-foreground hover:text-foreground"
-            >
-              Blog
-            </Link>
-            <Link
-              href="/for-vibe-coding"
-              onClick={() =>
-                logHeaderClick("for_vibe_coding", {
-                  destination: "/for-vibe-coding",
-                })
-              }
-              className="hidden md:block transition-all duration-200 text-sm font-medium text-muted-foreground hover:text-foreground"
-            >
-              For Vibe Coding
-            </Link>
+
+            {/* Desktop Navigation */}
+            <div className="hidden md:flex items-center space-x-4">
+              <UseCasesMegaMenuDesktop />
+              <Link
+                href="/blog"
+                onClick={() => logHeaderClick("blog", { destination: "/blog" })}
+                className="transition-all duration-200 text-sm font-medium text-muted-foreground hover:text-foreground"
+              >
+                Blog
+              </Link>
+            </div>
           </div>
 
-          {/* Auth Buttons */}
+          {/* Auth Buttons and Mobile Menu */}
           <div className="flex items-center space-x-3">
+            {/* Desktop Auth Buttons */}
             {userIsLoading ? (
               <div className="px-4 py-2 rounded-full text-sm border border-border text-muted-foreground">
                 Loading...
@@ -82,7 +81,7 @@ export default function PremiumHeader() {
             ) : user ? (
               <Link
                 href="/dashboard"
-                className="px-4 py-2 rounded-full font-medium transition-all duration-300 hover:scale-105 text-sm bg-primary text-primary-foreground"
+                className="hidden md:block px-4 py-2 rounded-full font-medium transition-all duration-300 hover:scale-105 text-sm bg-primary text-primary-foreground"
               >
                 Dashboard
               </Link>
@@ -93,7 +92,7 @@ export default function PremiumHeader() {
                   onClick={() =>
                     logHeaderClick("sign_in", { destination: "/login" })
                   }
-                  className="px-4 py-2 transition-all duration-200 text-sm font-medium text-muted-foreground hover:text-foreground"
+                  className="hidden md:block px-4 py-2 transition-all duration-200 text-sm font-medium text-muted-foreground hover:text-foreground"
                 >
                   Sign in
                 </Link>
@@ -104,12 +103,62 @@ export default function PremiumHeader() {
                       destination: "/register",
                     })
                   }
-                  className="px-4 py-2 rounded-full font-medium transition-all duration-300 hover:scale-105 text-sm bg-primary text-primary-foreground"
+                  className="hidden md:block px-4 py-2 rounded-full font-medium transition-all duration-300 hover:scale-105 text-sm bg-primary text-primary-foreground"
                 >
                   Register
                 </Link>
               </>
             )}
+
+            {/* Mobile Navigation */}
+            <MobileNavigation
+              blogLink={
+                <Link
+                  href="/blog"
+                  onClick={() => logHeaderClick("blog", { destination: "/blog" })}
+                  className="block py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors duration-200"
+                >
+                  Blog
+                </Link>
+              }
+              authButtons={
+                userIsLoading ? (
+                  <div className="px-4 py-2 rounded-full text-sm border border-border text-muted-foreground text-center">
+                    Loading...
+                  </div>
+                ) : user ? (
+                  <Link
+                    href="/dashboard"
+                    className="px-4 py-3 rounded-full font-medium transition-all duration-300 text-sm bg-primary text-primary-foreground text-center"
+                  >
+                    Dashboard
+                  </Link>
+                ) : (
+                  <>
+                    <Link
+                      href="/login"
+                      onClick={() =>
+                        logHeaderClick("sign_in", { destination: "/login" })
+                      }
+                      className="px-4 py-3 rounded-full text-sm font-medium text-muted-foreground hover:text-foreground border border-border text-center transition-colors duration-200"
+                    >
+                      Sign in
+                    </Link>
+                    <Link
+                      href="/register"
+                      onClick={() =>
+                        logHeaderClick("create_account", {
+                          destination: "/register",
+                        })
+                      }
+                      className="px-4 py-3 rounded-full font-medium transition-all duration-300 text-sm bg-primary text-primary-foreground text-center"
+                    >
+                      Register
+                    </Link>
+                  </>
+                )
+              }
+            />
           </div>
         </nav>
       </div>
