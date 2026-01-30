@@ -239,10 +239,11 @@ export interface CollaboratorMessagePayload {
 }
 
 export interface ScreenUpdateData {
-  action: "add" | "remove" | "set";
+  action: "add" | "remove" | "set" | "reorder";
   screens?: Array<{ path: string }>; // For "set" action
   path?: string; // For "add" action
   screenId?: number; // For "remove" action
+  screenOrder?: number[]; // For "reorder" action
   previewMode?: "mobile" | "web" | "tablet"; // Device preview mode (prefer mobile or web)
   layoutMode?: "grid" | "freeform"; // Canvas layout mode
 }
