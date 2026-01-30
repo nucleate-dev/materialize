@@ -1351,11 +1351,6 @@ const MaterializeRenderSection = forwardRef<
                   );
                 }
                 break;
-              case "reorder":
-                if (data.screenOrder && data.screenOrder.length > 0) {
-                  canvasRef.current.reorderScreens(data.screenOrder);
-                }
-                break;
             }
             return;
           }

@@ -209,19 +209,19 @@ export default function HeroSection() {
 
   const suggestionChips = [
     {
-      label: "Paywall variant",
+      label: "Landing page variant",
       prompt:
-        "Subscription paywall screen with three pricing tiers. Free tier with basic features, Pro tier highlighted as 'Most Popular' with advanced features, and Enterprise tier for teams. Each card shows monthly/annual toggle, feature list with checkmarks, and CTA button. Include trust badges and 'No credit card required' text. Modern gradient background with glassmorphism cards.",
+        "SaaS landing page with hero section featuring bold headline, subtitle, email capture form, and CTA button. Below hero: feature grid with icons, social proof section with customer logos, pricing comparison table, testimonials carousel, and FAQ accordion. Modern design with gradient accents and smooth scroll animations.",
     },
     {
-      label: "Onboarding",
+      label: "Mobile onboarding",
       prompt:
         "Multi-step onboarding flow with 4 screens. Step 1: Welcome screen with app logo and 'Get Started' button. Step 2: Select your interests (grid of category cards with icons). Step 3: Notification preferences with toggle switches. Step 4: Success screen with confetti animation and 'Start Exploring' CTA. Include progress indicator at top and skip button.",
     },
     {
-      label: "Landing Page",
+      label: "Pricing page A/B",
       prompt:
-        "SaaS landing page with hero section featuring bold headline, subtitle, email capture form, and CTA button. Below hero: feature grid with icons, social proof section with customer logos, pricing comparison table, testimonials carousel, and FAQ accordion. Modern design with gradient accents and smooth scroll animations.",
+        "Subscription pricing page with three pricing tiers. Free tier with basic features, Pro tier highlighted as 'Most Popular' with advanced features, and Enterprise tier for teams. Each card shows monthly/annual toggle, feature list with checkmarks, and CTA button. Include trust badges and 'No credit card required' text. Modern gradient background with glassmorphism cards.",
     },
   ];
 
@@ -240,13 +240,12 @@ export default function HeroSection() {
         </Badge>
 
         <h1 className="text-5xl md:text-7xl lg:text-8xl font-medium tracking-tight text-foreground mb-6">
-          The AI Design Engineer
+          Ship on-brand prototypes in minutes
         </h1>
 
         <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-12 leading-relaxed">
-          Go from idea to working prototype in minutes, always on-brand with
-          your design system. Explore variants quickly, iterate with real
-          interactions, and ship to your codebase when ready.
+          Create production-ready web and mobile prototypes using your design
+          system. Explore variants instantly. No engineering required.
         </p>
 
         <div

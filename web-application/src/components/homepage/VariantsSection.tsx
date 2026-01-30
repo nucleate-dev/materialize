@@ -2,7 +2,6 @@
 
 import { Badge } from "@/components/ui/badge";
 import { ENABLE_DESIGN_SYSTEM } from "@/GlobalConstants";
-import { AnimatePresence, motion } from "framer-motion";
 import {
   Layout,
   Layers,
@@ -55,31 +54,12 @@ export default function VariantsSection() {
 
   return (
     <section className="py-24 bg-background border-y border-border relative overflow-hidden">
-      {/* Animated background accents */}
-      <motion.div
-        animate={{ y: [0, 30, 0], x: [0, -20, 0] }}
-        transition={{ duration: 15, repeat: Infinity, ease: "easeInOut" }}
-        className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-primary/5 blur-[120px] rounded-full pointer-events-none"
-      />
-      <motion.div
-        animate={{ y: [0, -40, 0], x: [0, 30, 0] }}
-        transition={{
-          duration: 18,
-          repeat: Infinity,
-          ease: "easeInOut",
-          delay: 2,
-        }}
-        className="absolute bottom-0 right-1/4 w-[500px] h-[500px] bg-purple-600/5 blur-[120px] rounded-full pointer-events-none"
-      />
+      {/* Background accents */}
+      <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-primary/5 blur-[120px] rounded-full pointer-events-none" />
+      <div className="absolute bottom-0 right-1/4 w-[500px] h-[500px] bg-purple-600/5 blur-[120px] rounded-full pointer-events-none" />
 
       <div className="container mx-auto px-6 max-w-7xl relative z-10">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, amount: 0.3 }}
-          transition={{ duration: 0.3 }}
-          className="text-center mb-16 max-w-4xl mx-auto"
-        >
+        <div className="text-center mb-16 max-w-4xl mx-auto">
           <Badge
             variant="outline"
             className="mb-4 border-border bg-accent text-muted-foreground"
@@ -95,21 +75,15 @@ export default function VariantsSection() {
               ? "Explore variants without breaking the design system. These aren't mockups — they are real components from your repo."
               : "Explore instant variants. These aren't mockups — they are real components from your repo."}
           </p>
-        </motion.div>
+        </div>
 
         {/* Tabs */}
         <div className="flex flex-wrap justify-center gap-2 mb-12">
-          {tabs.map((tab, index) => (
-            <motion.button
+          {tabs.map((tab) => (
+            <button
               key={tab.id}
-              initial={{ opacity: 0, y: 10 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.2, delay: index * 0.05 }}
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.98 }}
               onClick={() => setActiveTab(tab.id)}
-              className={`px-6 py-3 rounded-full text-sm font-medium flex items-center gap-2 transition-all duration-300 border ${
+              className={`px-6 py-3 rounded-full text-sm font-medium flex items-center gap-2 transition-all duration-300 border hover:scale-105 active:scale-98 ${
                 activeTab === tab.id
                   ? "bg-foreground text-background border-foreground shadow-[0_0_20px_rgba(255,255,255,0.2)]"
                   : "bg-card/50 text-muted-foreground border-border hover:bg-card hover:text-foreground"
@@ -117,21 +91,13 @@ export default function VariantsSection() {
             >
               {tab.icon}
               {tab.label}
-            </motion.button>
+            </button>
           ))}
         </div>
 
         {/* Content Area */}
         <div className="relative min-h-[600px] bg-card rounded-3xl border border-border p-4 md:p-8 overflow-hidden shadow-2xl">
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={activeTab}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              transition={{ duration: 0.2 }}
-              className="h-full w-full"
-            >
+          <div className="h-full w-full">
               {/* DEMO CONTENT BASED ON TAB */}
               {activeTab === "variants" && (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 h-full items-start justify-center">
@@ -892,8 +858,7 @@ export default function VariantsSection() {
                   </div>
                 </div>
               )}
-            </motion.div>
-          </AnimatePresence>
+          </div>
         </div>
       </div>
     </section>

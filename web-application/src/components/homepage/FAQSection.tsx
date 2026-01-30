@@ -5,8 +5,12 @@
 export default function FAQSection() {
   const featuredFAQs = [
     {
-      q: "How does repo sync work?",
-      a: "You never have to do manual syncing. Nucleate's agents will always stay up to date on your repo's latest state.",
+      q: "Do I need to know how to code?",
+      a: "No. Nucleate is designed for non-technical team members. Just describe what you want in plain English, and Nucleate builds it using your team's real components and design system.",
+    },
+    {
+      q: "Can my whole team use this?",
+      a: "Yes. Designers, PMs, marketers, and founders can all create prototypes independently. No engineering bottleneck—everyone can explore ideas and ship when ready.",
     },
     {
       q: "Does it use our existing components?",

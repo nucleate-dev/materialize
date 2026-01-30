@@ -5,7 +5,6 @@ import { useActiveTeam } from "@/contexts/TeamContext";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import { handleCheckout } from "@/lib/utils/payments/CheckoutUtils";
 import { ENABLE_DESIGN_SYSTEM } from "@/GlobalConstants";
-import { motion } from "framer-motion";
 import { Check, CheckCircle2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 
@@ -101,40 +100,24 @@ export default function PricingSection() {
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-primary/5 rounded-full blur-[150px] pointer-events-none" />
 
       <div className="container mx-auto px-6 max-w-6xl relative z-10">
-        {/* Sale Banner with shimmer */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.3, delay: 0.1 }}
-          className="text-center mb-12"
-        >
+        <div className="text-center mb-12">
           <h2 className="text-4xl font-medium text-foreground mb-4">
             Simple pricing
           </h2>
           <p className="text-muted-foreground">
             Start for free, scale as you grow.
           </p>
-        </motion.div>
+        </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {pricingPlans.map((plan, index) => (
-            <motion.div
+            <div
               key={index}
-              initial={{ opacity: 0, y: 30 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, amount: 0.3 }}
-              transition={{ duration: 0.25, delay: index * 0.05 }}
-              whileHover={{ y: -8 }}
-              className={`relative p-8 rounded-3xl flex flex-col transition-all duration-300 ${plan.highlighted ? "bg-card border border-primary/50 shadow-2xl shadow-primary/10" : "border border-border hover:border-border"}`}
+              className={`relative p-8 rounded-3xl flex flex-col transition-all duration-300 hover:-translate-y-2 ${plan.highlighted ? "bg-card border border-primary/50 shadow-2xl shadow-primary/10" : "border border-border hover:border-border"}`}
             >
               {/* Featured plan glow */}
               {plan.highlighted && (
-                <motion.div
-                  animate={{ opacity: [0.3, 0.5, 0.3] }}
-                  transition={{ duration: 2, repeat: Infinity }}
-                  className="absolute -inset-px bg-gradient-to-b from-primary/20 to-transparent rounded-3xl pointer-events-none"
-                />
+                <div className="absolute -inset-px bg-gradient-to-b from-primary/20 to-transparent rounded-3xl pointer-events-none opacity-40" />
               )}
 
               <div className="relative z-10">
@@ -156,51 +139,34 @@ export default function PricingSection() {
                     </span>
                   )}
                 </div>
-                <motion.div
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                >
+                <div>
                   <Button
                     onClick={() => handleGetStarted(plan.productKey)}
-                    className={`w-full h-11 rounded-full text-sm font-medium transition-all mb-8 ${plan.highlighted ? "bg-foreground text-background hover:bg-foreground/90" : "bg-accent text-foreground hover:bg-accent border border-border"}`}
+                    className={`w-full h-11 rounded-full text-sm font-medium transition-all mb-8 hover:scale-102 active:scale-98 ${plan.highlighted ? "bg-foreground text-background hover:bg-foreground/90" : "bg-accent text-foreground hover:bg-accent border border-border"}`}
                   >
                     {plan.cta}
                   </Button>
-                </motion.div>
+                </div>
                 <div className="space-y-4 mt-auto">
                   {plan.features.map((feature, i) => (
-                    <motion.div
+                    <div
                       key={i}
-                      initial={{ opacity: 0, x: -10 }}
-                      whileInView={{ opacity: 1, x: 0 }}
-                      viewport={{ once: true }}
-                      transition={{ delay: index * 0.03 + i * 0.02 }}
                       className="flex items-center gap-3 text-sm text-muted-foreground"
                     >
                       <Check className="w-4 h-4 text-muted-foreground" />
                       {feature}
-                    </motion.div>
+                    </div>
                   ))}
                 </div>
               </div>
-            </motion.div>
+            </div>
           ))}
         </div>
 
         {/* Bring Your Own Claude Code */}
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, amount: 0.3 }}
-          transition={{ duration: 0.3, delay: 0.15 }}
-          className="mt-8 relative bg-gradient-to-br from-[#D97757]/10 via-card to-card border border-[#D97757]/20 rounded-2xl p-6 md:p-8 overflow-hidden hover:border-[#D97757]/40 transition-all group"
-        >
+        <div className="mt-8 relative bg-gradient-to-br from-[#D97757]/10 via-card to-card border border-[#D97757]/20 rounded-2xl p-6 md:p-8 overflow-hidden hover:border-[#D97757]/40 transition-all group">
           {/* Subtle glow effect */}
-          <motion.div
-            animate={{ opacity: [0.1, 0.2, 0.1], scale: [1, 1.1, 1] }}
-            transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-            className="absolute top-0 right-0 w-64 h-64 bg-[#D97757]/10 blur-[100px] rounded-full pointer-events-none"
-          />
+          <div className="absolute top-0 right-0 w-64 h-64 bg-[#D97757]/10 blur-[100px] rounded-full pointer-events-none opacity-15" />
 
           <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center gap-6">
             {/* Left side - Icon and content */}
@@ -257,7 +223,7 @@ export default function PricingSection() {
               </div>
             </div>
           </div>
-        </motion.div>
+        </div>
       </div>
     </section>
   );
