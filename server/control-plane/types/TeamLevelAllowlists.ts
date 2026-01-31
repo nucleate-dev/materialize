@@ -11,4 +11,5 @@ export const team_allowlist_attach_personal_claude_subscriptions = new Set<
   "ef2f4eb1-2d21-493b-baca-4efb578b086e",
   "3f7252b1-a1fa-442c-a128-3d1718aeb0ce",
   "03a26a17-8611-4364-aa4b-ee1b59cad7f0",
+  "98617d16-edb0-40c3-83cd-886f55b93ed7",
 ]);
