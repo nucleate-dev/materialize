@@ -20,6 +20,7 @@ import {
 import { DEFAULT_PROTOTYPE_FRAMEWORK } from "../NucleateDevelopmentServerService.js";
 import { NextJsReactAdapter } from "../adapters/NextJsReactAdapter.js";
 import { ViteReactAdapter } from "../adapters/ViteReactAdapter.js";
+import { ExpoReactNativeBunAdapter } from "../adapters/ExpoReactNativeBunAdapter.js";
 import { SupabaseClientService } from "../../SupabaseClientService.js";
 
 export async function handleStartDevServerImpl(
@@ -122,6 +123,12 @@ export async function handleStartDevServerImpl(
   // if web, set the adapter to the appropriate adapter with the correct tunnel hostname
   const resolvedFramework = developmentServerService.prototypeFramework ??
     DEFAULT_PROTOTYPE_FRAMEWORK;
+  if (resolvedFramework === "mobile_expo_react_native_bun") {
+    developmentServerService.developmentServerAdapter =
+      new ExpoReactNativeBunAdapter(
+        developmentServerService.terminalService,
+      );
+  }
   if (
     resolvedFramework === "web_nextjs_react" ||
     resolvedFramework === "web_vite_react"
@@ -324,8 +331,10 @@ export async function handleStartDevServerImpl(
   );
 
   // 2. Install dependencies with sandboxService runCommandInternal
-  // Use bun for Vite projects, npm for everything else
-  const useBun = resolvedFramework === "web_vite_react";
+  // Use bun for Vite and Expo Bun projects, npm for everything else
+  const useBun =
+    resolvedFramework === "web_vite_react" ||
+    resolvedFramework === "mobile_expo_react_native_bun";
   const packageManager = useBun ? "bun" : "npm";
 
   request.log2.consoleLogDevOnly(
