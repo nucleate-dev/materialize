@@ -331,6 +331,7 @@ export default function InternalPrototypePage() {
             camera: state.camera,
             previewMode: state.previewMode,
             lastModified: state.lastModified,
+            webScreens: webScreensState.length > 0 ? webScreensState.map(s => ({ id: s.id, path: s.path })) : undefined,
           },
         };
 
@@ -349,7 +350,7 @@ export default function InternalPrototypePage() {
         }
       }, 1000);
     },
-    [prototypeId, logger],
+    [prototypeId, logger, webScreensState],
   );
 
   // Cleanup canvas save timeout on unmount
@@ -360,6 +361,59 @@ export default function InternalPrototypePage() {
       }
     };
   }, []);
+
+  // Save webScreens when they change (separate from canvas state changes)
+  // This ensures grid configuration is persisted even without canvas interactions
+  const webScreensSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  useEffect(() => {
+    // Skip on initial render or when webScreens is empty (default state)
+    if (!prototypeId || webScreensState.length === 0) return;
+
+    // Clear any existing timeout
+    if (webScreensSaveTimeoutRef.current) {
+      clearTimeout(webScreensSaveTimeoutRef.current);
+    }
+
+    // Debounce the save
+    webScreensSaveTimeoutRef.current = setTimeout(async () => {
+      // First fetch current prototype_context to merge with
+      const { data: currentPrototype } = await supabase
+        .from("prototypes")
+        .select("prototype_context")
+        .eq("id", prototypeId)
+        .single();
+
+      const currentContext = (currentPrototype?.prototype_context as PrototypeContextData) || {};
+      const currentCanvas = currentContext.canvas || {};
+
+      const contextToSave = {
+        canvas: {
+          ...currentCanvas,
+          webScreens: webScreensState.map(s => ({ id: s.id, path: s.path })),
+        },
+      };
+
+      const { error } = await supabase
+        .from("prototypes")
+        .update({
+          prototype_context:
+            contextToSave as unknown as Database["public"]["Tables"]["prototypes"]["Update"]["prototype_context"],
+        })
+        .eq("id", prototypeId);
+
+      if (error) {
+        logger.debug("error", "Failed to save webScreens:", { error });
+      } else {
+        logger.debug("log", "webScreens saved successfully");
+      }
+    }, 1000);
+
+    return () => {
+      if (webScreensSaveTimeoutRef.current) {
+        clearTimeout(webScreensSaveTimeoutRef.current);
+      }
+    };
+  }, [prototypeId, webScreensState, logger]);
 
   const canEditDesignSystem = Boolean(
     prototype && user && prototype.owner_id === user.id,
@@ -583,6 +637,10 @@ export default function InternalPrototypePage() {
         const context = data.prototype_context as PrototypeContextData;
         if (context.canvas) {
           setCanvasState(context.canvas);
+          // Also restore webScreens from canvas state if available
+          if (context.canvas.webScreens?.length) {
+            setWebScreensState(context.canvas.webScreens);
+          }
         }
       }
 

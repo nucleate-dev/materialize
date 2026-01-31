@@ -248,6 +248,10 @@ export default function PrototypePage() {
           { canvas: context.canvas },
         );
         setCanvasState(context.canvas);
+        // Also restore webScreens from canvas state if available
+        if (context.canvas.webScreens?.length) {
+          setCurrentWebScreens(context.canvas.webScreens);
+        }
         return;
       }
     }
@@ -451,15 +455,20 @@ export default function PrototypePage() {
     return undefined;
   }, [savedConfig]);
 
-  // Get initial web screens from saved config
+  // Get initial web screens from saved config or canvas state
   const initialWebScreens = useMemo(():
     | PublicDisplayConfigScreen[]
     | undefined => {
+    // Check canvas state first (when canvas flag enabled)
+    if (canvasState?.webScreens?.length) {
+      return canvasState.webScreens;
+    }
+    // Fall back to savedConfig (legacy mode)
     if (savedConfig?.webScreens?.length) {
       return savedConfig.webScreens;
     }
     return undefined;
-  }, [savedConfig]);
+  }, [canvasState, savedConfig]);
 
   useEffect(() => {
     async function fetchPrototypeData() {

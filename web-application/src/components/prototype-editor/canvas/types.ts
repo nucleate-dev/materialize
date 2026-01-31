@@ -42,6 +42,8 @@ export interface CanvasStateData {
   layoutMode?: LayoutMode;
   /** Order of screen IDs for grid layout */
   screenOrder?: number[];
+  /** Web screens for multi-screen grid mode (persisted for reload/public view) */
+  webScreens?: { id: number; path: string }[];
 }
 
 /**
