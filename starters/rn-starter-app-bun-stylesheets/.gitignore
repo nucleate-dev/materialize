@@ -31,10 +31,73 @@ yarn-error.*
 *.pem
 
 # local env files
+.env
 .env*.local
+**/.env*
+**/.env*.local
+
+# sensitive local files
+.gitconfig
+.bash_history
 
 # typescript
 *.tsbuildinfo
+
+# Claude Code
+.claude/
+
+# NPM cache
+.npm-cache/
+
+# supabase (any level)
+**/.supabase/
+**/supabase/.temp/
+**/supabase/.branches/
+
+# convex (any level)
+**/.convex/
+**/convex/_generated/
+
+# iOS
+ios/Pods/
+ios/build/
+*.xcworkspace
+!default.xcworkspace
+*.xcuserstate
+*.moved-aside
+DerivedData/
+*.hmap
+*.ipa
+
+# Android
+android/app/build/
+android/app/release/
+android/build/
+android/.gradle/
+android/local.properties
+*.apk
+
+# Logs
+*.log
+logs/
+
+# Testing
+coverage/
+.nyc_output/
+
+# Editor directories and files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+*.sublime-workspace
+
+# OS
+Thumbs.db
 
 app-example
 
