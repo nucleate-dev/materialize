@@ -444,6 +444,9 @@ const MaterializeRenderSection = forwardRef<
     // Canvas ref for infinite canvas mode
     const canvasRef = useRef<PreviewCanvasRef>(null);
 
+    // Container ref for measuring actual available space (for tablet/mobile sizing)
+    const previewContainerRef = useRef<HTMLDivElement>(null);
+
     // Determine if this is a web-only framework
     const isWebFramework =
       framework === "web_nextjs_react" || framework === "web_vite_react";
@@ -474,30 +477,28 @@ const MaterializeRenderSection = forwardRef<
     const [tabletSize, setTabletSize] = useState({ width: 768, height: 1024 });
     const [hasManuallyResized, setHasManuallyResized] = useState(false);
 
-    // Calculate responsive mobile size based on viewport height and width
+    // Calculate responsive mobile size based on container dimensions
     useEffect(() => {
       const calculateSize = () => {
         if (hasManuallyResized) return;
 
-        const vh = window.innerHeight;
-        const vw = window.innerWidth;
-
-        // UI overhead includes: toolbar (~70px), URL bar above phone (48px), padding (32-64px)
-        // Increased from 120 to account for new toolbar and spacing
-        const uiOverhead = 180;
-        const availableHeight = Math.max(0, vh - uiOverhead);
+        // Use container dimensions if available, otherwise fall back to window
+        const container = previewContainerRef.current;
+        const availableHeight = container
+          ? container.clientHeight - 80 // Account for URL bar and padding
+          : Math.max(0, window.innerHeight - 180);
+        const availableWidth = container
+          ? container.clientWidth - 32 // Account for padding
+          : window.innerWidth - 116;
 
         // Standard phone aspect ratio (width / height)
         const aspectRatio = 320 / 640;
 
-        // On smaller viewports (mobile), use less of available height to ensure fit
-        // On larger viewports, can use more
-        const heightPercentage = vw < 768 ? 0.75 : 0.85;
-        let newHeight = availableHeight * heightPercentage;
+        // Use 90% of available height to leave some breathing room
+        let newHeight = availableHeight * 0.9;
 
-        // Also consider viewport width to ensure phone fits horizontally
-        // Account for padding/margins (100px total) and phone frame border (16px)
-        const maxHeightBasedOnWidth = (vw - 116) / aspectRatio;
+        // Also consider available width to ensure phone fits horizontally
+        const maxHeightBasedOnWidth = availableWidth / aspectRatio;
 
         // Use the smaller of the two constraints
         newHeight = Math.min(newHeight, maxHeightBasedOnWidth);
@@ -514,36 +515,48 @@ const MaterializeRenderSection = forwardRef<
       // Calculate on mount and resize
       calculateSize();
       window.addEventListener("resize", calculateSize);
-      return () => window.removeEventListener("resize", calculateSize);
+
+      // Also recalculate when container size might change
+      const resizeObserver = new ResizeObserver(calculateSize);
+      if (previewContainerRef.current) {
+        resizeObserver.observe(previewContainerRef.current);
+      }
+
+      return () => {
+        window.removeEventListener("resize", calculateSize);
+        resizeObserver.disconnect();
+      };
     }, [hasManuallyResized]);
 
-    // Calculate responsive tablet size based on viewport height and width
+    // Calculate responsive tablet size based on container dimensions
     useEffect(() => {
       const calculateTabletSize = () => {
         if (hasManuallyResized) return;
 
-        const vh = window.innerHeight;
-        const vw = window.innerWidth;
-
-        // UI overhead includes: toolbar (~70px), URL bar above device (48px), padding (32-64px)
-        const uiOverhead = 180;
-        const availableHeight = Math.max(0, vh - uiOverhead);
+        // Use container dimensions if available, otherwise fall back to window
+        const container = previewContainerRef.current;
+        const availableHeight = container
+          ? container.clientHeight - 80 // Account for URL bar and padding
+          : Math.max(0, window.innerHeight - 180);
+        const availableWidth = container
+          ? container.clientWidth - 32 // Account for padding
+          : window.innerWidth - 150;
 
         // Standard tablet aspect ratio (iPad-like: 3:4)
         const aspectRatio = 768 / 1024;
 
-        // On smaller viewports, use less of available height to ensure fit
-        const heightPercentage = vw < 768 ? 0.7 : 0.8;
-        let newHeight = availableHeight * heightPercentage;
+        // Calculate max height that fits within available space
+        // Use 90% of available height to leave some breathing room
+        let newHeight = availableHeight * 0.9;
 
-        // Also consider viewport width to ensure tablet fits horizontally
-        const maxHeightBasedOnWidth = (vw - 150) / aspectRatio;
+        // Also consider available width to ensure tablet fits horizontally
+        const maxHeightBasedOnWidth = availableWidth / aspectRatio;
 
         // Use the smaller of the two constraints
         newHeight = Math.min(newHeight, maxHeightBasedOnWidth);
 
         // Clamp to reasonable bounds
-        newHeight = Math.max(350, newHeight); // Lower minimum for small screens
+        newHeight = Math.max(300, newHeight); // Lower minimum for small screens
         newHeight = Math.min(1024, newHeight);
 
         const newWidth = newHeight * aspectRatio;
@@ -553,7 +566,17 @@ const MaterializeRenderSection = forwardRef<
 
       calculateTabletSize();
       window.addEventListener("resize", calculateTabletSize);
-      return () => window.removeEventListener("resize", calculateTabletSize);
+
+      // Also recalculate when container size might change
+      const resizeObserver = new ResizeObserver(calculateTabletSize);
+      if (previewContainerRef.current) {
+        resizeObserver.observe(previewContainerRef.current);
+      }
+
+      return () => {
+        window.removeEventListener("resize", calculateTabletSize);
+        resizeObserver.disconnect();
+      };
     }, [hasManuallyResized]);
 
     const [isIframeLoading, setIsIframeLoading] = useState(false);
@@ -2364,8 +2387,11 @@ const MaterializeRenderSection = forwardRef<
 
       if (previewMode === "mobile") {
         return (
-          <div className="w-full h-full overflow-auto bg-background">
-            <div className="min-h-full flex items-center justify-center">
+          <div
+            ref={previewContainerRef}
+            className="w-full h-full overflow-hidden bg-background"
+          >
+            <div className="h-full flex items-center justify-center overflow-auto">
               <div
                 className={cn(
                   "flex flex-wrap justify-center gap-x-8 gap-y-12 pb-8 relative",
@@ -2620,8 +2646,11 @@ const MaterializeRenderSection = forwardRef<
 
       if (previewMode === "tablet") {
         return (
-          <div className="w-full h-full overflow-auto bg-background">
-            <div className="min-h-full flex items-center justify-center">
+          <div
+            ref={previewContainerRef}
+            className="w-full h-full overflow-hidden bg-background"
+          >
+            <div className="h-full flex items-center justify-center overflow-auto">
               <div
                 className={cn(
                   "flex flex-wrap justify-center gap-x-8 gap-y-12 pb-8 relative",
@@ -2953,19 +2982,26 @@ const MaterializeRenderSection = forwardRef<
                               height: webMobileSizeHeight,
                               maxWidth: "100%",
                             }
-                          : showWebMultiScreen
+                          : showWebMultiScreen && webScreens.length > 1
                             ? {
+                                // Multiple screens: use minHeight for grid layout
                                 minHeight: webFrameHeight,
                               }
-                            : hasManuallyResizedWebFrame
+                            : showWebMultiScreen && webScreens.length === 1
                               ? {
-                                  width: webFrameWidth ?? undefined,
-                                  height: webFrameHeight,
+                                  // Single screen in grid mode: fill container
+                                  height: "100%",
                                   maxWidth: "100%",
                                 }
-                              : {
-                                  height: "100%",
-                                }),
+                              : hasManuallyResizedWebFrame
+                                ? {
+                                    width: webFrameWidth ?? undefined,
+                                    height: webFrameHeight,
+                                    maxWidth: "100%",
+                                  }
+                                : {
+                                    height: "100%",
+                                  }),
                     }}
                   >
                     {/* Browser Header */}
