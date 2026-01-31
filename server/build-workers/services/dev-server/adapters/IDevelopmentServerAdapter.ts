@@ -8,7 +8,11 @@ import { Database } from "../../../types/supabase.js";
 /**
  * Type definition for supported development server frameworks.
  */
-export type DevelopmentServerType = "expo-react-native" | "nextjs-web" | "vite-web";
+export type DevelopmentServerType =
+  | "expo-react-native"
+  | "expo-react-native-bun"
+  | "nextjs-web"
+  | "vite-web";
 
 /**
  * Interface for development server services.
