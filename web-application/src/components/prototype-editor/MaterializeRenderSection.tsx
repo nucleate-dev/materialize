@@ -2986,7 +2986,11 @@ const MaterializeRenderSection = forwardRef<
                         {showScreenControls && webScreens.length > 1 ? (
                           <button
                             className="w-2.5 h-2.5 rounded-full bg-red-500/20 border border-red-500/50 hover:bg-red-500 hover:border-red-500 transition-colors flex items-center justify-center group"
-                            onClick={() => handleRemoveWebScreen(screen.id)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleRemoveWebScreen(screen.id);
+                            }}
+                            onMouseDown={(e) => e.stopPropagation()}
                             aria-label="Close screen"
                           >
                             <X
@@ -3007,9 +3011,11 @@ const MaterializeRenderSection = forwardRef<
                                     ? "bg-amber-500 border border-amber-500"
                                     : "bg-amber-500/20 border border-amber-500/50 hover:bg-amber-500 hover:border-amber-500",
                                 )}
-                                onClick={() =>
-                                  setIsWebMobileSize(!isWebMobileSize)
-                                }
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setIsWebMobileSize(!isWebMobileSize);
+                                }}
+                                onMouseDown={(e) => e.stopPropagation()}
                                 aria-label={
                                   isWebMobileSize
                                     ? "Switch to desktop size"
@@ -3036,9 +3042,11 @@ const MaterializeRenderSection = forwardRef<
                                     ? "bg-emerald-500 border border-emerald-500"
                                     : "bg-emerald-500/20 border border-emerald-500/50 hover:bg-emerald-500 hover:border-emerald-500",
                                 )}
-                                onClick={() =>
-                                  setIsWebFullScreen(!isWebFullScreen)
-                                }
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setIsWebFullScreen(!isWebFullScreen);
+                                }}
+                                onMouseDown={(e) => e.stopPropagation()}
                                 aria-label={
                                   isWebFullScreen
                                     ? "Exit full screen"
@@ -3158,7 +3166,7 @@ const MaterializeRenderSection = forwardRef<
                             </PopoverContent>
                           </Popover>
                         ) : (
-                          <div className="h-6 px-4 rounded-md bg-background border border-border flex items-center justify-center min-w-[200px] max-w-[400px]">
+                          <div className="h-6 px-4 rounded-md bg-background border border-border flex items-center justify-center w-full max-w-[400px]">
                             <span className="text-[10px] text-muted-foreground font-mono truncate opacity-60">
                               {stripTokenFromPath(screen.path) || "/"}
                             </span>

@@ -768,6 +768,7 @@ const PreviewCanvas = forwardRef<PreviewCanvasRef, PreviewCanvasProps>(
           onZoomIn={zoomIn}
           onZoomOut={zoomOut}
           onZoomToFit={zoomToFit}
+          onZoomChange={setZoom}
           readOnly={readOnly}
           layoutMode={layoutMode}
           onLayoutModeChange={handleLayoutModeChange}

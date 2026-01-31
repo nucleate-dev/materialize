@@ -88,6 +88,7 @@ interface ClaudeCodePanelProps {
   isFreePlan?: boolean;
   onShowClaudeConnectionSettings?: () => void;
   onPrototypeNameClick?: () => void;
+  onProcessingChange?: (isProcessing: boolean) => void;
 }
 
 export interface MessageUser {
@@ -173,6 +174,7 @@ const ClaudeCodePanel = forwardRef<ClaudeCodePanelRef, ClaudeCodePanelProps>(
       isFreePlan = false,
       onShowClaudeConnectionSettings,
       onPrototypeNameClick,
+      onProcessingChange,
     },
     ref,
   ) => {
@@ -257,6 +259,11 @@ const ClaudeCodePanel = forwardRef<ClaudeCodePanelRef, ClaudeCodePanelProps>(
       useState(true);
     const [isLoadingOlderMessages, setIsLoadingOlderMessages] = useState(false);
     const earliestMessageCursorRef = useRef<string | null>(null);
+
+    // Notify parent about processing state changes
+    useEffect(() => {
+      onProcessingChange?.(isProcessing);
+    }, [isProcessing, onProcessingChange]);
 
     // Expose methods to parent via ref
     useImperativeHandle(

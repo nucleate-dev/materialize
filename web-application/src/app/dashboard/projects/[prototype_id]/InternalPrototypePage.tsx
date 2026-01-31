@@ -202,6 +202,40 @@ export default function InternalPrototypePage() {
   const [isDragging, setIsDragging] = useState(false);
   const [isChatCollapsed, setIsChatCollapsed] = useState(false);
 
+  // Handle chat processing state changes for notifications
+  const handleChatProcessingChange = useCallback((isProcessing: boolean) => {
+    setIsChatProcessing((prevIsProcessing) => {
+      // Check if we are transitioning from processing (true) to idle (false)
+      if (prevIsProcessing && !isProcessing) {
+        // Only notify if the tab is not focused and permissions are granted
+        if (
+          typeof Notification !== "undefined" &&
+          document.visibilityState === "hidden" &&
+          Notification.permission === "granted"
+        ) {
+          try {
+            new Notification("Nucleate", {
+              body: "Your changes are ready!",
+              icon: "/icon.svg",
+            });
+          } catch (e) {
+            // Ignore notification errors
+          }
+        }
+      }
+      return isProcessing;
+    });
+
+    // Request permission when processing starts if not already granted/denied
+    if (
+      isProcessing &&
+      typeof Notification !== "undefined" &&
+      Notification.permission === "default"
+    ) {
+      void Notification.requestPermission();
+    }
+  }, []);
+
   // Ref to MaterializeRenderSection for triggering refreshes
   const materializeRenderRef = useRef<MaterializeRenderSectionRef>(null);
 
@@ -1340,6 +1374,7 @@ Provide actionable recommendations.`,
                 onPrototypeNameClick={() =>
                   materializeRenderRef.current?.openProjectSettings("details")
                 }
+                onProcessingChange={handleChatProcessingChange}
               />
             </div>
           </div>
