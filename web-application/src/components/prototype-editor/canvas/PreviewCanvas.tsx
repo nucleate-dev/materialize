@@ -12,7 +12,6 @@ import {
 import { PhoneFrame } from "./PhoneFrame";
 import { BrowserFrame } from "./BrowserFrame";
 import { DraggableScreen } from "./DraggableScreen";
-import { GridLayout } from "./GridLayout";
 import { GridScreen } from "./GridScreen";
 import { CanvasToolbar, type CanvasToolMode } from "./CanvasToolbar";
 import { usePanZoom } from "./usePanZoom";
@@ -733,18 +732,57 @@ const PreviewCanvas = forwardRef<PreviewCanvasRef, PreviewCanvasProps>(
         onMouseDown={layoutMode === "freeform" ? handleCanvasMouseDown : undefined}
       >
         {layoutMode === "grid" ? (
-          /* Grid layout mode */
-          <GridLayout
-            screens={screens}
-            screenOrder={validScreenOrder}
-            zoom={zoom}
-            readOnly={readOnly}
-            onReorder={handleReorder}
-            onScreenResize={handleScreenResize}
-            onScreenResizeEnd={handleScreenResizeEnd}
-            onScreenPreviewModeChange={handleScreenPreviewModeChange}
-            renderScreen={renderGridScreen}
-          />
+          /* Grid layout mode - simplified implementation */
+          <div
+            className="simple-grid-layout"
+            style={{
+              width: "100%",
+              height: "100%",
+              overflow: "auto",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: "2rem",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                flexWrap: "wrap",
+                justifyContent: "center",
+                gap: "2rem",
+                alignItems: "start",
+              }}
+            >
+              {screens.map((screen) => (
+                <div
+                  key={screen.id}
+                  style={{
+                    flexShrink: 0,
+                  }}
+                >
+                  <GridScreen
+                    width={screen.position.width}
+                    height={screen.position.height}
+                    readOnly={readOnly}
+                    previewMode={screen.previewMode}
+                    screenId={screen.id}
+                    path={screen.path}
+                    onPreviewModeChange={(mode) =>
+                      handleScreenPreviewModeChange(screen.id, mode)
+                    }
+                    onResize={(deltaWidth, deltaHeight) =>
+                      handleScreenResize(screen.id, deltaWidth, deltaHeight)
+                    }
+                    onResizeEnd={handleScreenResizeEnd}
+                    onAIAction={onAIAction}
+                  >
+                    {renderFrame(screen, false)}
+                  </GridScreen>
+                </div>
+              ))}
+            </div>
+          </div>
         ) : (
           /* Freeform layout mode */
           <div
