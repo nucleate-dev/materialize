@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useState } from "react";
+import { memo, useState, useEffect } from "react";
 import {
   MousePointer2,
   Hand,
@@ -12,6 +12,7 @@ import {
   GitCompare,
   LayoutGrid,
   Move,
+  Check,
 } from "lucide-react";
 import {
   Tooltip,
@@ -25,6 +26,13 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import type { GlobalAIAction, LayoutMode } from "./types";
 
 export type CanvasToolMode = "select" | "pan";
@@ -37,6 +45,7 @@ interface CanvasToolbarProps {
   onZoomIn: () => void;
   onZoomOut: () => void;
   onZoomToFit: () => void;
+  onZoomChange?: (zoom: number) => void;
   readOnly?: boolean;
   layoutMode?: LayoutMode;
   onLayoutModeChange?: (mode: LayoutMode) => void;
@@ -53,12 +62,39 @@ export const CanvasToolbar = memo(function CanvasToolbar({
   onZoomIn,
   onZoomOut,
   onZoomToFit,
+  onZoomChange,
   readOnly = false,
   layoutMode = "grid",
   onLayoutModeChange,
   onGlobalAIAction,
 }: CanvasToolbarProps) {
   const [isAIMenuOpen, setIsAIMenuOpen] = useState(false);
+  const [isZoomPopoverOpen, setIsZoomPopoverOpen] = useState(false);
+  const [zoomInput, setZoomInput] = useState("");
+
+  useEffect(() => {
+    if (isZoomPopoverOpen) {
+      setZoomInput(Math.round(zoom * 100).toString());
+    }
+  }, [isZoomPopoverOpen, zoom]);
+
+  const handleZoomSubmit = () => {
+    if (!onZoomChange) return;
+    
+    const value = parseInt(zoomInput, 10);
+    if (!isNaN(value)) {
+      // Clamp between 10% and 500%
+      const clamped = Math.max(10, Math.min(500, value));
+      onZoomChange(clamped / 100);
+      setIsZoomPopoverOpen(false);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      handleZoomSubmit();
+    }
+  };
 
   return (
     <div
@@ -187,13 +223,64 @@ export const CanvasToolbar = memo(function CanvasToolbar({
         </Tooltip>
       </TooltipProvider>
 
-      <span
-        className="text-xs text-muted-foreground font-mono w-12 text-center select-none"
-        aria-live="polite"
-        aria-label={`Zoom level ${Math.round(zoom * 100)} percent`}
-      >
-        {Math.round(zoom * 100)}%
-      </span>
+      <Popover open={isZoomPopoverOpen} onOpenChange={setIsZoomPopoverOpen}>
+        <TooltipProvider delayDuration={200}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <PopoverTrigger asChild>
+                <button
+                  className="text-xs text-muted-foreground font-mono w-12 text-center select-none hover:text-foreground hover:bg-accent/50 rounded-md py-1.5 transition-colors"
+                  aria-label={`Zoom level ${Math.round(zoom * 100)} percent. Click to edit.`}
+                  disabled={!onZoomChange}
+                >
+                  {Math.round(zoom * 100)}%
+                </button>
+              </PopoverTrigger>
+            </TooltipTrigger>
+            <TooltipContent side="top">
+              <p>Click to edit zoom</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+        <PopoverContent className="w-48 p-2" side="top" sideOffset={10}>
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <Input
+                value={zoomInput}
+                onChange={(e) => setZoomInput(e.target.value)}
+                onKeyDown={handleKeyDown}
+                className="h-8 text-xs font-mono"
+                placeholder="100"
+                type="number"
+                min="10"
+                max="500"
+              />
+              <span className="text-xs text-muted-foreground">%</span>
+              <Button size="icon" variant="ghost" className="h-8 w-8" onClick={handleZoomSubmit}>
+                <Check className="w-3.5 h-3.5" />
+              </Button>
+            </div>
+            <div className="grid grid-cols-3 gap-1">
+              {[50, 100, 200].map((preset) => (
+                <Button
+                  key={preset}
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-[10px]"
+                  onClick={() => {
+                    if (onZoomChange) {
+                      onZoomChange(preset / 100);
+                      setIsZoomPopoverOpen(false);
+                    }
+                  }}
+                >
+                  {preset}%
+                </Button>
+              ))}
+            </div>
+          </div>
+        </PopoverContent>
+      </Popover>
 
       <TooltipProvider delayDuration={200}>
         <Tooltip>
