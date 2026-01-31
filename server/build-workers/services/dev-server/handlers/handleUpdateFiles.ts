@@ -208,18 +208,24 @@ export async function handleUpdateFilesImpl(
       assetsDeleted: syncResult.assetsDeleted,
     });
 
-    // Step 6: If package.json changed, run npm install and restart dev server
+    // Step 6: If package.json changed, run install and restart dev server
     if (hasPackageJsonChanges) {
       try {
+        const useBun =
+          developmentServerService.prototypeFramework ===
+            "mobile_expo_react_native_bun" ||
+          developmentServerService.prototypeFramework === "web_vite_react";
+        const packageManager = useBun ? "bun" : "npm";
+
         request.log2.consoleLogDevOnly(
           "info",
-          "package.json changed, running npm install and restarting dev server",
+          `package.json changed, running ${packageManager} install and restarting dev server`,
         );
 
-        // Run npm install
-        const npmInstallResult =
+        // Run install
+        const installResult =
           await developmentServerService.sandboxService.runCommandInternal({
-            command: "npm",
+            command: packageManager,
             args: ["install"],
             cwd: WORK_DIR,
             session_id: "test",
@@ -228,31 +234,31 @@ export async function handleUpdateFilesImpl(
           });
 
         if (
-          npmInstallResult.response.error ||
-          npmInstallResult.response.data?.status !== "success"
+          installResult.response.error ||
+          installResult.response.data?.status !== "success"
         ) {
           request.log2.error(
-            new Error("npm install failed"),
-            "npm install failed",
+            new Error(`${packageManager} install failed`),
+            `${packageManager} install failed`,
             {
-              error: npmInstallResult.response.error,
-              stdout: npmInstallResult.response.data?.stdout,
+              error: installResult.response.error,
+              stdout: installResult.response.data?.stdout,
             },
           );
           reply.code(500);
           return {
             data: null,
             error: {
-              error: "npm install failed",
+              error: `${packageManager} install failed`,
               message: "Failed to install dependencies",
-              details: npmInstallResult.response.error?.message,
+              details: installResult.response.error?.message,
             },
           };
         }
 
         request.log2.consoleLogDevOnly(
           "info",
-          "npm install completed successfully",
+          `${packageManager} install completed successfully`,
         );
 
         // Restart dev server
@@ -272,14 +278,14 @@ export async function handleUpdateFilesImpl(
           error instanceof Error ? error.message : String(error);
         request.log2.error(
           new Error(errorMessage),
-          "Error during npm install or dev server restart",
+          "Error during install or dev server restart",
         );
         reply.code(500);
         return {
           data: null,
           error: {
             error: "Post-sync operation failed",
-            message: "Error during npm install or dev server restart",
+            message: "Error during install or dev server restart",
             details: errorMessage,
           },
         };
