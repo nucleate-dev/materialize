@@ -201,30 +201,33 @@ export default function InternalPrototypePage() {
   const [leftPanelWidth, setLeftPanelWidth] = useState(25); // percentage
   const [isDragging, setIsDragging] = useState(false);
   const [isChatCollapsed, setIsChatCollapsed] = useState(false);
+  const wasProcessingRef = useRef(false);
 
   // Handle chat processing state changes for notifications
   const handleChatProcessingChange = useCallback((isProcessing: boolean) => {
-    setIsChatProcessing((prevIsProcessing) => {
-      // Check if we are transitioning from processing (true) to idle (false)
-      if (prevIsProcessing && !isProcessing) {
-        // Only notify if the tab is not focused and permissions are granted
-        if (
-          typeof Notification !== "undefined" &&
-          document.visibilityState === "hidden" &&
-          Notification.permission === "granted"
-        ) {
-          try {
-            new Notification("Nucleate", {
-              body: "Your changes are ready!",
-              icon: "/icon.svg",
-            });
-          } catch (e) {
-            // Ignore notification errors
-          }
+    const wasProcessing = wasProcessingRef.current;
+
+    // Check if we are transitioning from processing (true) to idle (false)
+    if (wasProcessing && !isProcessing) {
+      // Only notify if the tab is not focused and permissions are granted
+      if (
+        typeof Notification !== "undefined" &&
+        document.visibilityState === "hidden" &&
+        Notification.permission === "granted"
+      ) {
+        try {
+          new Notification("Nucleate", {
+            body: "Your changes are ready!",
+            icon: "/icon.svg",
+          });
+        } catch (e) {
+          // Ignore notification errors
         }
       }
-      return isProcessing;
-    });
+    }
+
+    // Update the ref
+    wasProcessingRef.current = isProcessing;
 
     // Request permission when processing starts if not already granted/denied
     if (
