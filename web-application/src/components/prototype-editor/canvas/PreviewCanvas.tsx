@@ -629,6 +629,31 @@ const PreviewCanvas = forwardRef<PreviewCanvasRef, PreviewCanvasProps>(
       panZoomToFit,
     ]);
 
+    // Update screens when previewMode prop changes
+    useEffect(() => {
+      if (!isInitialized) return;
+
+      setScreensState((prev) => {
+        // Only update if there's a mismatch to avoid unnecessary updates
+        const needsUpdate = prev.some((s) => s.previewMode !== previewMode);
+        if (!needsUpdate) return prev;
+
+        const dimensions = getDefaultDimensions(previewMode);
+
+        return prev.map((s) => ({
+          ...s,
+          previewMode,
+          position: {
+            ...s.position,
+            width: dimensions.width,
+            height: dimensions.height,
+          },
+        }));
+      });
+
+      debouncedSave();
+    }, [previewMode, isInitialized, debouncedSave]);
+
     // Cleanup on unmount
     useEffect(() => {
       return () => {

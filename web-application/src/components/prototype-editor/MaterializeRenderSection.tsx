@@ -631,19 +631,8 @@ const MaterializeRenderSection = forwardRef<
     });
     const nextWebScreenId = useRef(1);
 
-    // Calculate scale factor for web iframe content zoom
-    const webScaleFactor = React.useMemo(() => {
-      if (webScreens.length <= 1) {
-        return 1;
-      }
-      // Scale down based on number of screens in grid
-      // 2 screens (side by side): 0.7 scale
-      // 3-4 screens (2x2 grid): 0.6 scale
-      if (webScreens.length === 2) {
-        return 0.7;
-      }
-      return 0.6;
-    }, [webScreens.length]);
+    // No zoom scaling for web iframes - grid cells naturally size the content
+    const webScaleFactor = 1;
     const webIframeRefs = useRef<Map<number, HTMLIFrameElement>>(new Map());
 
     // Web frame sizing
