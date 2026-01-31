@@ -1,0 +1,69 @@
+---
+title: "The End of Disposable Prototypes"
+excerpt: "We waste millions of dollars a year building 'throwaway work'—prototypes that look real but have to be rebuilt. It's time to stop building facades and start building the house."
+publishedAt: "2026-02-07"
+tags: ["prototyping", "design engineering", "workflow", "nucleate"]
+category: "insights"
+featured: false
+---
+
+# The End of Disposable Prototypes
+
+In any other industry, the way we build software would look insane.
+
+Imagine an architect who draws a detailed blueprint, builds a full-scale model house out of cardboard, gets the client to approve it, and then... throws it in the trash. Then, a construction crew shows up and tries to rebuild the house from scratch based on photos of the cardboard model.
+
+That is the standard software development lifecycle.
+
+We spend weeks in Figma creating high-fidelity "prototypes." We add click interactions, fake loading states, and mock data. We polish these artifacts until they look exactly like the real thing. And then, once approved, we hand them to engineers who—quite literally—throw them away and start typing `export default function...` in a completely different environment.
+
+## The Cost of the Facade
+
+The industry has accepted this inefficiency because, historically, code was too slow.
+
+It takes ten seconds to draw a rectangle in Figma. It used to take ten minutes (or more) to set up a component, style it, and wire it up in React. Therefore, it made sense to "think" in Figma and "build" in VS Code.
+
+But this separation creates two massive problems:
+
+1.  **The Translation Tax:** Every interaction, animation, and spacing decision has to be interpreted by a developer. This is where the "it doesn't look like the mock" bugs come from.
+2.  **The Reality Gap:** Static prototypes can't handle edge cases. You don't realize your card layout breaks with a long German surname until you're three weeks into development.
+
+## Prototyping in Production
+
+The goal of a prototype is to learn. But the most valuable lessons come from reality, not simulation.
+
+What if your prototype wasn't a picture of the software, but an early version of the software itself?
+
+"Prototyping in Production" means building your explorations using the same stack, the same data, and the same components as your shipping product.
+- Instead of faking a loading state, you actually fetch the data.
+- Instead of guessing how a component responds to mobile, you resize the browser window.
+- Instead of throwing it away, you refactor it.
+
+## The AI Accelerant
+
+This workflow was previously reserved for "unicorns"—designers who could code as fast as they could think.
+
+AI has democratized this speed. The friction of writing boilerplate code has vanished. You can now spin up a new page, scaffold a layout, and wire up components faster than you can auto-layout a frame in Figma.
+
+This changes the economics of prototyping. If generating a React interface takes the same amount of time as drawing a Figma mockup, **why would you ever draw the mockup?**
+
+One gives you a picture. The other gives you a product.
+
+## How Nucleate Fits In
+
+We built [Nucleate](https://nucleate.dev) to facilitate this exact shift.
+
+Other AI builders force you into a sandbox. You build a "prototype," but it lives on their server, disconnected from your reality. If you want to use it, you have to copy-paste messy code and spend hours untangling it.
+
+Nucleate takes a different approach. It works inside your existing repository.
+1.  **It knows your stack:** It sees that you use Shadcn UI, Tailwind, and Supabase.
+2.  **It reuses your work:** It constructs interfaces using the components you've already built and tested.
+3.  **It commits to Git:** When you're happy with a prototype, it's not a "handoff." It's a Pull Request.
+
+This effectively kills the "disposable prototype." The work you do during exploration becomes the foundation of the final feature. You aren't building a cardboard model anymore; you're laying the actual bricks.
+
+## The New Workflow
+
+The teams winning today aren't the ones with the best Figma files. They are the ones with the tightest loop between "idea" and "shippable reality."
+
+Stop building things designed to be thrown away. Use your design system. Use your real data. Use AI to move at the speed of thought, but build in the medium of reality.
