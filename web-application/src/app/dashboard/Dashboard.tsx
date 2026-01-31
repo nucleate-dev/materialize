@@ -47,13 +47,13 @@ import {
   ChevronDown,
   Command,
   Cpu,
+  Github,
+  Image,
   Layers,
-  LayoutTemplate,
   Loader2,
   Lock,
   Paperclip,
   Rocket,
-  Sparkles,
   Wand2,
   X,
 } from "lucide-react";
@@ -761,20 +761,37 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Helper text underneath */}
-          <div className="mt-4 flex items-center justify-center gap-6 text-xs text-muted-foreground animate-in fade-in duration-1000 delay-300">
-            <div className="flex items-center gap-1.5">
-              <LayoutTemplate className="w-3.5 h-3.5 opacity-50" />
-              <span>Components</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <Layers className="w-3.5 h-3.5 opacity-50" />
-              <span>Multi-step Flows</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5 opacity-50" />
-              <span>Whole Apps</span>
-            </div>
+          {/* Action Buttons */}
+          <div className="mt-6 flex flex-wrap items-center justify-center gap-4 animate-in fade-in duration-1000 delay-300">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-muted-foreground hover:text-foreground"
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <Image className="w-4 h-4 mr-2" />
+              Upload Screenshot
+            </Button>
+
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-muted-foreground hover:text-foreground"
+              onClick={() => router.push("?settingsTab=github")}
+            >
+              <Github className="w-4 h-4 mr-2" />
+              Connect Repo
+            </Button>
+
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-muted-foreground hover:text-foreground"
+              onClick={() => setPrompt("Generate 3 variants of ")}
+            >
+              <Layers className="w-4 h-4 mr-2" />
+              Generate Variants
+            </Button>
           </div>
         </div>
       </div>
