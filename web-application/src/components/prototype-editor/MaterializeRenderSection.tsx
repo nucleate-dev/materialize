@@ -2879,7 +2879,7 @@ const MaterializeRenderSection = forwardRef<
       const showWebControls = showWebMultiScreen && !isReadOnlyView;
 
       return (
-        <div className="w-full h-full overflow-auto bg-background p-4">
+        <div className="w-full h-full overflow-y-auto overflow-x-hidden bg-background p-4">
           {/* Floating Add Screen Button */}
           {showWebControls && webGridLayout.showAddButton && (
             <div className="absolute top-3 right-3 z-20">
@@ -2899,7 +2899,7 @@ const MaterializeRenderSection = forwardRef<
           {/* Web Screens Grid */}
           <div
             className={cn(
-              "gap-4 h-full relative",
+              "gap-4 h-full relative w-full",
               !showWebMultiScreen || isNarrowViewport || webScreens.length === 1
                 ? "flex flex-col"
                 : "grid",
@@ -2937,7 +2937,7 @@ const MaterializeRenderSection = forwardRef<
                   <div
                     key={`web-screen-${screen.id}`}
                     className={cn(
-                      "bg-accent rounded-xl border border-border overflow-hidden shadow-sm flex flex-col relative transition-all duration-300",
+                      "bg-accent rounded-xl border border-border overflow-hidden shadow-sm flex flex-col relative transition-all duration-300 min-w-0",
                       isWebMobileSize && !isWebFullScreen && "mx-auto",
                       isWebFullScreen &&
                         "absolute inset-4 z-50 mx-auto shadow-2xl",
@@ -2980,7 +2980,7 @@ const MaterializeRenderSection = forwardRef<
                     }}
                   >
                     {/* Browser Header */}
-                    <div className="bg-accent border-b border-border px-4 py-2.5 flex items-center gap-4">
+                    <div className="bg-accent border-b border-border px-4 py-2.5 flex items-center gap-4 min-w-0 overflow-hidden">
                       {/* Traffic Lights */}
                       <div className="flex space-x-1.5">
                         {showScreenControls && webScreens.length > 1 ? (
@@ -3058,7 +3058,7 @@ const MaterializeRenderSection = forwardRef<
                       </div>
 
                       {/* URL Bar */}
-                      <div className="flex-1 flex justify-center">
+                      <div className="flex-1 flex justify-center min-w-0 overflow-hidden">
                         {showWebControls &&
                         showScreenControls &&
                         !isReadOnlyView ? (
@@ -3073,7 +3073,7 @@ const MaterializeRenderSection = forwardRef<
                             }}
                           >
                             <PopoverTrigger asChild>
-                              <div className="h-6 px-4 rounded-md bg-background border border-border flex items-center justify-center min-w-[200px] max-w-[400px] cursor-pointer hover:border-muted-foreground/50">
+                              <div className="h-6 px-4 rounded-md bg-background border border-border flex items-center justify-center w-full max-w-[400px] cursor-pointer hover:border-muted-foreground/50">
                                 <span className="text-[10px] text-muted-foreground font-mono truncate opacity-60">
                                   {stripTokenFromPath(screen.path) || "/"}
                                 </span>
@@ -3628,7 +3628,7 @@ const MaterializeRenderSection = forwardRef<
                             variant="ghost"
                             size="icon"
                             onClick={onExpandChat}
-                            className="h-8 w-8 rounded-lg bg-primary/10 text-primary hover:bg-primary/20 border border-primary/20"
+                            className="h-8 w-8 rounded-lg bg-accent text-muted-foreground hover:text-foreground hover:bg-accent/80 border border-border"
                           >
                             <MessageSquare className="w-4 h-4" />
                           </Button>
