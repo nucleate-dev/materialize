@@ -26,6 +26,7 @@ export enum ChatEvent {
   SCREEN_UPDATE = "screen_update",
   AUTH_MODE_UPDATED = "auth_mode_updated",
   PROTOTYPE_TITLE_UPDATED = "prototype_title_updated",
+  ASK_USER_QUESTION = "ask_user_question",
 }
 
 export enum ChatClientEvent {
@@ -33,6 +34,7 @@ export enum ChatClientEvent {
   INTERRUPT = "interrupt",
   HISTORY_RESPONSE = "history_response",
   AUTH_MODE_CHANGE = "auth_mode_change",
+  ASK_USER_RESPONSE = "ask_user_response",
 }
 
 export enum ChatSystemEventSubtype {
@@ -118,11 +120,40 @@ export interface HistoryResponseMessage {
   data: HistoryResponseData;
 }
 
+// AskUserQuestion tool types
+export interface AskUserQuestionOption {
+  label: string;
+  description?: string;
+}
+
+export interface AskUserQuestionItem {
+  question: string;
+  header?: string;
+  options: AskUserQuestionOption[];
+  multiSelect?: boolean;
+}
+
+export interface AskUserQuestionInput {
+  questions: AskUserQuestionItem[];
+}
+
+export interface AskUserResponseData {
+  tool_call_id: string;
+  answers: Record<string, string>;
+  cancelled?: boolean;
+}
+
+export interface AskUserResponseMessage {
+  type: ChatClientEvent.ASK_USER_RESPONSE;
+  data: AskUserResponseData;
+}
+
 export type ChatClientMessage =
   | QueryMessage
   | InterruptMessage
   | HistoryResponseMessage
-  | AuthModeChangeMessage;
+  | AuthModeChangeMessage
+  | AskUserResponseMessage;
 
 export interface SystemConnectionMessage {
   type: ChatEvent.SYSTEM;
@@ -277,6 +308,15 @@ export interface PrototypeTitleUpdatedMessage {
   };
 }
 
+export interface AskUserQuestionMessage {
+  type: ChatEvent.ASK_USER_QUESTION;
+  data: {
+    tool_call_id: string;
+    questions: AskUserQuestionItem[];
+    timeout_ms: number;
+  };
+}
+
 export type ChatServerMessage =
   | SystemConnectionMessage
   | ErrorMessage
@@ -295,4 +335,5 @@ export type ChatServerMessage =
   | CollaboratorMessagePayload
   | ScreenUpdateMessage
   | AuthModeUpdatedMessage
-  | PrototypeTitleUpdatedMessage;
+  | PrototypeTitleUpdatedMessage
+  | AskUserQuestionMessage;

@@ -5,6 +5,9 @@
 
 set -euxo pipefail
 
+# Ensure HOME is set for non-interactive shells (cloud-init uses set -u).
+: "${HOME:=/root}"
+
 # Variables - these should match the deploy script
 USER="ec2-user"
 REMOTE_BASE="/home/${USER}/control-plane"

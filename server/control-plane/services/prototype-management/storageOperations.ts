@@ -236,11 +236,10 @@ async function copyS3BucketContents(
           await s3Client.send(
             new CopyObjectCommand({
               Bucket: S3_PROTOTYPE_BUCKET,
-              CopySource: `${S3_PROTOTYPE_BUCKET}/${
-                encodeURIComponent(
-                  sourceKey,
-                )
-              }`,
+              CopySource: `${S3_PROTOTYPE_BUCKET}/${encodeURIComponent(
+                sourceKey,
+              )
+                }`,
               Key: destinationKey,
             }),
           );
@@ -323,7 +322,7 @@ export async function copyDefaultAppToVersionedPrototype(
 
 export async function uploadDefaultAssetsToSupabaseStorage(
   supabase: SupabaseClient<Database>,
-  assets: { name: string; contents: Buffer; prototype_id: string }[],
+  assets: { name: string; contents: Buffer; prototype_id: string; }[],
   log2: SystemLogger,
 ): Promise<S3CopyResult> {
   log2.consoleLogDevOnly(
@@ -638,8 +637,7 @@ export async function getDefaultAppFilesFromS3(
         const obj = await s3Client.send(getCommand);
         if (!obj.Body) throw new Error(`No body returned for ${fileName}`);
 
-        const isAsset = /\.(png|jpg|jpeg|gif|ico|svg|ttf|woff|woff2|eot)$/i
-          .test(fileName);
+        const isAsset = /\.(png|jpg|jpeg|gif|ico|svg|webp|bmp|tiff|woff|woff2|ttf|otf|eot|mp4|webm|mov|avi|mkv|mp3|wav|ogg|m4a|flac|pdf|zip|tar|gz|7z|rar|exe|dll|so|dylib|bin|dat|db|sqlite|lock)$/i.test(fileName);
 
         if (isAsset) {
           const buffer = Buffer.from(await obj.Body.transformToByteArray());
@@ -651,7 +649,7 @@ export async function getDefaultAppFilesFromS3(
       },
     );
     const files: PrototypeFileInsert[] = [];
-    const assets: { name: string; contents: Buffer; prototype_id: string }[] =
+    const assets: { name: string; contents: Buffer; prototype_id: string; }[] =
       [];
 
     results.forEach((result) => {
@@ -812,8 +810,7 @@ export async function deletePrototypeAssetsFromStorage(
       if (deleteError) {
         log2.error(
           deleteError,
-          `[deletePrototypeAssetsFromStorage] Supabase error deleting batch ${
-            i / batchSize + 1
+          `[deletePrototypeAssetsFromStorage] Supabase error deleting batch ${i / batchSize + 1
           }`,
         );
         return false;
@@ -893,8 +890,7 @@ export async function deletePrototypeChatImagesFromStorage(
       if (deleteError) {
         log2.error(
           deleteError,
-          `[deletePrototypeChatImagesFromStorage] Supabase error deleting batch ${
-            i / batchSize + 1
+          `[deletePrototypeChatImagesFromStorage] Supabase error deleting batch ${i / batchSize + 1
           }`,
         );
         return false;
