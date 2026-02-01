@@ -163,6 +163,16 @@ export async function handleCreateSupabaseProjectImpl(
                 },
             });
         }
+        const supabaseError = extractSupabaseManagementError(error);
+        if (supabaseError) {
+            return reply.status(supabaseError.status).send({
+                data: null,
+                error: {
+                    error: "Supabase API Error",
+                    message: supabaseError.message,
+                },
+            });
+        }
         request.log2.error(
             error instanceof Error ? error : new Error(String(error)),
             "Failed to create Supabase project",
@@ -212,3 +222,53 @@ export async function handleCreateSupabaseProjectImpl(
         error: null,
     });
 }
+
+type SupabaseManagementErrorData = {
+    status: number;
+    message: string;
+    details?: string;
+};
+
+const extractSupabaseManagementError = (
+    error: unknown,
+): SupabaseManagementErrorData | null => {
+    if (!error || typeof error !== "object") {
+        return null;
+    }
+
+    if (!("response" in error)) {
+        return null;
+    }
+
+    const response =
+        (error as { response?: { status?: number; data?: unknown } })
+            .response;
+    if (!response || typeof response !== "object") {
+        return null;
+    }
+
+    const status = typeof response.status === "number"
+        ? response.status
+        : HTTP_STATUS.BAD_GATEWAY;
+    const data = response.data;
+    let message = "Supabase API error";
+    let details: string | undefined;
+
+    if (typeof data === "string") {
+        message = data;
+        details = data;
+    } else if (data && typeof data === "object") {
+        if ("message" in data && typeof data.message === "string") {
+            message = data.message;
+        } else if ("error" in data && typeof data.error === "string") {
+            message = data.error;
+        } else {
+            message = JSON.stringify(data);
+        }
+        details = JSON.stringify(data);
+    } else if (error instanceof Error) {
+        message = error.message;
+    }
+
+    return { status, message, details };
+};

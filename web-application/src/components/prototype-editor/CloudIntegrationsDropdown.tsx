@@ -22,6 +22,8 @@ import type {
   StandardErrorResponse,
   SupabaseProjectSummary,
   SupabaseProjectsSuccessResponse,
+  SupabaseIntegrationsSuccessResponse,
+  SupabaseCreateProjectSuccessResponse,
 } from "@/lib/types/serverAPITypes";
 import type {
   PublicDevServerAddBackendRequest,
@@ -75,6 +77,78 @@ export function CloudIntegrationsDropdown({
   const [isOpen, setIsOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isLinkingProject, setIsLinkingProject] = useState<string | null>(null);
+  const [isCreatingProject, setIsCreatingProject] = useState(false);
+
+  const buildProjectName = useCallback(() => {
+    const base = prototypeId ? `nucleate-${prototypeId}` : "nucleate-project";
+    const normalized = base
+      .toLowerCase()
+      .replace(/[^a-z0-9-]/g, "-")
+      .replace(/-+/g, "-")
+      .replace(/^-+|-+$/g, "");
+    const trimmed = normalized.slice(0, 40);
+    return trimmed.length > 0 ? trimmed : "nucleate-project";
+  }, [prototypeId]);
+
+  const addBackendToSandbox = useCallback(
+    async (
+      project: SupabaseProjectSummary,
+      accessToken: string,
+    ): Promise<PublicDevServerAddBackendSuccessResponse["backend"] | null> => {
+      if (!normalizedSandboxUrl) {
+        const message =
+          "Dev server not started yet. Start the server, then try linking again.";
+        setError(message);
+        toast.error(message);
+        return null;
+      }
+
+      const payload: PublicDevServerAddBackendRequest = {
+        type: "supabase",
+        project_id: project.id,
+        project_url: `https://supabase.com/dashboard/project/${project.id}`,
+        metadata: {
+          name: project.name,
+          region: project.region,
+          organization_id: project.organization_id,
+        },
+      };
+
+      const response = await fetch(
+        `${normalizedSandboxUrl}/dev-server/add-backend`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${accessToken}`,
+          },
+          body: JSON.stringify(payload),
+        },
+      );
+
+      const result: SandboxAPIResponse<
+        PublicDevServerAddBackendSuccessResponse,
+        SandboxStandardErrorResponse
+      > = await response.json().catch(() => ({
+        data: null,
+        error: {
+          error: "Invalid response",
+          message: "Failed to parse dev server response",
+        },
+      }));
+
+      if (!response.ok || result.error || !result.data) {
+        const message =
+          result.error?.message ?? "Failed to link Supabase project";
+        setError(message);
+        toast.error(message);
+        return null;
+      }
+
+      return result.data.backend;
+    },
+    [normalizedSandboxUrl],
+  );
 
   // Fetch Supabase integration status for the active team
   useEffect(() => {
@@ -218,13 +292,6 @@ export function CloudIntegrationsDropdown({
   const handleLinkSupabaseProject = useCallback(
     async (project: SupabaseProjectSummary) => {
       if (!prototypeId || !activeTeam?.id) return;
-      if (!normalizedSandboxUrl) {
-        const message =
-          "Dev server not started yet. Start the server, then try linking again.";
-        setError(message);
-        toast.error(message);
-        return;
-      }
 
       setIsLinkingProject(project.id);
       setError(null);
@@ -237,51 +304,14 @@ export function CloudIntegrationsDropdown({
           throw new Error("Not authenticated");
         }
 
-        const payload: PublicDevServerAddBackendRequest = {
-          type: "supabase",
-          project_id: project.id,
-          project_url: `https://supabase.com/dashboard/project/${project.id}`,
-          metadata: {
-            name: project.name,
-            region: project.region,
-            organization_id: project.organization_id,
-          },
-        };
-
-        const response = await fetch(
-          `${normalizedSandboxUrl}/dev-server/add-backend`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${accessToken}`,
-            },
-            body: JSON.stringify(payload),
-          },
-        );
-
-        const result: SandboxAPIResponse<
-          PublicDevServerAddBackendSuccessResponse,
-          SandboxStandardErrorResponse
-        > = await response.json().catch(() => ({
-          data: null,
-          error: {
-            error: "Invalid response",
-            message: "Failed to parse dev server response",
-          },
-        }));
-
-        if (!response.ok || result.error || !result.data) {
-          const message =
-            result.error?.message ?? "Failed to link Supabase project";
-          setError(message);
-          toast.error(message);
+        const backend = await addBackendToSandbox(project, accessToken);
+        if (!backend) {
           return;
         }
 
         // Update state to reflect the linked backend
         setSupabaseBackend({
-          projectUrl: result.data.backend.project_url ??
+          projectUrl: backend.project_url ??
             `https://supabase.com/dashboard/project/${project.id}`,
           loading: false,
         });
@@ -297,8 +327,132 @@ export function CloudIntegrationsDropdown({
         setIsLinkingProject(null);
       }
     },
-    [prototypeId, activeTeam?.id, normalizedSandboxUrl],
+    [prototypeId, activeTeam?.id, addBackendToSandbox],
   );
+
+  const handleCreateSupabaseProject = useCallback(async () => {
+    if (!prototypeId || !activeTeam?.id) return;
+    if (!normalizedSandboxUrl) {
+      const message =
+        "Dev server not started yet. Start the server, then try creating a project.";
+      setError(message);
+      toast.error(message);
+      return;
+    }
+
+    setIsCreatingProject(true);
+    setError(null);
+
+    try {
+      const session = await supabase.auth.getSession();
+      const accessToken = session.data.session?.access_token;
+
+      if (!accessToken) {
+        throw new Error("Not authenticated");
+      }
+
+      let organizationId = supabaseProjects.projects[0]?.organization_id ?? null;
+      let region = supabaseProjects.projects[0]?.region ?? "us-east-1";
+
+      if (!organizationId) {
+        const integrationResponse = await fetch(
+          `${process.env.NEXT_PUBLIC_SERVER_ENDPOINT}/connectors/supabase/integrations?teamId=${activeTeam.id}`,
+          {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+            },
+          },
+        );
+
+        const integrationResult: APIResponse<
+          SupabaseIntegrationsSuccessResponse,
+          StandardErrorResponse
+        > = await integrationResponse.json();
+
+        if (!integrationResponse.ok || integrationResult.error) {
+          throw new Error(
+            integrationResult.error?.message ??
+              "Failed to load Supabase integration",
+          );
+        }
+
+        organizationId =
+          integrationResult.data.integrations[0]?.supabase_organization_id ??
+          null;
+      }
+
+      if (!organizationId) {
+        throw new Error(
+          "No Supabase organization connected. Reconnect in team settings.",
+        );
+      }
+
+      const createResponse = await fetch(
+        `${process.env.NEXT_PUBLIC_SERVER_ENDPOINT}/connectors/supabase/create-project`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${accessToken}`,
+          },
+          body: JSON.stringify({
+            teamId: activeTeam.id,
+            organizationId,
+            name: buildProjectName(),
+            region,
+          }),
+        },
+      );
+
+      const createResult: APIResponse<
+        SupabaseCreateProjectSuccessResponse,
+        StandardErrorResponse
+      > = await createResponse.json();
+
+      if (!createResponse.ok || createResult.error || !createResult.data) {
+        const message =
+          createResult.error?.message ?? "Failed to create Supabase project";
+        setError(message);
+        toast.error(message);
+        return;
+      }
+
+      const createdProject = createResult.data.project;
+
+      const backend = await addBackendToSandbox(createdProject, accessToken);
+      if (!backend) {
+        return;
+      }
+
+      setSupabaseBackend({
+        projectUrl: backend.project_url ??
+          `https://supabase.com/dashboard/project/${createdProject.id}`,
+        loading: false,
+      });
+
+      setSupabaseProjects((prev) => ({
+        ...prev,
+        projects: [createdProject, ...prev.projects],
+      }));
+
+      toast.success("Supabase project created and linked!");
+      setIsOpen(false);
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : "Failed to create project";
+      setError(errorMessage);
+      toast.error(errorMessage);
+    } finally {
+      setIsCreatingProject(false);
+    }
+  }, [
+    prototypeId,
+    activeTeam?.id,
+    normalizedSandboxUrl,
+    supabaseProjects.projects,
+    addBackendToSandbox,
+    buildProjectName,
+  ]);
 
   // Don't render if feature flag is disabled
   if (!isSupabaseBackendConnectorEnabled) {
@@ -441,14 +595,18 @@ export function CloudIntegrationsDropdown({
                   variant="outline"
                   className="w-full border-border text-foreground hover:bg-background/50"
                   size="sm"
-                  disabled={currentUserMembership?.role === "viewer"}
-                  onClick={() => {
-                    // TODO: Implement create new Supabase project
-                    toast.info("Create new Supabase project coming soon!");
-                  }}
+                  disabled={
+                    currentUserMembership?.role === "viewer" ||
+                    isCreatingProject
+                  }
+                  onClick={handleCreateSupabaseProject}
                 >
-                  <Plus className="w-4 h-4 mr-2" />
-                  Create New Supabase
+                  {isCreatingProject ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <Plus className="w-4 h-4 mr-2" />
+                  )}
+                  {isCreatingProject ? "Creating Supabase..." : "Create New Supabase"}
                 </Button>
               </>
             )}
