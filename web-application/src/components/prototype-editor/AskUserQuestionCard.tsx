@@ -141,7 +141,7 @@ export default function AskUserQuestionCard({
   return (
     <div
       className={cn(
-        "w-full max-w-lg rounded-xl border-2 border-primary/30 bg-primary/5 p-4 shadow-sm",
+        "w-full max-w-lg rounded-xl border-2 border-primary/30 bg-card text-card-foreground p-4 shadow-sm",
         isSubmitted && "opacity-60"
       )}
     >
@@ -151,7 +151,7 @@ export default function AskUserQuestionCard({
           <div className="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center">
             <MessageSquareMore className="w-4 h-4 text-primary" />
           </div>
-          <span className="text-sm font-semibold text-foreground">
+          <span className="text-sm font-semibold text-card-foreground">
             Claude needs your input
           </span>
         </div>
@@ -179,7 +179,7 @@ export default function AskUserQuestionCard({
                 {q.header}
               </div>
             )}
-            <div className="text-sm font-medium text-foreground">
+            <div className="text-sm font-medium text-card-foreground">
               {q.question}
             </div>
 
@@ -397,7 +397,7 @@ export default function AskUserQuestionCard({
           </Button>
           <Button
             onClick={handleCancel}
-            variant="outline"
+            variant="secondary"
             size="sm"
             disabled={disabled}
           >
