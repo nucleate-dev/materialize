@@ -9,6 +9,7 @@ import {
   SandboxAPIResponse,
   StandardErrorResponse,
 } from "../../../types/BuildWorkerTypes.js";
+import { Json } from "../../../types/supabase.js";
 import { NucleateDevelopmentServerService } from "../NucleateDevelopmentServerService.js";
 import { getWorkerContext, WORK_DIR } from "../../../worker.js";
 import { checkUserHasPrototypeEditAccess } from "../../../utils/prototypeAuth.js";
@@ -220,6 +221,7 @@ export async function handleAddBackendImpl(
     !Array.isArray(metadata)
       ? (metadata as Record<string, unknown>)
       : {};
+  const sanitizedMetadataForInsert = sanitizedMetadata as Json;
 
   const { error: insertBackendError } =
     await developmentServerService.supabaseClientService
@@ -230,7 +232,7 @@ export async function handleAddBackendImpl(
         backend_type: "supabase",
         provider_project_id: project_id,
         provider_project_url: project_url ?? null,
-        metadata: sanitizedMetadata,
+        metadata: sanitizedMetadataForInsert,
       });
 
   if (insertBackendError) {

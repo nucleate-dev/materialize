@@ -3,7 +3,6 @@ import {
   HookInput,
   HookJSONOutput,
   McpServerConfig,
-  McpSdkServerConfigWithInstance,
   Options,
   PermissionMode,
   PermissionResult,
