@@ -19,11 +19,11 @@ import {
   hgetallAsDevBuild,
 } from "../../utils/cacheInteractionUtils.js";
 import { SystemLogger } from "../../loggers/SystemLogger.js";
-import { isDevServerInShutdownStages } from "../../utils/prototypeDevServerStatusUtils.js";
 import { validateJWTToken } from "../../utils/prototypeAuth.js";
 import { createInstallationToken } from "../connectors/github/githubClient.js";
 import { getValidGitHubUserAccessToken } from "../connectors/github/githubTokenUtils.js";
 import type { Database } from "../../types/supabase.js";
+import { handleStartChatImpl } from "./handleStartChat.js";
 
 export class OrchestrationService {
   private cache: GlideClient;
@@ -93,247 +93,11 @@ export class OrchestrationService {
     );
   }
 
-  /**
-   * Validates the orchestration token from the request headers
-   * @param request - The Fastify request object
-   * @param prototypeId - The prototype ID to validate against
-   * @returns The build ID if validation succeeds, null if it fails
-   */
-  private async validateOrchestrationToken(
-    request: FastifyRequest,
-    prototypeId: string,
-  ): Promise<{ isValid: boolean; buildId?: string; errorMessage?: string }> {
-    // Extract token from x-orchestration-token header
-    const providedToken = request.headers["x-orchestration-token"];
-
-    if (!providedToken || typeof providedToken !== "string") {
-      this.logger.warn("Missing orchestration token in request", {
-        prototypeId,
-      });
-      return {
-        isValid: false,
-        errorMessage: "Missing x-orchestration-token header",
-      };
-    }
-
-    if (
-      process.env.NODE_ENV === "development" &&
-      process.env.FARGATE_DEV_MODE === "true"
-    ) {
-      const devKey = CACHE_KEYS.protoDev(prototypeId);
-      const existingDevData = await hgetallAsDevBuild(this.cache, devKey);
-      if (existingDevData === null) {
-        this.logger.warn(
-          "[Development mode] No active build found for prototype",
-          {
-            prototypeId,
-          },
-        );
-        return {
-          isValid: false,
-          errorMessage:
-            "[development mode] No active build found for this prototype",
-        };
-      }
-      if (existingDevData.orchestration_token !== providedToken) {
-        this.logger.warn("Invalid orchestration token provided", {
-          prototypeId,
-          devKey,
-        });
-        return {
-          isValid: false,
-          errorMessage:
-            "[development mode] orchestration token is not valid for this prototype",
-        };
-      }
-      return {
-        isValid: true,
-      };
-    }
-
-    // Get current build ID for this prototype from cache
-    const currentBuildIdRaw = await this.cache.get(
-      CACHE_KEYS.protoCurrentBuild(prototypeId),
-    );
-
-    if (!currentBuildIdRaw) {
-      this.logger.warn("No active build found for prototype", { prototypeId });
-      return {
-        isValid: false,
-        errorMessage: "No active build found for this prototype",
-      };
-    }
-
-    // Convert GlideString to string
-    const currentBuildId = typeof currentBuildIdRaw === "string"
-      ? currentBuildIdRaw
-      : currentBuildIdRaw.toString();
-
-    // Fetch the active build from cache
-    const activeBuild = await hgetallAsActiveBuild(
-      this.cache,
-      CACHE_KEYS.activeBuild(currentBuildId),
-    );
-
-    if (!activeBuild) {
-      this.logger.error(
-        new Error("Active build data not found in cache"),
-        "Build metadata missing",
-        { prototypeId, buildId: currentBuildId },
-      );
-      return {
-        isValid: false,
-        errorMessage: "Build metadata not found",
-      };
-    }
-
-    // Validate the token
-    if (activeBuild.orchestration_token !== providedToken) {
-      this.logger.warn("Invalid orchestration token provided", {
-        prototypeId,
-        buildId: currentBuildId,
-      });
-      return {
-        isValid: false,
-        errorMessage: "Invalid orchestration token",
-      };
-    }
-
-    // Token is valid
-    this.logger.consoleLogDevOnly(
-      "info",
-      "Orchestration token validated successfully",
-      {
-        prototypeId,
-        buildId: currentBuildId,
-      },
-    );
-
-    return {
-      isValid: true,
-      buildId: currentBuildId,
-    };
-  }
-
   private async handleStartChat(
     request: FastifyRequest<{ Body: StartChatRequestBody }>,
     reply: FastifyReply,
   ): Promise<APIResponse<StartChatResponse, StandardErrorResponse>> {
-    const { prototype_id } = request.body;
-
-    // Validate orchestration token
-    const validation = await this.validateOrchestrationToken(
-      request,
-      prototype_id,
-    );
-
-    if (!validation.isValid) {
-      const statusCode =
-        validation.errorMessage === "No active build found for this prototype"
-          ? HTTP_STATUS.NOT_FOUND
-          : HTTP_STATUS.UNAUTHORIZED;
-
-      const errorResponse: StandardErrorResponse = {
-        error: statusCode === HTTP_STATUS.NOT_FOUND
-          ? "NOT_FOUND"
-          : "UNAUTHORIZED",
-        message: validation.errorMessage!,
-      };
-      reply.status(statusCode);
-      return {
-        data: null,
-        error: errorResponse,
-      };
-    }
-
-    // Check if build is in shutdown stages (cleaning or building)
-    let activeBuild;
-    let activeBuildKey;
-    if (
-      process.env.NODE_ENV === "development" &&
-      process.env.FARGATE_DEV_MODE === "true"
-    ) {
-      activeBuildKey = CACHE_KEYS.protoDev(prototype_id);
-      activeBuild = await hgetallAsDevBuild(this.cache, activeBuildKey);
-    } else {
-      activeBuildKey = CACHE_KEYS.activeBuild(validation.buildId!);
-      activeBuild = await hgetallAsActiveBuild(this.cache, activeBuildKey);
-    }
-
-    if (!activeBuild) {
-      this.logger.error(
-        new Error("Active build data not found in cache"),
-        "Build metadata missing during start chat",
-        { prototypeId: prototype_id, buildId: validation.buildId },
-      );
-      const errorResponse: StandardErrorResponse = {
-        error: "INTERNAL_SERVER_ERROR",
-        message: "Build metadata not found",
-      };
-      reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR);
-      return {
-        data: null,
-        error: errorResponse,
-      };
-    }
-
-    if (isDevServerInShutdownStages(activeBuild.status)) {
-      this.logger.warn("Cannot start chat - build is in shutdown stage", {
-        prototypeId: prototype_id,
-        buildId: validation.buildId,
-        currentStatus: activeBuild.status,
-      });
-      const errorResponse: StandardErrorResponse = {
-        error: "CONFLICT",
-        message:
-          `Cannot start chat while sandbox is in cleanup stages ${activeBuild.status}. Please get a new dev-server.`,
-      };
-      reply.status(HTTP_STATUS.CONFLICT);
-      return {
-        data: null,
-        error: errorResponse,
-      };
-    }
-
-    // Update active build state in cache
-    const currentTime = Math.floor(Date.now() / 1000);
-
-    try {
-      await this.cache.hset(activeBuildKey, {
-        status: "chatting",
-        last_touched: currentTime.toString(),
-      });
-
-      this.logger.consoleLogDevOnly("info", "Updated build state to chatting", {
-        prototypeId: prototype_id,
-        buildId: validation.buildId,
-        timestamp: currentTime,
-      });
-
-      const successResponse: StartChatResponse = {
-        success: true,
-        message: "Chat session started, build state updated to chatting",
-      };
-      return reply.status(HTTP_STATUS.OK).send({
-        data: successResponse,
-        error: null,
-      });
-    } catch (error) {
-      this.logger.error(
-        error instanceof Error ? error : new Error(String(error)),
-        "Failed to update build state to chatting",
-        { prototypeId: prototype_id, buildId: validation.buildId },
-      );
-
-      const errorResponse: StandardErrorResponse = {
-        error: "INTERNAL_SERVER_ERROR",
-        message: "Failed to update build state",
-      };
-      return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
-        data: null,
-        error: errorResponse,
-      });
-    }
+    return handleStartChatImpl(request, reply, this.cache);
   }
 
   private async handleEndChat(
@@ -343,9 +107,11 @@ export class OrchestrationService {
     const { prototype_id } = request.body;
 
     // Validate orchestration token
-    const validation = await this.validateOrchestrationToken(
+    const validation = await validateOrchestrationToken(
       request,
       prototype_id,
+      this.logger,
+      this.cache,
     );
 
     if (!validation.isValid) {
@@ -430,9 +196,11 @@ export class OrchestrationService {
     const { prototype_id } = request.body;
 
     // Step 1: Validate orchestration token
-    const validation = await this.validateOrchestrationToken(
+    const validation = await validateOrchestrationToken(
       request,
       prototype_id,
+      this.logger,
+      this.cache,
     );
 
     if (!validation.isValid) {
@@ -639,4 +407,128 @@ export class OrchestrationService {
       });
     }
   }
+}
+
+/**
+ * Validates the orchestration token from the request headers
+ * @param request - The Fastify request object
+ * @param prototypeId - The prototype ID to validate against
+ * @returns The build ID if validation succeeds, null if it fails
+ */
+export async function validateOrchestrationToken(
+  request: FastifyRequest,
+  prototypeId: string,
+  logger: SystemLogger,
+  cache: GlideClient,
+): Promise<{ isValid: boolean; buildId?: string; errorMessage?: string }> {
+  // Extract token from x-orchestration-token header
+  const providedToken = request.headers["x-orchestration-token"];
+
+  if (!providedToken || typeof providedToken !== "string") {
+    logger.warn("Missing orchestration token in request", {
+      prototypeId,
+    });
+    return {
+      isValid: false,
+      errorMessage: "Missing x-orchestration-token header",
+    };
+  }
+
+  if (
+    process.env.NODE_ENV === "development" &&
+    process.env.FARGATE_DEV_MODE === "true"
+  ) {
+    const devKey = CACHE_KEYS.protoDev(prototypeId);
+    const existingDevData = await hgetallAsDevBuild(cache, devKey);
+    if (existingDevData === null) {
+      logger.warn(
+        "[Development mode] No active build found for prototype",
+        {
+          prototypeId,
+        },
+      );
+      return {
+        isValid: false,
+        errorMessage:
+          "[development mode] No active build found for this prototype",
+      };
+    }
+    if (existingDevData.orchestration_token !== providedToken) {
+      logger.warn("Invalid orchestration token provided", {
+        prototypeId,
+        devKey,
+      });
+      return {
+        isValid: false,
+        errorMessage:
+          "[development mode] orchestration token is not valid for this prototype",
+      };
+    }
+    return {
+      isValid: true,
+    };
+  }
+
+  // Get current build ID for this prototype from cache
+  const currentBuildIdRaw = await cache.get(
+    CACHE_KEYS.protoCurrentBuild(prototypeId),
+  );
+
+  if (!currentBuildIdRaw) {
+    logger.warn("No active build found for prototype", { prototypeId });
+    return {
+      isValid: false,
+      errorMessage: "No active build found for this prototype",
+    };
+  }
+
+  // Convert GlideString to string
+  const currentBuildId = typeof currentBuildIdRaw === "string"
+    ? currentBuildIdRaw
+    : currentBuildIdRaw.toString();
+
+  // Fetch the active build from cache
+  const activeBuild = await hgetallAsActiveBuild(
+    cache,
+    CACHE_KEYS.activeBuild(currentBuildId),
+  );
+
+  if (!activeBuild) {
+    logger.error(
+      new Error("Active build data not found in cache"),
+      "Build metadata missing",
+      { prototypeId, buildId: currentBuildId },
+    );
+    return {
+      isValid: false,
+      errorMessage: "Build metadata not found",
+    };
+  }
+
+  // Validate the token
+  if (activeBuild.orchestration_token !== providedToken) {
+    logger.warn("Invalid orchestration token provided", {
+      prototypeId,
+      buildId: currentBuildId,
+    });
+    return {
+      isValid: false,
+      errorMessage: "Invalid orchestration token",
+    };
+  }
+
+  // Token is valid
+  logger.consoleLogDevOnly(
+    "info",
+    "Orchestration token validated successfully",
+    {
+      prototypeId,
+      buildId: currentBuildId,
+    },
+  );
+
+  return {
+    isValid: true,
+    buildId: currentBuildId,
+  };
 }
