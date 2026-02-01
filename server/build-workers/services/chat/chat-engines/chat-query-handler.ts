@@ -698,8 +698,7 @@ export class ChatQueryHandler implements ChatEngine {
       ),
     };
 
-    let allowAllTools = false;
-    const supabaseToolWildcard = "mcp__supabase__*";
+    // Configure Supabase MCP server if backend is configured
     const backend = this.devServerService.prototypeBackend;
     if (backend?.type === "supabase") {
       const accessToken = process.env.USER_SUPABASE_OAUTH_TOKEN;
@@ -716,27 +715,11 @@ export class ChatQueryHandler implements ChatEngine {
             Authorization: `Bearer ${accessToken}`,
           },
         };
-        // Log detailed configuration for debugging MCP connection issues
-        baseLogger.info("Supabase MCP server configuration", {
+        baseLogger.info("Supabase MCP server configured", {
           projectId: backend.projectId,
           mcpUrl: supabaseMcpUrl,
-          transportType: "http",
           features: decodeURIComponent(features),
-          accessTokenLength: accessToken.length,
-          accessTokenPrefix: accessToken.substring(0, 10) + "...",
-          allowWildcard: supabaseToolWildcard,
         });
-        baseLogger.consoleLogDevOnly(
-          "info",
-          "Supabase MCP server attached",
-          {
-            projectId: backend.projectId,
-            hasAccessToken: Boolean(accessToken),
-            allowAllTools: true,
-            allowWildcard: supabaseToolWildcard,
-          },
-        );
-        allowAllTools = true;
       } else {
         baseLogger.warn(
           "Supabase backend configured but MCP not attached (missing token or project ID)",
@@ -793,17 +776,16 @@ export class ChatQueryHandler implements ChatEngine {
       ? agentConfigs
       : undefined;
 
+    // Build allowed tools list, adding supabase wildcard if MCP server is configured
     const baseAllowedTools = options?.allowedTools ?? allowedToolsDefault;
-    const resolvedAllowedTools = allowAllTools
-      ? Array.from(new Set([...baseAllowedTools, supabaseToolWildcard]))
+    const resolvedAllowedTools = mcpServers["supabase"]
+      ? [...baseAllowedTools, "mcp__supabase__*"]
       : baseAllowedTools;
+
     baseLogger.consoleLogDevOnly("info", "Chat MCP configuration", {
       mcpServerNames: Object.keys(mcpServers),
-      allowAllTools,
-      allowedToolsCount: resolvedAllowedTools?.length ?? 0,
-      includesSupabaseWildcard: resolvedAllowedTools?.includes(
-        supabaseToolWildcard,
-      ),
+      allowedToolsCount: resolvedAllowedTools.length,
+      hasSupabaseMcp: !!mcpServers["supabase"],
     });
 
     return {
