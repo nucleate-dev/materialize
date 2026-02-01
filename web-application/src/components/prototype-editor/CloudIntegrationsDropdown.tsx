@@ -31,7 +31,7 @@ import type {
   SandboxAPIResponse,
   StandardErrorResponse as SandboxStandardErrorResponse,
 } from "@/lib/types/SandboxAPITypes";
-import { Cloud, ExternalLink, Loader2, Plus } from "lucide-react";
+import { AlertTriangle, Cloud, ExternalLink, Loader2, Plus } from "lucide-react";
 import { usePostHog } from "posthog-js/react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -78,6 +78,7 @@ export function CloudIntegrationsDropdown({
   const [error, setError] = useState<string | null>(null);
   const [isLinkingProject, setIsLinkingProject] = useState<string | null>(null);
   const [isCreatingProject, setIsCreatingProject] = useState(false);
+  const [isNewlyCreatedProject, setIsNewlyCreatedProject] = useState(false);
 
   const buildProjectName = useCallback(() => {
     const base = prototypeId ? `nucleate-${prototypeId}` : "nucleate-project";
@@ -435,7 +436,11 @@ export function CloudIntegrationsDropdown({
         projects: [createdProject, ...prev.projects],
       }));
 
-      toast.success("Supabase project created and linked!");
+      setIsNewlyCreatedProject(true);
+      toast.success(
+        "Supabase project created! It may take a few minutes for Supabase to fully provision your database. Check the Supabase console for progress.",
+        { duration: 8000 },
+      );
       setIsOpen(false);
     } catch (error) {
       const errorMessage =
@@ -619,6 +624,15 @@ export function CloudIntegrationsDropdown({
                   Supabase project linked to this prototype.
                 </AlertDescription>
               </Alert>
+              {isNewlyCreatedProject && (
+                <Alert className="border-warning/30 bg-warning/10">
+                  <AlertTriangle className="w-3 h-3 text-warning" />
+                  <AlertDescription className="text-xs text-warning">
+                    Supabase may take a few minutes to fully provision your
+                    database. Follow the progress in the Supabase console.
+                  </AlertDescription>
+                </Alert>
+              )}
               <Button
                 className="w-full bg-white text-black hover:bg-white/90 font-medium"
                 size="sm"
