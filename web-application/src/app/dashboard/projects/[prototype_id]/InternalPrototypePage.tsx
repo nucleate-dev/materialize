@@ -24,7 +24,7 @@ import FileTree from "@/components/prototype-editor/FileTree";
 import MaterializeRenderSection, {
   MaterializeRenderSectionRef,
   type MobileScreenConfig,
-} from "@/components/prototype-editor/MaterializeRenderSection";
+} from "@/components/prototype-editor/NucleateRenderSection";
 import ProPlanUpsellModal from "@/components/prototype-editor/ProPlanUpsellModal";
 import { SurveyOverlay } from "@/components/survey/SurveyOverlay";
 import {
@@ -1378,8 +1378,8 @@ Provide actionable recommendations.`,
         {!isChatCollapsed && (
           <div
             className={`${isMobile
-                ? `${activePanel === "chat" ? "flex" : "hidden"} w-full h-full`
-                : "flex"
+              ? `${activePanel === "chat" ? "flex" : "hidden"} w-full h-full`
+              : "flex"
               } flex-col relative z-10 bg-[#0B0C0E] overflow-hidden`}
             style={
               isMobile
@@ -1456,8 +1456,8 @@ Provide actionable recommendations.`,
         {/* Right Panel - Preview/Code Toggle */}
         <div
           className={`${isMobile
-              ? `${activePanel === "preview" ? "flex" : "hidden"} w-full h-full`
-              : "flex"
+            ? `${activePanel === "preview" ? "flex" : "hidden"} w-full h-full`
+            : "flex"
             } flex-col relative z-10 bg-[#0B0C0E] overflow-hidden`}
           style={
             isMobile

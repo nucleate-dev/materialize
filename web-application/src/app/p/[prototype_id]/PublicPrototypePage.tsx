@@ -4,19 +4,15 @@ import { RenderStatus } from "@/app/dashboard/projects/[prototype_id]/InternalPr
 import { supabase } from "@/ClientConstants";
 import Loader from "@/components/dashboard/Loader";
 import DashboardSidebar from "@/components/dashboard/Sidebar";
-import MaterializeRenderSection, {
-  type MaterializeRenderSectionRef,
-} from "@/components/prototype-editor/MaterializeRenderSection";
 import type {
   CanvasStateData,
   PrototypeContextData,
 } from "@/components/prototype-editor/canvas/types";
+import MaterializeRenderSection, {
+  type MaterializeRenderSectionRef,
+} from "@/components/prototype-editor/NucleateRenderSection";
 import PublicPrototypeHeader from "@/components/prototype-editor/PublicPrototypeHeader";
 import { Button } from "@/components/ui/button";
-import type {
-  PublicDisplayConfig,
-  PublicDisplayConfigScreen,
-} from "@/lib/types/prototypes";
 import {
   Card,
   CardContent,
@@ -29,8 +25,11 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { useUserTeams } from "@/hooks/useUserTeams";
-import { cn } from "@/lib/classNames";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
+import type {
+  PublicDisplayConfig,
+  PublicDisplayConfigScreen,
+} from "@/lib/types/prototypes";
 import type {
   APIResponse,
   FetchViewingUrlRequestBody,
@@ -100,7 +99,7 @@ interface MobileScreenConfig {
 }
 
 export default function PrototypePage() {
-  const params = useParams<{ prototype_id: string }>();
+  const params = useParams<{ prototype_id: string; }>();
   const prototypeId = params?.prototype_id;
   const logger = useProductLogger();
   const posthog = usePostHog();
