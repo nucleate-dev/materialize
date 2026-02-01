@@ -36,6 +36,8 @@ import { PublicDisplayConfigScreen } from "@/lib/types/prototypes";
 import type {
   APIResponse,
   StandardErrorResponse,
+  SupabaseProjectSummary,
+  SupabaseProjectsSuccessResponse,
 } from "@/lib/types/serverAPITypes";
 import { Database } from "@/lib/types/supabase";
 import { getBulkAssetSignedUrls } from "@/lib/utils/assetUtils";
@@ -52,6 +54,7 @@ import { IsUserPlanSubscribed } from "@/lib/utils/payments/SubscriptionManagemen
 import {
   Check,
   ChevronDown,
+  Cloud,
   Code2,
   Copy,
   Download,
@@ -285,6 +288,8 @@ interface MaterializeRenderSectionProps {
   onScreenAIAction?: (screenId: number, path: string, action: AIActionType, screenshotDataUrl?: string) => void;
   // Global AI action callback - canvas-wide actions like PRD generation
   onGlobalAIAction?: (action: GlobalAIAction, screenshotDataUrls?: string[]) => void;
+  // Callback to open team settings dialog (for Supabase integration)
+  onOpenTeamSettings?: (tab: "supabase-backend") => void;
 }
 
 export interface MaterializeRenderSectionRef {
@@ -345,6 +350,7 @@ const MaterializeRenderSection = forwardRef<
       showToolbar = true,
       onScreenAIAction,
       onGlobalAIAction,
+      onOpenTeamSettings,
     },
     ref,
   ) => {
@@ -436,6 +442,224 @@ const MaterializeRenderSection = forwardRef<
 
       fetchGithubRepository();
     }, [prototypeId, logger]);
+
+    // Check if supabase-backend-connector feature flag is enabled
+    const isSupabaseBackendConnectorEnabled =
+      posthog?.isFeatureEnabled("supabase-backend-connector") ?? false;
+
+    // Supabase integration state (team has connected Supabase)
+    const [supabaseIntegration, setSupabaseIntegration] = useState<{
+      connected: boolean;
+      loading: boolean;
+    }>({ connected: false, loading: true });
+
+    // Supabase backend state for this prototype
+    const [supabaseBackend, setSupabaseBackend] = useState<{
+      projectUrl: string | null;
+      loading: boolean;
+    }>({ projectUrl: null, loading: true });
+
+    // Available Supabase projects for linking
+    const [supabaseProjects, setSupabaseProjects] = useState<{
+      projects: SupabaseProjectSummary[];
+      loading: boolean;
+    }>({ projects: [], loading: false });
+
+    // Supabase dropdown state
+    const [isSupabaseDropdownOpen, setIsSupabaseDropdownOpen] = useState(false);
+    const [supabaseError, setSupabaseError] = useState<string | null>(null);
+    const [isLinkingProject, setIsLinkingProject] = useState<string | null>(null);
+
+    // Fetch Supabase integration status for the active team
+    useEffect(() => {
+      const fetchSupabaseIntegration = async () => {
+        if (!activeTeam?.id || !isSupabaseBackendConnectorEnabled) {
+          setSupabaseIntegration({ connected: false, loading: false });
+          return;
+        }
+
+        try {
+          const { data, error } = await supabase
+            .from("connectors_supabase_integrations")
+            .select("id, status")
+            .eq("team_id", activeTeam.id)
+            .eq("status", "active")
+            .maybeSingle();
+
+          if (error) {
+            logger.debug("error", "Failed to fetch Supabase integration", {
+              error,
+            });
+            setSupabaseIntegration({ connected: false, loading: false });
+            return;
+          }
+
+          const isConnected = !!data;
+          setSupabaseIntegration({ connected: isConnected, loading: false });
+        } catch (error) {
+          logger.debug("error", "Error checking Supabase integration", { error });
+          setSupabaseIntegration({ connected: false, loading: false });
+        }
+      };
+
+      fetchSupabaseIntegration();
+    }, [activeTeam?.id, isSupabaseBackendConnectorEnabled, logger]);
+
+    // Fetch Supabase backend for this prototype
+    useEffect(() => {
+      const fetchSupabaseBackend = async () => {
+        if (!prototypeId || !isSupabaseBackendConnectorEnabled) {
+          setSupabaseBackend({ projectUrl: null, loading: false });
+          return;
+        }
+
+        try {
+          const { data, error } = await supabase
+            .from("prototype_backends")
+            .select("provider_project_url")
+            .eq("prototype_id", prototypeId)
+            .eq("backend_type", "supabase")
+            .maybeSingle();
+
+          if (error) {
+            logger.debug("error", "Failed to fetch Supabase backend", {
+              error,
+            });
+            setSupabaseBackend({ projectUrl: null, loading: false });
+            return;
+          }
+
+          setSupabaseBackend({
+            projectUrl: data?.provider_project_url ?? null,
+            loading: false,
+          });
+        } catch (error) {
+          logger.debug("error", "Error checking Supabase backend", { error });
+          setSupabaseBackend({ projectUrl: null, loading: false });
+        }
+      };
+
+      fetchSupabaseBackend();
+    }, [prototypeId, isSupabaseBackendConnectorEnabled, logger]);
+
+    // Fetch Supabase projects when dropdown is opened and integration is connected but no backend
+    useEffect(() => {
+      const fetchSupabaseProjects = async () => {
+        if (
+          !isSupabaseDropdownOpen ||
+          !activeTeam?.id ||
+          !supabaseIntegration.connected ||
+          supabaseBackend.projectUrl
+        ) {
+          return;
+        }
+
+        setSupabaseProjects({ projects: [], loading: true });
+
+        try {
+          const session = await supabase.auth.getSession();
+          const accessToken = session.data.session?.access_token;
+
+          if (!accessToken) {
+            setSupabaseProjects({ projects: [], loading: false });
+            return;
+          }
+
+          const response = await fetch(
+            `${process.env.NEXT_PUBLIC_SERVER_ENDPOINT}/connectors/supabase/projects?teamId=${activeTeam.id}`,
+            {
+              headers: {
+                Authorization: `Bearer ${accessToken}`,
+              },
+            },
+          );
+
+          if (!response.ok) {
+            throw new Error("Failed to fetch Supabase projects");
+          }
+
+          const result: APIResponse<
+            SupabaseProjectsSuccessResponse,
+            StandardErrorResponse
+          > = await response.json();
+
+          if (result.data) {
+            setSupabaseProjects({
+              projects: result.data.projects,
+              loading: false,
+            });
+          } else {
+            throw new Error(result.error?.message || "Failed to fetch projects");
+          }
+        } catch (error) {
+          logger.debug("error", "Error fetching Supabase projects", {
+            error: error instanceof Error ? error.message : String(error),
+          });
+          setSupabaseProjects({ projects: [], loading: false });
+        }
+      };
+
+      fetchSupabaseProjects();
+    }, [
+      isSupabaseDropdownOpen,
+      activeTeam?.id,
+      supabaseIntegration.connected,
+      supabaseBackend.projectUrl,
+      logger,
+    ]);
+
+    // Handle linking a Supabase project to this prototype
+    const handleLinkSupabaseProject = useCallback(
+      async (project: SupabaseProjectSummary) => {
+        if (!prototypeId || !activeTeam?.id) return;
+
+        setIsLinkingProject(project.id);
+        setSupabaseError(null);
+
+        try {
+          const session = await supabase.auth.getSession();
+          const accessToken = session.data.session?.access_token;
+
+          if (!accessToken) {
+            throw new Error("Not authenticated");
+          }
+
+          // Insert the backend record
+          const { error } = await supabase.from("prototype_backends").insert({
+            prototype_id: prototypeId,
+            backend_type: "supabase",
+            provider_project_id: project.id,
+            provider_project_url: `https://supabase.com/dashboard/project/${project.id}`,
+            metadata: {
+              name: project.name,
+              region: project.region,
+              organization_id: project.organization_id,
+            },
+          });
+
+          if (error) {
+            throw new Error(error.message);
+          }
+
+          // Update state to reflect the linked backend
+          setSupabaseBackend({
+            projectUrl: `https://supabase.com/dashboard/project/${project.id}`,
+            loading: false,
+          });
+
+          toast.success("Supabase project linked successfully!");
+          setIsSupabaseDropdownOpen(false);
+        } catch (error) {
+          const errorMessage =
+            error instanceof Error ? error.message : "Failed to link project";
+          setSupabaseError(errorMessage);
+          toast.error(`Failed to link project: ${errorMessage}`);
+        } finally {
+          setIsLinkingProject(null);
+        }
+      },
+      [prototypeId, activeTeam?.id],
+    );
 
     // Check if canvas preview mode is enabled (infinite canvas like Figma)
     const isCanvasPreviewEnabled =
@@ -3864,6 +4088,212 @@ const MaterializeRenderSection = forwardRef<
                       </Tooltip>
                     </TooltipProvider>
                   ))}
+
+                {/* Cloud Integrations (Supabase) - Icon only, feature-flagged */}
+                {!isReadOnlyView && isSupabaseBackendConnectorEnabled && (
+                  <DropdownMenu
+                    open={isSupabaseDropdownOpen}
+                    onOpenChange={setIsSupabaseDropdownOpen}
+                  >
+                    <TooltipProvider delayDuration={200}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 bg-accent border border-border text-muted-foreground hover:text-foreground hover:border-border/80 hover:bg-accent/80 transition-all"
+                              disabled={!prototypeId}
+                            >
+                              <Cloud className="w-4 h-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Cloud integrations</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                    <DropdownMenuContent
+                      align="end"
+                      className="w-80 bg-accent border-border text-foreground p-4"
+                    >
+                      <div className="space-y-3">
+                        <h3 className="text-sm font-semibold text-foreground">
+                          Supabase Backend
+                        </h3>
+                        <p className="text-xs text-muted-foreground leading-relaxed">
+                          Connect your Supabase project to enable backend
+                          integrations.
+                        </p>
+
+                        {supabaseError && (
+                          <Alert className="border-rose-500/20 bg-rose-500/10">
+                            <AlertDescription className="text-xs text-rose-600 dark:text-rose-400">
+                              {supabaseError}
+                            </AlertDescription>
+                          </Alert>
+                        )}
+
+                        {/* Case 1: No Supabase integration connected */}
+                        {!supabaseIntegration.loading &&
+                          !supabaseIntegration.connected && (
+                            <>
+                              {currentUserMembership?.role === "viewer" && (
+                                <Alert className="border-warning/30 bg-warning/10">
+                                  <AlertDescription className="text-xs text-foreground">
+                                    Please reach out to a team admin to connect
+                                    Supabase first.
+                                  </AlertDescription>
+                                </Alert>
+                              )}
+                              <Button
+                                className="w-full bg-white text-black hover:bg-white/90 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                                size="sm"
+                                disabled={
+                                  currentUserMembership?.role === "viewer"
+                                }
+                                onClick={() => {
+                                  if (onOpenTeamSettings) {
+                                    onOpenTeamSettings("supabase-backend");
+                                    setIsSupabaseDropdownOpen(false);
+                                  }
+                                }}
+                              >
+                                <Cloud className="w-4 h-4 mr-2" />
+                                Connect Supabase
+                              </Button>
+                            </>
+                          )}
+
+                        {/* Case 2: Supabase connected but no backend linked to this prototype */}
+                        {!supabaseIntegration.loading &&
+                          supabaseIntegration.connected &&
+                          !supabaseBackend.loading &&
+                          !supabaseBackend.projectUrl && (
+                            <>
+                              {currentUserMembership?.role === "viewer" && (
+                                <Alert className="border-warning/30 bg-warning/10">
+                                  <AlertDescription className="text-xs text-foreground">
+                                    You need edit permissions to link a Supabase
+                                    project.
+                                  </AlertDescription>
+                                </Alert>
+                              )}
+
+                              {supabaseProjects.loading ? (
+                                <div className="flex items-center justify-center py-4">
+                                  <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+                                </div>
+                              ) : supabaseProjects.projects.length > 0 ? (
+                                <div className="space-y-2">
+                                  <p className="text-xs text-muted-foreground font-medium">
+                                    Select a project to link:
+                                  </p>
+                                  <div className="max-h-48 overflow-y-auto space-y-1">
+                                    {supabaseProjects.projects.map((project) => (
+                                      <Button
+                                        key={project.id}
+                                        variant="ghost"
+                                        className="w-full justify-start text-left h-auto py-2 px-3 hover:bg-background/50"
+                                        disabled={
+                                          currentUserMembership?.role ===
+                                            "viewer" ||
+                                          isLinkingProject === project.id
+                                        }
+                                        onClick={() =>
+                                          handleLinkSupabaseProject(project)
+                                        }
+                                      >
+                                        <div className="flex items-center gap-2 w-full">
+                                          {isLinkingProject === project.id ? (
+                                            <Loader2 className="w-4 h-4 animate-spin shrink-0" />
+                                          ) : (
+                                            <Cloud className="w-4 h-4 shrink-0 text-muted-foreground" />
+                                          )}
+                                          <div className="flex-1 min-w-0">
+                                            <p className="text-sm font-medium truncate">
+                                              {project.name}
+                                            </p>
+                                            <p className="text-xs text-muted-foreground">
+                                              {project.region}
+                                            </p>
+                                          </div>
+                                        </div>
+                                      </Button>
+                                    ))}
+                                  </div>
+                                  <DropdownMenuSeparator className="bg-border" />
+                                </div>
+                              ) : (
+                                <Alert className="border-blue-500/20 bg-blue-500/10">
+                                  <AlertDescription className="text-xs text-blue-600 dark:text-blue-400">
+                                    No Supabase projects found. Create one in
+                                    your Supabase dashboard.
+                                  </AlertDescription>
+                                </Alert>
+                              )}
+
+                              <Button
+                                variant="outline"
+                                className="w-full border-border text-foreground hover:bg-background/50"
+                                size="sm"
+                                disabled={
+                                  currentUserMembership?.role === "viewer"
+                                }
+                                onClick={() => {
+                                  // TODO: Implement create new Supabase project
+                                  toast.info(
+                                    "Create new Supabase project coming soon!",
+                                  );
+                                }}
+                              >
+                                <Plus className="w-4 h-4 mr-2" />
+                                Create New Supabase
+                              </Button>
+                            </>
+                          )}
+
+                        {/* Case 3: Supabase backend linked to this prototype */}
+                        {!supabaseBackend.loading &&
+                          supabaseBackend.projectUrl && (
+                            <>
+                              <Alert className="border-success/30 bg-success/10">
+                                <AlertDescription className="text-xs text-success">
+                                  Supabase project linked to this prototype.
+                                </AlertDescription>
+                              </Alert>
+                              <Button
+                                className="w-full bg-white text-black hover:bg-white/90 font-medium"
+                                size="sm"
+                                onClick={() => {
+                                  if (supabaseBackend.projectUrl) {
+                                    window.open(
+                                      supabaseBackend.projectUrl,
+                                      "_blank",
+                                      "noopener,noreferrer",
+                                    );
+                                    setIsSupabaseDropdownOpen(false);
+                                  }
+                                }}
+                              >
+                                <ExternalLink className="w-4 h-4 mr-2" />
+                                View Supabase Project
+                              </Button>
+                            </>
+                          )}
+
+                        {/* Loading state */}
+                        {(supabaseIntegration.loading ||
+                          supabaseBackend.loading) && (
+                          <div className="flex items-center justify-center py-4">
+                            <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+                          </div>
+                        )}
+                      </div>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
 
                 {/* GitHub - Icon only, always visible */}
                 {!isReadOnlyView && (
