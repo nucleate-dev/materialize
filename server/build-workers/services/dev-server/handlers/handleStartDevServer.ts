@@ -403,6 +403,92 @@ export async function handleStartDevServerImpl(
     await addAllFilesToFirstCommit(developmentServerService);
   }
 
+  // 2.5 Fetch prototype backend and hydrate backend state (if configured)
+  const { data: prototypeBackend, error: prototypeBackendError } =
+    await developmentServerService.supabaseClientService
+      .getClient()
+      .from("prototype_backends")
+      .select(
+        "backend_type, provider_project_id, provider_project_url, metadata",
+      )
+      .eq("prototype_id", prototype_id)
+      .maybeSingle();
+
+  if (prototypeBackendError) {
+    request.log2.error(
+      prototypeBackendError,
+      "Failed to fetch prototype backend",
+      { prototypeId: prototype_id },
+    );
+    reply.code(HTTP_STATUS.INTERNAL_SERVER_ERROR);
+    return {
+      data: null,
+      error: {
+        error: "Failed to fetch prototype backend",
+        message: prototypeBackendError.message,
+      },
+    };
+  }
+
+  if (prototypeBackend) {
+    let authenticationKey: string | null = null;
+    if (prototypeBackend.backend_type === "supabase") {
+      const userJwtToken = developmentServerService.supabaseClientService
+        .getCurrentJwtToken();
+      if (!userJwtToken) {
+        reply.code(HTTP_STATUS.INTERNAL_SERVER_ERROR);
+        return {
+          data: null,
+          error: {
+            error: "Failed to get Supabase OAuth token",
+            message: "User JWT token not available",
+          },
+        };
+      }
+
+      try {
+        const supabaseToken = await developmentServerService
+          .sandboxOrchestrationInitiatorService.getSupabaseOAuthToken(
+            prototype_id,
+            userJwtToken,
+          );
+        authenticationKey = supabaseToken.access_token;
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        request.log2.error(
+          new Error(message),
+          "Failed to get Supabase OAuth token",
+          { prototypeId: prototype_id },
+        );
+        reply.code(HTTP_STATUS.INTERNAL_SERVER_ERROR);
+        return {
+          data: null,
+          error: {
+            error: "Failed to get Supabase OAuth token",
+            message,
+          },
+        };
+      }
+    }
+
+    const metadata =
+      prototypeBackend.metadata &&
+      typeof prototypeBackend.metadata === "object" &&
+      !Array.isArray(prototypeBackend.metadata)
+        ? (prototypeBackend.metadata as Record<string, unknown>)
+        : {};
+
+    developmentServerService.setPrototypeBackend({
+      type: prototypeBackend.backend_type,
+      projectId: prototypeBackend.provider_project_id,
+      projectUrl: prototypeBackend.provider_project_url,
+      metadata,
+      authenticationKey,
+    });
+  } else {
+    developmentServerService.setPrototypeBackend(null);
+  }
+
   // 3. Start the development server
   developmentServerService.developmentServerState.devServerStatus =
     DevServerStatus.STARTING;
