@@ -89,6 +89,12 @@ function getPrototypeBackendPromptAddendum(
 - Prefer read-only checks first; summarize impact and provide a safe plan before making changes.
 - Never expose or log secrets or access tokens.
 - If you need environment variables, ask the user to add them in project settings. Client env vars are written to \${WORK_DIR}/client/.env, and backend env vars are written to \${WORK_DIR}/backend/supabase/functions/.env.
+- Any backend changes must be written to the appropriate backend folder:
+  - Serverless functions: write files under \${WORK_DIR}/backend/supabase/functions.
+  - Migrations: write files under \${WORK_DIR}/backend/supabase/migrations.
+  - Standalone SQL snippets: write files under \${WORK_DIR}/backend/supabase/sql.
+- CRITICAL: Do not make backend serverless function changes until the client-side files are written first, to keep the repo in sync.
+- After all file changes are written, you may use MCP tools to push changes to the database.
 </backend_guidance>
 `;
 
