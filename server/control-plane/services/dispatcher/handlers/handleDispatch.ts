@@ -60,7 +60,6 @@ export async function handleDispatchImpl(
       cache,
       jwt,
       log2,
-      idleContainerAllocationSystem,
     );
   }
   // ------------------------------------------------------------------------------------------------
@@ -434,7 +433,6 @@ async function handleDispatchForSandboxSimulatorFlow(
   cache: GlideClient,
   jwt: string,
   log2: SystemLogger,
-  idleContainerAllocationSystem: IdleContainerAllocationSystemService,
 ): Promise<APIResponse<DispatchSuccessResponse, StandardErrorResponse>> {
   const devKey = CACHE_KEYS.protoDev(prototype_id);
   const existingDevData = await hgetallAsDevBuild(cache, devKey);
