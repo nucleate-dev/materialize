@@ -4,6 +4,7 @@ import { SystemLogger } from "../loggers/SystemLogger.js";
 import {
   APIResponse,
   EndChatResponse,
+  FetchGitHubSourceRepoSuccessResponse,
   GetSupabaseOAuthTokenSuccessResponse,
   StandardErrorResponse,
   StartChatResponse,
@@ -222,6 +223,101 @@ export class SandboxOrchestrationInitiatorService {
         error instanceof Error ? error : new Error(String(error)),
         "Failed to get Supabase OAuth token",
         { prototypeId },
+      );
+
+      throw error;
+    }
+  }
+
+  /**
+   * Fetch GitHub source repository details and an installation token.
+   *
+   * @param prototypeId - The prototype ID to fetch source repository details for
+   * @param teamId - The team ID associated with the prototype
+   * @param githubRepoId - The GitHub repository ID to fetch
+   * @param userJwtToken - The user's JWT token (get fresh token from SupabaseClientService)
+   * @returns The source repository details and installation token
+   * @throws Error if the request fails or tokens are not set
+   */
+  public async fetchGitHubSourceRepo(
+    prototypeId: string,
+    teamId: string,
+    githubRepoId: number,
+    userJwtToken: string,
+  ): Promise<FetchGitHubSourceRepoSuccessResponse> {
+    if (!this.orchestrationToken) {
+      throw new Error("Orchestration token not set");
+    }
+
+    const serverEndpoint = process.env.NUCLEATE_SERVER_ENDPOINT;
+    if (!serverEndpoint) {
+      throw new Error("NUCLEATE_SERVER_ENDPOINT not set in environment");
+    }
+
+    try {
+      const response = await axios.post<
+        APIResponse<FetchGitHubSourceRepoSuccessResponse, StandardErrorResponse>
+      >(
+        `${serverEndpoint}/orchestration/fetch-github-source-repo`,
+        {
+          prototype_id: prototypeId,
+          team_id: teamId,
+          github_repo_id: githubRepoId,
+        },
+        {
+          headers: {
+            "x-orchestration-token": this.orchestrationToken,
+            Authorization: `Bearer ${userJwtToken}`,
+            "Content-Type": "application/json",
+          },
+          timeout: 10000, // 10 second timeout
+        },
+      );
+
+      const payload = response.data;
+
+      if (payload.error) {
+        throw new Error(
+          `Failed to fetch GitHub source repo: ${payload.error.message}`,
+        );
+      }
+
+      if (!payload.data) {
+        throw new Error(
+          "Failed to fetch GitHub source repo: No data returned",
+        );
+      }
+
+      return payload.data;
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        const errorMessage =
+          error.response?.data?.error?.message ||
+          error.message ||
+          "Unknown error";
+        const statusCode = error.response?.status;
+
+        this.logger.error(
+          new Error(errorMessage),
+          "Failed to fetch GitHub source repo",
+          {
+            prototypeId,
+            teamId,
+            githubRepoId,
+            statusCode,
+            errorData: error.response?.data,
+          },
+        );
+
+        throw new Error(
+          `Failed to fetch GitHub source repo: ${errorMessage} (status: ${statusCode})`,
+        );
+      }
+
+      this.logger.error(
+        error instanceof Error ? error : new Error(String(error)),
+        "Failed to fetch GitHub source repo",
+        { prototypeId, teamId, githubRepoId },
       );
 
       throw error;
