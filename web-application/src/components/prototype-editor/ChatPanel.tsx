@@ -35,7 +35,7 @@ import {
   useRef,
   useState,
 } from "react";
-import ClaudeCodePanelUI from "./ClaudeCodePanelUI";
+import ClaudeCodePanelUI from "./ChatPanelUI";
 
 type Prototype = Database["public"]["Tables"]["prototypes"]["Row"];
 export type PrototypeChatSession =
@@ -65,7 +65,7 @@ interface ClaudeCodePanelProps {
   onPrototypeUpdate?: (updatedPrototype: Prototype) => void;
   currentRenderStatus?: RenderStatus;
   currentViewingPath?: string;
-  visibleScreens?: Array<{ id: number; path: string }>;
+  visibleScreens?: Array<{ id: number; path: string; }>;
   previewMode?: "mobile" | "web" | "tablet";
   layoutMode?: "grid" | "freeform";
   screenOrder?: number[];
@@ -120,15 +120,15 @@ export interface AskUserQuestionData {
 export interface Message {
   id: string;
   type:
-    | "user"
-    | "assistant"
-    | "system"
-    | "error"
-    | "tool"
-    | "thinking"
-    | "usage"
-    | "design_spec"
-    | "ask_user_question";
+  | "user"
+  | "assistant"
+  | "system"
+  | "error"
+  | "tool"
+  | "thinking"
+  | "usage"
+  | "design_spec"
+  | "ask_user_question";
   content: string;
   timestamp: number;
   toolName?: string;
@@ -232,10 +232,10 @@ const ClaudeCodePanel = forwardRef<ClaudeCodePanelRef, ClaudeCodePanelProps>(
     const { userRow: currentUser } = useCustomUserRow();
     const currentUserInfo: MessageUser | undefined = currentUser
       ? {
-          id: currentUser.id,
-          name: currentUser.name,
-          avatar_url: currentUser.avatar_url,
-        }
+        id: currentUser.id,
+        name: currentUser.name,
+        avatar_url: currentUser.avatar_url,
+      }
       : undefined;
 
     // Always use external WebSocket (InternalPrototypePage is the source of truth)
@@ -266,7 +266,7 @@ const ClaudeCodePanel = forwardRef<ClaudeCodePanelRef, ClaudeCodePanelProps>(
     const [queuedImages, setQueuedImages] = useState<UploadedImage[]>([]);
     // State for programmatic messages (from AI actions)
     const [pendingProgrammaticMessage, setPendingProgrammaticMessage] =
-      useState<{ message: string; imageDataUrl?: string } | null>(null);
+      useState<{ message: string; imageDataUrl?: string; } | null>(null);
     const hasProcessedChatIntent = useRef(false);
     const queueTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     const [showScrollToBottom, setShowScrollToBottom] = useState(false);
@@ -364,7 +364,7 @@ const ClaudeCodePanel = forwardRef<ClaudeCodePanelRef, ClaudeCodePanelProps>(
     );
 
     const updateAuthMode = useCallback(
-      (mode: AuthMode, options?: { notifySandbox?: boolean; persist?: boolean }) => {
+      (mode: AuthMode, options?: { notifySandbox?: boolean; persist?: boolean; }) => {
         setAuthMode((prev) => {
           if (prev === mode) {
             return prev;
@@ -604,7 +604,7 @@ const ClaudeCodePanel = forwardRef<ClaudeCodePanelRef, ClaudeCodePanelProps>(
     const loadHistoricalMessages = useCallback(
       async (
         chatSessionId: string,
-        options: { append?: boolean; before?: string | null } = {},
+        options: { append?: boolean; before?: string | null; } = {},
       ) => {
         const { append = false, before = null } = options;
 
@@ -690,12 +690,12 @@ const ClaudeCodePanel = forwardRef<ClaudeCodePanelRef, ClaudeCodePanelProps>(
                 // Include user info for user messages
                 ...(dbMessage.role === "user" && userInfo
                   ? {
-                      user: {
-                        id: userInfo.id,
-                        name: userInfo.name,
-                        avatar_url: userInfo.avatar_url,
-                      },
-                    }
+                    user: {
+                      id: userInfo.id,
+                      name: userInfo.name,
+                      avatar_url: userInfo.avatar_url,
+                    },
+                  }
                   : {}),
               };
 
@@ -1148,11 +1148,11 @@ const ClaudeCodePanel = forwardRef<ClaudeCodePanelRef, ClaudeCodePanelProps>(
           if (ws) {
             // Build message content with text and any queued images
             const messageContent: Array<
-              | { type: "text"; text: string }
+              | { type: "text"; text: string; }
               | {
-                  type: "image";
-                  source: { type: "base64"; media_type: string; data: string };
-                }
+                type: "image";
+                source: { type: "base64"; media_type: string; data: string; };
+              }
             > = [{ type: "text", text: content }];
 
             // Add queued images to message content
@@ -1661,7 +1661,7 @@ const ClaudeCodePanel = forwardRef<ClaudeCodePanelRef, ClaudeCodePanelProps>(
 
         case ChatEvent.PROTOTYPE_TITLE_UPDATED: {
           // Server generated a title for a new prototype
-          const { title } = message.data as { prototypeId: string; title: string };
+          const { title } = message.data as { prototypeId: string; title: string; };
           logger.debug("log", "Received prototype title update", {
             title,
           });
@@ -1704,7 +1704,7 @@ const ClaudeCodePanel = forwardRef<ClaudeCodePanelRef, ClaudeCodePanelProps>(
         }
 
         default: {
-          const unknownMessage = message as { type: string };
+          const unknownMessage = message as { type: string; };
           logger.debug("log", "Unknown message type", {
             messageType: unknownMessage.type,
           });
@@ -2339,7 +2339,7 @@ const ClaudeCodePanel = forwardRef<ClaudeCodePanelRef, ClaudeCodePanelProps>(
         const content: Array<{
           type: string;
           text?: string;
-          source?: { type: string; url: string };
+          source?: { type: string; url: string; };
         }> = [];
 
         // Add text if present
