@@ -1394,6 +1394,7 @@ Provide actionable recommendations.`,
                 ref={claudeCodePanelRef}
                 prototypeId={prototypeId}
                 baseTunnelUrl={baseTunnelUrl}
+                normalizedTunnelUrl={normalizedSandboxUrl}
                 prototype={prototype}
                 canEditPrototype={canEditPrototype}
                 onPrototypeUpdate={setPrototype}

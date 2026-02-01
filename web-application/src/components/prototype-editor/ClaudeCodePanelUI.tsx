@@ -73,6 +73,7 @@ interface ClaudeCodePanelUIProps {
   isConnected: boolean;
   isProcessing: boolean;
   baseTunnelUrl: string | null;
+  normalizedTunnelUrl?: string | null;
   currentRenderStatus?: RenderStatus;
   modelProvider: "claude" | "vercel";
   model: string;
@@ -172,6 +173,7 @@ export default function ClaudeCodePanelUI({
   prototypeChatSessionId,
   isConnected,
   isProcessing,
+  normalizedTunnelUrl,
   // baseTunnelUrl, currentRenderStatus, modelProvider, model, vercelModels,
   // onModelProviderChange, onModelChange are available via props if needed
   messages,
@@ -1062,6 +1064,7 @@ export default function ClaudeCodePanelUI({
                   <ContextDropdown
                     isOpen={isContextDropdownOpen}
                     onClose={() => setIsContextDropdownOpen(false)}
+                    normalizedTunnelUrl={normalizedTunnelUrl}
                   />
 
                   {/* Context Button */}

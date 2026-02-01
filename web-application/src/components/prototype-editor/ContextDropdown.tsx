@@ -17,6 +17,10 @@ import {
 } from "@/components/ui/popover";
 import { useActiveTeam } from "@/contexts/TeamContext";
 import { cn } from "@/lib/classNames";
+import type {
+  SandboxAPIResponse,
+  StandardErrorResponse,
+} from "@/lib/types/SandboxAPITypes";
 import {
   Check,
   ChevronsUpDown,
@@ -27,10 +31,12 @@ import {
   Link2,
 } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
+import { toast } from "sonner";
 
 interface ContextDropdownProps {
   isOpen: boolean;
   onClose: () => void;
+  normalizedTunnelUrl?: string | null;
 }
 
 type GitHubRepo = {
@@ -42,6 +48,7 @@ type GitHubRepo = {
 export default function ContextDropdown({
   isOpen,
   onClose,
+  normalizedTunnelUrl,
 }: ContextDropdownProps) {
   const dropdownRef = useRef<HTMLDivElement>(null);
   const { activeTeam } = useActiveTeam();
@@ -162,17 +169,64 @@ export default function ContextDropdown({
     };
   }, [isOpen, onClose]);
 
-  const handleLinkRepository = () => {
-    if (!selectedRepoId) return;
+  const handleLinkRepository = async () => {
+    if (!selectedRepoId || !normalizedTunnelUrl) return;
 
     setIsLinking(true);
-    // TODO: Implement backend route to link repository
-    // For now, just simulate the action
-    console.log("Linking repository:", selectedRepoId);
-    setIsLinking(false);
+
+    try {
+      const session = await supabase.auth.getSession();
+      const token = session.data.session?.access_token;
+
+      if (!token) {
+        toast.error("Authentication required to link context");
+        return;
+      }
+
+      const response = await fetch(
+        `${normalizedTunnelUrl}/dev-server/add-context`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            github: {
+              github_repo_id: selectedRepoId,
+            },
+          }),
+        },
+      );
+
+      const result: SandboxAPIResponse<{ message: string }, StandardErrorResponse> =
+        await response.json().catch(() => ({
+          data: null,
+          error: {
+            error: "Invalid response",
+            message: "Failed to parse dev server response",
+          },
+        }));
+
+      if (!response.ok || result.error || !result.data) {
+        const message =
+          result.error?.message ?? "Failed to link GitHub context";
+        toast.error(message);
+        return;
+      }
+
+      toast.success("Context linked");
+      onClose();
+    } catch {
+      toast.error("Failed to link GitHub context");
+    } finally {
+      setIsLinking(false);
+    }
   };
 
   const selectedRepo = repositories.find((repo) => repo.id === selectedRepoId);
+  const isAddContextDisabled =
+    !normalizedTunnelUrl || !selectedRepoId || isLinking;
 
   if (!isOpen) return null;
 
@@ -331,7 +385,7 @@ export default function ContextDropdown({
         <Button
           type="button"
           onClick={handleLinkRepository}
-          disabled={!selectedRepoId || isLinking}
+          disabled={isAddContextDisabled}
           className="w-full h-9"
         >
           {isLinking ? (
