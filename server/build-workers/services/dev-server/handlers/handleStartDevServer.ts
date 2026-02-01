@@ -47,13 +47,119 @@ export async function handleStartDevServerImpl(
     };
   }
   // Note: auth already happens by control-plane before calling this route
-  const { userId } = getWorkerContext();
-  const sourceRepository = developmentServerService.sourceRepository;
+  const { userId, teamId } = getWorkerContext();
+  const supabaseClient = developmentServerService.supabaseClientService
+    .getClient();
+  let sourceRepoInstallationToken: string | null = null;
+  let sourceRepository = developmentServerService.sourceRepository;
   let cachedInstallationToken: {
     installation_token: string;
     expires_at: string;
   } | null = null;
   let githubTokenJobStarted = false;
+
+  try {
+    const { data: sensitiveMetadata, error: metadataError } =
+      await supabaseClient
+        .from("prototype_sensitive_metadata")
+        .select("source_repo_id")
+        .eq("prototype_id", prototype_id)
+        .maybeSingle();
+
+    if (metadataError) {
+      request.log2.error(
+        metadataError,
+        "Failed to fetch prototype sensitive metadata",
+        { prototypeId: prototype_id },
+      );
+      reply.code(HTTP_STATUS.INTERNAL_SERVER_ERROR);
+      return {
+        data: null,
+        error: {
+          error: "Failed to fetch prototype metadata",
+          message: metadataError.message,
+        },
+      };
+    }
+
+    if (sensitiveMetadata?.source_repo_id) {
+      if (!teamId) {
+        request.log2.error(
+          new Error("Missing team id in worker context"),
+          "Cannot fetch source repository without team id",
+          { prototypeId: prototype_id },
+        );
+        reply.code(HTTP_STATUS.INTERNAL_SERVER_ERROR);
+        return {
+          data: null,
+          error: {
+            error: "Missing team id",
+            message: "Unable to fetch source repository without team id",
+          },
+        };
+      }
+
+      const userJwtToken = developmentServerService.supabaseClientService
+        .getCurrentJwtToken();
+      if (!userJwtToken) {
+        request.log2.error(
+          new Error("User JWT token not available"),
+          "Cannot fetch source repository without user token",
+          { prototypeId: prototype_id },
+        );
+        reply.code(HTTP_STATUS.UNAUTHORIZED);
+        return {
+          data: null,
+          error: {
+            error: "Authentication required",
+            message: "User JWT token not available",
+          },
+        };
+      }
+
+      const sourceRepoResponse = await developmentServerService
+        .sandboxOrchestrationInitiatorService.fetchGitHubSourceRepo(
+          prototype_id,
+          teamId,
+          sensitiveMetadata.source_repo_id,
+          userJwtToken,
+        );
+
+      sourceRepoInstallationToken = sourceRepoResponse.installation_token;
+      developmentServerService.setSourceRepository({
+        githubRepoId: sourceRepoResponse.source_repo.github_repo_id,
+        installationId: sourceRepoResponse.source_repo.installation_id,
+        repositoryUrl: sourceRepoResponse.source_repo.repository_url,
+        repositoryOwner: sourceRepoResponse.source_repo.repository_owner,
+        repositoryName: sourceRepoResponse.source_repo.repository_name,
+        defaultBranch: sourceRepoResponse.source_repo.default_branch,
+        fullName: sourceRepoResponse.source_repo.full_name,
+      });
+
+      sourceRepository = developmentServerService.sourceRepository;
+      request.log2.info("Source repository configured for worker", {
+        prototypeId: prototype_id,
+        repositoryName: sourceRepoResponse.source_repo.repository_name,
+        fullName: sourceRepoResponse.source_repo.full_name,
+      });
+    }
+  } catch (error) {
+    request.log2.error(
+      error instanceof Error ? error : new Error(String(error)),
+      "Failed to initialize source repository configuration",
+      { prototypeId: prototype_id },
+    );
+    reply.code(HTTP_STATUS.INTERNAL_SERVER_ERROR);
+    return {
+      data: null,
+      error: {
+        error: "Failed to initialize source repository",
+        message: error instanceof Error
+          ? error.message
+          : "Unable to initialize source repository",
+      },
+    };
+  }
 
   const applyInstallationToken = (
     tokenData: { installation_token: string; expires_at: string } | null,
@@ -77,6 +183,7 @@ export async function handleStartDevServerImpl(
         prototype_id,
         developmentServerService,
         request.log2,
+        sourceRepoInstallationToken ?? undefined,
       );
       applyInstallationToken(cachedInstallationToken);
     } catch (error) {
@@ -753,26 +860,34 @@ async function cloneSourceRepositoryToTmp(
   prototypeId: string,
   developmentServerService: NucleateDevelopmentServerService,
   log2: SystemLogger,
-): Promise<{ installation_token: string; expires_at: string }> {
+  installationTokenOverride?: string,
+): Promise<{ installation_token: string; expires_at: string } | null> {
   const sourceRepo = developmentServerService.sourceRepository;
   if (!sourceRepo) {
     throw new Error("Source repository not configured");
   }
 
-  const userJwtToken = developmentServerService.supabaseClientService
-    .getCurrentJwtToken();
-  if (!userJwtToken) {
-    throw new Error("User JWT token not available");
+  let tokenData: { installation_token: string; expires_at: string } | null =
+    null;
+  let installationToken = installationTokenOverride ?? null;
+
+  if (!installationToken) {
+    const userJwtToken = developmentServerService.supabaseClientService
+      .getCurrentJwtToken();
+    if (!userJwtToken) {
+      throw new Error("User JWT token not available");
+    }
+
+    tokenData = await developmentServerService
+      .sandboxOrchestrationInitiatorService.refreshGitHubInstallationToken(
+        prototypeId,
+        userJwtToken,
+      );
+    installationToken = tokenData.installation_token;
   }
 
-  const tokenData = await developmentServerService
-    .sandboxOrchestrationInitiatorService.refreshGitHubInstallationToken(
-      prototypeId,
-      userJwtToken,
-    );
-
   const authenticatedUrl =
-    `https://x-access-token:${tokenData.installation_token}@github.com/${sourceRepo.fullName}.git`;
+    `https://x-access-token:${installationToken}@github.com/${sourceRepo.fullName}.git`;
 
   // Clone source repository using terminal command
   // Note: Don't remove the directory itself (owned by root), just clean contents and clone
