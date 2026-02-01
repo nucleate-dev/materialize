@@ -148,6 +148,19 @@ export interface PublicDevServerAddBackendSuccessResponse {
   };
 }
 
+export interface PublicDevServerAddContextRequest {
+  github?: {
+    github_repo_id: number;
+    [key: string]: unknown;
+  } | null;
+  figma?: Record<string, unknown> | null;
+  google_docs?: Record<string, unknown> | null;
+}
+
+export interface PublicDevServerAddContextSuccessResponse {
+  message: string;
+}
+
 export interface PublicConnectGitHubSuccessResponse {
   message: string;
   repository_url: string;
