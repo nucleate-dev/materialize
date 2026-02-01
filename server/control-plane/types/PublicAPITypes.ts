@@ -373,6 +373,17 @@ export interface RefreshGitHubInstallationTokenErrorResponse {
   message: string;
 }
 
+export interface GetSupabaseOAuthTokenRequestBody {
+  prototype_id: string;
+}
+
+export interface GetSupabaseOAuthTokenSuccessResponse {
+  access_token: string;
+  expires_at: string | null;
+  refreshed: boolean;
+  integration_id: string;
+}
+
 // ============================================================================
 // /teams/accept-invite ENDPOINT
 // ============================================================================

@@ -18,6 +18,7 @@ interface GetValidSupabaseTokenOptions {
   integrationId?: string;
   teamId?: string;
   supabaseOrganizationId?: string;
+  refreshThresholdMs?: number;
 }
 
 interface SupabaseOAuthConfig {
@@ -243,13 +244,17 @@ function isAuthError(error: unknown): boolean {
 
 /**
  * Returns a decrypted Supabase OAuth access token for the given integration.
- * If the token is expired or will expire within 10 minutes, it is refreshed
- * (and the database is updated) before returning.
+ * If the token is expired or will expire within the refresh threshold, it is
+ * refreshed (and the database is updated) before returning.
  */
 export async function getValidSupabaseAccessToken(
   options: GetValidSupabaseTokenOptions,
 ): Promise<ValidSupabaseTokenResult> {
   const { supabaseClient, logger } = options;
+  const refreshThresholdMs = Number.isFinite(options.refreshThresholdMs) &&
+      options.refreshThresholdMs >= 0
+    ? options.refreshThresholdMs
+    : TOKEN_REFRESH_THRESHOLD_MS;
   const integrationId = await resolveIntegrationId(options);
 
   const { data, error } = await supabaseClient
@@ -281,7 +286,12 @@ export async function getValidSupabaseAccessToken(
     logger,
   );
   const expiresAt = data.token_expires_at;
-  const shouldRefresh = needsRefreshSoon(expiresAt, logger, integrationId);
+  const shouldRefresh = needsRefreshSoon(
+    expiresAt,
+    logger,
+    integrationId,
+    refreshThresholdMs,
+  );
 
   if (!shouldRefresh) {
     return {
@@ -413,6 +423,7 @@ function needsRefreshSoon(
   expiresAt: string | null,
   logger: SystemLogger,
   integrationId: string,
+  refreshThresholdMs: number,
 ): boolean {
   if (!expiresAt) {
     return false;
@@ -428,7 +439,7 @@ function needsRefreshSoon(
   }
 
   const timeUntilExpiry = expiresDate.getTime() - Date.now();
-  return timeUntilExpiry <= TOKEN_REFRESH_THRESHOLD_MS;
+  return timeUntilExpiry <= refreshThresholdMs;
 }
 
 function safeDecrypt(
