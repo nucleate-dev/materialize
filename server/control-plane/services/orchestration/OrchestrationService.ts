@@ -4,6 +4,8 @@ import {
   APIResponse,
   EndChatRequestBody,
   EndChatResponse,
+  FetchGitHubSourceRepoRequestBody,
+  FetchGitHubSourceRepoSuccessResponse,
   GetSupabaseOAuthTokenRequestBody,
   GetSupabaseOAuthTokenSuccessResponse,
   RefreshGitHubInstallationTokenErrorResponse,
@@ -18,6 +20,7 @@ import { handleStartChatImpl } from "./handleStartChat.js";
 import { handleEndChatImpl } from "./handleEndChat.js";
 import { handleRefreshGitHubInstallationToken } from "./handleRefreshGitHubToken.js";
 import { handleGetSupabaseOAuthToken } from "./handleGetSupabaseOAuthToken.js";
+import { handleFetchGitHubSourceRepo } from "./handleFetchGitHubSourceRepo.js";
 
 export class OrchestrationService {
   private cache: GlideClient;
@@ -104,6 +107,27 @@ export class OrchestrationService {
       },
       this.handleGetSupabaseOAuthToken.bind(this),
     );
+
+    // POST /orchestration/fetch-github-source-repo
+    app.post<{
+      Body: FetchGitHubSourceRepoRequestBody;
+    }>(
+      "/orchestration/fetch-github-source-repo",
+      {
+        schema: {
+          body: {
+            type: "object",
+            required: ["prototype_id", "team_id", "github_repo_id"],
+            properties: {
+              prototype_id: { type: "string" },
+              team_id: { type: "string" },
+              github_repo_id: { type: "number" },
+            },
+          },
+        },
+      },
+      this.handleFetchGitHubSourceRepo.bind(this),
+    );
   }
 
   private async handleStartChat(
@@ -141,5 +165,14 @@ export class OrchestrationService {
     APIResponse<GetSupabaseOAuthTokenSuccessResponse, StandardErrorResponse>
   > {
     return handleGetSupabaseOAuthToken(request, reply, this.cache);
+  }
+
+  private async handleFetchGitHubSourceRepo(
+    request: FastifyRequest<{ Body: FetchGitHubSourceRepoRequestBody }>,
+    reply: FastifyReply,
+  ): Promise<
+    APIResponse<FetchGitHubSourceRepoSuccessResponse, StandardErrorResponse>
+  > {
+    return handleFetchGitHubSourceRepo(request, reply, this.cache);
   }
 }
