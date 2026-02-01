@@ -95,51 +95,38 @@ export async function handleGetSupabaseOAuthToken(
     );
 
     try {
-        // Step 2: Validate prototype has a Supabase backend linked
-        const { data: backend, error: backendError } =
+        // Step 2: Resolve the active Supabase integration for the prototype's team
+        const teamId = authResponse.prototype.team_id;
+        const { data: integration, error: integrationError } =
             await supabaseAuthClient
-                .from("prototype_backends")
-                .select("id, provider_integration_id")
-                .eq("prototype_id", prototype_id)
-                .eq("backend_type", "supabase")
+                .from("connectors_supabase_integrations")
+                .select("id")
+                .eq("team_id", teamId)
+                .eq("status", "active")
+                .order("connected_at", { ascending: false })
                 .maybeSingle();
 
-        if (backendError) {
+        if (integrationError) {
             request.log2.error(
-                backendError,
-                "Failed to fetch prototype backend",
-                { prototypeId: prototype_id },
+                integrationError,
+                "Failed to fetch Supabase integration",
+                { prototypeId: prototype_id, teamId },
             );
             return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
                 data: null,
                 error: {
                     error: "INTERNAL_SERVER_ERROR",
-                    message: "Failed to fetch prototype backend",
+                    message: "Failed to fetch Supabase integration",
                 },
             });
         }
 
-        if (!backend) {
+        if (!integration?.id) {
             return reply.status(HTTP_STATUS.NOT_FOUND).send({
                 data: null,
                 error: {
                     error: "NOT_FOUND",
-                    message: "Supabase backend not found for prototype",
-                },
-            });
-        }
-
-        if (!backend.provider_integration_id) {
-            request.log2.error(
-                new Error("Missing provider_integration_id for backend"),
-                "Supabase backend missing integration id",
-                { prototypeId: prototype_id, backendId: backend.id },
-            );
-            return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
-                data: null,
-                error: {
-                    error: "INTERNAL_SERVER_ERROR",
-                    message: "Supabase backend missing integration id",
+                    message: "Supabase integration not found for team",
                 },
             });
         }
@@ -147,7 +134,7 @@ export async function handleGetSupabaseOAuthToken(
         // Step 3: Get valid Supabase OAuth access token
         const tokenResult = await getValidSupabaseAccessToken({
             logger: request.log2,
-            integrationId: backend.provider_integration_id,
+            integrationId: integration.id,
             refreshThresholdMs: SUPABASE_TOKEN_MIN_VALIDITY_MS,
         });
 
