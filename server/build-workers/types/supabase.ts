@@ -1778,6 +1778,7 @@ export type Database = {
       prototype_build_status: "in_progress" | "success" | "failure"
       prototype_framework:
         | "mobile_expo_react_native"
+        | "mobile_expo_react_native_bun"
         | "web_nextjs_react"
         | "web_vite_react"
       pull_request_status: "open" | "closed" | "merged"
@@ -1925,6 +1926,7 @@ export const Constants = {
       prototype_build_status: ["in_progress", "success", "failure"],
       prototype_framework: [
         "mobile_expo_react_native",
+        "mobile_expo_react_native_bun",
         "web_nextjs_react",
         "web_vite_react",
       ],
