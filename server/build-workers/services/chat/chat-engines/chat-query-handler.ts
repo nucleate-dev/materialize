@@ -15,6 +15,8 @@ import path from "path";
 import WebSocket from "ws";
 import { DevServerStatus } from "../../../types/BuildWorkerTypes.js";
 import {
+  AskUserQuestionInput,
+  AskUserResponseData,
   ChatContentBlock,
   ChatEvent,
   ChatQueryData,
@@ -42,6 +44,7 @@ import {
   persistChatMessage,
 } from "../helpers/message-handlers.js";
 import { evaluateToolPermission } from "../helpers/tool-permission-service.js";
+import { AskUserQuestionService } from "../helpers/ask-user-question-service.js";
 import { createDesignToolsMcpServer } from "../mcp/mcp-design-tools.js";
 import {
   createDevelopmentToolsMcpServer,
@@ -147,17 +150,27 @@ export class ChatQueryHandler implements ChatEngine {
   private readonly sandboxService: SandboxService;
   private readonly devServerService: NucleateDevelopmentServerService;
   private readonly terminalService: TerminalService;
+  private readonly askUserQuestionService: AskUserQuestionService;
 
   constructor(
     supabaseClientService: SupabaseClientService,
     sandboxService: SandboxService,
     devServerService: NucleateDevelopmentServerService,
     terminalService: TerminalService,
+    askUserQuestionService: AskUserQuestionService,
   ) {
     this.supabaseClientService = supabaseClientService;
     this.sandboxService = sandboxService;
     this.devServerService = devServerService;
     this.terminalService = terminalService;
+    this.askUserQuestionService = askUserQuestionService;
+  }
+
+  /**
+   * Handle response from frontend for AskUserQuestion tool.
+   */
+  public handleAskUserResponse(data: AskUserResponseData): void {
+    this.askUserQuestionService.handleUserResponse(data);
   }
 
   /**
@@ -566,6 +579,15 @@ export class ChatQueryHandler implements ChatEngine {
       input: ToolInput,
       _options: unknown,
     ): Promise<PermissionResult> => {
+      // Special handling for AskUserQuestion - pause and wait for user response
+      if (toolName === "AskUserQuestion") {
+        const toolCallId = `ask-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
+        return this.askUserQuestionService.askUserQuestion(
+          toolCallId,
+          input as unknown as AskUserQuestionInput,
+          activeConnections,
+        );
+      }
       return evaluateToolPermission(allowedRoots, toolName, input);
     };
 
@@ -578,6 +600,7 @@ export class ChatQueryHandler implements ChatEngine {
       "WebFetch",
       "TodoWrite",
       "Skill",
+      "AskUserQuestion",
       // MCP tools from devtools server
       "mcp__devtools__SafeWrite",
       "mcp__devtools__SafeBash",

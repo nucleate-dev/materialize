@@ -4,6 +4,7 @@ import WebSocket from "ws";
 import { baseLogger } from "../../loggers/index.js";
 import { SystemLogger } from "../../loggers/SystemLogger.js";
 import {
+  AskUserResponseData,
   AuthModeChangeData,
   AuthModePreference,
   ChatClientEvent,
@@ -27,7 +28,6 @@ import { SupabaseClientService } from "../SupabaseClientService.js";
 import { TerminalService } from "../terminals/TerminalService.js";
 import {
   ChatConnection,
-  ChatEngine,
   ChatEngineResult,
   ChatEngineSessionState,
   DesignAgentMetadata,
@@ -44,6 +44,7 @@ import {
 } from "./cost/oauth-credit-calculation.js";
 import { trackApiUsageBuildWorker } from "./cost/usage-tracking.js";
 import { persistChatMessage } from "./helpers/message-handlers.js";
+import { AskUserQuestionService } from "./helpers/ask-user-question-service.js";
 import { generatePrototypeTitle } from "./helpers/title-generation-service.js";
 import {
   getNucleateChatServiceSystemPrompt,
@@ -69,8 +70,9 @@ export class ChatService {
   private readonly sandboxOrchestrationInitiatorService:
     SandboxOrchestrationInitiatorService;
 
-  private readonly chatQueryHandler: ChatEngine;
+  private readonly chatQueryHandler: ChatQueryHandler;
   private readonly claudeTokenService: ClaudeTokenService;
+  private readonly askUserQuestionService: AskUserQuestionService;
   private sessionState: ChatEngineSessionState = {
     sessionId: null,
     prototypeChatSessionId: null,
@@ -101,11 +103,13 @@ export class ChatService {
     this.sandboxOrchestrationInitiatorService =
       sandboxOrchestrationInitiatorService;
 
+    this.askUserQuestionService = new AskUserQuestionService();
     this.chatQueryHandler = new ChatQueryHandler(
       supabaseClientService,
       sandboxService,
       devServerService,
       terminalService,
+      this.askUserQuestionService,
     );
     this.claudeTokenService = new ClaudeTokenService(supabaseClientService);
   }
@@ -339,6 +343,9 @@ export class ChatService {
       firstMessageStatus: null,
     };
 
+    // Cleanup AskUserQuestionService pending questions
+    this.askUserQuestionService.cleanup();
+
     // Cleanup ClaudeTokenService
     this.claudeTokenService.destroy();
 
@@ -381,7 +388,15 @@ export class ChatService {
           connectionId,
         );
         break;
+
+      case ChatClientEvent.ASK_USER_RESPONSE:
+        this.handleAskUserResponse(message.data);
+        break;
     }
+  }
+
+  private handleAskUserResponse(data: AskUserResponseData): void {
+    this.chatQueryHandler.handleAskUserResponse(data);
   }
 
   private async handleQuery(
