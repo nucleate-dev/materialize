@@ -11,6 +11,7 @@ import { validateOrchestrationToken } from "./OrchestrationTokenValidationUtils.
 import { createClient } from "@supabase/supabase-js";
 import { Database } from "../../types/supabase.js";
 import { getValidSupabaseAccessToken } from "../connectors/supabase/supabaseTokenUtils.js";
+import { checkUserHasPrototypeEditAccess } from "../../utils/prototypeAuth.js";
 
 const SUPABASE_TOKEN_MIN_VALIDITY_MS = 6 * 60 * 60 * 1000;
 
@@ -20,7 +21,9 @@ export async function handleGetSupabaseOAuthToken(
     }>,
     reply: FastifyReply,
     cache: GlideClient,
-): Promise<APIResponse<GetSupabaseOAuthTokenSuccessResponse, StandardErrorResponse>> {
+): Promise<
+    APIResponse<GetSupabaseOAuthTokenSuccessResponse, StandardErrorResponse>
+> {
     const { prototype_id } = request.body;
 
     // Step 1: Validate orchestration token
@@ -47,6 +50,35 @@ export async function handleGetSupabaseOAuthToken(
         return reply.status(statusCode).send({
             data: null,
             error: errorResponse,
+        });
+    }
+
+    const authHeader = request.headers.authorization;
+    const token = authHeader?.split(" ")[1];
+
+    if (!token) {
+        return reply.status(HTTP_STATUS.UNAUTHORIZED).send({
+            data: null,
+            error: {
+                error: "UNAUTHORIZED",
+                message: "Missing Authorization header",
+            },
+        });
+    }
+
+    const authResponse = await checkUserHasPrototypeEditAccess(
+        prototype_id,
+        token,
+        request.log2,
+    );
+
+    if (!authResponse || !authResponse.canEdit || !authResponse.prototype) {
+        return reply.status(HTTP_STATUS.UNAUTHORIZED).send({
+            data: null,
+            error: {
+                error: "UNAUTHORIZED",
+                message: "You do not have permission to edit this prototype",
+            },
         });
     }
 
@@ -107,7 +139,6 @@ export async function handleGetSupabaseOAuthToken(
 
         // Step 3: Get valid Supabase OAuth access token
         const tokenResult = await getValidSupabaseAccessToken({
-            supabaseClient: supabaseServiceClient,
             logger: request.log2,
             integrationId: backend.provider_integration_id,
             refreshThresholdMs: SUPABASE_TOKEN_MIN_VALIDITY_MS,
