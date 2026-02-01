@@ -1,5 +1,5 @@
 import { FastifyReply, FastifyRequest } from "fastify";
-import axios from "axios";
+import { SupabaseManagementAPI, isSupabaseError } from "supabase-management-js";
 import {
   HTTP_STATUS,
   PublicDevServerAddBackendRequest,
@@ -10,8 +10,6 @@ import {
 import { NucleateDevelopmentServerService } from "../NucleateDevelopmentServerService.js";
 import { getWorkerContext } from "../../../worker.js";
 import { checkUserHasPrototypeEditAccess } from "../../../utils/prototypeAuth.js";
-
-const SUPABASE_MANAGEMENT_API_BASE_URL = "https://api.supabase.com/v1";
 
 export async function handleAddBackendImpl(
   request: FastifyRequest<{ Body: PublicDevServerAddBackendRequest }>,
@@ -153,29 +151,26 @@ export async function handleAddBackendImpl(
   process.env.USER_SUPABASE_OAUTH_TOKEN = supabaseAccessToken;
 
   try {
-    await axios.get(
-      `${SUPABASE_MANAGEMENT_API_BASE_URL}/projects/${project_id}`,
-      {
-        headers: {
-          Authorization: `Bearer ${supabaseAccessToken}`,
-          "Content-Type": "application/json",
+    const managementClient = new SupabaseManagementAPI({
+      accessToken: supabaseAccessToken,
+    });
+    const projects = await managementClient.getProjects();
+    const hasProject = Array.isArray(projects) &&
+      projects.some((project) => project.id === project_id);
+
+    if (!hasProject) {
+      reply.code(HTTP_STATUS.NOT_FOUND);
+      return {
+        data: null,
+        error: {
+          error: "Project not found",
+          message: "Supabase project was not found",
         },
-        timeout: 10000,
-      },
-    );
+      };
+    }
   } catch (error) {
-    if (axios.isAxiosError(error)) {
-      const status = error.response?.status;
-      if (status === HTTP_STATUS.NOT_FOUND) {
-        reply.code(HTTP_STATUS.NOT_FOUND);
-        return {
-          data: null,
-          error: {
-            error: "Project not found",
-            message: "Supabase project was not found",
-          },
-        };
-      }
+    if (isSupabaseError(error)) {
+      const status = error.response.status;
       if (status === HTTP_STATUS.UNAUTHORIZED) {
         reply.code(HTTP_STATUS.UNAUTHORIZED);
         return {
@@ -186,18 +181,11 @@ export async function handleAddBackendImpl(
           },
         };
       }
-      const message =
-        error.response?.data?.message ??
-        error.message ??
-        "Supabase management API error";
+
       request.log2.error(
-        new Error(message),
+        error,
         "Failed to validate Supabase project",
-        {
-          prototypeId,
-          statusCode: status,
-          errorData: error.response?.data,
-        },
+        { prototypeId, statusCode: status },
       );
       reply.code(HTTP_STATUS.BAD_GATEWAY);
       return {
