@@ -25,7 +25,6 @@ export async function handleAllocateImpl(
     user_details,
     cloudflare_credentials,
     keys,
-    source_repository,
   } = request.body;
 
   // 1. Extract JWT token from Authorization header
@@ -210,23 +209,6 @@ export async function handleAllocateImpl(
     materializeDevelopmentServerService.setCloudflareTunnelHostname(
       cloudflare_credentials.cloudflare_tunnel_hostname,
     );
-  }
-
-  // 4b. SET SOURCE REPOSITORY IF PROVIDED:
-  if (source_repository) {
-    materializeDevelopmentServerService.setSourceRepository({
-      githubRepoId: source_repository.github_repo_id,
-      installationId: source_repository.installation_id,
-      repositoryUrl: source_repository.repository_url,
-      repositoryOwner: source_repository.repository_owner,
-      repositoryName: source_repository.repository_name,
-      defaultBranch: source_repository.default_branch,
-      fullName: source_repository.full_name,
-    });
-    request.log2.info("Source repository configured for worker", {
-      repositoryName: source_repository.repository_name,
-      fullName: source_repository.full_name,
-    });
   }
 
   try {
