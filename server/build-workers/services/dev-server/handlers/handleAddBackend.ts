@@ -128,12 +128,22 @@ export async function handleAddBackendImpl(
 
   let supabaseAccessToken: string;
   try {
+    request.log2.consoleLogDevOnly(
+      "info",
+      "Add backend: fetching Supabase OAuth token",
+      { prototypeId },
+    );
     const tokenResponse = await developmentServerService
       .sandboxOrchestrationInitiatorService.getSupabaseOAuthToken(
         prototypeId,
         jwtToken,
       );
     supabaseAccessToken = tokenResponse.access_token;
+    request.log2.consoleLogDevOnly(
+      "info",
+      "Add backend: Supabase OAuth token fetched",
+      { prototypeId, hasToken: Boolean(supabaseAccessToken) },
+    );
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     request.log2.error(
@@ -152,16 +162,30 @@ export async function handleAddBackendImpl(
   }
 
   process.env.USER_SUPABASE_OAUTH_TOKEN = supabaseAccessToken;
+  request.log2.consoleLogDevOnly(
+    "info",
+    "Add backend: set USER_SUPABASE_OAUTH_TOKEN",
+  );
 
   try {
     const managementClient = new SupabaseManagementAPI({
       accessToken: supabaseAccessToken,
     });
+    request.log2.consoleLogDevOnly(
+      "info",
+      "Add backend: validating Supabase project access",
+      { projectId: project_id },
+    );
     const projects = await managementClient.getProjects();
     const hasProject = Array.isArray(projects) &&
       projects.some((project) => project.id === project_id);
 
     if (!hasProject) {
+      request.log2.consoleLogDevOnly(
+        "warn",
+        "Add backend: Supabase project not found",
+        { projectId: project_id },
+      );
       reply.code(HTTP_STATUS.NOT_FOUND);
       return {
         data: null,
@@ -222,6 +246,11 @@ export async function handleAddBackendImpl(
       ? (metadata as Record<string, unknown>)
       : {};
   const sanitizedMetadataForInsert = sanitizedMetadata as Json;
+  request.log2.consoleLogDevOnly(
+    "info",
+    "Add backend: metadata sanitized",
+    { hasMetadata: Object.keys(sanitizedMetadata).length > 0 },
+  );
 
   const { error: insertBackendError } =
     await developmentServerService.supabaseClientService
@@ -250,6 +279,11 @@ export async function handleAddBackendImpl(
       },
     };
   }
+  request.log2.consoleLogDevOnly(
+    "info",
+    "Add backend: prototype backend persisted",
+    { prototypeId, projectId: project_id },
+  );
 
   developmentServerService.setPrototypeBackend({
     type: "supabase",
@@ -258,6 +292,11 @@ export async function handleAddBackendImpl(
     metadata: sanitizedMetadata,
     authenticationKey: supabaseAccessToken,
   });
+  request.log2.consoleLogDevOnly(
+    "info",
+    "Add backend: in-memory backend updated",
+    { prototypeId, projectId: project_id },
+  );
 
   const backendEnvPath = path.join(
     WORK_DIR,
@@ -268,9 +307,19 @@ export async function handleAddBackendImpl(
   );
   try {
     await fs.access(backendEnvPath);
+    request.log2.consoleLogDevOnly(
+      "info",
+      "Add backend: backend env file detected, syncing env vars",
+      { backendEnvPath },
+    );
     const backendSyncResult = await developmentServerService
       .syncBackendEnvVarsToConnectedBackend(request.log2);
     if (!backendSyncResult.success) {
+      request.log2.consoleLogDevOnly(
+        "warn",
+        "Add backend: backend env sync failed",
+        { error: backendSyncResult.error },
+      );
       reply.code(HTTP_STATUS.INTERNAL_SERVER_ERROR);
       return {
         data: null,
@@ -283,8 +332,17 @@ export async function handleAddBackendImpl(
     }
   } catch {
     // No backend env vars on disk yet; skip sync.
+    request.log2.consoleLogDevOnly(
+      "info",
+      "Add backend: no backend env file found, skipping env sync",
+      { backendEnvPath },
+    );
   }
 
+  request.log2.consoleLogDevOnly("info", "Add backend: success", {
+    prototypeId,
+    projectId: project_id,
+  });
   reply.code(HTTP_STATUS.OK);
   return {
     data: {
