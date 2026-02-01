@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { cn } from "@/lib/classNames";
-import { Clock, MessageSquareMore, Send, X } from "lucide-react";
+import { Send, Sparkles } from "lucide-react";
 
 interface QuestionOption {
   label: string;
@@ -138,62 +138,64 @@ export default function AskUserQuestionCard({
     return !!answer;
   });
 
+  const progress = (questions.filter((q) => {
+    const answer = answers[q.question];
+    if (q.multiSelect) return Array.isArray(answer) && answer.length > 0;
+    return !!answer;
+  }).length / questions.length) * 100;
+
   return (
     <div
       className={cn(
-        "w-full max-w-lg rounded-xl border-2 border-primary/30 bg-primary/5 p-4 shadow-sm",
+        "w-full max-w-lg rounded-lg border border-border bg-card p-4 shadow-sm",
         isSubmitted && "opacity-60"
       )}
     >
-      {/* Header */}
-      <div className="flex items-center justify-between mb-4">
+      {/* Compact Header */}
+      <div className="flex items-center justify-between mb-3 pb-3 border-b border-border">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center">
-            <MessageSquareMore className="w-4 h-4 text-primary" />
-          </div>
-          <span className="text-sm font-semibold text-foreground">
-            Claude needs your input
+          <Sparkles className="w-4 h-4 text-primary" />
+          <span className="text-sm font-semibold text-foreground">Quick Question</span>
+          <span className="text-xs text-muted-foreground">
+            {Math.floor(progress)}% complete
           </span>
         </div>
         {!isSubmitted && (
-          <div
-            className={cn(
-              "flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium",
-              timeRemaining <= 10
-                ? "bg-destructive/10 text-destructive"
-                : "bg-muted text-muted-foreground"
-            )}
-          >
-            <Clock className="w-3 h-3" />
-            <span>{timeRemaining}s</span>
-          </div>
+          <span className="text-xs font-mono text-muted-foreground">
+            {Math.floor(timeRemaining / 60)}:{(timeRemaining % 60).toString().padStart(2, '0')}
+          </span>
         )}
       </div>
 
-      {/* Questions */}
-      <div className="space-y-5">
+      {/* Progress Bar */}
+      <div className="mb-4 h-1 bg-accent rounded-full overflow-hidden">
+        <div
+          className="h-full bg-primary transition-all duration-300"
+          style={{ width: `${progress}%` }}
+        />
+      </div>
+
+      {/* Questions - Compact Layout */}
+      <div className="space-y-4">
         {questions.map((q, qIndex) => (
-          <div key={qIndex} className="space-y-2.5">
+          <div key={qIndex} className="space-y-2">
             {q.header && (
-              <div className="text-[10px] font-bold uppercase tracking-wider text-primary">
+              <div className="text-xs font-semibold uppercase tracking-wide text-primary">
                 {q.header}
               </div>
             )}
-            <div className="text-sm font-medium text-foreground">
-              {q.question}
-            </div>
+            <div className="text-sm font-medium text-foreground">{q.question}</div>
 
             {q.multiSelect ? (
-              // Multi-select: Checkboxes
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 {q.options.map((opt, optIndex) => (
                   <div
                     key={optIndex}
                     className={cn(
-                      "flex items-start gap-3 p-3 rounded-lg border transition-colors cursor-pointer",
+                      "flex items-center gap-2 p-2 rounded border transition-colors cursor-pointer text-sm",
                       (answers[q.question] as string[] || []).includes(opt.label)
-                        ? "border-primary/50 bg-primary/10"
-                        : "border-border hover:bg-accent/50",
+                        ? "border-primary/50 bg-primary/5"
+                        : "border-border hover:bg-accent",
                       (isSubmitted || disabled) && "pointer-events-none"
                     )}
                     onClick={() =>
@@ -202,90 +204,55 @@ export default function AskUserQuestionCard({
                       handleMultiSelect(
                         q.question,
                         opt.label,
-                        !(answers[q.question] as string[] || []).includes(
-                          opt.label
-                        )
+                        !(answers[q.question] as string[] || []).includes(opt.label)
                       )
                     }
                   >
                     <Checkbox
                       id={`${qIndex}-${optIndex}`}
-                      checked={(answers[q.question] as string[] || []).includes(
-                        opt.label
-                      )}
+                      checked={(answers[q.question] as string[] || []).includes(opt.label)}
                       onCheckedChange={(checked) =>
-                        handleMultiSelect(
-                          q.question,
-                          opt.label,
-                          checked as boolean
-                        )
+                        handleMultiSelect(q.question, opt.label, checked as boolean)
                       }
                       disabled={isSubmitted || disabled}
-                      className="mt-0.5"
                     />
-                    <div className="flex flex-col flex-1">
-                      <Label
-                        htmlFor={`${qIndex}-${optIndex}`}
-                        className="text-sm font-medium cursor-pointer"
-                      >
-                        {opt.label}
-                      </Label>
-                      {opt.description && (
-                        <span className="text-xs text-muted-foreground mt-0.5">
-                          {opt.description}
-                        </span>
-                      )}
-                    </div>
+                    <Label
+                      htmlFor={`${qIndex}-${optIndex}`}
+                      className="text-sm cursor-pointer flex-1"
+                    >
+                      {opt.label}
+                    </Label>
                   </div>
                 ))}
-                {/* Other option for multi-select */}
+                {/* Other */}
                 <div
                   className={cn(
-                    "flex items-start gap-3 p-3 rounded-lg border transition-colors cursor-pointer",
+                    "flex items-center gap-2 p-2 rounded border transition-colors cursor-pointer text-sm",
                     (answers[q.question] as string[] || []).includes("Other")
-                      ? "border-primary/50 bg-primary/10"
-                      : "border-border hover:bg-accent/50",
+                      ? "border-primary/50 bg-primary/5"
+                      : "border-border hover:bg-accent",
                     (isSubmitted || disabled) && "pointer-events-none"
                   )}
-                  onClick={() =>
-                    !isSubmitted &&
-                    !disabled &&
-                    handleMultiSelect(
-                      q.question,
-                      "Other",
-                      !(answers[q.question] as string[] || []).includes("Other")
-                    )
-                  }
                 >
                   <Checkbox
                     id={`${qIndex}-other`}
-                    checked={(answers[q.question] as string[] || []).includes(
-                      "Other"
-                    )}
+                    checked={(answers[q.question] as string[] || []).includes("Other")}
                     onCheckedChange={(checked) =>
                       handleMultiSelect(q.question, "Other", checked as boolean)
                     }
                     disabled={isSubmitted || disabled}
-                    className="mt-0.5"
                   />
-                  <div className="flex flex-col flex-1">
-                    <Label
-                      htmlFor={`${qIndex}-other`}
-                      className="text-sm font-medium cursor-pointer"
-                    >
+                  <div className="flex-1">
+                    <Label htmlFor={`${qIndex}-other`} className="text-sm cursor-pointer">
                       Other
                     </Label>
-                    {(answers[q.question] as string[] || []).includes(
-                      "Other"
-                    ) && (
+                    {(answers[q.question] as string[] || []).includes("Other") && (
                       <Input
-                        placeholder="Enter your answer..."
+                        placeholder="Specify..."
                         value={otherInputs[q.question] || ""}
-                        onChange={(e) =>
-                          handleOtherInput(q.question, e.target.value)
-                        }
+                        onChange={(e) => handleOtherInput(q.question, e.target.value)}
                         onClick={(e) => e.stopPropagation()}
-                        className="mt-2 h-8 text-sm"
+                        className="mt-1 h-7 text-xs"
                         disabled={isSubmitted || disabled}
                       />
                     )}
@@ -293,85 +260,60 @@ export default function AskUserQuestionCard({
                 </div>
               </div>
             ) : (
-              // Single-select: RadioGroup
               <RadioGroup
                 value={(answers[q.question] as string) || ""}
                 onValueChange={(value) => handleSingleSelect(q.question, value)}
                 disabled={isSubmitted || disabled}
-                className="space-y-2"
+                className="space-y-1.5"
               >
                 {q.options.map((opt, optIndex) => (
                   <div
                     key={optIndex}
                     className={cn(
-                      "flex items-start gap-3 p-3 rounded-lg border transition-colors cursor-pointer",
+                      "flex items-center gap-2 p-2 rounded border transition-colors cursor-pointer text-sm",
                       answers[q.question] === opt.label
-                        ? "border-primary/50 bg-primary/10"
-                        : "border-border hover:bg-accent/50",
+                        ? "border-primary/50 bg-primary/5"
+                        : "border-border hover:bg-accent",
                       (isSubmitted || disabled) && "pointer-events-none"
                     )}
                     onClick={() =>
-                      !isSubmitted &&
-                      !disabled &&
-                      handleSingleSelect(q.question, opt.label)
+                      !isSubmitted && !disabled && handleSingleSelect(q.question, opt.label)
                     }
                   >
                     <RadioGroupItem
                       value={opt.label}
                       id={`${qIndex}-${optIndex}`}
-                      className="mt-0.5"
                     />
-                    <div className="flex flex-col flex-1">
-                      <Label
-                        htmlFor={`${qIndex}-${optIndex}`}
-                        className="text-sm font-medium cursor-pointer"
-                      >
-                        {opt.label}
-                      </Label>
-                      {opt.description && (
-                        <span className="text-xs text-muted-foreground mt-0.5">
-                          {opt.description}
-                        </span>
-                      )}
-                    </div>
+                    <Label
+                      htmlFor={`${qIndex}-${optIndex}`}
+                      className="text-sm cursor-pointer flex-1"
+                    >
+                      {opt.label}
+                    </Label>
                   </div>
                 ))}
-                {/* Other option for single-select */}
+                {/* Other */}
                 <div
                   className={cn(
-                    "flex items-start gap-3 p-3 rounded-lg border transition-colors cursor-pointer",
+                    "flex items-center gap-2 p-2 rounded border transition-colors cursor-pointer text-sm",
                     answers[q.question] === "Other"
-                      ? "border-primary/50 bg-primary/10"
-                      : "border-border hover:bg-accent/50",
+                      ? "border-primary/50 bg-primary/5"
+                      : "border-border hover:bg-accent",
                     (isSubmitted || disabled) && "pointer-events-none"
                   )}
-                  onClick={() =>
-                    !isSubmitted &&
-                    !disabled &&
-                    handleSingleSelect(q.question, "Other")
-                  }
                 >
-                  <RadioGroupItem
-                    value="Other"
-                    id={`${qIndex}-other`}
-                    className="mt-0.5"
-                  />
-                  <div className="flex flex-col flex-1">
-                    <Label
-                      htmlFor={`${qIndex}-other`}
-                      className="text-sm font-medium cursor-pointer"
-                    >
+                  <RadioGroupItem value="Other" id={`${qIndex}-other`} />
+                  <div className="flex-1">
+                    <Label htmlFor={`${qIndex}-other`} className="text-sm cursor-pointer">
                       Other
                     </Label>
                     {answers[q.question] === "Other" && (
                       <Input
-                        placeholder="Enter your answer..."
+                        placeholder="Specify..."
                         value={otherInputs[q.question] || ""}
-                        onChange={(e) =>
-                          handleOtherInput(q.question, e.target.value)
-                        }
+                        onChange={(e) => handleOtherInput(q.question, e.target.value)}
                         onClick={(e) => e.stopPropagation()}
-                        className="mt-2 h-8 text-sm"
+                        className="mt-1 h-7 text-xs"
                         disabled={isSubmitted || disabled}
                       />
                     )}
@@ -383,34 +325,27 @@ export default function AskUserQuestionCard({
         ))}
       </div>
 
-      {/* Action Buttons */}
+      {/* Compact Actions */}
       {!isSubmitted && (
-        <div className="flex gap-2 mt-5">
+        <div className="flex gap-2 mt-4 pt-3 border-t border-border">
           <Button
             onClick={handleSubmit}
             disabled={!isComplete || disabled}
-            className="flex-1"
+            className="flex-1 h-8"
             size="sm"
           >
-            <Send className="w-4 h-4 mr-2" />
+            <Send className="w-3 h-3 mr-1.5" />
             Submit
           </Button>
-          <Button
-            onClick={handleCancel}
-            variant="outline"
-            size="sm"
-            disabled={disabled}
-          >
-            <X className="w-4 h-4 mr-2" />
+          <Button onClick={handleCancel} variant="ghost" size="sm" disabled={disabled} className="h-8">
             Skip
           </Button>
         </div>
       )}
 
-      {/* Submitted state */}
       {isSubmitted && (
-        <div className="text-xs text-muted-foreground text-center mt-4">
-          Response submitted
+        <div className="text-xs text-center text-muted-foreground mt-3 pt-3 border-t border-border">
+          ✓ Response submitted
         </div>
       )}
     </div>
