@@ -6,7 +6,6 @@ import {
     StartChatRequestBody,
     StartChatResponse,
 } from "../../types/PublicAPITypes.js";
-import { validateOrchestrationToken } from "./OrchestrationService.js";
 import { GlideClient } from "@valkey/valkey-glide";
 import { CACHE_KEYS } from "../../types/InternalTypes.js";
 import {
@@ -14,6 +13,7 @@ import {
     hgetallAsDevBuild,
 } from "../../utils/cacheInteractionUtils.js";
 import { isDevServerInShutdownStages } from "../../utils/prototypeDevServerStatusUtils.js";
+import { validateOrchestrationToken } from "./OrchestrationTokenValidationUtils.js";
 
 export async function handleStartChatImpl(
     request: FastifyRequest<{ Body: StartChatRequestBody }>,
