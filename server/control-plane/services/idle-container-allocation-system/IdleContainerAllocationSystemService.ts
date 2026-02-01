@@ -31,6 +31,8 @@ import {
 import { updateBuildTunnelInfo } from "../../utils/cacheInteractionUtils.js";
 import { deleteCloudflareTunnel } from "../../utils/cloudflareTunnelManagementUtils.js";
 import { IdleCloudflareTunnelSystem } from "./IdleCloudflareTunnelSystem.js";
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
+import { Database } from "../../types/supabase.js";
 
 const MAX_IDLE_FARGATE_BUILDS: number = 1;
 
@@ -40,6 +42,7 @@ export class IdleContainerAllocationSystemService {
   private readonly log2: SystemLogger;
   private readonly stsClient: STSClient;
   private readonly cloudflareTunnelSystem: IdleCloudflareTunnelSystem;
+  private readonly supabaseServiceRoleClient: SupabaseClient<Database>;
   private maintenanceTimer?: NodeJS.Timeout;
 
   constructor(opts: {
@@ -57,6 +60,10 @@ export class IdleContainerAllocationSystemService {
     this.cloudflareTunnelSystem = new IdleCloudflareTunnelSystem({
       log2: this.log2,
     });
+    this.supabaseServiceRoleClient = createClient(
+      process.env.SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    );
     this.init();
   }
 
@@ -149,8 +156,8 @@ export class IdleContainerAllocationSystemService {
 
     // 1. Try to pop an idle container from the pool
     const taskArn = (await this.cache.rpop(CACHE_KEYS.idleBuildsListKey)) as // NOTE: this is an atomic operation
-    | string
-    | null;
+      | string
+      | null;
 
     // 2. No idle containers found. Fallback to direct launch and replenish in background
     if (!taskArn) {
@@ -420,8 +427,7 @@ export class IdleContainerAllocationSystemService {
     } catch (error) {
       log2.error(error, "Failed to launch Fargate task:");
       throw new Error(
-        `Failed to launch Fargate instance: ${
-          error instanceof Error ? error.message : "Unknown error"
+        `Failed to launch Fargate instance: ${error instanceof Error ? error.message : "Unknown error"
         }`,
       );
     }
@@ -450,8 +456,7 @@ export class IdleContainerAllocationSystemService {
     } catch (error) {
       log2.error(error, "Failed to launch Fargate task:");
       throw new Error(
-        `Failed to launch Fargate instance: ${
-          error instanceof Error ? error.message : "Unknown error"
+        `Failed to launch Fargate instance: ${error instanceof Error ? error.message : "Unknown error"
         }`,
       );
     }
@@ -633,8 +638,7 @@ export class IdleContainerAllocationSystemService {
         },
       );
       throw new Error(
-        `Failed to assume AWS STS role: ${
-          error instanceof Error ? error.message : String(error)
+        `Failed to assume AWS STS role: ${error instanceof Error ? error.message : String(error)
         }`,
       );
     }
@@ -666,8 +670,7 @@ export class IdleContainerAllocationSystemService {
         },
       );
       throw new Error(
-        `Failed to retrieve Cloudflare tunnel: ${
-          error instanceof Error ? error.message : String(error)
+        `Failed to retrieve Cloudflare tunnel: ${error instanceof Error ? error.message : String(error)
         }`,
       );
     }
@@ -702,8 +705,7 @@ export class IdleContainerAllocationSystemService {
         tunnelHostname: tunnelHostnameWithProtocol,
       });
       throw new Error(
-        `Failed to update tunnel info in cache: ${
-          error instanceof Error ? error.message : String(error)
+        `Failed to update tunnel info in cache: ${error instanceof Error ? error.message : String(error)
         }`,
       );
     }
@@ -753,8 +755,7 @@ export class IdleContainerAllocationSystemService {
           },
         );
         throw new Error(
-          `Worker allocation failed: ${
-            allocationResponse.data.error.message || "Unknown error from worker"
+          `Worker allocation failed: ${allocationResponse.data.error.message || "Unknown error from worker"
           }`,
         );
       }
@@ -852,9 +853,8 @@ export class IdleContainerAllocationSystemService {
             `Terminated idle container ${taskArn}`,
           );
         } catch (error) {
-          const errorMsg = `Failed to terminate idle container ${taskArn}: ${
-            error instanceof Error ? error.message : "Unknown error"
-          }`;
+          const errorMsg = `Failed to terminate idle container ${taskArn}: ${error instanceof Error ? error.message : "Unknown error"
+            }`;
           this.log2.error(error, errorMsg);
           errors.push(errorMsg);
         }
@@ -870,8 +870,7 @@ export class IdleContainerAllocationSystemService {
         this.launchIdleContainer().catch((error) => {
           this.log2.error(
             error,
-            `Failed to launch replacement idle container: ${
-              error instanceof Error ? error.message : "Unknown error"
+            `Failed to launch replacement idle container: ${error instanceof Error ? error.message : "Unknown error"
             }`,
           );
         });
@@ -891,9 +890,8 @@ export class IdleContainerAllocationSystemService {
         errors,
       };
     } catch (error) {
-      const errorMsg = `Failed to refresh idle containers: ${
-        error instanceof Error ? error.message : "Unknown error"
-      }`;
+      const errorMsg = `Failed to refresh idle containers: ${error instanceof Error ? error.message : "Unknown error"
+        }`;
       this.log2.error(error, errorMsg);
       errors.push(errorMsg);
       return {
