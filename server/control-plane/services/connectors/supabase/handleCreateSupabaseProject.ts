@@ -128,12 +128,6 @@ export async function handleCreateSupabaseProjectImpl(
         });
     }
 
-    // Use service role client for token operations
-    const supabaseServiceClient = createClient<Database>(
-        process.env.SUPABASE_URL!,
-        process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    );
-
     // Generate a secure database password
     const dbPassword = generateSecurePassword();
 
@@ -142,11 +136,12 @@ export async function handleCreateSupabaseProjectImpl(
     let createdProject;
     try {
         createdProject = await executeWithRevocationDetection({
-            supabaseClient: supabaseServiceClient,
             logger: request.log2,
             integrationId: integration.id,
             operation: async (accessToken) => {
-                const managementClient = new SupabaseManagementAPI({ accessToken });
+                const managementClient = new SupabaseManagementAPI({
+                    accessToken,
+                });
                 return managementClient.createProject({
                     organization_id: organizationId,
                     name,

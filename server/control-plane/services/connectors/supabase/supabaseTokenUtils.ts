@@ -69,7 +69,6 @@ export class SupabaseAccessRevokedError extends Error {
 }
 
 interface ExecuteWithRevocationDetectionOptions<T> {
-  supabaseClient: SupabaseClient<Database>;
   logger: SystemLogger;
   integrationId: string;
   /** Function that executes the API call. Receives accessToken as parameter. */
