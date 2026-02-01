@@ -144,7 +144,6 @@ export async function handleAddContextImpl(
         prototypeId,
         teamId,
         github.github_repo_id,
-        jwtToken,
       );
 
     developmentServerService.setSourceRepository({

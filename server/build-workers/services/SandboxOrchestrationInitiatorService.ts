@@ -9,6 +9,7 @@ import {
   StandardErrorResponse,
   StartChatResponse,
 } from "../types/ControlPlaneTypes.js";
+import { SupabaseClientService } from "./SupabaseClientService.js";
 
 interface RefreshGitHubInstallationTokenResponse {
   data: {
@@ -235,7 +236,6 @@ export class SandboxOrchestrationInitiatorService {
    * @param prototypeId - The prototype ID to fetch source repository details for
    * @param teamId - The team ID associated with the prototype
    * @param githubRepoId - The GitHub repository ID to fetch
-   * @param userJwtToken - The user's JWT token (get fresh token from SupabaseClientService)
    * @returns The source repository details and installation token
    * @throws Error if the request fails or tokens are not set
    */
@@ -243,7 +243,6 @@ export class SandboxOrchestrationInitiatorService {
     prototypeId: string,
     teamId: string,
     githubRepoId: number,
-    userJwtToken: string,
   ): Promise<FetchGitHubSourceRepoSuccessResponse> {
     if (!this.orchestrationToken) {
       throw new Error("Orchestration token not set");
@@ -252,6 +251,12 @@ export class SandboxOrchestrationInitiatorService {
     const serverEndpoint = process.env.NUCLEATE_SERVER_ENDPOINT;
     if (!serverEndpoint) {
       throw new Error("NUCLEATE_SERVER_ENDPOINT not set in environment");
+    }
+
+    const userJwtToken = SupabaseClientService.getInstance()
+      .getCurrentJwtToken();
+    if (!userJwtToken) {
+      throw new Error("User JWT token not available");
     }
 
     try {

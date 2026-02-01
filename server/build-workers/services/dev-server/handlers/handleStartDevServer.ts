@@ -99,30 +99,11 @@ export async function handleStartDevServerImpl(
         };
       }
 
-      const userJwtToken = developmentServerService.supabaseClientService
-        .getCurrentJwtToken();
-      if (!userJwtToken) {
-        request.log2.error(
-          new Error("User JWT token not available"),
-          "Cannot fetch source repository without user token",
-          { prototypeId: prototype_id },
-        );
-        reply.code(HTTP_STATUS.UNAUTHORIZED);
-        return {
-          data: null,
-          error: {
-            error: "Authentication required",
-            message: "User JWT token not available",
-          },
-        };
-      }
-
       const sourceRepoResponse = await developmentServerService
         .sandboxOrchestrationInitiatorService.fetchGitHubSourceRepo(
           prototype_id,
           teamId,
           sensitiveMetadata.source_repo_id,
-          userJwtToken,
         );
 
       sourceRepoInstallationToken = sourceRepoResponse.installation_token;
