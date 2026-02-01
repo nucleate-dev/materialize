@@ -6,7 +6,7 @@
 set -euxo pipefail
 
 # Ensure HOME is set for non-interactive shells (cloud-init uses set -u).
-: "${HOME:=/root}"
+export HOME="${HOME:-/root}"
 
 # Variables - these should match the deploy script
 USER="ec2-user"
