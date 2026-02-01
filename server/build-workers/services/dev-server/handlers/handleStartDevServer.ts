@@ -842,6 +842,7 @@ export async function cloneSourceRepositoryToTmp(
   developmentServerService: NucleateDevelopmentServerService,
   log2: SystemLogger,
   installationTokenOverride?: string,
+  terminalSessionId: string = "dev-server",
 ): Promise<{ installation_token: string; expires_at: string } | null> {
   const sourceRepo = developmentServerService.sourceRepository;
   if (!sourceRepo) {
@@ -878,7 +879,7 @@ export async function cloneSourceRepositoryToTmp(
   try {
     const cloneResult = await developmentServerService.terminalService
       .asyncSendInputWithCompletionDetectionOrTimeout(
-        "dev-server",
+        terminalSessionId,
         cloneCommand,
         {
           timeout: 180000,
@@ -904,7 +905,7 @@ export async function cloneSourceRepositoryToTmp(
   try {
     await developmentServerService.terminalService
       .asyncSendInputWithCompletionDetectionOrTimeout(
-        "dev-server",
+        terminalSessionId,
         `cd ${SOURCE_REPO_DIR} && git remote remove origin`,
         { timeout: 15000, bypassValidation: true },
       );

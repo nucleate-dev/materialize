@@ -170,6 +170,7 @@ export async function handleAddContextImpl(
       developmentServerService,
       request.log2,
       sourceRepoResponse.installation_token,
+      "test",
     );
 
     reply.code(HTTP_STATUS.OK);
