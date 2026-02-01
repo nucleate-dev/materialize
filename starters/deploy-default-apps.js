@@ -104,6 +104,7 @@ const EXCLUDED_PATTERNS = [
   "*.temp",
   // Lock files - regenerated on install, can cause Unicode issues in DB
   "bun.lock",
+  "bun.lockb",
   "package-lock.json",
   "yarn.lock",
   "pnpm-lock.yaml",

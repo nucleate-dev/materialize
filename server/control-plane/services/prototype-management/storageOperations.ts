@@ -637,7 +637,7 @@ export async function getDefaultAppFilesFromS3(
         const obj = await s3Client.send(getCommand);
         if (!obj.Body) throw new Error(`No body returned for ${fileName}`);
 
-        const isAsset = /\.(png|jpg|jpeg|gif|ico|svg|webp|bmp|tiff|woff|woff2|ttf|otf|eot|mp4|webm|mov|avi|mkv|mp3|wav|ogg|m4a|flac|pdf|zip|tar|gz|7z|rar|exe|dll|so|dylib|bin|dat|db|sqlite|lock)$/i.test(fileName);
+        const isAsset = /\.(png|jpg|jpeg|gif|ico|svg|webp|bmp|tiff|woff|woff2|ttf|otf|eot|mp4|webm|mov|avi|mkv|mp3|wav|ogg|m4a|flac|pdf|zip|tar|gz|7z|rar|exe|dll|so|dylib|bin|dat|db|sqlite|lock|lockb)$/i.test(fileName);
 
         if (isAsset) {
           const buffer = Buffer.from(await obj.Body.transformToByteArray());
