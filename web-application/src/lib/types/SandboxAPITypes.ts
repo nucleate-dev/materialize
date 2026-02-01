@@ -5,7 +5,7 @@
 // To update these types, modify the source file and run:
 // npm run sync-build-worker-types
 //
-// Last synced: 2026-01-29T07:58:49.726Z
+// Last synced: 2026-02-01T04:56:57.224Z
 
 import { Database } from "./supabase.js";
 
@@ -139,6 +139,22 @@ export interface PublicDevServerRefetchEnvRequest {
 export interface PublicDevServerRefetchEnvSuccessResponse {
   message: string;
   env_var_count: number;
+}
+
+export interface PublicDevServerAddBackendRequest {
+  type: "supabase" | "convex" | "custom";
+  project_id: string;
+  project_url?: string | null;
+  metadata?: Record<string, unknown>;
+}
+
+export interface PublicDevServerAddBackendSuccessResponse {
+  message: string;
+  backend: {
+    type: "supabase" | "convex" | "custom";
+    project_id: string;
+    project_url: string | null;
+  };
 }
 
 export interface PublicConnectGitHubSuccessResponse {
