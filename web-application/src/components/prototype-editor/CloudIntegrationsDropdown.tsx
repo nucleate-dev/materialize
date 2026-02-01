@@ -23,6 +23,12 @@ import type {
   SupabaseProjectSummary,
   SupabaseProjectsSuccessResponse,
 } from "@/lib/types/serverAPITypes";
+import type {
+  PublicDevServerAddBackendRequest,
+  PublicDevServerAddBackendSuccessResponse,
+  SandboxAPIResponse,
+  StandardErrorResponse as SandboxStandardErrorResponse,
+} from "@/lib/types/SandboxAPITypes";
 import { Cloud, ExternalLink, Loader2, Plus } from "lucide-react";
 import { usePostHog } from "posthog-js/react";
 import { useCallback, useEffect, useState } from "react";
@@ -30,11 +36,13 @@ import { toast } from "sonner";
 
 interface CloudIntegrationsDropdownProps {
   prototypeId?: string;
+  normalizedSandboxUrl?: string | null;
   onOpenTeamSettings?: (tab: "supabase-backend") => void;
 }
 
 export function CloudIntegrationsDropdown({
   prototypeId,
+  normalizedSandboxUrl,
   onOpenTeamSettings,
 }: CloudIntegrationsDropdownProps) {
   const logger = useProductLogger();
@@ -210,6 +218,13 @@ export function CloudIntegrationsDropdown({
   const handleLinkSupabaseProject = useCallback(
     async (project: SupabaseProjectSummary) => {
       if (!prototypeId || !activeTeam?.id) return;
+      if (!normalizedSandboxUrl) {
+        const message =
+          "Dev server not started yet. Start the server, then try linking again.";
+        setError(message);
+        toast.error(message);
+        return;
+      }
 
       setIsLinkingProject(project.id);
       setError(null);
@@ -222,26 +237,52 @@ export function CloudIntegrationsDropdown({
           throw new Error("Not authenticated");
         }
 
-        // Insert the backend record
-        const { error } = await supabase.from("prototype_backends").insert({
-          prototype_id: prototypeId,
-          backend_type: "supabase",
-          provider_project_id: project.id,
-          provider_project_url: `https://supabase.com/dashboard/project/${project.id}`,
+        const payload: PublicDevServerAddBackendRequest = {
+          type: "supabase",
+          project_id: project.id,
+          project_url: `https://supabase.com/dashboard/project/${project.id}`,
           metadata: {
             name: project.name,
             region: project.region,
             organization_id: project.organization_id,
           },
-        });
+        };
 
-        if (error) {
-          throw new Error(error.message);
+        const response = await fetch(
+          `${normalizedSandboxUrl}/dev-server/add-backend`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${accessToken}`,
+            },
+            body: JSON.stringify(payload),
+          },
+        );
+
+        const result: SandboxAPIResponse<
+          PublicDevServerAddBackendSuccessResponse,
+          SandboxStandardErrorResponse
+        > = await response.json().catch(() => ({
+          data: null,
+          error: {
+            error: "Invalid response",
+            message: "Failed to parse dev server response",
+          },
+        }));
+
+        if (!response.ok || result.error || !result.data) {
+          const message =
+            result.error?.message ?? "Failed to link Supabase project";
+          setError(message);
+          toast.error(message);
+          return;
         }
 
         // Update state to reflect the linked backend
         setSupabaseBackend({
-          projectUrl: `https://supabase.com/dashboard/project/${project.id}`,
+          projectUrl: result.data.backend.project_url ??
+            `https://supabase.com/dashboard/project/${project.id}`,
           loading: false,
         });
 
@@ -251,12 +292,12 @@ export function CloudIntegrationsDropdown({
         const errorMessage =
           error instanceof Error ? error.message : "Failed to link project";
         setError(errorMessage);
-        toast.error(`Failed to link project: ${errorMessage}`);
+        toast.error(errorMessage);
       } finally {
         setIsLinkingProject(null);
       }
     },
-    [prototypeId, activeTeam?.id],
+    [prototypeId, activeTeam?.id, normalizedSandboxUrl],
   );
 
   // Don't render if feature flag is disabled

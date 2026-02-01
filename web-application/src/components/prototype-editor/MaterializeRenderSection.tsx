@@ -3873,6 +3873,7 @@ const MaterializeRenderSection = forwardRef<
                 {!isReadOnlyView && (
                   <CloudIntegrationsDropdown
                     prototypeId={prototypeId}
+                    normalizedSandboxUrl={sandbox_url}
                     onOpenTeamSettings={onOpenTeamSettings}
                   />
                 )}
