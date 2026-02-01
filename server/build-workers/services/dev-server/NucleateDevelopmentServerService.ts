@@ -7,6 +7,8 @@ import {
   PublicAllocateRequest,
   PublicAllocateSuccessResponse,
   PublicConnectGitHubSuccessResponse,
+  PublicDevServerAddBackendRequest,
+  PublicDevServerAddBackendSuccessResponse,
   PublicDevServerRefetchEnvRequest,
   PublicDevServerRefetchEnvSuccessResponse,
   PublicDevServerRestartSuccessResponse,
@@ -43,6 +45,7 @@ import type { Database } from "../../types/supabase.js";
 import { SandboxOrchestrationInitiatorService } from "../SandboxOrchestrationInitiatorService.js";
 import { handleConnectGitHubImpl } from "./handlers/handleConnectGitHub.js";
 import { handleBuildStatusImpl } from "./handlers/handleBuildStatus.js";
+import { handleAddBackendImpl } from "./handlers/handleAddBackend.js";
 import type { ChatQueryData } from "../../types/ChatTypes.js";
 import type { SystemLogger } from "../../loggers/SystemLogger.js";
 import { WORK_DIR } from "../../worker.js";
@@ -170,6 +173,10 @@ export class NucleateDevelopmentServerService {
     );
 
     app.post("/dev-server/connect-github", this.connectGitHub.bind(this));
+    app.post<{ Body: PublicDevServerAddBackendRequest }>(
+      "/dev-server/add-backend",
+      this.addBackend.bind(this),
+    );
 
     app.delete("/cleanup", this.cleanup.bind(this));
     app.delete("/cleanup-tunnel-only", this.cleanupTunnelOnly.bind(this));
@@ -672,6 +679,18 @@ export class NucleateDevelopmentServerService {
     >
   > {
     return handleConnectGitHubImpl(request, reply, this);
+  }
+
+  private async addBackend(
+    request: FastifyRequest<{ Body: PublicDevServerAddBackendRequest }>,
+    reply: FastifyReply,
+  ): Promise<
+    SandboxAPIResponse<
+      PublicDevServerAddBackendSuccessResponse,
+      StandardErrorResponse
+    >
+  > {
+    return handleAddBackendImpl(request, reply, this);
   }
 
   private async buildAndDeploy(
