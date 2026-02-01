@@ -55,14 +55,14 @@ import type {
 import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import { toast } from "sonner";
+import AskUserQuestionCard from "./AskUserQuestionCard";
 import type {
   ClaudeCodePanelActiveView,
   Message,
   PrototypeChatSession,
   Todo,
   UploadedImage,
-} from "./ClaudeCodePanel";
-import AskUserQuestionCard from "./AskUserQuestionCard";
+} from "./ChatPanel";
 import ContextDropdown from "./ContextDropdown";
 
 interface ClaudeCodePanelUIProps {
@@ -77,7 +77,7 @@ interface ClaudeCodePanelUIProps {
   currentRenderStatus?: RenderStatus;
   modelProvider: "claude" | "vercel";
   model: string;
-  vercelModels: Array<{ value: string; label: string }>;
+  vercelModels: Array<{ value: string; label: string; }>;
   onModelProviderChange: (value: "claude" | "vercel") => void;
   onModelChange: (value: string) => void;
   messages: Message[];
@@ -90,16 +90,16 @@ interface ClaudeCodePanelUIProps {
   isDragOver: boolean;
   isLoadingOlderMessages: boolean;
   uploadingImages: boolean;
-  uploadProgress: { [key: string]: number };
+  uploadProgress: { [key: string]: number; };
   scrollAreaRef:
-    | RefObject<HTMLDivElement | null>
-    | MutableRefObject<HTMLDivElement | null>;
+  | RefObject<HTMLDivElement | null>
+  | MutableRefObject<HTMLDivElement | null>;
   fileInputRef:
-    | RefObject<HTMLInputElement | null>
-    | MutableRefObject<HTMLInputElement | null>;
+  | RefObject<HTMLInputElement | null>
+  | MutableRefObject<HTMLInputElement | null>;
   textareaRef:
-    | RefObject<HTMLTextAreaElement | null>
-    | MutableRefObject<HTMLTextAreaElement | null>;
+  | RefObject<HTMLTextAreaElement | null>
+  | MutableRefObject<HTMLTextAreaElement | null>;
   switchChatSession: (value: string) => void;
   createNewChatSession: () => void;
   connect: () => void;
@@ -140,7 +140,7 @@ interface ClaudeCodePanelUIProps {
   onAskUserQuestionCancel: (toolCallId: string) => void;
 }
 
-function CopyMessageButton({ content }: { content: string }) {
+function CopyMessageButton({ content }: { content: string; }) {
   const [isCopied, setIsCopied] = useState(false);
 
   const handleCopy = () => {
@@ -355,9 +355,9 @@ export default function ClaudeCodePanelUI({
                   const dateStr = isToday
                     ? "Today"
                     : date.toLocaleDateString(undefined, {
-                        month: "short",
-                        day: "numeric",
-                      });
+                      month: "short",
+                      day: "numeric",
+                    });
                   const timeStr = date.toLocaleTimeString(undefined, {
                     hour: "numeric",
                     minute: "2-digit",
@@ -579,11 +579,11 @@ export default function ClaudeCodePanelUI({
                               <AvatarFallback className="text-xs bg-primary/10 text-primary">
                                 {message.user.name
                                   ? message.user.name
-                                      .split(" ")
-                                      .map((n) => n[0])
-                                      .join("")
-                                      .toUpperCase()
-                                      .slice(0, 2)
+                                    .split(" ")
+                                    .map((n) => n[0])
+                                    .join("")
+                                    .toUpperCase()
+                                    .slice(0, 2)
                                   : "U"}
                               </AvatarFallback>
                             </Avatar>
@@ -636,7 +636,7 @@ export default function ClaudeCodePanelUI({
                                   className={cn(
                                     "flex items-center gap-2 px-3 py-1.5 rounded-md bg-accent/50 border border-border w-fit max-w-full",
                                     isExpandable &&
-                                      "cursor-pointer hover:bg-accent/70 transition-colors",
+                                    "cursor-pointer hover:bg-accent/70 transition-colors",
                                   )}
                                   role={isExpandable ? "button" : undefined}
                                   tabIndex={isExpandable ? 0 : undefined}
@@ -710,7 +710,7 @@ export default function ClaudeCodePanelUI({
                           >
                             <div className="text-muted-foreground">
                               {message.toolCallId &&
-                              expandedThinking.has(message.toolCallId) ? (
+                                expandedThinking.has(message.toolCallId) ? (
                                 <ChevronDown className="w-3.5 h-3.5" />
                               ) : (
                                 <ChevronRight className="w-3.5 h-3.5" />
@@ -1100,7 +1100,7 @@ export default function ClaudeCodePanelUI({
                       isProcessing
                         ? "bg-destructive hover:bg-destructive/90 text-white shadow-md"
                         : (!inputValue.trim() && uploadedImages.length === 0) ||
-                            !isCurrentSessionMostRecent
+                          !isCurrentSessionMostRecent
                           ? "bg-accent text-muted-foreground"
                           : "bg-primary text-primary-foreground hover:bg-primary/90 shadow-md",
                     )}
