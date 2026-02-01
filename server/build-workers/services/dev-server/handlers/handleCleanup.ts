@@ -53,7 +53,6 @@ export async function handleCleanup(
       );
       developmentServerService.developmentServerState.devServerStatus =
         DevServerStatus.STOPPED;
-      request.log2.consoleLogDevOnly("info", "Dev server stopped successfully");
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
@@ -316,7 +315,7 @@ export async function triggerDevServerBuildAndUploadToS3(
 
     log2.info(
       "Claude session upload before Expo build, " +
-        `Uploaded ${uploadResult.uploadedCount} session files`,
+      `Uploaded ${uploadResult.uploadedCount} session files`,
       {
         success: uploadResult.success,
         errorCount: uploadResult.errors.length,

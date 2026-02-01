@@ -121,7 +121,6 @@ export async function handleResetSandbox(
       );
       developmentServerService.developmentServerState.devServerStatus =
         DevServerStatus.STOPPED;
-      request.log2.consoleLogDevOnly("info", "Dev server stopped successfully");
     } catch (error) {
       const errorMessage = error instanceof Error
         ? error.message
