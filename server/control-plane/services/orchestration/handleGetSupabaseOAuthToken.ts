@@ -82,15 +82,22 @@ export async function handleGetSupabaseOAuthToken(
         });
     }
 
-    const supabaseServiceClient = createClient<Database>(
+    const supabaseAuthClient = createClient<Database>(
         process.env.SUPABASE_URL!,
-        process.env.SUPABASE_SERVICE_ROLE_KEY!,
+        process.env.SUPABASE_ANON_KEY!,
+        {
+            global: {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+            },
+        },
     );
 
     try {
         // Step 2: Validate prototype has a Supabase backend linked
         const { data: backend, error: backendError } =
-            await supabaseServiceClient
+            await supabaseAuthClient
                 .from("prototype_backends")
                 .select("id, provider_integration_id")
                 .eq("prototype_id", prototype_id)
