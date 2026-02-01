@@ -196,7 +196,8 @@ ldconfig /usr/local/lib
 
 # 3. Install Bun runtime for Vite projects (shared install for non-root users)
 echo "==> Installing Bun runtime..."
-BUN_INSTALL=/usr/local/bun curl -fsSL https://bun.sh/install | bash
+export BUN_INSTALL=/usr/local/bun
+curl -fsSL https://bun.sh/install | bash
 ln -sf /usr/local/bun/bin/bun /usr/local/bin/bun
 ln -sf /usr/local/bun/bin/bunx /usr/local/bin/bunx
 chmod -R a+rX /usr/local/bun
