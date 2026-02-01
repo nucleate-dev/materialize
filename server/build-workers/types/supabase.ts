@@ -685,7 +685,7 @@ export type Database = {
           },
         ]
       }
-      github_repositories: {
+      prototype_github_repositories: {
         Row: {
           account_login: string
           account_type: string
@@ -736,7 +736,7 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "github_repositories_prototype_id_fkey"
+            foreignKeyName: "prototype_github_repositories_prototype_id_fkey"
             columns: ["prototype_id"]
             isOneToOne: false
             referencedRelation: "prototypes"
@@ -1131,7 +1131,7 @@ export type Database = {
           },
         ]
       }
-      prototype_sensitive_metadata: {
+      prototype_source_repositories: {
         Row: {
           created_at: string
           prototype_id: string
@@ -1152,7 +1152,7 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "prototype_sensitive_metadata_prototype_id_fkey"
+            foreignKeyName: "prototype_source_repositories_prototype_id_fkey"
             columns: ["prototype_id"]
             isOneToOne: true
             referencedRelation: "prototypes"
@@ -1309,7 +1309,7 @@ export type Database = {
             foreignKeyName: "prototypes_github_repo_id_fkey"
             columns: ["github_repo_id"]
             isOneToOne: false
-            referencedRelation: "github_repositories"
+            referencedRelation: "prototype_github_repositories"
             referencedColumns: ["github_repo_id"]
           },
           {
