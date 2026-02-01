@@ -9,6 +9,7 @@ import {
 import { NucleateDevelopmentServerService } from "../NucleateDevelopmentServerService.js";
 import { getWorkerContext } from "../../../worker.js";
 import { checkUserHasPrototypeEditAccess } from "../../../utils/prototypeAuth.js";
+import { cloneSourceRepositoryToTmp } from "./handleStartDevServer.js";
 
 export async function handleAddContextImpl(
   request: FastifyRequest<{ Body: PublicDevServerAddContextRequest }>,
@@ -164,6 +165,13 @@ export async function handleAddContextImpl(
       developmentServerService.startGitHubTokenRefreshJob(prototypeId);
     }
 
+    await cloneSourceRepositoryToTmp(
+      prototypeId,
+      developmentServerService,
+      request.log2,
+      sourceRepoResponse.installation_token,
+    );
+
     reply.code(HTTP_STATUS.OK);
     return {
       data: {
@@ -174,7 +182,7 @@ export async function handleAddContextImpl(
   } catch (error) {
     request.log2.error(
       error instanceof Error ? error : new Error(String(error)),
-      "Failed to fetch GitHub source repository after linking context",
+      "Failed to fetch or clone GitHub source repository after linking context",
       { prototypeId, githubRepoId: github.github_repo_id, teamId },
     );
     reply.code(HTTP_STATUS.INTERNAL_SERVER_ERROR);
@@ -184,7 +192,7 @@ export async function handleAddContextImpl(
         error: "Failed to link context",
         message: error instanceof Error
           ? error.message
-          : "Failed to fetch source repository details",
+          : "Failed to fetch or clone source repository details",
       },
     };
   }

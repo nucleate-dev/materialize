@@ -837,7 +837,7 @@ async function cloneGithubRepository(
   });
 }
 
-async function cloneSourceRepositoryToTmp(
+export async function cloneSourceRepositoryToTmp(
   prototypeId: string,
   developmentServerService: NucleateDevelopmentServerService,
   log2: SystemLogger,
