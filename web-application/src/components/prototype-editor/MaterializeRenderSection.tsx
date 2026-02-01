@@ -712,7 +712,7 @@ const MaterializeRenderSection = forwardRef<
         return { gridTemplate: "repeat(2, 1fr)", showAddButton: true };
       if (count === 3)
         return { gridTemplate: "repeat(2, 1fr)", showAddButton: true };
-      return { gridTemplate: "repeat(2, 1fr)", showAddButton: false }; // Max 4
+      return { gridTemplate: "repeat(2, 1fr)", showAddButton: true };
     }, [webScreens.length]);
 
     const [editingScreenId, setEditingScreenId] = useState<number | null>(null);
@@ -997,15 +997,6 @@ const MaterializeRenderSection = forwardRef<
     const handleAddMobileScreen = useCallback(() => {
       if (!viewing_url) return;
 
-      // Warn user when adding 4+ screens
-      const currentCount = mobileScreens.length;
-      if (currentCount >= 4) {
-        toast.warning("Performance note", {
-          description:
-            "Having many screens open may slow down your browser. Consider closing unused screens.",
-        });
-      }
-
       setMobileScreens((prev) => [
         ...prev,
         { id: nextMobileScreenId.current++, path: "/" },
@@ -1039,20 +1030,6 @@ const MaterializeRenderSection = forwardRef<
     // Web screen handlers
     const handleAddWebScreen = useCallback(() => {
       if (!viewing_url) return;
-
-      const currentCount = webScreens.length;
-      if (currentCount >= 4) {
-        toast.warning("Maximum screens reached", {
-          description: "Web view supports up to 4 screens.",
-        });
-        return;
-      }
-
-      if (currentCount >= 3) {
-        toast.warning("Performance note", {
-          description: "Having many screens open may slow down your browser.",
-        });
-      }
 
       setWebScreens((prev) => [
         ...prev,
@@ -1386,19 +1363,6 @@ const MaterializeRenderSection = forwardRef<
           switch (data.action) {
             case "add":
               if (data.path) {
-                // Enforce max 4 screens
-                const currentScreens =
-                  targetPreviewMode === "mobile" ||
-                  targetPreviewMode === "tablet"
-                    ? mobileScreens
-                    : webScreens;
-                if (currentScreens.length >= 4) {
-                  logger.debug(
-                    "warn",
-                    "Cannot add screen: maximum of 4 screens allowed",
-                  );
-                  return;
-                }
                 setScreens((prev) => [
                   ...prev,
                   { id: nextIdRef.current++, path: data.path! },
@@ -1419,11 +1383,9 @@ const MaterializeRenderSection = forwardRef<
               break;
             case "set":
               if (data.screens && data.screens.length > 0) {
-                // Enforce max 4 screens
-                const screensToSet = data.screens.slice(0, 4);
                 let idCounter = 0;
                 setScreens(
-                  screensToSet.map((s) => ({ id: idCounter++, path: s.path })),
+                  data.screens.map((s) => ({ id: idCounter++, path: s.path })),
                 );
                 nextIdRef.current = idCounter;
               }
@@ -3221,7 +3183,7 @@ const MaterializeRenderSection = forwardRef<
                               className="h-6 w-6 hover:text-red-400"
                               onClick={() => handleRemoveWebScreen(screen.id)}
                             >
-                              <X className="w-3 h-3" />
+                              <X className="w-3 h-3 text-muted-foreground" />
                             </Button>
                           )}
                         </div>
