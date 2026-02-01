@@ -28,20 +28,6 @@ export async function handleAllocateImpl(
     source_repository,
   } = request.body;
 
-  // Log allocation request details
-  request.log2.info("Allocation request received", {
-    prototypeId: user_details?.prototypeId,
-    userId: user_details?.userId,
-    hasSourceRepository: !!source_repository,
-    sourceRepositoryDetails: source_repository
-      ? {
-        githubRepoId: source_repository.github_repo_id,
-        fullName: source_repository.full_name,
-        repositoryName: source_repository.repository_name,
-      }
-      : undefined,
-  });
-
   // 1. Extract JWT token from Authorization header
   const authHeader = request.headers.authorization;
   let jwtToken: string | undefined;
