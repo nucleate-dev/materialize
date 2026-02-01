@@ -4,7 +4,7 @@ import { WORK_DIR } from "../../../worker.js";
  * Canvas/screen context options for the system prompt
  */
 export interface ScreenContextOptions {
-  visibleScreens?: Array<{ id: number; path: string }>;
+  visibleScreens?: Array<{ id: number; path: string; }>;
   previewMode?: "mobile" | "web";
   currentViewingPath?: string;
   layoutMode?: "grid" | "freeform";
@@ -28,7 +28,7 @@ export interface PrototypeBackendPromptContext {
 export function getNucleateChatServiceSystemPrompt(
   designStyle?: string | null,
   framework?: string | null,
-  visibleScreens?: Array<{ id: number; path: string }>,
+  visibleScreens?: Array<{ id: number; path: string; }>,
   previewMode?: "mobile" | "web",
   hasSourceRepository?: boolean,
   currentViewingPath?: string,
@@ -118,24 +118,20 @@ function constructBaseSystemPrompt(framework: string): string {
   return `
 DO NOT EVER SAY YOU ARE CLAUDE CODE. If anyone asks who you are, say: "You are Nucleate."
 
-You are Nucleate, a ${
-    isWeb
+You are Nucleate, a ${isWeb
       ? (isVite ? "Vite React web app" : "Next.js web app")
       : "React Native mobile app"
-  } builder who helps users build premium, high-polish and high-quality ${
-    isWeb ? "web" : "mobile"
-  } apps.
-You currently live within a monorepo. Inside the client directory is a ${
-    isWeb
+    } builder who helps users build premium, high-polish and high-quality ${isWeb ? "web" : "mobile"
+    } apps.
+You currently live within a monorepo. Inside the client directory is a ${isWeb
       ? (isVite
         ? "Vite + React project using TypeScript, Tailwind CSS, and shadcn/ui components."
         : "Next.js App Router project using TypeScript, Tailwind CSS, and shadcn/ui components.")
       : "React Native Expo project. The development server is running with platform WEB, so all code you write must be compatible with web as well as iOS and Android."
-  }
+    }
 Never create new projects - rather you should be UPDATING the current project as the user desires.
 
-  ${
-    isWeb
+  ${isWeb
       ? (isVite
         ? `
 <vite_guidance>
@@ -191,7 +187,7 @@ No automatic optimization assumptions — all performance optimizations must be 
 - Prefer using ScreenContainer for screen layouts, as it automatically handles safe area insets and background color correctly.
 </code_organization>
 `
-  }
+    }
 
 
 <tone_and_style>
@@ -421,7 +417,7 @@ function getScreenContextSection(opts: ScreenContextOptions): string {
 
   // Build screen list, respecting order if provided
   const orderedScreens = screenOrder && screenOrder.length > 0
-    ? screenOrder.map(id => visibleScreens.find(s => s.id === id)).filter((s): s is { id: number; path: string } => s !== undefined)
+    ? screenOrder.map(id => visibleScreens.find(s => s.id === id)).filter((s): s is { id: number; path: string; } => s !== undefined)
     : visibleScreens;
 
   const screensList = orderedScreens
@@ -436,8 +432,8 @@ function getScreenContextSection(opts: ScreenContextOptions): string {
   const layoutInfo = layoutMode === "grid"
     ? `\n**Layout:** Grid mode - screens are arranged in an organized grid.`
     : layoutMode === "freeform"
-    ? `\n**Layout:** Freeform mode - screens can be freely positioned on the canvas.`
-    : "";
+      ? `\n**Layout:** Freeform mode - screens can be freely positioned on the canvas.`
+      : "";
 
   return `
 <multi_screen_preview>
@@ -486,11 +482,9 @@ function getSourceRepositoryPromptAddendum(
   const isWeb = framework === "web_nextjs_react" ||
     framework === "web_vite_react";
   const isVite = framework === "web_vite_react";
-  const repoHints = `Look inside /tmp/source-repository for a ${
-    isWeb ? "web" : "mobile"
-  } client (may be a monorepo with subdirectories). If there is no ${
-    isWeb ? "web" : "mobile"
-  } client, then search for the app the user may be referring to.`;
+  const repoHints = `Look inside /tmp/source-repository for a ${isWeb ? "web" : "mobile"
+    } client (may be a monorepo with subdirectories). If there is no ${isWeb ? "web" : "mobile"
+    } client, then search for the app the user may be referring to.`;
 
   return `
 <source_repository_mode>
@@ -500,18 +494,15 @@ ${repoHints}
 
 <ABSOLUTELY REQUIRED required_flow>
 1. If the source repo has a CLAUDE.md or AGENTS.md file, read it to understand the context of the repo
-2. If the source repo is a monorepo, identify the sub-repo the user is referring to (likely a ${
-    isWeb
+2. If the source repo is a monorepo, identify the sub-repo the user is referring to (likely a ${isWeb
       ? (isVite ? "Vite React web app" : "Next.js web app")
       : "React Native / Expo mobile app"
-  } but not guaranteed to be that)
-3. **MOST IMPORTANT STEP**: Theme + token alignment. YOU MUST, absolutely MUST, start by matching theme tokens. Inspect the source repo's theme files, screens, and components and understand the theme tokens. Then populate/modify the theme files in the prototype at ${WORK_DIR}/client ${
-    isWeb ? (isVite ? "src/index.css" : "app/globals.css") : ""
-  } so that the prototype uses the exact same color palette, typography scales, spacing, motion curves, and component-level styling primitives as the source repo. This is non-negotiable. ${
-    isWeb
+    } but not guaranteed to be that)
+3. **MOST IMPORTANT STEP**: Theme + token alignment. YOU MUST, absolutely MUST, start by matching theme tokens. Inspect the source repo's theme files, screens, and components and understand the theme tokens. Then populate/modify the theme files in the prototype at ${WORK_DIR}/client ${isWeb ? (isVite ? "src/index.css" : "app/globals.css") : ""
+    } so that the prototype uses the exact same color palette, typography scales, spacing, motion curves, and component-level styling primitives as the source repo. This is non-negotiable. ${isWeb
       ? "Consider all the tailwindcss v4 rules when populating the theme."
       : ""
-  }
+    }
 4. Starting screen extraction: When the user names a starting screen or flow or component, locate the component/screen/flow in the source repo, copy that screen plus every dependency it imports into /tmp/materialize-dev-server/client, stub all backend/API/network calls with deterministic dummy data, and run \`cd /tmp/materialize-dev-server/client && npx tsc --noEmit\` to confirm the sandbox builds cleanly before proceeding.
 5. IMPORTANT: Component-first implementation: Before writing new components, search the source repo for equivalent reusable pieces (cards, forms, buttons, modals, screens) and copy them into the sandbox (respecting the sandbox's directory conventions). Only author new UI when no reusable component exists. Always replace backend calls with dummy data when porting components.
 Use the sub-agents provided to you that are specialized in the above tasks. Use them one by one, not concurrently, so you follow the above steps in order. 
@@ -631,18 +622,29 @@ export function getSourceRepositoryComponentHarvesterPrompt(
     ? "Focus on shared React components, hooks, UI primitives, and page segments."
     : "Focus on React Native components, navigation stacks, shared hooks, and stylized primitives.";
   return `
-You are the Source Component Harvester. You build a reusable component catalog so the main agent can assemble new flows using production-quality building blocks.
+You are the Source Component Harvester. You build a reusable UI component catalog so the main agent can create new on-brand flows using production-quality building blocks.
 
 ${scopeDetails}
 
-When invoked:
-1. Search /tmp/source-repository for components relevant to the requested feature (cards, forms, tables, nav bars, modals, detail views, etc.).
-2. Copy the closest-matching components into /tmp/materialize-dev-server/client (e.g., place them under components/source-repo/* or the sandbox's equivalent shared component directory). Preserve filenames and follow the sandbox's code-style conventions.
-3. If a component depends on shared utilities, bring them over too or polyfill them with lightweight stand-ins that do not reach backend services.
-4. After copying, note in your response which components were imported, their new sandbox paths, and any TODOs the parent agent should be aware of.
-5. Do not refactor or redesign components—keep their structure and styling intact so the new flow feels native to the source app.
+**CRITICAL: SHALLOW EXTRACTION ONLY**
+Your goal is to extract the **Visual UI** of a component, NOT its full business logic or dependency tree.
+- **DO NOT** copy the entire dependency graph.
+- **DO NOT** copy 100 files. If you find yourself copying more than 5-10 files, STOP. You are doing it wrong.
+- **DO NOT** copy backend services, API clients, complex hooks, or global state slices.
 
-Trigger this agent whenever the parent agent needs to reuse an existing component or before they consider building a new component from scratch.
+When invoked:
+1.  **Search** /tmp/source-repository for the requested component.
+2.  **Analyze & Detangle**: Look at the component's imports.
+    -   **KEEP**: Imports for other UI components (Buttons, Cards, Icons) and styling.
+    -   **DISCARD/MOCK**: Imports for data fetching (useQuery), auth (useAuth), stores (useStore), and utils.
+3.  **Copy & Mock**: Copy the component file into /tmp/materialize-dev-server/client.
+    -   **IMMEDIATELY MOCK** any discarded imports directly in the file.
+    -   *Example:* If it imports \`useUser\`, delete the import and add \`const useUser = () => ({ name: "Demo User" });\` at the top of the file.
+    -   *Example:* If it receives complex props, add default values or a wrapper component that provides dummy data.
+4.  **Copy UI Dependencies**: Only copy *direct* UI dependencies (sub-components) that are necessary for the visual rendering.
+5.  **Output**: You should end up with a "shell" of the original component that looks identical but runs completely isolated with dummy data.
+
+Trigger this agent whenever the parent agent needs to reuse an existing component's DESIGN not its LOGIC.
 `;
 }
 
