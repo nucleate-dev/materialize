@@ -97,6 +97,25 @@ export interface MessageUser {
   avatar_url: string | null;
 }
 
+// AskUserQuestion types for frontend
+export interface AskUserQuestionOption {
+  label: string;
+  description?: string;
+}
+
+export interface AskUserQuestionItem {
+  question: string;
+  header?: string;
+  options: AskUserQuestionOption[];
+  multiSelect?: boolean;
+}
+
+export interface AskUserQuestionData {
+  toolCallId: string;
+  questions: AskUserQuestionItem[];
+  timeoutMs: number;
+}
+
 export interface Message {
   id: string;
   type:
@@ -107,7 +126,8 @@ export interface Message {
     | "tool"
     | "thinking"
     | "usage"
-    | "design_spec";
+    | "design_spec"
+    | "ask_user_question";
   content: string;
   timestamp: number;
   toolName?: string;
@@ -124,6 +144,7 @@ export interface Message {
   isCollapsed?: boolean; // For design_spec messages - whether it's collapsed
   createdAt?: string; // ISO timestamp from the database (used for pagination)
   user?: MessageUser; // User info for messages sent by users
+  askUserQuestionData?: AskUserQuestionData; // For ask_user_question messages
 }
 
 export interface Todo {
@@ -1651,6 +1672,35 @@ const ClaudeCodePanel = forwardRef<ClaudeCodePanelRef, ClaudeCodePanelProps>(
           break;
         }
 
+        case ChatEvent.ASK_USER_QUESTION: {
+          // Claude is asking the user a clarifying question
+          const { tool_call_id, questions, timeout_ms } = message.data as {
+            tool_call_id: string;
+            questions: AskUserQuestionItem[];
+            timeout_ms: number;
+          };
+          logger.debug("log", "Received AskUserQuestion", {
+            toolCallId: tool_call_id,
+            questionCount: questions.length,
+          });
+
+          setMessages((prev) => [
+            ...prev,
+            {
+              id: `ask-user-${tool_call_id}`,
+              type: "ask_user_question" as const,
+              content: "Claude needs your input",
+              timestamp: Date.now(),
+              askUserQuestionData: {
+                toolCallId: tool_call_id,
+                questions,
+                timeoutMs: timeout_ms,
+              },
+            },
+          ]);
+          break;
+        }
+
         default: {
           const unknownMessage = message as { type: string };
           logger.debug("log", "Unknown message type", {
@@ -2459,6 +2509,68 @@ const ClaudeCodePanel = forwardRef<ClaudeCodePanelRef, ClaudeCodePanelProps>(
       );
     };
 
+    // Handle AskUserQuestion submit
+    const handleAskUserQuestionSubmit = useCallback(
+      (toolCallId: string, answers: Record<string, string>) => {
+        if (!ws || ws.readyState !== WebSocket.OPEN) {
+          logger.debug("error", "Cannot submit AskUserQuestion - not connected");
+          return;
+        }
+
+        ws.send(
+          JSON.stringify({
+            type: ChatClientEvent.ASK_USER_RESPONSE,
+            data: {
+              tool_call_id: toolCallId,
+              answers,
+              cancelled: false,
+            },
+          }),
+        );
+
+        // Mark message as complete
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.askUserQuestionData?.toolCallId === toolCallId
+              ? { ...msg, isComplete: true }
+              : msg
+          )
+        );
+      },
+      [ws, logger]
+    );
+
+    // Handle AskUserQuestion cancel/skip
+    const handleAskUserQuestionCancel = useCallback(
+      (toolCallId: string) => {
+        if (!ws || ws.readyState !== WebSocket.OPEN) {
+          logger.debug("error", "Cannot cancel AskUserQuestion - not connected");
+          return;
+        }
+
+        ws.send(
+          JSON.stringify({
+            type: ChatClientEvent.ASK_USER_RESPONSE,
+            data: {
+              tool_call_id: toolCallId,
+              answers: {},
+              cancelled: true,
+            },
+          }),
+        );
+
+        // Mark message as complete
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.askUserQuestionData?.toolCallId === toolCallId
+              ? { ...msg, isComplete: true }
+              : msg
+          )
+        );
+      },
+      [ws, logger]
+    );
+
     // Switch to a different chat session
     const switchChatSession = async (targetChatSessionId: string) => {
       try {
@@ -2707,6 +2819,8 @@ const ClaudeCodePanel = forwardRef<ClaudeCodePanelRef, ClaudeCodePanelProps>(
         isAuthModeLoading={authPickerLoading}
         onCollapse={onCollapse}
         onPrototypeNameClick={onPrototypeNameClick}
+        onAskUserQuestionSubmit={handleAskUserQuestionSubmit}
+        onAskUserQuestionCancel={handleAskUserQuestionCancel}
       />
     );
   },

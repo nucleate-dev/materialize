@@ -61,6 +61,7 @@ import type {
   Todo,
   UploadedImage,
 } from "./ClaudeCodePanel";
+import AskUserQuestionCard from "./AskUserQuestionCard";
 
 interface ClaudeCodePanelUIProps {
   prototypeId: string;
@@ -132,6 +133,8 @@ interface ClaudeCodePanelUIProps {
   isAuthModeLoading: boolean;
   onCollapse?: () => void;
   onPrototypeNameClick?: () => void;
+  onAskUserQuestionSubmit: (toolCallId: string, answers: Record<string, string>) => void;
+  onAskUserQuestionCancel: (toolCallId: string) => void;
 }
 
 function CopyMessageButton({ content }: { content: string }) {
@@ -217,6 +220,8 @@ export default function ClaudeCodePanelUI({
   isAuthModeLoading,
   onCollapse,
   onPrototypeNameClick,
+  onAskUserQuestionSubmit,
+  onAskUserQuestionCancel,
 }: ClaudeCodePanelUIProps) {
   const [showCreditLimitModal, setShowCreditLimitModal] = useState(false);
   const hasShownModalRef = useRef(false);
@@ -793,6 +798,23 @@ export default function ClaudeCodePanelUI({
                           )}
                         </div>
                       )}
+
+                      {/* AskUserQuestion - Interactive question card */}
+                      {message.type === "ask_user_question" &&
+                        message.askUserQuestionData && (
+                          <div className="w-full my-2">
+                            <AskUserQuestionCard
+                              toolCallId={message.askUserQuestionData.toolCallId}
+                              questions={message.askUserQuestionData.questions}
+                              timeoutMs={message.askUserQuestionData.timeoutMs}
+                              onSubmit={onAskUserQuestionSubmit}
+                              onCancel={onAskUserQuestionCancel}
+                              disabled={
+                                !isCurrentSessionMostRecent || message.isComplete
+                              }
+                            />
+                          </div>
+                        )}
                     </div>
                   ))}
 
