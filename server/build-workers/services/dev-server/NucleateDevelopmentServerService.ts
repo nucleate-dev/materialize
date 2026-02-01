@@ -9,6 +9,8 @@ import {
   PublicConnectGitHubSuccessResponse,
   PublicDevServerAddBackendRequest,
   PublicDevServerAddBackendSuccessResponse,
+  PublicDevServerAddContextRequest,
+  PublicDevServerAddContextSuccessResponse,
   PublicDevServerRefetchEnvRequest,
   PublicDevServerRefetchEnvSuccessResponse,
   PublicDevServerRestartSuccessResponse,
@@ -46,6 +48,7 @@ import { SandboxOrchestrationInitiatorService } from "../SandboxOrchestrationIni
 import { handleConnectGitHubImpl } from "./handlers/handleConnectGitHub.js";
 import { handleBuildStatusImpl } from "./handlers/handleBuildStatus.js";
 import { handleAddBackendImpl } from "./handlers/handleAddBackend.js";
+import { handleAddContextImpl } from "./handlers/handleAddContext.js";
 import type { ChatQueryData } from "../../types/ChatTypes.js";
 import type { SystemLogger } from "../../loggers/SystemLogger.js";
 import { WORK_DIR } from "../../worker.js";
@@ -176,6 +179,10 @@ export class NucleateDevelopmentServerService {
     );
 
     app.post("/dev-server/connect-github", this.connectGitHub.bind(this));
+    app.post<{ Body: PublicDevServerAddContextRequest }>(
+      "/dev-server/add-context",
+      this.addContext.bind(this),
+    );
     app.post<{ Body: PublicDevServerAddBackendRequest }>(
       "/dev-server/add-backend",
       this.addBackend.bind(this),
@@ -769,6 +776,18 @@ export class NucleateDevelopmentServerService {
     >
   > {
     return handleAddBackendImpl(request, reply, this);
+  }
+
+  private async addContext(
+    request: FastifyRequest<{ Body: PublicDevServerAddContextRequest }>,
+    reply: FastifyReply,
+  ): Promise<
+    SandboxAPIResponse<
+      PublicDevServerAddContextSuccessResponse,
+      StandardErrorResponse
+    >
+  > {
+    return handleAddContextImpl(request, reply, this);
   }
 
   private async buildAndDeploy(
