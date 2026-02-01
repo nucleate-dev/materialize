@@ -5,4 +5,4 @@
 aws autoscaling start-instance-refresh \
  --region us-east-2 \
  --auto-scaling-group-name materialize-control-plane \
- --preferences '{"MinHealthyPercentage":100,"InstanceWarmup":180,"SkipMatching":false}'
+ --preferences '{"MinHealthyPercentage":100,"InstanceWarmup":210,"SkipMatching":false}'
