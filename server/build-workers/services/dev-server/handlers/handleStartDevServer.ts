@@ -313,102 +313,6 @@ export async function handleStartDevServerImpl(
     }
   }
 
-  const envSyncResult = await syncPrototypeEnvVarsToDisk({
-    prototypeId: prototype_id,
-    supabaseClientService: developmentServerService.supabaseClientService,
-    logger: request.log2,
-  });
-
-  if (!envSyncResult.success) {
-    reply.code(HTTP_STATUS.INTERNAL_SERVER_ERROR);
-    return {
-      data: null,
-      error: {
-        error: "Failed to synchronize environment variables",
-        message: envSyncResult.error ?? "Failed to sync env vars",
-      },
-    };
-  }
-  await restoreClaudeSessions(
-    prototype_id,
-    request.log2,
-    developmentServerService.supabaseClientService,
-    developmentServerService.chatService,
-  );
-
-  // 2. Install dependencies with sandboxService runCommandInternal
-  // Use bun for Vite and Expo Bun projects, npm for everything else
-  const useBun =
-    resolvedFramework === "web_vite_react" ||
-    resolvedFramework === "mobile_expo_react_native_bun";
-  const packageManager = useBun ? "bun" : "npm";
-
-  request.log2.consoleLogDevOnly(
-    "info",
-    `Installing dependencies with ${packageManager}`,
-    {
-      prototypeId: prototype_id,
-    },
-  );
-
-  const installResult = await developmentServerService.sandboxService
-    .runCommandInternal({
-      command: packageManager,
-      args: ["install"],
-      cwd: `${WORK_DIR}/client`,
-      session_id: "dev-server",
-      timeout_ms: 180000, // 3 minutes
-      strip_ansi: true,
-    });
-
-  if (installResult.response.error) {
-    request.log2.error(
-      new Error(installResult.response.error.error),
-      `${packageManager} install failed, continuing anyway`,
-      {
-        prototypeId: prototype_id,
-        errorMessage: installResult.response.error.message,
-      },
-    );
-  } else if (installResult.response.data?.status === "timeout") {
-    request.log2.warn(
-      `${packageManager} install timed out, continuing anyway`,
-      {
-        prototypeId: prototype_id,
-        stdout: installResult.response.data.stdout,
-      },
-    );
-  } else if (installResult.response.data?.status === "success") {
-    const stdout = installResult.response.data.stdout;
-    // Check for common error indicators in output
-    const hasErrors = stdout.includes("ERR!") ||
-      stdout.includes("error") ||
-      stdout.includes("failed");
-
-    if (hasErrors) {
-      request.log2.warn(
-        `${packageManager} install completed but output contains error indicators, continuing anyway`,
-        {
-          prototypeId: prototype_id,
-          stdout,
-        },
-      );
-    } else {
-      request.log2.consoleLogDevOnly(
-        "info",
-        `${packageManager} install completed successfully`,
-        {
-          prototypeId: prototype_id,
-        },
-      );
-    }
-  }
-
-  // Only create initial commit if not using GitHub (GitHub repo already has commits)
-  if (!hasGitHubRepo) {
-    await addAllFilesToFirstCommit(developmentServerService);
-  }
-
   // 2.5 Fetch prototype backend and hydrate backend state (if configured)
   const { data: prototypeBackend, error: prototypeBackendError } =
     await developmentServerService.supabaseClientService
@@ -493,6 +397,119 @@ export async function handleStartDevServerImpl(
     });
   } else {
     developmentServerService.setPrototypeBackend(null);
+  }
+
+  const envSyncResult = await syncPrototypeEnvVarsToDisk({
+    prototypeId: prototype_id,
+    supabaseClientService: developmentServerService.supabaseClientService,
+    logger: request.log2,
+  });
+
+  if (!envSyncResult.success) {
+    reply.code(HTTP_STATUS.INTERNAL_SERVER_ERROR);
+    return {
+      data: null,
+      error: {
+        error: "Failed to synchronize environment variables",
+        message: envSyncResult.error ?? "Failed to sync env vars",
+      },
+    };
+  }
+
+  if (developmentServerService.prototypeBackend) {
+    const backendSyncResult = await developmentServerService
+      .syncBackendEnvVarsToConnectedBackend(request.log2);
+    if (!backendSyncResult.success) {
+      reply.code(HTTP_STATUS.INTERNAL_SERVER_ERROR);
+      return {
+        data: null,
+        error: {
+          error: "Failed to sync backend environment variables",
+          message: backendSyncResult.error ??
+            "Failed to sync backend env vars",
+        },
+      };
+    }
+  }
+
+  await restoreClaudeSessions(
+    prototype_id,
+    request.log2,
+    developmentServerService.supabaseClientService,
+    developmentServerService.chatService,
+  );
+
+  // 2. Install dependencies with sandboxService runCommandInternal
+  // Use bun for Vite and Expo Bun projects, npm for everything else
+  const useBun =
+    resolvedFramework === "web_vite_react" ||
+    resolvedFramework === "mobile_expo_react_native_bun";
+  const packageManager = useBun ? "bun" : "npm";
+
+  request.log2.consoleLogDevOnly(
+    "info",
+    `Installing dependencies with ${packageManager}`,
+    {
+      prototypeId: prototype_id,
+    },
+  );
+
+  const installResult = await developmentServerService.sandboxService
+    .runCommandInternal({
+      command: packageManager,
+      args: ["install"],
+      cwd: `${WORK_DIR}/client`,
+      session_id: "dev-server",
+      timeout_ms: 180000, // 3 minutes
+      strip_ansi: true,
+    });
+
+  if (installResult.response.error) {
+    request.log2.error(
+      new Error(installResult.response.error.error),
+      `${packageManager} install failed, continuing anyway`,
+      {
+        prototypeId: prototype_id,
+        errorMessage: installResult.response.error.message,
+      },
+    );
+  } else if (installResult.response.data?.status === "timeout") {
+    request.log2.warn(
+      `${packageManager} install timed out, continuing anyway`,
+      {
+        prototypeId: prototype_id,
+        stdout: installResult.response.data.stdout,
+      },
+    );
+  } else if (installResult.response.data?.status === "success") {
+    const stdout = installResult.response.data.stdout;
+    // Check for common error indicators in output
+    const hasErrors = stdout.includes("ERR!") ||
+      stdout.includes("error") ||
+      stdout.includes("failed");
+
+    if (hasErrors) {
+      request.log2.warn(
+        `${packageManager} install completed but output contains error indicators, continuing anyway`,
+        {
+          prototypeId: prototype_id,
+          stdout,
+        },
+      );
+    } else {
+      request.log2.consoleLogDevOnly(
+        "info",
+        `${packageManager} install completed successfully`,
+        {
+          prototypeId: prototype_id,
+        },
+      );
+    }
+  }
+
+  // Only create initial commit if not using GitHub (GitHub repo already has commits)
+  if (!hasGitHubRepo) {
+    await addAllFilesToFirstCommit(developmentServerService);
   }
 
   // 3. Start the development server

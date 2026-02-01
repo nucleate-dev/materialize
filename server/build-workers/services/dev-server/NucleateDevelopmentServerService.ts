@@ -49,6 +49,9 @@ import { handleAddBackendImpl } from "./handlers/handleAddBackend.js";
 import type { ChatQueryData } from "../../types/ChatTypes.js";
 import type { SystemLogger } from "../../loggers/SystemLogger.js";
 import { WORK_DIR } from "../../worker.js";
+import fs from "fs/promises";
+import path from "path";
+import { SupabaseManagementAPI, isSupabaseError } from "supabase-management-js";
 import {
   createSourceRepoPullRequest as handleCreateSourceRepoPullRequest,
   prepareSourceRepoBranch,
@@ -225,6 +228,81 @@ export class NucleateDevelopmentServerService {
     } | null,
   ): void {
     this.prototypeBackend = backend;
+  }
+
+  public async syncBackendEnvVarsToConnectedBackend(
+    logger: SystemLogger,
+  ): Promise<{ success: boolean; syncedCount: number; error?: string }> {
+    const backend = this.prototypeBackend;
+    if (!backend || backend.type !== "supabase") {
+      return { success: true, syncedCount: 0 };
+    }
+
+    if (!backend.authenticationKey) {
+      const message = "Missing backend authentication key for env sync";
+      logger.warn(message, { backendType: backend.type });
+      return { success: false, syncedCount: 0, error: message };
+    }
+
+    const envPath = path.join(
+      WORK_DIR,
+      "backend",
+      "supabase",
+      "functions",
+      ".env",
+    );
+
+    try {
+      await fs.access(envPath);
+    } catch {
+      return { success: true, syncedCount: 0 };
+    }
+
+    try {
+      const contents = await fs.readFile(envPath, "utf8");
+      const secrets = parseEnvFileToSecrets(contents, logger);
+
+      if (secrets.length === 0) {
+        return { success: true, syncedCount: 0 };
+      }
+
+      const managementClient = new SupabaseManagementAPI({
+        accessToken: backend.authenticationKey,
+      });
+
+      await managementClient.createSecrets(backend.projectId, secrets);
+
+      logger.consoleLogDevOnly(
+        "info",
+        "Synced backend env vars to Supabase project secrets",
+        {
+          projectId: backend.projectId,
+          envVarCount: secrets.length,
+        },
+      );
+
+      return { success: true, syncedCount: secrets.length };
+    } catch (error) {
+      if (isSupabaseError(error)) {
+        logger.error(
+          error,
+          "Failed to sync backend env vars to Supabase (management API)",
+          { statusCode: error.response.status },
+        );
+        return {
+          success: false,
+          syncedCount: 0,
+          error: `Supabase API error (${error.response.status}) while syncing secrets`,
+        };
+      }
+
+      const message = error instanceof Error ? error.message : String(error);
+      logger.error(
+        error instanceof Error ? error : new Error(message),
+        "Failed to sync backend env vars to Supabase",
+      );
+      return { success: false, syncedCount: 0, error: message };
+    }
   }
 
   /**
@@ -719,4 +797,61 @@ export class NucleateDevelopmentServerService {
   > {
     return handleResetSandbox(request, reply, this);
   }
+}
+
+function parseEnvFileToSecrets(
+  contents: string,
+  logger: SystemLogger,
+): Array<{ name: string; value: string }> {
+  const secrets = new Map<string, string>();
+  const lines = contents.split(/\r?\n/);
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#")) {
+      continue;
+    }
+
+    const withoutExport = trimmed.startsWith("export ")
+      ? trimmed.slice(7).trim()
+      : trimmed;
+
+    const equalsIndex = withoutExport.indexOf("=");
+    if (equalsIndex <= 0) {
+      continue;
+    }
+
+    const name = withoutExport.slice(0, equalsIndex).trim();
+    let value = withoutExport.slice(equalsIndex + 1);
+
+    if (!name) {
+      continue;
+    }
+
+    if (name.startsWith("SUPABASE_")) {
+      logger.warn("Skipping SUPABASE_ prefixed env var for secret sync", {
+        envVarName: name,
+      });
+      continue;
+    }
+
+    value = value.trim();
+    if (
+      (value.startsWith("\"") && value.endsWith("\"")) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
+      value = value.slice(1, -1);
+      value = value.replace(/\\n/g, "\n").replace(/\\r/g, "\r").replace(
+        /\\"/g,
+        "\"",
+      ).replace(/\\\\/g, "\\");
+    }
+
+    secrets.set(name, value);
+  }
+
+  return Array.from(secrets.entries()).map(([name, value]) => ({
+    name,
+    value,
+  }));
 }

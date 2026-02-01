@@ -1,5 +1,7 @@
 import { FastifyReply, FastifyRequest } from "fastify";
 import { SupabaseManagementAPI, isSupabaseError } from "supabase-management-js";
+import fs from "fs/promises";
+import path from "path";
 import {
   HTTP_STATUS,
   PublicDevServerAddBackendRequest,
@@ -8,7 +10,7 @@ import {
   StandardErrorResponse,
 } from "../../../types/BuildWorkerTypes.js";
 import { NucleateDevelopmentServerService } from "../NucleateDevelopmentServerService.js";
-import { getWorkerContext } from "../../../worker.js";
+import { getWorkerContext, WORK_DIR } from "../../../worker.js";
 import { checkUserHasPrototypeEditAccess } from "../../../utils/prototypeAuth.js";
 
 export async function handleAddBackendImpl(
@@ -254,6 +256,32 @@ export async function handleAddBackendImpl(
     metadata: sanitizedMetadata,
     authenticationKey: supabaseAccessToken,
   });
+
+  const backendEnvPath = path.join(
+    WORK_DIR,
+    "backend",
+    "supabase",
+    "functions",
+    ".env",
+  );
+  try {
+    await fs.access(backendEnvPath);
+    const backendSyncResult = await developmentServerService
+      .syncBackendEnvVarsToConnectedBackend(request.log2);
+    if (!backendSyncResult.success) {
+      reply.code(HTTP_STATUS.INTERNAL_SERVER_ERROR);
+      return {
+        data: null,
+        error: {
+          error: "Failed to sync backend environment variables",
+          message: backendSyncResult.error ??
+            "Failed to sync backend env vars",
+        },
+      };
+    }
+  } catch {
+    // No backend env vars on disk yet; skip sync.
+  }
 
   reply.code(HTTP_STATUS.OK);
   return {
