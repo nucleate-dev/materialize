@@ -88,6 +88,7 @@ function getPrototypeBackendPromptAddendum(
 - Always confirm with the user before destructive backend changes (deletes, drops, migrations, auth policy changes, secret rotations).
 - Prefer read-only checks first; summarize impact and provide a safe plan before making changes.
 - Never expose or log secrets or access tokens.
+- If you need environment variables, ask the user to add them in project settings. Client env vars are written to \${WORK_DIR}/client/.env, and backend env vars are written to \${WORK_DIR}/backend/supabase/functions/.env.
 </backend_guidance>
 `;
 

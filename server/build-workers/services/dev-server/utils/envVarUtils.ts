@@ -114,7 +114,7 @@ export async function syncPrototypeEnvVarsToDisk(options: {
       });
     }
 
-    // Write private env vars to backend/.env
+    // Write private env vars to backend/supabase/functions/.env
     if (privateEnvVars.length > 0) {
       const privateEnvFileLines = privateEnvVars.map(
         (row) =>
@@ -126,14 +126,19 @@ export async function syncPrototypeEnvVarsToDisk(options: {
         "",
       ].join("\n");
 
-      const backendDir = path.join(WORK_DIR, "backend");
+      const backendDir = path.join(
+        WORK_DIR,
+        "backend",
+        "supabase",
+        "functions",
+      );
       await fs.mkdir(backendDir, { recursive: true });
       const backendEnvPath = path.join(backendDir, ".env");
       await fs.writeFile(backendEnvPath, privateEnvFileContents, "utf8");
 
       logger.consoleLogDevOnly(
         "info",
-        "Wrote private env vars to backend/.env",
+        "Wrote private env vars to backend/supabase/functions/.env",
         {
           prototypeId,
           envVarCount: privateEnvVars.length,
