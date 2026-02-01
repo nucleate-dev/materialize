@@ -31,7 +31,13 @@ import type {
   SandboxAPIResponse,
   StandardErrorResponse as SandboxStandardErrorResponse,
 } from "@/lib/types/SandboxAPITypes";
-import { AlertTriangle, Cloud, ExternalLink, Loader2, Plus } from "lucide-react";
+import {
+  AlertTriangle,
+  Cloud,
+  ExternalLink,
+  Loader2,
+  Plus,
+} from "lucide-react";
 import { usePostHog } from "posthog-js/react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -312,7 +318,8 @@ export function CloudIntegrationsDropdown({
 
         // Update state to reflect the linked backend
         setSupabaseBackend({
-          projectUrl: backend.project_url ??
+          projectUrl:
+            backend.project_url ??
             `https://supabase.com/dashboard/project/${project.id}`,
           loading: false,
         });
@@ -352,8 +359,9 @@ export function CloudIntegrationsDropdown({
         throw new Error("Not authenticated");
       }
 
-      let organizationId = supabaseProjects.projects[0]?.organization_id ?? null;
-      let region = supabaseProjects.projects[0]?.region ?? "us-east-1";
+      let organizationId =
+        supabaseProjects.projects[0]?.organization_id ?? null;
+      const region = supabaseProjects.projects[0]?.region ?? "us-east-1";
 
       if (!organizationId) {
         const integrationResponse = await fetch(
@@ -426,7 +434,8 @@ export function CloudIntegrationsDropdown({
       }
 
       setSupabaseBackend({
-        projectUrl: backend.project_url ??
+        projectUrl:
+          backend.project_url ??
           `https://supabase.com/dashboard/project/${createdProject.id}`,
         loading: false,
       });
@@ -611,7 +620,9 @@ export function CloudIntegrationsDropdown({
                   ) : (
                     <Plus className="w-4 h-4 mr-2" />
                   )}
-                  {isCreatingProject ? "Creating Supabase..." : "Create New Supabase"}
+                  {isCreatingProject
+                    ? "Creating Supabase..."
+                    : "Create New Supabase"}
                 </Button>
               </>
             )}
