@@ -12,6 +12,12 @@ export interface ScreenContextOptions {
   focusedScreenId?: number;
 }
 
+export interface PrototypeBackendPromptContext {
+  type: "supabase" | "convex" | "custom";
+  projectId: string;
+  projectUrl?: string | null;
+}
+
 /**
  * Returns the appropriate system prompt based on the design style
  * @param designStyle - The design style from the prototype (tamagui, nativewind, stylesheets, custom)
@@ -29,6 +35,7 @@ export function getNucleateChatServiceSystemPrompt(
   layoutMode?: "grid" | "freeform",
   screenOrder?: number[],
   focusedScreenId?: number,
+  prototypeBackend?: PrototypeBackendPromptContext | null,
 ): string {
   const basePrompt = constructBaseSystemPrompt(framework ?? "web_vite_react");
 
@@ -61,11 +68,40 @@ export function getNucleateChatServiceSystemPrompt(
   const sourceRepositoryAddendum = hasSourceRepository
     ? getSourceRepositoryPromptAddendum(framework)
     : "";
+  const backendAddendum = prototypeBackend
+    ? getPrototypeBackendPromptAddendum(prototypeBackend)
+    : "";
 
   // Order matters for prompt caching: static content first, dynamic content last
   // screenContext contains dynamic state (visible screens, focused screen) so it goes at the end
   return basePrompt + "\n\n" + stackInfo + "\n\n" + SHARED_SECTIONS + "\n\n" +
-    sourceRepositoryAddendum + (sourceRepositoryAddendum ? "\n\n" : "") + screenContext;
+    sourceRepositoryAddendum + (sourceRepositoryAddendum ? "\n\n" : "") +
+    backendAddendum + (backendAddendum ? "\n\n" : "") + screenContext;
+}
+
+function getPrototypeBackendPromptAddendum(
+  backend: PrototypeBackendPromptContext,
+): string {
+  const base = `
+<backend_guidance>
+- A backend is already configured for this prototype. Use it instead of mocking data when possible.
+- Always confirm with the user before destructive backend changes (deletes, drops, migrations, auth policy changes, secret rotations).
+- Prefer read-only checks first; summarize impact and provide a safe plan before making changes.
+- Never expose or log secrets or access tokens.
+</backend_guidance>
+`;
+
+  if (backend.type === "supabase") {
+    return base +
+      `
+<supabase_backend_guidance>
+- Use the Supabase MCP tools for schema inspection, queries, and project operations.
+- If you need to change data or schema, ask for explicit confirmation first.
+</supabase_backend_guidance>
+`;
+  }
+
+  return base;
 }
 
 function constructBaseSystemPrompt(framework: string): string {

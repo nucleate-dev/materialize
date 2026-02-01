@@ -767,6 +767,10 @@ export class ChatQueryHandler implements ChatEngine {
             undefined, // previewMode
             false, // hasSourceRepository
             currentViewingPath,
+            undefined, // layoutMode
+            undefined, // screenOrder
+            undefined, // focusedScreenId
+            this.devServerService.prototypeBackend,
           ),
       },
       settingSources: [

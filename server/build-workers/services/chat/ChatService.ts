@@ -1229,6 +1229,7 @@ export class ChatService {
       layoutMode,
       screenOrder,
       focusedScreenId,
+      this.devServerService.prototypeBackend,
     );
 
     if (this.sessionState.designSystemRules) {
