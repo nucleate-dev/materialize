@@ -401,6 +401,7 @@ export interface FetchGitHubSourceRepoSuccessResponse {
     full_name: string;
   };
   installation_token: string;
+  expires_at: string;
 }
 
 // ============================================================================

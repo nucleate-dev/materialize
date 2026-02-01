@@ -160,9 +160,7 @@ export async function handleAddContextImpl(
     if (!developmentServerService.githubInstallationToken) {
       developmentServerService.githubInstallationToken = {
         installationToken: sourceRepoResponse.installation_token,
-        tokenExpiresAt: new Date(
-          Date.now() + 50 * 60 * 1000,
-        ).toISOString(),
+        tokenExpiresAt: sourceRepoResponse.expires_at,
       };
       developmentServerService.startGitHubTokenRefreshJob(prototypeId);
     }

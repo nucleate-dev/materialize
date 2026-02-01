@@ -147,6 +147,7 @@ export async function handleFetchGitHubSourceRepo(
 
         let githubAccessToken: string | null = null;
         let installationToken: string | null = null;
+        let installationTokenExpiresAt: string | null = null;
 
         if (integration.account_type === "Organization") {
             try {
@@ -156,6 +157,7 @@ export async function handleFetchGitHubSourceRepo(
                 );
                 githubAccessToken = tokenResult.token;
                 installationToken = tokenResult.token;
+                installationTokenExpiresAt = tokenResult.expires_at;
             } catch (installationTokenError) {
                 request.log2.error(
                     installationTokenError instanceof Error
@@ -212,6 +214,7 @@ export async function handleFetchGitHubSourceRepo(
                     request.log2,
                 );
                 installationToken = tokenResult.token;
+                installationTokenExpiresAt = tokenResult.expires_at;
             } catch (installationTokenError) {
                 request.log2.error(
                     installationTokenError instanceof Error
@@ -253,7 +256,7 @@ export async function handleFetchGitHubSourceRepo(
             });
         }
 
-        if (!githubAccessToken || !installationToken) {
+        if (!githubAccessToken || !installationToken || !installationTokenExpiresAt) {
             request.log2.warn(
                 "Unable to acquire GitHub access token for repository fetch",
                 { prototypeId: prototype_id, teamId: team_id },
@@ -284,6 +287,7 @@ export async function handleFetchGitHubSourceRepo(
                 full_name: repoInfo.full_name,
             },
             installation_token: installationToken,
+            expires_at: installationTokenExpiresAt,
         };
 
         return reply.status(HTTP_STATUS.OK).send({
