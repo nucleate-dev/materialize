@@ -219,6 +219,34 @@ export async function handleAddBackendImpl(
       ? (metadata as Record<string, unknown>)
       : {};
 
+  const { error: insertBackendError } =
+    await developmentServerService.supabaseClientService
+      .getClient()
+      .from("prototype_backends")
+      .insert({
+        prototype_id: prototypeId,
+        backend_type: "supabase",
+        provider_project_id: project_id,
+        provider_project_url: project_url ?? null,
+        metadata: sanitizedMetadata,
+      });
+
+  if (insertBackendError) {
+    request.log2.error(
+      insertBackendError,
+      "Failed to persist prototype backend",
+      { prototypeId, projectId: project_id },
+    );
+    reply.code(HTTP_STATUS.INTERNAL_SERVER_ERROR);
+    return {
+      data: null,
+      error: {
+        error: "Failed to persist backend",
+        message: insertBackendError.message,
+      },
+    };
+  }
+
   developmentServerService.setPrototypeBackend({
     type: "supabase",
     projectId: project_id,
